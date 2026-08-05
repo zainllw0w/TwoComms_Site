@@ -6997,6 +6997,8 @@ def _promote_manual_refresh_message(
     source: str,
     attachments: list[str],
     received_at: datetime | None,
+    reply_to_provider_message_id: str = "",
+    quick_reply_payload: str = "",
     force_observed: bool = False,
 ) -> str:
     """Promote a matching history row when its delayed live webhook arrives."""
@@ -7054,6 +7056,14 @@ def _promote_manual_refresh_message(
     if existing.provider_created_at is None:
         existing.provider_created_at = provider_time
         update_fields.append("provider_created_at")
+    if reply_to_provider_message_id and (
+        existing.reply_to_provider_message_id != reply_to_provider_message_id
+    ):
+        existing.reply_to_provider_message_id = reply_to_provider_message_id
+        update_fields.append("reply_to_provider_message_id")
+    if quick_reply_payload and existing.quick_reply_payload != quick_reply_payload:
+        existing.quick_reply_payload = quick_reply_payload
+        update_fields.append("quick_reply_payload")
     has_newer_conversation_event = (
         InstagramBotMessage.objects.filter(
             client_id=client.pk,
@@ -7090,12 +7100,16 @@ def enqueue_inbound(
     s: InstagramBotSettings, *, sender_id: str, text: str, mid: str,
     source: str = "webhook", attachments: list[str] | None = None,
     received_at: datetime | None = None,
+    reply_to_provider_message_id: str = "",
+    quick_reply_payload: str = "",
     persistence_only: bool = False,
 ) -> bool:
     """Кладе вхідне в чергу (pending). Повертає True, якщо додано нове."""
     text = (text or "").strip()
     sender_id = (sender_id or "").strip()
     mid = (mid or "").strip()
+    reply_to_provider_message_id = str(reply_to_provider_message_id or "").strip()[:255]
+    quick_reply_payload = str(quick_reply_payload or "").strip()[:1000]
     attachments = attachments or []
     if not _SENDER_ID_RE.fullmatch(sender_id):
         return False
@@ -7171,6 +7185,8 @@ def enqueue_inbound(
                     source=source,
                     attachments=attachments,
                     received_at=received_at,
+                    reply_to_provider_message_id=reply_to_provider_message_id,
+                    quick_reply_payload=quick_reply_payload,
                     force_observed=stale_explicit_opt_out,
                 )
                 if not promotion_state:
@@ -7196,6 +7212,8 @@ def enqueue_inbound(
                             source=source,
                             attachments=json.dumps(attachments) if attachments else "",
                             provider_created_at=received_at,
+                            reply_to_provider_message_id=reply_to_provider_message_id,
+                            quick_reply_payload=quick_reply_payload,
                             processed_at=None if reply_eligible else timezone.now(),
                         )
                 except IntegrityError:
@@ -7222,6 +7240,8 @@ def enqueue_inbound(
                         source=source,
                         attachments=attachments,
                         received_at=received_at,
+                        reply_to_provider_message_id=reply_to_provider_message_id,
+                        quick_reply_payload=quick_reply_payload,
                         force_observed=stale_explicit_opt_out,
                     )
                     if not promotion_state:
@@ -8999,6 +9019,25 @@ MEDIA_ATTACH_TYPES = {
 MEDIA_MAX = 3
 
 
+def _reply_to_provider_message_id(msg: dict) -> str:
+    reply_to = msg.get("reply_to") if isinstance(msg, dict) else None
+    if not isinstance(reply_to, dict):
+        return ""
+    return str(
+        reply_to.get("mid")
+        or reply_to.get("message_id")
+        or reply_to.get("id")
+        or ""
+    ).strip()[:255]
+
+
+def _quick_reply_payload(msg: dict) -> str:
+    quick_reply = msg.get("quick_reply") if isinstance(msg, dict) else None
+    if not isinstance(quick_reply, dict):
+        return ""
+    return str(quick_reply.get("payload") or "").strip()[:1000]
+
+
 def _extract_media_urls(msg: dict) -> list[str]:
     """Збирає завантажувані URL з повідомлення: вкладення будь-якого медіа-типу
     (а не лише image) + відповідь на сторіс (reply_to.story.url). Дедуп, cap.
@@ -9091,10 +9130,26 @@ def _persist_polled_message(
                 "provider_created_at": _parse_ig_time(
                     message.get("created_time", "")
                 ),
+                "reply_to_provider_message_id": _reply_to_provider_message_id(message),
+                "quick_reply_payload": _quick_reply_payload(message),
                 "processed_at": timezone.now(),
             },
         )
         if not created:
+            update_fields = []
+            reply_to_provider_message_id = _reply_to_provider_message_id(message)
+            quick_reply_payload = _quick_reply_payload(message)
+            if (
+                reply_to_provider_message_id
+                and row.reply_to_provider_message_id != reply_to_provider_message_id
+            ):
+                row.reply_to_provider_message_id = reply_to_provider_message_id
+                update_fields.append("reply_to_provider_message_id")
+            if quick_reply_payload and row.quick_reply_payload != quick_reply_payload:
+                row.quick_reply_payload = quick_reply_payload
+                update_fields.append("quick_reply_payload")
+            if update_fields:
+                row.save(update_fields=update_fields)
             return True
         provider_created_at = row.provider_created_at
         if role == InstagramBotMessage.Role.USER:
@@ -9234,6 +9289,8 @@ def handle_webhook_payload(
             source="webhook",
             attachments=media,
             received_at=msg.get("_event_created_at"),
+            reply_to_provider_message_id=_reply_to_provider_message_id(msg),
+            quick_reply_payload=_quick_reply_payload(msg),
             persistence_only=persistence_only,
         ):
             enq += 1
@@ -9677,6 +9734,8 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
                     source="poll",
                     attachments=message_attachments,
                     received_at=created,
+                    reply_to_provider_message_id=_reply_to_provider_message_id(message),
+                    quick_reply_payload=_quick_reply_payload(message),
                 ):
                     enq += 1
             failure_reason = str(fetched["reason"])
@@ -9760,6 +9819,8 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
                 source="poll",
                 attachments=message_attachments,
                 received_at=created,
+                reply_to_provider_message_id=_reply_to_provider_message_id(message),
+                quick_reply_payload=_quick_reply_payload(message),
             )
             enq += int(added)
             conversation_handled = bool(

@@ -73,6 +73,10 @@ __all__ = [
     "IgCheckoutAccessToken",
     "IgCheckoutInventoryReservation",
     "IgLifecycleEvent",
+    "IgCommerceSelectionSession",
+    "IgCommerceSelectionTransition",
+    "IgCommerceTurnDecision",
+    "IgCommerceManagerReview",
     "provider_evidence_signature",
 ]
 
@@ -4081,6 +4085,378 @@ class IgAiReplyRecoveryJob(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"recovery:{self.source_message_id}:{self.status}"
+
+
+class IgCommerceSelectionSession(models.Model):
+    """Authoritative, reversible product-selection state for one sales episode."""
+
+    class State(models.TextChoices):
+        OPEN = "open", _("Відкрита")
+        CLOSED = "closed", _("Закрита")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="commerce_selection_sessions",
+        db_constraint=False,
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="commerce_selection_sessions",
+        db_constraint=False,
+    )
+    generation = models.PositiveIntegerField()
+    # MariaDB permits multiple NULL values in a unique key, so only the open
+    # row occupies slot 1 while historical generations use NULL.
+    open_slot = models.PositiveSmallIntegerField(null=True, blank=True, default=1)
+    state = models.CharField(
+        max_length=16,
+        choices=State.choices,
+        default=State.OPEN,
+        db_index=True,
+    )
+    lines = models.JSONField(default=list, blank=True)
+    active_index = models.PositiveIntegerField(default=0)
+    selection_constraints = models.JSONField(default=dict, blank=True)
+    query_constraints = models.JSONField(default=dict, blank=True)
+    candidate_product_ids = models.JSONField(default=list, blank=True)
+    candidate_digest = models.CharField(max_length=64, blank=True, default="")
+    candidate_generation = models.PositiveIntegerField(default=0)
+    candidate_prompt_provider_ids = models.JSONField(default=list, blank=True)
+    rejected_selection = models.JSONField(default=dict, blank=True)
+    rejected_reason = models.CharField(max_length=120, blank=True, default="")
+    pending_field = models.CharField(max_length=80, blank=True, default="")
+    pending_clarification = models.CharField(max_length=120, blank=True, default="")
+    semantic_block_key = models.CharField(max_length=160, blank=True, default="", db_index=True)
+    graph_digest = models.CharField(max_length=64, blank=True, default="")
+    last_provider_event_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_provider_message_id = models.CharField(max_length=255, blank=True, default="")
+    revision = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["client_id", "-generation"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "generation"],
+                name="ig_commerce_client_generation",
+            ),
+            models.UniqueConstraint(
+                fields=["client", "open_slot"],
+                name="ig_commerce_one_open_slot",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(open_slot__isnull=True) | models.Q(open_slot=1),
+                name="ig_commerce_open_slot_valid",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["client", "state", "-generation"],
+                name="ig_com_sess_client_state",
+            ),
+            models.Index(fields=["state", "-updated_at"], name="ig_com_sess_state_dt"),
+        ]
+
+    def snapshot(self) -> dict:
+        return {
+            "generation": self.generation,
+            "state": self.state,
+            "lines": list(self.lines or []),
+            "active_index": int(self.active_index or 0),
+            "selection_constraints": dict(self.selection_constraints or {}),
+            "query_constraints": dict(self.query_constraints or {}),
+            "candidate_product_ids": list(self.candidate_product_ids or []),
+            "candidate_digest": self.candidate_digest or "",
+            "candidate_generation": int(self.candidate_generation or 0),
+            "candidate_prompt_provider_ids": list(self.candidate_prompt_provider_ids or []),
+            "rejected_selection": dict(self.rejected_selection or {}),
+            "rejected_reason": self.rejected_reason or "",
+            "pending_field": self.pending_field or "",
+            "pending_clarification": self.pending_clarification or "",
+            "semantic_block_key": self.semantic_block_key or "",
+            "graph_digest": self.graph_digest or "",
+            "last_provider_event_at": (
+                self.last_provider_event_at.isoformat() if self.last_provider_event_at else None
+            ),
+            "last_provider_message_id": self.last_provider_message_id or "",
+            "revision": int(self.revision or 0),
+        }
+
+
+class _AppendOnlyCommerceTransitionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgCommerceSelectionTransition is append-only")
+
+    def delete(self):
+        raise ValueError("IgCommerceSelectionTransition is append-only")
+
+
+class IgCommerceSelectionTransition(models.Model):
+    """Append-only state change with complete before/after evidence."""
+
+    session = models.ForeignKey(
+        "management.IgCommerceSelectionSession",
+        on_delete=models.CASCADE,
+        related_name="transitions",
+    )
+    source_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        on_delete=models.DO_NOTHING,
+        related_name="commerce_selection_transition",
+        db_constraint=False,
+    )
+    action = models.CharField(max_length=80, db_index=True)
+    from_revision = models.PositiveIntegerField()
+    to_revision = models.PositiveIntegerField()
+    previous_snapshot = models.JSONField(default=dict)
+    next_snapshot = models.JSONField(default=dict)
+    effects = models.JSONField(default=dict, blank=True)
+    reasons = models.JSONField(default=list, blank=True)
+    graph_digest = models.CharField(max_length=64, blank=True, default="")
+    source_order_key = models.CharField(max_length=360, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = _AppendOnlyCommerceTransitionQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["session_id", "to_revision", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["session", "to_revision"],
+                name="ig_commerce_session_revision",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["session", "-created_at"], name="ig_com_trans_session_dt"),
+            models.Index(fields=["action", "-created_at"], name="ig_com_trans_action_dt"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValueError("IgCommerceSelectionTransition is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgCommerceSelectionTransition is append-only")
+
+
+class _CommerceDecisionQuerySet(models.QuerySet):
+    mutable_fields = frozenset({
+        "delivery_state",
+        "attempts",
+        "delivery_started_at",
+        "last_attempt_at",
+        "delivered_at",
+        "delivery_error",
+        "text_receipts",
+        "media_receipts",
+        "provider_message_ids",
+        "reconciliation_status",
+        "reconciliation_result",
+        "reconciliation_evidence",
+        "updated_at",
+    })
+
+    def update(self, **kwargs):
+        immutable = set(kwargs) - self.mutable_fields
+        if immutable:
+            raise ValueError("IgCommerceTurnDecision identity is immutable")
+        return super().update(**kwargs)
+
+    def delete(self):
+        raise ValueError("IgCommerceTurnDecision is durable")
+
+
+class IgCommerceTurnDecision(models.Model):
+    """One immutable reduction result plus a separately mutable delivery outbox."""
+
+    class DeliveryState(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        SENDING = "sending", _("Надсилається")
+        UNKNOWN = "unknown", _("Результат невідомий")
+        PARTIAL = "partial", _("Частково надіслано")
+        SENT = "sent", _("Надіслано")
+        NOT_REQUIRED = "not_required", _("Доставка не потрібна")
+
+    class ReconciliationStatus(models.TextChoices):
+        NOT_REQUIRED = "not_required", _("Не потрібне")
+        REQUIRED = "required", _("Потрібне")
+        PENDING = "pending", _("Очікує")
+        RECONCILED = "reconciled", _("Звірено")
+        MANAGER_REVIEW = "manager_review", _("Перевірка менеджера")
+
+    source_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        on_delete=models.DO_NOTHING,
+        related_name="commerce_turn_decision",
+        db_constraint=False,
+    )
+    session = models.ForeignKey(
+        "management.IgCommerceSelectionSession",
+        on_delete=models.CASCADE,
+        related_name="decisions",
+    )
+    transition = models.ForeignKey(
+        "management.IgCommerceSelectionTransition",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="decisions",
+    )
+    request_payload = models.JSONField(default=dict)
+    result_payload = models.JSONField(default=dict)
+    reply_payload = models.JSONField(default=dict)
+    effects_payload = models.JSONField(default=dict)
+    accepted = models.BooleanField(default=True)
+    is_stale = models.BooleanField(default=False, db_index=True)
+    delivery_required = models.BooleanField(default=True)
+    delivery_state = models.CharField(
+        max_length=16,
+        choices=DeliveryState.choices,
+        default=DeliveryState.PENDING,
+        db_index=True,
+    )
+    attempts = models.PositiveIntegerField(default=0)
+    delivery_started_at = models.DateTimeField(null=True, blank=True)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    delivery_error = models.CharField(max_length=1000, blank=True, default="")
+    text_receipts = models.JSONField(default=list, blank=True)
+    media_receipts = models.JSONField(default=list, blank=True)
+    provider_message_ids = models.JSONField(default=list, blank=True)
+    reconciliation_status = models.CharField(
+        max_length=24,
+        choices=ReconciliationStatus.choices,
+        default=ReconciliationStatus.NOT_REQUIRED,
+        db_index=True,
+    )
+    reconciliation_result = models.JSONField(default=dict, blank=True)
+    reconciliation_evidence = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = _CommerceDecisionQuerySet.as_manager()
+
+    _immutable_fields = (
+        "source_message_id",
+        "session_id",
+        "transition_id",
+        "request_payload",
+        "result_payload",
+        "reply_payload",
+        "effects_payload",
+        "accepted",
+        "is_stale",
+        "delivery_required",
+    )
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            models.Index(
+                fields=["delivery_state", "created_at"],
+                name="ig_com_decision_delivery",
+            ),
+            models.Index(fields=["session", "-created_at"], name="ig_com_decision_session"),
+            models.Index(
+                fields=["reconciliation_status", "-updated_at"],
+                name="ig_com_decision_recon",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            stored = type(self).objects.filter(pk=self.pk).values(*self._immutable_fields).first()
+            if stored and any(stored[name] != getattr(self, name) for name in self._immutable_fields):
+                raise ValueError("IgCommerceTurnDecision identity is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgCommerceTurnDecision is durable")
+
+
+class IgCommerceManagerReview(models.Model):
+    """SLA-backed manager recovery for ambiguous or unreconciled decisions."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", _("Відкрита")
+        CLAIMED = "claimed", _("В роботі")
+        RESOLVED = "resolved", _("Вирішена")
+        CANCELLED = "cancelled", _("Скасована")
+
+    idempotency_key = models.CharField(max_length=180, unique=True)
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="commerce_manager_reviews",
+        db_constraint=False,
+    )
+    session = models.ForeignKey(
+        "management.IgCommerceSelectionSession",
+        on_delete=models.CASCADE,
+        related_name="manager_reviews",
+    )
+    decision = models.ForeignKey(
+        "management.IgCommerceTurnDecision",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="manager_reviews",
+    )
+    reason = models.CharField(max_length=120, db_index=True)
+    selection_snapshot = models.JSONField(default=dict, blank=True)
+    selection_digest = models.CharField(max_length=64, blank=True, default="")
+    selection_generation = models.PositiveIntegerField(default=0)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+    due_at = models.DateTimeField(db_index=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="ig_commerce_reviews_owned",
+        db_constraint=False,
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    claim_lease_token = models.CharField(max_length=64, blank=True, default="")
+    claim_lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    resolution_payload = models.JSONField(default=dict, blank=True)
+    resolution_note = models.CharField(max_length=1000, blank=True, default="")
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="ig_commerce_reviews_resolved",
+        db_constraint=False,
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_at", "id"]
+        indexes = [
+            models.Index(
+                fields=["status", "due_at", "id"],
+                name="ig_com_review_status_due",
+            ),
+            models.Index(
+                fields=["owner", "status", "due_at"],
+                name="ig_com_review_owner_due",
+            ),
+            models.Index(fields=["client", "-created_at"], name="ig_com_review_client_dt"),
+        ]
 
 
 class IgMetaEventLog(models.Model):
