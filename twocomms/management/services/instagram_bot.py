@@ -7642,6 +7642,31 @@ def _process_one_inside_reply_boundary(
             _stop_typing_indicator(s, row, typing_active)
             typing_active = False
 
+    def terminalize_prepared_recovery_before_send(reason: str) -> None:
+        """Close an unarmed fallback intent when no customer send will occur."""
+        if outage_recovery_job is None:
+            return
+        try:
+            from management.services.ig_ai_reply_recovery import (
+                terminalize_prepared_recovery,
+            )
+
+            terminalize_prepared_recovery(
+                outage_recovery_job,
+                reason=reason,
+                ambiguous=False,
+            )
+        except Exception as exc:
+            log("error", "recovery_terminalize", repr(exc))
+
+    def skip_after_permission_change() -> bool:
+        skipped = _skip_observed_row(row, reason="permission_epoch_changed")
+        if row.status == InstagramBotMessage.Status.DONE:
+            terminalize_prepared_recovery_before_send(
+                "holding_send_cancelled_before_meta_request:permission_epoch_changed"
+            )
+        return skipped
+
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
     if row.client_id:
@@ -8064,10 +8089,14 @@ def _process_one_inside_reply_boundary(
     )
     if typing_wait_state == "lease_lost":
         typing_active = False
+        if row.status == InstagramBotMessage.Status.DONE:
+            terminalize_prepared_recovery_before_send(
+                "holding_send_cancelled_before_meta_request:lease_lost"
+            )
         return False
     if typing_wait_state != "allowed":
         typing_active = False
-        return _skip_observed_row(row, reason="permission_epoch_changed")
+        return skip_after_permission_change()
 
     # Attempt typing cleanup before writing the durable sending marker.  If the
     # process dies during this advisory action, stale recovery still sees the
@@ -8099,9 +8128,13 @@ def _process_one_inside_reply_boundary(
     )
     typing_active = False
     if send_boundary_state == "lease_lost":
+        if row.status == InstagramBotMessage.Status.DONE:
+            terminalize_prepared_recovery_before_send(
+                "holding_send_cancelled_before_meta_request:lease_lost"
+            )
         return False
     if send_boundary_state != "allowed":
-        return _skip_observed_row(row, reason="permission_epoch_changed")
+        return skip_after_permission_change()
     if send_claim_lost:
         return False
     delivery = _send_with_typing_off(

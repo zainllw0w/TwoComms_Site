@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
@@ -1259,6 +1260,119 @@ class DeterministicReplyFallbackTests(TestCase):
         self.assertEqual(job.status, IgAiReplyRecoveryJob.Status.PENDING)
         self.assertIsNotNone(job.holding_message_id)
         self.assertNotEqual(self.client.stage, IgClient.Stage.LEAD_TO_MANAGER)
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot._repeated_question", return_value=1)
+    @patch(
+        "management.services.instagram_bot._wait_for_typing_window",
+        return_value="permission_denied",
+    )
+    def test_provider_outage_permission_change_during_typing_terminalizes_recovery(
+        self, _wait, _repeated, send_text, generate, _sender_action
+    ):
+        from management.models import IgAiReplyRecoveryJob
+
+        source = self._pending("Can you help me choose a T-shirt?", "permission-typing")
+
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        generate.side_effect = typed_provider_outage
+
+        self.assertEqual(
+            instagram_bot.process_pending(self.settings, max_items=1),
+            0,
+        )
+
+        source.refresh_from_db()
+        job = IgAiReplyRecoveryJob.objects.get(source_message=source)
+        self.assertEqual(source.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(job.status, IgAiReplyRecoveryJob.Status.CANCELLED)
+        self.assertIsNone(job.activated_at)
+        self.assertIsNone(job.next_attempt_at)
+        self.assertIsNotNone(job.completed_at)
+        self.assertIn("permission", job.last_error)
+        send_text.assert_not_called()
+
+    @patch(
+        "management.services.ig_reply_boundary.customer_send_boundary",
+        return_value=nullcontext(False),
+    )
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot._repeated_question", return_value=1)
+    @patch(
+        "management.services.instagram_bot._wait_for_typing_window",
+        return_value="allowed",
+    )
+    def test_provider_outage_permission_change_at_send_boundary_terminalizes_recovery(
+        self, _wait, _repeated, send_text, generate, _sender_action, _send_boundary
+    ):
+        from management.models import IgAiReplyRecoveryJob
+
+        source = self._pending("Can you help me choose a T-shirt?", "permission-send")
+
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        generate.side_effect = typed_provider_outage
+
+        self.assertEqual(
+            instagram_bot.process_pending(self.settings, max_items=1),
+            0,
+        )
+
+        source.refresh_from_db()
+        job = IgAiReplyRecoveryJob.objects.get(source_message=source)
+        self.assertEqual(source.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(job.status, IgAiReplyRecoveryJob.Status.CANCELLED)
+        self.assertIsNone(job.activated_at)
+        self.assertIsNone(job.next_attempt_at)
+        self.assertIsNotNone(job.completed_at)
+        self.assertIn("permission", job.last_error)
+        send_text.assert_not_called()
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot._repeated_question", return_value=1)
+    @patch("management.services.instagram_bot._wait_for_typing_window")
+    def test_provider_outage_retryable_lease_loss_keeps_recovery_prepared(
+        self, wait, _repeated, send_text, generate, _sender_action
+    ):
+        from management.models import IgAiReplyRecoveryJob
+
+        source = self._pending("Can you help me choose a T-shirt?", "lease-retry")
+
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        def lose_lease(_settings, claimed_row, *_args, **_kwargs):
+            instagram_bot._requeue_for_active_lease(claimed_row)
+            return "lease_lost"
+
+        generate.side_effect = typed_provider_outage
+        wait.side_effect = lose_lease
+
+        self.assertEqual(
+            instagram_bot.process_pending(self.settings, max_items=1),
+            0,
+        )
+
+        source.refresh_from_db()
+        job = IgAiReplyRecoveryJob.objects.get(source_message=source)
+        self.assertEqual(source.status, InstagramBotMessage.Status.PENDING)
+        self.assertEqual(job.status, IgAiReplyRecoveryJob.Status.PENDING)
+        self.assertIsNone(job.activated_at)
+        self.assertIsNone(job.next_attempt_at)
+        self.assertIsNone(job.completed_at)
+        send_text.assert_not_called()
 
     def test_recovery_schedule_failure_is_terminal_with_known_unsent_state(self):
         source = self._pending("Can you help me choose a T-shirt?", "recovery-schedule-failed")
