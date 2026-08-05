@@ -26,6 +26,7 @@
 | F-CAT-008 | FIXED / VERIFIED | `1f5dcb70`/`7fdbe613`/`1f8cead2`: exact customer-facing price claims are validated against the selected variant and option configuration before checkout; production `434428ad` |
 | F-CAT-009 | FIXED / VERIFIED | `1f5dcb70`: generic, no-variant, unavailable and zero-choice option axes are preserved through readiness/proposal/checkout and fail closed instead of falling back to base price; production `434428ad` |
 | F-CAT-010 | FIXED / VERIFIED | `434428ad`: `_escalate_manager_for_row` persists client-scoped escalation before retryable/permanent/unknown holding-send return; regression in `tests_ig_paylink_fix.py`, production `434428ad` |
+| F-PAY-010 | FIXED / VERIFIED | `7440bb98`: только human/operator offer устанавливает сумму предоплаты; model/customer origin, counteroffer, receipt и несколько разных сумм fail closed. 41 focused тест; production MariaDB rollback proof чистый |
 | F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
 | F-FUP-013 | FIXED / VERIFIED | `414e639e`: exception after a concurrent sender/recovery finalization can no longer downgrade finalized `SENT` to `AMBIGUOUS` or create a false delivery review |
 
@@ -381,7 +382,7 @@
 | F-PAY-006 | По пересланной ссылке может заплатить кто угодно, заказ на исходного клиента | P2 | CONFIRMED | high |
 | F-PAY-008 | Meta CAPI: `event_id` случайный вне order-пути, `meta_feedback_enabled` default False | P1 | CONFIRMED | high |
 | **F-PAY-009** | Тексты денежного контура (ссылка, ТТН, fallback) — только украинский | **P1** | CONFIRMED | high |
-| F-PAY-010 | Сумму предоплаты может подтвердить сам клиент (`seller_roles` включает `model`) | P1 | CONFIRMED | high |
+| F-PAY-010 | Сумму предоплаты мог подтвердить сам клиент (`seller_roles` включал `model`) | P1 | FIXED/VERIFIED (`7440bb98`) | high |
 | F-PAY-014 | Backstop не опрашивал `superseded_invoice_ids`: потеря webhook оставляла заменённый платёж невидимым | P1 | FIXED/VERIFIED (`IMP-089`) | high |
 | F-AI-003 | Нет atomic lease Gemini-ключа → параллельные воркеры жгут один ключ | P1 | CONFIRMED | high |
 | F-AI-004 | Backoff без jitter + синхронные круги → thundering herd на 6 ключей | P2 | CONFIRMED | high |
@@ -794,12 +795,18 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
   Ущерб ограничен структурными гейтами: `payment_link_allowed` (`:403-474`),
   требование доказательства цены в переписке (`bot_orders.py:417-497`),
   `_strip_invented_pay_urls` (`:525-542`).
-  **Дыра (см. F-PAY-010):** для предоплаты `seller_roles` включает `model`
+  **Историческая дыра (см. F-PAY-010):** для предоплаты `seller_roles` включал `model`
   (`bot_orders.py:655`), и сообщение клиента с суммой + «передоплата» + словом
   согласия принимается само (`:672-673`); единственное ограничение —
-  `requested ≤ deal.amount` (`:726-728`). Значит возможен инвойс на 1 грн.
-  **Рекомендация:** исключить `model` из `seller_roles` для предоплаты
-  и требовать подтверждения человеком либо порога (например, ≥ 20% от суммы).
+  `requested ≤ deal.amount` (`:726-728`). Regex требовал минимум две цифры,
+  поэтому минимальный воспроизводимый ложный инвойс был 10 грн, а не 1 грн.
+  **Закрытие `7440bb98`:** `model` исключён из авторитетных ролей; клиентская
+  строка не создаёт сумму и может только подтвердить непосредственно
+  предшествующий human/operator offer. Повторённая сумма обязана совпасть;
+  receipt, counteroffer и несколько разных сумм возвращают `ambiguous`.
+  Негативный путь не создаёт deal/invoice. RED→GREEN покрывает пять сценариев,
+  расширенный gate 41/41; production MariaDB rollback-fixture подтвердил exact
+  offer+acceptance evidence IDs и отсутствие остаточных synthetic rows.
 
 ## F-DATA-002 уточнён: `IgLifecycleEvent` — хранилище без производителя
 

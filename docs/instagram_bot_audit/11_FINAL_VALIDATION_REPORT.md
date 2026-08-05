@@ -185,14 +185,27 @@ checkout. Ambiguous exact claims and invalid option contexts fail closed; the
 checkout renders selected option facts and line totals. The authoritative-price
 gate is 12 tests.
 
+## F-PAY-010 current acceptance
+
+`7440bb98` closes the payment-authority subtask of `IMP-098`. Only a persisted
+human/operator offer can establish a prepayment amount; the customer may confirm
+that exact offer but cannot originate or replace the amount. Model-authored,
+customer-only, receipt, counteroffer and multi-amount paths fail closed before
+deal/invoice/proposal creation. The focused gate is 41/41.
+
+Production MariaDB was exercised only inside an explicit rollback transaction:
+three untrusted/ambiguous cases were rejected, the human 350 грн case preserved
+both offer and acceptance IDs, and the post-rollback lookup was empty. This is
+a production-engine contract proof without persistent test data.
+
 The current production runtime code SHA is
-`1849441da59cb67fd0b07815a67823c76d8681f7`. Migrations `0143`, `0144` and
+`7440bb9898340823ce93fb564b693dc19c4427de`. Migrations `0143`, `0144` and
 `0145` are applied and production has one healthy `instagram_login` daemon with
 empty pending reply/notification/analysis/recovery queues.
 
 ## Acceptance decision
 
-The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007, IMP-084 foundation,
+The IMP-058, IMP-089, IMP-077, F-PAY-010, F-PAY-015, F-CAT-007, IMP-084 foundation,
 IMP-086 reservation foundation, IMP-102/F-FUP-013,
 IMP-103/IMPR-FUP-015 and IMP-104/F-CAT-008/009/010 foundation slices are verified
 and deployed. Product/data blockers, partial W9 reselection, remaining

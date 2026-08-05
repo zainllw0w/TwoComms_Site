@@ -53,6 +53,13 @@
 | T46 | Variant-specific prompt price/size parity | GREEN | `e44d1440` + `0ad694bc`; product 110 prompt = variant 81, thermo green, 1450 грн, oversize XS/M; false XS/S/M/L/XL/XXL row absent; 188 focused + 2675 full suite |
 | T47 | Exact warehouse/catalog availability | PARTIAL | `1849441d`; availability, proposal reservation, revision, stale-instance and stock-escalation tests are green locally; MariaDB lock/constraint proof and final production-like gate remain IMP-084/086/088 |
 | T48 | Typing/send boundary and permission transition | GREEN | `c0f9fd1f` + `d84ca10d`; focused live-visual + reply-priority suite 63/63, including cancelled fallback recovery at typing/send boundary; production check/daemon passed |
+| T49 | Human-authorized prepayment amount | GREEN | `7440bb98`; model/customer-originated amount, customer counteroffer, receipt and multi-amount offer fail closed; human offer + matching acceptance preserves exact two-message evidence. 41 focused tests plus rollback proof on production MariaDB |
+
+**F-PAY-010 update 2026-08-05:** server SHA `7440bb98`; rollback-fixture on
+production MariaDB returned `ambiguous` for customer/model/multi-amount input,
+`accepted=350.00` only for human offer + matching customer confirmation, and
+left no synthetic clients after rollback. The daemon is running/alive on
+`instagram_login` with empty reply/notification queues and empty `last_error`.
 
 **Fresh local gate for current checkpoint:** full `management warehouse` suite
 passed **2877 tests, 3 skipped, `OK`** after the parser/reservation/stock

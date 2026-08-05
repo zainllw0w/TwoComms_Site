@@ -6,9 +6,9 @@ Production host: `195.191.25.63`, path
 
 ## Current production checkpoint (2026-08-05)
 
-Runtime code baseline is `1849441d`; that code commit is in local `main`,
+Runtime code baseline is `7440bb98`; that code commit is in local `main`,
 `origin/main` and production as
-`1849441da59cb67fd0b07815a67823c76d8681f7`. The server pull was fast-forward
+`7440bb9898340823ce93fb564b693dc19c4427de`. The server pull was fast-forward
 only; tracked files are clean (existing untracked operational logs/scripts were
 preserved). Migrations `management.0143_igfollowuptask_event_continuation`,
 `management.0144_ig_inventory_allocation_lifecycle` and
@@ -17,9 +17,10 @@ full `management warehouse` suite passed 2877 tests with 3 skipped and `OK`;
 `manage.py check`, migration drift, compileall, diff checks,
 static/compression and daemon ensure also passed. The production MySQL test
 database gate is still blocked by missing CREATE privilege for
-`test_qlknpodo_MySQL_DB`; production DB evidence is therefore read-only, not a
-concurrency test target. `run_instagram_bot --ensure` and `status_snapshot()`
-report one daemon, `enabled=True`, `running=True`, `alive=True`, provider
+`test_qlknpodo_MySQL_DB`; production DB evidence is therefore read-only or
+explicitly rollback-only, not a concurrency test target.
+`run_instagram_bot --ensure` and `status_snapshot()` report one daemon,
+`enabled=True`, `running=True`, `alive=True`, provider
 `instagram_login`, heartbeat age about 0.9 seconds, empty `last_error` and zero
 pending reply/notification/analysis/recovery queues.
 
@@ -29,7 +30,25 @@ The deployed slices are `IMP-103` (commits `4dfff3a2`, `35d3bd93`), `IMP-104`
 (`17f5b672`), followed by live-visual boundary hardening
 (`d3e2c51b`, `0d471ebe`, `c0f9fd1f`) and warehouse reservation lifecycle
 (`90fdd0ec`), then bounded commerce-turn parsing and inventory revision safety
-(`1849441d`).
+(`1849441d`) and F-PAY-010 human prepayment authority (`7440bb98`).
+
+## F-PAY-010 human-authority deploy (2026-08-05)
+
+`7440bb9898340823ce93fb564b693dc19c4427de` was pushed to `origin/main` and
+fast-forwarded on production from `1639a485`. The slice introduces no migration.
+`deploy.sh` completed migrate (no pending migrations), collectstatic, compress
+and Passenger restart; its best-effort `pip install` reported a pre-existing
+local `cffi` wheel build failure and continued with the already active venv.
+`run_instagram_bot --ensure` spawned one daemon. Final status is
+`running=True`, `alive=True`, provider `instagram_login`, fresh heartbeat,
+`last_error=''`, reply queue `0` and notification queues `0/0/0/0`.
+
+Fresh local evidence is 41/41 payment/paylink/thermo-price tests, Django check,
+py_compile and diff check. A rollback-only production MariaDB fixture proved:
+customer-originated amount = `ambiguous`; model offer + customer yes =
+`ambiguous`; human offer 350 грн + matching customer confirmation = `accepted`
+with exact two message IDs; multi-amount offer = `ambiguous`. The transaction
+was rolled back and a post-check found no synthetic clients.
 
 ## Parser and inventory revision hardening deploy (2026-08-05)
 
@@ -184,6 +203,7 @@ overwritten outside the fast-forward.
 | 2026-08-05 | `0d4d38c0` / `0e9e9ba5` / `4cb86743` / `414e639e` | IMP-102/F-FUP-013; migration `0141`, 23 focused / 160 expanded, check/drift/compileall/diff | one daemon; `running`; `alive=True`; `instagram_login`; delivery queues empty |
 | 2026-08-05 | `90fdd0ec` | IMP-086 reservation lifecycle; migration `0144`, exact allocation/paid commit/fulfillment/reversal and overbook review gate | one daemon; `running`; `alive=True`; `instagram_login`; reply/notification queues empty |
 | 2026-08-05 | `1849441d` | IMP-085/086 partial; migration `0145`, bounded parser, trusted URL pinning, revision/lock/stale-callback safety; 2877 full tests | one daemon; `enabled=True`; `alive=True`; `instagram_login`; queues `0/0/0/0` |
+| 2026-08-05 | `7440bb98` | F-PAY-010; human-authorized prepayment amount, 41 focused tests, rollback-only MariaDB decision/evidence proof | one daemon; `running=True`; `alive=True`; `instagram_login`; reply/notification queues empty |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,

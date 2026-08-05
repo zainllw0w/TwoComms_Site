@@ -29,6 +29,7 @@
 | current main code slice | delivery marker rollback, tagged-send rollback, pooled Gemini cooldown | IN MAIN and deployed as `6b86e103`; findings F-CORE-018/F-AI-017; IMP-097 |
 | current `main` warehouse slice | exact allocation reservation, paid commit without physical warehouse decrement, fulfillment/write-off/reversal links, late-payment overbook state and revision/stale-callback safety | IN MAIN and production through `1849441d`; migrations `0144`/`0145` applied; `IMP-084/086` remain PARTIAL for readiness/alternatives, manager-review UI and disposable MariaDB proof |
 | current `main` commerce-turn slice | bounded parser facts, trusted URL product pinning and prompt turn-note integration | IN MAIN and production as `1849441d`; full local gate 2877 OK; `IMP-085` remains PARTIAL because durable session/reducer, candidate anchoring and production-like DB proof are open |
+| current `main` prepayment authority slice | human/operator offer + exact customer confirmation, untrusted/multi-amount fail-closed gate | IN MAIN and production as `7440bb98`; F-PAY-010 verified by 41 focused tests and rollback-only MariaDB proof; IMP-098 remains open for unrelated orphan findings |
 | `pre-instagram-audit-consolidation-2026-08-03` stash | pre-consolidation local snapshot | ARCHIVE only; no unique audit IDs after comparison |
 | `codex/ig-refresh-dedup` stash / old detached worktrees | inbox refresh experiments | Historical/superseded; no unique current audit IDs |
 

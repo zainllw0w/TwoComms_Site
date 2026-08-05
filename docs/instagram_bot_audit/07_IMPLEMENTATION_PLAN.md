@@ -1,8 +1,8 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 104 уникальные `IMP-*`: **79 закрыты, 18 открыты, 7 partial**
-> (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
+> Всего 104 уникальные `IMP-*`: **79 закрыты, 17 открыты, 8 partial**
+> (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
 > Ниже находятся отдельные checkbox-матрицы всех 179 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
@@ -44,15 +44,15 @@
 | **W4C** | Диалог ведёт модель, а не скрипт | 10 | 10 | 0 | 0 |
 | **W4D** | Echo/media и автоматическое снятие takeover | 4 | 4 | 0 | 0 |
 | **W4B** | Добивка воронки | 13 | 13 | 0 | 0 |
-| **W5** | Качество продавца, каталог и память | 9 | 7 | 2 | 0 |
+| **W5** | Качество продавца, каталог и память | 9 | 7 | 1 | 1 |
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
 | **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
-| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 3 | 5 |
+| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 2 | 6 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
 | **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 2 | 0 | 0 |
-| **Итого** | | **104** | **79** | **18** | **7** |
+| **Итого** | | **104** | **79** | **17** | **8** |
 
 ---
 
@@ -1020,9 +1020,13 @@ IMP/Finding/Improvement totals.
 ## W11 — полное покрытие находок и orphan backlog
 
 - [ ] **IMP-098 (P1/P2) — закрыть находки, которые не имели самостоятельной implementation-задачи.**
-  Текущий orphan-набор: F-CORE-003…006, F-PAY-010, F-SCORE-010 и остатки
+  Текущий открытый orphan-набор: F-CORE-003…006, F-SCORE-010 и остатки
   F-SEC-004/009 (reviewer PII/log sandbox и явная PII-policy для рабочих
   Telegram/операторских каналов).
+  F-PAY-010 закрыта независимо на `7440bb98`: сумма предоплаты теперь требует
+  human/operator offer + последующее клиентское подтверждение; model/customer
+  origin, counteroffer и multi-amount текст fail closed. 41 focused тест и
+  rollback-проверка на production MariaDB подтверждены.
   F-CORE-007 при сверке оказался уже закрыт durable outgoing registry в
   IMP-073; F-SCORE-012 имеет самостоятельную открытую задачу IMP-046.
   Для каждого ID обязательны отдельный
@@ -1192,7 +1196,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-PAY-007 | FIXED/VERIFIED | IMP-021 |
 | [ ] | F-PAY-008 | OPEN | IMP-043 |
 | [x] | F-PAY-009 | FIXED/VERIFIED | IMP-022 |
-| [ ] | F-PAY-010 | OPEN | IMP-098 |
+| [x] | F-PAY-010 | FIXED/VERIFIED (`7440bb98`) | IMP-098 |
 | [x] | F-PAY-011 | FIXED/VERIFIED | IMP-024 |
 | [x] | F-PAY-012 | FIXED/VERIFIED | IMP-013 |
 | [x] | F-PAY-013 | FIXED/VERIFIED | IMP-071 |

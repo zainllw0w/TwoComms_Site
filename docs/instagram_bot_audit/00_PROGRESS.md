@@ -10,14 +10,14 @@
 | Поле | Значение |
 |---|---|
 | Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
-| Дата старта / обновления | 2026-08-05 (после production deploy durable follow-up delivery FSM) |
+| Дата старта / обновления | 2026-08-05 (после production deploy F-PAY-010 human-authority gate) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `1849441d` подтверждён в `origin/main` и на production; поверх delivery FSM опубликованы event-driven follow-ups, authoritative configuration pricing, наблюдаемые sender actions, durable escalation, exact availability foundation, bounded commerce-turn parser и warehouse reservation hardening |
-| **Статус 104 IMP-задач** | **79 закрыты, 18 открыты, 7 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`)** |
+| База внедрения | `7440bb98` подтверждён в `origin/main` и на production; поверх delivery FSM опубликованы event-driven follow-ups, authoritative configuration pricing, наблюдаемые sender actions, durable escalation, exact availability foundation, bounded commerce-turn parser, warehouse reservation hardening и human-authority gate суммы предоплаты |
+| **Статус 104 IMP-задач** | **79 закрыты, 17 открыты, 8 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **179 уникальных `F-*` идентификаторов**; F-CAT-008/009/010 и F-FUP-013 исправлены и verified |
+| Реестр находок | **179 уникальных `F-*` идентификаторов: 135 закрыты, 38 открыты, 6 partial**; F-PAY-010, F-CAT-008/009/010 и F-FUP-013 исправлены и verified |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **104** в W0–W12, включая W4B/W4C/W4D и IMP-062…104 |
@@ -34,7 +34,7 @@
 | `07_IMPLEMENTATION_PLAN.md` | канонический статус 104 IMP-задач; отдельные checkbox-matrix покрывают все 179 F-* и все 51 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
-| `06_TEST_MATRIX.md` | оформлен; 48 acceptance-сценариев и текущие gates |
+| `06_TEST_MATRIX.md` | оформлен; 49 acceptance-сценариев и текущие gates |
 | `08`–`12` | оформлены; completion, deploy, blockers, validation и source reconciliation |
 
 > ⚠️ **Особенность репозитория:** `.gitignore:227` содержит `*_PLAN.md`, поэтому
@@ -52,10 +52,30 @@
 | Частично, W8 | `IMP-043` |
 | Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime prompt integration в `1849441d`; `IMP-086` имеет deployed reservation lifecycle и migration `0145` hardening в `1849441d`. Открыты durable commerce session, stale candidate binding, relaxed alternatives, полный topology, MariaDB race/constraint proof, manager review UI и production-like parser/availability gate |
 | Открыто, W9 | `IMP-087`–`IMP-088` |
-| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
+| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
 
-## Current checkpoint: IMP-103/104 and sender observability (2026-08-05)
+## Current checkpoint: F-PAY-010 human prepayment authority (2026-08-05)
+
+`7440bb98` запрещает модели и клиенту создавать сумму предоплаты из собственного
+текста. Денежный факт устанавливает только persisted сообщение
+`manager`/`human_manager`/`operator`/`admin`, после которого клиент явно
+подтверждает предложение. Повторённая клиентом сумма обязана совпасть; counteroffer,
+receipt-текст и сообщение с несколькими различными суммами fail closed до
+`invalid_payment_amount`, без создания deal/invoice/proposal.
+
+- RED подтверждён на четырёх исходно уязвимых сценариях; после исправления
+  41/41 focused payment/paylink/thermo-price тестов GREEN.
+- Production fast-forward, migrate, collectstatic, compress, Passenger restart
+  и `run_instagram_bot --ensure` завершены. Server SHA = `7440bb98`, daemon
+  `running=True`, `alive=True`, transport `instagram_login`, `last_error=''`.
+- MariaDB rollback-fixture доказал customer/model/multi-amount = `ambiguous`,
+  human 350 грн = `accepted` с exact offer+acceptance IDs; после rollback
+  синтетических клиентов не осталось.
+- `IMP-098` остаётся открытой для F-CORE-003…006, F-SCORE-010 и остатков
+  F-SEC-004/009; закрыта только её самостоятельная подзадача F-PAY-010.
+
+## Previous checkpoint: IMP-103/104 and sender observability (2026-08-05)
 
 The previous historical paragraphs below mention `414e639e` and an open
 `IMP-103`; those statements describe the earlier checkpoint only. Runtime code
