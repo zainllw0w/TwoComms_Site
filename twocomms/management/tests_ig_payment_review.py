@@ -876,6 +876,247 @@ class PaymentReviewEpisodeScopeTests(TestCase):
         self.assertIsNone(episode.open_slot)
         self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
 
+    def test_historical_completion_records_known_amount_without_order_side_effects(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgBotNotification,
+            IgClient,
+            IgCommercialEpisode,
+            IgMetaEventLog,
+            IgOrderCustomerEvent,
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from management.services.ig_payment_review import resolve_historical_paid_review
+        from orders.models import Order
+
+        actor = get_user_model().objects.create_user(
+            "historical-completion-known-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("historical-completion-known-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-completion-known-review",
+            evidence={"amount_evidence": [{"kind": "payment_evidence", "amount": "1760"}]},
+        )
+        notification = IgBotNotification.objects.create(
+            client=client,
+            event_type="payment_review",
+            dedupe_key=review.dedupe_key,
+            status=IgBotNotification.Status.SENT,
+        )
+        baseline = {
+            "orders": Order.objects.count(),
+            "meta": IgMetaEventLog.objects.count(),
+            "customer_events": IgOrderCustomerEvent.objects.count(),
+        }
+
+        resolved = resolve_historical_paid_review(
+            review,
+            actor=actor,
+            outcome="already_received",
+            reason="Historical sale confirmed by owner",
+            confirmed_amount="1760.00",
+        )
+
+        resolved.refresh_from_db()
+        client.refresh_from_db()
+        notification.refresh_from_db()
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+        episode = IgCommercialEpisode.objects.get(primary_payment_review=review)
+        self.assertEqual(resolved.status, IgPaymentConfirmationReview.Status.CONFIRMED)
+        self.assertEqual(
+            resolved.resolution_kind,
+            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED,
+        )
+        self.assertEqual(resolved.resolution_outcome, "already_received")
+        self.assertEqual(decision.verification_scope, "historical_fulfilled")
+        self.assertEqual(decision.confirmed_amount, Decimal("1760.00"))
+        self.assertIsNone(decision.order_total_amount)
+        self.assertEqual(client.stage, "done")
+        self.assertEqual(episode.state, IgCommercialEpisode.State.FULFILLED)
+        self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
+        self.assertEqual(Order.objects.count(), baseline["orders"])
+        self.assertEqual(IgMetaEventLog.objects.count(), baseline["meta"])
+        self.assertEqual(IgOrderCustomerEvent.objects.count(), baseline["customer_events"])
+
+        replay = resolve_historical_paid_review(
+            review,
+            actor=actor,
+            outcome="already_received",
+            reason="Historical sale confirmed by owner",
+            confirmed_amount="1760.00",
+        )
+        self.assertEqual(replay.pk, resolved.pk)
+        self.assertEqual(IgPaymentReviewDecision.objects.filter(review=review).count(), 1)
+        with self.assertRaisesMessage(ValueError, "іншим результатом"):
+            resolve_historical_paid_review(
+                review,
+                actor=actor,
+                outcome="already_delivered",
+                reason="Historical sale confirmed by owner",
+                confirmed_amount="1760.00",
+            )
+
+    def test_historical_completion_keeps_unrecoverable_amount_null(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgClient,
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from management.services.ig_payment_review import resolve_historical_paid_review
+
+        actor = get_user_model().objects.create_user(
+            "historical-completion-unknown-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("historical-completion-unknown-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-completion-unknown-review",
+            evidence={},
+        )
+
+        resolved = resolve_historical_paid_review(
+            review,
+            actor=actor,
+            outcome="completed_unknown",
+            reason="Historical amount cannot be recovered",
+            amount_unrecoverable=True,
+        )
+
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+        self.assertEqual(resolved.resolution_outcome, "completed_unknown")
+        self.assertIsNone(decision.confirmed_amount)
+        self.assertIsNone(decision.order_total_amount)
+        self.assertEqual(decision.amount_source, "historical_amount_unrecoverable")
+
+    def test_historical_completion_rejects_non_staff_missing_reason_and_linked_order(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from management.services.ig_payment_review import resolve_historical_paid_review
+        from orders.models import Order
+
+        actor = get_user_model().objects.create_user(
+            "historical-completion-nonstaff-actor",
+            password="x",
+        )
+        client = IgClient.get_or_create_for_sender("historical-completion-rejected-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-completion-rejected-review",
+        )
+        with self.assertRaisesMessage(ValueError, "лише менеджер"):
+            resolve_historical_paid_review(
+                review,
+                actor=actor,
+                outcome="already_received",
+                reason="Historical sale confirmed",
+                amount_unrecoverable=True,
+            )
+
+        actor.is_staff = True
+        actor.save(update_fields=["is_staff"])
+        invalid_review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-completion-invalid-amount-review",
+        )
+        with self.assertRaisesMessage(ValueError, "додатним числом"):
+            resolve_historical_paid_review(
+                invalid_review,
+                actor=actor,
+                outcome="already_received",
+                reason="Historical sale confirmed",
+                confirmed_amount="not-money",
+                amount_unrecoverable=True,
+            )
+
+        with self.assertRaisesMessage(ValueError, "обов'язкова"):
+            resolve_historical_paid_review(
+                review,
+                actor=actor,
+                outcome="already_received",
+                reason="",
+                amount_unrecoverable=True,
+            )
+
+        review.order = Order.objects.create(
+            full_name="Legacy customer",
+            phone="0500000011",
+            city="Київ",
+            np_office="1",
+            total_sum=Decimal("1.00"),
+        )
+        review.save(update_fields=["order", "updated_at"])
+        with self.assertRaisesMessage(ValueError, "пов'язане замовлення"):
+            resolve_historical_paid_review(
+                review,
+                actor=actor,
+                outcome="already_received",
+                reason="Historical sale confirmed",
+                amount_unrecoverable=True,
+            )
+
+    def test_historical_completion_rejects_hidden_client_and_provider_reversal(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgClient,
+            IgDeal,
+            IgPaymentConfirmationReview,
+            IgPaymentProjection,
+        )
+        from management.services.ig_payment_review import resolve_historical_paid_review
+
+        actor = get_user_model().objects.create_user(
+            "historical-completion-conflict-actor",
+            password="x",
+            is_staff=True,
+        )
+        hidden_client = IgClient.get_or_create_for_sender("historical-completion-hidden-client")
+        hidden_client.hidden_at = timezone.now()
+        hidden_client.save(update_fields=["hidden_at", "updated_at"])
+        hidden_review = IgPaymentConfirmationReview.objects.create(
+            client=hidden_client,
+            dedupe_key="historical-completion-hidden-review",
+        )
+        with self.assertRaisesMessage(ValueError, "Прихований клієнт"):
+            resolve_historical_paid_review(
+                hidden_review,
+                actor=actor,
+                outcome="already_received",
+                reason="Historical sale confirmed",
+                amount_unrecoverable=True,
+            )
+
+        client = IgClient.get_or_create_for_sender("historical-completion-reversed-client")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("1760.00"))
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=deal,
+            truth=IgDeal.PaymentTruth.REVERSED,
+        )
+        reversed_review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            deal=deal,
+            dedupe_key="historical-completion-reversed-review",
+        )
+        with self.assertRaisesMessage(ValueError, "provider-оплати"):
+            resolve_historical_paid_review(
+                reversed_review,
+                actor=actor,
+                outcome="already_received",
+                reason="Historical sale confirmed",
+                confirmed_amount="1760.00",
+            )
+
     def test_historical_paid_archive_rejects_deal_with_active_checkout_proposal(self):
         from django.contrib.auth import get_user_model
 

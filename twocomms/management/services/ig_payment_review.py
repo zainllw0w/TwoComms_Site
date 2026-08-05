@@ -2484,13 +2484,21 @@ def record_review_decision(
 
 
 @transaction.atomic
-def archive_historical_paid_review(review, *, actor, reason: str):
+def archive_historical_paid_review(
+    review,
+    *,
+    actor,
+    reason: str,
+    outcome: str | None = None,
+    transition_to_done: bool = False,
+):
     """Close a verified legacy sale without fabricating a local Order."""
     from management.ig_bot_models import (
         IgBotNotification,
         IgClient,
         IgCommercialEpisode,
         IgDeal,
+        IgClientStageEvent,
         IgPaymentConfirmationReview,
         IgPaymentReviewDecision,
     )
@@ -2506,6 +2514,13 @@ def archive_historical_paid_review(review, *, actor, reason: str):
         getattr(actor, "is_staff", False) or getattr(actor, "is_superuser", False)
     ):
         raise ValueError("Архівувати старий продаж може лише менеджер.")
+    resolved_outcome = str(outcome or "").strip()
+    if resolved_outcome:
+        allowed_outcomes = {
+            choice for choice, _label in IgPaymentConfirmationReview.ResolutionOutcome.choices
+        }
+        if resolved_outcome not in allowed_outcomes:
+            raise ValueError("Результат історичного завершення не підтримується.")
 
     locked = (
         IgPaymentConfirmationReview.objects.select_for_update()
@@ -2516,7 +2531,9 @@ def archive_historical_paid_review(review, *, actor, reason: str):
     if client.hidden_at:
         raise ValueError("Прихований клієнт виключений з операцій.")
     if locked.resolution_kind == locked.ResolutionKind.HISTORICAL_PAID_ARCHIVED:
-        return locked
+        if not resolved_outcome or locked.resolution_outcome == resolved_outcome:
+            return locked
+        raise ValueError("Історичний продаж уже завершено іншим результатом.")
     if locked.deal_id and IgDeal.objects.select_for_update().filter(
         pk=locked.deal_id,
         active_checkout_proposal__isnull=False,
@@ -2529,13 +2546,15 @@ def archive_historical_paid_review(review, *, actor, reason: str):
     if locked.order_id:
         raise ValueError("Перевірка вже має пов'язане замовлення і не є історичною.")
 
+    decision_scopes = [IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT]
+    if resolved_outcome:
+        decision_scopes = [IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED]
     decision = (
         IgPaymentReviewDecision.objects.filter(
             review=locked,
             decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
             verification_source="manager",
-            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
-            confirmed_amount__gt=0,
+            verification_scope__in=decision_scopes,
             actor_source__in=(
                 IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
                 IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
@@ -2544,19 +2563,22 @@ def archive_historical_paid_review(review, *, actor, reason: str):
         .order_by("-id")
         .first()
     )
-    if decision is None:
+    if decision is None or (not resolved_outcome and decision.confirmed_amount is None):
         raise ValueError(
             "Потрібне точне manager-verified рішення про повну оплату."
         )
 
     now = timezone.now()
     locked.resolution_kind = locked.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+    if resolved_outcome:
+        locked.resolution_outcome = resolved_outcome
     locked.resolution_note = note[:2000]
     locked.resolved_at = now
     locked.resolved_by = actor
     locked.save(
         update_fields=[
             "resolution_kind",
+            "resolution_outcome",
             "resolution_note",
             "resolved_at",
             "resolved_by",
@@ -2586,10 +2608,12 @@ def archive_historical_paid_review(review, *, actor, reason: str):
             "review_id": locked.pk,
             "decision_id": decision.pk,
             "confirmed_amount": str(decision.confirmed_amount),
+            "resolution_outcome": resolved_outcome,
         },
     )
 
-    client.stage = IgClient.Stage.PAID
+    stage_before = client.stage
+    client.stage = IgClient.Stage.DONE if transition_to_done else IgClient.Stage.PAID
     client.stage_updated_at = now
     if client.current_commercial_episode_id == episode.pk:
         client.current_commercial_episode = None
@@ -2601,6 +2625,13 @@ def archive_historical_paid_review(review, *, actor, reason: str):
             "updated_at",
         ]
     )
+    if transition_to_done and stage_before != client.stage:
+        IgClientStageEvent.objects.create(
+            client=client,
+            from_stage=stage_before or "",
+            to_stage=client.stage,
+            reason="historical_payment_review_completed",
+        )
     IgBotNotification.objects.filter(
         dedupe_key=locked.dedupe_key,
         event_type="payment_review",
@@ -2617,6 +2648,147 @@ def archive_historical_paid_review(review, *, actor, reason: str):
         updated_at=now,
     )
     return locked
+
+
+@transaction.atomic
+def resolve_historical_paid_review(
+    review,
+    *,
+    actor,
+    outcome: str,
+    reason: str,
+    confirmed_amount=None,
+    amount_unrecoverable: bool = False,
+):
+    """Audit a legacy sale already completed outside the current order flow.
+
+    This operation intentionally has no order, provider, customer-message, or
+    purchase side effects. A historical amount is evidence of payment only;
+    it never becomes an invented negotiated order total.
+    """
+    from management.ig_bot_models import (
+        IgClient,
+        IgDeal,
+        IgPaymentConfirmationReview,
+        IgPaymentProjection,
+        IgPaymentReviewDecision,
+    )
+    from management.services.ig_commercial_episodes import sync_episode_payment
+
+    note = str(reason or "").strip()
+    if not note:
+        raise ValueError("Причина завершення старого продажу обов'язкова.")
+    if not actor or not getattr(actor, "pk", None) or not (
+        getattr(actor, "is_staff", False) or getattr(actor, "is_superuser", False)
+    ):
+        raise ValueError("Завершити старий продаж може лише менеджер.")
+    resolved_outcome = str(outcome or "").strip()
+    allowed_outcomes = {
+        choice for choice, _label in IgPaymentConfirmationReview.ResolutionOutcome.choices
+    }
+    if resolved_outcome not in allowed_outcomes:
+        raise ValueError("Результат історичного завершення не підтримується.")
+
+    exact_amount = _positive_money(confirmed_amount)
+    if confirmed_amount not in (None, "") and exact_amount is None:
+        raise ValueError("Підтверджена історична сума має бути додатним числом до 2 знаків.")
+    if exact_amount is None and not amount_unrecoverable:
+        raise ValueError("Вкажіть точну суму або позначте, що її неможливо відновити.")
+    if exact_amount is not None and amount_unrecoverable:
+        raise ValueError("Оберіть точну суму або неможливість її відновити, але не обидва варіанти.")
+
+    locked = (
+        IgPaymentConfirmationReview.objects.select_for_update()
+        .select_related("client", "deal")
+        .get(pk=review.pk)
+    )
+    client = IgClient.objects.select_for_update().get(pk=locked.client_id)
+    if client.hidden_at:
+        raise ValueError("Прихований клієнт виключений з операцій.")
+    if locked.resolution_kind == locked.ResolutionKind.HISTORICAL_PAID_ARCHIVED:
+        existing = (
+            IgPaymentReviewDecision.objects.filter(
+                review=locked,
+                decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+                verification_scope=IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED,
+            )
+            .order_by("-id")
+            .first()
+        )
+        if (
+            existing is not None
+            and locked.resolution_outcome == resolved_outcome
+            and locked.resolution_note == note[:2000]
+            and existing.confirmed_amount == exact_amount
+        ):
+            return locked
+        raise ValueError("Історичний продаж уже завершено іншим результатом або даними.")
+    if locked.order_id:
+        raise ValueError("Перевірка вже має пов'язане замовлення і не є історичною.")
+    if locked.deal_id and IgDeal.objects.select_for_update().filter(
+        pk=locked.deal_id,
+        active_checkout_proposal__isnull=False,
+    ).exists():
+        raise ValueError(
+            "Не можна архівувати продаж, поки угода має активну checkout-пропозицію."
+        )
+    if locked.deal_id and IgPaymentProjection.objects.select_for_update().filter(
+        deal_id=locked.deal_id,
+        truth__in={
+            IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+            IgDeal.PaymentTruth.REFUNDED,
+            IgDeal.PaymentTruth.REVERSED,
+            IgDeal.PaymentTruth.FAILED,
+            IgDeal.PaymentTruth.CANCELLED,
+        },
+    ).exists():
+        raise ValueError("Історичне завершення заблоковано конфліктом або скасуванням provider-оплати.")
+    if locked.status != IgPaymentConfirmationReview.Status.PENDING:
+        raise ValueError("Історичне завершення доступне лише для незавершеної перевірки.")
+
+    now = timezone.now()
+    locked.status = IgPaymentConfirmationReview.Status.CONFIRMED
+    locked.confirmed_by = actor
+    locked.confirmed_at = now
+    locked.save(update_fields=["status", "confirmed_by", "confirmed_at", "updated_at"])
+    evidence = locked.evidence if isinstance(locked.evidence, dict) else {}
+    draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
+    decision = IgPaymentReviewDecision.objects.create(
+        review=locked,
+        client=client,
+        decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+        verification_source="manager",
+        verification_scope=IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED,
+        confirmed_amount=exact_amount,
+        order_total_amount=None,
+        order_total_source="",
+        currency=str(getattr(locked.deal, "currency", "") or draft.get("currency") or "UAH")[:8],
+        amount_source=(
+            "historical_manager_verified"
+            if exact_amount is not None
+            else "historical_amount_unrecoverable"
+        ),
+        amount_evidence_message_ids=[],
+        reason_code="historical_paid_fulfilled",
+        reason_text=note[:500],
+        evidence_watermark_message_id=locked.watermark_message_id or 0,
+        review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+        review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        stage_before=client.stage or "",
+        stage_after=IgClient.Stage.DONE,
+        actor=actor,
+        actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+        actor_external_id=str(actor.pk)[:128],
+        actor_label=str(getattr(actor, "get_username", lambda: "")() or actor.pk)[:150],
+    )
+    sync_episode_payment(review=locked, deal=locked.deal if locked.deal_id else None)
+    return archive_historical_paid_review(
+        locked,
+        actor=actor,
+        reason=note,
+        outcome=resolved_outcome,
+        transition_to_done=True,
+    )
 
 
 def confirm_review(
