@@ -3567,7 +3567,31 @@ def _commercial_visual_state(c, *, payment_confirmation: dict) -> tuple[str, str
     violet. A delivered order stays green, keeping completed purchases distinct
     from parcels that are still on the way.
     """
-    has_shipped_order = getattr(c, "has_shipped_linked_order", None)
+    current_episode = getattr(c, "current_commercial_episode", None)
+    if current_episode is not None and getattr(c, "pk", None):
+        # A previous shipped order is historical evidence only.  Once a new
+        # commercial episode is open, shipment colour must be backed by that
+        # episode's intended order; otherwise a repeat buyer appears shipped
+        # before the new order exists.
+        has_shipped_order = getattr(
+            c, "has_current_episode_shipped_order", None
+        )
+        if has_shipped_order is None:
+            from .ig_bot_models import IgOrderAssignment
+
+            current_order_id = getattr(current_episode, "intended_order_id", None)
+            has_shipped_order = bool(
+                current_order_id
+                and IgOrderAssignment.objects.filter(
+                    client_id=c.pk,
+                    order_id=current_order_id,
+                    unassigned_at__isnull=True,
+                    order__status="ship",
+                    order__tracking_number__isnull=False,
+                ).exclude(order__tracking_number="").exists()
+            )
+    else:
+        has_shipped_order = getattr(c, "has_shipped_linked_order", None)
     if has_shipped_order is None and getattr(c, "pk", None):
         from .ig_bot_models import IgOrderAssignment
 
@@ -3882,6 +3906,39 @@ def bot_clients_api(request):
         current_manager_confirmation_review_q(),
         client_id=OuterRef("pk"),
     )
+    current_episode_deals = IgDeal.objects.filter(
+        client_id=OuterRef("pk"),
+        commercial_episode__pk=OuterRef("current_commercial_episode_id"),
+    ).filter(verified_payment_q())
+    current_episode_review_id = IgCommercialEpisode.objects.filter(
+        pk=OuterRef(OuterRef("current_commercial_episode_id")),
+    ).values("primary_payment_review_id")[:1]
+    current_episode_manager_reviews = IgPaymentConfirmationReview.objects.filter(
+        current_manager_confirmation_review_q(),
+        client_id=OuterRef("pk"),
+        pk=Subquery(current_episode_review_id),
+    )
+    current_episode_order_id = IgCommercialEpisode.objects.filter(
+        pk=OuterRef(OuterRef("current_commercial_episode_id")),
+    ).values("intended_order_id")[:1]
+    current_episode_paid_order_assignments = IgOrderAssignment.objects.filter(
+        client_id=OuterRef("pk"),
+        unassigned_at__isnull=True,
+        order_id=Subquery(current_episode_order_id),
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    )
+    current_episode_paid_order_attributions = IgOrderAttribution.objects.filter(
+        client_id=OuterRef("pk"),
+        order_id=Subquery(current_episode_order_id),
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    )
+    current_episode_shipped_order_assignments = IgOrderAssignment.objects.filter(
+        client_id=OuterRef("pk"),
+        unassigned_at__isnull=True,
+        order_id=Subquery(current_episode_order_id),
+        order__status="ship",
+        order__tracking_number__isnull=False,
+    ).exclude(order__tracking_number="")
     paid_order_assignments = IgOrderAssignment.objects.filter(
         client_id=OuterRef("pk"),
         unassigned_at__isnull=True,
@@ -3939,6 +3996,15 @@ def bot_clients_api(request):
             has_current_paid_linked_order=(
                 Exists(paid_order_assignments) | Exists(paid_order_attributions)
             ),
+            has_current_episode_provider_payment=Exists(current_episode_deals),
+            has_current_episode_manager_confirmation=Exists(current_episode_manager_reviews),
+            has_current_episode_paid_linked_order=(
+                Exists(current_episode_paid_order_assignments)
+                | Exists(current_episode_paid_order_attributions)
+            ),
+            has_current_episode_shipped_order=Exists(
+                current_episode_shipped_order_assignments
+            ),
             has_commercial_confirmation=(
                 Exists(current_manager_reviews)
                 | Exists(paid_order_assignments)
@@ -3961,9 +4027,22 @@ def bot_clients_api(request):
         qs = qs.filter(Q(stage__in=[IgClient.Stage.SPAM, IgClient.Stage.COLD]) | Q(spam_strikes__gt=0))
     elif view == "paid":
         qs = qs.filter(
-            Q(has_verified_payment=True)
-            | Q(has_current_manager_confirmation=True)
-            | Q(has_current_paid_linked_order=True)
+            (
+                Q(current_commercial_episode_id__isnull=False)
+                & (
+                    Q(has_current_episode_provider_payment=True)
+                    | Q(has_current_episode_manager_confirmation=True)
+                    | Q(has_current_episode_paid_linked_order=True)
+                )
+            )
+            | (
+                Q(current_commercial_episode_id__isnull=True)
+                & (
+                    Q(has_verified_payment=True)
+                    | Q(has_current_manager_confirmation=True)
+                    | Q(has_current_paid_linked_order=True)
+                )
+            )
         )
     elif view == "due":
         qs = qs.filter(followup_tasks__status="pending", followup_tasks__due_at__lte=timezone.now()).distinct()
@@ -3993,6 +4072,13 @@ def bot_clients_api(request):
         qs = qs.filter(
             Q(has_post_sale_action=True)
             | Q(
+                current_commercial_episode_id__isnull=False,
+                has_current_episode_provider_payment=False,
+                has_current_episode_manager_confirmation=False,
+                has_current_episode_paid_linked_order=False,
+            )
+            | Q(
+                current_commercial_episode_id__isnull=True,
                 has_verified_payment=False,
                 has_commercial_confirmation=False,
                 has_historical_paid_archive=False,

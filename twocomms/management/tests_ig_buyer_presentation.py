@@ -21,6 +21,8 @@ from django.urls import reverse
 
 from management.ig_bot_models import (
     IgClient,
+    IgDeal,
+    IgPaymentProjection,
     IgPaymentConfirmationReview,
     IgPaymentReviewDecision,
 )
@@ -180,6 +182,44 @@ class CommercialPaymentPresentationTests(BuyerPresentationMixin, TestCase):
         self.assertEqual(historical["source"], "historical_archive")
         self.assertIn("архів", historical["note"].lower())
 
+    def test_previous_provider_payment_is_not_current_in_a_repeat_episode(self):
+        from django.utils import timezone
+
+        from management.services.bot_payment_truth import (
+            current_payment_confirmation,
+        )
+        from management.services.ig_commercial_episodes import (
+            ensure_episode_for_deal,
+        )
+
+        client = IgClient.get_or_create_for_sender("historical-provider-payment")
+        previous = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.PAID,
+            payment_status="paid",
+            payment_truth=IgDeal.PaymentTruth.CONFIRMED,
+            paid_at=timezone.now(),
+        )
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=previous,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("2100.00"),
+            paid_at=previous.paid_at,
+            provider_modified_at=previous.paid_at,
+        )
+        ensure_episode_for_deal(previous)
+        current = IgDeal.objects.create(client=client, status=IgDeal.Status.DRAFT)
+        current_episode = ensure_episode_for_deal(current)
+        client.refresh_from_db()
+
+        fact = current_payment_confirmation(client)
+
+        self.assertEqual(client.current_commercial_episode_id, current_episode.pk)
+        self.assertEqual(current_episode.deal_id, current.pk)
+        self.assertFalse(fact["confirmed"])
+        self.assertEqual(fact["source"], "")
+
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class BuyerBadgeApiTests(BuyerPresentationMixin, TestCase):
@@ -222,6 +262,84 @@ class BuyerBadgeApiTests(BuyerPresentationMixin, TestCase):
 
         self.assertEqual(row["potential"]["metric_label"], "намір купити зараз")
         self.assertNotIn("уже купив", row["potential"]["metric_note"])
+
+    def test_paid_filter_excludes_historical_provider_payment_in_new_episode(self):
+        from django.utils import timezone
+
+        from management.services.ig_commercial_episodes import (
+            ensure_episode_for_deal,
+        )
+
+        client = IgClient.get_or_create_for_sender("paid-filter-historical-provider")
+        previous = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.PAID,
+            payment_status="paid",
+            payment_truth=IgDeal.PaymentTruth.CONFIRMED,
+            paid_at=timezone.now(),
+        )
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=previous,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("2100.00"),
+            paid_at=previous.paid_at,
+            provider_modified_at=previous.paid_at,
+        )
+        ensure_episode_for_deal(previous)
+        current = IgDeal.objects.create(client=client, status=IgDeal.Status.DRAFT)
+        ensure_episode_for_deal(current)
+
+        paid = self.http.get(
+            reverse("management_bot_clients_api") + "?view=paid"
+        ).json()
+
+        self.assertNotIn(client.pk, [row["id"] for row in paid["clients"]])
+
+    def test_shipped_visual_state_excludes_historical_shipment_in_new_episode(self):
+        from management.services.ig_commercial_episodes import ensure_episode_for_deal
+        from management.services.ig_order_assignments import link_order_to_client
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("shipped-visual-historical")
+        previous = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.PAID,
+            payment_status="paid",
+            payment_truth=IgDeal.PaymentTruth.CONFIRMED,
+        )
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=previous,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("2100.00"),
+        )
+        ensure_episode_for_deal(previous)
+        order = Order.objects.create(
+            full_name="Історична відправка",
+            phone="380500000001",
+            city="Київ",
+            np_office="1",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+            status="ship",
+            tracking_number="20451495590001",
+        )
+        link_order_to_client(order, client=client, actor=self.manager)
+
+        current = IgDeal.objects.create(client=client, status=IgDeal.Status.DRAFT)
+        ensure_episode_for_deal(current)
+
+        card = next(
+            row
+            for row in self.http.get(
+                reverse("management_bot_clients_api") + f"?client_id={client.pk}"
+            ).json()["clients"]
+            if row["id"] == client.pk
+        )
+
+        self.assertEqual(card["commercial_visual_state"], "")
+        self.assertEqual(card["commercial_visual_state_label"], "")
 
 
 class BuyerBadgeTemplateTests(TestCase):

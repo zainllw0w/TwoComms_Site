@@ -388,14 +388,56 @@ def current_payment_confirmation(client) -> dict:
     if not client or not getattr(client, "pk", None):
         return empty
 
-    if client_has_verified_payment(client):
+    current_episode = getattr(client, "current_commercial_episode", None)
+    current_episode_id = getattr(client, "current_commercial_episode_id", None)
+    if current_episode_id and current_episode is None:
+        from management.ig_bot_models import IgCommercialEpisode
+
+        current_episode = IgCommercialEpisode.objects.filter(
+            pk=current_episode_id,
+            client_id=client.pk,
+        ).first()
+
+    if current_episode is not None:
+        provider_confirmed = getattr(
+            client, "has_current_episode_provider_payment", None
+        )
+        if provider_confirmed is None:
+            prefetched = getattr(client, "_verified_payment_deals", None)
+            if prefetched is not None:
+                provider_confirmed = any(
+                    deal.pk == current_episode.deal_id for deal in prefetched
+                )
+            else:
+                provider_confirmed = bool(
+                    current_episode.deal_id
+                    and verified_payment_deals(
+                        client.deals.filter(pk=current_episode.deal_id)
+                    ).exists()
+                )
+    else:
+        provider_confirmed = client_has_verified_payment(client)
+    if provider_confirmed:
         return {
             "confirmed": True,
             "source": "provider",
             "note": "Оплату підтверджено платіжним провайдером.",
         }
 
-    manager_confirmed = getattr(client, "has_current_manager_confirmation", None)
+    if current_episode is not None:
+        manager_confirmed = getattr(
+            client, "has_current_episode_manager_confirmation", None
+        )
+        if manager_confirmed is None:
+            manager_confirmed = bool(
+                current_episode.primary_payment_review_id
+                and client.payment_confirmation_reviews.filter(
+                    current_manager_confirmation_review_q(),
+                    pk=current_episode.primary_payment_review_id,
+                ).exists()
+            )
+    else:
+        manager_confirmed = getattr(client, "has_current_manager_confirmation", None)
     if manager_confirmed is None:
         manager_confirmed = client.payment_confirmation_reviews.filter(
             current_manager_confirmation_review_q()
@@ -407,7 +449,22 @@ def current_payment_confirmation(client) -> dict:
             "note": "Поточну оплату підтверджено менеджером.",
         }
 
-    paid_order = getattr(client, "has_current_paid_linked_order", None)
+    if current_episode is not None:
+        paid_order = getattr(
+            client, "has_current_episode_paid_linked_order", None
+        )
+        if paid_order is None:
+            from orders.models import Order
+
+            paid_order = bool(
+                current_episode.intended_order_id
+                and Order.objects.filter(
+                    pk=current_episode.intended_order_id,
+                    payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+                ).exists()
+            )
+    else:
+        paid_order = getattr(client, "has_current_paid_linked_order", None)
     if paid_order is None:
         from management.ig_bot_models import IgOrderAssignment, IgOrderAttribution
 
