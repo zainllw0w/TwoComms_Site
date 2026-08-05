@@ -23,6 +23,29 @@ from management.services import gemini_keys, instagram_bot
 from orders.models import Order
 
 
+class GeminiFailureRoutingTests(TestCase):
+    def test_transient_live_pool_summaries_are_provider_outages(self):
+        for marker in ("read_timeout", "transport", "quota_429", "http_408", "http_5xx"):
+            with self.subTest(marker=marker):
+                error = call_ai_analysis.CallAIAnalysisError(
+                    f"Усі Gemini-кандидати для live chat недоступні. Спроби: {marker}"
+                )
+                self.assertEqual(
+                    instagram_bot._gemini_failure_kind(error),
+                    "provider_outage",
+                )
+
+    def test_payload_or_safety_failures_are_not_provider_outages(self):
+        error = call_ai_analysis.CallAIAnalysisError(
+            "Помилка запиту до Gemini: malformed request payload"
+        )
+
+        self.assertEqual(
+            instagram_bot._gemini_failure_kind(error),
+            "generation_error",
+        )
+
+
 class LiveReplyLanguageTests(TestCase):
     def test_english_message_is_detected_as_english(self):
         self.assertEqual(
@@ -175,7 +198,8 @@ class LiveReplyLanguageTests(TestCase):
 
         reply = bot_followups.compose_followup(task)
 
-        self.assertIn("Is this order still relevant", reply)
+        self.assertEqual(bot_sales_classifier.detect_language(reply), "en")
+        self.assertIn("order", reply.lower())
 
 
 class LiveReplyKeyPriorityTests(TestCase):
@@ -1189,3 +1213,200 @@ class DeterministicReplyFallbackTests(TestCase):
         row.refresh_from_db()
         self.assertEqual(row.status, InstagramBotMessage.Status.DONE)
         self.assertIn("manager", send_text.call_args.args[2].lower())
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text")
+    def test_generic_provider_outage_queues_one_recovery_without_false_manager_handoff(
+        self, send_text, _generate, _sender_action
+    ):
+        from management.models import IgAiReplyRecoveryJob
+        from management.services.instagram_bot import ProviderDeliveryReceipt
+
+        source = self._pending("Can you help me choose a T-shirt?", "generic-outage")
+
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        def confirmed_holding(*_args, **_kwargs):
+            # The recovery intent must survive a process death during the
+            # holding-message send, so it precedes the Meta boundary.
+            job = IgAiReplyRecoveryJob.objects.get(source_message=source)
+            self.pre_send_recovery_state = (
+                job.holding_message_id,
+                job.activated_at,
+            )
+            return ProviderDeliveryReceipt(True, "", "", "meta-outage-holding-1")
+
+        _generate.side_effect = typed_provider_outage
+        send_text.side_effect = confirmed_holding
+
+        with patch.object(instagram_bot, "log") as logs:
+            self.assertEqual(
+                instagram_bot.process_pending(self.settings, max_items=1),
+                1,
+                logs.call_args_list,
+            )
+        self.assertEqual(self.pre_send_recovery_state, (None, None))
+
+        reply = send_text.call_args.args[2].lower()
+        job = IgAiReplyRecoveryJob.objects.get(source_message=source)
+        source.refresh_from_db()
+        self.client.refresh_from_db()
+        self.assertNotIn("manager", reply)
+        self.assertEqual(source.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(job.status, IgAiReplyRecoveryJob.Status.PENDING)
+        self.assertIsNotNone(job.holding_message_id)
+        self.assertNotEqual(self.client.stage, IgClient.Stage.LEAD_TO_MANAGER)
+
+    def test_recovery_schedule_failure_is_terminal_with_known_unsent_state(self):
+        source = self._pending("Can you help me choose a T-shirt?", "recovery-schedule-failed")
+
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        with patch(
+            "management.services.instagram_bot.gemini_generate",
+            side_effect=typed_provider_outage,
+        ), patch(
+            "management.services.instagram_bot.send_sender_action"
+        ), patch(
+            "management.services.instagram_bot.send_text"
+        ) as send_text, patch(
+            "management.services.ig_ai_reply_recovery.schedule_recovery",
+            side_effect=RuntimeError("recovery storage unavailable"),
+        ):
+            self.assertEqual(instagram_bot.process_pending(self.settings, max_items=1), 0)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, InstagramBotMessage.Status.FAILED)
+        self.assertEqual(source.send_state, "failed")
+        send_text.assert_not_called()
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate", return_value=None)
+    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    def test_untyped_generation_failure_never_schedules_outage_recovery(
+        self, send_text, _generate, _sender_action
+    ):
+        from management.models import IgAiReplyRecoveryJob
+
+        source = self._pending("Can you help me choose a T-shirt?", "untyped-none")
+
+        self.assertEqual(instagram_bot.process_pending(self.settings, max_items=1), 1)
+
+        self.client.refresh_from_db()
+        self.assertFalse(
+            IgAiReplyRecoveryJob.objects.filter(source_message=source).exists()
+        )
+        self.assertIn("manager", send_text.call_args.args[2].lower())
+        self.assertEqual(self.client.stage, IgClient.Stage.LEAD_TO_MANAGER)
+
+
+class LiveReplyReceiptTests(TestCase):
+    def setUp(self):
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = True
+        self.settings.save(update_fields=["is_enabled", "ai_enabled"])
+        self.client = IgClient.get_or_create_for_sender("live-receipt-client")
+
+    def _pending(self, suffix: str) -> InstagramBotMessage:
+        return InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Підкажіть, будь ласка, ціну.",
+            mid=f"live-receipt-{suffix}",
+            status=InstagramBotMessage.Status.PENDING,
+        )
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate", return_value="Зараз підкажу ціну.")
+    @patch("management.services.instagram_bot.send_text")
+    def test_confirmed_meta_receipt_persists_history_and_reply_time(
+        self, send_text, _generate, _sender_action
+    ):
+        from management.services.instagram_bot import ProviderDeliveryReceipt
+
+        send_text.return_value = ProviderDeliveryReceipt(
+            True, "", "", "meta-live-receipt-1"
+        )
+        source = self._pending("confirmed")
+
+        self.assertEqual(instagram_bot.process_pending(self.settings, max_items=1), 1)
+
+        source.refresh_from_db()
+        reply = InstagramBotMessage.objects.get(
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.MODEL,
+        )
+        self.client.refresh_from_db()
+        self.assertEqual(source.send_state, "sent")
+        self.assertEqual(reply.provider_message_id, "meta-live-receipt-1")
+        self.assertIsNotNone(self.client.last_bot_reply_at)
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate", return_value="Зараз підкажу ціну.")
+    @patch("management.services.instagram_bot.send_text")
+    def test_meta_success_without_receipt_is_ambiguous_not_sent(
+        self, send_text, _generate, _sender_action
+    ):
+        from management.services.instagram_bot import ProviderDeliveryReceipt
+
+        send_text.return_value = ProviderDeliveryReceipt(True, "", "", "")
+        source = self._pending("missing")
+
+        self.assertEqual(instagram_bot.process_pending(self.settings, max_items=1), 0)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, InstagramBotMessage.Status.FAILED)
+        self.assertEqual(source.send_state, "unknown")
+        self.assertFalse(
+            InstagramBotMessage.objects.filter(
+                sender_id=self.client.igsid,
+                role=InstagramBotMessage.Role.MODEL,
+            ).exists()
+        )
+
+    @patch("management.services.instagram_bot._clear_client_delivery_error")
+    @patch("management.services.instagram_bot._clear_send_error")
+    @patch("management.services.instagram_bot._register_outgoing_message")
+    @patch("management.services.instagram_bot._mark_bot_sent")
+    @patch("management.services.instagram_bot._provider_url", return_value="https://meta.test/messages")
+    @patch("management.services.instagram_bot.provider_transport")
+    @patch("management.services.instagram_bot.get_page_token", return_value="token")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="account")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_second_meta_chunk_without_id_is_unknown(
+        self,
+        provider_http,
+        _account,
+        _token,
+        transport,
+        _url,
+        _mark,
+        _register,
+        _clear_send,
+        _clear_client,
+    ):
+        provider_http.side_effect = [
+            (200, '{"message_id":"first-chunk"}'),
+            (200, "{}"),
+        ]
+        transport.return_value = instagram_bot.INSTAGRAM_LOGIN_TRANSPORT
+
+        receipt = instagram_bot.send_text(
+            self.settings,
+            self.client.igsid,
+            "a" * 951,
+            return_receipt=True,
+        )
+
+        self.assertIsInstance(receipt, instagram_bot.ProviderDeliveryReceipt)
+        self.assertFalse(receipt.ok)
+        self.assertEqual(receipt.kind, "unknown")
+        self.assertEqual(receipt.hint, "provider_message_id_missing")
+        self.assertEqual(provider_http.call_count, 2)

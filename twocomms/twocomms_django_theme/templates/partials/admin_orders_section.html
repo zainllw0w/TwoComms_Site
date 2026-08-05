@@ -115,16 +115,14 @@
 .oadm-block__title svg { color:var(--o-accent); }
 .oadm-kv { display:flex; flex-direction:column; gap:7px; }
 .oadm-kv__row { display:flex; align-items:baseline; gap:8px; font-size:.9rem; }
-.oadm-kv__row--delivery { align-items:flex-start; }
 .oadm-kv__row .k { color:var(--o-muted); min-width:64px; flex:0 0 auto; font-size:.8rem; }
 .oadm-kv__row .v { color:var(--o-text); font-weight:600; word-break:break-word; }
 .oadm-kv__row .v a { color:var(--o-text); text-decoration:none; }
 .oadm-kv__row .v a:hover { color:var(--o-accent); }
-.oadm-kv__value--delivery { flex:1 1 auto; min-width:0; }
 .order-delivery { --delivery-color:#fb923c; --delivery-tint:rgba(249,115,22,.075); --delivery-line:rgba(249,115,22,.32);
   display:grid; grid-template-columns:36px minmax(0,1fr); gap:10px; padding:10px 11px 10px 10px;
   border-left:3px solid var(--delivery-color); border-radius:5px; background:var(--delivery-tint); }
-.oadm-delivery-point { margin:1px 0 4px; }
+.oadm-shipping { margin-top:2px; min-width:0; }
 .order-delivery--postomat { --delivery-color:#38bdf8; --delivery-tint:rgba(56,189,248,.075); --delivery-line:rgba(56,189,248,.34); }
 .order-delivery--address { --delivery-color:#94a3b8; --delivery-tint:rgba(148,163,184,.065); --delivery-line:rgba(148,163,184,.28); }
 .order-delivery--missing { --delivery-color:#fbbf24; --delivery-tint:rgba(245,158,11,.075); --delivery-line:rgba(245,158,11,.34); }
@@ -139,8 +137,20 @@
 .order-delivery__number--missing { color:#fbbf24; font-size:.72rem; font-weight:800; }
 .order-delivery__city { display:block; color:#e2e8f0; font-size:.8rem; font-weight:700; line-height:1.3; margin-top:4px; overflow-wrap:anywhere; }
 .order-delivery__address { display:block; color:var(--o-muted, #94a3b8); font-size:.76rem; font-weight:600; line-height:1.4; margin-top:3px; overflow-wrap:anywhere; }
-.ttn-info .ttn-pending { color:var(--o-amber); font-weight:600; }
-.delivery-item { display:flex; align-items:baseline; gap:8px; font-size:.9rem; color:var(--o-text); }
+.oadm-shipping__tracking { grid-column:1 / -1; display:flex; flex-direction:column; gap:7px; min-width:0; padding-top:8px;
+  border-top:1px solid var(--delivery-line); }
+.oadm .oadm-shipping .delivery-item { display:flex; flex-direction:row; align-items:center; flex-wrap:wrap; justify-content:flex-start;
+  gap:6px 8px; min-width:0; min-height:0; padding:0; border:0; border-radius:0; background:transparent; position:static;
+  overflow:visible; color:var(--o-text); font-size:.8rem; transition:none; transform:none; box-shadow:none; }
+.oadm .oadm-shipping .delivery-item:hover { padding:0; border:0; background:transparent; transform:none; box-shadow:none; }
+.oadm .oadm-shipping .delivery-item::before,
+.oadm .oadm-shipping .delivery-item:hover::before { content:none; display:none; }
+.oadm-shipping__label { flex:0 0 auto; color:var(--o-muted); font-size:.7rem; font-weight:800; text-transform:uppercase; }
+.ttn-info { display:inline-flex; align-items:center; flex-wrap:wrap; gap:5px; min-width:0; font-weight:700; }
+.ttn-info a { color:#fff; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums;
+  text-decoration:none; overflow-wrap:anywhere; user-select:all; }
+.ttn-info a:hover { color:var(--delivery-color); }
+.ttn-info .ttn-pending { color:var(--o-amber); font-weight:700; }
 
 /* Payment block */
 .oadm-pay { display:flex; flex-direction:column; gap:12px; }
@@ -280,12 +290,13 @@
 .oadm-fact--discount b { color:#f472b6; }
 
 /* ===== NP shipment status ===== */
-.oadm-np-status { display:inline-flex; align-items:center; gap:7px; margin-top:2px; padding:6px 11px; border-radius:10px;
-  background:rgba(56,189,248,.1); border:1px solid rgba(56,189,248,.26); font-size:.82rem; color:#bae6fd; }
-.oadm-np-status__dot { width:8px; height:8px; border-radius:50%; background:#38bdf8; flex:0 0 auto;
+.oadm-np-status { display:grid; grid-template-columns:8px minmax(0,1fr) auto; align-items:start; gap:7px; width:100%; min-width:0;
+  padding:6px 8px; border-radius:7px; background:rgba(56,189,248,.08); font-size:.76rem; line-height:1.4; color:#bae6fd; }
+.oadm-np-status__dot { width:8px; height:8px; margin-top:3px; border-radius:50%; background:#38bdf8; flex:0 0 auto;
   box-shadow:0 0 0 0 rgba(56,189,248,.6); animation:oadm-np-pulse 2s ease-in-out infinite; }
 @keyframes oadm-np-pulse { 0%,100% { box-shadow:0 0 0 0 rgba(56,189,248,.5); } 50% { box-shadow:0 0 0 6px rgba(56,189,248,0); } }
-.oadm-np-status time { color:rgba(186,230,253,.6); margin-left:2px; }
+.oadm-np-status__text { min-width:0; overflow-wrap:anywhere; }
+.oadm-np-status time { color:rgba(186,230,253,.6); white-space:nowrap; }
 
 /* ===== Manager comment sticky-note ===== */
 .oadm-note { display:flex; gap:11px; margin-top:14px; padding:13px 15px; border-radius:14px;
@@ -316,9 +327,14 @@
 .oadm-items__chk:checked ~ .oadm-items__toggle svg { transform:rotate(180deg); }
 .oadm-items__toggle svg { transition:transform .2s ease; }
 
-/* Cancel + reason */
-.oadm-actions-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; }
-.oadm-operations { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--o-line); }
+/* Order actions + cancellation reason */
+.oadm-action-bar { display:flex; align-items:stretch; flex-wrap:wrap; gap:8px; width:100%; margin-top:14px; padding-top:12px;
+  border-top:1px solid var(--o-line); }
+.oadm-action-bar > .oadm-edit-btn,
+.oadm-action-bar > .oadm-cancel-btn,
+.oadm-action-bar > .oadm-operation { flex:1 1 0; min-width:0; min-height:42px; justify-content:center;
+  padding:9px 12px; text-align:center; line-height:1.2; white-space:normal; }
+.oadm-action-bar--single > .oadm-edit-btn { flex:0 1 360px; max-width:360px; }
 .oadm-operation { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:8px 13px;
   border-radius:10px; border:1px solid var(--o-line-2); color:var(--o-text); background:rgba(8,14,23,.5);
   font-size:.82rem; font-weight:700; text-decoration:none; transition:transform .15s ease, border-color .15s ease, background .15s ease; }
@@ -327,14 +343,14 @@
 .oadm-operation--np { color:#bfdbfe; border-color:rgba(59,130,246,.3); background:rgba(59,130,246,.1); }
 .oadm-operation--stock { color:#bbf7d0; border-color:rgba(34,197,94,.3); background:rgba(34,197,94,.1); }
 .oadm-operation--unlink { color:#fecdd3; border-color:rgba(251,113,133,.3); background:rgba(251,113,133,.1); }
-@media (max-width:640px) { .oadm-operation { flex:1 1 100%; } }
-.order-cancel-actions { display:flex; flex-direction:column; gap:8px; }
-.oadm-cancel-btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:11px; cursor:pointer;
+.oadm-cancel-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 16px; border-radius:11px; cursor:pointer;
   border:1px solid rgba(251,113,133,.3); background:rgba(251,113,133,.08); color:var(--o-red); font-size:.85rem; font-weight:700; transition:all .15s ease; }
 .oadm-cancel-btn:hover { background:rgba(251,113,133,.2); }
-.oadm-edit-btn { display:inline-flex; align-items:center; gap:7px; padding:9px 16px; border-radius:11px; cursor:pointer;
+.oadm-edit-btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 16px; border-radius:11px; cursor:pointer;
   border:1px solid rgba(249,115,22,.35); background:linear-gradient(135deg, rgba(249,115,22,.16), rgba(251,146,60,.1));
   color:#fdba74; font-size:.85rem; font-weight:700; transition:transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.oadm-action-bar > :is(.oadm-edit-btn, .oadm-cancel-btn, .oadm-operation):focus-visible { outline:2px solid var(--o-accent); outline-offset:2px; }
+.oadm-action-bar svg { flex:0 0 auto; }
 .oadm-edit-btn svg { transition:transform .25s ease; }
 .oadm-edit-btn:hover { background:linear-gradient(135deg, rgba(249,115,22,.28), rgba(251,146,60,.18)); color:#fff;
   transform:translateY(-1px); box-shadow:0 8px 22px rgba(249,115,22,.22); }
@@ -347,8 +363,8 @@
   100% { box-shadow:0 18px 50px rgba(2,8,23,.28); }
 }
 @media (prefers-reduced-motion:reduce) { .oadm .admin-order-card.is-just-edited { animation:none; } }
-.cancel-reason-box { padding:10px 14px; border-radius:11px; background:rgba(251,113,133,.1) !important; color:#fecaca !important;
-  border:1px solid rgba(251,113,133,.28); font-size:.84rem; }
+.cancel-reason-box { flex:1 0 100%; width:100%; margin-top:0 !important; padding:10px 14px; border-radius:11px;
+  background:rgba(251,113,133,.1) !important; color:#fecaca !important; border:1px solid rgba(251,113,133,.28); font-size:.84rem; }
 
 /* Screenshot */
 .payment-screenshot-collapsible { margin-top:14px; border:1px solid var(--o-line); border-radius:14px; overflow:hidden; }
@@ -408,6 +424,13 @@
   .oadm-grid { grid-template-columns:1fr; }
   .oadm-card__pad { padding:15px 14px; }
   .oadm-head__right { width:100%; justify-content:space-between; }
+  .oadm-action-bar { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .oadm-action-bar > .oadm-edit-btn,
+  .oadm-action-bar > .oadm-cancel-btn,
+  .oadm-action-bar > .oadm-operation { width:100%; height:100%; }
+  .oadm-action-bar--single > .oadm-edit-btn { max-width:none; }
+  .oadm-action-bar > :is(.oadm-edit-btn, .oadm-cancel-btn, .oadm-operation):nth-child(odd):not(:has(~ :is(.oadm-edit-btn, .oadm-cancel-btn, .oadm-operation))) { grid-column:1 / -1; }
+  .oadm-action-bar > .cancel-reason-box { grid-column:1 / -1; }
   .oadm-node__dot { width:36px; height:36px; }
   .oadm-node__dot svg { width:15px; height:15px; }
   .oadm-node__label { font-size:.64rem; }
@@ -424,12 +447,15 @@
   .oadm-item__price { text-align:left; width:100%; display:flex; gap:14px; align-items:baseline; }
   .oadm-stage { font-size:.74rem; }
   .oadm-avatar { width:34px; height:34px; }
-  .oadm-kv__row--delivery { display:block; }
-  .oadm-kv__row--delivery > .k { display:block; margin-bottom:6px; }
-  .oadm-delivery-point { grid-template-columns:34px minmax(0,1fr); gap:9px; padding:9px 10px 9px 9px; }
-  .oadm-delivery-point .order-delivery__icon { width:34px; height:34px; }
-  .oadm-delivery-point .order-delivery__kind-full { display:none; }
-  .oadm-delivery-point .order-delivery__kind-short { display:inline; }
+  .oadm-shipping { grid-template-columns:34px minmax(0,1fr); gap:9px; padding:9px 10px 9px 9px; }
+  .oadm-shipping .order-delivery__icon { width:34px; height:34px; }
+  .oadm-shipping .order-delivery__kind-full { display:none; }
+  .oadm-shipping .order-delivery__kind-short { display:inline; }
+  .oadm-np-status { grid-template-columns:8px minmax(0,1fr); }
+  .oadm-np-status time { grid-column:2; }
+}
+@media (max-width:340px) {
+  .oadm-action-bar { grid-template-columns:1fr; }
 }
 </style>
 
@@ -598,49 +624,45 @@
               <div class="oadm-kv">
                 <div class="oadm-kv__row"><span class="k">Телефон</span><span class="v"><a href="tel:{{ o.phone }}">{{ o.phone }}</a></span></div>
                 {% if o.user.email %}<div class="oadm-kv__row"><span class="k">Email</span><span class="v">{{ o.user.email }}</span></div>{% endif %}
-                <div class="oadm-kv__row oadm-kv__row--delivery"><span class="k">Доставка</span><div class="v oadm-kv__value--delivery">
-                  <div class="oadm-delivery-point order-delivery{% if o.delivery_display.kind == 'postomat' %} order-delivery--postomat{% elif o.delivery_display.kind == 'address' %} order-delivery--address{% elif o.delivery_display.kind == 'missing' %} order-delivery--missing{% endif %}">
-                    <span class="order-delivery__icon" aria-hidden="true">
-                      {% if o.delivery_display.kind == 'missing' %}
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></svg>
-                      {% elif o.delivery_display.kind == 'postomat' %}
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 10h16M12 3v18M8 6h.01M16 6h.01M8 14h.01M16 14h.01"/></svg>
-                      {% elif o.delivery_display.kind == 'address' %}
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                      {% else %}
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h16M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-5h4v5"/></svg>
-                      {% endif %}
-                    </span>
-                    <span class="order-delivery__meta">
-                      <span class="order-delivery__top">
-                        <span class="order-delivery__kind">{% if o.delivery_display.kind == 'missing' %}Дані доставки не вказані{% elif o.delivery_display.kind == 'address' %}Адресна доставка{% else %}<span class="order-delivery__kind-full">Нова пошта · {{ o.delivery_display.kind_label }}</span><span class="order-delivery__kind-short">{{ o.delivery_display.kind_label }}</span>{% endif %}</span>
-                        {% if o.delivery_display.kind != 'missing' %}{% if o.delivery_display.number %}<strong class="order-delivery__number">№ {{ o.delivery_display.number }}</strong>{% elif o.delivery_display.kind != 'address' %}<strong class="order-delivery__number order-delivery__number--missing">№ не вказано</strong>{% endif %}{% endif %}
-                      </span>
-                      {% if o.delivery_display.city %}<span class="order-delivery__city">{{ o.delivery_display.city }}</span>{% endif %}
-                      <span class="order-delivery__address">{{ o.delivery_display.address|default:'Адреса не вказана' }}</span>
-                    </span>
+                <div class="oadm-shipping order-delivery{% if o.delivery_display.kind == 'postomat' %} order-delivery--postomat{% elif o.delivery_display.kind == 'address' %} order-delivery--address{% elif o.delivery_display.kind == 'missing' %} order-delivery--missing{% endif %}">
+                  <span class="order-delivery__icon" aria-hidden="true">
+                    {% if o.delivery_display.kind == 'missing' %}
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                    {% elif o.delivery_display.kind == 'postomat' %}
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 10h16M12 3v18M8 6h.01M16 6h.01M8 14h.01M16 14h.01"/></svg>
+                    {% elif o.delivery_display.kind == 'address' %}
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                    {% else %}
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h16M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-5h4v5"/></svg>
+                    {% endif %}
+                  </span>
+                  <div class="order-delivery__meta">
+                    <div class="order-delivery__top">
+                      <span class="order-delivery__kind">{% if o.delivery_display.kind == 'missing' %}Дані доставки не вказані{% elif o.delivery_display.kind == 'address' %}Адресна доставка{% else %}<span class="order-delivery__kind-full">Нова пошта · {{ o.delivery_display.kind_label }}</span><span class="order-delivery__kind-short">{{ o.delivery_display.kind_label }}</span>{% endif %}</span>
+                      {% if o.delivery_display.kind != 'missing' %}{% if o.delivery_display.number %}<strong class="order-delivery__number">№ {{ o.delivery_display.number }}</strong>{% elif o.delivery_display.kind != 'address' %}<strong class="order-delivery__number order-delivery__number--missing">№ не вказано</strong>{% endif %}{% endif %}
+                    </div>
+                    {% if o.delivery_display.city %}<span class="order-delivery__city">{{ o.delivery_display.city }}</span>{% endif %}
+                    <span class="order-delivery__address">{{ o.delivery_display.address|default:'Адреса не вказана' }}</span>
                   </div>
-                </div></div>
-                <div class="oadm-kv__row delivery-item" data-field="ttn">
-                  <span class="k">ТТН</span>
-                  <span class="v ttn-info">
-                    {% if o.tracking_number %}
-                      <a href="https://novaposhta.ua/tracking/?cargo_number={{ o.tracking_number }}" target="_blank" rel="noopener">{{ o.tracking_number }}</a>
-                      {% if o.nova_poshta_document_ref %}<span class="oadm-badge oadm-badge--web">API</span>{% else %}<span class="oadm-badge oadm-badge--manual">Ручна ТТН</span>{% endif %}
-                    {% else %}<span class="ttn-pending">очікується</span>{% endif %}
-                  </span>
-                </div>
-                {% if o.shipment_status %}
-                <div class="oadm-kv__row">
-                  <span class="k">НП</span>
-                  <span class="v">
-                    <span class="oadm-np-status">
+                  <div class="oadm-shipping__tracking">
+                    <div class="delivery-item" data-field="ttn">
+                      <span class="oadm-shipping__label">ТТН</span>
+                      <span class="ttn-info">
+                        {% if o.tracking_number %}
+                          <a href="https://novaposhta.ua/tracking/?cargo_number={{ o.tracking_number }}" target="_blank" rel="noopener">{{ o.tracking_number }}</a>
+                          {% if o.nova_poshta_document_ref %}<span class="oadm-badge oadm-badge--web">API</span>{% else %}<span class="oadm-badge oadm-badge--manual">Ручна ТТН</span>{% endif %}
+                        {% else %}<span class="ttn-pending">очікується</span>{% endif %}
+                      </span>
+                    </div>
+                    {% if o.shipment_status %}
+                    <div class="oadm-shipping__status oadm-np-status">
                       <span class="oadm-np-status__dot"></span>
-                      {{ o.shipment_status }}{% if o.shipment_status_updated %}<time> · {{ o.shipment_status_updated|date:"d.m H:i" }}</time>{% endif %}
-                    </span>
-                  </span>
+                      <span class="oadm-np-status__text">{{ o.shipment_status }}</span>
+                      {% if o.shipment_status_updated %}<time datetime="{{ o.shipment_status_updated|date:'c' }}">{{ o.shipment_status_updated|date:"d.m H:i" }}</time>{% endif %}
+                    </div>
+                    {% endif %}
+                  </div>
                 </div>
-                {% endif %}
               </div>
             </div>
 
@@ -780,16 +802,6 @@
                 {% if o.cancellation_comment %} {{ o.cancellation_comment }}{% endif %}
               </span>
             </div>
-            <div class="oadm-actions-row">
-              <button class="oadm-edit-btn" type="button"
-                      data-edit-order="{{ o.id }}"
-                      data-data-url="{% url 'manual_order_edit_data' o.id %}"
-                      data-submit-url="{% url 'manual_order_edit' o.id %}"
-                      data-order-number="{{ o.order_number }}">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                Редагувати замовлення
-              </button>
-            </div>
           {% else %}
             <div class="oadm-track" data-status="{{ o.status }}">
               <div class="oadm-stage">
@@ -824,24 +836,24 @@
               </div>
             </div>
 
-            <div class="oadm-actions-row order-cancel-actions">
-              <button class="oadm-edit-btn" type="button"
-                      data-edit-order="{{ o.id }}"
-                      data-data-url="{% url 'manual_order_edit_data' o.id %}"
-                      data-submit-url="{% url 'manual_order_edit' o.id %}"
-                      data-order-number="{{ o.order_number }}">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                Редагувати замовлення
-              </button>
+          {% endif %}
+
+          <div class="oadm-action-bar order-cancel-actions{% if o.status == 'cancelled' %} oadm-action-bar--single{% endif %}" aria-label="Дії замовлення">
+            <button class="oadm-edit-btn" type="button"
+                    data-edit-order="{{ o.id }}"
+                    data-data-url="{% url 'manual_order_edit_data' o.id %}"
+                    data-submit-url="{% url 'manual_order_edit' o.id %}"
+                    data-order-number="{{ o.order_number }}">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+              Редагувати замовлення
+            </button>
+
+            {% if o.status != 'cancelled' %}
               <button class="oadm-cancel-btn" type="button" onclick="updateOrderStatus('{{ o.id }}', 'cancelled')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 Скасувати замовлення
               </button>
-            </div>
-          {% endif %}
 
-          {% if o.status != 'cancelled' %}
-            <div class="oadm-operations" aria-label="Операції замовлення">
               {% if o.status != 'done' and o.nova_poshta_document_ref %}
                 <a class="oadm-operation oadm-operation--unlink" data-admin-operation="nova-poshta-unlink"
                    href="{% url 'admin_order_nova_poshta_action' o.id %}" target="_blank" rel="noopener">
@@ -869,8 +881,8 @@
                   Списати зі складу
                 </a>
               {% endif %}
-            </div>
-          {% endif %}
+            {% endif %}
+          </div>
 
           <!-- Screenshot -->
           {% if o.payment_screenshot %}

@@ -17,5 +17,18 @@ proof. Branch-only work is listed in `12_SOURCE_RECONCILIATION.md`, not here.
 | IMP-099 | `66acb900`, `2f1efa4b` | Cyrillic sizes, TTN deadline/stage advance, transcript-bound media, fast-return payer |
 | IMP-058 | `274c2c61`, `79882368`, `92d46c5a` | Durable event-time funnel analytics, classified drop-offs, 17 event types, MySQL backfill/scan proof |
 | IMP-089 | `280c07e8` | Bounded superseded-invoice lifecycle, polling recovery, terminal markers, legacy materialization, MySQL migration `0134` and daemon/check-only proof |
+| IMP-077 / F-OPS-009 | `31f8151f`, `221cf37d` | Flow throttle/dedupe/admin links plus terminal summary, lifecycle-key separation, Ukrainian lifecycle copy and a single actionable failed-paylink alert |
+| F-PAY-015 / daemon reconcile | `280d8f03`, `93ae8684` | Superseded review audit links are non-owning; repeated backfill preserves separate terminal episodes; MySQL reconcile and daemon recovery verified |
+| F-CAT-007 / prompt parity | `e44d1440`, `0ad694bc` | Prompt sizes bind to exact variant+fit; authoritative empty size contract no longer falls back to product-wide sizes; product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
+| IMP-102 / F-FUP-013 / IMPR-FUP-014 | `0d4d38c0`, `0e9e9ba5`, `4cb86743`, `414e639e` | Durable follow-up delivery FSM, receipt-first recovery without resend, guarded finalization race and audited ambiguous manager resolution |
 
 The current canonical status is the checkbox list in `07_IMPLEMENTATION_PLAN.md`.
+`IMP-081` is intentionally absent from the completed table: its deployed
+semantic/inventory foundation is useful and verified, but the task remains
+PARTIAL until runtime/admin consumers and a disposable MariaDB gate exist.
+
+`IMP-082/083` are also intentionally absent from the completed table. Their
+typed price-aware graph/ranker foundation is deployed through `7b5d5cc7`,
+`1c4d6d48`, while `e44d1440`/`0ad694bc` add verified prompt price/size parity.
+The tasks remain PARTIAL because durable runtime commerce-session integration,
+stale binding, relaxed alternatives and full topology remain open.

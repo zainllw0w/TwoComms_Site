@@ -14,6 +14,7 @@ from management.models import (
     IgPaymentProjection,
     InstagramBotSettings,
 )
+from management.services.instagram_bot import ProviderDeliveryReceipt
 
 
 KYIV = ZoneInfo("Europe/Kyiv")
@@ -296,7 +297,10 @@ class FollowupPolicyIntegrationTests(TestCase):
 
         self.assertTrue(allowed, reason)
 
-    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=ProviderDeliveryReceipt(True, "", "", "policy-g1"),
+    )
     def test_fulfillment_g1_schedules_g2_without_mutating_sales_counters(self, _send_text):
         from management.services.bot_followups import process_due_followups
 
@@ -370,7 +374,10 @@ class FollowupPolicyIntegrationTests(TestCase):
         send_text.assert_not_called()
 
     @patch("management.services.instagram_bot._deliver_manager_notification", return_value=True)
-    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=ProviderDeliveryReceipt(True, "", "", "policy-g3"),
+    )
     def test_fulfillment_g3_persists_idempotent_manager_escalation(
         self,
         _send_text,
@@ -438,7 +445,10 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertEqual(task.level, 0)
         self.assertEqual(task.due_at, self.now + timedelta(minutes=40))
 
-    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=ProviderDeliveryReceipt(True, "", "", "policy-next"),
+    )
     def test_sent_policy_step_schedules_the_next_step_without_spam(self, _send_text):
         from management.services.bot_followups import process_due_followups
 

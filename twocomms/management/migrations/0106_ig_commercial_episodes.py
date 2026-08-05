@@ -7,6 +7,15 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def _is_superseded_review(row):
+    """Support both the live model and the pre-0109 historical migration model."""
+    return bool(row is not None and getattr(row, "status", "") == "superseded")
+
+
+def _has_canonical_supersession(row):
+    return bool(_is_superseded_review(row) and getattr(row, "superseded_by_id", None))
+
+
 def _unmaterialized_component_counts(apps, alias):
     """Count source rows that still lack an owning commercial episode."""
     from django.db.models import Exists, OuterRef, Q
@@ -45,13 +54,13 @@ def _unmaterialized_component_counts(apps, alias):
             "intended_order_id"
         ),
     ) | Q(pk__in=attribution_review_ids)
-
     return {
         "deals": missing(IgDeal, "deal_id"),
         # Several review attempts may legitimately belong to one connected
         # commercial component. Only the newest is stored as the episode's
         # primary review; older rows are still materialized through the same
-        # deal, order, or attributed review edge.
+        # deal, order, or attributed review edge. Superseded reviews keep a
+        # separate audit episode; copied canonical links are not ownership.
         "reviews": IgPaymentConfirmationReview.objects.using(alias)
         .exclude(materialized_reviews)
         .count(),
@@ -138,6 +147,7 @@ def backfill_commercial_episodes(apps, schema_editor):
         claim("order", row.order_id, row.client_id)
     for row in reviews:
         claim("review", row.pk, row.client_id)
+        claim("review", getattr(row, "superseded_by_id", None), row.client_id)
         claim("deal", row.deal_id, row.client_id)
         claim("order", row.order_id, row.client_id)
         if row.deal_id and deal_owner.get(row.deal_id) != row.client_id:
@@ -201,6 +211,9 @@ def backfill_commercial_episodes(apps, schema_editor):
         for row in client_deals:
             union(f"d:{row.pk}", f"o:{row.order_id}" if row.order_id else None)
         for row in client_reviews:
+            if _has_canonical_supersession(row):
+                union(f"r:{row.pk}")
+                continue
             union(
                 f"r:{row.pk}",
                 f"d:{row.deal_id}" if row.deal_id else None,
@@ -241,6 +254,7 @@ def backfill_commercial_episodes(apps, schema_editor):
                 value for value in [
                     getattr(deal, "created_at", None),
                     *(getattr(row, "created_at", None) for row in review_rows),
+                    *(getattr(row, "superseded_at", None) for row in review_rows),
                     getattr(attribution, "created_at", None),
                     getattr(order, "created", None),
                 ] if value is not None
@@ -292,9 +306,13 @@ def backfill_commercial_episodes(apps, schema_editor):
                 IgCommercialEpisode.objects.using(alias).filter(relation_match)
             )
             if len(existing) > 1:
+                matching_episode_ids = sorted(episode.pk for episode in existing)
                 raise RuntimeError(
                     "Instagram commercial backfill collision: component already spans "
-                    "multiple commercial episodes"
+                    "multiple commercial episodes; "
+                    f"client_id={client_id} tokens={candidate['tokens']} "
+                    f"expected_relations={expected} "
+                    f"matching_episode_ids={matching_episode_ids}"
                 )
             if existing:
                 episode = existing[0]
@@ -377,6 +395,8 @@ def backfill_commercial_episodes(apps, schema_editor):
                 state, outcome = "cancelled", provider_truth
             elif order is not None:
                 state, outcome = "order_created", "order_created"
+            elif _is_superseded_review(review):
+                state, outcome = "lost", "superseded_duplicate_payment_review"
             elif review is not None and review.status == "cancelled":
                 state, outcome = "cancelled", "payment_rejected"
             elif (deal is not None and deal.status == "cancelled") or provider_truth in {

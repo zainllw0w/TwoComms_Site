@@ -802,13 +802,16 @@ class ConversationAnalysisJobTests(TestCase):
         generate.assert_not_called()
         send_text.assert_not_called()
 
-    def test_reconciliation_queues_changed_conversation_without_gemini(self):
+    def test_reconciliation_queues_changed_conversation_without_operational_effects(self):
         message = self.message("Новий діалог")
         settings = InstagramBotSettings.load()
         settings.analysis_reconcile_after = message.created_at - timedelta(seconds=1)
         settings.save(update_fields=["analysis_reconcile_after"])
 
-        with patch("management.services.bot_conversation_analysis.gemini_generate_json") as generate:
+        with (
+            patch("management.services.bot_conversation_analysis.gemini_generate_json") as generate,
+            patch("management.services.bot_sales_classifier.ensure_rule_classification") as classify,
+        ):
             result = analysis.reconcile_analysis_jobs(now=timezone.now())
 
         self.assertEqual(result["queued"], 1)
@@ -816,6 +819,29 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(job.watermark_message_id, message.id)
         self.assertEqual(job.trigger, "reconcile")
         generate.assert_not_called()
+        self.assertTrue(classify.called)
+        for call_args in classify.call_args_list:
+            self.assertFalse(call_args.kwargs.get("operational_effects", True))
+
+    @patch("management.services.ig_payment_review.create_payment_review")
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_completed_ai_analysis_never_creates_payment_review(self, generate, create_review):
+        message = self.message("Я оплатила, чек у вкладенні")
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+        generate.return_value = {
+            "parsed": {"interaction_type": "payment_pending", "score_band": "checkout"},
+            "model": "gemini-3.6-flash",
+            "meta": {},
+        }
+
+        result = analysis.process_due_analysis(limit=1)
+
+        self.assertEqual(result["done"], 1)
+        create_review.assert_not_called()
 
     def test_reconciliation_does_not_queue_pre_cutoff_history(self):
         message = self.message("Старий діалог")

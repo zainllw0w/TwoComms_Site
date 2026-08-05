@@ -31,6 +31,11 @@ from django.utils import timezone
 from management.models import InstagramBotSettings
 from management.services import bot_followups, bot_payments
 from management.services import instagram_bot as bot
+from management.services.ig_task_health import (
+    check_task_health,
+    ensure_task_expectations,
+    task_heartbeat,
+)
 from management.services.ig_maintenance import (
     DEFAULT_MAINTENANCE_SECONDS,
     MAINTENANCE_FILE,
@@ -50,6 +55,7 @@ ANALYSIS_RECONCILE_EVERY = 600         # bounded repair of missed scheduling, c
 ANALYSIS_RECONCILE_BATCH = 100
 RELOAD_LOCK_WAIT_SECONDS = 45
 DAEMON_START_WAIT_SECONDS = 15
+TASK_HEALTH_CHECK_EVERY = 60
 
 # Cron may invoke manage.py from an arbitrary working directory. Resolve the
 # entry point from this command module and keep the child in the Django root.
@@ -192,6 +198,27 @@ def _analysis_worker(stop_event: threading.Event):
         finally:
             close_old_connections()
         stop_event.wait(5)
+
+
+def _ai_reply_recovery_worker(stop_event: threading.Event):
+    """Drain one failed live-reply recovery independently of deep analysis."""
+    from management.services.ig_ai_reply_recovery import process_due_recoveries
+
+    while not stop_event.is_set():
+        worked = False
+        try:
+            close_old_connections()
+            if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                worked = bool(process_due_recoveries(limit=1))
+        except Exception as exc:
+            try:
+                bot.log("error", "ai_reply_recovery", repr(exc))
+            except Exception:
+                pass
+        finally:
+            close_old_connections()
+        if stop_event.wait(0.5 if worked else 2):
+            break
 
 
 def _inbox_refresh_worker(stop_event: threading.Event):
@@ -361,7 +388,8 @@ class Command(BaseCommand):
             return
 
         if opts["ensure"]:
-            return self._ensure()
+            with task_heartbeat("ig_daemon_watchdog"):
+                return self._ensure()
 
         if opts["forever"]:
             return self._forever()
@@ -496,6 +524,12 @@ class Command(BaseCommand):
             daemon=True,
         )
         analysis_worker.start()
+        recovery_worker = threading.Thread(
+            target=_ai_reply_recovery_worker,
+            args=(stop_event,),
+            daemon=True,
+        )
+        recovery_worker.start()
         inbox_refresh_worker = threading.Thread(
             target=_inbox_refresh_worker,
             args=(stop_event,),
@@ -512,6 +546,8 @@ class Command(BaseCommand):
         from django.utils import timezone as tz
 
         last_poll = 0.0
+        last_task_health_check = 0.0
+        task_expectations_registered = False
         try:
             while True:
                 close_old_connections()  # лікує "MySQL server has gone away"
@@ -524,8 +560,13 @@ class Command(BaseCommand):
                     break
                 enabled = False
                 try:
+                    if not task_expectations_registered:
+                        task_expectations_registered = ensure_task_expectations()
                     s = InstagramBotSettings.load()
                     enabled, last_poll = _run_work_cycle(s, last_poll)
+                    if time.monotonic() - last_task_health_check >= TASK_HEALTH_CHECK_EVERY:
+                        check_task_health()
+                        last_task_health_check = time.monotonic()
                     # heartbeat для UI навіть коли зупинено (агент онлайн)
                     s.heartbeat_at = tz.now()
                     s.save(update_fields=["heartbeat_at"])

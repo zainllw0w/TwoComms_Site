@@ -37,9 +37,11 @@ from .models import (
     IgPaymentProjection,
     InstagramBotLog,
     InstagramBotSettings,
+    BotSecretEncryptionUnavailable,
 )
 from .ig_bot_models import IgCheckoutAccessToken, IgCheckoutProposal, IgCheckoutRevision, IgLifecycleEvent, IgFollowUpTask
 from .services import instagram_bot as bot
+from .services import bot_followups
 from .services.bot_payment_truth import (
     annotate_confirmed_purchase,
     annotate_verified_payment,
@@ -556,8 +558,8 @@ def bot_dashboard(request):
             "log_items": _log_items(),
             "cred_env": InstagramBotSettings.CredSource.ENV,
             "cred_custom": InstagramBotSettings.CredSource.CUSTOM,
-            "has_custom_direct_token": bool(settings_obj.custom_direct_token),
-            "has_custom_gemini_key": bool(settings_obj.custom_gemini_key),
+            "has_custom_direct_token": settings_obj.has_custom_direct_token,
+            "has_custom_gemini_key": settings_obj.has_custom_gemini_key,
             "meta_bot_reviewer_mode": reviewer_mode,
             "bot_is_admin": _is_admin(request.user),
         },
@@ -613,6 +615,31 @@ def bot_status_api(request):
         for r in rows
     ]
     return JsonResponse({"success": True, "status": bot.status_snapshot(), "log": items})
+
+
+@require_GET
+def bot_health(request):
+    """Public, non-sensitive readiness probe for external uptime monitors."""
+    from .services.ig_task_health import task_health_snapshot
+
+    status = bot.status_snapshot()
+    tasks = task_health_snapshot()
+    enabled = bool(InstagramBotSettings.load().is_enabled)
+    bot_healthy = not enabled or status.get("state") == "running"
+    healthy = bool(tasks.get("available") and tasks.get("healthy") and bot_healthy)
+    response = JsonResponse(
+        {
+            "status": "ok" if healthy else "degraded",
+            "service": "instagram-bot",
+            "bot_state": status.get("state") or "unknown",
+            "cron_unhealthy": int(tasks.get("unhealthy_count") or 0),
+            "checked_at": timezone.now().isoformat(),
+        },
+        status=200 if healthy else 503,
+    )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 @login_required(login_url="management_login")
@@ -829,6 +856,13 @@ def bot_payment_reviews_api(request):
         "decisions__actor"
     )
     if selected_id.isdigit():
+        selected_row = rows_qs.filter(pk=int(selected_id)).first()
+        if (
+            selected_row
+            and selected_row.status == IgPaymentConfirmationReview.Status.SUPERSEDED
+            and selected_row.superseded_by_id
+        ):
+            selected_id = str(selected_row.superseded_by_id)
         rows_qs = rows_qs.filter(pk=int(selected_id))
     else:
         rows_qs = rows_qs.filter(status=IgPaymentConfirmationReview.Status.PENDING)
@@ -1724,15 +1758,6 @@ def _order_attribution_workspace_payload(attribution) -> dict:
 
 def _payment_review_workspace_payload(review) -> dict:
     from management.services.ig_payment_review import payment_review_order_url
-    from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-    canonical_review = reconcile_duplicate_payment_review(review)
-    if canonical_review and review.status == review.Status.SUPERSEDED:
-        # The reconciliation writes the order pointer; keep this response
-        # object coherent without a second query in the hot payload path.
-        if canonical_review.order_id and not review.order_id:
-            review.order_id = canonical_review.order_id
-        review.superseded_by = canonical_review
 
     evidence = review.evidence if isinstance(review.evidence, dict) else {}
     draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
@@ -1938,39 +1963,32 @@ def bot_orders_workspace_api(request):
 
     base = _payment_review_workspace_queryset().filter(
         client__hidden_at__isnull=True,
-    )
-    from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-    # Reconcile legacy watermark duplicates before calculating badges/counts;
-    # otherwise the same receipt remains a false second manager task.
-    duplicate_candidates = base.filter(
-        status=IgPaymentConfirmationReview.Status.CONFIRMED,
-        order_id__isnull=True,
-    ).exclude(
-        resolution_kind=(
-            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
-        )
-    )
-    for duplicate_review in duplicate_candidates:
-        reconcile_duplicate_payment_review(duplicate_review)
+    ).exclude(status=IgPaymentConfirmationReview.Status.SUPERSEDED)
     attribution_base = _order_attribution_workspace_queryset().filter(
         client__hidden_at__isnull=True,
     )
     if client_id:
         base = base.filter(client_id=client_id)
         attribution_base = attribution_base.filter(client_id=client_id)
+    # Keep payment conflicts actionable without performing the old implicit
+    # reconciliation writes from this GET endpoint.
     reconciliation_review_ids = [
         row.pk
-        for row in list(base)
-        if row.status == IgPaymentConfirmationReview.Status.CONFIRMED
-        and row.resolution_kind
-        != IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
-        and _payment_review_truth_payload(row)["needs_reconciliation"]
+        for row in base.filter(
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order_id__isnull=False,
+        ).exclude(
+            resolution_kind=(
+                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+            )
+        ).select_related("deal", "order", "deal__payment_projection").prefetch_related("decisions")
+        if _payment_review_truth_payload(
+            row,
+            decision=max(row.decisions.all(), key=lambda decision: decision.pk, default=None),
+        )["needs_reconciliation"]
     ]
     represented_order_ids = base.exclude(order_id__isnull=True).values("order_id")
-    attribution_base = attribution_base.exclude(
-        order_id__in=Subquery(represented_order_ids)
-    )
+    attribution_base = attribution_base.exclude(order_id__in=Subquery(represented_order_ids))
     attributed_count = attribution_base.count()
     action_filter = (
         Q(status=IgPaymentConfirmationReview.Status.PENDING)
@@ -1987,17 +2005,12 @@ def bot_orders_workspace_api(request):
         )
         | Q(pk__in=reconciliation_review_ids)
     )
-    canonical_base = base.exclude(
-        status=IgPaymentConfirmationReview.Status.SUPERSEDED,
-    )
-    canonical_order_count = canonical_base.exclude(
-        order_id__isnull=True,
-    ).values("order_id").distinct().count()
-    canonical_orderless_count = canonical_base.filter(order_id__isnull=True).count()
-    canonical_confirmed_order_count = canonical_base.filter(
+    canonical_order_count = base.exclude(order_id__isnull=True).values("order_id").distinct().count()
+    canonical_orderless_count = base.filter(order_id__isnull=True).count()
+    canonical_confirmed_order_count = base.filter(
         status=IgPaymentConfirmationReview.Status.CONFIRMED,
     ).exclude(order_id__isnull=True).values("order_id").distinct().count()
-    canonical_confirmed_orderless_count = canonical_base.filter(
+    canonical_confirmed_orderless_count = base.filter(
         status=IgPaymentConfirmationReview.Status.CONFIRMED,
         order_id__isnull=True,
     ).count()
@@ -2012,7 +2025,16 @@ def bot_orders_workspace_api(request):
     }
     attribution_rows = []
     if selected_review_id:
-        rows = base.filter(pk=selected_review_id)
+        selected_row = base.filter(pk=selected_review_id).first()
+        if selected_row is None:
+            superseded = IgPaymentConfirmationReview.objects.filter(
+                pk=selected_review_id,
+                status=IgPaymentConfirmationReview.Status.SUPERSEDED,
+            ).values_list("superseded_by_id", flat=True).first()
+            if superseded:
+                selected_row = base.filter(pk=superseded).first()
+        rows = base.filter(pk=selected_row.pk) if selected_row else base.none()
+        selected_review_id = selected_row.pk if selected_row else 0
     elif view == "action":
         rows = base.filter(action_filter)
     elif view == "confirmed":
@@ -2456,9 +2478,6 @@ def bot_order_candidates_api(request):
                 {"success": False, "error": "Перевірку оплати для цього клієнта не знайдено."},
                 status=404,
             )
-        from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-        reconcile_duplicate_payment_review(review)
         if not authoritative_manager_decision(review) and not (
             review.status == review.Status.SUPERSEDED and review.order_id
         ):
@@ -2967,18 +2986,27 @@ def bot_settings_save_api(request):
         if gemini_source in InstagramBotSettings.CredSource.values:
             s.gemini_source = gemini_source
 
-        if "custom_direct_token" in request.POST:
-            value = (request.POST.get("custom_direct_token") or "").strip()
-            if value:
-                s.custom_direct_token = value
-        if _truthy(request.POST.get("clear_custom_direct_token")):
-            s.custom_direct_token = ""
-        if "custom_gemini_key" in request.POST:
-            value = (request.POST.get("custom_gemini_key") or "").strip()
-            if value:
-                s.custom_gemini_key = value
-        if _truthy(request.POST.get("clear_custom_gemini_key")):
-            s.custom_gemini_key = ""
+        try:
+            if "custom_direct_token" in request.POST:
+                value = (request.POST.get("custom_direct_token") or "").strip()
+                if value:
+                    s.custom_direct_token = value
+            if _truthy(request.POST.get("clear_custom_direct_token")):
+                s.custom_direct_token = ""
+            if "custom_gemini_key" in request.POST:
+                value = (request.POST.get("custom_gemini_key") or "").strip()
+                if value:
+                    s.custom_gemini_key = value
+            if _truthy(request.POST.get("clear_custom_gemini_key")):
+                s.custom_gemini_key = ""
+        except BotSecretEncryptionUnavailable:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Не налаштовано захист для збереження ключа. Зверніться до адміністратора.",
+                },
+                status=503,
+            )
 
         trigger = (request.POST.get("trigger_text") or "").strip()
         if trigger:
@@ -3829,6 +3857,46 @@ def bot_clients_api(request):
 
 
 @login_required(login_url="management_login")
+@require_POST
+def bot_client_followup_delivery_resolve_api(request, client_id, task_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    task = IgFollowUpTask.objects.filter(pk=task_id, client_id=client_id).first()
+    if task is None:
+        return JsonResponse({"success": False, "error": "Клієнта або follow-up не знайдено."}, status=404)
+    with transaction.atomic():
+        result = bot_followups.resolve_ambiguous_followup(
+            task.pk,
+            outcome=request.POST.get("outcome"),
+            actor_id=request.user.pk,
+            note=request.POST.get("note", ""),
+            now=timezone.now(),
+        )
+        if not result.get("ok"):
+            return JsonResponse({"success": False, **result}, status=result.get("status", 400))
+        if not result.get("idempotent"):
+            review_id = IgFollowUpTask.objects.filter(
+                delivery_review_for_id=task.pk,
+            ).values_list("pk", flat=True).first()
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                actor_role="staff",
+                action="ig_followup_delivery_resolved",
+                entity_type="IgFollowUpTask",
+                entity_id=str(task.pk),
+                before={"status": IgFollowUpTask.Status.AMBIGUOUS},
+                after={
+                    "status": result.get("status", ""),
+                    "outcome": result.get("outcome", ""),
+                    "review_id": review_id,
+                },
+                reason=str(request.POST.get("note") or "").strip()[:500],
+            )
+    return JsonResponse({"success": True, **result})
+
+
+@login_required(login_url="management_login")
 @require_GET
 def bot_client_detail_api(request, client_id):
     blocked = _require_admin_json(request)
@@ -3967,8 +4035,15 @@ def bot_client_detail_api(request, client_id):
     pattern_evidence_ids = list(
         pattern_messages.order_by("-id").values_list("id", flat=True)[:20]
     )
-    followups = [
-        {
+    delivery_review_ids = IgFollowUpTask.objects.filter(
+        delivery_review_for_id=OuterRef("pk"),
+    ).values("pk")[:1]
+    followups = []
+    for f in c.followup_tasks.annotate(
+        delivery_review_id=Subquery(delivery_review_ids),
+    ).order_by("-created_at", "-id")[:50]:
+        review_id = getattr(f, "delivery_review_id", None)
+        followups.append({
             "id": f.id,
             "kind": f.kind,
             "status": f.status,
@@ -3979,9 +4054,23 @@ def bot_client_detail_api(request, client_id):
             "message_text": f.message_text,
             "skip_reason": f.skip_reason,
             "last_error": f.last_error,
-        }
-        for f in c.followup_tasks.all().order_by("-created_at", "-id")[:50]
-    ]
+            "attempt_count": f.attempt_count,
+            "provider_message_id": f.provider_message_id,
+            "delivery_review_id": review_id,
+            "allowed_outcomes": (
+                ["delivered", "not_delivered"]
+                if f.status == IgFollowUpTask.Status.AMBIGUOUS and review_id
+                else []
+            ),
+            "resolution_url": (
+                reverse(
+                    "management_bot_client_followup_delivery_resolve_api",
+                    args=[c.pk, f.pk],
+                )
+                if f.status == IgFollowUpTask.Status.AMBIGUOUS and review_id
+                else ""
+            ),
+        })
     deal_rows = list(c.deals.select_related("payment_projection", "order").all()[:20])
     deals = [
         {
@@ -3995,19 +4084,9 @@ def bot_client_detail_api(request, client_id):
         }
         for d in deal_rows
     ]
-    review_base = _payment_review_workspace_queryset().filter(client=c)
-    from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-    for duplicate_review in review_base.filter(
-        status=IgPaymentConfirmationReview.Status.CONFIRMED,
-        order_id__isnull=True,
-    ).exclude(
-        resolution_kind=(
-            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
-        )
-    ):
-        reconcile_duplicate_payment_review(duplicate_review)
-    review_base = _payment_review_workspace_queryset().filter(client=c)
+    review_base = _payment_review_workspace_queryset().filter(
+        client=c,
+    ).exclude(status=IgPaymentConfirmationReview.Status.SUPERSEDED)
     review_counts = review_base.aggregate(
         total=Count("id"),
         pending=Count(

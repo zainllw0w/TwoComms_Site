@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 from django.db.models import Sum
 
 CACHE_KEY = "ig_bot_catalog_ctx"
+CACHE_COMPACT_KEY = "ig_bot_catalog_ctx_compact"
 CACHE_TTL = 600          # 10 хв
 MAX_PRODUCTS = 250
 # Бюджет підвищено після прод-перевірки 02.08.2026. При 16 000 символів каталог
@@ -35,6 +36,11 @@ MAX_PRODUCTS = 250
 # контекстом на мільйон токенів це дрібниця, а обрізка тут — прямі втрачені
 # продажі.
 MAX_CHARS = 48000
+# The complete catalog is valuable to media/vision workflows, but its verbose
+# merchandising copy should not consume the sales reply budget on every turn.
+# This form retains every product and purchase-critical configuration fact.
+COMPACT_MAX_CHARS = 20000
+COMPACT_PRINT_FINGERPRINT_CHARS = 96
 SITE = "https://twocomms.shop"
 
 
@@ -69,7 +75,7 @@ def resolve_catalog_sizes(product) -> dict[str, list[str]]:
         return {}
 
 
-def _build() -> str:
+def _build(*, compact: bool = False) -> str:
     try:
         from storefront.models import Product, ProductStatus
         from productcolors.models import ProductColorVariant
@@ -112,7 +118,11 @@ def _build() -> str:
     )
     prepare_pricing_context(products, variants)
 
-    lines = ["Каталог TwoComms (актуальні товари, ціни в грн):"]
+    lines = [
+        "Каталог TwoComms (актуальні товари, ціни в грн):"
+        if not compact
+        else "Каталог TwoComms (усі актуальні товари; скорочений формат):"
+    ]
     for p in products:
         pricing = resolve_product_pricing(
             p,
@@ -132,29 +142,51 @@ def _build() -> str:
                     disc = f" (знижка {p.discount_percent}%, було {p.price})"
         except Exception:
             pass
+        fps = fp_by_product.get(p.id, [])
+        variants_s = format_variant_pricing(pricing["configurations"])
+        colors_s = ("; кольори: " + variants_s) if variants_s else ""
+        has_variant_size_contract = any(
+            row.get("has_compatible_size_contract")
+            for row in pricing["configurations"]
+        )
+        sizes_by_fit = {} if has_variant_size_contract else resolve_catalog_sizes(p)
+        fits_s = "; фасони/розміри: " + "; ".join(
+            f"{code}: {'/'.join(values)}" for code, values in sizes_by_fit.items() if values
+        ) if sizes_by_fit else ""
+
+        if compact:
+            # Keep the exact selection contract but remove context-free prose
+            # repeated on every row (category, generic stock note and URL).
+            # A short visual fingerprint remains available for product matching.
+            compact_line = f"• id={p.id} | {p.title} — {price_label}{disc}"
+            if variants_s:
+                compact_line += f"; кольори: {variants_s}"
+            if fits_s:
+                compact_line += fits_s
+            if fps:
+                fingerprint = "; ".join(fps[:3])[:COMPACT_PRINT_FINGERPRINT_CHARS].rstrip()
+                if fingerprint:
+                    compact_line += f"; принт: {fingerprint}"
+            lines.append(compact_line)
+            continue
+
         cat = getattr(p.category, "name", "") or ""
         stock = stock_by_product.get(p.id, 0)
         # «Під замовлення» — не заглушка, а факт: речі відшиваються, і чекаут це
         # дозволяє. Нульовий `stock` означає «облік по варіанту не ведеться»,
         # тому казати клієнту «немає» через нього не можна.
         avail = f", на складі: {stock} шт" if stock > 0 else ", під замовлення (відшиваємо 1-3 дні)"
-        fps = fp_by_product.get(p.id, [])
         fp_s = (" | принт: " + "; ".join(fps[:3])) if fps else ""
         # `stock` у рядку варіанта показуємо лише коли він додатний: нуль у цьому
         # проєкті означає «облік не ведеться», і модель читала його як «немає».
-        variants_s = format_variant_pricing(pricing["configurations"])
-        colors_s = ("; кольори: " + variants_s) if variants_s else ""
-        sizes_by_fit = resolve_catalog_sizes(p)
-        fits_s = "; фасони/розміри: " + "; ".join(
-            f"{code}: {'/'.join(values)}" for code, values in sizes_by_fit.items() if values
-        ) if sizes_by_fit else ""
         url = f"{SITE}/product/{p.slug}/"
         lines.append(
             f"• id={p.id} | {p.title} — {price_label}{disc} [{cat}]"
             f"{colors_s}{avail}{fits_s}{fp_s} | {url}"
         )
 
-    text, _dropped = truncate_catalog_lines(lines, limit=MAX_CHARS)
+    limit = COMPACT_MAX_CHARS if compact else MAX_CHARS
+    text, _dropped = truncate_catalog_lines(lines, limit=limit)
     return text + (
         "\nПравило ціни: точну ціну називай лише для обраної конфігурації "
         "variant_id + фасон/опції. Якщо в рядку є діапазон або різні ціни, "
@@ -211,14 +243,15 @@ def truncate_catalog_lines(lines: list[str], *, limit: int = MAX_CHARS) -> tuple
     return "\n".join(kept), dropped
 
 
-def get_catalog_context(force: bool = False) -> str:
+def get_catalog_context(force: bool = False, *, compact: bool = False) -> str:
+    cache_key = CACHE_COMPACT_KEY if compact else CACHE_KEY
     if not force:
-        cached = cache.get(CACHE_KEY)
+        cached = cache.get(cache_key)
         if cached is not None:
             return cached
     try:
-        text = _build()
+        text = _build(compact=compact)
     except Exception:
         text = ""
-    cache.set(CACHE_KEY, text, CACHE_TTL)
+    cache.set(cache_key, text, CACHE_TTL)
     return text

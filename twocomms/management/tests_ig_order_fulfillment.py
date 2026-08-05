@@ -549,6 +549,15 @@ class IgOrderFulfillmentTests(TestCase):
 
         kick.assert_called_once_with(self.order.pk)
 
+    @override_settings(IG_FULFILLMENT_BACKGROUND_WAKE_ENABLED=False)
+    def test_disabled_background_wake_never_starts_a_test_database_thread(self):
+        from management.services.ig_order_fulfillment import kick_order_fulfillment
+
+        with patch("management.services.ig_order_fulfillment.threading.Thread") as thread:
+            kick_order_fulfillment(self.order.pk)
+
+        thread.assert_not_called()
+
     def test_manual_order_context_links_without_creating_attribution(self):
         token = signing.dumps({"client_id": self.ig_client.pk}, salt="storefront.manual-order.ig-client")
         response = self.client.post(

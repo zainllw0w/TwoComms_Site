@@ -5,6 +5,16 @@
 > как считать точки падения и как не засорять контекст.
 > Все тексты готовы к вставке. Код не менялся.
 
+> **Implementation checkpoint 2026-08-05:** historical design sections below
+> сохраняют причины решений. W4B/W6 и funnel analytics уже реализованы; новый
+> F-PAY-015 закрывает startup collision между superseded payment review и
+> canonical episode. Product/price reselection остаётся частичным W9: typed
+> graph/ranker foundation и variant-specific prompt price/size parity уже
+> production `0ad694bc`; F-CAT-007 закрыта. Runtime commerce session,
+> availability/reservation и stale candidate binding ещё не закрыты.
+> Provider-evidenced follow-up delivery закрыт `IMP-102` на `414e639e`;
+> materialized event continuation остаётся `IMP-103`.
+
 ---
 
 ## Часть 0. Блокирующее противоречие, найденное до проектирования

@@ -1,6 +1,7 @@
 """Тести Фази 5: тижневі рішення по базовій винагороді."""
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -114,12 +115,16 @@ class WeeklyReviewEndpointTests(TestCase):
             owner=self.manager, week_start=ws, week_end=we, calculated_weekly_base=Decimal("1500"),
         )
         self.client.force_login(self.staff)
-        resp = self.client.post(
-            f"/admin-panel/weekly-reviews/{review.id}/decide/",
-            data='{"decision": "full"}', content_type="application/json",
-            HTTP_HOST="management.twocomms.shop", secure=True,
-        )
+        with patch("management.views._notify_manager_weekly_review") as notify_manager:
+            resp = self.client.post(
+                f"/admin-panel/weekly-reviews/{review.id}/decide/",
+                data='{"decision": "full"}', content_type="application/json",
+                HTTP_HOST="management.twocomms.shop", secure=True,
+            )
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()["ok"])
+        self.assertEqual(resp.json()["decision"], "full")
+        notify_manager.assert_called_once_with(review)
         review.refresh_from_db()
+        self.assertEqual(review.admin_decision, "full")
         self.assertEqual(review.awarded_amount, Decimal("1500.00"))

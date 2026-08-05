@@ -61,6 +61,7 @@ urlpatterns = [
     path('app-review/', bot_views.app_review_info, name='management_app_review_info'),
     # Instagram bot webhook (тестова фаза) — публічний, без логіну, CSRF-exempt.
     path('bot/webhook/', bot_webhook.ig_webhook, name='management_ig_bot_webhook'),
+    path('bot/health/', bot_views.bot_health, name='management_bot_health'),
     path('bot/privacy-policy/', bot_views.privacy_policy, name='management_bot_privacy_policy'),
     path('bot/terms-of-service/', bot_views.terms_of_service, name='management_bot_terms_of_service'),
     path('bot/data-deletion/', bot_views.data_deletion, name='management_bot_data_deletion'),
@@ -88,6 +89,7 @@ urlpatterns = [
     path('bot/api/stats/', bot_views.bot_stats_api, name='management_bot_stats_api'),
     path('bot/api/clients/', bot_views.bot_clients_api, name='management_bot_clients_api'),
     path('bot/api/clients/<int:client_id>/', bot_views.bot_client_detail_api, name='management_bot_client_detail_api'),
+    path('bot/api/clients/<int:client_id>/followups/<int:task_id>/delivery-resolve/', bot_views.bot_client_followup_delivery_resolve_api, name='management_bot_client_followup_delivery_resolve_api'),
     path('bot/api/clients/<int:client_id>/ugc-rewards/', bot_views.bot_client_ugc_reward_api, name='management_bot_client_ugc_reward_api'),
     path('bot/api/clients/<int:client_id>/order-links/', bot_views.bot_client_order_link_api, name='management_bot_client_order_link_api'),
     path('bot/api/clients/<int:client_id>/order-links/<int:assignment_id>/unlink/', bot_views.bot_client_order_unlink_api, name='management_bot_client_order_unlink_api'),

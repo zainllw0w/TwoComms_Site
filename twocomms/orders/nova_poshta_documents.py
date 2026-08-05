@@ -601,7 +601,7 @@ class NovaPoshtaDocumentService:
             response = self._request("InternetDocument", "save", method_properties)
         except NovaPoshtaInvalidDescriptionError:
             retry_properties = dict(method_properties)
-            retry_properties["Description"] = "Одяг"
+            retry_properties["Description"] = "Одяг від TwoComms"
             logger.warning("Retrying Nova Poshta waybill with canonical description")
             response = self._request("InternetDocument", "save", retry_properties)
         result = next(iter(response.get("data") or []), None) or {}

@@ -30,6 +30,7 @@ from management.models import (
 )
 from management.services.bot_followups import process_due_followups
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
+from management.services.instagram_bot import ProviderDeliveryReceipt
 from orders.models import Order, PaymentAttempt
 from storefront.models import Category, Product
 
@@ -422,7 +423,10 @@ class InstagramCheckoutWorkspaceTests(TestCase):
         # The action timestamps the task inside the POST, so use the persisted
         # due time instead of the pre-request clock sample. This keeps the
         # worker contract deterministic at microsecond resolution.
-        with patch("management.services.instagram_bot.send_text", return_value=(True, "", "")), patch(
+        with patch(
+            "management.services.instagram_bot.send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "checkout-resend"),
+        ), patch(
             "management.services.bot_followups.next_allowed_send_at", return_value=task.due_at
         ):
             processed = process_due_followups(now=task.due_at)

@@ -132,12 +132,12 @@ class ReviewerSandboxTests(TestCase):
 
         response = self._post(
             "/bot/api/settings/",
-            {"ai_enabled": "on", "gemini_model": "gemini-2.5-flash"},
+            {"ai_enabled": "on", "gemini_model": "gemini-3.5-flash"},
         )
 
         self.assertEqual(response.status_code, 200)
         settings_row.refresh_from_db()
-        self.assertEqual(settings_row.gemini_model, "gemini-2.5-flash")
+        self.assertEqual(settings_row.gemini_model, "gemini-3.5-flash")
 
     # -------------------------------------------------- реальные карточки
     def test_reviewer_cannot_pause_real_client(self):

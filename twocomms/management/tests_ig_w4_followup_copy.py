@@ -6,6 +6,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.test import TestCase
+from django.utils import timezone
 
 from management.models import (
     IgCheckoutProposal,
@@ -15,6 +16,7 @@ from management.models import (
     InstagramBotSettings,
 )
 from management.services import bot_followups
+from management.services.instagram_bot import ProviderDeliveryReceipt
 
 
 KYIV = ZoneInfo("Europe/Kyiv")
@@ -100,7 +102,10 @@ class FollowupCopyTests(TestCase):
 
 class CheckoutOfferCascadeTests(TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 3, 15, 0, tzinfo=KYIV)
+        current = timezone.now().astimezone(KYIV)
+        self.now = current.replace(hour=15, minute=0, second=0, microsecond=0)
+        if self.now <= current:
+            self.now += timedelta(days=1)
         settings = InstagramBotSettings.load()
         settings.is_enabled = True
         settings.save(update_fields=["is_enabled", "updated_at"])
@@ -158,7 +163,10 @@ class CheckoutOfferCascadeTests(TestCase):
         self.assertIn("зроблю нову", text)
         self.assertNotIn("ще активна", text)
 
-    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=ProviderDeliveryReceipt(True, "", "", "w4-cascade"),
+    )
     def test_first_touch_schedules_a_safe_second_cascade_step(self, _send_text):
         first_send_at = self.proposal.expires_at
         first = IgFollowUpTask.objects.create(

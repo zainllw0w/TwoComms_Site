@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone as datetime_timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -9,6 +10,7 @@ from urllib.parse import urljoin
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -45,6 +47,13 @@ _NAME_STOPWORDS = {
     "по повній оплаті",
     "потрібна оплата",
 }
+
+# f34d54c8 stopped historical inbox recovery from creating operational payment
+# reviews on 2026-07-31 01:14:12 EEST. Receipt-only repair is deliberately
+# limited to the rows produced before that boundary.
+LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF = datetime(
+    2026, 7, 30, 22, 14, 12, tzinfo=datetime_timezone.utc,
+)
 
 _MEDIA_PRODUCT_RE = re.compile(
     r"\b(товар\w*|футболк\w*|худі|худи|одяг\w*|одежд\w*|модель\w*|"
@@ -1432,142 +1441,504 @@ def payment_review_fingerprint(review_or_evidence) -> str:
     ).hexdigest()
 
 
-def reconcile_duplicate_payment_review(review):
-    """Canonicalize a strict duplicate without weakening episode ownership.
+def _claim_evidence_rows(extracted_or_evidence) -> list[dict]:
+    """Extract immutable customer-payment rows without transcript context."""
+    evidence = getattr(extracted_or_evidence, "evidence", extracted_or_evidence)
+    if not isinstance(evidence, dict):
+        return []
+    rows = evidence.get("evidence")
+    if not isinstance(rows, list):
+        rows = evidence.get("messages")
+    if not isinstance(rows, list):
+        return []
+    result = []
+    for raw in rows:
+        if not isinstance(raw, dict):
+            continue
+        role = str(raw.get("role") or "").strip().lower()
+        if role and role not in _CUSTOMER_ROLES:
+            continue
+        message_id = raw.get("source_message_id") or raw.get("message_id") or raw.get("id")
+        try:
+            message_id = int(message_id or 0)
+        except (TypeError, ValueError):
+            message_id = 0
+        media_rows = []
+        for media in raw.get("media") or []:
+            if not isinstance(media, dict):
+                continue
+            source_id = media.get("source_message_id") or media.get("message_id") or message_id
+            try:
+                source_id = int(source_id or 0)
+            except (TypeError, ValueError):
+                source_id = 0
+            # Signed CDN URLs rotate. Once Instagram supplied a source message
+            # identity, it is the durable receipt reference; URL is fallback.
+            identity = "" if source_id else _fingerprint_text(
+                media.get("url") or media.get("local_url")
+            )
+            if source_id or identity:
+                media_rows.append({"source_message_id": source_id, "identity": identity})
+        quote = _fingerprint_text(raw.get("quote") or raw.get("text"))
+        # Raw attachment payloads commonly contain expiring Meta CDN URLs.
+        # The durable source message id already identifies the evidence, so a
+        # URL refresh must not change the payment-claim identity.
+        attachment = "" if message_id else _fingerprint_text(raw.get("attachments"))
+        if message_id or quote or attachment or media_rows:
+            result.append({
+                "message_id": message_id,
+                "quote": quote,
+                "attachments": attachment,
+                "media": sorted(media_rows, key=lambda item: json.dumps(item, sort_keys=True)),
+            })
+    return sorted(result, key=lambda item: json.dumps(item, ensure_ascii=True, sort_keys=True))
 
-    The older review keeps its decisions/evidence/watermark for audit, receives
-    the canonical order pointer, and becomes non-actionable.  A different order
-    or a cancelled review is never merged.
+
+def payment_review_claim_anchor(extracted_or_evidence) -> str:
+    """Hash only the customer's immutable payment assertion and receipt."""
+    evidence = getattr(extracted_or_evidence, "evidence", extracted_or_evidence)
+    if isinstance(evidence, dict) and isinstance(evidence.get("claim_anchor"), str):
+        return evidence["claim_anchor"][:64]
+    rows = _claim_evidence_rows(evidence)
+    if not rows:
+        return ""
+    return hashlib.sha256(
+        json.dumps(rows, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def _receipt_source_identities(review_or_evidence) -> tuple[str, ...]:
+    """Return source-bound receipt identities for conservative legacy repair."""
+    evidence = getattr(review_or_evidence, "evidence", review_or_evidence)
+    if not isinstance(evidence, dict):
+        return ()
+    media_rows = list(evidence.get("media") or [])
+    for row in evidence.get("messages") or evidence.get("evidence") or []:
+        if isinstance(row, dict):
+            media_rows.extend(row.get("media") or [])
+    identities = set()
+    for media in media_rows:
+        if not isinstance(media, dict):
+            continue
+        if media.get("role") not in {"receipt", "payment_candidate"}:
+            continue
+        source_id = media.get("source_message_id") or media.get("message_id")
+        if str(source_id).isdigit():
+            identities.add(f"source:{int(source_id)}")
+            continue
+        identity = _fingerprint_text(media.get("url") or media.get("local_url"))
+        if identity:
+            identities.add("media:" + hashlib.sha256(identity.encode("utf-8")).hexdigest())
+    return tuple(sorted(identities))
+
+
+def _persisted_payment_review_claim_identity(review_or_evidence) -> str:
+    """Return a v2 identity only when it was saved with the review."""
+    evidence = getattr(review_or_evidence, "evidence", review_or_evidence)
+    if isinstance(evidence, dict):
+        anchor = evidence.get("claim_anchor")
+        if isinstance(anchor, str) and re.fullmatch(r"[0-9a-f]{64}", anchor):
+            return f"claim:{anchor}"
+    return ""
+
+
+def _legacy_receipt_source_identity(review) -> str:
+    """Return the one proven receipt source eligible for legacy repair only."""
+    if not review or _persisted_payment_review_claim_identity(review):
+        return ""
+    created_at = getattr(review, "created_at", None)
+    if not created_at or created_at >= LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF:
+        return ""
+    sources = _receipt_source_identities(review)
+    if len(sources) != 1 or not sources[0].startswith("source:"):
+        return ""
+    return f"legacy-receipt:{sources[0]}"
+
+
+def _payment_review_reconciliation_identity(review, *, allow_legacy_receipt: bool) -> str:
+    """Choose the one identity explicitly authorized for a write repair."""
+    claim_identity = _persisted_payment_review_claim_identity(review)
+    if claim_identity:
+        return claim_identity
+    return _legacy_receipt_source_identity(review) if allow_legacy_receipt else ""
+
+
+def payment_review_duplicate_identity(review_or_evidence) -> str:
+    """Read-only grouping identity for the management workspace.
+
+    Display grouping follows the same conservative identities as the repair,
+    but never mutates records. Fingerprint- or URL-only similarity is not a
+    purchase identity and remains visible as separate manager work.
+    """
+    return (
+        _persisted_payment_review_claim_identity(review_or_evidence)
+        or _legacy_receipt_source_identity(review_or_evidence)
+    )
+
+
+def payment_review_canonical_sort_key(review) -> tuple:
+    """Prefer materialized payment truth, then retain the oldest audit row."""
+    from management.ig_bot_models import IgPaymentConfirmationReview
+
+    return (
+        0 if review.order_id else 1,
+        0 if review.status == IgPaymentConfirmationReview.Status.CONFIRMED else 1,
+        review.pk,
+    )
+
+
+def _resolve_duplicate_notification(review, *, now) -> bool:
+    from management.ig_bot_models import IgBotNotification, IgBotNotificationAudit
+
+    notification = IgBotNotification.objects.select_for_update().filter(
+        dedupe_key=review.dedupe_key,
+    ).first()
+    if not notification or notification.status not in {
+        IgBotNotification.Status.PENDING,
+        IgBotNotification.Status.FAILED,
+        IgBotNotification.Status.SENT,
+    }:
+        return False
+    previous_status = notification.status
+    notification.status = IgBotNotification.Status.RESOLVED
+    notification.next_attempt_at = None
+    notification.failure_kind = "payment_review_superseded"
+    notification.payload = {
+        **(notification.payload if isinstance(notification.payload, dict) else {}),
+        "review_status": review.Status.SUPERSEDED,
+        "superseded_by_review_id": review.superseded_by_id,
+        "resolved_at": now.isoformat(),
+    }
+    notification.save(update_fields=[
+        "status", "next_attempt_at", "failure_kind", "payload", "updated_at",
+    ])
+    IgBotNotificationAudit.objects.create(
+        notification=notification,
+        action="supersede_duplicate",
+        from_status=previous_status,
+        to_status=IgBotNotification.Status.RESOLVED,
+        note=f"canonical payment review {review.superseded_by_id}",
+    )
+    return True
+
+
+def _payment_review_notification_is_sending(review) -> bool:
+    """Do not hide a review while its manager alert is crossing Telegram."""
+    from management.ig_bot_models import IgBotNotification
+
+    return IgBotNotification.objects.filter(
+        dedupe_key=review.dedupe_key,
+        status=IgBotNotification.Status.SENDING,
+    ).exists()
+
+
+def reconcile_duplicate_payment_review(
+    review,
+    *,
+    dry_run: bool = False,
+    allow_legacy_receipt: bool = False,
+):
+    """Supersede only evidence-bound duplicate payment-review tasks.
+
+    This is deliberately a write service, never a read-path helper. Default
+    behavior permits only a saved v2 claim anchor. The bounded maintenance
+    command opts into the one-source legacy rule for rows before the known
+    historical-refresh fix boundary.
     """
     from management.ig_bot_models import IgPaymentConfirmationReview
 
-    if not review or review.status in {
-        IgPaymentConfirmationReview.Status.CANCELLED,
-        IgPaymentConfirmationReview.Status.SUPERSEDED,
-    }:
-        return getattr(review, "superseded_by", None)
-    fingerprint = payment_review_fingerprint(review)
-    if not fingerprint:
+    if not review:
         return None
-    candidates = list(
-        IgPaymentConfirmationReview.objects.filter(client_id=review.client_id)
-        .exclude(pk=review.pk)
-        .exclude(
+    with transaction.atomic():
+        review = IgPaymentConfirmationReview.objects.select_for_update().filter(
+            pk=review.pk,
+        ).select_related("order").first()
+        if not review or review.status in {
+            IgPaymentConfirmationReview.Status.CANCELLED,
+            IgPaymentConfirmationReview.Status.SUPERSEDED,
+        }:
+            return getattr(review, "superseded_by", None)
+        if _payment_review_notification_is_sending(review):
+            return None
+        identity = _payment_review_reconciliation_identity(
+            review,
+            allow_legacy_receipt=allow_legacy_receipt,
+        )
+        if not identity:
+            return None
+        candidate_query = IgPaymentConfirmationReview.objects.select_for_update().filter(
+            client_id=review.client_id,
+        ).exclude(
             status__in=[
                 IgPaymentConfirmationReview.Status.CANCELLED,
                 IgPaymentConfirmationReview.Status.SUPERSEDED,
             ]
         )
-        .select_related("order")
-    )
-    matches = [
-        candidate for candidate in candidates
-        if payment_review_fingerprint(candidate) == fingerprint
-        and not (review.order_id and candidate.order_id and review.order_id != candidate.order_id)
-    ]
-    if not matches:
-        return None
-    canonical = sorted(
-        matches,
-        key=lambda row: (
-            bool(row.order_id),
-            row.status == IgPaymentConfirmationReview.Status.CONFIRMED,
-            row.id,
-        ),
-        reverse=True,
-    )[0]
-    # Never supersede a newer unlinked review with an older unlinked one. The
-    # stable create path handles that case before writing a second row.
-    if not canonical.order_id and not review.order_id:
-        return None
-    if canonical.pk == review.pk:
-        return canonical
-    now = timezone.now()
-    update_fields = ["status", "superseded_by", "superseded_at", "supersede_reason", "updated_at"]
-    review.status = IgPaymentConfirmationReview.Status.SUPERSEDED
-    review.superseded_by = canonical
-    review.superseded_at = now
-    review.supersede_reason = "same_payment_evidence"
-    if canonical.order_id and not review.order_id:
-        review.order = canonical.order
-        update_fields.insert(0, "order")
-    review.save(update_fields=update_fields)
-
-    # The orphan episode created by the old watermark is historical duplicate
-    # work, not a second purchase cycle. Close it explicitly and retain its
-    # append-only timeline for analytics/audit.
-    try:
-        from management.ig_bot_models import IgCommercialEpisode
-        from management.services.ig_commercial_episodes import append_episode_event
-
-        episode = IgCommercialEpisode.objects.filter(
-            primary_payment_review_id=review.pk,
-        ).first()
-        canonical_episode = IgCommercialEpisode.objects.filter(
-            primary_payment_review_id=canonical.pk,
-        ).first()
-        if episode and episode.pk != getattr(canonical_episode, "pk", None):
-            episode.open_slot = None
-            episode.state = IgCommercialEpisode.State.LOST
-            episode.outcome = "superseded_duplicate_payment_review"
-            episode.closed_at = now
-            episode.save(update_fields=["open_slot", "state", "outcome", "closed_at", "updated_at"])
-            append_episode_event(
-                episode,
-                dedupe_key=f"episode:{episode.pk}:superseded-by-review:{canonical.pk}",
-                event_type="review_superseded",
-                source="payment_review_reconciliation",
-                evidence={"canonical_review_id": canonical.pk, "fingerprint": fingerprint},
+        if identity.startswith("legacy-receipt:"):
+            candidate_query = candidate_query.filter(
+                created_at__lt=LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF,
+            ).filter(
+                Q(
+                    status=IgPaymentConfirmationReview.Status.PENDING,
+                    deal_id__isnull=True,
+                    order_id__isnull=True,
+                )
+                | Q(
+                    status=IgPaymentConfirmationReview.Status.CONFIRMED,
+                    order_id__isnull=False,
+                )
             )
-    except Exception:
-        # Review canonicalization is the consistency boundary. Historical
-        # episode repair is best-effort so a legacy row cannot block the UI.
-        pass
-    return canonical
+        candidates = list(candidate_query.select_related("order"))
+        matches = [
+            row for row in candidates
+            if _payment_review_reconciliation_identity(
+                row,
+                allow_legacy_receipt=allow_legacy_receipt,
+            ) == identity
+            and not (review.order_id and row.order_id and review.order_id != row.order_id)
+        ]
+        if len(matches) < 2:
+            return None
+        canonical = min(matches, key=payment_review_canonical_sort_key)
+        if canonical.pk == review.pk:
+            return None
+        if dry_run:
+            return canonical
+        now = timezone.now()
+        update_fields = ["status", "superseded_by", "superseded_at", "supersede_reason", "updated_at"]
+        review.status = IgPaymentConfirmationReview.Status.SUPERSEDED
+        review.superseded_by = canonical
+        review.superseded_at = now
+        review.supersede_reason = (
+            "legacy_single_receipt_source"
+            if identity.startswith("legacy-receipt:")
+            else "same_payment_claim_anchor"
+        )
+        if canonical.order_id and not review.order_id:
+            review.order = canonical.order
+            update_fields.insert(0, "order")
+        review.save(update_fields=update_fields)
+        _resolve_duplicate_notification(review, now=now)
+
+        # The orphan episode created by the old watermark is historical
+        # duplicate work, not a second purchase cycle. Retain its timeline.
+        try:
+            from management.ig_bot_models import IgClient, IgCommercialEpisode
+            from management.services.ig_commercial_episodes import append_episode_event
+
+            episode = IgCommercialEpisode.objects.select_for_update().filter(
+                primary_payment_review_id=review.pk,
+            ).first()
+            canonical_episode = IgCommercialEpisode.objects.select_for_update().filter(
+                primary_payment_review_id=canonical.pk,
+            ).first()
+            if episode and episode.pk != getattr(canonical_episode, "pk", None):
+                episode.open_slot = None
+                episode.state = IgCommercialEpisode.State.LOST
+                episode.outcome = "superseded_duplicate_payment_review"
+                episode.closed_at = now
+                episode.save(update_fields=["open_slot", "state", "outcome", "closed_at", "updated_at"])
+                IgClient.objects.filter(
+                    pk=review.client_id,
+                    current_commercial_episode_id=episode.pk,
+                ).update(
+                    current_commercial_episode_id=None,
+                    updated_at=now,
+                )
+                append_episode_event(
+                    episode,
+                    dedupe_key=f"episode:{episode.pk}:superseded-by-review:{canonical.pk}",
+                    event_type="review_superseded",
+                    source="payment_review_reconciliation",
+                    evidence={"canonical_review_id": canonical.pk, "identity": identity},
+                )
+        except Exception:
+            logger.exception("Could not close duplicate payment-review episode review=%s", review.pk)
+        return canonical
+
+
+def reconcile_legacy_payment_reviews(*, client_id: int | None = None, limit: int = 100, dry_run: bool = True) -> dict:
+    """Bounded, no-network repair for duplicate pending historical reviews."""
+    from management.ig_bot_models import IgPaymentConfirmationReview
+
+    bounded_limit = max(1, min(int(limit or 100), 1000))
+    reviews = IgPaymentConfirmationReview.objects.filter(
+        status=IgPaymentConfirmationReview.Status.PENDING,
+        deal_id__isnull=True,
+        order_id__isnull=True,
+        created_at__lt=LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF,
+    )
+    if client_id:
+        reviews = reviews.filter(client_id=int(client_id))
+    rows = list(reviews.order_by("client_id", "created_at", "id")[:bounded_limit])
+    result = {
+        "dry_run": bool(dry_run),
+        "scanned": len(rows),
+        "would_supersede": 0,
+        "superseded": 0,
+        "skipped_unsafe": 0,
+        "skipped_sending_notification": 0,
+    }
+    for review in rows:
+        if not _legacy_receipt_source_identity(review):
+            result["skipped_unsafe"] += 1
+            continue
+        if _payment_review_notification_is_sending(review):
+            result["skipped_sending_notification"] += 1
+            continue
+        canonical = reconcile_duplicate_payment_review(
+            review,
+            dry_run=dry_run,
+            allow_legacy_receipt=True,
+        )
+        if not canonical:
+            continue
+        if dry_run:
+            result["would_supersede"] += 1
+        else:
+            result["superseded"] += 1
+    return result
+
+
+def _claim_review_context(extracted: dict, *, claim_anchor: str) -> dict:
+    return {
+        "claim_anchor": claim_anchor,
+        "messages": extracted.get("evidence", []),
+        "amount_evidence": extracted.get("amount_evidence", []),
+        "order_draft": extracted.get("order_draft", {}),
+        "media": extracted.get("media", []),
+        "media_audit_v3": False,
+    }
+
+
+def _pending_review_matches_payment_evidence(review, extracted: dict) -> bool:
+    """Return whether new context continues the pending payment claim."""
+    existing_sources = set(_receipt_source_identities(review))
+    incoming_sources = set(_receipt_source_identities(extracted))
+    if not existing_sources or not incoming_sources:
+        return True
+    incoming_message_sources = sorted(
+        int(identity.split(":", 1)[1])
+        for identity in incoming_sources
+        if identity.startswith("source:") and identity.split(":", 1)[1].isdigit()
+    )
+    if incoming_message_sources:
+        return f"source:{incoming_message_sources[-1]}" in existing_sources
+    return incoming_sources.issubset(existing_sources)
+
+
+def _claim_payment_review(client, *, extracted: dict, watermark: int, claim_anchor: str):
+    """Create one durable claim inside the client's current commercial episode."""
+    from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+    from management.services.ig_commercial_episodes import ensure_open_episode_for_locked_client
+
+    with transaction.atomic():
+        locked_client = IgClient.objects.select_for_update().get(pk=client.pk)
+        episode = ensure_open_episode_for_locked_client(
+            locked_client,
+            materialization_prefix="ig-payment-review-v2",
+        )
+        dedupe_key = f"ig-payment-review:v2:{locked_client.pk}:{episode.pk}:{claim_anchor}"
+        exact = IgPaymentConfirmationReview.objects.select_for_update().filter(
+            dedupe_key=dedupe_key,
+        ).first()
+        if exact:
+            return exact, False
+        # A customer can first state that payment was made and only then add a
+        # receipt image. Those are progressively stronger evidence for one
+        # claim. A genuinely newer receipt source remains a separate review.
+        primary = IgPaymentConfirmationReview.objects.select_for_update().filter(
+            pk=episode.primary_payment_review_id,
+            client_id=locked_client.pk,
+            status=IgPaymentConfirmationReview.Status.PENDING,
+        ).first()
+        if primary and _pending_review_matches_payment_evidence(primary, extracted):
+            return primary, False
+        review, created = IgPaymentConfirmationReview.objects.get_or_create(
+            dedupe_key=dedupe_key,
+            defaults={
+                "client": locked_client,
+                "evidence": _claim_review_context(extracted, claim_anchor=claim_anchor),
+                "watermark_message_id": watermark,
+            },
+        )
+        if created:
+            episode.primary_payment_review = review
+            episode.save(update_fields=["primary_payment_review", "updated_at"])
+    return review, created
+
+
+def _pending_review_has_new_receipt_evidence(review, extracted: dict) -> bool:
+    """Allow one enrichment pass when a receipt arrives after a text claim."""
+    incoming_sources = set(_receipt_source_identities(extracted))
+    if not incoming_sources:
+        return False
+    return bool(incoming_sources.difference(_receipt_source_identities(review)))
+
+
+def _refresh_pending_review_context(review, extracted: dict, *, watermark: int) -> None:
+    if review.status != review.Status.PENDING:
+        return
+    current = review.evidence if isinstance(review.evidence, dict) else {}
+    current_draft = current.get("order_draft") if isinstance(current.get("order_draft"), dict) else {}
+    incoming_draft = extracted.get("order_draft") if isinstance(extracted.get("order_draft"), dict) else {}
+    merged_delivery = dict(current_draft.get("delivery") or {})
+    merged_delivery.update({
+        key: value for key, value in (incoming_draft.get("delivery") or {}).items() if value
+    })
+    merged_draft = {
+        **current_draft,
+        **incoming_draft,
+        "delivery": merged_delivery,
+        # Keep verified media/catalog enrichment from the creator.
+        "media": current.get("media", current_draft.get("media", [])),
+    }
+    refreshed = {
+        **current,
+        "messages": extracted.get("evidence", []),
+        "amount_evidence": extracted.get("amount_evidence", []),
+        "order_draft": merged_draft,
+    }
+    update_fields = []
+    if refreshed != current:
+        review.evidence = refreshed
+        update_fields.append("evidence")
+    if int(watermark or 0) > int(review.watermark_message_id or 0):
+        review.watermark_message_id = int(watermark)
+        update_fields.append("watermark_message_id")
+    if update_fields:
+        update_fields.append("updated_at")
+        review.save(update_fields=update_fields)
 
 
 def create_payment_review(client, *, watermark: int = 0, messages=None):
-    """Persist an idempotent review and enqueue its management alert.
-
-    The alert uses the existing notification outbox. No customer message,
-    Meta event, provider call, or order is created here.
-    """
+    """Persist one review per payment claim before any costly media enrichment."""
     if not client or client.hidden_at:
         return None
-    from management.ig_bot_models import IgPaymentConfirmationReview
+    from management.ig_bot_models import IgCommercialEpisode
     from management.models import InstagramBotMessage
 
-    episode_floor = 0
-    try:
-        from management.ig_bot_models import IgCommercialEpisode
-
-        episode_floor = int(
-            IgCommercialEpisode.objects.filter(
-                client_id=client.pk,
-                open_slot=1,
-            ).values_list("opened_watermark_message_id", flat=True).first()
-            or 0
-        )
-    except Exception:
-        episode_floor = 0
-
+    episode_floor = int(
+        IgCommercialEpisode.objects.filter(
+            client_id=client.pk,
+            open_slot=1,
+        ).values_list("opened_watermark_message_id", flat=True).first()
+        or 0
+    )
     if messages is None:
         message_query = InstagramBotMessage.objects.filter(client_id=client.pk)
         if episode_floor:
             message_query = message_query.filter(pk__gte=episode_floor)
         rows = list(message_query.order_by("-id")[:80])
         rows.reverse()
-        messages = [
-            {
-                "id": row.pk,
-                "mid": row.mid,
-                "role": row.role,
-                "text": row.text,
-                "attachments": row.attachments,
-                "created_at": row.created_at.isoformat(),
-            }
-            for row in rows
-        ]
+        messages = [{
+            "id": row.pk,
+            "mid": row.mid,
+            "role": row.role,
+            "text": row.text,
+            "attachments": row.attachments,
+            "created_at": row.created_at.isoformat(),
+        } for row in rows]
     elif episode_floor:
         scoped_messages = []
         for message in messages:
@@ -1587,135 +1958,102 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
     extracted = extract_payment_review_evidence(messages)
     if not extracted["needs_review"]:
         return None
-    resolved_media = _resolve_payment_media_candidates(extracted.get("media") or [])
-    enriched_media = _persist_review_media(resolved_media)
-    for item in enriched_media:
-        item["message_id"] = item.get("message_id") or None
-    for container in [
-        *(extracted.get("order_draft", {}).get("context_messages", []) or []),
-        *(extracted.get("evidence", []) or []),
-    ]:
-        context_media = container.get("media") or [] if isinstance(container, dict) else []
-        for context_item in context_media:
-            for item in enriched_media:
-                if item.get("url") == context_item.get("url"):
-                    context_item.update(item)
-    _reconcile_payment_evidence_after_media_resolution(extracted, enriched_media)
-    if not extracted["needs_review"]:
-        return None
-    extracted["media"] = enriched_media
-    extracted["order_draft"]["media"] = enriched_media
-    catalog_matches = _catalog_matches_for_media(enriched_media)
-    for media_item in enriched_media:
-        bound_matches = media_item.get("catalog_matches") if isinstance(media_item.get("catalog_matches"), list) else []
-        if bound_matches:
-            media_item["product_id"] = ",".join(str(match.get("product_id")) for match in bound_matches if match.get("product_id"))
-            media_item["product_title"] = " / ".join(str(match.get("title")) for match in bound_matches if match.get("title"))
-            media_item["product_url"] = "\n".join(str(match.get("url")) for match in bound_matches if match.get("url"))
-            media_item["confidence"] = ",".join(str(match.get("confidence")) for match in bound_matches if match.get("confidence") is not None)
-    extracted["catalog_matches"] = catalog_matches
-    extracted["catalog_match"] = catalog_matches[0] if catalog_matches else {}
-    _apply_catalog_matches_to_draft(extracted["order_draft"], catalog_matches)
-    _apply_validated_conversation_price_to_draft(extracted["order_draft"], messages, catalog_matches)
-    extracted["media_audit_v3"] = True
     watermark = int(watermark or max(extracted["message_ids"] or [0]))
-    deal = _select_review_deal(client, catalog_matches)
-    review_evidence = {
-        "messages": extracted["evidence"],
-        "amount_evidence": extracted["amount_evidence"],
-        "order_draft": extracted["order_draft"],
-        "media": extracted.get("media", []),
-        "catalog_match": extracted.get("catalog_match", {}),
-        "catalog_matches": extracted.get("catalog_matches", []),
-        "media_audit_v3": True,
-        "deal": _deal_payload(deal),
-    }
-    fingerprint = payment_review_fingerprint(review_evidence)
-    if fingerprint:
-        existing_reviews = list(
-            IgPaymentConfirmationReview.objects.filter(client_id=client.pk)
-            .exclude(
-                status__in=[
-                    IgPaymentConfirmationReview.Status.CANCELLED,
-                    IgPaymentConfirmationReview.Status.SUPERSEDED,
-                ]
-            )
-            .select_related("order")
+    claim_anchor = payment_review_claim_anchor(extracted)
+    if not claim_anchor:
+        return None
+
+    # This lock serializes concurrent webhook/reconcile workers for one
+    # customer, so only the claimant below may cross the vision boundary.
+    from management.services.ig_commercial_episodes import commercial_episode_client_lock
+
+    with commercial_episode_client_lock(client.pk):
+        review, created = _claim_payment_review(
+            client,
+            extracted=extracted,
+            watermark=watermark,
+            claim_anchor=claim_anchor,
         )
-        matching = [
-            row for row in existing_reviews
-            if payment_review_fingerprint(row) == fingerprint
-        ]
-        if matching:
-            existing = sorted(
-                matching,
-                key=lambda row: (
-                    bool(row.order_id),
-                    row.status == IgPaymentConfirmationReview.Status.CONFIRMED,
-                    row.id,
-                ),
-                reverse=True,
-            )[0]
-            from management.services.instagram_bot import notify_manager
+        current_evidence = review.evidence if isinstance(review.evidence, dict) else {}
+        if not created:
+            # A terminal review is an audited manager decision about this exact
+            # claim. A real resubmission has a new source message and therefore
+            # a new claim anchor; replaying this anchor must not reopen it or
+            # cross the media/vision boundary again.
+            if (
+                review.status != review.Status.PENDING
+                or (
+                    current_evidence.get("media_audit_v3")
+                    and not _pending_review_has_new_receipt_evidence(review, extracted)
+                )
+            ):
+                _refresh_pending_review_context(review, extracted, watermark=watermark)
+                return review
 
-            notify_manager(
-                _alert_text(existing, client),
-                dedupe_key=existing.dedupe_key,
-                event_type="payment_review",
-                client=client,
-                reply_markup=_review_keyboard(existing),
-                media=(existing.evidence or {}).get("media", []),
-                metadata={"payment_candidate": payment_confirmation_candidate(existing)},
-            )
-            return existing
-    dedupe_key = f"ig-payment-review:{client.pk}:{fingerprint or watermark}"
-    if fingerprint and IgPaymentConfirmationReview.objects.filter(
-        dedupe_key=dedupe_key,
-        status__in=[
-            IgPaymentConfirmationReview.Status.CANCELLED,
-            IgPaymentConfirmationReview.Status.SUPERSEDED,
-        ],
-    ).exists():
-        dedupe_key = f"{dedupe_key}:reopened:{watermark}"
-    with transaction.atomic():
-        review, created = IgPaymentConfirmationReview.objects.get_or_create(
-            dedupe_key=dedupe_key,
-            defaults={
-                "client": client,
-                "deal": deal,
-                "evidence": review_evidence,
-                "watermark_message_id": watermark,
-            },
-        )
-    if created:
-        from management.services.ig_commercial_episodes import ensure_episode_for_review
-
-        ensure_episode_for_review(review)
-    from management.services.instagram_bot import notify_manager
-
-    if not created and _review_evidence_needs_refresh(review.status, review.evidence, extracted):
+        resolved_media = _resolve_payment_media_candidates(extracted.get("media") or [])
+        enriched_media = _persist_review_media(resolved_media)
+        for item in enriched_media:
+            item["message_id"] = item.get("message_id") or None
+        for container in [
+            *(extracted.get("order_draft", {}).get("context_messages", []) or []),
+            *(extracted.get("evidence", []) or []),
+        ]:
+            context_media = container.get("media") or [] if isinstance(container, dict) else []
+            for context_item in context_media:
+                for item in enriched_media:
+                    if item.get("url") == context_item.get("url"):
+                        context_item.update(item)
+        _reconcile_payment_evidence_after_media_resolution(extracted, enriched_media)
+        if not extracted["needs_review"]:
+            review.status = review.Status.CANCELLED
+            review.cancellation_reason = "automated_media_not_payment"
+            review.cancelled_at = timezone.now()
+            review.save(update_fields=["status", "cancellation_reason", "cancelled_at", "updated_at"])
+            return None
+        extracted["media"] = enriched_media
+        extracted["order_draft"]["media"] = enriched_media
+        catalog_matches = _catalog_matches_for_media(enriched_media)
+        for media_item in enriched_media:
+            bound_matches = media_item.get("catalog_matches") if isinstance(media_item.get("catalog_matches"), list) else []
+            if bound_matches:
+                media_item["product_id"] = ",".join(str(match.get("product_id")) for match in bound_matches if match.get("product_id"))
+                media_item["product_title"] = " / ".join(str(match.get("title")) for match in bound_matches if match.get("title"))
+                media_item["product_url"] = "\n".join(str(match.get("url")) for match in bound_matches if match.get("url"))
+                media_item["confidence"] = ",".join(str(match.get("confidence")) for match in bound_matches if match.get("confidence") is not None)
+        extracted["catalog_matches"] = catalog_matches
+        extracted["catalog_match"] = catalog_matches[0] if catalog_matches else {}
+        _apply_catalog_matches_to_draft(extracted["order_draft"], catalog_matches)
+        _apply_validated_conversation_price_to_draft(extracted["order_draft"], messages, catalog_matches)
+        deal = _select_review_deal(client, catalog_matches)
         review.evidence = {
-            **review.evidence,
+            # Keep the original claim identity: later receipt evidence belongs
+            # to this pending episode review and must not mutate its key.
+            "claim_anchor": current_evidence.get("claim_anchor") or claim_anchor,
             "messages": extracted["evidence"],
             "amount_evidence": extracted["amount_evidence"],
             "order_draft": extracted["order_draft"],
-            "media": extracted.get("media", []),
+            "media": enriched_media,
             "catalog_match": extracted.get("catalog_match", {}),
             "catalog_matches": extracted.get("catalog_matches", []),
             "media_audit_v3": True,
+            "deal": _deal_payload(deal),
         }
-        review.save(update_fields=["evidence", "updated_at"])
+        review.deal = deal
+        review.watermark_message_id = max(int(review.watermark_message_id or 0), watermark)
+        review.save(update_fields=["evidence", "deal", "watermark_message_id", "updated_at"])
 
-    notify_manager(
-        _alert_text(review, client),
-        dedupe_key=review.dedupe_key,
-        event_type="payment_review",
-        client=client,
-        reply_markup=_review_keyboard(review),
-        media=enriched_media,
-        metadata={"payment_candidate": payment_confirmation_candidate(review)},
-    )
-    return review
+        from management.services.instagram_bot import notify_manager
+
+        notify_manager(
+            _alert_text(review, client),
+            dedupe_key=review.dedupe_key,
+            event_type="payment_review",
+            client=client,
+            reply_markup=_review_keyboard(review),
+            media=enriched_media,
+            metadata={"payment_candidate": payment_confirmation_candidate(review)},
+        )
+        return review
 
 
 def _decision_stage_after(client, decision: str, verification_scope: str = "") -> str:

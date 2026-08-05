@@ -6,6 +6,7 @@
 from django.core.management.base import BaseCommand
 
 from management.services import bot_payments
+from management.services.ig_task_health import task_heartbeat
 
 
 class Command(BaseCommand):
@@ -55,15 +56,16 @@ class Command(BaseCommand):
             )
             return
 
-        reconciled = bot_payments.reconcile_payment_projections(limit=limit)
-        paid = bot_payments.poll_pending_deals_locked(limit=limit)
-        paid = int(paid or 0)
-        # Safety-net: дотворюємо замовлення для оплачених угод з повними даними НП,
-        # якщо модель не виставила тег [ORDER].
-        from management.services import bot_orders
+        with task_heartbeat("ig_deal_payments"):
+            reconciled = bot_payments.reconcile_payment_projections(limit=limit)
+            paid = bot_payments.poll_pending_deals_locked(limit=limit)
+            paid = int(paid or 0)
+            # Safety-net: дотворюємо замовлення для оплачених угод з повними даними НП,
+            # якщо модель не виставила тег [ORDER].
+            from management.services import bot_orders
 
-        fulfilled = bot_orders.fulfill_ready_paid_deals(limit=limit)
-        shipped = bot_orders.notify_shipped_deals(limit=limit)
+            fulfilled = bot_orders.fulfill_ready_paid_deals(limit=limit)
+            shipped = bot_orders.notify_shipped_deals(limit=limit)
         self.stdout.write(
             self.style.SUCCESS(
                 f"Звірено проєкцій: {reconciled}; Оплачено угод за цей прогін: {paid}; "

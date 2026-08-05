@@ -218,7 +218,7 @@ class IterAttemptsTests(TestCase):
         with patch.dict("os.environ", ENV6, clear=False):
             models_for_first_key = [a[2] for a in gk.iter_attempts("chat") if a[0] == "GEMINI_API"]
         self.assertNotIn("gemini-3.5-flash", models_for_first_key)
-        self.assertIn("gemini-3.1-flash-lite", models_for_first_key)
+        self.assertIn("gemini-3.5-flash-lite", models_for_first_key)
         gk.clear_model_overload()
 
     def test_model_chain_override_is_used_for_pooled_attempts(self):
@@ -228,11 +228,11 @@ class IterAttemptsTests(TestCase):
             combos = list(
                 gk.iter_attempts(
                     "chat",
-                    model_chain_override=["gemini-2.5-flash", "gemini-3.6-flash"],
+                    model_chain_override=["gemini-3.5-flash-lite", "gemini-3.6-flash"],
                 )
             )
         self.assertTrue(combos)
-        self.assertEqual(combos[0][2], "gemini-2.5-flash")
+        self.assertEqual(combos[0][2], "gemini-3.5-flash-lite")
 
     def test_checker_chain_uses_25_flash(self):
         from management.services import gemini_keys as gk
@@ -274,6 +274,22 @@ class IterAttemptsTests(TestCase):
                 key_order.append(key_name)
         self.assertEqual(key_order[:2], ["GEMINI_API", "GEMINI_API2"])
         self.assertEqual(set(key_order), set(ENV6))
+
+    def test_chat_preserves_hot_shared_and_last_reserve_tiers(self):
+        """Sticky success may reorder a tier, but never promote API5/6 over API3/4."""
+        from management.services import gemini_keys as gk
+
+        gk.mark_success("GEMINI_API5", now=timezone.now())
+        with patch.dict("os.environ", ENV6, clear=False):
+            primary = [
+                key_name
+                for key_name, _, model in gk.iter_attempts("chat")
+                if model == "gemini-3.6-flash"
+            ]
+
+        self.assertEqual(set(primary[:2]), {"GEMINI_API", "GEMINI_API2"})
+        self.assertEqual(set(primary[2:4]), {"GEMINI_API3", "GEMINI_API4"})
+        self.assertEqual(set(primary[4:6]), {"GEMINI_API5", "GEMINI_API6"})
 
     def test_primary_model_tried_on_all_keys_before_lower(self):
         """Model-major: gemini-3.6-flash перебирається на ВСІХ ключах раніше за
@@ -343,6 +359,24 @@ class KeyLevel429Tests(SimpleTestCase):
 
 
 class ModelChainPolicyTests(SimpleTestCase):
+    @override_settings(GEMINI_ROLE_MODEL_CHAINS={
+        "chat": ["gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-3.6-flash"],
+    })
+    def test_chat_override_filters_obsolete_models_through_allowlist(self):
+        from management.services import gemini_keys as gk
+
+        chain = gk.model_chain("chat")
+
+        self.assertEqual(chain, ["gemini-3.5-flash-lite", "gemini-3.6-flash"])
+
+    @override_settings(GEMINI_ROLE_MODEL_CHAINS={
+        "chat": ["gemini-3.6-flash", "gemini-3.5-flash"],
+    })
+    def test_partial_chat_override_preserves_management_default_chain(self):
+        from management.services import gemini_keys as gk
+
+        self.assertEqual(gk.model_chain("management")[0], "gemini-3.6-flash")
+
     def test_management_chain_uses_gemini_36_flash_first(self):
         from management.services import gemini_keys as gk
 
@@ -409,24 +443,33 @@ class ModelChainDegradationTests(SimpleTestCase):
         for m in chain:
             self.assertIn(m, gk.FREE_QUOTA_MODELS)
 
-    def test_chat_chain_is_free_and_degrading(self):
+    def test_live_chat_chain_contains_only_approved_models_in_quality_order(self):
         from management.services import gemini_keys as gk
+
         chain = gk.role_model_chains()["chat"]
-        self.assertEqual(chain[0], "gemini-3.6-flash")
-        self.assertIn("gemini-2.5-flash-lite", chain)
-        for m in chain:
-            self.assertIn(m, gk.FREE_QUOTA_MODELS)
+
+        self.assertEqual(
+            chain,
+            [
+                "gemini-3.6-flash",
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite",
+            ],
+        )
 
     def test_chat_model_allowlist_normalizes_legacy_or_arbitrary_values(self):
         from management.services import gemini_keys as gk
 
         self.assertTrue(gk.is_allowed_chat_model("gemini-3.6-flash"))
+        self.assertTrue(gk.is_allowed_chat_model("gemini-3.5-flash-lite"))
+        self.assertFalse(gk.is_allowed_chat_model("gemini-2.5-flash"))
         self.assertFalse(gk.is_allowed_chat_model("https://attacker.invalid/model"))
         self.assertEqual(gk.normalize_chat_model("gemini-3-flash-preview"), "gemini-3.6-flash")
         self.assertEqual(
             gk.model_chain("chat", "gemini-2.5-flash")[0],
-            "gemini-2.5-flash",
+            "gemini-3.6-flash",
         )
+        self.assertNotIn("gemini-2.5-flash", gk.model_chain("chat", "gemini-2.5-flash"))
 
     def test_checker_chain_uses_only_free_grounding_models(self):
         from management.services import gemini_keys as gk
@@ -435,6 +478,63 @@ class ModelChainDegradationTests(SimpleTestCase):
         for m in chain:
             self.assertIn(m, gk.FREE_GROUNDING_MODELS)
         self.assertNotIn("gemini-3.5-flash", chain)
+
+
+class DurableGeminiStateTests(TestCase):
+    def setUp(self):
+        from management.services import gemini_keys as gk
+
+        self.gk = gk
+        self.env = {
+            "GEMINI_API": "chat-key-1",
+            "GEMINI_API2": "chat-key-2",
+            "GEMINI_API3": "analysis-key-1",
+        }
+
+    def test_project_siblings_cannot_hold_the_same_lease(self):
+        acquire = getattr(self.gk, "acquire_key_lease", None)
+        release = getattr(self.gk, "release_key_lease", None)
+        self.assertTrue(callable(acquire), "missing durable key lease acquisition")
+        self.assertTrue(callable(release), "missing durable key lease release")
+
+        with patch.dict("os.environ", self.env, clear=False), override_settings(
+            GEMINI_KEY_PROJECT_GROUPS="GEMINI_API=chat-project,GEMINI_API2=chat-project,GEMINI_API3=analysis-project"
+        ):
+            token = acquire("GEMINI_API", role="chat")
+            self.assertTrue(token)
+            self.assertIsNone(acquire("GEMINI_API2", role="chat"))
+            self.assertFalse(release("GEMINI_API", "wrong-token"))
+            self.assertTrue(release("GEMINI_API", token))
+            self.assertTrue(acquire("GEMINI_API2", role="chat"))
+
+    def test_model_circuit_is_cross_process_state(self):
+        opener = getattr(self.gk, "open_model_circuit", None)
+        is_open = getattr(self.gk, "model_circuit_open", None)
+        self.assertTrue(callable(opener), "missing durable model circuit")
+        self.assertTrue(callable(is_open), "missing durable circuit check")
+
+        opener("gemini-3.6-flash", reason="http_404")
+        self.assertTrue(is_open("gemini-3.6-flash"))
+
+    def test_attempt_telemetry_is_redacted_and_keyed_by_request(self):
+        recorder = getattr(self.gk, "record_attempt", None)
+        self.assertTrue(callable(recorder), "missing Gemini request telemetry")
+
+        row = recorder(
+            request_id="request-redacted-1",
+            role="chat",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            error_detail="api_key=chat-key-1 customer text must not persist",
+            latency_ms=123,
+            remaining_deadline_ms=456,
+        )
+        self.assertEqual(row.request_id, "request-redacted-1")
+        self.assertEqual(row.failure_kind, "read_timeout")
+        self.assertNotIn("chat-key-1", row.error_detail)
+        self.assertNotIn("customer text", row.error_detail)
 
 
 class ModelUnavailableSkipTests(TestCase):
@@ -466,7 +566,7 @@ class ModelUnavailableSkipTests(TestCase):
             combos = list(gk.iter_attempts("chat"))
         self.assertNotIn("gemini-3.5-flash", [m for _, _, m in combos])
         # нижча модель усе ще доступна
-        self.assertIn("gemini-2.5-flash", [m for _, _, m in combos])
+        self.assertIn("gemini-3.5-flash-lite", [m for _, _, m in combos])
 
     def test_iter_attempts_stops_model_when_marked_unavailable_midpass(self):
         from management.services import gemini_keys as gk
@@ -477,5 +577,5 @@ class ModelUnavailableSkipTests(TestCase):
             # імітуємо: на 1-му ключі модель виявилась платною → позначили
             gk.mark_model_unavailable("gemini-3.6-flash", seconds=600)
             rest = list(gen)
-        # після позначення 3.5-flash більше не пробується на інших ключах
+        # після позначення 3.6-flash вона більше не пробується на інших ключах
         self.assertEqual([(k, m) for k, _, m in rest if m == "gemini-3.6-flash"], [])

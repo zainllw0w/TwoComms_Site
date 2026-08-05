@@ -328,13 +328,14 @@ class InstagramLoginWebhookSecretTests(SimpleTestCase):
         ):
             self.assertFalse(bot.verify_signature(raw, f"sha256={digest}"))
 
-    def test_instagram_webhook_ignores_parent_and_legacy_secrets(self):
+    def test_instagram_webhook_accepts_configured_app_secrets_only(self):
         raw = b'{"object":"instagram","entry":[]}'
         instagram_digest = hmac.new(
             b"instagram-app-secret", raw, hashlib.sha256
         ).hexdigest()
         parent_digest = hmac.new(b"parent-meta-secret", raw, hashlib.sha256).hexdigest()
         legacy_digest = hmac.new(b"legacy-meta-secret", raw, hashlib.sha256).hexdigest()
+        unknown_digest = hmac.new(b"unknown-app-secret", raw, hashlib.sha256).hexdigest()
 
         with patch.dict(
             os.environ,
@@ -347,10 +348,11 @@ class InstagramLoginWebhookSecretTests(SimpleTestCase):
             clear=True,
         ):
             self.assertTrue(bot.verify_signature(raw, f"sha256={instagram_digest}"))
-            self.assertFalse(bot.verify_signature(raw, f"sha256={parent_digest}"))
+            self.assertTrue(bot.verify_signature(raw, f"sha256={parent_digest}"))
             self.assertFalse(bot.verify_signature(raw, f"sha256={legacy_digest}"))
+            self.assertFalse(bot.verify_signature(raw, f"sha256={unknown_digest}"))
 
-    def test_webhook_secret_does_not_switch_when_access_token_is_missing(self):
+    def test_webhook_accepts_parent_app_secret_without_access_token(self):
         raw = b'{"object":"instagram","entry":[]}'
         instagram_digest = hmac.new(
             b"instagram-app-secret", raw, hashlib.sha256
@@ -368,7 +370,7 @@ class InstagramLoginWebhookSecretTests(SimpleTestCase):
             clear=True,
         ):
             self.assertTrue(bot.verify_signature(raw, f"sha256={instagram_digest}"))
-            self.assertFalse(bot.verify_signature(raw, f"sha256={parent_digest}"))
+            self.assertTrue(bot.verify_signature(raw, f"sha256={parent_digest}"))
 
     def test_legacy_oauth_uses_parent_meta_secret(self):
         with patch.dict(

@@ -4,6 +4,90 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## IMP-102 durable follow-up delivery FSM deploy (2026-08-05)
+
+Коммиты `0d4d38c0`, `0e9e9ba5`, `4cb86743` и `414e639e` опубликованы в
+`origin/main` и fast-forwarded на production. Применена migration
+`management.0141_igfollowuptask_delivery_fsm`. Локально прошли 23/23 focused и
+160/160 expanded regression tests, Django check, migration drift, compileall и
+`git diff --check`.
+
+Production HEAD:
+`414e639eced30a01ff2c5553b08605099465478c`. `status_snapshot()` подтвердил
+`is_enabled=True`, `state='running'`, `running=True`, `daemon_online=True`,
+`alive=True`, `provider_transport='instagram_login'`, `last_error=''`; daemon
+ровно один. Read-only delivery audit: `processing=[]`, `ambiguous=[]`,
+`sent_without_message=[]`, `delivery_reviews=[]`.
+
+## F-CAT-007 variant-specific prompt parity deploy (2026-08-05)
+
+`e44d1440` bound catalog sizes to exact `variant + fit`; `0ad694bc` separated an
+authoritative empty size contract from absence of a variant-specific source.
+Both commits are in `origin/main` and production. Product 110 now enters the
+bot prompt as `variant_id=81`, thermo green, exact 1450 грн, oversize sizes
+XS/M; the false product-wide `XS/S/M/L/XL/XXL` row is absent.
+
+Verification: 188 focused tests and the full management suite 2675 passed
+(3 skipped); Django check, migration drift, compileall and diff check passed.
+Final production runtime on `0ad694bc`: one daemon, `running=True`,
+`alive=True`, provider `instagram_login`, heartbeat 0.1 s, `last_error=''`,
+pending replies/notifications = `0/0`.
+
+## IMP-082/083 typed graph/ranker historical foundation deploy (2026-08-05)
+
+`29684475` was pushed to `main` and fast-forwarded on production. `migrate`
+reported no pending migrations; `manage.py check`, migration drift and scoped
+compileall passed. `tmp/restart.txt` caused the old daemon to release its lock;
+`run_instagram_bot --ensure` spawned one daemon on the deployed code.
+
+Production MariaDB read-only proof built graph digest
+`38f2c7df99c9c042c179bc96e0736185b03cfb1f29381722b96c8ce41b7a7b8e`:
+product 91 has exact fit prices 800/950 грн; product 110 has only thermo
+`variant_id=81` at exact 1450 грн. Hard `color=termo-zelena`, `fit=oversize`,
+`size=M` resolves one candidate; `size=L` resolves none. Final runtime:
+one daemon, `running=True`, `alive=True`, `instagram_login`, heartbeat 0.5 s,
+`last_error=''`, active reply/notification/analysis queues zero. Server tracked
+files are clean; unrelated untracked operational files remain untouched.
+
+## F-PAY-015 daemon reconciliation deploy (2026-08-05)
+
+`93ae8684` was pushed to `main` and fast-forwarded on production. `migrate`
+reported no pending migrations, `manage.py check` passed, and
+`reconcile_ig_commercial_episodes --passes 3` returned
+`deals=0, reviews=0, attributions=0`. Static collection, compression, playbook
+seed and bounded payment backstop completed; the backstop processed zero
+projections/orders. After `tmp/restart.txt`, `run_instagram_bot --ensure`
+spawned the new daemon.
+
+Final production evidence: server HEAD `93ae8684`; `running=True`, `alive=True`,
+state `running`, provider `instagram_login`, heartbeat age 1.0 second,
+`last_error=''`, pending replies/notifications/analysis = `0/0/0`. Client `59`
+has separate terminal episodes `2`, `3`, `7`; episodes `2` and `7` are
+`lost / superseded_duplicate_payment_review`, episode `3` is fulfilled, and
+`current_commercial_episode_id` is null.
+
+## IMP-094 deployment checkpoint (2026-08-04)
+
+`15147ded` was fast-forwarded to `main` and pulled on production. `manage.py
+check` and `makemigrations --check --dry-run` passed. Touching
+`tmp/restart.txt` stopped the old daemon as designed, but the scheduled
+watchdog did not relaunch it promptly; the standard singleton-safe
+`run_instagram_bot --ensure` restored the worker. Final `status_snapshot()`:
+`is_enabled=True`, `state='running'`, `running=True`, `alive=True`, transport
+`instagram_login`, `last_error=''`. No production database was used for tests;
+the disposable MariaDB gate in IMP-094 remains open.
+
+## IMP-077 / F-OPS-009 deployment checkpoint (2026-08-04)
+
+`221cf37d` was rebased on the then-current `main`, fast-forwarded to production
+with `git pull --ff-only`, and introduced no migrations. Server `manage.py
+check` passed; `run_instagram_bot --ensure` reported `daemon alive — ok`.
+`status_snapshot()` then confirmed `state='running'`, `running=True`,
+`alive=True`, `provider_transport='instagram_login'`, empty `last_error` and
+`notification_pending=notification_failed=notification_unknown=notification_dead_letter=0`.
+The server contains unrelated untracked operational files; no tracked file was
+overwritten outside the fast-forward.
+
 | Date | SHA | Verification | Runtime |
 |---|---|---|---|
 | 2026-08-03 | `2a89d860` | payment backstop/contract | daemon online |
@@ -19,6 +103,12 @@ Production host: `195.191.25.63`, path
 | 2026-08-03 | `280c07e8` | migration `0134`; 104 payment/lifecycle tests; superseded invoice polling and check-only proof | `running`; `last_error=''` |
 | 2026-08-03 | `6883ac2c` | final IMP-089 code/doc checkpoint; server pull, migrate/check, check-only and runtime verification | `running`; heartbeat 0.6s; `last_error=''` |
 | 2026-08-03 | `e04c1c24` | final audit evidence checkpoint; docs-only fast-forward | runtime unchanged; `running`; `last_error=''` |
+| 2026-08-04 | `15147ded` | IMP-094 SQLite gate stabilization; production check/migration-drift; daemon recovery | `running`; `alive=True`; `instagram_login`; `last_error=''` |
+| 2026-08-04 | `221cf37d` | IMP-077 terminal monitor/key/dedupe completion; focused 75 tests, production check and daemon ensure | `running`; `alive=True`; terminal outbox `0/0` |
+| 2026-08-05 | `93ae8684` | F-PAY-015; 134 local tests, MySQL reconcile x3, static/compress, payment backstop, restart | `running`; `alive=True`; `instagram_login`; heartbeat 1.0s; queues `0/0/0` |
+| 2026-08-05 | `29684475` | IMP-082/083 partial; 31/230/2672/202 local gates, MySQL graph 91=800/950 and 110=1450, hard incompatible size rejected | one daemon; `running`; `alive=True`; heartbeat 0.5s; queues `0/0/0` |
+| 2026-08-05 | `e44d1440` / `0ad694bc` | F-CAT-007 fixed; 188 focused, 2675 full suite, exact variant+fit prompt price/size contract | one daemon; `running`; `alive=True`; heartbeat 0.1s; reply/notification queues `0/0` |
+| 2026-08-05 | `0d4d38c0` / `0e9e9ba5` / `4cb86743` / `414e639e` | IMP-102/F-FUP-013; migration `0141`, 23 focused / 160 expanded, check/drift/compileall/diff | one daemon; `running`; `alive=True`; `instagram_login`; delivery queues empty |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,

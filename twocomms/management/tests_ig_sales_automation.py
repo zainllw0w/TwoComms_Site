@@ -15,6 +15,7 @@ from management.models import (
     IgDealItem,
     InstagramBotMessage,
 )
+from management.services.instagram_bot import ProviderDeliveryReceipt
 
 User = get_user_model()
 MGMT = override_settings(
@@ -26,6 +27,53 @@ KYIV = ZoneInfo("Europe/Kyiv")
 
 
 class SalesClassifierTests(TestCase):
+    @patch("management.services.ig_payment_review.create_payment_review")
+    def test_manager_message_never_intakes_payment_review(self, create_review):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_manager_payment_boundary")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.MANAGER,
+            text="Оплату підтверджено, очікуємо доставку",
+        )
+
+        bot_sales_classifier.classify_message(
+            client,
+            message=message,
+            operational_effects=True,
+        )
+
+        create_review.assert_not_called()
+
+    @patch("management.services.ig_payment_review.create_payment_review")
+    @patch("management.services.ig_post_sale.open_post_sale_case")
+    def test_projection_only_classification_creates_no_operational_cases(
+        self,
+        open_post_sale_case,
+        create_review,
+    ):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_projection_only")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Я оплатила, ось чек",
+        )
+
+        bot_sales_classifier.ensure_rule_classification(
+            client,
+            message,
+            operational_effects=False,
+            allow_post_sale_effects=False,
+        )
+
+        open_post_sale_case.assert_not_called()
+        create_review.assert_not_called()
+
     def test_explicit_purchase_decision_sets_payment_intent(self):
         from management.models import IgConversationSignal
         from management.services import bot_sales_classifier
@@ -354,7 +402,7 @@ class FollowUpPolicyTests(TestCase):
             (False, "payment_reversed"),
         )
 
-    def test_transient_followup_failure_is_backed_off_and_not_hot_looped(self):
+    def test_uncertain_transient_followup_failure_is_ambiguous_and_not_retried(self):
         from management.models import IgFollowUpTask, InstagramBotSettings
         from management.services import bot_followups
 
@@ -381,13 +429,19 @@ class FollowUpPolicyTests(TestCase):
                 0,
             )
             task.refresh_from_db()
-            self.assertEqual(task.status, IgFollowUpTask.Status.PENDING)
+            self.assertEqual(task.status, IgFollowUpTask.Status.AMBIGUOUS)
             self.assertEqual(task.attempt_count, 1)
-            self.assertGreater(task.next_attempt_at, now)
-            self.assertEqual(task.due_at, task.next_attempt_at)
+            self.assertIsNone(task.next_attempt_at)
+            self.assertTrue(
+                IgFollowUpTask.objects.filter(
+                    delivery_review_for=task,
+                    kind=IgFollowUpTask.Kind.MANAGER_TASK,
+                    status=IgFollowUpTask.Status.PENDING,
+                ).exists()
+            )
 
-            # The daemon can run again immediately, but the task is not eligible
-            # until its persisted retry timestamp.
+            # The daemon can run again immediately, but ambiguous delivery is
+            # resolved only by the manager and must never cross Meta twice.
             self.assertEqual(
                 bot_followups.process_due_followups(
                     InstagramBotSettings.load(), now=now, limit=1
@@ -419,7 +473,7 @@ class FollowUpPolicyTests(TestCase):
 
         with patch(
             "management.services.instagram_bot.send_text",
-            return_value=(True, "", ""),
+            return_value=ProviderDeliveryReceipt(True, "", "", "retry-recovery"),
         ):
             self.assertEqual(
                 bot_followups.process_due_followups(
@@ -1006,7 +1060,7 @@ class SalesCockpitApiTests(TestCase):
                 reverse("management_bot_client_hide_api", args=[self.active.id]),
                 {"reason": "manual"},
             ))
-            return True, "", ""
+            return ProviderDeliveryReceipt(True, "", "", "hide-race")
 
         with patch(
             "management.services.bot_followups.next_allowed_send_at", return_value=now
@@ -1269,7 +1323,8 @@ class SalesCockpitApiTests(TestCase):
             "Товар визначено",
             "Заплановані контакти",
             "Повернення після нагадування",
-            "Воронка продажів",
+            "Когортна воронка",
+            "Поточний стан діалогів",
             "Частка від діалогів",
             "Ефективність реклами",
             "Заперечення клієнтів",

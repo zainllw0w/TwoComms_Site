@@ -315,9 +315,10 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                     from management.services.instagram_bot import notify_manager
 
                     notify_manager(
-                        f"IG lifecycle event requires operator response: {event.kind} for order #{event.order.order_number}",
-                        dedupe_key=f"ig-lifecycle:{event.event_key}",
-                        event_type="ig_lifecycle_manager_review",
+                        "⚠️ IG: lifecycle-подія потребує відповіді менеджера: "
+                        f"{event.kind}, замовлення #{event.order.order_number}",
+                        dedupe_key=f"ig-lifecycle:window:{event.event_key}",
+                        event_type="ig_lifecycle_window_review",
                         client=event.client,
                     )
                 except Exception:
@@ -379,9 +380,10 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             from management.services.instagram_bot import notify_manager
 
             notify_manager(
-                f"IG lifecycle event needs review: {event.kind} for order #{event.order.order_number}",
-                dedupe_key=f"ig-lifecycle:{event.event_key}",
-                event_type="ig_lifecycle_manager_review",
+                "⚠️ IG: не вдалося доставити lifecycle-подію: "
+                f"{event.kind}, замовлення #{event.order.order_number}",
+                dedupe_key=f"ig-lifecycle:delivery:{event.event_key}",
+                event_type="ig_lifecycle_delivery_review",
                 client=event.client,
             )
         except Exception:

@@ -3588,6 +3588,43 @@ DEFAULT_BOT_SYSTEM_PROMPT = (
 )
 
 
+_BOT_SECRET_PREFIX = "fernet:v1:"
+
+
+class BotSecretEncryptionUnavailable(RuntimeError):
+    """A custom bot credential must never fall back to plaintext storage."""
+
+
+def _encrypt_bot_secret(value: str) -> str:
+    raw = str(value or "")
+    if not raw:
+        return ""
+    from management.services import pii
+
+    try:
+        token = pii.encrypt(raw)
+    except (pii.PIIKeyMissing, ValueError) as exc:
+        raise BotSecretEncryptionUnavailable(
+            "FIELD_ENCRYPTION_KEY is required before storing a custom bot credential"
+        ) from exc
+    if not token:
+        return ""
+    return _BOT_SECRET_PREFIX + token.decode("ascii")
+
+
+def _decrypt_bot_secret(value: str) -> str:
+    stored = str(value or "")
+    if not stored:
+        return ""
+    # A short deployment window can observe a pre-migration row. It remains
+    # readable, but every normal write and the data migration encrypt it.
+    if not stored.startswith(_BOT_SECRET_PREFIX):
+        return stored
+    from management.services import pii
+
+    return pii.decrypt(stored[len(_BOT_SECRET_PREFIX):])
+
+
 class InstagramBotSettings(models.Model):
     """Singleton-налаштування Instagram-бота (одна строка, pk=1)."""
 
@@ -3600,11 +3637,15 @@ class InstagramBotSettings(models.Model):
     direct_source = models.CharField(
         max_length=10, choices=CredSource.choices, default=CredSource.ENV
     )
-    custom_direct_token = models.TextField(blank=True, default="")
+    custom_direct_token_encrypted = models.TextField(
+        db_column="custom_direct_token", blank=True, default=""
+    )
     gemini_source = models.CharField(
         max_length=10, choices=CredSource.choices, default=CredSource.ENV
     )
-    custom_gemini_key = models.TextField(blank=True, default="")
+    custom_gemini_key_encrypted = models.TextField(
+        db_column="custom_gemini_key", blank=True, default=""
+    )
 
     page_id = models.CharField(max_length=64, default="401216546416228")
     ig_user_id = models.CharField(max_length=64, default="17841467101471112")
@@ -3690,6 +3731,45 @@ class InstagramBotSettings(models.Model):
         verbose_name = "Instagram bot settings"
         verbose_name_plural = "Instagram bot settings"
 
+    @property
+    def custom_direct_token(self) -> str:
+        return _decrypt_bot_secret(self.custom_direct_token_encrypted)
+
+    @custom_direct_token.setter
+    def custom_direct_token(self, value: str) -> None:
+        self.custom_direct_token_encrypted = _encrypt_bot_secret(value)
+
+    @property
+    def custom_gemini_key(self) -> str:
+        return _decrypt_bot_secret(self.custom_gemini_key_encrypted)
+
+    @custom_gemini_key.setter
+    def custom_gemini_key(self, value: str) -> None:
+        self.custom_gemini_key_encrypted = _encrypt_bot_secret(value)
+
+    @property
+    def has_custom_direct_token(self) -> bool:
+        return bool(self.custom_direct_token_encrypted)
+
+    @property
+    def has_custom_gemini_key(self) -> bool:
+        return bool(self.custom_gemini_key_encrypted)
+
+    def save(self, *args, **kwargs):
+        # Keep legacy call sites using the public property names compatible
+        # while the physical fields intentionally describe encrypted storage.
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            remapped = set(update_fields)
+            if "custom_direct_token" in remapped:
+                remapped.remove("custom_direct_token")
+                remapped.add("custom_direct_token_encrypted")
+            if "custom_gemini_key" in remapped:
+                remapped.remove("custom_gemini_key")
+                remapped.add("custom_gemini_key_encrypted")
+            kwargs["update_fields"] = remapped
+        return super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f"InstagramBotSettings(enabled={self.is_enabled})"
 
@@ -3718,6 +3798,36 @@ class InstagramBotLog(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.level}] {self.event}"
+
+
+class InstagramBotTaskHeartbeat(models.Model):
+    """Last observed execution of an operational Instagram task.
+
+    This is intentionally one row per task, rather than an unbounded run log:
+    the invariant we need for cron supervision is freshness, not another source
+    of high-volume diagnostics.
+    """
+
+    task_key = models.CharField(max_length=64, unique=True)
+    label = models.CharField(max_length=160)
+    expected_interval_seconds = models.PositiveIntegerField()
+    stale_after_seconds = models.PositiveIntegerField()
+    first_expected_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_succeeded_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_failed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_duration_ms = models.PositiveIntegerField(default=0)
+    consecutive_failures = models.PositiveIntegerField(default=0)
+    # Only the exception class is persisted, never an arbitrary provider or
+    # customer payload which could contain personal data.
+    last_error_kind = models.CharField(max_length=128, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["task_key"]
+
+    def __str__(self) -> str:
+        return f"{self.task_key}: {self.last_succeeded_at or 'not observed'}"
 
 
 class InstagramBotProcessedMessage(models.Model):
@@ -3918,6 +4028,13 @@ class GeminiKeyState(models.Model):
     last_probe_finish_reason = models.CharField(max_length=32, blank=True)
     last_probe_http_code = models.PositiveSmallIntegerField(null=True, blank=True)
     last_probe_error = models.CharField(max_length=120, blank=True)
+    lease_token = models.CharField(max_length=40, blank=True, default="")
+    lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    lease_role = models.CharField(max_length=20, blank=True, default="")
+    last_http_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_failure_kind = models.CharField(max_length=32, blank=True, default="")
+    consecutive_failures = models.PositiveSmallIntegerField(default=0)
+    latency_ewma_ms = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -3931,6 +4048,58 @@ class GeminiKeyState(models.Model):
 
     def __str__(self):
         return f"GeminiKeyState({self.key_name})"
+
+
+class GeminiModelState(models.Model):
+    """Cross-process circuit state for one Gemini model name."""
+
+    model_name = models.CharField(max_length=80, unique=True)
+    circuit_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    circuit_reason = models.CharField(max_length=32, blank=True, default="")
+    transient_failures = models.PositiveSmallIntegerField(default=0)
+    last_failure_project = models.CharField(max_length=80, blank=True, default="")
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+    last_ok_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Стан моделі Gemini")
+        verbose_name_plural = _("Стани моделей Gemini")
+
+    def __str__(self):
+        return f"GeminiModelState({self.model_name})"
+
+
+class GeminiRequestAttempt(models.Model):
+    """Redacted provider-attempt evidence, never customer or provider bodies."""
+
+    request_id = models.CharField(max_length=40, db_index=True)
+    role = models.CharField(max_length=20)
+    key_name = models.CharField(max_length=40)
+    project_group = models.CharField(max_length=80, blank=True, default="")
+    model = models.CharField(max_length=80)
+    outcome = models.CharField(max_length=24)
+    failure_kind = models.CharField(max_length=32, blank=True, default="")
+    http_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    provider_reason = models.CharField(max_length=80, blank=True, default="")
+    decision = models.CharField(max_length=48, blank=True, default="")
+    latency_ms = models.PositiveIntegerField(default=0)
+    remaining_deadline_ms = models.PositiveIntegerField(default=0)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    thoughts_tokens = models.PositiveIntegerField(default=0)
+    candidates_tokens = models.PositiveIntegerField(default=0)
+    error_detail = models.CharField(max_length=120, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["request_id", "-id"], name="gemini_attempt_request"),
+            models.Index(fields=["role", "-id"], name="gemini_attempt_role"),
+        ]
+
+    def __str__(self):
+        return f"GeminiRequestAttempt({self.request_id}:{self.outcome})"
 
 
 class LeadCheckJob(models.Model):

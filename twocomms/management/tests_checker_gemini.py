@@ -88,8 +88,10 @@ class GeminiJsonPoolTests(TestCase):
         self.assertTrue(gk.is_available("GEMINI_API4"))
 
     def test_503_falls_back_to_next_model_same_key(self):
+        failed_model = gk.model_chain("management")[0]
+
         def fake(model, payload, key, *, parse=True, timeout=None):
-            if model == "gemini-3.5-flash":
+            if model == failed_model:
                 raise caa._GeminiTransient("HTTP 503")
             return ({"ok": True}, {})
 
@@ -99,8 +101,8 @@ class GeminiJsonPoolTests(TestCase):
             out = caa.gemini_generate_json("S", "U", role="management")
 
         self.assertEqual(out["parsed"], {"ok": True})
-        self.assertNotEqual(out["model"], "gemini-3.5-flash")
-        self.assertTrue(gk.is_model_overloaded("gemini-3.5-flash"))
+        self.assertNotEqual(out["model"], failed_model)
+        self.assertTrue(gk.is_model_overloaded(failed_model))
         gk.clear_model_overload()
 
     def test_all_exhausted_raises(self):
@@ -259,11 +261,14 @@ class ChatTimeoutTests(TestCase):
              patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
             out = caa.gemini_generate_text({"contents": []}, role="chat")
         self.assertEqual(out["parsed"], "привіт")
-        self.assertEqual(captured["timeout"], caa.CHAT_TIMEOUT)
+        self.assertLessEqual(sum(captured["timeout"]), sum(caa.CHAT_TIMEOUT))
+        self.assertLess(sum(captured["timeout"]), caa.CHAT_DEADLINE_SECONDS)
         gk.clear_model_overload()
 
-    def test_management_keeps_long_timeout(self):
-        """Аудіо-аналіз (management) лишає довгий таймаут — генерація може бути довгою."""
+    def test_audio_management_keeps_long_timeout(self):
+        """Audio analysis, unlike CRM text analysis, may use the long timeout."""
+    def test_management_json_uses_bounded_text_timeout(self):
+        """JSON re-analysis must not hold the IG worker on a stalled model."""
         captured = {}
 
         class FakeResp:
@@ -280,6 +285,27 @@ class ChatTimeoutTests(TestCase):
         with patch.dict("os.environ", ENV6, clear=False), \
              patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
             caa.gemini_generate_json("S", "U", role="management")
+        self.assertEqual(captured["timeout"], caa.MANAGEMENT_TEXT_TIMEOUT)
+        gk.clear_model_overload()
+
+    def test_audio_management_keeps_long_timeout(self):
+        """Audio analysis, unlike CRM text analysis, may use the long timeout."""
+        captured = {}
+
+        class FakeResp:
+            status_code = 200
+            text = "ok"
+
+            def json(self):
+                return {"candidates": [{"content": {"parts": [{"text": '{"a":1}'}]}}]}
+
+        def fake_post(url, **kw):
+            captured["timeout"] = kw.get("timeout")
+            return FakeResp()
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
+            caa._gemini_analyze(b"audio", "audio/mpeg", "context")
         self.assertEqual(captured["timeout"], caa.GEMINI_TIMEOUT)
         gk.clear_model_overload()
 
@@ -299,56 +325,66 @@ class ChatTimeoutTests(TestCase):
         )
 
 
-class ChatRoundsRetryTests(TestCase):
+class AdaptiveChatPlannerTests(TestCase):
     def setUp(self):
         gk.clear_model_overload()
+        gk.clear_model_unavailable()
 
-    def test_chat_cycles_three_rounds_before_error(self):
-        """503 на всіх моделях → чат робить 3 круги (з backoff між ними), тільки потім помилка.
+    def _runner(self):
+        runner = getattr(caa, "_run_chat_with_pool", None)
+        self.assertTrue(callable(runner), "missing adaptive _run_chat_with_pool")
+        return runner
 
-        Model-major: кожен круг — повний свип пулу (усі моделі цепочки × 6 ключів),
-        бо пріоритетну модель пробуємо на ВСІХ ключах. Кількість викликів =
-        len(chain) × 6 ключів × max_rounds. Між кругами clear_model_overload() + backoff 2с, 4с."""
-        calls = {"n": 0}
+    def test_public_chat_text_api_routes_only_to_adaptive_runner(self):
+        with patch.object(caa, "_run_chat_with_pool", create=True) as adaptive, \
+             patch.object(caa, "_run_with_pool") as legacy:
+            adaptive.return_value = {"parsed": "adaptive"}
+            legacy.return_value = {"parsed": "legacy"}
+
+            out = caa.gemini_generate_text(
+                {"contents": []}, role="chat", reasoning_task="customer_chat"
+            )
+
+        self.assertEqual(out["parsed"], "adaptive")
+        adaptive.assert_called_once()
+        legacy.assert_not_called()
+
+    def test_fast_auth_failures_rotate_all_six_aliases_on_36(self):
+        seen = []
+        aliases = {value: name for name, value in ENV6.items()}
 
         def fake(model, payload, key, *, parse=True, timeout=None):
-            calls["n"] += 1
-            raise caa._GeminiTransient("HTTP 503")
+            seen.append((aliases[key], model))
+            raise caa._GeminiFatal("HTTP 401: API_KEY_INVALID")
 
-        sleeps = []
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(caa, "_gemini_call_once", side_effect=fake), \
-             patch("management.services.call_ai_analysis.time.sleep", side_effect=lambda s: sleeps.append(s)):
+             patch.object(caa.time, "sleep") as sleep:
             with self.assertRaises(caa.CallAIAnalysisError):
-                caa.gemini_generate_text({"contents": []}, role="chat")
-        # усі моделі цепочки × шість ключів (own API/API2 + усі borrow) × 3 круги
-        n_keys = 6
-        expected = len(gk.role_model_chains()["chat"]) * n_keys * gk.max_rounds("chat")
-        self.assertEqual(calls["n"], expected)
-        self.assertEqual(len(sleeps), 2)
-        self.assertEqual(sleeps, [2.0, 4.0])
-        gk.clear_model_overload()
+                self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-    def test_chat_succeeds_on_second_round(self):
-        state = {"round1_done": False, "n": 0}
+        primary = [alias for alias, model in seen if model == "gemini-3.6-flash"]
+        self.assertEqual(primary, list(ENV6))
+        sleep.assert_not_called()
+
+    def test_slow_transients_degrade_after_at_most_two_primary_calls(self):
+        seen = []
 
         def fake(model, payload, key, *, parse=True, timeout=None):
-            state["n"] += 1
-            if state["n"] <= 3:  # перший круг — усі 503
-                raise caa._GeminiTransient("HTTP 503")
-            return ("відповідь користувачу", {})
+            seen.append(model)
+            if model == "gemini-3.6-flash":
+                raise caa._GeminiTransient("timeout/transport/HTTP 503")
+            return ("fallback", {})
 
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(caa, "_gemini_call_once", side_effect=fake), \
-             patch("management.services.call_ai_analysis.time.sleep", return_value=None):
-            out = caa.gemini_generate_text({"contents": []}, role="chat")
-        self.assertEqual(out["parsed"], "відповідь користувачу")
-        gk.clear_model_overload()
+             patch.object(caa.time, "sleep") as sleep:
+            out = self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-    def test_chat_one_attempt_per_combo(self):
-        """attempts_per_model['chat']==1 — на 503 НЕ ретраїть ту саму комбінацію всередині круга."""
-        self.assertEqual(gk.attempts_per_model("chat"), 1)
-        self.assertEqual(gk.max_rounds("chat"), 3)
+        first_fallback = seen.index("gemini-3.5-flash")
+        self.assertEqual(out["parsed"], "fallback")
+        self.assertLessEqual(seen[:first_fallback].count("gemini-3.6-flash"), 2)
+        sleep.assert_not_called()
 
 
 class StickyKeyOrderTests(TestCase):

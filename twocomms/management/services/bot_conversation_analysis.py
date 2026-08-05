@@ -1275,14 +1275,6 @@ def _process_claim(
             "next_attempt_at",
             "updated_at",
         ])
-    try:
-        from management.services.ig_payment_review import create_payment_review
-
-        create_payment_review(client, watermark=watermark)
-    except Exception:
-        # A review alert is best-effort and must not change analysis ownership
-        # or the durable snapshot outcome.
-        pass
     return "done"
 
 
@@ -1518,6 +1510,8 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
                     client,
                     rule_message,
                     media_context=_recover_current_message_media(rule_message),
+                    operational_effects=False,
+                    allow_post_sale_effects=False,
                 )
             reconcile_rules_projection(client, watermark=watermark)
             queued += 1

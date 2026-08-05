@@ -1362,6 +1362,9 @@ def classify_message(
                 message,
                 objection_types=lifecycle_types,
                 readiness=readiness,
+                commercial_progress=(
+                    IgConversationSignal.Type.CHECKOUT_STARTED in signals
+                ),
                 purchase_progress=confirmed_purchase,
                 abandoned=no_buy or opt_out,
             )
@@ -1384,7 +1387,7 @@ def classify_message(
         result["analysis_snapshot_id"] = snapshot.pk
     except Exception:
         result["analysis_snapshot_id"] = None
-    if isinstance(message, InstagramBotMessage) and not client.hidden_at:
+    if operational_effects and isinstance(message, InstagramBotMessage) and not client.hidden_at:
         try:
             from management.services.ig_post_sale import open_post_sale_case
 
@@ -1393,7 +1396,7 @@ def classify_message(
             )
         except Exception:
             result["post_sale_case_id"] = None
-        if operational_effects:
+        if operational_effects and message.role == InstagramBotMessage.Role.USER:
             try:
                 from management.services.ig_payment_review import create_payment_review
 
@@ -1457,11 +1460,18 @@ def ensure_rule_classification(
     *,
     media_context: list[dict] | None = None,
     operational_effects: bool = True,
+    allow_post_sale_effects: bool = True,
 ) -> dict | None:
-    """Run the deterministic projection once for a durable message watermark."""
+    """Run the deterministic projection once for a durable message watermark.
+
+    Historical inbox projection may still open an idempotent exchange/return
+    case, while analysis reconciliation can explicitly disable all case writes.
+    """
     if not client or not message or not getattr(message, "pk", None):
         return None
-    if not client.hidden_at:
+    # Historical projection is read-only for payment/order automation, but a
+    # genuine exchange/return message must still open its support case.
+    if allow_post_sale_effects and not client.hidden_at:
         try:
             from management.services.ig_post_sale import open_post_sale_case
 

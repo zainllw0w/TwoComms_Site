@@ -17,7 +17,9 @@ import json
 import os
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from management.models import InstagramBotLog
 
@@ -117,6 +119,14 @@ class IgBotLoggerWiringTests(TestCase):
                 name, logging_config.get("handlers", {}), f"handler {name} не объявлен"
             )
 
+    def test_ig_bot_logger_has_dedicated_rotating_incident_file(self):
+        logging_config = self._production_logging()
+        handler = logging_config["handlers"].get("ig_bot_file") or {}
+
+        self.assertEqual(handler.get("class"), "logging.handlers.RotatingFileHandler")
+        self.assertGreaterEqual(int(handler.get("backupCount") or 0), 12)
+        self.assertIn("ig_bot_file", logging_config["loggers"]["ig_bot"]["handlers"])
+
     def test_ig_bot_logger_level_captures_warnings(self):
         import logging
 
@@ -129,3 +139,72 @@ class IgBotLoggerWiringTests(TestCase):
             logging.WARNING,
             "bad_signature пишется уровнем warning — он должен проходить",
         )
+
+
+class WebhookErrorRateAlertTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_alerts_once_when_4xx_share_is_high(self, notify):
+        from management.services import instagram_bot as bot
+
+        for _ in range(4):
+            result = bot.record_webhook_response(403, reason="invalid_signature")
+            self.assertFalse(result["degraded"])
+        result = bot.record_webhook_response(403, reason="invalid_signature")
+
+        self.assertTrue(result["degraded"])
+        self.assertEqual(result["errors"], 5)
+        self.assertEqual(result["total"], 5)
+        self.assertEqual(notify.call_count, 1)
+        self.assertFalse(notify.call_args.kwargs["deliver_immediately"])
+        self.assertEqual(notify.call_args.kwargs["event_type"], "ig_webhook_4xx_rate")
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_small_4xx_share_does_not_alert_or_degrade(self, notify):
+        from management.services import instagram_bot as bot
+
+        for _ in range(30):
+            bot.record_webhook_response(200)
+        for _ in range(5):
+            result = bot.record_webhook_response(403, reason="invalid_signature")
+
+        self.assertFalse(result["degraded"])
+        self.assertLess(result["rate"], 0.25)
+        self.assertFalse(notify.called)
+        self.assertIsNone(bot.webhook_rejection_status())
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_alerts_when_rate_crosses_threshold_after_more_than_five_errors(self, notify):
+        from management.services import instagram_bot as bot
+
+        for _ in range(20):
+            bot.record_webhook_response(200)
+        for _ in range(6):
+            result = bot.record_webhook_response(403, reason="invalid_signature")
+            self.assertFalse(result["degraded"])
+        result = bot.record_webhook_response(403, reason="invalid_signature")
+
+        self.assertTrue(result["degraded"])
+        self.assertEqual(result["errors"], 7)
+        self.assertEqual(result["total"], 27)
+        self.assertEqual(notify.call_count, 1)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_successful_post_clears_current_degradation_after_rate_recovers(self, _notify):
+        from management.services import instagram_bot as bot
+
+        for _ in range(5):
+            bot.record_webhook_response(403, reason="invalid_signature")
+        self.assertIsNotNone(bot.webhook_rejection_status())
+        bot.record_webhook_response(200)
+        self.assertIsNotNone(
+            bot.webhook_rejection_status(),
+            "один успешный webhook не должен скрывать всё ещё высокий 4xx rate",
+        )
+        for _ in range(16):
+            bot.record_webhook_response(200)
+
+        self.assertIsNone(bot.webhook_rejection_status())

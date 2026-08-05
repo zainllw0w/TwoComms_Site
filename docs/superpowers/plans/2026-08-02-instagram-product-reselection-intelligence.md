@@ -1,8 +1,10 @@
 # Instagram Product Reselection Intelligence Implementation Plan
 
-> **Recovery status (2026-08-03): planning only.** Restored from
-> `codex/instagram-assisted-checkout`, including its latest uncommitted edits.
-> Unchecked tasks are not implemented or production-verified by this recovery.
+> **Execution status (2026-08-05): PARTIAL.** Task 2 foundation is deployed;
+> Tasks 3-4 have a current-base price-aware implementation in `7b5d5cc7` plus
+> typed compatibility corrections in `1c4d6d48`, verified by 162 focused tests.
+> They remain unchecked until independent review, main integration, production
+> deploy and live proof. Later availability/session/allocation tasks remain open.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -88,10 +90,11 @@ Expected: existing baseline passes or every pre-existing failure is recorded bef
 
 ### Task 2: Add Immutable Verified Product Semantics and Inventory Policy
 
-**Current status (2026-08-03): PARTIAL, commit `61ad2cb8`, NOT INTEGRATED.**
-Базовые модели, миграции и тесты есть в feature-ветке. Новые требования к
-generic aliases, единственному effective head, supersede/revocation и locking,
-добавленные при review, ещё не реализованы.
+**Current status (2026-08-05): PARTIAL, IN MAIN/PRODUCTION.** Foundation was
+ported as `bf4e0d80`, hardened by `674d6858` and `3678ddf4`, and deployed.
+Generic/punctuation aliases and unauthoritative revocation are rejected;
+MariaDB tables/triggers and 77 inventory policies are verified. Remaining:
+full runtime/admin consumer and a separate disposable MariaDB test gate.
 
 **Files:**
 - Modify: `twocomms/storefront/models.py`
@@ -276,7 +279,11 @@ Expected: tests pass and only Task 2 files are committed.
 
 ### Task 3: Build Trusted URL Resolution and the Typed Catalog Graph
 
-**Current status (2026-08-03): PARTIAL, commit `a8ccfa63`, NOT INTEGRATED.**
+**Current status (2026-08-05): PARTIAL, commits `7b5d5cc7` + `1c4d6d48`, NOT INTEGRATED.**
+Price-aware graph/resolver uses variant/fit configuration prices, validates
+combined color/fit/size compatibility, avoids the variant N+1 and includes
+digest invalidation. Focused 162-test gate is green; independent review,
+current-main integration and production proof remain.
 Trusted resolver, graph и тесты есть в feature-ветке. Canonical option-path,
 принадлежность опций товару и конфликтующие option URL остаются открытыми.
 
@@ -426,7 +433,11 @@ git commit -m "feat(ig): build verified catalog knowledge graph"
 
 ### Task 4: Implement Explainable Candidate Filtering and Ranking
 
-**Current status (2026-08-03): PARTIAL, commit `468fe2ba`, NOT INTEGRATED.**
+**Current status (2026-08-05): PARTIAL, commits `7b5d5cc7` + `1c4d6d48`, NOT INTEGRATED.**
+Hard filtering now uses typed garment/size compatibility; ranking includes
+catalog priority and preference evidence, with revoked/BOT_VISION regressions.
+Remaining within IMP-083: relaxed alternatives after complete hard mismatch;
+durable candidate generation/session revision binding belongs to Task 7/IMP-087.
 Фильтрация/ranking реализованы в feature-ветке. Acceptance stale candidate
 после смены published state, graph digest или semantic head не реализован.
 

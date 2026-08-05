@@ -9,6 +9,25 @@
 > Confidence: high = подтверждено чтением кода/данных мной лично; medium = подтверждено
 > субагентом со ссылкой на строки, я проверил выборочно; low = гипотеза, нужен тест.
 
+## Production closeout (2026-08-05)
+
+| ID | Status | Подтверждённое закрытие |
+|---|---|---|
+| F-SEC-008 | FIXED / VERIFIED | `f2a84717`: durable heartbeat пяти cron-задач, stale/failure alert через outbox и `/bot/health/`; production MariaDB показывает пять свежих успешных heartbeat, endpoint = HTTP 200 / `running` |
+| F-OPS-004 | FIXED / VERIFIED | `f2a84717` добавил rotating `ig_bot.log`; `244cbbd3` добавил alert при sustained 4xx webhook rate (>=5 и >=25% за 5 минут), не блокирующий Meta handler |
+| F-OPS-008 | FIXED / VERIFIED | оперативные warning/error теперь сохраняются в rotating file log, поэтому 500 UI-строк больше не ограничивают расследование инцидента |
+| F-SEC-005 | FIXED / VERIFIED | `32985a63`: custom Direct/Gemini credentials хранятся только как versioned Fernet ciphertext; migration `0136` applied on production MariaDB |
+| F-SEC-011 | FIXED / VERIFIED | private `.env`/`.env.production` files with runtime secrets had mode `0664`; on 2026-08-04 all relevant files were changed to `0600` |
+| F-OPS-009 | FIXED / VERIFIED | `221cf37d`: terminal outbox monitor, separated lifecycle dedupe keys, one actionable failed-paylink alert and Ukrainian lifecycle copy; production daemon running with terminal counts = 0 |
+| F-CAT-005 | FIXED / VERIFIED | `674d6858`: verified semantic aliases reject empty, generic and punctuation-only values before they can authorize catalog matching |
+| F-CAT-006 | FIXED / VERIFIED | `3678ddf4`: effective semantic revision cannot be revoked without authoritative actor/reason; revocation is audited and fail-closed |
+| F-CAT-007 | FIXED / VERIFIED | `e44d1440` binds prompt sizes to exact variant+fit; `0ad694bc` distinguishes an authoritative empty size contract from a missing variant-specific source; production product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
+| F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
+| F-FUP-013 | FIXED / VERIFIED | `414e639e`: exception after a concurrent sender/recovery finalization can no longer downgrade finalized `SENT` to `AMBIGUOUS` or create a false delivery review |
+
+Исторические описания ниже сохраняют исходное evidence; текущим источником
+статуса является эта сводка и checkbox в `07_IMPLEMENTATION_PLAN.md`.
+
 ## Сводный реестр
 
 | ID | Название | Sev | Status | Conf | Файл |
@@ -30,6 +49,7 @@
 | F-DATA-004 | `BotAdCampaign` — 0 строк: атрибуция рекламы не наполняется | P2 | OPEN | high | прод-SQL |
 | F-SEC-001 | Хардкод `page_id` / `ig_user_id` / `allowed_senders` в default'ах модели | P2 | CONFIRMED | high | `models.py:3609-3627` |
 | F-DEBT-004 | ~60 мест `except Exception: pass` в ядре бота, часть скрывает бизнес-сбои | P1 | CONFIRMED | high | `instagram_bot.py` (список ниже) |
+| F-FUP-013 | Stale finalization exception мог откатить уже финальный `SENT` в `AMBIGUOUS` | P1 | FIXED / VERIFIED | high | `bot_followups.py:_mark_followup_finalization_failure`, `414e639e` |
 
 ---
 
@@ -365,7 +385,7 @@
 | **F-AI-006** | 987 сигналов пишутся, но НЕ читаются при генерации ответа | **P1** | CONFIRMED | high |
 | F-AI-007 | Память — свободный текст с полной перезаписью, без confidence/источников/версии | P1 | CONFIRMED | high |
 | F-AI-008 | Язык перезаписывается на каждом сообщении, нет липкости | P1 | CONFIRMED | high |
-| F-AI-009 | Противоречия в промпте: язык, три «высших приоритета», скидка | P1 | CONFIRMED | high |
+| F-AI-009 | Противоречия в промпте: язык, три «высших приоритета», скидка | P1 | PARTIALLY FIXED (`042c48c8`) | high |
 | F-AI-010 | Нет structured output: теги регексом `[A-Z]+`, опечатка утекает клиенту | P1 | CONFIRMED | high |
 | F-AI-011 | Нет санитизации входа против prompt injection (защита только текстом промпта) | P2 | CONFIRMED | high |
 | F-AI-012 | Нет учёта стоимости/бюджета: 40k символов промпта на «привіт» | P2 | CONFIRMED | high |
@@ -713,6 +733,18 @@
   4) базовые правила»), убрать дубли и заплатки. Правки промпта требуют
   golden-conversations теста — иначе регрессии не видны. Такой теста сейчас нет
   (задача D10 чек-листа).
+
+**Production update 2026-08-04 (`042c48c8`):** runtime теперь добавляет
+`[ЄДИНИЙ ПОРЯДОК ІСТИНИ]` до live directives: confirmed payment/order/service
+facts → checkout и выбранная catalog configuration → current turn/state →
+directives/playbooks → legacy base prompt. Английский, украинский или русский
+язык текущего хода/явной просьбы выше старого UA/RU текста; catalog discount —
+только факт уже рассчитанной цены, не разрешение на rescue offer. Заголовок
+knowledge base больше не объявляет себя «найвысшим приоритетом».
+
+**Остаток:** в сохранённом DB base prompt по-прежнему есть устаревшие дубли
+платёжного текста; порядок теперь их безопасно разрешает, но полное удаление и
+golden-conversations acceptance остаются в `IMP-028`. Статус не `FIXED`.
 
 ## F-AI-007 / F-AI-008: память и язык
 
@@ -1353,10 +1385,10 @@
 | F-STATE-008 | `open_post_sale_case` без проверки покупки → кейсы обмена у неклиентов | P1 | CONFIRMED | high |
 | **F-PAT-001** | 8 конфликтов паттернов классификации с конкретными примерами текстов | **P1** | CONFIRMED | high |
 | F-SEC-004 | Meta-reviewer может остановить бота, менять модель, править клиентов, читать PII | P1 | CONFIRMED | high |
-| F-SEC-005 | Токены Direct/Gemini хранятся в БД plaintext | P1 | CONFIRMED | high |
+| F-SEC-005 | Токены Direct/Gemini хранились в БД plaintext | P1 | FIXED / VERIFIED | high |
 | F-SEC-006 | Нет версионирования и аудита изменений системного промпта | P1 | CONFIRMED | high |
 | F-SEC-007 | Логгер `ig_bot` не подключён к handler — часть логов уходит в никуда | P1 | CONFIRMED | high |
-| F-SEC-008 | Нет health-check, нет алертов на смерть демона и cron | P1 | CONFIRMED | high |
+| F-SEC-008 | Health-check и cron heartbeat/alerts отсутствовали | P1 | FIXED / VERIFIED | high |
 | **F-UX-001** | Весь контекст и действия по клиенту спрятаны в overlay-drawer | **P1** | CONFIRMED | high |
 | F-UX-002 | ⇄ и ⚙ открывают одну и ту же панель — иллюзия двух инструментов | P1 | CONFIRMED | high |
 | F-UX-003 | Привязка заказа — ручной ввод номера, хотя API поиска кандидатов уже есть | P1 | CONFIRMED | high |
@@ -1553,13 +1585,19 @@
   разграничение непоследовательное.
   **Рекомендация:** reviewer должен иметь read-only sandbox: отдельный тестовый
   клиент, никакого влияния на глобальное состояние и на реальные карточки.
-- **F-SEC-005 (P1) — токены plaintext.** `custom_direct_token` и
-  `custom_gemini_key` — обычные `TextField` (`models.py:3603, 3607`).
+- **F-SEC-005 (P1, FIXED / VERIFIED 2026-08-04) — токены plaintext.**
+  Исторически `custom_direct_token` и `custom_gemini_key` были обычными
+  `TextField` (`models.py:3603, 3607`).
   В проекте уже есть Fernet-шифрование (`services/pii.py:24-35`) и
   `FIELD_ENCRYPTION_KEY` (`settings.py:410`), но применяется только к
   `ManagerPersonalData`. Утечки через API нет (UI write-only, отдаются только
   флаги), `InstagramBotSettings` не зарегистрирован в Django-админке —
   поэтому P1, а не P0. Но дамп БД раскрывает рабочие токены.
+  **Закрытие:** `32985a63` переименовал model field state без изменения
+  DB-колонок, пишет `fernet:v1:<ciphertext>`, предоставляет plaintext только
+  в памяти и мигрирует legacy значения (`0136`). Production key задан в
+  private env, custom поля на момент миграции были пусты; `tests_ig_secret_encryption`
+  закрепляет ciphertext-at-rest и fail-closed UI.
 - **F-SEC-006 (P1) — промпт без версий.** `system_prompt` перезаписывается
   на месте (`bot_views.py:2302-2313`) без истории, diff и актора.
   Откат возможен только из бэкапа БД. Для системы, где промпт напрямую
@@ -1684,6 +1722,7 @@
 | F-FUP-008 | 10 ситуаций отвала не имеют follow-up вообще | P1 | CONFIRMED | high |
 | F-FUP-009 | Нет двухфазного claim → дубль отправки при падении процесса | P1 | CONFIRMED | high |
 | F-FUP-010 | Нет частотного лимита и дедупа текста follow-up | P1 | CONFIRMED | high |
+| F-FUP-013 | Stale finalization-handler мог понизить уже финальный `SENT` до `AMBIGUOUS` | P1 | FIXED / VERIFIED | high |
 | **F-OBJ-001** | `THINKING` («подумаю») не создаёт сигнала — не логируется вообще | **P1** | FIXED (`IMP-057`) | high |
 | F-OBJ-002 | `PRICE_RE`/`SIZE_RE` ловят вопрос как возражение → метрики шум | P1 | FIXED (`IMP-057`) | high |
 | F-OBJ-003 | `Objection.TRUST/DELIVERY/OTHER` — мёртвые choices | P2 | FIXED (`IMP-057`) | high |
@@ -1693,10 +1732,26 @@
 | F-STAT-002 | Период режется по `last_message_at` → суммы по дням неаддитивны | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
 | F-STAT-003 | `ORDER_CREATED`/`DONE` не пишутся в БД → правый конец воронки недостижим | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
 | F-STAT-004 | «Молча пропал» не отличается от «явно отказался» — нет события отвала | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
-| F-CTX-001 | Промпт до ~56 000 символов на любое сообщение, включая «привіт» | P1 | CONFIRMED | high |
+| F-CTX-001 | Промпт до ~56 000 символов на любое сообщение, включая «привіт» | P1 | PARTIALLY FIXED (`042c48c8`) | high |
 | **F-CTX-002** | `tags_for_client` безусловно добавляет `sales` → механизм «скидки клиенту с обменом» | **P1** | CONFIRMED | high |
-| F-CTX-003 | Протокол оплаты существует в двух редакциях с расхождением по `[ITEM]` | P1 | CONFIRMED | high |
+| F-CTX-003 | Протокол оплаты существует в двух редакциях с расхождением по `[ITEM]` | P1 | PARTIALLY FIXED (`042c48c8`) | high |
 | F-CTX-004 | Нет механизма исключающих тегов инструкций (`not:*`) | P2 | CONFIRMED | high |
+
+### Production update 2026-08-04: bounded context and payment authority
+
+- `042c48c8` переключил sales prompt на отдельный compact cache catalog, не
+  урезая список товаров: MySQL verification — 71/71 строк, 19 696 символов
+  compact против 27 157 full. Сохраняются id, variant prices, fit/size и visual
+  fingerprint; full form остаётся для media/workflow.
+- Brand knowledge (3200), live directives (2800), routed playbooks (3500) и
+  quick links (1600) имеют независимые бюджеты по целым абзацам, инструкциям и
+  строкам. Итоговый production prompt — 35 495 символов; canonical authority
+  присутствует. Это уменьшает F-CTX-001, но не делает prompt адаптивным к
+  конкретному intent, поэтому статус только partial.
+- Единый authority block определяет, что verified checkout/payment facts и
+  selected catalog configuration выше старого base prompt. Он устраняет
+  неоднозначность двух payment редакций в момент генерации, но сам legacy текст
+  ещё хранится в БД; его миграция/cleanup и full acceptance остаются в IMP-028.
 
 ## F-FUP-001 (P0): финальный офер 10% никогда не отправлялся
 
@@ -2041,7 +2096,7 @@ Advanced Access). Значит **месяц, с 14 июня по 10 июля, б
 
 ---
 
-## F-OPS-004 (P1, НОВАЯ): ротация лога уничтожает доказательства инцидентов
+## F-OPS-004 (P1, FIXED / VERIFIED 2026-08-04): ротация лога уничтожала доказательства инцидентов
 
 - **Evidence:** `LOG_KEEP_ROWS = 500` (`services/instagram_bot.py:59`),
   обрезка в `log()` (`:903-908`). Фактически в таблице 561 строка,
@@ -2063,6 +2118,10 @@ Advanced Access). Значит **месяц, с 14 июня по 10 июля, б
   Минимум: (1) не хранить единственную копию диагностики в таблице на 500 строк;
   (2) алерт на долю 4xx-ответов `/bot/webhook/` за окно;
   (3) подключить `ig_bot` к файловому логу.
+- **Закрытие:** `f2a84717` ввёл rotating `ig_bot.log`, durable task heartbeats,
+  alerting и `/bot/health/`; `244cbbd3` добавил пороговый 4xx detector
+  (`>=5`, `>=25%`, 5 минут) через durable outbox. Целевые тесты и production
+  MariaDB/health evidence приведены в checkpoint 2026-08-04 выше.
 
 ---
 
@@ -2081,6 +2140,26 @@ Advanced Access). Значит **месяц, с 14 июня по 10 июля, б
 - **Направление фикса (P2):** диагностику подписки делать без query-токена
   либо через POST; при возможности — маскировать `hub.verify_token` в логах
   веб-сервера. Ротировать verify-токен после этого.
+
+---
+
+## F-SEC-011 (P1, FIXED / VERIFIED 2026-08-04): private env-файлы были доступны группе
+
+- **Evidence до исправления:** private `.env` и `.env.production` в корне
+  deploy-репозитория и в его внутреннем приложении имели mode `0664`. В этих
+  файлах находятся runtime secrets, включая `FIELD_ENCRYPTION_KEY`; любой
+  процесс или пользователь той же Unix-группы мог прочитать их без отдельного
+  разрешения.
+- **Почему это дефект:** Fernet ciphertext защищает custom credentials в дампе
+  MariaDB только пока ключ шифрования не доступен шире требуемого. Group-readable
+  env-файл отменяет эту границу и также раскрывает прочие application secrets.
+- **Закрытие:** 2026-08-04 права всех трёх private env-файлов на production
+  изменены с `0664` на `0600`. Значения секретов не выводились, не попадали в
+  Git и не записывались в audit-документы. Custom credentials на момент
+  проверки были пусты, рабочий provider-token продолжил читаться из ENV.
+- **Проверка:** режимы перепроверены на сервере без вывода содержимого файлов;
+  daemon остаётся `running`, `/bot/health/` возвращает HTTP 200. Связанный
+  data-at-rest fix — `IMP-042` / `F-SEC-005` (`32985a63`).
 
 ---
 
@@ -3118,7 +3197,7 @@ W3 гоняла `management orders` (2100+ тестов, ~85 секунд) по�
   факт денег.
 - **Regression:** `tests_ig_agentic_dialog.RepeatPurchaseTests`.
 
-### F-OPS-008 (P1, ОТКРЫТА): операционный лог живёт четыре часа
+### F-OPS-008 (P1, FIXED / VERIFIED 2026-08-04): операционный лог жил четыре часа
 
 - **Evidence:** `InstagramBotLog` — ровно 500 строк (`LOG_KEEP_ROWS`), самая
   старая запись на момент проверки была создана **4 часа назад**. За 3 суток
@@ -3130,6 +3209,10 @@ W3 гоняла `management orders` (2100+ тестов, ~85 секунд) по�
 - **Направление:** файловый лог `ig_bot` (объявлен в W2) как основной,
   таблица — только для UI; плюс дедупликация повторяющихся событий со счётчиком
   вместо N строк. Отнести к IMP-041/IMP-059 (W8).
+- **Закрытие finding:** warning/error теперь поступают в отдельный rotating
+  `ig_bot.log`, поэтому retention UI-таблицы не стирает единственное evidence.
+  Не реализованная дедупликация самой UI-таблицы вынесена отдельно в
+  `IMPR-OPS-002` / `IMP-100` и не маскируется как завершённая.
 
 ### F-DATA-015 (P2, ОТКРЫТА): ответы бота записаны как сообщения менеджера
 
@@ -3298,7 +3381,7 @@ F-CAT-001 была зафиксирована в разведке W5 как «к
   с сайта или скриншот.
 - **Regression:** `tests_ig_agentic_dialog.PhotoProtocolTests`.
 
-### F-OPS-009 (P1, ОТКРЫТА): Telegram-алерты уходят пачками и без ссылок
+### F-OPS-009 (P1, историческая находка; закрыта `221cf37d`): Telegram-алерты уходили пачками и без ссылок
 
 Разобрано отдельно, к диалогу отношения не имеет, поэтому не исправлялось в этой
 волне. Факты для следующего агента:
@@ -3327,7 +3410,8 @@ F-CAT-001 была зафиксирована в разведке W5 как «к
 - Коллизия ключа: `ig_lifecycle.py:320` и `:384` используют один
   `dedupe_key=f"ig-lifecycle:{event.event_key}"` для двух разных событий.
 - `DEAD_LETTER` и `UNKNOWN` не подбираются `drain_manager_notifications`
-  (`:2596-2598`) и никем не мониторятся — потеря алерта происходит бесшумно.
+  (`:2596-2598`); на момент находки в UI уже существовали passive counters и
+  staff review, но proactive operator escalation отсутствовала.
 
 ### F-AI-016 (P1, ОТКРЫТА): инструкции бота не имеют триггеров
 
@@ -3554,7 +3638,7 @@ enum-полей и так добавляются циклом выше. Явна
 
 ---
 
-## Волна W8 (частично) — Telegram-алерты (2026-08-02)
+## Волна W8 — Telegram-алерты (закрыта 2026-08-04)
 
 ### F-OPS-009 (P1, FIXED): алерты уходили пачками, дубли терялись, ссылок не было
 
@@ -3602,11 +3686,15 @@ enum-полей и так добавляются циклом выше. Явна
 дедупа истекает, ключ влезает в колонку, ссылка выживает при обрезке, сломанный
 кэш не блокирует, сводка схлопывает.
 
-**Осталось в W8 отдельными задачами** (не входило в этот срез):
-`DEAD_LETTER`/`UNKNOWN` не подбираются дренажом и никем не мониторятся;
-коллизия ключа `ig-lifecycle:{event_key}` для двух разных событий; два
-уведомления на одну неудачную отправку (`:6372` и `:6386`); два уведомления в
-`ig_lifecycle` написаны по-английски.
+**Финальное закрытие `221cf37d` (2026-08-04).** Terminal outcomes не
+переотправляются автоматически: monitor после drain проверяет их не чаще раза
+в минуту и ставит одну durable summary на час с полным count, шестью redacted
+sample и ссылкой в CRM. `ig-lifecycle:window:` и `:delivery:` больше не
+коллидируют; тексты оператора — украинские. Failed paylink сохраняет circuit
+state, но отправляет только payment-review alert, без generic permanent и
+link-circuit дубля. Regression: 75 notification/lifecycle/send tests;
+production SHA `221cf37d`, `check` green, daemon `running/alive`, terminal
+counts `0/0`.
 
 ---
 
@@ -3800,9 +3888,10 @@ enum-полей и так добавляются циклом выше. Явна
 - **Claim/receipt contract:** `claim_token` + `claim_until` are written under
   row lock after the existing client lease and checked immediately before the
   provider call. `ProviderDeliveryReceipt.provider_message_id` is persisted on
-  both `IgFollowUpTask` and the local `InstagramBotMessage`; a successful send
-  without a receipt is skipped as `delivery_receipt_missing`, and ambiguous
-  provider outcomes remain non-retryable.
+  both `IgFollowUpTask` and the local `InstagramBotMessage`. IMP-102 supersedes
+  the old missing-receipt skip: success without provider ID, timeout, 5xx and
+  unknown outcomes now enter durable `AMBIGUOUS` with manager review and never
+  receive a blind retry.
 - **Verification:** 72 focused price/follow-up/event tests, Django system check,
   and migration drift check pass. The full 2,464-test management suite still
   reproduces the pre-existing F-TEST-002 failures/errors; no failure is in the
@@ -3853,6 +3942,26 @@ SHA `d0098d0b`, migration `0132`, `management_igobjection` и
 порядко-зависимом service-case/analysis поведении. `tests_ig_intelligence` после
 обновления rules version проходит изолированно. Задача остаётся `IMP-094`; это
 не объявляется регрессией IMP-057 без baseline proof.
+
+### F-TEST-002 checkpoint (2026-08-04, still OPEN)
+
+Новый локальный прогон устранил два ранее подтверждённых класса загрязнения
+тестового окружения: три теста с вычислением `now + 2h` больше не зависят от
+часа запуска, а detached notifier новых пользователей и post-commit
+fulfillment worker не открывают поздние соединения к общей in-memory SQLite
+во время suite. Дополнительно regression фиксирует, что ошибка создания
+recovery-job оставляет входящее сообщение в явном terminal unsent состоянии
+(`FAILED` + `send_state='failed'`), а не в неоднозначной комбинации полей.
+
+**Local evidence:** `management` suite = **2619 тестов,
+3 skipped, OK** из корня worktree и отдельным запуском из `twocomms`; focused
+gate = **136 OK**, smoke regressions = **6 OK**, `git diff --check` = 0.
+Оба полных прогона используют SQLite. Commit `15147ded` задеплоен: production
+`check`/migration-drift зелёные, daemon восстановлен штатным `--ensure` и
+сейчас `running=True`, `alive=True`, `last_error=''`. Отдельный disposable
+MariaDB-run для `varchar(max_length)`, locks и constraints не выполнен;
+production MySQL не использовался как test database. Поэтому finding и
+`IMP-094` не закрываются.
 
 ## Reliability checkpoint (2026-08-03)
 
@@ -3937,3 +4046,99 @@ manager/event сигнал, а `missing_fields` должен сохранять�
 
 **Канонические closure-задачи:** F-CORE-007 → IMP-073; F-PAT-003,
 F-OPS-005, F-STATE-009, F-UX-015 и F-OPS-007 → IMP-099.
+
+### F-CAT-005 (P1, FIXED/VERIFIED): generic и punctuation aliases могли стать verified identity
+
+- **Проблема:** verified semantic revision принимала пустые, слишком общие и
+  punctuation-only aliases. Такой alias не доказывает товар и мог превратить
+  слабое совпадение в authoritative catalog identity.
+- **Исправление:** `674d6858` нормализует aliases и отклоняет значения без
+  достаточной лексической информации до публикации revision.
+- **Evidence:** focused semantic/inventory tests, production SHA содержит fix;
+  таблица revisions InnoDB и защищена append-only triggers.
+- **Связь:** `IMP-081 PARTIAL`; сам foundation опубликован, runtime consumer ещё
+  входит в остаток W9.
+
+### F-CAT-006 (P1, FIXED/VERIFIED): effective semantics можно было отозвать без authoritative evidence
+
+- **Проблема:** revocation verified head без подтверждённого actor/reason делала
+  коммерческую семантику изменяемой недоказуемым способом и могла молча вернуть
+  bot к слабому title/description matching.
+- **Исправление:** `3678ddf4` требует authoritative revocation metadata,
+  валидирует effective head и пишет audited immutable revision transition.
+- **Evidence:** код в `main`/production; raw UPDATE/DELETE дополнительно запрещены
+  MariaDB triggers `sf_sem_rev_no_update`/`sf_sem_rev_no_delete`.
+- **Связь:** `IMP-081 PARTIAL`.
+
+### F-CAT-007 (P1, FIXED/VERIFIED): prompt-каталог смешивал variant price с product-wide sizes
+
+- **Production symptom:** строка товара 110 в `bot_catalog` показывает точную
+  thermo-цену 1450 грн для `variant_id=81`, но рядом перечисляет
+  `XS/S/M/L/XL/XXL` из product-wide size grid.
+- **Authoritative truth:** production typed graph разрешает для этой
+  configuration только `XS/M`; hard request `size=L` возвращает ноль
+  кандидатов. Checkout также fail-closed проверяет variant-size rules.
+- **Риск:** модель может пообещать S/L/XL/XXL до checkout, а сервер затем
+  отклонит configuration. Это тот же класс разрыва речи и факта, что F-CAT-003,
+  но по размеру, а не по цене.
+- **Причина:** legacy `resolve_catalog_sizes(product)` не принимал variant/fit
+  и рендерился отдельно от price configuration.
+- **Исправление:** `e44d1440` привязал размеры prompt-каталога к точным
+  `variant + fit`; `0ad694bc` разделил authoritative пустой size contract и
+  отсутствие variant-specific источника, не возвращая ложный product-wide
+  fallback.
+- **Production evidence:** SHA `0ad694bc`; product 110 передаётся в prompt как
+  `variant_id=81`, thermo green, 1450 грн, `oversize=XS/M`. Ложный ряд
+  `XS/S/M/L/XL/XXL` отсутствует. Daemon `running=True`, `alive=True`, heartbeat
+  0.1 с, `instagram_login`, `last_error=''`, pending reply/notifications = 0.
+- **Verification:** 188 focused и полный management suite 2675 (3 skipped),
+  Django check, migration drift, compileall и diff check прошли.
+- **Остаток не этой находки:** `IMP-082/083` остаются PARTIAL до durable runtime
+  commerce session, stale candidate binding, relaxed alternatives и полного
+  topology.
+
+### F-PAY-015 (P0, FIXED/VERIFIED): audit-ссылки superseded review сливали два коммерческих эпизода
+
+- **Симптом:** startup reconcile многократно завершался `CommandError:
+  component already spans multiple commercial episodes`; watchdog не мог
+  стабильно удержать worker.
+- **Причина:** superseded review наследовал canonical `order/deal` для аудита,
+  а historical backfill считал эти ссылки ownership edges. Для client `59`
+  компоненты episodes `3` и `7` ошибочно соединялись.
+- **Исправление:** `93ae8684` изолирует superseded review как отдельный
+  non-owning component, сохраняет `lost / superseded_duplicate_payment_review`,
+  учитывает `superseded_at` в terminal chronology, условно очищает stale current
+  pointer и добавляет PII-free collision diagnostics.
+- **Local evidence:** 134 commercial/payment tests `OK`, Django check,
+  migration drift, compileall и diff check.
+- **Production evidence:** MySQL reconcile в 3 прохода дал нулевой остаток;
+  client `59` имеет три раздельных terminal episodes и пустой current pointer.
+  После restart daemon `running/alive`, `instagram_login`, heartbeat 1.0 с,
+  `last_error=''`, рабочие очереди нулевые.
+
+### F-FUP-013 (P1, FIXED/VERIFIED): stale finalization exception откатывал финальную доставку
+
+- **Проблема:** после успешного provider send и локальной финализации другой
+  worker мог увидеть устаревшее исключение в sender/recovery catch path и снова
+  перевести уже финальный `SENT` в `AMBIGUOUS`. Это создавало ложный delivery
+  review для сообщения, которое уже имело локальный ledger и provider receipt.
+- **Причина:** exception handlers меняли объект без повторной блокировки и не
+  проверяли, что текущий worker всё ещё владеет `PROCESSING` claim либо что
+  `SENT` receipt действительно ещё не финализирован локальным message ID.
+- **Исправление:** `414e639e` добавил lock-safe
+  `_mark_followup_finalization_failure()` и повторную проверку recovery под
+  `select_for_update()`. Уже финализированный `SENT` теперь сохраняется; только
+  принадлежащий worker `PROCESSING` или `SENT` с provider receipt без локального
+  message ID может стать `AMBIGUOUS`.
+- **Regression:**
+  `test_sender_exception_after_concurrent_finalization_does_not_reopen_delivery`
+  и
+  `test_recovery_exception_after_concurrent_finalization_does_not_reopen_delivery`.
+  Полный IMP-102 gate: 23/23 focused и 160/160 expanded, Django check,
+  migration drift, compileall и diff check.
+- **Production evidence:** HEAD `414e639e`, migration `management.0141`
+  applied; один daemon `running/alive` на `instagram_login`, `last_error=''`,
+  очереди `processing`, `ambiguous`, `sent_without_message` и
+  `delivery_reviews` пусты.
+- **Связь:** закрыта `IMP-102`; это отдельный остаточный race поверх более
+  ранней F-FUP-009, которая ввела claim/receipt foundation.

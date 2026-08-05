@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
 
 from management.services.ig_order_fulfillment import reconcile_order_customer_events
+from management.services.ig_task_health import task_heartbeat
 
 
 class Command(BaseCommand):
@@ -14,11 +15,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         limit = max(1, min(int(options["limit"] or 100), 1000))
         try:
-            stats = reconcile_order_customer_events(
-                order_id=options.get("order_id"),
-                limit=limit,
-                send=not options["no_send"],
-            )
+            with task_heartbeat("ig_order_fulfillment"):
+                stats = reconcile_order_customer_events(
+                    order_id=options.get("order_id"),
+                    limit=limit,
+                    send=not options["no_send"],
+                )
         except Exception as exc:
             raise CommandError(str(exc)) from exc
         self.stdout.write(self.style.SUCCESS("Instagram fulfillment: " + ", ".join(f"{key}={value}" for key, value in sorted(stats.items()))))

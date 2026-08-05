@@ -1,10 +1,10 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
-> **Канонический per-task статус после восстановления всех веток 2026-08-03.**
-> Всего 99 уникальных `IMP-*`: **72 закрыты, 25 открыты, 2 partial**
-> (`IMP-043`, `IMP-077`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
+> **Канонический per-task статус после recovery/deploy 2026-08-05.**
+> Всего 103 уникальные `IMP-*`: **77 закрыты, 22 открыты, 4 partial**
+> (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 170 `F-*` и всех 48 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 176 `F-*` и всех 50 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -47,11 +47,12 @@
 | **W5** | Качество продавца, каталог и память | 9 | 7 | 2 | 0 |
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
-| **W8** | Наблюдаемость, аналитика, долг | 13 | 1 | 10 | 2 |
-| **W9** | Product reselection и коммерческая семантика | 8 | 0 | 8 | 0 |
+| **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
+| **W9** | Product reselection и коммерческая семантика | 8 | 0 | 5 | 3 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **Итого** | | **99** | **72** | **25** | **2** |
+| **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 1 | 1 | 0 |
+| **Итого** | | **103** | **77** | **22** | **4** |
 
 ---
 
@@ -592,6 +593,15 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   честный дефицит только из фактов (IMPR-SALES-009). Плюс устранение противоречий промпта
   (F-AI-009: язык, три «высших приоритета», скидка) и FAQ через `BotInstruction`
   (IMPR-TXT-006 — ноль кода).
+  **Задеплоенный partial 2026-08-04, `042c48c8`:** runtime добавляет единый
+  порядок источников, запрещает выдавать единственную цену до выбора variant/
+  material/fit, отделяет catalog discount от rescue-discount и ограничивает один
+  вопрос/CTA/контекстный upsell. Sales prompt использует compact catalog без
+  потери ни одного товара, `variant_id`, цены конфигурации, fit/size или visual
+  fingerprint (MySQL: 71/71 строк, 19 696 chars; полный каталог 27 157; prompt
+  35 495). Brand/live/directives/links режутся только целыми смысловыми блоками.
+  **Не закрыто:** сами сценарные playbooks, FAQ, concrete close/voice и golden
+  conversations; поэтому checkbox намеренно остаётся `[ ]`.
 - [x] **IMP-029 (P1) — закрыта 2026-08-02.** `[СИГНАЛИ КЛІЄНТА]` передаёт тип,
   confidence и давность фактических сигналов, исключая шумный takeover;
   `[СТАН ДІАЛОГУ]` содержит стадию, липкий язык, размер, повторную покупку и
@@ -723,11 +733,25 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   migration drift и compileall; production `enabled=True`,
   `transport=instagram_login`, `last_error=''`.
 
-- [ ] **IMP-041 (P1) — открыта.** Health-check + heartbeat каждой cron-задачи с алертом
-  «не выполнялась дольше N» (F-SEC-008). **Прямой урок F-OPS-001:** исчезновение
-  cron не замечали 24 дня.
-- [ ] **IMP-042 (P1) — открыта.** Шифрование токенов в БД через существующий Fernet из
-  `services/pii.py` (F-SEC-005).
+- [x] **IMP-041 (P1) — закрыта и задеплоена 2026-08-04 (`f2a84717`).** Health-check,
+  durable heartbeat каждой production cron-задачи и дедуплицированный alert при
+  stale/failure (F-SEC-008). Добавлены `InstagramBotTaskHeartbeat`, migration
+  `0135`, явные task-specs, `/bot/health/` и проверка здоровья из daemon.
+  Production MariaDB: все пять задач успешно завершены без ошибки; endpoint =
+  HTTP 200, `bot_state=running`, `cron_unhealthy=0`.
+- [x] **IMP-042 (P1) — закрыта и задеплоена 2026-08-04 (`32985a63`).**
+  Custom Direct/Gemini credentials теперь хранятся исключительно как versioned
+  Fernet ciphertext; runtime property расшифровывает их только в памяти, а UI
+  fail-closed при отсутствующем/некорректном `FIELD_ENCRYPTION_KEY`. Migration
+  `0136` конвертирует legacy plaintext без изменения DB-колонок. Production:
+  key задан в private `.env.production`, env-файлы `0600`, MariaDB migration
+  `[X]`, поля были пусты/ENV provider не затронут, daemon и health `running`.
+- [ ] **IMP-101 (P2) — открыта.** Закрыть F-SEC-001 независимо от encryption:
+  убрать production account IDs, `allowed_senders` и debug reply из model
+  defaults, перенести явные значения в singleton/configuration migration,
+  сделать fresh install безопасным (`allowed_senders=''` = all) и добавить UI
+  warning для непустого whitelist. Нужны regression на fresh settings и
+  production config proof; `IMP-042` этого не делает.
 - [ ] **IMP-043 — PARTIAL, разделено после W0 (DR-005):**
   - **(P3, заблокировано)** атрибуция рекламы: источника данных не существует
     (0 рекламных полей в 438 payload'ах). Нужен ответ заказчика — запущена ли
@@ -738,8 +762,8 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   - **(P1, не зависит от рекламы)** разделение bot-only / manager-assisted /
     manager-created (F-SCORE-014 — данные в `IgOrderAssignment.Source` есть,
     но не читаются).
-- [ ] **IMP-077 (P1) — PARTIAL 2026-08-02. Telegram-алерты: пачки, дубли, отсутствие ссылок
-  (F-OPS-009).** Жалоба заказчика «сразу спам из 10 штук» воспроизведена по коду:
+- [x] **IMP-077 (P1) — закрыта и задеплоена 2026-08-04 (`221cf37d`). Telegram-алерты: пачки, дубли, ссылки и terminal outcome
+  (F-OPS-009).** Историческая жалоба «сразу спам из 10 штук» была воспроизведена по коду:
   `drain_manager_notifications(limit=10)` вызывается в цикле демона каждые
   1.5 секунды и внутри не имеет ни задержки, ни счётчика — до 20 сообщений за
   проход. Что делать:
@@ -777,12 +801,30 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   эскалацию — самое частое уведомление, где раньше был только IGSID.
   Тесты: `tests_ig_alerts`, 20.
 
-  **Осталось (пункты 5-8 выше):** `DEAD_LETTER`/`UNKNOWN` без мониторинга,
-  коллизия ключа в `ig_lifecycle`, дубль на одну неудачную отправку, язык двух
-  уведомлений.
-- [ ] **IMP-059 (P1) — открыта.** Не терять доказательства инцидентов (F-OPS-004).
-  Слить с IMP-041: heartbeat + алерт + файловый лог вместо единственной копии
-  в таблице на 500 строк.
+  **Финальный срез `221cf37d`:** `UNKNOWN` и `DEAD_LETTER` по-прежнему не
+  переотправляются автоматически, но раз в минуту проверяются bounded monitor'ом
+  и дают один почасовой durable summary со ссылкой в `/bot/`; sample error
+  redacted, а полный count не ограничен sample-лимитом. `ig-lifecycle:window:`
+  и `ig-lifecycle:delivery:` разделяют два разных события; оба operator-text
+  переведены на украинский. Один failed paylink создаёт только actionable
+  payment-review alert: generic permanent и link-circuit Telegram-alert
+  подавлены для того же failed send, а circuit-state всё равно сохраняется.
+  Regression: 75 `tests_ig_notifications`, `tests_ig_lifecycle`,
+  `tests_ig_audit_fixes`; production `check`, daemon `running/alive` и нулевой
+  terminal backlog подтверждены. Отдельный MariaDB test gate остаётся IMP-094,
+  но схема этого среза не менялась.
+- [x] **IMP-059 (P1) — закрыта и задеплоена 2026-08-04 (`f2a84717`,
+  `244cbbd3`).** Incident evidence больше не ограничено UI-таблицей на 500
+  строк: `ig_bot` имеет отдельный rotating warning/error log, а 4xx webhook
+  wave (>=5 и >=25% за 5 минут) ставит durable outbox-alert. Health отражает
+  `rejections_degraded` до фактического восстановления доли; 71 профильный
+  тест, production MariaDB и `/bot/health/` подтверждены.
+- [ ] **IMP-100 (P2) — открыта.** Дедуплицировать повторяющиеся записи
+  `InstagramBotLog` для UI по безопасному bounded key `(level, event, detail)`:
+  хранить счётчик/последнее наблюдение вместо N одинаковых строк, явно показать
+  счётчик в admin UI и не менять полный rotating file log. Нужны migration,
+  MariaDB concurrency/retention тест и deploy. Это `IMPR-OPS-002`; не является
+  условием уже закрытой сохранности incident evidence.
 - [ ] **IMP-060 (P2) — открыта.** Вложения (F-DATA-011): не качать URL импортированных
   сообщений, сохранять байты при приёме живого webhook.
 - [ ] **IMP-061 (P2) — открыта.** `hub.verify_token` в access-логе (F-SEC-010):
@@ -807,7 +849,18 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   проверяет (`varchar(max_length)`, locks/constraints), и держать
   `verify_ig_production_contract --rollback-fixtures` отдельным обязательным
   no-network gate. Уже исправленные fixture/digest/media и 32-символьный
-  `failure_kind` не закрывают недетерминированность всего suite.
+  `failure_kind` не закрывают недетерминированность всего suite. Отдельно
+  согласовать `InstagramLoginWebhookSecretTests` с действующим multi-secret
+  ingress contract: два assert всё ещё требуют отвергать parent app secret,
+  хотя `IMP-063` намеренно принимает оба наших secrets после production 4xx
+  incident; это test debt, не регрессия encryption.
+  **Локальный progress 2026-08-04 (не закрывает задачу):** ночные time-based
+  тесты стабилизированы; detached User-registration notifier и fulfillment
+  wake-up изолированы при `TESTING=True`; recovery-schedule failure теперь
+  сохраняет terminal unsent state; MariaDB profile fail-closed учитывает
+  Django default `localhost`. Полный `management` suite прошёл 2619 тестов
+  (3 skipped) из двух CWD. Commit `15147ded` находится в `main` и production;
+  остался обязательный отдельный disposable MariaDB run.
 - [ ] **IMP-096 (P2) — provenance ролей импортированной переписки
   (F-DATA-015).** Отделить подтверждённые manager/model сообщения от legacy
   import uncertainty, добавить read-only отчёт и dry-run backfill с точным
@@ -819,23 +872,37 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 
 ## W9 — Product reselection и проверяемая коммерческая семантика
 
-Источник: `codex/instagram-assisted-checkout`. Design/plan уже восстановлены в
-`main`; пять code-коммитов остаются patch-unique относительно актуальной базы.
+Источник: локальная `codex/instagram-assisted-checkout`. Design/plan уже восстановлены в
+`main`; пять code-коммитов остаются patch-unique относительно актуальной базы,
+но отсутствуют в historical `origin/codex/instagram-assisted-checkout`.
+Source сохранён отдельным remote ref `codex/ig-w9-local-preservation-20260804`
+до любого rebase.
 Ни один пункт ниже нельзя считать закрытым до переноса на актуальный `main`,
 повторных тестов, MariaDB-проверки и production deploy. Полный дизайн и
 13-задачный execution plan:
 `docs/superpowers/specs/2026-08-02-instagram-product-reselection-intelligence-design.md`
 и `docs/superpowers/plans/2026-08-02-instagram-product-reselection-intelligence.md`.
 
-- [ ] **IMP-081 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `61ad2cb8`, НЕ ИНТЕГРИРОВАНО.**
-  Append-only verified product semantics и явная inventory policy; перед
-  переносом сверить миграционные leaves и запрет generic aliases.
-- [ ] **IMP-082 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `a8ccfa63`, НЕ ИНТЕГРИРОВАНО.**
-  Trusted product references, typed catalog graph и graph digest. Canonical
-  option-path hardening дописан только в поздней версии спецификации.
-- [ ] **IMP-083 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `468fe2ba`, НЕ ИНТЕГРИРОВАНО.**
-  Explainable hard-filter/ranking кандидатов; stale candidate acceptance и
-  revalidation ещё требуют реализации.
+- [ ] **IMP-081 (P1) — PARTIAL, foundation в `main`/production.**
+  `bf4e0d80`, `674d6858`, `3678ddf4`: append-only verified product semantics,
+  explicit inventory policy, запрет generic/punctuation aliases и
+  unauthoritative revocation. Production: migrations `storefront.0088` и
+  `fable5.0008`, три InnoDB tables, 77 policies, UPDATE/DELETE triggers.
+  Остаток: полноценный runtime/admin consumer и отдельный disposable MariaDB
+  test gate; production БД не используется как тестовая.
+- [ ] **IMP-082 (P1) — PARTIAL, foundation и prompt parity в `main`/production `0ad694bc`.**
+  `7b5d5cc7` + `1c4d6d48`: trusted product references, typed price-aware graph,
+  graph digest, canonical option-path hardening и combined color/fit/size
+  compatibility. `e44d1440` + `0ad694bc` закрыли F-CAT-007: product 110 prompt
+  = variant 81, thermo green, exact 1450 грн, oversize XS/M, без ложного
+  product-wide ряда. Остаток: полный print/blank/media/canonical-link topology
+  и durable runtime commerce-session consumer.
+- [ ] **IMP-083 (P1) — PARTIAL, foundation в `main`/production `0ad694bc`.**
+  Explainable hard-filter/ranking, catalog priority/preferences, price filtering
+  и fail-closed generic/revoked/BOT_VISION semantics опубликованы. Остаток:
+  relaxed alternatives после hard mismatch, durable candidate/session revision
+  binding, stale revalidation и перенос trusted URL constraints в durable
+  selection вместо временного `exact_reference`.
 - [ ] **IMP-084 (P0/P1) — РЕАЛИЗОВАНО В ВЕТКЕ `e9d982df`, НЕ ИНТЕГРИРОВАНО.**
   Warehouse-aware exact availability. Aggregate quantity для строк с одной
   allocation identity и полный checkout wiring остаются открытыми.
@@ -857,7 +924,8 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 
 ## W10 — Улучшения, которые раньше были только идеями без IMP-задач
 
-Этот блок добавлен после полной сверки 48 `IMPR-*` с планом. Он не меняет
+Этот блок добавлен после полной сверки существовавших тогда 48 `IMPR-*` с
+планом; текущая матрица после source reconciliation содержит 50. Он не меняет
 порядок W4B: сначала IMP-056–058, затем W9/W10 по зависимостям.
 
 **Coverage gate:** подробный статус каждого ID находится в канонической таблице
@@ -874,7 +942,8 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   IMPR-SALES-008, IMPR-SALES-009, IMPR-SALES-010, IMPR-SALES-011,
   IMPR-TXT-001, IMPR-TXT-002, IMPR-TXT-003, IMPR-TXT-004,
   IMPR-TXT-005, IMPR-TXT-006;
-- память/инициатива/склад/ops: IMPR-MEM-001, IMPR-FUP-013,
+- память/инициатива/склад/ops: IMPR-MEM-001, IMPR-FUP-013, IMPR-FUP-014,
+  IMPR-FUP-015,
   IMPR-INV-001, IMPR-OPS-002;
 - UX: IMPR-UX-001, IMPR-UX-002, IMPR-UX-003, IMPR-UX-004,
   IMPR-UX-005, IMPR-UX-006.
@@ -919,9 +988,39 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   быстрого возврата. Галочка основана на существующем коде/тестах и ранее
   задеплоенном W4/W5-срезе, а не на одном тексте progress.
 
-### Finding coverage matrix — 170 уникальных F-идентификаторов
+---
 
-Итог матрицы: **120 `[x]` / 46 `OPEN [ ]` / 4 `PARTIAL [ ]`**. Статус
+## W12 — доказуемая доставка follow-up и event-driven continuation
+
+Источник требований: dirty worktree `codex/ig-followup-policies`. Его код и
+migration `0131` основаны на старой схеме и не переносятся wholesale. Delivery
+boundary уже заново реализован на актуальном `main`; materialized event
+continuation остаётся отдельным свежим срезом.
+
+- [x] **IMP-102 (P0/P1) — durable follow-up delivery FSM.** Введены явные
+  `PROCESSING`, `SENT`, `AMBIGUOUS`, `COMPLETED`, атомарная lease/claim boundary
+  и сохранение provider receipt. Blind retry после timeout/неоднозначного
+  provider outcome запрещён. Recovery протухшей lease обязан отличать задачу,
+  которая гарантированно не отправлялась, от ambiguous side effect; для
+  `AMBIGUOUS` нужен наблюдаемый admin queue и ручное audited разрешение.
+  Acceptance закрыт коммитами `0d4d38c0`, `0e9e9ba5`, `4cb86743`,
+  `414e639e`: concurrent claim, worker restart, timeout/5xx/receipt, stale lease
+  recovery, receipt-first finalization без resend, lock-safe sender/recovery
+  race и audited manual resolution. 23/23 focused и 160/160 expanded тестов,
+  Django check, migration drift и compileall зелёные. Production HEAD
+  `414e639e`, migration `management.0141` applied; один daemon `running/alive`
+  на `instagram_login`, error и delivery-review очереди пусты.
+- [ ] **IMP-103 (P1) — materialized event follow-ups.** Создавать продолжение
+  policy из точного business event с immutable `event_key`, payload и
+  абсолютным policy timeline, а не из polling-угадывания текущего snapshot.
+  Непосредственно перед send повторно проверять invoice/restock fact и
+  отменять/перестраивать stale task без клиентского сообщения. Acceptance:
+  duplicate/out-of-order event idempotency, absolute schedule across restart,
+  paid invoice/restocked item suppression and audited policy continuation.
+
+### Finding coverage matrix — 176 уникальных F-идентификаторов
+
+Итог матрицы: **131 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -935,7 +1034,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-AI-006 | FIXED/VERIFIED | IMP-029 |
 | [x] | F-AI-007 | FIXED/VERIFIED | IMP-029 |
 | [x] | F-AI-008 | FIXED/VERIFIED | IMP-029 |
-| [ ] | F-AI-009 | OPEN | IMP-028 |
+| [ ] | F-AI-009 | PARTIAL (`042c48c8`: runtime authority; остаток сценариев) | IMP-028 |
 | [ ] | F-AI-010 | OPEN | IMP-028 |
 | [ ] | F-AI-011 | OPEN | IMP-028 |
 | [ ] | F-AI-012 | OPEN | IMP-028 |
@@ -948,6 +1047,9 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-CAT-002 | FIXED/VERIFIED | IMP-067 |
 | [x] | F-CAT-003 | FIXED/VERIFIED | IMP-080 |
 | [ ] | F-CAT-004 | OPEN | IMP-084/086 |
+| [x] | F-CAT-005 | FIXED/VERIFIED | IMP-081 |
+| [x] | F-CAT-006 | FIXED/VERIFIED | IMP-081 |
+| [x] | F-CAT-007 | FIXED/VERIFIED | IMP-082; `e44d1440`/`0ad694bc` |
 | [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
 | [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
 | [ ] | F-CORE-003 | OPEN | IMP-098 |
@@ -965,9 +1067,9 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-CORE-016 | FIXED/VERIFIED | IMP-074 |
 | [x] | F-CORE-017 | FIXED/VERIFIED | IMP-075 |
 | [x] | F-CORE-018 | FIXED/VERIFIED | IMP-097 |
-| [ ] | F-CTX-001 | OPEN | IMP-028 |
+| [ ] | F-CTX-001 | PARTIAL (`042c48c8`: compact/bounded sources; adaptive context остаётся) | IMP-028 |
 | [x] | F-CTX-002 | FIXED/VERIFIED | IMP-016/052 |
-| [ ] | F-CTX-003 | OPEN | IMP-028 |
+| [ ] | F-CTX-003 | PARTIAL (`042c48c8`: order resolves conflicts; duplicate legacy text remains) | IMP-028 |
 | [x] | F-CTX-004 | FIXED/VERIFIED | IMP-078 |
 | [ ] | F-DATA-001 | OPEN | IMP-046 |
 | [ ] | F-DATA-002 | OPEN | IMP-046 |
@@ -1002,6 +1104,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-FUP-010 | FIXED/VERIFIED | IMP-052 |
 | [x] | F-FUP-011 | FIXED/VERIFIED | IMP-050/052 |
 | [x] | F-FUP-012 | FIXED/VERIFIED | IMP-050/052 |
+| [x] | F-FUP-013 | FIXED/VERIFIED (`414e639e`) | IMP-102 |
 | [x] | F-OBJ-001 | FIXED/VERIFIED | IMP-057 |
 | [x] | F-OBJ-002 | FIXED/VERIFIED | IMP-057 |
 | [x] | F-OBJ-003 | FIXED/VERIFIED | IMP-057 |
@@ -1013,12 +1116,12 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-OPS-001 | FIXED/VERIFIED | IMP-009/051 |
 | [ ] | F-OPS-002 | OPEN | IMP-046 |
 | [x] | F-OPS-003 | FIXED/VERIFIED | IMP-020 |
-| [ ] | F-OPS-004 | OPEN | IMP-059 |
+| [x] | F-OPS-004 | FIXED/VERIFIED | IMP-059 |
 | [x] | F-OPS-005 | FIXED/VERIFIED | IMP-099 |
 | [x] | F-OPS-006 | FIXED/VERIFIED | IMP-062 |
 | [x] | F-OPS-007 | FIXED/VERIFIED | IMP-099 |
-| [ ] | F-OPS-008 | OPEN | IMP-059 |
-| [ ] | F-OPS-009 | PARTIAL | IMP-077 |
+| [x] | F-OPS-008 | FIXED/VERIFIED | IMP-059 |
+| [x] | F-OPS-009 | FIXED/VERIFIED | IMP-077 |
 | [x] | F-PAT-001 | FIXED/VERIFIED | IMP-017 |
 | [x] | F-PAT-002 | FIXED/VERIFIED | IMP-017 |
 | [x] | F-PAT-003 | FIXED/VERIFIED | IMP-099 |
@@ -1038,6 +1141,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-PAY-012 | FIXED/VERIFIED | IMP-013 |
 | [x] | F-PAY-013 | FIXED/VERIFIED | IMP-071 |
 | [x] | F-PAY-014 | FIXED/VERIFIED | IMP-089 |
+| [x] | F-PAY-015 | FIXED/VERIFIED | `93ae8684` / DR-011 |
 | [x] | F-SCORE-001 | FIXED/VERIFIED | IMP-019 |
 | [x] | F-SCORE-002 | FIXED/VERIFIED | IMP-015 |
 | [x] | F-SCORE-003 | FIXED/VERIFIED | IMP-014 |
@@ -1053,16 +1157,17 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-SCORE-013 | FIXED/VERIFIED | IMP-040 |
 | [ ] | F-SCORE-014 | PARTIAL | IMP-043 |
 | [x] | F-SCORE-015 | FIXED/VERIFIED | IMP-013/015/019/031 |
-| [ ] | F-SEC-001 | OPEN | IMP-042 |
+| [ ] | F-SEC-001 | OPEN | IMP-101 |
 | [x] | F-SEC-002 | FIXED/VERIFIED | IMP-005 |
 | [x] | F-SEC-003 | FIXED/VERIFIED | IMP-006 |
 | [ ] | F-SEC-004 | PARTIAL | IMP-007/098 |
-| [ ] | F-SEC-005 | OPEN | IMP-042 |
+| [x] | F-SEC-005 | FIXED/VERIFIED | IMP-042 |
 | [x] | F-SEC-006 | FIXED/VERIFIED | IMP-025 |
 | [x] | F-SEC-007 | FIXED/VERIFIED | IMP-012 |
-| [ ] | F-SEC-008 | OPEN | IMP-041 |
+| [x] | F-SEC-008 | FIXED/VERIFIED | IMP-041 |
 | [ ] | F-SEC-009 | PARTIAL | IMP-006/098 |
 | [ ] | F-SEC-010 | OPEN | IMP-061 |
+| [x] | F-SEC-011 | FIXED/VERIFIED | IMP-042 |
 | [x] | F-STAT-001 | FIXED/VERIFIED | IMP-058 |
 | [x] | F-STAT-002 | FIXED/VERIFIED | IMP-058 |
 | [x] | F-STAT-003 | FIXED/VERIFIED | IMP-058 |
@@ -1098,10 +1203,10 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-UX-015 | FIXED/VERIFIED | IMP-099 |
 | [x] | F-UX-016 | FIXED/VERIFIED | IMP-035 |
 
-### Improvement coverage matrix — 48 уникальных IMPR-идентификаторов
+### Improvement coverage matrix — 50 уникальных IMPR-идентификаторов
 
-Итог матрицы: **14 `[x]` / 34 `[ ]`**. В незакрытый остаток входят
-15 `PARTIAL`, 18 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
+Итог матрицы: **15 `[x]` / 35 `[ ]`**. В незакрытый остаток входят
+21 `PARTIAL`, 13 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
 ставится, пока полезный остаток не реализован и не задеплоен.
 
 | Check | Improvement | Status | Canonical task / остаток |
@@ -1109,10 +1214,10 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | IMPR-CAT-001 | DONE | IMP-027 |
 | [ ] | IMPR-CAT-002 | REFRAMED | IMP-067; настоящий учёт варианта — IMP-084/086 |
 | [x] | IMPR-CAT-003 | DONE | IMP-080 |
-| [ ] | IMPR-CAT-004 | OPEN | IMP-082/084 |
+| [ ] | IMPR-CAT-004 | PARTIAL (`0ad694bc`: typed graph/ranker + prompt parity; availability wiring remains) | IMP-082/084 |
 | [x] | IMPR-CAT-005 | DONE | IMP-067; catalog completeness `3191e08c` |
 | [ ] | IMPR-CAT-006 | OPEN | IMP-088 |
-| [ ] | IMPR-FEAT-001 | OPEN | IMP-082/083/088 |
+| [ ] | IMPR-FEAT-001 | PARTIAL (`0ad694bc`: explainable candidate foundation + prompt parity; runtime/review remains) | IMP-082/083/088 |
 | [ ] | IMPR-FEAT-002 | OPEN | IMP-084/086 |
 | [ ] | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
 | [ ] | IMPR-FEAT-004 | PARTIAL | IMP-056; durable subscription/warehouse — IMP-087 |
@@ -1128,19 +1233,21 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [ ] | IMPR-FEAT-014 | PARTIAL | hosted checkout `c696ee9e`; остаток IMP-087/088 |
 | [ ] | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | [ ] | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
+| [x] | IMPR-FUP-014 | DONE | IMP-102; production `414e639e` |
+| [ ] | IMPR-FUP-015 | OPEN | IMP-103; prerequisite IMP-102 выполнен |
 | [ ] | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | [x] | IMPR-MEM-001 | DONE | IMP-030 |
-| [ ] | IMPR-OPS-002 | OPEN | IMP-041/059 |
+| [ ] | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |
 | [ ] | IMPR-SALES-001 | PARTIAL | каталог размеров есть; протокол — IMP-028 |
 | [ ] | IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
-| [ ] | IMPR-SALES-003 | OPEN | IMP-028/085/087 |
-| [ ] | IMPR-SALES-004 | OPEN | IMP-028 |
+| [ ] | IMPR-SALES-003 | PARTIAL | `042c48c8`: максимум один contextual upsell; конкретная вторая позиция/корзина — IMP-085/087 |
+| [ ] | IMPR-SALES-004 | PARTIAL | `042c48c8`: discount как price fact, не rescue offer; сценарий «дорого» — IMP-028 |
 | [ ] | IMPR-SALES-005 | PARTIAL | IMP-053/057; полный prompt-протокол — IMP-028 |
 | [ ] | IMPR-SALES-006 | PARTIAL | IMP-053; выбор/событие — IMP-028/056/083 |
-| [ ] | IMPR-SALES-007 | OPEN | IMP-028 |
-| [ ] | IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053; prompt — IMP-028 |
+| [ ] | IMPR-SALES-007 | PARTIAL | `042c48c8`: не более одного вопроса; последовательность discovery — IMP-028 |
+| [ ] | IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053 + один CTA/без давления `042c48c8`; remaining dialog acceptance — IMP-028 |
 | [ ] | IMPR-SALES-009 | PARTIAL | ложный stock убран IMP-067; остаток IMP-028/084 |
-| [ ] | IMPR-SALES-010 | OPEN | IMP-028 |
+| [ ] | IMPR-SALES-010 | PARTIAL | `042c48c8`: один чёткий CTA; concrete order summary/close — IMP-028 |
 | [ ] | IMPR-SALES-011 | OPEN | IMP-028 |
 | [x] | IMPR-TXT-001 | DONE | IMP-021 |
 | [x] | IMPR-TXT-002 | DONE | IMP-022 |

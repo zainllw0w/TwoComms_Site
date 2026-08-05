@@ -406,6 +406,47 @@ class NovaPoshtaService:
         """
         return status_code in self.DELIVERY_SUCCESS_CODES
 
+    @staticmethod
+    def _has_persisted_purchase_evidence(order):
+        """Detect a Purchase already established by a payment-side channel."""
+        payload = getattr(order, "payment_payload", None)
+        if not isinstance(payload, dict):
+            return False
+
+        facebook_events = payload.get("facebook_events")
+        if isinstance(facebook_events, dict) and facebook_events.get("purchase_sent"):
+            return True
+        capi = payload.get("fb_conversions_api")
+        if isinstance(capi, dict) and capi.get("event_id"):
+            return True
+        tiktok_events = payload.get("tiktok_events")
+        if isinstance(tiktok_events, dict) and tiktok_events.get("purchase_sent"):
+            return True
+
+        channels = payload.get("post_payment_channels")
+        if isinstance(channels, dict):
+            for channel_name in ("meta_purchase", "tiktok_purchase"):
+                channel = channels.get(channel_name)
+                if not isinstance(channel, dict):
+                    continue
+                if channel.get("state") == "sent" or channel.get("event_id"):
+                    return True
+        return False
+
+    @classmethod
+    def _is_legacy_web_cod_purchase(cls, order):
+        """Return whether delivery may be the historical website purchase moment.
+
+        Online and Instagram checkouts already establish Purchase at the
+        payment/thank-you boundary.  Nova Poshta is allowed to emit the
+        fallback only for the old website cash-on-delivery contract.
+        """
+        return (
+            str(getattr(order, "source", "") or "").strip().lower() == "web"
+            and str(getattr(order, "pay_type", "") or "").strip().lower() == "cod"
+            and not cls._has_persisted_purchase_evidence(order)
+        )
+
     def update_order_tracking_status(self, order):
         """
         Обновляет статус посылки для заказа.
@@ -531,11 +572,18 @@ class NovaPoshtaService:
         # --- Уведомления и внешние события: строго вне транзакции/лока ---
         if decision['is_delivery']:
             if decision['payment_status_changed']:
-                # W2-3 (CRO-045): «получение посылки» = подтверждённая покупка
-                # ВО ВСЕХ слоях, а не только в Meta. До фикса COD-покупки видел
-                # только Meta CAPI; TikTok и внутренний UserAction — никогда.
-                self._send_facebook_purchase_event(order)
-                self._send_tiktok_purchase_event(order)
+                # Delivery is an advertising conversion only for legacy web
+                # COD.  Online/Instagram orders already have the canonical
+                # Purchase at payment/Thank You and must never be re-emitted.
+                if self._is_legacy_web_cod_purchase(order):
+                    self._send_facebook_purchase_event(order)
+                    self._send_tiktok_purchase_event(order)
+                else:
+                    logger.info(
+                        "Skipping delivery Purchase for order %s: canonical "
+                        "payment/Thank You conversion owns this event",
+                        order.order_number,
+                    )
             self._send_admin_delivery_notification(
                 order, decision['old_order_status'], decision['payment_status_changed']
             )
@@ -618,6 +666,19 @@ class NovaPoshtaService:
 
             now = timezone.now()
             is_terminal = status_code in self.DELIVERY_SUCCESS_CODES or status_code in self.TERMINAL_FAILURE_CODES
+
+            # A terminal provider status is immutable for polling purposes.
+            # Avoid reporting a change (and doing a DB write) on every direct
+            # retry when Nova Poshta returns the same code and event time.
+            if (
+                is_terminal
+                and order.tracking_terminal_at is not None
+                and order.tracking_status_code == status_code
+                and not text_changed
+                and order.tracking_provider_event_at == provider_event_at
+            ):
+                return None
+
             next_check_at = None if is_terminal else now + (
                 self.WAITING_CHECK_INTERVAL
                 if status_code in self.WAITING_CHECK_CODES
@@ -701,16 +762,23 @@ class NovaPoshtaService:
         """
         Отправляет Purchase событие в Facebook Conversions API.
         Legacy-only: текущий storefront COD не продаёт, но этот путь остаётся
-        для старых заказов и не должен использоваться для новых кампаний.
+        для старых web-заказов и не должен использоваться для новых кампаний.
 
         Вызывается автоматически когда:
-        - Посылка получена через Новую Почту
-        - payment_status изменен на 'paid'
+        - посылка получена через Новую Почту;
+        - старый web COD-заказ перешёл в ``paid``.
 
         Args:
             order (Order): Заказ для которого отправляется событие
         """
         try:
+            if not self._is_legacy_web_cod_purchase(order):
+                logger.info(
+                    "Skipping Nova Poshta Facebook Purchase for non-COD order %s",
+                    order.order_number,
+                )
+                return False
+
             from .facebook_conversions_service import get_facebook_conversions_service
 
             fb_service = get_facebook_conversions_service()
@@ -723,7 +791,7 @@ class NovaPoshtaService:
                     logger.info(
                         f"📊 Facebook Purchase event already sent for order {order.order_number}, skipping duplicate"
                     )
-                    return
+                    return False
 
                 facebook_events.setdefault(
                     'purchase_event_time',
@@ -744,29 +812,39 @@ class NovaPoshtaService:
                         )
                         raise
                     logger.info(f"📊 Facebook Purchase event sent for order {order.order_number}")
+                    return True
                 else:
                     logger.warning(f"⚠️ Failed to send Facebook Purchase event for order {order.order_number}")
+                    return False
             else:
                 logger.debug("Facebook Conversions API not enabled, skipping Purchase event")
+                return False
 
         except Exception as e:
             logger.exception(f"❌ Error sending Facebook Purchase event for order {order.order_number}: {e}")
+            return False
 
     def _send_tiktok_purchase_event(self, order):
         """
-        W2-3в / AN-014: TikTok Purchase при получении посылки (COD-выкуп).
+        W2-3в / AN-014: legacy web COD Purchase при получении посылки.
 
-        Симметрично Meta-пути: pre-check `purchase_sent` в payment_payload
-        защищает от дублей (например, если заказ уже был оплачен онлайн
-        и Purchase ушёл из webhook-пути).
+        Онлайн- и Instagram-заказы уже имеют канонический Purchase в момент
+        оплаты/Thank You и не должны повторно попадать в рекламную воронку.
         """
         try:
+            if not self._is_legacy_web_cod_purchase(order):
+                logger.info(
+                    "Skipping Nova Poshta TikTok Purchase for non-COD order %s",
+                    order.order_number,
+                )
+                return False
+
             from .tiktok_events_service import get_tiktok_events_service
 
             tiktok_service = get_tiktok_events_service()
             if not tiktok_service.enabled:
                 logger.debug("TikTok Events API not enabled, skipping Purchase event")
-                return
+                return False
 
             payment_payload = order.payment_payload or {}
             tiktok_events = payment_payload.get('tiktok_events', {})
@@ -774,7 +852,7 @@ class NovaPoshtaService:
                 logger.info(
                     f"📈 TikTok Purchase event already sent for order {order.order_number}, skipping duplicate"
                 )
-                return
+                return False
 
             success = tiktok_service.send_purchase_event(order)
             if success:
@@ -791,10 +869,13 @@ class NovaPoshtaService:
                     )
                     raise
                 logger.info(f"📈 TikTok Purchase event sent for order {order.order_number} (delivery)")
+                return True
             else:
                 logger.warning(f"⚠️ Failed to send TikTok Purchase event for order {order.order_number}")
+                return False
         except Exception as e:
             logger.exception(f"❌ Error sending TikTok Purchase event for order {order.order_number}: {e}")
+            return False
 
     def _record_purchase_action(self, order):
         """
@@ -851,7 +932,6 @@ class NovaPoshtaService:
 
         if payment_status_changed:
             message += "💰 <b>Статус оплати:</b> автоматично змінено на <b>ОПЛАЧЕНО</b>\n"
-            message += "📊 <b>Facebook Pixel:</b> Purchase подія відправлена\n"
             message += "\n"
 
         message += f"""👤 <b>Клієнт:</b> {order.full_name}

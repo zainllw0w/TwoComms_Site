@@ -21,6 +21,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import secrets
@@ -35,7 +36,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from django.core.cache import cache
 from django.db import DatabaseError, IntegrityError, transaction
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -73,6 +74,9 @@ CONV_MIN_INTERVAL = 0.5  # Meta Conversations API: at most 2 requests/second.
 CONV_CACHE_TTL = 3600
 CONV_REFRESH_LOCK_TTL = CONV_LIST_TIMEOUT * CONV_DISCOVERY_PAGES_PER_REFRESH + 30
 INGRESS_DEGRADATION_TTL = 15 * 60
+WEBHOOK_ERROR_WINDOW_SECONDS = 5 * 60
+WEBHOOK_ERROR_MIN_COUNT = 5
+WEBHOOK_ERROR_MIN_RATE = 0.25
 _CONV_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,255}$")
 _CONV_CURSOR_RE = re.compile(r"^[A-Za-z0-9_+=/.:~-]{1,1024}$")
 _SENDER_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
@@ -101,6 +105,20 @@ class ProviderDeliveryReceipt:
 
     def as_legacy_tuple(self) -> tuple[bool, str, str]:
         return self.ok, self.kind, self.hint
+
+
+def _delivery_receipt(result) -> tuple[bool, str, str, str, bool]:
+    """Normalize old tuple callers while making an explicit receipt auditable."""
+    if isinstance(result, ProviderDeliveryReceipt):
+        return (
+            bool(result.ok),
+            str(result.kind or ""),
+            str(result.hint or ""),
+            str(result.provider_message_id or ""),
+            True,
+        )
+    ok, kind, hint = result
+    return bool(ok), str(kind or ""), str(hint or ""), "", False
 
 
 def _provider_message_id(response_body) -> str:
@@ -976,6 +994,29 @@ _PAYLINK_FALLBACK_TEXT = {
     "ru": "Спасибо! Уточню детали оплаты и через минуту вернусь к вам 🙌",
     "en": "Thank you! I will confirm the payment details and get right back to you 🙌",
 }
+
+# Єдиний порядок джерел потрібен саме в runtime: production зберігає власний
+# `system_prompt`, тому зміна DEFAULT_BOT_SYSTEM_PROMPT не виправить уже живий
+# конфлікт між старою стилістикою, каталогом і редагованими директивами.
+CANONICAL_PROMPT_AUTHORITY_POLICY = (
+    "[ЄДИНИЙ ПОРЯДОК ІСТИНИ — службове]\n"
+    "Якщо джерела суперечать одне одному, застосовуй їх лише в такому порядку: "
+    "(1) підтверджені системою факти про оплату, замовлення та сервісний кейс; "
+    "(2) [СТАН ОФОРМЛЕННЯ] і факт обраної конфігурації з каталогу "
+    "(variant_id, колір/матеріал, фасон, розмір, кількість, точна ціна); "
+    "(3) поточна репліка клієнта та [СТАН ДІАЛОГУ]; "
+    "(4) поточні оперативні директиви й доречні playbook-інструкції; "
+    "(5) старий базовий промпт і стиль. Директива не може скасувати факт з пунктів 1-3.\n"
+    "Явне прохання клієнта писати UA/RU/EN або однозначна мова поточної репліки "
+    "має перевагу над застарілим формулюванням базового промпта чи старою мовою картки.\n"
+    "Якщо ціна залежить від кольору, матеріалу, variant_id, фасону чи іншої опції, "
+    "не називай одну точну суму, доки конфігурацію не визначено; не підмінюй її "
+    "базовою ціною товару. Позначена в каталозі знижка — це лише факт вже "
+    "порахованої ціни, а не дозвіл самостійно пропонувати rescue-знижку.\n"
+    "Не вигадуй товар, залишок, ціну, доставку, оплату чи знижку. В одній відповіді "
+    "має бути не більше одного запитання, одного чіткого CTA і одного доречного "
+    "апселлу; без тиску."
+)
 
 # Протокол оплати — інжектимо в system_instruction завжди (migration-free), щоб
 # модель давала ЯВНИЙ сигнал товару й типу оплати, а не лише обіцяла лінк текстом.
@@ -1884,9 +1925,39 @@ def _match_allowed(sender_id: str, limit: int = 15, window: int = 3600) -> bool:
 # ---------------------------------------------------------------------------
 # Лог-консоль
 # ---------------------------------------------------------------------------
+_LOG_LEVELS = {
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "success": logging.INFO,
+    "info": logging.INFO,
+}
+_INCIDENT_LOGGER = logging.getLogger("ig_bot")
+
+
 def log(level: str, event: str, detail: str = "") -> None:
+    """Write the compact UI log and a durable, PII-redacted incident trail.
+
+    Routine successful messages intentionally omit detail in the file because
+    the console may contain a customer-facing reply excerpt.  Warnings/errors
+    preserve the diagnostic detail and pass through the global PII filter.
+    """
+    level = str(level or "info").lower()
+    event = str(event or "unknown")[:120]
+    detail = str(detail or "")[:4000]
     try:
-        InstagramBotLog.objects.create(level=level, event=event, detail=(detail or "")[:4000])
+        suffix = f" detail={detail}" if level in {"warning", "error"} and detail else ""
+        _INCIDENT_LOGGER.log(
+            _LOG_LEVELS.get(level, logging.INFO),
+            "ig_bot event=%s level=%s%s",
+            event,
+            level,
+            suffix,
+        )
+    except Exception:
+        # Observability must never block message intake or payment recovery.
+        pass
+    try:
+        InstagramBotLog.objects.create(level=level, event=event, detail=detail)
         if InstagramBotLog.objects.count() > LOG_KEEP_ROWS + 100:
             ids = list(
                 InstagramBotLog.objects.order_by("-id").values_list("id", flat=True)[:LOG_KEEP_ROWS]
@@ -2036,6 +2107,109 @@ def webhook_signature_status() -> dict[str, object]:
         "unsigned_override": override,
         "healthy": configured or override,
         "state": "configured" if configured else ("development_override" if override else "missing_secret"),
+    }
+
+
+def _webhook_status_key(bucket: int, kind: str) -> str:
+    return f"ig_bot_webhook_status:{kind}:{bucket}"
+
+
+def webhook_rejection_status() -> dict[str, object] | None:
+    """Return the current bounded 4xx incident signal, without a Graph call."""
+    value = cache.get("ig_bot_webhook_4xx_degraded")
+    if not isinstance(value, dict):
+        return None
+    try:
+        errors = max(0, int(value.get("errors") or 0))
+        total = max(errors, int(value.get("total") or 0))
+    except (TypeError, ValueError):
+        return None
+    if not errors or not total:
+        return None
+    return {
+        "errors": errors,
+        "total": total,
+        "rate": round(errors / total, 4),
+        "reason": str(value.get("reason") or "")[:64],
+    }
+
+
+def record_webhook_response(status_code: int, *, reason: str = "") -> dict[str, object]:
+    """Count webhook HTTP outcomes and queue one alert for a sustained 4xx rate.
+
+    The handler must stay fast and must never transmit Telegram synchronously.
+    Counters are deliberately cache-only: durable evidence is in ``ig_bot.log``
+    and the alert outbox, while this is a short-lived detection window.
+    """
+    was_degraded = webhook_rejection_status() is not None
+    try:
+        status_code = int(status_code)
+    except (TypeError, ValueError):
+        status_code = 0
+    now = timezone.now()
+    bucket = int(now.timestamp() // WEBHOOK_ERROR_WINDOW_SECONDS)
+    ttl = WEBHOOK_ERROR_WINDOW_SECONDS * 2
+    total_key = _webhook_status_key(bucket, "total")
+    error_key = _webhook_status_key(bucket, "4xx")
+    try:
+        cache.add(total_key, 0, ttl)
+        total = int(cache.incr(total_key))
+        is_client_error = 400 <= status_code < 500
+        if is_client_error:
+            cache.add(error_key, 0, ttl)
+            errors = int(cache.incr(error_key))
+        else:
+            errors = int(cache.get(error_key) or 0)
+    except Exception:
+        return {"available": False, "status_code": status_code}
+
+    rate = errors / total if total else 0.0
+    degraded = errors >= WEBHOOK_ERROR_MIN_COUNT and rate >= WEBHOOK_ERROR_MIN_RATE
+    if degraded:
+        cache.set(
+            "ig_bot_webhook_4xx_degraded",
+            {
+                "errors": errors,
+                "total": total,
+                "reason": str(reason or "http_4xx")[:64],
+                "at": now.timestamp(),
+            },
+            INGRESS_DEGRADATION_TTL,
+        )
+        if not was_degraded:
+            try:
+                from management.services.ig_alerts import alert_dedupe_key, format_alert
+
+                notify_manager(
+                    format_alert(
+                        "🚨 IG webhook: високий рівень 4xx",
+                        lines=(
+                            f"За {WEBHOOK_ERROR_WINDOW_SECONDS // 60} хв: {errors}/{total} "
+                            f"({rate:.0%})",
+                            f"Причина: {str(reason or 'http_4xx')[:64]}",
+                        ),
+                    ),
+                    dedupe_key=alert_dedupe_key(
+                        "ig_webhook_4xx_rate",
+                        window_minutes=15,
+                        text=f"{bucket}:{reason}",
+                    ),
+                    event_type="ig_webhook_4xx_rate",
+                    deliver_immediately=False,
+                )
+            except Exception:
+                pass
+    elif errors < WEBHOOK_ERROR_MIN_COUNT or rate < WEBHOOK_ERROR_MIN_RATE:
+        # Recover only after this bucket actually falls below the incident
+        # threshold. One successful delivery must not hide an ongoing 4xx wave.
+        cache.delete("ig_bot_webhook_4xx_degraded")
+    return {
+        "available": True,
+        "status_code": status_code,
+        "errors": errors,
+        "total": total,
+        "rate": rate,
+        "degraded": degraded,
     }
 
 
@@ -2647,6 +2821,9 @@ def _log_token_error(s: InstagramBotSettings, code, body: str) -> None:
 
 NOTIFICATION_STALE_SENDING_SECONDS = 300
 NOTIFICATION_MAX_ATTEMPTS = 5
+NOTIFICATION_TERMINAL_ALERT_WINDOW_MINUTES = 60
+NOTIFICATION_TERMINAL_MONITOR_CACHE_KEY = "ig_notification_terminal_monitor_due"
+NOTIFICATION_TERMINAL_MONITOR_INTERVAL_SECONDS = 60
 
 
 def _telegram_media_url_candidates(media: dict) -> list[str]:
@@ -3015,7 +3192,87 @@ def drain_manager_notifications(*, limit: int = 20) -> int:
             )
             break
         sent += int(_deliver_manager_notification(dedupe_key))
+    # Queue terminal-state monitoring after this pass.  A row that becomes
+    # UNKNOWN/DEAD_LETTER during the current send is thus visible to the next
+    # bounded pass, without recursively sending an alert inside its own drain.
+    _monitor_terminal_notifications()
     return sent
+
+
+def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) -> int:
+    """Queue one bounded operator summary for unresolved terminal deliveries.
+
+    UNKNOWN and DEAD_LETTER rows are deliberately not replayed: the provider
+    outcome may already be visible to Telegram/Meta, or the retry budget is
+    exhausted.  They still need a durable, periodic signal so an operator can
+    reconcile them instead of relying on a dashboard counter.
+    """
+    if not force:
+        try:
+            if not cache.add(
+                NOTIFICATION_TERMINAL_MONITOR_CACHE_KEY,
+                1,
+                timeout=NOTIFICATION_TERMINAL_MONITOR_INTERVAL_SECONDS,
+            ):
+                return 0
+        except Exception as exc:
+            # A broken cache must not make terminal notifications invisible.
+            logger.warning("Unable to rate-limit terminal notification monitor: %r", exc)
+
+    terminal_statuses = [
+        IgBotNotification.Status.UNKNOWN,
+        IgBotNotification.Status.DEAD_LETTER,
+    ]
+    counts = {status: 0 for status in terminal_statuses}
+    for item in (
+        IgBotNotification.objects.filter(status__in=terminal_statuses)
+        .exclude(event_type="notification_terminal_monitor")
+        .values("status")
+        .annotate(total=Count("id"))
+    ):
+        counts[item["status"]] = item["total"]
+    rows = list(
+        IgBotNotification.objects.filter(status__in=terminal_statuses)
+        .exclude(event_type="notification_terminal_monitor")
+        .order_by("updated_at", "id")
+        .values("id", "status", "event_type", "last_error")[:limit]
+    )
+    if not rows:
+        return 0
+    now = timezone.now()
+    bucket = int(now.timestamp() // (NOTIFICATION_TERMINAL_ALERT_WINDOW_MINUTES * 60))
+    samples = []
+    for row in rows:
+        if len(samples) < 6:
+            samples.append(
+                f"#{row['id']} {row['event_type']}: "
+                f"{_redact_secret_text(row['last_error'] or 'без опису')[:120]}"
+            )
+    lines = [
+        f"UNKNOWN: {counts[IgBotNotification.Status.UNKNOWN]}",
+        f"DEAD_LETTER: {counts[IgBotNotification.Status.DEAD_LETTER]}",
+        "Потрібна ручна звірка в журналі Telegram-алертів.",
+        *samples,
+    ]
+    try:
+        from management.services.ig_alerts import format_alert, management_base_url
+
+        queued = notify_manager(
+            format_alert(
+                "⚠️ IG: є незавершені Telegram-алерти",
+                lines=lines,
+                url=f"{management_base_url()}/bot/",
+                url_label="Перевірка:",
+            ),
+            dedupe_key=f"ig-notification-terminal:w{bucket}",
+            event_type="notification_terminal_monitor",
+            metadata={"terminal_counts": counts, "sample_count": len(samples)},
+            deliver_immediately=False,
+        )
+    except Exception:
+        logger.exception("Unable to queue terminal notification monitor")
+        return 0
+    return int(queued)
 
 
 def notify_manager(
@@ -4094,7 +4351,12 @@ def _link_circuit_active(s: InstagramBotSettings) -> bool:
     return bool(s.link_send_blocked_until and s.link_send_blocked_until > timezone.now())
 
 
-def _activate_link_send_circuit(s: InstagramBotSettings, body: str) -> None:
+def _activate_link_send_circuit(
+    s: InstagramBotSettings,
+    body: str,
+    *,
+    emit_alert: bool = True,
+) -> None:
     now = timezone.now()
     blocked_until = now + LINK_SENDING_CIRCUIT_TTL
     fbtrace_id = _graph_error_fbtrace_id(body)
@@ -4110,17 +4372,18 @@ def _activate_link_send_circuit(s: InstagramBotSettings, body: str) -> None:
         ])
     except Exception:
         pass
-    try:
-        notify_manager(
-            "⚠️ Instagram тимчасово обмежив надсилання посилань у Direct "
-            "(Meta 508/2534122). Бот продовжить відповідати корисним текстом без URL. "
-            "Платіжні посилання не будуть маскуватися; їх потрібно перевірити менеджеру. "
-            "Перевірте Instagram → Налаштування → Статус облікового запису.",
-            dedupe_key=f"ig_link_restriction:{now.date().isoformat()}",
-            event_type="link_send_restriction",
-        )
-    except Exception:
-        pass
+    if emit_alert:
+        try:
+            notify_manager(
+                "⚠️ Instagram тимчасово обмежив надсилання посилань у Direct "
+                "(Meta 508/2534122). Бот продовжить відповідати корисним текстом без URL. "
+                "Платіжні посилання не будуть маскуватися; їх потрібно перевірити менеджеру. "
+                "Перевірте Instagram → Налаштування → Статус облікового запису.",
+                dedupe_key=f"ig_link_restriction:{now.date().isoformat()}",
+                event_type="link_send_restriction",
+            )
+        except Exception:
+            pass
 
 
 def _permanent_send_alert_text(hint: str, *, graph_subcode: int = 0) -> str:
@@ -4169,11 +4432,11 @@ def _queue_payment_link_delivery_review(
     hint: str,
     *,
     deal=None,
-) -> None:
+) -> bool:
     """Preserve a generated invoice URL for a manager; never strip it silently."""
     deal = deal or _invoice_deal_for_reply(client, reply)
     if not client or (deal is None and not _PAY_URL_RE.search(str(reply or ""))):
-        return
+        return False
     from management.models import IgFollowUpTask
 
     now = timezone.now()
@@ -4255,6 +4518,7 @@ def _queue_payment_link_delivery_review(
         )
     except Exception:
         pass
+    return True
 
 
 def _classify_poll_provider_failure(code: int, body: str) -> str:
@@ -4425,6 +4689,7 @@ def send_text(
     permission_boundary_factory=None,
     provider_message_callback=None,
     allow_url_fallback: bool = False,
+    alert_link_restriction: bool = True,
     return_receipt: bool = False,
 ) -> tuple[bool, str, str] | ProviderDeliveryReceipt:
     """Повертає (ok, kind, hint/delivered_text).
@@ -4491,21 +4756,29 @@ def send_text(
                 data=body,
             )
         if code == 200:
+            message_id = _provider_message_id(resp)
+            if return_receipt and not message_id:
+                # A multi-chunk response is confirmed only if every accepted
+                # chunk has its own Meta ID.  Earlier chunks may be delivered,
+                # so this must be terminally unknown rather than a retry.
+                return ProviderDeliveryReceipt(
+                    False, "unknown", "provider_message_id_missing", ""
+                )
             if provider_message_callback:
                 try:
                     response_payload = json.loads(resp or "{}")
                 except (TypeError, ValueError):
                     response_payload = {}
-                message_id = str(response_payload.get("message_id") or "").strip()
-                if message_id:
-                    provider_message_callback(message_id)
+                callback_message_id = str(response_payload.get("message_id") or "").strip()
+                if callback_message_id:
+                    provider_message_callback(callback_message_id)
             ok_any = True
-            provider_message_id = provider_message_id or _provider_message_id(resp)
+            provider_message_id = provider_message_id or message_id
             # Реєструємо `message_id` одразу: echo цього чанка прийде асинхронно,
             # і саме по цьому ідентифікатору ми його впізнаємо. Текстовий
             # відпечаток лишається, але він не працює для медіа й не переживає
             # скидання кеша.
-            _register_outgoing_message(_provider_message_id(resp), recipient_id, kind="text")
+            _register_outgoing_message(message_id, recipient_id, kind="text")
             _clear_send_error(s)
             _clear_client_delivery_error(recipient_id)
             continue
@@ -4521,7 +4794,11 @@ def send_text(
         if kind == "link_restricted":
             rejected_url = _contains_customer_url(part)
             if rejected_url:
-                _activate_link_send_circuit(s, resp)
+                _activate_link_send_circuit(
+                    s,
+                    resp,
+                    emit_alert=alert_link_restriction,
+                )
             can_fallback = (
                 allow_url_fallback
                 and not ok_any
@@ -4556,7 +4833,12 @@ def send_text(
                         data=fallback_body,
                     )
                 if fallback_code == 200:
-                    provider_message_id = provider_message_id or _provider_message_id(fallback_resp)
+                    fallback_message_id = _provider_message_id(fallback_resp)
+                    if return_receipt and not fallback_message_id:
+                        return ProviderDeliveryReceipt(
+                            False, "unknown", "provider_message_id_missing", ""
+                        )
+                    provider_message_id = provider_message_id or fallback_message_id
                     if provider_message_callback:
                         try:
                             fallback_response_payload = json.loads(fallback_resp or "{}")
@@ -4768,14 +5050,38 @@ def select_chat_reasoning_task(
     return "customer_chat"
 
 
+def _gemini_failure_kind(exc: Exception) -> str:
+    """Map the bounded live-pool error summary to a safe routing class.
+
+    ``gemini_generate`` intentionally keeps its historical ``str | None``
+    return contract.  The typed side channel below lets the fallback layer
+    distinguish a provider outage from safety, empty-output, or payload errors
+    without persisting raw provider text.
+    """
+    message = str(exc or "").casefold()
+    transient_markers = (
+        "read_timeout",
+        "transport",
+        "quota_429",
+        "http_408",
+        "http_5xx",
+        "live дедлайн",
+        "live deadline",
+    )
+    return "provider_outage" if any(marker in message for marker in transient_markers) else "generation_error"
+
+
 def gemini_generate(
     s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None,
     match_hint: str | None = None, memory_note: str | None = None,
     context_note: str | None = None, client=None, media_hint: str | None = None,
     turn_note: str | None = None,
+    failure_context: dict | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
+    if failure_context is not None:
+        failure_context.clear()
     contents = []
     for h in history:
         if h.get("text"):
@@ -4870,13 +5176,19 @@ def gemini_generate(
             reasoning_task=reasoning_task,
         )
     except CallAIAnalysisError as exc:
+        if failure_context is not None:
+            failure_context["kind"] = _gemini_failure_kind(exc)
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {str(exc)[:300]}")
         return None
     except Exception as exc:
+        if failure_context is not None:
+            failure_context["kind"] = "generation_error"
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {repr(exc)}")
         return None
     text = (out.get("parsed") or "").strip()
     if not text:
+        if failure_context is not None:
+            failure_context["kind"] = "empty_response"
         log("warning", "gemini_empty", f"порожня відповідь ({_time.monotonic() - _t0:.1f}с)")
         return None
     try:
@@ -4951,9 +5263,16 @@ def assemble_system_instruction(
     константой), а свойства *промпта* — проверяемы и детерминированы.
     """
     sys_text = (s.system_prompt or "").strip()
-    live = (s.knowledge_base or "").strip()
+    sys_text = (sys_text + "\n\n" + CANONICAL_PROMPT_AUTHORITY_POLICY).strip()
+    live = _bounded_prompt_source(
+        s.knowledge_base or "",
+        limit=MAX_LIVE_DIRECTIVE_CHARS,
+        split_pattern=r"\n\s*\n",
+        separator="\n\n",
+        source_name="оперативних директив",
+    )
     if live:
-        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет, дотримуйся беззаперечно]\n" + live
+        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — застосовуй у межах порядку істини вище]\n" + live
     sys_text += _context_sections(client, turn_text=turn_text or "")
     sys_text = sys_text.strip()
     # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
@@ -5424,6 +5743,50 @@ def client_state_note(client) -> str:
     return body
 
 
+MAX_BRAND_KNOWLEDGE_CHARS = 3200
+MAX_LIVE_DIRECTIVE_CHARS = 2800
+MAX_QUICK_LINK_CHARS = 1600
+
+
+def _bounded_prompt_source(
+    value: str,
+    *,
+    limit: int,
+    split_pattern: str,
+    separator: str,
+    source_name: str,
+) -> str:
+    """Fit editable prompt text by complete semantic blocks only.
+
+    A character slice can leave a fabricated-looking price, URL or instruction
+    tail in the prompt. Paragraphs are the unit for free text; links are one
+    line each. If the first block itself is too large it is omitted in full,
+    which is safer than silently changing its meaning.
+    """
+    text = str(value or "").strip()
+    if not text or len(text) <= limit:
+        return text
+    blocks = [block.strip() for block in re.split(split_pattern, text) if block.strip()]
+    if not blocks:
+        return ""
+
+    kept: list[str] = []
+    used = 0
+    dropped = 0
+    for index, block in enumerate(blocks):
+        cost = len(block) + (len(separator) if kept else 0)
+        if used + cost > limit:
+            dropped = len(blocks) - index
+            break
+        kept.append(block)
+        used += cost
+
+    if not dropped:
+        return separator.join(kept)
+    notice = f"…({source_name}: {dropped} блок(ів) не вмістилися в бюджет)"
+    return separator.join([*kept, notice]) if kept else notice
+
+
 def _context_sections(client, turn_text: str = "") -> str:
     """База знаний + каталог + playbook-инструкции и ссылки.
 
@@ -5435,13 +5798,21 @@ def _context_sections(client, turn_text: str = "") -> str:
     def _brand_knowledge() -> str:
         from management.services.bot_knowledge import get_brand_knowledge
 
-        kb = get_brand_knowledge()
+        kb = _bounded_prompt_source(
+            get_brand_knowledge(),
+            limit=MAX_BRAND_KNOWLEDGE_CHARS,
+            split_pattern=r"\n\s*\n",
+            separator="\n\n",
+            source_name="бази знань",
+        )
         return "\n\n[БАЗА ЗНАНЬ ПРО БРЕНД]\n" + kb if kb else ""
 
     def _catalog() -> str:
         from management.services.bot_catalog import get_catalog_context
 
-        catalog = get_catalog_context()
+        # Full rows stay available for catalog/media workflows. Sales replies get
+        # the compact form with every purchasable configuration preserved.
+        catalog = get_catalog_context(compact=True)
         return "\n\n" + catalog if catalog else ""
 
     def _playbook() -> str:
@@ -5457,7 +5828,13 @@ def _context_sections(client, turn_text: str = "") -> str:
     def _quick_links() -> str:
         from management.models import BotQuickLink
 
-        links = BotQuickLink.active_block()
+        links = _bounded_prompt_source(
+            BotQuickLink.active_block(),
+            limit=MAX_QUICK_LINK_CHARS,
+            split_pattern=r"\n+",
+            separator="\n",
+            source_name="швидких посилань",
+        )
         return (
             "\n\n[ДОСТУПНІ ПОСИЛАННЯ — надсилай доречне за запитом]\n" + links
             if links
@@ -6801,6 +7178,9 @@ def _process_one_inside_reply_boundary(
 ) -> bool:
     fallback_manager_handoff = False
     used_ai_failure_fallback = False
+    outage_recovery_required = False
+    outage_recovery_job = None
+    gemini_failure: dict = {}
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
     if row.client_id:
@@ -6958,6 +7338,7 @@ def _process_one_inside_reply_boundary(
                 turn_note=customer_turn_note(
                     row.client if row.client_id else None, row.text
                 ),
+                failure_context=gemini_failure,
             )
     else:
         if (row.text or "").strip() != s.trigger_text:
@@ -7054,11 +7435,24 @@ def _process_one_inside_reply_boundary(
         if _defer_for_gemini_cooldown(row, s):
             return False
         try:
-            from management.services.bot_reply_fallback import build_ai_failure_fallback
+            from management.services.bot_reply_fallback import (
+                build_ai_failure_fallback,
+                is_generic_provider_outage,
+            )
 
-            reply, fallback_manager_handoff = build_ai_failure_fallback(row)
+            provider_outage = gemini_failure.get("kind") == "provider_outage"
+            reply, fallback_manager_handoff = build_ai_failure_fallback(
+                row,
+                provider_outage=provider_outage,
+            )
             if reply:
                 used_ai_failure_fallback = True
+                outage_recovery_required = bool(
+                    row.client_id and is_generic_provider_outage(
+                        row,
+                        failure_kind=gemini_failure.get("kind", ""),
+                    )
+                )
                 log(
                     "warning",
                     "gemini_fallback",
@@ -7090,6 +7484,28 @@ def _process_one_inside_reply_boundary(
             row.processing_started_at = None
             row.save(update_fields=["status", "processing_started_at"])
         return False
+
+    if outage_recovery_required:
+        try:
+            from management.services.ig_ai_reply_recovery import schedule_recovery
+
+            # The holding response promises an automatic follow-up. Persist its
+            # recovery intent before the non-idempotent Meta send boundary.
+            outage_recovery_job = schedule_recovery(row, activate=False)
+        except Exception as exc:
+            row.status = InstagramBotMessage.Status.FAILED
+            row.send_state = "failed"
+            row.processed_at = timezone.now()
+            row.save(update_fields=["status", "send_state", "processed_at"])
+            log("error", "recovery_schedule", repr(exc))
+            notify_manager(
+                f"⚠️ IG: не вдалося створити recovery для повідомлення #{row.pk}; "
+                "відповідь клієнту не надсилалась, потрібна ручна перевірка.",
+                dedupe_key=f"ig-ai-recovery-schedule:{row.pk}",
+                event_type="ai_reply_recovery_schedule_failed",
+                client=row.client if row.client_id else None,
+            )
+            return False
 
     from management.services.ig_reply_boundary import customer_send_boundary
 
@@ -7156,7 +7572,7 @@ def _process_one_inside_reply_boundary(
         row.send_state = "sending"
         row.send_started_at = send_started_at
         row.send_completed_at = None
-    ok, kind, hint = send_text(
+    delivery = send_text(
         s,
         row.sender_id,
         reply,
@@ -7167,8 +7583,33 @@ def _process_one_inside_reply_boundary(
         # generated payment link does not: silently stripping it would make a
         # false promise, so payment delivery stays fail-closed for a manager.
         allow_url_fallback=_allows_linkless_fallback(reply, control, row.client),
+        # A blocked payment link produces its own manager task with the exact
+        # invoice.  It is the one actionable alert for that failed send, so do
+        # not also emit the generic link-circuit Telegram alert.
+        alert_link_restriction=not bool(
+            payment_deal is not None or _PAY_URL_RE.search(reply)
+        ),
+        return_receipt=True,
     )
+    ok, kind, hint, provider_message_id, receipt_present = _delivery_receipt(delivery)
+    if ok and receipt_present and not provider_message_id:
+        # The Send API may have accepted the request before returning a malformed
+        # success body. Its delivery is therefore unknown and must not be replayed.
+        ok = False
+        kind = "unknown"
+        hint = "provider_message_id_missing"
     if kind == "cancelled":
+        if outage_recovery_job is not None:
+            try:
+                from management.services.ig_ai_reply_recovery import terminalize_prepared_recovery
+
+                terminalize_prepared_recovery(
+                    outage_recovery_job,
+                    reason="holding_send_cancelled_before_receipt",
+                    ambiguous=False,
+                )
+            except Exception as exc:
+                log("error", "recovery_terminalize", repr(exc))
         cancelled_at = timezone.now()
         if _own_processing_claim(row).update(
             send_state="cancelled",
@@ -7178,6 +7619,17 @@ def _process_one_inside_reply_boundary(
             row.processed_at = cancelled_at
         return _skip_observed_row(row, reason="permission_epoch_changed")
     if not ok:
+        if outage_recovery_job is not None:
+            try:
+                from management.services.ig_ai_reply_recovery import terminalize_prepared_recovery
+
+                terminalize_prepared_recovery(
+                    outage_recovery_job,
+                    reason=f"holding_send_{kind}:{hint}",
+                    ambiguous=kind == "unknown",
+                )
+            except Exception as exc:
+                log("error", "recovery_terminalize", repr(exc))
         if kind == "permanent":
             # Перманентна помилка (напр. #200 немає Advanced Access) — ретраї
             # безглузді. Падаємо одразу з чіткою причиною.
@@ -7186,9 +7638,10 @@ def _process_one_inside_reply_boundary(
             row.processed_at = timezone.now()
             row.save(update_fields=["status", "send_state", "processed_at"])
             log("error", "send_blocked", f"{row.sender_id}: {hint}")
+            payment_review_queued = False
             if row.client_id and (payment_deal is not None or _PAY_URL_RE.search(reply)):
                 try:
-                    _queue_payment_link_delivery_review(
+                    payment_review_queued = _queue_payment_link_delivery_review(
                         row.client,
                         reply,
                         hint,
@@ -7197,15 +7650,24 @@ def _process_one_inside_reply_boundary(
                 except Exception as exc:
                     log("error", "payment_link_delivery_review", repr(exc))
             # Системну причину (одна на всіх) не спамимо — алерт раз на годину.
-            if not cache.get("ig_bot_perm_alert"):
+            # Для платіжного повідомлення окреме завдання вже є actionable
+            # алертом; другий загальний текст про ту саму невдачу лише спамить.
+            if not payment_review_queued and not cache.get("ig_bot_perm_alert"):
                 cache.set("ig_bot_perm_alert", 1, 3600)
                 graph_subcode = (
                     ADVANCED_ACCESS_SUBCODE if _is_advanced_access_hint(hint) else 0
                 )
-                notify_manager(_permanent_send_alert_text(
-                    hint,
-                    graph_subcode=graph_subcode,
-                ))
+                from management.services.ig_alerts import alert_dedupe_key
+
+                notify_manager(
+                    _permanent_send_alert_text(hint, graph_subcode=graph_subcode),
+                    dedupe_key=alert_dedupe_key(
+                        "permanent_send_blocked", client_id=row.client_id,
+                        entity_id=row.pk, window_minutes=60,
+                    ),
+                    event_type="permanent_send_blocked",
+                    client=row.client if row.client_id else None,
+                )
         elif kind == "unknown":
             # Never replay a request whose provider result is ambiguous.
             row.status = InstagramBotMessage.Status.FAILED
@@ -7271,6 +7733,7 @@ def _process_one_inside_reply_boundary(
     row.send_state = "sent"
     row.send_completed_at = processed_at
     row.processed_at = processed_at
+    recovery_activation_error = ""
     with transaction.atomic():
         reply_message = InstagramBotMessage.objects.create(
             sender_id=row.sender_id,
@@ -7279,6 +7742,7 @@ def _process_one_inside_reply_boundary(
             text=reply,
             status=InstagramBotMessage.Status.DONE,
             source=row.source,
+            provider_message_id=provider_message_id[:255],
             processed_at=processed_at,
         )
         if row.client_id:
@@ -7288,6 +7752,8 @@ def _process_one_inside_reply_boundary(
             )
 
             locked_client = IgClient.objects.select_for_update().get(pk=row.client_id)
+            locked_client.last_bot_reply_at = processed_at
+            locked_client.save(update_fields=["last_bot_reply_at", "updated_at"])
             record_first_bot_reply_in_transaction(
                 locked_client,
                 occurred_at=processed_at,
@@ -7346,6 +7812,27 @@ def _process_one_inside_reply_boundary(
                             "quoted_total": str(proposal.quoted_total),
                         },
                     )
+        if outage_recovery_job is not None:
+            try:
+                from management.services.ig_ai_reply_recovery import schedule_recovery
+
+                # The holding receipt and its activation commit with the
+                # history row. A worker crash afterwards can additionally
+                # reconcile a prepared job from this confirmed receipt.
+                schedule_recovery(row, holding_message=reply_message)
+            except Exception as exc:
+                recovery_activation_error = repr(exc)
+    if recovery_activation_error:
+        # The holding response has already been delivered. Do not invent a
+        # manager handoff, but retain an explicit operational signal.
+        log("error", "recovery_schedule", recovery_activation_error)
+        notify_manager(
+            f"⚠️ IG: не вдалося створити recovery для повідомлення #{row.pk}; "
+            "потрібна ручна перевірка.",
+            dedupe_key=f"ig-ai-recovery-schedule:{row.pk}",
+            event_type="ai_reply_recovery_schedule_failed",
+            client=row.client if row.client_id else None,
+        )
     if row.client_id:
         try:
             from management.services.ig_objections import record_reply_attempt
@@ -8683,7 +9170,10 @@ def stop_bot() -> InstagramBotSettings:
                 processed_at=now,
                 processing_started_at=None,
             )
-            IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.PENDING).update(
+            IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.PENDING).exclude(
+                kind=IgFollowUpTask.Kind.MANAGER_TASK,
+                reason="followup_delivery_review",
+            ).update(
                 status=IgFollowUpTask.Status.CANCELLED,
                 skip_reason="global_reply_stopped",
                 updated_at=now,
@@ -8723,6 +9213,14 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
     """
     now = now or timezone.now()
     webhook = webhook_signature_status()
+    webhook_rejections = webhook_rejection_status()
+    if webhook_rejections:
+        webhook = {
+            **webhook,
+            "healthy": False,
+            "state": "rejections_degraded",
+            "rejections": webhook_rejections,
+        }
     degradation = _current_ingress_degradation(s)
     discovery = conversation_discovery_status(s, now=now)
     if not s.receive_via_poll:

@@ -10,6 +10,9 @@ from management import context_processors as management_context_processors
 from management.forms import CommercialOfferEmailForm
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
 class _DummyUser:
     def __init__(self):
         self.id = 1
@@ -187,33 +190,33 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("scheduleCommercialBootstrapWarmups();", html)
 
     def test_management_shell_script_guards_against_stale_navigation(self):
-        script = Path("twocomms/twocomms_django_theme/static/js/management-shell.js").read_text()
+        script = (PROJECT_ROOT / "twocomms_django_theme/static/js/management-shell.js").read_text()
 
         self.assertIn("AbortController", script)
         self.assertIn("navigationRequestId", script)
         self.assertIn("requestId !== navigationRequestId", script)
 
     def test_parsing_dashboard_script_avoids_forced_form_resync_on_each_poll(self):
-        script = Path("twocomms/management/templates/management/parsing.html").read_text()
+        script = (PROJECT_ROOT / "management/templates/management/parsing.html").read_text()
 
         self.assertIn("hasAppliedInitialJobToForm", script)
         self.assertIn("applyPayload(payload, { syncForm: false });", script)
         self.assertIn("applyPayload(err.payload, { syncForm: true });", script)
 
     def test_parsing_dashboard_script_does_not_schedule_step_while_step_is_in_progress(self):
-        script = Path("twocomms/management/templates/management/parsing.html").read_text()
+        script = (PROJECT_ROOT / "management/templates/management/parsing.html").read_text()
 
         self.assertIn("const canScheduleStep = () => Boolean(activeJob && activeJob.status === 'running' && !activeJob.is_step_in_progress);", script)
         self.assertIn("if (canScheduleStep()) {", script)
 
     def test_parsing_dashboard_script_refreshes_usage_on_a_slower_cadence(self):
-        script = Path("twocomms/management/templates/management/parsing.html").read_text()
+        script = (PROJECT_ROOT / "management/templates/management/parsing.html").read_text()
 
         self.assertIn("const USAGE_REFRESH_INTERVAL_MS = 60000;", script)
         self.assertIn("if (shouldRefreshUsage()) params.set('include_usage', '1');", script)
 
     def test_parsing_dashboard_exposes_quick_moderation_action_buttons(self):
-        html = Path("twocomms/management/templates/management/parsing.html").read_text(encoding="utf-8")
+        html = (PROJECT_ROOT / "management/templates/management/parsing.html").read_text(encoding="utf-8")
 
         self.assertIn("quick-approve-moderation", html)
         self.assertIn("quick-reject-moderation", html)
@@ -225,7 +228,7 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("submitModerationAction(", html)
 
     def test_parsing_dashboard_exposes_compact_moderation_row_layout(self):
-        html = Path("twocomms/management/templates/management/parsing.html").read_text(encoding="utf-8")
+        html = (PROJECT_ROOT / "management/templates/management/parsing.html").read_text(encoding="utf-8")
 
         self.assertIn("moderation-cell__primary", html)
         self.assertIn("moderation-cell__secondary", html)
@@ -271,14 +274,14 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("if (document.hidden) return;", html)
 
     def test_base_template_uses_generic_help_popover_scope_instead_of_daily_stats_only(self):
-        html = Path("twocomms/management/templates/management/base.html").read_text()
+        html = (PROJECT_ROOT / "management/templates/management/base.html").read_text()
 
         self.assertIn("data-help-scope", html)
         self.assertIn("closest('[data-help-scope]')", html)
         self.assertNotIn("closest('.daily-stats-head')", html)
 
     def test_home_template_uses_text_date_inputs_and_one_minute_followup_floor(self):
-        html = Path("twocomms/management/templates/management/home.html").read_text(encoding="utf-8")
+        html = (PROJECT_ROOT / "management/templates/management/home.html").read_text(encoding="utf-8")
 
         self.assertIn('<input type="text" id="next_call_date" name="next_call_date"', html)
         self.assertIn('<input type="text" id="process_next_call_date" name="next_call_date"', html)
@@ -288,7 +291,7 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertNotIn("const minuteStep = 5;", html)
 
     def test_management_css_centers_next_call_stack(self):
-        css = Path("twocomms/twocomms_django_theme/static/css/management.css").read_text(encoding="utf-8")
+        css = (PROJECT_ROOT / "twocomms_django_theme/static/css/management.css").read_text(encoding="utf-8")
 
         self.assertIn(".cell-next-call {", css)
         self.assertIn("text-align: center;", css)
@@ -296,7 +299,7 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn("justify-content: center;", css)
 
     def test_home_template_confirms_no_follow_selection_before_closing_followup(self):
-        html = Path("twocomms/management/templates/management/home.html").read_text(encoding="utf-8")
+        html = (PROJECT_ROOT / "management/templates/management/home.html").read_text(encoding="utf-8")
 
         self.assertIn("confirmNoFollowSelection", html)
         self.assertIn("Неконверсійний клієнт закриє follow-up для цієї картки.", html)

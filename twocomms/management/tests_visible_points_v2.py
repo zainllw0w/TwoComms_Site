@@ -1,4 +1,5 @@
 from datetime import date, datetime, time, timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -202,8 +203,15 @@ class VisiblePointsStatsConsistencyTests(TestCase):
         )
         Client.objects.filter(pk=client.pk).update(created_at=created_at)
 
-        user_stats = get_user_stats(self.user)
-        payload = get_stats_payload(user=self.user, range_current=build_daily_stats_range(target_date))
+        fixed_now = timezone.make_aware(
+            datetime.combine(target_date, time(hour=12, minute=0))
+        )
+        with patch("django.utils.timezone.now", return_value=fixed_now):
+            user_stats = get_user_stats(self.user)
+            payload = get_stats_payload(
+                user=self.user,
+                range_current=build_daily_stats_range(target_date),
+            )
 
         self.assertEqual(user_stats["points_today"], 7)
         self.assertEqual(payload["summary"]["points"], 7)

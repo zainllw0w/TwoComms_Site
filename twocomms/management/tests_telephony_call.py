@@ -2,6 +2,8 @@
 сервіс telephony_call. Без реальних викликів Binotel — лише локальна логіка."""
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
@@ -883,6 +885,16 @@ from management.services import call_ai_analysis as _caa
 
 class DayReportAuditTest(TestCase):
     def setUp(self):
+        self._gemini_generate_json_patch = patch(
+            "management.services.call_ai_analysis.gemini_generate_json"
+        )
+        self.gemini_generate_json = self._gemini_generate_json_patch.start()
+        self.addCleanup(self._gemini_generate_json_patch.stop)
+        self._resolve_gemini_key_patch = patch(
+            "management.services.call_ai_analysis._resolve_gemini_key"
+        )
+        self.resolve_gemini_key = self._resolve_gemini_key_patch.start()
+        self.addCleanup(self._resolve_gemini_key_patch.stop)
         self.manager = User.objects.create_user(username="mgr9", password="x")
         self.manager.userprofile.is_manager = True
         self.manager.userprofile.save()
@@ -902,11 +914,11 @@ class DayReportAuditTest(TestCase):
         self.report = Report.objects.create(owner=self.manager, points=45, processed=1)
 
     def _patch_gemini(self, parsed, key="k"):
-        _caa.gemini_generate_json = lambda si, ut, **kw: {
+        self.gemini_generate_json.return_value = {
             "parsed": parsed, "usage": {"promptTokenCount": 10, "candidatesTokenCount": 5},
             "model": "gemini-test", "meta": {},
         }
-        _caa._resolve_gemini_key = lambda: key
+        self.resolve_gemini_key.return_value = key
 
     def test_audit_done_with_mock(self):
         self._patch_gemini({

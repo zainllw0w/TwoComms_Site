@@ -300,6 +300,52 @@ class PromptPropertyTests(TestCase):
         self.assertIn("постійний клієнт", self._prompt(self.client_row))
 
 
+class CanonicalPromptPolicyTests(TestCase):
+    def setUp(self):
+        self.settings_row = InstagramBotSettings.load()
+        self.settings_row.system_prompt = "Стара стилістика згадує лише українську та російську."
+        self.settings_row.save(update_fields=["system_prompt"])
+        self.client_row = IgClient.get_or_create_for_sender("canonical-prompt-policy")
+
+    def test_runtime_policy_resolves_price_discount_language_and_reply_conflicts(self):
+        from management.services.instagram_bot import assemble_system_instruction
+
+        prompt = assemble_system_instruction(
+            self.settings_row,
+            client=self.client_row,
+            turn_text="Could you reply in English?",
+        )
+
+        self.assertIn("[ЄДИНИЙ ПОРЯДОК ІСТИНИ", prompt)
+        self.assertIn("(1) підтверджені системою факти про оплату", prompt)
+        self.assertIn("(2) [СТАН ОФОРМЛЕННЯ]", prompt)
+        self.assertIn("UA/RU/EN", prompt)
+        self.assertIn("не називай одну точну суму", prompt)
+        self.assertIn("лише факт вже порахованої ціни", prompt)
+        self.assertIn("не більше одного запитання", prompt)
+        self.assertNotIn("ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет", prompt)
+
+    def test_live_directives_are_bounded_by_complete_paragraphs(self):
+        from management.services.instagram_bot import (
+            MAX_LIVE_DIRECTIVE_CHARS,
+            assemble_system_instruction,
+        )
+
+        first = "DIRECTIVE-ONE " + "a" * 1200
+        second = "DIRECTIVE-TWO " + "b" * 1200
+        third = "DIRECTIVE-THREE " + "c" * 1200
+        self.settings_row.knowledge_base = "\n\n".join((first, second, third))
+        self.settings_row.save(update_fields=["knowledge_base"])
+
+        prompt = assemble_system_instruction(self.settings_row, client=self.client_row)
+
+        self.assertIn(first, prompt)
+        self.assertIn(second, prompt)
+        self.assertNotIn("DIRECTIVE-THREE", prompt)
+        self.assertIn("оперативних директив: 1 блок(ів) не вмістилися", prompt)
+        self.assertLess(len(first) + len(second) + 2, MAX_LIVE_DIRECTIVE_CHARS)
+
+
 class ClientProfileTests(TestCase):
     """IMP-030 переопределён: профиль — первая память, а не замена резюме."""
 
