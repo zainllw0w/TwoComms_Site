@@ -55,6 +55,7 @@
 | T48 | Typing/send boundary and permission transition | GREEN | `c0f9fd1f` + `d84ca10d`; focused live-visual + reply-priority suite 63/63, including cancelled fallback recovery at typing/send boundary; production check/daemon passed |
 | T49 | Human-authorized prepayment amount | GREEN | `7440bb98`; model/customer-originated amount, customer counteroffer, receipt and multi-amount offer fail closed; human offer + matching acceptance preserves exact two-message evidence. 41 focused tests plus rollback proof on production MariaDB |
 | T50 | Paid warehouse commitment capacity | GREEN | `a7857ada`; expired `PAID_COMMITTED` still blocks the final unit, manual/unrelated write-off cannot consume active or paid commitments, exact matching order may consume only its own paid row, expired unpaid `ACTIVE` does not block. Focused 92/92; full gate 2897 OK |
+| T51 | Новый commercial episode не наследует paid/shipped UI | GREEN | `fbe33a68`; historical provider payment/order shipment remain buyer history but cannot satisfy current payment, current shipment or `?view=paid`. Direct presentation 18 tests; current buyer/UI gate 159 tests; production `fbe33a68` |
 
 **F-PAY-010 update 2026-08-05:** server SHA `7440bb98`; rollback-fixture on
 production MariaDB returned `ambiguous` for customer/model/multi-amount input,
@@ -96,3 +97,12 @@ coverage; `90fdd0ec` added proposal reservation wiring and `0144`, and
 escalation and bounded commerce-turn parser integration. T47 remains PARTIAL
 until readiness/alternative consumers and the disposable MariaDB allocation gate
 are complete.
+
+**Current episode update 2026-08-05:** `18ddc636` closes the lease/reclaim
+invariant, and `b23dfeed` makes callback-time inventory reconciliation use
+provider payment time and fail closed into one manager review after a real
+reallocation. `fbe33a68` scopes commercial presentation to the current episode.
+Direct presentation is 18 tests, current buyer/UI gate is 159 tests, and the
+lease/inventory/reconciliation/admin gate is 45 tests. These do not replace the
+still-open disposable MariaDB concurrency
+gate or the W9 durable-session requirements.

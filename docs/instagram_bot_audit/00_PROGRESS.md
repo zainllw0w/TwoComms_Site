@@ -12,29 +12,29 @@
 | Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
 | Дата старта / обновления | 2026-08-05 (после production deploy F-CAT-011 paid inventory commitment guard) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `dd93f9f3` подтверждён в `origin/main` и на production; `a7857ada` защищает оплаченные warehouse commitments независимо от checkout TTL, а `dd93f9f3` сохраняет полный test gate после расширения live-inbox reduced-motion selectors |
-| **Статус 104 IMP-задач** | **79 закрыты, 17 открыты, 8 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`)** |
+| База внедрения | `fbe33a68` подтверждён в `origin/main` и на production; он включает `18ddc636` (lease/reclaim), `b23dfeed` (late-payment inventory race) и всю предыдущую price/inventory hardening-цепочку |
+| **Статус 105 IMP-задач** | **80 закрыты, 17 открыты, 8 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **181 уникальный `F-*` идентификатор: 137 закрыты, 38 открыты, 6 partial**; новые F-CAT-011 и F-TEST-004 исправлены и verified |
+| Реестр находок | **182 уникальных `F-*` идентификатора: 139 закрыты, 37 открыты, 6 partial**; F-CORE-003 и новый F-STATE-011 исправлены и verified |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
-| Задач в плане внедрения | **104** в W0–W12, включая W4B/W4C/W4D и IMP-062…104 |
+| Задач в плане внедрения | **105** в W0–W12, включая W4B/W4C/W4D и IMP-062…105 |
 
 ## Документы
 
 | Файл | Состояние |
 |---|---|
 | `00_PROGRESS.md` | каноническая точка входа, общий статус и реестр восстановленных источников |
-| `03_FINDINGS_REGISTER.md` | 181 уникальный `F-*` и post-implementation evidence, включая production SQL/API |
+| `03_FINDINGS_REGISTER.md` | 182 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
 | `04_DECISION_LOG.md` | 11 решений (DR-001…DR-011) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 51 улучшение + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус 104 IMP-задач; отдельные checkbox-matrix покрывают все 181 F-* и все 51 IMPR-* |
+| `07_IMPLEMENTATION_PLAN.md` | канонический статус 105 IMP-задач; отдельные checkbox-matrix покрывают все 182 F-* и все 51 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
-| `06_TEST_MATRIX.md` | оформлен; 50 acceptance-сценариев и текущие gates |
+| `06_TEST_MATRIX.md` | оформлен; 51 acceptance-сценарий и текущие gates |
 | `08`–`12` | оформлены; completion, deploy, blockers, validation и source reconciliation |
 
 > ⚠️ **Особенность репозитория:** `.gitignore:227` содержит `*_PLAN.md`, поэтому
@@ -52,10 +52,33 @@
 | Частично, W8 | `IMP-043` |
 | Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime prompt integration в `1849441d`; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`. Открыты durable commerce session, stale candidate binding, relaxed alternatives, полный topology, disposable MariaDB race/constraint proof, manager review UI и production-like parser/availability gate |
 | Открыто, W9 | `IMP-087`–`IMP-088` |
-| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, остальные orphan-находки остаются открыты |
+| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
 
-## Current checkpoint: F-CAT-011 paid warehouse commitment guard (2026-08-05)
+## Current checkpoint: lease/reclaim, late-payment inventory and episode-scoped presentation (2026-08-05)
+
+`fbe33a68` — актуальный синхронизированный production checkpoint. Он включает
+три независимых исправления, каждое с отдельными regression tests:
+
+- `18ddc636` закрывает F-CORE-003: lease автоматизации всегда строго длиннее
+  reclaim threshold, небезопасная env-конфигурация нормализуется к безопасному
+  отношению, а граница reclaim остаётся строгой.
+- `b23dfeed` дополняет закрытую F-CAT-011: время подтверждённой оплаты берётся
+  из provider observation, поэтому callback после TTL не выдаёт повторно уже
+  перераспределенную последнюю единицу. Такой случай идёт в единственный
+  idempotent `OVERBOOKED_REVIEW`/manager task; своевременная оплата сохраняет
+  reservation только когда stock не был перераспределён.
+- `fbe33a68` закрывает F-STATE-011 / IMP-105: визуальные `paid`/`shipped` и
+  `?view=paid` читают только текущий commercial episode. Lifetime purchase и
+  хронология остаются видны как история покупателя, но старые payment/shipment
+  больше не окрашивают новый DRAFT/repeat episode.
+
+Предыдущий `dd93f9f3` — предок этого checkpoint, а не альтернативная база.
+Новый F-STATE-011 не закрывает W9: durable reducer, candidate anchoring,
+readiness/alternatives consumer, manager-review UI и disposable MariaDB proof
+по-прежнему обязательны.
+
+## Previous checkpoint: F-CAT-011 paid warehouse commitment guard (2026-08-05)
 
 `a7857ada` устраняет окно повторной продажи оплаченной последней единицы:
 `ACTIVE` защищает остаток только до `expires_at`, а `PAID_COMMITTED` защищает его

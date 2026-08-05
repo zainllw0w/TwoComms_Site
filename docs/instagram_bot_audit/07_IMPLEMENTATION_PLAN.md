@@ -1,10 +1,10 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 104 уникальные `IMP-*`: **79 закрыты, 17 открыты, 8 partial**
+> Всего 105 уникальных `IMP-*`: **80 закрыты, 17 открыты, 8 partial**
 > (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 181 `F-*` и всех 51 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 182 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -50,9 +50,9 @@
 | **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
 | **W9** | Product reselection и коммерческая семантика | 9 | 1 | 2 | 6 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
-| **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
+| **W11** | Полное покрытие находок и orphan backlog | 3 | 2 | 1 | 0 |
 | **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 2 | 0 | 0 |
-| **Итого** | | **104** | **79** | **17** | **8** |
+| **Итого** | | **105** | **80** | **17** | **8** |
 
 ---
 
@@ -1025,13 +1025,15 @@ IMP/Finding/Improvement totals.
 ## W11 — полное покрытие находок и orphan backlog
 
 - [ ] **IMP-098 (P1/P2) — закрыть находки, которые не имели самостоятельной implementation-задачи.**
-  Текущий открытый orphan-набор: F-CORE-003…006, F-SCORE-010 и остатки
+  Текущий открытый orphan-набор: F-CORE-004…006, F-SCORE-010 и остатки
   F-SEC-004/009 (reviewer PII/log sandbox и явная PII-policy для рабочих
   Telegram/операторских каналов).
   F-PAY-010 закрыта независимо на `7440bb98`: сумма предоплаты теперь требует
   human/operator offer + последующее клиентское подтверждение; model/customer
   origin, counteroffer и multi-amount текст fail closed. 41 focused тест и
   rollback-проверка на production MariaDB подтверждены.
+  F-CORE-003 закрыта отдельно на `18ddc636`: lease нормализуется так, чтобы
+  строго пережить reclaim threshold; production current checkpoint `fbe33a68`.
   F-CORE-007 при сверке оказался уже закрыт durable outgoing registry в
   IMP-073; F-SCORE-012 имеет самостоятельную открытую задачу IMP-046.
   Для каждого ID обязательны отдельный
@@ -1047,6 +1049,15 @@ IMP/Finding/Improvement totals.
   зависшей ТТН, продвижение стадии от заказа, transcript-bound media и payer
   быстрого возврата. Галочка основана на существующем коде/тестах и ранее
   задеплоенном W4/W5-срезе, а не на одном тексте progress.
+
+- [x] **IMP-105 (P1) — current commercial episode presentation.** Закрыта
+  утечка historical payment/shipment в новый DRAFT/repeat episode:
+  `current_payment`/`current_shipment` и filter `?view=paid` читают только
+  current commercial episode, тогда как buyer/history остаётся lifetime truth.
+  Это не меняет payment ledger и не скрывает прошлую покупку; оно запрещает
+  прошлому заказу выдавать новый диалог за paid/shipped. Commit `fbe33a68`,
+  direct presentation 18 tests and current buyer/UI gate 159 tests, production
+  `fbe33a68`.
 
 ---
 
@@ -1118,7 +1129,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-CAT-011 | FIXED/VERIFIED (`a7857ada`) | IMP-086 |
 | [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
 | [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
-| [ ] | F-CORE-003 | OPEN | IMP-098 |
+| [x] | F-CORE-003 | FIXED/VERIFIED (`18ddc636`) | IMP-098 subtask |
 | [ ] | F-CORE-004 | OPEN | IMP-098 |
 | [ ] | F-CORE-005 | OPEN | IMP-098 |
 | [ ] | F-CORE-006 | OPEN | IMP-098 |
@@ -1248,6 +1259,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-STATE-008 | FIXED/VERIFIED | IMP-018 |
 | [x] | F-STATE-009 | FIXED/VERIFIED | IMP-099 |
 | [x] | F-STATE-010 | FIXED/VERIFIED | IMP-079 |
+| [x] | F-STATE-011 | FIXED/VERIFIED (`fbe33a68`) | IMP-105 |
 | [x] | F-TEST-001 | FIXED/VERIFIED | IMP-022 |
 | [ ] | F-TEST-002 | OPEN | IMP-094 |
 | [x] | F-TEST-003 | FIXED/VERIFIED | IMP-055 |

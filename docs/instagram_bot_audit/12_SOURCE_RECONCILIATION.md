@@ -31,6 +31,8 @@
 | current `main` commerce-turn slice | bounded parser facts, trusted URL product pinning and prompt turn-note integration | IN MAIN and production as `1849441d`; full local gate 2877 OK; `IMP-085` remains PARTIAL because durable session/reducer, candidate anchoring and production-like DB proof are open |
 | current `main` prepayment authority slice | human/operator offer + exact customer confirmation, untrusted/multi-amount fail-closed gate | IN MAIN and production as `7440bb98`; F-PAY-010 verified by 41 focused tests and rollback-only MariaDB proof; IMP-098 remains open for unrelated orphan findings |
 | current `main` reduced-motion test repair | semantic assertion for both inbox refresh animations inside reduced-motion rule | IN MAIN and production as `dd93f9f3`; F-TEST-004 fixed, inbox/UI 188/188 and full 2897 OK; IMP-094 remains open for disposable MariaDB proof |
+| current `main` lease/reclaim and late-payment slice | safe timeout invariant, provider payment timestamp and reallocated-capacity manager review | IN MAIN and production as `18ddc636`/`b23dfeed`; F-CORE-003 closed and F-CAT-011 evidence extended; MariaDB concurrency proof remains open |
+| current `main` episode presentation slice | current payment/shipment/filter are separated from lifetime buyer history | IN MAIN and production as `fbe33a68`; F-STATE-011 / IMP-105 closed; this is presentation truth, not durable commerce-session completion |
 | `pre-instagram-audit-consolidation-2026-08-03` stash | pre-consolidation local snapshot | ARCHIVE only; no unique audit IDs after comparison |
 | `codex/ig-refresh-dedup` stash / old detached worktrees | inbox refresh experiments | Historical/superseded; no unique current audit IDs |
 
@@ -77,10 +79,11 @@ the compatible implementation is already in current `main` with migrations
 ## Current production/source checkpoint (2026-08-05)
 
 The deployed runtime code checkpoint represented by local `main`, `origin/main`
-and production is `dd93f9f3c34f7f07155506c3c75679788a6667d4`. The previous
-`d84ca10d` visual, `90fdd0ec` reservation and `1849441d` parser/revision
-checkpoints are ancestors, not
-competing current bases. Parser integration and migration `0145` are therefore
+and production is `fbe33a6840436a3425827f5f636805ab17952ad8`. The previous
+`d84ca10d` visual, `90fdd0ec` reservation, `1849441d` parser/revision,
+`dd93f9f3` reduced-motion, `18ddc636` lease/reclaim and `b23dfeed`
+late-payment checkpoints are ancestors, not competing current bases.
+Parser integration and migration `0145` are therefore
 included in the canonical source; their remaining acceptance gaps are recorded
 as PARTIAL work, not local WIP.
 
@@ -91,8 +94,8 @@ and `07`, branch-only work is in `10`/this matrix and `07`, detailed findings ar
 in `03`, detailed improvements are in `05`, and `07` contains an individual
 checkbox for every `F-*` and `IMPR-*`. The next checkpoint is unambiguous in `00`.
 
-Fresh 2026-08-05 validation after F-CAT-011/F-TEST-004: the local canonical
-folder contains **336 unique `F-*`/`IMP-*`/`IMPR-*` IDs** (181 + 104 + 51).
+Fresh 2026-08-05 validation after F-CORE-003/F-STATE-011: the local canonical
+folder contains **338 unique `F-*`/`IMP-*`/`IMPR-*` IDs** (182 + 105 + 51).
 Every ID reachable from historical audit refs is present in that set; the
 all-ref minus local comparison is empty. Existing stashes, worktrees and
 unreachable-object inventory were preserved and do not replace the canonical

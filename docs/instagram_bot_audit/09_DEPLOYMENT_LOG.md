@@ -6,9 +6,9 @@ Production host: `195.191.25.63`, path
 
 ## Current production checkpoint (2026-08-05)
 
-Runtime code baseline is `dd93f9f3`; that code commit is in local `main`,
+Runtime code baseline is `fbe33a68`; that code commit is in local `main`,
 `origin/main` and production as
-`dd93f9f3c34f7f07155506c3c75679788a6667d4`. The server pull was fast-forward
+`fbe33a6840436a3425827f5f636805ab17952ad8`. The server pull was fast-forward
 only; tracked files are clean (existing untracked operational logs/scripts were
 preserved). Migrations `management.0143_igfollowuptask_event_continuation`,
 `management.0144_ig_inventory_allocation_lifecycle` and
@@ -31,7 +31,26 @@ The deployed slices are `IMP-103` (commits `4dfff3a2`, `35d3bd93`), `IMP-104`
 (`d3e2c51b`, `0d471ebe`, `c0f9fd1f`) and warehouse reservation lifecycle
 (`90fdd0ec`), then bounded commerce-turn parsing and inventory revision safety
 (`1849441d`), F-PAY-010 human prepayment authority (`7440bb98`), paid warehouse
-commitment protection (`a7857ada`) and resilient reduced-motion gate (`dd93f9f3`).
+commitment protection (`a7857ada`) and resilient reduced-motion gate (`dd93f9f3`),
+lease/reclaim invariant (`18ddc636`), late-payment inventory race guard
+(`b23dfeed`) and current-episode presentation (`fbe33a68`).
+
+## Current episode, lease and late-payment race deploy (2026-08-05)
+
+`18ddc636`, `b23dfeed` and `fbe33a68` were pushed to `origin/main` and
+fast-forwarded on production with no migration. Fresh focused evidence is 18
+direct presentation tests, a 159-test buyer/UI gate and 45
+lease/inventory/reconciliation/admin tests; Django check
+and migration-drift check are clean. Production has one `instagram_login`
+daemon with `running=True`, `alive=True`, empty `last_error` and zero pending
+reply/notification/analysis queues.
+
+The deployment closes F-CORE-003 and F-STATE-011. It also extends F-CAT-011:
+the frozen provider success timestamp is used during payment binding, and an
+expired reservation whose stock has been reallocated is review-only and
+idempotent. It does not claim the outstanding disposable MariaDB concurrency
+gate, readiness/alternatives consumer, durable commerce reducer or manager
+review UI as complete.
 
 ## F-CAT-011 paid commitment guard deploy (2026-08-05)
 
@@ -228,6 +247,7 @@ overwritten outside the fast-forward.
 | 2026-08-05 | `1849441d` | IMP-085/086 partial; migration `0145`, bounded parser, trusted URL pinning, revision/lock/stale-callback safety; 2877 full tests | one daemon; `enabled=True`; `alive=True`; `instagram_login`; queues `0/0/0/0` |
 | 2026-08-05 | `a7857ada` / `dd93f9f3` | F-CAT-011/F-TEST-004; paid commitment capacity guard, 92 inventory, 188 inbox/UI, 2897 full tests, no migration | one daemon; `running=True`; `alive=True`; `instagram_login`; reply/notification queues empty |
 | 2026-08-05 | `7440bb98` | F-PAY-010; human-authorized prepayment amount, 41 focused tests, rollback-only MariaDB decision/evidence proof | one daemon; `running=True`; `alive=True`; `instagram_login`; reply/notification queues empty |
+| 2026-08-05 | `18ddc636` / `b23dfeed` / `fbe33a68` | F-CORE-003 and F-STATE-011 closed; provider payment-time/reallocation guard extends F-CAT-011; 18 direct presentation + 159 buyer/UI + 45 lease/inventory/reconciliation/admin tests | one daemon; `running=True`; `alive=True`; `instagram_login`; reply/notification/analysis queues empty |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,

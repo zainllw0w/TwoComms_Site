@@ -26,7 +26,9 @@
 | F-CAT-008 | FIXED / VERIFIED | `1f5dcb70`/`7fdbe613`/`1f8cead2`: exact customer-facing price claims are validated against the selected variant and option configuration before checkout; production `434428ad` |
 | F-CAT-009 | FIXED / VERIFIED | `1f5dcb70`: generic, no-variant, unavailable and zero-choice option axes are preserved through readiness/proposal/checkout and fail closed instead of falling back to base price; production `434428ad` |
 | F-CAT-010 | FIXED / VERIFIED | `434428ad`: `_escalate_manager_for_row` persists client-scoped escalation before retryable/permanent/unknown holding-send return; regression in `tests_ig_paylink_fix.py`, production `434428ad` |
-| F-CAT-011 | FIXED / VERIFIED | `a7857ada`: expired checkout TTL no longer releases `PAID_COMMITTED` warehouse capacity; negative stock adjustments preserve active/paid commitments and exact-order fulfillment may consume only its own paid row. Production `dd93f9f3` |
+| F-CAT-011 | FIXED / VERIFIED | `a7857ada` + `b23dfeed`: expired checkout TTL no longer releases `PAID_COMMITTED`; provider payment time prevents a delayed callback from consuming reallocated capacity, and review is idempotent. Production `fbe33a68` |
+| F-CORE-003 | FIXED / VERIFIED | `18ddc636`: automation lease is normalized to strictly outlive reclaim; strict boundary and unsafe configuration are covered by regression tests. Production `fbe33a68` |
+| F-STATE-011 | FIXED / VERIFIED | `fbe33a68`: current payment/shipment presentation is scoped to the current commercial episode; buyer history remains lifetime-scoped. Production `fbe33a68` |
 | F-PAY-010 | FIXED / VERIFIED | `7440bb98`: только human/operator offer устанавливает сумму предоплаты; model/customer origin, counteroffer, receipt и несколько разных сумм fail closed. 41 focused тест; production MariaDB rollback proof чистый |
 | F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
 | F-FUP-013 | FIXED / VERIFIED | `414e639e`: exception after a concurrent sender/recovery finalization can no longer downgrade finalized `SENT` to `AMBIGUOUS` or create a false delivery review |
@@ -41,7 +43,7 @@
 |---|---|---:|---|---|---|
 | F-CORE-001 | `notify_shipped_deals` пишет клиенту в обход pause/takeover/opt-out/is_enabled | P0 | CONFIRMED | high | `bot_orders.py:1450,1529` |
 | F-CORE-002 | Битый JSON от Meta → HTTP 200 и полная потеря события без лога | P1 | CONFIRMED | high | `bot_webhook.py:66-70` |
-| F-CORE-003 | `AUTOMATION_LEASE_TTL` (3 мин) < `STALE_PROCESSING_SECONDS` (5 мин) → окно двойной автоматизации | P1 | CONFIRMED | high | `instagram_bot.py:89` vs `4675` |
+| F-CORE-003 | `AUTOMATION_LEASE_TTL` (3 мин) < `STALE_PROCESSING_SECONDS` (5 мин) → окно двойной автоматизации | P1 | FIXED / VERIFIED | high | `18ddc636`, production `fbe33a68` |
 | F-CORE-004 | Блокирующий `flock` без таймаута в web-потоке webhook'а | P1 | CONFIRMED | high | `instagram_bot.py:785`, `4361` |
 | F-CORE-005 | Разрыв многочанкового ответа при смене epoch: клиент получает обрубок | P1 | CONFIRMED | high | `instagram_bot.py:3336-3338` |
 | F-CORE-006 | Сообщения без `mid` не защищены unique-индексом → возможен двойной ответ | P1 | CONFIRMED | high | `instagram_bot.py:4426`, `models.py:3743` |
@@ -143,7 +145,7 @@
 
 ## F-CORE-003: окно двойной автоматизации между lease и reclaim
 
-- **Статус:** CONFIRMED · **Тип:** logic / race · **Severity:** P1 · **Confidence:** high
+- **Статус:** FIXED / VERIFIED (`18ddc636`, production `fbe33a68`) · **Тип:** logic / race · **Severity:** P1 · **Confidence:** high
 - **Компоненты:** `instagram_bot.py:89` (`AUTOMATION_LEASE_TTL = timedelta(minutes=3)`),
   `instagram_bot.py:4675` (`STALE_PROCESSING_SECONDS = 300`)
 - **Механика:** входящее сообщение держит client-lease на 3 минуты и продлевает его
@@ -165,9 +167,11 @@
   значения в конфигурацию с инвариантом, проверяемым тестом
   (`assert AUTOMATION_LEASE_TTL.total_seconds() > STALE_PROCESSING_SECONDS`).
   Это дешевле и надёжнее, чем добавлять новые проверки в каждом отправителе.
-- **Тест:** unit-инвариант на соотношение констант + интеграционный: замокать
-  генерацию на > lease TTL, параллельно запустить `process_due_followups`,
-  проверить, что второй отправитель получает `busy` и не отправляет.
+- **Исправление и evidence:** `_coherent_processing_timeouts()` ограничивает
+  невалидные значения и добавляет margin к lease; reclaim использует строгую
+  возрастную границу. Regression покрывает safe invariant, normalisation,
+  boundary и ownership нового claim. Этот инвариант больше не остаётся частью
+  open orphan-набора IMP-098.
 
 ## F-CORE-004: блокирующий файловый lock без таймаута в web-потоке webhook'а
 
@@ -1396,6 +1400,7 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
 | F-STATE-006 | Прогресс-бар гаснет для 3 стадий + 2 псевдо-стадий | P1 | CONFIRMED | high |
 | F-STATE-007 | `start_repeat_episode` откатывает stage, но не чистит товар/память/скор | P1 | CONFIRMED | high |
 | F-STATE-008 | `open_post_sale_case` без проверки покупки → кейсы обмена у неклиентов | P1 | CONFIRMED | high |
+| F-STATE-011 | Исторические payment/shipment окрашивали новый commercial episode как paid/shipped | P1 | FIXED / VERIFIED | high |
 | **F-PAT-001** | 8 конфликтов паттернов классификации с конкретными примерами текстов | **P1** | CONFIRMED | high |
 | F-SEC-004 | Meta-reviewer может остановить бота, менять модель, править клиентов, читать PII | P1 | CONFIRMED | high |
 | F-SEC-005 | Токены Direct/Gemini хранились в БД plaintext | P1 | FIXED / VERIFIED | high |
@@ -3516,6 +3521,30 @@ F-CAT-001 была зафиксирована в разведке W5 как «к
   а не три: третья попытка стоит доверия дороже, чем одно извинение.
 - **Regression:** `tests_ig_funnel_journal.ProductSwitchJournalTests` (11 тестов).
 
+### F-STATE-011 (P1, FIXED/VERIFIED): historical order truth окрашивала новый коммерческий эпизод
+
+- **Симптом.** Клиент с уже выполненной покупкой начинал новый DRAFT/repeat
+  episode. UI и `?view=paid` могли показать его как текущего paid/shipped,
+  потому что presentation-слой читал client-wide payment projection или старую
+  отправку без границы active episode. В результате оператор и бот видели
+  противоречие: новая продажа ещё не подтверждена, но карточка выглядит как
+  завершённая.
+- **Корень.** Lifetime buyer truth и коммерческое состояние текущего цикла
+  читались одним query contract. Историческая покупка нужна для сегмента
+  buyer/repeat и хронологии, но не имеет права удовлетворять `current_payment`,
+  `current_shipment` или paid filter после создания нового episode.
+- **Исправление.** `fbe33a68` разделяет эти проекции. Когда у клиента есть
+  `current_commercial_episode`, payment и shipment annotations ограничены его
+  deal/order graph; historical fallback разрешён только если current episode
+  отсутствует. List endpoint использует episode-scoped SQL annotations, без
+  N+1. Lifetime purchase count/history остаются доступными отдельно.
+- **Regression:** historical provider payment не делает новый DRAFT paid;
+  `?view=paid` не выбирает клиента только по старой покупке; старая ТТН не
+  ставит `shipped`; current paid episode и buyer history сохраняют ожидаемое
+  отображение. Direct `tests_ig_buyer_presentation` — 18 tests; расширенный
+  buyer/UI gate — 159 tests.
+- **Evidence:** code in `main`, production `fbe33a68`; migration не требуется.
+
 ### F-STATE-001 (P1, FIXED): арбитр состояния подключён к промпту
 
 Модуль `services/ig_client_state.py` (`resolve_client_state`) был написан ранее
@@ -4227,6 +4256,11 @@ checkout assertions; production SHA `434428ad`.
   empty reply/notification queues.
 - **Task:** fixed subtask of `IMP-086`; task remains PARTIAL for disposable
   MariaDB concurrency/constraint proof and complete manager-review UI.
+- **Late-payment extension:** `b23dfeed` сохраняет provider `modifiedDate` как
+  payment truth и отличает поздний callback от реально поздней оплаты. Если
+  released capacity уже получила другая proposal, старый payment переводится в
+  один `OVERBOOKED_REVIEW` и manager task, не списывая/не обещая повторно stock.
+  Это расширяет evidence F-CAT-011, но не закрывает остаток `IMP-086`.
 
 ### F-TEST-004 (P2, FIXED/VERIFIED): reduced-motion contract depended on selector adjacency
 
