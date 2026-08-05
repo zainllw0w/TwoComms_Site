@@ -641,15 +641,24 @@ class FollowupDeliveryResolutionTests(TestCase):
             args=[self.client_record.pk, event.pk],
         )
 
-        response = self.client.post(
+        first = self.client.post(
+            url,
+            {"note": "Перевірено менеджером"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        second = self.client.post(
             url,
             {"note": "Перевірено менеджером"},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
 
-        self.assertEqual(response.status_code, 200, response.content)
-        payload = response.json()
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertEqual(second.status_code, 200, second.content)
+        payload = first.json()
         self.assertTrue(payload["success"])
+        self.assertFalse(payload["idempotent"])
+        self.assertTrue(second.json()["idempotent"])
+        self.assertEqual(second.json()["next_task_id"], payload["next_task_id"])
         next_task = IgFollowUpTask.objects.get(pk=payload["next_task_id"])
         self.assertEqual(next_task.level, 4)
         self.assertEqual(next_task.policy_started_at, boundary["policy_started_at"])
@@ -670,6 +679,13 @@ class FollowupDeliveryResolutionTests(TestCase):
         )
         self.assertEqual(audit.actor, self.admin)
         self.assertEqual(audit.reason, "Перевірено менеджером")
+        detail = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.client_record.pk])
+        )
+        row = next(
+            item for item in detail.json()["followups"] if item["id"] == event.pk
+        )
+        self.assertEqual(row["continue_url"], "")
 
     def test_client_detail_exposes_review_without_resend_action(self):
         source, _review = self._ambiguous_pair("detail")

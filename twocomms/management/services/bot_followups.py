@@ -1,6 +1,8 @@
 """Scheduled follow-ups for the Instagram Direct sales bot."""
 from __future__ import annotations
 
+import hashlib
+import json
 import sys
 import uuid
 from dataclasses import dataclass
@@ -960,6 +962,19 @@ def _normalized_restock_options(values) -> dict[str, str]:
     }
 
 
+def variant_inventory_revision(variant_id: int) -> str:
+    """Hash the committed variant-size rules used as the restock event source."""
+    from fable5.models import VariantSizeRule
+
+    rows = list(
+        VariantSizeRule.objects.filter(variant_id=int(variant_id or 0))
+        .order_by("fit_code", "size")
+        .values("fit_code", "size", "is_enabled", "stock", "updated_at")
+    )
+    canonical = json.dumps(rows, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def materialize_restock_inventory_event(
     *,
     product_id: int,
@@ -1009,7 +1024,7 @@ def materialize_restock_inventory_event(
             continue
         event_key = (
             f"restock:{client.pk}:{product_id}:{variant_id}:{fit_code or '-'}:"
-            f"{size}:{revision}"
+            f"{size}:{revision}:{event_time.isoformat()}"
         )
         task = materialize_restock(
             client,
@@ -1105,38 +1120,44 @@ def _queue_event_boundary_review(
     task: IgFollowUpTask, *, reason: str, now: datetime
 ) -> IgFollowUpTask | None:
     """Fail closed and leave a durable manager action for legacy event rows."""
-    if task.status in {
-        IgFollowUpTask.Status.PENDING,
-        IgFollowUpTask.Status.PROCESSING,
-    }:
-        task.status = IgFollowUpTask.Status.SKIPPED
-        task.skip_reason = reason[:255]
-        task.claim_token = ""
-        task.claim_until = None
-        task.next_attempt_at = None
-        task.save(update_fields=[
-            "status", "skip_reason", "claim_token", "claim_until",
-            "next_attempt_at", "updated_at",
-        ])
-    review, _created = IgFollowUpTask.objects.get_or_create(
-        event_key=f"event_boundary_review:{task.pk}",
-        defaults={
-            "client": task.client,
-            "deal": task.deal,
-            "due_at": now,
-            "status": IgFollowUpTask.Status.PENDING,
-            "kind": IgFollowUpTask.Kind.MANAGER_TASK,
-            "reason": "event_boundary_review",
-            "message_text": (
-                "Follow-up не має повної незмінної події. Перевірте факт вручну "
-                "і продовжуйте політику окремою дією менеджера.\n\n"
-                f"Задача #{task.pk}, причина: {reason}."
-            ),
-            "last_error": reason[:500],
-            "policy_started_at": task.policy_started_at or now,
-        },
-    )
-    _update_client_next(task.client)
+    with transaction.atomic():
+        locked_task = (
+            IgFollowUpTask.objects.select_for_update()
+            .select_related("client", "deal")
+            .get(pk=task.pk)
+        )
+        if locked_task.status in {
+            IgFollowUpTask.Status.PENDING,
+            IgFollowUpTask.Status.PROCESSING,
+        }:
+            locked_task.status = IgFollowUpTask.Status.SKIPPED
+            locked_task.skip_reason = reason[:255]
+            locked_task.claim_token = ""
+            locked_task.claim_until = None
+            locked_task.next_attempt_at = None
+            locked_task.save(update_fields=[
+                "status", "skip_reason", "claim_token", "claim_until",
+                "next_attempt_at", "updated_at",
+            ])
+        review, _created = IgFollowUpTask.objects.get_or_create(
+            event_key=f"event_boundary_review:{locked_task.pk}",
+            defaults={
+                "client": locked_task.client,
+                "deal": locked_task.deal,
+                "due_at": now,
+                "status": IgFollowUpTask.Status.PENDING,
+                "kind": IgFollowUpTask.Kind.MANAGER_TASK,
+                "reason": "event_boundary_review",
+                "message_text": (
+                    "Follow-up не має повної незмінної події. Перевірте факт вручну "
+                    "і продовжуйте політику окремою дією менеджера.\n\n"
+                    f"Задача #{locked_task.pk}, причина: {reason}."
+                ),
+                "last_error": reason[:500],
+                "policy_started_at": locked_task.policy_started_at or now,
+            },
+        )
+    _update_client_next(locked_task.client)
     return review
 
 
@@ -1157,14 +1178,24 @@ def event_followup_fact_guard(
         )
         if deal is None:
             return False, "deal_missing"
+        try:
+            payload_deal_id = int(payload.get("deal_id") or 0)
+        except (TypeError, ValueError):
+            payload_deal_id = 0
+        if payload_deal_id != int(task.deal_id or 0):
+            return False, "invoice_deal_mismatch"
         if _deal_is_paid(deal) or deal.status in {
             IgDeal.Status.PAID,
             IgDeal.Status.ORDER_CREATED,
         }:
             return False, "invoice_paid"
+        if deal.status == IgDeal.Status.CANCELLED:
+            return False, "invoice_cancelled"
         invoice_id = str(payload.get("invoice_id") or "").strip()
         if not invoice_id or str(deal.invoice_id or "").strip() != invoice_id:
             return False, "invoice_superseded"
+        if task.event_occurred_at != deal.invoice_expires_at:
+            return False, "invoice_boundary_changed"
         status = _payment_link_status_for_deal(deal, now=now)
         if status == "expired":
             task.deal = deal
@@ -1181,17 +1212,45 @@ def event_followup_fact_guard(
             .first()
         )
         proposal = getattr(deal, "active_checkout_proposal", None)
+        if deal is None:
+            return False, "deal_missing"
+        try:
+            payload_deal_id = int(payload.get("deal_id") or 0)
+            payload_revision = int(payload.get("revision") or 0)
+        except (TypeError, ValueError):
+            return False, "proposal_boundary_invalid"
+        if payload_deal_id != int(task.deal_id or 0):
+            return False, "proposal_deal_mismatch"
         proposal_id = str(payload.get("proposal_id") or "").strip()
         if proposal is None or str(proposal.pk) != proposal_id:
             return False, "proposal_superseded"
+        if payload_revision != int(proposal.revision or 0):
+            return False, "proposal_revision_changed"
+        if _deal_is_paid(deal) or deal.status in {
+            IgDeal.Status.PAID,
+            IgDeal.Status.ORDER_CREATED,
+            IgDeal.Status.CANCELLED,
+        }:
+            return False, "proposal_deal_terminal"
         if proposal.status == proposal.Status.PAID:
             return False, "proposal_paid"
+        if proposal.status not in {
+            proposal.Status.READY,
+            proposal.Status.VIEWED,
+            proposal.Status.DETAILS_LOCKED,
+        }:
+            return False, "proposal_terminal"
+        if task.event_occurred_at != proposal.expires_at:
+            return False, "proposal_boundary_changed"
         if not proposal.expires_at or proposal.expires_at > now:
             return False, "proposal_not_expired"
         return True, ""
     if event_name == "restock_available":
-        product_id = int(payload.get("product_id") or 0)
-        variant_id = int(payload.get("variant_id") or 0)
+        try:
+            product_id = int(payload.get("product_id") or 0)
+            variant_id = int(payload.get("variant_id") or 0)
+        except (TypeError, ValueError):
+            return False, "event_boundary_invalid"
         size = str(payload.get("size") or "").strip().upper()
         fit_code = str(payload.get("fit_code") or "").strip().lower()
         if not product_id or not variant_id or not size:
@@ -1239,6 +1298,11 @@ def event_followup_fact_guard(
                 option_values=options,
             ):
                 return False, "restock_unavailable"
+            source_revision = str(payload.get("source_revision") or "").strip()
+            if source_revision.startswith("fable5:"):
+                expected_revision = f"fable5:{variant_inventory_revision(variant_id)}"
+                if source_revision != expected_revision:
+                    return False, "restock_revision_changed"
         except Exception:
             return False, "restock_state_unknown"
         return True, ""
@@ -1260,6 +1324,7 @@ def _schedule_policy_step(
     deal: IgDeal | None = None,
     reason: str | None = None,
     policy_started_at: datetime | None = None,
+    event_key: str | None = None,
 ) -> IgFollowUpTask | None:
     kind = _persisted_step_kind(step)
     return schedule_followup(
@@ -1274,6 +1339,7 @@ def _schedule_policy_step(
         preserve_reason_on_manager_handoff=True,
         trigger=step.trigger,
         policy_started_at=policy_started_at or now,
+        event_key=event_key,
     )
 
 
@@ -1360,6 +1426,11 @@ def _schedule_next_policy_step(
         and delay < timedelta(hours=MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES)
     ):
         delay = timedelta(hours=MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES)
+    continuation_key = (
+        f"event_policy_continue:{task.pk}:{next_step.index}"
+        if current.trigger == IgFollowUpTask.Trigger.EVENT
+        else None
+    )
     scheduled = _schedule_policy_step(
         client,
         policy=target_policy,
@@ -1369,6 +1440,7 @@ def _schedule_next_policy_step(
         deal=task.deal,
         reason=reason,
         policy_started_at=anchor if target_policy is policy else now,
+        event_key=continuation_key,
     )
     return scheduled is not None
 
@@ -1403,20 +1475,31 @@ def continue_event_followup(
         allowed, reason = event_followup_fact_guard(task, now=now)
         if not allowed:
             return {"ok": False, "error": reason, "status": 409}
+        continuation_prefix = f"event_policy_continue:{task.pk}:"
+        existing = (
+            IgFollowUpTask.objects.filter(event_key__startswith=continuation_prefix)
+            .order_by("id")
+            .first()
+        )
+        if existing is not None:
+            return {
+                "ok": True,
+                "idempotent": True,
+                "task_id": task.pk,
+                "next_task_id": existing.pk,
+                "actor_id": actor_id,
+                "note": str(note or "").strip()[:500],
+            }
         if not _schedule_next_policy_step(task, task.client, now=now):
             return {"ok": False, "error": "policy_exhausted", "status": 409}
         next_task = (
-            IgFollowUpTask.objects.filter(
-                client_id=task.client_id,
-                reason=task.reason,
-                level=int(task.level or 0) + 1,
-                status=IgFollowUpTask.Status.PENDING,
-            )
+            IgFollowUpTask.objects.filter(event_key__startswith=continuation_prefix)
             .order_by("-id")
             .first()
         )
     return {
         "ok": True,
+        "idempotent": False,
         "task_id": task.pk,
         "next_task_id": next_task.pk if next_task else None,
         "actor_id": actor_id,
@@ -2493,6 +2576,14 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
             if task is None:
                 continue
             task.client = client
+            if task.trigger == IgFollowUpTask.Trigger.EVENT:
+                allowed_event, event_reason = event_followup_fact_guard(task, now=now)
+                if not allowed_event:
+                    if event_reason == "event_boundary_missing":
+                        _queue_event_boundary_review(task, reason=event_reason, now=now)
+                    else:
+                        _mark_skipped(task, event_reason)
+                    continue
             try:
                 delivery = instagram_bot.send_text(
                     s,

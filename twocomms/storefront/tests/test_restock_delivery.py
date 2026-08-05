@@ -632,6 +632,74 @@ class RestockVariantSaveAndAdminTests(TestCase):
             callback()
         schedule.assert_called_once_with(self.product.pk, self.variant.pk)
 
+    @patch("management.services.bot_followups.materialize_restock_inventory_event")
+    @patch("storefront.services.restock.schedule_restock_scan")
+    def test_unchanged_available_size_does_not_materialize_direct_restock(
+        self, _schedule, materialize
+    ):
+        import json
+        from django.urls import reverse
+
+        VariantSizeRule.objects.create(
+            variant=self.variant,
+            fit_code="classic",
+            size="M",
+            is_enabled=True,
+            stock=4,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("fable5_api_variant_save"),
+                data=json.dumps(self._payload(sizes=[{
+                    "fit_code": "classic",
+                    "size": "M",
+                    "is_enabled": True,
+                    "stock": 4,
+                }])),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        materialize.assert_not_called()
+
+    @patch("management.services.bot_followups.materialize_restock_inventory_event")
+    @patch("storefront.services.restock.schedule_restock_scan")
+    def test_unavailable_to_available_size_materializes_direct_restock_once(
+        self, _schedule, materialize
+    ):
+        import json
+        from django.urls import reverse
+
+        VariantSizeRule.objects.create(
+            variant=self.variant,
+            fit_code="classic",
+            size="M",
+            is_enabled=True,
+            stock=0,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("fable5_api_variant_save"),
+                data=json.dumps(self._payload(sizes=[{
+                    "fit_code": "classic",
+                    "size": "M",
+                    "is_enabled": True,
+                    "stock": 4,
+                }])),
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        materialize.assert_called_once()
+        from management.services.bot_followups import variant_inventory_revision
+
+        self.assertEqual(
+            materialize.call_args.kwargs["source_revision"],
+            f"fable5:{variant_inventory_revision(self.variant.pk)}",
+        )
+
     @patch("storefront.services.restock.schedule_restock_scan")
     def test_variant_save_without_sizes_does_not_schedule(self, schedule):
         import json

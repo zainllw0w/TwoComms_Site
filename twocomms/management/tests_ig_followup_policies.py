@@ -1,6 +1,7 @@
 """IMP-053: follow-up cascades are data, not an if/elif side effect."""
 
 from datetime import datetime, timedelta
+from decimal import Decimal
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -10,6 +11,7 @@ from django.test import TestCase
 from management.models import (
     IgBotNotification,
     IgClient,
+    IgCheckoutProposal,
     IgDeal,
     IgFollowUpTask,
     IgPaymentProjection,
@@ -283,6 +285,45 @@ class FollowupPolicyIntegrationTests(TestCase):
                 "invoice_id": "event-boundary-invoice",
             },
             policy_started_at=issue_at,
+            policy_version="followup-v1",
+        )
+
+    def _proposal_event_task(
+        self, *, revision=1, payload_revision=None, status=None, event_occurred_at=None
+    ):
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.QUOTED,
+        )
+        proposal = IgCheckoutProposal.objects.create_current(
+            deal=deal,
+            revision=revision,
+            catalog_total=Decimal("1090.00"),
+            quoted_total=Decimal("1090.00"),
+            requested_payment_amount=Decimal("1090.00"),
+            items_digest=f"proposal-revision-{revision}",
+        )
+        proposal.expires_at = self.now - timedelta(minutes=1)
+        if status is not None:
+            proposal.status = status
+        proposal.save(update_fields=["expires_at", "status", "updated_at"])
+        return IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+            level=3,
+            event_key=f"proposal_expired:{deal.pk}:{proposal.pk}:test",
+            trigger=IgFollowUpTask.Trigger.EVENT,
+            event_occurred_at=event_occurred_at or proposal.expires_at,
+            event_payload={
+                "event": "proposal_expired",
+                "deal_id": deal.pk,
+                "proposal_id": str(proposal.pk),
+                "revision": revision if payload_revision is None else payload_revision,
+            },
+            policy_started_at=self.now - timedelta(minutes=26),
             policy_version="followup-v1",
         )
 
@@ -915,6 +956,105 @@ class FollowupPolicyIntegrationTests(TestCase):
 
         self.assertFalse(allowed)
         self.assertEqual(reason, "invoice_superseded")
+
+    def test_cancelled_invoice_event_is_rejected_before_send(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._event_task()
+        task.deal.status = IgDeal.Status.CANCELLED
+        task.deal.save(update_fields=["status", "updated_at"])
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "invoice_cancelled")
+
+    def test_invoice_event_boundary_must_match_current_expiry(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._event_task()
+        task.deal.invoice_expires_at = self.now + timedelta(minutes=5)
+        task.deal.save(update_fields=["invoice_expires_at", "updated_at"])
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "invoice_boundary_changed")
+
+    def test_stale_proposal_revision_is_rejected_before_send(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._proposal_event_task(revision=2, payload_revision=1)
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "proposal_revision_changed")
+
+    def test_terminal_proposal_event_is_rejected_before_send(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._proposal_event_task(status=IgCheckoutProposal.Status.REVOKED)
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "proposal_terminal")
+
+    def test_proposal_event_boundary_must_match_current_expiry(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._proposal_event_task(
+            event_occurred_at=self.now - timedelta(minutes=2)
+        )
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "proposal_boundary_changed")
+
+    def test_proposal_event_rejects_terminal_deal_truth(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._proposal_event_task()
+        task.deal.status = IgDeal.Status.CANCELLED
+        task.deal.save(update_fields=["status", "updated_at"])
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "proposal_deal_terminal")
+
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=ProviderDeliveryReceipt(True, "", "", "must-not-send"),
+    )
+    def test_event_fact_is_rechecked_after_processing_claim(self, send_text):
+        from management.services import bot_followups
+
+        task = self._event_task()
+        real_recheck = bot_followups._recheck_followup_send_claim
+
+        def pay_after_processing(*args, **kwargs):
+            claimed = real_recheck(*args, **kwargs)
+            IgDeal.objects.filter(pk=task.deal_id).update(status=IgDeal.Status.PAID)
+            return claimed
+
+        with patch(
+            "management.services.bot_followups._recheck_followup_send_claim",
+            side_effect=pay_after_processing,
+        ):
+            processed = bot_followups.process_due_followups(
+                self.settings,
+                now=self.now,
+                limit=1,
+            )
+
+        self.assertEqual(processed, 0)
+        send_text.assert_not_called()
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SKIPPED)
+        self.assertEqual(task.skip_reason, "invoice_paid")
 
     def test_event_continuation_uses_policy_anchor_after_worker_delay(self):
         from management.services.bot_followups import _schedule_next_policy_step

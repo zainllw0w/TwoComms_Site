@@ -4065,19 +4065,20 @@ def bot_client_followup_continue_api(request, client_id, task_id):
             return JsonResponse(
                 {"success": False, **result}, status=result.get("status", 400)
             )
-        AdminAuditLog.objects.create(
-            actor=request.user,
-            actor_role="staff",
-            action="ig_event_followup_continued",
-            entity_type="IgFollowUpTask",
-            entity_id=str(task.pk),
-            before={"status": before_status},
-            after={
-                "status": before_status,
-                "next_task_id": result.get("next_task_id"),
-            },
-            reason=str(request.POST.get("note") or "").strip()[:500],
-        )
+        if not result.get("idempotent"):
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                actor_role="staff",
+                action="ig_event_followup_continued",
+                entity_type="IgFollowUpTask",
+                entity_id=str(task.pk),
+                before={"status": before_status},
+                after={
+                    "status": before_status,
+                    "next_task_id": result.get("next_task_id"),
+                },
+                reason=str(request.POST.get("note") or "").strip()[:500],
+            )
     return JsonResponse({"success": True, **result})
 
 
@@ -4228,6 +4229,12 @@ def bot_client_detail_api(request, client_id):
         delivery_review_id=Subquery(delivery_review_ids),
     ).order_by("-created_at", "-id")[:50]:
         review_id = getattr(f, "delivery_review_id", None)
+        continuation_exists = (
+            f.trigger == IgFollowUpTask.Trigger.EVENT
+            and IgFollowUpTask.objects.filter(
+                event_key__startswith=f"event_policy_continue:{f.pk}:"
+            ).exists()
+        )
         followups.append({
             "id": f.id,
             "kind": f.kind,
@@ -4267,6 +4274,7 @@ def bot_client_detail_api(request, client_id):
                 )
                 if f.trigger == IgFollowUpTask.Trigger.EVENT
                 and f.event_key
+                and not continuation_exists
                 and f.status in {
                     IgFollowUpTask.Status.SENT,
                     IgFollowUpTask.Status.COMPLETED,

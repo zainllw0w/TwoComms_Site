@@ -694,6 +694,50 @@ class SizeGapEscalationTests(TestCase):
         self.assertTrue(allowed, reason)
 
     @patch("management.services.instagram_bot.notify_manager")
+    def test_fable5_restock_revision_allows_same_inventory_and_rejects_later_change(
+        self, _notify
+    ):
+        from django.core.cache import cache
+        from fable5.models import VariantSizeRule
+        from management.services import instagram_bot as bot
+        from management.services.bot_followups import (
+            event_followup_fact_guard,
+            materialize_restock_inventory_event,
+            variant_inventory_revision,
+        )
+
+        cache.clear()
+        self.assertTrue(bot.notify_size_gap(self.client_row))
+        rule = VariantSizeRule.objects.get(
+            variant=self.variant, fit_code="classic", size="M"
+        )
+        rule.is_enabled = True
+        rule.stock = 1
+        rule.save(update_fields=["is_enabled", "stock", "updated_at"])
+        source_revision = f"fable5:{variant_inventory_revision(self.variant.pk)}"
+
+        self.assertEqual(
+            materialize_restock_inventory_event(
+                product_id=self.product.pk,
+                variant_id=self.variant.pk,
+                size="M",
+                fit_code="classic",
+                option_values={"fit": "classic"},
+                source_revision=source_revision,
+            ),
+            1,
+        )
+        task = IgFollowUpTask.objects.get(reason="restock_wait", level=1)
+        allowed, reason = event_followup_fact_guard(task)
+        self.assertTrue(allowed, reason)
+
+        rule.stock = 2
+        rule.save(update_fields=["stock", "updated_at"])
+        allowed, reason = event_followup_fact_guard(task)
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "restock_revision_changed")
+
+    @patch("management.services.instagram_bot.notify_manager")
     def test_restock_for_another_variant_never_materializes_the_waiting_client(self, _notify):
         from django.core.cache import cache
         from productcolors.models import Color, ProductColorVariant

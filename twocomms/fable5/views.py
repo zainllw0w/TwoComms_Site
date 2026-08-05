@@ -995,6 +995,14 @@ def api_variant_save(request):
 
     # Розміри + склад для цього кольору (напр. вимкнути S у koyote)
     if "sizes" in data:
+        previous_available = {
+            (
+                str(rule.size or "").strip().upper(),
+                str(rule.fit_code or "").strip().lower(),
+            )
+            for rule in variant.fable5_size_rules.all()
+            if rule.is_enabled and (rule.stock is None or int(rule.stock) > 0)
+        }
         variant.fable5_size_rules.all().delete()
         seen = set()
         rules = []
@@ -1020,22 +1028,26 @@ def api_variant_save(request):
             (str(rule.size or "").strip().upper(), str(rule.fit_code or "").strip().lower())
             for rule in rules
             if rule.is_enabled and (rule.stock is None or int(rule.stock) > 0)
+            and (
+                str(rule.size or "").strip().upper(),
+                str(rule.fit_code or "").strip().lower(),
+            ) not in previous_available
         )
         inventory_event_at = timezone.now()
-        source_revision = f"fable5:{variant.pk}:{inventory_event_at.isoformat()}"
 
         def materialize_direct_restock(
             *,
             product_id=product.pk,
             variant_id=variant.pk,
             rows=restocked,
-            revision=source_revision,
             occurred_at=inventory_event_at,
         ):
             from management.services.bot_followups import (
                 materialize_restock_inventory_event,
+                variant_inventory_revision,
             )
 
+            revision = f"fable5:{variant_inventory_revision(variant_id)}"
             for restock_size, restock_fit in rows:
                 materialize_restock_inventory_event(
                     product_id=product_id,
