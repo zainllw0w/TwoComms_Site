@@ -869,6 +869,15 @@ class IgPaymentConfirmationReview(models.Model):
             _("Старий оплачений продаж архівовано"),
         )
 
+    class ResolutionOutcome(models.TextChoices):
+        NONE = "", _("Не вказано")
+        ALREADY_RECEIVED = "already_received", _("Старе замовлення отримано")
+        ALREADY_DELIVERED = "already_delivered", _("Старе замовлення доставлено")
+        COMPLETED_UNKNOWN = (
+            "completed_unknown",
+            _("Старе замовлення завершено; спосіб невідомий"),
+        )
+
     client = models.ForeignKey(
         "management.IgClient",
         on_delete=models.CASCADE,
@@ -930,6 +939,12 @@ class IgPaymentConfirmationReview(models.Model):
         blank=True,
         default=ResolutionKind.NONE,
         db_index=True,
+    )
+    resolution_outcome = models.CharField(
+        max_length=32,
+        choices=ResolutionOutcome.choices,
+        blank=True,
+        default=ResolutionOutcome.NONE,
     )
     resolution_note = models.TextField(blank=True, default="")
     resolved_at = models.DateTimeField(null=True, blank=True)
@@ -997,6 +1012,7 @@ class IgPaymentReviewDecision(models.Model):
         FULL_PAYMENT = "full_payment", _("Повна оплата")
         PREPAYMENT = "prepayment", _("Передоплата")
         PAYMENT_CLAIM = "payment_claim", _("Заявлений платіж")
+        HISTORICAL_FULFILLED = "historical_fulfilled", _("Історично виконане замовлення")
 
     review = models.ForeignKey(
         "management.IgPaymentConfirmationReview",
@@ -1022,6 +1038,14 @@ class IgPaymentReviewDecision(models.Model):
         blank=True,
         help_text="Точна сума, фактично перевірена менеджером; не повна вартість замовлення за замовчуванням.",
     )
+    order_total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Повна вартість замовлення, відновлена для історичного завершення.",
+    )
+    order_total_source = models.CharField(max_length=48, blank=True, default="")
     currency = models.CharField(max_length=8, default="UAH")
     amount_source = models.CharField(max_length=48, blank=True, default="")
     amount_evidence_message_ids = models.JSONField(default=list, blank=True)

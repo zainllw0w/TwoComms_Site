@@ -14,6 +14,48 @@ from django.urls import reverse
 from django.utils import timezone
 
 
+class InstagramLegacyPaymentResolutionModelContractTests(SimpleTestCase):
+    def test_historical_fulfillment_contract_preserves_resolution_and_total_provenance(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
+
+        self.assertEqual(
+            [choice[0] for choice in IgPaymentConfirmationReview.ResolutionKind.choices],
+            [
+                "",
+                "historical_paid_archived",
+            ],
+        )
+        self.assertEqual(
+            [choice[0] for choice in IgPaymentConfirmationReview.ResolutionOutcome.choices],
+            [
+                "",
+                "already_received",
+                "already_delivered",
+                "completed_unknown",
+            ],
+        )
+        self.assertEqual(
+            IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED,
+            "historical_fulfilled",
+        )
+
+        order_total_amount = IgPaymentReviewDecision._meta.get_field("order_total_amount")
+        self.assertTrue(order_total_amount.null)
+        self.assertTrue(order_total_amount.blank)
+        self.assertEqual(order_total_amount.max_digits, 12)
+        self.assertEqual(order_total_amount.decimal_places, 2)
+
+        order_total_source = IgPaymentReviewDecision._meta.get_field("order_total_source")
+        self.assertEqual(order_total_source.max_length, 48)
+        self.assertTrue(order_total_source.blank)
+        self.assertEqual(order_total_source.default, "")
+
+        resolution_outcome = IgPaymentConfirmationReview._meta.get_field("resolution_outcome")
+        self.assertEqual(resolution_outcome.max_length, 32)
+        self.assertTrue(resolution_outcome.blank)
+        self.assertEqual(resolution_outcome.default, "")
+
+
 class InstagramPaymentDecisionTests(TestCase):
     def _require_db_append_only_trigger(self):
         """Skip raw-SQL trigger assertions when the runner disables migrations."""
