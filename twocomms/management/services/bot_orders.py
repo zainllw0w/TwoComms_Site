@@ -751,37 +751,81 @@ def _conversation_payment_amount_decision(client) -> dict:
         r"обираю|вибираю|беру)\b[^.!?]{0,100}\b(футболк\w*|худі|худи|товар\w*|принт\w*)\b",
         re.IGNORECASE,
     )
-    seller_roles = {"manager", "model", "human_manager", "operator", "admin"}
+    # A generated assistant message is not authority to choose how much money
+    # the customer must pay.  Only a persisted human/operator offer can
+    # establish a prepayment amount; the customer may merely confirm it.
+    seller_roles = {"manager", "human_manager", "operator", "admin"}
     customer_roles = {"user", "customer", "client"}
     decisions = []
+    consumed_confirmation_indexes = set()
     for index, message in enumerate(messages):
         text = _message_text(message)
         amounts = amount_re.findall(text)
         if not amounts or not prepay_re.search(text):
             continue
         try:
-            amount = Decimal(amounts[-1].replace(",", ".")).quantize(Decimal("0.01"))
+            parsed_amounts = [
+                Decimal(raw.replace(",", ".")).quantize(Decimal("0.01"))
+                for raw in amounts
+            ]
         except (InvalidOperation, ValueError):
             continue
+        # A sentence such as "prepayment 500, total 1090" is not a safe
+        # machine-readable instruction.  Never guess which monetary fact the
+        # sender intended as the invoice amount.
+        if len(set(parsed_amounts)) != 1:
+            decisions.append({
+                "status": "ambiguous",
+                "amount": None,
+                "message_index": index,
+                "evidence_message_ids": [],
+            })
+            continue
+        amount = parsed_amounts[0]
         if amount <= 0 or amount > MAX_PAYLINK_VALUE:
             continue
         role = _message_role(message)
         accepted = False
         evidence_ids = [getattr(message, "pk", None)]
-        if role in customer_roles:
-            accepted = bool(acceptance_re.search(text) and not completed_re.search(text))
-        elif role in seller_roles:
-            next_message = next(
-                (later for later in messages[index + 1:] if _message_text(later)),
+        if role in customer_roles and index in consumed_confirmation_indexes:
+            # The amount is repeated while confirming the preceding human
+            # offer.  It belongs to that offer's evidence, not to a new
+            # customer-originated monetary decision.
+            continue
+        if role in seller_roles:
+            next_row = next(
+                (
+                    (later_index, later)
+                    for later_index, later in enumerate(
+                        messages[index + 1:], start=index + 1
+                    )
+                    if _message_text(later)
+                ),
                 None,
             )
+            next_index, next_message = next_row if next_row else (None, None)
+            next_text = _message_text(next_message) if next_message else ""
+            confirmation_amounts = []
+            for raw_amount in amount_re.findall(next_text):
+                try:
+                    confirmation_amounts.append(
+                        Decimal(raw_amount.replace(",", ".")).quantize(Decimal("0.01"))
+                    )
+                except (InvalidOperation, ValueError):
+                    continue
             accepted = bool(
                 next_message
                 and _message_role(next_message) in customer_roles
-                and acceptance_re.search(_message_text(next_message))
+                and acceptance_re.search(next_text)
+                and not completed_re.search(next_text)
+                and (
+                    not confirmation_amounts
+                    or all(value == amount for value in confirmation_amounts)
+                )
             )
             if accepted:
                 evidence_ids.append(getattr(next_message, "pk", None))
+                consumed_confirmation_indexes.add(next_index)
         decisions.append({
             "status": "accepted" if accepted else "ambiguous",
             "amount": amount if accepted else None,

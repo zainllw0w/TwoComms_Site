@@ -354,6 +354,200 @@ class OnDealPaidTests(TestCase):
 
 
 class CreateDealAndLinkTests(TestCase):
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_model_authored_prepayment_amount_cannot_create_invoice(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="prepay-model-source")
+        product = Product.objects.create(
+            title="Футболка",
+            slug="prepay-model-source",
+            category=category,
+            price=Decimal("1090.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("prepay-model-source")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="model",
+            text="Можна внести передоплату 100 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Так, погоджуюсь",
+        )
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="prepay",
+            product_id=product.pk,
+            size="M",
+            payment_amount=Decimal("100.00"),
+        )
+
+        self.assertEqual(result, {"ok": False, "error": "invalid_payment_amount"})
+        self.assertFalse(IgDeal.objects.filter(client=client).exists())
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_customer_originated_prepayment_amount_cannot_create_invoice(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="prepay-customer-source")
+        product = Product.objects.create(
+            title="Футболка",
+            slug="prepay-customer-source",
+            category=category,
+            price=Decimal("1090.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("prepay-customer-source")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Так, внесу передоплату 100 грн",
+        )
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="prepay",
+            product_id=product.pk,
+            size="M",
+            payment_amount=Decimal("100.00"),
+        )
+
+        self.assertEqual(result, {"ok": False, "error": "invalid_payment_amount"})
+        self.assertFalse(IgDeal.objects.filter(client=client).exists())
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_customer_can_confirm_human_prepayment_offer(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        mock_link.return_value = {
+            "ok": True,
+            "invoice_url": "https://pay/human-prepay",
+            "invoice_id": "human-prepay",
+        }
+        category = Category.objects.create(name="Футболки", slug="prepay-human-source")
+        product = Product.objects.create(
+            title="Футболка",
+            slug="prepay-human-source",
+            category=category,
+            price=Decimal("1090.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("prepay-human-source")
+        offer = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="manager",
+            text="Для цього замовлення передоплата 100 грн",
+        )
+        acceptance = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Так, внесу передоплату 100 грн",
+        )
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="prepay",
+            product_id=product.pk,
+            size="M",
+            payment_amount=Decimal("100.00"),
+        )
+
+        self.assertTrue(result["ok"])
+        deal = IgDeal.objects.get(client=client)
+        self.assertEqual(deal.requested_payment_amount, Decimal("100.00"))
+        self.assertEqual(
+            deal.requested_payment_evidence_ids,
+            [offer.pk, acceptance.pk],
+        )
+        mock_link.assert_called_once_with(deal)
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_customer_counteroffer_cannot_replace_human_prepayment_amount(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="prepay-counteroffer")
+        product = Product.objects.create(
+            title="Футболка",
+            slug="prepay-counteroffer",
+            category=category,
+            price=Decimal("1090.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("prepay-counteroffer")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="manager",
+            text="Для цього замовлення передоплата 500 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Так, внесу передоплату тільки 100 грн",
+        )
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="prepay",
+            product_id=product.pk,
+            size="M",
+            payment_amount=Decimal("100.00"),
+        )
+
+        self.assertEqual(result, {"ok": False, "error": "invalid_payment_amount"})
+        self.assertFalse(IgDeal.objects.filter(client=client).exists())
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_human_offer_with_multiple_amounts_fails_closed(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="prepay-multi-amount")
+        product = Product.objects.create(
+            title="Футболка",
+            slug="prepay-multi-amount",
+            category=category,
+            price=Decimal("1090.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("prepay-multi-amount")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="manager",
+            text="Передоплата 500 грн, повна ціна товару 1090 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Так, погоджуюсь",
+        )
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="prepay",
+            product_id=product.pk,
+            size="M",
+            payment_amount=Decimal("1090.00"),
+        )
+
+        self.assertEqual(result, {"ok": False, "error": "invalid_payment_amount"})
+        self.assertFalse(IgDeal.objects.filter(client=client).exists())
+        mock_link.assert_not_called()
+
     def test_default_prompt_and_seeded_playbook_never_quote_fixed_client_prepayment(self):
         from management.management.commands.seed_ig_bot_sales_playbooks import PLAYBOOKS
         from management.models import DEFAULT_BOT_SYSTEM_PROMPT
