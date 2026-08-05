@@ -107,11 +107,12 @@ class InstagramPaymentDecisionTests(TestCase):
         from management.ig_bot_models import IgClientStageEvent, IgPaymentReviewDecision
         from management.services.ig_payment_review import record_review_decision
 
-        result = record_review_decision(
-            self.review,
-            actor=self.actor,
-            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            result = record_review_decision(
+                self.review,
+                actor=self.actor,
+                decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            )
 
         self.assertEqual(result.status, "confirmed")
         self.assertEqual(result.manual_payment_truth, "manager_verified")
@@ -218,6 +219,59 @@ class InstagramPaymentDecisionTests(TestCase):
             )
 
         self.assertFalse(review.decisions.exists())
+
+    @patch("management.services.bot_conversation_analysis.schedule_client_truth_analysis")
+    def test_manager_supplied_total_is_stored_separately_from_paid_amount(self, schedule):
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from management.services.ig_payment_review import record_review_decision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="manager-supplied-total",
+            evidence={"amount_evidence": [{"kind": "payment_evidence", "amount": "1550"}]},
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            record_review_decision(
+                review,
+                actor=self.actor,
+                decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+                verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+                order_total_amount="1550.00",
+                confirmed_amount="1550.00",
+            )
+
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+        self.assertEqual(decision.order_total_amount, Decimal("1550.00"))
+        self.assertEqual(decision.order_total_source, "manager_input")
+        self.assertEqual(decision.confirmed_amount, Decimal("1550.00"))
+        episode = IgCommercialEpisode.objects.get(primary_payment_review=review)
+        self.assertEqual(episode.payment_snapshot["order_total"], "1550.00")
+        self.assertEqual(episode.payment_snapshot["negotiated_order_total_source"], "manager_input")
+        schedule.assert_called_once_with(self.client, trigger="manager_payment_decision")
+
+    @patch(
+        "management.services.bot_conversation_analysis.schedule_client_truth_analysis",
+        side_effect=RuntimeError("analysis queue unavailable"),
+    )
+    def test_analysis_enqueue_failure_does_not_rollback_manager_decision(self, schedule):
+        from management.services.ig_payment_review import record_review_decision
+
+        with self.captureOnCommitCallbacks(execute=True):
+            record_review_decision(
+                self.review,
+                actor=self.actor,
+                decision="manager_verified",
+            )
+
+        self.review.refresh_from_db()
+        self.assertEqual(self.review.status, "confirmed")
+        self.assertEqual(self.review.decisions.count(), 1)
+        schedule.assert_called_once_with(self.client, trigger="manager_payment_decision")
 
     def test_exact_payment_claim_without_order_total_does_not_mark_client_paid(self):
         from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
@@ -426,13 +480,13 @@ class InstagramPaymentDecisionTests(TestCase):
         self.assertEqual(decision.actor_external_id, "777")
 
     @patch("management.services.bot_conversation_analysis.schedule_client_truth_analysis")
-    def test_reanalysis_schedule_failure_rolls_back_decision(self, schedule):
+    def test_reanalysis_schedule_failure_does_not_rollback_decision(self, schedule):
         from management.ig_bot_models import IgPaymentReviewDecision
         from management.services.ig_payment_review import record_review_decision
 
         schedule.side_effect = RuntimeError("analysis queue unavailable")
 
-        with self.assertRaisesMessage(RuntimeError, "analysis queue unavailable"):
+        with self.captureOnCommitCallbacks(execute=True):
             record_review_decision(
                 self.review,
                 actor=self.actor,
@@ -441,9 +495,9 @@ class InstagramPaymentDecisionTests(TestCase):
 
         self.review.refresh_from_db()
         self.client.refresh_from_db()
-        self.assertEqual(self.review.status, "pending")
-        self.assertEqual(self.client.stage, "payment_pending")
-        self.assertFalse(IgPaymentReviewDecision.objects.filter(review=self.review).exists())
+        self.assertEqual(self.review.status, "confirmed")
+        self.assertEqual(self.client.stage, "paid")
+        self.assertTrue(IgPaymentReviewDecision.objects.filter(review=self.review).exists())
 
     @patch("management.ig_bot_models.IgClientStageEvent.objects.create")
     def test_stage_event_failure_rolls_back_review_and_decision(self, create_stage_event):
@@ -512,10 +566,11 @@ class InstagramPaymentDecisionApiTests(TestCase):
 
     @patch("management.services.bot_conversation_analysis.schedule_client_truth_analysis")
     def test_manager_verify_returns_source_qualified_truth(self, schedule):
-        response = self.client.post(
-            self.action_url,
-            {"action": "manager_verify", "verification_scope": "full_payment"},
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.action_url,
+                {"action": "manager_verify", "verification_scope": "full_payment"},
+            )
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -571,6 +626,37 @@ class InstagramPaymentDecisionApiTests(TestCase):
         self.assertEqual(response.json()["payment"]["requested_payment_amount"], "500.00")
         self.assertEqual(response.json()["payment"]["confirmed_paid_amount"], "500.00")
         self.assertEqual(response.json()["payment"]["remaining_amount"], "1600.00")
+
+    @patch("management.services.bot_conversation_analysis.schedule_client_truth_analysis")
+    def test_manager_verify_api_accepts_missing_total_when_manager_supplies_it(self, schedule):
+        from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.ig_client,
+            dedupe_key="payment-api-supplied-total",
+            evidence={"amount_evidence": [{"kind": "payment_evidence", "amount": "1550"}]},
+        )
+        action_url = reverse(
+            "management_bot_payment_review_action_api",
+            args=[review.pk],
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                action_url,
+                {
+                    "action": "manager_verify",
+                    "verification_scope": "full_payment",
+                    "order_total_amount": "1550.00",
+                    "confirmed_amount": "1550.00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+        self.assertEqual(decision.order_total_amount, Decimal("1550.00"))
+        self.assertEqual(response.json()["payment"]["order_total"], "1550.00")
+        self.assertEqual(response.json()["decision"]["order_total_source"], "manager_input")
+        schedule.assert_called_once()
 
     def test_provider_and_manager_amount_conflict_requires_reconciliation(self):
         from management.ig_bot_models import IgDeal
@@ -644,14 +730,15 @@ class InstagramPaymentDecisionApiTests(TestCase):
             review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
         )
 
-        response = self.client.post(
-            self.action_url,
-            {
-                "action": "clarify_amount",
-                "verification_scope": "full_payment",
-                "confirmed_amount": "2100.00",
-            },
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                self.action_url,
+                {
+                    "action": "clarify_amount",
+                    "verification_scope": "full_payment",
+                    "confirmed_amount": "2100.00",
+                },
+            )
 
         self.assertEqual(response.status_code, 200, response.content)
         payload = response.json()

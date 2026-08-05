@@ -124,6 +124,14 @@ def payment_truth_snapshot(
         else "conversation_quoted_total" if quoted_total > 0
         else "unknown"
     )
+    if decision is None:
+        decision = review.decisions.order_by("-id").first() if review is not None else None
+    decision_total = _money(getattr(decision, "order_total_amount", None))
+    if negotiated_total <= 0 and decision_total > 0:
+        negotiated_total = decision_total
+        negotiated_total_source = (
+            getattr(decision, "order_total_source", "") or "manager_input"
+        )
     if linked_order_total > 0:
         order_total = linked_order_total
         order_total_source = "linked_order_final_total"
@@ -133,6 +141,11 @@ def payment_truth_snapshot(
     elif quoted_total > 0:
         order_total = quoted_total
         order_total_source = "conversation_quoted_total"
+    elif decision_total > 0:
+        order_total = decision_total
+        order_total_source = (
+            getattr(decision, "order_total_source", "") or "manager_input"
+        )
     else:
         order_total = Decimal("0.00")
         order_total_source = "unknown"
@@ -156,9 +169,6 @@ def payment_truth_snapshot(
         # reused across provider webhook transitions and could otherwise keep
         # the previous amount/truth in the episode snapshot.
         projection = IgPaymentProjection.objects.filter(deal_id=deal.pk).first()
-    if decision is None:
-        decision = review.decisions.order_by("-id").first() if review is not None else None
-
     provider_truth = getattr(projection, "truth", "") or ""
     provider_gross = _money(getattr(projection, "gross_amount", None))
     provider_refunded = _money(getattr(projection, "refunded_amount", None))

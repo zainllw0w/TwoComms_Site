@@ -1,6 +1,7 @@
 """Evidence-bound manual payment review for Instagram conversations."""
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone as datetime_timezone
 from decimal import Decimal, InvalidOperation
@@ -13,6 +14,9 @@ from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
+
+
+logger = logging.getLogger(__name__)
 
 
 _PAYMENT_EVIDENCE_RE = re.compile(
@@ -2088,6 +2092,7 @@ def resolve_review_payment_amount(
     *,
     verification_scope: str = "",
     confirmed_amount=None,
+    order_total_amount=None,
 ) -> dict:
     """Resolve exact payment money from this review/deal only.
 
@@ -2106,6 +2111,24 @@ def resolve_review_payment_amount(
             "Сума угоди та узгоджена сума з переписки суперечать одна одній; потрібна ручна перевірка."
         )
     negotiated_total = review_total or deal_total
+    supplied_total = None
+    if order_total_amount not in (None, ""):
+        supplied_total = _positive_money(order_total_amount)
+        if supplied_total is None:
+            raise ValueError("Повна вартість замовлення має бути додатним числом до 2 знаків.")
+        if negotiated_total is not None and supplied_total != negotiated_total:
+            raise ValueError(
+                "Вказана повна вартість замовлення не збігається з узгодженою сумою."
+            )
+    if negotiated_total is None and supplied_total is not None:
+        negotiated_total = supplied_total
+        negotiated_total_source = "manager_input"
+    else:
+        negotiated_total_source = (
+            "conversation_quoted_total" if review_total is not None
+            else "deal_negotiated_total" if deal_total is not None
+            else "unknown"
+        )
     currency = str(
         getattr(deal, "currency", "") or draft.get("currency") or "UAH"
     ).strip().upper()[:8] or "UAH"
@@ -2222,6 +2245,7 @@ def resolve_review_payment_amount(
         "source": "manager_input" if confirmed_amount not in (None, "") else evidence_source,
         "evidence_message_ids": evidence_ids,
         "order_total": negotiated_total,
+        "order_total_source": negotiated_total_source,
         "requested_amount": evidence_amount,
     }
     digest_payload = {
@@ -2233,6 +2257,7 @@ def resolve_review_payment_amount(
         "source": contract["source"],
         "evidence_message_ids": evidence_ids,
         "order_total": f"{negotiated_total:.2f}" if negotiated_total is not None else "",
+        "order_total_source": negotiated_total_source,
         "requested_amount": f"{evidence_amount:.2f}" if evidence_amount is not None else "",
     }
     contract["digest"] = hashlib.sha256(
@@ -2274,6 +2299,7 @@ def record_review_decision(
     decision: str,
     verification_scope: str = "",
     confirmed_amount=None,
+    order_total_amount=None,
     reason_code: str = "",
     reason_text: str = "",
     telegram_decision: dict | None = None,
@@ -2363,6 +2389,7 @@ def record_review_decision(
                 locked,
                 verification_scope=verification_scope,
                 confirmed_amount=confirmed_amount,
+                order_total_amount=order_total_amount,
             )
             verification_scope = amount_contract["scope"]
         if not verification_scope:
@@ -2408,6 +2435,8 @@ def record_review_decision(
             verification_source="manager",
             verification_scope=verification_scope,
             confirmed_amount=(amount_contract or {}).get("amount"),
+            order_total_amount=(amount_contract or {}).get("order_total"),
+            order_total_source=(amount_contract or {}).get("order_total_source", ""),
             currency=(amount_contract or {}).get("currency", "UAH"),
             amount_source=(amount_contract or {}).get("source", ""),
             amount_evidence_message_ids=(amount_contract or {}).get("evidence_message_ids", []),
@@ -2439,7 +2468,17 @@ def record_review_decision(
         sync_episode_payment(review=locked, deal=locked.deal if locked.deal_id else None)
         from management.services.bot_conversation_analysis import schedule_client_truth_analysis
 
-        schedule_client_truth_analysis(locked.client, trigger="manager_payment_decision")
+        def _schedule_truth_analysis():
+            try:
+                schedule_client_truth_analysis(locked.client, trigger="manager_payment_decision")
+            except Exception:
+                logger.exception(
+                    "manager_payment_truth_analysis_enqueue_failed review_id=%s client_id=%s",
+                    locked.pk,
+                    locked.client_id,
+                )
+
+        transaction.on_commit(_schedule_truth_analysis)
         locked._transitioned = True
     return locked
 
@@ -2586,6 +2625,7 @@ def confirm_review(
     actor,
     verification_scope="",
     confirmed_amount=None,
+    order_total_amount=None,
     telegram_decision=None,
 ):
     from management.ig_bot_models import IgPaymentConfirmationReview
@@ -2597,6 +2637,7 @@ def confirm_review(
             decision="manager_verified",
             verification_scope=verification_scope,
             confirmed_amount=confirmed_amount,
+            order_total_amount=order_total_amount,
             telegram_decision=telegram_decision,
         )
 

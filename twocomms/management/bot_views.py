@@ -948,6 +948,12 @@ def _payment_review_decision_payload(decision) -> dict:
             if decision.confirmed_amount is not None
             else ""
         ),
+        "order_total_amount": (
+            f"{decision.order_total_amount:.2f}"
+            if decision.order_total_amount is not None
+            else ""
+        ),
+        "order_total_source": decision.order_total_source or "",
         "currency": decision.currency or "UAH",
         "amount_source": decision.amount_source or "",
         "amount_evidence_message_ids": decision.amount_evidence_message_ids or [],
@@ -2875,6 +2881,7 @@ def bot_payment_review_action_api(request, review_id):
             actor=request.user,
             decision=decision_name,
             verification_scope=verification_scope,
+            order_total_amount=request.POST.get("order_total_amount"),
             confirmed_amount=request.POST.get("confirmed_amount"),
             reason_code=reason_code,
             reason_text=reason_text,
