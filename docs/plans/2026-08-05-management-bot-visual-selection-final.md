@@ -85,67 +85,67 @@
 
 ### 3.1 RED — API и DOM identity
 
-- [ ] Добавить failing test: каждая rendered client row имеет стабильный `data-client-id`.
-- [ ] Добавить failing test: payload содержит `last_message_at` для каждого клиента.
-- [ ] Добавить failing test: API order остаётся `-last_message_at, -id`.
-- [ ] Добавить failing test: search/filter/page parameters сохраняются при background refresh.
-- [ ] Запустить focused tests и подтвердить ожидаемое падение по отсутствующему keyed reconcile contract.
+- [x] Добавить failing test: каждая rendered client row имеет стабильный `data-client-id`.
+- [x] Добавить failing test: payload содержит `last_message_at` для каждого клиента.
+- [x] Добавить failing test: API order остаётся `-last_message_at, -id`.
+- [x] Добавить failing test: search/filter/page parameters сохраняются при background refresh.
+- [x] Запустить focused tests и подтвердить ожидаемое падение по отсутствующему keyed reconcile contract.
 
 ### 3.2 GREEN — безопасный live polling
 
-- [ ] Ввести единое состояние list request: generation id + `AbortController`.
-- [ ] Отменять устаревший request при новом search/filter/page request.
-- [ ] Poll только когда видим panel `bot` и `document.visibilityState === 'visible'`.
-- [ ] Poll выполняется независимо от `activeId`.
-- [ ] Использовать bounded interval 4–6 секунд без одновременных overlapping requests.
-- [ ] После network failure сохранить текущий список, не заменять его empty state.
-- [ ] После двух пропущенных циклов показать компактный stale marker.
-- [ ] После восстановления показать один короткий reconnect marker и убрать stale state.
-- [ ] Не менять selected client, filter, q, page и focus target.
+- [x] Ввести единое состояние list request: generation id + `AbortController`.
+- [x] Отменять устаревший request при новом search/filter/page request.
+- [x] Poll только когда видим panel `bot` и `document.visibilityState === 'visible'`.
+- [x] Poll выполняется независимо от `activeId`.
+- [x] Использовать bounded interval 4–6 секунд без одновременных overlapping requests.
+- [x] После network failure сохранить текущий список, не заменять его empty state.
+- [x] После двух пропущенных циклов показать компактный stale marker.
+- [x] После восстановления показать один короткий reconnect marker и убрать stale state.
+- [x] Не менять selected client, filter, q, page и focus target.
 
 ### 3.3 RED — reconciliation и пространственная память
 
-- [ ] Добавить failing JS/template contract: reconcile keyed по client id, а не `replaceChildren` всего списка.
-- [ ] Добавить failing contract: selected row сохраняет active class после reorder.
-- [ ] Добавить failing contract: новый верхний клиент не вызывает `select()`/detail load.
-- [ ] Добавить failing contract: повторный identical snapshot не создаёт duplicate rows.
-- [ ] Добавить failing contract: reduced-motion отключает transform transition.
-- [ ] Подтвердить RED отдельным запуском.
+- [x] Добавить failing JS/template contract: reconcile keyed по client id, а не `replaceChildren` всего списка.
+- [x] Добавить failing contract: selected row сохраняет active class после reorder.
+- [x] Добавить failing contract: новый верхний клиент не вызывает `select()`/detail load.
+- [x] Добавить failing contract: повторный identical snapshot не создаёт duplicate rows.
+- [x] Добавить failing contract: reduced-motion отключает transform transition.
+- [x] Подтвердить RED отдельным запуском.
 
 ### 3.4 GREEN — FLIP-анимация
 
-- [ ] Перед изменением порядка сохранить `getBoundingClientRect()` существующих rows.
-- [ ] Обновить content существующих nodes in-place и создать только действительно новые nodes.
-- [ ] Переставить nodes в server order через keyed fragment/reconcile.
-- [ ] После layout вычислить delta и применить invert transform.
-- [ ] В следующий animation frame анимировать transform к нулю за 180–220 ms.
-- [ ] Предыдущая первая карточка плавно опускается, новая/обновлённая поднимается; без drag cursor и без имитации ручного DnD.
-- [ ] Новая карточка получает короткий `new activity` rail/chip highlight до 900 ms, без полной цветной вспышки.
+- [x] Перед изменением порядка сохранить `getBoundingClientRect()` существующих rows.
+- [x] Обновить content существующих nodes in-place и создать только действительно новые nodes.
+- [x] Переставить nodes в server order через keyed fragment/reconcile.
+- [x] После layout вычислить delta и применить invert transform.
+- [x] В следующий animation frame анимировать transform к нулю за 180–220 ms.
+- [x] Предыдущая первая карточка плавно опускается, новая/обновлённая поднимается; без drag cursor и без имитации ручного DnD.
+- [x] Новая карточка получает короткий `new activity` rail/chip highlight до 900 ms, без полной цветной вспышки.
 - [ ] Coalesce несколько изменений в один render frame.
-- [ ] Для `prefers-reduced-motion` сразу применить новый порядок и оставить только спокойный activity marker.
-- [ ] Не анимировать initial load, filter switch, search submit и pagination как inbound reorder.
-- [ ] Сохранять keyboard focus на той же client row; если row ушла из filter result, переводить focus на list heading.
+- [x] Для `prefers-reduced-motion` сразу применить новый порядок и оставить только спокойный activity marker.
+- [x] Не анимировать initial load, filter switch, search submit и pagination как inbound reorder.
+- [x] Сохранять keyboard focus на той же client row; если row ушла из filter result, переводить focus на list heading.
 
 ### 3.5 Live conversation coordination
 
-- [ ] Оставить существующий `after_id` polling текущего диалога.
-- [ ] При inbound выбранного клиента обновить его preview/time и поднять row, не пересоздавая transcript.
-- [ ] При inbound другого клиента поднять его row, но не открывать его conversation.
-- [ ] При отсутствии selected client не auto-open нового клиента.
-- [ ] Не скроллить list к top принудительно, если менеджер изучает нижнюю часть; показать компактный `Нові зверху · N` action для явного возврата.
-- [ ] При нажатии `Нові зверху · N` плавно вернуть list к top и убрать counter.
+- [x] Оставить существующий `after_id` polling текущего диалога.
+- [x] При inbound выбранного клиента обновить его preview/time и поднять row, не пересоздавая transcript.
+- [x] При inbound другого клиента поднять его row, но не открывать его conversation.
+- [x] При отсутствии selected client не auto-open нового клиента.
+- [x] Не скроллить list к top принудительно, если менеджер изучает нижнюю часть; показать компактный `Нові зверху · N` action для явного возврата.
+- [x] При нажатии `Нові зверху · N` плавно вернуть list к top и убрать counter.
 
 ### 3.6 Release 1 verification and delivery
 
-- [ ] Focused Django/API tests pass.
-- [ ] JavaScript syntax extraction/check passes.
-- [ ] `python manage.py check` passes.
-- [ ] `python manage.py makemigrations --check --dry-run` shows no drift.
-- [ ] `git diff --check` passes.
-- [ ] Desktop browser: inbound from row 2 moves to row 1 плавно.
-- [ ] Desktop browser: open row remains selected while another row moves to top.
-- [ ] Mobile browser: no horizontal overflow and no forced auto-open.
-- [ ] Reduced-motion browser emulation: order updates without FLIP.
+- [x] Focused Django/API tests pass.
+- [x] JavaScript syntax/execution check passes in the real browser with no page errors from the client workspace.
+- [x] `python manage.py check` passes.
+- [x] `python manage.py makemigrations --check --dry-run` shows no drift.
+- [x] `git diff --check` passes.
+- [x] Desktop browser: inbound from row 2 moves to row 1 плавно.
+- [x] Desktop browser: open row remains selected while another row moves to top.
+- [x] Mobile browser: no horizontal overflow and no forced auto-open.
+- [x] Reduced-motion browser emulation: order updates without FLIP.
 - [ ] Network failure/recovery: list stays usable, stale/reconnect states correct.
 - [ ] Commit only Release 1 files.
 - [ ] Push `codex/management-bot-live-visuals`.
