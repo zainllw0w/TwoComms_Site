@@ -168,6 +168,17 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn('data-client-view="hidden">Приховані', self.template)
         self.assertIn("let currentView='all';", self.template)
 
+    def test_client_rows_render_the_server_commercial_visual_state_without_replacing_actions(self):
+        for contract in (
+            ".bot-client-row.commercial-paid:not(.needs-action):not(.post-sale-action)",
+            ".bot-client-row.commercial-shipped:not(.needs-action):not(.post-sale-action)",
+            "c.commercial_visual_state",
+            "c.commercial_visual_state_label",
+            "bot-commercial-badge",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn("row.addEventListener('keydown'", self.template)
+
     def test_status_ui_distinguishes_daemon_liveness_from_broken_ingress(self):
         self.assertIn("st.state==='ingress_degraded'", self.template)
         self.assertIn("Прийом повідомлень порушено", self.template)
@@ -1218,6 +1229,177 @@ class ClientsApiTests(TestCase):
             [item["id"] for item in active_clients["clients"]],
             "A completed paid sale must not remain in the active work queue.",
         )
+
+    def test_commercial_visual_state_prioritizes_active_shipment_with_tracking(self):
+        from orders.models import Order
+        from management.services.ig_order_assignments import link_order_to_client
+
+        paid_deal = IgDeal.objects.create(
+            client=self.c,
+            amount=Decimal("2100.00"),
+            payment_truth=IgDeal.PaymentTruth.CONFIRMED,
+        )
+        IgPaymentProjection.objects.create(
+            client=self.c,
+            deal=paid_deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("2100.00"),
+        )
+        order = Order.objects.create(
+            full_name="Відправлене замовлення",
+            phone="380502034719",
+            city="Київ",
+            np_office="1",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+            status="ship",
+            tracking_number="20451495591085",
+        )
+        link_order_to_client(order, client=self.c, actor=self.admin)
+
+        list_card = next(
+            item
+            for item in self.client.get(
+                reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
+            ).json()["clients"]
+            if item["id"] == self.c.id
+        )
+        detail_card = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()["client"]
+
+        for card in (list_card, detail_card):
+            self.assertEqual(card["commercial_visual_state"], "shipped")
+            self.assertEqual(card["commercial_visual_state_label"], "Відправлено")
+
+    def test_commercial_visual_state_keeps_confirmed_payment_green_without_tracking(self):
+        from orders.models import Order
+        from management.services.ig_order_assignments import link_order_to_client
+
+        order = Order.objects.create(
+            full_name="Оплачене замовлення",
+            phone="380502034720",
+            city="Київ",
+            np_office="1",
+            total_sum=Decimal("950.00"),
+            payment_status="paid",
+            status="ship",
+        )
+        link_order_to_client(order, client=self.c, actor=self.admin)
+
+        card = next(
+            item
+            for item in self.client.get(
+                reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
+            ).json()["clients"]
+            if item["id"] == self.c.id
+        )
+
+        self.assertEqual(card["commercial_visual_state"], "paid")
+        self.assertEqual(card["commercial_visual_state_label"], "Оплачено")
+
+    def test_commercial_visual_state_keeps_delivered_order_green_after_shipment(self):
+        from orders.models import Order
+        from management.services.ig_order_assignments import link_order_to_client
+
+        paid_deal = IgDeal.objects.create(
+            client=self.c,
+            amount=Decimal("2100.00"),
+            payment_truth=IgDeal.PaymentTruth.CONFIRMED,
+        )
+        IgPaymentProjection.objects.create(
+            client=self.c,
+            deal=paid_deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("2100.00"),
+        )
+        order = Order.objects.create(
+            full_name="Доставлене замовлення",
+            phone="380502034722",
+            city="Київ",
+            np_office="1",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+            status="done",
+            tracking_number="20451495591087",
+        )
+        link_order_to_client(order, client=self.c, actor=self.admin)
+
+        card = next(
+            item
+            for item in self.client.get(
+                reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
+            ).json()["clients"]
+            if item["id"] == self.c.id
+        )
+
+        self.assertEqual(card["commercial_visual_state"], "paid")
+        self.assertEqual(card["commercial_visual_state_label"], "Оплачено")
+
+    def test_commercial_visual_state_never_treats_direct_delivery_error_as_shipment(self):
+        paid_deal = IgDeal.objects.create(
+            client=self.c,
+            amount=Decimal("950.00"),
+            payment_truth=IgDeal.PaymentTruth.CONFIRMED,
+        )
+        IgPaymentProjection.objects.create(
+            client=self.c,
+            deal=paid_deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("950.00"),
+        )
+        self.c.delivery_status = "message_request_check"
+        self.c.delivery_error = "Перевірте Запити на повідомлення в Instagram."
+        self.c.save(update_fields=["delivery_status", "delivery_error", "updated_at"])
+
+        card = next(
+            item
+            for item in self.client.get(
+                reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
+            ).json()["clients"]
+            if item["id"] == self.c.id
+        )
+
+        self.assertEqual(card["commercial_visual_state"], "paid")
+        self.assertEqual(card["delivery_status"], "message_request_check")
+
+    def test_commercial_visual_state_ignores_an_unassigned_shipped_order(self):
+        from orders.models import Order
+        from management.services.ig_order_assignments import (
+            link_order_to_client,
+            unlink_order_from_client,
+        )
+
+        order = Order.objects.create(
+            full_name="Відв'язане замовлення",
+            phone="380502034721",
+            city="Київ",
+            np_office="1",
+            total_sum=Decimal("1200.00"),
+            payment_status="paid",
+            status="ship",
+            tracking_number="20451495591086",
+        )
+        assignment = link_order_to_client(order, client=self.c, actor=self.admin)
+        unlink_order_from_client(
+            order,
+            client=self.c,
+            actor=self.admin,
+            expected_version=assignment.version,
+            reason_code="test_unlink",
+            reason="Тестуємо, що знята прив'язка не виглядає відправленою.",
+        )
+
+        card = next(
+            item
+            for item in self.client.get(
+                reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
+            ).json()["clients"]
+            if item["id"] == self.c.id
+        )
+
+        self.assertEqual(card["commercial_visual_state"], "")
+        self.assertEqual(card["commercial_visual_state_label"], "")
 
     def test_incremental_detail_projects_operational_stage_for_open_chat(self):
         from orders.models import Order
