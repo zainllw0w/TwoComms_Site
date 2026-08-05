@@ -1,273 +1,394 @@
-# Финальный план отбора визуальных улучшений management Instagram bot
+# Management Instagram Bot Visual System Implementation Plan
 
-**Дата:** 2026-08-05
-**Статус:** канонический shortlist для последующих релизов; кодовые изменения
-выпускаются отдельными срезами
-**База:** `main` / `1849441d`
-**Область:** management Instagram bot, список клиентов, переписка, коммерческий
-контекст, обзор и статистика.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-## Цель
+**Goal:** Превратить management Instagram bot в спокойное, визуально ясное и live-обновляемое рабочее место менеджера, где новый inbound виден сразу, коммерческие статусы не лгут, а статистика читается одним взглядом.
 
-Сделать рабочее место менеджера быстрее для сканирования и безопаснее для
-решений: новый inbound должен быть заметен без перезагрузки, коммерческое
-состояние должно объясняться фактом, статистика должна читаться одним взглядом,
-а адаптивность и анимации должны помогать работе, а не добавлять шум.
+**Architecture:** Сохраняем Django template + vanilla JavaScript и существующие API. Live inbox строится как server-authoritative polling/reconciliation с FLIP-анимацией, статистика — на правдивом расширенном API и лёгких CSS/HTML-диаграммах без тяжёлой chart library, коммерческий цвет — только на разделённых backend-фактах текущей оплаты, исторической покупки и доставки.
 
-Typing/seen уже выделен в отдельный и доставленный срез. Этот план не меняет его
-поведение и не дублирует уже выпущенные изменения: зеленое verified paid,
-фиолетовое shipped, янтарное attention, сворачиваемый context drawer,
-компактные primary/advanced filters, симметричная панель действий и обновлённая
-Overview-сетка считаются базой.
+**Tech Stack:** Django, Django ORM, HTML/CSS, vanilla JavaScript, existing management APIs, Django TestCase/Client, browser QA, Passenger deployment.
 
-## Как принималось решение
+---
 
-Каждая рекомендация из 100 оценена по одной шкале и по одному набору запретов:
+## 0. Неподвижные продуктовые правила
 
-| Критерий | Вес | Что считается достаточным |
+- [x] Typing/seen уже выпущен отдельным срезом и не входит в этот цикл.
+- [x] Live-перестановка клиентов — Release 1 и первый UI-код этого плана.
+- [x] Статистика — Release 2 и второй крупный UI-релиз.
+- [x] Новый inbound поднимает карточку наверх даже при открытом диалоге.
+- [x] Новый inbound никогда не переключает менеджера на другого клиента автоматически.
+- [x] Сохраняются выбранный клиент, поиск, фильтр, страница, фокус и scroll-контекст.
+- [x] Порядок задаёт backend `-last_message_at, -id`; frontend ничего не выдумывает.
+- [x] Цвет означает коммерческий факт, а не предположение модели или красивый декор.
+- [x] Исторически завершённая покупка не равна подтверждённой текущей оплате.
+- [x] Доставка показывается только из canonical tracking/order facts.
+- [x] Анимация допускается, если объясняет изменение, сохраняет пространственную память или сокращает действие.
+- [x] Не внедрять sound alerts, particles, постоянную пульсацию, fake countdown, принудительный auto-open, декоративные pie charts и выдуманные time-series.
+- [x] После каждого релиза: focused tests → commit → push feature → merge local `main` → push `origin/main` → deploy → SHA/health verification.
+
+## 1. Критерии отбора визуальных решений
+
+Каждое изменение проходит один и тот же фильтр. Если оно не набирает 75/100 либо проваливает правдивость, оно не реализуется.
+
+| Критерий | Вес | Вопрос перед внедрением |
 |---|---:|---|
-| Скорость решения менеджера | 25% | элемент подсказывает, что делать дальше, а не только украшает экран |
-| Скорость визуального понимания | 20% | смысл считывается без чтения длинного абзаца |
-| Правдивость данных | 20% | состояние строится на существующем server/API fact, а не на догадке |
-| Визуальный эффект | 15% | появляется ясная и спокойная иерархия, а не декоративная анимация |
-| Интерактивность | 10% | действие сокращает путь или сохраняет контекст работы |
-| Responsive-устойчивость | 5% | работает на 320/375/768/1440 px без overflow |
-| Стоимость поддержки | 5% | можно покрыть контрактом, browser QA и rollback |
+| Скорость решения менеджера | 25 | Быстрее ли понятно, что произошло и что делать? |
+| Скорость визуального считывания | 20 | Можно ли понять смысл взглядом без длинного текста? |
+| Правдивость | 20 | Есть ли canonical backend fact, timestamp и provenance? |
+| Визуальная иерархия | 15 | Стало ли спокойнее, ровнее и яснее? |
+| Интерактивность | 10 | Сократилось ли число действий или потеря контекста? |
+| Адаптивность | 5 | Работает ли на 320/375/768/1440 px без overflow? |
+| Поддержка | 5 | Есть ли тест, fallback и понятный rollback? |
 
-В реализацию попадают решения с итогом не ниже 75/100 и без провала по
-правдивости. Цвет без короткого текстового маркера, звук без явной операторской
-необходимости, постоянные пульсации, fake countdown, выдуманный shipment status,
-автопереключение открытого диалога и скрытая бизнес-логика во frontend запрещены.
+### Запрещающие вопросы
 
-## Приоритеты и порядок релизов
+- [ ] Если убрать эффект, теряется ли понимание? Если нет — эффект декоративный и не нужен.
+- [ ] Есть ли у числа denominator и период? Если нет — процент не показывать.
+- [ ] Есть ли server timestamp? Если нет — не строить countdown или freshness claim.
+- [ ] Есть ли подтверждённый payment/order/tracking source? Если нет — не окрашивать как paid/shipped.
+- [ ] Уменьшается ли текст за счёт понятного visual encoding? Если нет — не заменять текст случайной иконкой.
 
-Каждый релиз ниже является самостоятельным срезом: RED-контракт, минимальная
-реализация, focused tests, browser QA, отдельный commit, push feature-ветки,
-fast-forward в локальный `main`, push `origin/main`, серверный deploy и
-проверка SHA/heartbeat. Следующий срез начинается только после подтверждения
-предыдущего.
+## 2. Release 0 — baseline и защита рабочего контекста
 
-### Release 1 — Live inbox и пространственная память
+**Files:**
 
-**Ценность:** менеджер видит новый inbound сразу, понимает, какая карточка
-изменилась, и не теряет открытый диалог.
+- Inspect: `twocomms/management/templates/management/bot.html`
+- Inspect: `twocomms/management/bot_views.py`
+- Inspect: `twocomms/management/services/bot_payment_truth.py`
+- Test inventory: `twocomms/management/tests_bot_api.py` и management bot contract tests
 
-1. Poll existing clients API только при видимой вкладке Bot; `AbortController`
-   отменяет устаревший search/filter/list request.
-2. Снимок сравнивается по `client_id + last_message_at`; серверная сортировка
-   `-last_message_at, -id` остаётся единственным источником порядка.
-3. DOM-строки получают стабильный `data-client-id`; существующие элементы
-   обновляются in-place, новые входят сверху, ушедшие из фильтра выходят мягко.
-4. FLIP-анимация двигает только изменившиеся строки, длительность 160–200 ms;
-   rail/chip получают короткий highlight, вся карточка не вспыхивает.
-5. `prefers-reduced-motion` отключает движение и оставляет маркер, aria-live и
-   корректный порядок.
-6. Открытый менеджером клиент никогда не заменяется другим автоматически.
-   Если он не выбран, новый клиент может появиться сверху, но selection не
-   меняется принудительно.
-7. В header списка появляется компактное `Оновлено ...` и stale/reconnect
-   состояние после двух пропущенных циклов; retry использует backoff и jitter.
-8. Частые изменения coalesce-ятся в один render frame; повторное событие не
-   создаёт дубликат строки или маркера.
+### Checklist
 
-**Не делаем в этом релизе:** SSE, звук, виртуализацию списка, принудительный
-auto-open чужого диалога и искусственное изменение `last_message_at`.
+- [x] Работать в `/Users/zainllw0w/.config/superpowers/worktrees/site/codex-management-bot-live-visuals`.
+- [x] Ветка `codex/management-bot-live-visuals` отделена от dirty main checkout.
+- [x] Зафиксирована актуальная база `90fdd0ec` после синхронизации с `origin/main`.
+- [x] Установлено, что текущий client refresh работает раз в 20 секунд только при `!activeId`.
+- [x] Установлено, что `load(q)` полностью уничтожает и пересоздаёт список.
+- [x] Установлено, что API уже отдаёт `last_message_at` и сортирует по `-last_message_at, -id`.
+- [x] Установлено, что conversation incremental polling уже использует `after_id`.
+- [ ] Найти точные существующие тестовые классы для clients/stats API и JS contract assertions.
+- [ ] Снять baseline screenshots desktop/mobile до Release 1.
+- [ ] Выполнить focused baseline tests и записать существующие failures отдельно от новых.
 
-**Acceptance:** visible-tab polling, abort, stale/reconnect, idempotent
-reconcile, FLIP, reduced-motion и selected-client preservation покрыты
-контрактами; browser QA проверяет 320/375/768/1440 px и отсутствие overflow.
+## 3. Release 1 — live inbox с FLIP-перестановкой
 
-### Release 2 — Новые сообщения и управление перепиской
+**Value:** новый inbound появляется без reload, карточка визуально перемещается в новое место, а менеджер сохраняет открытый диалог и понимает, кто написал последним.
 
-**Ценность:** менеджер видит границу новых сообщений и возвращается к актуальной
-точке без ручной прокрутки длинной истории.
+**Recommended approach:** bounded polling существующего clients API + keyed DOM reconciliation + FLIP. SSE/WebSocket отложены: они увеличивают инфраструктуру, но не дают достаточного выигрыша при текущем масштабе и уже существующем polling-контракте.
 
-1. Использовать существующий `after_id` conversation API; новые сообщения
-   добавляются без пересоздания transcript.
-2. Добавить разделитель `Нові повідомлення` только для сообщений, пришедших
-   после открытия/последнего явного просмотра текущей сессии. Не выдавать его за
-   серверный unread marker, пока такой факт не хранится backend.
-3. Кнопка `До останнього` появляется только при отрыве от низа; переход сохраняет
-   anchor и не дёргает layout.
-4. Добавить date separators только при смене календарной даты; подряд идущие
-   сообщения одной роли сгруппировать, но оставить доступный timestamp.
-5. В conversation header явно показывать active takeover: `Менеджер веде
-   діалог`; обычные transport errors остаются отдельным operational warning.
-6. Для TTN и provider message id добавить copy action с text fallback и
-   коротким подтверждением вместо постоянного текста.
-7. Sticky action rail в длинном context drawer разрешён только для одной
-   primary action; secondary facts не превращаются в постоянно плавающие кнопки.
+**Files:**
 
-**Acceptance:** сохранение scroll position, корректная работа `after_id`,
-keyboard/focus contract, mobile one-column flow и browser проверки длинного
-диалога.
+- Modify: `twocomms/management/templates/management/bot.html`
+- Modify if contract needs metadata: `twocomms/management/bot_views.py`
+- Test: existing management bot API/template contract test module
+- Browser QA: management bot page at 320/375/768/1440 px
 
-### Release 3 — Коммерческое доказательство и доставка
+### 3.1 RED — API и DOM identity
 
-**Ценность:** цвет не требует догадки: менеджер видит, на каком факте основан
-paid/shipped/attention и что делать дальше.
+- [x] Добавить failing test: каждая rendered client row имеет стабильный `data-client-id`.
+- [x] Добавить failing test: payload содержит `last_message_at` для каждого клиента.
+- [x] Добавить failing test: API order остаётся `-last_message_at, -id`.
+- [x] Добавить failing test: search/filter/page parameters сохраняются при background refresh.
+- [x] Запустить focused tests и подтвердить ожидаемое падение по отсутствующему keyed reconcile contract.
 
-1. Сохранить backend precedence: active shipment с подтверждённым tracking
-   отображается как shipped; confirmed paid без active shipment — paid;
-   pending action — attention; остальное нейтрально.
-2. Добавить компактный evidence popover по клику/фокусу: источник факта, сумма,
-   order id, TTN, `tracking_checked_at`, verifier и время. Токены, raw webhook и
-   лишние PII никогда не показывать.
-3. В карточке заказа показать truthful lifecycle только из canonical Nova
-   Poshta fields: `Не відправлено`, `Відправлено`, `У дорозі`, `У відділенні`,
-   `Отримано`, либо `Статус не підтверджено`. TTN сам по себе не является
-   доказательством движения.
-4. В detail показать одну компактную progression line, а историю переходов
-   открыть по клику; пустые этапы и пустые секции не рендерить.
-5. Для `attention` показывать короткий next action (`Перевірити оплату`,
-   `Прив'язати замовлення`, `Запросити TTN`) только если API реально сообщает
-   такую возможность.
-6. Таймер оплаты делать только при настоящем server `expires_at`; без него
-   никакого countdown, псевдо-SLA или вычисления от момента открытия страницы.
-7. Тонкая rail/chip transition при изменении факта, без полной заливки карточки;
-   reduced-motion оставляет цвет, текст и aria announcement.
+### 3.2 GREEN — безопасный live polling
 
-**Acceptance:** presentation matrix paid/shipped/done/pending/error, order and
-Nova Poshta serializer tests, no inferred delivery, detail popover keyboard path,
-responsive 320 px.
+- [x] Ввести единое состояние list request: generation id + `AbortController`.
+- [x] Отменять устаревший request при новом search/filter/page request.
+- [x] Poll только когда видим panel `bot` и `document.visibilityState === 'visible'`.
+- [x] Poll выполняется независимо от `activeId`.
+- [x] Использовать bounded interval 4–6 секунд без одновременных overlapping requests.
+- [x] После network failure сохранить текущий список, не заменять его empty state.
+- [x] После двух пропущенных циклов показать компактный stale marker.
+- [x] После восстановления показать один короткий reconnect marker и убрать stale state.
+- [x] Не менять selected client, filter, q, page и focus target.
 
-### Release 4 — Статистика, которую можно понять одним взглядом
+### 3.3 RED — reconciliation и пространственная память
 
-**Ценность:** вместо стены таблиц менеджер видит объём, качество и узкое место
-воронки за выбранный период, затем открывает подробности.
+- [x] Добавить failing JS/template contract: reconcile keyed по client id, а не `replaceChildren` всего списка.
+- [x] Добавить failing contract: selected row сохраняет active class после reorder.
+- [x] Добавить failing contract: новый верхний клиент не вызывает `select()`/detail load.
+- [x] Добавить failing contract: повторный identical snapshot не создаёт duplicate rows.
+- [x] Добавить failing contract: reduced-motion отключает transform transition.
+- [x] Подтвердить RED отдельным запуском.
 
-#### Backend data contract
+### 3.4 GREEN — FLIP-анимация
 
-Расширить текущий stats API без изменения его существующих полей:
+- [x] Перед изменением порядка сохранить `getBoundingClientRect()` существующих rows.
+- [x] Обновить content существующих nodes in-place и создать только действительно новые nodes.
+- [x] Переставить nodes в server order через keyed fragment/reconcile.
+- [x] После layout вычислить delta и применить invert transform.
+- [x] В следующий animation frame анимировать transform к нулю за 180–220 ms.
+- [x] Предыдущая первая карточка плавно опускается, новая/обновлённая поднимается; без drag cursor и без имитации ручного DnD.
+- [x] Новая карточка получает короткий `new activity` rail/chip highlight до 900 ms, без полной цветной вспышки.
+- [ ] Coalesce несколько изменений в один render frame.
+- [x] Для `prefers-reduced-motion` сразу применить новый порядок и оставить только спокойный activity marker.
+- [x] Не анимировать initial load, filter switch, search submit и pagination как inbound reorder.
+- [x] Сохранять keyboard focus на той же client row; если row ушла из filter result, переводить focus на list heading.
 
-- `generated_at` и `schema_version` для честного времени свежести;
-- `totals.messages`, `totals.inbound_messages`, `totals.bot_replies`,
-  `totals.manager_messages`, `totals.unique_conversations`;
-- `totals.qualified`, `totals.paid`, `totals.lost_or_refused`, где paid берётся
-  только из verified payment truth;
-- сохранить `interactions`, `stages`, `funnel`, `ads`, `products`, objections и
-  `funnel_meta` как источники диаграмм;
-- при отсутствии данных отдавать `0`/пустой массив, а не выдуманную динамику.
+### 3.5 Live conversation coordination
 
-#### UI composition
+- [x] Оставить существующий `after_id` polling текущего диалога.
+- [x] При inbound выбранного клиента обновить его preview/time и поднять row, не пересоздавая transcript.
+- [x] При inbound другого клиента поднять его row, но не открывать его conversation.
+- [x] При отсутствии selected client не auto-open нового клиента.
+- [x] Не скроллить list к top принудительно, если менеджер изучает нижнюю часть; показать компактный `Нові зверху · N` action для явного возврата.
+- [x] При нажатии `Нові зверху · N` плавно вернуть list к top и убрать counter.
 
-1. Верхний ряд — четыре KPI: `Сообщения`, `Діалоги`, `Підтверджені оплати`,
-   `Відмови / втрати`; у каждого короткий definition tooltip и `дані ... тому`.
-2. Второй ряд — proportional funnel: `написали → кваліфіковані → товар →
-   checkout → verified paid`; ширина полосы нормируется на первый этап, нули не
-   создают пустых декоративных карточек.
-3. Третий ряд — две компактные горизонтальные диаграммы: категории диалогов и
-   товары; подписи короткие, точное значение показывается рядом/по focus.
-4. Реклама — ranked bars `chats / paid / revenue`, топ-5 в первом экране,
-   остальные в раскрытии; не смешивать revenue с количеством диалогов.
-5. Подробные cohort/drop-off/time-on-step таблицы остаются в disclosure, не
-   исчезают и не занимают первый viewport.
-6. Переключатель `Метрики / Інциденти` показывает actionable health отдельно;
-   нули и неактуальные warning rows скрываются, но badge количества сохраняется.
-7. Значение KPI crossfade-анимируется только при изменении и только 120 ms;
-   initial load показывает skeleton не дольше 800 ms, затем честный unavailable.
+### 3.6 Release 1 verification and delivery
 
-**Не делаем:** тяжёлую chart library, декоративные pie charts, time-series без
-server series, проценты без denominator, conversion из неподтверждённой оплаты.
+- [x] Focused Django/API tests pass.
+- [x] JavaScript syntax/execution check passes in the real browser with no page errors from the client workspace.
+- [x] `python manage.py check` passes.
+- [x] `python manage.py makemigrations --check --dry-run` shows no drift.
+- [x] `git diff --check` passes.
+- [x] Desktop browser: inbound from row 2 moves to row 1 плавно.
+- [x] Desktop browser: open row remains selected while another row moves to top.
+- [x] Mobile browser: no horizontal overflow and no forced auto-open.
+- [x] Reduced-motion browser emulation: order updates without FLIP.
+- [ ] Network failure/recovery: list stays usable, stale/reconnect states correct.
+- [ ] Commit only Release 1 files.
+- [ ] Push `codex/management-bot-live-visuals`.
+- [ ] Merge/fast-forward into local `main` without touching unrelated WIP.
+- [ ] Push `origin/main`.
+- [ ] Server `git pull --ff-only origin main` and run deploy sequence.
+- [ ] Verify deployed SHA equals pushed `main` SHA.
+- [ ] Verify management bot health/heartbeat and live page assets.
 
-**Acceptance:** stats API contract tests, distinct counts, zero/empty states,
-period/timezone tests, chart-label overflow matrix и screenshot QA.
+## 4. P0.5 — payment truth and «салат» visual correctness
 
-### Release 5 — Фильтры, context и micro-interactions
+**Production evidence, 2026-08-05:** найден один matching client: `stage=done`, `purchases_count=0`, `is_buyer=false`; три deals имеют `unpaid/cancelled`, provider projection `cancelled`, заказа и assignment нет. При этом существует manager decision `historical_fulfilled` / `historical_paid_archived`, которое широкая CRM-функция `client_has_confirmed_purchase()` превращает в текущий зелёный state `Оплачено`.
 
-**Ценность:** уменьшить число кликов и случайных действий после того, как live
-и stats уже дают правильные данные.
+**Decision:** сохранить исторический CRM-факт, но отделить его от текущего payment state. Зелёный `Оплачено` означает текущую подтверждённую оплату/оплаченный связанный заказ; историческая завершённая покупка получает отдельный спокойный buyer-history marker и не окрашивает текущую карточку как paid.
 
-1. Показывать counts в advanced filter disclosure и компактные active-condition
-   chips; текущие `Усі/Активні/Оплачені` остаются первичными.
-2. Добавить сортировку `Останні / Потрібна дія / Оплата / Доставка`, сохранив
-   `Останні` по умолчанию и server-authoritative semantics.
-3. Deep-link сохраняет filter, search, page и client id через безопасные numeric
-   ids; auth/backend остаются обязательными.
-4. Секции context раскрываются по потребности, состояние хранится как UI
-   preference; payment/order evidence всегда имеет видимый entry point.
-5. Keyboard-only: roving tabindex для tablists/rows, Arrow/Home/End, Escape и
-   возврат фокуса после drawer; один page `main` и labelled list/conversation/
-   context regions.
-6. Disabled controls получают короткую причину через `aria-describedby`; POST
-   кнопки имеют bounded busy state, сохранённую ширину и recoverable error.
-7. Ошибки live-потоков изолируются: stale/reconnect marker, retry, не ломая
-   transcript; aria-live разделяет polite counters и assertive errors.
-8. Единый reduced-motion policy и touch-target минимум 44 px; zoom 200% и
-   контраст коммерческих tokens входят в CI/browser QA.
+**Files:**
 
-### Release 6 — Измерение и финальная модернизация
+- Modify: `twocomms/management/services/bot_payment_truth.py`
+- Modify: `twocomms/management/bot_views.py`
+- Modify: `twocomms/management/templates/management/bot.html`
+- Test: payment truth service and bot client card tests
 
-До новых крупных эффектов записать baseline и проверить:
+### Checklist
 
-- время от открытия вкладки до первого понятного решения;
-- время от `Потрібна увага` до завершённого action;
-- использование advanced filters и deep links;
-- stale/overflow/reconnect без PII;
-- visual snapshots 320/375/768/1440 с маскированием времени и счётчиков.
+- [x] Выполнить read-only production evidence query без synthetic events.
+- [ ] RED: historical archived review without paid order/provider truth must not produce current `commercial_visual_state=paid`.
+- [ ] RED: legitimate provider-confirmed payment remains green.
+- [ ] RED: legitimate manager-verified current payment with source-qualified decision remains green.
+- [ ] RED: paid linked order remains green.
+- [ ] RED: historical fulfilled buyer remains discoverable through separate buyer-history payload/marker.
+- [ ] Implement separate predicates/presentation facts for `current_payment_confirmed` and `historical_purchase_confirmed`.
+- [ ] Do not mutate production rows automatically; correct presentation semantics first.
+- [ ] Add concise evidence tooltip/popover naming `provider`, `manager`, `paid order` or `historical archive`.
+- [ ] Re-run focused tests and payment inconsistency report read-only.
+- [ ] Browser QA exact «салат» state with production-like fixture.
+- [ ] Commit, push feature, merge main, push main, deploy and verify SHA/heartbeat.
 
-После этого можно включать только подтверждённые улучшения плотности, saved
-presets, manager presence и UI telemetry. Каждое крупное изменение получает
-feature flag с expiry date и rollback path. Ежеквартально удалять controls,
-которыми никто не пользуется.
+## 5. Release 2 — визуальная статистика без выдуманных данных
 
-## Полный ledger по 100 рекомендациям
+**Value:** менеджер одним взглядом видит объём, качество, verified conversion и узкое место, а подробные таблицы остаются доступными по раскрытию.
 
-Ledger нужен, чтобы ни один пункт не исчез в процессе и чтобы «не делать» было
-осознанным решением.
+**Recommended approach:** расширить существующий stats API additive fields и отрисовать semantic HTML/CSS bars. Не подключать тяжёлую chart library: horizontal bars, proportional funnel и compact KPI дают лучший контроль плотности и адаптивности.
 
-### Реализовать в этом цикле (55)
+**Files:**
 
-`2, 3, 4, 8, 12, 14, 15, 16, 17, 20, 22, 23, 25, 27, 30, 32, 33, 37, 38,
-39, 42, 45, 47, 48, 50, 53, 54, 56, 57, 59, 61, 62, 63, 65, 66, 68, 70, 71,
-72, 73, 74, 75, 76, 77, 79, 80, 83, 85, 86, 87, 89, 90, 96, 97, 98`.
+- Modify: `twocomms/management/bot_views.py`
+- Modify: `twocomms/management/templates/management/bot.html`
+- Test: stats API tests and period/timezone contracts
+- Browser QA: stats panel desktop/tablet/mobile
 
-Это live inbox, evidence/order UI, stats restructuring, actionable freshness,
-keyboard/reduced-motion и release-quality safeguards. Они дают прямой прирост
-понимания или предотвращают ошибочное действие.
+### 5.1 RED — truthful stats API
 
-### Реализовать после baseline-измерений (40)
+- [ ] Test `generated_at` and `schema_version`.
+- [ ] Test `totals.messages`, `inbound_messages`, `bot_replies`, `manager_messages`.
+- [ ] Test `unique_conversations` uses distinct clients in selected period.
+- [ ] Test `paid` uses verified/current payment truth, not stage alone and not historical archive alone.
+- [ ] Test `qualified` definition and denominator.
+- [ ] Test `lost_or_refused` definition from canonical stage/reason/analysis categories.
+- [ ] Test custom date range timezone boundaries.
+- [ ] Test zero/empty dataset returns zeros/arrays, never invented deltas.
+- [ ] Confirm existing API fields remain backwards compatible.
 
-`1, 5, 6, 7, 9, 10, 11, 19, 21, 24, 26, 28, 29, 31, 34, 35, 36, 41, 43,
-44, 46, 49, 52, 55, 58, 60, 64, 67, 69, 78, 81, 84, 88, 91, 92, 93, 94, 95,
-99, 100`.
+### 5.2 GREEN — stats API contract
 
-Эти решения полезны, но могут добавить плотность, storage/telemetry или
-поддерживаемую поверхность. Их включать только после проверки, что базовые
-релизы не решают ту же проблему проще.
+- [ ] Add additive totals without deleting current funnel/interactions/products/ads/meta data.
+- [ ] Return period label and exact UTC/local boundary metadata.
+- [ ] Keep revenue separate from counts.
+- [ ] Cap ranked lists server-side only where full list remains available in disclosure payload.
+- [ ] Avoid N+1 queries; record focused query-count ceiling where practical.
 
-### Отложить до доказанной потребности (4)
+### 5.3 Visual hierarchy
 
-`18` (density profiles), `40` (context density profiles), `51` (SSE), `82`
-(virtualization). Polling и disclosure покрывают текущий масштаб; переходить к
-этим решениям можно только после измерения нагрузки и реального использования.
+- [ ] Replace 11 equal KPI boxes with four primary KPI cards: `Повідомлення`, `Діалоги`, `Підтверджені оплати`, `Відмови / втрати`.
+- [ ] Each KPI has icon, number, short label and focus/click definition tooltip; no permanent paragraph.
+- [ ] Show `Оновлено …` from server `generated_at`, not browser guess.
+- [ ] Secondary metrics live in one compact expandable strip.
+- [ ] Use tabular numbers and consistent card heights.
+- [ ] Animate only changed values with 120 ms crossfade; no count-up theatre.
 
-### Отклонить (1)
+### 5.4 Funnel and charts
 
-`13` (global command palette): она скрывает действия, которые сейчас должны быть
-видимыми, и не даёт достаточного выигрыша для этого операционного экрана.
+- [ ] Add proportional horizontal funnel: conversations → qualified → product → checkout/payment → verified paid.
+- [ ] Widths normalize to the first stage; exact count and percent remain visible/focusable.
+- [ ] Zero stages render an honest empty rail, not a misleading minimum bar.
+- [ ] Add compact horizontal bars for conversation categories.
+- [ ] Add compact ranked product bars with top values first.
+- [ ] Add ads visual with separate columns/bars for chats, paid and revenue; top 5 first, remaining in disclosure.
+- [ ] Keep cohort/drop-off/time-on-step/manager-vs-bot/discount tables inside `Детальні дані` disclosure.
+- [ ] Hide empty analytical sections instead of rendering repeated empty cards.
+- [ ] Add clear empty state describing selected period, not generic `Немає даних`.
 
-Дополнительно отклонены, хотя их не было отдельными номерами: звуковые сигналы,
-автопереключение на любого нового клиента, фальшивые countdown, decorative
-particles/gradients, постоянные pulse-анимации, full-screen modal для каждого
-факта и любые статусы доставки, выведенные только из TTN или текста.
+### 5.5 Responsive and interaction
 
-## Definition of done для всего цикла
+- [ ] 1440 px: balanced 4-column KPI row and 2-column chart area.
+- [ ] 768 px: 2-column KPI row and single-column charts.
+- [ ] 375/320 px: horizontally stable single-column cards, labels wrap without clipping.
+- [ ] Tooltips open on hover/focus desktop and tap mobile; Escape returns focus.
+- [ ] Date range controls collapse into compact disclosure on narrow screens.
+- [ ] Loading uses stable skeleton geometry; error keeps previous successful data with retry action.
+- [ ] No chart depends on color alone; labels and values stay visible for ordinary visual reading.
 
-1. Каждый release имеет focused RED/GREEN tests, JavaScript syntax check,
-   `manage.py check`, migration drift check и `git diff --check`.
-2. Browser matrix: 320, 375, 768, 1440 px; проверяются overflow, focus,
-   reduced-motion, open chat, filter state, drawer и stats empty states.
-3. После каждого release: commit в feature, force-safe push, fast-forward local
-   `main`, push `origin/main`, server `git pull --ff-only`, migrations/check,
-   static/compress, Passenger restart, daemon ensure и SHA/heartbeat verification.
-4. Никаких synthetic Meta/customer messages, ad test events или production test
-   fixtures; коммерческие состояния проверяются локальными fixtures и
-   serializer/API tests.
-5. После финального release документируется фактический deployed SHA, остаточные
-   риски и список пунктов, которые сознательно отложены/отклонены.
+### 5.6 Release 2 verification and delivery
 
-## Следующий шаг
+- [ ] Stats API focused tests pass.
+- [ ] Zero/one/many data fixtures pass.
+- [ ] Timezone and custom range tests pass.
+- [ ] Browser screenshot matrix 320/375/768/1440 passes.
+- [ ] No horizontal overflow or clipped labels.
+- [ ] Definition tooltips and disclosures work by keyboard and touch.
+- [ ] Commit, push feature, merge main, push main, deploy.
+- [ ] Verify server SHA, health, static asset hash and live stats response shape.
 
-После утверждения этого draft начать только с Release 1. Не смешивать live
-reorder со статистикой или заказной lifecycle в одном commit/deploy.
+## 6. Release 3 — conversation focus improvements
+
+- [ ] Append new messages through existing `after_id`, never rebuild transcript.
+- [ ] Add session-local `Нові повідомлення` divider without pretending server unread truth.
+- [ ] Show `До останнього` only when manager is away from bottom.
+- [ ] Preserve scroll anchor while loading older history.
+- [ ] Add date separators only on date change.
+- [ ] Group adjacent same-role messages visually while retaining timestamps.
+- [ ] Show active takeover in header as one concise operational state.
+- [ ] Add copy actions for TTN/provider message id with short feedback.
+- [ ] Test long transcript, focus, scroll, mobile one-column and reduced-motion.
+- [ ] Commit/push/merge/deploy as separate release.
+
+## 7. Release 4 — commercial evidence and delivery lifecycle
+
+- [ ] Add click/focus evidence popover: source, amount, order id, verifier time.
+- [ ] Never expose tokens, raw webhook payloads or unnecessary PII.
+- [ ] Delivery line uses canonical statuses only: not shipped, shipped, in transit, branch, received, unverified.
+- [ ] TTN alone never implies movement.
+- [ ] Empty delivery/history sections do not render.
+- [ ] Show one next action only when API explicitly supports it.
+- [ ] Payment timer exists only with real `expires_at`.
+- [ ] Use subtle rail/chip transitions for real fact changes.
+- [ ] Test paid/shipped/pending/refunded/reversed/unknown presentation matrix.
+- [ ] Commit/push/merge/deploy as separate release.
+
+## 8. Release 5 — filters, context and control ergonomics
+
+- [ ] Keep primary filters minimal; move rare filters into one disclosure.
+- [ ] Add counts only where they help prioritization.
+- [ ] Show active filter chips with one-click clear.
+- [ ] Add server-authoritative sorting: recent, needs action, payment, delivery.
+- [ ] Preserve q/filter/page/client in URL deep-link without weakening auth.
+- [ ] Keep settings gear as true toggle with width transition and responsive reflow.
+- [ ] When settings closes, list and conversation columns expand symmetrically.
+- [ ] Normalize three-column heights/min-widths and prevent internal overflow.
+- [ ] Keep user action buttons in symmetric primary/secondary grid.
+- [ ] Disabled action explains why on focus/tap.
+- [ ] POST actions keep stable width, bounded busy state and recoverable error.
+- [ ] Touch target minimum 44 px for actionable controls.
+- [ ] Commit/push/merge/deploy as independent cohesive slices, not one mega-commit.
+
+## 9. Release 6 — overview cleanup and final visual modernization
+
+- [ ] Remove `Як працює` permanently from Overview.
+- [ ] Re-audit cards for equal rhythm, padding, line length and empty states.
+- [ ] Replace explanatory paragraphs with concise label + icon + on-demand help only where comprehension improves.
+- [ ] Remove duplicate headings and repeated status text.
+- [ ] Ensure meaningful state is visible in first viewport without card overload.
+- [ ] Add only functional micro-interactions: drawer transition, disclosure transition, saved feedback, live state transition.
+- [ ] No visual effect without an observable state change.
+- [ ] Final screenshot comparison against original four supplied screenshots.
+- [ ] Final browser matrix and operational workflow walkthrough.
+- [ ] Final commit/push/merge/deploy and deployed SHA record.
+
+## 10. 100-recommendation decision ledger
+
+The detailed 100-item reasoning remains in:
+
+- `docs/audits/2026-08-05-management-bot-visual-improvements.md`
+- `docs/plans/2026-08-05-management-bot-visual-refinement-design.md`
+- `docs/plans/2026-08-05-management-bot-visual-refinement.md`
+
+### Implement in this cycle
+
+- [ ] Live keyed refresh, FLIP reorder, activity marker, stale/reconnect state.
+- [ ] Selected-client preservation and live transcript/list coordination.
+- [ ] Current payment vs historical buyer semantics.
+- [ ] Commercial evidence and truthful delivery lifecycle.
+- [ ] Compact primary statistics and proportional funnel.
+- [ ] Ranked category/product/ad visuals.
+- [ ] On-demand analytical detail.
+- [ ] Compact filters, symmetric controls and responsive settings drawer.
+- [ ] Focus, keyboard, touch and reduced-motion behavior.
+- [ ] Stable loading/error/empty states.
+
+### Implement only after baseline evidence
+
+- [ ] Saved filter presets.
+- [ ] Manager presence indicators.
+- [ ] Density profiles.
+- [ ] UI telemetry without PII.
+- [ ] Virtualized client list.
+- [ ] SSE/WebSocket transport.
+
+### Explicitly reject
+
+- [x] Sound alerts without a separate operator opt-in study.
+- [x] Auto-opening whichever client wrote last.
+- [x] Fake timers and fake freshness.
+- [x] Decorative particles, glowing gradients and permanent pulse.
+- [x] Pie/donut charts when bars communicate ranking better.
+- [x] Hidden global command palette for primary operations.
+- [x] Delivery status inferred from TTN or message text alone.
+- [x] Color-only commercial semantics.
+
+## 11. Universal release gate
+
+Before every commit:
+
+- [ ] A failing test was observed before production implementation.
+- [ ] Focused tests pass after implementation.
+- [ ] Adjacent management bot tests pass.
+- [ ] JavaScript syntax check passes.
+- [ ] `python manage.py check` passes.
+- [ ] Migration drift check passes.
+- [ ] `git diff --check` passes.
+- [ ] No unrelated dirty files are staged.
+- [ ] Browser QA covers the changed interaction.
+
+Before every deploy:
+
+- [ ] Feature branch pushed successfully.
+- [ ] Exact release commit integrated into local `main` safely.
+- [ ] `origin/main` contains the release commit.
+- [ ] Server pull is fast-forward only.
+- [ ] Migrations/check/collectstatic/compress complete successfully when applicable.
+- [ ] Passenger restart and bot daemon ensure complete.
+- [ ] Server HEAD equals pushed main SHA.
+- [ ] Heartbeat/health is fresh.
+- [ ] No synthetic customer, Meta, payment or ad events were sent.
+
+## 12. Final definition of done
+
+- [ ] Release 1 live reorder works with selected and unselected clients.
+- [ ] «Салат» no longer appears currently paid without current payment truth.
+- [ ] Statistics communicate messages, conversations, qualification, verified payments and losses at a glance.
+- [ ] Detailed analytics remain available without dominating the first viewport.
+- [ ] Commercial colors and shipment states have visible factual provenance.
+- [ ] Settings, filters, action controls and three-column layout are symmetrical and responsive.
+- [ ] All chosen visual effects explain state change or preserve context.
+- [ ] Original problem screenshots have explicit before/after validation.
+- [ ] Every shipped slice is present in feature history, local main, origin/main and production.
+- [ ] Final deployed SHA and residual intentionally deferred items are documented.
