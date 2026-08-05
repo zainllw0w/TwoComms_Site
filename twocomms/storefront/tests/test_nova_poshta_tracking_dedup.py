@@ -596,6 +596,19 @@ class NovaPoshtaTrackingDedupTests(TestCase):
         self.assertEqual(result["errors"], 1)
         self.assertGreaterEqual(close_old.call_count, 1)
 
+    def test_failed_batch_does_not_publish_success_heartbeat(self):
+        with (
+            patch.object(self.service, "update_order_tracking_status", side_effect=RuntimeError("boom")),
+            patch("orders.nova_poshta_service.cache.set") as cache_set,
+        ):
+            result = self.service.update_all_tracking_statuses()
+
+        self.assertEqual(result["errors"], 1)
+        self.assertFalse(
+            any(call.args[0] == self.service.LAST_UPDATE_CACHE_KEY for call in cache_set.call_args_list),
+            "a failed batch must not publish the successful-tracking heartbeat",
+        )
+
     def test_facebook_purchase_save_error_does_not_fallback_to_full_save(self):
         self.order.pay_type = 'cod'
         self.order.source = 'web'

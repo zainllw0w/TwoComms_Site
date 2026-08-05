@@ -108,6 +108,67 @@ class TelegramOrderStatusActionTests(TestCase):
             "const stateHost = document.querySelector('.tg-waybill-hero');",
         )
 
+        html = response.content.decode("utf-8")
+        hero_index = html.index('class="tg-waybill-hero"')
+        form_index = html.index('data-tg-waybill-create')
+        form_state_index = html.index('data-tg-waybill-form-state', form_index)
+        self.assertLess(hero_index, form_index)
+        self.assertGreater(form_state_index, form_index)
+
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_server_error_is_rendered_between_hero_and_form(self, service_cls):
+        order = self._create_order()
+        token = build_order_action_token(order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION)
+        service_cls.return_value.is_configured.return_value = True
+        service_cls.return_value.create_waybill.side_effect = Exception("test failure")
+
+        response = self.client.post(
+            reverse(
+                "telegram_order_np_waybill_action",
+                args=[order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION],
+            ),
+            data={
+                "token": token,
+                "recipient_full_name": "Тестовий клієнт",
+                "recipient_phone": "+380991112233",
+                "recipient_city": "Київ",
+                "recipient_settlement_ref": "recipient-settlement-ref",
+                "recipient_city_ref": "recipient-city-ref",
+                "recipient_warehouse": "Відділення №4",
+                "recipient_warehouse_ref": "recipient-warehouse-ref",
+                "sender_city": "Харків",
+                "sender_settlement_ref": "sender-settlement-ref",
+                "sender_city_ref": "sender-city-ref",
+                "sender_warehouse": "Відділення №138",
+                "sender_warehouse_ref": "sender-warehouse-ref",
+                "description": "Одяг бренду TwoComms",
+                "declared_cost": "1299.00",
+                "weight": "1",
+                "seats_amount": "1",
+                "length_cm": "30",
+                "width_cm": "20",
+                "height_cm": "8",
+                "cod_amount": "0.00",
+                "payer_type": "Recipient",
+                "payment_method": "Cash",
+            },
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        hero_index = html.index('class="tg-waybill-hero"')
+        error_marker = (
+            'data-tg-waybill-page-state role="alert" aria-live="assertive">'
+            'Не вдалося створити ТТН через внутрішню помилку. Спробуйте ще раз.</div>'
+        )
+        self.assertIn(error_marker, html)
+        self.assertEqual(html.count(error_marker), 1)
+        error_index = html.index(error_marker)
+        form_index = html.index('data-tg-waybill-create')
+        self.assertLess(hero_index, error_index)
+        self.assertLess(error_index, form_index)
+
     @patch("orders.signals._safe_queue_notification")
     def test_signed_ship_action_updates_status_and_tracking_number(self, _queue_mock):
         order = self._create_order()

@@ -1340,7 +1340,10 @@ class NovaPoshtaService:
         if error_count == 0:
             cache.set(self.LAST_UPDATE_CACHE_KEY, timezone.now(), timeout=None)
         else:
-            logger.error("Nova Poshta tracking heartbeat not updated because the batch had %s error(s)", error_count)
+            logger.error(
+                "Nova Poshta tracking heartbeat not updated because the batch had %s error(s)",
+                error_count,
+            )
 
         return result
 

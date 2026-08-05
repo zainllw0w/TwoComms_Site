@@ -575,7 +575,7 @@
     {% endif %}
   </div>
 
-  {% if error_message and is_blocked or error_message and not can_submit %}
+  {% if error_message %}
     <div class="tg-waybill-state {% if is_blocked %}blocked{% else %}error{% endif %}" data-tg-waybill-page-state role="alert" aria-live="assertive">{{ error_message }}</div>
   {% endif %}
 
@@ -909,9 +909,6 @@
       </div>
 
       <div data-tg-waybill-form-state aria-live="assertive" role="alert">
-        {% if error_message and not is_blocked %}
-          <div class="tg-waybill-state error" data-tg-waybill-live-state>{{ error_message }}</div>
-        {% endif %}
       </div>
 
       <div class="tg-waybill-panel">
