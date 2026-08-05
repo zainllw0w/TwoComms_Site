@@ -589,12 +589,25 @@ def _checkout_state(proposal):
 
 
 def _item_context(item):
+    option_values = item.option_values or {}
+    option_labels = item.option_labels or {}
     return {
         "title": item.product_title,
         "image_url": item.image_url,
         "color_code": item.color_code,
         "color_label": item.color_label,
         "fit_label": item.fit_label,
+        "option_values": option_values,
+        "option_labels": option_labels,
+        "option_facts": [
+            {
+                "code": str(code),
+                "value": str(value),
+                "label": str(option_labels.get(code) or value),
+            }
+            for code, value in option_values.items()
+            if code != "fit"
+        ],
         "size": item.size,
         "quantity": item.quantity,
         "unit_price": _money(item.quoted_unit_price),
