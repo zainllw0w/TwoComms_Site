@@ -2501,6 +2501,7 @@ def archive_historical_paid_review(
     reason: str,
     outcome: str | None = None,
     transition_to_done: bool = False,
+    preserve_client_stage: bool = False,
 ):
     """Close a verified legacy sale without fabricating a local Order."""
     from management.ig_bot_models import (
@@ -2617,31 +2618,42 @@ def archive_historical_paid_review(
         evidence={
             "review_id": locked.pk,
             "decision_id": decision.pk,
-            "confirmed_amount": str(decision.confirmed_amount),
+            "confirmed_amount": (
+                str(decision.confirmed_amount)
+                if decision.confirmed_amount is not None
+                else None
+            ),
             "resolution_outcome": resolved_outcome,
         },
     )
 
-    stage_before = client.stage
-    client.stage = IgClient.Stage.DONE if transition_to_done else IgClient.Stage.PAID
-    client.stage_updated_at = now
-    if client.current_commercial_episode_id == episode.pk:
-        client.current_commercial_episode = None
-    client.save(
-        update_fields=[
-            "stage",
-            "stage_updated_at",
-            "current_commercial_episode",
-            "updated_at",
-        ]
+    preserve_client_stage = preserve_client_stage or (
+        IgCommercialEpisode.objects.select_for_update()
+        .filter(client_id=client.pk, open_slot=1)
+        .exclude(pk=episode.pk)
+        .exists()
     )
-    if transition_to_done and stage_before != client.stage:
-        IgClientStageEvent.objects.create(
-            client=client,
-            from_stage=stage_before or "",
-            to_stage=client.stage,
-            reason="historical_payment_review_completed",
+    if not preserve_client_stage:
+        stage_before = client.stage
+        client.stage = IgClient.Stage.DONE if transition_to_done else IgClient.Stage.PAID
+        client.stage_updated_at = now
+        if client.current_commercial_episode_id == episode.pk:
+            client.current_commercial_episode = None
+        client.save(
+            update_fields=[
+                "stage",
+                "stage_updated_at",
+                "current_commercial_episode",
+                "updated_at",
+            ]
         )
+        if transition_to_done and stage_before != client.stage:
+            IgClientStageEvent.objects.create(
+                client=client,
+                from_stage=stage_before or "",
+                to_stage=client.stage,
+                reason="historical_payment_review_completed",
+            )
     IgBotNotification.objects.filter(
         dedupe_key=locked.dedupe_key,
         event_type="payment_review",
@@ -2678,6 +2690,7 @@ def resolve_historical_paid_review(
     """
     from management.ig_bot_models import (
         IgClient,
+        IgCommercialEpisode,
         IgDeal,
         IgPaymentConfirmationReview,
         IgPaymentProjection,
@@ -2761,6 +2774,27 @@ def resolve_historical_paid_review(
             "створених до межі legacy-імпорту."
         )
 
+    current_episode = IgCommercialEpisode.objects.select_for_update().filter(
+        client_id=client.pk,
+        open_slot=1,
+    ).first()
+    current_watermark = int(getattr(current_episode, "opened_watermark_message_id", 0) or 0)
+    review_watermark = int(locked.watermark_message_id or 0)
+    current_has_newer_context = bool(
+        current_episode
+        and current_watermark > 0
+        and (review_watermark <= 0 or current_watermark > review_watermark)
+    )
+    current_matches_review = bool(
+        current_episode
+        and not current_has_newer_context
+        and (
+            current_episode.primary_payment_review_id == locked.pk
+            or (locked.deal_id and current_episode.deal_id == locked.deal_id)
+            or (locked.order_id and current_episode.intended_order_id == locked.order_id)
+        )
+    )
+    preserve_client_funnel = bool(current_episode and not current_matches_review)
     now = timezone.now()
     locked.status = IgPaymentConfirmationReview.Status.CONFIRMED
     locked.confirmed_by = actor
@@ -2790,19 +2824,24 @@ def resolve_historical_paid_review(
         review_status_before=IgPaymentConfirmationReview.Status.PENDING,
         review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
         stage_before=client.stage or "",
-        stage_after=IgClient.Stage.DONE,
+        stage_after=(client.stage if preserve_client_funnel else IgClient.Stage.DONE),
         actor=actor,
         actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
         actor_external_id=str(actor.pk)[:128],
         actor_label=str(getattr(actor, "get_username", lambda: "")() or actor.pk)[:150],
     )
-    sync_episode_payment(review=locked, deal=locked.deal if locked.deal_id else None)
+    sync_episode_payment(
+        review=locked,
+        deal=locked.deal if locked.deal_id else None,
+        isolate_from_current=preserve_client_funnel,
+    )
     resolved = archive_historical_paid_review(
         locked,
         actor=actor,
         reason=note,
         outcome=resolved_outcome,
-        transition_to_done=True,
+        transition_to_done=not preserve_client_funnel,
+        preserve_client_stage=preserve_client_funnel,
     )
     resolved._transitioned = True
     return resolved

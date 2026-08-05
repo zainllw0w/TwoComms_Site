@@ -1021,6 +1021,7 @@ class PaymentReviewEpisodeScopeTests(TestCase):
 
         from management.ig_bot_models import (
             IgClient,
+            IgCommercialEpisodeEvent,
             IgPaymentConfirmationReview,
             IgPaymentReviewDecision,
         )
@@ -1052,6 +1053,129 @@ class PaymentReviewEpisodeScopeTests(TestCase):
         self.assertIsNone(decision.confirmed_amount)
         self.assertIsNone(decision.order_total_amount)
         self.assertEqual(decision.amount_source, "historical_amount_unrecoverable")
+        event = IgCommercialEpisodeEvent.objects.get(event_type="historical_paid_archived")
+        self.assertIsNone(event.evidence["confirmed_amount"])
+
+    def test_historical_completion_does_not_close_newer_open_episode_for_zero_watermark_review(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgClient,
+            IgCommercialEpisode,
+            IgPaymentConfirmationReview,
+        )
+        from management.services.ig_commercial_episodes import start_repeat_episode
+        from management.services.ig_payment_review import resolve_historical_paid_review
+
+        actor = get_user_model().objects.create_user(
+            "historical-completion-current-episode-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("historical-completion-current-episode-client")
+        client.stage = IgClient.Stage.CHECKOUT
+        client.save(update_fields=["stage", "updated_at"])
+        current = start_repeat_episode(
+            client,
+            repeat_kind=IgCommercialEpisode.RepeatKind.REORDER,
+            evidence_message_ids=[5001],
+            confidence=Decimal("0.97"),
+            analysis_model="gemini-test",
+            analysis_prompt_version="repeat-v1",
+        )
+        client.refresh_from_db()
+        expected_current_stage = client.stage
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-completion-current-episode-review",
+            watermark_message_id=0,
+        )
+        self._backdate_legacy_review(review)
+
+        resolved = resolve_historical_paid_review(
+            review,
+            actor=actor,
+            outcome="already_received",
+            reason="An old sale was paid and received before the current conversation.",
+            confirmed_amount="1760.00",
+        )
+
+        client.refresh_from_db()
+        current.refresh_from_db()
+        historical = resolved.commercial_episode
+        self.assertEqual(client.stage, expected_current_stage)
+        self.assertEqual(client.current_commercial_episode_id, current.pk)
+        self.assertEqual(current.open_slot, 1)
+        self.assertEqual(current.state, IgCommercialEpisode.State.ACTIVE)
+        self.assertNotEqual(historical.pk, current.pk)
+        self.assertIsNone(historical.open_slot)
+        self.assertEqual(historical.state, IgCommercialEpisode.State.FULFILLED)
+
+    def test_historical_completion_detaches_legacy_review_from_newer_open_episode(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgClient,
+            IgCommercialEpisode,
+            IgPaymentConfirmationReview,
+        )
+        from management.services.ig_commercial_episodes import (
+            start_repeat_episode,
+            sync_episode_payment,
+        )
+        from management.services.ig_payment_review import resolve_historical_paid_review
+
+        actor = get_user_model().objects.create_user(
+            "historical-completion-polluted-episode-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("historical-completion-polluted-episode-client")
+        client.stage = IgClient.Stage.CHECKOUT
+        client.save(update_fields=["stage", "updated_at"])
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-completion-polluted-episode-review",
+            watermark_message_id=0,
+        )
+        self._backdate_legacy_review(review)
+        current = start_repeat_episode(
+            client,
+            repeat_kind=IgCommercialEpisode.RepeatKind.REORDER,
+            evidence_message_ids=[5002],
+            confidence=Decimal("0.97"),
+            analysis_model="gemini-test",
+            analysis_prompt_version="repeat-v1",
+        )
+        polluted = sync_episode_payment(review=review)
+        self.assertEqual(polluted.pk, current.pk)
+        current.refresh_from_db()
+        self.assertEqual(current.primary_payment_review_id, review.pk)
+        self.assertEqual(current.payment_snapshot["review_id"], review.pk)
+        client.refresh_from_db()
+        expected_current_stage = client.stage
+
+        resolved = resolve_historical_paid_review(
+            review,
+            actor=actor,
+            outcome="already_received",
+            reason="An old sale was paid and received before the current conversation.",
+            confirmed_amount="1760.00",
+        )
+
+        client.refresh_from_db()
+        current.refresh_from_db()
+        historical = resolved.commercial_episode
+        self.assertEqual(client.stage, expected_current_stage)
+        self.assertEqual(client.current_commercial_episode_id, current.pk)
+        self.assertEqual(current.open_slot, 1)
+        self.assertEqual(current.state, IgCommercialEpisode.State.ACTIVE)
+        self.assertIsNone(current.primary_payment_review_id)
+        self.assertIsNone(current.payment_snapshot["review_id"])
+        self.assertIsNone(current.payment_snapshot["manager_decision_id"])
+        self.assertNotEqual(historical.pk, current.pk)
+        self.assertIsNone(historical.open_slot)
+        self.assertEqual(historical.state, IgCommercialEpisode.State.FULFILLED)
 
     def test_historical_completion_rejects_non_staff_missing_reason_and_linked_order(self):
         from django.contrib.auth import get_user_model

@@ -79,7 +79,14 @@ def _latest_review_for_deal(deal):
 
 
 def payment_truth_snapshot(
-    *, episode=None, deal=None, review=None, order=None, projection=None, decision=None
+    *,
+    episode=None,
+    deal=None,
+    review=None,
+    order=None,
+    projection=None,
+    decision=None,
+    allow_deal_review_fallback: bool = True,
 ) -> dict:
     """Build source-qualified money truth without mutating commercial state."""
     from management.ig_bot_models import (
@@ -93,7 +100,7 @@ def payment_truth_snapshot(
     order = order or getattr(episode, "intended_order", None)
     if deal is None and review is not None:
         deal = getattr(review, "deal", None)
-    if review is None:
+    if review is None and allow_deal_review_fallback:
         review = _latest_review_for_deal(deal)
     if order is None and review is not None:
         order = getattr(review, "order", None)
@@ -610,17 +617,40 @@ def ensure_episode_for_deal(deal):
             )
 
 
-def ensure_episode_for_review(review):
+def ensure_episode_for_review(review, *, isolate_from_current: bool = False):
     from management.ig_bot_models import IgClient, IgCommercialEpisode, IgOrderAttribution
 
     with commercial_episode_client_lock(review.client_id):
         with transaction.atomic():
             client = IgClient.objects.select_for_update().get(pk=review.client_id)
+            current = IgCommercialEpisode.objects.select_for_update().filter(
+                client=client,
+                open_slot=1,
+            ).first()
+            episode_deal = review.deal if review.deal_id else None
             existing = IgCommercialEpisode.objects.select_for_update().filter(
                 primary_payment_review=review
             ).first()
             if existing:
-                return existing
+                if not isolate_from_current or not current or existing.pk != current.pk:
+                    return existing
+                existing.primary_payment_review = None
+                existing.payment_snapshot = payment_truth_snapshot(
+                    episode=existing,
+                    deal=existing.deal if existing.deal_id else None,
+                    allow_deal_review_fallback=False,
+                )
+                existing.payment_snapshot["captured_at"] = timezone.now().isoformat()
+                existing.save(
+                    update_fields=["primary_payment_review", "payment_snapshot", "updated_at"]
+                )
+                append_episode_event(
+                    existing,
+                    dedupe_key=f"episode:{existing.pk}:review:{review.pk}:historical-detached",
+                    event_type="review_detached",
+                    source="historical_resolution",
+                    evidence={"review_id": review.pk},
+                )
             if review.order_id:
                 existing = IgCommercialEpisode.objects.select_for_update().filter(
                     intended_order_id=review.order_id,
@@ -640,16 +670,15 @@ def ensure_episode_for_review(review):
                     deal_id=review.deal_id
                 ).first()
                 if existing:
-                    if not existing.primary_payment_review_id:
-                        existing.primary_payment_review = review
-                        existing.save(update_fields=["primary_payment_review", "updated_at"])
-                    return existing
-            current = IgCommercialEpisode.objects.select_for_update().filter(
-                client=client,
-                open_slot=1,
-            ).first()
+                    if not isolate_from_current or not current or existing.pk != current.pk:
+                        if not existing.primary_payment_review_id:
+                            existing.primary_payment_review = review
+                            existing.save(update_fields=["primary_payment_review", "updated_at"])
+                        return existing
+                    episode_deal = None
             current_is_compatible = bool(
-                current
+                not isolate_from_current
+                and current
                 and not current.intended_order_id
                 and current.primary_payment_review_id in {None, review.pk}
                 and (
@@ -677,11 +706,14 @@ def ensure_episode_for_review(review):
                     current.save(update_fields=changed)
                 return current
             review_is_historical = bool(
-                current
-                and int(current.opened_watermark_message_id or 0) > 0
-                and int(review.watermark_message_id or 0) > 0
-                and int(review.watermark_message_id)
-                < int(current.opened_watermark_message_id)
+                isolate_from_current
+                or (
+                    current
+                    and int(current.opened_watermark_message_id or 0) > 0
+                    and int(review.watermark_message_id or 0) > 0
+                    and int(review.watermark_message_id)
+                    < int(current.opened_watermark_message_id)
+                )
             )
             if current and not review_is_historical:
                 _mark_superseded_funnel_dropoff(
@@ -699,7 +731,7 @@ def ensure_episode_for_review(review):
                     if IgOrderAttribution.objects.filter(client=client).exists()
                     else IgCommercialEpisode.RepeatKind.FIRST_PURCHASE
                 ),
-                deal=review.deal,
+                deal=episode_deal,
                 review=review,
                 opened_watermark_message_id=review.watermark_message_id,
                 make_current=not review_is_historical,
@@ -707,12 +739,15 @@ def ensure_episode_for_review(review):
             return episode
 
 
-def sync_episode_payment(*, review=None, deal=None):
+def sync_episode_payment(*, review=None, deal=None, isolate_from_current: bool = False):
     """Refresh one episode from exact provider and manager payment ledgers."""
     if review is None and deal is None:
         return None
     if review is not None:
-        episode = ensure_episode_for_review(review)
+        episode = ensure_episode_for_review(
+            review,
+            isolate_from_current=isolate_from_current,
+        )
         deal = deal or getattr(review, "deal", None)
     else:
         episode = ensure_episode_for_deal(deal)
