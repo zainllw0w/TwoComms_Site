@@ -17,7 +17,7 @@
 | `codex/ig-bot-imp058-funnel-analytics` | durable funnel event/drop-off analytics, production timestamp regression fix, tests and migration `0133` | IN MAIN and deployed as `274c2c61`/`79882368`/`92d46c5a`; do not resurrect the pre-fix dirty diff |
 | `codex/ig-bot-imp058-funnel-analytics` (IMP-089 continuation) | bounded superseded-invoice lifecycle, migration `0134`, legacy materialization and polling recovery | IN MAIN and deployed as `280c07e8`; 104 focused tests and production check-only proof; no historical lifecycle rows existed to exercise live polling |
 | `codex/ig-order-fulfillment-links` `20dd44b2` | searchable order assignment drawer | Semantics IN MAIN via W7; old commit is not a safe cherry-pick |
-| local `codex/instagram-assisted-checkout` | five historical product-reselection commits `61ad2cb8`, `a8ccfa63`, `468fe2ba`, `e9d982df`, `dc9889c3` | PRESERVED SOURCE; `IMP-081` was reimplemented in current main as `bf4e0d80`/`674d6858`/`3678ddf4`; remaining commits are requirements/source, not safe cherry-picks |
+| local `codex/instagram-assisted-checkout` | five historical product-reselection commits `61ad2cb8`, `a8ccfa63`, `468fe2ba`, `e9d982df`, `dc9889c3` | PRESERVED SOURCE; `IMP-081` was reimplemented in current main as `bf4e0d80`/`674d6858`/`3678ddf4`; availability foundation from `e9d982df` was ported as `17f5b672`; `dc9889c3` remains parser source for `IMP-085`; no wholesale cherry-pick |
 | `codex/ig-bot-imp028-prompt` | price-aware graph/candidate slice plus exact variant-specific prompt size binding | IN MAIN / production through `e44d1440`/`0ad694bc`; F-CAT-007 fixed, IMP-082/083 remain PARTIAL only for explicit runtime/topology/stale-binding residuals |
 | `codex/ig-commercial-reconcile-fix` | F-PAY-015 superseded review ownership/backfill fix | IN MAIN and production as `93ae8684`; MySQL reconcile, client 59 and daemon heartbeat verified |
 | assisted-checkout dirty CSS/test | mobile breakpoint 390px | WIP only; not counted and not integrated |
@@ -39,7 +39,8 @@ the server, and have a deployed SHA in `09_DEPLOYMENT_LOG.md`.
 ## W9 preservation and price guard (2026-08-04)
 
 The remote assisted-checkout branch is only the historical ancestor; it has no
-W9 code commits. The sole source of IMP-081…085 is now protected by remote ref
+W9 code commits. The remaining source for `IMP-085` and unported W9 requirements
+is protected by remote ref
 `codex/ig-w9-local-preservation-20260804` at `bdbabdc9`; do not delete that ref
 before a verified port lands in `main`. Its code cannot be
 cherry-picked: the later migrations are based on `management.0127`, while

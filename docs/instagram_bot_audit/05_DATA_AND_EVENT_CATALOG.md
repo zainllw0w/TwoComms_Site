@@ -9,7 +9,7 @@
 | `IgCommercialEpisode` | repeat-order episode | episode lifecycle | статистика должна считать episode, не client snapshot |
 | `IgDeal` / `IgDealItem` | proposal and selected items | deal/payment contract | selected variant price is immutable per item |
 | `IgPaymentProjection` | provider payment truth | verified webhook/backstop | refund/reversal is terminal negative truth |
-| `IgFollowUpTask` | scheduled touch/manager task | immutable event key/payload/time, absolute policy timeline, delivery state + lease + provider receipt | event-driven continuation and provider-evidenced FSM current on `434428ad` |
+| `IgFollowUpTask` | scheduled touch/manager task | immutable event key/payload/time, absolute policy timeline, delivery state + lease + provider receipt | event-driven continuation and provider-evidenced FSM current on `17f5b672` |
 | `IgObjection` / `IgObjectionAttempt` | objection lifecycle | verified attempt evidence | `[OBJHANDLE]` fingerprint is validated |
 | `IgLifecycleEvent` | event-driven post-payment state | lifecycle event row | event consumers must be idempotent |
 | `IgOrderAssignment` | IG ↔ existing order link | append-only assignment audit | manager-owned/manual contract |
@@ -27,7 +27,7 @@
 | reply | `reply_generated`, `reply_sent`, `reply_unknown`, `reply_blocked` | durable/current |
 | funnel | stage transition, product switch, checkout/readiness | journal/FSM current; analytics `IMP-058` |
 | payment | `checkout_started`, `payment_confirmed`, `payment_reversed`, `invoice_expired` | payment truth and event-time analytics current |
-| follow-up | policy step, immutable event fact, claim, provider receipt, ambiguous delivery, manager review, cancelled | event continuation and delivery FSM current on `434428ad` |
+| follow-up | policy step, immutable event fact, claim, provider receipt, ambiguous delivery, manager review, cancelled | event continuation and delivery FSM current on `17f5b672` |
 | fulfillment | payment → delivery request, TTN, exchange shipment, delivered | current in W4/W4B/W6 slices |
 | objection | opened, handled, reopened, resolved/abandoned | `IMP-057` current |
 | drop-off | silence, explicit refusal, opt-out, unreachable, spam, superseded | model/statistics `IMP-058` |

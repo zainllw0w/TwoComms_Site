@@ -154,8 +154,8 @@ checkout. Ambiguous exact claims and invalid option contexts fail closed; the
 checkout renders selected option facts and line totals. The authoritative-price
 gate is 12 tests.
 
-The runtime code baseline is `434428ad`; production code SHA is
-`434428ad1ff0c6892b0f2c56456e01555d082f48`. Migration `0143` is applied and production
+The runtime code baseline is `17f5b672`; production code SHA is
+`17f5b672fc03f405b63cc173cb866043d7a377a2`. Migration `0143` is applied and production
 has one healthy `instagram_login` daemon with empty pending reply/notification
 queues.
 

@@ -13,7 +13,7 @@
 > production `0ad694bc`; F-CAT-007 закрыта. Runtime commerce session,
 > availability/reservation и stale candidate binding ещё не закрыты.
 > Provider-evidenced follow-up delivery and materialized event continuation
-> закрыты `IMP-102`/`IMP-103` on `434428ad`.
+> закрыты `IMP-102`/`IMP-103`; текущий production code checkpoint — `17f5b672`.
 
 ---
 
