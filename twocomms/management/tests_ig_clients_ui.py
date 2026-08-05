@@ -378,6 +378,33 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.template,
         )
 
+    def test_orders_workspace_has_separate_total_and_historical_completion_controls(self):
+        for contract in (
+            "Повна вартість замовлення",
+            "order_total_amount",
+            "historical_paid_fulfilled",
+            "Завершити старий продаж",
+            "amount_unrecoverable",
+            "Оплачено й уже отримано",
+            "Локальне замовлення не потрібне",
+            "Історичний результат",
+            "Примітка завершення",
+            "suggestedHistoricalAmount",
+            "historical_paid_archived:'Завершено раніше'",
+            ".bot-order-state.historical_paid_archived",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_checkout_proposal_heading_tracks_the_selected_filter(self):
+        for contract in (
+            "id=\"bot-checkout-title\"",
+            "const titleEl=document.getElementById('bot-checkout-title')",
+            "proposalFilterHeading",
+            "Очікують оплату",
+            "Готові пропозиції",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_payment_drawer_escapes_the_management_workspace_stacking_context(self):
         self.assertIn(".bot-drawer,.bot-drawer *{box-sizing:border-box;}", self.template)
         self.assertIn("document.body.appendChild(drawer)", self.template)
@@ -1096,6 +1123,7 @@ class ClientsApiTests(TestCase):
             status=IgPaymentConfirmationReview.Status.CONFIRMED,
             evidence={"order_draft": {"quoted_total": "1760.00"}},
             resolution_kind=IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED,
+            resolution_outcome=IgPaymentConfirmationReview.ResolutionOutcome.ALREADY_RECEIVED,
             resolution_note="Старе виконане замовлення, локальний Order не збережено",
             resolved_at=timezone.now(),
             resolved_by=self.admin,
@@ -1114,7 +1142,7 @@ class ClientsApiTests(TestCase):
             review_status_before=IgPaymentConfirmationReview.Status.PENDING,
             review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
         )
-        self.c.stage = IgClient.Stage.PAID
+        self.c.stage = IgClient.Stage.DONE
         self.c.save(update_fields=["stage", "updated_at"])
 
         detail = self.client.get(
@@ -1127,6 +1155,12 @@ class ClientsApiTests(TestCase):
             ).json()["clients"]
             if item["id"] == self.c.id
         )
+        all_clients = self.client.get(
+            reverse("management_bot_clients_api") + "?view=all"
+        ).json()["clients"]
+        active_clients = self.client.get(
+            reverse("management_bot_clients_api") + "?view=active"
+        ).json()["clients"]
 
         self.assertIsNone(detail["review"]["active"])
         self.assertEqual(
@@ -1134,8 +1168,23 @@ class ClientsApiTests(TestCase):
             "historical_paid_archived",
         )
         self.assertFalse(detail["review"]["history"][0]["approval"]["needs_action"])
-        self.assertEqual(row["stage"], IgClient.Stage.PAID)
+        self.assertFalse(
+            detail["review"]["history"][0]["approval"]["can_historical_complete"]
+        )
+        self.assertEqual(
+            detail["review"]["history"][0]["approval"]["resolution_outcome"],
+            "already_received",
+        )
+        self.assertEqual(
+            detail["review"]["history"][0]["approval"]["resolution_note"],
+            "Старе виконане замовлення, локальний Order не збережено",
+        )
+        self.assertEqual(row["stage_raw"], IgClient.Stage.DONE)
+        self.assertEqual(row["stage"], IgClient.Stage.DONE)
+        self.assertEqual(row["stage_label"], "Завершено")
         self.assertTrue(row["commercially_confirmed"])
+        self.assertIn(self.c.id, [item["id"] for item in all_clients])
+        self.assertNotIn(self.c.id, [item["id"] for item in active_clients])
 
     def test_paid_client_with_open_exchange_keeps_green_stage_and_post_sale_badge(self):
         from orders.models import Order
@@ -1854,6 +1903,45 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertEqual(len(item["media"]["unknown"]), 1)
         self.assertIn(f"review={self.pending.id}", item["workspace_url"])
 
+        self.assertTrue(item["approval"]["can_historical_complete"])
+        self.assertEqual(
+            item["approval"]["historical_outcomes"],
+            [
+                {"value": "already_received", "label": "Старе замовлення отримано"},
+                {"value": "already_delivered", "label": "Старе замовлення доставлено"},
+                {
+                    "value": "completed_unknown",
+                    "label": "Старе замовлення завершено; спосіб невідомий",
+                },
+            ],
+        )
+        self.assertIsNone(item["approval"]["resolution_outcome"])
+        self.assertEqual(item["approval"]["resolution_note"], "")
+
+    def test_historical_completion_is_not_offered_for_provider_terminal_conflict(self):
+        from management.ig_bot_models import IgDeal, IgPaymentProjection
+
+        deal = IgDeal.objects.create(client=self.customer)
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            deal=deal,
+            dedupe_key="orders-api-provider-terminal-history",
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.customer,
+            truth=IgDeal.PaymentTruth.REVERSED,
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=all&review={review.pk}"
+        ).json()
+        item = next(row for row in data["items"] if row["review_id"] == review.pk)
+
+        self.assertFalse(item["approval"]["can_historical_complete"])
+        self.assertEqual(item["approval"]["historical_outcomes"], [])
+
     def test_legacy_payment_review_deep_link_resolves_superseded_row_to_canonical_review(self):
         duplicate = IgPaymentConfirmationReview.objects.create(
             client=self.customer,
@@ -2092,6 +2180,32 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertTrue(payload["payment"]["needs_reconciliation"])
         self.assertFalse(payload["order_resolution"]["required"])
         self.assertEqual(payload["order_resolution"]["create_new"]["url"], "")
+
+    def test_manager_confirmation_points_unknown_total_error_to_total_field(self):
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="orders-api-action-missing-total",
+        )
+
+        response = self.client.post(
+            reverse("management_bot_payment_review_action_api", args=[review.pk]),
+            {
+                "action": "manager_verify",
+                "verification_scope": "full_payment",
+                "confirmed_amount": "950.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(
+            response.json()["field_errors"],
+            {
+                "order_total_amount": (
+                    "Повна вартість замовлення не визначена; підтвердження не може "
+                    "авторизувати виконання."
+                )
+            },
+        )
 
     def test_orders_workspace_supports_confirmed_and_client_scope(self):
         other = IgClient.get_or_create_for_sender("orders-api-other")

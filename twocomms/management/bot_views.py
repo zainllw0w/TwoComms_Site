@@ -1781,6 +1781,28 @@ def _payment_review_workspace_payload(review) -> dict:
         review.resolution_kind
         == review.ResolutionKind.HISTORICAL_PAID_ARCHIVED
     )
+    provider_terminal_conflict = payment.get("provider_truth") in {
+        "partially_refunded",
+        "refunded",
+        "reversed",
+        "failed",
+        "cancelled",
+    }
+    can_historical_complete = bool(
+        status == review.Status.PENDING
+        and review.client.hidden_at is None
+        and not review.order_id
+        and not (deal and deal.active_checkout_proposal_id)
+        and not provider_terminal_conflict
+    )
+    historical_outcomes = (
+        [
+            {"value": value, "label": str(label)}
+            for value, label in review.ResolutionOutcome.choices
+        ]
+        if can_historical_complete or historical_paid_archived
+        else []
+    )
     if historical_paid_archived:
         approval_state = "historical_paid_archived"
     elif status == review.Status.SUPERSEDED:
@@ -1849,8 +1871,11 @@ def _payment_review_workspace_payload(review) -> dict:
             "can_link_existing": needs_order_resolution,
             "can_create": needs_order_resolution,
             "can_clarify_amount": needs_amount_clarification,
+            "can_historical_complete": can_historical_complete,
+            "historical_outcomes": historical_outcomes,
             "superseded_by_review_id": review.superseded_by_id if status == review.Status.SUPERSEDED else None,
             "resolution_kind": review.resolution_kind,
+            "resolution_outcome": review.resolution_outcome,
             "resolution_note": review.resolution_note,
             "resolved_at": review.resolved_at.isoformat() if review.resolved_at else "",
             "action_url": action_url,
@@ -2951,7 +2976,19 @@ def bot_payment_review_action_api(request, review_id):
             or "вже містить точну суму" in error
             or "замовлення вже прив’язано" in error
         )
-        return JsonResponse({"success": False, "error": error}, status=409 if conflict else 400)
+        field_errors = {}
+        if "Повна вартість" in error or "узгоджена сума" in error:
+            field_errors["order_total_amount"] = error
+        elif (
+            "Підтверджена сума" in error
+            or "Сума підтвердженого платежу" in error
+            or "Передоплата" in error
+        ):
+            field_errors["confirmed_amount"] = error
+        return JsonResponse(
+            {"success": False, "error": error, "field_errors": field_errors},
+            status=409 if conflict else 400,
+        )
     decision = _latest_payment_review_decision(review)
     decision_payload = _payment_review_decision_payload(decision)
     payment_payload = _payment_review_truth_payload(review, decision)
