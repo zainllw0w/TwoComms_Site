@@ -1270,6 +1270,11 @@ def start_repeat_episode(
                 analysis_prompt_version=analysis_prompt_version,
                 opened_watermark_message_id=max(evidence_ids),
             )
+            from management.services.ig_commerce_projection import (
+                start_new_session_for_episode,
+            )
+
+            start_new_session_for_episode(client, episode)
             if client.stage not in {IgClient.Stage.NEW, IgClient.Stage.QUALIFYING}:
                 previous_stage = client.stage
                 client.stage = IgClient.Stage.QUALIFYING

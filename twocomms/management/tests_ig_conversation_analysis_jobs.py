@@ -1369,8 +1369,56 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(job.trigger, "payment_truth")
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
-    def test_repeat_intent_materializes_one_episode_and_replay_keeps_it(self, generate):
+    def test_unconfirmed_repeat_intent_does_not_materialize_a_new_episode(self, generate):
         from management.ig_bot_models import IgCommercialEpisode
+
+        message = self.message("Мені сподобалось, хочу ще одну")
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+        generate.return_value = {
+            "parsed": {
+                "interaction_type": "high_intent",
+                "score_band": "high_intent",
+                "purchase_probability": 0.86,
+                "confidence": 0.92,
+                "evidence": [
+                    {"message_id": message.pk, "quote": message.text, "claim": "repeat"},
+                ],
+                "repeat_intent": {
+                    "kind": "explicit_more",
+                    "confidence": 0.95,
+                    "evidence_message_ids": [message.pk],
+                },
+            },
+            "model": "gemini-3.6-flash",
+            "meta": {},
+        }
+
+        result = analysis.process_due_analysis(limit=1)
+
+        self.assertEqual(result["done"], 1, result)
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_confirmed_repeat_intent_starts_clean_episode_session_and_replay_keeps_it(self, generate):
+        from management.ig_bot_models import (
+            IgCommerceSelectionSession,
+            IgCommercialEpisode,
+        )
+        from management.services.ig_commerce_projection import authoritative_session_for
+
+        deal = IgDeal.objects.create(client=self.client, amount=Decimal("790.00"))
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.client,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("790.00"),
+            paid_at=timezone.now(),
+        )
+        previous_session = authoritative_session_for(self.client)
 
         message = self.message("Мені сподобалось, хочу ще одну")
         analysis.schedule_analysis(
@@ -1405,6 +1453,14 @@ class ConversationAnalysisJobTests(TestCase):
             {**first_result, "last_error": first_job.last_error},
         )
         self.assertEqual(IgCommercialEpisode.objects.filter(client=self.client).count(), 1)
+        episode = IgCommercialEpisode.objects.get(client=self.client)
+        session = IgCommerceSelectionSession.objects.get(client=self.client, open_slot=1)
+        self.assertEqual(session.commercial_episode_id, episode.pk)
+        self.assertEqual(session.generation, previous_session.generation + 1)
+        self.assertEqual(session.lines, [])
+        previous_session.refresh_from_db()
+        self.assertEqual(previous_session.state, IgCommerceSelectionSession.State.CLOSED)
+        self.assertIsNone(previous_session.open_slot)
         snapshot_count = IgConversationAnalysisSnapshot.objects.filter(
             client=self.client
         ).count()

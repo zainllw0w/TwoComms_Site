@@ -96,6 +96,46 @@ def authoritative_session_for(client) -> IgCommerceSelectionSession:
     return session or bootstrap_session_from_legacy(client)
 
 
+def start_new_session_for_episode(client, episode) -> IgCommerceSelectionSession:
+    """Close the previous selection cycle and open a clean episode session.
+
+    Repeat purchases must not inherit a prior product, configuration, price,
+    candidate anchor, or allocation. The caller owns the client's transaction
+    lock; the database uniqueness constraint remains the final guard against a
+    second open session.
+    """
+    previous = (
+        IgCommerceSelectionSession.objects.select_for_update()
+        .filter(client_id=client.pk, open_slot=1)
+        .order_by("-generation")
+        .first()
+    )
+    if previous is not None:
+        previous.state = IgCommerceSelectionSession.State.CLOSED
+        previous.open_slot = None
+        previous.save(update_fields=["state", "open_slot", "updated_at"])
+
+    last_generation = (
+        IgCommerceSelectionSession.objects.select_for_update()
+        .filter(client_id=client.pk)
+        .order_by("-generation")
+        .values_list("generation", flat=True)
+        .first()
+        or 0
+    )
+    session = IgCommerceSelectionSession.objects.create(
+        client_id=client.pk,
+        commercial_episode_id=episode.pk,
+        generation=int(last_generation) + 1,
+        open_slot=1,
+        state=IgCommerceSelectionSession.State.OPEN,
+        lines=[],
+        active_index=0,
+    )
+    project_active_line_to_legacy_client(session, client)
+    return session
+
+
 def _safe_decimal(value) -> Decimal:
     try:
         return Decimal(str(value or "0"))

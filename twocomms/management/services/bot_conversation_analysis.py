@@ -1157,7 +1157,7 @@ def _process_claim(
             if repeat_intent
             else {}
         )
-        if repeat_intent:
+        if repeat_intent and verified_payment:
             from management.services.ig_commercial_episodes import start_repeat_episode
 
             commercial_episode = start_repeat_episode(
@@ -1168,6 +1168,11 @@ def _process_claim(
                 analysis_model=model,
                 analysis_prompt_version=ANALYSIS_PROMPT_VERSION,
             )
+        elif repeat_intent:
+            # A repeat signal before any confirmed purchase is still useful
+            # conversational evidence, but it belongs to the current first
+            # purchase cycle and must not create a new episode/session.
+            commercial_episode = client.commercial_episodes.filter(open_slot=1).first()
         else:
             commercial_episode = client.commercial_episodes.filter(open_slot=1).first()
         # Episode creation is a deterministic consequence of this analysis,
