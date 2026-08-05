@@ -251,11 +251,40 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         for contract in (
             ".bot-clients-workspace{display:grid;",
             "align-items:stretch;",
-            "height:clamp(620px,calc(100vh - 24px),760px);",
-            ".bot-clients-sidebar{padding:12px;position:sticky;top:12px;display:flex;flex-direction:column;}",
+            "height:clamp(620px,calc(100dvh - 180px),760px);",
+            "min-height:0;transition:grid-template-columns .2s ease;",
+            ".bot-clients-sidebar,.bot-client-conversation,.bot-client-context-shell{height:100%;min-height:0;align-self:stretch;}",
+            ".bot-clients-sidebar{padding:12px;position:relative;top:auto;display:flex;flex-direction:column;overflow:hidden;}",
             ".bot-clients-list{max-height:none;min-height:0;flex:1;",
+            ".bot-client-conversation{display:flex;flex-direction:column;overflow:hidden;padding:16px;}",
+            ".bot-conversation-messages{display:flex;flex-direction:column;gap:6px;margin-top:14px;max-height:none;min-height:0;flex:1 1 auto;overflow-y:auto;",
+            ".bot-client-context-shell{min-width:0;position:relative;top:auto;}",
+            ".bot-client-context-shell .bot-drawer-body{min-height:0;overflow-y:auto;",
+            ".bot-client-pane-empty{display:grid;place-items:center;min-height:0;flex:1 1 auto;",
         ):
             self.assertIn(contract, self.template)
+
+    def test_client_workspace_returns_to_natural_flow_on_mobile_and_reduces_reflow_motion(self):
+        for contract in (
+            ".bot-clients-workspace{display:block;height:auto;min-height:0;transition:none;}",
+            ".bot-clients-sidebar,.bot-client-conversation{display:none;position:static;height:auto;max-height:none;overflow:visible;min-height:0;}",
+            ".bot-conversation-messages{max-height:none;min-height:0;overflow:visible;flex:0 1 auto;}",
+            ".bot-clients-workspace,.bot-tab-ind,.bot-client-row",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_mobile_client_context_drawer_stays_inside_the_dynamic_viewport(self):
+        mobile_start = self.template.rindex("@media(max-width:560px)")
+        mobile_styles = self.template[
+            mobile_start:
+            self.template.index("@media(max-width:390px)", mobile_start)
+        ]
+        for contract in (
+            ".bot-client-context-shell:not([hidden]){display:block;width:100dvw;max-width:100dvw;height:100dvh;max-height:100dvh;box-sizing:border-box;}",
+            ".bot-drawer-backdrop{display:none}",
+            ".bot-client-context-shell .bot-drawer-panel{width:100%;max-width:100%;height:100%;max-height:100%;box-sizing:border-box;border-left:0;}",
+        ):
+            self.assertIn(contract, mobile_styles)
 
     def test_client_context_toggle_state_stays_in_sync_when_other_drawers_open(self):
         for contract in (

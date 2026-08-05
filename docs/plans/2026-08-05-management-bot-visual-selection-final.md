@@ -14,7 +14,8 @@
 
 - [x] Typing/seen уже выпущен отдельным срезом и не входит в этот цикл.
 - [x] Live-перестановка клиентов — Release 1 и первый UI-код этого плана.
-- [x] Статистика — Release 2 и второй крупный UI-релиз.
+- [x] Равная геометрия трех панелей — Release 1.5 и второй крупный UI-релиз.
+- [x] Статистика — Release 2 и третий крупный UI-релиз.
 - [x] Новый inbound поднимает карточку наверх даже при открытом диалоге.
 - [x] Новый inbound никогда не переключает менеджера на другого клиента автоматически.
 - [x] Сохраняются выбранный клиент, поиск, фильтр, страница, фокус и scroll-контекст.
@@ -171,17 +172,73 @@
 ### Checklist
 
 - [x] Выполнить read-only production evidence query без synthetic events.
-- [ ] RED: historical archived review without paid order/provider truth must not produce current `commercial_visual_state=paid`.
-- [ ] RED: legitimate provider-confirmed payment remains green.
-- [ ] RED: legitimate manager-verified current payment with source-qualified decision remains green.
-- [ ] RED: paid linked order remains green.
-- [ ] RED: historical fulfilled buyer remains discoverable through separate buyer-history payload/marker.
-- [ ] Implement separate predicates/presentation facts for `current_payment_confirmed` and `historical_purchase_confirmed`.
-- [ ] Do not mutate production rows automatically; correct presentation semantics first.
-- [ ] Add concise evidence tooltip/popover naming `provider`, `manager`, `paid order` or `historical archive`.
-- [ ] Re-run focused tests and payment inconsistency report read-only.
-- [ ] Browser QA exact «салат» state with production-like fixture.
-- [ ] Commit, push feature, merge main, push main, deploy and verify SHA/heartbeat.
+- [x] RED: historical archived review without paid order/provider truth must not produce current `commercial_visual_state=paid`.
+- [x] RED: legitimate provider-confirmed payment remains green.
+- [x] RED: legitimate manager-verified current payment with source-qualified decision remains green.
+- [x] RED: paid linked order remains green.
+- [x] RED: historical fulfilled buyer remains discoverable through separate buyer-history payload/marker.
+- [x] Implement separate predicates/presentation facts for `current_payment_confirmed` and `historical_purchase_confirmed`.
+- [x] Do not mutate production rows automatically; correct presentation semantics first.
+- [x] Add concise evidence tooltip/popover naming `provider`, `manager`, `paid order` or `historical archive`.
+- [x] Re-run focused tests and payment inconsistency report read-only.
+- [x] Browser QA exact «салат» state with production-like fixture.
+- [x] Commit, push feature, merge main, push main, deploy and verify SHA/heartbeat (`6e03980a`).
+
+## 4.5 Release 1.5 — равная высота трех рабочих панелей
+
+**Value:** список клиентов, переписка и контекст образуют один ясно ограниченный рабочий холст. Сотни клиентов и длинные настройки больше не растягивают страницу, а история сообщений использует всю доступную высоту средней панели.
+
+**Recommended approach:** один desktop height contract на контейнере workspace, внутренние flex/grid scroll regions и сохранение текущего responsive drawer на ширинах до 1200 px. Высота задается через `clamp()` и `100dvh`, но имеет устойчивый минимум; на мобильных возвращается естественный document flow без вложенного вертикального scroll trap.
+
+**Files:**
+
+- Modify: `twocomms/management/templates/management/bot.html`
+- Modify: `twocomms/management/tests_ig_clients_ui.py`
+- Browser QA: clients workspace at 1440, 768 and 375 px
+
+### 4.5.1 RED — geometry contracts
+
+- [x] Add failing template contract for one bounded desktop workspace height.
+- [x] Add failing contract: sidebar, conversation and context shell inherit exactly `height:100%` with `min-height:0`.
+- [x] Add failing contract: client list owns its vertical scroll while search, filters, live status and pager remain stable.
+- [x] Add failing contract: conversation is a flex column and message history is `flex:1 1 auto; min-height:0; overflow-y:auto`.
+- [x] Add failing contract: context drawer body is the only scrolling region inside the right pane.
+- [x] Add failing contract: closed context uses a smooth two-column reflow and the context shell is removed from layout.
+- [x] Add failing responsive contract: tablet/mobile use natural height and avoid nested vertical scrolling.
+
+### 4.5.2 GREEN — bounded desktop workspace
+
+- [x] Set one desktop height on `.bot-clients-workspace`, approximately `clamp(620px, calc(100dvh - stable chrome offset), 760px)`.
+- [x] Give all three direct panes `height:100%; min-height:0; align-self:stretch` and one shared border/radius treatment.
+- [x] Remove competing sticky/min-height rules that create different bottoms.
+- [x] Keep the page itself stable while list, messages and context content scroll internally.
+- [x] Preserve pager visibility at the bottom of the client pane.
+- [x] Make `.bot-client-pane-empty` fill its pane without changing geometry.
+
+### 4.5.3 Conversation fill and settings toggle
+
+- [x] Make `.bot-client-conversation` a flex column.
+- [x] Keep header, commercial summary, linked order and role legend content-sized.
+- [x] Let `.bot-conversation-messages` consume every remaining pixel and scroll internally.
+- [x] Keep the gear as a true open/close toggle with correct `aria-expanded`.
+- [x] On desktop close, hide the context column and animate grid tracks/opacity without a layout jump.
+- [x] On reopen, restore the same top/bottom boundary and the prior context scroll position where practical.
+
+### 4.5.4 Responsive behavior
+
+- [x] 1440 px: three visible panes have identical top, bottom and measured height.
+- [x] 768 px: list/conversation mobile tabs use natural page flow; context remains an overlay drawer.
+- [x] 375 px: no horizontal overflow, no nested scroll trap and conversation remains readable.
+- [x] Reduced motion removes nonessential grid/opacity transition.
+
+### 4.5.5 Verification and delivery
+
+- [x] Focused template/UI tests pass.
+- [x] Programmatic browser measurements confirm equal desktop pane heights within 1 px.
+- [x] Programmatic browser measurements confirm message history fills the remaining conversation height and has positive scroll capacity for long content.
+- [x] Screenshots saved for 1440, 768 and 375 px with context open and desktop context closed.
+- [x] No page-level horizontal overflow at any required viewport.
+- [ ] Commit, push feature, merge local `main`, push `origin/main`, deploy and verify SHA/heartbeat.
 
 ## 5. Release 2 — визуальная статистика без выдуманных данных
 
