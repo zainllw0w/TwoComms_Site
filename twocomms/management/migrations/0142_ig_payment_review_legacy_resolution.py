@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='igpaymentconfirmationreview',
             name='resolution_outcome',
-            field=models.CharField(blank=True, choices=[('', 'Не вказано'), ('already_received', 'Старе замовлення отримано'), ('already_delivered', 'Старе замовлення доставлено'), ('completed_unknown', 'Старе замовлення завершено; спосіб невідомий')], default='', max_length=32),
+            field=models.CharField(blank=True, choices=[('already_received', 'Старе замовлення отримано'), ('already_delivered', 'Старе замовлення доставлено'), ('completed_unknown', 'Старе замовлення завершено; спосіб невідомий')], max_length=32, null=True),
         ),
         migrations.AddField(
             model_name='igpaymentreviewdecision',

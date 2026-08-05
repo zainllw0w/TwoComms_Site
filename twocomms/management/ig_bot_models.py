@@ -870,7 +870,6 @@ class IgPaymentConfirmationReview(models.Model):
         )
 
     class ResolutionOutcome(models.TextChoices):
-        NONE = "", _("Не вказано")
         ALREADY_RECEIVED = "already_received", _("Старе замовлення отримано")
         ALREADY_DELIVERED = "already_delivered", _("Старе замовлення доставлено")
         COMPLETED_UNKNOWN = (
@@ -943,8 +942,8 @@ class IgPaymentConfirmationReview(models.Model):
     resolution_outcome = models.CharField(
         max_length=32,
         choices=ResolutionOutcome.choices,
+        null=True,
         blank=True,
-        default=ResolutionOutcome.NONE,
     )
     resolution_note = models.TextField(blank=True, default="")
     resolved_at = models.DateTimeField(null=True, blank=True)

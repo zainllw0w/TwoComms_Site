@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import DatabaseError, connection, transaction
+from django.db.models.fields import NOT_PROVIDED
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -28,7 +29,6 @@ class InstagramLegacyPaymentResolutionModelContractTests(SimpleTestCase):
         self.assertEqual(
             [choice[0] for choice in IgPaymentConfirmationReview.ResolutionOutcome.choices],
             [
-                "",
                 "already_received",
                 "already_delivered",
                 "completed_unknown",
@@ -52,8 +52,9 @@ class InstagramLegacyPaymentResolutionModelContractTests(SimpleTestCase):
 
         resolution_outcome = IgPaymentConfirmationReview._meta.get_field("resolution_outcome")
         self.assertEqual(resolution_outcome.max_length, 32)
+        self.assertTrue(resolution_outcome.null)
         self.assertTrue(resolution_outcome.blank)
-        self.assertEqual(resolution_outcome.default, "")
+        self.assertIs(resolution_outcome.default, NOT_PROVIDED)
 
 
 class InstagramPaymentDecisionTests(TestCase):
