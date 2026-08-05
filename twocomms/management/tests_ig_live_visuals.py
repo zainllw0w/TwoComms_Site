@@ -252,3 +252,37 @@ class TypingWindowTests(SimpleTestCase):
 
         self.assertEqual(result, "sent")
         self.assertEqual(events, ["typing_off", "send_text"])
+
+    def test_typing_off_precedes_durable_sending_marker_even_when_action_fails(self):
+        events = []
+
+        def stop_typing(_settings, _row, typing_active):
+            if typing_active:
+                events.append("typing_off")
+            return bot.SenderActionResult(False, 503, "provider", "typing_off")
+
+        def mark_sending():
+            events.append("send_state_sending")
+            return 1
+
+        def send():
+            events.append("send_text")
+            return "sent"
+
+        with patch.object(bot, "_stop_typing_indicator", side_effect=stop_typing):
+            marker = bot._mark_sending_after_typing_off(
+                self.settings,
+                self.row,
+                True,
+                mark_sending,
+            )
+            result = bot._send_with_typing_off(
+                self.settings,
+                self.row,
+                False,
+                send,
+            )
+
+        self.assertEqual(marker, 1)
+        self.assertEqual(result, "sent")
+        self.assertEqual(events, ["typing_off", "send_state_sending", "send_text"])

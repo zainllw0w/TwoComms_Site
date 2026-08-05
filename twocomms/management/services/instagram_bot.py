@@ -4564,7 +4564,12 @@ def _reply_permission_is_current(s, row, permission) -> bool:
 def _stop_typing_indicator(s, row, typing_active: bool) -> None:
     """Best-effort cleanup for a typing action that was successfully started."""
     if typing_active:
-        send_sender_action(s, row.sender_id, "typing_off")
+        try:
+            send_sender_action(s, row.sender_id, "typing_off")
+        except Exception:
+            # Sender actions are advisory; never turn a cleanup failure into a
+            # customer-reply failure or leave the durable claim half-written.
+            pass
 
 
 def _wait_for_typing_window(
@@ -4609,6 +4614,12 @@ def _send_with_typing_off(s, row, typing_active: bool, send_callable):
     """End the ephemeral typing state immediately before the final send call."""
     _stop_typing_indicator(s, row, typing_active)
     return send_callable()
+
+
+def _mark_sending_after_typing_off(s, row, typing_active: bool, mark_callable):
+    """Run the durable send marker only after typing cleanup has been attempted."""
+    _stop_typing_indicator(s, row, typing_active)
+    return mark_callable()
 
 
 def _split_for_send(text: str, limit: int = 950, max_chunks: int = 4) -> list[str]:
@@ -8054,36 +8065,40 @@ def _process_one_inside_reply_boundary(
         typing_active = False
         return False
 
-    # Останнє продовження lease прямо перед Meta Send API. Поки send триває,
-    # hide не поверне помилковий success: UI отримає чесний retryable-конфлікт.
-    if not _renew_client_automation_lease(row, lease_token):
-        clear_typing_indicator()
-        return False
-    # The global lock is held only across the claim/revalidation.  Each Meta
-    # chunk below takes its own short send boundary, so slow generation and
-    # unrelated chunks never block a stop for the whole response.
-    send_boundary_allowed = False
-    send_claim_lost = False
-    with customer_send_boundary(s.pk, row.client_id, permission) as send_allowed:
-        if not send_allowed:
-            send_boundary_allowed = False
-        else:
-            send_boundary_allowed = True
+    # Attempt typing cleanup before writing the durable sending marker.  If the
+    # process dies during this advisory action, stale recovery still sees the
+    # row as processing and may safely retry it; no false send boundary exists.
+    def mark_send_state():
+        # Recheck the lease after typing_off, then enter the short permission
+        # boundary for the marker.  No external I/O runs while that lock is held.
+        if not _renew_client_automation_lease(row, lease_token):
+            return "lease_lost", False
+        with customer_send_boundary(s.pk, row.client_id, permission) as send_allowed:
+            if not send_allowed:
+                return "permission_denied", False
             send_started_at = timezone.now()
             if not _own_processing_claim(row).update(
                 send_state="sending", send_started_at=send_started_at, send_completed_at=None,
             ):
-                send_claim_lost = True
                 log("warning", "claim_lost", f"{row.sender_id}: send claim lost before Meta request")
-            else:
-                row.send_state = "sending"
-                row.send_started_at = send_started_at
-                row.send_completed_at = None
-    if not send_boundary_allowed:
-        clear_typing_indicator()
+                return "allowed", True
+            row.send_state = "sending"
+            row.send_started_at = send_started_at
+            row.send_completed_at = None
+            return "allowed", False
+
+    send_boundary_state, send_claim_lost = _mark_sending_after_typing_off(
+        s,
+        row,
+        typing_active,
+        mark_send_state,
+    )
+    typing_active = False
+    if send_boundary_state == "lease_lost":
+        return False
+    if send_boundary_state != "allowed":
         return _skip_observed_row(row, reason="permission_epoch_changed")
     if send_claim_lost:
-        clear_typing_indicator()
         return False
     delivery = _send_with_typing_off(
         s,
