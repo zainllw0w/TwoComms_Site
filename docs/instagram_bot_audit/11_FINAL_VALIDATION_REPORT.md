@@ -138,7 +138,8 @@ checkout. Ambiguous exact claims and invalid option contexts fail closed; the
 checkout renders selected option facts and line totals. The authoritative-price
 gate is 12 tests.
 
-The final deployed SHA is `13bedf8f`; migration `0143` is applied and production
+The runtime code baseline is `13bedf8f`; the final deployed tree SHA after the
+audit-doc publication is `9d3905bf`. Migration `0143` is applied and production
 has one healthy `instagram_login` daemon with empty pending reply/notification
 queues.
 

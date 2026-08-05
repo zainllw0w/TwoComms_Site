@@ -6,8 +6,9 @@ Production host: `195.191.25.63`, path
 
 ## Current production checkpoint (2026-08-05)
 
-`origin/main`, local `main` and production are synchronized at
-`13bedf8f059178eaafbb578523882e0154f69155`. The server pull was fast-forward
+Runtime code baseline is `13bedf8f`; after the audit-doc deploy, local `main`,
+`origin/main` and production tracked tree are synchronized at
+`9d3905bfb49dc67a42105f417a631214442b4847`. The server pull was fast-forward
 only; tracked files are clean (existing untracked operational logs/scripts were
 preserved). Migration `management.0143_igfollowuptask_event_continuation` is
 applied. `manage.py check`, migration drift, static/compression and the focused

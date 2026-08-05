@@ -58,8 +58,9 @@
 ## Current checkpoint: IMP-103/104 and sender observability (2026-08-05)
 
 The previous historical paragraphs below mention `414e639e` and an open
-`IMP-103`; those statements describe the earlier checkpoint only. Current
-`main`, `origin/main` and production are all `13bedf8f059178eaafbb578523882e0154f69155`.
+`IMP-103`; those statements describe the earlier checkpoint only. Runtime code
+baseline is `13bedf8f`; after this audit-doc deploy the full local `main`,
+`origin/main` and production tree are `9d3905bfb49dc67a42105f417a631214442b4847`.
 
 - `IMP-103` is closed by `4dfff3a2` + `35d3bd93` and migration
   `management.0143_igfollowuptask_event_continuation`. Follow-up continuation
