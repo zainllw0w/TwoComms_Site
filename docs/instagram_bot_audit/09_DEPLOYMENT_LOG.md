@@ -4,13 +4,19 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
-## Current production checkpoint (2026-08-05)
+## Current production checkpoint (2026-08-06)
 
-Runtime code baseline is `fbe33a68`; that code commit is in local `main`,
-`origin/main` and production as
-`fbe33a6840436a3425827f5f636805ab17952ad8`. The server pull was fast-forward
-only; tracked files are clean (existing untracked operational logs/scripts were
-preserved). Migrations `management.0143_igfollowuptask_event_continuation`,
+The current synchronized SHA is
+`42b41c7f04bac7a1da109462bc9248b99a56c737` in local `main`, `origin/main` and
+production. It records the deployed code slice `98bb160e` for payment-gated
+repeat commercial episodes on top of the earlier `fbe33a68` checkpoint. The
+server pull was fast-forward only; `git status --porcelain --untracked-files=no`
+is empty. The production Git-root is `/home/qlknpodo/TWC/TwoComms_Site` and the
+Django app lives in its `twocomms/` child. `deploy.sh` is present and executable
+at that Git-root (Git blob `37c26433...`); do not diagnose it from the app child
+as a missing file.
+
+Migrations `management.0143_igfollowuptask_event_continuation`,
 `management.0144_ig_inventory_allocation_lifecycle` and
 `management.0145_ig_inventory_revision_safety` are applied. The fresh local
 full `management warehouse` suite passed 2897 tests with 3 skipped and `OK`;
@@ -23,6 +29,16 @@ explicitly rollback-only, not a concurrency test target.
 `enabled=True`, `running=True`, `alive=True`, provider
 `instagram_login`, heartbeat age about 0.9 seconds, empty `last_error` and zero
 pending reply/notification/analysis/recovery queues.
+
+The read-only MariaDB audit also found 17 terminal
+`IgConversationAnalysisJob` rows, each with `trigger=reconcile`, `attempts=5`
+and a `CallAIAnalysisError` Gemini failure between 2026-07-30 and 2026-08-03
+(three retained `last_error` values contain literal `429`); there are no pending
+jobs. This is the defined bounded-retry outcome, not a delivery replay
+candidate: the same historical revision remains terminal, while new inbound or
+payment/order truth produces a fresh revision. `status_snapshot()` exposes the
+count as `analysis_failed`. No historical job was retried and no customer send
+was made during verification.
 
 The deployed slices are `IMP-103` (commits `4dfff3a2`, `35d3bd93`), `IMP-104`
 (`1f5dcb70`, `7fdbe613`, `1f8cead2`), sender-action observability

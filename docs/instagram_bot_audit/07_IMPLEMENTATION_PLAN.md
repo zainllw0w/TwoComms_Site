@@ -941,6 +941,9 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   receipts, burst reduction, delivery reconciliation и operational
   manager-review consumer; blind resend через неоднозначную boundary запрещён
   моделью, но worker ещё не использует этот outbox для customer delivery.
+  Последняя read-only production сверка на `42b41c7f` подтверждает, что
+  `98bb160e` уже в deployed graph и terminal historical analysis jobs не
+  создают customer sends; это не закрывает перечисленный delivery-остаток.
 - [ ] **IMP-088 (P1)** — proposal digest idempotency, manager review UI,
   cache invalidation/freshness каталога (IMPR-CAT-006), read-only audit/backfill,
   unified regression, production-like MariaDB proof,

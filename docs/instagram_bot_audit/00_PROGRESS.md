@@ -10,9 +10,9 @@
 | Поле | Значение |
 |---|---|
 | Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
-| Дата старта / обновления | 2026-08-05 (после production deploy W9 durable commerce state) |
+| Дата старта / обновления | 2026-08-06 (после синхронизированной production-проверки W9 repeat episode) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `bc4ec2d5` подтверждён в `origin/main` и на production; он включает `33d63d40` (durable commerce state), `fbe33a68` (episode-scoped presentation), `18ddc636` (lease/reclaim), `b23dfeed` (late-payment inventory race) и всю предыдущую price/inventory hardening-цепочку |
+| База внедрения | `42b41c7f` подтверждён в `origin/main` и на production; он документирует кодовый срез `98bb160e` (payment-gated repeat episode) поверх `bc4ec2d5` (durable commerce state), `fbe33a68` (episode-scoped presentation), `18ddc636` (lease/reclaim), `b23dfeed` (late-payment inventory race) и всей предыдущей price/inventory hardening-цепочки |
 | **Статус 105 IMP-задач** | **80 закрыты, 16 открыты, 9 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
@@ -54,6 +54,26 @@
 | Открыто, W9 | `IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
+
+## Current synchronized production verification (2026-08-06)
+
+`main`, `origin/main` и production находятся на
+`42b41c7f04bac7a1da109462bc9248b99a56c737`. На production Git-root —
+`/home/qlknpodo/TWC/TwoComms_Site`, а Django application directory — его
+`twocomms/` child; поэтому `deploy.sh` корректно существует в Git-root, а не
+в application directory. Blob `deploy.sh` на сервере равен Git blob
+`37c26433...`, executable mode сохранён, а `git status --porcelain
+--untracked-files=no` пуст: tracked production tree синхронизирован с main.
+
+Read-only MariaDB check увидел 17 `IgConversationAnalysisJob` со статусом
+`FAILED`: все `trigger=reconcile`, `attempts=5`, 2026-07-30…2026-08-03 и
+`last_error` класса `CallAIAnalysisError` с Gemini (у трёх строк literal
+`429`); pending rows отсутствуют. Это намеренный terminal
+retry-budget, а не потеря нового customer work: та же revision не повторяется
+вслепую, а новое inbound-сообщение либо изменение payment/order truth создаёт
+следующую revision с новым budget. `status_snapshot()` отдаёт count как
+`analysis_failed`; повтор этих исторических rows не запускался и клиентам ничего
+не отправлялось.
 
 ## Current checkpoint: durable commerce state activation (2026-08-05)
 
