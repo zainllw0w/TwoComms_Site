@@ -236,6 +236,10 @@
 .bot-client-filter-primary .bot-mini-btn:focus-visible,.bot-client-filter-toggle:focus-visible,.bot-client-filter-advanced .bot-mini-btn:focus-visible{position:relative;z-index:1;outline:0;box-shadow:inset 0 0 0 2px #60a5fa;}
 @keyframes clientFiltersIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
 .bot-client-row{display:flex;gap:11px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:12px;padding:9px 11px;cursor:pointer;transition:transform .12s,border .15s,background .15s,box-shadow .15s;}
+.bot-client-row.is-live-moving{transition:transform .21s cubic-bezier(.2,.72,.2,1);will-change:transform;}
+.bot-client-row.has-live-activity{position:relative;overflow:hidden;}
+.bot-client-row.has-live-activity::before{content:'';position:absolute;inset:7px auto 7px 0;width:3px;border-radius:2px;background:#60a5fa;animation:clientActivityRail .86s ease-out both;}
+@keyframes clientActivityRail{from{opacity:0;transform:scaleY(.35)}to{opacity:1;transform:scaleY(1)}}
 .bot-client-row:hover{border-color:#2a3550;transform:translateX(2px);}
 .bot-client-row.active{border-color:#2563eb;background:#0f1626;}
 .bot-client-row.needs-action{border-color:#7c5a18;background:#171306;box-shadow:inset 3px 0 0 #f59e0b;}
@@ -253,6 +257,15 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 .bot-client-score{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:#aeb8c7;font-weight:800;}
 .bot-client-score.is-current{color:#34d399;}.bot-client-score.is-stale{color:#fbbf24;}.bot-client-score.is-policy{color:#fca5a5;}
 .bot-client-tags{display:flex;flex:0 0 auto;flex-direction:column;align-items:flex-end;gap:5px;max-width:132px;}
+.bot-client-livebar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:28px;margin:-3px 0 8px;padding:0 2px;color:#7f91a8;font-size:10.5px;}
+.bot-client-live-state{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bot-client-live-state::before{content:'';width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.1);}
+.bot-client-live-state.is-stale::before{background:#fbbf24;box-shadow:0 0 0 3px rgba(251,191,36,.1);}
+.bot-client-live-state.is-reconnecting::before{background:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,.1);}
+.bot-clients-new-top{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:36px;width:100%;margin:0 0 8px;border:1px solid #31547e;border-radius:8px;background:#101c2d;color:#cfe4ff;font:800 11px/1.2 inherit;cursor:pointer;transition:background .15s,border-color .15s,opacity .15s;}
+.bot-clients-new-top:hover{border-color:#4c82bf;background:#152a45;}
+.bot-clients-new-top[hidden]{display:none;}
+.bot-clients-list-title{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 .bot-category-badge{display:inline-flex;align-items:center;max-width:100%;border:1px solid #2b3547;border-radius:6px;background:#141a24;color:#c5cedb;padding:3px 7px;font-size:10px;font-weight:800;line-height:1.2;text-align:right;white-space:normal;}
 .bot-category-badge.cat-support{border-color:#8a3440;background:#32171c;color:#fecdd3;}
 .bot-category-badge.cat-service{border-color:#2f6f7a;background:#0f272c;color:#a5f3fc;}
@@ -520,10 +533,10 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-conversation-messages{max-height:none;overflow:visible;}
   .bot-context-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
-@media(max-width:560px){.bot-orders-toolbar{align-items:stretch;flex-direction:column}.bot-orders-shell{gap:10px}.bot-orders-detail{padding:14px}.bot-order-detail-head{flex-direction:column}.bot-order-progress{grid-template-columns:1fr}.bot-order-resolution-grid,.bot-order-reject-grid,.bot-order-candidate-search,.bot-order-override{grid-template-columns:1fr}.bot-order-action{width:100%}.bot-client-commercial{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-client-order-row{align-items:flex-start;flex-direction:column}.bot-client-order-row .bot-order-action{width:auto}.bot-linked-order-strip{align-items:flex-start;flex-direction:column}.bot-linked-order-strip .bot-order-action{width:auto}.bot-order-media-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-drawer,.bot-client-context-shell:not([hidden]){display:block}.bot-drawer-backdrop{display:none}.bot-drawer-panel{width:100%;border-left:0}.bot-drawer-body{padding:14px 14px 24px}.bot-drawer .bot-order-actions.is-sticky{bottom:0;margin:12px 0 0;padding:12px 0 2px}.bot-context-grid{grid-template-columns:1fr 1fr}.bot-conversation-head{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}.bot-conversation-meta{min-width:0}.bot-conversation-head>.bot-stage-chip{grid-column:2;justify-self:start}.bot-conversation-actions{grid-column:1/-1;width:100%;justify-content:flex-end}.bot-potential-strip{grid-template-columns:minmax(0,1fr) auto}.bot-potential-state{grid-column:1/-1;justify-self:start}}
+@media(max-width:560px){.bot-orders-toolbar{align-items:stretch;flex-direction:column}.bot-orders-shell{gap:10px}.bot-orders-detail{padding:14px}.bot-order-detail-head{flex-direction:column}.bot-order-progress{grid-template-columns:1fr}.bot-order-resolution-grid,.bot-order-reject-grid,.bot-order-candidate-search,.bot-order-override{grid-template-columns:1fr}.bot-order-action{width:100%}.bot-client-commercial{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-client-order-row{align-items:flex-start;flex-direction:column}.bot-client-order-row .bot-order-action{width:auto}.bot-linked-order-strip{align-items:flex-start;flex-direction:column}.bot-linked-order-strip .bot-order-action{width:auto}.bot-order-media-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-drawer,.bot-client-context-shell:not([hidden]){display:block}.bot-drawer-backdrop{display:none}.bot-drawer-panel{width:100%;border-left:0}.bot-drawer-body{padding:14px 14px 24px}.bot-drawer .bot-order-actions.is-sticky{bottom:0;margin:12px 0 0;padding:12px 0 2px}.bot-context-grid{grid-template-columns:1fr 1fr}.bot-conversation-head{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}.bot-conversation-meta{min-width:0}.bot-conversation-head>.bot-stage-chip{grid-column:2;justify-self:start}.bot-conversation-actions{grid-column:1/-1;width:100%;justify-content:flex-end}.bot-potential-strip{grid-template-columns:minmax(0,1fr) auto}.bot-potential-state{grid-column:1/-1;justify-self:start}.bot-clients-new-top{min-height:44px}}
 @media(max-width:390px){.bot-app{padding-left:10px;padding-right:10px}.bot-card{padding:14px}.bot-tabs{margin-left:-4px;margin-right:-4px}.bot-tab{padding-left:11px;padding-right:11px}.bot-orders-filter{flex:1;justify-content:center}.bot-order-facts{grid-template-columns:1fr 1fr}.bot-order-media-grid{grid-template-columns:1fr 1fr}.bot-client-tags{display:none}}
 @media(max-width:320px){.bot-top{align-items:stretch}.bot-top-actions{width:100%}.bot-top-actions .bot-btn{flex:1;padding-left:10px;padding-right:10px}.bot-order-facts,.bot-client-commercial{grid-template-columns:1fr}.bot-order-media-grid{grid-template-columns:1fr}.bot-order-row-top{flex-direction:column}.bot-order-state{white-space:normal}}
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon{animation:none!important}.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before{animation:none!important}.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer{transition:none!important}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -805,7 +818,12 @@ body.bot-drawer-open{overflow:hidden;}
               </div>
             </div>
           </div>
-          <div id="bot-clients-list" class="bot-clients-list" role="list"></div>
+          <div class="bot-client-livebar">
+            <span id="bot-clients-live-status" class="bot-client-live-state" role="status" aria-live="polite" data-state="live">Наживо</span>
+          </div>
+          <button type="button" class="bot-clients-new-top" id="bot-clients-new-top" hidden aria-label="Повернутися до нових звернень">Нові зверху · <span>0</span></button>
+          <h3 id="bot-clients-list-title" class="bot-clients-list-title" tabindex="-1">Список клієнтів</h3>
+          <div id="bot-clients-list" class="bot-clients-list" role="list" aria-labelledby="bot-clients-list-title"></div>
           <nav class="bot-clients-pager" id="bot-clients-pager" aria-label="Сторінки клієнтів" hidden>
             <button type="button" class="bot-mini-btn" id="bot-clients-prev" aria-label="Попередня сторінка">‹</button>
             <span class="bot-hint bot-clients-page-label" id="bot-clients-page-label" aria-live="polite"></span>
@@ -1449,6 +1467,11 @@ body.bot-drawer-open{overflow:hidden;}
     const filterAdvanced=document.getElementById('bot-client-filter-advanced');
     const filterActiveLabel=document.getElementById('bot-client-filter-active-label');
     const totalEl=document.getElementById('clients-total');
+    const clientsPanel=document.querySelector('.bot-panel[data-panel="clients"]');
+    const liveStatusEl=document.getElementById('bot-clients-live-status');
+    const newTopEl=document.getElementById('bot-clients-new-top');
+    const newTopCountEl=newTopEl&&newTopEl.querySelector('span');
+    const listHeading=document.getElementById('bot-clients-list-title');
     const base='{% url "management_bot_clients_api" %}';
     const initialQuery=new URLSearchParams(window.location.search);
     let requestedClientId=initialQuery.get('section')==='clients'?Number(initialQuery.get('client_id')||0):0;
@@ -1457,6 +1480,15 @@ body.bot-drawer-open{overflow:hidden;}
     let currentView='all';
     let currentPage=1;let pageInfo=null;
     let convId=null,convLastId=0,convOldestId=0,convHasOlder=false,convInFlight=false;
+    const CLIENTS_POLL_MS=5000;
+    let listRequestGeneration=0;
+    let listAbortController=null;
+    let listPollTimer=null;
+    let listPollFailures=0;
+    let pendingTopCount=0;
+    let hasRenderedClients=false;
+    const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+    const activityTimers=new WeakMap();
     function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
     function stageCls(s){ return 'st-'+(s||'new'); }
     function percent(value){const parsed=Number(value);return Number.isFinite(parsed)?Math.round(parsed*100)+'%':'—';}
@@ -1505,21 +1537,33 @@ body.bot-drawer-open{overflow:hidden;}
     }
     if(pagerPrev)pagerPrev.addEventListener('click',()=>goToPage(-1));
     if(pagerNext)pagerNext.addEventListener('click',()=>goToPage(1));
-    async function load(q){
-      const params=new URLSearchParams(); params.set('view', currentView); params.set('page', String(currentPage)); if(q) params.set('q', q);if(requestedClientId)params.set('client_id',String(requestedClientId));
-      try{
-        const response=await fetch(base+'?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}});const d=await response.json();if(!response.ok||!d.success)throw new Error();
-        setBadge(document.getElementById('badge-clients'),d.total||0);pageInfo=d.pagination||null;if(pageInfo)currentPage=pageInfo.page;if(totalEl)totalEl.textContent=pageInfo?('Показано '+pageInfo.start_item+'–'+pageInfo.end_item+' з '+pageInfo.total_items):((d.total||0)+' усього');renderPager();listEl.replaceChildren();
-        let requestedOpen=null;
-        (d.clients||[]).forEach(c=>{
-          const commercialState=c.commercial_visual_state||'';const commercialLabel=c.commercial_visual_state_label||'';const row=node('div','bot-client-row'+(c.id===activeId?' active':'')+(c.manager_action_required?' needs-action':'')+(c.post_sale_needs_action?' post-sale-action':'')+(commercialState?' commercial-'+commercialState:''));row.setAttribute('role','button');row.setAttribute('tabindex','0');row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені')+(commercialLabel?(' — '+commercialLabel):'')+(c.post_sale_needs_action?(' — '+(c.post_sale_type_label||'післяпродажне звернення')):(c.manager_action_required?' — потрібна дія менеджера':'')));
-          const meta=node('div','bot-client-meta');const name=node('div','bot-client-name',c.name||c.username||c.igsid||'Без імені');const potential=potentialScore(c);const score=node('span','bot-client-score is-'+potential.state,potential.text);meta.append(name,score,node('div','bot-client-sub',listSubtitle(c)));
-          const tags=node('div','bot-client-tags');if(commercialLabel)tags.append(node('span','bot-commercial-badge commercial-'+commercialState,commercialLabel));const buyer=c.buyer||{};if(buyer.is_buyer){const buyerBadge=node('span','bot-buyer-badge'+(buyer.provider_unverified?' is-manager-confirmed':''),buyer.label||'Вже купив');if(buyer.amount_note)buyerBadge.title=buyer.amount_note;tags.append(buyerBadge);}const postSaleBadge=c.post_sale_badge_label||c.post_sale_type_label;if(postSaleBadge)tags.append(node('span','bot-post-sale-badge',postSaleBadge));if(isOverdue(c.next_followup_at))tags.append(node('span','bot-time-overdue','Прострочено'));tags.append(node('span','bot-category-badge cat-'+(c.interaction_tone||'neutral'),c.interaction_type_label||'Не визначено'),node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));
-          row.append(avatar(c),meta,tags);const openRow=()=>{activeId=c.id;requestedClientId=0;listEl.querySelectorAll('.bot-client-row').forEach(el=>el.classList.remove('active'));row.classList.add('active');setMobilePane('conversation');detail(c.id);};row.addEventListener('click',openRow);row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openRow();}});bindAvatarFallback(row,c.name||c.username||c.igsid);listEl.appendChild(row);if(requestedClientId&&Number(c.id)===requestedClientId)requestedOpen=openRow;
-        });
-        if(!(d.clients||[]).length)listEl.appendChild(node('div','bot-empty','Ще немає клієнтів.'));
-        if(requestedOpen)requestAnimationFrame(requestedOpen);
-      }catch(_){pageInfo=null;renderPager();listEl.replaceChildren(node('div','bot-empty','Не вдалося завантажити список клієнтів.'));}
+    function clientsPanelIsVisible(){return Boolean(clientsPanel&&clientsPanel.classList.contains('active')&&loaded.clients&&!document.hidden);}
+    function setLiveStatus(kind,text){if(!liveStatusEl)return;const next=text||'Наживо';if(liveStatusEl.dataset.state===kind&&liveStatusEl.textContent===next)return;liveStatusEl.dataset.state=kind;liveStatusEl.classList.toggle('is-stale',kind==='stale');liveStatusEl.classList.toggle('is-reconnecting',kind==='reconnecting');liveStatusEl.textContent=next;}
+    function markListRefreshFailure(){listPollFailures+=1;if(listPollFailures>=2)setLiveStatus('stale','Зв’язок перевіряється');}
+    function markListRefreshSuccess(){if(listPollFailures>=2){setLiveStatus('reconnecting','Зв’язок відновлено');window.setTimeout(()=>setLiveStatus('live','Наживо'),1600);}else setLiveStatus('live','Наживо');listPollFailures=0;}
+    function isListAwayFromTop(){return Boolean((listEl&&listEl.scrollTop>24)||(window.matchMedia('(max-width: 880px)').matches&&listEl&&listEl.getBoundingClientRect().top<0));}
+    function syncNewTopAction(){if(!newTopEl)return;const away=isListAwayFromTop();if(!away)pendingTopCount=0;newTopEl.hidden=!(pendingTopCount>0&&away);if(newTopCountEl)newTopCountEl.textContent=String(pendingTopCount);}
+    function markLiveActivity(row){if(!row)return;row.classList.remove('has-live-activity');void row.offsetWidth;row.classList.add('has-live-activity');const timer=activityTimers.get(row);if(timer)window.clearTimeout(timer);activityTimers.set(row,window.setTimeout(()=>{row.classList.remove('has-live-activity');activityTimers.delete(row);},900));}
+    function clientSignature(c){return JSON.stringify(c||{});}
+    function bindClientRow(row){if(row.dataset.clientBound==='1')return;const openRow=()=>{const id=Number(row.dataset.clientId||0);if(!id)return;activeId=id;requestedClientId=0;listEl.querySelectorAll('.bot-client-row').forEach(el=>el.classList.remove('active'));row.classList.add('active');setMobilePane('conversation');detail(id);};row.addEventListener('click',openRow);row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openRow();}});row.dataset.clientBound='1';}
+    function renderClientRow(row,c){
+      row.dataset.clientId=String(c.id);row.dataset.lastMessageAt=c.last_message_at||'';row.className='bot-client-row'+(Number(c.id)===Number(activeId)?' active':'')+(c.manager_action_required?' needs-action':'')+(c.post_sale_needs_action?' post-sale-action':'')+(c.commercial_visual_state?' commercial-'+c.commercial_visual_state:'');row.setAttribute('role','button');row.setAttribute('tabindex','0');
+      const commercialState=c.commercial_visual_state||'';const commercialLabel=c.commercial_visual_state_label||'';row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені')+(commercialLabel?(' — '+commercialLabel):'')+(c.post_sale_needs_action?(' — '+(c.post_sale_type_label||'післяпродажне звернення')):(c.manager_action_required?' — потрібна дія менеджера':'')));
+      const meta=node('div','bot-client-meta');const name=node('div','bot-client-name',c.name||c.username||c.igsid||'Без імені');const potential=potentialScore(c);const score=node('span','bot-client-score is-'+potential.state,potential.text);meta.append(name,score,node('div','bot-client-sub',listSubtitle(c)));
+      const tags=node('div','bot-client-tags');if(commercialLabel)tags.append(node('span','bot-commercial-badge commercial-'+commercialState,commercialLabel));const buyer=c.buyer||{};if(buyer.is_buyer){const buyerBadge=node('span','bot-buyer-badge'+(buyer.provider_unverified?' is-manager-confirmed':''),buyer.label||'Вже купив');if(buyer.amount_note)buyerBadge.title=buyer.amount_note;tags.append(buyerBadge);}const postSaleBadge=c.post_sale_badge_label||c.post_sale_type_label;if(postSaleBadge)tags.append(node('span','bot-post-sale-badge',postSaleBadge));if(isOverdue(c.next_followup_at))tags.append(node('span','bot-time-overdue','Прострочено'));tags.append(node('span','bot-category-badge cat-'+(c.interaction_tone||'neutral'),c.interaction_type_label||'Не визначено'),node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));
+      row.replaceChildren(avatar(c),meta,tags);bindClientRow(row);bindAvatarFallback(row,c.name||c.username||c.igsid);row.dataset.renderSignature=clientSignature(c);
+    }
+    function createClientRow(c){const row=node('div','bot-client-row');renderClientRow(row,c);return row;}
+    function animateClientMoves(before){if(reduceMotion.matches)return;const moves=[];listEl.querySelectorAll('[data-client-id]').forEach(row=>{const beforeRect=before.get(row.dataset.clientId);if(!beforeRect)return;const after=row.getBoundingClientRect();const deltaY=beforeRect.top-after.top;if(Math.abs(deltaY)<1)return;row.style.transition='none';row.style.transform='translate3d(0, '+deltaY+'px, 0)';moves.push(row);});if(!moves.length)return;void listEl.offsetHeight;requestAnimationFrame(()=>{moves.forEach(row=>{row.style.transition='';row.classList.add('is-live-moving');row.style.transform='translate3d(0, 0, 0)';window.setTimeout(()=>{row.classList.remove('is-live-moving');row.style.transition='';row.style.transform='';},230);});});}
+    function reconcileClients(clients,{animate=false}={}){
+      const focusedClientId=document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.clientId:'';const focusedRow=document.activeElement&&document.activeElement.closest?document.activeElement.closest('[data-client-id]'):null;const rowsById=new Map(Array.from(listEl.querySelectorAll('[data-client-id]')).map(row=>[row.dataset.clientId,row]));const before=new Map();if(animate&&!reduceMotion.matches)rowsById.forEach((row,id)=>before.set(id,row.getBoundingClientRect()));let activityCount=0;const fragment=document.createDocumentFragment();
+      (clients||[]).forEach(c=>{const id=String(c.id);let row=rowsById.get(id);const previousStamp=row?row.dataset.lastMessageAt||'':'';const previousSignature=row?row.dataset.renderSignature||'':'';if(!row)row=createClientRow(c);else if(previousSignature!==clientSignature(c))renderClientRow(row,c);else{row.dataset.lastMessageAt=c.last_message_at||'';row.classList.toggle('active',Number(c.id)===Number(activeId));}if(animate&&row&&(previousStamp!==String(c.last_message_at||'')||!rowsById.has(id))){activityCount+=1;markLiveActivity(row);}fragment.appendChild(row);});
+      while(listEl.firstChild)listEl.removeChild(listEl.firstChild);if((clients||[]).length)listEl.appendChild(fragment);else listEl.appendChild(node('div','bot-empty','Ще немає клієнтів.'));if(animate)animateClientMoves(before);if(activityCount){pendingTopCount+=activityCount;syncNewTopAction();}if(focusedClientId){const restoredRow=listEl.querySelector('[data-client-id="'+CSS.escape(String(focusedClientId))+'"]');if(restoredRow&&document.activeElement!==restoredRow)restoredRow.focus({preventScroll:true});else if(!restoredRow&&listHeading)listHeading.focus({preventScroll:true});}
+    }
+    async function load(q,{background=false}={}){
+      const requestGeneration=++listRequestGeneration;if(listAbortController)listAbortController.abort();listAbortController=new AbortController();const controller=listAbortController;const params=new URLSearchParams();params.set('view', currentView);params.set('page', String(currentPage));if(q)params.set('q', q);if(requestedClientId)params.set('client_id',String(requestedClientId));
+      try{const response=await fetch(base+'?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'},signal:controller.signal});const d=await response.json();if(!response.ok||!d.success)throw new Error();if(requestGeneration!==listRequestGeneration)return false;setBadge(document.getElementById('badge-clients'),d.total||0);pageInfo=d.pagination||null;if(pageInfo)currentPage=pageInfo.page;if(totalEl)totalEl.textContent=pageInfo?('Показано '+pageInfo.start_item+'–'+pageInfo.end_item+' з '+pageInfo.total_items):((d.total||0)+' усього');renderPager();reconcileClients(d.clients||[],{animate:background&&hasRenderedClients});hasRenderedClients=true;if(background)markListRefreshSuccess();let requestedOpen=null;if(requestedClientId&&!background){const requestedRow=listEl.querySelector('[data-client-id="'+CSS.escape(String(requestedClientId))+'"]');if(requestedRow)requestedOpen=()=>requestedRow.click();}if(requestedOpen)requestAnimationFrame(requestedOpen);return true;
+      }catch(error){if(requestGeneration!==listRequestGeneration||error&&error.name==='AbortError')return false;if(background){markListRefreshFailure();return false;}pageInfo=null;renderPager();if(!hasRenderedClients)listEl.appendChild(node('div','bot-empty','Не вдалося завантажити список клієнтів.'));return false;}finally{if(requestGeneration===listRequestGeneration&&listAbortController===controller)listAbortController=null;}
     }
     function currentQuery(){ return searchEl ? searchEl.value.trim() : ''; }
     function actionSuccessText(action, data){
@@ -1918,8 +1962,11 @@ body.bot-drawer-open{overflow:hidden;}
     if(filtersEl)syncFilterDisclosure(filtersEl.querySelector('[data-client-view].active'));
     if(mobileNav)mobileNav.querySelectorAll('[data-client-pane]').forEach(button=>button.addEventListener('click',()=>setMobilePane(button.dataset.clientPane||'list')));
     if(mobileNav)mobileNav.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const buttons=Array.from(mobileNav.querySelectorAll('[data-client-pane]'));let index=buttons.indexOf(document.activeElement);if(event.key==='Home')index=0;else if(event.key==='End')index=buttons.length-1;else index=(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;event.preventDefault();buttons[index].focus();buttons[index].click();});
-    // фонове оновлення лічильника клієнтів навіть на інших вкладках
-    setInterval(()=>{ if(loaded.clients && !activeId){ load(searchEl?searchEl.value.trim():''); } }, 20000);
+    if(listEl)listEl.addEventListener('scroll',syncNewTopAction,{passive:true});
+    if(newTopEl)newTopEl.addEventListener('click',()=>{pendingTopCount=0;syncNewTopAction();const firstRow=listEl&&listEl.querySelector('[data-client-id]');if(firstRow){firstRow.scrollIntoView({behavior:reduceMotion.matches?'auto':'smooth',block:'start'});}else if(listEl){listEl.scrollTo({top:0,behavior:reduceMotion.matches?'auto':'smooth'});}});
+    function scheduleClientsPoll(delay=CLIENTS_POLL_MS){if(listPollTimer)window.clearTimeout(listPollTimer);listPollTimer=window.setTimeout(async()=>{listPollTimer=null;if(clientsPanelIsVisible())await load(currentQuery(),{background:true});scheduleClientsPoll();},delay);}
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&loaded.clients)scheduleClientsPoll(0);});
+    scheduleClientsPoll();
     async function refreshClient(id){if(!id||Number(id)!==Number(activeId))return;await detail(id);await load(currentQuery());}
     return {load:load,detail:detail,refreshClient:refreshClient};
   })();

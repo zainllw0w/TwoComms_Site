@@ -109,6 +109,113 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
 
         self.assertIn("'Показано '+pageInfo.start_item+'–'+pageInfo.end_item+' з '+pageInfo.total_items", self.template)
 
+    def test_clients_live_list_uses_stable_dom_identity_and_keyed_reconciliation(self):
+        for contract in (
+            "row.dataset.clientId=String(c.id)",
+            "function reconcileClients(clients,{animate=false}={})",
+            "const rowsById=new Map(Array.from(listEl.querySelectorAll('[data-client-id]'))",
+            "rowsById.get(id)",
+            "fragment.appendChild(row)",
+        ):
+            self.assertIn(contract, self.template)
+
+        reconcile_start = self.template.index("function reconcileClients(")
+        reconcile_end = self.template.index("function currentQuery()", reconcile_start)
+        reconcile_source = self.template[reconcile_start:reconcile_end]
+        self.assertNotIn("listEl.replaceChildren()", reconcile_source)
+
+    def test_clients_live_row_updates_replace_contents_without_duplicate_children(self):
+        self.assertIn("row.replaceChildren(avatar(c),meta,tags)", self.template)
+        self.assertNotIn("row.append(avatar(c),meta,tags)", self.template)
+
+    def test_clients_background_poll_keeps_running_with_an_open_conversation(self):
+        for contract in (
+            "const CLIENTS_POLL_MS=5000",
+            "function clientsPanelIsVisible()",
+            "clientsPanel.classList.contains('active')",
+            "loaded.clients&&!document.hidden",
+            "load(currentQuery(),{background:true})",
+        ):
+            self.assertIn(contract, self.template)
+
+        self.assertNotIn("if(loaded.clients && !activeId)", self.template)
+
+    def test_clients_list_requests_cancel_stale_work_and_preserve_last_good_rows(self):
+        for contract in (
+            "let listRequestGeneration=0",
+            "let listAbortController=null",
+            "listAbortController=new AbortController()",
+            "signal:controller.signal",
+            "if(requestGeneration!==listRequestGeneration)return false",
+            "if(background){markListRefreshFailure();return false;}",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_clients_live_reorder_uses_flip_and_respects_reduced_motion(self):
+        for contract in (
+            "const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)')",
+            "row.getBoundingClientRect()",
+            "const deltaY=beforeRect.top-after.top",
+            "row.style.transform='translate3d(0, '+deltaY+'px, 0)'",
+            "requestAnimationFrame(()=>{",
+            "row.classList.add('is-live-moving')",
+            ".bot-client-row.has-live-activity::before",
+            "@media(prefers-reduced-motion:reduce)",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_clients_flip_reenables_css_transition_before_the_live_move(self):
+        move_start = self.template.index("function animateClientMoves(")
+        move_end = self.template.index("function reconcileClients(", move_start)
+        move_source = self.template[move_start:move_end]
+
+        self.assertRegex(
+            move_source,
+            re.compile(
+                r"requestAnimationFrame\(\(\)=>\{moves\.forEach\(row=>\{"
+                r"row\.style\.transition='';row\.classList\.add\('is-live-moving'\);"
+                r"row\.style\.transform='translate3d\(0, 0, 0\)'"
+            ),
+        )
+
+    def test_clients_live_reorder_preserves_selection_focus_and_never_auto_opens(self):
+        for contract in (
+            "row.classList.toggle('active',Number(c.id)===Number(activeId))",
+            "const focusedClientId=document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.clientId:''",
+            "if(restoredRow&&document.activeElement!==restoredRow)restoredRow.focus({preventScroll:true})",
+            "if(requestedClientId&&!background)",
+        ):
+            self.assertIn(contract, self.template)
+
+        reconcile_start = self.template.index("function reconcileClients(")
+        reconcile_end = self.template.index("function currentQuery()", reconcile_start)
+        reconcile_source = self.template[reconcile_start:reconcile_end]
+        self.assertNotIn("detail(", reconcile_source)
+        self.assertNotIn("activeId=", reconcile_source)
+
+    def test_clients_live_status_and_new_items_action_are_compact_and_accessible(self):
+        for contract in (
+            'id="bot-clients-live-status"',
+            'role="status" aria-live="polite"',
+            'id="bot-clients-new-top"',
+            "Нові зверху · ",
+            "firstRow.scrollIntoView",
+            ".bot-clients-new-top",
+            "min-height:36px",
+            "@media(max-width:560px)",
+            ".bot-clients-new-top{min-height:44px",
+            "listPollFailures>=2",
+            "Зв’язок відновлено",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_clients_live_status_does_not_reannounce_unchanged_poll_cycles(self):
+        self.assertIn('data-state="live"', self.template)
+        self.assertIn(
+            "if(liveStatusEl.dataset.state===kind&&liveStatusEl.textContent===next)return",
+            self.template,
+        )
+
     def test_client_context_is_a_third_desktop_column_and_a_small_screen_drawer(self):
         for contract in (
             "grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(300px,380px)",
@@ -835,6 +942,23 @@ class ClientsApiTests(TestCase):
         data = r.json()
         self.assertTrue(data["success"])
         self.assertTrue(any(cl["name"] == "Іван" for cl in data["clients"]))
+
+    def test_clients_list_keeps_last_message_timestamp_and_authoritative_order(self):
+        older = IgClient.get_or_create_for_sender("ig-order-older")
+        newer = IgClient.get_or_create_for_sender("ig-order-newer")
+        base_time = timezone.now()
+        older.last_message_at = base_time - timedelta(minutes=5)
+        newer.last_message_at = base_time
+        older.save(update_fields=["last_message_at", "updated_at"])
+        newer.save(update_fields=["last_message_at", "updated_at"])
+
+        data = self.client.get(reverse("management_bot_clients_api")).json()
+        rows = data["clients"]
+        positions = {row["id"]: index for index, row in enumerate(rows)}
+        newer_row = next(row for row in rows if row["id"] == newer.id)
+
+        self.assertLess(positions[newer.id], positions[older.id])
+        self.assertEqual(newer_row["last_message_at"], newer.last_message_at.isoformat())
 
     def test_clients_list_is_paginated_without_overlap_and_reports_real_range(self):
         IgClient.objects.bulk_create([
