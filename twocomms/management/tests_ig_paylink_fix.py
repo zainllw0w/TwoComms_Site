@@ -10,10 +10,12 @@ from unittest.mock import patch
 from django.test import SimpleTestCase, TestCase
 
 from management.models import (
+    IgBotNotification,
     IgCheckoutAccessToken,
     IgCheckoutProposal,
     IgClient,
     IgDeal,
+    InstagramBotSettings,
     InstagramBotMessage,
 )
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
@@ -372,6 +374,69 @@ class AuthoritativePriceClaimTests(TestCase):
         self.assertIn("Термохромний матеріал", details)
         self.assertIn("1450 грн/шт", details)
         self.assertIn("сума 1450 грн", details)
+
+
+class AuthoritativePriceProcessBoundaryTests(TestCase):
+    def setUp(self):
+        from productcolors.models import Color, ProductColorVariant
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = False
+        self.settings.allowed_senders = ""
+        self.settings.trigger_text = "Хочу оформити термохромну футболку"
+        self.settings.reply_text = "Точна ціна 1090 грн [PRICE_QUOTED:1090] [PAYLINK:full]"
+        self.settings.save(update_fields=[
+            "is_enabled", "ai_enabled", "allowed_senders", "trigger_text", "reply_text",
+        ])
+        self.product = _pub_product(
+            "Термохромна футболка для boundary",
+            "authoritative-price-process-boundary",
+            price=1090,
+        )
+        self.variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=Color.objects.create(name="Термохром boundary", primary_hex="#202020"),
+            price_override=1450,
+        )
+        self.client = IgClient.get_or_create_for_sender("authoritative-price-process-boundary")
+        self.client.current_product = self.product
+        self.client.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": self.product.pk,
+                "color_variant_id": self.variant.pk,
+            }
+        }
+        self.client.save(update_fields=["current_product", "sales_context", "updated_at"])
+
+    @patch("management.services.instagram_bot._deliver_manager_notification", return_value=False)
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text", return_value=(False, "retryable", "temporary provider failure"))
+    def test_wrong_price_claim_keeps_durable_manager_escalation_when_holding_send_fails(
+        self, _send_text, _sender_action, _deliver
+    ):
+        row = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Хочу оформити термохромну футболку",
+            status=InstagramBotMessage.Status.PENDING,
+            source="webhook",
+        )
+
+        self.assertEqual(bot.process_pending(self.settings, max_items=1), 0)
+
+        row.refresh_from_db()
+        self.client.refresh_from_db()
+        self.assertEqual(row.status, InstagramBotMessage.Status.PENDING)
+        self.assertEqual(self.client.stage, IgClient.Stage.LEAD_TO_MANAGER)
+        escalation = IgBotNotification.objects.get(
+            client=self.client,
+            event_type="escalation",
+        )
+        self.assertIn("клієнту потрібен менеджер", escalation.payload["text"])
+        self.assertFalse(
+            IgCheckoutProposal.objects.filter(client=self.client).exists()
+        )
 
 
 class WantsPaylinkTests(SimpleTestCase):

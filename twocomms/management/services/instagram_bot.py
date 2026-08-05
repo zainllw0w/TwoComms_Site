@@ -7478,6 +7478,41 @@ def _release_client_automation_lease(client_id: int | None, token: str) -> None:
     release_client_automation_lease(client_id, token)
 
 
+def _escalate_manager_for_row(row: InstagramBotMessage) -> None:
+    """Persist one client-scoped manager escalation for an unsafe reply."""
+    if not row.client_id:
+        return
+    try:
+        _apply_stage(row.client, IgClient.Stage.LEAD_TO_MANAGER)
+    except Exception:
+        pass
+    from management.services.ig_alerts import (
+        alert_dedupe_key,
+        client_admin_url,
+        format_alert,
+    )
+
+    who = row.client.username or row.client.display_name or ""
+    notify_manager(
+        format_alert(
+            "🔔 IG Direct — клієнту потрібен менеджер.",
+            lines=[
+                f"Клієнт: {who or row.sender_id}",
+                f"Питання: {row.text[:400]}",
+            ],
+            url=client_admin_url(row.client_id),
+            url_label="Картка:",
+        ),
+        dedupe_key=alert_dedupe_key(
+            "escalation", client_id=row.client_id, window_minutes=60,
+            text=row.text or "",
+        ),
+        event_type="escalation",
+        client=row.client,
+    )
+    log("warning", "escalation", f"{row.sender_id}: викликано менеджера")
+
+
 def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
     client, lease_token = _acquire_client_automation_lease(row)
     if row.client_id and not client:
@@ -7969,6 +8004,11 @@ def _process_one_inside_reply_boundary(
             row.processed_at = cancelled_at
         return _skip_observed_row(row, reason="permission_epoch_changed")
     if not ok:
+        if needs_manager:
+            # The customer holding reply may itself be retryable/unknown. The
+            # unsafe commercial claim still needs a durable human handoff now;
+            # the success path below repeats this call idempotently.
+            _escalate_manager_for_row(row)
         if outage_recovery_job is not None:
             try:
                 from management.services.ig_ai_reply_recovery import terminalize_prepared_recovery
@@ -8267,43 +8307,7 @@ def _process_one_inside_reply_boundary(
             except Exception:
                 pass
     if needs_manager:
-        if row.client_id:
-            try:
-                _apply_stage(row.client, IgClient.Stage.LEAD_TO_MANAGER)
-            except Exception:
-                pass
-        # Найчастіший алерт у системі — і донедавна найменш корисний: у ньому був
-        # лише IGSID, тому менеджер шукав клієнта руками, хоча `client_id` уже
-        # відомий. Тепер ім'я, посилання на картку і дедуп із вікном: та сама
-        # ескалація по тому самому клієнту не повторюється щогодини, але через
-        # годину повернеться, якщо питання досі відкрите.
-        from management.services.ig_alerts import (
-            alert_dedupe_key,
-            client_admin_url,
-            format_alert,
-        )
-
-        who = ""
-        if row.client_id:
-            who = row.client.username or row.client.display_name or ""
-        notify_manager(
-            format_alert(
-                "🔔 IG Direct — клієнту потрібен менеджер.",
-                lines=[
-                    f"Клієнт: {who or row.sender_id}",
-                    f"Питання: {row.text[:400]}",
-                ],
-                url=client_admin_url(row.client_id),
-                url_label="Картка:",
-            ),
-            dedupe_key=alert_dedupe_key(
-                "escalation", client_id=row.client_id, window_minutes=60,
-                text=row.text or "",
-            ),
-            event_type="escalation",
-            client=row.client if row.client_id else None,
-        )
-        log("warning", "escalation", f"{row.sender_id}: викликано менеджера")
+        _escalate_manager_for_row(row)
     return True
 
 
