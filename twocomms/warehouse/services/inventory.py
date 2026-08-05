@@ -6,6 +6,7 @@ from typing import Optional
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.utils import timezone
 
 from warehouse.models import (
     MovementReason,
@@ -218,6 +219,28 @@ def reverse_write_off(*, write_off_request, user=None) -> int:
 
     write_off_request.status = WriteOffRequest.STATUS_CANCELLED
     write_off_request.save(update_fields=["status", "updated_at"])
+    # An Instagram paid allocation is only fulfilled by this write-off. A
+    # reversal returns it to the paid-committed state so a later replacement
+    # write-off can be audited without creating a second reservation.
+    try:
+        from management.models import IgCheckoutInventoryReservation
+
+        IgCheckoutInventoryReservation.objects.filter(
+            write_off_request=write_off_request,
+            state=IgCheckoutInventoryReservation.State.FULFILLED,
+        ).update(
+            state=IgCheckoutInventoryReservation.State.PAID_COMMITTED,
+            write_off_request=None,
+            stock_movement=None,
+            order_item=None,
+            fulfilled_at=None,
+            consumed_at=None,
+            updated_at=timezone.now(),
+        )
+    except ImportError:
+        # Warehouse remains usable when the optional Instagram app is absent
+        # in migration/management commands.
+        pass
     return reversed_count
 
 

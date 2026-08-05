@@ -802,6 +802,20 @@ def create_or_update_proposal(
         revision_source = IgCheckoutRevision.Source.BOT_UPDATE
 
     _replace_proposal_items(proposal=proposal, quote=quote)
+    try:
+        from management.services.ig_inventory import (
+            InventoryReservationError,
+            reserve_proposal_inventory,
+        )
+
+        reserve_proposal_inventory(proposal, require_policy=True)
+    except InventoryReservationError as exc:
+        code = (
+            "insufficient_stock"
+            if "insufficient" in exc.reason
+            else "inventory_unavailable"
+        )
+        raise CheckoutConfigurationError(code, item_index=0)
     IgCheckoutRevision.objects.create(
         proposal=proposal,
         revision=revision_number,

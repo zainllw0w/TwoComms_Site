@@ -59,21 +59,24 @@ def _policy(product_id: int):
     return ProductInventoryPolicy.objects.filter(product_id=product_id).first()
 
 
-def _variant(spec: AllocationSpec):
+def _variant(spec: AllocationSpec, *, lock: bool = False):
     from productcolors.models import ProductColorVariant
 
     if spec.color_variant_id is not None:
-        return ProductColorVariant.objects.filter(
+        queryset = ProductColorVariant.objects.filter(
             pk=spec.color_variant_id,
             product_id=spec.product_id,
-        ).select_related("color").first()
+        ).select_related("color")
+        if lock:
+            queryset = queryset.select_for_update()
+        return queryset.first()
     return None
 
 
 def _resolve_catalog_variant(spec: AllocationSpec, *, lock: bool) -> AvailabilityDecision:
     from fable5.models import VariantSizeRule
 
-    variant = _variant(spec)
+    variant = _variant(spec, lock=lock)
     if variant is None:
         return AvailabilityDecision.unknown("color_variant_required")
     if _quantity(spec.quantity) <= 0:
@@ -111,7 +114,7 @@ def _resolve_warehouse(spec: AllocationSpec, *, lock: bool) -> AvailabilityDecis
     from fable5.models import VariantBlankLink
     from warehouse.models import StockItem
 
-    variant = _variant(spec)
+    variant = _variant(spec, lock=lock)
     if variant is None:
         return AvailabilityDecision.unknown("color_variant_required")
     if _quantity(spec.quantity) <= 0:

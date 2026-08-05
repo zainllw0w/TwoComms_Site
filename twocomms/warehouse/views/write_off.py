@@ -165,6 +165,7 @@ def write_off_submit(request, token):
     actions = []
     errors = []
     completed = False
+    review_reservation_id = None
 
     try:
         with transaction.atomic():
@@ -240,6 +241,20 @@ def write_off_submit(request, token):
                 raise _WriteOffAbort()
 
             if actions:
+                try:
+                    from management.services.ig_inventory import (
+                        fulfill_order_inventory_reservations,
+                    )
+
+                    fulfill_order_inventory_reservations(
+                        order,
+                        write_off_request=wo_request,
+                        user=request.user,
+                    )
+                except Exception as exc:
+                    review_reservation_id = getattr(exc, "reservation_id", None)
+                    errors.append(str(exc)[:255] or "warehouse reservation mismatch")
+                    raise _WriteOffAbort()
                 wo_request.status = WriteOffRequest.STATUS_COMPLETED
                 wo_request.completed_at = timezone.now()
                 wo_request.completed_by = request.user
@@ -250,6 +265,20 @@ def write_off_submit(request, token):
     except _WriteOffAbort:
         # Транзакцію відкочено: actions фактично не застосовано.
         actions = []
+        if review_reservation_id:
+            try:
+                from management.models import IgCheckoutInventoryReservation
+
+                IgCheckoutInventoryReservation.objects.filter(
+                    pk=review_reservation_id,
+                    state=IgCheckoutInventoryReservation.State.PAID_COMMITTED,
+                ).update(
+                    state=IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+                    release_reason="fulfillment_stock_shortfall",
+                    updated_at=timezone.now(),
+                )
+            except Exception:
+                pass
 
     for err in errors:
         messages.error(request, f"Помилка списання: {err}")

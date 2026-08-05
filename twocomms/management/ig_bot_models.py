@@ -2391,7 +2391,13 @@ class IgCheckoutAccessToken(models.Model):
 class IgCheckoutInventoryReservation(models.Model):
     class State(models.TextChoices):
         ACTIVE = "active", _("Зарезервовано")
+        PAID_COMMITTED = "paid_committed", _("Оплата підтверджена")
+        FULFILLED = "fulfilled", _("Виконано")
         RELEASED = "released", _("Звільнено")
+        OVERBOOKED_REVIEW = "overbooked_review", _("Потрібна перевірка дефіциту")
+        # Kept for rows written by the pre-allocation implementation. New
+        # payment paths use FULFILLED; the lifecycle migration normalizes old
+        # consumed rows where it can prove a catalog allocation.
         CONSUMED = "consumed", _("Використано")
 
     proposal = models.ForeignKey(
@@ -2418,10 +2424,53 @@ class IgCheckoutInventoryReservation(models.Model):
         related_name="instagram_checkout_reservations",
         db_constraint=False,
     )
+    allocation_source = models.CharField(max_length=24, default="catalog_variant")
+    stock_item = models.ForeignKey(
+        "warehouse.StockItem",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_checkout_reservations",
+        db_constraint=False,
+    )
+    allocation_key = models.CharField(max_length=128, blank=True, default="")
+    line_ids = models.JSONField(default=list, blank=True)
+    order = models.ForeignKey(
+        "orders.Order",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_inventory_reservations",
+        db_constraint=False,
+    )
+    order_item = models.ForeignKey(
+        "orders.OrderItem",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_inventory_reservations",
+        db_constraint=False,
+    )
+    write_off_request = models.ForeignKey(
+        "warehouse.WriteOffRequest",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_inventory_reservations",
+        db_constraint=False,
+    )
+    stock_movement = models.OneToOneField(
+        "warehouse.StockMovement",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_inventory_reservation",
+        db_constraint=False,
+    )
     quantity = models.PositiveIntegerField()
     reservation_fingerprint = models.CharField(max_length=64, unique=True)
     state = models.CharField(
-        max_length=16,
+        max_length=24,
         choices=State.choices,
         default=State.ACTIVE,
         db_index=True,
@@ -2429,6 +2478,8 @@ class IgCheckoutInventoryReservation(models.Model):
     expires_at = models.DateTimeField(db_index=True)
     released_at = models.DateTimeField(null=True, blank=True)
     consumed_at = models.DateTimeField(null=True, blank=True)
+    paid_committed_at = models.DateTimeField(null=True, blank=True)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
     release_reason = models.CharField(max_length=128, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2442,6 +2493,14 @@ class IgCheckoutInventoryReservation(models.Model):
             models.CheckConstraint(
                 condition=models.Q(quantity__gt=0),
                 name="ig_res_qty_positive",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(allocation_source="warehouse", stock_item__isnull=False)
+                    | models.Q(allocation_source="catalog_variant")
+                    | models.Q(allocation_source="untracked")
+                ),
+                name="ig_res_allocation_source_valid",
             ),
         ]
 

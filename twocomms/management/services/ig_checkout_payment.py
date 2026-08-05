@@ -31,7 +31,7 @@ from orders.promo_reservations import (
 )
 
 from management.services.ig_inventory import (
-    consume_proposal_inventory,
+    commit_proposal_inventory,
     release_proposal_inventory,
     reserve_proposal_inventory,
 )
@@ -905,7 +905,7 @@ def bind_verified_payment(attempt_id, order):
     proposal.status = proposal.Status.PAID
     proposal.paid_at = proposal.paid_at or now
     proposal.save(update_fields=["status", "paid_at", "updated_at"])
-    consume_proposal_inventory(proposal, order=order)
+    commit_proposal_inventory(proposal, order=order)
     event, _created = IgLifecycleEvent.objects.get_or_create(
         event_key=f"payment:{attempt.pk}:verified",
         defaults={
