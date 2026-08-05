@@ -3881,6 +3881,13 @@ class InstagramBotMessage(models.Model):
     provider_message_id = models.CharField(
         max_length=255, blank=True, default="", db_index=True
     )
+    # Meta supplies these identities for replies to candidate prompts and
+    # quick-reply buttons. They are persisted on ingress so a numeric choice
+    # can be checked against the exact prompt generation later.
+    reply_to_provider_message_id = models.CharField(
+        max_length=255, blank=True, default="", db_index=True
+    )
+    quick_reply_payload = models.CharField(max_length=1000, blank=True, default="")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DONE)
     source = models.CharField(max_length=16, default="webhook")
     # JSON-список URL зображень-вкладень (для мультимодального аналізу Gemini).
