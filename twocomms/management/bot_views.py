@@ -3865,33 +3865,34 @@ def bot_client_followup_delivery_resolve_api(request, client_id, task_id):
     task = IgFollowUpTask.objects.filter(pk=task_id, client_id=client_id).first()
     if task is None:
         return JsonResponse({"success": False, "error": "Клієнта або follow-up не знайдено."}, status=404)
-    result = bot_followups.resolve_ambiguous_followup(
-        task.pk,
-        outcome=request.POST.get("outcome"),
-        actor_id=request.user.pk,
-        note=request.POST.get("note", ""),
-        now=timezone.now(),
-    )
-    if not result.get("ok"):
-        return JsonResponse({"success": False, **result}, status=result.get("status", 400))
-    if not result.get("idempotent"):
-        review_id = IgFollowUpTask.objects.filter(
-            delivery_review_for_id=task.pk,
-        ).values_list("pk", flat=True).first()
-        AdminAuditLog.objects.create(
-            actor=request.user,
-            actor_role="staff",
-            action="ig_followup_delivery_resolved",
-            entity_type="IgFollowUpTask",
-            entity_id=str(task.pk),
-            before={"status": IgFollowUpTask.Status.AMBIGUOUS},
-            after={
-                "status": result.get("status", ""),
-                "outcome": result.get("outcome", ""),
-                "review_id": review_id,
-            },
-            reason=str(request.POST.get("note") or "").strip()[:500],
+    with transaction.atomic():
+        result = bot_followups.resolve_ambiguous_followup(
+            task.pk,
+            outcome=request.POST.get("outcome"),
+            actor_id=request.user.pk,
+            note=request.POST.get("note", ""),
+            now=timezone.now(),
         )
+        if not result.get("ok"):
+            return JsonResponse({"success": False, **result}, status=result.get("status", 400))
+        if not result.get("idempotent"):
+            review_id = IgFollowUpTask.objects.filter(
+                delivery_review_for_id=task.pk,
+            ).values_list("pk", flat=True).first()
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                actor_role="staff",
+                action="ig_followup_delivery_resolved",
+                entity_type="IgFollowUpTask",
+                entity_id=str(task.pk),
+                before={"status": IgFollowUpTask.Status.AMBIGUOUS},
+                after={
+                    "status": result.get("status", ""),
+                    "outcome": result.get("outcome", ""),
+                    "review_id": review_id,
+                },
+                reason=str(request.POST.get("note") or "").strip()[:500],
+            )
     return JsonResponse({"success": True, **result})
 
 

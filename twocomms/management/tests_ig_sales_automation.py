@@ -15,6 +15,7 @@ from management.models import (
     IgDealItem,
     InstagramBotMessage,
 )
+from management.services.instagram_bot import ProviderDeliveryReceipt
 
 User = get_user_model()
 MGMT = override_settings(
@@ -401,7 +402,7 @@ class FollowUpPolicyTests(TestCase):
             (False, "payment_reversed"),
         )
 
-    def test_transient_followup_failure_is_backed_off_and_not_hot_looped(self):
+    def test_uncertain_transient_followup_failure_is_ambiguous_and_not_retried(self):
         from management.models import IgFollowUpTask, InstagramBotSettings
         from management.services import bot_followups
 
@@ -428,13 +429,19 @@ class FollowUpPolicyTests(TestCase):
                 0,
             )
             task.refresh_from_db()
-            self.assertEqual(task.status, IgFollowUpTask.Status.PENDING)
+            self.assertEqual(task.status, IgFollowUpTask.Status.AMBIGUOUS)
             self.assertEqual(task.attempt_count, 1)
-            self.assertGreater(task.next_attempt_at, now)
-            self.assertEqual(task.due_at, task.next_attempt_at)
+            self.assertIsNone(task.next_attempt_at)
+            self.assertTrue(
+                IgFollowUpTask.objects.filter(
+                    delivery_review_for=task,
+                    kind=IgFollowUpTask.Kind.MANAGER_TASK,
+                    status=IgFollowUpTask.Status.PENDING,
+                ).exists()
+            )
 
-            # The daemon can run again immediately, but the task is not eligible
-            # until its persisted retry timestamp.
+            # The daemon can run again immediately, but ambiguous delivery is
+            # resolved only by the manager and must never cross Meta twice.
             self.assertEqual(
                 bot_followups.process_due_followups(
                     InstagramBotSettings.load(), now=now, limit=1
@@ -466,7 +473,7 @@ class FollowUpPolicyTests(TestCase):
 
         with patch(
             "management.services.instagram_bot.send_text",
-            return_value=(True, "", ""),
+            return_value=ProviderDeliveryReceipt(True, "", "", "retry-recovery"),
         ):
             self.assertEqual(
                 bot_followups.process_due_followups(
@@ -1053,7 +1060,7 @@ class SalesCockpitApiTests(TestCase):
                 reverse("management_bot_client_hide_api", args=[self.active.id]),
                 {"reason": "manual"},
             ))
-            return True, "", ""
+            return ProviderDeliveryReceipt(True, "", "", "hide-race")
 
         with patch(
             "management.services.bot_followups.next_allowed_send_at", return_value=now

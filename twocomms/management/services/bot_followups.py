@@ -390,6 +390,9 @@ def cancel_pending(client: IgClient, *, reason: str = "") -> int:
         return 0
     count = IgFollowUpTask.objects.filter(
         client=client, status=IgFollowUpTask.Status.PENDING
+    ).exclude(
+        kind=IgFollowUpTask.Kind.MANAGER_TASK,
+        reason="followup_delivery_review",
     ).update(
         status=IgFollowUpTask.Status.CANCELLED,
         skip_reason=(reason or "cancelled")[:255],
@@ -405,6 +408,9 @@ def cancel_pending_for_deal(deal: IgDeal, *, reason: str = "") -> int:
         return 0
     count = IgFollowUpTask.objects.filter(
         deal=deal, status=IgFollowUpTask.Status.PENDING
+    ).exclude(
+        kind=IgFollowUpTask.Kind.MANAGER_TASK,
+        reason="followup_delivery_review",
     ).update(
         status=IgFollowUpTask.Status.CANCELLED,
         skip_reason=(reason or "deal_cancelled")[:255],
@@ -1499,6 +1505,33 @@ def _start_followup_attempt(
     return task
 
 
+def _recheck_followup_send_claim(
+    task_id: int, *, claim_token: str, checked_at: datetime | None = None
+) -> IgFollowUpTask | None:
+    """Fence a worker that was paused after PROCESSING was committed."""
+    with transaction.atomic():
+        task = (
+            IgFollowUpTask.objects.select_for_update()
+            .select_related("client", "deal")
+            .filter(
+                pk=task_id,
+                status=IgFollowUpTask.Status.PROCESSING,
+                claim_token=claim_token,
+            )
+            .first()
+        )
+        checked_at = checked_at or _now()
+        if (
+            task is None
+            or task.claim_until is None
+            or task.claim_until <= checked_at
+        ):
+            return None
+        task.claim_until = checked_at + FOLLOWUP_CLAIM_TTL
+        task.save(update_fields=["claim_until", "updated_at"])
+    return task
+
+
 def _persist_provider_receipt(
     task_id: int,
     *,
@@ -1544,6 +1577,8 @@ def _finalize_confirmed_followup(
             raise RuntimeError("follow-up receipt is not in SENT state")
         client = IgClient.objects.select_for_update().get(pk=task.client_id)
         task.client = client
+        if task.sent_message_id:
+            return task, client
         text = (text or task.message_text or "").strip()
         if not text:
             text = compose_followup(task, now=now)
@@ -1656,6 +1691,16 @@ def recover_sent_followup_receipts(
                 task.last_error = repr(exc)[:500]
                 _mark_ambiguous(task, "receipt_recovery_failed", now=now)
             continue
+        finalized = IgFollowUpTask.objects.select_related("client", "deal").get(
+            pk=task_id
+        )
+        try:
+            _escalate_missing_delivery(finalized, finalized.client)
+        except Exception:
+            # The notification itself is deduplicated durably; leave the task
+            # SENT so a recovery pass can retry the alert without reopening
+            # customer delivery.
+            pass
         recovered += 1
     return recovered
 
@@ -1885,6 +1930,7 @@ def _renew_due_followup_claim(
 
 def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetime | None = None, limit: int = 20) -> int:
     s = s or InstagramBotSettings.load()
+    clock_injected = now is not None
     now = now or _now()
     sent = 0
     recover_expired_followup_leases(now=now, limit=limit)
@@ -1994,6 +2040,14 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                 if not send_allowed:
                     _mark_skipped(task, "permission_epoch_changed")
                     continue
+            task = _recheck_followup_send_claim(
+                task.id,
+                claim_token=task_claim_token,
+                checked_at=now if clock_injected else None,
+            )
+            if task is None:
+                continue
+            task.client = client
             try:
                 delivery = instagram_bot.send_text(
                     s,
@@ -2056,8 +2110,9 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
             if not ok:
                 if kind == "permanent":
                     _mark_skipped(task, hint or "send_blocked")
-                elif kind == "unknown":
-                    _mark_skipped(task, hint or "delivery_unknown")
+                elif kind in {"unknown", "transient"}:
+                    task.last_error = (hint or kind or "delivery outcome unknown")[:500]
+                    _mark_ambiguous(task, hint or kind or "delivery_unknown", now=now)
                 else:
                     if task.attempt_count >= FOLLOWUP_MAX_ATTEMPTS:
                         _mark_skipped(task, hint or "retry_exhausted")
@@ -2080,102 +2135,10 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                         ])
                         _update_client_next(client)
                 continue
-            # Provider success is followed by one durable transaction. The
-            # discount event is written beside the task/message transition, so
-            # analytics never counts an offer that was not actually delivered.
-            with transaction.atomic():
-                client = IgClient.objects.select_for_update().get(pk=client.pk)
-                task = IgFollowUpTask.objects.select_for_update().get(pk=task.pk)
-                if task.status != IgFollowUpTask.Status.PROCESSING:
-                    continue
-                msg = InstagramBotMessage.objects.create(
-                    sender_id=client.igsid,
-                    client=client,
-                    role=InstagramBotMessage.Role.MODEL,
-                    text=text,
-                    provider_message_id=provider_message_id,
-                    status=InstagramBotMessage.Status.DONE,
-                    source="followup",
-                    processed_at=now,
-                )
-                task.status = IgFollowUpTask.Status.SENT
-                task.sent_at = now
-                task.sent_message = msg
-                task.provider_message_id = provider_message_id
-                task.claim_token = ""
-                task.claim_until = None
-                task.next_attempt_at = None
-                task.last_error = ""
-                task.save(update_fields=[
-                    "status", "sent_at", "sent_message", "next_attempt_at", "last_error",
-                    "provider_message_id", "claim_token", "claim_until", "updated_at",
-                ])
-                sales_followup = task.kind != IgFollowUpTask.Kind.FULFILLMENT
-                if sales_followup:
-                    client.followup_level = max(
-                        int(client.followup_level or 0),
-                        int(task.level or 0) + 1,
-                    )
-                if sales_followup and task.discount_percent:
-                    client.discount_offered_percent = max(
-                        int(client.discount_offered_percent or 0), int(task.discount_percent or 0)
-                    )
-                    if receipt_present and provider_message_id:
-                        IgConversationSignal.objects.create(
-                            client=client,
-                            message=msg,
-                            signal_type=IgConversationSignal.Type.DISCOUNT_OFFER,
-                            value=str(task.discount_percent),
-                            payload={"discount_percent": task.discount_percent},
-                        )
-                        from management.models import IgFunnelStepEvent
-                        from management.services.ig_funnel_analytics import (
-                            record_client_step_event_in_transaction,
-                        )
-
-                        record_client_step_event_in_transaction(
-                            client,
-                            event_type=IgFunnelStepEvent.Type.DISCOUNT_OFFERED,
-                            event_key=f"ig-discount-offered:{task.pk}",
-                            occurred_at=now,
-                            stage=client.stage,
-                            actor="bot_followup",
-                            evidence={
-                                "followup_task_id": task.pk,
-                                "followup_level": int(task.level or 0),
-                                "discount_percent": int(task.discount_percent or 0),
-                                "message_id": msg.pk,
-                                "provider_message_id": provider_message_id,
-                                "delivery_confirmed": True,
-                            },
-                        )
-                client.last_bot_reply_at = now
-                client.next_followup_at = None
-                client_update_fields = [
-                    "last_bot_reply_at", "next_followup_at", "updated_at",
-                ]
-                if sales_followup:
-                    client_update_fields.extend(
-                        ["followup_level", "discount_offered_percent"]
-                    )
-                client.save(update_fields=client_update_fields)
-            sent += 1
-            _escalate_missing_delivery(task, client)
-            policy_completed = _complete_policy_after_send(task, client)
-            policy_scheduled = False
-            if not policy_completed:
-                policy_scheduled = _schedule_next_policy_step(task, client, now=now)
-            if (
-                policy_step is None
-                and not policy_scheduled
-                and not task.discount_percent
-                and task.kind in {
-                IgFollowUpTask.Kind.QUALIFICATION,
-                IgFollowUpTask.Kind.THINKING,
-                IgFollowUpTask.Kind.PAYMENT,
-                }
-            ):
-                schedule_rescue_offer(client, now=now)
+            if not receipt_present:
+                task.last_error = "provider receipt missing message id"
+                _mark_ambiguous(task, "delivery_receipt_missing", now=now)
+                continue
         finally:
             if reply_boundary_entered:
                 reply_boundary.__exit__(*sys.exc_info())

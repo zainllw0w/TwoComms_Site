@@ -9170,7 +9170,10 @@ def stop_bot() -> InstagramBotSettings:
                 processed_at=now,
                 processing_started_at=None,
             )
-            IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.PENDING).update(
+            IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.PENDING).exclude(
+                kind=IgFollowUpTask.Kind.MANAGER_TASK,
+                reason="followup_delivery_review",
+            ).update(
                 status=IgFollowUpTask.Status.CANCELLED,
                 skip_reason="global_reply_stopped",
                 updated_at=now,

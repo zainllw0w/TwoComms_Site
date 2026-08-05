@@ -1,15 +1,23 @@
 """IMP-102: durable, operator-resolvable follow-up delivery boundary."""
 
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
+from django.db.models.query import QuerySet
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from management.ig_bot_models import IgClient, IgFollowUpTask
-from management.models import AdminAuditLog, InstagramBotSettings
+from management.models import (
+    AdminAuditLog,
+    IgBotNotification,
+    IgDeal,
+    IgPaymentProjection,
+    InstagramBotSettings,
+)
 from management.services.instagram_bot import ProviderDeliveryReceipt
 
 
@@ -49,10 +57,15 @@ class FollowupDeliveryFsmTests(TestCase):
         return IgFollowUpTask.objects.create(**values)
 
     def test_task_is_processing_with_lease_at_exact_provider_boundary(self):
-        from management.services.bot_followups import process_due_followups
+        from management.services.bot_followups import (
+            FOLLOWUP_CLAIM_TTL,
+            process_due_followups,
+        )
 
         task = self._task()
         observed = {}
+        boundary_now = self.now + timedelta(minutes=2)
+        clock = iter((self.now, boundary_now))
 
         def send_text(*_args, **kwargs):
             task.refresh_from_db()
@@ -65,16 +78,22 @@ class FollowupDeliveryFsmTests(TestCase):
             )
             return ProviderDeliveryReceipt(True, "", "", "mid-imp102-success")
 
-        with patch(
-            "management.services.instagram_bot.send_text", side_effect=send_text
+        with (
+            patch(
+                "management.services.bot_followups._now",
+                side_effect=lambda: next(clock, boundary_now),
+            ),
+            patch(
+                "management.services.instagram_bot.send_text", side_effect=send_text
+            ),
         ):
             self.assertEqual(
-                process_due_followups(self.settings, now=self.now, limit=1), 1
+                process_due_followups(self.settings, limit=1), 1
             )
 
         self.assertEqual(observed["status"], IgFollowUpTask.Status.PROCESSING)
         self.assertTrue(observed["claim_token"])
-        self.assertGreater(observed["claim_until"], self.now)
+        self.assertEqual(observed["claim_until"], boundary_now + FOLLOWUP_CLAIM_TTL)
         self.assertEqual(observed["attempt_count"], 1)
         self.assertTrue(observed["return_receipt"])
         task.refresh_from_db()
@@ -120,6 +139,66 @@ class FollowupDeliveryFsmTests(TestCase):
                     )
                     self.assertEqual(send.call_count, 1)
 
+    def test_legacy_provider_unknown_and_success_without_receipt_are_ambiguous(self):
+        from management.services.bot_followups import process_due_followups
+
+        for suffix, outcome in (
+            ("legacy-unknown", (False, "unknown", "provider_503")),
+            ("legacy-success", (True, "", "")),
+        ):
+            with self.subTest(suffix=suffix):
+                task = self._task(client=self._client(suffix))
+                with patch(
+                    "management.services.instagram_bot.send_text",
+                    return_value=outcome,
+                ) as send:
+                    self.assertEqual(
+                        process_due_followups(self.settings, now=self.now, limit=1),
+                        0,
+                    )
+                send.assert_called_once()
+                task.refresh_from_db()
+                self.assertEqual(task.status, IgFollowUpTask.Status.AMBIGUOUS)
+                self.assertTrue(
+                    IgFollowUpTask.objects.filter(delivery_review_for=task).exists()
+                )
+                self.assertFalse(task.sent_message_id)
+
+    def test_worker_rechecks_task_claim_after_start_before_provider_io(self):
+        from management.services import bot_followups
+        from management.services.bot_followups import process_due_followups
+
+        task = self._task()
+        real_start = bot_followups._start_followup_attempt
+
+        def expire_after_start(*args, **kwargs):
+            claimed = real_start(*args, **kwargs)
+            IgFollowUpTask.objects.filter(pk=claimed.pk).update(
+                status=IgFollowUpTask.Status.AMBIGUOUS,
+                claim_token="",
+                claim_until=None,
+            )
+            return claimed
+
+        with (
+            patch(
+                "management.services.bot_followups._start_followup_attempt",
+                side_effect=expire_after_start,
+            ),
+            patch(
+                "management.services.instagram_bot.send_text",
+                return_value=ProviderDeliveryReceipt(True, "", "", "late-send"),
+            ) as send,
+        ):
+            self.assertEqual(
+                process_due_followups(self.settings, now=self.now, limit=1),
+                0,
+            )
+
+        send.assert_not_called()
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.AMBIGUOUS)
+
     def test_stale_processing_lease_becomes_ambiguous_without_provider_call(self):
         from management.services.bot_followups import process_due_followups
 
@@ -142,6 +221,40 @@ class FollowupDeliveryFsmTests(TestCase):
             IgFollowUpTask.objects.filter(delivery_review_for=task).exists()
         )
 
+    def test_send_claim_samples_clock_after_lock_and_rejects_expiry_during_wait(self):
+        from management.services.bot_followups import _recheck_followup_send_claim
+
+        task = self._task(
+            status=IgFollowUpTask.Status.PROCESSING,
+            claim_token="lock-race",
+            claim_until=self.now + timedelta(minutes=1),
+            attempt_count=1,
+        )
+        events = []
+        real_first = QuerySet.first
+
+        def delayed_first(queryset):
+            events.append("lock")
+            locked = real_first(queryset)
+            locked.claim_until = self.now - timedelta(seconds=1)
+            return locked
+
+        def fresh_clock():
+            events.append("clock")
+            return self.now
+
+        with (
+            patch.object(QuerySet, "first", autospec=True, side_effect=delayed_first),
+            patch("management.services.bot_followups._now", side_effect=fresh_clock),
+        ):
+            renewed = _recheck_followup_send_claim(
+                task.pk,
+                claim_token="lock-race",
+            )
+
+        self.assertIsNone(renewed)
+        self.assertLess(events.index("lock"), events.index("clock"))
+
     def test_receipt_committed_before_worker_crash_is_recovered_without_resend(self):
         from management.services.bot_followups import process_due_followups
 
@@ -161,6 +274,51 @@ class FollowupDeliveryFsmTests(TestCase):
         self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
         self.assertIsNotNone(task.sent_message_id)
         self.assertEqual(task.sent_message.text, "Збережений текст доставки")
+
+    def test_receipt_recovery_replays_fulfillment_escalation_once(self):
+        from management.services.bot_followups import process_due_followups
+
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.PAID,
+            payment_status="paid",
+            paid_at=self.now,
+        )
+        IgPaymentProjection.objects.create(
+            client=self.client_record,
+            deal=deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount="1090.00",
+            paid_at=self.now,
+        )
+        task = self._task(
+            client=self.client_record,
+            deal=deal,
+            status=IgFollowUpTask.Status.SENT,
+            kind=IgFollowUpTask.Kind.FULFILLMENT,
+            reason="paid_missing_delivery",
+            level=2,
+            provider_message_id="mid-recovery-fulfillment",
+        )
+
+        self.assertEqual(
+            process_due_followups(self.settings, now=self.now, limit=1),
+            0,
+        )
+        self.assertTrue(
+            IgBotNotification.objects.filter(
+                dedupe_key=f"fulfillment_missing_delivery:{deal.pk}:g3",
+                event_type="fulfillment_missing_delivery",
+            ).exists()
+        )
+        self.assertEqual(
+            IgBotNotification.objects.filter(
+                dedupe_key=f"fulfillment_missing_delivery:{deal.pk}:g3",
+            ).count(),
+            1,
+        )
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
 
     def test_stale_pending_claim_is_safely_reclaimed_before_provider_io(self):
         from management.services.bot_followups import process_due_followups
@@ -211,6 +369,26 @@ class FollowupDeliveryFsmTests(TestCase):
         self.assertTrue(
             IgFollowUpTask.objects.filter(delivery_review_for=task).exists()
         )
+
+    def test_finalization_is_idempotent_when_recovery_races_sender(self):
+        from management.services.bot_followups import _finalize_confirmed_followup
+
+        task = self._task(
+            status=IgFollowUpTask.Status.SENT,
+            provider_message_id="mid-finalize-race",
+            reason="first_reply_silence",
+        )
+        with patch(
+            "management.services.bot_followups._schedule_next_policy_step",
+            return_value=True,
+        ) as schedule:
+            _finalize_confirmed_followup(task.pk, text=task.message_text, now=self.now)
+            _finalize_confirmed_followup(task.pk, text=task.message_text, now=self.now)
+
+        self.assertEqual(schedule.call_count, 1)
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
+        self.assertIsNotNone(task.sent_message_id)
 
 
 @MGMT
@@ -327,6 +505,26 @@ class FollowupDeliveryResolutionTests(TestCase):
             "Текст, збережений для ручної перевірки",
         )
 
+    def test_resolution_audit_failure_rolls_back_state_transition(self):
+        source, review = self._ambiguous_pair("audit-atomic")
+        self.client.raise_request_exception = False
+
+        with patch(
+            "management.bot_views.AdminAuditLog.objects.create",
+            side_effect=RuntimeError("audit persistence failed"),
+        ):
+            response = self.client.post(
+                self._resolve_url(source),
+                {"outcome": "not_delivered", "note": "Перевірено"},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 500)
+        source.refresh_from_db()
+        review.refresh_from_db()
+        self.assertEqual(source.status, IgFollowUpTask.Status.AMBIGUOUS)
+        self.assertEqual(review.status, IgFollowUpTask.Status.PENDING)
+
     def test_resolution_surface_requires_login_staff_and_post(self):
         source, _review = self._ambiguous_pair("access")
         url = self._resolve_url(source)
@@ -359,3 +557,81 @@ class FollowupDeliveryResolutionTests(TestCase):
         self.assertEqual(row["allowed_outcomes"], ["delivered", "not_delivered"])
         self.assertTrue(row["resolution_url"])
         self.assertNotIn("resend", row["allowed_outcomes"])
+
+    def test_client_detail_keeps_older_ambiguous_source_after_newer_followups(self):
+        source, _review = self._ambiguous_pair("older-than-eight")
+        for index in range(9):
+            IgFollowUpTask.objects.create(
+                client=self.client_record,
+                due_at=self.now + timedelta(minutes=index + 1),
+                kind=IgFollowUpTask.Kind.QUALIFICATION,
+                reason=f"newer_followup_{index}",
+                message_text=f"Нове повідомлення {index}",
+            )
+
+        response = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.client_record.pk])
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        row = next(
+            item
+            for item in response.json()["followups"]
+            if item["id"] == source.pk
+        )
+        self.assertEqual(row["allowed_outcomes"], ["delivered", "not_delivered"])
+        self.assertTrue(row["resolution_url"])
+
+    def test_management_bot_renders_delivery_resolution_actions(self):
+        response = self.client.get(reverse("management_bot"))
+
+        self.assertEqual(response.status_code, 200, response.content)
+        template = response.content.decode()
+        for contract in (
+            "processing:'Надсилається'",
+            "ambiguous:'Потрібна перевірка'",
+            "completed:'Завершено'",
+            "Array.isArray(item.allowed_outcomes)",
+            "function isFollowupDeliveryReview(item)",
+            "allFollowups.forEach(item=>",
+            "item.resolution_url",
+            "Підтвердити доставку",
+            "Не доставлено",
+            "body.append('outcome',outcome)",
+            "body.append('note',note.trim())",
+            "'X-CSRFToken':csrf",
+            "'X-Requested-With':'XMLHttpRequest'",
+            "await detail(id)",
+        ):
+            self.assertIn(contract, template)
+        self.assertNotIn("addAction('resend'", template)
+
+    def test_global_stop_preserves_delivery_review_task(self):
+        from management.services.instagram_bot import stop_bot
+
+        _source, review = self._ambiguous_pair("stop-preserves-review")
+        with patch(
+            "management.services.ig_reply_boundary.pause_reply_boundary",
+            return_value=nullcontext(),
+        ):
+            stop_bot()
+
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgFollowUpTask.Status.PENDING)
+
+    def test_generic_cancellation_preserves_delivery_review_for_client_and_deal(self):
+        from management.services.bot_followups import cancel_pending, cancel_pending_for_deal
+
+        source, review = self._ambiguous_pair("cancel-preserves-review")
+        self.assertEqual(cancel_pending(self.client_record, reason="manual_pause"), 0)
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgFollowUpTask.Status.PENDING)
+
+        deal = IgDeal.objects.create(client=self.client_record, status=IgDeal.Status.QUOTED)
+        review.deal = deal
+        review.save(update_fields=["deal", "updated_at"])
+        self.assertEqual(cancel_pending_for_deal(deal, reason="deal_cancelled"), 0)
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgFollowUpTask.Status.PENDING)
+        source.refresh_from_db()
+        self.assertEqual(source.status, IgFollowUpTask.Status.AMBIGUOUS)

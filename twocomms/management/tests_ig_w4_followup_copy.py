@@ -16,6 +16,7 @@ from management.models import (
     InstagramBotSettings,
 )
 from management.services import bot_followups
+from management.services.instagram_bot import ProviderDeliveryReceipt
 
 
 KYIV = ZoneInfo("Europe/Kyiv")
@@ -162,7 +163,10 @@ class CheckoutOfferCascadeTests(TestCase):
         self.assertIn("зроблю нову", text)
         self.assertNotIn("ще активна", text)
 
-    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=ProviderDeliveryReceipt(True, "", "", "w4-cascade"),
+    )
     def test_first_touch_schedules_a_safe_second_cascade_step(self, _send_text):
         first_send_at = self.proposal.expires_at
         first = IgFollowUpTask.objects.create(
