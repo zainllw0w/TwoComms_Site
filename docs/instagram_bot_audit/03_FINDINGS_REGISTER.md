@@ -4005,8 +4005,11 @@ manager/event сигнал, а `missing_fields` должен сохранять�
 уточнения. Эти требования нельзя считать реализованными: worktree основан на
 старой базе и его полный перенос откатывает актуальные IMP-080 и W6.
 
-**Статус:** требования восстановлены в канонический аудит; реализация должна
-войти через актуальные IMP-084/086 с regression-тестами, MariaDB proof и deploy.
+**Статус:** exact availability foundation вошла в `main`/production как
+`17f5b672` и покрыта `management.tests_ig_availability` (5/5) плюс unified
+277-test gate. Находка остаётся OPEN: decision ещё не подключён к proposal /
+checkout reservation lifecycle, manager/event дефицита и MariaDB proof входят
+в IMP-084/086/088.
 
 ## Supplemental closures restored from progress history (2026-08-03)
 

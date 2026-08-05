@@ -12,8 +12,8 @@
 | Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
 | Дата старта / обновления | 2026-08-05 (после production deploy durable follow-up delivery FSM) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `434428ad` подтверждён в `origin/main` и на production; поверх delivery FSM опубликованы event-driven follow-ups, authoritative configuration pricing, наблюдаемые sender actions и durable escalation при сбое holding-ответа |
-| **Статус 104 IMP-задач** | **79 закрыты, 21 открыта, 4 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`)** |
+| База внедрения | `17f5b672` подтверждён в `origin/main` и на production; поверх delivery FSM опубликованы event-driven follow-ups, authoritative configuration pricing, наблюдаемые sender actions, durable escalation и exact availability foundation |
+| **Статус 104 IMP-задач** | **79 закрыты, 20 открыты, 5 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
@@ -34,7 +34,7 @@
 | `07_IMPLEMENTATION_PLAN.md` | канонический статус 104 IMP-задач; отдельные checkbox-matrix покрывают все 179 F-* и все 51 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
-| `06_TEST_MATRIX.md` | оформлен; 46 acceptance-сценариев и текущие gates |
+| `06_TEST_MATRIX.md` | оформлен; 47 acceptance-сценариев и текущие gates |
 | `08`–`12` | оформлены; completion, deploy, blockers, validation и source reconciliation |
 
 > ⚠️ **Особенность репозитория:** `.gitignore:227` содержит `*_PLAN.md`, поэтому
@@ -50,8 +50,8 @@
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
-| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`. Открыты runtime commerce session, stale candidate binding, relaxed alternatives, полный topology и MariaDB test gate |
-| Открыто, W9 | `IMP-084`–`IMP-088` |
+| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability foundation на `17f5b672`. Открыты runtime commerce session, stale candidate binding, relaxed alternatives, полный topology, proposal wiring, reservation и MariaDB test gate |
+| Открыто, W9 | `IMP-085`–`IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
 | Открыто, W12 | — |
 
@@ -59,8 +59,8 @@
 
 The previous historical paragraphs below mention `414e639e` and an open
 `IMP-103`; those statements describe the earlier checkpoint only. Runtime code
-baseline is `434428ad`; after the code deploy, local `main`, `origin/main` and
-production code are synchronized at `434428ad1ff0c6892b0f2c56456e01555d082f48`.
+baseline is `17f5b672`; local `main`, `origin/main` and production code are
+synchronized at `17f5b672fc03f405b63cc173cb866043d7a377a2`.
 
 - `IMP-103` is closed by `4dfff3a2` + `35d3bd93` and migration
   `management.0143_igfollowuptask_event_continuation`. Follow-up continuation
@@ -78,6 +78,10 @@ production code are synchronized at `434428ad1ff0c6892b0f2c56456e01555d082f48`.
   logs. Its 19 live-visual regression tests are part of the current main gate.
 - Production migration `0143` is applied; one daemon is running/alive on
   `instagram_login`, with fresh heartbeat and empty reply/notification queues.
+- `IMP-084` is partial on `17f5b672`: exact warehouse/catalog allocation
+  decisions, aggregate basket quantities and ambiguous mapping fail-closed
+  guards are in `ig_availability.py`; proposal/checkout reservation wiring and
+  MariaDB allocation proof remain `IMP-086`/`IMP-088` work.
 
 Любой новый срез начинается от актуального `origin/main`. При завершении агент
 обязан обновить минимум этот раздел, соответствующую запись в
@@ -327,7 +331,7 @@ manager alert идемпотентен по invoice ID.
 | `.claude/worktrees/ig-bot-w1` dirty W6 | Арбитр, FSM, журнал переходов и funnel-ветви находятся в `main` (`34d1e165`) | Не переносить старый working diff: он основан на W3 и откатывает значительную часть текущего `instagram_bot.py` |
 | `.claude/worktrees/ig-bot-w1` unique `tests_ig_stock_policy.py` | В WIP сохранились полезные требования: quantity-aware `VariantSizeRule`, явный `is_dropship_available=False`, manager/event при реальном дефиците, сохранение `missing_fields` | Восстановить требования тестами поверх актуального `main` в IMP-056/084/086; файл целиком не переносить, потому что его база откатывает IMP-080 и W6 |
 | `codex/ig-refresh-dedup` и stash manual inbox refresh | Durable refresh, poll cursors и link-restriction circuit уже опубликованы более полным коммитом `7fe26280` | Старую ветку/stash не переносить; она отстаёт от `main` и не содержит дополнительного закрытия |
-| `codex/instagram-assisted-checkout` | Добавлены design/plan product reselection, 339 строк поздних уточнений и статусы 13 задач; сохранены ссылки на пять исторических code-коммитов | IMP-081 перенесена независимо; IMP-082/083 переработаны и задеплоены через `7b5d5cc7`/`1c4d6d48`; `e9d982df`/`dc9889c3` остаются source для IMP-084/085, не cherry-pick wholesale |
+| `codex/instagram-assisted-checkout` | Добавлены design/plan product reselection, 339 строк поздних уточнений и статусы 13 задач; сохранены ссылки на пять исторических code-коммитов | IMP-081 перенесена независимо; IMP-082/083 переработаны и задеплоены через `7b5d5cc7`/`1c4d6d48`; availability из `e9d982df` перенесена как `17f5b672`; `dc9889c3` остаётся source для IMP-085, без wholesale cherry-pick |
 | `codex/ig-followup-policies` dirty worktree | Старый W4B-код плюс уникальные требования delivery FSM и materialized event continuation | Delivery boundary и event continuation заново реализованы в main как IMP-102/103 и IMPR-FUP-014/015 (`434428ad`); wholesale cherry-pick запрещён из-за старой базы и конфликтующей migration `0131` |
 | `instagram_bot_audit_prompt_package/` | Исходный prompt, 120 audit-задач, gates и acceptance matrix сохранены рядом с репозиторием | Источник требований, не журнал выполнения |
 
@@ -347,8 +351,10 @@ manager alert идемпотентен по invoice ID.
   checkout-контракт; 12 прямых checkbox остаются открытыми.
 - `docs/superpowers/specs/2026-08-02-instagram-product-reselection-intelligence-design.md`
   и парный implementation plan — восстановленный дизайн. IMP-081 и partial
-  IMP-082/083 уже перенесены на актуальный `main`; IMP-084/085 и runtime-
-  интеграция остаются открытыми до unified regression, MariaDB proof и deploy.
+  IMP-082/083 уже перенесены на актуальный `main`; availability foundation
+  IMP-084 опубликована как `17f5b672`, а proposal/reservation wiring, IMP-085 и
+  остальная runtime-интеграция остаются открытыми до unified regression,
+  MariaDB proof и deploy.
 
 ## Исторические выводы исходного аудита (снимок W0)
 

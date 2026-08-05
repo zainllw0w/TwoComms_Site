@@ -8,10 +8,11 @@
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
 - W8: `IMP-044`–`046`, `060`–`061`, `094`, `096`, `100`, `101`; partial `043`.
-- W9: partial `IMP-081`–`083`; open `IMP-084`–`088`. `IMP-081` foundation is
+- W9: partial `IMP-081`–`084`; open `IMP-085`–`088`. `IMP-081` foundation is
   production; `IMP-082/083` graph/ranker foundation and prompt parity are
-  production `0ad694bc`, while runtime commerce session, stale binding, relaxed
-  alternatives and full topology remain open.
+  production `0ad694bc`; `IMP-084` exact availability foundation is production
+  `17f5b672`, while runtime commerce session, stale binding, relaxed alternatives,
+  proposal/reservation wiring and full topology remain open.
 - W10: `IMP-090`–`093`.
 - W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
   F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
@@ -33,8 +34,9 @@
 
 - Historical product-reselection commits remain preserved. Do not cherry-pick
   them wholesale: `IMP-081` and partial `IMP-082/083` were ported independently;
-  `IMP-084/085` still require a current-base port, unified tests, MySQL proof
-  and deploy.
+  `IMP-084` foundation is now on current `main` as `17f5b672`; proposal/
+  reservation wiring, `IMP-085`, unified MariaDB proof and remaining deploy
+  gates are still open.
 - The W6-era untracked stock-policy tests are requirements to port onto current
   main, not production code (`F-CAT-004`, `IMP-084/086`).
 - The assisted-checkout worktree's 390px breakpoint change is uncommitted and

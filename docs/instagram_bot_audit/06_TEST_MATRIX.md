@@ -8,7 +8,7 @@
 | T01 | Новый Instagram-вопрос | GREEN | IG intelligence/reply tests |
 | T02 | UA/RU/EN и смена языка | GREEN | language/prompt tests |
 | T03 | Реклама/ad context | PARTIAL | ad source absent: IMP-043 |
-| T04 | Товар/размер/цвет/количество | PARTIAL | exact prompt parity GREEN; durable runtime session/availability remain IMP-082…088 |
+| T04 | Товар/размер/цвет/количество | PARTIAL | exact prompt parity GREEN; availability foundation GREEN, durable runtime session/reservation/checkout wiring remain IMP-082…088 |
 | T05 | Payment link и expiry | GREEN | invoice TTL/payment tests |
 | T06 | Успешная оплата | GREEN | payment truth/order tests |
 | T07 | Duplicate payment webhook | GREEN | idempotency/payment tests |
@@ -51,9 +51,12 @@
 | T44 | Verified sales semantics и inventory policy | PARTIAL | migrations `storefront.0088`/`fable5.0008`, InnoDB tables, 77 policies and append-only triggers verified; runtime/admin consumer + disposable MariaDB test gate remain IMP-081 |
 | T45 | Typed price-aware graph и explainable candidates | PARTIAL | current full suite 2675; production 91=800/950, 110=1450, hard incompatible size rejected; durable runtime/stale binding remain IMP-082/083/087 |
 | T46 | Variant-specific prompt price/size parity | GREEN | `e44d1440` + `0ad694bc`; product 110 prompt = variant 81, thermo green, 1450 грн, oversize XS/M; false XS/S/M/L/XL/XXL row absent; 188 focused + 2675 full suite |
+| T47 | Exact warehouse/catalog availability | PARTIAL | `17f5b672`; 5/5 availability tests and 277-test combined gate; proposal/reservation wiring and MariaDB proof remain IMP-086/088 |
 
-**Fresh local gate for current checkpoint:** full `management` suite passed
-2675 tests with 3 skipped; focused variant/prompt gate passed 188 tests.
+**Fresh local gate for current checkpoint:** focused availability coverage passed
+5/5 and the combined availability/checkout/follow-up/live-visual/restock gate
+passed 277 tests; the prior full `management` suite passed 2675 tests with 3
+skipped. Focused variant/prompt gate passed 188 tests.
 Django check, migration drift, compileall and `git diff --check` are green.
 Commit `0ad694bc` is deployed. A separate disposable MariaDB gate is still
 missing, so `F-TEST-002` / `IMP-094` remain open.
@@ -76,3 +79,8 @@ extended by `e44d1440`/`0ad694bc`. Current full suite is 2675 (3 skipped), with
 green, 1450 грн, oversize XS/M; false product-wide sizes are absent. This is
 production read-only evidence, not the still-missing disposable MariaDB test
 gate.
+
+**W9 availability update 2026-08-05:** `17f5b672` is deployed with exact
+warehouse/catalog decisions, aggregate basket checks and ambiguity fail-closed
+coverage (5/5). T47 is intentionally PARTIAL until proposal/reservation wiring
+and the disposable MariaDB allocation gate are complete.

@@ -3,21 +3,21 @@
 ## Scope
 
 This checkpoint validates the durable funnel analytics, bounded
-superseded-invoice recovery, authoritative configuration pricing, event-driven
+superseded-invoice recovery, authoritative configuration pricing, exact availability foundation, event-driven
 follow-up continuation, provider-evidenced delivery FSM and sender-action
 observability. It reconciles the current implementation backlog into
 `07_IMPLEMENTATION_PLAN.md`; remaining W5/W8/W9/W10/W11 work is still open.
 
 ## Local evidence
 
-- Current runtime baseline: `434428ad` (event continuation, configuration pricing, sender observability and durable escalation on top of the prior delivery/prompt/payment foundations).
+- Current runtime baseline: `17f5b672` (event continuation, configuration pricing, sender observability, durable escalation and exact availability foundation on top of the prior delivery/prompt/payment foundations).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
   individual checkbox matrices for all **179 `F-*` findings** and all **51
   `IMPR-*` improvements**. Finding status is **134 checked / 39 open / 6
   partial**; improvement status is **17 checked / 34 unfinished**.
-- Implementation status is **104 `IMP-*`: 79 checked, 21 open, 4 partial**.
+- Implementation status is **104 `IMP-*`: 79 checked, 20 open, 5 partial**.
 - `02` remains the 120-item audit coverage authority; `03` and `05` remain the
   detailed finding/improvement evidence registers.
 
@@ -96,6 +96,22 @@ is FIXED/VERIFIED. IMP-082/083 remain PARTIAL because graph/ranker are not yet
 the durable runtime commerce-session source and lack stale binding, relaxed
 alternatives and full print/blank/media topology.
 
+## IMP-084 checkpoint (2026-08-05, deployed PARTIAL)
+
+`17f5b672` integrates the exact availability foundation from the preserved
+`e9d982df` source without importing its old branch base. `resolve_allocation`
+honors the explicit `ProductInventoryPolicy`, returns exact warehouse
+`StockItem` or catalog-variant facts, aggregates repeated allocation identities
+in a basket, and fails closed on missing or ambiguous warehouse mappings.
+Availability coverage is 5/5 tests; the combined availability/checkout/
+follow-up/live-visual/restock gate is 277 tests. Production fast-forward,
+`manage.py check`, migration drift and daemon ensure passed; server SHA is
+`17f5b672fc03f405b63cc173cb866043d7a377a2`.
+
+`IMP-084` remains PARTIAL: readiness/proposal/hosted-checkout wiring must carry
+all allocation identities, and reservation/write-off/reversal lifecycle plus
+disposable MariaDB proof remain `IMP-086`/`IMP-088`.
+
 ## IMP-102 / F-FUP-013 checkpoint (2026-08-05, deployed)
 
 `0d4d38c0`, `0e9e9ba5`, `4cb86743` and `414e639e` implement explicit
@@ -145,7 +161,7 @@ queues.
 
 ## Acceptance decision
 
-The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007, IMP-102/F-FUP-013,
+The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007, IMP-084 foundation, IMP-102/F-FUP-013,
 IMP-103/IMPR-FUP-015 and IMP-104/F-CAT-008/009/010 foundation slices are verified
 and deployed. Product/data blockers, partial W9 reselection, remaining
 W5/W8/W9/W10/W11 work and `IMP-098` remain explicitly open. The next

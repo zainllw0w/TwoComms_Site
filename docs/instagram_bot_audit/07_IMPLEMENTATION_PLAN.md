@@ -1,8 +1,8 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 104 уникальные `IMP-*`: **79 закрыты, 21 открыта, 4 partial**
-> (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
+> Всего 104 уникальные `IMP-*`: **79 закрыты, 20 открыты, 5 partial**
+> (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
 > Ниже находятся отдельные checkbox-матрицы всех 179 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
@@ -52,7 +52,7 @@
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
 | **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 2 | 0 | 0 |
-| **Итого** | | **104** | **79** | **21** | **4** |
+| **Итого** | | **104** | **79** | **20** | **5** |
 
 ---
 
@@ -903,9 +903,13 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   relaxed alternatives после hard mismatch, durable candidate/session revision
   binding, stale revalidation и перенос trusted URL constraints в durable
   selection вместо временного `exact_reference`.
-- [ ] **IMP-084 (P0/P1) — РЕАЛИЗОВАНО В ВЕТКЕ `e9d982df`, НЕ ИНТЕГРИРОВАНО.**
-  Warehouse-aware exact availability. Aggregate quantity для строк с одной
-  allocation identity и полный checkout wiring остаются открытыми.
+- [ ] **IMP-084 (P0/P1) — PARTIAL, foundation в `main`/production `17f5b672`.**
+  Warehouse-aware exact availability теперь использует явную
+  `ProductInventoryPolicy`, exact `VariantBlankLink`/`StockItem` или
+  catalog-variant stock, агрегирует одинаковые allocation identity и
+  fail-closed при неоднозначном mapping. Остаток: подключить decision к
+  proposal/readiness/checkout, передать все allocation identities и пройти
+  MariaDB gate; reservation lifecycle остаётся IMP-086.
 - [ ] **IMP-085 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `dc9889c3`, НЕ ИНТЕГРИРОВАНО.**
   Детерминированный parser составного commerce turn. Reducer, burst ordering,
   durable decisions и подключение до Gemini пока не сделаны.

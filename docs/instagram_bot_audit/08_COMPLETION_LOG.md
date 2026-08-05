@@ -35,3 +35,8 @@ typed price-aware graph/ranker foundation is deployed through `7b5d5cc7`,
 `1c4d6d48`, while `e44d1440`/`0ad694bc` add verified prompt price/size parity.
 The tasks remain PARTIAL because durable runtime commerce-session integration,
 stale binding, relaxed alternatives and full topology remain open.
+
+`IMP-084` is likewise absent from the completed table. Its exact availability
+foundation is deployed through `17f5b672` with 5 availability tests and a
+277-test combined gate, but proposal/readiness/checkout wiring, reservation
+lifecycle and disposable MariaDB proof remain open in `IMP-084/086/088`.
