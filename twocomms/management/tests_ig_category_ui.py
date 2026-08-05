@@ -20,14 +20,16 @@ class InteractionCategoryUiContractTests(SimpleTestCase):
     def test_ui_contract_uses_current_rules_version(self):
         self.assertEqual(ANALYSIS_RULES_VERSION, "2026-08-03.v7")
 
-    def test_overview_explanation_uses_runtime_model_truth(self):
+    def test_overview_uses_runtime_model_truth_without_an_explainer(self):
         template = (
             Path(__file__).with_name("templates") / "management" / "bot.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('id="bot-explainer-model"', template)
         self.assertIn("const activeModel=st.last_gemini_model||st.gemini_effective_model||'';", template)
-        self.assertIn("explainerModel.textContent=activeModel||'поточну перевірену модель';", template)
+        self.assertIn("document.getElementById('bot-model').textContent=activeModel||'—';", template)
+        self.assertNotIn('id="bot-explainer-model"', template)
+        self.assertNotIn("explainerModel", template)
+        self.assertNotIn("Як працює", template)
         self.assertNotIn("<b>{{ settings.gemini_model }}</b>", template)
 
     def test_notification_telemetry_keeps_unavailable_distinct_from_zero(self):
@@ -97,7 +99,6 @@ class InteractionCategoryUiContractTests(SimpleTestCase):
         for visible_label in (
             "Стан зв’язку",
             "Рівень міркування",
-            "Подієва схема",
             "Резервне опитування Instagram",
             "Розмірна таблиця",
             "Ідентифікатор реклами",
