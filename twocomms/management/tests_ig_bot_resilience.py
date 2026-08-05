@@ -34,6 +34,44 @@ def _msg(status, attempts, age_seconds, *, processing_age_seconds=None, client=N
 
 
 class ReclaimStaleProcessingTests(TestCase):
+    def test_reclaim_uses_strict_processing_age_boundary(self):
+        now = timezone.now()
+        threshold = bot.STALE_PROCESSING_SECONDS
+        at_boundary = _msg(
+            InstagramBotMessage.Status.PROCESSING,
+            attempts=1,
+            age_seconds=threshold,
+            processing_age_seconds=threshold,
+        )
+        past_boundary = _msg(
+            InstagramBotMessage.Status.PROCESSING,
+            attempts=1,
+            age_seconds=threshold + 1,
+            processing_age_seconds=threshold + 1,
+        )
+        InstagramBotMessage.objects.filter(pk=at_boundary.pk).update(
+            processing_started_at=now - timedelta(seconds=threshold),
+        )
+        InstagramBotMessage.objects.filter(pk=past_boundary.pk).update(
+            processing_started_at=(
+                now - timedelta(seconds=threshold, microseconds=1)
+            ),
+        )
+
+        with patch.object(bot.timezone, "now", return_value=now):
+            self.assertEqual(bot.reclaim_stale_processing(), 1)
+
+        at_boundary.refresh_from_db()
+        past_boundary.refresh_from_db()
+        self.assertEqual(
+            at_boundary.status,
+            InstagramBotMessage.Status.PROCESSING,
+        )
+        self.assertEqual(
+            past_boundary.status,
+            InstagramBotMessage.Status.PENDING,
+        )
+
     def test_stale_row_after_send_boundary_is_never_requeued(self):
         m = _msg(
             InstagramBotMessage.Status.PROCESSING,
@@ -119,6 +157,43 @@ class ReclaimStaleProcessingTests(TestCase):
         self.assertEqual(bot.reclaim_stale_processing(), 0)
         message.refresh_from_db()
         self.assertEqual(message.status, InstagramBotMessage.Status.PROCESSING)
+
+
+class ProcessingTimeoutInvariantTests(SimpleTestCase):
+    def test_automation_lease_strictly_outlives_reclaim_threshold(self):
+        self.assertGreater(
+            bot.AUTOMATION_LEASE_TTL.total_seconds(),
+            bot.STALE_PROCESSING_SECONDS,
+        )
+
+    def test_unsafe_config_is_normalized_to_a_safe_lease(self):
+        stale_seconds, lease_seconds = bot._coherent_processing_timeouts(
+            stale_seconds=300,
+            lease_seconds=300,
+        )
+
+        self.assertEqual(stale_seconds, 300)
+        self.assertGreater(lease_seconds, stale_seconds)
+
+        stale_seconds, lease_seconds = bot._coherent_processing_timeouts(
+            stale_seconds=0,
+            lease_seconds=-1,
+        )
+
+        self.assertEqual(stale_seconds, 300)
+        self.assertEqual(lease_seconds, 360)
+
+        stale_seconds, lease_seconds = bot._coherent_processing_timeouts(
+            stale_seconds=10**100,
+            lease_seconds=10**100,
+        )
+
+        self.assertEqual(stale_seconds, bot.MAX_STALE_PROCESSING_SECONDS)
+        self.assertEqual(
+            lease_seconds,
+            bot.MAX_STALE_PROCESSING_SECONDS
+            + bot.AUTOMATION_LEASE_RECLAIM_MARGIN_SECONDS,
+        )
 
 
 class ProcessingClaimOwnershipTests(TestCase):

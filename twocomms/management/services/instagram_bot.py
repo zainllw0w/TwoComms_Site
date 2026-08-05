@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Count, F, Q
@@ -88,7 +89,54 @@ POLL_REPLY_WINDOW = timedelta(hours=23)
 POLL_MAX_REQUESTS = 40
 POLL_MAX_SECONDS = 20
 POLL_FAILURE_BACKOFF_MAX = 6 * 60 * 60
-AUTOMATION_LEASE_TTL = timedelta(minutes=3)
+DEFAULT_STALE_PROCESSING_SECONDS = 300
+DEFAULT_AUTOMATION_LEASE_SECONDS = 360
+AUTOMATION_LEASE_RECLAIM_MARGIN_SECONDS = 60
+MAX_STALE_PROCESSING_SECONDS = 24 * 60 * 60
+MAX_AUTOMATION_LEASE_SECONDS = (
+    MAX_STALE_PROCESSING_SECONDS + AUTOMATION_LEASE_RECLAIM_MARGIN_SECONDS
+)
+
+
+def _coherent_processing_timeouts(
+    *, stale_seconds: object, lease_seconds: object
+) -> tuple[int, int]:
+    """Return positive timeouts with a fail-safe lease/reclaim ordering."""
+    try:
+        stale = int(stale_seconds)
+    except (TypeError, ValueError):
+        stale = DEFAULT_STALE_PROCESSING_SECONDS
+    if stale <= 0:
+        stale = DEFAULT_STALE_PROCESSING_SECONDS
+    stale = min(stale, MAX_STALE_PROCESSING_SECONDS)
+
+    try:
+        lease = int(lease_seconds)
+    except (TypeError, ValueError):
+        lease = DEFAULT_AUTOMATION_LEASE_SECONDS
+    if lease <= 0:
+        lease = DEFAULT_AUTOMATION_LEASE_SECONDS
+    lease = min(lease, MAX_AUTOMATION_LEASE_SECONDS)
+    if lease <= stale:
+        lease = stale + AUTOMATION_LEASE_RECLAIM_MARGIN_SECONDS
+    return stale, lease
+
+
+STALE_PROCESSING_SECONDS, AUTOMATION_LEASE_SECONDS = (
+    _coherent_processing_timeouts(
+        stale_seconds=getattr(
+            settings,
+            "IG_BOT_STALE_PROCESSING_SECONDS",
+            DEFAULT_STALE_PROCESSING_SECONDS,
+        ),
+        lease_seconds=getattr(
+            settings,
+            "IG_BOT_AUTOMATION_LEASE_SECONDS",
+            DEFAULT_AUTOMATION_LEASE_SECONDS,
+        ),
+    )
+)
+AUTOMATION_LEASE_TTL = timedelta(seconds=AUTOMATION_LEASE_SECONDS)
 PROFILE_REFRESH_INTERVAL = 15 * 60
 PROFILE_REFRESH_BATCH = 25
 PROFILE_PERMISSION_COOLDOWN = 6 * 60 * 60
@@ -7500,9 +7548,6 @@ def _claim_next() -> InstagramBotMessage | None:
         row.processing_started_at = claimed_at
         return row
     return None  # гонка — забрав хтось інший
-
-
-STALE_PROCESSING_SECONDS = 300  # повідомлення «зависло» у processing довше — реанімуємо
 
 
 def reclaim_stale_processing(max_age_seconds: int = STALE_PROCESSING_SECONDS) -> int:
