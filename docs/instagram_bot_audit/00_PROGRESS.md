@@ -10,10 +10,10 @@
 | Поле | Значение |
 |---|---|
 | Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
-| Дата старта / обновления | 2026-08-05 (после production deploy F-CAT-011 paid inventory commitment guard) |
+| Дата старта / обновления | 2026-08-05 (после production deploy W9 durable commerce state) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `fbe33a68` подтверждён в `origin/main` и на production; он включает `18ddc636` (lease/reclaim), `b23dfeed` (late-payment inventory race) и всю предыдущую price/inventory hardening-цепочку |
-| **Статус 105 IMP-задач** | **80 закрыты, 17 открыты, 8 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`)** |
+| База внедрения | `bc4ec2d5` подтверждён в `origin/main` и на production; он включает `33d63d40` (durable commerce state), `fbe33a68` (episode-scoped presentation), `18ddc636` (lease/reclaim), `b23dfeed` (late-payment inventory race) и всю предыдущую price/inventory hardening-цепочку |
+| **Статус 105 IMP-задач** | **80 закрыты, 16 открыты, 9 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
@@ -50,12 +50,41 @@
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
-| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime prompt integration в `1849441d`; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`. Открыты durable commerce session, stale candidate binding, relaxed alternatives, полный topology, disposable MariaDB race/constraint proof, manager review UI и production-like parser/availability gate |
-| Открыто, W9 | `IMP-087`–`IMP-088` |
+| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`; `IMP-087` создаёт durable selection/transition/decision state и reducer запускается до classifier/Gemini на production `bc4ec2d5`. Открыты candidate reply anchoring, repeat-purchase/exchange routing, relaxed alternatives, полный topology, manager review UI и отдельный disposable MariaDB race/constraint gate |
+| Открыто, W9 | `IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
 
-## Current checkpoint: lease/reclaim, late-payment inventory and episode-scoped presentation (2026-08-05)
+## Current checkpoint: durable commerce state activation (2026-08-05)
+
+`bc4ec2d5` находится в `main`, `origin/main` и production. Вместе с
+`33d63d40` он закрывает опасную дыру между parser и реальным worker path:
+
+- `IgCommerceSelectionSession`, append-only transition и durable decision/outbox
+  применены migration `management.0146`; trusted URL и текущая коррекция
+  редуцируются до classifier, media pin и Gemini, а затем session снова
+  проецируется в legacy `current_*` только как compatibility view.
+- `rejected_product_ids` больше не остаются prompt-only фактом: отказ от
+  активного товара сохраняется с причиной `customer_rejected_product`, очищает
+  product/configuration/price/allocation поля и сохраняет только явно названные
+  параметры следующего выбора. Exact URL или коррекция не дают shared-media
+  matcher вернуть старый товар.
+- RED/Green: новый worker regression и rejection regression; на unified HEAD
+  прошли 94 W9/parser/agentic теста и 143 bot-UI теста, `check`, migration
+  drift, compile и diff clean.
+- Production: migration `0146` applied; MariaDB содержит четыре trigger guards
+  (`ig_com_tr_no_upd`, `ig_com_tr_no_del`, `ig_com_dec_identity_upd`,
+  `ig_com_dec_no_del`); daemon `running=True`, `alive=True`,
+  `instagram_login`, свежий heartbeat, `last_error=''`, pending user rows = 0.
+  Проверка не создавала commerce session и не отправляла сообщения клиентам.
+
+`IMP-087` остаётся `[ ] PARTIAL`: candidate prompts/replies с provider receipts,
+burst reduction, repeat purchase/exchange routing, safe delivery reconciliation
+и operational manager-review consumer ещё не подключены. `IMP-088` остаётся
+OPEN: payable digest, manager UI, freshness/audit commands и disposable MariaDB
+race/constraint suite требуют отдельной реализации.
+
+## Previous checkpoint: lease/reclaim, late-payment inventory and episode-scoped presentation (2026-08-05)
 
 `fbe33a68` — актуальный синхронизированный production checkpoint. Он включает
 три независимых исправления, каждое с отдельными regression tests:

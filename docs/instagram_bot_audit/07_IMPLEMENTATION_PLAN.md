@@ -48,11 +48,11 @@
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
 | **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
-| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 2 | 6 |
+| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 3 | 5 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 3 | 2 | 1 | 0 |
 | **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 2 | 0 | 0 |
-| **Итого** | | **105** | **80** | **17** | **8** |
+| **Итого** | | **105** | **80** | **16** | **9** |
 
 ---
 
@@ -586,7 +586,7 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   `resolve_effective_sizes`, потому что `resolve_product_sizes` теряет отдельные
   сетки classic/oversize. Остаток по варианту не выдумывается: production-данные
   не ведут stock у вариантов.
-- [ ] **IMP-028 (P1) — открыта; отдельные элементы частично реализованы.** Блоки промпта: размерный протокол, гарантия обмена,
+- [ ] **IMP-028 (P1) — PARTIAL; отдельные элементы реализованы.** Блоки промпта: размерный протокол, гарантия обмена,
   «дорого» без скидки, «подумаю», нет размера, ненавязчивость
   (IMPR-SALES-001/002/004/005/006/008), один вопрос за раз, один аккуратный
   апселл, конкретное закрытие и голос Соломии (IMPR-SALES-003/007/010/011),
@@ -879,7 +879,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 но отсутствуют в historical `origin/codex/instagram-assisted-checkout`.
 Source сохранён отдельным remote ref `codex/ig-w9-local-preservation-20260804`
 до любого rebase.
-Ни один пункт ниже нельзя считать закрытым до переноса на актуальный `main`,
+Ни один пункт ниже нельзя считать `DONE` до переноса на актуальный `main`,
 повторных тестов, MariaDB-проверки и production deploy. Полный дизайн и
 13-задачный execution plan:
 `docs/superpowers/specs/2026-08-02-instagram-product-reselection-intelligence-design.md`
@@ -912,14 +912,13 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   fail-closed при неоднозначном mapping. Proposal creation уже резервирует
   exact allocation, а revision освобождает предыдущий active row. Остаток:
   readiness/alternative consumer и production-like MariaDB lock/constraint gate.
-- [ ] **IMP-085 (P1) — PARTIAL, parser/runtime integration в `main`/production `1849441d`.**
+- [ ] **IMP-085 (P1) — PARTIAL, parser/runtime integration в `main`/production `bc4ec2d5`.**
   Bounded parser извлекает trusted URL, rejected product IDs, color/fit/size,
   hard decoration constraints, informational size-guide topics и checkout/
-  exchange signals. Parser facts добавляются в Gemini turn note; exact
-  first-party URL pin-ит published product и только URL-encoded options могут
-  попасть в durable selection. Остаток: durable commerce-session reducer,
-  burst ordering, candidate anchoring, MariaDB/production proof и полный
-  integration с legacy classifier.
+  exchange signals. Parser facts редуцируются durable session до classifier,
+  media pin и Gemini; exact first-party URL и текущая коррекция не дают stale
+  media/legacy state вернуть прежний продукт. Остаток: burst ordering,
+  candidate anchoring и full selection/reply consumer.
 - [ ] **IMP-086 (P0) — PARTIAL, reservation/allocation lifecycle в `main`/production `a7857ada`.**
   Резерв последней единицы при proposal creation, MariaDB-safe state machine,
   late-payment `OVERBOOKED_REVIEW`, атомарный write-off/reversal и запрет
@@ -929,9 +928,16 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   может потребить active/чужой paid reserve, exact order исключает только свой
   `PAID_COMMITTED`. Остаток: disposable MariaDB
   concurrency/constraint proof и full manager-review UI.
-- [ ] **IMP-087 (P0/P1)** — durable commerce session/outbox, state reduction,
-  candidate reply anchoring, repeat-purchase/exchange routing и интеграция до
-  legacy classifier/Gemini без blind resend через неоднозначную provider boundary.
+- [ ] **IMP-087 (P0/P1) — PARTIAL, durable state и state-first worker в `main`/production `bc4ec2d5`.**
+  `33d63d40` добавил `IgCommerceSelectionSession`, append-only transition,
+  unique inbound decision/outbox и manager-review model; `bc4ec2d5` подключил
+  reducer до classifier/Gemini и сделал отказ от активного товара durable, без
+  утечки старой конфигурации или возврата по media pin. Migration `0146`
+  применена на MariaDB, четыре append-only triggers проверены. Остаток:
+  candidate reply anchoring с real provider receipts, burst reduction,
+  repeat-purchase/exchange routing, delivery reconciliation и operational
+  manager-review consumer; blind resend через неоднозначную boundary запрещён
+  моделью, но worker ещё не использует этот outbox для customer delivery.
 - [ ] **IMP-088 (P1)** — proposal digest idempotency, manager review UI,
   cache invalidation/freshness каталога (IMPR-CAT-006), read-only audit/backfill,
   unified regression, production-like MariaDB proof,
