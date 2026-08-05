@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -666,6 +667,11 @@ class InstagramPaymentDecisionApiTests(TestCase):
             dedupe_key="payment-api-historical-unknown",
             evidence={},
         )
+        from management.services.ig_payment_review import LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF
+
+        IgPaymentConfirmationReview.objects.filter(pk=review.pk).update(
+            created_at=LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF - timedelta(seconds=1),
+        )
         action_url = reverse(
             "management_bot_payment_review_action_api",
             args=[review.pk],
@@ -689,6 +695,31 @@ class InstagramPaymentDecisionApiTests(TestCase):
         decision = IgPaymentReviewDecision.objects.get(review=review)
         self.assertEqual(decision.verification_scope, "historical_fulfilled")
         self.assertIsNone(decision.confirmed_amount)
+
+    def test_historical_paid_fulfilled_api_rejects_fresh_pending_review(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.ig_client,
+            dedupe_key="payment-api-historical-fresh",
+            evidence={},
+        )
+
+        response = self.client.post(
+            reverse("management_bot_payment_review_action_api", args=[review.pk]),
+            {
+                "action": "historical_paid_fulfilled",
+                "outcome": "already_received",
+                "reason": "Current pending sale",
+                "amount_unrecoverable": "true",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn("межі legacy-імпорту", response.json()["error"])
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgPaymentConfirmationReview.Status.PENDING)
+        self.assertFalse(IgPaymentReviewDecision.objects.filter(review=review).exists())
 
     def test_historical_paid_fulfilled_api_rejects_regular_user(self):
         from management.ig_bot_models import IgPaymentConfirmationReview

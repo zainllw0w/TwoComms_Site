@@ -59,6 +59,16 @@ LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF = datetime(
     2026, 7, 30, 22, 14, 12, tzinfo=datetime_timezone.utc,
 )
 
+
+def is_legacy_historical_payment_review(review) -> bool:
+    created_at = getattr(review, "created_at", None)
+    if not isinstance(created_at, datetime):
+        return False
+    if timezone.is_naive(created_at):
+        created_at = timezone.make_aware(created_at, timezone.get_default_timezone())
+    return created_at < LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF
+
+
 _MEDIA_PRODUCT_RE = re.compile(
     r"\b(товар\w*|футболк\w*|худі|худи|одяг\w*|одежд\w*|модель\w*|"
     r"розмір\w*|размер\w*|колір\w*|цвет\w*|ціна\w*|цена\w*|"
@@ -2745,6 +2755,11 @@ def resolve_historical_paid_review(
         raise ValueError("Історичне завершення заблоковано конфліктом або скасуванням provider-оплати.")
     if locked.status != IgPaymentConfirmationReview.Status.PENDING:
         raise ValueError("Історичне завершення доступне лише для незавершеної перевірки.")
+    if not is_legacy_historical_payment_review(locked):
+        raise ValueError(
+            "Історичне завершення доступне лише для старих перевірок, "
+            "створених до межі legacy-імпорту."
+        )
 
     now = timezone.now()
     locked.status = IgPaymentConfirmationReview.Status.CONFIRMED

@@ -1128,6 +1128,12 @@ class ClientsApiTests(TestCase):
             resolved_at=timezone.now(),
             resolved_by=self.admin,
         )
+        from management.services.ig_payment_review import LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF
+
+        IgPaymentConfirmationReview.objects.filter(pk=review.pk).update(
+            created_at=LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF - timedelta(seconds=1),
+        )
+        review.refresh_from_db()
         IgPaymentReviewDecision.objects.create(
             review=review,
             client=self.c,
@@ -1903,9 +1909,30 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertEqual(len(item["media"]["unknown"]), 1)
         self.assertIn(f"review={self.pending.id}", item["workspace_url"])
 
+    def test_fresh_pending_review_does_not_offer_historical_completion(self):
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=all&review={self.pending.pk}"
+        ).json()
+        item = next(row for row in data["items"] if row["review_id"] == self.pending.pk)
+
+        self.assertFalse(item["approval"]["can_historical_complete"])
+        self.assertEqual(item["approval"]["historical_outcomes"], [])
+
+    def test_legacy_pending_review_offers_historical_completion(self):
+        from management.services.ig_payment_review import LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF
+
+        IgPaymentConfirmationReview.objects.filter(pk=self.pending.pk).update(
+            created_at=LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF - timedelta(seconds=1),
+        )
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=all&review={self.pending.pk}"
+        ).json()
+        item = next(row for row in data["items"] if row["review_id"] == self.pending.pk)
+
         self.assertTrue(item["approval"]["can_historical_complete"])
-        self.assertEqual(
-            item["approval"]["historical_outcomes"],
+        self.assertEqual(item["approval"]["historical_outcomes"],
             [
                 {"value": "already_received", "label": "Старе замовлення отримано"},
                 {"value": "already_delivered", "label": "Старе замовлення доставлено"},
@@ -1926,6 +1953,11 @@ class OrdersWorkspaceApiTests(TestCase):
             client=self.customer,
             deal=deal,
             dedupe_key="orders-api-provider-terminal-history",
+        )
+        from management.services.ig_payment_review import LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF
+
+        IgPaymentConfirmationReview.objects.filter(pk=review.pk).update(
+            created_at=LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF - timedelta(seconds=1),
         )
         IgPaymentProjection.objects.create(
             deal=deal,

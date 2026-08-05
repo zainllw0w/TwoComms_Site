@@ -1,5 +1,6 @@
 import io
 import json
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -7,6 +8,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 
 from management.ig_bot_models import IgClient, IgPaymentConfirmationReview, IgPaymentReviewDecision
+from management.services.ig_payment_review import LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF
 
 
 class HistoricalInstagramResolutionCommandTests(TestCase):
@@ -24,6 +26,11 @@ class HistoricalInstagramResolutionCommandTests(TestCase):
         self.unknown_review = IgPaymentConfirmationReview.objects.create(
             client=self.client,
             dedupe_key="historical-resolution-command-unknown",
+        )
+        IgPaymentConfirmationReview.objects.filter(
+            pk__in=[self.known_review.pk, self.unknown_review.pk],
+        ).update(
+            created_at=LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF - timedelta(seconds=1),
         )
 
     def _call(self, *args):
@@ -58,6 +65,24 @@ class HistoricalInstagramResolutionCommandTests(TestCase):
         self.assertEqual([row["status"] for row in replay["results"]], ["skipped", "skipped"])
         self.assertEqual(IgPaymentReviewDecision.objects.filter(review=self.known_review).count(), 1)
         self.assertEqual(IgPaymentReviewDecision.objects.filter(review=self.unknown_review).count(), 1)
+
+    def test_command_skips_fresh_pending_review(self):
+        fresh_review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="historical-resolution-command-fresh",
+        )
+
+        result = self._call(
+            "--review-id", str(fresh_review.pk),
+            "--actor-id", str(self.actor.pk),
+            "--outcome", "already_received",
+            "--reason", "Current pending sale",
+            "--amount-unrecoverable", str(fresh_review.pk),
+        )
+
+        self.assertEqual(result["results"][0]["status"], "skipped")
+        self.assertIn("межі legacy-імпорту", result["results"][0]["reason"])
+        self.assertFalse(IgPaymentReviewDecision.objects.filter(review=fresh_review).exists())
 
     def test_command_refuses_empty_ids_and_malformed_amount_mapping(self):
         with self.assertRaisesMessage(CommandError, "--review-id"):

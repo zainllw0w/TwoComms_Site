@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -370,6 +371,17 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
 
 
 class PaymentReviewEpisodeScopeTests(TestCase):
+    def _backdate_legacy_review(self, review):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_payment_review import LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF
+
+        created_at = LEGACY_PAYMENT_REVIEW_REPAIR_CUTOFF - timedelta(seconds=1)
+        IgPaymentConfirmationReview.objects.filter(pk=review.pk).update(
+            created_at=created_at,
+        )
+        review.created_at = created_at
+        return review
+
     def test_claim_anchor_prefers_receipt_source_id_over_temporary_url(self):
         from management.services.ig_payment_review import payment_review_claim_anchor
 
@@ -888,7 +900,10 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             IgPaymentConfirmationReview,
             IgPaymentReviewDecision,
         )
-        from management.services.ig_payment_review import resolve_historical_paid_review
+        from management.services.ig_payment_review import (
+            is_legacy_historical_payment_review,
+            resolve_historical_paid_review,
+        )
         from orders.models import Order
 
         actor = get_user_model().objects.create_user(
@@ -902,6 +917,8 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             dedupe_key="historical-completion-known-review",
             evidence={"amount_evidence": [{"kind": "payment_evidence", "amount": "1760"}]},
         )
+        self._backdate_legacy_review(review)
+        self.assertTrue(is_legacy_historical_payment_review(review))
         notification = IgBotNotification.objects.create(
             client=client,
             event_type="payment_review",
@@ -961,6 +978,44 @@ class PaymentReviewEpisodeScopeTests(TestCase):
                 confirmed_amount="1760.00",
             )
 
+    def test_historical_completion_rejects_fresh_pending_review(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgClient,
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from management.services.ig_payment_review import (
+            is_legacy_historical_payment_review,
+            resolve_historical_paid_review,
+        )
+
+        actor = get_user_model().objects.create_user(
+            "historical-completion-fresh-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("historical-completion-fresh-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-completion-fresh-review",
+        )
+
+        self.assertFalse(is_legacy_historical_payment_review(review))
+        with self.assertRaisesMessage(ValueError, "межі legacy-імпорту"):
+            resolve_historical_paid_review(
+                review,
+                actor=actor,
+                outcome="already_received",
+                reason="This is a current pending review",
+                amount_unrecoverable=True,
+            )
+
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgPaymentConfirmationReview.Status.PENDING)
+        self.assertFalse(IgPaymentReviewDecision.objects.filter(review=review).exists())
+
     def test_historical_completion_keeps_unrecoverable_amount_null(self):
         from django.contrib.auth import get_user_model
 
@@ -982,6 +1037,7 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             dedupe_key="historical-completion-unknown-review",
             evidence={},
         )
+        self._backdate_legacy_review(review)
 
         resolved = resolve_historical_paid_review(
             review,
@@ -1013,6 +1069,7 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             client=client,
             dedupe_key="historical-completion-rejected-review",
         )
+        self._backdate_legacy_review(review)
         with self.assertRaisesMessage(ValueError, "лише менеджер"):
             resolve_historical_paid_review(
                 review,
@@ -1028,6 +1085,7 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             client=client,
             dedupe_key="historical-completion-invalid-amount-review",
         )
+        self._backdate_legacy_review(invalid_review)
         with self.assertRaisesMessage(ValueError, "додатним числом"):
             resolve_historical_paid_review(
                 invalid_review,
@@ -1087,6 +1145,7 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             client=hidden_client,
             dedupe_key="historical-completion-hidden-review",
         )
+        self._backdate_legacy_review(hidden_review)
         with self.assertRaisesMessage(ValueError, "Прихований клієнт"):
             resolve_historical_paid_review(
                 hidden_review,
@@ -1108,6 +1167,7 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             deal=deal,
             dedupe_key="historical-completion-reversed-review",
         )
+        self._backdate_legacy_review(reversed_review)
         with self.assertRaisesMessage(ValueError, "provider-оплати"):
             resolve_historical_paid_review(
                 reversed_review,

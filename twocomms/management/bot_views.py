@@ -1763,7 +1763,10 @@ def _order_attribution_workspace_payload(attribution) -> dict:
 
 
 def _payment_review_workspace_payload(review) -> dict:
-    from management.services.ig_payment_review import payment_review_order_url
+    from management.services.ig_payment_review import (
+        is_legacy_historical_payment_review,
+        payment_review_order_url,
+    )
 
     evidence = review.evidence if isinstance(review.evidence, dict) else {}
     draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
@@ -1790,6 +1793,7 @@ def _payment_review_workspace_payload(review) -> dict:
     }
     can_historical_complete = bool(
         status == review.Status.PENDING
+        and is_legacy_historical_payment_review(review)
         and review.client.hidden_at is None
         and not review.order_id
         and not (deal and deal.active_checkout_proposal_id)
