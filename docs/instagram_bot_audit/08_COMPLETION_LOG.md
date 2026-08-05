@@ -23,7 +23,11 @@ proof. Branch-only work is listed in `12_SOURCE_RECONCILIATION.md`, not here.
 | IMP-102 / F-FUP-013 / IMPR-FUP-014 | `0d4d38c0`, `0e9e9ba5`, `4cb86743`, `414e639e` | Durable follow-up delivery FSM, receipt-first recovery without resend, guarded finalization race and audited ambiguous manager resolution |
 | IMP-103 / IMPR-FUP-015 | `4dfff3a2`, `35d3bd93` | Materialized event-driven continuation, immutable event payload/time, absolute policy timeline, pre-send invoice/restock recheck, audited continuation API; migration `0143` |
 | IMP-104 / F-CAT-008/009/010 / IMPR-CAT-007 | `1f5dcb70`, `7fdbe613`, `1f8cead2`, `434428ad` | Configuration-specific price authority from speech through hosted checkout; generic/no-variant option propagation, fail-closed ambiguity/unavailability guards and durable escalation when holding delivery fails; 255 focused tests |
-| Sender action observability | `13bedf8f` | Typed, provider-aware `typing_on`/`typing_off`/`mark_seen` outcomes with redacted logging and live-visual regression coverage |
+| Sender action observability | `13bedf8f`, `d3e2c51b`, `0d471ebe`, `c0f9fd1f` | Typed provider-aware `typing_on`/`typing_off`/`mark_seen` outcomes, bounded perceptible typing, typing-off-before-send ordering and permission-transition claim cleanup; focused live-visual/reply-priority evidence 63/63 |
+| Live visual refinement | `d7f10477`, `8a2f9ee1`, `233297b3`, `6e05c6b2`, `e262c0c4` | Four UI code slices plus one documentation shortlist are represented in current `main`; current-main browser evidence 135/135. The historical refinement branch is superseded and must not be cherry-picked wholesale |
+| Cancelled fallback terminalization | `d84ca10d` | An unarmed outage-recovery intent is terminalized whenever permission, lease or typing/send boundary cancels the customer send; no dangling fallback intent survives a definite no-send path |
+| IMP-086 reservation lifecycle foundation | `90fdd0ec` | Warehouse/catalog reservation lifecycle, paid commit without physical decrement, fulfillment/write-off/reversal links and late-payment `OVERBOOKED_REVIEW`; migration `0144` applied in production. Later manager notification, deterministic lock ordering and stale-callback/revision safety are recorded in deployed `1849441d` below |
+| IMP-085/086 parser and reservation hardening | `1849441d` | Bounded commerce-turn facts and trusted URL pinning are integrated before Gemini; migration `0145` adds deterministic allocation locking, revision-safe reservation replacement, late-payment manager hand-off and stale warehouse callback protection. Full `management warehouse` gate: 2877 OK; production SHA/migration/daemon verified |
 
 The current canonical status is the checkbox list in `07_IMPLEMENTATION_PLAN.md`.
 `IMP-081` is intentionally absent from the completed table: its deployed
@@ -37,6 +41,12 @@ The tasks remain PARTIAL because durable runtime commerce-session integration,
 stale binding, relaxed alternatives and full topology remain open.
 
 `IMP-084` is likewise absent from the completed table. Its exact availability
-foundation is deployed through `17f5b672` with 5 availability tests and a
-277-test combined gate, but proposal/readiness/checkout wiring, reservation
-lifecycle and disposable MariaDB proof remain open in `IMP-084/086/088`.
+foundation and proposal reservation wiring are deployed through `90fdd0ec` with
+availability and reservation tests, but readiness/alternative consumers and a
+disposable MariaDB proof remain open in `IMP-084/086/088`.
+
+`IMP-085` and `IMP-086` remain partial rather than complete: parser facts and
+reservation hardening are deployed through `1849441d`, but durable commerce
+session/candidate anchoring, readiness/alternative consumers, manager review UI
+and a disposable concurrent MariaDB gate remain before their residual checkboxes
+can close.

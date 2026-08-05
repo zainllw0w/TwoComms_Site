@@ -1,8 +1,8 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 104 уникальные `IMP-*`: **79 закрыты, 20 открыты, 5 partial**
-> (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
+> Всего 104 уникальные `IMP-*`: **79 закрыты, 18 открыты, 7 partial**
+> (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
 > Ниже находятся отдельные checkbox-матрицы всех 179 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
@@ -48,11 +48,11 @@
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
 | **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
-| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 5 | 3 |
+| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 3 | 5 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
 | **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 2 | 0 | 0 |
-| **Итого** | | **104** | **79** | **20** | **5** |
+| **Итого** | | **104** | **79** | **18** | **7** |
 
 ---
 
@@ -903,19 +903,27 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   relaxed alternatives после hard mismatch, durable candidate/session revision
   binding, stale revalidation и перенос trusted URL constraints в durable
   selection вместо временного `exact_reference`.
-- [ ] **IMP-084 (P0/P1) — PARTIAL, foundation в `main`/production `17f5b672`.**
+- [ ] **IMP-084 (P0/P1) — PARTIAL, foundation и proposal wiring в `main`/production `1849441d`.**
   Warehouse-aware exact availability теперь использует явную
   `ProductInventoryPolicy`, exact `VariantBlankLink`/`StockItem` или
   catalog-variant stock, агрегирует одинаковые allocation identity и
-  fail-closed при неоднозначном mapping. Остаток: подключить decision к
-  proposal/readiness/checkout, передать все allocation identities и пройти
-  MariaDB gate; reservation lifecycle остаётся IMP-086.
-- [ ] **IMP-085 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `dc9889c3`, НЕ ИНТЕГРИРОВАНО.**
-  Детерминированный parser составного commerce turn. Reducer, burst ordering,
-  durable decisions и подключение до Gemini пока не сделаны.
-- [ ] **IMP-086 (P0)** — reservation/allocation lifecycle: резерв последней
-  единицы при создании proposal, MariaDB-safe state machine, late-payment
-  overbook review, атомарный write-off/reversal и запрет отрицательного склада.
+  fail-closed при неоднозначном mapping. Proposal creation уже резервирует
+  exact allocation, а revision освобождает предыдущий active row. Остаток:
+  readiness/alternative consumer и production-like MariaDB lock/constraint gate.
+- [ ] **IMP-085 (P1) — PARTIAL, parser/runtime integration в `main`/production `1849441d`.**
+  Bounded parser извлекает trusted URL, rejected product IDs, color/fit/size,
+  hard decoration constraints, informational size-guide topics и checkout/
+  exchange signals. Parser facts добавляются в Gemini turn note; exact
+  first-party URL pin-ит published product и только URL-encoded options могут
+  попасть в durable selection. Остаток: durable commerce-session reducer,
+  burst ordering, candidate anchoring, MariaDB/production proof и полный
+  integration с legacy classifier.
+- [ ] **IMP-086 (P0) — PARTIAL, reservation/allocation lifecycle в `main`/production `1849441d`.**
+  Резерв последней единицы при proposal creation, MariaDB-safe state machine,
+  late-payment `OVERBOOKED_REVIEW`, атомарный write-off/reversal и запрет
+  отрицательного склада опубликованы; `0145` добавляет revision/stale-callback
+  safety и deterministic lock ordering. Остаток: disposable MariaDB
+  concurrency/constraint proof и full manager-review UI.
 - [ ] **IMP-087 (P0/P1)** — durable commerce session/outbox, state reduction,
   candidate reply anchoring, repeat-purchase/exchange routing и интеграция до
   legacy classifier/Gemini без blind resend через неоднозначную provider boundary.
@@ -932,12 +940,43 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   unit prices и line totals. Commits `1f5dcb70`, `7fdbe613`, `1f8cead2`,
   production `434428ad`; focused authoritative-price gate 12 tests.
 
+### Supplemental visual shortlist (100 items, outside canonical IMP count)
+
+The 100-item management-UI shortlist is tracked separately so it cannot silently
+inflate or replace the 104-task implementation plan. Current status is grouped
+by the ledger in `docs/plans/2026-08-05-management-bot-visual-selection-final.md`:
+
+- `[x] IN MAIN / baseline overlap`: existing list/detail/admin workspace,
+  truthful paid/shipped/attention tokens, context drawer, compact filters,
+  action rail, overview grid, pagination and sender observability. These are
+  evidence-backed overlaps, not a new IMP completion claim.
+- `[ ] NEXT RELEASE / live inbox and transcript`: items `2, 3, 4, 8, 12,
+  14, 15, 16, 17, 20, 22, 23, 25, 27, 30, 32, 33, 37, 38, 39, 42, 45, 47,
+  48, 50, 53, 54, 56, 57, 59, 61, 62, 63, 65, 66, 68, 70, 71, 72, 73,
+  74, 75, 76, 77, 79, 80, 83, 85, 86, 87, 89, 90, 96, 97, 98`.
+- `[ ] AFTER BASELINE / density and interaction`: items `1, 5, 6, 7, 9, 10,
+  11, 19, 21, 24, 26, 28, 29, 31, 34, 35, 36, 41, 43, 44, 46, 49, 52,
+  55, 58, 60, 64, 67, 69, 78, 81, 84, 88, 91, 92, 93, 94, 95, 99, 100`.
+  Item `31` is already represented by the current main visual baseline where
+  verified commercial state is shown as an evidence-backed token; the remaining
+  refinement is still open and must not be marked complete from a screenshot.
+- `[ ] DEFERRED UNTIL MEASURED`: items `18, 40, 51, 82` (density profiles,
+  context profiles, SSE and virtualization).
+- `[ ] REJECTED`: item `13` (global command palette); the draft also rejects
+  sound alerts, forced auto-open, fake countdowns, decorative particles and
+  delivery claims inferred only from TTN/text.
+
+Every item remains addressable by number; implementation requires its own
+focused contract, browser matrix and deploy evidence before changing `[ ]` to
+`[x]` in this supplemental ledger. This crosswalk does not change canonical
+IMP/Finding/Improvement totals.
+
 ---
 
 ## W10 — Улучшения, которые раньше были только идеями без IMP-задач
 
 Этот блок добавлен после полной сверки существовавших тогда 48 `IMPR-*` с
-планом; текущая матрица после source reconciliation содержит 50. Он не меняет
+планом; текущая матрица после source reconciliation содержит 51. Он не меняет
 порядок W4B: сначала IMP-056–058, затем W9/W10 по зависимостям.
 
 **Coverage gate:** подробный статус каждого ID находится в канонической таблице

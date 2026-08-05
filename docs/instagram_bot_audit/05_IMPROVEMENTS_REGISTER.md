@@ -12,8 +12,10 @@
 > **W9 checkpoint 2026-08-05:** semantic/inventory foundation (`IMP-081`) уже
 > в production, но остаётся PARTIAL до runtime/admin consumer и disposable
 > MariaDB gate. Price-aware graph/candidate foundation (`IMP-082/083`) и точный
-> variant-specific prompt parity deployed on `0ad694bc`; связанные IMPR остаются PARTIAL до runtime/session wiring,
-> exact availability и manager review.
+> variant-specific prompt parity deployed on `0ad694bc`; parser, proposal
+> reservation and `0145` lifecycle hardening are deployed in `1849441d`.
+> Связанные IMPR остаются PARTIAL до runtime/session wiring, exact availability
+> и manager review.
 
 > **Commercial pricing checkpoint 2026-08-05:** `IMPR-CAT-007` закрывает
 > authoritative configuration pricing и parity между речью бота, proposal,

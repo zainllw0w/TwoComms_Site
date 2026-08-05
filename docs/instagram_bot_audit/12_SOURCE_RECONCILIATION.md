@@ -24,8 +24,11 @@
 | `codex/ig-refresh-dedup` / `codex/instagram-login-runtime` | old refresh/runtime history | IN MAIN through `7fe26280` and later main commits; no extra branch closure |
 | `codex/ig-crm-master-audit` dirty worktree | Meta host/token/webhook/account-mode patch on old Facebook-Login base | WIP/SUPERSEDED for current runtime; preserve source branch, do not infer production status; Meta contract remains IMP-041/061 and related findings |
 | current `main` price release | configuration-specific prices, option propagation and fail-closed speech/checkout parity | IN MAIN and production through `1f5dcb70`/`7fdbe613`/`1f8cead2`; IMP-104, F-CAT-008/009 and IMPR-CAT-007 closed |
-| current `main` live visuals | typed provider-aware sender action result and redacted delivery logging | IN MAIN and production through `13bedf8f`; 19 regression tests; mapped to operational sender observability |
+| current `main` live visuals | typed provider-aware sender action result, redacted delivery logging, bounded typing window and send-boundary permission cleanup | IN MAIN and production through `13bedf8f`/`d3e2c51b`/`0d471ebe`/`c0f9fd1f`/`d84ca10d`; focused sender suite 63/63; mapped to operational sender observability |
+| `codex/management-bot-visual-refinement` | four UI code commits and one docs shortlist commit | SUPERSEDED branch base: patch-ids are already in `main` as `d7f10477`/`8a2f9ee1`/`233297b3`/`6e05c6b2`/`e262c0c4`; current-main UI tests 135/135, no cherry-pick |
 | current main code slice | delivery marker rollback, tagged-send rollback, pooled Gemini cooldown | IN MAIN and deployed as `6b86e103`; findings F-CORE-018/F-AI-017; IMP-097 |
+| current `main` warehouse slice | exact allocation reservation, paid commit without physical warehouse decrement, fulfillment/write-off/reversal links, late-payment overbook state and revision/stale-callback safety | IN MAIN and production through `1849441d`; migrations `0144`/`0145` applied; `IMP-084/086` remain PARTIAL for readiness/alternatives, manager-review UI and disposable MariaDB proof |
+| current `main` commerce-turn slice | bounded parser facts, trusted URL product pinning and prompt turn-note integration | IN MAIN and production as `1849441d`; full local gate 2877 OK; `IMP-085` remains PARTIAL because durable session/reducer, candidate anchoring and production-like DB proof are open |
 | `pre-instagram-audit-consolidation-2026-08-03` stash | pre-consolidation local snapshot | ARCHIVE only; no unique audit IDs after comparison |
 | `codex/ig-refresh-dedup` stash / old detached worktrees | inbox refresh experiments | Historical/superseded; no unique current audit IDs |
 
@@ -66,8 +69,17 @@ and migration `0131` remain non-importable.
 
 The old branch itself must not be cherry-picked wholesale. It is based on an
 old runtime and carries migration `0131`, which conflicts with current history;
-the compatible implementation is already in current `main` with migration
-`0143`.
+the compatible implementation is already in current `main` with migrations
+`0143`, `0144` and `0145`.
+
+## Current production/source checkpoint (2026-08-05)
+
+The deployed runtime code checkpoint represented by local `main`, `origin/main`
+and production is `1849441da59cb67fd0b07815a67823c76d8681f7`. The previous
+`d84ca10d` visual and `90fdd0ec` reservation checkpoints are ancestors, not
+competing current bases. Parser integration and migration `0145` are therefore
+included in the canonical source; their remaining acceptance gaps are recorded
+as PARTIAL work, not local WIP.
 
 ## Reconciliation result
 

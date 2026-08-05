@@ -12,8 +12,8 @@
 | Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
 | Дата старта / обновления | 2026-08-05 (после production deploy durable follow-up delivery FSM) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `17f5b672` подтверждён в `origin/main` и на production; поверх delivery FSM опубликованы event-driven follow-ups, authoritative configuration pricing, наблюдаемые sender actions, durable escalation и exact availability foundation |
-| **Статус 104 IMP-задач** | **79 закрыты, 20 открыты, 5 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`)** |
+| База внедрения | `1849441d` подтверждён в `origin/main` и на production; поверх delivery FSM опубликованы event-driven follow-ups, authoritative configuration pricing, наблюдаемые sender actions, durable escalation, exact availability foundation, bounded commerce-turn parser и warehouse reservation hardening |
+| **Статус 104 IMP-задач** | **79 закрыты, 18 открыты, 7 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
@@ -34,7 +34,7 @@
 | `07_IMPLEMENTATION_PLAN.md` | канонический статус 104 IMP-задач; отдельные checkbox-matrix покрывают все 179 F-* и все 51 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
-| `06_TEST_MATRIX.md` | оформлен; 47 acceptance-сценариев и текущие gates |
+| `06_TEST_MATRIX.md` | оформлен; 48 acceptance-сценариев и текущие gates |
 | `08`–`12` | оформлены; completion, deploy, blockers, validation и source reconciliation |
 
 > ⚠️ **Особенность репозитория:** `.gitignore:227` содержит `*_PLAN.md`, поэтому
@@ -50,8 +50,8 @@
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
-| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability foundation на `17f5b672`. Открыты runtime commerce session, stale candidate binding, relaxed alternatives, полный topology, proposal wiring, reservation и MariaDB test gate |
-| Открыто, W9 | `IMP-085`–`IMP-088` |
+| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime prompt integration в `1849441d`; `IMP-086` имеет deployed reservation lifecycle и migration `0145` hardening в `1849441d`. Открыты durable commerce session, stale candidate binding, relaxed alternatives, полный topology, MariaDB race/constraint proof, manager review UI и production-like parser/availability gate |
+| Открыто, W9 | `IMP-087`–`IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
 | Открыто, W12 | — |
 
@@ -59,8 +59,8 @@
 
 The previous historical paragraphs below mention `414e639e` and an open
 `IMP-103`; those statements describe the earlier checkpoint only. Runtime code
-baseline is `17f5b672`; local `main`, `origin/main` and production code are
-synchronized at `17f5b672fc03f405b63cc173cb866043d7a377a2`.
+baseline is `1849441d`; local `main`, `origin/main` and production code are
+synchronized at `1849441da59cb67fd0b07815a67823c76d8681f7`.
 
 - `IMP-103` is closed by `4dfff3a2` + `35d3bd93` and migration
   `management.0143_igfollowuptask_event_continuation`. Follow-up continuation
@@ -75,13 +75,23 @@ synchronized at `17f5b672fc03f405b63cc173cb866043d7a377a2`.
   coverage is 12 tests.
 - `13bedf8f` makes `typing_on`, `typing_off` and `mark_seen` sender actions
   token-free, provider-aware and observable through typed results and redacted
-  logs. Its 19 live-visual regression tests are part of the current main gate.
-- Production migration `0143` is applied; one daemon is running/alive on
+  logs. `d3e2c51b`/`0d471ebe`/`c0f9fd1f` add a bounded perceptible typing window,
+  typing-off-before-marker/send ordering and permission-transition claim cleanup;
+  the focused live-visual suite is 13 tests.
+- Production migrations `0143`, `0144` and `0145` are applied; one daemon is running/alive on
   `instagram_login`, with fresh heartbeat and empty reply/notification queues.
-- `IMP-084` is partial on `17f5b672`: exact warehouse/catalog allocation
-  decisions, aggregate basket quantities and ambiguous mapping fail-closed
-  guards are in `ig_availability.py`; proposal/checkout reservation wiring and
-  MariaDB allocation proof remain `IMP-086`/`IMP-088` work.
+- `IMP-084` is partial on `90fdd0ec`: exact warehouse/catalog allocation
+  decisions, aggregate basket quantities, proposal reservation wiring and
+  ambiguous mapping fail-closed guards are live; a production-like MariaDB
+  allocation gate and full readiness/alternative consumer remain open.
+- `IMP-085` is partial on `1849441d`: bounded parser facts reach the Gemini turn
+  note and exact trusted URLs pin the published product; free-text/model IDs and
+  options do not mutate payable state. Durable commerce-session reduction,
+  candidate anchoring and full production-like parser proof remain open.
+- `IMP-086` is partial on `1849441d`: reservation states, warehouse payment
+  commit, late-payment overbook state, write-off/reversal links and migration
+  `0145` deterministic lock/revision/stale-callback hardening are deployed.
+  MariaDB concurrency/constraint proof and the final manager UI contract remain.
 
 Любой новый срез начинается от актуального `origin/main`. При завершении агент
 обязан обновить минимум этот раздел, соответствующую запись в
@@ -315,7 +325,7 @@ manager alert идемпотентен по invoice ID.
 ## Восстановление веток и WIP (2026-08-03)
 
 Проверены все локальные и remote refs, worktree, reflog и недостижимые stash-
-коммиты. В истории найдено 24 коммита, менявших эту папку; вся цепочка W0–W8
+коммиты. В истории найдено 41 first-parent коммит, менявший эту папку (57 по всем refs); вся цепочка W0–W8
 включена в `main`. Разошедшаяся `docs/ig-bot-audit-w0` содержит эквивалентные
 ранние коммиты и не имеет уникальных идентификаторов.
 
@@ -328,6 +338,7 @@ manager alert идемпотентен по invoice ID.
 | `codex/ig-crm-master-audit` dirty worktree | Шесть незакоммиченных ingress/Meta-файлов находятся на базе, отстающей от `main`; поверх них нельзя делать вывод о production | Не интегрировано и не закрывает `IMP-*`; сначала rebase/перенос по файлам, затем отдельный Meta-contract review |
 | `codex/ig-order-fulfillment-links`, `20dd44b2` | Searchable order-assignment drawer семантически присутствует в актуальном `main`: отдельный drawer, поиск кандидатов, blocked reasons, keyboard/focus и тесты | Сам старый коммит не cherry-pick: текущая реализация новее и входит в W7 (`bca7e4e2`) |
 | `codex/ig-bot-w4-completion` dirty W7 | Локальный незавершённый paginator сравнен с `main`; текущий `main` уже имеет Django `Paginator`, API-контракт и полный UI W7 | Не переносить: старый diff удаляет новые метрики, drawer UX и актуальный pagination contract |
+| `codex/management-bot-visual-refinement` | Четыре UI code slices (`d7f10477`/`8a2f9ee1`/`233297b3`/`6e05c6b2`) и отдельный docs shortlist (`e262c0c4`) | IN MAIN / SUPERSEDED branch base; current-main UI tests 135/135, историческая ветка 129/129 |
 | `.claude/worktrees/ig-bot-w1` dirty W6 | Арбитр, FSM, журнал переходов и funnel-ветви находятся в `main` (`34d1e165`) | Не переносить старый working diff: он основан на W3 и откатывает значительную часть текущего `instagram_bot.py` |
 | `.claude/worktrees/ig-bot-w1` unique `tests_ig_stock_policy.py` | В WIP сохранились полезные требования: quantity-aware `VariantSizeRule`, явный `is_dropship_available=False`, manager/event при реальном дефиците, сохранение `missing_fields` | Восстановить требования тестами поверх актуального `main` в IMP-056/084/086; файл целиком не переносить, потому что его база откатывает IMP-080 и W6 |
 | `codex/ig-refresh-dedup` и stash manual inbox refresh | Durable refresh, poll cursors и link-restriction circuit уже опубликованы более полным коммитом `7fe26280` | Старую ветку/stash не переносить; она отстаёт от `main` и не содержит дополнительного закрытия |
@@ -352,9 +363,10 @@ manager alert идемпотентен по invoice ID.
 - `docs/superpowers/specs/2026-08-02-instagram-product-reselection-intelligence-design.md`
   и парный implementation plan — восстановленный дизайн. IMP-081 и partial
   IMP-082/083 уже перенесены на актуальный `main`; availability foundation
-  IMP-084 опубликована как `17f5b672`, а proposal/reservation wiring, IMP-085 и
-  остальная runtime-интеграция остаются открытыми до unified regression,
-  MariaDB proof и deploy.
+  IMP-084 опубликована как `17f5b672` и proposal reservation wiring завершена
+  в `90fdd0ec`; IMP-085 parser/runtime и IMP-086 hardening опубликованы как
+  `1849441d`. Они остаются PARTIAL до durable session/candidate anchoring,
+  manager-review UI и disposable MariaDB proof.
 
 ## Исторические выводы исходного аудита (снимок W0)
 
@@ -1204,7 +1216,7 @@ UX; раньше эти пункты существовали только в т
 исчезнуть при старте из новой ветки.
 
 Поздняя branch-reconciliation 2026-08-05 добавила `IMPR-FUP-014/015`; текущий
-канонический итог равен 50 и отражён в быстрой сводке и матрице `07`.
+канонический итог равен **51** и отражён в быстрой сводке и матрице `07`.
 
 ## IMP-055 закрыта и задеплоена — сбор доставки после оплаты (2026-08-03)
 

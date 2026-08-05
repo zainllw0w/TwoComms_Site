@@ -19,6 +19,7 @@
 | F-SEC-005 | FIXED / VERIFIED | `32985a63`: custom Direct/Gemini credentials хранятся только как versioned Fernet ciphertext; migration `0136` applied on production MariaDB |
 | F-SEC-011 | FIXED / VERIFIED | private `.env`/`.env.production` files with runtime secrets had mode `0664`; on 2026-08-04 all relevant files were changed to `0600` |
 | F-OPS-009 | FIXED / VERIFIED | `221cf37d`: terminal outbox monitor, separated lifecycle dedupe keys, one actionable failed-paylink alert and Ukrainian lifecycle copy; production daemon running with terminal counts = 0 |
+| F-CORE-018 | FIXED / VERIFIED | `6b86e103` clears speculative echo markers after definite provider rejection; `d84ca10d` additionally terminalizes unarmed fallback recovery intents whenever permission/lease/typing-send boundaries cancel before Meta send; live-priority regression 63/63 and production included in `90fdd0ec` |
 | F-CAT-005 | FIXED / VERIFIED | `674d6858`: verified semantic aliases reject empty, generic and punctuation-only values before they can authorize catalog matching |
 | F-CAT-006 | FIXED / VERIFIED | `3678ddf4`: effective semantic revision cannot be revoked without authoritative actor/reason; revocation is audited and fail-closed |
 | F-CAT-007 | FIXED / VERIFIED | `e44d1440` binds prompt sizes to exact variant+fit; `0ad694bc` distinguishes an authoritative empty size contract from a missing variant-specific source; production product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
@@ -3980,7 +3981,10 @@ Regression-тесты `test_rejected_send_does_not_suppress_identical_manager_ec
 `test_ambiguous_send_keeps_echo_marker` закрепляют обе стороны контракта.
 
 **Verification:** `management.tests_ig_audit_fixes` 45/45, production SHA
-`6b86e103`, daemon online с пустым `last_error`.
+`6b86e103`, daemon online с пустым `last_error`. The later `d84ca10d` slice
+also terminalizes an unarmed outage-recovery fallback when permission, lease or
+typing/send boundary proves that no customer message was sent; the regression
+keeps definite no-send paths from leaving a dangling fallback intent.
 
 ### F-AI-017 (P1, VERIFIED): pooled Gemini cooldown блокировал настроенный custom key
 
@@ -4006,10 +4010,15 @@ manager/event сигнал, а `missing_fields` должен сохранять�
 старой базе и его полный перенос откатывает актуальные IMP-080 и W6.
 
 **Статус:** exact availability foundation вошла в `main`/production как
-`17f5b672` и покрыта `management.tests_ig_availability` (5/5) плюс unified
-277-test gate. Находка остаётся OPEN: decision ещё не подключён к proposal /
-checkout reservation lifecycle, manager/event дефицита и MariaDB proof входят
-в IMP-084/086/088.
+`17f5b672`, proposal reservation lifecycle — как `90fdd0ec`, а hardening — как
+deployed `1849441d`. Migration `0145_ig_inventory_revision_safety` передаёт
+детерминированную причину
+`tracked_stock_shortfall`/`insufficient_warehouse_stock` через paylink до
+durable `_stock_gap`, переводит клиента в `LEAD_TO_MANAGER` и создаёт
+дедуплицированное operator notification. Full local gate — 2877 tests, 3
+skipped, `OK`; production SHA/migration/daemon подтверждены. Находка остаётся
+OPEN: readiness/alternative consumer, полный manager-review UI и disposable
+MariaDB concurrency/constraint proof входят в IMP-084/086/088.
 
 ## Supplemental closures restored from progress history (2026-08-03)
 

@@ -8,11 +8,14 @@
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
 - W8: `IMP-044`–`046`, `060`–`061`, `094`, `096`, `100`, `101`; partial `043`.
-- W9: partial `IMP-081`–`084`; open `IMP-085`–`088`. `IMP-081` foundation is
+- W9: partial `IMP-081`–`086`; open `IMP-087`–`088`. `IMP-081` foundation is
   production; `IMP-082/083` graph/ranker foundation and prompt parity are
-  production `0ad694bc`; `IMP-084` exact availability foundation is production
-  `17f5b672`, while runtime commerce session, stale binding, relaxed alternatives,
-  proposal/reservation wiring and full topology remain open.
+  production `0ad694bc`; `IMP-084` exact availability and proposal reservation
+  wiring are production through `90fdd0ec`; `IMP-085` parser/runtime facts and
+  `IMP-086` migration `0145` reservation hardening are production through
+  `1849441d`. Durable commerce session, candidate anchoring, stale binding,
+  relaxed alternatives, full topology, manager-review UI and disposable MariaDB
+  concurrency/constraint proof remain open.
 - W10: `IMP-090`–`093`.
 - W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
   F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
@@ -34,9 +37,9 @@
 
 - Historical product-reselection commits remain preserved. Do not cherry-pick
   them wholesale: `IMP-081` and partial `IMP-082/083` were ported independently;
-  `IMP-084` foundation is now on current `main` as `17f5b672`; proposal/
-  reservation wiring, `IMP-085`, unified MariaDB proof and remaining deploy
-  gates are still open.
+  `IMP-084` foundation and proposal reservation are now on current `main` as
+  `90fdd0ec`; parser `IMP-085` and migration `0145` are deployed in `1849441d`.
+  Unified disposable MariaDB proof and the remaining runtime/UI gates are open.
 - The W6-era untracked stock-policy tests are requirements to port onto current
   main, not production code (`F-CAT-004`, `IMP-084/086`).
 - The assisted-checkout worktree's 390px breakpoint change is uncommitted and
@@ -51,11 +54,10 @@
 
 ## Known test baseline
 
-Fresh IMP-102 gates are green: 23/23 focused and 160/160 expanded. The latest
-full management run executed 2696 tests with 1 failure and 7 errors: four
-errors were caused by absent `FIELD_ENCRYPTION_KEY` and pass with a valid test
-key; the remaining objection failures reproduce the known SQLite append-only
-trigger/flush isolation problem. They are not in the IMP-102 delivery path.
+The latest full `management warehouse` run executed 2877 tests with 3 skipped
+and `OK`. It includes the current parser, reservation, stock concurrency,
+variant-price and W7 action-label regressions. Earlier IMP-102 gates remain
+23/23 focused and 160/160 expanded.
 `F-TEST-002` / `IMP-094` remain open because a separately provisioned
 disposable MariaDB test database is still unavailable; production is read-only
 evidence, not a test target.

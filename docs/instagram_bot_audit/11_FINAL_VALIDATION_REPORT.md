@@ -10,14 +10,18 @@ observability. It reconciles the current implementation backlog into
 
 ## Local evidence
 
-- Current runtime baseline: `17f5b672` (event continuation, configuration pricing, sender observability, durable escalation and exact availability foundation on top of the prior delivery/prompt/payment foundations).
+- Current runtime baseline: `1849441d` (event continuation, configuration
+  pricing, sender observability, durable escalation, exact availability,
+  typing/send-boundary hardening, bounded commerce-turn parsing and warehouse
+  reservation/revision safety on top of the prior delivery/prompt/payment
+  foundations).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
   individual checkbox matrices for all **179 `F-*` findings** and all **51
   `IMPR-*` improvements**. Finding status is **134 checked / 39 open / 6
   partial**; improvement status is **17 checked / 34 unfinished**.
-- Implementation status is **104 `IMP-*`: 79 checked, 20 open, 5 partial**.
+- Implementation status is **104 `IMP-*`: 79 checked, 18 open, 7 partial**.
 - `02` remains the 120-item audit coverage authority; `03` and `05` remain the
   detailed finding/improvement evidence registers.
 
@@ -30,10 +34,11 @@ observability. It reconciles the current implementation backlog into
 - `python manage.py makemigrations --check --dry-run`: no changes detected.
 - `python -m compileall -q` for changed IG service/tests: exit 0.
 - `git diff --check`: exit 0 before code commit.
-- IMP-102 gates: 23/23 focused and 160/160 expanded. The full management run
-  executed 2696 tests with 1 failure and 7 errors: four were missing
-  `FIELD_ENCRYPTION_KEY`; the remaining objection cases reproduce the known
-  SQLite append-only trigger/flush isolation issue outside the delivery path.
+- Fresh current full gate: 2877 tests, 3 skipped, `OK`. It includes the bounded
+  parser, reservation/revision lifecycle, stale-instance and absolute-stock
+  concurrency regressions, authoritative variant pricing, reason-preserving
+  stock escalation and W7 action labels. IMP-102 gates remain 23/23 focused and
+  160/160 expanded.
 - Production MariaDB: migration `0133` applied; canonical backfill created 5
   events, deterministic silence scan created 96 drop-offs; raw-event/API
   reconciliation reported 197 events and 17 event types.
@@ -103,14 +108,40 @@ alternatives and full print/blank/media topology.
 honors the explicit `ProductInventoryPolicy`, returns exact warehouse
 `StockItem` or catalog-variant facts, aggregates repeated allocation identities
 in a basket, and fails closed on missing or ambiguous warehouse mappings.
-Availability coverage is 5/5 tests; the combined availability/checkout/
-follow-up/live-visual/restock gate is 277 tests. Production fast-forward,
-`manage.py check`, migration drift and daemon ensure passed; server SHA is
-`17f5b672fc03f405b63cc173cb866043d7a377a2`.
+Availability coverage is 5/5 tests; the earlier combined availability/checkout/
+follow-up/live-visual/restock gate is 277 tests. The reservation wiring was then
+deployed in `90fdd0ec`; proposal creation now reserves the exact allocation and
+revisions release old active rows before replacing protected items. Production
+fast-forward, `manage.py check`, migration drift and daemon ensure passed; server
+SHA is `90fdd0ec36d585d075fafd1340b2427d456a421c`.
 
-`IMP-084` remains PARTIAL: readiness/proposal/hosted-checkout wiring must carry
-all allocation identities, and reservation/write-off/reversal lifecycle plus
-disposable MariaDB proof remain `IMP-086`/`IMP-088`.
+`IMP-084` remains PARTIAL: readiness/alternative consumers and production-like
+MariaDB lock/constraint proof remain open. Reservation/write-off/reversal
+lifecycle is tracked separately under `IMP-086`.
+
+## IMP-085 checkpoint (2026-08-05, deployed PARTIAL)
+
+The bounded commerce-turn parser is deployed in `1849441d`:
+trusted first-party URLs, rejected product IDs, color/fit/size hints, hard
+decoration constraints, size-guide information topics and checkout/exchange
+signals are rendered into the Gemini turn note. Exact trusted URLs pin the
+published product; free-text/model product IDs and free-text option hints do not
+directly mutate payment state. Parser tests and dialog regressions pass in the
+full 2877-test local gate; production SHA, migration state and daemon health are
+verified. Durable commerce-session reduction, candidate anchoring and a
+production-like parser/DB gate remain open.
+
+## IMP-086 checkpoint (2026-08-05, deployed PARTIAL)
+
+`90fdd0ec` and migration `0144` deploy the warehouse/catalog reservation
+lifecycle: exact allocation grouping, proposal
+reservation, payment commit without physical warehouse decrement, paid/fulfilled
+states, write-off movement linkage, reversal restoration and late-payment
+`OVERBOOKED_REVIEW`. Commit `1849441d` deploys migration `0145` for
+deterministic lock ordering, revision-safe item replacement, stale write-off
+callbacks and idempotent manager follow-up/notification. The remaining
+acceptance gate is a disposable MariaDB run covering concurrent locks,
+constraints and migration behavior; the full manager-review UI is also open.
 
 ## IMP-102 / F-FUP-013 checkpoint (2026-08-05, deployed)
 
@@ -154,14 +185,15 @@ checkout. Ambiguous exact claims and invalid option contexts fail closed; the
 checkout renders selected option facts and line totals. The authoritative-price
 gate is 12 tests.
 
-The runtime code baseline is `17f5b672`; production code SHA is
-`17f5b672fc03f405b63cc173cb866043d7a377a2`. Migration `0143` is applied and production
-has one healthy `instagram_login` daemon with empty pending reply/notification
-queues.
+The current production runtime code SHA is
+`1849441da59cb67fd0b07815a67823c76d8681f7`. Migrations `0143`, `0144` and
+`0145` are applied and production has one healthy `instagram_login` daemon with
+empty pending reply/notification/analysis/recovery queues.
 
 ## Acceptance decision
 
-The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007, IMP-084 foundation, IMP-102/F-FUP-013,
+The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007, IMP-084 foundation,
+IMP-086 reservation foundation, IMP-102/F-FUP-013,
 IMP-103/IMPR-FUP-015 and IMP-104/F-CAT-008/009/010 foundation slices are verified
 and deployed. Product/data blockers, partial W9 reselection, remaining
 W5/W8/W9/W10/W11 work and `IMP-098` remain explicitly open. The next

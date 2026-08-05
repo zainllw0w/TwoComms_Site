@@ -6,21 +6,63 @@ Production host: `195.191.25.63`, path
 
 ## Current production checkpoint (2026-08-05)
 
-Runtime code baseline is `17f5b672`; local `main`, `origin/main` and
-production code are synchronized at `17f5b672fc03f405b63cc173cb866043d7a377a2`.
-The server pull was fast-forward
+Runtime code baseline is `1849441d`; that code commit is in local `main`,
+`origin/main` and production as
+`1849441da59cb67fd0b07815a67823c76d8681f7`. The server pull was fast-forward
 only; tracked files are clean (existing untracked operational logs/scripts were
-preserved). Migration `management.0143_igfollowuptask_event_continuation` is
-applied. `manage.py check`, migration drift, static/compression and the focused
-255-test event/FSM/checkout/restock gate plus authoritative-price/live-visual
-gates and the 5-test exact-availability gate passed. `run_instagram_bot --ensure` reports one
-daemon, `running=True`, `alive=True`, provider `instagram_login`, fresh
-heartbeat, empty `last_error` and zero pending reply/notification queues.
+preserved). Migrations `management.0143_igfollowuptask_event_continuation`,
+`management.0144_ig_inventory_allocation_lifecycle` and
+`management.0145_ig_inventory_revision_safety` are applied. The fresh local
+full `management warehouse` suite passed 2877 tests with 3 skipped and `OK`;
+`manage.py check`, migration drift, compileall, diff checks,
+static/compression and daemon ensure also passed. The production MySQL test
+database gate is still blocked by missing CREATE privilege for
+`test_qlknpodo_MySQL_DB`; production DB evidence is therefore read-only, not a
+concurrency test target. `run_instagram_bot --ensure` and `status_snapshot()`
+report one daemon, `enabled=True`, `running=True`, `alive=True`, provider
+`instagram_login`, heartbeat age about 0.9 seconds, empty `last_error` and zero
+pending reply/notification/analysis/recovery queues.
 
 The deployed slices are `IMP-103` (commits `4dfff3a2`, `35d3bd93`), `IMP-104`
 (`1f5dcb70`, `7fdbe613`, `1f8cead2`), sender-action observability
 (`13bedf8f` plus boundary fix `434428ad`) and `IMP-084` availability foundation
-(`17f5b672`).
+(`17f5b672`), followed by live-visual boundary hardening
+(`d3e2c51b`, `0d471ebe`, `c0f9fd1f`) and warehouse reservation lifecycle
+(`90fdd0ec`), then bounded commerce-turn parsing and inventory revision safety
+(`1849441d`).
+
+## Parser and inventory revision hardening deploy (2026-08-05)
+
+`1849441da59cb67fd0b07815a67823c76d8681f7` was pushed to `origin/main` and
+fast-forwarded on production. Migration
+`management.0145_ig_inventory_revision_safety` is applied. The deployed slice
+integrates bounded commerce-turn facts before Gemini, pins only trusted
+first-party product URLs, preserves exact price/stock reasons through paylink
+readiness and manager escalation, orders allocation locks deterministically,
+protects reservation revisions and stale write-off callbacks, and routes late
+overbooked payment to manager review.
+
+Fresh local evidence is 2877 tests, 3 skipped, `OK`, including stale-instance,
+absolute-stock, authoritative variant-price, stock-reason and W7 action-label
+regressions. Production `migrate`, `check`, static/compression, restart and daemon
+ensure completed; read-only status reported `enabled=True`, provider
+`instagram_login`, fresh heartbeat and pending queues `0/0/0/0`. IMP-085 and
+IMP-086 remain PARTIAL because durable commerce-session/candidate anchoring,
+manager-review UI and disposable MariaDB concurrency/constraint proof are not
+yet complete.
+
+## Warehouse reservation lifecycle deploy (2026-08-05)
+
+`90fdd0ec36d585d075fafd1340b2427d456a421c` was fast-forwarded to `origin/main`
+and pulled on production. Migration `management.0144_ig_inventory_allocation_lifecycle`
+is applied. The deployed path reserves exact warehouse/catalog allocation at
+proposal creation, commits warehouse payment without decrementing physical stock,
+binds fulfillment/write-off/reversal movements and marks late released payment as
+`OVERBOOKED_REVIEW` rather than creating negative stock. The reservation and
+warehouse focused gate passed locally before deploy; production `check`, migration
+drift, static/compression and daemon ensure passed. One daemon remains
+`running=True`, `alive=True`, `instagram_login`, with fresh heartbeat and empty
+reply/notification queues.
 
 ## IMP-084 exact availability foundation deploy (2026-08-05)
 
@@ -140,6 +182,8 @@ overwritten outside the fast-forward.
 | 2026-08-05 | `29684475` | IMP-082/083 partial; 31/230/2672/202 local gates, MySQL graph 91=800/950 and 110=1450, hard incompatible size rejected | one daemon; `running`; `alive=True`; heartbeat 0.5s; queues `0/0/0` |
 | 2026-08-05 | `e44d1440` / `0ad694bc` | F-CAT-007 fixed; 188 focused, 2675 full suite, exact variant+fit prompt price/size contract | one daemon; `running`; `alive=True`; heartbeat 0.1s; reply/notification queues `0/0` |
 | 2026-08-05 | `0d4d38c0` / `0e9e9ba5` / `4cb86743` / `414e639e` | IMP-102/F-FUP-013; migration `0141`, 23 focused / 160 expanded, check/drift/compileall/diff | one daemon; `running`; `alive=True`; `instagram_login`; delivery queues empty |
+| 2026-08-05 | `90fdd0ec` | IMP-086 reservation lifecycle; migration `0144`, exact allocation/paid commit/fulfillment/reversal and overbook review gate | one daemon; `running`; `alive=True`; `instagram_login`; reply/notification queues empty |
+| 2026-08-05 | `1849441d` | IMP-085/086 partial; migration `0145`, bounded parser, trusted URL pinning, revision/lock/stale-callback safety; 2877 full tests | one daemon; `enabled=True`; `alive=True`; `instagram_login`; queues `0/0/0/0` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
