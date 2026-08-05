@@ -1443,6 +1443,33 @@ def _mark_ambiguous(
     return task
 
 
+def _mark_followup_finalization_failure(
+    task_id: int,
+    *,
+    claim_token: str,
+    error: str,
+    now: datetime,
+) -> IgFollowUpTask | None:
+    """Fail closed without downgrading a receipt finalized by another worker."""
+    with transaction.atomic():
+        task = IgFollowUpTask.objects.select_for_update().filter(pk=task_id).first()
+        if task is None:
+            return None
+        owns_processing_claim = (
+            task.status == IgFollowUpTask.Status.PROCESSING
+            and task.claim_token == claim_token
+        )
+        has_unfinalized_receipt = (
+            task.status == IgFollowUpTask.Status.SENT
+            and not task.sent_message_id
+            and bool(task.provider_message_id)
+        )
+        if not (owns_processing_claim or has_unfinalized_receipt):
+            return task
+        task.last_error = error[:500]
+        return _mark_ambiguous(task, "local_finalization_failed", now=now)
+
+
 def recover_expired_followup_leases(
     *, now: datetime | None = None, limit: int = 100
 ) -> int:
@@ -1688,8 +1715,14 @@ def recover_sent_followup_receipts(
         except Exception as exc:
             task = IgFollowUpTask.objects.select_related("client").filter(pk=task_id).first()
             if task is not None:
-                task.last_error = repr(exc)[:500]
-                _mark_ambiguous(task, "receipt_recovery_failed", now=now)
+                with transaction.atomic():
+                    task = IgFollowUpTask.objects.select_for_update().get(pk=task_id)
+                    if (
+                        task.status == IgFollowUpTask.Status.SENT
+                        and not task.sent_message_id
+                    ):
+                        task.last_error = repr(exc)[:500]
+                        _mark_ambiguous(task, "receipt_recovery_failed", now=now)
             continue
         finalized = IgFollowUpTask.objects.select_related("client", "deal").get(
             pk=task_id
@@ -2097,12 +2130,12 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                         now=now,
                     )
                 except Exception as exc:
-                    failed_task = IgFollowUpTask.objects.select_related("client").filter(
-                        pk=task.id,
-                    ).first()
-                    if failed_task is not None:
-                        failed_task.last_error = repr(exc)[:500]
-                        _mark_ambiguous(failed_task, "local_finalization_failed", now=now)
+                    _mark_followup_finalization_failure(
+                        task.id,
+                        claim_token=task_claim_token,
+                        error=repr(exc),
+                        now=now,
+                    )
                     continue
                 sent += 1
                 _escalate_missing_delivery(finalized_task, finalized_client)

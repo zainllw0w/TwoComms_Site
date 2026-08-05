@@ -390,6 +390,65 @@ class FollowupDeliveryFsmTests(TestCase):
         self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
         self.assertIsNotNone(task.sent_message_id)
 
+    def test_sender_exception_after_concurrent_finalization_does_not_reopen_delivery(self):
+        from management.services import bot_followups
+        from management.services.bot_followups import process_due_followups
+
+        task = self._task()
+        real_finalize = bot_followups._finalize_confirmed_followup
+
+        def finalize_then_fail(*args, **kwargs):
+            result = real_finalize(*args, **kwargs)
+            raise RuntimeError("sender observed stale finalization error")
+
+        with (
+            patch(
+                "management.services.instagram_bot.send_text",
+                return_value=ProviderDeliveryReceipt(True, "", "", "mid-race-finalized"),
+            ),
+            patch(
+                "management.services.bot_followups._finalize_confirmed_followup",
+                side_effect=finalize_then_fail,
+            ),
+        ):
+            self.assertEqual(
+                process_due_followups(self.settings, now=self.now, limit=1),
+                0,
+            )
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
+        self.assertIsNotNone(task.sent_message_id)
+
+    def test_recovery_exception_after_concurrent_finalization_does_not_reopen_delivery(self):
+        from management.services import bot_followups
+
+        task = self._task(
+            status=IgFollowUpTask.Status.SENT,
+            provider_message_id="mid-recovery-race",
+        )
+        real_finalize = bot_followups._finalize_confirmed_followup
+
+        def finalize_then_fail(*args, **kwargs):
+            result = real_finalize(*args, **kwargs)
+            raise RuntimeError("recovery observed stale finalization error")
+
+        with patch(
+            "management.services.bot_followups._finalize_confirmed_followup",
+            side_effect=finalize_then_fail,
+        ):
+            self.assertEqual(
+                bot_followups.recover_sent_followup_receipts(
+                    now=self.now,
+                    limit=1,
+                ),
+                0,
+            )
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
+        self.assertIsNotNone(task.sent_message_id)
+
 
 @MGMT
 class FollowupDeliveryResolutionTests(TestCase):
