@@ -107,6 +107,16 @@ class ProviderDeliveryReceipt:
         return self.ok, self.kind, self.hint
 
 
+@dataclass(frozen=True)
+class SenderActionResult:
+    """Token-free outcome of a best-effort Meta sender action request."""
+
+    ok: bool
+    http_status: int
+    kind: str
+    action: str = ""
+
+
 def _delivery_receipt(result) -> tuple[bool, str, str, str, bool]:
     """Normalize old tuple callers while making an explicit receipt auditable."""
     if isinstance(result, ProviderDeliveryReceipt):
@@ -4449,25 +4459,77 @@ def conversation_discovery_status(
 # ---------------------------------------------------------------------------
 # Send
 # ---------------------------------------------------------------------------
-def send_sender_action(s: InstagramBotSettings, recipient_id: str, action: str) -> None:
-    """typing_on / typing_off / mark_seen — для відчуття миттєвості (best practice)."""
+def send_sender_action(
+    s: InstagramBotSettings,
+    recipient_id: str,
+    action: str,
+) -> SenderActionResult:
+    """Send a token-free, observable sender action without blocking replies."""
+    requested_action = str(action or "").strip()[:32]
+    safe_action = (
+        requested_action
+        if requested_action in {"typing_on", "typing_off", "mark_seen"}
+        else "unknown"
+    )
+    if safe_action == "unknown":
+        result = SenderActionResult(False, 0, "invalid_action", safe_action)
+        log(
+            "warning",
+            "sender_action",
+            f"action={safe_action} kind={result.kind} http={result.http_status}",
+        )
+        return result
     account_id = _provider_account_id(s)
     if not account_id:
-        return
+        result = SenderActionResult(False, 0, "missing_account", safe_action)
+        log(
+            "warning",
+            "sender_action",
+            f"action={safe_action} kind={result.kind} http={result.http_status}",
+        )
+        return result
     page_token = get_page_token(s)
     if not page_token:
-        return
+        result = SenderActionResult(False, 0, "missing_token", safe_action)
+        log(
+            "warning",
+            "sender_action",
+            f"action={safe_action} kind={result.kind} http={result.http_status}",
+        )
+        return result
     try:
-        body = json.dumps({"recipient": {"id": recipient_id}, "sender_action": action}).encode("utf-8")
-        _provider_http(
+        body = json.dumps(
+            {"recipient": {"id": recipient_id}, "sender_action": safe_action}
+        ).encode("utf-8")
+        http_status, _provider_body = _provider_http(
             s,
             _provider_url(s, f"/{account_id}/messages"),
             token=page_token,
             data=body,
             timeout=HTTP_TIMEOUT,
         )
+        try:
+            http_status = int(http_status)
+        except (TypeError, ValueError):
+            http_status = -1
+        if http_status == 200:
+            return SenderActionResult(True, http_status, "delivered", safe_action)
+        kind = "transport" if http_status < 0 else "provider"
+        result = SenderActionResult(False, http_status, kind, safe_action)
+        log(
+            "warning",
+            "sender_action",
+            f"action={safe_action} kind={result.kind} http={result.http_status}",
+        )
+        return result
     except Exception:
-        pass
+        result = SenderActionResult(False, -1, "transport", safe_action)
+        log(
+            "warning",
+            "sender_action",
+            f"action={safe_action} kind={result.kind} http={result.http_status}",
+        )
+        return result
 
 
 def _split_for_send(text: str, limit: int = 950, max_chunks: int = 4) -> list[str]:
