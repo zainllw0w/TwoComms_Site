@@ -933,9 +933,12 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   unique inbound decision/outbox и manager-review model; `bc4ec2d5` подключил
   reducer до classifier/Gemini и сделал отказ от активного товара durable, без
   утечки старой конфигурации или возврата по media pin. Migration `0146`
-  применена на MariaDB, четыре append-only triggers проверены. Остаток:
-  candidate reply anchoring с real provider receipts, burst reduction,
-  repeat-purchase/exchange routing, delivery reconciliation и operational
+  применена на MariaDB, четыре append-only triggers проверены. `98bb160e`
+  materializes explicit repeat purchase только при CRM-confirmed purchase и
+  атомарно закрывает старую selection session, открывая пустую session для
+  нового episode; exchange/return не создают sale episode и сохраняются в
+  post-sale workflow. Остаток: candidate reply anchoring с real provider
+  receipts, burst reduction, delivery reconciliation и operational
   manager-review consumer; blind resend через неоднозначную boundary запрещён
   моделью, но worker ещё не использует этот outbox для customer delivery.
 - [ ] **IMP-088 (P1)** — proposal digest idempotency, manager review UI,

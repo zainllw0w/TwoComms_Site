@@ -50,7 +50,7 @@
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
-| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`; `IMP-087` создаёт durable selection/transition/decision state и reducer запускается до classifier/Gemini на production `bc4ec2d5`. Открыты candidate reply anchoring, repeat-purchase/exchange routing, relaxed alternatives, полный topology, manager review UI и отдельный disposable MariaDB race/constraint gate |
+| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`; `IMP-087` создаёт durable selection/transition/decision state и reducer запускается до classifier/Gemini на production `bc4ec2d5`. `98bb160e` добавляет payment-gated repeat episode и чистую следующую commerce session; exchange/return остаются post-sale flow. Открыты candidate reply anchoring, burst reduction, relaxed alternatives, полный topology, manager review UI и отдельный disposable MariaDB race/constraint gate |
 | Открыто, W9 | `IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
@@ -69,6 +69,12 @@
   product/configuration/price/allocation поля и сохраняет только явно названные
   параметры следующего выбора. Exact URL или коррекция не дают shared-media
   matcher вернуть старый товар.
+- `98bb160e` materializes `repeat_intent` только для подтверждённого покупателя.
+  При этом новый `IgCommercialEpisode` получает новую пустую
+  `IgCommerceSelectionSession`, а предыдущая сессия закрывается: старые товар,
+  configuration, price, allocation и candidate anchor не попадают в следующий
+  заказ. Exchange/return по-прежнему исключаются из repeat parser и проходят
+  существующий post-sale case flow.
 - RED/Green: новый worker regression и rejection regression; на unified HEAD
   прошли 94 W9/parser/agentic теста и 143 bot-UI теста, `check`, migration
   drift, compile и diff clean.
@@ -79,8 +85,8 @@
   Проверка не создавала commerce session и не отправляла сообщения клиентам.
 
 `IMP-087` остаётся `[ ] PARTIAL`: candidate prompts/replies с provider receipts,
-burst reduction, repeat purchase/exchange routing, safe delivery reconciliation
-и operational manager-review consumer ещё не подключены. `IMP-088` остаётся
+burst reduction, safe delivery reconciliation и operational manager-review
+consumer ещё не подключены. `IMP-088` остаётся
 OPEN: payable digest, manager UI, freshness/audit commands и disposable MariaDB
 race/constraint suite требуют отдельной реализации.
 
