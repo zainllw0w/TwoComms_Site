@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from management.models import (
@@ -256,6 +257,34 @@ class FollowupPolicyIntegrationTests(TestCase):
             paid_at=self.now,
         )
         return deal
+
+    def _event_task(self, *, issue_at=None):
+        issue_at = issue_at or self.now - timedelta(hours=24)
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            invoice_id="event-boundary-invoice",
+            invoice_url="https://pay.example/event-boundary-invoice",
+            invoice_expires_at=issue_at + timedelta(hours=24),
+        )
+        return IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+            level=3,
+            event_key=f"invoice_expired:{deal.pk}:event-boundary-invoice",
+            trigger=IgFollowUpTask.Trigger.EVENT,
+            event_occurred_at=issue_at + timedelta(hours=24),
+            event_payload={
+                "event": "invoice_expired",
+                "deal_id": deal.pk,
+                "invoice_id": "event-boundary-invoice",
+            },
+            policy_started_at=issue_at,
+            policy_version="followup-v1",
+        )
 
     def test_fulfillment_guard_allows_verified_buyer_but_sales_followup_does_not(self):
         from management.services.bot_followups import _client_allows_followup
@@ -623,6 +652,35 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertEqual(
             IgFollowUpTask.objects.filter(event_key=first.event_key).count(), 1
         )
+        self.assertEqual(first.trigger, IgFollowUpTask.Trigger.EVENT)
+        self.assertEqual(first.event_occurred_at, deal.invoice_expires_at)
+        self.assertEqual(first.event_payload["deal_id"], deal.pk)
+        self.assertEqual(first.event_payload["invoice_id"], deal.invoice_id)
+        self.assertEqual(first.event_payload["event"], "invoice_expired")
+        self.assertEqual(
+            first.policy_started_at,
+            deal.invoice_expires_at - timedelta(hours=24),
+        )
+
+    def test_invoice_issue_registers_future_expiry_event_without_polling(self):
+        from management.services.bot_followups import schedule_invoice_expiry_event
+
+        expires_at = self.now + timedelta(hours=24)
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            invoice_id="invoice-future-event",
+            invoice_url="https://pay.example/future-event",
+            invoice_expires_at=expires_at,
+        )
+
+        task = schedule_invoice_expiry_event(deal, now=self.now)
+
+        self.assertIsNotNone(task)
+        self.assertEqual(task.trigger, IgFollowUpTask.Trigger.EVENT)
+        self.assertEqual(task.due_at, expires_at)
+        self.assertEqual(task.event_occurred_at, expires_at)
+        self.assertEqual(task.policy_started_at, self.now)
 
     @patch(
         "management.services.instagram_bot.send_text",
@@ -631,7 +689,10 @@ class FollowupPolicyIntegrationTests(TestCase):
         ).ProviderDeliveryReceipt(True, "", "", "meta-followup-1"),
     )
     def test_expired_event_is_sent_once_with_provider_receipt(self, _send_text):
-        from management.services.bot_followups import process_due_followups
+        from management.services.bot_followups import (
+            process_due_followups,
+            schedule_invoice_expiry_event,
+        )
 
         deal = IgDeal.objects.create(
             client=self.client_record,
@@ -640,11 +701,13 @@ class FollowupPolicyIntegrationTests(TestCase):
             invoice_url="https://pay.example/expired-2",
             invoice_expires_at=self.now - timedelta(minutes=1),
         )
+        task = schedule_invoice_expiry_event(deal, now=self.now)
 
+        self.assertIsNotNone(task)
         self.assertEqual(
             process_due_followups(self.settings, now=self.now, limit=1), 1
         )
-        task = IgFollowUpTask.objects.get(deal=deal, event_key__startswith="invoice_expired:")
+        task.refresh_from_db()
         self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
         self.assertEqual(task.provider_message_id, "meta-followup-1")
         self.assertEqual(task.sent_message.provider_message_id, "meta-followup-1")
@@ -707,6 +770,10 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(first.level, 1)
         self.assertEqual(first.event_key, "restock:event:41:m:1")
+        self.assertEqual(first.trigger, IgFollowUpTask.Trigger.EVENT)
+        self.assertEqual(first.event_payload["product_id"], 41)
+        self.assertEqual(first.event_payload["size"], "M")
+        self.assertEqual(first.event_payload["event"], "restock_available")
 
     def test_invoice_expiry_continuation_preserves_absolute_t72_offset(self):
         from management.services.bot_followups import _schedule_next_policy_step
@@ -725,6 +792,14 @@ class FollowupPolicyIntegrationTests(TestCase):
             reason="payment_link_unpaid",
             level=3,
             event_key=f"invoice_expired:{deal.pk}:absolute-offset",
+            trigger=IgFollowUpTask.Trigger.EVENT,
+            event_occurred_at=self.now - timedelta(hours=24),
+            event_payload={
+                "event": "invoice_expired",
+                "deal_id": deal.pk,
+                "invoice_id": "absolute-offset",
+            },
+            policy_started_at=self.now - timedelta(hours=24),
         )
 
         self.assertTrue(
@@ -736,6 +811,7 @@ class FollowupPolicyIntegrationTests(TestCase):
             level=4,
         )
         self.assertEqual(final.due_at, self.now + timedelta(hours=48))
+        self.assertEqual(final.policy_started_at, self.now - timedelta(hours=24))
 
     def test_restock_confirmation_is_terminal_and_does_not_schedule_no_restock_copy(self):
         from management.services.bot_followups import (
@@ -758,3 +834,199 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertFalse(
             _schedule_next_policy_step(event, self.client_record, now=self.now)
         )
+
+    def test_expiry_event_is_not_materialized_by_due_polling(self):
+        from management.services.bot_followups import process_due_followups
+
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            invoice_id="polling-must-not-be-source",
+            invoice_url="https://pay.example/polling-must-not-be-source",
+            invoice_expires_at=self.now - timedelta(minutes=1),
+        )
+
+        self.assertEqual(process_due_followups(self.settings, now=self.now, limit=5), 0)
+        self.assertFalse(
+            IgFollowUpTask.objects.filter(
+                deal=deal, trigger=IgFollowUpTask.Trigger.EVENT
+            ).exists()
+        )
+
+    def test_legacy_event_without_boundary_fails_closed(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+        )
+        task = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+            level=3,
+            event_key="legacy:event-without-boundary",
+        )
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "event_boundary_missing")
+
+    def test_paid_invoice_event_is_rejected_before_send(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._event_task()
+        deal = task.deal
+        deal.status = IgDeal.Status.PAID
+        deal.payment_status = "paid"
+        deal.invoice_url = "https://pay.example/event-boundary-invoice"
+        deal.invoice_expires_at = self.now - timedelta(minutes=1)
+        deal.save(
+            update_fields=[
+                "status",
+                "payment_status",
+                "invoice_url",
+                "invoice_expires_at",
+                "updated_at",
+            ]
+        )
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "invoice_paid")
+
+    def test_replaced_invoice_event_is_rejected_before_send(self):
+        from management.services.bot_followups import event_followup_fact_guard
+
+        task = self._event_task()
+        deal = task.deal
+        deal.invoice_url = "https://pay.example/replacement-invoice"
+        deal.invoice_id = "replacement-invoice"
+        deal.invoice_expires_at = self.now - timedelta(minutes=1)
+        deal.save(
+            update_fields=["invoice_id", "invoice_url", "invoice_expires_at", "updated_at"]
+        )
+
+        allowed, reason = event_followup_fact_guard(task, now=self.now)
+
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "invoice_superseded")
+
+    def test_event_continuation_uses_policy_anchor_after_worker_delay(self):
+        from management.services.bot_followups import _schedule_next_policy_step
+
+        issue_at = self.now - timedelta(hours=24)
+        event = self._event_task(issue_at=issue_at)
+        worker_now = self.now + timedelta(hours=2)
+
+        self.assertTrue(_schedule_next_policy_step(event, self.client_record, now=worker_now))
+        nxt = IgFollowUpTask.objects.get(
+            client=self.client_record,
+            status=IgFollowUpTask.Status.PENDING,
+            reason="payment_link_unpaid",
+            level=4,
+        )
+        self.assertEqual(nxt.due_at, issue_at + timedelta(hours=72))
+        self.assertEqual(nxt.policy_started_at, issue_at)
+
+    def test_staff_can_continue_a_completed_event_without_mutating_its_fact(self):
+        from management.services.bot_followups import continue_event_followup
+
+        event = self._event_task()
+        event.status = IgFollowUpTask.Status.COMPLETED
+        event.save(update_fields=["status", "updated_at"])
+        original_boundary = {
+            "event_key": event.event_key,
+            "event_payload": dict(event.event_payload),
+            "event_occurred_at": event.event_occurred_at,
+            "policy_started_at": event.policy_started_at,
+            "policy_version": event.policy_version,
+        }
+
+        result = continue_event_followup(
+            event.pk,
+            actor_id=17,
+            note="Менеджер підтвердив продовження",
+            now=self.now,
+        )
+
+        self.assertTrue(result["ok"], result)
+        event.refresh_from_db()
+        self.assertEqual(
+            {
+                "event_key": event.event_key,
+                "event_payload": event.event_payload,
+                "event_occurred_at": event.event_occurred_at,
+                "policy_started_at": event.policy_started_at,
+                "policy_version": event.policy_version,
+            },
+            original_boundary,
+        )
+        self.assertTrue(
+            IgFollowUpTask.objects.filter(
+                client=self.client_record,
+                reason="payment_link_unpaid",
+                level=4,
+                status=IgFollowUpTask.Status.PENDING,
+            ).exists()
+        )
+
+
+class FollowupEventContinuationBoundaryTests(TestCase):
+    def setUp(self):
+        self.now = datetime(2026, 8, 5, 12, 0, tzinfo=KYIV)
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.save(update_fields=["is_enabled", "updated_at"])
+        self.client_record = IgClient.get_or_create_for_sender("event-boundary-client")
+        self.deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            invoice_id="event-boundary-invoice",
+        )
+
+    def _event_task(self, *, issue_at=None):
+        issue_at = issue_at or self.now - timedelta(hours=24)
+        return IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=self.deal,
+            due_at=self.now,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+            level=3,
+            event_key="invoice_expired:event-boundary-invoice",
+            trigger="event",
+            event_occurred_at=issue_at + timedelta(hours=24),
+            event_payload={
+                "event": "invoice_expired",
+                "deal_id": self.deal.pk,
+                "invoice_id": "event-boundary-invoice",
+            },
+            policy_started_at=issue_at,
+            policy_version="followup-v1",
+        )
+
+    def test_event_boundary_is_immutable_after_materialization(self):
+        task = self._event_task()
+
+        self.assertEqual(task.trigger, "event")
+        self.assertEqual(task.event_occurred_at, self.now)
+        self.assertEqual(task.event_payload["invoice_id"], "event-boundary-invoice")
+        self.assertEqual(task.policy_started_at, self.now - timedelta(hours=24))
+        self.assertEqual(task.policy_version, "followup-v1")
+
+        task.event_payload = {"invoice_id": "replacement"}
+        with self.assertRaises(ValidationError):
+            task.save(update_fields=["event_payload"])
+
+        with self.assertRaises(ValueError):
+            IgFollowUpTask.objects.filter(pk=task.pk).update(trigger="time")
+
+        task.refresh_from_db()
+        task.policy_started_at = self.now
+        with self.assertRaises(ValueError):
+            IgFollowUpTask.objects.bulk_update([task], ["policy_started_at"])

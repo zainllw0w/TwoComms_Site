@@ -23,6 +23,7 @@ from django.db.models import Max, Prefetch
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
@@ -1012,11 +1013,47 @@ def api_variant_save(request):
         VariantSizeRule.objects.bulk_create(rules)
         from storefront.services.restock import schedule_restock_scan
 
+        # This is the authoritative stock-change boundary. Direct customers
+        # waiting for one exact variant/fit/size are notified from this
+        # committed editor event, never from a later chat/readiness poll.
+        restocked = tuple(
+            (str(rule.size or "").strip().upper(), str(rule.fit_code or "").strip().lower())
+            for rule in rules
+            if rule.is_enabled and (rule.stock is None or int(rule.stock) > 0)
+        )
+        inventory_event_at = timezone.now()
+        source_revision = f"fable5:{variant.pk}:{inventory_event_at.isoformat()}"
+
+        def materialize_direct_restock(
+            *,
+            product_id=product.pk,
+            variant_id=variant.pk,
+            rows=restocked,
+            revision=source_revision,
+            occurred_at=inventory_event_at,
+        ):
+            from management.services.bot_followups import (
+                materialize_restock_inventory_event,
+            )
+
+            for restock_size, restock_fit in rows:
+                materialize_restock_inventory_event(
+                    product_id=product_id,
+                    variant_id=variant_id,
+                    size=restock_size,
+                    fit_code=restock_fit,
+                    option_values={"fit": restock_fit} if restock_fit else {},
+                    source_revision=revision,
+                    occurred_at=occurred_at,
+                )
+
         transaction.on_commit(
             lambda product_id=product.pk, variant_id=variant.pk: schedule_restock_scan(
                 product_id, variant_id
             )
         )
+        if restocked:
+            transaction.on_commit(materialize_direct_restock)
 
     # A colour may inherit the shared product/fit grid or override it.
     if "size_grids" in data:

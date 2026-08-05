@@ -4041,6 +4041,47 @@ def bot_client_followup_delivery_resolve_api(request, client_id, task_id):
 
 
 @login_required(login_url="management_login")
+@require_POST
+def bot_client_followup_continue_api(request, client_id, task_id):
+    """Audited staff continuation for an event-triggered policy task."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    task = IgFollowUpTask.objects.filter(pk=task_id, client_id=client_id).first()
+    if task is None:
+        return JsonResponse(
+            {"success": False, "error": "Клієнта або follow-up не знайдено."},
+            status=404,
+        )
+    before_status = task.status
+    with transaction.atomic():
+        result = bot_followups.continue_event_followup(
+            task.pk,
+            actor_id=request.user.pk,
+            note=request.POST.get("note", ""),
+            now=timezone.now(),
+        )
+        if not result.get("ok"):
+            return JsonResponse(
+                {"success": False, **result}, status=result.get("status", 400)
+            )
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            actor_role="staff",
+            action="ig_event_followup_continued",
+            entity_type="IgFollowUpTask",
+            entity_id=str(task.pk),
+            before={"status": before_status},
+            after={
+                "status": before_status,
+                "next_task_id": result.get("next_task_id"),
+            },
+            reason=str(request.POST.get("note") or "").strip()[:500],
+        )
+    return JsonResponse({"success": True, **result})
+
+
+@login_required(login_url="management_login")
 @require_GET
 def bot_client_detail_api(request, client_id):
     blocked = _require_admin_json(request)
@@ -4200,6 +4241,11 @@ def bot_client_detail_api(request, client_id):
             "last_error": f.last_error,
             "attempt_count": f.attempt_count,
             "provider_message_id": f.provider_message_id,
+            "trigger": f.trigger,
+            "event_key": f.event_key,
+            "event_occurred_at": f.event_occurred_at.isoformat() if f.event_occurred_at else "",
+            "policy_started_at": f.policy_started_at.isoformat() if f.policy_started_at else "",
+            "event_payload": f.event_payload if isinstance(f.event_payload, dict) else {},
             "delivery_review_id": review_id,
             "allowed_outcomes": (
                 ["delivered", "not_delivered"]
@@ -4212,6 +4258,21 @@ def bot_client_detail_api(request, client_id):
                     args=[c.pk, f.pk],
                 )
                 if f.status == IgFollowUpTask.Status.AMBIGUOUS and review_id
+                else ""
+            ),
+            "continue_url": (
+                reverse(
+                    "management_bot_client_followup_continue_api",
+                    args=[c.pk, f.pk],
+                )
+                if f.trigger == IgFollowUpTask.Trigger.EVENT
+                and f.event_key
+                and f.status in {
+                    IgFollowUpTask.Status.SENT,
+                    IgFollowUpTask.Status.COMPLETED,
+                    IgFollowUpTask.Status.CANCELLED,
+                    IgFollowUpTask.Status.SKIPPED,
+                }
                 else ""
             ),
         })

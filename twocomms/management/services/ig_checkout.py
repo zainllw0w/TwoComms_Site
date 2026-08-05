@@ -738,6 +738,9 @@ def create_or_update_proposal(
             }:
                 proposal.locale = locale_code
                 proposal.save(update_fields=["locale", "updated_at"])
+            from management.services.bot_followups import schedule_proposal_expiry_event
+
+            schedule_proposal_expiry_event(proposal)
             return proposal
         if proposal is not None and (
             proposal.status not in {
@@ -816,6 +819,9 @@ def create_or_update_proposal(
         locked_client.stage = IgClient.Stage.CHECKOUT
         locked_client.stage_updated_at = timezone.now()
         locked_client.save(update_fields=["stage", "stage_updated_at", "updated_at"])
+    from management.services.bot_followups import schedule_proposal_expiry_event
+
+    schedule_proposal_expiry_event(proposal)
     return proposal
 
 

@@ -172,7 +172,16 @@ def record_product_switch(
 STOCK_GAP_CONTEXT_KEY = "_stock_gap"
 
 
-def remember_stock_gap(client, *, product_id, size: str = "", published: bool = True) -> None:
+def remember_stock_gap(
+    client,
+    *,
+    product_id,
+    size: str = "",
+    published: bool = True,
+    variant_id: int | None = None,
+    fit_code: str = "",
+    option_values: dict | None = None,
+) -> None:
     """Запам'ятати, що на цьому товарі клієнт уперся у відсутність.
 
     Викликається тим шаром, який справді це знає — розрахунком готовності
@@ -189,6 +198,9 @@ def remember_stock_gap(client, *, product_id, size: str = "", published: bool = 
             "product_id": int(product_id),
             "size": str(size or "")[:16],
             "published": bool(published),
+            "variant_id": int(variant_id) if variant_id else None,
+            "fit_code": str(fit_code or "").strip().lower()[:64],
+            "option_values": dict(option_values or {}),
             "at": timezone.now().isoformat(),
         }
         client.sales_context = context

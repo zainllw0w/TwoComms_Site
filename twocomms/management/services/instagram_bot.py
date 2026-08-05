@@ -5871,6 +5871,13 @@ def notify_size_gap(client) -> bool:
             product_id=product.get("id"),
             size=size,
             published=bool(product.get("published", True)),
+            variant_id=(state.get("color") or {}).get("selected_variant_id"),
+            fit_code=(state.get("fit") or {}).get("selected") or "",
+            option_values=(
+                {"fit": (state.get("fit") or {}).get("selected")}
+                if (state.get("fit") or {}).get("selected")
+                else {}
+            ),
         )
     except Exception as exc:  # noqa: BLE001
         log("warning", "stock_gap_mark", repr(exc))

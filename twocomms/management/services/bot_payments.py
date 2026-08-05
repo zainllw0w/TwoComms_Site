@@ -225,6 +225,12 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
         # мёртвую. Клиент получал «посилання ще активне» и упирался в 404,
         # а система не знала, что ссылка истекла.
         if not _invoice_expired(deal):
+            try:
+                from management.services import bot_followups
+
+                bot_followups.schedule_invoice_expiry_event(deal)
+            except Exception:
+                pass
             return {
                 "ok": True,
                 "invoice_id": deal.invoice_id,
@@ -311,6 +317,7 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
         from management.services import bot_followups, ig_meta_events
 
         if deal.payment_truth == deal.PaymentTruth.PENDING:
+            bot_followups.schedule_invoice_expiry_event(deal)
             bot_followups.schedule_payment_followup(deal)
             ig_meta_events.log_or_send("InitiateCheckout", client=deal.client, deal=deal)
     except Exception:

@@ -24,7 +24,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from management.models import IgClient, InstagramBotMessage
+from management.models import IgClient, IgFollowUpTask, InstagramBotMessage
 from fable5.models import GarmentFlow, GarmentFlowCategory
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product, ProductFitOption, ProductStatus
@@ -155,6 +155,7 @@ class CheckoutReadinessNoteTests(TestCase):
             "assisted_checkout_selection": {
                 "product_id": self.product.pk,
                 "fit_option_code": "classic",
+                "color_variant_id": self.variant.pk,
             }
         }
         self.client_row.save(update_fields=["sales_context", "updated_at"])
@@ -186,6 +187,7 @@ class CheckoutReadinessNoteTests(TestCase):
             "assisted_checkout_selection": {
                 "product_id": self.product.pk,
                 "fit_option_code": "classic",
+                "color_variant_id": self.variant.pk,
             }
         }
         self.client_row.save(update_fields=["current_size", "sales_context", "updated_at"])
@@ -608,6 +610,7 @@ class SizeGapEscalationTests(TestCase):
             "assisted_checkout_selection": {
                 "product_id": self.product.pk,
                 "fit_option_code": "classic",
+                "color_variant_id": self.variant.pk,
             }
         }
         self.client_row.save(update_fields=[
@@ -624,6 +627,12 @@ class SizeGapEscalationTests(TestCase):
         self.assertTrue(bot.notify_size_gap(self.client_row))
         self.assertFalse(bot.notify_size_gap(self.client_row))
         self.assertEqual(mock_notify.call_count, 1)
+        self.client_row.refresh_from_db()
+        gap = self.client_row.sales_context["_stock_gap"]
+        self.assertEqual(gap["product_id"], self.product.pk)
+        self.assertEqual(gap["variant_id"], self.variant.pk)
+        self.assertEqual(gap["fit_code"], "classic")
+        self.assertEqual(gap["option_values"], {"fit": "classic"})
         message = mock_notify.call_args.args[0]
         self.assertIn("M", message)
         self.assertIn(self.product.title, message)
@@ -639,6 +648,78 @@ class SizeGapEscalationTests(TestCase):
 
         self.assertFalse(bot.notify_size_gap(self.client_row))
         mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_committed_restock_materializes_only_the_exact_variant_selection(self, _notify):
+        from django.core.cache import cache
+        from fable5.models import VariantSizeRule
+        from management.services import instagram_bot as bot
+        from management.services.bot_followups import (
+            event_followup_fact_guard,
+            materialize_restock_inventory_event,
+        )
+
+        cache.clear()
+        self.assertTrue(bot.notify_size_gap(self.client_row))
+        rule = VariantSizeRule.objects.get(
+            variant=self.variant, fit_code="classic", size="M"
+        )
+        rule.is_enabled = True
+        rule.stock = 1
+        rule.save(update_fields=["is_enabled", "stock", "updated_at"])
+
+        self.assertEqual(
+            materialize_restock_inventory_event(
+                product_id=self.product.pk,
+                variant_id=self.variant.pk,
+                size="M",
+                fit_code="classic",
+                option_values={"fit": "classic"},
+                source_revision="test-restock-1",
+            ),
+            1,
+        )
+        task = IgFollowUpTask.objects.get(reason="restock_wait", level=1)
+        self.assertEqual(task.trigger, IgFollowUpTask.Trigger.EVENT)
+        self.assertEqual(task.event_payload["variant_id"], self.variant.pk)
+        self.assertEqual(task.event_payload["fit_code"], "classic")
+        selected = IgClient.objects.get(pk=self.client_row.pk)
+        self.assertEqual(selected.current_product_id, self.product.pk)
+        self.assertEqual(selected.current_size, "M")
+        self.assertEqual(
+            selected.sales_context["assisted_checkout_selection"]["color_variant_id"],
+            self.variant.pk,
+        )
+        allowed, reason = event_followup_fact_guard(task)
+        self.assertTrue(allowed, reason)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_restock_for_another_variant_never_materializes_the_waiting_client(self, _notify):
+        from django.core.cache import cache
+        from productcolors.models import Color, ProductColorVariant
+        from management.services import instagram_bot as bot
+        from management.services.bot_followups import materialize_restock_inventory_event
+
+        cache.clear()
+        self.assertTrue(bot.notify_size_gap(self.client_row))
+        other = ProductColorVariant.objects.create(
+            product=self.product,
+            color=Color.objects.create(name="Білий", primary_hex="#eeeeee"),
+            stock=1,
+        )
+
+        self.assertEqual(
+            materialize_restock_inventory_event(
+                product_id=self.product.pk,
+                variant_id=other.pk,
+                size="M",
+                fit_code="classic",
+                option_values={"fit": "classic"},
+                source_revision="test-restock-other",
+            ),
+            0,
+        )
+        self.assertFalse(IgFollowUpTask.objects.filter(reason="restock_wait").exists())
 
 
 class WebhookSecretCoverageTests(TestCase):

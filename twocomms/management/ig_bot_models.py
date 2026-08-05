@@ -3292,6 +3292,27 @@ class IgClientStageEvent(models.Model):
         return f"{self.client_id}: {self.from_stage}→{self.to_stage}"
 
 
+class _IgFollowUpTaskQuerySet(models.QuerySet):
+    _EVENT_BOUNDARY_FIELDS = {
+        "event_key",
+        "trigger",
+        "event_occurred_at",
+        "event_payload",
+        "policy_started_at",
+        "policy_version",
+    }
+
+    def update(self, **kwargs):
+        if self._EVENT_BOUNDARY_FIELDS.intersection(kwargs):
+            raise ValueError("IgFollowUpTask event boundary is immutable")
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self._EVENT_BOUNDARY_FIELDS.intersection(fields):
+            raise ValueError("IgFollowUpTask event boundary is immutable")
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+
 class IgFollowUpTask(models.Model):
     """Scheduled Instagram follow-up with Meta-window and quiet-hours guardrails."""
 
@@ -3313,6 +3334,11 @@ class IgFollowUpTask(models.Model):
         FULFILLMENT = "fulfillment", _("Дані для виконання замовлення")
         MANAGER_TASK = "manager_task", _("Завдання менеджеру")
 
+    class Trigger(models.TextChoices):
+        TIME = "time", _("За часом")
+        EVENT = "event", _("Подія")
+        REACTIVE = "reactive", _("Реактивно")
+
     client = models.ForeignKey(
         "management.IgClient", on_delete=models.CASCADE, related_name="followup_tasks"
     )
@@ -3331,6 +3357,16 @@ class IgFollowUpTask(models.Model):
     # key lets ordinary time-based tasks coexist while event-triggered tasks
     # remain idempotent across daemon/cron/retry workers.
     event_key = models.CharField(max_length=180, null=True, blank=True, unique=True)
+    trigger = models.CharField(
+        max_length=16,
+        choices=Trigger.choices,
+        default=Trigger.TIME,
+        db_index=True,
+    )
+    event_occurred_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    event_payload = models.JSONField(default=dict, blank=True)
+    policy_started_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    policy_version = models.CharField(max_length=32, default="followup-v1")
     claim_token = models.CharField(max_length=64, blank=True, default="")
     claim_until = models.DateTimeField(null=True, blank=True, db_index=True)
     provider_message_id = models.CharField(max_length=255, blank=True, default="")
@@ -3356,6 +3392,8 @@ class IgFollowUpTask(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     sent_at = models.DateTimeField(null=True, blank=True)
 
+    objects = models.Manager.from_queryset(_IgFollowUpTaskQuerySet)()
+
     class Meta:
         verbose_name = _("IG follow-up")
         verbose_name_plural = _("IG follow-ups")
@@ -3364,7 +3402,28 @@ class IgFollowUpTask(models.Model):
             models.Index(fields=["status", "due_at"], name="ig_fu_status_due"),
             models.Index(fields=["client", "status"], name="ig_fu_client_status"),
             models.Index(fields=["kind", "status"], name="ig_fu_kind_status"),
+            models.Index(fields=["trigger", "event_occurred_at"], name="ig_fu_trigger_event"),
         ]
+
+    _EVENT_BOUNDARY_FIELDS = (
+        "event_key",
+        "trigger",
+        "event_occurred_at",
+        "event_payload",
+        "policy_started_at",
+        "policy_version",
+    )
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                *self._EVENT_BOUNDARY_FIELDS
+            ).first()
+            if previous:
+                for field_name in self._EVENT_BOUNDARY_FIELDS:
+                    if getattr(self, field_name) != previous[field_name]:
+                        raise ValidationError("IgFollowUpTask event boundary is immutable")
+        return super().save(*args, **kwargs)
 
     def __str__(self) -> str:  # pragma: no cover - тривіально
         return f"FollowUp#{self.pk} {self.client_id} {self.kind}/{self.status}"

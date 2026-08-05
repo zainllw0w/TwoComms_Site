@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Q
 from django.utils import timezone
 
 from management.models import (
@@ -679,6 +679,11 @@ def schedule_followup(
     event_key: str | None = None,
     level: int | None = None,
     preserve_reason_on_manager_handoff: bool = False,
+    trigger: str = IgFollowUpTask.Trigger.TIME,
+    event_occurred_at: datetime | None = None,
+    event_payload: dict | None = None,
+    policy_started_at: datetime | None = None,
+    policy_version: str = "followup-v1",
 ) -> IgFollowUpTask | None:
     """Create one pending follow-up, adjusted for quiet hours and Meta window."""
     now = now or _now()
@@ -738,6 +743,11 @@ def schedule_followup(
             meta_window_deadline=deadline,
             message_text=message_text or "",
             event_key=(str(event_key)[:180] if event_key else None),
+            trigger=trigger,
+            event_occurred_at=event_occurred_at,
+            event_payload=dict(event_payload or {}),
+            policy_started_at=policy_started_at or (now if trigger != IgFollowUpTask.Trigger.TIME else None),
+            policy_version=(policy_version or "followup-v1")[:32],
             skip_reason=skip_reason,
             next_attempt_at=None,
         )
@@ -756,6 +766,11 @@ def schedule_event_followup(
     event_key: str,
     now: datetime | None = None,
     deal: IgDeal | None = None,
+    event_occurred_at: datetime | None = None,
+    event_payload: dict | None = None,
+    policy_started_at: datetime | None = None,
+    policy_version: str = "followup-v1",
+    delay_override: timedelta | None = None,
 ) -> IgFollowUpTask | None:
     """Materialize one event-triggered policy step exactly once."""
     policy = FOLLOWUP_POLICIES.get(str(scenario or ""))
@@ -772,7 +787,7 @@ def schedule_event_followup(
     return schedule_followup(
         client,
         kind=_persisted_step_kind(step),
-        delay=timedelta(0),
+        delay=timedelta(0) if delay_override is None else max(delay_override, timedelta(0)),
         reason=policy.scenario,
         now=now or _now(),
         deal=deal,
@@ -780,6 +795,11 @@ def schedule_event_followup(
         discount_percent=step.discount_percent,
         event_key=event_key,
         preserve_reason_on_manager_handoff=True,
+        trigger=IgFollowUpTask.Trigger.EVENT,
+        event_occurred_at=event_occurred_at or now,
+        event_payload=event_payload,
+        policy_started_at=policy_started_at or now,
+        policy_version=policy_version,
     )
 
 
@@ -791,6 +811,12 @@ def materialize_invoice_expired(deal: IgDeal, *, now: datetime | None = None):
     if _payment_link_status_for_deal(deal, now=now) != "expired":
         return None
     invoice_id = str(deal.invoice_id or "unknown")
+    occurred_at = deal.invoice_expires_at
+    if occurred_at is None:
+        return None
+    # Monobank invoices use a 24-hour TTL. The stored expiry is the durable
+    # boundary, so the issue time is derived from that same provider fact.
+    policy_started_at = occurred_at - timedelta(hours=24)
     return schedule_event_followup(
         deal.client,
         "payment_link_unpaid",
@@ -798,21 +824,211 @@ def materialize_invoice_expired(deal: IgDeal, *, now: datetime | None = None):
         event_key=f"invoice_expired:{deal.pk}:{invoice_id}",
         now=now,
         deal=deal,
+        event_occurred_at=occurred_at,
+        event_payload={
+            "event": "invoice_expired",
+            "deal_id": deal.pk,
+            "invoice_id": invoice_id,
+            "invoice_expires_at": occurred_at.isoformat(),
+        },
+        policy_started_at=policy_started_at,
     )
 
 
-def materialize_restock(client: IgClient, *, product_id: int, size: str = "", event_id: str | None = None, now: datetime | None = None):
+def schedule_invoice_expiry_event(
+    deal: IgDeal, *, now: datetime | None = None
+) -> IgFollowUpTask | None:
+    """Register the provider TTL as a durable future event at invoice issue time."""
+    if not deal or not deal.client_id or not deal.invoice_id or not deal.invoice_expires_at:
+        return None
+    now = now or _now()
+    if deal.status in {
+        IgDeal.Status.PAID,
+        IgDeal.Status.ORDER_CREATED,
+        IgDeal.Status.CANCELLED,
+    }:
+        return None
+    occurred_at = deal.invoice_expires_at
+    issue_at = occurred_at - timedelta(hours=24)
+    invoice_id = str(deal.invoice_id).strip()
+    return schedule_event_followup(
+        deal.client,
+        "payment_link_unpaid",
+        step_index=3,
+        event_key=f"invoice_expired:{deal.pk}:{invoice_id}",
+        now=now,
+        deal=deal,
+        delay_override=max(occurred_at - now, timedelta(0)),
+        event_occurred_at=occurred_at,
+        event_payload={
+            "event": "invoice_expired",
+            "deal_id": deal.pk,
+            "invoice_id": invoice_id,
+            "invoice_expires_at": occurred_at.isoformat(),
+        },
+        policy_started_at=issue_at,
+    )
+
+
+def schedule_proposal_expiry_event(
+    proposal, *, now: datetime | None = None
+) -> IgFollowUpTask | None:
+    """Register one immutable event for the active first-party proposal revision."""
+    if proposal is None or not getattr(proposal, "deal_id", None) or not getattr(
+        proposal, "expires_at", None
+    ):
+        return None
+    now = now or _now()
+    if str(getattr(proposal, "status", "")) not in {
+        "ready",
+        "viewed",
+        "details_locked",
+    }:
+        return None
+    deal = IgDeal.objects.select_related("client").filter(pk=proposal.deal_id).first()
+    if deal is None:
+        return None
+    event_time = proposal.expires_at
+    return schedule_event_followup(
+        deal.client,
+        "payment_link_unpaid",
+        step_index=3,
+        event_key=f"proposal_expired:{deal.pk}:{proposal.pk}:{proposal.revision}",
+        now=now,
+        deal=deal,
+        delay_override=max(event_time - now, timedelta(0)),
+        event_occurred_at=event_time,
+        event_payload={
+            "event": "proposal_expired",
+            "deal_id": deal.pk,
+            "proposal_id": str(proposal.pk),
+            "revision": int(proposal.revision or 0),
+        },
+        policy_started_at=now,
+    )
+
+
+def materialize_restock(
+    client: IgClient,
+    *,
+    product_id: int,
+    size: str = "",
+    event_id: str | None = None,
+    variant_id: int | None = None,
+    fit_code: str = "",
+    option_values: dict | None = None,
+    source_revision: str = "",
+    now: datetime | None = None,
+    occurred_at: datetime | None = None,
+):
     """Create the F2 restock event from an explicit inventory event."""
     if not client or not product_id:
         return None
-    key = event_id or f"restock:{client.pk}:{product_id}:{str(size or '').strip().upper()}"
+    now = now or _now()
+    occurred_at = occurred_at or now
+    normalized_size = str(size or "").strip().upper()
+    key = event_id or f"restock:{client.pk}:{product_id}:{normalized_size}"
+    payload = {
+        "event": "restock_available",
+        "client_id": client.pk,
+        "product_id": int(product_id),
+        "variant_id": int(variant_id) if variant_id else None,
+        "fit_code": str(fit_code or "").strip().lower(),
+        "size": normalized_size,
+        "option_values": dict(option_values or {}),
+        "source_revision": str(source_revision or "")[:120],
+    }
     return schedule_event_followup(
         client,
         "restock_wait",
         step_index=1,
         event_key=key,
         now=now,
+        event_occurred_at=occurred_at,
+        event_payload=payload,
+        policy_started_at=occurred_at,
     )
+
+
+def _normalized_restock_options(values) -> dict[str, str]:
+    if not isinstance(values, dict):
+        return {}
+    return {
+        str(key).strip().lower(): str(value).strip().lower()
+        for key, value in values.items()
+        if str(key).strip() and value not in (None, "")
+    }
+
+
+def materialize_restock_inventory_event(
+    *,
+    product_id: int,
+    variant_id: int,
+    size: str,
+    fit_code: str = "",
+    option_values: dict | None = None,
+    source_revision: str,
+    occurred_at: datetime | None = None,
+) -> int:
+    """Materialize F2 from the committed variant-size update, never a read poll."""
+    product_id = int(product_id or 0)
+    variant_id = int(variant_id or 0)
+    size = str(size or "").strip().upper()
+    fit_code = str(fit_code or "").strip().lower()
+    options = _normalized_restock_options(option_values)
+    if fit_code:
+        options.setdefault("fit", fit_code)
+    revision = str(source_revision or "").strip()[:120]
+    if not product_id or not variant_id or not size or not revision:
+        return 0
+    event_time = occurred_at or _now()
+    materialized = 0
+    clients = IgClient.objects.filter(current_product_id=product_id).only(
+        "id", "sales_context", "current_product_id"
+    )
+    for client in clients.iterator():
+        context = client.sales_context if isinstance(client.sales_context, dict) else {}
+        gap = context.get("_stock_gap")
+        if not isinstance(gap, dict):
+            continue
+        try:
+            gap_product_id = int(gap.get("product_id") or 0)
+            gap_variant_id = int(gap.get("variant_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        gap_size = str(gap.get("size") or "").strip().upper()
+        gap_fit = str(gap.get("fit_code") or "").strip().lower()
+        gap_options = _normalized_restock_options(gap.get("option_values"))
+        if (
+            gap_product_id != product_id
+            or gap_variant_id != variant_id
+            or gap_size != size
+            or gap_fit != fit_code
+            or gap_options != options
+        ):
+            continue
+        event_key = (
+            f"restock:{client.pk}:{product_id}:{variant_id}:{fit_code or '-'}:"
+            f"{size}:{revision}"
+        )
+        task = materialize_restock(
+            client,
+            product_id=product_id,
+            variant_id=variant_id,
+            size=size,
+            fit_code=fit_code,
+            option_values=options,
+            source_revision=revision,
+            event_id=event_key,
+            now=event_time,
+            occurred_at=event_time,
+        )
+        if task is not None:
+            materialized += 1
+            from management.services.ig_funnel_journal import clear_stock_gap
+
+            clear_stock_gap(client)
+    return materialized
 
 
 def _policy_name(reason: str) -> str:
@@ -873,6 +1089,162 @@ def _policy_condition_holds(
     return True
 
 
+def _event_boundary_complete(task: IgFollowUpTask) -> bool:
+    payload = task.event_payload if isinstance(task.event_payload, dict) else None
+    return bool(
+        task.event_key
+        and task.trigger == IgFollowUpTask.Trigger.EVENT
+        and task.event_occurred_at
+        and task.policy_started_at
+        and task.policy_version
+        and payload
+    )
+
+
+def _queue_event_boundary_review(
+    task: IgFollowUpTask, *, reason: str, now: datetime
+) -> IgFollowUpTask | None:
+    """Fail closed and leave a durable manager action for legacy event rows."""
+    if task.status in {
+        IgFollowUpTask.Status.PENDING,
+        IgFollowUpTask.Status.PROCESSING,
+    }:
+        task.status = IgFollowUpTask.Status.SKIPPED
+        task.skip_reason = reason[:255]
+        task.claim_token = ""
+        task.claim_until = None
+        task.next_attempt_at = None
+        task.save(update_fields=[
+            "status", "skip_reason", "claim_token", "claim_until",
+            "next_attempt_at", "updated_at",
+        ])
+    review, _created = IgFollowUpTask.objects.get_or_create(
+        event_key=f"event_boundary_review:{task.pk}",
+        defaults={
+            "client": task.client,
+            "deal": task.deal,
+            "due_at": now,
+            "status": IgFollowUpTask.Status.PENDING,
+            "kind": IgFollowUpTask.Kind.MANAGER_TASK,
+            "reason": "event_boundary_review",
+            "message_text": (
+                "Follow-up не має повної незмінної події. Перевірте факт вручну "
+                "і продовжуйте політику окремою дією менеджера.\n\n"
+                f"Задача #{task.pk}, причина: {reason}."
+            ),
+            "last_error": reason[:500],
+            "policy_started_at": task.policy_started_at or now,
+        },
+    )
+    _update_client_next(task.client)
+    return review
+
+
+def event_followup_fact_guard(
+    task: IgFollowUpTask, *, now: datetime | None = None
+) -> tuple[bool, str]:
+    """Revalidate the immutable source fact immediately before customer I/O."""
+    now = now or _now()
+    if not _event_boundary_complete(task):
+        return False, "event_boundary_missing"
+    payload = task.event_payload
+    event_name = str(payload.get("event") or "")
+    if event_name == "invoice_expired":
+        deal = (
+            IgDeal.objects.select_related("active_checkout_proposal")
+            .filter(pk=task.deal_id)
+            .first()
+        )
+        if deal is None:
+            return False, "deal_missing"
+        if _deal_is_paid(deal) or deal.status in {
+            IgDeal.Status.PAID,
+            IgDeal.Status.ORDER_CREATED,
+        }:
+            return False, "invoice_paid"
+        invoice_id = str(payload.get("invoice_id") or "").strip()
+        if not invoice_id or str(deal.invoice_id or "").strip() != invoice_id:
+            return False, "invoice_superseded"
+        status = _payment_link_status_for_deal(deal, now=now)
+        if status == "expired":
+            task.deal = deal
+            return True, ""
+        if status == "paid":
+            return False, "invoice_paid"
+        if status == "live":
+            return False, "invoice_not_expired"
+        return False, "invoice_state_unknown"
+    if event_name == "proposal_expired":
+        deal = (
+            IgDeal.objects.select_related("active_checkout_proposal")
+            .filter(pk=task.deal_id)
+            .first()
+        )
+        proposal = getattr(deal, "active_checkout_proposal", None)
+        proposal_id = str(payload.get("proposal_id") or "").strip()
+        if proposal is None or str(proposal.pk) != proposal_id:
+            return False, "proposal_superseded"
+        if proposal.status == proposal.Status.PAID:
+            return False, "proposal_paid"
+        if not proposal.expires_at or proposal.expires_at > now:
+            return False, "proposal_not_expired"
+        return True, ""
+    if event_name == "restock_available":
+        product_id = int(payload.get("product_id") or 0)
+        variant_id = int(payload.get("variant_id") or 0)
+        size = str(payload.get("size") or "").strip().upper()
+        fit_code = str(payload.get("fit_code") or "").strip().lower()
+        if not product_id or not variant_id or not size:
+            return False, "event_boundary_missing"
+        client = IgClient.objects.filter(pk=task.client_id).only(
+            "current_product_id", "current_size", "sales_context"
+        ).first()
+        if client is None or int(client.current_product_id or 0) != product_id:
+            return False, "restock_selection_changed"
+        context = client.sales_context if isinstance(client.sales_context, dict) else {}
+        selection = context.get("assisted_checkout_selection")
+        if not isinstance(selection, dict):
+            return False, "restock_selection_changed"
+        try:
+            selected_variant_id = int(selection.get("color_variant_id") or 0)
+        except (TypeError, ValueError):
+            selected_variant_id = 0
+        selected_fit = str(selection.get("fit_option_code") or "").strip().lower()
+        selected_size = str(client.current_size or "").strip().upper()
+        if (
+            selected_variant_id != variant_id
+            or selected_fit != fit_code
+            or selected_size != size
+        ):
+            return False, "restock_selection_changed"
+        try:
+            from fable5.services import variant_allows_purchase
+            from productcolors.models import ProductColorVariant
+            from storefront.models import Product, ProductStatus
+
+            product = Product.objects.filter(pk=product_id).first()
+            variant = ProductColorVariant.objects.filter(
+                pk=variant_id, product_id=product_id
+            ).first()
+            if product is None or product.status != ProductStatus.PUBLISHED or variant is None:
+                return False, "restock_unavailable"
+            options = _normalized_restock_options(payload.get("option_values"))
+            if fit_code:
+                options.setdefault("fit", fit_code)
+            if not variant_allows_purchase(
+                product,
+                variant,
+                fit_code=fit_code,
+                size=size,
+                option_values=options,
+            ):
+                return False, "restock_unavailable"
+        except Exception:
+            return False, "restock_state_unknown"
+        return True, ""
+    return False, "event_type_unknown"
+
+
 def _persisted_step_kind(step: FollowupPolicyStep) -> str:
     choices = {value for value, _label in IgFollowUpTask.Kind.choices}
     return step.kind if step.kind in choices else IgFollowUpTask.Kind.MANAGER_TASK
@@ -887,6 +1259,7 @@ def _schedule_policy_step(
     now: datetime,
     deal: IgDeal | None = None,
     reason: str | None = None,
+    policy_started_at: datetime | None = None,
 ) -> IgFollowUpTask | None:
     kind = _persisted_step_kind(step)
     return schedule_followup(
@@ -899,6 +1272,8 @@ def _schedule_policy_step(
         discount_percent=step.discount_percent,
         level=step.index,
         preserve_reason_on_manager_handoff=True,
+        trigger=step.trigger,
+        policy_started_at=policy_started_at or now,
     )
 
 
@@ -926,14 +1301,16 @@ def schedule_policy_followup(
         first.condition, client, deal=deal
     ):
         return None
+    started_at = now or _now()
     return _schedule_policy_step(
         client,
         policy=policy,
         step=first,
         delay=first.offset if delay_override is None else delay_override,
-        now=now or _now(),
+        now=started_at,
         deal=deal,
         reason=reason,
+        policy_started_at=started_at,
     )
 
 
@@ -970,7 +1347,14 @@ def _schedule_next_policy_step(
         # A4 is observed at the 24-hour invoice TTL. A5 is T+72h from link
         # issue, therefore it belongs 48h after the expiry event, not 72h.
         current_offset = timedelta(hours=24)
-    delay = max(next_step.offset - current_offset, timedelta(0))
+    anchor = task.policy_started_at
+    if current.trigger == IgFollowUpTask.Trigger.EVENT and not anchor:
+        _queue_event_boundary_review(task, reason="event_boundary_missing", now=now)
+        return False
+    if anchor is not None and target_policy is policy and next_step.offset is not None:
+        delay = max(anchor + next_step.offset - now, timedelta(0))
+    else:
+        delay = max(next_step.offset - current_offset, timedelta(0))
     if (
         _persisted_step_kind(next_step) in SALES_FREQUENCY_LIMITED_KINDS
         and delay < timedelta(hours=MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES)
@@ -984,8 +1368,60 @@ def _schedule_next_policy_step(
         now=now,
         deal=task.deal,
         reason=reason,
+        policy_started_at=anchor if target_policy is policy else now,
     )
     return scheduled is not None
+
+
+def continue_event_followup(
+    task_id: int,
+    *,
+    actor_id: int | None = None,
+    note: str = "",
+    now: datetime | None = None,
+) -> dict:
+    """Staff-only continuation for a completed/cancelled event policy."""
+    now = now or _now()
+    with transaction.atomic():
+        task = (
+            IgFollowUpTask.objects.select_for_update()
+            .select_related("client", "deal")
+            .filter(pk=task_id)
+            .first()
+        )
+        if task is None:
+            return {"ok": False, "error": "not_found", "status": 404}
+        if not _event_boundary_complete(task):
+            return {"ok": False, "error": "event_boundary_missing", "status": 409}
+        if task.status not in {
+            IgFollowUpTask.Status.SENT,
+            IgFollowUpTask.Status.COMPLETED,
+            IgFollowUpTask.Status.CANCELLED,
+            IgFollowUpTask.Status.SKIPPED,
+        }:
+            return {"ok": False, "error": "task_not_complete", "status": 409}
+        allowed, reason = event_followup_fact_guard(task, now=now)
+        if not allowed:
+            return {"ok": False, "error": reason, "status": 409}
+        if not _schedule_next_policy_step(task, task.client, now=now):
+            return {"ok": False, "error": "policy_exhausted", "status": 409}
+        next_task = (
+            IgFollowUpTask.objects.filter(
+                client_id=task.client_id,
+                reason=task.reason,
+                level=int(task.level or 0) + 1,
+                status=IgFollowUpTask.Status.PENDING,
+            )
+            .order_by("-id")
+            .first()
+        )
+    return {
+        "ok": True,
+        "task_id": task.pk,
+        "next_task_id": next_task.pk if next_task else None,
+        "actor_id": actor_id,
+        "note": str(note or "").strip()[:500],
+    }
 
 
 COLD_ON_POLICY_EXHAUSTION = frozenset(
@@ -1976,39 +2412,6 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
         .order_by("due_at", "id")[:limit]
         .values_list("id", flat=True)
     )
-    # Event steps have no timer of their own. Materialize expired links before
-    # selecting the due queue so a daemon restart cannot lose the A4 touch.
-    materialized_expiry_deals = IgFollowUpTask.objects.filter(
-        deal_id=OuterRef("pk"),
-        reason="payment_link_unpaid",
-        level=3,
-        event_key__isnull=False,
-    )
-    expired_deals = list(
-        IgDeal.objects.filter(
-            invoice_expires_at__isnull=False,
-            invoice_expires_at__lte=now,
-        ).exclude(
-            status__in={
-                IgDeal.Status.PAID,
-                IgDeal.Status.ORDER_CREATED,
-                IgDeal.Status.CANCELLED,
-            }
-        ).annotate(
-            expiry_event_exists=Exists(materialized_expiry_deals),
-        ).filter(expiry_event_exists=False)[:limit]
-    )
-    for deal in expired_deals:
-        materialize_invoice_expired(deal, now=now)
-    if expired_deals:
-        task_ids = list(
-            IgFollowUpTask.objects
-            .filter(status=IgFollowUpTask.Status.PENDING, due_at__lte=now)
-            .exclude(kind=IgFollowUpTask.Kind.MANAGER_TASK)
-            .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
-            .order_by("due_at", "id")[:limit]
-            .values_list("id", flat=True)
-        )
     from management.services import instagram_bot
     from management.services.ig_reply_boundary import (
         customer_send_boundary,
@@ -2033,13 +2436,22 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                 _mark_skipped(task, "meta_window_closed")
                 continue
             policy_step = _policy_step_for_task(task)
-            if policy_step is not None and policy_step[1].trigger != "event" and not _policy_condition_holds(
-                policy_step[1].condition,
-                client,
-                deal=task.deal,
-            ):
-                _mark_skipped(task, "policy_condition_changed")
-                continue
+            if policy_step is not None:
+                if policy_step[1].trigger == "event":
+                    allowed_event, event_reason = event_followup_fact_guard(task, now=now)
+                    if not allowed_event:
+                        if event_reason == "event_boundary_missing":
+                            _queue_event_boundary_review(task, reason=event_reason, now=now)
+                        else:
+                            _mark_skipped(task, event_reason)
+                        continue
+                elif not _policy_condition_holds(
+                    policy_step[1].condition,
+                    client,
+                    deal=task.deal,
+                ):
+                    _mark_skipped(task, "policy_condition_changed")
+                    continue
             allowed_time = next_allowed_send_at(now)
             if allowed_time > now + timedelta(seconds=1):
                 task.due_at = allowed_time

@@ -11,6 +11,7 @@ from management.models import (
     IgClient,
     IgDeal,
     IgDealItem,
+    IgFollowUpTask,
     InstagramBotMessage,
 )
 from orders.models import Order, PaymentAttempt
@@ -602,6 +603,28 @@ class InstagramCheckoutConfigurationTests(TestCase):
         self.assertEqual(second.revision, 1)
         self.assertEqual(second.revisions.count(), 1)
         self.assertEqual(IgDeal.objects.filter(client=self.client).count(), 1)
+
+    def test_proposal_creation_registers_one_revision_expiry_event(self):
+        from management.services.ig_checkout import create_or_update_proposal
+
+        kwargs = {
+            "client": self.client,
+            "pay_type": "online_full",
+            "item_specs": [self._valid_item()],
+        }
+        first = create_or_update_proposal(**kwargs)
+        second = create_or_update_proposal(**kwargs)
+
+        event_key = f"proposal_expired:{first.deal_id}:{first.pk}:{first.revision}"
+        events = IgFollowUpTask.objects.filter(event_key=event_key)
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(events.count(), 1)
+        event = events.get()
+        self.assertEqual(event.trigger, IgFollowUpTask.Trigger.EVENT)
+        self.assertEqual(event.event_payload["event"], "proposal_expired")
+        self.assertEqual(event.event_payload["proposal_id"], str(first.pk))
+        self.assertEqual(event.event_payload["revision"], first.revision)
+        self.assertEqual(event.event_occurred_at, first.expires_at)
 
     def test_identical_replay_after_expiry_issues_fresh_proposal(self):
         from management.services.ig_checkout import create_or_update_proposal

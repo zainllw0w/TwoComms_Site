@@ -492,6 +492,34 @@ class FollowupDeliveryResolutionTests(TestCase):
             args=[self.client_record.pk, source.pk],
         )
 
+    def _completed_event(self):
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            invoice_id="imp103-continuation",
+            invoice_url="https://pay.example/imp103-continuation",
+            invoice_expires_at=self.now,
+        )
+        return IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.COMPLETED,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+            level=3,
+            event_key=f"invoice_expired:{deal.pk}:imp103-continuation",
+            trigger=IgFollowUpTask.Trigger.EVENT,
+            event_occurred_at=self.now,
+            event_payload={
+                "event": "invoice_expired",
+                "deal_id": deal.pk,
+                "invoice_id": "imp103-continuation",
+            },
+            policy_started_at=self.now - timedelta(hours=24),
+            policy_version="followup-v1",
+        )
+
     def test_delivered_resolution_is_idempotent_audited_and_never_resends(self):
         source, review = self._ambiguous_pair("delivered")
         url = self._resolve_url(source)
@@ -598,6 +626,50 @@ class FollowupDeliveryResolutionTests(TestCase):
         self.assertEqual(
             self.client.post(url, {"outcome": "delivered"}).status_code, 302
         )
+
+    def test_event_continuation_api_is_audited_and_preserves_boundary(self):
+        event = self._completed_event()
+        boundary = {
+            "event_key": event.event_key,
+            "event_occurred_at": event.event_occurred_at,
+            "event_payload": dict(event.event_payload),
+            "policy_started_at": event.policy_started_at,
+            "policy_version": event.policy_version,
+        }
+        url = reverse(
+            "management_bot_client_followup_continue_api",
+            args=[self.client_record.pk, event.pk],
+        )
+
+        response = self.client.post(
+            url,
+            {"note": "Перевірено менеджером"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        next_task = IgFollowUpTask.objects.get(pk=payload["next_task_id"])
+        self.assertEqual(next_task.level, 4)
+        self.assertEqual(next_task.policy_started_at, boundary["policy_started_at"])
+        event.refresh_from_db()
+        self.assertEqual(
+            {
+                "event_key": event.event_key,
+                "event_occurred_at": event.event_occurred_at,
+                "event_payload": event.event_payload,
+                "policy_started_at": event.policy_started_at,
+                "policy_version": event.policy_version,
+            },
+            boundary,
+        )
+        audit = AdminAuditLog.objects.get(
+            action="ig_event_followup_continued",
+            entity_id=str(event.pk),
+        )
+        self.assertEqual(audit.actor, self.admin)
+        self.assertEqual(audit.reason, "Перевірено менеджером")
 
     def test_client_detail_exposes_review_without_resend_action(self):
         source, _review = self._ambiguous_pair("detail")
