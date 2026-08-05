@@ -26,9 +26,11 @@
 | F-CAT-008 | FIXED / VERIFIED | `1f5dcb70`/`7fdbe613`/`1f8cead2`: exact customer-facing price claims are validated against the selected variant and option configuration before checkout; production `434428ad` |
 | F-CAT-009 | FIXED / VERIFIED | `1f5dcb70`: generic, no-variant, unavailable and zero-choice option axes are preserved through readiness/proposal/checkout and fail closed instead of falling back to base price; production `434428ad` |
 | F-CAT-010 | FIXED / VERIFIED | `434428ad`: `_escalate_manager_for_row` persists client-scoped escalation before retryable/permanent/unknown holding-send return; regression in `tests_ig_paylink_fix.py`, production `434428ad` |
+| F-CAT-011 | FIXED / VERIFIED | `a7857ada`: expired checkout TTL no longer releases `PAID_COMMITTED` warehouse capacity; negative stock adjustments preserve active/paid commitments and exact-order fulfillment may consume only its own paid row. Production `dd93f9f3` |
 | F-PAY-010 | FIXED / VERIFIED | `7440bb98`: только human/operator offer устанавливает сумму предоплаты; model/customer origin, counteroffer, receipt и несколько разных сумм fail closed. 41 focused тест; production MariaDB rollback proof чистый |
 | F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
 | F-FUP-013 | FIXED / VERIFIED | `414e639e`: exception after a concurrent sender/recovery finalization can no longer downgrade finalized `SENT` to `AMBIGUOUS` or create a false delivery review |
+| F-TEST-004 | FIXED / VERIFIED | `dd93f9f3`: reduced-motion test no longer requires two refresh selectors to remain adjacent; both selectors are verified independently inside the animation-disable rule. Full gate 2897 OK |
 
 Исторические описания ниже сохраняют исходное evidence; текущим источником
 статуса является эта сводка и checkbox в `07_IMPLEMENTATION_PLAN.md`.
@@ -4204,3 +4206,38 @@ checkout assertions; production SHA `434428ad`.
   `delivery_reviews` пусты.
 - **Связь:** закрыта `IMP-102`; это отдельный остаточный race поверх более
   ранней F-FUP-009, которая ввела claim/receipt foundation.
+
+### F-CAT-011 (P0, FIXED/VERIFIED): paid warehouse commitment expired with checkout TTL
+
+- **Root cause:** `reserve_proposal_inventory()` filtered both `ACTIVE` and
+  `PAID_COMMITTED` through `expires_at__gt=now`. Payment changed the reservation
+  state but intentionally left physical warehouse quantity unchanged and kept
+  the original 25-minute expiry, so a paid final unit stopped protecting
+  capacity after TTL and could be offered again.
+- **Second boundary:** `warehouse.services.inventory.adjust_stock_item()` locked
+  the row but rejected only `new_qty < 0`; manual or unrelated write-off could
+  consume units protected by live/paid Instagram commitments.
+- **Fix:** `a7857ada` introduced shared `protected_stock_quantity()`. Live
+  `ACTIVE` rows protect only before expiry; `PAID_COMMITTED` rows protect without
+  TTL. Negative adjustments reject `new_qty < protected_quantity`; a supplied
+  order excludes only its exact `PAID_COMMITTED` rows.
+- **Evidence:** 5-test RED/GREEN slice (3 expected RED failures), focused 92/92,
+  full `management warehouse` 2897 tests with 3 skipped and `OK`; no migration
+  drift. Production checkpoint `dd93f9f3`, one healthy `instagram_login` daemon,
+  empty reply/notification queues.
+- **Task:** fixed subtask of `IMP-086`; task remains PARTIAL for disposable
+  MariaDB concurrency/constraint proof and complete manager-review UI.
+
+### F-TEST-004 (P2, FIXED/VERIFIED): reduced-motion contract depended on selector adjacency
+
+- **Problem:** the test asserted one literal CSS fragment containing two
+  adjacent refresh selectors. The live-inbox animation slice inserted other
+  legitimate selectors into the same reduced-motion rule, so the full suite
+  failed even though both required animations were still disabled.
+- **Fix:** `dd93f9f3` verifies each required selector independently inside the
+  `prefers-reduced-motion:reduce` animation-disable rule.
+- **Evidence:** original full gate failed exactly one assertion; focused test
+  1/1 and inbox/UI gate 188/188 passed after the change; repeated full gate
+  passed 2897 tests with 3 skipped.
+- **Task:** fixed reliability subtask under `IMP-094`; the broader disposable
+  MariaDB production-like gate remains OPEN.

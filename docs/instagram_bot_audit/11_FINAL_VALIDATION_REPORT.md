@@ -10,18 +10,18 @@ observability. It reconciles the current implementation backlog into
 
 ## Local evidence
 
-- Current runtime baseline: `1849441d` (event continuation, configuration
+- Current runtime baseline: `dd93f9f3` (event continuation, configuration
   pricing, sender observability, durable escalation, exact availability,
   typing/send-boundary hardening, bounded commerce-turn parsing and warehouse
-  reservation/revision safety on top of the prior delivery/prompt/payment
-  foundations).
+  reservation/revision safety plus paid commitment capacity protection on top
+  of the prior delivery/prompt/payment foundations).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
-  individual checkbox matrices for all **179 `F-*` findings** and all **51
-  `IMPR-*` improvements**. Finding status is **134 checked / 39 open / 6
+  individual checkbox matrices for all **181 `F-*` findings** and all **51
+  `IMPR-*` improvements**. Finding status is **137 checked / 38 open / 6
   partial**; improvement status is **17 checked / 34 unfinished**.
-- Implementation status is **104 `IMP-*`: 79 checked, 18 open, 7 partial**.
+- Implementation status is **104 `IMP-*`: 79 checked, 17 open, 8 partial**.
 - `02` remains the 120-item audit coverage authority; `03` and `05` remain the
   detailed finding/improvement evidence registers.
 
@@ -34,7 +34,7 @@ observability. It reconciles the current implementation backlog into
 - `python manage.py makemigrations --check --dry-run`: no changes detected.
 - `python -m compileall -q` for changed IG service/tests: exit 0.
 - `git diff --check`: exit 0 before code commit.
-- Fresh current full gate: 2877 tests, 3 skipped, `OK`. It includes the bounded
+- Fresh current full gate: 2897 tests, 3 skipped, `OK`. It includes the bounded
   parser, reservation/revision lifecycle, stale-instance and absolute-stock
   concurrency regressions, authoritative variant pricing, reason-preserving
   stock escalation and W7 action labels. IMP-102 gates remain 23/23 focused and
@@ -42,7 +42,7 @@ observability. It reconciles the current implementation backlog into
 - Production MariaDB: migration `0133` applied; canonical backfill created 5
   events, deterministic silence scan created 96 drop-offs; raw-event/API
   reconciliation reported 197 events and 17 event types.
-- Identifier reconciliation: 179/179 findings and 51/51 improvements match
+- Identifier reconciliation: 181/181 findings and 51/51 improvements match
   their current canonical registers and checkbox matrices; F-FUP-013 is present
   in both.
 - Production MySQL migration state through `0133`: applied.
@@ -199,14 +199,29 @@ both offer and acceptance IDs, and the post-rollback lookup was empty. This is
 a production-engine contract proof without persistent test data.
 
 The current production runtime code SHA is
-`7440bb9898340823ce93fb564b693dc19c4427de`. Migrations `0143`, `0144` and
+`dd93f9f3c34f7f07155506c3c75679788a6667d4`. Migrations `0143`, `0144` and
 `0145` are applied and production has one healthy `instagram_login` daemon with
 empty pending reply/notification/analysis/recovery queues.
 
+## F-CAT-011 / F-TEST-004 current acceptance
+
+`a7857ada` keeps every `PAID_COMMITTED` warehouse reservation in protected
+capacity regardless of the proposal TTL. `ACTIVE` remains time-bounded, manual
+and unrelated negative adjustments cannot cross active/paid commitments, and an
+exact order may exclude only its own paid rows for legitimate fulfillment.
+
+The RED/GREEN slice covered five scenarios with three expected RED failures.
+Current verification is 92/92 focused inventory, 188/188 inbox/UI and 2897 full
+`management warehouse` tests with 3 skipped. `dd93f9f3` fixed the unrelated
+reduced-motion selector-adjacency test debt found by that full gate. Production
+is deployed at `dd93f9f3`; daemon status is running/alive on `instagram_login`
+with empty error and working queues. IMP-086 and IMP-094 remain unfinished only
+for their separately listed manager UI and disposable MariaDB criteria.
+
 ## Acceptance decision
 
-The IMP-058, IMP-089, IMP-077, F-PAY-010, F-PAY-015, F-CAT-007, IMP-084 foundation,
-IMP-086 reservation foundation, IMP-102/F-FUP-013,
+The IMP-058, IMP-089, IMP-077, F-PAY-010, F-PAY-015, F-CAT-007/F-CAT-011,
+IMP-084 foundation, IMP-086 reservation foundation, IMP-102/F-FUP-013,
 IMP-103/IMPR-FUP-015 and IMP-104/F-CAT-008/009/010 foundation slices are verified
 and deployed. Product/data blockers, partial W9 reselection, remaining
 W5/W8/W9/W10/W11 work and `IMP-098` remain explicitly open. The next

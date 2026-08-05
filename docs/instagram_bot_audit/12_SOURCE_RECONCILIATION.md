@@ -27,9 +27,10 @@
 | current `main` live visuals | typed provider-aware sender action result, redacted delivery logging, bounded typing window and send-boundary permission cleanup | IN MAIN and production through `13bedf8f`/`d3e2c51b`/`0d471ebe`/`c0f9fd1f`/`d84ca10d`; focused sender suite 63/63; mapped to operational sender observability |
 | `codex/management-bot-visual-refinement` | four UI code commits and one docs shortlist commit | SUPERSEDED branch base: patch-ids are already in `main` as `d7f10477`/`8a2f9ee1`/`233297b3`/`6e05c6b2`/`e262c0c4`; current-main UI tests 135/135, no cherry-pick |
 | current main code slice | delivery marker rollback, tagged-send rollback, pooled Gemini cooldown | IN MAIN and deployed as `6b86e103`; findings F-CORE-018/F-AI-017; IMP-097 |
-| current `main` warehouse slice | exact allocation reservation, paid commit without physical warehouse decrement, fulfillment/write-off/reversal links, late-payment overbook state and revision/stale-callback safety | IN MAIN and production through `1849441d`; migrations `0144`/`0145` applied; `IMP-084/086` remain PARTIAL for readiness/alternatives, manager-review UI and disposable MariaDB proof |
+| current `main` warehouse slice | exact allocation reservation, paid commit without physical warehouse decrement, fulfillment/write-off/reversal links, late-payment overbook state, revision/stale-callback safety and paid commitment capacity guard | IN MAIN and production through `a7857ada`; migrations `0144`/`0145` applied; F-CAT-011 fixed, `IMP-084/086` remain PARTIAL for readiness/alternatives, manager-review UI and disposable MariaDB proof |
 | current `main` commerce-turn slice | bounded parser facts, trusted URL product pinning and prompt turn-note integration | IN MAIN and production as `1849441d`; full local gate 2877 OK; `IMP-085` remains PARTIAL because durable session/reducer, candidate anchoring and production-like DB proof are open |
 | current `main` prepayment authority slice | human/operator offer + exact customer confirmation, untrusted/multi-amount fail-closed gate | IN MAIN and production as `7440bb98`; F-PAY-010 verified by 41 focused tests and rollback-only MariaDB proof; IMP-098 remains open for unrelated orphan findings |
+| current `main` reduced-motion test repair | semantic assertion for both inbox refresh animations inside reduced-motion rule | IN MAIN and production as `dd93f9f3`; F-TEST-004 fixed, inbox/UI 188/188 and full 2897 OK; IMP-094 remains open for disposable MariaDB proof |
 | `pre-instagram-audit-consolidation-2026-08-03` stash | pre-consolidation local snapshot | ARCHIVE only; no unique audit IDs after comparison |
 | `codex/ig-refresh-dedup` stash / old detached worktrees | inbox refresh experiments | Historical/superseded; no unique current audit IDs |
 
@@ -76,8 +77,9 @@ the compatible implementation is already in current `main` with migrations
 ## Current production/source checkpoint (2026-08-05)
 
 The deployed runtime code checkpoint represented by local `main`, `origin/main`
-and production is `1849441da59cb67fd0b07815a67823c76d8681f7`. The previous
-`d84ca10d` visual and `90fdd0ec` reservation checkpoints are ancestors, not
+and production is `dd93f9f3c34f7f07155506c3c75679788a6667d4`. The previous
+`d84ca10d` visual, `90fdd0ec` reservation and `1849441d` parser/revision
+checkpoints are ancestors, not
 competing current bases. Parser integration and migration `0145` are therefore
 included in the canonical source; their remaining acceptance gaps are recorded
 as PARTIAL work, not local WIP.
@@ -88,3 +90,10 @@ All known sources are represented locally: completed work is in `08_COMPLETION_L
 and `07`, branch-only work is in `10`/this matrix and `07`, detailed findings are
 in `03`, detailed improvements are in `05`, and `07` contains an individual
 checkbox for every `F-*` and `IMPR-*`. The next checkpoint is unambiguous in `00`.
+
+Fresh 2026-08-05 validation after F-CAT-011/F-TEST-004: the local canonical
+folder contains **336 unique `F-*`/`IMP-*`/`IMPR-*` IDs** (181 + 104 + 51).
+Every ID reachable from historical audit refs is present in that set; the
+all-ref minus local comparison is empty. Existing stashes, worktrees and
+unreachable-object inventory were preserved and do not replace the canonical
+status in local `main`.

@@ -10,14 +10,14 @@
 | Поле | Значение |
 |---|---|
 | Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
-| Дата старта / обновления | 2026-08-05 (после production deploy F-PAY-010 human-authority gate) |
+| Дата старта / обновления | 2026-08-05 (после production deploy F-CAT-011 paid inventory commitment guard) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `7440bb98` подтверждён в `origin/main` и на production; поверх delivery FSM опубликованы event-driven follow-ups, authoritative configuration pricing, наблюдаемые sender actions, durable escalation, exact availability foundation, bounded commerce-turn parser, warehouse reservation hardening и human-authority gate суммы предоплаты |
+| База внедрения | `dd93f9f3` подтверждён в `origin/main` и на production; `a7857ada` защищает оплаченные warehouse commitments независимо от checkout TTL, а `dd93f9f3` сохраняет полный test gate после расширения live-inbox reduced-motion selectors |
 | **Статус 104 IMP-задач** | **79 закрыты, 17 открыты, 8 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **179 уникальных `F-*` идентификаторов: 135 закрыты, 38 открыты, 6 partial**; F-PAY-010, F-CAT-008/009/010 и F-FUP-013 исправлены и verified |
+| Реестр находок | **181 уникальный `F-*` идентификатор: 137 закрыты, 38 открыты, 6 partial**; новые F-CAT-011 и F-TEST-004 исправлены и verified |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **104** в W0–W12, включая W4B/W4C/W4D и IMP-062…104 |
@@ -27,14 +27,14 @@
 | Файл | Состояние |
 |---|---|
 | `00_PROGRESS.md` | каноническая точка входа, общий статус и реестр восстановленных источников |
-| `03_FINDINGS_REGISTER.md` | 179 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
+| `03_FINDINGS_REGISTER.md` | 181 уникальный `F-*` и post-implementation evidence, включая production SQL/API |
 | `04_DECISION_LOG.md` | 11 решений (DR-001…DR-011) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 51 улучшение + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус 104 IMP-задач; отдельные checkbox-matrix покрывают все 179 F-* и все 51 IMPR-* |
+| `07_IMPLEMENTATION_PLAN.md` | канонический статус 104 IMP-задач; отдельные checkbox-matrix покрывают все 181 F-* и все 51 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
-| `06_TEST_MATRIX.md` | оформлен; 49 acceptance-сценариев и текущие gates |
+| `06_TEST_MATRIX.md` | оформлен; 50 acceptance-сценариев и текущие gates |
 | `08`–`12` | оформлены; completion, deploy, blockers, validation и source reconciliation |
 
 > ⚠️ **Особенность репозитория:** `.gitignore:227` содержит `*_PLAN.md`, поэтому
@@ -50,12 +50,32 @@
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
-| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime prompt integration в `1849441d`; `IMP-086` имеет deployed reservation lifecycle и migration `0145` hardening в `1849441d`. Открыты durable commerce session, stale candidate binding, relaxed alternatives, полный topology, MariaDB race/constraint proof, manager review UI и production-like parser/availability gate |
+| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime prompt integration в `1849441d`; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`. Открыты durable commerce session, stale candidate binding, relaxed alternatives, полный topology, disposable MariaDB race/constraint proof, manager review UI и production-like parser/availability gate |
 | Открыто, W9 | `IMP-087`–`IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
 
-## Current checkpoint: F-PAY-010 human prepayment authority (2026-08-05)
+## Current checkpoint: F-CAT-011 paid warehouse commitment guard (2026-08-05)
+
+`a7857ada` устраняет окно повторной продажи оплаченной последней единицы:
+`ACTIVE` защищает остаток только до `expires_at`, а `PAID_COMMITTED` защищает его
+до фактического fulfillment независимо от исходного 25-минутного TTL. Тот же
+`protected_stock_quantity()` теперь используется при создании proposal и при
+любом отрицательном `adjust_stock_item()`.
+
+- Списание с точным `order` может потребить только собственный
+  `PAID_COMMITTED`; active и commitments других заказов остаются защищены.
+- RED: 5 новых сценариев дали 3 ожидаемых failure; GREEN: focused `92/92`,
+  полный `management warehouse` `2897`, skipped 3, `OK`.
+- `dd93f9f3` отдельно сделал старый reduced-motion assertion устойчивым к
+  добавлению соседних live-inbox selectors; inbox/UI gate `188/188`.
+- Production fast-forward и deploy завершены на `dd93f9f3`; daemon
+  `running=True`, `alive=True`, `instagram_login`, `last_error=''`, рабочие
+  reply/notification queues пусты.
+- `IMP-086` остаётся PARTIAL: ещё нужны disposable MariaDB concurrency proof и
+  полный manager-review UI. `IMP-094` остаётся OPEN из-за отдельного MariaDB gate.
+
+## Previous checkpoint: F-PAY-010 human prepayment authority (2026-08-05)
 
 `7440bb98` запрещает модели и клиенту создавать сумму предоплаты из собственного
 текста. Денежный факт устанавливает только persisted сообщение
@@ -78,9 +98,9 @@ receipt-текст и сообщение с несколькими различ�
 ## Previous checkpoint: IMP-103/104 and sender observability (2026-08-05)
 
 The previous historical paragraphs below mention `414e639e` and an open
-`IMP-103`; those statements describe the earlier checkpoint only. Runtime code
-baseline is `1849441d`; local `main`, `origin/main` and production code are
-synchronized at `1849441da59cb67fd0b07815a67823c76d8681f7`.
+`IMP-103`; those statements describe the earlier checkpoint only. At that
+checkpoint the runtime code baseline was `1849441d`; the current synchronized
+baseline is recorded in the quick summary and current checkpoint above.
 
 - `IMP-103` is closed by `4dfff3a2` + `35d3bd93` and migration
   `management.0143_igfollowuptask_event_continuation`. Follow-up continuation
@@ -108,9 +128,10 @@ synchronized at `1849441da59cb67fd0b07815a67823c76d8681f7`.
   note and exact trusted URLs pin the published product; free-text/model IDs and
   options do not mutate payable state. Durable commerce-session reduction,
   candidate anchoring and full production-like parser proof remain open.
-- `IMP-086` is partial on `1849441d`: reservation states, warehouse payment
-  commit, late-payment overbook state, write-off/reversal links and migration
-  `0145` deterministic lock/revision/stale-callback hardening are deployed.
+- `IMP-086` is partial on `a7857ada`: reservation states, warehouse payment
+  commit, late-payment overbook state, write-off/reversal links, migration
+  `0145` deterministic lock/revision/stale-callback hardening and paid commitment
+  capacity protection are deployed.
   MariaDB concurrency/constraint proof and the final manager UI contract remain.
 
 Любой новый срез начинается от актуального `origin/main`. При завершении агент

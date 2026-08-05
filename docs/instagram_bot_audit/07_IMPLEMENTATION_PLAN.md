@@ -4,7 +4,7 @@
 > Всего 104 уникальные `IMP-*`: **79 закрыты, 17 открыты, 8 partial**
 > (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 179 `F-*` и всех 51 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 181 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -843,7 +843,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   **Отдельно:** `IgLifecycleEvent` — не удалять, а достроить: через него правильно
   решаются IMP-021, IMP-008 и дедупликация Meta-событий.
 - [ ] **IMP-094 (P1) — детерминированный production-like test gate
-  (F-TEST-002/003).** Устранить зависимость полного `management` suite от cwd
+  (F-TEST-002/003/004).** Устранить зависимость полного `management` suite от cwd
   и загрязнения глобального состояния; выделить стабильный обязательный набор
   для deploy. Добавить MariaDB-run для ограничений, которые SQLite не
   проверяет (`varchar(max_length)`, locks/constraints), и держать
@@ -860,7 +860,9 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   сохраняет terminal unsent state; MariaDB profile fail-closed учитывает
   Django default `localhost`. Полный `management` suite прошёл 2619 тестов
   (3 skipped) из двух CWD. Commit `15147ded` находится в `main` и production;
-  остался обязательный отдельный disposable MariaDB run.
+  `dd93f9f3` дополнительно закрыл F-TEST-004: reduced-motion assertion больше
+  не зависит от соседства CSS selectors; 188/188 inbox/UI и 2897 full-suite
+  GREEN. Остался обязательный отдельный disposable MariaDB run.
 - [ ] **IMP-096 (P2) — provenance ролей импортированной переписки
   (F-DATA-015).** Отделить подтверждённые manager/model сообщения от legacy
   import uncertainty, добавить read-only отчёт и dry-run backfill с точным
@@ -918,11 +920,14 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   попасть в durable selection. Остаток: durable commerce-session reducer,
   burst ordering, candidate anchoring, MariaDB/production proof и полный
   integration с legacy classifier.
-- [ ] **IMP-086 (P0) — PARTIAL, reservation/allocation lifecycle в `main`/production `1849441d`.**
+- [ ] **IMP-086 (P0) — PARTIAL, reservation/allocation lifecycle в `main`/production `a7857ada`.**
   Резерв последней единицы при proposal creation, MariaDB-safe state machine,
   late-payment `OVERBOOKED_REVIEW`, атомарный write-off/reversal и запрет
   отрицательного склада опубликованы; `0145` добавляет revision/stale-callback
-  safety и deterministic lock ordering. Остаток: disposable MariaDB
+  safety и deterministic lock ordering. `a7857ada` закрывает F-CAT-011:
+  paid commitment защищает capacity без TTL, negative warehouse adjustment не
+  может потребить active/чужой paid reserve, exact order исключает только свой
+  `PAID_COMMITTED`. Остаток: disposable MariaDB
   concurrency/constraint proof и full manager-review UI.
 - [ ] **IMP-087 (P0/P1)** — durable commerce session/outbox, state reduction,
   candidate reply anchoring, repeat-purchase/exchange routing и интеграция до
@@ -1075,9 +1080,9 @@ continuation остаётся отдельным свежим срезом.
   Закрыто `4dfff3a2` + `35d3bd93`, migration `0143`, focused gate 180 tests,
   production `434428ad`; combined event/FSM/checkout/restock gate 255 tests.
 
-### Finding coverage matrix — 179 уникальных F-идентификаторов
+### Finding coverage matrix — 181 уникальный F-идентификатор
 
-Итог матрицы: **134 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
+Итог матрицы: **137 `[x]` / 38 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1110,6 +1115,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-CAT-008 | FIXED/VERIFIED | IMP-104 |
 | [x] | F-CAT-009 | FIXED/VERIFIED | IMP-104 |
 | [x] | F-CAT-010 | FIXED/VERIFIED | IMP-104 |
+| [x] | F-CAT-011 | FIXED/VERIFIED (`a7857ada`) | IMP-086 |
 | [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
 | [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
 | [ ] | F-CORE-003 | OPEN | IMP-098 |
@@ -1245,6 +1251,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-TEST-001 | FIXED/VERIFIED | IMP-022 |
 | [ ] | F-TEST-002 | OPEN | IMP-094 |
 | [x] | F-TEST-003 | FIXED/VERIFIED | IMP-055 |
+| [x] | F-TEST-004 | FIXED/VERIFIED (`dd93f9f3`) | IMP-094 |
 | [x] | F-TXT-001 | FIXED/VERIFIED | IMP-022 |
 | [x] | F-UX-001 | FIXED/VERIFIED | IMP-035 |
 | [x] | F-UX-002 | FIXED/VERIFIED | IMP-020 |

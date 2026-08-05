@@ -6,14 +6,14 @@ Production host: `195.191.25.63`, path
 
 ## Current production checkpoint (2026-08-05)
 
-Runtime code baseline is `7440bb98`; that code commit is in local `main`,
+Runtime code baseline is `dd93f9f3`; that code commit is in local `main`,
 `origin/main` and production as
-`7440bb9898340823ce93fb564b693dc19c4427de`. The server pull was fast-forward
+`dd93f9f3c34f7f07155506c3c75679788a6667d4`. The server pull was fast-forward
 only; tracked files are clean (existing untracked operational logs/scripts were
 preserved). Migrations `management.0143_igfollowuptask_event_continuation`,
 `management.0144_ig_inventory_allocation_lifecycle` and
 `management.0145_ig_inventory_revision_safety` are applied. The fresh local
-full `management warehouse` suite passed 2877 tests with 3 skipped and `OK`;
+full `management warehouse` suite passed 2897 tests with 3 skipped and `OK`;
 `manage.py check`, migration drift, compileall, diff checks,
 static/compression and daemon ensure also passed. The production MySQL test
 database gate is still blocked by missing CREATE privilege for
@@ -30,7 +30,30 @@ The deployed slices are `IMP-103` (commits `4dfff3a2`, `35d3bd93`), `IMP-104`
 (`17f5b672`), followed by live-visual boundary hardening
 (`d3e2c51b`, `0d471ebe`, `c0f9fd1f`) and warehouse reservation lifecycle
 (`90fdd0ec`), then bounded commerce-turn parsing and inventory revision safety
-(`1849441d`) and F-PAY-010 human prepayment authority (`7440bb98`).
+(`1849441d`), F-PAY-010 human prepayment authority (`7440bb98`), paid warehouse
+commitment protection (`a7857ada`) and resilient reduced-motion gate (`dd93f9f3`).
+
+## F-CAT-011 paid commitment guard deploy (2026-08-05)
+
+`a7857ada` and test-only follow-up `dd93f9f3` were pushed to `origin/main` and
+fast-forwarded on production. The slice introduces no migration. `deploy.sh`
+completed migrate (no pending migrations), collectstatic, compress and Passenger
+restart; its best-effort dependency step reported the existing non-fatal local
+`cffi` wheel build failure and continued with the active venv.
+
+Fresh local evidence: focused inventory 92/92, inbox/UI 188/188, repeated full
+`management warehouse` 2897 with 3 skipped and `OK`, Django check, migration
+drift, compileall and diff check. Production `run_instagram_bot --ensure`
+spawned one daemon; `status_snapshot()` returned `running=True`, `alive=True`,
+provider `instagram_login`, heartbeat 1.2 seconds, `last_error=''`, reply pending
+0 and notification pending/failed/unknown/dead-letter 0/0/0/0.
+
+The deployed invariant is explicit: unexpired `ACTIVE` and all
+`PAID_COMMITTED` warehouse reservations protect capacity; a negative adjustment
+cannot cross protected quantity; an exact order excludes only its own paid
+commitment for fulfillment. No production test data was created. IMP-086 remains
+PARTIAL until disposable MariaDB concurrency/constraint proof and manager-review
+UI are complete; IMP-094 remains OPEN for its separate MariaDB test gate.
 
 ## F-PAY-010 human-authority deploy (2026-08-05)
 
@@ -203,6 +226,7 @@ overwritten outside the fast-forward.
 | 2026-08-05 | `0d4d38c0` / `0e9e9ba5` / `4cb86743` / `414e639e` | IMP-102/F-FUP-013; migration `0141`, 23 focused / 160 expanded, check/drift/compileall/diff | one daemon; `running`; `alive=True`; `instagram_login`; delivery queues empty |
 | 2026-08-05 | `90fdd0ec` | IMP-086 reservation lifecycle; migration `0144`, exact allocation/paid commit/fulfillment/reversal and overbook review gate | one daemon; `running`; `alive=True`; `instagram_login`; reply/notification queues empty |
 | 2026-08-05 | `1849441d` | IMP-085/086 partial; migration `0145`, bounded parser, trusted URL pinning, revision/lock/stale-callback safety; 2877 full tests | one daemon; `enabled=True`; `alive=True`; `instagram_login`; queues `0/0/0/0` |
+| 2026-08-05 | `a7857ada` / `dd93f9f3` | F-CAT-011/F-TEST-004; paid commitment capacity guard, 92 inventory, 188 inbox/UI, 2897 full tests, no migration | one daemon; `running=True`; `alive=True`; `instagram_login`; reply/notification queues empty |
 | 2026-08-05 | `7440bb98` | F-PAY-010; human-authorized prepayment amount, 41 focused tests, rollback-only MariaDB decision/evidence proof | one daemon; `running=True`; `alive=True`; `instagram_login`; reply/notification queues empty |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned

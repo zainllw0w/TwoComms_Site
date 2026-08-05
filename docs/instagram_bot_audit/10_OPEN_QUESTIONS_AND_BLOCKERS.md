@@ -8,17 +8,21 @@
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
 - W8: `IMP-044`–`046`, `060`–`061`, `094`, `096`, `100`, `101`; partial `043`.
+  F-TEST-004 внутри IMP-094 закрыта на `dd93f9f3`, но disposable MariaDB gate
+  и остальные reliability acceptance criteria остаются открыты.
 - W9: partial `IMP-081`–`086`; open `IMP-087`–`088`. `IMP-081` foundation is
   production; `IMP-082/083` graph/ranker foundation and prompt parity are
   production `0ad694bc`; `IMP-084` exact availability and proposal reservation
   wiring are production through `90fdd0ec`; `IMP-085` parser/runtime facts and
   `IMP-086` migration `0145` reservation hardening are production through
-  `1849441d`. Durable commerce session, candidate anchoring, stale binding,
+  `1849441d`; paid commitment capacity guard F-CAT-011 — through `a7857ada`.
+  Durable commerce session, candidate anchoring, stale binding,
   relaxed alternatives, full topology, manager-review UI and disposable MariaDB
   concurrency/constraint proof remain open.
 - W10: `IMP-090`–`093`.
-- W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
-  F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
+- W11: `IMP-098` — F-CORE-003…006, F-SCORE-010 и partial-остатки
+  F-SEC-004/009. F-PAY-010 закрыта отдельным production-срезом `7440bb98`;
+  F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
 - W12: закрыта — `IMP-102` provider-evidenced delivery FSM и `IMP-103`
   materialized event-driven policy continuation с immutable event facts,
   absolute timeline и pre-send invoice/restock recheck; production `434428ad`.

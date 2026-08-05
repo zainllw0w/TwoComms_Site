@@ -29,6 +29,8 @@ proof. Branch-only work is listed in `12_SOURCE_RECONCILIATION.md`, not here.
 | IMP-086 reservation lifecycle foundation | `90fdd0ec` | Warehouse/catalog reservation lifecycle, paid commit without physical decrement, fulfillment/write-off/reversal links and late-payment `OVERBOOKED_REVIEW`; migration `0144` applied in production. Later manager notification, deterministic lock ordering and stale-callback/revision safety are recorded in deployed `1849441d` below |
 | IMP-085/086 parser and reservation hardening | `1849441d` | Bounded commerce-turn facts and trusted URL pinning are integrated before Gemini; migration `0145` adds deterministic allocation locking, revision-safe reservation replacement, late-payment manager hand-off and stale warehouse callback protection. Full `management warehouse` gate: 2877 OK; production SHA/migration/daemon verified |
 | IMP-098 / F-PAY-010 subtask | `7440bb98` | Human/operator authority is mandatory for prepayment amount evidence; model/customer origin, customer counteroffer, receipt and multi-amount text fail closed before deal/invoice creation. 41 focused tests and rollback proof on production MariaDB; IMP-098 remains open for its other orphan findings |
+| IMP-086 / F-CAT-011 subtask | `a7857ada` | Paid warehouse commitments protect capacity independently of checkout TTL; manual/unrelated negative adjustments preserve active and paid reservations, while exact-order fulfillment consumes only its own paid rows. Focused 92/92, full 2897 OK; IMP-086 remains PARTIAL for MariaDB concurrency proof and manager-review UI |
+| IMP-094 / F-TEST-004 subtask | `dd93f9f3` | Reduced-motion coverage verifies refresh selectors semantically rather than by adjacency. Inbox/UI 188/188 and repeated full 2897 OK; IMP-094 remains OPEN for the disposable MariaDB gate |
 
 The current canonical status is the checkbox list in `07_IMPLEMENTATION_PLAN.md`.
 `IMP-081` is intentionally absent from the completed table: its deployed
@@ -47,7 +49,7 @@ availability and reservation tests, but readiness/alternative consumers and a
 disposable MariaDB proof remain open in `IMP-084/086/088`.
 
 `IMP-085` and `IMP-086` remain partial rather than complete: parser facts and
-reservation hardening are deployed through `1849441d`, but durable commerce
+reservation hardening are deployed through `a7857ada`, but durable commerce
 session/candidate anchoring, readiness/alternative consumers, manager review UI
 and a disposable concurrent MariaDB gate remain before their residual checkboxes
 can close.

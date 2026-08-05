@@ -54,6 +54,7 @@
 | T47 | Exact warehouse/catalog availability | PARTIAL | `1849441d`; availability, proposal reservation, revision, stale-instance and stock-escalation tests are green locally; MariaDB lock/constraint proof and final production-like gate remain IMP-084/086/088 |
 | T48 | Typing/send boundary and permission transition | GREEN | `c0f9fd1f` + `d84ca10d`; focused live-visual + reply-priority suite 63/63, including cancelled fallback recovery at typing/send boundary; production check/daemon passed |
 | T49 | Human-authorized prepayment amount | GREEN | `7440bb98`; model/customer-originated amount, customer counteroffer, receipt and multi-amount offer fail closed; human offer + matching acceptance preserves exact two-message evidence. 41 focused tests plus rollback proof on production MariaDB |
+| T50 | Paid warehouse commitment capacity | GREEN | `a7857ada`; expired `PAID_COMMITTED` still blocks the final unit, manual/unrelated write-off cannot consume active or paid commitments, exact matching order may consume only its own paid row, expired unpaid `ACTIVE` does not block. Focused 92/92; full gate 2897 OK |
 
 **F-PAY-010 update 2026-08-05:** server SHA `7440bb98`; rollback-fixture on
 production MariaDB returned `ambiguous` for customer/model/multi-amount input,
@@ -62,14 +63,12 @@ left no synthetic clients after rollback. The daemon is running/alive on
 `instagram_login` with empty reply/notification queues and empty `last_error`.
 
 **Fresh local gate for current checkpoint:** full `management warehouse` suite
-passed **2877 tests, 3 skipped, `OK`** after the parser/reservation/stock
-hardening slice. Focused stale-stock, paylink-reason, UI-action and variant
-authority regressions are green; Django check, migration drift, compileall and
-`git diff --check` are green. Production MariaDB has migration `0145` applied,
-but a disposable concurrent MariaDB test database is still required.
-Django check, migration drift, compileall and `git diff --check` are green.
-Commit `0ad694bc` is deployed. A separate disposable MariaDB gate is still
-missing, so `F-TEST-002` / `IMP-094` remain open.
+passed **2897 tests, 3 skipped, `OK`** after the paid commitment guard and
+reduced-motion test repair. Focused inventory gate is 92/92; inbox/UI gate is
+188/188. Django check, migration drift, compileall and `git diff --check` are
+green. Production MariaDB has migration `0145` applied, but a disposable
+concurrent MariaDB test database is still required, so `F-TEST-002` / `IMP-094`
+remain open.
 
 **W8 update 2026-08-04:** `221cf37d` added the T42 gate; the 75-test focused
 run, `manage.py check` and migration-drift are green after rebase on current
