@@ -1189,6 +1189,9 @@ class ClientsApiTests(TestCase):
         self.assertEqual(row["stage"], IgClient.Stage.DONE)
         self.assertEqual(row["stage_label"], "Завершено")
         self.assertTrue(row["commercially_confirmed"])
+        self.assertEqual(row["commercial_visual_state"], "paid")
+        self.assertEqual(row["commercial_visual_state_label"], "Оплачено")
+        self.assertNotEqual(row["commercial_visual_state"], "shipped")
         self.assertIn(self.c.id, [item["id"] for item in all_clients])
         self.assertNotIn(self.c.id, [item["id"] for item in active_clients])
 
