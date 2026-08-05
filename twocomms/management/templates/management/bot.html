@@ -208,7 +208,23 @@
 .bot-clients-pager button[disabled]{opacity:.4;cursor:default;}
 .bot-clients-page-label{min-width:104px;text-align:center;}
 .bot-time-overdue{display:inline-flex;align-items:center;border:1px solid #8a3440;border-radius:6px;background:#32171c;color:#fecdd3;padding:3px 7px;font-size:10.5px;font-weight:800;}
-.bot-client-filters{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px;}
+.bot-client-filters{position:relative;display:grid;gap:6px;margin:0 0 12px;}
+.bot-client-filter-primary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid #263044;border-radius:8px;overflow:hidden;}
+.bot-client-filter-primary .bot-mini-btn{min-width:0;min-height:34px;border:0;border-right:1px solid #263044;border-radius:0;padding:7px 6px;white-space:normal;}
+.bot-client-filter-primary .bot-mini-btn:last-child{border-right:0;}
+.bot-client-filter-disclosure{position:relative;min-width:0;}
+.bot-client-filter-toggle{display:flex;align-items:center;gap:7px;width:100%;min-height:34px;text-align:left;}
+.bot-client-filter-toggle[aria-expanded="true"]{border-color:#45607f;background:#151e2b;}
+.bot-client-filter-toggle.has-active-filter{border-color:#31547e;background:#101c2d;color:#dbeafe;}
+.bot-client-filter-active-label{min-width:0;margin-left:auto;overflow:hidden;color:#8eb9ee;font-size:10.5px;text-overflow:ellipsis;white-space:nowrap;}
+.bot-client-filter-chevron{flex:0 0 auto;color:#718096;font-size:13px;transition:transform .14s ease;}
+.bot-client-filter-toggle[aria-expanded="true"] .bot-client-filter-chevron{transform:rotate(180deg);}
+.bot-client-filter-advanced{position:absolute;z-index:30;top:calc(100% + 6px);left:0;right:0;display:grid;gap:3px;max-height:min(360px,calc(100vh - 180px));overflow-y:auto;padding:6px;border:1px solid #2b3749;border-radius:8px;background:#0d121b;box-shadow:0 14px 32px rgba(0,0,0,.38);scrollbar-gutter:stable;animation:clientFiltersIn .14s ease-out;}
+.bot-client-filter-advanced[hidden]{display:none;}
+.bot-client-filter-advanced .bot-mini-btn{min-height:34px;width:100%;padding:7px 9px;text-align:left;white-space:normal;overflow-wrap:anywhere;}
+.bot-client-filter-advanced .bot-mini-btn.active{background:#18345c;border-color:#3569a8;color:#e7f0ff;}
+.bot-client-filter-primary .bot-mini-btn:focus-visible,.bot-client-filter-toggle:focus-visible,.bot-client-filter-advanced .bot-mini-btn:focus-visible{position:relative;z-index:1;outline:0;box-shadow:inset 0 0 0 2px #60a5fa;}
+@keyframes clientFiltersIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
 .bot-client-row{display:flex;gap:11px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:12px;padding:9px 11px;cursor:pointer;transition:transform .12s,border .15s,background .15s,box-shadow .15s;}
 .bot-client-row:hover{border-color:#2a3550;transform:translateX(2px);}
 .bot-client-row.active{border-color:#2563eb;background:#0f1626;}
@@ -270,19 +286,18 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 .bot-detail-name{font-size:16px;font-weight:700;}
 .bot-action-panel{margin:14px 0 12px;padding:12px;background:#0a0e16;border:1px solid #202a3b;border-radius:12px;}
 .bot-action-label{margin:0 0 7px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#7f8ba0;}
-.bot-action-primary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
-.bot-action-state{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;padding-top:10px;border-top:1px solid #1d2635;}
-.bot-action-state-copy{font-size:11px;color:#8b95a5;line-height:1.35;}
-.bot-action-state-buttons{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;}
-.bot-client-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #2a3548;border-radius:8px;background:#101722;color:#dce5f0;padding:8px 10px;font:700 12px/1.2 inherit;cursor:pointer;transition:transform .12s,background .15s,border-color .15s,color .15s,opacity .15s;}
+.bot-action-primary{display:block;}
+.bot-action-primary>.bot-client-action{width:100%;min-height:42px;}
+.bot-action-unavailable{display:flex;align-items:center;justify-content:center;width:100%;min-height:42px;border:1px solid #30394a;border-radius:8px;background:#111722;color:#9ba7b8;padding:8px 10px;text-align:center;}
+.bot-action-state-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:7px;padding-top:8px;border-top:1px solid #1d2635;}
+.bot-client-action{display:inline-flex;min-width:0;min-height:38px;align-items:center;justify-content:center;gap:5px;border:1px solid #2a3548;border-radius:8px;background:#101722;color:#dce5f0;padding:7px 6px;font:700 11px/1.25 inherit;text-align:center;overflow-wrap:anywhere;cursor:pointer;transition:transform .12s,background .15s,border-color .15s,color .15s,opacity .15s;}
 .bot-client-action:hover{background:#172131;border-color:#3b4a63;}
 .bot-client-action:active{transform:scale(.98);}
 .bot-client-action:focus-visible{outline:0;box-shadow:0 0 0 3px rgba(96,165,250,.28);}
 .bot-client-action.primary{min-height:38px;border:0;padding:10px 14px;color:#fff;}
 .bot-client-action.resume{background:#15803d;}.bot-client-action.resume:hover{background:#166534;}
-.bot-client-action.pause{background:#b91c1c;}.bot-client-action.pause:hover{background:#991b1b;}
-.bot-client-action.hide{background:#392711;border-color:#6d4a15;color:#fdba74;}.bot-client-action.hide:hover{background:#4b3212;border-color:#a16207;color:#ffcf9f;}
-.bot-client-action.restore{background:#123525;border-color:#1b6540;color:#86efac;}.bot-client-action.restore:hover{background:#16442f;border-color:#269c5a;color:#bbf7d0;}
+.bot-client-action.pause{background:#4a3512;border:1px solid #8a5b1b;color:#fde68a;}.bot-client-action.pause:hover{background:#5a4015;border-color:#b7791f;}
+.bot-client-action.hide,.bot-client-action.restore,.bot-client-action.reset{background:#111925;border-color:#304056;color:#cbd5e1;}.bot-client-action.hide:hover,.bot-client-action.restore:hover,.bot-client-action.reset:hover{background:#172131;border-color:#49627f;color:#eef2f7;}
 .bot-client-action.lost{background:#2c1519;border-color:#63232b;color:#fda4af;}.bot-client-action.lost:hover{background:#3a171d;border-color:#9f2d39;color:#fecdd3;}
 .bot-client-action[disabled]{opacity:.56;cursor:wait;transform:none;}
 .bot-action-feedback{display:flex;align-items:flex-start;gap:7px;margin-top:10px;padding:8px 10px;border:1px solid transparent;border-radius:8px;font-size:11.5px;line-height:1.4;animation:actionFeedbackIn .18s ease-out;}
@@ -291,7 +306,7 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 .bot-action-feedback.error{background:#32161b;border-color:#6d2931;color:#fecaca;}
 .bot-action-feedback.info{background:#101f35;border-color:#27456e;color:#bfdbfe;}
 @keyframes actionFeedbackIn{from{opacity:0;transform:translateY(-3px);}to{opacity:1;transform:none;}}
-@media(max-width:560px){.bot-action-state{align-items:flex-start;flex-direction:column;}.bot-action-state-buttons{justify-content:flex-start;}.bot-client-action.primary{width:100%;}.bot-client-action{min-height:36px;}}
+@media(max-width:390px){.bot-client-action{padding-left:4px;padding-right:4px;font-size:10.5px;}.bot-client-filter-primary .bot-mini-btn{padding-left:4px;padding-right:4px;font-size:11px;}}
 @media(max-width:560px){.bot-client-row{align-items:flex-start;}.bot-client-tags{max-width:112px;}.bot-category-strip{flex-direction:column;}.bot-category-badge{align-self:flex-start;text-align:left;}}
 .bot-chat-summary{margin-top:12px;padding:10px;border:1px solid #202a39;border-radius:11px;background:#0a0f17;}
 .bot-funnel{display:flex;flex-wrap:nowrap;gap:6px;margin:0;overflow-x:auto;padding:1px 18px 5px 1px;scrollbar-width:thin;scroll-snap-type:x proximity;background:linear-gradient(90deg,transparent calc(100% - 22px),rgba(96,165,250,.12));}
@@ -762,18 +777,29 @@ body.bot-drawer-open{overflow:hidden;}
         <aside class="bot-clients-sidebar" aria-label="Список клієнтів">
           <input id="bot-clients-search" class="bot-clients-search" placeholder="Пошук: ім'я / username / телефон">
           <div class="bot-client-filters" id="bot-client-filters">
-            <button type="button" class="bot-mini-btn" data-client-view="active">Активні</button>
-            <button type="button" class="bot-mini-btn active" data-client-view="all">Усі</button>
-            <button type="button" class="bot-mini-btn" data-client-view="due">Контакти</button>
-            <button type="button" class="bot-mini-btn" data-client-view="paid">Оплачені</button>
-            <button type="button" class="bot-mini-btn" data-client-view="delivery-blocked">Потрібна увага</button>
-            <button type="button" class="bot-mini-btn" data-client-view="hidden">Приховані</button>
-            <button type="button" class="bot-mini-btn" data-client-view="spam-cold">Спам / неактивні</button>
-            <button type="button" class="bot-mini-btn" data-client-view="ads">З реклами</button>
-            <button type="button" class="bot-mini-btn" data-client-view="complaints">Скарги / підтримка</button>
-            <button type="button" class="bot-mini-btn" data-client-view="wholesale">Опт / B2B</button>
-            <button type="button" class="bot-mini-btn" data-client-view="collaboration">Колаборації</button>
-            <button type="button" class="bot-mini-btn" data-client-view="reactions">Реакції</button>
+            <div class="bot-client-filter-primary" role="group" aria-label="Основні фільтри клієнтів">
+              <button type="button" aria-pressed="true" class="bot-mini-btn active" data-client-view="all">Усі</button>
+              <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="active">Активні</button>
+              <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="paid">Оплачені</button>
+            </div>
+            <div class="bot-client-filter-disclosure">
+              <button type="button" class="bot-mini-btn bot-client-filter-toggle" id="bot-client-filter-toggle" aria-expanded="false" aria-controls="bot-client-filter-advanced" aria-label="Додаткові фільтри">
+                <span>Фільтри</span>
+                <span class="bot-client-filter-active-label" id="bot-client-filter-active-label" hidden></span>
+                <span class="bot-client-filter-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div class="bot-client-filter-advanced" id="bot-client-filter-advanced" role="group" aria-label="Додаткові фільтри клієнтів" hidden>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="due">Контакти</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="delivery-blocked">Потрібна увага</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="hidden">Приховані</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="spam-cold">Спам / неактивні</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="ads">З реклами</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="complaints">Скарги / підтримка</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="wholesale">Опт / B2B</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="collaboration">Колаборації</button>
+                <button type="button" aria-pressed="false" class="bot-mini-btn" data-client-view="reactions">Реакції</button>
+              </div>
+            </div>
           </div>
           <div id="bot-clients-list" class="bot-clients-list" role="list"></div>
           <nav class="bot-clients-pager" id="bot-clients-pager" aria-label="Сторінки клієнтів" hidden>
@@ -1409,6 +1435,9 @@ body.bot-drawer-open{overflow:hidden;}
     const mobileNav=document.getElementById('bot-client-mobile-nav');
     const searchEl=document.getElementById('bot-clients-search');
     const filtersEl=document.getElementById('bot-client-filters');
+    const filterToggle=document.getElementById('bot-client-filter-toggle');
+    const filterAdvanced=document.getElementById('bot-client-filter-advanced');
+    const filterActiveLabel=document.getElementById('bot-client-filter-active-label');
     const totalEl=document.getElementById('clients-total');
     const base='{% url "management_bot_clients_api" %}';
     const initialQuery=new URLSearchParams(window.location.search);
@@ -1425,6 +1454,18 @@ body.bot-drawer-open{overflow:hidden;}
     function setMobilePane(pane){
       if(!workspaceEl)return;workspaceEl.dataset.activePane=pane;
       if(mobileNav)mobileNav.querySelectorAll('[data-client-pane]').forEach(button=>{const active=button.dataset.clientPane===pane;button.setAttribute('aria-selected',active?'true':'false');button.tabIndex=active?0:-1;});
+    }
+    function setAdvancedFiltersOpen(open,{restoreFocus=false}={}){
+      if(!filterToggle||!filterAdvanced)return;
+      const next=Boolean(open);filterAdvanced.hidden=!next;filterToggle.setAttribute('aria-expanded',next?'true':'false');
+      if(restoreFocus)filterToggle.focus();
+    }
+    function syncFilterDisclosure(activeButton){
+      if(!filterToggle||!filterAdvanced||!filterActiveLabel)return;
+      const advancedActive=Boolean(activeButton&&filterAdvanced.contains(activeButton));
+      const label=advancedActive?activeButton.textContent.trim():'';
+      filterActiveLabel.textContent=label;filterActiveLabel.hidden=!advancedActive;filterToggle.classList.toggle('has-active-filter',advancedActive);
+      filterToggle.setAttribute('aria-label',advancedActive?('Додаткові фільтри, активний: '+label):'Додаткові фільтри');
     }
     function avatar(c,size){
       const url=safeHttpUrl(c.avatar);const label=c.name||c.username||c.igsid||'?';
@@ -1673,7 +1714,7 @@ body.bot-drawer-open{overflow:hidden;}
       const c=d.client;contextEl.replaceChildren();const status=section(contextEl,'Стан клієнта');const grid=node('div','bot-context-grid');contextFact(grid,'Категорія',c.interaction_type_label||'Не визначено');contextFact(grid,'Намір',c.intent_label||c.intent||'—');contextFact(grid,'Діалог веде',d.automation&&d.automation.owner==='manager'?'Менеджер':'Бот');contextFact(grid,'Стан виконання',fulfillmentLabel(d));contextFact(grid,'Оплата через Monobank',providerTruthLabel(d.payment||{}));contextFact(grid,'Перевірка менеджера',managerTruthLabel(d.payment||{}));status.appendChild(grid);
       const next=nextAction(d);const nextBlock=node('div','bot-context-next');nextBlock.style.marginTop='9px';nextBlock.append(node('span','','Наступна дія'),node('b','',next[0]),node('span','',next[1]));status.appendChild(nextBlock);const active=d.review&&d.review.active;if(active&&active.approval&&active.approval.needs_action){const review=node('button','bot-client-order-action is-pending');review.type='button';review.append(node('span','',active.approval.state==='needs_order_resolution'?"Потрібно прив'язати замовлення":'Потрібно підтвердити оплату'),node('span','',active.approval.state==='needs_order_resolution'?'Оберіть існуюче або створіть нове':'Звірте чек, товари та суму'));review.addEventListener('click',()=>PaymentReviewDrawer.open(active,review));status.appendChild(review);}
       renderAssignments(contextEl,d,id,{interactive:false});
-      const controls=section(contextEl,'Керування діалогом');const primary=node('div','bot-action-primary');if(c.hidden){primary.appendChild(node('span','bot-stage-chip st-cold','Бот не обробляє прихованого клієнта'));}else{const pause=node('button','bot-client-action primary '+(c.bot_paused?'resume':'pause'),c.opted_out?'Підтвердити нову згоду':(c.bot_paused?'▶ Відновити бота':'⏸ Зупинити бота'));pause.type='button';pause.dataset.act='resume';if(!c.bot_paused&&!c.opted_out)pause.dataset.act='pause';if(c.opted_out)pause.dataset.optout='1';primary.appendChild(pause);}controls.appendChild(primary);const actions=node('div','bot-action-state-buttons');const visibility=node('button','bot-client-action '+(c.hidden?'restore':'hide'),c.hidden?'↩ Повернути до активних':'Приховати');visibility.type='button';visibility.dataset.act=c.hidden?'unhide':'hide';const lost=node('button','bot-client-action lost','Позначити як втрачено');lost.type='button';lost.dataset.act='lost';const reset=node('button','bot-client-action danger','Скинути воронку');reset.type='button';reset.title='Скинути воронку з підтвердженням';reset.dataset.act='reset-funnel';actions.append(visibility,lost,reset);controls.appendChild(actions);const feedbackEl=node('div','bot-action-feedback');feedbackEl.id='bot-action-feedback';feedbackEl.setAttribute('role','status');feedbackEl.setAttribute('aria-live','polite');feedbackEl.hidden=true;controls.appendChild(feedbackEl);/* data-act='reset-funnel' reset_funnel_confirmation confirm_reset */controls.querySelectorAll('[data-act]').forEach(button=>button.addEventListener('click',()=>runClientAction(id,button.dataset.act,button)));
+      const controls=section(contextEl,'Керування діалогом');const primary=node('div','bot-action-primary');if(c.hidden){primary.appendChild(node('span','bot-action-unavailable','Бот не обробляє прихованого клієнта'));}else{const pause=node('button','bot-client-action primary '+(c.bot_paused?'resume':'pause'),c.opted_out?'▶ Підтвердити згоду':(c.bot_paused?'▶ Відновити':'⏸ Зупинити'));pause.type='button';pause.dataset.act='resume';pause.setAttribute('aria-label',c.opted_out?'Підтвердити нову згоду та відновити бота':(c.bot_paused?'Відновити бота':'Зупинити бота'));if(!c.bot_paused&&!c.opted_out)pause.dataset.act='pause';if(c.opted_out)pause.dataset.optout='1';primary.appendChild(pause);}controls.appendChild(primary);const actions=node('div','bot-action-state-buttons');const visibility=node('button','bot-client-action '+(c.hidden?'restore':'hide'),c.hidden?'↩ Повернути':'Приховати');visibility.type='button';visibility.setAttribute('aria-label',c.hidden?'Повернути клієнта до активних':'Приховати клієнта');visibility.dataset.act=c.hidden?'unhide':'hide';const lost=node('button','bot-client-action lost','Втрачено');lost.type='button';lost.setAttribute('aria-label','Позначити клієнта як втрачено');lost.dataset.act='lost';const reset=node('button','bot-client-action reset','Скинути');reset.type='button';reset.setAttribute('aria-label','Скинути воронку');reset.title='Скинути воронку з підтвердженням';reset.dataset.act='reset-funnel';actions.append(visibility,lost,reset);controls.appendChild(actions);const feedbackEl=node('div','bot-action-feedback');feedbackEl.id='bot-action-feedback';feedbackEl.setAttribute('role','status');feedbackEl.setAttribute('aria-live','polite');feedbackEl.hidden=true;controls.appendChild(feedbackEl);/* data-act='reset-funnel' reset_funnel_confirmation confirm_reset */controls.querySelectorAll('[data-act]').forEach(button=>button.addEventListener('click',()=>runClientAction(id,button.dataset.act,button)));
       renderPostSale(contextEl,d);renderOrders(contextEl,d);renderUgcRewards(contextEl,d);if(c.memory){const memory=section(contextEl,'Пам’ять');memory.appendChild(node('div','bot-mem',c.memory));}
       if((d.signals||[]).length||d.patterns){const analysis=section(contextEl,'Аналіз');const details=node('details','bot-analysis-disclosure');const summary=node('summary','', 'Сигнали та патерни · '+(d.signals||[]).length);details.appendChild(summary);const body=node('div','bot-analysis-body');body.appendChild(node('div','bot-hint','Сигнали показують події діалогу, але самі по собі не підтверджують оплату.'));const counts=(d.patterns||{}).message_counts||{};if(Object.keys(counts).length)body.appendChild(node('div','bot-hint','У поточному епізоді: клієнт '+(counts.customer||0)+' · менеджер '+(counts.manager||0)+' · агент '+(counts.agent||0)));(d.signals||[]).slice(0,18).forEach(signal=>body.appendChild(node('span','bot-signal',(signal.type_label||humanLabel(signalLabels,signal.type,'Інший сигнал'))+' ×'+signal.count+(signal.latest_value?(': '+signal.latest_value):''))));details.appendChild(body);analysis.appendChild(details);}
       if((d.followups||[]).length){const followups=section(contextEl,'Заплановані контакти',d.followups.length);visibleFollowups(d.followups).forEach(item=>{const row=node('div','bot-deal','#'+item.id+' · '+humanLabel(followupKindLabels,item.kind)+' · '+humanLabel(followupStatusLabels,item.status)+' · '+relativeTime(item.due_at,{due:true}));if(item.reason)row.appendChild(node('div','bot-hint',humanLabel(followupReasonLabels,item.reason,item.reason)));if(item.message_text)row.appendChild(node('div','bot-mem',item.message_text));renderFollowupResolution(row,item,id);followups.appendChild(row);});}
@@ -1838,14 +1879,19 @@ body.bot-drawer-open{overflow:hidden;}
     scheduleConv();
     let t=null;
     if(searchEl) searchEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{currentPage=1;load(searchEl.value.trim());},300);});
+    if(filterToggle)filterToggle.addEventListener('click',()=>setAdvancedFiltersOpen(filterToggle.getAttribute('aria-expanded')!=='true'));
+    if(filtersEl)filtersEl.addEventListener('keydown',event=>{if(event.key!=='Escape'||!filterAdvanced||filterAdvanced.hidden)return;event.preventDefault();setAdvancedFiltersOpen(false,{restoreFocus:true});});
+    document.addEventListener('click',event=>{if(!filtersEl||!filterAdvanced||filterAdvanced.hidden||!event.target||!filtersEl.contains(event.target))setAdvancedFiltersOpen(false);});
     if(filtersEl) filtersEl.querySelectorAll('[data-client-view]').forEach(btn=>{
       btn.addEventListener('click',()=>{
         currentView=btn.getAttribute('data-client-view')||'all';currentPage=1;
-        filtersEl.querySelectorAll('[data-client-view]').forEach(b=>b.classList.toggle('active', b===btn));
+        filtersEl.querySelectorAll('[data-client-view]').forEach(b=>{const active=b===btn;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');});
+        syncFilterDisclosure(btn);setAdvancedFiltersOpen(false);
         activeId=null;convId=null;ClientContextDrawer.close(null,{persist:false});conversationEl.replaceChildren(node('div','bot-client-pane-empty','Оберіть клієнта зі списку.'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Комерційний контекст з’явиться після вибору клієнта.'));setMobilePane('list');
         load(searchEl?searchEl.value.trim():'');
       });
     });
+    if(filtersEl)syncFilterDisclosure(filtersEl.querySelector('[data-client-view].active'));
     if(mobileNav)mobileNav.querySelectorAll('[data-client-pane]').forEach(button=>button.addEventListener('click',()=>setMobilePane(button.dataset.clientPane||'list')));
     if(mobileNav)mobileNav.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const buttons=Array.from(mobileNav.querySelectorAll('[data-client-pane]'));let index=buttons.indexOf(document.activeElement);if(event.key==='Home')index=0;else if(event.key==='End')index=buttons.length-1;else index=(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;event.preventDefault();buttons[index].focus();buttons[index].click();});
     // фонове оновлення лічильника клієнтів навіть на інших вкладках
