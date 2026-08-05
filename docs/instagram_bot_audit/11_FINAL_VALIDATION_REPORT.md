@@ -44,7 +44,8 @@ that the remaining implementation backlog is complete.
 ## Production evidence
 
 Historical IMP-058 deployment evidence: commits `274c2c61`, `79882368`,
-`92d46c5a` were deployed after push; server HEAD at that checkpoint was
+`92d46c5a` were deployed after push; the server HEAD at that historical
+checkpoint was
 `92d46c5ac68bf7b936c7ee6aaa4e5d82695b550f`. Its production
 `status_snapshot()` reported `is_enabled=True`, `state='running'`, `alive=True`,
 `running=True`, transport `instagram_login`, database and daemon heartbeat ages

@@ -41,6 +41,7 @@ from .models import (
 )
 from .ig_bot_models import IgCheckoutAccessToken, IgCheckoutProposal, IgCheckoutRevision, IgLifecycleEvent, IgFollowUpTask
 from .services import instagram_bot as bot
+from .services import bot_followups
 from .services.bot_payment_truth import (
     annotate_confirmed_purchase,
     annotate_verified_payment,
@@ -3856,6 +3857,45 @@ def bot_clients_api(request):
 
 
 @login_required(login_url="management_login")
+@require_POST
+def bot_client_followup_delivery_resolve_api(request, client_id, task_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    task = IgFollowUpTask.objects.filter(pk=task_id, client_id=client_id).first()
+    if task is None:
+        return JsonResponse({"success": False, "error": "Клієнта або follow-up не знайдено."}, status=404)
+    result = bot_followups.resolve_ambiguous_followup(
+        task.pk,
+        outcome=request.POST.get("outcome"),
+        actor_id=request.user.pk,
+        note=request.POST.get("note", ""),
+        now=timezone.now(),
+    )
+    if not result.get("ok"):
+        return JsonResponse({"success": False, **result}, status=result.get("status", 400))
+    if not result.get("idempotent"):
+        review_id = IgFollowUpTask.objects.filter(
+            delivery_review_for_id=task.pk,
+        ).values_list("pk", flat=True).first()
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            actor_role="staff",
+            action="ig_followup_delivery_resolved",
+            entity_type="IgFollowUpTask",
+            entity_id=str(task.pk),
+            before={"status": IgFollowUpTask.Status.AMBIGUOUS},
+            after={
+                "status": result.get("status", ""),
+                "outcome": result.get("outcome", ""),
+                "review_id": review_id,
+            },
+            reason=str(request.POST.get("note") or "").strip()[:500],
+        )
+    return JsonResponse({"success": True, **result})
+
+
+@login_required(login_url="management_login")
 @require_GET
 def bot_client_detail_api(request, client_id):
     blocked = _require_admin_json(request)
@@ -3994,8 +4034,15 @@ def bot_client_detail_api(request, client_id):
     pattern_evidence_ids = list(
         pattern_messages.order_by("-id").values_list("id", flat=True)[:20]
     )
-    followups = [
-        {
+    delivery_review_ids = IgFollowUpTask.objects.filter(
+        delivery_review_for_id=OuterRef("pk"),
+    ).values("pk")[:1]
+    followups = []
+    for f in c.followup_tasks.annotate(
+        delivery_review_id=Subquery(delivery_review_ids),
+    ).order_by("-created_at", "-id")[:50]:
+        review_id = getattr(f, "delivery_review_id", None)
+        followups.append({
             "id": f.id,
             "kind": f.kind,
             "status": f.status,
@@ -4006,9 +4053,23 @@ def bot_client_detail_api(request, client_id):
             "message_text": f.message_text,
             "skip_reason": f.skip_reason,
             "last_error": f.last_error,
-        }
-        for f in c.followup_tasks.all().order_by("-created_at", "-id")[:50]
-    ]
+            "attempt_count": f.attempt_count,
+            "provider_message_id": f.provider_message_id,
+            "delivery_review_id": review_id,
+            "allowed_outcomes": (
+                ["delivered", "not_delivered"]
+                if f.status == IgFollowUpTask.Status.AMBIGUOUS and review_id
+                else []
+            ),
+            "resolution_url": (
+                reverse(
+                    "management_bot_client_followup_delivery_resolve_api",
+                    args=[c.pk, f.pk],
+                )
+                if f.status == IgFollowUpTask.Status.AMBIGUOUS and review_id
+                else ""
+            ),
+        })
     deal_rows = list(c.deals.select_related("payment_projection", "order").all()[:20])
     deals = [
         {

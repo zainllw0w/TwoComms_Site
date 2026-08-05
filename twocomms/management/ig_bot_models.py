@@ -3274,7 +3274,10 @@ class IgFollowUpTask(models.Model):
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Очікує")
+        PROCESSING = "processing", _("Надсилається")
         SENT = "sent", _("Надіслано")
+        AMBIGUOUS = "ambiguous", _("Потрібна перевірка доставки")
+        COMPLETED = "completed", _("Завершено")
         CANCELLED = "cancelled", _("Скасовано")
         SKIPPED = "skipped", _("Пропущено")
 
@@ -3314,6 +3317,13 @@ class IgFollowUpTask(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="+",
+    )
+    delivery_review_for = models.OneToOneField(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="delivery_review",
     )
     skip_reason = models.CharField(max_length=255, blank=True, default="")
     attempt_count = models.PositiveSmallIntegerField(default=0)
