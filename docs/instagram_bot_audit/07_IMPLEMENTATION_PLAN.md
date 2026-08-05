@@ -1,10 +1,10 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 103 уникальные `IMP-*`: **77 закрыты, 22 открыты, 4 partial**
+> Всего 104 уникальные `IMP-*`: **79 закрыты, 21 открыта, 4 partial**
 > (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 176 `F-*` и всех 50 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 178 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -48,11 +48,11 @@
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
 | **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
-| **W9** | Product reselection и коммерческая семантика | 8 | 0 | 5 | 3 |
+| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 5 | 3 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 1 | 1 | 0 |
-| **Итого** | | **103** | **77** | **22** | **4** |
+| **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 2 | 0 | 0 |
+| **Итого** | | **104** | **79** | **21** | **4** |
 
 ---
 
@@ -920,6 +920,14 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   unified regression, production-like MariaDB proof,
   интеграция в `main` и deploy.
 
+- [x] **IMP-104 (P0) — authoritative configuration pricing.** Добавлена
+  проверяемая связка цены с variant/fit/generic options от `[ITEM:...]` и
+  `[PRICE_QUOTED:...]` до proposal, deal и hosted checkout. Unknown,
+  disabled, unavailable и zero-choice option contexts, а также ambiguous
+  multi-price customer text блокируют оформление; checkout показывает labels,
+  unit prices и line totals. Commits `1f5dcb70`, `7fdbe613`, `1f8cead2`,
+  production `13bedf8f`; focused authoritative-price gate 12 tests.
+
 ---
 
 ## W10 — Улучшения, которые раньше были только идеями без IMP-задач
@@ -1010,17 +1018,19 @@ continuation остаётся отдельным свежим срезом.
   Django check, migration drift и compileall зелёные. Production HEAD
   `414e639e`, migration `management.0141` applied; один daemon `running/alive`
   на `instagram_login`, error и delivery-review очереди пусты.
-- [ ] **IMP-103 (P1) — materialized event follow-ups.** Создавать продолжение
+- [x] **IMP-103 (P1) — materialized event follow-ups.** Создавать продолжение
   policy из точного business event с immutable `event_key`, payload и
   абсолютным policy timeline, а не из polling-угадывания текущего snapshot.
   Непосредственно перед send повторно проверять invoice/restock fact и
   отменять/перестраивать stale task без клиентского сообщения. Acceptance:
   duplicate/out-of-order event idempotency, absolute schedule across restart,
   paid invoice/restocked item suppression and audited policy continuation.
+  Закрыто `4dfff3a2` + `35d3bd93`, migration `0143`, focused gate 180 tests,
+  production `13bedf8f`; combined event/FSM/checkout/restock gate 254 tests.
 
-### Finding coverage matrix — 176 уникальных F-идентификаторов
+### Finding coverage matrix — 178 уникальных F-идентификаторов
 
-Итог матрицы: **131 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
+Итог матрицы: **133 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1050,6 +1060,8 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-CAT-005 | FIXED/VERIFIED | IMP-081 |
 | [x] | F-CAT-006 | FIXED/VERIFIED | IMP-081 |
 | [x] | F-CAT-007 | FIXED/VERIFIED | IMP-082; `e44d1440`/`0ad694bc` |
+| [x] | F-CAT-008 | FIXED/VERIFIED | IMP-104 |
+| [x] | F-CAT-009 | FIXED/VERIFIED | IMP-104 |
 | [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
 | [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
 | [ ] | F-CORE-003 | OPEN | IMP-098 |
@@ -1203,10 +1215,10 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-UX-015 | FIXED/VERIFIED | IMP-099 |
 | [x] | F-UX-016 | FIXED/VERIFIED | IMP-035 |
 
-### Improvement coverage matrix — 50 уникальных IMPR-идентификаторов
+### Improvement coverage matrix — 51 уникальное IMPR-идентификатор
 
-Итог матрицы: **15 `[x]` / 35 `[ ]`**. В незакрытый остаток входят
-21 `PARTIAL`, 13 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
+Итог матрицы: **17 `[x]` / 34 `[ ]`**. В незакрытый остаток входят
+21 `PARTIAL`, 12 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
 ставится, пока полезный остаток не реализован и не задеплоен.
 
 | Check | Improvement | Status | Canonical task / остаток |
@@ -1217,6 +1229,7 @@ continuation остаётся отдельным свежим срезом.
 | [ ] | IMPR-CAT-004 | PARTIAL (`0ad694bc`: typed graph/ranker + prompt parity; availability wiring remains) | IMP-082/084 |
 | [x] | IMPR-CAT-005 | DONE | IMP-067; catalog completeness `3191e08c` |
 | [ ] | IMPR-CAT-006 | OPEN | IMP-088 |
+| [x] | IMPR-CAT-007 | DONE | IMP-104; production `13bedf8f` |
 | [ ] | IMPR-FEAT-001 | PARTIAL (`0ad694bc`: explainable candidate foundation + prompt parity; runtime/review remains) | IMP-082/083/088 |
 | [ ] | IMPR-FEAT-002 | OPEN | IMP-084/086 |
 | [ ] | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
@@ -1234,7 +1247,7 @@ continuation остаётся отдельным свежим срезом.
 | [ ] | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | [ ] | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
 | [x] | IMPR-FUP-014 | DONE | IMP-102; production `414e639e` |
-| [ ] | IMPR-FUP-015 | OPEN | IMP-103; prerequisite IMP-102 выполнен |
+| [x] | IMPR-FUP-015 | DONE | IMP-103; production `13bedf8f` |
 | [ ] | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | [x] | IMPR-MEM-001 | DONE | IMP-030 |
 | [ ] | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

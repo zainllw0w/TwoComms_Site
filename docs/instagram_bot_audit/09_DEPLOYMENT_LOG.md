@@ -4,6 +4,22 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Current production checkpoint (2026-08-05)
+
+`origin/main`, local `main` and production are synchronized at
+`13bedf8f059178eaafbb578523882e0154f69155`. The server pull was fast-forward
+only; tracked files are clean (existing untracked operational logs/scripts were
+preserved). Migration `management.0143_igfollowuptask_event_continuation` is
+applied. `manage.py check`, migration drift, static/compression and the focused
+254-test event/FSM/checkout/restock gate plus authoritative-price/live-visual
+gates passed. `run_instagram_bot --ensure` reports one
+daemon, `running=True`, `alive=True`, provider `instagram_login`, fresh
+heartbeat, empty `last_error` and zero pending reply/notification queues.
+
+The deployed slices are `IMP-103` (commits `4dfff3a2`, `35d3bd93`), `IMP-104`
+(`1f5dcb70`, `7fdbe613`, `1f8cead2`) and sender-action observability
+(`13bedf8f`).
+
 ## IMP-102 durable follow-up delivery FSM deploy (2026-08-05)
 
 Коммиты `0d4d38c0`, `0e9e9ba5`, `4cb86743` и `414e639e` опубликованы в

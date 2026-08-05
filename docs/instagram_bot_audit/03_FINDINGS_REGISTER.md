@@ -22,6 +22,8 @@
 | F-CAT-005 | FIXED / VERIFIED | `674d6858`: verified semantic aliases reject empty, generic and punctuation-only values before they can authorize catalog matching |
 | F-CAT-006 | FIXED / VERIFIED | `3678ddf4`: effective semantic revision cannot be revoked without authoritative actor/reason; revocation is audited and fail-closed |
 | F-CAT-007 | FIXED / VERIFIED | `e44d1440` binds prompt sizes to exact variant+fit; `0ad694bc` distinguishes an authoritative empty size contract from a missing variant-specific source; production product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
+| F-CAT-008 | FIXED / VERIFIED | `1f5dcb70`/`7fdbe613`/`1f8cead2`: exact customer-facing price claims are validated against the selected variant and option configuration before checkout; production `13bedf8f` |
+| F-CAT-009 | FIXED / VERIFIED | `1f5dcb70`: generic, no-variant, unavailable and zero-choice option axes are preserved through readiness/proposal/checkout and fail closed instead of falling back to base price; production `13bedf8f` |
 | F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
 | F-FUP-013 | FIXED / VERIFIED | `414e639e`: exception after a concurrent sender/recovery finalization can no longer downgrade finalized `SENT` to `AMBIGUOUS` or create a false delivery review |
 
@@ -4096,6 +4098,32 @@ F-OPS-005, F-STATE-009, F-UX-015 и F-OPS-007 → IMP-099.
 - **Остаток не этой находки:** `IMP-082/083` остаются PARTIAL до durable runtime
   commerce session, stale candidate binding, relaxed alternatives и полного
   topology.
+
+### F-CAT-008 (P0, FIXED/VERIFIED): customer-facing price claim could diverge from configuration
+
+- **Проблема:** бот мог назвать базовую/другую цену в тексте, а paylink и
+  сформированная сделка использовали выбранный variant/configuration total.
+  Для товара 110 это проявлялось как риск сказать 1090 грн для белой футболки
+  или 1450 грн для термохромной конфигурации без точного binding.
+- **Исправление:** `1f5dcb70` связывает `[ITEM:...]` и `[PRICE_QUOTED:...]` с
+  выбранными variant, fit и option values; exact numeric claims проверяются до
+  materialization paylink. `1f8cead2` переводит повторяющиеся или конфликтующие
+  суммы (`1090 вместо 1450`) в fail-closed manager review. Диапазоны и
+  prepayment-only amounts не трактуются как unit price.
+- **Evidence:** authoritative-price tests 12/12, paylink/checkout regression
+  suite green; production SHA `13bedf8f`.
+
+### F-CAT-009 (P1, FIXED/VERIFIED): option axes could disappear or fall back to base price
+
+- **Проблема:** generic option without a color variant, disabled/unavailable
+  option and zero-choice axis could be omitted from readiness or checkout,
+  leaving a misleading base price or an unbound commercial proposal.
+- **Исправление:** option values/labels теперь проходят через catalog graph,
+  readiness, deal/proposal and hosted checkout. Unknown, disabled, unavailable
+  and zero-choice required axes block checkout with actionable missing fields;
+  no-variant option surcharges remain authoritative.
+- **Evidence:** generic/no-variant and fail-closed readiness tests plus hosted
+  checkout assertions; production SHA `13bedf8f`.
 
 ### F-PAY-015 (P0, FIXED/VERIFIED): audit-ссылки superseded review сливали два коммерческих эпизода
 

@@ -15,9 +15,9 @@
 - W10: `IMP-090`–`093`.
 - W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
   F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
-- W12: только `IMP-103` — materialized event-driven policy continuation with
-  immutable event facts, absolute timeline and pre-send invoice/restock recheck.
-  Provider-evidenced delivery FSM закрыт `IMP-102` на production `414e639e`.
+- W12: закрыта — `IMP-102` provider-evidenced delivery FSM и `IMP-103`
+  materialized event-driven policy continuation с immutable event facts,
+  absolute timeline и pre-send invoice/restock recheck; production `13bedf8f`.
 
 ## Product/data blockers
 
@@ -43,9 +43,9 @@
   evidence against current `instagram_login`; see source matrix.
 - Dirty `codex/ig-followup-policies` originally preserved requirements
   `IMP-102/103` and `IMPR-FUP-014/015`. Delivery boundary реализован свежо и
-  задеплоен как `IMP-102`/`IMPR-FUP-014`; только `IMP-103`/`IMPR-FUP-015`
-  остаются source backlog. Old-base code и конфликтующую migration `0131`
-  нельзя cherry-pick wholesale.
+  задеплоен как `IMP-102`/`IMPR-FUP-014`; `IMP-103`/`IMPR-FUP-015` закрыты
+  current-base implementation `4dfff3a2`/`35d3bd93` с migration `0143`.
+  Old-base code и конфликтующую migration `0131` нельзя cherry-pick wholesale.
 
 ## Known test baseline
 

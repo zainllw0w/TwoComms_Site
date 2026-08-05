@@ -6,7 +6,7 @@
 > ID: `IMPR-<домен>-<NNN>`.
 >
 > Тексты «Сейчас» ниже сохранены как исходный audit snapshot. Актуальный статус
-> каждого ID находится в таблице «Каноническое покрытие всех 50 улучшений» в
+> каждого ID находится в таблице «Каноническое покрытие всех 51 улучшения» в
 > конце файла; именно она предотвращает повторную реализацию уже закрытого.
 
 > **W9 checkpoint 2026-08-05:** semantic/inventory foundation (`IMP-081`) уже
@@ -14,6 +14,11 @@
 > MariaDB gate. Price-aware graph/candidate foundation (`IMP-082/083`) и точный
 > variant-specific prompt parity deployed on `0ad694bc`; связанные IMPR остаются PARTIAL до runtime/session wiring,
 > exact availability и manager review.
+
+> **Commercial pricing checkpoint 2026-08-05:** `IMPR-CAT-007` закрывает
+> authoritative configuration pricing и parity между речью бота, proposal,
+> deal и hosted checkout. Production SHA `13bedf8f`; ambiguity и unavailable
+> option contexts fail closed.
 
 ## Главное наблюдение
 
@@ -350,6 +355,18 @@ IMP-021; строка сохранена как обоснование прио�
   по сигналу на `ProductColorVariant.stock` / `Product.status`, либо разделение
   на «холодный» блок (TTL 600 с) и «горячий» блок остатков (TTL 60 с).
 
+### IMPR-CAT-007 (P0): authoritative configuration price parity
+
+Цена в речи продавца должна быть тем же коммерческим фактом, который попадёт в
+proposal, deal и hosted checkout. Для каждой конфигурации нужно сохранять
+variant, fit и generic option values/labels, показывать unit price и line total,
+а при неоднозначной фразе или недоступной оси блокировать оформление до
+уточнения. Это особенно важно для товара 110: белая футболка и термохромная
+конфигурация имеют разные цены и не могут описываться одной базовой суммой.
+
+**Статус:** DONE, `IMP-104`, commits `1f5dcb70`, `7fdbe613`, `1f8cead2`,
+production `13bedf8f`.
+
 ---
 
 ## Домен D: архитектура памяти
@@ -522,7 +539,8 @@ payload и абсолютный policy timeline; непосредственно 
 проверяется релевантный invoice/restock факт. Это исключает сообщение по уже
 оплаченному invoice или устаревшему отсутствию товара.
 
-Направление: `IMP-103`; prerequisite delivery boundary `IMP-102` выполнен.
+Реализовано как `IMP-103`; prerequisite delivery boundary `IMP-102` выполнен.
+Production: `13bedf8f`, migration `0143`, event/FSM/checkout/restock gate 254 tests.
 
 ### IMPR-INV-001 (P1): склад как источник истины о наличии
 
@@ -564,7 +582,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 
 ---
 
-## Каноническое покрытие всех 50 улучшений (2026-08-05)
+## Каноническое покрытие всех 51 улучшения (2026-08-05)
 
 До этой сверки реестр содержал идеи, но 36 ID не упоминались в
 `07_IMPLEMENTATION_PLAN.md`. Таблица ниже закрывает эту операционную дыру:
@@ -580,6 +598,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-CAT-004 | PARTIAL | `0ad694bc`: typed graph/ranker + prompt parity; availability wiring — IMP-084 |
 | IMPR-CAT-005 | DONE | IMP-067, catalog completeness `3191e08c` |
 | IMPR-CAT-006 | OPEN | IMP-088 |
+| IMPR-CAT-007 | DONE | IMP-104; production `13bedf8f` |
 | IMPR-FEAT-001 | PARTIAL | `0ad694bc`: explainable candidates + prompt parity; runtime/review — IMP-083/088 |
 | IMPR-FEAT-002 | OPEN | IMP-084/086 |
 | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
@@ -597,7 +616,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
 | IMPR-FUP-014 | DONE | IMP-102; production `414e639e` |
-| IMPR-FUP-015 | OPEN | IMP-103; delivery boundary IMP-102 уже закрыт |
+| IMPR-FUP-015 | DONE | IMP-103; production `13bedf8f` |
 | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | IMPR-MEM-001 | DONE | IMP-030 |
 | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

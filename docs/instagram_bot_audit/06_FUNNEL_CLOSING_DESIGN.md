@@ -12,8 +12,8 @@
 > graph/ranker foundation и variant-specific prompt price/size parity уже
 > production `0ad694bc`; F-CAT-007 закрыта. Runtime commerce session,
 > availability/reservation и stale candidate binding ещё не закрыты.
-> Provider-evidenced follow-up delivery закрыт `IMP-102` на `414e639e`;
-> materialized event continuation остаётся `IMP-103`.
+> Provider-evidenced follow-up delivery and materialized event continuation
+> закрыты `IMP-102`/`IMP-103` on `13bedf8f`.
 
 ---
 
