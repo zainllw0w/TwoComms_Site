@@ -30,6 +30,6 @@
 variant-specific price/size prompt contract. Follow-up source reconciliation
 добавила requirements `IMPR-FUP-014/015` и `IMP-102/103`; delivery pair
 `IMP-102`/`IMPR-FUP-014` и event continuation `IMP-103`/`IMPR-FUP-015`
-закрыты production `13bedf8f`.
+закрыты production `434428ad`.
 Выявленная и исправленная race F-FUP-013 добавлена в findings register, но не
 меняет число исходных audit items: оно остаётся 120.

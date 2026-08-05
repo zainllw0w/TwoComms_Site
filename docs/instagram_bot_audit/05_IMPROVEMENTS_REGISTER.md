@@ -17,7 +17,7 @@
 
 > **Commercial pricing checkpoint 2026-08-05:** `IMPR-CAT-007` закрывает
 > authoritative configuration pricing и parity между речью бота, proposal,
-> deal и hosted checkout. Production SHA `13bedf8f`; ambiguity и unavailable
+> deal и hosted checkout. Production SHA `434428ad`; ambiguity и unavailable
 > option contexts fail closed.
 
 ## Главное наблюдение
@@ -365,7 +365,7 @@ variant, fit и generic option values/labels, показывать unit price и
 конфигурация имеют разные цены и не могут описываться одной базовой суммой.
 
 **Статус:** DONE, `IMP-104`, commits `1f5dcb70`, `7fdbe613`, `1f8cead2`,
-production `13bedf8f`.
+`434428ad`.
 
 ---
 
@@ -540,7 +540,7 @@ payload и абсолютный policy timeline; непосредственно 
 оплаченному invoice или устаревшему отсутствию товара.
 
 Реализовано как `IMP-103`; prerequisite delivery boundary `IMP-102` выполнен.
-Production: `13bedf8f`, migration `0143`, event/FSM/checkout/restock gate 254 tests.
+Production: `434428ad`, migration `0143`, event/FSM/checkout/restock gate 255 tests.
 
 ### IMPR-INV-001 (P1): склад как источник истины о наличии
 
@@ -598,7 +598,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-CAT-004 | PARTIAL | `0ad694bc`: typed graph/ranker + prompt parity; availability wiring — IMP-084 |
 | IMPR-CAT-005 | DONE | IMP-067, catalog completeness `3191e08c` |
 | IMPR-CAT-006 | OPEN | IMP-088 |
-| IMPR-CAT-007 | DONE | IMP-104; production `13bedf8f` |
+| IMPR-CAT-007 | DONE | IMP-104; production `434428ad` |
 | IMPR-FEAT-001 | PARTIAL | `0ad694bc`: explainable candidates + prompt parity; runtime/review — IMP-083/088 |
 | IMPR-FEAT-002 | OPEN | IMP-084/086 |
 | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
@@ -616,7 +616,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
 | IMPR-FUP-014 | DONE | IMP-102; production `414e639e` |
-| IMPR-FUP-015 | DONE | IMP-103; production `13bedf8f` |
+| IMPR-FUP-015 | DONE | IMP-103; production `434428ad` |
 | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | IMPR-MEM-001 | DONE | IMP-030 |
 | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

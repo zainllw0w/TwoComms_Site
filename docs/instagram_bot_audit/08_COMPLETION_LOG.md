@@ -22,7 +22,7 @@ proof. Branch-only work is listed in `12_SOURCE_RECONCILIATION.md`, not here.
 | F-CAT-007 / prompt parity | `e44d1440`, `0ad694bc` | Prompt sizes bind to exact variant+fit; authoritative empty size contract no longer falls back to product-wide sizes; product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
 | IMP-102 / F-FUP-013 / IMPR-FUP-014 | `0d4d38c0`, `0e9e9ba5`, `4cb86743`, `414e639e` | Durable follow-up delivery FSM, receipt-first recovery without resend, guarded finalization race and audited ambiguous manager resolution |
 | IMP-103 / IMPR-FUP-015 | `4dfff3a2`, `35d3bd93` | Materialized event-driven continuation, immutable event payload/time, absolute policy timeline, pre-send invoice/restock recheck, audited continuation API; migration `0143` |
-| IMP-104 / F-CAT-008/009 / IMPR-CAT-007 | `1f5dcb70`, `7fdbe613`, `1f8cead2` | Configuration-specific price authority from speech through hosted checkout; generic/no-variant option propagation and fail-closed ambiguity/unavailability guards |
+| IMP-104 / F-CAT-008/009/010 / IMPR-CAT-007 | `1f5dcb70`, `7fdbe613`, `1f8cead2`, `434428ad` | Configuration-specific price authority from speech through hosted checkout; generic/no-variant option propagation, fail-closed ambiguity/unavailability guards and durable escalation when holding delivery fails; 255 focused tests |
 | Sender action observability | `13bedf8f` | Typed, provider-aware `typing_on`/`typing_off`/`mark_seen` outcomes with redacted logging and live-visual regression coverage |
 
 The current canonical status is the checkbox list in `07_IMPLEMENTATION_PLAN.md`.

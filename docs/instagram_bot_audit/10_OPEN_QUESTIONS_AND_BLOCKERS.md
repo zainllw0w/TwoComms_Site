@@ -17,7 +17,7 @@
   F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
 - W12: закрыта — `IMP-102` provider-evidenced delivery FSM и `IMP-103`
   materialized event-driven policy continuation с immutable event facts,
-  absolute timeline и pre-send invoice/restock recheck; production `13bedf8f`.
+  absolute timeline и pre-send invoice/restock recheck; production `434428ad`.
 
 ## Product/data blockers
 

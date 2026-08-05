@@ -4,7 +4,7 @@
 > Всего 104 уникальные `IMP-*`: **79 закрыты, 21 открыта, 4 partial**
 > (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 178 `F-*` и всех 51 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 179 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -926,7 +926,7 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   disabled, unavailable и zero-choice option contexts, а также ambiguous
   multi-price customer text блокируют оформление; checkout показывает labels,
   unit prices и line totals. Commits `1f5dcb70`, `7fdbe613`, `1f8cead2`,
-  production `13bedf8f`; focused authoritative-price gate 12 tests.
+  production `434428ad`; focused authoritative-price gate 12 tests.
 
 ---
 
@@ -1026,11 +1026,11 @@ continuation остаётся отдельным свежим срезом.
   duplicate/out-of-order event idempotency, absolute schedule across restart,
   paid invoice/restocked item suppression and audited policy continuation.
   Закрыто `4dfff3a2` + `35d3bd93`, migration `0143`, focused gate 180 tests,
-  production `13bedf8f`; combined event/FSM/checkout/restock gate 254 tests.
+  production `434428ad`; combined event/FSM/checkout/restock gate 255 tests.
 
-### Finding coverage matrix — 178 уникальных F-идентификаторов
+### Finding coverage matrix — 179 уникальных F-идентификаторов
 
-Итог матрицы: **133 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
+Итог матрицы: **134 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1062,6 +1062,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-CAT-007 | FIXED/VERIFIED | IMP-082; `e44d1440`/`0ad694bc` |
 | [x] | F-CAT-008 | FIXED/VERIFIED | IMP-104 |
 | [x] | F-CAT-009 | FIXED/VERIFIED | IMP-104 |
+| [x] | F-CAT-010 | FIXED/VERIFIED | IMP-104 |
 | [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
 | [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
 | [ ] | F-CORE-003 | OPEN | IMP-098 |
@@ -1229,7 +1230,7 @@ continuation остаётся отдельным свежим срезом.
 | [ ] | IMPR-CAT-004 | PARTIAL (`0ad694bc`: typed graph/ranker + prompt parity; availability wiring remains) | IMP-082/084 |
 | [x] | IMPR-CAT-005 | DONE | IMP-067; catalog completeness `3191e08c` |
 | [ ] | IMPR-CAT-006 | OPEN | IMP-088 |
-| [x] | IMPR-CAT-007 | DONE | IMP-104; production `13bedf8f` |
+| [x] | IMPR-CAT-007 | DONE | IMP-104; production `434428ad` |
 | [ ] | IMPR-FEAT-001 | PARTIAL (`0ad694bc`: explainable candidate foundation + prompt parity; runtime/review remains) | IMP-082/083/088 |
 | [ ] | IMPR-FEAT-002 | OPEN | IMP-084/086 |
 | [ ] | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
@@ -1247,7 +1248,7 @@ continuation остаётся отдельным свежим срезом.
 | [ ] | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | [ ] | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
 | [x] | IMPR-FUP-014 | DONE | IMP-102; production `414e639e` |
-| [x] | IMPR-FUP-015 | DONE | IMP-103; production `13bedf8f` |
+| [x] | IMPR-FUP-015 | DONE | IMP-103; production `434428ad` |
 | [ ] | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | [x] | IMPR-MEM-001 | DONE | IMP-030 |
 | [ ] | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

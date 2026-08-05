@@ -10,12 +10,12 @@ observability. It reconciles the current implementation backlog into
 
 ## Local evidence
 
-- Current runtime baseline: `13bedf8f` (event continuation, configuration pricing and sender observability on top of the prior delivery/prompt/payment foundations).
+- Current runtime baseline: `434428ad` (event continuation, configuration pricing, sender observability and durable escalation on top of the prior delivery/prompt/payment foundations).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
-  individual checkbox matrices for all **178 `F-*` findings** and all **51
-  `IMPR-*` improvements**. Finding status is **133 checked / 39 open / 6
+  individual checkbox matrices for all **179 `F-*` findings** and all **51
+  `IMPR-*` improvements**. Finding status is **134 checked / 39 open / 6
   partial**; improvement status is **17 checked / 34 unfinished**.
 - Implementation status is **104 `IMP-*`: 79 checked, 21 open, 4 partial**.
 - `02` remains the 120-item audit coverage authority; `03` and `05` remain the
@@ -37,7 +37,7 @@ observability. It reconciles the current implementation backlog into
 - Production MariaDB: migration `0133` applied; canonical backfill created 5
   events, deterministic silence scan created 96 drop-offs; raw-event/API
   reconciliation reported 197 events and 17 event types.
-- Identifier reconciliation: 178/178 findings and 51/51 improvements match
+- Identifier reconciliation: 179/179 findings and 51/51 improvements match
   their current canonical registers and checkbox matrices; F-FUP-013 is present
   in both.
 - Production MySQL migration state through `0133`: applied.
@@ -130,7 +130,7 @@ tests. Until that run, `IMP-094` and `F-TEST-002` remain unchecked.
 `IMP-103` is closed and deployed through `35d3bd93`: event continuation stores
 immutable event facts, derives an absolute policy timeline, rechecks invoice and
 restock truth immediately before send, and keeps continuation auditable. The
-focused event/FSM/checkout/restock gate is 254 tests.
+focused event/FSM/checkout/restock gate is 255 tests.
 
 `IMP-104` is closed and deployed through `1f8cead2`: selected configuration
 prices are authoritative across speech, readiness, proposal, deal and hosted
@@ -138,15 +138,15 @@ checkout. Ambiguous exact claims and invalid option contexts fail closed; the
 checkout renders selected option facts and line totals. The authoritative-price
 gate is 12 tests.
 
-The runtime code baseline is `13bedf8f`; the final deployed tree SHA after the
-audit-doc publication is `9d3905bf`. Migration `0143` is applied and production
+The runtime code baseline is `434428ad`; production code SHA is
+`434428ad1ff0c6892b0f2c56456e01555d082f48`. Migration `0143` is applied and production
 has one healthy `instagram_login` daemon with empty pending reply/notification
 queues.
 
 ## Acceptance decision
 
 The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007, IMP-102/F-FUP-013,
-IMP-103/IMPR-FUP-015 and IMP-104/F-CAT-008/009 foundation slices are verified
+IMP-103/IMPR-FUP-015 and IMP-104/F-CAT-008/009/010 foundation slices are verified
 and deployed. Product/data blockers, partial W9 reselection, remaining
 W5/W8/W9/W10/W11 work and `IMP-098` remain explicitly open. The next
 implementation must start from this file set;

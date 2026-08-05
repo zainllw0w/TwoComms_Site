@@ -6,20 +6,20 @@ Production host: `195.191.25.63`, path
 
 ## Current production checkpoint (2026-08-05)
 
-Runtime code baseline is `13bedf8f`; after the audit-doc deploy, local `main`,
-`origin/main` and production tracked tree are synchronized at
-`9d3905bfb49dc67a42105f417a631214442b4847`. The server pull was fast-forward
+Runtime code baseline is `434428ad`; local `main`, `origin/main` and
+production code are synchronized at `434428ad1ff0c6892b0f2c56456e01555d082f48`.
+The server pull was fast-forward
 only; tracked files are clean (existing untracked operational logs/scripts were
 preserved). Migration `management.0143_igfollowuptask_event_continuation` is
 applied. `manage.py check`, migration drift, static/compression and the focused
-254-test event/FSM/checkout/restock gate plus authoritative-price/live-visual
+255-test event/FSM/checkout/restock gate plus authoritative-price/live-visual
 gates passed. `run_instagram_bot --ensure` reports one
 daemon, `running=True`, `alive=True`, provider `instagram_login`, fresh
 heartbeat, empty `last_error` and zero pending reply/notification queues.
 
 The deployed slices are `IMP-103` (commits `4dfff3a2`, `35d3bd93`), `IMP-104`
 (`1f5dcb70`, `7fdbe613`, `1f8cead2`) and sender-action observability
-(`13bedf8f`).
+(`13bedf8f` plus boundary fix `434428ad`).
 
 ## IMP-102 durable follow-up delivery FSM deploy (2026-08-05)
 

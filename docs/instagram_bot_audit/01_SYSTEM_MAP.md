@@ -1,6 +1,6 @@
 # 01_SYSTEM_MAP — карта Instagram-бота и management-контура
 
-> Состояние карты: сверено с `main`/production `13bedf8f` на 2026-08-05.
+> Состояние карты: сверено с `main`/production `434428ad` на 2026-08-05.
 > Секреты и PII намеренно не записываются. Источник требований —
 > `instagram_bot_audit_prompt_package/04_SYSTEM_ARCHITECTURE_AND_CODE.md`.
 
@@ -12,7 +12,7 @@
 | Inbox refresh/polling | `services.ig_inbox_refresh`, daemon maintenance | cursor/run leases | новые inbound/echo rows |
 | Ответ клиенту | `run_instagram_bot` → `process_pending` → `instagram_bot` | message status/send state, client lease | Gemini/deterministic reply, Meta receipt |
 | Контекст AI | `gemini_generate` → `assemble_system_instruction` | prompt revision, client memory, funnel arbiter | customer-facing text + control tags |
-| Добивка | `bot_followups.process_due_followups` | `IgFollowUpTask`, immutable event facts, absolute policy timeline, delivery state, lease, provider receipt | event-driven continuation and provider-evidenced delivery FSM current on `13bedf8f` |
+| Добивка | `bot_followups.process_due_followups` | `IgFollowUpTask`, immutable event facts, absolute policy timeline, delivery state, lease, provider receipt | event-driven continuation and provider-evidenced delivery FSM current on `434428ad` |
 | Checkout/payment | hosted IG checkout, `bot_orders`, Monobank webhook/backstop | `IgDeal`, `IgDealItem`, `IgPaymentProjection` | one purchase/order truth |
 | Fulfillment | order assignment, `ig_order_fulfillment`, shipment journal | assignment/shipment lifecycle | TTN and post-sale event |
 | CRM/UI | `bot_views`, `bot.html`, admin APIs | `IgClient` projections and UI filters | operator action/ownership |
@@ -88,7 +88,7 @@ flowchart LR
 - F-CAT-007 is fixed/verified by `e44d1440`/`0ad694bc`: product 110's prompt
   contract now binds thermo `variant_id=81`, 1450 грн and oversize sizes XS/M,
   without the false product-wide size row.
-- Follow-up delivery is provider-evidenced and reviewable on `13bedf8f`:
+- Follow-up delivery is provider-evidenced and reviewable on `434428ad`:
   receipt-committed recovery cannot resend or downgrade finalized `SENT`.
   Policy continuation is materialized from exact immutable events by `IMP-103`
   and migration `0143`.
