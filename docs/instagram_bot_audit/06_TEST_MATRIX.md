@@ -16,7 +16,7 @@
 | T09 | Неуспешная оплата | GREEN | payment truth tests |
 | T10 | Manager takeover | GREEN | ownership/takeover tests |
 | T11 | Bot pause | GREEN | pause boundary tests |
-| T12 | Follow-up payment link | PARTIAL | policy/event/claim tests green; provider-evidenced delivery FSM and event materialization remain IMP-102/103 |
+| T12 | Follow-up payment link | PARTIAL | provider-evidenced delivery FSM: 23 focused / 160 expanded and production `414e639e`; exact event materialization remains IMP-103 |
 | T13 | Ответ до timer | GREEN | follow-up suppression tests |
 | T14 | Явный отказ | GREEN | objection/follow-up tests |
 | T15 | «Подумаю» | GREEN | policy tests |

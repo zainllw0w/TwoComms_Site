@@ -4,6 +4,21 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## IMP-102 durable follow-up delivery FSM deploy (2026-08-05)
+
+Коммиты `0d4d38c0`, `0e9e9ba5`, `4cb86743` и `414e639e` опубликованы в
+`origin/main` и fast-forwarded на production. Применена migration
+`management.0141_igfollowuptask_delivery_fsm`. Локально прошли 23/23 focused и
+160/160 expanded regression tests, Django check, migration drift, compileall и
+`git diff --check`.
+
+Production HEAD:
+`414e639eced30a01ff2c5553b08605099465478c`. `status_snapshot()` подтвердил
+`is_enabled=True`, `state='running'`, `running=True`, `daemon_online=True`,
+`alive=True`, `provider_transport='instagram_login'`, `last_error=''`; daemon
+ровно один. Read-only delivery audit: `processing=[]`, `ambiguous=[]`,
+`sent_without_message=[]`, `delivery_reviews=[]`.
+
 ## F-CAT-007 variant-specific prompt parity deploy (2026-08-05)
 
 `e44d1440` bound catalog sizes to exact `variant + fit`; `0ad694bc` separated an
@@ -93,6 +108,7 @@ overwritten outside the fast-forward.
 | 2026-08-05 | `93ae8684` | F-PAY-015; 134 local tests, MySQL reconcile x3, static/compress, payment backstop, restart | `running`; `alive=True`; `instagram_login`; heartbeat 1.0s; queues `0/0/0` |
 | 2026-08-05 | `29684475` | IMP-082/083 partial; 31/230/2672/202 local gates, MySQL graph 91=800/950 and 110=1450, hard incompatible size rejected | one daemon; `running`; `alive=True`; heartbeat 0.5s; queues `0/0/0` |
 | 2026-08-05 | `e44d1440` / `0ad694bc` | F-CAT-007 fixed; 188 focused, 2675 full suite, exact variant+fit prompt price/size contract | one daemon; `running`; `alive=True`; heartbeat 0.1s; reply/notification queues `0/0` |
+| 2026-08-05 | `0d4d38c0` / `0e9e9ba5` / `4cb86743` / `414e639e` | IMP-102/F-FUP-013; migration `0141`, 23 focused / 160 expanded, check/drift/compileall/diff | one daemon; `running`; `alive=True`; `instagram_login`; delivery queues empty |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,

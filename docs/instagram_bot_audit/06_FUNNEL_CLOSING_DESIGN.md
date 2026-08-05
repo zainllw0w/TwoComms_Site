@@ -11,8 +11,9 @@
 > canonical episode. Product/price reselection остаётся частичным W9: typed
 > graph/ranker foundation и variant-specific prompt price/size parity уже
 > production `0ad694bc`; F-CAT-007 закрыта. Runtime commerce session,
-> availability/reservation, stale candidate binding и provider-evidenced
-> follow-up delivery/event continuation (`IMP-102/103`) ещё не закрыты.
+> availability/reservation и stale candidate binding ещё не закрыты.
+> Provider-evidenced follow-up delivery закрыт `IMP-102` на `414e639e`;
+> materialized event continuation остаётся `IMP-103`.
 
 ---
 

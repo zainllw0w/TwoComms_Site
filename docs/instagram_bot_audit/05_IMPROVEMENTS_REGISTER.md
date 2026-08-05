@@ -502,7 +502,7 @@ fulfillment-каскад и не меняет коммерческие гран�
 
 **Затраты:** M. **Зависимость:** после стабилизации W4C на проде.
 
-### IMPR-FUP-014 (P0/P1): наблюдаемый и разрешаемый lifecycle доставки follow-up
+### IMPR-FUP-014 (P0/P1, DONE 2026-08-05): наблюдаемый и разрешаемый lifecycle доставки follow-up
 
 Claim и попытка отправки не доказывают доставку. После timeout/5xx неизвестный
 provider outcome нельзя автоматически повторять: это создаёт дубль, но и
@@ -510,7 +510,9 @@ provider outcome нельзя автоматически повторять: э�
 `PROCESSING/SENT/AMBIGUOUS/COMPLETED`, lease, сохранённый provider receipt,
 recovery протухшей lease и операторское разрешение ambiguous delivery.
 
-Направление: `IMP-102`; blind retry через неоднозначную границу запрещён.
+Закрыто `IMP-102` на production `414e639e`: явные delivery states, lease,
+receipt-first recovery и audited ambiguous review запрещают blind retry через
+неоднозначную границу. Regression: 23 focused и 160 expanded тестов.
 
 ### IMPR-FUP-015 (P1): event-driven продолжение policy без polling и stale-фактов
 
@@ -520,7 +522,7 @@ payload и абсолютный policy timeline; непосредственно 
 проверяется релевантный invoice/restock факт. Это исключает сообщение по уже
 оплаченному invoice или устаревшему отсутствию товара.
 
-Направление: `IMP-103`, после delivery boundary `IMP-102`.
+Направление: `IMP-103`; prerequisite delivery boundary `IMP-102` выполнен.
 
 ### IMPR-INV-001 (P1): склад как источник истины о наличии
 
@@ -594,8 +596,8 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-FEAT-014 | PARTIAL | hosted checkout `c696ee9e`; остаток IMP-087/088 |
 | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
-| IMPR-FUP-014 | OPEN | IMP-102 |
-| IMPR-FUP-015 | OPEN | IMP-103 после IMP-102 |
+| IMPR-FUP-014 | DONE | IMP-102; production `414e639e` |
+| IMPR-FUP-015 | OPEN | IMP-103; delivery boundary IMP-102 уже закрыт |
 | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | IMPR-MEM-001 | DONE | IMP-030 |
 | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

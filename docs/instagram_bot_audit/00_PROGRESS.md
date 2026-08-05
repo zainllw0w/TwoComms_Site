@@ -9,15 +9,15 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **W4B и P1 reliability/security/alert-срез W8 закрыты; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10/W11/W12** |
-| Дата старта / обновления | 2026-08-05 (после production recovery коммерческих эпизодов и сверки W9) |
+| Текущая фаза | **W4B, P1 reliability/security/alert-срез W8 и W12 delivery boundary закрыты; активный остаток: W5/W8/W9/W10/W11 и W12 `IMP-103`** |
+| Дата старта / обновления | 2026-08-05 (после production deploy durable follow-up delivery FSM) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `0ad694bc` подтверждён в `origin/main` и на production; поверх price-aware graph/candidate foundation добавлены точная variant+fit привязка размеров `e44d1440` и authoritative empty-size contract `0ad694bc` |
-| **Статус 103 IMP-задач** | **76 закрыты, 23 открыты, 4 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`)** |
+| База внедрения | `414e639e` подтверждён в `origin/main` и на production; durable follow-up delivery FSM опубликован поверх price-aware graph/candidate foundation и точного variant+fit price/size contract |
+| **Статус 103 IMP-задач** | **77 закрыты, 22 открыты, 4 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **175 уникальных `F-*` идентификаторов**; F-CAT-007 исправлена и verified на variant-specific production contract |
+| Реестр находок | **176 уникальных `F-*` идентификаторов**; F-FUP-013 исправлена и verified на durable delivery finalization boundary |
 | Улучшения / решения | **50 `IMPR-*` / 11 `DR-*`** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **103** в W0–W12, включая W4B/W4C/W4D и IMP-062…103 |
@@ -27,11 +27,11 @@
 | Файл | Состояние |
 |---|---|
 | `00_PROGRESS.md` | каноническая точка входа, общий статус и реестр восстановленных источников |
-| `03_FINDINGS_REGISTER.md` | 175 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
+| `03_FINDINGS_REGISTER.md` | 176 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
 | `04_DECISION_LOG.md` | 11 решений (DR-001…DR-011) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 50 улучшений + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус 103 IMP-задач; отдельные checkbox-matrix покрывают все 175 F-* и все 50 IMPR-* |
+| `07_IMPLEMENTATION_PLAN.md` | канонический статус 103 IMP-задач; отдельные checkbox-matrix покрывают все 176 F-* и все 50 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
 | `06_TEST_MATRIX.md` | оформлен; 46 acceptance-сценариев и текущие gates |
@@ -53,7 +53,7 @@
 | Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`. Открыты runtime commerce session, stale candidate binding, relaxed alternatives, полный topology и MariaDB test gate |
 | Открыто, W9 | `IMP-084`–`IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
-| Открыто, W12 | `IMP-102`–`IMP-103`: доказуемый follow-up delivery FSM и materialized event-driven policy continuation |
+| Открыто, W12 | `IMP-103`: materialized event-driven policy continuation; provider-evidenced delivery FSM закрыт `IMP-102` |
 
 Любой новый срез начинается от актуального `origin/main`. При завершении агент
 обязан обновить минимум этот раздел, соответствующую запись в
@@ -68,6 +68,29 @@
   перенести на актуальный `main`, перепроверить и задеплоить;
 - `[ ] PARTIAL` означает, что опубликована только часть требований, а явно
   перечисленный остаток всё ещё обязателен.
+
+## IMP-102: durable follow-up delivery FSM закрыт и задеплоен (2026-08-05)
+
+Коммиты `0d4d38c0`, `0e9e9ba5`, `4cb86743` и `414e639e` находятся в
+`origin/main` и production. `IgFollowUpTask` теперь имеет явные
+`PROCESSING/SENT/AMBIGUOUS/COMPLETED`, lease и provider receipt; timeout, 5xx,
+unknown outcome и success без provider ID не повторяются вслепую, а переходят
+в наблюдаемый `AMBIGUOUS`. Receipt сохраняется до fallible CRM/policy
+finalization, recovery завершает receipt-committed строку без повторной
+отправки, а конкурентный recovery не может откатить уже финальный `SENT`.
+
+- Manager UI показывает actionable ambiguous delivery и пишет audited решение
+  `delivered` / `not_delivered`; такие задачи не скрываются новыми follow-up и
+  не удаляются generic cancellation/global stop.
+- Fresh local gates: 23/23 focused delivery FSM и 160/160 expanded regression,
+  Django check, migration drift, compileall и `git diff --check`.
+- Production HEAD `414e639eced30a01ff2c5553b08605099465478c`, migration
+  `management.0141` applied. Ровно один daemon: `running=True`, `alive=True`,
+  `instagram_login`, `last_error=''`; `processing`, `ambiguous`,
+  `sent_without_message` и `delivery_reviews` пусты.
+- Закрыты `IMP-102`, `IMPR-FUP-014` и F-FUP-013. `IMP-103` /
+  `IMPR-FUP-015` остаются открытыми: immutable event payload/time, absolute
+  policy timeline и immediate invoice/restock fact recheck ещё не реализованы.
 
 ## F-PAY-015: daemon collision закрыта и задеплоена (2026-08-05)
 
@@ -281,7 +304,7 @@ manager alert идемпотентен по invoice ID.
 | `.claude/worktrees/ig-bot-w1` unique `tests_ig_stock_policy.py` | В WIP сохранились полезные требования: quantity-aware `VariantSizeRule`, явный `is_dropship_available=False`, manager/event при реальном дефиците, сохранение `missing_fields` | Восстановить требования тестами поверх актуального `main` в IMP-056/084/086; файл целиком не переносить, потому что его база откатывает IMP-080 и W6 |
 | `codex/ig-refresh-dedup` и stash manual inbox refresh | Durable refresh, poll cursors и link-restriction circuit уже опубликованы более полным коммитом `7fe26280` | Старую ветку/stash не переносить; она отстаёт от `main` и не содержит дополнительного закрытия |
 | `codex/instagram-assisted-checkout` | Добавлены design/plan product reselection, 339 строк поздних уточнений и статусы 13 задач; сохранены ссылки на пять исторических code-коммитов | IMP-081 перенесена независимо; IMP-082/083 переработаны и задеплоены через `7b5d5cc7`/`1c4d6d48`; `e9d982df`/`dc9889c3` остаются source для IMP-084/085, не cherry-pick wholesale |
-| `codex/ig-followup-policies` dirty worktree | Старый W4B-код плюс уникальные требования delivery FSM и materialized event continuation | Требования сохранены как открытые IMP-102/103 и IMPR-FUP-014/015; wholesale cherry-pick запрещён из-за старой базы и конфликтующей migration `0131` |
+| `codex/ig-followup-policies` dirty worktree | Старый W4B-код плюс уникальные требования delivery FSM и materialized event continuation | Delivery boundary заново реализован в main как IMP-102/IMPR-FUP-014 (`414e639e`); только IMP-103/IMPR-FUP-015 остаются открытыми. Wholesale cherry-pick запрещён из-за старой базы и конфликтующей migration `0131` |
 | `instagram_bot_audit_prompt_package/` | Исходный prompt, 120 audit-задач, gates и acceptance matrix сохранены рядом с репозиторием | Источник требований, не журнал выполнения |
 
 ## Родственные документы, которые нельзя потерять

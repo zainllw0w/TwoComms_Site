@@ -15,8 +15,9 @@
 - W10: `IMP-090`–`093`.
 - W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
   F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
-- W12: `IMP-102` — provider-evidenced follow-up delivery FSM; `IMP-103` —
-  materialized event-driven policy continuation with pre-send fact recheck.
+- W12: только `IMP-103` — materialized event-driven policy continuation with
+  immutable event facts, absolute timeline and pre-send invoice/restock recheck.
+  Provider-evidenced delivery FSM закрыт `IMP-102` на production `414e639e`.
 
 ## Product/data blockers
 
@@ -40,13 +41,19 @@
   has no acceptance evidence; it is not counted as done.
 - Dirty Meta/ingress worktree changes are based on an older runtime and are not
   evidence against current `instagram_login`; see source matrix.
-- Dirty `codex/ig-followup-policies` contains unique requirements now preserved
-  as `IMP-102/103` and `IMPR-FUP-014/015`, but its old-base code and conflicting
-  migration `0131` must not be cherry-picked wholesale.
+- Dirty `codex/ig-followup-policies` originally preserved requirements
+  `IMP-102/103` and `IMPR-FUP-014/015`. Delivery boundary реализован свежо и
+  задеплоен как `IMP-102`/`IMPR-FUP-014`; только `IMP-103`/`IMPR-FUP-015`
+  остаются source backlog. Old-base code и конфликтующую migration `0131`
+  нельзя cherry-pick wholesale.
 
 ## Known test baseline
 
-The full management suite is currently green on SQLite: 2675 tests, 3 skipped.
-`F-TEST-002` / `IMP-094` remain open because a separately provisioned disposable
-MariaDB test database is still unavailable; production is read-only evidence,
-not a test target.
+Fresh IMP-102 gates are green: 23/23 focused and 160/160 expanded. The latest
+full management run executed 2696 tests with 1 failure and 7 errors: four
+errors were caused by absent `FIELD_ENCRYPTION_KEY` and pass with a valid test
+key; the remaining objection failures reproduce the known SQLite append-only
+trigger/flush isolation problem. They are not in the IMP-102 delivery path.
+`F-TEST-002` / `IMP-094` remain open because a separately provisioned
+disposable MariaDB test database is still unavailable; production is read-only
+evidence, not a test target.

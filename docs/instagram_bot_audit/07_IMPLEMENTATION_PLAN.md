@@ -1,10 +1,10 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 103 уникальные `IMP-*`: **76 закрыты, 23 открыты, 4 partial**
+> Всего 103 уникальные `IMP-*`: **77 закрыты, 22 открыты, 4 partial**
 > (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 175 `F-*` и всех 50 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 176 `F-*` и всех 50 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -51,8 +51,8 @@
 | **W9** | Product reselection и коммерческая семантика | 8 | 0 | 5 | 3 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 0 | 2 | 0 |
-| **Итого** | | **103** | **76** | **23** | **4** |
+| **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 1 | 1 | 0 |
+| **Итого** | | **103** | **77** | **22** | **4** |
 
 ---
 
@@ -993,18 +993,23 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 ## W12 — доказуемая доставка follow-up и event-driven continuation
 
 Источник требований: dirty worktree `codex/ig-followup-policies`. Его код и
-migration `0131` основаны на старой схеме и не переносятся wholesale; ниже
-зафиксированы только уникальные требования для свежей реализации на текущем
-`main`.
+migration `0131` основаны на старой схеме и не переносятся wholesale. Delivery
+boundary уже заново реализован на актуальном `main`; materialized event
+continuation остаётся отдельным свежим срезом.
 
-- [ ] **IMP-102 (P0/P1) — durable follow-up delivery FSM.** Ввести явные
-  `PROCESSING`, `SENT`, `AMBIGUOUS`, `COMPLETED`, атомарную lease/claim boundary
+- [x] **IMP-102 (P0/P1) — durable follow-up delivery FSM.** Введены явные
+  `PROCESSING`, `SENT`, `AMBIGUOUS`, `COMPLETED`, атомарная lease/claim boundary
   и сохранение provider receipt. Blind retry после timeout/неоднозначного
   provider outcome запрещён. Recovery протухшей lease обязан отличать задачу,
   которая гарантированно не отправлялась, от ambiguous side effect; для
   `AMBIGUOUS` нужен наблюдаемый admin queue и ручное audited разрешение.
-  Acceptance: concurrent claim, worker restart, timeout/5xx/receipt, stale
-  lease recovery, manual resolution и MariaDB-safe transitions.
+  Acceptance закрыт коммитами `0d4d38c0`, `0e9e9ba5`, `4cb86743`,
+  `414e639e`: concurrent claim, worker restart, timeout/5xx/receipt, stale lease
+  recovery, receipt-first finalization без resend, lock-safe sender/recovery
+  race и audited manual resolution. 23/23 focused и 160/160 expanded тестов,
+  Django check, migration drift и compileall зелёные. Production HEAD
+  `414e639e`, migration `management.0141` applied; один daemon `running/alive`
+  на `instagram_login`, error и delivery-review очереди пусты.
 - [ ] **IMP-103 (P1) — materialized event follow-ups.** Создавать продолжение
   policy из точного business event с immutable `event_key`, payload и
   абсолютным policy timeline, а не из polling-угадывания текущего snapshot.
@@ -1013,9 +1018,9 @@ migration `0131` основаны на старой схеме и не пере�
   duplicate/out-of-order event idempotency, absolute schedule across restart,
   paid invoice/restocked item suppression and audited policy continuation.
 
-### Finding coverage matrix — 175 уникальных F-идентификаторов
+### Finding coverage matrix — 176 уникальных F-идентификаторов
 
-Итог матрицы: **130 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
+Итог матрицы: **131 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1099,6 +1104,7 @@ migration `0131` основаны на старой схеме и не пере�
 | [x] | F-FUP-010 | FIXED/VERIFIED | IMP-052 |
 | [x] | F-FUP-011 | FIXED/VERIFIED | IMP-050/052 |
 | [x] | F-FUP-012 | FIXED/VERIFIED | IMP-050/052 |
+| [x] | F-FUP-013 | FIXED/VERIFIED (`414e639e`) | IMP-102 |
 | [x] | F-OBJ-001 | FIXED/VERIFIED | IMP-057 |
 | [x] | F-OBJ-002 | FIXED/VERIFIED | IMP-057 |
 | [x] | F-OBJ-003 | FIXED/VERIFIED | IMP-057 |
@@ -1199,8 +1205,8 @@ migration `0131` основаны на старой схеме и не пере�
 
 ### Improvement coverage matrix — 50 уникальных IMPR-идентификаторов
 
-Итог матрицы: **14 `[x]` / 36 `[ ]`**. В незакрытый остаток входят
-21 `PARTIAL`, 14 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
+Итог матрицы: **15 `[x]` / 35 `[ ]`**. В незакрытый остаток входят
+21 `PARTIAL`, 13 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
 ставится, пока полезный остаток не реализован и не задеплоен.
 
 | Check | Improvement | Status | Canonical task / остаток |
@@ -1227,8 +1233,8 @@ migration `0131` основаны на старой схеме и не пере�
 | [ ] | IMPR-FEAT-014 | PARTIAL | hosted checkout `c696ee9e`; остаток IMP-087/088 |
 | [ ] | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | [ ] | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
-| [ ] | IMPR-FUP-014 | OPEN | IMP-102 |
-| [ ] | IMPR-FUP-015 | OPEN | IMP-103 после IMP-102 |
+| [x] | IMPR-FUP-014 | DONE | IMP-102; production `414e639e` |
+| [ ] | IMPR-FUP-015 | OPEN | IMP-103; prerequisite IMP-102 выполнен |
 | [ ] | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | [x] | IMPR-MEM-001 | DONE | IMP-030 |
 | [ ] | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

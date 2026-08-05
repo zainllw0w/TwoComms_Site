@@ -10,7 +10,8 @@
 | `codex/ig-bot-w1-data-safety`, W2/W3/W4/W4C/W4D | safety, ingress, buyer truth, model dialogue, echo/media | IN MAIN; отражено IMP-001…024/063…076 |
 | `.claude/worktrees/ig-bot-w1` | old W6 arbiter/FSM/journal + untracked stock-policy tests | Arbiter/FSM/journal IN MAIN via `34d1e165`; stock requirements recorded as F-CAT-004 and IMP-084/086; do not copy old base |
 | `codex/ig-bot-w4-completion` | alert implementation commit `31f8151f`; dirty paginator | alert commit is branch source already recorded; paginator is SUPERSEDED by W7 `bca7e4e2` and must not be cherry-picked |
-| `codex/ig-followup-policies` worktree | dirty old-base event/claim/objection code plus unique delivery-FSM and materialized-event requirements | Existing W4B functionality is IN MAIN via `c00c8c5a`/`d0098d0b`; unique backlog preserved as IMP-102/103 and IMPR-FUP-014/015. Do not cherry-pick wholesale: code is stale and migration `0131` conflicts with current history |
+| `codex/ig-followup-policies` worktree | dirty old-base event/claim/objection code plus unique delivery-FSM and materialized-event requirements | Existing W4B functionality is IN MAIN; delivery requirement was reimplemented fresh as IMP-102/IMPR-FUP-014. Only IMP-103/IMPR-FUP-015 remain source backlog; stale code/migration `0131` must not be cherry-picked wholesale |
+| `codex/ig-followup-delivery-fsm` | current-base delivery states, lease/receipt recovery, ambiguous review and finalization race guards | IN MAIN and production through `0d4d38c0`/`0e9e9ba5`/`4cb86743`/`414e639e`; migration `0141` applied, IMP-102 closed |
 | `codex/ig-bot-variant-pricing` | pricing/follow-up branch and dirty old-base diff | IMP-080 and W4B are IN MAIN; no additional unique deployed requirement found |
 | `codex/ig-bot-imp058-funnel-analytics` | durable funnel event/drop-off analytics, production timestamp regression fix, tests and migration `0133` | IN MAIN and deployed as `274c2c61`/`79882368`/`92d46c5a`; do not resurrect the pre-fix dirty diff |
 | `codex/ig-bot-imp058-funnel-analytics` (IMP-089 continuation) | bounded superseded-invoice lifecycle, migration `0134`, legacy materialization and polling recovery | IN MAIN and deployed as `280c07e8`; 104 focused tests and production check-only proof; no historical lifecycle rows existed to exercise live polling |
@@ -51,16 +52,18 @@ explicit IMP-083/087 residual; F-CAT-007 itself is fixed/verified.
 
 ## Follow-up worktree boundary (2026-08-05)
 
-The dirty `codex/ig-followup-policies` worktree is not redundant. It contains
-four unique requirements now preserved canonically: `IMP-102`, `IMP-103`,
-`IMPR-FUP-014` and `IMPR-FUP-015`. They require a provider-evidenced delivery
-FSM, lease/receipt/ambiguous resolution and materialized event continuation
-with exact payload/timeline and immediate invoice/restock recheck.
+The dirty `codex/ig-followup-policies` worktree was not redundant: it preserved
+four unique requirements. `IMP-102`/`IMPR-FUP-014` are now closed by a fresh
+current-base implementation through `414e639e`, migration `0141`, with
+provider-evidenced delivery, lease/receipt recovery and audited ambiguous
+resolution. Only `IMP-103`/`IMPR-FUP-015` remain open: materialized event
+continuation with exact payload/time, absolute timeline and immediate
+invoice/restock recheck.
 
-Its implementation must not be cherry-picked wholesale. The branch is based
-on an old runtime and carries migration `0131`, which conflicts with the current
-migration history. Implement the requirements freshly on current `main` and
-assign the next valid migration number after inspecting live/current state.
+The remaining implementation must not be cherry-picked wholesale. The branch
+is based on an old runtime and carries migration `0131`, which conflicts with
+current history. Implement IMP-103 freshly on current `main` after inspecting
+live/current migration state.
 
 ## Reconciliation result
 

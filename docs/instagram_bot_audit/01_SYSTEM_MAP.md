@@ -1,6 +1,6 @@
 # 01_SYSTEM_MAP — карта Instagram-бота и management-контура
 
-> Состояние карты: сверено с `main`/production `0ad694bc` на 2026-08-05.
+> Состояние карты: сверено с `main`/production `414e639e` на 2026-08-05.
 > Секреты и PII намеренно не записываются. Источник требований —
 > `instagram_bot_audit_prompt_package/04_SYSTEM_ARCHITECTURE_AND_CODE.md`.
 
@@ -12,7 +12,7 @@
 | Inbox refresh/polling | `services.ig_inbox_refresh`, daemon maintenance | cursor/run leases | новые inbound/echo rows |
 | Ответ клиенту | `run_instagram_bot` → `process_pending` → `instagram_bot` | message status/send state, client lease | Gemini/deterministic reply, Meta receipt |
 | Контекст AI | `gemini_generate` → `assemble_system_instruction` | prompt revision, client memory, funnel arbiter | customer-facing text + control tags |
-| Добивка | `bot_followups.process_due_followups` | `IgFollowUpTask`, claim token, event key | scheduled reply/manager task; delivery FSM/event continuation remain IMP-102/103 |
+| Добивка | `bot_followups.process_due_followups` | `IgFollowUpTask`, delivery state, lease, provider receipt | provider-evidenced delivery FSM current; event continuation remains IMP-103 |
 | Checkout/payment | hosted IG checkout, `bot_orders`, Monobank webhook/backstop | `IgDeal`, `IgDealItem`, `IgPaymentProjection` | one purchase/order truth |
 | Fulfillment | order assignment, `ig_order_fulfillment`, shipment journal | assignment/shipment lifecycle | TTN and post-sale event |
 | CRM/UI | `bot_views`, `bot.html`, admin APIs | `IgClient` projections and UI filters | operator action/ownership |
@@ -88,6 +88,8 @@ flowchart LR
 - F-CAT-007 is fixed/verified by `e44d1440`/`0ad694bc`: product 110's prompt
   contract now binds thermo `variant_id=81`, 1450 грн and oversize sizes XS/M,
   without the false product-wide size row.
-- Follow-up claim/send state is not yet a provider-evidenced delivery FSM, and
-  policy continuation is not materialized from exact events (`IMP-102/103`).
+- Follow-up delivery is provider-evidenced and reviewable on `414e639e`:
+  receipt-committed recovery cannot resend or downgrade finalized `SENT`.
+  Policy continuation is still not materialized from exact immutable events
+  (`IMP-103`).
 - Imported role provenance is still `F-DATA-015` / `IMP-096`.

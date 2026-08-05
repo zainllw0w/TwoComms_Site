@@ -9,7 +9,7 @@
 | `IgCommercialEpisode` | repeat-order episode | episode lifecycle | статистика должна считать episode, не client snapshot |
 | `IgDeal` / `IgDealItem` | proposal and selected items | deal/payment contract | selected variant price is immutable per item |
 | `IgPaymentProjection` | provider payment truth | verified webhook/backstop | refund/reversal is terminal negative truth |
-| `IgFollowUpTask` | scheduled touch/manager task | event key + claim token | current claim layer; provider-evidenced delivery FSM is IMP-102 |
+| `IgFollowUpTask` | scheduled touch/manager task | delivery state + lease + provider receipt | provider-evidenced FSM current on `414e639e`; event materialization is IMP-103 |
 | `IgObjection` / `IgObjectionAttempt` | objection lifecycle | verified attempt evidence | `[OBJHANDLE]` fingerprint is validated |
 | `IgLifecycleEvent` | event-driven post-payment state | lifecycle event row | event consumers must be idempotent |
 | `IgOrderAssignment` | IG ↔ existing order link | append-only assignment audit | manager-owned/manual contract |
@@ -27,7 +27,7 @@
 | reply | `reply_generated`, `reply_sent`, `reply_unknown`, `reply_blocked` | durable/current |
 | funnel | stage transition, product switch, checkout/readiness | journal/FSM current; analytics `IMP-058` |
 | payment | `checkout_started`, `payment_confirmed`, `payment_reversed`, `invoice_expired` | payment truth and event-time analytics current |
-| follow-up | policy step, claim, provider receipt, ambiguous delivery, manager review, cancelled | claim layer current; delivery FSM/event materialization IMP-102/103 |
+| follow-up | policy step, claim, provider receipt, ambiguous delivery, manager review, cancelled | delivery FSM current; exact event materialization remains IMP-103 |
 | fulfillment | payment → delivery request, TTN, exchange shipment, delivered | current in W4/W4B/W6 slices |
 | objection | opened, handled, reopened, resolved/abandoned | `IMP-057` current |
 | drop-off | silence, explicit refusal, opt-out, unreachable, spam, superseded | model/statistics `IMP-058` |
@@ -62,9 +62,10 @@ variant-specific. Product 110 is now `variant_id=81`, thermo green, 1450 грн,
 oversize XS/M. The graph is still not the durable runtime commerce-session
 source; stale binding, relaxed alternatives and full topology remain.
 
-Follow-up scheduling currently has event keys and claim tokens but not the
-complete delivery truth required after an ambiguous provider boundary.
-`IMP-102` adds `PROCESSING/SENT/AMBIGUOUS/COMPLETED`, lease recovery, provider
-receipt and manual resolution without blind retry. `IMP-103` materializes exact
-`event_key`/payload and an absolute policy timeline, then rechecks invoice or
-restock truth immediately before send so stale scheduled facts cannot escape.
+Follow-up delivery truth is current on `414e639e`: explicit
+`PROCESSING/SENT/AMBIGUOUS/COMPLETED`, lock-safe lease recovery, receipt-first
+finalization and audited manager resolution prohibit blind retry after an
+ambiguous provider boundary. `IMP-103` remains open: it must materialize exact
+`event_key`/payload/event time and an absolute policy timeline, then recheck
+invoice or restock truth immediately before send so stale scheduled facts
+cannot escape.

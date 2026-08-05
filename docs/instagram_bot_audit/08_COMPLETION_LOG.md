@@ -20,6 +20,7 @@ proof. Branch-only work is listed in `12_SOURCE_RECONCILIATION.md`, not here.
 | IMP-077 / F-OPS-009 | `31f8151f`, `221cf37d` | Flow throttle/dedupe/admin links plus terminal summary, lifecycle-key separation, Ukrainian lifecycle copy and a single actionable failed-paylink alert |
 | F-PAY-015 / daemon reconcile | `280d8f03`, `93ae8684` | Superseded review audit links are non-owning; repeated backfill preserves separate terminal episodes; MySQL reconcile and daemon recovery verified |
 | F-CAT-007 / prompt parity | `e44d1440`, `0ad694bc` | Prompt sizes bind to exact variant+fit; authoritative empty size contract no longer falls back to product-wide sizes; product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
+| IMP-102 / F-FUP-013 / IMPR-FUP-014 | `0d4d38c0`, `0e9e9ba5`, `4cb86743`, `414e639e` | Durable follow-up delivery FSM, receipt-first recovery without resend, guarded finalization race and audited ambiguous manager resolution |
 
 The current canonical status is the checkbox list in `07_IMPLEMENTATION_PLAN.md`.
 `IMP-081` is intentionally absent from the completed table: its deployed

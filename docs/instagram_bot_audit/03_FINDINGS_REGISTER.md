@@ -23,6 +23,7 @@
 | F-CAT-006 | FIXED / VERIFIED | `3678ddf4`: effective semantic revision cannot be revoked without authoritative actor/reason; revocation is audited and fail-closed |
 | F-CAT-007 | FIXED / VERIFIED | `e44d1440` binds prompt sizes to exact variant+fit; `0ad694bc` distinguishes an authoritative empty size contract from a missing variant-specific source; production product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
 | F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
+| F-FUP-013 | FIXED / VERIFIED | `414e639e`: exception after a concurrent sender/recovery finalization can no longer downgrade finalized `SENT` to `AMBIGUOUS` or create a false delivery review |
 
 Исторические описания ниже сохраняют исходное evidence; текущим источником
 статуса является эта сводка и checkbox в `07_IMPLEMENTATION_PLAN.md`.
@@ -48,6 +49,7 @@
 | F-DATA-004 | `BotAdCampaign` — 0 строк: атрибуция рекламы не наполняется | P2 | OPEN | high | прод-SQL |
 | F-SEC-001 | Хардкод `page_id` / `ig_user_id` / `allowed_senders` в default'ах модели | P2 | CONFIRMED | high | `models.py:3609-3627` |
 | F-DEBT-004 | ~60 мест `except Exception: pass` в ядре бота, часть скрывает бизнес-сбои | P1 | CONFIRMED | high | `instagram_bot.py` (список ниже) |
+| F-FUP-013 | Stale finalization exception мог откатить уже финальный `SENT` в `AMBIGUOUS` | P1 | FIXED / VERIFIED | high | `bot_followups.py:_mark_followup_finalization_failure`, `414e639e` |
 
 ---
 
@@ -1720,6 +1722,7 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
 | F-FUP-008 | 10 ситуаций отвала не имеют follow-up вообще | P1 | CONFIRMED | high |
 | F-FUP-009 | Нет двухфазного claim → дубль отправки при падении процесса | P1 | CONFIRMED | high |
 | F-FUP-010 | Нет частотного лимита и дедупа текста follow-up | P1 | CONFIRMED | high |
+| F-FUP-013 | Stale finalization-handler мог понизить уже финальный `SENT` до `AMBIGUOUS` | P1 | FIXED / VERIFIED | high |
 | **F-OBJ-001** | `THINKING` («подумаю») не создаёт сигнала — не логируется вообще | **P1** | FIXED (`IMP-057`) | high |
 | F-OBJ-002 | `PRICE_RE`/`SIZE_RE` ловят вопрос как возражение → метрики шум | P1 | FIXED (`IMP-057`) | high |
 | F-OBJ-003 | `Objection.TRUST/DELIVERY/OTHER` — мёртвые choices | P2 | FIXED (`IMP-057`) | high |
@@ -3885,9 +3888,10 @@ counts `0/0`.
 - **Claim/receipt contract:** `claim_token` + `claim_until` are written under
   row lock after the existing client lease and checked immediately before the
   provider call. `ProviderDeliveryReceipt.provider_message_id` is persisted on
-  both `IgFollowUpTask` and the local `InstagramBotMessage`; a successful send
-  without a receipt is skipped as `delivery_receipt_missing`, and ambiguous
-  provider outcomes remain non-retryable.
+  both `IgFollowUpTask` and the local `InstagramBotMessage`. IMP-102 supersedes
+  the old missing-receipt skip: success without provider ID, timeout, 5xx and
+  unknown outcomes now enter durable `AMBIGUOUS` with manager review and never
+  receive a blind retry.
 - **Verification:** 72 focused price/follow-up/event tests, Django system check,
   and migration drift check pass. The full 2,464-test management suite still
   reproduces the pre-existing F-TEST-002 failures/errors; no failure is in the
@@ -4111,3 +4115,30 @@ F-OPS-005, F-STATE-009, F-UX-015 и F-OPS-007 → IMP-099.
   client `59` имеет три раздельных terminal episodes и пустой current pointer.
   После restart daemon `running/alive`, `instagram_login`, heartbeat 1.0 с,
   `last_error=''`, рабочие очереди нулевые.
+
+### F-FUP-013 (P1, FIXED/VERIFIED): stale finalization exception откатывал финальную доставку
+
+- **Проблема:** после успешного provider send и локальной финализации другой
+  worker мог увидеть устаревшее исключение в sender/recovery catch path и снова
+  перевести уже финальный `SENT` в `AMBIGUOUS`. Это создавало ложный delivery
+  review для сообщения, которое уже имело локальный ledger и provider receipt.
+- **Причина:** exception handlers меняли объект без повторной блокировки и не
+  проверяли, что текущий worker всё ещё владеет `PROCESSING` claim либо что
+  `SENT` receipt действительно ещё не финализирован локальным message ID.
+- **Исправление:** `414e639e` добавил lock-safe
+  `_mark_followup_finalization_failure()` и повторную проверку recovery под
+  `select_for_update()`. Уже финализированный `SENT` теперь сохраняется; только
+  принадлежащий worker `PROCESSING` или `SENT` с provider receipt без локального
+  message ID может стать `AMBIGUOUS`.
+- **Regression:**
+  `test_sender_exception_after_concurrent_finalization_does_not_reopen_delivery`
+  и
+  `test_recovery_exception_after_concurrent_finalization_does_not_reopen_delivery`.
+  Полный IMP-102 gate: 23/23 focused и 160/160 expanded, Django check,
+  migration drift, compileall и diff check.
+- **Production evidence:** HEAD `414e639e`, migration `management.0141`
+  applied; один daemon `running/alive` на `instagram_login`, `last_error=''`,
+  очереди `processing`, `ambiguous`, `sent_without_message` и
+  `delivery_reviews` пусты.
+- **Связь:** закрыта `IMP-102`; это отдельный остаточный race поверх более
+  ранней F-FUP-009, которая ввела claim/receipt foundation.

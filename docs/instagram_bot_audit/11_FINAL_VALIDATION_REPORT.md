@@ -3,21 +3,22 @@
 ## Scope
 
 This checkpoint validates the durable funnel analytics, bounded
-superseded-invoice recovery and variant-specific prompt price/size parity
-slices. It also reconciles the follow-up worktree backlog into
-`07_IMPLEMENTATION_PLAN.md` as the self-contained handoff. It does not claim
-that the remaining implementation backlog is complete.
+superseded-invoice recovery, variant-specific prompt price/size parity and
+provider-evidenced follow-up delivery FSM slices. It also reconciles the
+remaining materialized-event backlog into `07_IMPLEMENTATION_PLAN.md` as the
+self-contained handoff. It does not claim that the remaining implementation
+backlog is complete.
 
 ## Local evidence
 
-- Current runtime baseline: `0ad694bc` (variant-specific prompt price/size parity on top of typed graph/ranker and commercial episode recovery).
+- Current runtime baseline: `414e639e` (durable follow-up delivery FSM on top of variant-specific prompt price/size parity and commercial episode recovery).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
-  individual checkbox matrices for all **175 `F-*` findings** and all **50
-  `IMPR-*` improvements**. Finding status is **130 checked / 39 open / 6
-  partial**; improvement status is **14 checked / 36 unfinished**.
-- Implementation status is **103 `IMP-*`: 76 checked, 23 open, 4 partial**.
+  individual checkbox matrices for all **176 `F-*` findings** and all **50
+  `IMPR-*` improvements**. Finding status is **131 checked / 39 open / 6
+  partial**; improvement status is **15 checked / 35 unfinished**.
+- Implementation status is **103 `IMP-*`: 77 checked, 22 open, 4 partial**.
 - `02` remains the 120-item audit coverage authority; `03` and `05` remain the
   detailed finding/improvement evidence registers.
 
@@ -30,12 +31,16 @@ that the remaining implementation backlog is complete.
 - `python manage.py makemigrations --check --dry-run`: no changes detected.
 - `python -m compileall -q` for changed IG service/tests: exit 0.
 - `git diff --check`: exit 0 before code commit.
+- IMP-102 gates: 23/23 focused and 160/160 expanded. The full management run
+  executed 2696 tests with 1 failure and 7 errors: four were missing
+  `FIELD_ENCRYPTION_KEY`; the remaining objection cases reproduce the known
+  SQLite append-only trigger/flush isolation issue outside the delivery path.
 - Production MariaDB: migration `0133` applied; canonical backfill created 5
   events, deterministic silence scan created 96 drop-offs; raw-event/API
   reconciliation reported 197 events and 17 event types.
-- Identifier reconciliation: 175/175 findings and 50/50 improvements match
-  their canonical registers; no missing/extra IDs across refs, worktrees or
-  stashes.
+- Identifier reconciliation: 176/176 findings and 50/50 improvements match
+  their current canonical registers and checkbox matrices; F-FUP-013 is present
+  in both.
 - Production MySQL migration state through `0133`: applied.
 - Production MySQL migration `0134_ig_deal_invoice_lifecycle`: applied; bounded
   superseded-invoice check-only returned zero candidates and the lifecycle table
@@ -44,8 +49,7 @@ that the remaining implementation backlog is complete.
 ## Production evidence
 
 Historical IMP-058 deployment evidence: commits `274c2c61`, `79882368`,
-`92d46c5a` were deployed after push; the server HEAD at that historical
-checkpoint was
+`92d46c5a` were deployed after push; server HEAD at that checkpoint was
 `92d46c5ac68bf7b936c7ee6aaa4e5d82695b550f`. Its production
 `status_snapshot()` reported `is_enabled=True`, `state='running'`, `alive=True`,
 `running=True`, transport `instagram_login`, database and daemon heartbeat ages
@@ -93,6 +97,21 @@ is FIXED/VERIFIED. IMP-082/083 remain PARTIAL because graph/ranker are not yet
 the durable runtime commerce-session source and lack stale binding, relaxed
 alternatives and full print/blank/media topology.
 
+## IMP-102 / F-FUP-013 checkpoint (2026-08-05, deployed)
+
+`0d4d38c0`, `0e9e9ba5`, `4cb86743` and `414e639e` implement explicit
+`PROCESSING/SENT/AMBIGUOUS/COMPLETED`, receipt-first crash recovery without
+resend, audited manager resolution and lock-safe preservation of a concurrently
+finalized `SENT`. The delivery boundary passed 23/23 focused and 160/160
+expanded tests plus Django check, migration drift, compileall and diff check.
+
+Production HEAD is `414e639eced30a01ff2c5553b08605099465478c` with
+`management.0141` applied. Exactly one daemon is `running/alive` on
+`instagram_login`, `last_error=''`; processing, ambiguous,
+sent-without-message and delivery-review queues are empty. IMP-102,
+IMPR-FUP-014 and F-FUP-013 are closed. Exact event payload/time, absolute
+policy timeline and pre-send invoice/restock recheck remain IMP-103.
+
 ## IMP-094 checkpoint (2026-08-04, deployed; MariaDB gate still open)
 
 The reliability slice passes the full `management` suite twice:
@@ -109,12 +128,12 @@ tests. Until that run, `IMP-094` and `F-TEST-002` remain unchecked.
 
 ## Acceptance decision
 
-The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007 and IMP-082/083 foundation
-slices are verified and deployed. Product/data blockers, partial W9 reselection,
-remaining W8/W9/W10 work, `IMP-098` and W12 `IMP-102/103` remain explicitly
-open. The next implementation must start from this file set; no status may be
-inferred from an old branch or historical progress paragraph without updating
-the checkbox and evidence matrix.
+The IMP-058, IMP-089, IMP-077, F-PAY-015, F-CAT-007, IMP-082/083 foundation
+and IMP-102/F-FUP-013 slices are verified and deployed. Product/data blockers,
+partial W9 reselection, remaining W8/W9/W10 work, `IMP-098` and W12 `IMP-103`
+remain explicitly open. The next implementation must start from this file set;
+no status may be inferred from an old branch or historical progress paragraph
+without updating the checkbox and evidence matrix.
 
 ## IMP-077 completion (2026-08-04)
 

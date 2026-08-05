@@ -28,6 +28,8 @@
 реестр: F-CAT-005, F-CAT-006, F-CAT-007 и F-PAY-015. Все четыре теперь
 `FIXED / VERIFIED`; для F-CAT-007 production `0ad694bc` доказывает точный
 variant-specific price/size prompt contract. Follow-up source reconciliation
-добавила открытые improvement/implementation requirements `IMPR-FUP-014/015`
-и `IMP-102/103`, но не новые audit items. Число исходных audit items остаётся
-120.
+добавила requirements `IMPR-FUP-014/015` и `IMP-102/103`; delivery pair
+`IMP-102`/`IMPR-FUP-014` закрыта production `414e639e`, event continuation
+остаётся открытым.
+Выявленная и исправленная race F-FUP-013 добавлена в findings register, но не
+меняет число исходных audit items: оно остаётся 120.
