@@ -208,13 +208,16 @@
 .bot-clients-page-label{min-width:104px;text-align:center;}
 .bot-time-overdue{display:inline-flex;align-items:center;border:1px solid #8a3440;border-radius:6px;background:#32171c;color:#fecdd3;padding:3px 7px;font-size:10.5px;font-weight:800;}
 .bot-client-filters{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px;}
-.bot-client-row{display:flex;gap:11px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:12px;padding:9px 11px;cursor:pointer;transition:transform .12s,border .15s,background .15s;}
+.bot-client-row{display:flex;gap:11px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:12px;padding:9px 11px;cursor:pointer;transition:transform .12s,border .15s,background .15s,box-shadow .15s;}
 .bot-client-row:hover{border-color:#2a3550;transform:translateX(2px);}
 .bot-client-row.active{border-color:#2563eb;background:#0f1626;}
 .bot-client-row.needs-action{border-color:#7c5a18;background:#171306;box-shadow:inset 3px 0 0 #f59e0b;}
 .bot-client-row.needs-action::after{content:'!';width:20px;height:20px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;background:#d97706;color:#fff;font:900 11px/1 inherit;animation:orderActionPulse 1.8s ease-in-out infinite;}
 .bot-client-row.post-sale-action{border-color:#9f3f55;background:#211016;box-shadow:inset 3px 0 0 #fb7185;}
 .bot-client-row.post-sale-action::after{content:'↺';background:#be3455;}
+.bot-client-row.commercial-paid:not(.needs-action):not(.post-sale-action){border-color:#256747;background:#0d1813;box-shadow:inset 3px 0 0 #22c55e;}
+.bot-client-row.commercial-shipped:not(.needs-action):not(.post-sale-action){border-color:#60458f;background:#151120;box-shadow:inset 3px 0 0 #8b5cf6;}
+.bot-client-row.commercial-paid.active,.bot-client-row.commercial-shipped.active{outline:1px solid #3b82f6;outline-offset:-3px;}
 .bot-client-ava{width:38px;height:38px;border-radius:50%;background:#1e2430;object-fit:cover;flex:0 0 auto;}
 div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3;font-size:14px;text-transform:uppercase;}
 .bot-client-meta{min-width:0;flex:1;}
@@ -228,6 +231,9 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 .bot-category-badge.cat-service{border-color:#2f6f7a;background:#0f272c;color:#a5f3fc;}
 .bot-buyer-badge{display:inline-flex;align-items:center;max-width:100%;border:1px solid #276749;border-radius:6px;background:#102b20;color:#bbf7d0;padding:3px 7px;font-size:10px;font-weight:800;line-height:1.2;text-align:right;white-space:normal;}
 .bot-buyer-badge.is-manager-confirmed{border-color:#6b6320;background:#26240d;color:#fde68a;}
+.bot-commercial-badge{display:inline-flex;align-items:center;max-width:100%;border:1px solid #334155;border-radius:6px;padding:3px 7px;font-size:10px;font-weight:850;line-height:1.2;text-align:right;white-space:normal;}
+.bot-commercial-badge.commercial-paid{border-color:#276749;background:#102b20;color:#bbf7d0;}
+.bot-commercial-badge.commercial-shipped{border-color:#65449a;background:#211735;color:#ddd6fe;}
 .bot-shipment-timeline{display:grid;gap:6px;margin-top:10px;padding:10px 11px;border:1px solid #253247;border-radius:10px;background:#101722;}
 .bot-shipment-timeline-head{color:#9aa7b9;font-size:10px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;}
 .bot-shipment-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 9px;border:1px solid #202a39;border-left-width:3px;border-radius:8px;background:#0c121c;}
@@ -1446,9 +1452,9 @@ body.bot-drawer-open{overflow:hidden;}
         setBadge(document.getElementById('badge-clients'),d.total||0);pageInfo=d.pagination||null;if(pageInfo)currentPage=pageInfo.page;if(totalEl)totalEl.textContent=pageInfo?('Показано '+pageInfo.start_item+'–'+pageInfo.end_item+' з '+pageInfo.total_items):((d.total||0)+' усього');renderPager();listEl.replaceChildren();
         let requestedOpen=null;
         (d.clients||[]).forEach(c=>{
-          const row=node('div','bot-client-row'+(c.id===activeId?' active':'')+(c.manager_action_required?' needs-action':'')+(c.post_sale_needs_action?' post-sale-action':''));row.setAttribute('role','button');row.setAttribute('tabindex','0');row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені')+(c.post_sale_needs_action?(' — '+(c.post_sale_type_label||'післяпродажне звернення')):(c.manager_action_required?' — потрібна дія менеджера':'')));
+          const commercialState=c.commercial_visual_state||'';const commercialLabel=c.commercial_visual_state_label||'';const row=node('div','bot-client-row'+(c.id===activeId?' active':'')+(c.manager_action_required?' needs-action':'')+(c.post_sale_needs_action?' post-sale-action':'')+(commercialState?' commercial-'+commercialState:''));row.setAttribute('role','button');row.setAttribute('tabindex','0');row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені')+(commercialLabel?(' — '+commercialLabel):'')+(c.post_sale_needs_action?(' — '+(c.post_sale_type_label||'післяпродажне звернення')):(c.manager_action_required?' — потрібна дія менеджера':'')));
           const meta=node('div','bot-client-meta');const name=node('div','bot-client-name',c.name||c.username||c.igsid||'Без імені');const potential=potentialScore(c);const score=node('span','bot-client-score is-'+potential.state,potential.text);meta.append(name,score,node('div','bot-client-sub',listSubtitle(c)));
-          const tags=node('div','bot-client-tags');const buyer=c.buyer||{};if(buyer.is_buyer){const buyerBadge=node('span','bot-buyer-badge'+(buyer.provider_unverified?' is-manager-confirmed':''),buyer.label||'Вже купив');if(buyer.amount_note)buyerBadge.title=buyer.amount_note;tags.append(buyerBadge);}const postSaleBadge=c.post_sale_badge_label||c.post_sale_type_label;if(postSaleBadge)tags.append(node('span','bot-post-sale-badge',postSaleBadge));if(isOverdue(c.next_followup_at))tags.append(node('span','bot-time-overdue','Прострочено'));tags.append(node('span','bot-category-badge cat-'+(c.interaction_tone||'neutral'),c.interaction_type_label||'Не визначено'),node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));
+          const tags=node('div','bot-client-tags');if(commercialLabel)tags.append(node('span','bot-commercial-badge commercial-'+commercialState,commercialLabel));const buyer=c.buyer||{};if(buyer.is_buyer){const buyerBadge=node('span','bot-buyer-badge'+(buyer.provider_unverified?' is-manager-confirmed':''),buyer.label||'Вже купив');if(buyer.amount_note)buyerBadge.title=buyer.amount_note;tags.append(buyerBadge);}const postSaleBadge=c.post_sale_badge_label||c.post_sale_type_label;if(postSaleBadge)tags.append(node('span','bot-post-sale-badge',postSaleBadge));if(isOverdue(c.next_followup_at))tags.append(node('span','bot-time-overdue','Прострочено'));tags.append(node('span','bot-category-badge cat-'+(c.interaction_tone||'neutral'),c.interaction_type_label||'Не визначено'),node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));
           row.append(avatar(c),meta,tags);const openRow=()=>{activeId=c.id;requestedClientId=0;listEl.querySelectorAll('.bot-client-row').forEach(el=>el.classList.remove('active'));row.classList.add('active');setMobilePane('conversation');detail(c.id);};row.addEventListener('click',openRow);row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openRow();}});bindAvatarFallback(row,c.name||c.username||c.igsid);listEl.appendChild(row);if(requestedClientId&&Number(c.id)===requestedClientId)requestedOpen=openRow;
         });
         if(!(d.clients||[]).length)listEl.appendChild(node('div','bot-empty','Ще немає клієнтів.'));

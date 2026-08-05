@@ -3450,6 +3450,32 @@ def _funnel_progress_for_stage(c, stage: str) -> list[dict]:
     ]
 
 
+def _commercial_visual_state(c, *, has_confirmed_purchase: bool) -> tuple[str, str]:
+    """Return the compact list treatment backed by current commercial truth.
+
+    A Direct delivery status says whether the bot could transport a message; it
+    is deliberately not evidence that a parcel moved. Only a current order
+    assignment in transit with a tracking number can make the client row
+    violet. A delivered order stays green, keeping completed purchases distinct
+    from parcels that are still on the way.
+    """
+    has_shipped_order = getattr(c, "has_shipped_linked_order", None)
+    if has_shipped_order is None and getattr(c, "pk", None):
+        from .ig_bot_models import IgOrderAssignment
+
+        has_shipped_order = IgOrderAssignment.objects.filter(
+            client_id=c.pk,
+            unassigned_at__isnull=True,
+            order__status="ship",
+            order__tracking_number__isnull=False,
+        ).exclude(order__tracking_number="").exists()
+    if has_shipped_order:
+        return "shipped", "Відправлено"
+    if has_confirmed_purchase:
+        return "paid", "Оплачено"
+    return "", ""
+
+
 def _client_card(c) -> dict:
     from .ig_bot_models import IgConversationAnalysisSnapshot, IgPostSaleCase
 
@@ -3589,6 +3615,10 @@ def _client_card(c) -> dict:
     post_sale_type_label = str(post_sale_labels.get(post_sale_type, ""))
     post_sale_status_label = str(post_sale_status_labels.get(post_sale_status, ""))
     potential = _client_potential_payload(c, latest_analysis)
+    commercial_visual_state, commercial_visual_state_label = _commercial_visual_state(
+        c,
+        has_confirmed_purchase=client_has_confirmed_purchase(c),
+    )
     return {
         "id": c.id,
         "igsid": c.igsid,
@@ -3659,6 +3689,8 @@ def _client_card(c) -> dict:
         "commercial_confirmation_source": (
             "manager_verified_order" if commercially_confirmed else ""
         ),
+        "commercial_visual_state": commercial_visual_state,
+        "commercial_visual_state_label": commercial_visual_state_label,
         "delivery_status": c.delivery_status,
         "delivery_status_label": c.get_delivery_status_display() if c.delivery_status else "",
         "delivery_error": c.delivery_error,
@@ -3681,6 +3713,7 @@ def bot_clients_api(request):
     from .ig_bot_models import (
         IgCommercialEpisode,
         IgConversationAnalysisSnapshot,
+        IgOrderAssignment,
         IgOrderAttribution,
         IgPaymentConfirmationReview,
         IgPaymentReviewDecision,
@@ -3720,6 +3753,12 @@ def bot_clients_api(request):
         client_id=OuterRef("pk"),
         order_id__isnull=False,
     )
+    shipped_linked_orders = IgOrderAssignment.objects.filter(
+        client_id=OuterRef("pk"),
+        unassigned_at__isnull=True,
+        order__status="ship",
+        order__tracking_number__isnull=False,
+    ).exclude(order__tracking_number="")
 
     qs = _with_latest_interaction(annotate_verified_payment(
         IgClient.objects.select_related("current_product", "current_commercial_episode").prefetch_related(
@@ -3758,6 +3797,7 @@ def bot_clients_api(request):
             ),
             has_historical_paid_archive=Exists(historical_paid_reviews),
             has_physical_order=Exists(physical_orders),
+            has_shipped_linked_order=Exists(shipped_linked_orders),
         )
     ))
     # `client_has_confirmed_purchase` is called once per row further down.
