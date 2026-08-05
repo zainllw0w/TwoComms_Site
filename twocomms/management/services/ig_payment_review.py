@@ -2782,13 +2782,15 @@ def resolve_historical_paid_review(
         actor_label=str(getattr(actor, "get_username", lambda: "")() or actor.pk)[:150],
     )
     sync_episode_payment(review=locked, deal=locked.deal if locked.deal_id else None)
-    return archive_historical_paid_review(
+    resolved = archive_historical_paid_review(
         locked,
         actor=actor,
         reason=note,
         outcome=resolved_outcome,
         transition_to_done=True,
     )
+    resolved._transitioned = True
+    return resolved
 
 
 def confirm_review(

@@ -658,6 +658,62 @@ class InstagramPaymentDecisionApiTests(TestCase):
         self.assertEqual(response.json()["decision"]["order_total_source"], "manager_input")
         schedule.assert_called_once()
 
+    def test_historical_paid_fulfilled_api_archives_unknown_amount_without_order_actions(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.ig_client,
+            dedupe_key="payment-api-historical-unknown",
+            evidence={},
+        )
+        action_url = reverse(
+            "management_bot_payment_review_action_api",
+            args=[review.pk],
+        )
+        response = self.client.post(
+            action_url,
+            {
+                "action": "historical_paid_fulfilled",
+                "outcome": "already_received",
+                "reason": "Historical sale confirmed by owner",
+                "amount_unrecoverable": "true",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertEqual(payload["next_action"], "historical_completed")
+        self.assertEqual(payload["resolution_outcome"], "already_received")
+        self.assertFalse(payload["order_resolution"]["required"])
+        self.assertEqual(payload["order_resolution"]["create_new"]["url"], "")
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+        self.assertEqual(decision.verification_scope, "historical_fulfilled")
+        self.assertIsNone(decision.confirmed_amount)
+
+    def test_historical_paid_fulfilled_api_rejects_regular_user(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.ig_client,
+            dedupe_key="payment-api-historical-regular-user",
+        )
+        regular = get_user_model().objects.create_user(
+            username="historical-regular-user",
+            password="test-password",
+        )
+        self.client.force_login(regular)
+        response = self.client.post(
+            reverse("management_bot_payment_review_action_api", args=[review.pk]),
+            {
+                "action": "historical_paid_fulfilled",
+                "outcome": "already_received",
+                "reason": "Historical sale confirmed by owner",
+                "amount_unrecoverable": "true",
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_provider_and_manager_amount_conflict_requires_reconciliation(self):
         from management.ig_bot_models import IgDeal
 

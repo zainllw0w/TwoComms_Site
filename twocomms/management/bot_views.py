@@ -2800,6 +2800,7 @@ def bot_payment_review_action_api(request, review_id):
         payment_review_order_url,
         reconcile_duplicate_payment_review,
         record_review_decision,
+        resolve_historical_paid_review,
     )
 
     action = (request.POST.get("action") or "").strip().lower()
@@ -2856,6 +2857,61 @@ def bot_payment_review_action_api(request, review_id):
             "order_id": order.pk,
             "order_number": order.order_number,
             "order_url": _existing_order_admin_url(order.pk),
+        })
+    if action == "historical_paid_fulfilled":
+        amount_unrecoverable = str(
+            request.POST.get("amount_unrecoverable") or ""
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        try:
+            review = resolve_historical_paid_review(
+                review,
+                actor=request.user,
+                outcome=request.POST.get("outcome"),
+                reason=request.POST.get("reason") or request.POST.get("reason_text") or "",
+                confirmed_amount=request.POST.get("confirmed_amount"),
+                amount_unrecoverable=amount_unrecoverable,
+            )
+        except ValueError as exc:
+            error = str(exc)
+            field_errors = {}
+            if "Причина" in error:
+                field_errors["reason"] = error
+            elif "Результат" in error:
+                field_errors["outcome"] = error
+            elif "сума" in error.casefold() or "суму" in error.casefold():
+                field_errors["confirmed_amount"] = error
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error_code": "historical_resolution_invalid",
+                    "error": error,
+                    "field_errors": field_errors,
+                },
+                status=409 if "вже" in error else 400,
+            )
+        decision = _latest_payment_review_decision(review)
+        return JsonResponse({
+            "success": True,
+            "id": review.id,
+            "status": review.status,
+            "status_label": review.get_status_display(),
+            "resolution_kind": review.resolution_kind,
+            "resolution_outcome": review.resolution_outcome or "",
+            "resolution_note": review.resolution_note,
+            "decision": _payment_review_decision_payload(decision),
+            "payment": _payment_review_truth_payload(review, decision),
+            "idempotent_replay": not bool(getattr(review, "_transitioned", False)),
+            "next_action": "historical_completed",
+            "order_url": "",
+            "order_resolution": {
+                "required": False,
+                "link_existing": {
+                    "action": "",
+                    "action_url": "",
+                    "requires_exact_order_identifier": False,
+                },
+                "create_new": {"url": "", "editable": False},
+            },
         })
     clarify_amount = action == "clarify_amount"
     if action in {"confirm", "manager_verify", "clarify_amount"}:
