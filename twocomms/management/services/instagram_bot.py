@@ -144,8 +144,13 @@ _PRICE_CLAIM_RE = re.compile(
     re.IGNORECASE,
 )
 _PRICE_RANGE_RE = re.compile(
-    r"(?:\bвід\b.*\bдо\b|\bfrom\b.*\bto\b|\d\s*[-–/]\s*\d)",
-    re.IGNORECASE | re.DOTALL,
+    r"(?:"
+    r"\b(?:від|from)\s*\d{3,7}(?:[.,]\d{1,2})?\s*(?:грн|₴|uah)?\s*"
+    r"(?:до|to)\s*\d{3,7}(?:[.,]\d{1,2})?\s*(?:грн|₴|uah)"
+    r"|\b\d{3,7}(?:[.,]\d{1,2})?\s*[-–/]\s*"
+    r"\d{3,7}(?:[.,]\d{1,2})?\s*(?:грн|₴|uah)"
+    r")",
+    re.IGNORECASE,
 )
 _OPTION_KEY_RE = re.compile(r"^[a-z][a-z0-9_-]{0,48}$", re.IGNORECASE)
 _SECRET_PARAM_RE = re.compile(
@@ -741,30 +746,56 @@ def _extract_authoritative_price_claim(client, reply: str, control: dict):
     if not isinstance(control, dict) or not isinstance(reply, str):
         return reply, control, None
     matches = list(_PRICE_CLAIM_RE.finditer(reply))
-    if len(matches) == 1:
-        match = matches[0]
-        nearby = reply[max(0, match.start() - 40):match.end() + 40]
-        if _PRICE_RANGE_RE.search(nearby):
+    range_match = _PRICE_RANGE_RE.search(reply)
+    if range_match:
+        range_amounts = re.findall(
+            r"\d{3,7}(?:[.,]\d{1,2})?",
+            range_match.group(0),
+        )
+        claimed_amounts = [match.group("amount").replace(",", ".") for match in matches]
+        if (
+            len(claimed_amounts) <= len(range_amounts)
+            and all(
+            amount.replace(",", ".") in {
+                value.replace(",", ".") for value in range_amounts
+            }
+            for amount in claimed_amounts
+            )
+            and all(
+                range_match.start() <= match.start()
+                and match.end() <= range_match.end()
+                for match in matches
+            )
+        ):
             if "price_quoted" in control:
                 control["_price_claim_invalid"] = True
                 return None, control, None
             return reply, control, None
-    amounts = [match.group("amount").replace(",", ".") for match in matches]
+    raw_amounts = [match.group("amount").replace(",", ".") for match in matches]
+    amounts = list(raw_amounts)
     payment_amount = str(control.get("payment") or "").replace(",", ".")
+    payment_only = False
     if payment_amount:
         try:
             payment_decimal = Decimal(payment_amount).quantize(Decimal("0.01"))
+            payment_only = len(raw_amounts) == 1 and (
+                Decimal(raw_amounts[0]).quantize(Decimal("0.01")) == payment_decimal
+            )
             amounts = [
                 value for value in amounts
                 if Decimal(value).quantize(Decimal("0.01")) != payment_decimal
             ]
         except (InvalidOperation, TypeError, ValueError):
             pass
+    amounts = list(dict.fromkeys(amounts))
+    if not amounts and "price_quoted" not in control:
+        if not raw_amounts or payment_only:
+            return reply, control, None
+        control["_price_claim_invalid"] = True
+        return None, control, None
     if len(amounts) != 1:
-        if "price_quoted" in control:
-            control["_price_claim_invalid"] = True
-            return None, control, None
-        return reply, control, None
+        control["_price_claim_invalid"] = True
+        return None, control, None
     raw = amounts[0]
     explicit_marker = control.get("price_quoted")
     if explicit_marker is not None:

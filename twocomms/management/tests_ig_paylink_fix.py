@@ -254,6 +254,17 @@ class AuthoritativePriceClaimTests(TestCase):
         self.assertEqual(control["price_quoted"], "1450")
         self.assertEqual(quote["amount"], "1450.00")
 
+    def test_repeated_payment_amount_does_not_hide_an_ambiguous_total(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Передоплата 200 грн, загальна сума 200 грн",
+            {"paylink": "prepay", "payment": "200"},
+        )
+
+        self.assertIsNone(text)
+        self.assertIsNone(quote)
+        self.assertTrue(control.get("_price_claim_invalid"))
+
     def test_price_range_is_not_bound_as_an_exact_quote(self):
         text, control, quote = bot._extract_authoritative_price_claim(
             self.client_row,
@@ -264,6 +275,28 @@ class AuthoritativePriceClaimTests(TestCase):
         self.assertEqual(text, "Ціна від 1090 до 1450 грн")
         self.assertIsNone(quote)
         self.assertNotIn("price_quoted", control)
+
+    def test_range_with_an_additional_exact_amount_fails_closed(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Ціна від 1090 до 1450 грн, для тебе 1090 грн",
+            {},
+        )
+
+        self.assertIsNone(text)
+        self.assertIsNone(quote)
+        self.assertTrue(control.get("_price_claim_invalid"))
+
+    def test_conflicting_multi_price_claim_fails_closed(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Зі знижкою 1090 грн замість 1450 грн",
+            {},
+        )
+
+        self.assertIsNone(text)
+        self.assertIsNone(quote)
+        self.assertTrue(control.get("_price_claim_invalid"))
 
     def test_item_variant_and_options_bind_price_claim(self):
         from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
