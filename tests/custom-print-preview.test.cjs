@@ -8,6 +8,7 @@ const {
   boxForFormat,
   computeZoneBox,
   requirementsForPlacement,
+  resolveGarmentRender,
   viewForPlacement,
 } = globalThis.CustomPrintPreview;
 const { groups, fromInternal, firstInternal, progressIndex } = globalThis.CustomPrintStateTools;
@@ -61,4 +62,37 @@ test("hem text mode does not require an artwork file", () => {
 test("A3 plus remains larger than A3 without filling the entire garment", () => {
   assert.ok(boxForFormat("A3+").scale > boxForFormat("A3").scale);
   assert.ok(boxForFormat("A3+").scale < 0.92);
+});
+
+test("missing garment color resolves to a declared fallback without mutating selection", () => {
+  const assets = {
+    "tshirt:regular": {
+      black: { front: { avif: "black.avif", webp: "black.webp" } },
+      white: { front: { avif: "white.avif", webp: "white.webp" } },
+    },
+  };
+  const state = { product: { color: "khaki" } };
+
+  assert.deepEqual(resolveGarmentRender(assets, "tshirt:regular", state.product.color), {
+    selectedColor: "khaki",
+    previewColor: "white",
+    fallbackUsed: true,
+    sources: assets["tshirt:regular"].white,
+  });
+  assert.equal(state.product.color, "khaki");
+});
+
+test("production regular tshirt fallback reports the black base it actually renders", () => {
+  const assets = {
+    "tshirt:regular": {
+      black: { front: { avif: "black.avif", webp: "black.webp" } },
+    },
+  };
+
+  assert.deepEqual(resolveGarmentRender(assets, "tshirt:regular", "milk"), {
+    selectedColor: "milk",
+    previewColor: "black",
+    fallbackUsed: true,
+    sources: assets["tshirt:regular"].black,
+  });
 });

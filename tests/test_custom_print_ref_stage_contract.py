@@ -63,19 +63,21 @@ class CustomPrintReferenceStageContractTests(unittest.TestCase):
         self.assertNotIn(".cp-preview-dialog-canvas::after", source)
         self.assertNotIn("rgba(211, 157, 82, .24)", source)
 
-    def test_preview_resolver_has_color_aliases_and_black_fallback(self):
+    def test_preview_resolver_has_color_aliases_and_declared_fallback(self):
         source = PREVIEW_JS.read_text(encoding="utf-8")
         self.assertIn('coyote: "beige"', source)
         self.assertIn('thermo_pink: "pink"', source)
-        self.assertIn('profile[resolvedColor] || profiles["tshirt:regular"]?.black', source)
-        self.assertIn('const resolvedColor = profile[requestedColor] ? requestedColor : "black"', source)
-        self.assertIn('variant[view] || variant.front', source)
+        self.assertIn("function resolveGarmentRender", source)
+        self.assertIn("fallbackUsed: previewColor !== requestedRenderColor", source)
+        self.assertIn("sources: profile[previewColor]", source)
+        self.assertIn("render.sources[view] || render.sources.front", source)
         self.assertIn('preload.type = "image/avif"', source)
         self.assertIn('warmCurrentProfile(state)', source)
 
     def test_preview_preloads_only_selected_color_on_both_sides(self):
         source = PREVIEW_JS.read_text(encoding="utf-8")
-        self.assertIn('const variant = profile[requestedColor] || profile.black || profiles["tshirt:regular"]?.black;', source)
+        self.assertIn("const render = resolveGarmentRender(profiles, profileKey(state), state.product.color);", source)
+        self.assertIn("const variant = render?.sources;", source)
         self.assertIn('["front", "back"].forEach((side)', source)
         self.assertNotIn('Object.values(profile).forEach((variant)', source)
 

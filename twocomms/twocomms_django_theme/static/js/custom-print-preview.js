@@ -44,18 +44,32 @@
     return { format, scale: FORMAT_SCALES[format] || FORMAT_SCALES.A4 };
   }
 
+  function resolveGarmentRender(assets, requestedProfile, selectedColor) {
+    const profile = assets?.[requestedProfile] || assets?.["tshirt:regular"] || {};
+    const requestedRenderColor = COLOR_ALIASES[selectedColor] || selectedColor || "black";
+    const previewColor = profile[requestedRenderColor]
+      ? requestedRenderColor
+      : (["white", "black"].find((color) => profile[color]) || Object.keys(profile)[0]);
+    if (!previewColor || !profile[previewColor]) return null;
+    return {
+      selectedColor: selectedColor || "black",
+      previewColor,
+      fallbackUsed: previewColor !== requestedRenderColor,
+      sources: profile[previewColor],
+    };
+  }
+
   function resolveAsset(config, state) {
     const profiles = config.custom_ref_preview_assets || {};
     const requestedProfile = profileKey(state);
-    const profile = profiles[requestedProfile] || profiles["tshirt:regular"] || {};
-    const requestedColor = COLOR_ALIASES[state.product.color] || state.product.color || "black";
-    const resolvedColor = profile[requestedColor] ? requestedColor : "black";
-    const variant = profile[resolvedColor] || profiles["tshirt:regular"]?.black;
-    if (!variant) return null;
+    const render = resolveGarmentRender(profiles, requestedProfile, state.product.color);
+    if (!render) return null;
     const view = state.ui.stage_view === "back" ? "back" : "front";
     return {
-      ...(variant[view] || variant.front),
-      color: resolvedColor,
+      ...(render.sources[view] || render.sources.front),
+      selectedColor: render.selectedColor,
+      color: render.previewColor,
+      fallbackUsed: render.fallbackUsed,
       profile: requestedProfile,
       view,
     };
@@ -74,9 +88,8 @@
 
     function warmCurrentProfile(state) {
       const profiles = config.custom_ref_preview_assets || {};
-      const profile = profiles[profileKey(state)] || profiles["tshirt:regular"] || {};
-      const requestedColor = COLOR_ALIASES[state.product.color] || state.product.color || "black";
-      const variant = profile[requestedColor] || profile.black || profiles["tshirt:regular"]?.black;
+      const render = resolveGarmentRender(profiles, profileKey(state), state.product.color);
+      const variant = render?.sources;
       ["front", "back"].forEach((side) => {
         const sources = variant?.[side];
         if (!sources?.avif || warmedAssets.has(sources.avif)) return;
@@ -187,6 +200,12 @@
       const palette = selectedFabric?.colors || productConfig.fit_colors?.[state.product.fit] || productConfig.colors || [];
       const colorLabel = palette.find((item) => item.value === state.product.color)?.label || asset.color;
       const placements = expandedPlacements(state);
+      state.ui.preview_render = {
+        selected_color: asset.selectedColor,
+        preview_color: asset.color,
+        fallback_used: asset.fallbackUsed,
+        profile: asset.profile,
+      };
 
       previewNodes.forEach((preview) => {
         preview.classList.remove("is-refreshing");
@@ -237,5 +256,5 @@
     return { render };
   }
 
-  global.CustomPrintPreview = { boxForFormat, create, computeZoneBox, requirementsForPlacement, viewForPlacement };
+  global.CustomPrintPreview = { boxForFormat, create, computeZoneBox, requirementsForPlacement, resolveGarmentRender, viewForPlacement };
 })(globalThis);

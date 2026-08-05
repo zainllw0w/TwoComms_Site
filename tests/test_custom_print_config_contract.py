@@ -23,6 +23,7 @@ from storefront.custom_print_config import (
     resolve_fabric_label,
     resolve_fit_label,
     resolve_lead_display_labels,
+    resolve_preview_render,
 )
 
 
@@ -249,8 +250,24 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         hoodie_fit_colors = config["products"]["hoodie"]["fit_colors"]
         self.assertEqual([color["value"] for color in hoodie_fit_colors["oversize"]], ["black", "pink"])
         self.assertEqual([color["value"] for color in hoodie_fit_colors["regular"]], ["black", "pink"])
+        self.assertEqual(
+            len({color["value"] for color in hoodie_fit_colors["regular"]}),
+            len(hoodie_fit_colors["regular"]),
+        )
         thermo = config["products"]["tshirt"]["fabrics"]["oversize"][-1]
         self.assertEqual([color["value"] for color in thermo["colors"]], ["thermo_green", "thermo_pink"])
+
+    def test_preview_fallback_preserves_the_ordered_color_when_its_render_is_missing(self):
+        preview_render = resolve_preview_render("tshirt", "regular", "khaki")
+        self.assertEqual(
+            preview_render,
+            {
+                "selected_color": "khaki",
+                "preview_color": "black",
+                "fallback_used": True,
+                "profile": "tshirt:regular",
+            },
+        )
 
     def test_config_exposes_clear_classic_premium_and_thermo_descriptions(self):
         config = build_custom_print_config(submit_url="/lead/", safe_exit_url="/safe-exit/", add_to_cart_url="/cart/")

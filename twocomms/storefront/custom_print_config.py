@@ -409,6 +409,33 @@ CUSTOM_REF_PREVIEW_ASSETS = {
     },
 }
 
+PREVIEW_COLOR_ALIASES = {
+    "coyote": "beige",
+    "thermo_pink": "pink",
+}
+
+
+def resolve_preview_render(product_type: str, fit: str, selected_color: str) -> dict:
+    """Return the real render base without changing the ordered garment color."""
+    profile = f"{product_type}:{fit or 'regular'}"
+    if product_type == "longsleeve":
+        profile = "longsleeve:regular"
+    assets = CUSTOM_REF_PREVIEW_ASSETS.get(profile) or CUSTOM_REF_PREVIEW_ASSETS["tshirt:regular"]
+    requested_render_color = PREVIEW_COLOR_ALIASES.get(selected_color, selected_color)
+    if requested_render_color in assets:
+        preview_color = requested_render_color
+    else:
+        preview_color = next(
+            (color for color in ("white", "black") if color in assets),
+            next(iter(assets), "black"),
+        )
+    return {
+        "selected_color": selected_color,
+        "preview_color": preview_color,
+        "fallback_used": preview_color != requested_render_color,
+        "profile": profile,
+    }
+
 def calc_iso_box(format_key: str, body_width_mm: float, svg_body_width: float, svg_collar_y: float, top_offset_mm: float = 50, x_center: float = 50, radius: float = 24, shape: str = "panel", padding_mm: float = 0) -> dict:
     w_mm, h_mm = ISO_SIZES.get(format_key, (210, 297))
     scale = svg_body_width / body_width_mm
@@ -1872,7 +1899,9 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
 
     pricing_payload = raw_snapshot.get("pricing") or {}
     notes_payload = raw_snapshot.get("notes") or {}
-    current_step = str(((raw_snapshot.get("ui") or {}).get("current_step") or "mode")).strip() or "mode"
+    raw_ui = raw_snapshot.get("ui") or {}
+    current_step = str((raw_ui.get("current_step") or "mode")).strip() or "mode"
+    preview_render = resolve_preview_render(product_type, fit, color)
 
     submission_type = (raw_snapshot.get("submission_type") or "lead").strip()
     if submission_type not in {"lead", "cart", "safe_exit"}:
@@ -1948,6 +1977,7 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
         },
         "ui": {
             "current_step": current_step,
+            "preview_render": preview_render,
         },
     }
 

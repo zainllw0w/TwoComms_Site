@@ -619,6 +619,18 @@ summary:focus-visible {
 .cp-stage-receipt-mode { color: var(--cp-gold-soft); font-size: 11px; }
 .cp-stage-receipt-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; color: var(--cp-muted); font-size: 12px; }
 .cp-stage-receipt-foot { color: var(--cp-muted); font-size: 11px; }
+.cp-preview-fallback {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(232, 191, 108, .32);
+  border-left: 3px solid var(--cp-gold);
+  border-radius: 8px;
+  background: rgba(232, 191, 108, .08);
+  color: rgba(255, 246, 223, .86);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.cp-receipt-fallback strong { max-width: 58%; text-align: right; color: var(--cp-gold-soft); }
 
 .cp-waterfall,
 .cp-step-viewport,

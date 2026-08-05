@@ -14,6 +14,7 @@ django.setup()
 
 from storefront.custom_print_notifications import (
     _build_message,
+    _build_safe_exit_message,
     _info_reply_markup_full,
     _moderation_reply_markup,
     notify_new_custom_print_lead,
@@ -190,6 +191,50 @@ class CustomPrintNotificationUnitTests(unittest.TestCase):
         self.assertIn("Тип тканини", message)
         self.assertIn("Преміум", message)
         self.assertIn("💎", message)
+
+    def test_build_message_reports_selected_color_and_actual_preview_fallback(self):
+        lead = FakeLead()
+        lead.product_type = "tshirt"
+        lead.fit = "regular"
+        lead.fabric = "standard"
+        lead.color_choice = "khaki"
+        lead.config_draft_json = {
+            "product": {"type": "tshirt", "fit": "regular", "fabric": "standard", "color": "khaki"},
+            "ui": {
+                "preview_render": {
+                    "selected_color": "khaki",
+                    "preview_color": "black",
+                    "fallback_used": True,
+                    "profile": "tshirt:regular",
+                }
+            },
+        }
+
+        message = _build_message(lead)
+
+        self.assertIn("khaki", message)
+        self.assertIn("На сцені показано", message)
+        self.assertIn("Чорний", message)
+
+    def test_safe_exit_message_reports_actual_preview_fallback(self):
+        snapshot = {
+            "product": {"type": "tshirt", "fit": "regular", "fabric": "standard", "color": "khaki"},
+            "ui": {
+                "current_step": "config",
+                "preview_render": {
+                    "selected_color": "khaki",
+                    "preview_color": "black",
+                    "fallback_used": True,
+                    "profile": "tshirt:regular",
+                },
+            },
+        }
+
+        message = _build_safe_exit_message(snapshot)
+
+        self.assertIn("khaki", message)
+        self.assertIn("На сцені показано", message)
+        self.assertIn("Чорний", message)
 
     def test_build_message_includes_gift_text_as_quoted_block(self):
         lead = FakeLead()

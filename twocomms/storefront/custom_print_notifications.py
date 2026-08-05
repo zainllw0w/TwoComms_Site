@@ -75,6 +75,17 @@ def _placement_specs_for_lead(lead) -> list[dict]:
     ]
 
 
+def _preview_render_color_label(preview_value: str) -> str:
+    """Localized label for actual preview render bases, independent from order palettes."""
+    value = str(preview_value or "").strip()
+    return {
+        "beige": "Бежевий",
+        "black": "Чорний",
+        "white": "Білий",
+        "pink": "Рожевий",
+    }.get(value, value)
+
+
 def _format_placement_descriptor(spec: dict, *, include_text: bool) -> str:
     placement_key = spec.get("placement_key") or spec.get("zone")
     label = spec.get("label") or ZONE_LABELS.get(
@@ -576,6 +587,16 @@ def _format_product_block(lead) -> list[str]:
             color_line += f" <code>{escape(color_info['hex'])}</code>"
         rows.append(color_line)
 
+    draft = getattr(lead, "config_draft_json", None) or {}
+    preview_render = ((draft.get("ui") or {}).get("preview_render") or {}) if isinstance(draft, dict) else {}
+    if preview_render.get("fallback_used"):
+        preview_value = str(preview_render.get("preview_color") or "").strip()
+        preview_label = _preview_render_color_label(preview_value)
+        rows.append(
+            f"• <b>На сцені показано:</b> <b>{escape(preview_label)}</b> "
+            "<i>(рендер вибраного кольору ще готується; замовлений колір не змінено)</i>"
+        )
+
     if getattr(lead, "add_ons", None):
         mapped_addons = [ADDON_LABELS.get(a, a) for a in lead.add_ons]
         if mapped_addons:
@@ -822,6 +843,13 @@ def _build_safe_exit_message(snapshot: dict, lead=None) -> str:
         _bold("Розрахунок", _snapshot_pricing_text(snapshot)),
         _bold("Поточний крок", ui.get("current_step") or "—"),
     ])
+
+    preview_render = ui.get("preview_render") if isinstance(ui, dict) else {}
+    preview_render = preview_render if isinstance(preview_render, dict) else {}
+    if preview_render.get("fallback_used"):
+        preview_value = str(preview_render.get("preview_color") or "").strip()
+        preview_label = _preview_render_color_label(preview_value)
+        parts.append(_bold("На сцені показано", preview_label))
 
     if order.get("gift"):
         parts.append("")

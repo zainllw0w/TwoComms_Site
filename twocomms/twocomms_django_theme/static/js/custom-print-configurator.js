@@ -276,6 +276,7 @@
         current_step: "mode",
         done_steps: new Set(),
         stage_view: "front",
+        preview_render: null,
       },
     };
   }
@@ -461,6 +462,9 @@
       ? `${STATE.contact.channel}: ${STATE.contact.value}`
       : "ще не вказано";
     const files = collectOrderedFiles().map(({ file, label }) => `${label}: ${file.name}`).join(", ") || "ще не додано";
+    const previewFallback = STATE.ui.preview_render?.fallback_used
+      ? `• На сцені показано: ${getPreviewColorLabel(STATE.ui.preview_render.preview_color)} (рендер вибраного кольору ще готується; замовлений колір не змінено)`
+      : "";
     return [
       ui("manager_greeting", "Привіт! Хочу обговорити кастомний принт TwoComms."),
       "",
@@ -468,6 +472,7 @@
       `• Формат: ${STATE.mode === "brand" ? "команда / бренд" : "для себе"}`,
       `• Виріб: ${cfg.label || "—"}`,
       `• Посадка: ${fit} · тканина: ${fabric} · колір: ${color}`,
+      previewFallback,
       `• Зони: ${zones}`,
       `• Кількість: ${quantity}`,
       STATE.product.type === "customer_garment" ? `• Передача: ${STATE.order.delivery_method || "уточнити"} (доставку туди й назад оплачує покупець)` : "",
@@ -3449,6 +3454,7 @@
   // ── Refresh: stage card + receipt + summaries + side states ─
   function refreshAll() {
     normalizeClientState();
+    syncPreviewRender();
     if (dom.statusBox?.classList.contains("is-warning") && canAdvance(STATE.ui.current_step)) {
       resetStatus();
     }
@@ -3906,9 +3912,12 @@
       if (dom.receiptHint) dom.receiptHint.textContent = "Натисніть «Надіслати менеджеру» — підготуємо точну ціну.";
       return;
     }
+    const fallbackRow = STATE.ui.preview_render?.fallback_used
+      ? `<li class="cp-receipt-fallback"><span>Превʼю виробу</span><strong>показано на основі «${escapeHtml(getPreviewColorLabel(STATE.ui.preview_render.preview_color))}»</strong></li>`
+      : "";
     dom.receiptList.innerHTML = pricing.breakdown.map((row) => `
       <li><span>${escapeHtml(row.label)}</span><strong>${formatPrice(row.value)}</strong></li>
-    `).join("");
+    `).join("") + fallbackRow;
     const qty = STATE.order.quantity || 1;
     const totalText = qty > 1
       ? `${formatPrice(pricing.final_total)} <small>· ${formatPrice(pricing.unit_total)}/шт × ${qty}${pricing.gift_price ? " + подарунок" : ""}</small>`
@@ -3922,6 +3931,39 @@
       hints.push("Ціна оновлюється в реальному часі.");
       dom.receiptHint.textContent = hints.join(" · ");
     }
+  }
+
+  function getPreviewColorLabel(value) {
+    const labels = { black: "Чорний", white: "Білий", beige: "Бежевий", pink: "Рожевий" };
+    return labels[value] || value || "нейтральний";
+  }
+
+  function syncPreviewRender() {
+    if (!STATE.product.type || !globalThis.CustomPrintPreview?.resolveGarmentRender) {
+      STATE.ui.preview_render = null;
+    } else {
+      const profile = STATE.product.type === "longsleeve"
+        ? "longsleeve:regular"
+        : `${STATE.product.type}:${STATE.product.fit || "regular"}`;
+      const resolved = globalThis.CustomPrintPreview.resolveGarmentRender(
+        CONFIG.custom_ref_preview_assets || {},
+        profile,
+        STATE.product.color,
+      );
+      STATE.ui.preview_render = resolved ? {
+        selected_color: resolved.selectedColor,
+        preview_color: resolved.previewColor,
+        fallback_used: resolved.fallbackUsed,
+        profile,
+      } : null;
+    }
+    const meta = STATE.ui.preview_render;
+    root.querySelectorAll("[data-preview-fallback]").forEach((node) => {
+      node.hidden = !meta?.fallback_used;
+      node.textContent = meta?.fallback_used
+        ? `Колір замовлення: ${getAllowedColorOptions().find((item) => item.value === STATE.product.color)?.label || STATE.product.color}. На сцені показана ${getPreviewColorLabel(meta.preview_color).toLowerCase()} основа, оскільки рендер вибраного кольору ще готується. Фінальний колір уточнить менеджер.`
+        : "";
+    });
   }
 
   function updateFinalActionsAvailability() {
@@ -4102,7 +4144,7 @@
       contact: { ...STATE.contact },
       notes: { ...STATE.notes },
       pricing: computePricing(),
-      ui: { current_step: STATE.ui.current_step },
+      ui: { current_step: STATE.ui.current_step, preview_render: { ...(STATE.ui.preview_render || {}) } },
     };
   }
 
@@ -4577,6 +4619,7 @@
           current_step: STATE.ui.current_step,
           done_steps: Array.from(STATE.ui.done_steps),
           stage_view: STATE.ui.stage_view,
+          preview_render: STATE.ui.preview_render,
         },
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
@@ -4635,6 +4678,7 @@
         STATE.ui.current_step = draft.ui.current_step || "mode";
         STATE.ui.done_steps = new Set(draft.ui.done_steps || []);
         STATE.ui.stage_view = draft.ui.stage_view || "front";
+        STATE.ui.preview_render = draft.ui.preview_render || null;
       }
       normalizeClientState();
       // Restore inputs

@@ -42,7 +42,7 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'css/custom-print-guided-studio.css' %}?v=20260726-custom-ref-v1">
+  <link rel="stylesheet" href="{% static 'css/custom-print-guided-studio.css' %}?v=20260729-color-fallback-v1">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -226,6 +226,7 @@
               <div class="cp-png-preview-zones" data-preview-zones></div>
             </div>
           </div>
+          <p class="cp-preview-fallback" data-preview-fallback role="status" aria-live="polite" hidden></p>
 
           <div class="cp-stage-meta">
             <div class="cp-stage-copy">
@@ -910,6 +911,7 @@
             <div class="cp-png-preview-zones" data-preview-zones></div>
           </div>
         </div>
+        <p class="cp-preview-fallback" data-preview-fallback hidden></p>
         <p class="cp-preview-info">{% trans 'Перегляд пропорційний контрольному виробу. Фінальні відступи та технологічні допуски перевірить менеджер.' %}</p>
       </div>
     </dialog>
@@ -1179,9 +1181,9 @@
   {{ block.super }}
   <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
   <script src="{% static 'js/custom-print-state.js' %}?v=20260719-responsive-v2" defer></script>
-  <script src="{% static 'js/custom-print-preview.js' %}?v=20260726-custom-ref-v1" defer></script>
+  <script src="{% static 'js/custom-print-preview.js' %}?v=20260729-color-fallback-v1" defer></script>
   <script src="{% static 'js/custom-print-mobile-shell.js' %}?v=20260719-responsive-v2" defer></script>
   <script src="{% static 'js/custom-print-submit-flow.js' %}?v=20260726-dialog-focus-v3" defer></script>
-  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260726-custom-ref-v1" defer></script>
+  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260729-color-fallback-v1" defer></script>
   <script src="{% static 'js/custom-print-telegram-verify.js' %}?v=20260517-tg-verify-portal" defer></script>
 {% endblock %}
