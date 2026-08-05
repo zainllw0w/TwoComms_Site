@@ -123,6 +123,64 @@ class BuyerBadgePayloadTests(BuyerPresentationMixin, TestCase):
         self.assertEqual(badge["total_spent"], "")
 
 
+class CommercialPaymentPresentationTests(BuyerPresentationMixin, TestCase):
+    def setUp(self):
+        self.manager = get_user_model().objects.create_user(
+            "commercial-payment-manager", password="x", is_staff=True
+        )
+
+    def test_current_manager_confirmation_is_a_current_payment_fact(self):
+        from management.services.bot_payment_truth import (
+            current_payment_confirmation,
+        )
+
+        client = self._buyer("current-manager-payment")
+
+        fact = current_payment_confirmation(client)
+
+        self.assertTrue(fact["confirmed"])
+        self.assertEqual(fact["source"], "manager")
+        self.assertIn("менеджер", fact["note"].lower())
+
+    def test_historical_archive_is_not_a_current_payment_fact(self):
+        from management.services.bot_payment_truth import (
+            current_payment_confirmation,
+            historical_purchase_confirmation,
+        )
+
+        client = IgClient.get_or_create_for_sender("historical-payment-archive")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-payment-archive:review",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            resolution_kind=(
+                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+            ),
+            resolution_outcome=(
+                IgPaymentConfirmationReview.ResolutionOutcome.ALREADY_RECEIVED
+            ),
+        )
+        IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            actor=self.manager,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.manager.pk),
+        )
+
+        current = current_payment_confirmation(client)
+        historical = historical_purchase_confirmation(client)
+
+        self.assertFalse(current["confirmed"])
+        self.assertEqual(current["source"], "")
+        self.assertTrue(historical["confirmed"])
+        self.assertEqual(historical["source"], "historical_archive")
+        self.assertIn("архів", historical["note"].lower())
+
+
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class BuyerBadgeApiTests(BuyerPresentationMixin, TestCase):
     def setUp(self):

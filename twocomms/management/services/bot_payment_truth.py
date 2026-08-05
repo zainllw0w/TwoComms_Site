@@ -95,6 +95,34 @@ def manager_confirmed_review_q(prefix: str = "") -> Q:
     }) & ~Q(**{f"{prefix}decisions__actor_external_id": ""})
 
 
+def current_manager_confirmation_review_q(prefix: str = "") -> Q:
+    """Source-qualified manager truth for the current commercial cycle.
+
+    Historical fulfilled reviews remain valid lifetime CRM evidence, but they
+    must never make the current row look paid. Only an explicit full payment or
+    prepayment decision can drive the current commercial presentation.
+    """
+    from management.ig_bot_models import (
+        IgPaymentConfirmationReview,
+        IgPaymentReviewDecision,
+    )
+
+    return manager_confirmed_review_q(prefix) & Q(
+        **{
+            f"{prefix}decisions__verification_scope__in": (
+                IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+                IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+            ),
+        }
+    ) & ~Q(
+        **{
+            f"{prefix}resolution_kind": (
+                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+            ),
+        }
+    )
+
+
 def verified_payment_deals(queryset: QuerySet | None = None) -> QuerySet:
     queryset = queryset if queryset is not None else IgDeal.objects.all()
     return queryset.filter(verified_payment_q())
@@ -347,6 +375,83 @@ def client_has_confirmed_purchase(client) -> bool:
         client_id=client.pk,
         order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
     ).exists()
+
+
+def current_payment_confirmation(client) -> dict:
+    """Current payment fact for list presentation, with canonical provenance.
+
+    This is intentionally narrower than ``client_has_confirmed_purchase``.
+    The latter answers a lifetime CRM question; this function decides whether
+    the current conversation may receive the high-salience green treatment.
+    """
+    empty = {"confirmed": False, "source": "", "note": ""}
+    if not client or not getattr(client, "pk", None):
+        return empty
+
+    if client_has_verified_payment(client):
+        return {
+            "confirmed": True,
+            "source": "provider",
+            "note": "Оплату підтверджено платіжним провайдером.",
+        }
+
+    manager_confirmed = getattr(client, "has_current_manager_confirmation", None)
+    if manager_confirmed is None:
+        manager_confirmed = client.payment_confirmation_reviews.filter(
+            current_manager_confirmation_review_q()
+        ).exists()
+    if manager_confirmed:
+        return {
+            "confirmed": True,
+            "source": "manager",
+            "note": "Поточну оплату підтверджено менеджером.",
+        }
+
+    paid_order = getattr(client, "has_current_paid_linked_order", None)
+    if paid_order is None:
+        from management.ig_bot_models import IgOrderAssignment, IgOrderAttribution
+
+        paid_order = IgOrderAssignment.objects.filter(
+            client_id=client.pk,
+            unassigned_at__isnull=True,
+            order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+        ).exists() or IgOrderAttribution.objects.filter(
+            client_id=client.pk,
+            order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+        ).exists()
+    if paid_order:
+        return {
+            "confirmed": True,
+            "source": "paid_order",
+            "note": "Оплату підтверджено у прив'язаному замовленні.",
+        }
+    return empty
+
+
+def historical_purchase_confirmation(client) -> dict:
+    """Neutral history fact for an archived completed purchase."""
+    empty = {"confirmed": False, "source": "", "label": "", "note": ""}
+    if not client or not getattr(client, "pk", None):
+        return empty
+
+    archived = getattr(client, "has_historical_paid_archive", None)
+    if archived is None:
+        from management.ig_bot_models import IgPaymentConfirmationReview
+
+        archived = client.payment_confirmation_reviews.filter(
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            resolution_kind=(
+                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+            ),
+        ).exists()
+    if not archived:
+        return empty
+    return {
+        "confirmed": True,
+        "source": "historical_archive",
+        "label": "Купував раніше",
+        "note": "Архів: раніше завершене оплачене замовлення; не поточна оплата.",
+    }
 
 
 def annotate_confirmed_purchase(

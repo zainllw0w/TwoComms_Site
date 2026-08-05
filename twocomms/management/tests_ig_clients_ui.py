@@ -406,10 +406,69 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             ".bot-client-row.commercial-shipped:not(.needs-action):not(.post-sale-action)",
             "c.commercial_visual_state",
             "c.commercial_visual_state_label",
+            "c.commercial_visual_state_note",
             "bot-commercial-badge",
+            "c.purchase_history",
+            "bot-buyer-history-badge",
         ):
             self.assertIn(contract, self.template)
         self.assertIn("row.addEventListener('keydown'", self.template)
+
+    def test_commercial_truth_stays_visible_and_has_one_primary_row_badge(self):
+        self.assertNotIn(".bot-client-tags{display:none}", self.template)
+        for contract in (
+            ".bot-client-primary-state",
+            ".bot-client-context-line",
+            ".bot-client-lifetime",
+            "if(commercialLabel)",
+            "else if(history.confirmed)",
+            "buyerAggregateText(buyer)",
+            "bot-client-context-stage",
+            "bot-client-context-category",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_archive_conversation_does_not_repeat_a_lifetime_buyer_badge(self):
+        for contract in (
+            "archiveOnly",
+            "Архівну покупку підтверджено",
+            "bot-lifetime-fact",
+            "detailHistory.confirmed",
+            "detailCommercialLabel",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(
+            "const buyerChip=node('span','bot-buyer-badge'",
+            self.template,
+        )
+
+    def test_very_narrow_rows_give_the_client_name_a_full_grid_column(self):
+        for contract in (
+            "@media(max-width:340px)",
+            "grid-template-columns:38px minmax(0,1fr)",
+            ".bot-client-tags{grid-column:2",
+            "grid-row:2",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_archive_manager_truth_is_historical_in_the_context_pane(self):
+        for contract in (
+            "function managerTruthLabelForClient(payment,client)",
+            "Архівну покупку підтверджено",
+            "contextFact(grid,'Перевірка менеджера',managerTruthLabelForClient(d.payment||{},c))",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_commercial_provenance_has_a_touch_popover_contract(self):
+        for contract in (
+            ".bot-provenance-tooltip",
+            "bot-provenance-tooltip",
+            "badge.addEventListener('click'",
+            "event.key==='Escape'",
+            "document.addEventListener('click'",
+            "aria-describedby",
+        ):
+            self.assertIn(contract, self.template)
 
     def test_status_ui_distinguishes_daemon_liveness_from_broken_ingress(self):
         self.assertIn("st.state==='ingress_degraded'", self.template)
@@ -1240,7 +1299,7 @@ class ClientsApiTests(TestCase):
             data["review"]["history"][0]["approval"]["create_order_url"],
         )
 
-    def test_historical_paid_archive_is_green_and_not_actionable_without_fake_order(self):
+    def test_historical_paid_archive_is_neutral_history_and_not_a_current_payment(self):
         review = IgPaymentConfirmationReview.objects.create(
             client=self.c,
             dedupe_key="client-historical-paid-archive",
@@ -1278,16 +1337,13 @@ class ClientsApiTests(TestCase):
         detail = self.client.get(
             reverse("management_bot_client_detail_api", args=[self.c.id])
         ).json()
-        row = next(
-            item
-            for item in self.client.get(
-                reverse("management_bot_clients_api") + "?view=paid"
-            ).json()["clients"]
-            if item["id"] == self.c.id
-        )
+        paid_clients = self.client.get(
+            reverse("management_bot_clients_api") + "?view=paid"
+        ).json()["clients"]
         all_clients = self.client.get(
             reverse("management_bot_clients_api") + "?view=all"
         ).json()["clients"]
+        row = next(item for item in all_clients if item["id"] == self.c.id)
         active_clients = self.client.get(
             reverse("management_bot_clients_api") + "?view=active"
         ).json()["clients"]
@@ -1312,11 +1368,18 @@ class ClientsApiTests(TestCase):
         self.assertEqual(row["stage_raw"], IgClient.Stage.DONE)
         self.assertEqual(row["stage"], IgClient.Stage.DONE)
         self.assertEqual(row["stage_label"], "Завершено")
-        self.assertTrue(row["commercially_confirmed"])
-        self.assertEqual(row["commercial_visual_state"], "paid")
-        self.assertEqual(row["commercial_visual_state_label"], "Оплачено")
+        self.assertFalse(row["commercially_confirmed"])
+        self.assertEqual(row["commercial_visual_state"], "")
+        self.assertEqual(row["commercial_visual_state_label"], "")
+        self.assertEqual(row["commercial_visual_state_source"], "")
+        self.assertTrue(row["purchase_history"]["confirmed"])
+        self.assertEqual(
+            row["purchase_history"]["source"], "historical_archive"
+        )
+        self.assertIn("раніше", row["purchase_history"]["label"].lower())
         self.assertNotEqual(row["commercial_visual_state"], "shipped")
         self.assertIn(self.c.id, [item["id"] for item in all_clients])
+        self.assertNotIn(self.c.id, [item["id"] for item in paid_clients])
         self.assertNotIn(self.c.id, [item["id"] for item in active_clients])
 
     def test_paid_client_with_open_exchange_keeps_green_stage_and_post_sale_badge(self):
@@ -1578,6 +1641,7 @@ class ClientsApiTests(TestCase):
         for card in (list_card, detail_card):
             self.assertEqual(card["commercial_visual_state"], "shipped")
             self.assertEqual(card["commercial_visual_state_label"], "Відправлено")
+            self.assertEqual(card["commercial_visual_state_source"], "tracking")
 
     def test_commercial_visual_state_keeps_confirmed_payment_green_without_tracking(self):
         from orders.models import Order
@@ -1604,6 +1668,8 @@ class ClientsApiTests(TestCase):
 
         self.assertEqual(card["commercial_visual_state"], "paid")
         self.assertEqual(card["commercial_visual_state_label"], "Оплачено")
+        self.assertEqual(card["commercial_visual_state_source"], "paid_order")
+        self.assertIn("замовлен", card["commercial_visual_state_note"].lower())
 
     def test_commercial_visual_state_keeps_delivered_order_green_after_shipment(self):
         from orders.models import Order

@@ -43,10 +43,14 @@ from .ig_bot_models import IgCheckoutAccessToken, IgCheckoutProposal, IgCheckout
 from .services import instagram_bot as bot
 from .services import bot_followups
 from .services.bot_payment_truth import (
+    CONFIRMED_ORDER_PAYMENT_STATUSES,
     annotate_confirmed_purchase,
     annotate_verified_payment,
     client_has_confirmed_purchase,
     client_has_verified_payment,
+    current_manager_confirmation_review_q,
+    current_payment_confirmation,
+    historical_purchase_confirmation,
     latest_payment_projection,
     latest_legacy_payment_truth_deal,
     latest_verified_payment_deal,
@@ -3554,7 +3558,7 @@ def _funnel_progress_for_stage(c, stage: str) -> list[dict]:
     ]
 
 
-def _commercial_visual_state(c, *, has_confirmed_purchase: bool) -> tuple[str, str]:
+def _commercial_visual_state(c, *, payment_confirmation: dict) -> tuple[str, str, str, str]:
     """Return the compact list treatment backed by current commercial truth.
 
     A Direct delivery status says whether the bot could transport a message; it
@@ -3574,10 +3578,20 @@ def _commercial_visual_state(c, *, has_confirmed_purchase: bool) -> tuple[str, s
             order__tracking_number__isnull=False,
         ).exclude(order__tracking_number="").exists()
     if has_shipped_order:
-        return "shipped", "Відправлено"
-    if has_confirmed_purchase:
-        return "paid", "Оплачено"
-    return "", ""
+        return (
+            "shipped",
+            "Відправлено",
+            "tracking",
+            "Поточне прив'язане замовлення передано перевізнику та має трекінг.",
+        )
+    if payment_confirmation.get("confirmed"):
+        return (
+            "paid",
+            "Оплачено",
+            str(payment_confirmation.get("source") or ""),
+            str(payment_confirmation.get("note") or ""),
+        )
+    return "", "", "", ""
 
 
 def _client_card(c) -> dict:
@@ -3627,15 +3641,15 @@ def _client_card(c) -> dict:
         truth_projection = None
         truth_deal = None
     has_verified_payment = bool(verified_deal)
-    commercially_confirmed = getattr(c, "has_commercial_confirmation", None)
-    if commercially_confirmed is None:
+    manager_verified_order = getattr(c, "has_manager_verified_order", None)
+    if manager_verified_order is None:
         from .ig_bot_models import (
             IgOrderAttribution,
             IgPaymentConfirmationReview,
             IgPaymentReviewDecision,
         )
 
-        commercially_confirmed = IgOrderAttribution.objects.filter(
+        manager_verified_order = IgOrderAttribution.objects.filter(
             client=c,
             order_id__isnull=False,
             payment_source="manager_verified",
@@ -3657,13 +3671,10 @@ def _client_card(c) -> dict:
                     IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
                 ),
             )
-        ).exists() or IgPaymentConfirmationReview.objects.filter(
-            client=c,
-            status=IgPaymentConfirmationReview.Status.CONFIRMED,
-            resolution_kind=(
-                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
-            ),
         ).exists()
+    payment_confirmation = current_payment_confirmation(c)
+    commercially_confirmed = bool(payment_confirmation["confirmed"])
+    purchase_history = historical_purchase_confirmation(c)
     payment_truth = (
         truth_projection.truth
         if truth_projection
@@ -3682,6 +3693,10 @@ def _client_card(c) -> dict:
         elif commercially_confirmed:
             if displayed_stage == IgClient.Stage.PAID:
                 displayed_stage_label = "Оплачено менеджером"
+        elif purchase_history["confirmed"]:
+            # An archived completed sale keeps its historical funnel position,
+            # but receives no current-payment color or wording.
+            pass
         else:
             displayed_stage = "unverified"
             displayed_stage_label = "Потребує звірки оплати"
@@ -3719,9 +3734,14 @@ def _client_card(c) -> dict:
     post_sale_type_label = str(post_sale_labels.get(post_sale_type, ""))
     post_sale_status_label = str(post_sale_status_labels.get(post_sale_status, ""))
     potential = _client_potential_payload(c, latest_analysis)
-    commercial_visual_state, commercial_visual_state_label = _commercial_visual_state(
+    (
+        commercial_visual_state,
+        commercial_visual_state_label,
+        commercial_visual_state_source,
+        commercial_visual_state_note,
+    ) = _commercial_visual_state(
         c,
-        has_confirmed_purchase=client_has_confirmed_purchase(c),
+        payment_confirmation=payment_confirmation,
     )
     return {
         "id": c.id,
@@ -3791,10 +3811,15 @@ def _client_card(c) -> dict:
         "payment_truth": payment_truth,
         "commercially_confirmed": bool(commercially_confirmed),
         "commercial_confirmation_source": (
-            "manager_verified_order" if commercially_confirmed else ""
+            "manager_verified_order"
+            if manager_verified_order and commercially_confirmed
+            else str(payment_confirmation.get("source") or "")
         ),
         "commercial_visual_state": commercial_visual_state,
         "commercial_visual_state_label": commercial_visual_state_label,
+        "commercial_visual_state_source": commercial_visual_state_source,
+        "commercial_visual_state_note": commercial_visual_state_note,
+        "purchase_history": purchase_history,
         "delivery_status": c.delivery_status,
         "delivery_status_label": c.get_delivery_status_display() if c.delivery_status else "",
         "delivery_error": c.delivery_error,
@@ -3853,6 +3878,19 @@ def bot_clients_api(request):
             IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
         ),
     )
+    current_manager_reviews = IgPaymentConfirmationReview.objects.filter(
+        current_manager_confirmation_review_q(),
+        client_id=OuterRef("pk"),
+    )
+    paid_order_assignments = IgOrderAssignment.objects.filter(
+        client_id=OuterRef("pk"),
+        unassigned_at__isnull=True,
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    )
+    paid_order_attributions = IgOrderAttribution.objects.filter(
+        client_id=OuterRef("pk"),
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    )
     physical_orders = IgOrderAttribution.objects.filter(
         client_id=OuterRef("pk"),
         order_id__isnull=False,
@@ -3896,8 +3934,15 @@ def bot_clients_api(request):
             to_attr="_latest_commercial_episode",
         ),
         ).annotate(
+            has_manager_verified_order=Exists(manager_verified_orders),
+            has_current_manager_confirmation=Exists(current_manager_reviews),
+            has_current_paid_linked_order=(
+                Exists(paid_order_assignments) | Exists(paid_order_attributions)
+            ),
             has_commercial_confirmation=(
-                Exists(manager_verified_orders) | Exists(historical_paid_reviews)
+                Exists(current_manager_reviews)
+                | Exists(paid_order_assignments)
+                | Exists(paid_order_attributions)
             ),
             has_historical_paid_archive=Exists(historical_paid_reviews),
             has_physical_order=Exists(physical_orders),
@@ -3916,7 +3961,9 @@ def bot_clients_api(request):
         qs = qs.filter(Q(stage__in=[IgClient.Stage.SPAM, IgClient.Stage.COLD]) | Q(spam_strikes__gt=0))
     elif view == "paid":
         qs = qs.filter(
-            Q(has_verified_payment=True) | Q(has_commercial_confirmation=True)
+            Q(has_verified_payment=True)
+            | Q(has_current_manager_confirmation=True)
+            | Q(has_current_paid_linked_order=True)
         )
     elif view == "due":
         qs = qs.filter(followup_tasks__status="pending", followup_tasks__due_at__lte=timezone.now()).distinct()
@@ -3948,6 +3995,7 @@ def bot_clients_api(request):
             | Q(
                 has_verified_payment=False,
                 has_commercial_confirmation=False,
+                has_historical_paid_archive=False,
             )
         )
     qs = qs.order_by("-last_message_at", "-id")
