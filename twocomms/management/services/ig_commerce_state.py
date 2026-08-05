@@ -99,6 +99,21 @@ def _active_line(snapshot: dict) -> dict | None:
     return lines[index]
 
 
+def _clear_active_line(snapshot: dict) -> None:
+    """Remove every product-scoped value while retaining stable line identity."""
+    lines = list(snapshot.get("lines") or [])
+    index = int(snapshot.get("active_index") or 0)
+    if not lines:
+        lines = [{"line_id": "line:0"}]
+        index = 0
+    while index >= len(lines):
+        lines.append({"line_id": f"line:{len(lines)}"})
+    line = lines[index] if isinstance(lines[index], dict) else {}
+    lines[index] = {"line_id": str(line.get("line_id") or f"line:{index}")}
+    snapshot["lines"] = lines
+    snapshot["active_index"] = index
+
+
 def _apply_field_updates(snapshot: dict, request: CommerceTurnRequest) -> bool:
     updates = dict(request.field_updates or {})
     updates.update(
@@ -399,6 +414,19 @@ def apply_turn(
             action = "query_constraints_updated"
             reasons.append("query_constraints_updated")
 
+    rejected_product_ids = sorted(
+        {
+            int(product_id)
+            for product_id in (request.rejected_product_ids or ())
+            if str(product_id).isdigit() and int(product_id) > 0
+        }
+    )
+    active_line = _active_line(after) or {}
+    active_product_id = int(active_line.get("product_id") or 0)
+    rejects_active_product = bool(
+        rejected_product_ids and active_product_id in rejected_product_ids
+    )
+
     numeric_accepted, numeric_reason = _apply_numeric_candidate(after, source, request)
     if numeric_accepted:
         # A numbered candidate is also a product switch. Keep only constraints
@@ -429,6 +457,22 @@ def apply_turn(
 
     if candidate_rejected:
         pass
+    elif rejects_active_product and not request.exact_product_id:
+        # A customer rejection is stronger than the legacy product projection.
+        # Keep only explicitly supplied replacement constraints; every old
+        # product/configuration/price/allocation value becomes inapplicable.
+        _clear_active_line(after)
+        _clear_candidate_anchor(after)
+        after["selection_constraints"] = dict(incoming_selection_constraints)
+        after["query_constraints"] = dict(incoming_query_constraints)
+        after["rejected_selection"] = {"product_ids": rejected_product_ids}
+        after["rejected_reason"] = "customer_rejected_product"
+        after["pending_field"] = ""
+        after["pending_clarification"] = ""
+        action = "product_rejected"
+        reasons.append("customer_rejected_product")
+        if _apply_field_updates(after, request):
+            reasons.append("explicit_field_update")
     elif request.reset_requested:
         after["lines"] = []
         after["active_index"] = 0

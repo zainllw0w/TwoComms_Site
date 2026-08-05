@@ -255,6 +255,97 @@ class CommerceProjectionTests(CommerceStateFixture, TestCase):
         self.assertEqual(session.selection_constraints, {"back_decoration": "none"})
         self.assertEqual(session.query_constraints, {})
 
+    def test_rejected_product_is_recorded_and_clears_its_configuration(self):
+        session = authoritative_session_for(self.client)
+        session.lines = [{
+            "line_id": "line-1",
+            "product_id": self.reality.pk,
+            "quantity": 2,
+            "size": "L",
+            "color": "pink",
+            "fit_option_code": "oversize",
+            "color_variant_id": 91,
+            "price": "1450.00",
+        }]
+        session.active_index = 0
+        session.selection_constraints = {"back_decoration": "print"}
+        session.query_constraints = {"query": "reality bends"}
+        session.save()
+
+        decision = apply_turn(
+            self.client,
+            self.message("reject-reality"),
+            CommerceTurnRequest(
+                rejected_product_ids=(self.reality.pk,),
+                field_updates={"color": "black", "fit": "classic"},
+            ),
+        )
+
+        session.refresh_from_db()
+        self.assertEqual(decision.transition.action, "product_rejected")
+        self.assertEqual(session.rejected_reason, "customer_rejected_product")
+        self.assertEqual(session.rejected_selection["product_ids"], [self.reality.pk])
+        self.assertEqual(
+            session.lines[0],
+            {"line_id": "line-1", "color": "black", "fit_option_code": "classic"},
+        )
+        self.assertEqual(session.selection_constraints, {})
+        self.assertEqual(session.query_constraints, {})
+
+
+class CommerceWorkerIntegrationTests(CommerceStateFixture, TestCase):
+    def test_worker_persists_exact_product_reference_before_gemini(self):
+        self.client.current_product = self.reality
+        self.client.current_size = "L"
+        self.client.current_color = "pink"
+        self.client.current_qty = 2
+        self.client.profile_fetched_at = timezone.now()
+        self.client.save()
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.ai_enabled = True
+        settings.save(update_fields=["is_enabled", "ai_enabled", "updated_at"])
+        row = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text=f"https://twocomms.shop/product/{self.classic.slug}/",
+            mid="commerce-worker-exact-reference",
+            status=InstagramBotMessage.Status.PROCESSING,
+            processing_started_at=timezone.now(),
+        )
+        seen = {}
+
+        def generate_reply(*_args, **_kwargs):
+            session = authoritative_session_for(self.client)
+            seen["product_id"] = session.lines[0]["product_id"]
+            seen["decision_count"] = IgCommerceTurnDecision.objects.filter(
+                source_message=row
+            ).count()
+            return "Підкажу деталі."
+
+        with patch(
+            "management.services.bot_sales_classifier.ensure_rule_classification",
+            return_value=None,
+        ), patch(
+            "management.services.instagram_bot._rate_exceeded", return_value=False
+        ), patch(
+            "management.services.instagram_bot._repeated_question", return_value=0
+        ), patch("management.services.instagram_bot.send_sender_action"), patch(
+            "management.services.instagram_bot.gemini_generate",
+            side_effect=generate_reply,
+        ), patch(
+            "management.services.instagram_bot.send_text",
+            return_value=(True, "", "provider-commerce-exact"),
+        ):
+            self.assertTrue(instagram_bot._process_one(settings, row))
+
+        decision = IgCommerceTurnDecision.objects.get(source_message=row)
+        self.assertTrue(decision.accepted)
+        self.assertEqual(seen, {"product_id": self.classic.pk, "decision_count": 1})
+        self.client.refresh_from_db()
+        self.assertEqual(self.client.current_product_id, self.classic.pk)
+
 
 class CommerceStateTests(CommerceStateFixture, TransactionTestCase):
     reset_sequences = True

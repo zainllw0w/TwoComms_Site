@@ -6260,18 +6260,42 @@ def apply_deterministic_commerce_turn(
     return request
 
 
-def commerce_turn_note(client, text: str, *, media_evidence=None) -> str:
+def commerce_turn_note(client, text: str, *, media_evidence=None, request=None) -> str:
     """Expose parser facts to Gemini while keeping the parser fail-closed."""
     try:
-        request = apply_deterministic_commerce_turn(
-            client,
-            text,
-            media_evidence=media_evidence,
-        )
+        if request is None:
+            request = apply_deterministic_commerce_turn(
+                client,
+                text,
+                media_evidence=media_evidence,
+            )
         return _commerce_turn_note_from_request(request)
     except Exception as exc:  # noqa: BLE001
         log("warning", "commerce_turn_parse", repr(exc))
         return ""
+
+
+def _persist_commerce_turn(row: InstagramBotMessage, *, media_evidence=None):
+    """Reduce an inbound commerce event before legacy or model side effects."""
+    if not row.client_id:
+        return None, None
+    from management.services.ig_commerce_state import apply_turn
+    from management.services.ig_commerce_turns import understand_turn
+
+    request = understand_turn(row.text, media_evidence=media_evidence)
+    return request, apply_turn(row.client, row, request)
+
+
+def _commerce_request_blocks_media_pin(request) -> bool:
+    """A current correction or exact URL outranks a conflicting shared image."""
+    return bool(
+        request
+        and (
+            getattr(request, "exact_product_id", None)
+            or getattr(request, "rejected_product_ids", ())
+            or getattr(request, "reset_requested", False)
+        )
+    )
 
 
 def customer_turn_note(client, text: str) -> str:
@@ -7877,6 +7901,8 @@ def _process_one_inside_reply_boundary(
     gemini_failure: dict = {}
     typing_started_at: float | None = None
     typing_active = False
+    commerce_request = None
+    commerce_decision = None
 
     def clear_typing_indicator() -> None:
         nonlocal typing_active
@@ -7912,6 +7938,20 @@ def _process_one_inside_reply_boundary(
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
     if row.client_id:
+        # Product corrections must become durable state before the classifier,
+        # visual matcher, or Gemini can observe and reuse legacy current_* data.
+        # Opted-out clients are handled by the existing policy gate below and do
+        # not receive a new commerce decision while messaging remains forbidden.
+        if not row.client.opted_out_at:
+            try:
+                commerce_request, commerce_decision = _persist_commerce_turn(
+                    row,
+                    media_evidence=_recover_current_message_media(row),
+                )
+            except DatabaseError:
+                raise
+            except Exception as exc:
+                log("warning", "commerce_turn_reduce", repr(exc))
         try:
             from management.services import bot_followups, bot_sales_classifier
 
@@ -8051,10 +8091,33 @@ def _process_one_inside_reply_boundary(
                         return False
                     match_hint = _match_hint_text(match)
                     # Впевнений матчинг → закріплюємо товар за клієнтом.
-                    if row.client_id and _should_pin_product_media(media):
+                    if (
+                        row.client_id
+                        and not _commerce_request_blocks_media_pin(commerce_request)
+                        and _should_pin_product_media(media)
+                    ):
                         _maybe_pin_from_match(row.client, match)
                 except Exception as exc:
                     log("warning", "match", repr(exc))
+            if commerce_decision is not None:
+                # Classification may still record evidence, but it cannot leave
+                # its transient legacy fields more authoritative than the
+                # session reducer that processed this inbound event.
+                try:
+                    from management.services.ig_commerce_projection import (
+                        authoritative_session_for,
+                        project_active_line_to_legacy_client,
+                    )
+
+                    commerce_client = IgClient.objects.get(pk=row.client_id)
+                    project_active_line_to_legacy_client(
+                        authoritative_session_for(commerce_client), commerce_client
+                    )
+                    row.client = commerce_client
+                except DatabaseError:
+                    raise
+                except Exception as exc:
+                    log("warning", "commerce_turn_project", repr(exc))
             # Пам'ять про клієнта (rolling summary) + контекст (реклама/постійний) —
             # щоб бот одразу орієнтувався.
             mem_note = None
@@ -8071,6 +8134,7 @@ def _process_one_inside_reply_boundary(
                 row.client if row.client_id else None,
                 row.text,
                 media_evidence=media,
+                request=commerce_request,
             )
             customer_turn_context = customer_turn_note(
                 row.client if row.client_id else None,
