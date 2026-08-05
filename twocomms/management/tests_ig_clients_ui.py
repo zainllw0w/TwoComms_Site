@@ -281,7 +281,7 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         ]
         for contract in (
             ".bot-client-context-shell:not([hidden]){display:block;width:100dvw;max-width:100dvw;height:100dvh;max-height:100dvh;box-sizing:border-box;}",
-            ".bot-drawer-backdrop{display:none}",
+            ".bot-client-context-shell .bot-drawer-backdrop{display:none;}",
             ".bot-client-context-shell .bot-drawer-panel{width:100%;max-width:100%;height:100%;max-height:100%;box-sizing:border-box;border-left:0;}",
         ):
             self.assertIn(contract, mobile_styles)
