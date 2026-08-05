@@ -85,6 +85,46 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
+    def test_client_context_gear_is_a_reversible_desktop_toggle(self):
+        for contract in (
+            "ClientContextDrawer.toggle(advanced)",
+            "data-context-open",
+            "localStorage.getItem('twocomms.bot.context.open')",
+            "localStorage.setItem('twocomms.bot.context.open'",
+            "advanced.setAttribute('aria-expanded'",
+            ".bot-clients-workspace[data-context-open=\"false\"]",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_client_context_toggle_keeps_mobile_drawer_semantics(self):
+        for contract in (
+            "desktopContext.matches",
+            "panel.setAttribute('role','dialog')",
+            "panel.setAttribute('aria-modal','true')",
+            "document.body.classList.add('bot-client-context-open')",
+            "document.body.classList.remove('bot-client-context-open')",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_client_workspace_stretches_all_desktop_panes_to_one_rhythm(self):
+        for contract in (
+            ".bot-clients-workspace{display:grid;",
+            "align-items:stretch;",
+            "height:clamp(620px,calc(100vh - 24px),760px);",
+            ".bot-clients-sidebar{padding:12px;position:sticky;top:12px;display:flex;flex-direction:column;}",
+            ".bot-clients-list{max-height:none;min-height:0;flex:1;",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_client_context_toggle_state_stays_in_sync_when_other_drawers_open(self):
+        for contract in (
+            "data-client-context-toggle",
+            "function syncToggleControls()",
+            "ClientContextDrawer.close(null,{persist:false,restoreFocus:false})",
+            "function close(trigger,{persist=true,restoreFocus=true}={})",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_mobile_client_drawer_raises_its_owning_workspace_above_global_header(self):
         for contract in (
             ".management-body.bot-client-context-open .workspace{z-index:41}",
