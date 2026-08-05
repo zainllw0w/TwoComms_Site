@@ -93,6 +93,13 @@ PROFILE_REFRESH_INTERVAL = 15 * 60
 PROFILE_REFRESH_BATCH = 25
 PROFILE_PERMISSION_COOLDOWN = 6 * 60 * 60
 
+# A short visible window makes Meta's ephemeral typing action perceivable
+# without turning a fast reply into a queue-wide delay.  The target is derived
+# from the customer-visible reply and is always capped.
+TYPING_MIN_VISIBLE_SECONDS = 0.8
+TYPING_MAX_VISIBLE_SECONDS = 3.0
+TYPING_SECONDS_PER_VISIBLE_CHAR = 0.018
+
 
 @dataclass(frozen=True)
 class ProviderDeliveryReceipt:
@@ -4532,6 +4539,78 @@ def send_sender_action(
         return result
 
 
+def _typing_target_seconds(reply: str) -> float:
+    """Return a deterministic, bounded typing target for visible reply text."""
+    visible_length = len(" ".join(str(reply or "").split()))
+    target = TYPING_MIN_VISIBLE_SECONDS + (
+        visible_length * TYPING_SECONDS_PER_VISIBLE_CHAR
+    )
+    return min(TYPING_MAX_VISIBLE_SECONDS, max(TYPING_MIN_VISIBLE_SECONDS, target))
+
+
+def _reply_permission_is_current(s, row, permission) -> bool:
+    """Check the captured permission generation before a customer-facing wait."""
+    from management.services.ig_reply_boundary import capture_reply_permission
+
+    current = capture_reply_permission(getattr(s, "pk", None), row.client_id)
+    if not current or permission is None:
+        return bool(current)
+    return bool(
+        current.settings_epoch == permission.settings_epoch
+        and current.client_epoch == permission.client_epoch
+    )
+
+
+def _stop_typing_indicator(s, row, typing_active: bool) -> None:
+    """Best-effort cleanup for a typing action that was successfully started."""
+    if typing_active:
+        send_sender_action(s, row.sender_id, "typing_off")
+
+
+def _wait_for_typing_window(
+    s,
+    row,
+    lease_token: str,
+    permission,
+    reply: str,
+    *,
+    typing_started_at: float | None,
+    now: float | None = None,
+    typing_active: bool = True,
+) -> bool:
+    """Wait outside DB/send locks while preserving lease and permission truth."""
+    if typing_started_at is None:
+        return True
+    if not _renew_client_automation_lease(row, lease_token):
+        _stop_typing_indicator(s, row, typing_active)
+        return False
+    if not _reply_permission_is_current(s, row, permission):
+        _stop_typing_indicator(s, row, typing_active)
+        return False
+    current = time.monotonic() if now is None else now
+    remaining = max(
+        0.0,
+        _typing_target_seconds(reply) - max(0.0, current - typing_started_at),
+    )
+    if remaining > 0:
+        time.sleep(remaining)
+    # A stop/pause can land while the worker is waiting.  Revalidate before
+    # entering the final send boundary, and do not send after a failed check.
+    if not _renew_client_automation_lease(row, lease_token):
+        _stop_typing_indicator(s, row, typing_active)
+        return False
+    if not _reply_permission_is_current(s, row, permission):
+        _stop_typing_indicator(s, row, typing_active)
+        return False
+    return True
+
+
+def _send_with_typing_off(s, row, typing_active: bool, send_callable):
+    """End the ephemeral typing state immediately before the final send call."""
+    _stop_typing_indicator(s, row, typing_active)
+    return send_callable()
+
+
 def _split_for_send(text: str, limit: int = 950, max_chunks: int = 4) -> list[str]:
     """Ріже текст на частини ≤limit байт (UTF-8). Send API дозволяє 1000 байт."""
     text = (text or "").strip()
@@ -7543,6 +7622,15 @@ def _process_one_inside_reply_boundary(
     outage_recovery_required = False
     outage_recovery_job = None
     gemini_failure: dict = {}
+    typing_started_at: float | None = None
+    typing_active = False
+
+    def clear_typing_indicator() -> None:
+        nonlocal typing_active
+        if typing_active:
+            _stop_typing_indicator(s, row, typing_active)
+            typing_active = False
+
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
     if row.client_id:
@@ -7632,7 +7720,12 @@ def _process_one_inside_reply_boundary(
         if not _renew_client_automation_lease(row, lease_token):
             return False
         send_sender_action(s, row.sender_id, "mark_seen")
-        send_sender_action(s, row.sender_id, "typing_on")
+        typing_on_result = send_sender_action(s, row.sender_id, "typing_on")
+        if isinstance(typing_on_result, SenderActionResult) and typing_on_result.ok:
+            # Record this immediately after Meta accepted typing_on.  Generation
+            # and all later CRM work consume the same monotonic start point.
+            typing_started_at = time.monotonic()
+            typing_active = True
         # Підвантажуємо профіль клієнта (раз на картку) для CRM.
         if row.client_id and not row.client.profile_fetched_at:
             try:
@@ -7646,6 +7739,7 @@ def _process_one_inside_reply_boundary(
             log("info", "repeat_guard", f"{row.sender_id}: повтор #{rep}, без Gemini")
         else:
             if not _renew_client_automation_lease(row, lease_token):
+                clear_typing_indicator()
                 return False
             history = _build_history(row.sender_id)
             if not history:
@@ -7661,6 +7755,7 @@ def _process_one_inside_reply_boundary(
             if not images and not media_recovery_failed:
                 images = _collect_images(row.attachments)
             if not _renew_client_automation_lease(row, lease_token):
+                clear_typing_indicator()
                 return False
             # Якщо є фото/пост — матчимо з каталогом і даємо моделі підказку.
             match_hint = None
@@ -7674,6 +7769,7 @@ def _process_one_inside_reply_boundary(
 
                     match = bot_vision.match(product_images)
                     if not _renew_client_automation_lease(row, lease_token):
+                        clear_typing_indicator()
                         return False
                     match_hint = _match_hint_text(match)
                     # Впевнений матчинг → закріплюємо товар за клієнтом.
@@ -7712,9 +7808,11 @@ def _process_one_inside_reply_boundary(
         reply = s.reply_text
 
     if not _renew_client_automation_lease(row, lease_token):
+        clear_typing_indicator()
         return False
 
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
+        clear_typing_indicator()
         return _skip_observed_row(row, reason="global_reply_paused_before_send")
 
     # Керуючі теги моделі: [MANAGER] (ескалація), [STAGE:x] (воронка) тощо.
@@ -7818,6 +7916,7 @@ def _process_one_inside_reply_boundary(
 
     if not reply and s.ai_enabled:
         if _defer_for_gemini_cooldown(row, s):
+            clear_typing_indicator()
             return False
         try:
             from management.services.bot_reply_fallback import (
@@ -7868,6 +7967,7 @@ def _process_one_inside_reply_boundary(
             row.status = InstagramBotMessage.Status.PENDING
             row.processing_started_at = None
             row.save(update_fields=["status", "processing_started_at"])
+        clear_typing_indicator()
         return False
 
     if outage_recovery_required:
@@ -7890,6 +7990,7 @@ def _process_one_inside_reply_boundary(
                 event_type="ai_reply_recovery_schedule_failed",
                 client=row.client if row.client_id else None,
             )
+            clear_typing_indicator()
             return False
 
     from management.services.ig_reply_boundary import customer_send_boundary
@@ -7938,44 +8039,78 @@ def _process_one_inside_reply_boundary(
         except Exception as exc:
             log("warning", "catalog_media_delivery", repr(exc))
 
+    # Keep the ephemeral typing state perceptible, but wait before entering any
+    # database transaction or customer send lock.  The helper revalidates both
+    # the automation lease and captured permission generation around the wait.
+    if not _wait_for_typing_window(
+        s,
+        row,
+        lease_token,
+        permission,
+        reply,
+        typing_started_at=typing_started_at,
+        typing_active=typing_active,
+    ):
+        typing_active = False
+        return False
+
     # Останнє продовження lease прямо перед Meta Send API. Поки send триває,
     # hide не поверне помилковий success: UI отримає чесний retryable-конфлікт.
     if not _renew_client_automation_lease(row, lease_token):
+        clear_typing_indicator()
         return False
     # The global lock is held only across the claim/revalidation.  Each Meta
     # chunk below takes its own short send boundary, so slow generation and
     # unrelated chunks never block a stop for the whole response.
+    send_boundary_allowed = False
+    send_claim_lost = False
     with customer_send_boundary(s.pk, row.client_id, permission) as send_allowed:
         if not send_allowed:
-            return _skip_observed_row(row, reason="permission_epoch_changed")
-        send_started_at = timezone.now()
-        if not _own_processing_claim(row).update(
-            send_state="sending", send_started_at=send_started_at, send_completed_at=None,
-        ):
-            log("warning", "claim_lost", f"{row.sender_id}: send claim lost before Meta request")
-            return False
-        row.send_state = "sending"
-        row.send_started_at = send_started_at
-        row.send_completed_at = None
-    delivery = send_text(
+            send_boundary_allowed = False
+        else:
+            send_boundary_allowed = True
+            send_started_at = timezone.now()
+            if not _own_processing_claim(row).update(
+                send_state="sending", send_started_at=send_started_at, send_completed_at=None,
+            ):
+                send_claim_lost = True
+                log("warning", "claim_lost", f"{row.sender_id}: send claim lost before Meta request")
+            else:
+                row.send_state = "sending"
+                row.send_started_at = send_started_at
+                row.send_completed_at = None
+    if not send_boundary_allowed:
+        clear_typing_indicator()
+        return _skip_observed_row(row, reason="permission_epoch_changed")
+    if send_claim_lost:
+        clear_typing_indicator()
+        return False
+    delivery = _send_with_typing_off(
         s,
-        row.sender_id,
-        reply,
-        permission_boundary_factory=lambda: customer_send_boundary(
-            s.pk, row.client_id, permission
+        row,
+        typing_active,
+        lambda: send_text(
+            s,
+            row.sender_id,
+            reply,
+            permission_boundary_factory=lambda: customer_send_boundary(
+                s.pk, row.client_id, permission
+            ),
+            # A normal product/catalog answer remains useful without a URL. A
+            # generated payment link does not: silently stripping it would make
+            # a false promise, so payment delivery stays fail-closed for a
+            # manager.
+            allow_url_fallback=_allows_linkless_fallback(reply, control, row.client),
+            # A blocked payment link produces its own manager task with the
+            # exact invoice. It is the one actionable alert for that failed
+            # send, so do not also emit the generic link-circuit Telegram alert.
+            alert_link_restriction=not bool(
+                payment_deal is not None or _PAY_URL_RE.search(reply)
+            ),
+            return_receipt=True,
         ),
-        # A normal product/catalog answer remains useful without a URL. A
-        # generated payment link does not: silently stripping it would make a
-        # false promise, so payment delivery stays fail-closed for a manager.
-        allow_url_fallback=_allows_linkless_fallback(reply, control, row.client),
-        # A blocked payment link produces its own manager task with the exact
-        # invoice.  It is the one actionable alert for that failed send, so do
-        # not also emit the generic link-circuit Telegram alert.
-        alert_link_restriction=not bool(
-            payment_deal is not None or _PAY_URL_RE.search(reply)
-        ),
-        return_receipt=True,
     )
+    typing_active = False
     ok, kind, hint, provider_message_id, receipt_present = _delivery_receipt(delivery)
     if ok and receipt_present and not provider_message_id:
         # The Send API may have accepted the request before returning a malformed

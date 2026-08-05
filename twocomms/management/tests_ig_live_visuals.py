@@ -113,3 +113,142 @@ class SenderActionTests(SimpleTestCase):
         diagnostics = " ".join(str(call) for call in action_log.call_args_list)
         self.assertNotIn("customer-123", diagnostics)
         self.assertNotIn("timeout", diagnostics)
+
+
+class TypingWindowTests(SimpleTestCase):
+    def setUp(self):
+        self.settings = SimpleNamespace(pk=17, is_enabled=True)
+        self.row = SimpleNamespace(client_id=23, sender_id="customer-23")
+        self.permission = SimpleNamespace(settings_epoch=4, client_epoch=9)
+
+    def test_reply_length_maps_to_small_bounded_target(self):
+        short = bot._typing_target_seconds("Hi")
+        long = bot._typing_target_seconds("x" * 1000)
+
+        self.assertGreaterEqual(short, bot.TYPING_MIN_VISIBLE_SECONDS)
+        self.assertLessEqual(short, bot.TYPING_MAX_VISIBLE_SECONDS)
+        self.assertEqual(long, bot.TYPING_MAX_VISIBLE_SECONDS)
+        self.assertLess(
+            bot._typing_target_seconds("Short answer"),
+            bot._typing_target_seconds("A" * 240),
+        )
+
+    @patch("management.services.instagram_bot._reply_permission_is_current", return_value=True)
+    @patch("management.services.instagram_bot._renew_client_automation_lease", return_value=True)
+    @patch("management.services.instagram_bot.time.sleep")
+    def test_fast_generation_waits_only_for_remaining_target(
+        self, sleep, _renew, _permission
+    ):
+        target = bot._typing_target_seconds("A concise answer")
+
+        allowed = bot._wait_for_typing_window(
+            self.settings,
+            self.row,
+            "lease-token",
+            self.permission,
+            "A concise answer",
+            typing_started_at=100.0,
+            now=100.2,
+        )
+
+        self.assertTrue(allowed)
+        sleep.assert_called_once()
+        self.assertAlmostEqual(sleep.call_args.args[0], target - 0.2, places=6)
+
+    @patch("management.services.instagram_bot._reply_permission_is_current", return_value=True)
+    @patch("management.services.instagram_bot._renew_client_automation_lease", return_value=True)
+    @patch("management.services.instagram_bot.time.sleep")
+    def test_slow_generation_does_not_add_wait(
+        self, sleep, _renew, _permission
+    ):
+        allowed = bot._wait_for_typing_window(
+            self.settings,
+            self.row,
+            "lease-token",
+            self.permission,
+            "A short answer",
+            typing_started_at=100.0,
+            now=100.0 + bot.TYPING_MAX_VISIBLE_SECONDS + 0.1,
+        )
+
+        self.assertTrue(allowed)
+        sleep.assert_not_called()
+
+    @patch("management.services.instagram_bot.time.sleep")
+    def test_failed_typing_on_does_not_add_wait(self, sleep):
+        allowed = bot._wait_for_typing_window(
+            self.settings,
+            self.row,
+            "lease-token",
+            self.permission,
+            "A reply",
+            typing_started_at=None,
+            now=100.0,
+        )
+
+        self.assertTrue(allowed)
+        sleep.assert_not_called()
+
+    @patch("management.services.instagram_bot._stop_typing_indicator")
+    @patch("management.services.instagram_bot.time.sleep")
+    @patch("management.services.instagram_bot._renew_client_automation_lease", return_value=False)
+    def test_stale_lease_skips_wait_and_stops_typing(
+        self, _renew, sleep, stop_typing
+    ):
+        allowed = bot._wait_for_typing_window(
+            self.settings,
+            self.row,
+            "lease-token",
+            self.permission,
+            "A reply",
+            typing_started_at=100.0,
+            now=100.1,
+            typing_active=True,
+        )
+
+        self.assertFalse(allowed)
+        sleep.assert_not_called()
+        stop_typing.assert_called_once_with(self.settings, self.row, True)
+
+    @patch("management.services.instagram_bot._stop_typing_indicator")
+    @patch("management.services.instagram_bot.time.sleep")
+    @patch("management.services.instagram_bot._reply_permission_is_current", return_value=False)
+    @patch("management.services.instagram_bot._renew_client_automation_lease", return_value=True)
+    def test_cancelled_permission_skips_wait_and_stops_typing(
+        self, _renew, _permission, sleep, stop_typing
+    ):
+        allowed = bot._wait_for_typing_window(
+            self.settings,
+            self.row,
+            "lease-token",
+            self.permission,
+            "A reply",
+            typing_started_at=100.0,
+            now=100.1,
+            typing_active=True,
+        )
+
+        self.assertFalse(allowed)
+        sleep.assert_not_called()
+        stop_typing.assert_called_once_with(self.settings, self.row, True)
+
+    def test_typing_off_happens_before_send_callable(self):
+        events = []
+
+        def stop_typing(*_args):
+            events.append("typing_off")
+
+        def send():
+            events.append("send_text")
+            return "sent"
+
+        with patch.object(bot, "_stop_typing_indicator", side_effect=stop_typing):
+            result = bot._send_with_typing_off(
+                self.settings,
+                self.row,
+                True,
+                send,
+            )
+
+        self.assertEqual(result, "sent")
+        self.assertEqual(events, ["typing_off", "send_text"])
