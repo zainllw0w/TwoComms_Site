@@ -374,7 +374,10 @@ def meta_window_deadline(client: IgClient) -> datetime | None:
 
 def _update_client_next(client: IgClient) -> None:
     nxt = (
-        IgFollowUpTask.objects.filter(client=client, status=IgFollowUpTask.Status.PENDING)
+        IgFollowUpTask.objects.filter(
+            client=client,
+            status=IgFollowUpTask.Status.PENDING,
+        ).exclude(kind=IgFollowUpTask.Kind.MANAGER_TASK)
         .order_by("due_at", "id")
         .first()
     )
@@ -1541,6 +1544,9 @@ def _finalize_confirmed_followup(
             raise RuntimeError("follow-up receipt is not in SENT state")
         client = IgClient.objects.select_for_update().get(pk=task.client_id)
         task.client = client
+        text = (text or task.message_text or "").strip()
+        if not text:
+            text = compose_followup(task, now=now)
         msg = task.sent_message
         if msg is None:
             msg = InstagramBotMessage.objects.create(
@@ -1622,6 +1628,38 @@ def _finalize_confirmed_followup(
     return task, client
 
 
+def recover_sent_followup_receipts(
+    *, now: datetime | None = None, limit: int = 100
+) -> int:
+    """Finish receipt-committed tasks stranded by a worker crash."""
+    now = now or _now()
+    task_ids = list(
+        IgFollowUpTask.objects.filter(
+            status=IgFollowUpTask.Status.SENT,
+            sent_message__isnull=True,
+        ).exclude(
+            provider_message_id="",
+        ).order_by("updated_at", "id").values_list("id", flat=True)[
+            : max(1, min(int(limit), 500))
+        ]
+    )
+    recovered = 0
+    for task_id in task_ids:
+        task = IgFollowUpTask.objects.select_related("client", "deal").filter(pk=task_id).first()
+        if task is None:
+            continue
+        try:
+            _finalize_confirmed_followup(task.pk, text=task.message_text, now=now)
+        except Exception as exc:
+            task = IgFollowUpTask.objects.select_related("client").filter(pk=task_id).first()
+            if task is not None:
+                task.last_error = repr(exc)[:500]
+                _mark_ambiguous(task, "receipt_recovery_failed", now=now)
+            continue
+        recovered += 1
+    return recovered
+
+
 def resolve_ambiguous_followup(
     task_id: int,
     *,
@@ -1678,7 +1716,8 @@ def resolve_ambiguous_followup(
             "claim_until", "next_attempt_at", "updated_at",
         ])
         if outcome == "delivered":
-            _finalize_confirmed_followup(task.pk, text=task.message_text, now=now)
+            resolution_text = task.message_text or (review.message_text if review else "")
+            _finalize_confirmed_followup(task.pk, text=resolution_text, now=now)
         review.status = IgFollowUpTask.Status.COMPLETED
         review.skip_reason = f"delivery_review_{outcome}"
         review.last_error = ""
@@ -1849,6 +1888,7 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
     now = now or _now()
     sent = 0
     recover_expired_followup_leases(now=now, limit=limit)
+    recover_sent_followup_receipts(now=now, limit=limit)
     task_ids = list(
         IgFollowUpTask.objects
         .filter(status=IgFollowUpTask.Status.PENDING, due_at__lte=now)
@@ -1947,6 +1987,9 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
             if task is None:
                 continue
             task.client = client
+            if task.message_text != text:
+                task.message_text = text
+                task.save(update_fields=["message_text", "updated_at"])
             with customer_send_boundary(s.pk, client.id, permission) as send_allowed:
                 if not send_allowed:
                     _mark_skipped(task, "permission_epoch_changed")

@@ -142,6 +142,26 @@ class FollowupDeliveryFsmTests(TestCase):
             IgFollowUpTask.objects.filter(delivery_review_for=task).exists()
         )
 
+    def test_receipt_committed_before_worker_crash_is_recovered_without_resend(self):
+        from management.services.bot_followups import process_due_followups
+
+        task = self._task(
+            status=IgFollowUpTask.Status.SENT,
+            provider_message_id="mid-recovery",
+            message_text="Збережений текст доставки",
+        )
+
+        with patch("management.services.instagram_bot.send_text") as send:
+            self.assertEqual(
+                process_due_followups(self.settings, now=self.now, limit=1), 0
+            )
+
+        send.assert_not_called()
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
+        self.assertIsNotNone(task.sent_message_id)
+        self.assertEqual(task.sent_message.text, "Збережений текст доставки")
+
     def test_stale_pending_claim_is_safely_reclaimed_before_provider_io(self):
         from management.services.bot_followups import process_due_followups
 
@@ -285,6 +305,27 @@ class FollowupDeliveryResolutionTests(TestCase):
         self.assertEqual(source.status, IgFollowUpTask.Status.SKIPPED)
         self.assertEqual(source.skip_reason, "manager_confirmed_not_delivered")
         self.assertEqual(review.status, IgFollowUpTask.Status.COMPLETED)
+
+    def test_delivered_resolution_keeps_nonempty_transcript_when_source_text_missing(self):
+        source, review = self._ambiguous_pair("missing-text")
+        source.message_text = ""
+        source.save(update_fields=["message_text", "updated_at"])
+        review.message_text = "Текст, збережений для ручної перевірки"
+        review.save(update_fields=["message_text", "updated_at"])
+
+        response = self.client.post(
+            self._resolve_url(source),
+            {"outcome": "delivered", "note": "Підтверджено вручну"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        source.refresh_from_db()
+        self.assertTrue(source.sent_message_id)
+        self.assertEqual(
+            source.sent_message.text,
+            "Текст, збережений для ручної перевірки",
+        )
 
     def test_resolution_surface_requires_login_staff_and_post(self):
         source, _review = self._ambiguous_pair("access")
