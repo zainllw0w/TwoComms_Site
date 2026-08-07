@@ -1,0 +1,54 @@
+# Direct runtime dependencies. Keep this file exact-pinned; transitive
+# dependencies belong only in requirements.lock.
+
+# Framework and database
+Django==5.2.11
+asgiref==3.9.1
+sqlparse==0.5.3
+Pillow==11.3.0
+PyMySQL==1.1.2
+
+# Security and sanitization
+cryptography==50.0.0
+PyJWT==2.13.0
+bleach==6.3.0
+
+# Runtime support
+typing_extensions==4.15.0
+python-dotenv==1.0.1
+requests==2.32.5
+phonenumbers==9.0.12
+Markdown==3.8.2
+
+# Django integrations
+django-compressor==4.6.0
+rcssmin==1.2.2
+rjsmin==1.2.5
+django-redis==5.4.0
+redis==5.2.1
+hiredis==3.3.1
+django-mathfilters==1.0.0
+social-auth-app-django==5.6.0
+django-modeltranslation==0.20.3
+whitenoise==6.7.0
+djangorestframework==3.15.2
+drf-spectacular==0.27.2
+django-ratelimit==4.1.0
+
+# External APIs
+google-analytics-data==0.22.0
+google-auth==2.52.0
+# http-ece (pywebpush's pure-Python transitive) is sdist-only; the compiler
+# makes that single exception explicit while all compiled packages stay
+# wheel-only.
+pywebpush==2.3.0
+openai==2.30.0
+facebook-business==25.0.3
+capi-param-builder-python==1.3.0
+
+# Document generation
+openpyxl==3.1.2
+python-docx==1.1.0
+
+# Test instrumentation used by the deployed project test suite
+coverage==7.13.5
