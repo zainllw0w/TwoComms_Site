@@ -35,6 +35,26 @@ _INLINE_COMMENT = re.compile(r"\s+#.*$")
 # Fresh virtual environments may contain these packaging tools in addition to
 # the project lock.  Nothing else is implicitly trusted.
 BOOTSTRAP_ALLOWLIST = frozenset({"pip", "setuptools", "wheel"})
+_MARKER_VARIABLES = frozenset(
+    {
+        "dependency_group",
+        "dependency_groups",
+        "extra",
+        "extras",
+        "implementation_name",
+        "implementation_version",
+        "os_name",
+        "platform_machine",
+        "platform_python_implementation",
+        "platform_release",
+        "platform_system",
+        "platform_version",
+        "python_full_version",
+        "python_version",
+        "sys_platform",
+    }
+)
+_MARKER_OPERATORS = frozenset({"!=", "<", "<=", "==", ">", ">=", "in"})
 
 
 class LockParseError(ValueError):
@@ -90,11 +110,51 @@ def _validate_marker(marker: str, line_number: int) -> None:
     if not marker:
         raise LockParseError(f"line {line_number}: empty environment marker")
     try:
-        marker_tokens = shlex.split(marker)
+        lexer = shlex.shlex(marker, posix=True, punctuation_chars="()")
+        lexer.whitespace_split = True
+        marker_tokens = list(lexer)
     except ValueError as exc:
         raise LockParseError(f"line {line_number}: malformed environment marker") from exc
-    if any(token.startswith("--") for token in marker_tokens):
-        raise LockParseError(f"line {line_number}: unsupported marker option")
+
+    def parse_atom(index: int) -> int:
+        if index >= len(marker_tokens):
+            raise LockParseError(f"line {line_number}: incomplete environment marker")
+        if marker_tokens[index] == "(":
+            index = parse_expression(index + 1)
+            if index >= len(marker_tokens) or marker_tokens[index] != ")":
+                raise LockParseError(f"line {line_number}: unbalanced environment marker")
+            return index + 1
+        variable = marker_tokens[index]
+        if variable not in _MARKER_VARIABLES:
+            raise LockParseError(f"line {line_number}: invalid environment marker expression")
+        index += 1
+        if index >= len(marker_tokens):
+            raise LockParseError(f"line {line_number}: incomplete environment marker")
+        operator = marker_tokens[index]
+        if operator == "not":
+            if index + 1 >= len(marker_tokens) or marker_tokens[index + 1] != "in":
+                raise LockParseError(f"line {line_number}: invalid environment marker operator")
+            index += 2
+        elif operator in _MARKER_OPERATORS:
+            index += 1
+        else:
+            raise LockParseError(f"line {line_number}: invalid environment marker operator")
+        if index >= len(marker_tokens):
+            raise LockParseError(f"line {line_number}: incomplete environment marker")
+        value = marker_tokens[index]
+        if value in {"(", ")", "and", "or", "in", "not"} or value.startswith("-"):
+            raise LockParseError(f"line {line_number}: invalid environment marker value")
+        return index + 1
+
+    def parse_expression(index: int) -> int:
+        index = parse_atom(index)
+        while index < len(marker_tokens) and marker_tokens[index] in {"and", "or"}:
+            index = parse_atom(index + 1)
+        return index
+
+    index = parse_expression(0)
+    if index != len(marker_tokens):
+        raise LockParseError(f"line {line_number}: unsupported marker option or trailing token")
 
 
 def parse_lock(text: str) -> dict[str, str]:

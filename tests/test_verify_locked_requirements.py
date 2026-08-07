@@ -44,6 +44,10 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
             "-e ./local-package\n",
             "Django==5.2.11\ndjango==5.2.10\n",
             "Django==5.2.11; python_version >= '3.14' --no-index\n",
+            "Django==5.2.11; python_version >= '3.14' -e ./local\n",
+            "Django==5.2.11; python_version >= '3.14' -r extras.txt\n",
+            "Django==5.2.11; python_version >= '3.14' -c constraints.txt\n",
+            "Django==5.2.11; python_version >= '3.14' foo\n",
         )
         for lock in bad_locks:
             with self.subTest(lock=lock):
