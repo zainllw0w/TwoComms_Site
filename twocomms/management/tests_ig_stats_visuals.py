@@ -532,6 +532,52 @@ class StatsApiVisualContractTests(TestCase):
         self.assertEqual(ads["campaigns"][0]["paylinks_issued"], 1)
         self.assertEqual(ads["campaigns"][0]["lost_or_refused"], 1)
 
+    def test_ad_attribution_coverage_separates_confirmed_partial_and_unattributed_conversations(self):
+        moment = timezone.now()
+        confirmed = self._client(
+            "stats-attribution-confirmed",
+            ad_id="coverage-ad",
+            ad_title="Coverage creative",
+            last_message_at=moment,
+        )
+        partial = self._client(
+            "stats-attribution-partial",
+            ad_source="ADS",
+            ad_creative_url="https://cdn.example.com/partial-ad.webp",
+            last_message_at=moment,
+        )
+        unattributed = self._client(
+            "stats-attribution-unattributed",
+            last_message_at=moment,
+        )
+        for client in (confirmed, partial, unattributed):
+            self._message(client, InstagramBotMessage.Role.USER, moment)
+
+        attribution = self.client.get(
+            reverse("management_bot_stats_api") + "?days=7"
+        ).json()["ad_analytics"]["attribution"]
+
+        self.assertEqual(attribution["conversation_population"], 3)
+        self.assertEqual(attribution["confirmed_conversations"], 1)
+        self.assertEqual(attribution["partial_conversations"], 1)
+        self.assertEqual(attribution["unattributed_conversations"], 1)
+        self.assertEqual(attribution["coverage_percent"], 33)
+        self.assertEqual(attribution["status"], "partial")
+        self.assertEqual(attribution["campaign_count"], 1)
+
+    def test_empty_period_exposes_empty_attribution_coverage_state(self):
+        attribution = self.client.get(
+            reverse("management_bot_stats_api")
+            + "?date_from=2020-01-01&date_to=2020-01-01"
+        ).json()["ad_analytics"]["attribution"]
+
+        self.assertEqual(attribution["conversation_population"], 0)
+        self.assertEqual(attribution["confirmed_conversations"], 0)
+        self.assertEqual(attribution["partial_conversations"], 0)
+        self.assertEqual(attribution["unattributed_conversations"], 0)
+        self.assertEqual(attribution["coverage_percent"], 0)
+        self.assertEqual(attribution["status"], "empty")
+
     def test_ad_product_keeps_metadata_when_outside_global_top_twenty_five(self):
         from storefront.models import Category, Product
 
@@ -904,6 +950,27 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             self.assertIn(contract, self.template)
         self.assertNotIn(
             "if(!num(values.conversations))return",
+            self.template,
+        )
+
+    def test_ad_view_visualizes_attribution_coverage_and_signal_path_even_when_empty(self):
+        for contract in (
+            "function renderAttributionCoverage",
+            "bot-stats-attribution",
+            "bot-stats-attribution-ring",
+            "bot-stats-attribution-legend",
+            "data-attribution-segment",
+            "data-attribution-detail",
+            "data-ad-signal-step",
+            "bot-stats-ad-signal-path",
+            "coverage_percent",
+            "partial_conversations",
+            "unattributed_conversations",
+            "conversation_population",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(
+            "if(!hasAdvertisingData)return '<div class=\"bot-stats-view-zero\"",
             self.template,
         )
 

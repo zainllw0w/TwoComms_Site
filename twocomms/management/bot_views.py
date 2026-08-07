@@ -5968,11 +5968,57 @@ def bot_stats_api(request):
         bucket["revenue_unpriced_payments"]
         for bucket in campaign_buckets.values()
     )
+    attribution_counts = active_clients.aggregate(
+        conversation_population=Count("id"),
+        confirmed_conversations=Count("id", filter=ad_client_identity),
+        partial_conversations=Count(
+            "id",
+            filter=(
+                Q(ad_id="", ad_ref="", ad_title="")
+                & (Q(ad_source__gt="") | Q(ad_creative_url__gt=""))
+            ),
+        ),
+    )
+    attribution_population = int(
+        attribution_counts["conversation_population"] or 0
+    )
+    attributed_conversations = int(
+        attribution_counts["confirmed_conversations"] or 0
+    )
+    partial_attribution_conversations = int(
+        attribution_counts["partial_conversations"] or 0
+    )
+    unattributed_conversations = max(
+        0,
+        attribution_population
+        - attributed_conversations
+        - partial_attribution_conversations,
+    )
+    if attribution_population == 0:
+        attribution_status = "empty"
+    elif attributed_conversations == attribution_population:
+        attribution_status = "full"
+    elif attributed_conversations or partial_attribution_conversations:
+        attribution_status = "partial"
+    else:
+        attribution_status = "missing"
+    attribution_coverage_percent = (
+        round(attributed_conversations * 100 / attribution_population)
+        if attribution_population
+        else 0
+    )
     ad_analytics = {
         "attribution": {
             "basis": "current_client_snapshot",
             "historical": False,
             "label": "Поточна рекламна прив'язка клієнта",
+            "conversation_population": attribution_population,
+            "confirmed_conversations": attributed_conversations,
+            "partial_conversations": partial_attribution_conversations,
+            "unattributed_conversations": unattributed_conversations,
+            "coverage_percent": attribution_coverage_percent,
+            "status": attribution_status,
+            "campaign_count": len(campaign_buckets),
         },
         "totals": {
             **{key: int(value or 0) for key, value in ad_message_totals.items()},

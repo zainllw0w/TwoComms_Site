@@ -68,6 +68,8 @@
 @media(max-width:560px){.bot-overview-diagnostics{grid-template-columns:1fr;}}
 @media(max-width:360px){.bot-metrics{grid-template-columns:minmax(0,1fr);}}
 /* ---- Sales statistics ---- */
+@property --attribution-confirmed-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
+@property --attribution-partial-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
 .bot-stats-card{--stats-motion-fast:.18s;--stats-motion-medium:.24s;--stats-motion-slow:.28s;--stats-ease:cubic-bezier(.2,.72,.2,1);padding:0;border:0;background:transparent;}
 .bot-stats-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
 .bot-stats-heading{min-width:0;}
@@ -264,6 +266,51 @@
 .bot-stats-ad-note.is-warning::before{content:'!';border-color:#705127;color:#e0b35f;}
 .bot-stats-ad-note .bot-stats-help-wrap{margin-left:auto;}
 .bot-stats-ad-note .bot-stats-help{width:22px;height:22px;}
+.bot-stats-attribution-row{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:10px;margin-bottom:10px;}
+.bot-stats-attribution{min-width:0;}
+.bot-stats-attribution-body{display:grid;grid-template-columns:116px minmax(0,1fr);align-items:center;gap:14px;min-height:134px;}
+.bot-stats-attribution-ring{position:relative;display:grid;place-items:center;width:116px;aspect-ratio:1;box-sizing:border-box;border-radius:50%;background:conic-gradient(from -90deg,var(--attribution-confirmed-color,#38bdf8) 0deg var(--attribution-confirmed-angle,0deg),var(--attribution-partial-color,#d3a64a) var(--attribution-confirmed-angle,0deg) calc(var(--attribution-confirmed-angle,0deg) + var(--attribution-partial-angle,0deg)),var(--attribution-unattributed-color,#526174) calc(var(--attribution-confirmed-angle,0deg) + var(--attribution-partial-angle,0deg)) 360deg);box-shadow:inset 0 0 0 1px rgba(255,255,255,.045);transition:--attribution-confirmed-angle var(--stats-motion-slow) var(--stats-ease),--attribution-partial-angle var(--stats-motion-slow) var(--stats-ease),filter var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-attribution-ring::after{content:'';position:absolute;inset:17px;border-radius:50%;background:#0d131c;box-shadow:0 0 0 1px rgba(255,255,255,.04);}
+.bot-stats-attribution-ring.is-empty{border:10px solid #263244;background:#0d131c;box-shadow:inset 0 0 0 1px #101722,0 0 0 1px rgba(255,255,255,.025);}
+.bot-stats-attribution-ring.is-empty::after{inset:7px;}
+.bot-stats-attribution-center{position:relative;z-index:1;display:grid;gap:2px;max-width:76px;text-align:center;}
+.bot-stats-attribution-center strong{color:#f2f6fa;font-size:22px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1;}
+.bot-stats-attribution-center .bot-stats-value-stack{height:23px;}
+.bot-stats-attribution-center>span:last-child{color:#768599;font-size:8px;font-weight:800;line-height:1.3;text-transform:uppercase;}
+.bot-stats-attribution-empty{display:block;margin-top:6px;color:#8290a3;font-size:9.5px;font-weight:700;line-height:1.35;}
+.bot-stats-attribution-legend{display:grid;gap:5px;min-width:0;}
+.bot-stats-attribution-segment{grid-template-columns:auto minmax(0,1fr) auto;padding:7px 6px;}
+.bot-stats-attribution-segment i{border-radius:50%;box-shadow:0 0 0 3px color-mix(in srgb,var(--ring-color) 13%,transparent);}
+.bot-stats-attribution-segment span{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.2;}
+.bot-stats-attribution-segment strong{font-size:9.5px;}
+.bot-stats-attribution-legend:has(.bot-stats-attribution-segment:focus-visible) .bot-stats-attribution-segment:not(:focus-visible){opacity:.38;}
+.bot-stats-attribution-segment:focus-visible{box-shadow:0 0 0 2px rgba(96,165,250,.22);}
+.bot-stats-attribution-detail{display:flex;align-items:center;gap:7px;min-height:30px;margin-top:9px;border-top:1px solid #202b39;color:#8391a4;padding:9px 5px 0;font-size:9.5px;font-weight:700;line-height:1.4;}
+.bot-stats-attribution-detail[hidden]{display:none;}
+.bot-stats-attribution-detail::before{content:'';flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--attribution-detail-color,#38bdf8);box-shadow:0 0 0 3px color-mix(in srgb,var(--attribution-detail-color,#38bdf8) 12%,transparent);}
+.bot-stats-attribution-detail strong{color:#dbe4ee;font-size:10px;}
+.bot-stats-ad-signal-card{min-width:0;}
+.bot-stats-ad-signal-head-meta{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap;}
+.bot-stats-ad-signal-loss{display:inline-flex;align-items:center;gap:5px;color:#c98787;font-size:9px;font-weight:800;white-space:nowrap;}
+.bot-stats-ad-signal-loss::before{content:'';width:5px;height:5px;border-radius:50%;background:#b96d72;box-shadow:0 0 0 3px rgba(185,109,114,.1);}
+.bot-stats-ad-signal-path{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;min-width:0;}
+.bot-stats-ad-signal-step{position:relative;display:grid;grid-template-rows:14px auto minmax(25px,auto) 3px;align-content:start;gap:5px;min-width:0;border:1px solid transparent;border-radius:7px;background:transparent;color:#8190a3;padding:7px 5px 8px;text-align:left;cursor:pointer;transition:border-color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease),opacity var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-ad-signal-step::before{content:'';position:absolute;z-index:0;top:13px;left:calc(50% + 6px);width:calc(50% + 6px);height:1px;background:#283445;}
+.bot-stats-ad-signal-step:last-child::before{display:none;}
+.bot-stats-ad-signal-node{position:relative;z-index:1;display:block;width:8px;height:8px;border:2px solid #46566a;border-radius:50%;background:#0d131c;box-shadow:0 0 0 3px #0d131c;}
+.bot-stats-ad-signal-step.has-value .bot-stats-ad-signal-node{border-color:var(--signal-color,#5ab6b0);background:var(--signal-color,#5ab6b0);box-shadow:0 0 0 3px #0d131c,0 0 0 5px color-mix(in srgb,var(--signal-color,#5ab6b0) 11%,transparent);}
+.bot-stats-ad-signal-count{color:#e2e9f1;font-size:16px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1;}
+.bot-stats-ad-signal-label{min-width:0;color:#8795a8;font-size:8.5px;font-weight:750;line-height:1.3;}
+.bot-stats-ad-signal-rail{display:block;height:2px;overflow:hidden;border-radius:2px;background:#253140;}
+.bot-stats-ad-signal-fill{display:block;width:var(--signal-width,0%);height:100%;border-radius:2px;background:var(--signal-color,#5ab6b0);transition:width var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active{border-color:#314157;background:#101923;color:#e2e9f1;outline:0;transform:translateY(-1px);}
+.bot-stats-ad-signal-step:focus-visible{box-shadow:0 0 0 2px rgba(90,182,176,.2);}
+.bot-stats-ad-signal-step.is-active{border-color:color-mix(in srgb,var(--signal-color,#5ab6b0) 48%,#314157);}
+.bot-stats-ad-signal-step.is-dim{opacity:.38;}
+.bot-stats-ad-signal-detail{display:flex;align-items:center;gap:7px;min-height:32px;margin-top:9px;border-top:1px solid #202b39;color:#8391a4;padding:9px 5px 0;font-size:9.5px;font-weight:700;line-height:1.4;}
+.bot-stats-ad-signal-detail[hidden]{display:none;}
+.bot-stats-ad-signal-detail::before{content:'';flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--signal-detail-color,#5ab6b0);box-shadow:0 0 0 3px color-mix(in srgb,var(--signal-detail-color,#5ab6b0) 12%,transparent);}
+.bot-stats-ad-signal-detail strong{color:#dbe4ee;font-size:10px;}
 .bot-stats-ad-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:10px;margin-bottom:10px;}
 .bot-stats-ad-single{margin-bottom:10px;}
 .bot-stats-ad-grid+.bot-stats-analysis-card{margin-bottom:10px;}
@@ -788,7 +835,7 @@ body.bot-drawer-open{overflow:hidden;}
 @media(max-width:320px){.bot-top{align-items:stretch}.bot-top-actions{width:100%}.bot-top-actions .bot-btn{flex:1;padding-left:10px;padding-right:10px}.bot-order-facts,.bot-client-commercial{grid-template-columns:1fr}.bot-order-media-grid{grid-template-columns:1fr}.bot-order-row-top{flex-direction:column}.bot-order-state{white-space:normal}}
 @media(max-width:880px){
   .bot-stats-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .bot-stats-signal-grid,.bot-stats-analysis-grid,.bot-stats-optional-grid,.bot-stats-ad-grid,.bot-stats-skeleton-panels{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-signal-grid,.bot-stats-analysis-grid,.bot-stats-optional-grid,.bot-stats-ad-grid,.bot-stats-attribution-row,.bot-stats-skeleton-panels{grid-template-columns:minmax(0,1fr)}
   .bot-stats-product-list.is-expanded{grid-template-columns:minmax(0,1fr)}
   .bot-stats-secondary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .bot-stats-ad-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -841,6 +888,8 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-retry{width:100%}
   .bot-stats-ad-summary{grid-template-columns:minmax(0,1fr)}
   .bot-stats-ad-notes{display:grid;grid-template-columns:minmax(0,1fr)}
+  .bot-stats-ad-signal-path{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .bot-stats-ad-signal-step:nth-child(3n)::before{display:none}
   .bot-stats-reason-row{grid-template-columns:minmax(0,1fr) auto;}
   .bot-stats-reason-row span:nth-of-type(2),.bot-stats-reason-row span:nth-of-type(3){display:none}
 }
@@ -858,8 +907,27 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-composition-body{grid-template-columns:88px minmax(0,1fr);gap:8px}
   .bot-stats-composition-ring{width:88px}
   .bot-stats-composition-ring::after{inset:14px}
+  .bot-stats-attribution-body{grid-template-columns:94px minmax(0,1fr);gap:10px;min-height:112px}
+  .bot-stats-attribution-ring{width:94px}
+  .bot-stats-attribution-ring::after{inset:14px}
+  .bot-stats-attribution-center strong{font-size:19px}
+  .bot-stats-ad-signal-path{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bot-stats-ad-signal-step:nth-child(3n)::before{display:block}
+  .bot-stats-ad-signal-step:nth-child(2n)::before{display:none}
+  .bot-stats-ad-signal-step:nth-child(2n)::after{content:'';position:absolute;z-index:0;right:calc(50% - .5px);bottom:-6px;width:1px;height:7px;background:#283445;}
+  .bot-stats-ad-signal-step:last-child::after{display:none}
+  .bot-stats-ad-signal-label{font-size:9px;}
 }
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
+@media(max-width:340px){
+  .bot-stats-attribution-body{grid-template-columns:82px minmax(0,1fr);gap:8px}
+  .bot-stats-attribution-ring{width:82px}
+  .bot-stats-attribution-ring::after{inset:13px}
+  .bot-stats-attribution-center strong{font-size:17px}
+  .bot-stats-attribution-segment{gap:5px;padding-right:3px;padding-left:3px}
+  .bot-stats-attribution-segment strong{font-size:9px}
+  .bot-stats-attribution-segment span{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -2761,6 +2829,40 @@ body.bot-drawer-open{overflow:hidden;}
       if(unpriced)notes.push('<div class="bot-stats-ad-note is-warning"><span>У дохід не включено '+numberFormat.format(unpriced)+' підтверджених оплат без суми</span>'+helpMarkup('ad-unpriced-revenue','Ці підтверджені legacy-оплати враховані у кількості оплат, але виключені з доходу: у збережених даних немає надійної суми.')+'</div>');
       return '<div class="bot-stats-ad-notes">'+notes.join('')+'</div>';
     }
+    function renderAttributionCoverage(analytics,previousAnalytics){
+      const attribution=analytics&&analytics.attribution||{};const previousAttribution=previousAnalytics&&previousAnalytics.attribution||{};
+      const population=Math.max(0,num(attribution.conversation_population));const coverage=Math.max(0,Math.min(100,num(attribution.coverage_percent)));
+      const segments=[
+        {key:'confirmed',label:'Підтверджена реклама',field:'confirmed_conversations',color:'#38bdf8'},
+        {key:'partial',label:'Неповна прив’язка',field:'partial_conversations',color:'#d3a64a'},
+        {key:'unattributed',label:'Без атрибуції',field:'unattributed_conversations',color:'#526174'}
+      ].map(row=>({...row,value:Math.max(0,num(attribution[row.field]))}));
+      const hasPrevious=previousAttribution.conversation_population!==undefined;const previousPopulation=hasPrevious?Math.max(0,num(previousAttribution.conversation_population)):population;
+      const angle=(value,total)=>total?Math.max(0,Math.min(360,value*360/total)):0;
+      const currentConfirmedAngle=angle(segments[0].value,population);const currentPartialAngle=angle(segments[1].value,population);
+      const previousConfirmedAngle=hasPrevious?angle(num(previousAttribution.confirmed_conversations),previousPopulation):currentConfirmedAngle;
+      const previousPartialAngle=hasPrevious?angle(num(previousAttribution.partial_conversations),previousPopulation):currentPartialAngle;
+      const previousCoverage=hasPrevious?Math.max(0,Math.min(100,num(previousAttribution.coverage_percent))):coverage;
+      const legend=segments.map(row=>{const share=population?Math.round(row.value*100/population):0;return '<button type="button" class="bot-stats-ring-segment bot-stats-attribution-segment" data-attribution-segment="'+row.key+'" data-attribution-label="'+esc(row.label)+'" data-attribution-count="'+row.value+'" data-attribution-percent="'+share+'" data-attribution-color="'+row.color+'" style="--ring-color:'+row.color+'" aria-controls="bot-stats-attribution-detail" aria-pressed="false" aria-label="'+esc(row.label)+': '+numberFormat.format(row.value)+', '+share+' відсотків"><i aria-hidden="true"></i><span>'+esc(row.label)+'</span><strong>'+numberFormat.format(row.value)+' · '+share+'%</strong></button>';}).join('');
+      const centerLabel=population?'з '+numberFormat.format(population)+' діалогів':'Немає діалогів у періоді';
+      const ringLabel=population?'Покриття рекламної атрибуції: '+coverage+' відсотків з '+numberFormat.format(population)+' діалогів':'Немає діалогів у вибраному періоді';
+      return '<section class="bot-stats-analysis-card bot-stats-attribution" style="--reveal-order:4"><div class="bot-stats-section-head"><div><h3 class="bot-stats-section-title">Покриття атрибуції</h3><span class="bot-stats-section-meta">підтверджена прив’язка до реклами</span></div></div><div class="bot-stats-attribution-body"><div id="bot-stats-attribution-ring" class="bot-stats-attribution-ring'+(population?'':' is-empty')+'" data-attribution-ring data-attribution-status="'+esc(attribution.status||'empty')+'" data-attribution-confirmed-color="#38bdf8" data-attribution-partial-color="#d3a64a" data-attribution-unattributed-color="#526174" data-attribution-confirmed-angle="'+currentConfirmedAngle.toFixed(3)+'" data-attribution-partial-angle="'+currentPartialAngle.toFixed(3)+'" role="img" aria-label="'+esc(ringLabel)+'" style="--attribution-confirmed-angle:'+previousConfirmedAngle.toFixed(3)+'deg;--attribution-partial-angle:'+previousPartialAngle.toFixed(3)+'deg"><div class="bot-stats-attribution-center"><strong>'+valueMarkup(coverage,previousCoverage,hasPrevious&&coverage!==previousCoverage,numberFormat,'%')+'</strong><span>'+esc(centerLabel)+'</span></div></div><div class="bot-stats-attribution-legend">'+legend+'</div></div><div class="bot-stats-attribution-detail" data-attribution-detail role="status" aria-live="polite" hidden><strong data-attribution-detail-label></strong><span data-attribution-detail-value></span></div></section>';
+    }
+    function renderAdSignalPath(analytics,previousAnalytics){
+      const values=analytics&&analytics.totals||{};const previousValues=previousAnalytics&&previousAnalytics.totals||{};const attribution=analytics&&analytics.attribution||{};
+      const population=Math.max(0,num(attribution.conversation_population));const previousAttribution=previousAnalytics&&previousAnalytics.attribution||{};const previousPopulation=previousAttribution.conversation_population!==undefined?Math.max(0,num(previousAttribution.conversation_population)):population;
+      const specs=[
+        {key:'conversations',label:'Діалоги',detail:'Рекламні діалоги',color:'#5ab6b0'},
+        {key:'qualified',label:'Кваліфіковані',detail:'Кваліфіковані сигнали',color:'#5ab6b0'},
+        {key:'product_matched',label:'Товар визначено',detail:'Сигнали з визначеним товаром',color:'#5ab6b0'},
+        {key:'paylinks_issued',label:'Лінк видано',detail:'Видані платіжні посилання',color:'#5ab6b0'},
+        {key:'paylinks_viewed',label:'Лінк відкрито',detail:'Переглянуті платіжні посилання',color:'#5ab6b0'},
+        {key:'verified_paid',label:'Оплачено',detail:'Підтверджені оплати',color:'#34d399'}
+      ];
+      const steps=specs.map(spec=>{const value=Math.max(0,num(values[spec.key]));const share=population?Math.round(value*100/population):0;const hasPrevious=Object.prototype.hasOwnProperty.call(previousValues,spec.key);const previousValue=hasPrevious?Math.max(0,num(previousValues[spec.key])):value;const previousShare=previousPopulation?Math.round(previousValue*100/previousPopulation):0;const width=Math.min(100,share);const previousWidth=Math.min(100,previousShare);return '<button type="button" class="bot-stats-ad-signal-step'+(value?' has-value':'')+'" data-ad-signal-step="'+spec.key+'" data-ad-signal-label="'+esc(spec.detail)+'" data-ad-signal-count="'+value+'" data-ad-signal-percent="'+share+'" data-ad-signal-population="'+population+'" data-ad-signal-color="'+spec.color+'" aria-controls="bot-stats-ad-signal-detail" aria-pressed="false" aria-label="'+esc(spec.detail)+': '+numberFormat.format(value)+', '+share+' відсотків від діалогів у періоді" style="--signal-color:'+spec.color+'"><span class="bot-stats-ad-signal-node" aria-hidden="true"></span><strong class="bot-stats-ad-signal-count">'+numberFormat.format(value)+'</strong><span class="bot-stats-ad-signal-label">'+esc(spec.label)+'</span><span class="bot-stats-ad-signal-rail" aria-hidden="true"><span class="bot-stats-ad-signal-fill" data-ad-signal-width="'+width+'" style="--signal-width:'+previousWidth+'%"></span></span></button>';}).join('');
+      const losses=Math.max(0,num(values.lost_or_refused));
+      return '<section class="bot-stats-analysis-card bot-stats-ad-signal-card" style="--reveal-order:4"><div class="bot-stats-section-head"><div><h3 class="bot-stats-section-title">Шлях комерційних сигналів</h3><span class="bot-stats-section-meta">окремі сигнали за період · не когорта</span></div><div class="bot-stats-ad-signal-head-meta"><span class="bot-stats-ad-signal-loss">Втрати '+numberFormat.format(losses)+'</span></div></div><div class="bot-stats-ad-signal-path">'+steps+'</div><div id="bot-stats-ad-signal-detail" class="bot-stats-ad-signal-detail" data-ad-signal-detail role="status" aria-live="polite" hidden><strong data-ad-signal-detail-label></strong><span data-ad-signal-detail-value></span></div></section>';
+    }
     function funnelRows(data){
       const source=(data&&data.funnel||[]).map((row,index)=>({key:String(row.step||index),label:String(row.label||row.step||'Подія'),count:num(row.entered)}));
       const first=source.length?source[0].count:0;const max=Math.max(0,...source.map(row=>row.count));
@@ -2899,14 +3001,13 @@ body.bot-drawer-open{overflow:hidden;}
     function renderAdvertising(data,previous){
       const analytics=data.ad_analytics||{};const previousAnalytics=previous&&previous.ad_analytics||{};const values=analytics.totals||{};
       const hasAdvertisingData=Boolean(num(values.conversations)||num(values.verified_paid)||num(values.revenue)||num(values.paylinks_issued)||num(values.paylinks_viewed)||num(values.revenue_unpriced_payments)||(analytics.campaigns||[]).length||(analytics.products||[]).length);
-      if(!hasAdvertisingData)return '<div class="bot-stats-view-zero">За період «'+esc(periodLabel(data))+'» рекламні діалоги, платіжні події та підтверджені оплати ще не зафіксовані.</div>';
-      const summary=[['qualified','Кваліфіковані'],['product_matched','Товар визначено'],['paylinks_viewed','Переглянули оплату'],['lost_or_refused','Відмови / втрати']].map(spec=>'<div class="bot-stats-ad-summary-item"><b>'+numberFormat.format(num(values[spec[0]]))+'</b><span>'+esc(spec[1])+'</span></div>').join('');
+      const attributionRow='<div class="bot-stats-attribution-row" data-has-advertising-data="'+String(hasAdvertisingData)+'">'+renderAttributionCoverage(analytics,previousAnalytics)+renderAdSignalPath(analytics,previousAnalytics)+'</div>';
       const activity=renderActivity(analytics,previousAnalytics,'Активність рекламних діалогів','лише атрибутовані діалоги');
       const campaigns=renderCampaigns(analytics.campaigns,previousAnalytics.campaigns);
       const funnel=(analytics.funnel||[]).some(row=>num(row.entered))?renderFunnel(analytics,previousAnalytics,'Події рекламної воронки'):'';
       const products=renderProductPerformance(analytics.products,previousAnalytics.products,{title:'Товари з рекламних діалогів',meta:'інтерес · підтверджені позиції',limit:7,revealOrder:7});
       const analysis=funnel&&campaigns?'<div class="bot-stats-ad-grid">'+funnel+campaigns+'</div>':funnel||campaigns?'<div class="bot-stats-ad-single">'+(funnel||campaigns)+'</div>':'';
-      return renderAdvertisingKpis(data,previous)+renderAdvertisingNotes(analytics)+'<div class="bot-stats-ad-summary">'+summary+'</div>'+activity+analysis+products+renderAdDropOffs(analytics.drop_off_reasons);
+      return renderAdvertisingKpis(data,previous)+renderAdvertisingNotes(analytics)+attributionRow+activity+analysis+products+renderAdDropOffs(analytics.drop_off_reasons);
     }
     function renderProductsView(data,previous){
       const products=renderProductPerformance(data.products,previous&&previous.products,{title:'Попит на товари',meta:'окремі шкали: інтерес · підтверджені одиниці',limit:25,expanded:true,revealOrder:4});
@@ -2976,15 +3077,46 @@ body.bot-drawer-open{overflow:hidden;}
       composition.querySelectorAll('[data-ring-segment]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
       if(!wasActive){segment.classList.add('is-active');segment.setAttribute('aria-pressed','true');composition.querySelectorAll('[data-ring-segment]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));}
     }
+    function syncAttributionRingColors(module,activeKey=''){
+      const ring=module&&module.querySelector('[data-attribution-ring]');if(!ring)return;
+      const colors={confirmed:ring.dataset.attributionConfirmedColor||'#38bdf8',partial:ring.dataset.attributionPartialColor||'#d3a64a',unattributed:ring.dataset.attributionUnattributedColor||'#526174'};
+      Object.keys(colors).forEach(key=>ring.style.setProperty('--attribution-'+key+'-color',activeKey&&key!==activeKey?'#273343':colors[key]));
+    }
+    function clearAttributionSelection(returnFocus=false){
+      if(!box)return;const module=box.querySelector('.bot-stats-attribution');if(!module)return;const active=module.querySelector('[data-attribution-segment].is-active');
+      module.querySelectorAll('[data-attribution-segment]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});syncAttributionRingColors(module);const detail=module.querySelector('[data-attribution-detail]');if(detail)detail.hidden=true;if(returnFocus&&active&&document.contains(active))active.focus({preventScroll:true});
+    }
+    function toggleAttributionSegment(segment){
+      const module=segment&&segment.closest('.bot-stats-attribution');if(!module)return;const wasActive=segment.classList.contains('is-active');
+      module.querySelectorAll('[data-attribution-segment]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
+      const detail=module.querySelector('[data-attribution-detail]');
+      if(wasActive){syncAttributionRingColors(module);if(detail)detail.hidden=true;return;}
+      segment.classList.add('is-active');segment.setAttribute('aria-pressed','true');module.querySelectorAll('[data-attribution-segment]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));syncAttributionRingColors(module,segment.dataset.attributionSegment||'');
+      if(detail){detail.hidden=false;detail.style.setProperty('--attribution-detail-color',segment.dataset.attributionColor||'#38bdf8');const label=detail.querySelector('[data-attribution-detail-label]');const value=detail.querySelector('[data-attribution-detail-value]');if(label)label.textContent=segment.dataset.attributionLabel||'Атрибуція';if(value)value.textContent=(segment.dataset.attributionCount||'0')+' · '+(segment.dataset.attributionPercent||'0')+'% від діалогів у періоді';}
+    }
+    function clearAdSignalSelection(returnFocus=false){
+      if(!box)return;const module=box.querySelector('.bot-stats-ad-signal-card');if(!module)return;const active=module.querySelector('[data-ad-signal-step].is-active');
+      module.querySelectorAll('[data-ad-signal-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});const detail=module.querySelector('[data-ad-signal-detail]');if(detail)detail.hidden=true;if(returnFocus&&active&&document.contains(active))active.focus({preventScroll:true});
+    }
+    function toggleAdSignalStep(step){
+      const module=step&&step.closest('.bot-stats-ad-signal-card');if(!module)return;const wasActive=step.classList.contains('is-active');
+      module.querySelectorAll('[data-ad-signal-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
+      const detail=module.querySelector('[data-ad-signal-detail]');
+      if(wasActive){if(detail)detail.hidden=true;return;}
+      step.classList.add('is-active');step.setAttribute('aria-pressed','true');module.querySelectorAll('[data-ad-signal-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
+      if(detail){detail.hidden=false;detail.style.setProperty('--signal-detail-color',step.dataset.adSignalColor||'#5ab6b0');const label=detail.querySelector('[data-ad-signal-detail-label]');const value=detail.querySelector('[data-ad-signal-detail-value]');if(label)label.textContent=step.dataset.adSignalLabel||'Сигнал';if(value)value.textContent=(step.dataset.adSignalCount||'0')+' · '+(step.dataset.adSignalPercent||'0')+'% від '+(step.dataset.adSignalPopulation||'0')+' діалогів у періоді';}
+    }
     function showAlert(message){if(alertTextEl)alertTextEl.textContent=message;if(alertEl)alertEl.hidden=false;}
     function hideAlert(){if(alertEl)alertEl.hidden=true;}
     function activateBars(){
       const bars=Array.from(box.querySelectorAll('[data-target-width]'));
       const segments=Array.from(box.querySelectorAll('[data-activity-height]'));
       const pulses=Array.from(box.querySelectorAll('[data-pulse-width]'));
+      const signalFills=Array.from(box.querySelectorAll('[data-ad-signal-width]'));
+      const attributionRings=Array.from(box.querySelectorAll('[data-attribution-ring]'));
       const images=Array.from(box.querySelectorAll('.bot-stats-product-image'));
       images.forEach(item=>{const reveal=()=>item.classList.add('is-loaded');if(item.complete&&item.naturalWidth)reveal();else{item.addEventListener('load',reveal,{once:true});item.addEventListener('error',()=>item.remove(),{once:true});}});
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));pulses.forEach(segment=>segment.style.setProperty('--pulse-width',num(segment.dataset.pulseWidth)+'%'));}));
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));pulses.forEach(segment=>segment.style.setProperty('--pulse-width',num(segment.dataset.pulseWidth)+'%'));signalFills.forEach(fill=>fill.style.setProperty('--signal-width',num(fill.dataset.adSignalWidth)+'%'));attributionRings.forEach(ring=>{ring.style.setProperty('--attribution-confirmed-angle',num(ring.dataset.attributionConfirmedAngle)+'deg');ring.style.setProperty('--attribution-partial-angle',num(ring.dataset.attributionPartialAngle)+'deg');});}));
     }
     function renderOverview(data,previous){
       const allPrimaryZero=kpiSpecs.every(spec=>metricValue(data,spec.key)===0);
@@ -3072,6 +3204,10 @@ body.bot-drawer-open{overflow:hidden;}
       });
     }
     if(box)box.addEventListener('click',event=>{
+      const attributionSegment=event.target.closest('[data-attribution-segment]');
+      if(attributionSegment){event.stopPropagation();toggleAttributionSegment(attributionSegment);return;}
+      const adSignalStep=event.target.closest('[data-ad-signal-step]');
+      if(adSignalStep){event.stopPropagation();toggleAdSignalStep(adSignalStep);return;}
       const ringSegment=event.target.closest('[data-ring-segment]');
       if(ringSegment){event.stopPropagation();toggleRingSegment(ringSegment);return;}
       const activityColumn=event.target.closest('.bot-stats-activity-column');
@@ -3079,11 +3215,14 @@ body.bot-drawer-open{overflow:hidden;}
       const trigger=event.target.closest('.bot-stats-help');if(!trigger)return;event.stopPropagation();
       const wasOpen=trigger===openHelpTrigger;if(openHelpTrigger)closeHelp(false);if(!wasOpen){openHelpTrigger=trigger;trigger.closest('.bot-stats-help-wrap').classList.add('is-open');trigger.setAttribute('aria-expanded','true');}
     });
+    if(box)box.addEventListener('keydown',event=>{
+      if(event.key!=='Escape')return;const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');if(!attributionActive&&!signalActive)return;event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);
+    });
     if(box)box.addEventListener('pointerover',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     if(box)box.addEventListener('focusin',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     window.addEventListener('resize',()=>{if(openActivityColumn)positionActivityTooltip(openActivityColumn);});
-    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}});
+    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);if(box){const attribution=box.querySelector('.bot-stats-attribution');if(attribution&&!attribution.contains(event.target)&&attribution.querySelector('[data-attribution-segment].is-active'))clearAttributionSelection(false);const signal=box.querySelector('.bot-stats-ad-signal-card');if(signal&&!signal.contains(event.target)&&signal.querySelector('[data-ad-signal-step].is-active'))clearAdSignalSelection(false);}});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}if(event.key==='Escape'&&box){const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');if(attributionActive||signalActive){event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);}}});
     if(rangeBox) rangeBox.addEventListener('click',event=>{
       const target=event.target.closest('[data-stats-days]');
       if(!target) return;
