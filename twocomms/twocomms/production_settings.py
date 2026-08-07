@@ -347,7 +347,30 @@ if DB_NAME_DTF and 'default' in DATABASES:
 
 # Настройки статических файлов для продакшена
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+_release_static_root = os.environ.get('TWC_RELEASE_STATIC_ROOT')
+if _release_static_root:
+    from django.core.exceptions import ImproperlyConfigured
+
+    _release_static_path = Path(_release_static_root)
+    _release_static_parent = Path(
+        '/home/qlknpodo/TWC/TwoComms_Site/releases/static'
+    ).resolve()
+    _resolved_release_static_path = _release_static_path.resolve()
+    _release_sha = _resolved_release_static_path.name
+    if (
+        not _release_static_path.is_absolute()
+        or _resolved_release_static_path.parent != _release_static_parent
+        or len(_release_sha) != 40
+        or any(character not in '0123456789abcdef' for character in _release_sha)
+    ):
+        raise ImproperlyConfigured(
+            'TWC_RELEASE_STATIC_ROOT must be an absolute immutable '
+            'releases/static/<40-character-sha> path'
+        )
+    STATIC_ROOT = _resolved_release_static_path
+else:
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+COMPRESS_ROOT = STATIC_ROOT
 
 # Настройки медиа файлов
 MEDIA_URL = '/media/'

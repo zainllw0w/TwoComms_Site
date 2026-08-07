@@ -371,7 +371,9 @@ def prepare(
                 raise ReleaseError("staged requirements.lock does not match the reviewed lock digest")
         command_env = dict(env or os.environ)
         command_env["PYTHONNOUSERSITE"] = "1"
-        command_env["STATIC_ROOT"] = os.fspath(static_root)
+        command_env["DJANGO_SETTINGS_MODULE"] = "twocomms.production_settings"
+        command_env["DJANGO_ENV"] = "production"
+        command_env["TWC_RELEASE_STATIC_ROOT"] = os.fspath(static_root)
         _run(
             run,
             (

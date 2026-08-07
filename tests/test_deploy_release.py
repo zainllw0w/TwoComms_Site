@@ -20,6 +20,7 @@ class FakeRunner:
     def __init__(self, *, outputs=None, failures=None):
         self.calls: list[tuple[str, ...]] = []
         self.timeouts: dict[tuple[str, ...], float | None] = {}
+        self.environments: dict[tuple[str, ...], dict[str, str]] = {}
         self.outputs = outputs or {}
         self.failures = failures or set()
 
@@ -27,6 +28,7 @@ class FakeRunner:
         command = tuple(str(part) for part in argv)
         self.calls.append(command)
         self.timeouts[command] = timeout
+        self.environments[command] = dict(env or {})
         rendered = " ".join(command)
         if command in self.failures or any(
             marker in rendered for marker in self.failures if isinstance(marker, str)
@@ -46,12 +48,20 @@ class FakeRunner:
             (worktree / "scripts" / "verify_locked_requirements.py").write_text("", encoding="utf-8")
         if "-m" in command and "venv" in command:
             Path(command[-1]).mkdir(parents=True, exist_ok=True)
-        if "collectstatic" in command and env and env.get("STATIC_ROOT"):
-            static_root = Path(env["STATIC_ROOT"])
+        if "collectstatic" in command and env:
+            static_root = (
+                Path(env["TWC_RELEASE_STATIC_ROOT"])
+                if env.get("DJANGO_SETTINGS_MODULE") == "twocomms.production_settings"
+                else Path(cwd) / "twocomms" / "staticfiles"
+            )
             static_root.mkdir(parents=True, exist_ok=True)
             (static_root / "staticfiles.json").write_text('{"paths": ["app.css"]}', encoding="utf-8")
-        if "compress" in command and env and env.get("STATIC_ROOT"):
-            static_root = Path(env["STATIC_ROOT"])
+        if "compress" in command and env:
+            static_root = (
+                Path(env["TWC_RELEASE_STATIC_ROOT"])
+                if env.get("DJANGO_SETTINGS_MODULE") == "twocomms.production_settings"
+                else Path(cwd) / "twocomms" / "staticfiles"
+            )
             (static_root / "compressed-page.html").write_text("<html>compressed</html>", encoding="utf-8")
         return deploy_release.CommandResult(0, str(output), "")
 
@@ -137,6 +147,31 @@ class StagedReleaseTests(unittest.TestCase):
         self.assertEqual(prepared.venv, expected)
         self.assertIn((str(self.system_python), "-m", "venv", str(expected)), self.runner.calls)
         self.assertFalse(any("mv" in call for call in self.runner.calls))
+
+    def test_static_build_commands_receive_the_release_specific_static_root(self):
+        self._manifest()
+
+        deploy_release.prepare(self.config, self.target_sha, run=self.runner)
+
+        expected = os.fspath(self.release_root / "static" / self.target_sha)
+        static_commands = [
+            command
+            for command in self.runner.calls
+            if "collectstatic" in command or "compress" in command
+        ]
+        self.assertEqual(len(static_commands), 2)
+        for command in static_commands:
+            self.assertEqual(
+                self.runner.environments[command].get("TWC_RELEASE_STATIC_ROOT"),
+                expected,
+            )
+            self.assertEqual(
+                self.runner.environments[command].get("DJANGO_SETTINGS_MODULE"),
+                "twocomms.production_settings",
+            )
+        self.assertFalse(
+            (self.release_root / "worktrees" / self.target_sha / "twocomms" / "staticfiles").exists()
+        )
 
     def test_every_prepare_subprocess_has_a_bounded_timeout(self):
         self._manifest()
