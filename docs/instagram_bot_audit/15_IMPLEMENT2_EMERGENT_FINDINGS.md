@@ -1,4 +1,8 @@
-# Implement2 Emergent Findings
+# Implement2 Emergent Findings Evidence
+
+> Canonical ownership and checkboxes now live in
+> `14_IMPLEMENT2.md` / W2.0. This file retains discovery evidence only and must
+> not be used as a competing implementation queue.
 
 ## F-DEPLOY-001 (P1, OPEN): wheelhouse install lock must contain built-wheel hashes
 

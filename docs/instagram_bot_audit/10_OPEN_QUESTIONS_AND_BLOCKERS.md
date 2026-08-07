@@ -39,6 +39,39 @@
   materialized event-driven policy continuation с immutable event facts,
   absolute timeline и pre-send invoice/restock recheck; production `434428ad`.
 
+## Task 4C: legacy deploy entry-point boundary (2026-08-08)
+
+**Source evidence.** The tracked-entry-point inventory on this worktree contains
+the canonical `deploy.sh`, its internal `scripts/deploy_release.py`, seven
+named legacy shell wrappers, `infra/deploy_management_stats_placeholder.sh`,
+and the tracked root `*.exp` deploy/restart/maintenance wrappers. The legacy
+paths are now inert `RETIRED` stubs that fail closed and point operators to
+`deploy.sh --target-sha <40-character-lowercase-commit-sha>`; they no longer
+run SSH/SCP, branch pulls, destructive resets, runtime migration generation,
+in-place package installation, or unbounded restarts. The source contract is
+covered by `tests/test_deploy_entrypoint_contract.py`, including the exact
+canonical delegation and an explicit retirement ledger.
+
+**Production usage boundary.** A fresh authorized read-only `crontab -l`,
+process and operator-use history check on 2026-08-08 captured clean production `main` at
+`3aea283e25d89f90ad6d8a3511b5c1b950fd66ee`. Sanitized counts, without command
+contents or environment output, were: legacy wrapper references in current
+crontab `0`, running-process references `0`, readable shell-history references
+`0`, daemon `run_instagram_bot --ensure` cron references `1`, and tracked legacy
+candidate paths `21`. This proves the retirement set is inactive at the
+pre-deploy boundary while preserving the active daemon watchdog.
+
+**Canonical contract.** `deploy.sh` is executable, requires exactly
+`--target-sha` plus a 40-character lowercase commit SHA, forwards that argument
+unchanged, and executes only `scripts/deploy_release.py` through the pinned
+Python 3.14 selector. The contract test rejects the retired host/interpreter,
+destructive reset and migration generation, direct overlays, password tooling,
+in-place installs, WSGI/restart touches, and process-kill bypasses.
+
+**Status:** production usage evidence is complete; F-DEPLOY-004 / Task 4C
+remains open until the reviewed retired stubs reach `main`, deploy, and the
+post-deploy SHA/health/entry-point contract are verified.
+
 ## Product/data blockers
 
 1. Production product 110 has only the thermochromic green/oversize variant

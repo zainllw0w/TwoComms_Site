@@ -364,6 +364,38 @@ This safety slice precedes generic customer-facing commerce expansion.
 - `twocomms/management/services/instagram_bot.py`
 - the dedicated disposable-MariaDB settings/runner created by `IMP-094`
 
+### W2.0 Canonical release boundary findings — `IMP-094`, `F-DEPLOY-001…004`
+
+These findings were discovered while implementing Wave 0 and are owned here;
+`15_IMPLEMENT2_EMERGENT_FINDINGS.md` is evidence/history, not a second plan.
+
+- [ ] **`F-DEPLOY-001` immutable built-wheel provenance.** A pinned builder
+  rebuilds the exact lock-verified `http-ece` sdist reproducibly, verifies
+  wheel metadata/source provenance, records the wheel hash in the install
+  requirements and a sorted target-SHA manifest, then proves a clean
+  `--no-index --only-binary :all: --require-hashes` install. Production must
+  fail closed on any target, manifest or artifact mismatch and must never
+  source-build during maintenance.
+- [ ] **`F-DEPLOY-002` selector-secret boundary.** The orchestrator uses only
+  fixed CloudLinux `start`/`stop` calls, never selector/environment dumps, and
+  writes only allowlisted sanitized release evidence. Verify the deployed
+  evidence contains no credentials or raw command output; credential rotation
+  remains an external operator action if any previously captured secret could
+  have escaped the approved boundary.
+- [ ] **`F-DEPLOY-003` owned maintenance and bounded rollback.** Activation has
+  an authenticated owned lease handshake; every pre-switch failure cleans only
+  its own lease; incomplete symlink/checkout/Passenger rollback retains the
+  lease; tracked drift is checked immediately before rollback mutation; all
+  subprocesses are bounded; evidence records allowlisted failure phase,
+  rollback-needed/result and retained-lease state. Prove success and injected
+  rollback failures, deploy exact SHA, and verify daemon/queue health.
+- [ ] **`F-DEPLOY-004` legacy entry-point retirement.** Record a fresh read-only
+  production crontab/path/operator-usage boundary, route the sole supported
+  executable through the exact target-SHA orchestrator, and make every retired
+  wrapper fail closed. Contract tests reject stale hosts/interpreters,
+  destructive Git operations, runtime migration generation, overlays,
+  password tooling, in-place installs and unbounded process restarts.
+
 ### W2.1 Close residual local reliability debt after preflight — `IMP-094.A`
 
 - [ ] P0.5 already makes cwd-independent/no-network baseline mandatory. Here,
