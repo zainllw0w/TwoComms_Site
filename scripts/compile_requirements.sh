@@ -5,7 +5,7 @@ EXPECTED_UV_VERSION="uv 0.12.2"
 UV_BIN="${UV_BIN:-uv}"
 PYTHON_BIN="${PYTHON_BIN:-python3.14}"
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-INPUT_PATH="$ROOT_DIR/twocomms/requirements.in"
+INPUT_PATH="twocomms/requirements.in"
 LOCK_PATH="$ROOT_DIR/twocomms/requirements.lock"
 HTTP_ECE_BUILDER="$ROOT_DIR/scripts/build_http_ece_wheel.py"
 HTTP_ECE_SDIST="${HTTP_ECE_SDIST:-}"
@@ -37,7 +37,7 @@ case "$UV_VERSION" in
         ;;
 esac
 
-if [ ! -s "$INPUT_PATH" ]; then
+if [ ! -s "$ROOT_DIR/$INPUT_PATH" ]; then
     echo "error: requirements input is missing or empty" >&2
     exit 1
 fi
@@ -54,7 +54,7 @@ mkdir -p -- "$TEMP_WHEEL_DIR"
 # http-ece is pure Python and is published only as an sdist; pywebpush
 # requires it. Keep every compiled dependency wheel-only and make this
 # single, explicit exception visible in the generated lock metadata.
-"$UV_BIN" pip compile "$INPUT_PATH" \
+(cd "$ROOT_DIR" && "$UV_BIN" pip compile "$INPUT_PATH" \
     --output-file "$TEMP_LOCK" \
     --python-version 3.14.6 \
     --python-platform x86_64-manylinux_2_28 \
@@ -64,7 +64,7 @@ mkdir -p -- "$TEMP_WHEEL_DIR"
     --resolution highest \
     --exclude-newer 2026-08-07T00:00:00Z \
     --no-emit-index-url \
-    --custom-compile-command "./scripts/compile_requirements.sh"
+    --custom-compile-command "./scripts/compile_requirements.sh")
 
 if [ -n "$HTTP_ECE_SDIST" ]; then
     "$PYTHON_BIN" "$HTTP_ECE_BUILDER" \

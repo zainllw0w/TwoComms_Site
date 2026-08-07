@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import re
+import os
+import shutil
 import stat
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -134,6 +138,75 @@ class RequirementsContractTests(unittest.TestCase):
         self.assertIn("--source-date-epoch 315532800", script)
         self.assertLess(script.index("build_http_ece_wheel.py"), script.index("mv -f"))
         self.assertTrue(HTTP_ECE_BUILDER_PATH.is_file())
+
+    def test_compile_is_byte_identical_from_clean_copies(self):
+        """The resolver must receive a stable repo-relative input path."""
+
+        fake_uv = """#!/bin/sh
+set -eu
+if [ "$1" = "--version" ]; then
+    printf 'uv 0.12.2\\n'
+    exit 0
+fi
+output=''
+input=''
+while [ "$#" -gt 0 ]; do
+    if [ "$1" = "--output-file" ]; then
+        output="$2"
+        shift 2
+        continue
+    fi
+    case "$1" in
+        *.in) input="$1" ;;
+    esac
+    shift
+done
+printf '# -r %s\\nhttp-ece==1.2.1 \\\\\\n    --hash=sha256:%064d\\n' "$input" 0 > "$output"
+"""
+        fake_builder = """#!/usr/bin/env python3
+raise SystemExit(0)
+"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outputs = []
+            for index in ("one", "two"):
+                copy = root / index
+                (copy / "scripts").mkdir(parents=True)
+                (copy / "twocomms").mkdir()
+                shutil.copy2(COMPILE_PATH, copy / "scripts" / "compile_requirements.sh")
+                (copy / "scripts" / "build_http_ece_wheel.py").write_text(
+                    fake_builder, encoding="utf-8"
+                )
+                (copy / "scripts" / "build_http_ece_wheel.py").chmod(0o755)
+                (copy / "twocomms" / "requirements.in").write_text(
+                    "http-ece==1.2.1\\n", encoding="utf-8"
+                )
+                bin_dir = copy / "bin"
+                bin_dir.mkdir()
+                (bin_dir / "uv").write_text(fake_uv, encoding="utf-8")
+                (bin_dir / "uv").chmod(0o755)
+                compile_env = os.environ.copy()
+                compile_env.update(
+                    {
+                        "PATH": f"{bin_dir}:{compile_env['PATH']}",
+                        "UV_BIN": "uv",
+                        "PYTHON_BIN": shutil.which("python3") or "python3",
+                    }
+                )
+                result = subprocess.run(
+                    ["sh", "scripts/compile_requirements.sh"],
+                    cwd=copy,
+                    env=compile_env,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                outputs.append((copy / "twocomms" / "requirements.lock").read_bytes())
+
+            self.assertEqual(outputs[0], outputs[1])
+            self.assertIn(b"# -r twocomms/requirements.in\n", outputs[0])
+            self.assertNotIn(str(root).encode(), outputs[0])
 
 
 if __name__ == "__main__":

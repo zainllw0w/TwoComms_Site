@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
-import gzip
 import hashlib
 import io
 import os
@@ -20,14 +19,15 @@ import re
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
+from datetime import datetime, timezone
 from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
 
 PACKAGE_NAME = "http_ece"
-NORMALIZED_NAME = "http-ece"
 VERSION = "1.2.1"
 WHEEL_NAME = "http_ece-1.2.1-py2.py3-none-any.whl"
 DIST_INFO = "http_ece-1.2.1.dist-info"
@@ -143,7 +143,7 @@ def build_wheel(
 
     package_init, source_metadata = _read_source_files(sdist)
     epoch = _source_date_epoch(source_date_epoch)
-    timestamp = __import__("datetime").datetime.fromtimestamp(epoch, tz=__import__("datetime").timezone.utc)
+    timestamp = datetime.fromtimestamp(epoch, tz=timezone.utc)
     zip_timestamp = (
         timestamp.year,
         timestamp.month,
