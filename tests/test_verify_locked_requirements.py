@@ -54,6 +54,48 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
                 with self.assertRaises(LockParseError):
                     parse_lock(lock)
 
+    def test_accepts_full_pep508_marker_forms_and_hash_continuations(self):
+        from scripts.verify_locked_requirements import parse_lock
+
+        lock = """
+        Django==5.2.11;python_version>='3.14' \\
+            --hash=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        backports.zoneinfo==0.2.1;'3.14'<=python_version
+        marker-tilde==1.0;python_version~='3.14'
+        marker-strict==1.0;'3.14'===python_version
+        marker-nested==1.0;(python_version>='3.14' and (sys_platform=='linux' or os_name!='nt'))
+        marker-membership==1.0;python_version not in '3.10 3.11'
+        """
+
+        self.assertEqual(
+            parse_lock(lock),
+            {
+                "django": "5.2.11",
+                "backports-zoneinfo": "0.2.1",
+                "marker-tilde": "1.0",
+                "marker-strict": "1.0",
+                "marker-nested": "1.0",
+                "marker-membership": "1.0",
+            },
+        )
+
+    def test_rejects_unquoted_marker_values_and_trailing_marker_tokens(self):
+        from scripts.verify_locked_requirements import LockParseError, parse_lock
+
+        bad_markers = (
+            "Django==5.2.11;python_version>=3.14\n",
+            "Django==5.2.11; python_version >= 3.14\n",
+            "Django==5.2.11;python_version>='3.14' plain\n",
+            "Django==5.2.11;python_version>='3.14' -e ./local\n",
+            "Django==5.2.11;python_version>='3.14' -r extras.txt\n",
+            "Django==5.2.11;python_version>='3.14' -c constraints.txt\n",
+            "Django==5.2.11;(python_version>='3.14'\n",
+        )
+        for lock in bad_markers:
+            with self.subTest(lock=lock):
+                with self.assertRaises(LockParseError):
+                    parse_lock(lock)
+
     @patch("scripts.verify_locked_requirements.metadata.version")
     @patch("scripts.verify_locked_requirements.metadata.distributions")
     def test_reports_missing_and_mismatched_distributions(self, distributions, version):

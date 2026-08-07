@@ -14,10 +14,9 @@ import importlib.metadata as metadata
 import json
 import platform
 import re
-import shlex
 import sys
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable, Mapping, NamedTuple
 
 
 LOCKED_REQUIREMENT = re.compile(
@@ -54,11 +53,18 @@ _MARKER_VARIABLES = frozenset(
         "sys_platform",
     }
 )
-_MARKER_OPERATORS = frozenset({"!=", "<", "<=", "==", ">", ">=", "in"})
+_SYMBOLIC_MARKER_OPERATORS = ("===", "~=", "<=", "!=", "==", ">=", "<", ">")
+_MARKER_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
+_MARKER_HASH = re.compile(r"--hash(?:=|\s+)([^\s]+)", re.I)
 
 
 class LockParseError(ValueError):
     """Raised when a lock contains anything other than exact requirements."""
+
+
+class _MarkerToken(NamedTuple):
+    kind: str
+    value: str = ""
 
 
 def canonicalize_name(value: str) -> str:
@@ -105,56 +111,134 @@ def _reject_unsupported(line: str, line_number: int) -> None:
         raise LockParseError(f"line {line_number}: local requirements are not allowed")
 
 
-def _validate_marker(marker: str, line_number: int) -> None:
-    marker = _HASH_OPTION.sub("", marker).strip()
-    if not marker:
-        raise LockParseError(f"line {line_number}: empty environment marker")
-    try:
-        lexer = shlex.shlex(marker, posix=True, punctuation_chars="()")
-        lexer.whitespace_split = True
-        marker_tokens = list(lexer)
-    except ValueError as exc:
-        raise LockParseError(f"line {line_number}: malformed environment marker") from exc
-
-    def parse_atom(index: int) -> int:
-        if index >= len(marker_tokens):
-            raise LockParseError(f"line {line_number}: incomplete environment marker")
-        if marker_tokens[index] == "(":
-            index = parse_expression(index + 1)
-            if index >= len(marker_tokens) or marker_tokens[index] != ")":
-                raise LockParseError(f"line {line_number}: unbalanced environment marker")
-            return index + 1
-        variable = marker_tokens[index]
-        if variable not in _MARKER_VARIABLES:
-            raise LockParseError(f"line {line_number}: invalid environment marker expression")
-        index += 1
-        if index >= len(marker_tokens):
-            raise LockParseError(f"line {line_number}: incomplete environment marker")
-        operator = marker_tokens[index]
-        if operator == "not":
-            if index + 1 >= len(marker_tokens) or marker_tokens[index + 1] != "in":
-                raise LockParseError(f"line {line_number}: invalid environment marker operator")
-            index += 2
-        elif operator in _MARKER_OPERATORS:
+def _tokenize_marker(marker: str, line_number: int) -> list[_MarkerToken]:
+    tokens: list[_MarkerToken] = []
+    index = 0
+    while index < len(marker):
+        if marker[index].isspace():
             index += 1
-        else:
-            raise LockParseError(f"line {line_number}: invalid environment marker operator")
-        if index >= len(marker_tokens):
-            raise LockParseError(f"line {line_number}: incomplete environment marker")
-        value = marker_tokens[index]
-        if value in {"(", ")", "and", "or", "in", "not"} or value.startswith("-"):
-            raise LockParseError(f"line {line_number}: invalid environment marker value")
-        return index + 1
+            continue
 
-    def parse_expression(index: int) -> int:
-        index = parse_atom(index)
-        while index < len(marker_tokens) and marker_tokens[index] in {"and", "or"}:
-            index = parse_atom(index + 1)
-        return index
+        hash_match = _MARKER_HASH.match(marker, index)
+        if hash_match:
+            tokens.append(_MarkerToken("HASH"))
+            index = hash_match.end()
+            continue
 
-    index = parse_expression(0)
-    if index != len(marker_tokens):
-        raise LockParseError(f"line {line_number}: unsupported marker option or trailing token")
+        character = marker[index]
+        if character in {"'", '"'}:
+            quote = character
+            index += 1
+            value: list[str] = []
+            while index < len(marker) and marker[index] != quote:
+                if marker[index] == "\\" and index + 1 < len(marker):
+                    index += 1
+                value.append(marker[index])
+                index += 1
+            if index >= len(marker):
+                raise LockParseError(f"line {line_number}: unterminated marker string")
+            index += 1
+            tokens.append(_MarkerToken("OPERAND", "".join(value)))
+            continue
+
+        if character == "(":
+            tokens.append(_MarkerToken("LPAREN"))
+            index += 1
+            continue
+        if character == ")":
+            tokens.append(_MarkerToken("RPAREN"))
+            index += 1
+            continue
+
+        operator = next(
+            (candidate for candidate in _SYMBOLIC_MARKER_OPERATORS if marker.startswith(candidate, index)),
+            None,
+        )
+        if operator:
+            tokens.append(_MarkerToken("OPERATOR", operator))
+            index += len(operator)
+            continue
+
+        identifier_match = _MARKER_IDENTIFIER.match(marker, index)
+        if identifier_match:
+            identifier = identifier_match.group(0)
+            index = identifier_match.end()
+            if identifier in _MARKER_VARIABLES:
+                tokens.append(_MarkerToken("OPERAND", identifier))
+            elif identifier == "and":
+                tokens.append(_MarkerToken("AND"))
+            elif identifier == "or":
+                tokens.append(_MarkerToken("OR"))
+            elif identifier == "in":
+                tokens.append(_MarkerToken("IN"))
+            elif identifier == "not":
+                tokens.append(_MarkerToken("NOT"))
+            else:
+                raise LockParseError(f"line {line_number}: invalid marker identifier")
+            continue
+
+        raise LockParseError(f"line {line_number}: invalid environment marker token")
+    return tokens
+
+
+class _MarkerParser:
+    def __init__(self, tokens: list[_MarkerToken], line_number: int) -> None:
+        self.tokens = tokens
+        self.line_number = line_number
+        self.index = 0
+
+    def parse(self) -> None:
+        if not self.tokens:
+            self._fail("empty environment marker")
+        self._parse_or()
+        while self._accept("HASH"):
+            pass
+        if self.index != len(self.tokens):
+            self._fail("unsupported marker option or trailing token")
+
+    def _parse_or(self) -> None:
+        self._parse_and()
+        while self._accept("OR"):
+            self._parse_and()
+
+    def _parse_and(self) -> None:
+        self._parse_atom()
+        while self._accept("AND"):
+            self._parse_atom()
+
+    def _parse_atom(self) -> None:
+        if self._accept("LPAREN"):
+            self._parse_or()
+            self._expect("RPAREN", "unbalanced environment marker")
+            return
+        self._expect("OPERAND", "environment marker requires a quoted string or variable")
+        self._parse_operator()
+        self._expect("OPERAND", "environment marker requires a quoted string or variable")
+
+    def _parse_operator(self) -> None:
+        if self._accept("OPERATOR") or self._accept("IN"):
+            return
+        if self._accept("NOT"):
+            self._expect("IN", "invalid environment marker operator")
+            return
+        self._fail("invalid environment marker operator")
+
+    def _accept(self, kind: str) -> bool:
+        if self.index < len(self.tokens) and self.tokens[self.index].kind == kind:
+            self.index += 1
+            return True
+        return False
+
+    def _expect(self, kind: str, message: str) -> None:
+        if not self._accept(kind):
+            self._fail(message)
+
+    def _fail(self, message: str) -> None:
+        raise LockParseError(f"line {self.line_number}: {message}")
+
+
+def _validate_marker(marker: str, line_number: int) -> None:
+    _MarkerParser(_tokenize_marker(marker, line_number), line_number).parse()
 
 
 def parse_lock(text: str) -> dict[str, str]:
