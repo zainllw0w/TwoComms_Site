@@ -4337,3 +4337,56 @@ checkout assertions; production SHA `434428ad`.
   attempt start/end, effective deadline и daemon heartbeat, чтобы отличить
   provider hang от потери процесса; media phase из independent `IMP-060`
   отделяет attachment stall до provider call. Finding остаётся `[ ]` до полного evidence.
+
+### F-DEPLOY-001 (P1, OPEN): wheelhouse install lock lacks the built `http-ece` wheel hash
+
+- **Evidence:** `http-ece==1.2.1` has no published wheel. Before the builder
+  fix, the reviewed lock contained only sdist SHA256 `8c6ab231...cff`; a wheel
+  built from that source had a different digest, and a clean
+  `--no-index --only-binary :all: --require-hashes` install rejected it.
+  The current branch now adds deterministic wheel SHA256
+  `4ee99a46...fa6533a8`, but CI wheelhouse provenance remains unproven.
+- **Risk:** the staged deploy cannot satisfy its mandatory wheel-only install
+  contract; building from source during maintenance would reintroduce the
+  unpinned build-tool and partial-environment failure that Wave 0 removes.
+- **Carrier / acceptance:** `IMP-094`, CI Task 7. Build from the exact verified
+  sdist in the pinned immutable builder, verify provenance/metadata, add the
+  built-wheel SHA to immutable install requirements and prove a clean
+  wheelhouse-only hash install before release.
+
+### F-DEPLOY-002 (P1, OPEN): CloudLinux selector environment diagnostics expose secrets
+
+- **Evidence:** the read-only Task 4 server inventory showed that
+  `cloudlinux-selector get --json --interpreter python` returns the complete
+  application environment, including credentials. Values are intentionally
+  omitted and must not enter Git or release evidence.
+- **Risk:** a diagnostic/evidence command can copy production secrets into
+  logs, CI artifacts or operator transcripts.
+- **Carrier / acceptance:** `IMP-094`, Task 4. The orchestrator uses fixed
+  selector start/stop commands and allowlisted status fields only; it never
+  invokes or logs selector env JSON, process `env`, or environment-file
+  contents. Rotate exposed credentials through the normal operational channel.
+
+### F-DEPLOY-003 (P1, OPEN): maintenance activation can orphan a lease
+
+- **Evidence:** production `run_instagram_bot --maintenance-on` writes a
+  bounded lease before waiting up to 45 seconds for the daemon singleton lock;
+  a timeout can leave the lease active without returning its identifier.
+- **Risk:** a failed deployment can leave the bot paused and block later
+  `--ensure` calls until expiry.
+- **Carrier / acceptance:** `IMP-094`, Task 4B. Use an owned lease handshake,
+  capture the identifier from a sanitized receipt/status and release only that
+  identifier on activation failure, timeout or rollback. Test owned versus
+  unowned cleanup.
+
+### F-DEPLOY-004 (P1, OPEN): legacy operator deploy wrappers bypass the release gate
+
+- **Evidence:** tracked/manual wrappers still reference Python 3.13, an old
+  host, destructive `git reset --hard`, runtime `makemigrations`, direct SCP
+  overlays or unbounded restarts. The current crontab does not invoke them,
+  but operators can still run them.
+- **Risk:** a manual deploy can bypass staged dependency, migration and
+  rollback safety even when the canonical path is correct.
+- **Carrier / acceptance:** `IMP-094`, Task 4C. Record the server usage
+  boundary, then redirect supported paths to a target-SHA orchestrator or
+  retire/archive inactive scripts. Source-contract tests reject every bypass.

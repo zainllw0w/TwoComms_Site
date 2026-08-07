@@ -101,8 +101,8 @@ detailed findings are in `03`, improvements are in `05`, and `07` contains an
 individual checkbox for every `F-*` and `IMPR-*`. The next execution order is
 unambiguous in `14`, reached through `00`.
 
-Fresh 2026-08-07 validation: the local canonical folder contains **339 unique
-`F-*`/`IMP-*`/`IMPR-*` IDs** (183 + 105 + 51).
+Fresh 2026-08-07 validation: the local canonical folder contains **343 unique
+`F-*`/`IMP-*`/`IMPR-*` IDs** (187 + 105 + 51).
 Every ID reachable from historical audit refs is present in that set; the
 all-ref minus local comparison is empty. Existing stashes, worktrees and
 unreachable-object inventory were preserved and do not replace the canonical

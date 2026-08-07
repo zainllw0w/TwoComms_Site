@@ -391,6 +391,7 @@ git commit -m "fix(deploy): stage verified release environments"
 
 ```python
 def test_switch_enters_bot_maintenance_before_stopping_passenger(): ...
+def test_failed_maintenance_activation_releases_only_owned_lease(): ...
 def test_switch_order_is_stop_fast_forward_swap_venv_swap_static_start(): ...
 def test_venv_and_static_switches_retain_previous_release_for_rollback(): ...
 def test_start_or_health_failure_restores_previous_sha_venv_and_static(): ...
@@ -891,6 +892,12 @@ Require:
   requires `git diff --exit-code`, and installs with hashes;
 - dependency job downloads/builds a wheel-only wheelhouse, writes a sorted
   SHA256 manifest keyed by the target SHA, and uploads the immutable artifact;
+- the wheelhouse builder handles `F-DEPLOY-001`: it rebuilds the exact
+  lock-verified `http-ece` sdist with pinned build tools, adds the resulting
+  wheel SHA to the install requirements, verifies source provenance and then
+  proves a clean `--no-index --only-binary :all: --require-hashes` install;
+- release diagnostics must satisfy `F-DEPLOY-002`: use only fixed selector
+  start/stop/status fields and never call or log CloudLinux selector env JSON;
 - a separate immutable x86_64 manylinux 2.28 container job uses CPython 3.14
   for wheel-only install, strict lock, import, and focused Django proof;
 - MariaDB service is pinned to MariaDB 11.4 by immutable digest;

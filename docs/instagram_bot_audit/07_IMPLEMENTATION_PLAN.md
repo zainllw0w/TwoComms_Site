@@ -7,7 +7,7 @@
 > `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`,
 > `IMP-088`). Решения — в `04_DECISION_LOG.md`, находки и evidence — в
 > `03_FINDINGS_REGISTER.md`, общий вход — в `00_PROGRESS.md`. Ниже находятся
-> отдельные checkbox-матрицы всех 183 `F-*` и всех 51 `IMPR-*`:
+> отдельные checkbox-матрицы всех 187 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -878,6 +878,11 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   `dd93f9f3` дополнительно закрыл F-TEST-004: reduced-motion assertion больше
   не зависит от соседства CSS selectors; 188/188 inbox/UI и 2897 full-suite
   GREEN. Остался обязательный отдельный disposable MariaDB run.
+  **Emergent release findings 2026-08-07:** `F-DEPLOY-001` requires the
+  reproducibly built `http-ece` wheel SHA in the immutable install
+  requirements; the sdist SHA alone fails a clean wheel-only hash install.
+  `F-DEPLOY-002` prohibits CloudLinux selector environment JSON from release
+  diagnostics because it exposes production credentials.
 - [ ] **IMP-096 (P2) — provenance ролей импортированной переписки
   (F-DATA-015).** Отделить подтверждённые manager/model сообщения от legacy
   import uncertainty, добавить read-only отчёт и dry-run backfill с точным
@@ -1126,9 +1131,10 @@ continuation остаётся отдельным свежим срезом.
   Закрыто `4dfff3a2` + `35d3bd93`, migration `0143`, focused gate 180 tests,
   production `434428ad`; combined event/FSM/checkout/restock gate 255 tests.
 
-### Finding coverage matrix — 183 уникальных F-идентификатора
+### Finding coverage matrix — 187 уникальных F-идентификатора
 
-Итог матрицы: **139 `[x]` / 35 `OPEN [ ]` / 9 `PARTIAL [ ]`**. Статус
+Итог матрицы: **139 `[x]` / 35 `OPEN [ ]` / 1 `BLOCKED [ ]` /
+12 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1205,6 +1211,10 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-DEBT-005 | FIXED/VERIFIED | IMP-004 |
 | [ ] | F-DEBT-006 | OPEN | IMP-094 |
 | [ ] | F-DEBT-007 | OPEN | IMP-094 |
+| [ ] | F-DEPLOY-001 | OPEN | IMP-094 / Implement2 Task 7 |
+| [ ] | F-DEPLOY-002 | OPEN | IMP-094 / Implement2 Task 4 |
+| [ ] | F-DEPLOY-003 | OPEN | IMP-094 / Implement2 Task 4B |
+| [ ] | F-DEPLOY-004 | OPEN | IMP-094 / Implement2 Task 4C |
 | [x] | F-FUP-001 | FIXED/VERIFIED | IMP-047 |
 | [x] | F-FUP-002 | FIXED/VERIFIED | IMP-048 |
 | [x] | F-FUP-003 | FIXED/VERIFIED | IMP-049 |

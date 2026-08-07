@@ -18,13 +18,14 @@
 | Точка входа и текущая сводка | `docs/instagram_bot_audit/00_PROGRESS.md` |
 | Активный порядок продолжения | этот `14_IMPLEMENT2.md` |
 | Полный незакрытый inventory без приоритизации | `13_UNCLOSED_FINDINGS_RAW.md` |
-| Историческая/status matrix всех 105 `IMP-*`, 183 `F-*`, 51 `IMPR-*` | `07_IMPLEMENTATION_PLAN.md` |
+| Историческая/status matrix всех 105 `IMP-*`, 187 `F-*`, 51 `IMPR-*` | `07_IMPLEMENTATION_PLAN.md` |
 | Подробная причина и evidence finding | `03_FINDINGS_REGISTER.md` |
 | Подробное improvement rationale | `05_IMPROVEMENTS_REGISTER.md` |
 | Acceptance scenarios | `06_TEST_MATRIX.md` |
 | Verified completion/deploy evidence | `08_COMPLETION_LOG.md`, `09_DEPLOYMENT_LOG.md` |
 | Внешние решения и блокеры | `10_OPEN_QUESTIONS_AND_BLOCKERS.md` |
 | Ветки, worktree, WIP и superseded sources | `12_SOURCE_RECONCILIATION.md` |
+| Emergent Implement2 findings | `15_IMPLEMENT2_EMERGENT_FINDINGS.md` |
 
 После каждого shipped slice обновить все затронутые источники. Нельзя менять
 только этот файл и оставлять противоречащую галочку в `07`, старый blocker в
@@ -50,7 +51,7 @@
 | Реестр | Verified state |
 |---|---|
 | Implementation | 105 total: 80 DONE, 15 OPEN, 10 PARTIAL; 25 unchecked |
-| Finding matrix / handoff | 183 total: 139 checked, 31 OPEN, 1 BLOCKED, 12 PARTIAL; 44 unchecked |
+| Finding matrix / handoff | 187 total: 139 checked, 35 OPEN, 1 BLOCKED, 12 PARTIAL; 48 unchecked |
 | Improvements | 51 total: 17 DONE, 12 OPEN, 21 PARTIAL, 1 REFRAMED; 34 unchecked |
 | Acceptance | 51 total: 40 GREEN, 11 PARTIAL (including SQLite-only `T41`); `T51` is GREEN regression guard |
 | Documentation conflicts | `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` reconciled by the 2026-08-07 handoff |
@@ -181,7 +182,9 @@ rules and its own 1090–1450 acceptance, not for every commerce task.
   suite into feature work. Verify dependency lock/installed versions and make
   required install failures fail closed; the repeated non-fatal `cffi` wheel
   failure from deploy `f327ac36` is open evidence. SQLite here is only fast
-  structural evidence.
+  structural evidence. Emergent `F-DEPLOY-001…004` additionally require
+  built-wheel hash provenance, selector-secret redaction, owned
+  maintenance-lease cleanup and legacy deploy-wrapper retirement.
 - [ ] **P0.6 Release boundary.** Commit only one independently deployable
   slice, push, integrate into `main`, deploy, verify exact SHA, migrations,
   daemon heartbeat, dangerous queues and persisted DB/API evidence.
@@ -752,7 +755,7 @@ browser matrix, accessibility/reduced-motion check and deployed SHA.
 |---|---|
 | Preflight/gates | `BLOCKER-INFRA-001`, `BLOCKER-DATA-001`, `BLOCKER-POLICY-001`, `BLOCKER-POLICY-002`; `RULE-BRANCH-001`, `RULE-DATA-001`, `RULE-SEND-001`; resolved `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` |
 | Wave 1 | `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`, `F-AI-010/011`, `F-CTX-003`; `IMP-028.A`, `IMP-060`, `IMP-061`, `IMP-098`, `IMP-101` |
-| Wave 2 | `F-CORE-006`, `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`; `IMP-044`, `IMP-094`; `T40`, `T41` |
+| Wave 2 | `F-CORE-006`, `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`, `F-DEPLOY-001/002/003/004`; `IMP-044`, `IMP-094`; `T40`, `T41` |
 | Wave 3 | narrow `IMP-087.A`; full `IMP-087` remains PARTIAL |
 | Wave 4 | `F-CAT-004`, `F-DATA-001`, `F-DATA-010.A`, `F-PAY-002`, `F-PAY-003`, `F-PAY-006`; `IMP-046.A`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`; `IMPR-CAT-002`, `IMPR-CAT-004`, `IMPR-CAT-006`, `IMPR-FEAT-001`, `IMPR-FEAT-002`, `IMPR-FEAT-003`, `IMPR-FEAT-004`, `IMPR-FEAT-005`, `IMPR-FEAT-014`, `IMPR-FEAT-015`, `IMPR-INV-001`; `T04`, `T38`, `T44`, `T45`, `T47`; GREEN guard `T51` |
 | Wave 5 | `F-AI-009`, `F-AI-012`, `F-CTX-001`, `F-DATA-016`; `IMP-028.B`, `IMP-090`, `IMP-095`; `IMPR-SALES-001`, `IMPR-SALES-002`, `IMPR-SALES-003`, `IMPR-SALES-004`, `IMPR-SALES-005`, `IMPR-SALES-006`, `IMPR-SALES-007`, `IMPR-SALES-008`, `IMPR-SALES-009`, `IMPR-SALES-010`, `IMPR-SALES-011`, `IMPR-TXT-006`, `IMPR-FUP-013` |

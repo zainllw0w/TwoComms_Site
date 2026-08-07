@@ -13,6 +13,8 @@
   исчерпал stale leases без typed provider/process telemetry.
   F-TEST-004 внутри IMP-094 закрыта на `dd93f9f3`, но disposable MariaDB gate
   и остальные reliability acceptance criteria остаются открыты.
+  `F-DEPLOY-001` adds the reproducibly built `http-ece` wheel hash gate;
+  `F-DEPLOY-002` bans CloudLinux selector environment JSON from evidence.
 - W9: partial `IMP-081`–`088`. `IMP-081` foundation is
   production; `IMP-082/083` graph/ranker foundation and prompt parity are
   production `0ad694bc`; `IMP-084` exact availability and proposal reservation

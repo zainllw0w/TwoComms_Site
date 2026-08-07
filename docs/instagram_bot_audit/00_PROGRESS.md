@@ -18,7 +18,7 @@
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; главный источник реальных переписок/товаров/сделок/оплат. Discovery — read-only; concurrency/destructive tests — только disposable MariaDB |
 | Локальная SQLite | **не источник business/data истины и не MariaDB acceptance**; только быстрый unit/regression слой, не проверяет locks, concurrent constraints, triggers и `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **183 уникальных `F-*` идентификатора: 139 закрыты, 31 OPEN, 1 BLOCKED, 12 PARTIAL**; `F-PAY-002/003/006` переклассифицированы в PARTIAL по current-main evidence, `F-DATA-004` BLOCKED внешним attribution source, новый `F-AI-018` добавлен после live job `292` |
+| Реестр находок | **187 уникальных `F-*` идентификатора: 139 закрыты, 35 OPEN, 1 BLOCKED, 12 PARTIAL**; `F-PAY-002/003/006` переклассифицированы в PARTIAL, `F-DATA-004` BLOCKED, `F-AI-018` и release-gates `F-DEPLOY-001…004` открыты |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **105** в W0–W12, включая W4B/W4C/W4D и IMP-062…105 |
@@ -28,11 +28,11 @@
 | Файл | Состояние |
 |---|---|
 | `00_PROGRESS.md` | каноническая точка входа, общий статус и реестр восстановленных источников |
-| `03_FINDINGS_REGISTER.md` | 183 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
+| `03_FINDINGS_REGISTER.md` | 187 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
 | `04_DECISION_LOG.md` | 11 решений (DR-001…DR-011) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 51 улучшение + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | историческая каноническая status matrix 105 IMP-задач, 183 F-* и 51 IMPR-*; активный порядок задаёт `14` |
+| `07_IMPLEMENTATION_PLAN.md` | историческая каноническая status matrix 105 IMP-задач, 187 F-* и 51 IMPR-*; активный порядок задаёт `14` |
 | `13_UNCLOSED_FINDINGS_RAW.md` | полный handoff inventory: unchecked IDs, test boundaries, blockers, rules, gaps, WIP и resolved DOC conflicts |
 | `14_IMPLEMENT2.md` | активный topological execution plan; после каждого release синхронизировать с `00/07/13` и evidence logs |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |

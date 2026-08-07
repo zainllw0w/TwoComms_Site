@@ -262,6 +262,9 @@
   `f327ac36` также повторил `cffi` wheel build failure, который `deploy.sh`
   считает non-fatal; required/optional dependency policy, installed-version/
   lock verification и fail-closed required dependency gate остаются открыты.
+  Emergent `F-DEPLOY-001` requires the CI-built `http-ece` wheel SHA in the
+  immutable install requirements; `F-DEPLOY-002` forbids selector environment
+  JSON in deployment evidence because it exposes production credentials.
 
 ## Все незакрытые и частичные IMPR-* улучшения
 
@@ -410,8 +413,8 @@ rollout and modernization. Перед реализацией любого ном
   `11_FINAL_VALIDATION_REPORT.md`, не в current `07`. Current authority:
   105 = 80 DONE + 15 OPEN + 10 PARTIAL; `IMP-088` reclassified PARTIAL because
   current main already has digest/proposal workspace foundations.
-- [x] DOC-002: после добавления `F-AI-018` current matrix содержит 183 finding:
-  139 checked + 31 OPEN + 1 BLOCKED + 12 PARTIAL. Исторические counts в `11` не являются
+- [x] DOC-002: после добавления `F-AI-018` и `F-DEPLOY-001…004` current matrix содержит 187 finding:
+  139 checked + 35 OPEN + 1 BLOCKED + 12 PARTIAL. Исторические counts в `11` не являются
   текущим статусом.
 - [x] DOC-003: fresh live check 2026-08-07 подтвердил local/origin/production
   SHA `19f5ef70`; equality больше не выводится из старой записи.
@@ -426,7 +429,7 @@ rollout and modernization. Перед реализацией любого ном
 - [x] DOC-007: `F-CAT-004` и `F-DATA-002/003` классифицированы PARTIAL:
   foundations/writers есть, полного production consumer evidence нет. Handoff
   также переклассифицировал `F-PAY-002/003/006` в PARTIAL по current-main
-  foundation evidence. Итог: 31 OPEN + 1 BLOCKED + 12 PARTIAL.
+  foundation evidence. Итог: 35 OPEN + 1 BLOCKED + 12 PARTIAL.
 - [x] DOC-008: `10_OPEN_QUESTIONS_AND_BLOCKERS.md` больше не называет
   `IMP-087` OPEN; narrow receipt-backed WIP и оставшийся полный scope записаны
   как PARTIAL.
@@ -434,8 +437,9 @@ rollout and modernization. Перед реализацией любого ном
 ## Контроль полноты
 
 - Covered implementation carriers: 25 open/partial IMP tasks.
-- Covered canonical findings: 44 unchecked F-* rows after `F-AI-018`.
-  Canonical 07 and this handoff use 31 OPEN + 1 BLOCKED + 12 PARTIAL.
+- Covered canonical findings: 48 unchecked F-* rows after `F-AI-018` and
+  `F-DEPLOY-001…004`. Canonical 07 and this handoff use
+  35 OPEN + 1 BLOCKED + 12 PARTIAL.
 - Covered improvements: 34 unchecked IMPR-* rows (including one REFRAMED
   duplicate) plus two non-ID gaps: `GAP-UX-001` and
   `GAP-CHECKOUT-UX-001`.
