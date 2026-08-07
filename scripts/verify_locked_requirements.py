@@ -36,7 +36,6 @@ _INLINE_COMMENT = re.compile(r"\s+#.*$")
 BOOTSTRAP_ALLOWLIST = frozenset({"pip", "setuptools", "wheel"})
 _MARKER_VARIABLES = frozenset(
     {
-        "dependency_group",
         "dependency_groups",
         "extra",
         "extras",

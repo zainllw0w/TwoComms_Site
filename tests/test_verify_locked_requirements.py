@@ -127,6 +127,8 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
 
         with self.assertRaises(LockParseError):
             parse_lock("Django==5.2.11; unknown.marker == 'value'\n")
+        with self.assertRaises(LockParseError):
+            parse_lock("Django==5.2.11; dependency_group == 'foo'\n")
 
     def test_accepts_non_delimiter_backslashes_in_marker_strings(self):
         from scripts.verify_locked_requirements import parse_lock
