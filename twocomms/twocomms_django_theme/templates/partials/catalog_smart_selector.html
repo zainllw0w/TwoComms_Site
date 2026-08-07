@@ -87,6 +87,21 @@
       </aside>
 
       <section class="smart-selector__products" aria-label="{% trans 'Товари категорії' %}">
+        <div class="smart-selector__quick-facets" aria-label="{% trans 'Швидкий вибір' %}">
+          <button type="button" data-smart-open-filters data-smart-focus-filter="theme" aria-haspopup="dialog" aria-expanded="false">
+            <small>{% trans 'Тема' %}</small>
+            <span>{% if smart_selector_selected_theme %}{% for option in smart_selector_theme_options %}{% if option.code == smart_selector_selected_theme %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Усі' %}{% endif %}</span>
+          </button>
+          <button type="button" data-smart-open-filters data-smart-focus-filter="fit" aria-haspopup="dialog" aria-expanded="false">
+            <small>{% trans 'Крій' %}</small>
+            <span>{% if smart_selector_selected_fit %}{% for option in smart_selector_fit_options %}{% if option.code == smart_selector_selected_fit %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Будь-який' %}{% endif %}</span>
+          </button>
+          <button type="button" data-smart-open-filters data-smart-focus-filter="color" aria-haspopup="dialog" aria-expanded="false">
+            <small>{% trans 'Колір' %}</small>
+            <span>{% if selected_color_slugs %}{% trans 'Обрано' %}{% else %}{% trans 'Усі' %}{% endif %}</span>
+          </button>
+        </div>
+
         <div class="smart-selector__command" data-smart-command>
           <button type="button"
                   class="smart-selector__filter-trigger"
@@ -109,21 +124,6 @@
           </label>
         </div>
 
-        <div class="smart-selector__quick-facets" aria-label="{% trans 'Швидкий вибір' %}">
-          <button type="button" data-smart-open-filters data-smart-focus-filter="theme" aria-haspopup="dialog" aria-expanded="false">
-            <small>{% trans 'Тема' %}</small>
-            <span>{% if smart_selector_selected_theme %}{% for option in smart_selector_theme_options %}{% if option.code == smart_selector_selected_theme %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Усі' %}{% endif %}</span>
-          </button>
-          <button type="button" data-smart-open-filters data-smart-focus-filter="fit" aria-haspopup="dialog" aria-expanded="false">
-            <small>{% trans 'Крій' %}</small>
-            <span>{% if smart_selector_selected_fit %}{% for option in smart_selector_fit_options %}{% if option.code == smart_selector_selected_fit %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Будь-який' %}{% endif %}</span>
-          </button>
-          <button type="button" data-smart-open-filters data-smart-focus-filter="color" aria-haspopup="dialog" aria-expanded="false">
-            <small>{% trans 'Колір' %}</small>
-            <span>{% if selected_color_slugs %}{% trans 'Обрано' %}{% else %}{% trans 'Усі' %}{% endif %}</span>
-          </button>
-        </div>
-
         <div class="smart-selector__grid"
              role="list"
              data-smart-product-grid
@@ -134,13 +134,9 @@
                data-smart-product-item
                data-smart-theme="{{ p.smart_selector_theme }}"
                data-smart-fit="{{ p.smart_selector_fit }}"
-               data-smart-price="{{ p.final_price }}">
-            {% cache 900 smart_selector_product_card_v1 LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key forloop.counter0 using="fragments" %}
-              {% if forloop.counter0 < 2 %}
-                {% include "partials/product_card.html" with p=p stagger=True eager=True animate=True home_card=True %}
-              {% else %}
-                {% include "partials/product_card.html" with p=p stagger=True eager=False animate=True home_card=True %}
-              {% endif %}
+               data-smart-price="{{ p.card_price_min|default:p.final_price }}">
+            {% cache 900 smart_selector_product_card_v3 LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key p.preferred_color_slug p.preferred_card_image_url forloop.counter0 using="fragments" %}
+              {% include "partials/catalog_smart_product_card.html" with p=p eager=forloop.first %}
             {% endcache %}
           </div>
           {% empty %}
@@ -231,6 +227,16 @@
     </section>
   </div>
 
+  {% if category.seo_intro_html %}
+  <section class="catalog-category-intro smart-selector__seo-intro" aria-label="{% trans 'Опис категорії' %}">
+    <div class="catalog-redesign-container">
+      <div class="catalog-intro-panel">
+        {{ category.seo_intro_html|safe }}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   {% if category_seo_layout.has_any %}
   <section class="catalog-category-seo-blocks" aria-label="{% trans 'Додаткові розділи каталогу' %}">
     <div class="catalog-redesign-container">
@@ -245,6 +251,16 @@
       <div class="catalog-description-panel">
         <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
         <div>{{ category.description|safe }}</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if color_seo_copy %}
+  <section class="catalog-category-description catalog-category-description--color-aware">
+    <div class="catalog-redesign-container">
+      <div class="catalog-description-panel">
+        {% include "partials/catalog_color_seo.html" %}
       </div>
     </div>
   </section>

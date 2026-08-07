@@ -10,6 +10,7 @@ Catalog views - Каталог товаров и категорий.
 """
 
 from collections import defaultdict
+from decimal import Decimal
 
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
@@ -146,9 +147,9 @@ SMART_SELECTOR_SORT_VALUES = ('recommended', 'price-asc', 'price-desc')
 
 def _smart_selector_fit_codes(category, product_queryset):
     if category.slug == 'long-sleeve':
-        allowed = {'standard'}
-    else:
-        allowed = {'classic', 'oversize'}
+        return ['standard']
+
+    allowed = {'classic', 'oversize'}
 
     option_codes = (
         ProductFitOption.objects
@@ -179,7 +180,11 @@ def _smart_selector_query_state(request, category, fit_codes=None):
         selected_theme = ''
 
     selected_fit = SMART_SELECTOR_FIT_ALIASES.get(selected_fit, '')
-    valid_fits = {'standard'} if category.slug == 'long-sleeve' else {'classic', 'oversize'}
+    valid_fits = (
+        set(fit_codes)
+        if fit_codes is not None
+        else ({'standard'} if category.slug == 'long-sleeve' else {'classic', 'oversize'})
+    )
     if selected_fit not in valid_fits:
         selected_fit = ''
     return selected_theme, selected_fit
@@ -205,7 +210,7 @@ def _smart_selector_theme_query(theme):
 def _smart_selector_fit_query(fit):
     query = Q()
     for code in SMART_SELECTOR_FIT_QUERY_CODES.get(fit, ()):
-        query |= Q(fit_options__code__iexact=code)
+        query |= Q(fit_options__code__istartswith=code)
     return query
 
 
@@ -237,10 +242,36 @@ def _apply_smart_selector_sort(product_queryset, selected_sort):
     )
 
 
+def _sort_smart_selector_products_by_visible_price(product_queryset, selected_sort):
+    """Sort the complete filtered category by the price rendered on cards."""
+    if selected_sort not in ('price-asc', 'price-desc'):
+        return product_queryset
+
+    products = list(product_queryset)
+    build_color_preview_map(products)
+    descending = selected_sort == 'price-desc'
+
+    def sort_key(product):
+        price = Decimal(str(
+            getattr(product, 'card_price_min', None)
+            or getattr(product, 'final_price', 0)
+            or 0
+        ))
+        return (
+            -price if descending else price,
+            -int(getattr(product, 'priority', 0) or 0),
+            -int(getattr(product, 'id', 0) or 0),
+        )
+
+    products.sort(key=sort_key)
+    return products
+
+
 def _smart_selector_product_fit(product):
     options = [option for option in product.fit_options.all() if option.is_active]
     if not options:
-        return ''
+        category = getattr(product, 'category', None)
+        return 'standard' if getattr(category, 'slug', '') == 'long-sleeve' else ''
     code = (options[0].code or '').strip().lower()
     return SMART_SELECTOR_FIT_ALIASES.get(code, code)
 
@@ -272,6 +303,7 @@ def _build_smart_selector_context(
         item for item in categories
         if item.slug in SMART_SELECTOR_CATEGORY_SLUGS
     ]
+    category_tabs.sort(key=lambda item: SMART_SELECTOR_CATEGORY_SLUGS.index(item.slug))
     if fit_codes is None:
         fit_codes = _smart_selector_fit_codes(category, product_queryset)
     if selected_theme is None or selected_fit is None:
@@ -812,12 +844,10 @@ def catalog(request, cat_slug=None):
                 _smart_selector_theme_query(smart_selector_selected_theme)
             )
         if smart_selector_selected_fit:
-            base_product_qs = (
-                base_product_qs
-                .filter(fit_options__is_active=True)
-                .filter(_smart_selector_fit_query(smart_selector_selected_fit))
-                .distinct()
-            )
+            fit_query = _smart_selector_fit_query(smart_selector_selected_fit)
+            if category.slug == 'long-sleeve' and smart_selector_selected_fit == 'standard':
+                fit_query |= Q(fit_options__isnull=True)
+            base_product_qs = base_product_qs.filter(fit_query).distinct()
         smart_selector_selected_sort = _smart_selector_sort_state(request)
         base_product_qs = _apply_smart_selector_sort(
             base_product_qs,
@@ -827,12 +857,26 @@ def catalog(request, cat_slug=None):
     # Phase 9 — colour filter (?color=black,red). Build chips from the
     # *unfiltered* queryset so users can always OR-in another colour.
     selected_color_slugs = parse_color_filter(request)
+    # Smart Selector owns the concrete category experience. Keep its colour
+    # chips on the same query-string route so theme/fit state and the bottom
+    # sheet remain available; dedicated SEO colour landings keep serving
+    # direct organic links but are not used as an in-page navigation jump.
+    color_landing_category = (
+        None
+        if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS
+        else category
+    )
     available_colors = build_available_colors(
-        base_product_qs, request, selected_color_slugs, category=category,
+        base_product_qs, request, selected_color_slugs, category=color_landing_category,
     )
     has_active_color_filter = bool(selected_color_slugs)
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
     product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
+    if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
+        product_qs = _sort_smart_selector_products_by_visible_price(
+            product_qs,
+            smart_selector_selected_sort,
+        )
 
     # When a colour filter is active on the catalog root we hide the
     # category showcase cards and surface the matching products list

@@ -20,6 +20,32 @@
   let loadingNextPage = false;
   let nextOrder = 0;
 
+  const checkFavoriteButton = (button) => {
+    const productId = button?.getAttribute("data-product-id");
+    if (productId && typeof window.checkFavoriteStatus === "function") {
+      window.checkFavoriteStatus(productId, button);
+    }
+  };
+
+  const favoriteStatusObserver = "IntersectionObserver" in window
+    ? new IntersectionObserver((entries, observer) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          checkFavoriteButton(entry.target);
+          observer.unobserve(entry.target);
+        });
+      }, { rootMargin: "100px 0px", threshold: 0.01 })
+    : null;
+
+  const observeFavoriteButtons = (items) => {
+    items.forEach((item) => {
+      item.querySelectorAll(".favorite-btn").forEach((button) => {
+        if (favoriteStatusObserver) favoriteStatusObserver.observe(button);
+        else checkFavoriteButton(button);
+      });
+    });
+  };
+
   if (main) main.style.contain = "none";
 
   const productItems = () => Array.from(grid?.querySelectorAll("[data-smart-product-item]") || []);
@@ -277,6 +303,7 @@
       const fragment = document.createDocumentFragment();
       incoming.forEach((item) => fragment.appendChild(item));
       grid.appendChild(fragment);
+      observeFavoriteButtons(incoming);
       grid.dataset.nextPageUrl = remoteGrid.dataset.nextPageUrl || "";
 
       const remotePagination = remoteRoot.querySelector("[data-smart-pagination]");

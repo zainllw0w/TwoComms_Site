@@ -1,0 +1,88 @@
+{% load i18n %}
+{% load responsive_images %}
+{% load color_filters %}
+
+{% with card_image=p.homepage_image preferred_image_url=p.preferred_card_image_url %}
+  {% if p.preferred_color_slug %}
+    {% url 'product' p.slug p.preferred_color_slug as product_url %}
+  {% else %}
+    {% url 'product' p.slug as product_url %}
+  {% endif %}
+
+  <article class="smart-product-card"
+           data-smart-product-card
+           data-product-id="{{ p.id }}"
+           data-default-offer-id="{{ p.get_offer_id }}"
+           data-product-title="{{ p.title|escapejs }}"
+           data-product-price="{{ p.final_price }}"
+           data-product-category="{{ p.category.name|default_if_none:''|escapejs }}"
+           data-product-url="{{ product_url }}">
+    <div class="smart-product-card__media">
+      <a href="{{ product_url }}"
+         class="smart-product-card__media-link"
+         data-product-card-link
+         data-twc-image-protected="true"
+         aria-label="{% blocktrans with title=p.title %}Переглянути {{ title }}{% endblocktrans %}">
+        {% if preferred_image_url %}
+          {% if eager|default_if_none:False %}
+            {% optimized_image preferred_image_url p.preferred_card_image_alt|default:p.title "smart-product-card__image" 1080 1350 loading='eager' fetchpriority='auto' sizes='(max-width: 576px) 46vw, (max-width: 992px) 46vw, (max-width: 1400px) 23vw, 18vw' %}
+          {% else %}
+            {% optimized_image preferred_image_url p.preferred_card_image_alt|default:p.title "smart-product-card__image" 1080 1350 fetchpriority='low' sizes='(max-width: 576px) 46vw, (max-width: 992px) 46vw, (max-width: 1400px) 23vw, 18vw' %}
+          {% endif %}
+        {% elif card_image %}
+          {% if eager|default_if_none:False %}
+            {% optimized_image card_image.url p.title "smart-product-card__image" 1080 1350 loading='eager' fetchpriority='auto' sizes='(max-width: 576px) 46vw, (max-width: 992px) 46vw, (max-width: 1400px) 23vw, 18vw' %}
+          {% else %}
+            {% optimized_image card_image.url p.title "smart-product-card__image" 1080 1350 fetchpriority='low' sizes='(max-width: 576px) 46vw, (max-width: 992px) 46vw, (max-width: 1400px) 23vw, 18vw' %}
+          {% endif %}
+        {% else %}
+          {% optimized_image 'img/placeholder.jpg' p.title "smart-product-card__image" 1080 1350 %}
+        {% endif %}
+      </a>
+
+      {% if p.status == 'published' %}
+      <span class="smart-product-card__availability">
+        <span aria-hidden="true"></span>{% trans 'В наявності' %}
+      </span>
+      {% endif %}
+
+      <button type="button"
+              class="favorite-btn smart-product-card__favorite"
+              data-product-id="{{ p.id }}"
+              onclick="event.stopPropagation(); toggleFavorite(this.getAttribute('data-product-id'), this);"
+              aria-label="{% trans 'Додати до обраних' %}">
+        <span class="favorite-btn-icon" aria-hidden="true">
+          <svg class="favorite-icon-empty" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
+          <svg class="favorite-icon-filled" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
+        </span>
+      </button>
+    </div>
+
+    <div class="smart-product-card__body">
+      <a href="{{ product_url }}" class="smart-product-card__title" data-product-card-link>{{ p.title }}</a>
+      <div class="smart-product-card__price-row">
+        <span class="smart-product-card__price">
+          {% if p.card_has_variant_prices %}{% trans 'Від' %} {% endif %}{{ p.card_price_min|default:p.final_price }} {% trans 'грн' %}
+        </span>
+        {% if p.smart_selector_fit == 'classic' %}
+          <span class="smart-product-card__fit">{% trans 'Класичний' %}</span>
+        {% elif p.smart_selector_fit == 'oversize' %}
+          <span class="smart-product-card__fit">{% trans 'Оверсайз' %}</span>
+        {% elif p.smart_selector_fit == 'standard' %}
+          <span class="smart-product-card__fit">{% trans 'Стандартний' %}</span>
+        {% endif %}
+      </div>
+
+      {% if p.colors_preview %}
+      <div class="smart-product-card__colors" aria-label="{% trans 'Доступні кольори' %}">
+        {% for v in p.colors_preview|slice:":5" %}
+          <span class="smart-product-card__swatch{% if v.is_thermo %} is-thermo{% endif %}"
+                title="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}"
+                style="--smart-swatch-a: {{ v.primary_hex|default:'#687382' }}; --smart-swatch-b: {{ v.secondary_hex|default:v.primary_hex|default:'#687382' }};">
+          </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </article>
+{% endwith %}

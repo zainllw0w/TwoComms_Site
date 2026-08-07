@@ -8,7 +8,8 @@ from django.core.cache import cache, caches
 from django.test import TestCase
 from django.urls import reverse
 
-from storefront.models import Category, Product, ProductFitOption
+from productcolors.models import Color, ProductColorVariant
+from storefront.models import Category, CategoryColorLanding, Product, ProductFitOption
 
 
 class SmartSelectorCategoryTests(TestCase):
@@ -70,11 +71,38 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertContains(response, reverse("product", kwargs={"slug": product.slug}))
         self.assertContains(response, 'class="catalog-pagination"')
 
+    def test_supported_category_uses_variant_3_product_card_markup(self):
+        product = self.create_product(category=self.tshirts, slug="variant-3-card")
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="smart-product-card"')
+        self.assertContains(response, 'data-smart-product-card')
+        self.assertContains(response, 'class="smart-product-card__media"')
+        self.assertContains(response, f'href="{reverse("product", kwargs={"slug": product.slug})}"')
+        self.assertNotContains(response, 'class="home-product-card card product')
+
+    def test_quick_facets_precede_catalog_command_and_product_grid(self):
+        self.create_product(category=self.tshirts, slug="quick-facet-order")
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        html = response.content.decode()
+        quick_facets_position = html.index('class="smart-selector__quick-facets"')
+        command_position = html.index('class="smart-selector__command"')
+        grid_position = html.index('class="smart-selector__grid"')
+
+        self.assertLess(quick_facets_position, command_position)
+        self.assertLess(command_position, grid_position)
+
     def test_category_tabs_use_real_urls_and_selected_category(self):
         self.create_product(category=self.hoodie)
         response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "hoodie"}))
 
         self.assertEqual(response.context["smart_selector_active_category"].slug, "hoodie")
+        self.assertEqual(
+            [tab.slug for tab in response.context["smart_selector_category_tabs"]],
+            ["tshirts", "hoodie", "long-sleeve"],
+        )
         self.assertContains(response, f'href="{reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"})}"')
         self.assertContains(response, f'href="{reverse("catalog_by_cat", kwargs={"cat_slug": "hoodie"})}"')
         self.assertContains(response, f'href="{reverse("catalog_by_cat", kwargs={"cat_slug": "long-sleeve"})}"')
@@ -95,8 +123,34 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertEqual(hoodie_response.context["smart_selector_fit_codes"], ["classic", "oversize"])
         self.assertEqual(longsleeve_response.context["smart_selector_fit_codes"], ["standard"])
 
+    def test_long_sleeves_keep_standard_fit_fallback_without_fit_rows(self):
+        self.create_product(category=self.long_sleeve, slug="unannotated-long-sleeve")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "long-sleeve"}))
+
+        self.assertEqual(response.context["smart_selector_fit_codes"], ["standard"])
+        self.assertContains(response, "Стандартний")
+        self.assertContains(response, 'data-smart-fit="standard"')
+
+    def test_fit_filter_matches_ukrainian_fit_labels(self):
+        product = self.create_product(category=self.tshirts, slug="ukrainian-fit")
+        self.add_fit_options(product, "класичний")
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+            {"fit": "classic"},
+        )
+
+        self.assertEqual(response.context["paginator"].count, 1)
+        self.assertEqual(response.context["smart_selector_selected_fit"], "classic")
+
     def test_smart_selector_validates_theme_and_fit_query_state(self):
-        self.create_product(category=self.tshirts, title="Military field tee", slug="military-field-tee")
+        product = self.create_product(
+            category=self.tshirts,
+            title="Military field tee",
+            slug="military-field-tee",
+        )
+        self.add_fit_options(product, "oversize")
 
         response = self.client.get(
             reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
@@ -111,6 +165,19 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertEqual(response.context["smart_selector_selected_fit"], "oversize")
         self.assertEqual(invalid.context["smart_selector_selected_theme"], "")
         self.assertEqual(invalid.context["smart_selector_selected_fit"], "")
+
+    def test_smart_selector_ignores_fit_unavailable_in_current_category(self):
+        product = self.create_product(category=self.tshirts, slug="classic-only")
+        self.add_fit_options(product, "classic")
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+            {"fit": "oversize"},
+        )
+
+        self.assertEqual(response.context["smart_selector_fit_codes"], ["classic"])
+        self.assertEqual(response.context["smart_selector_selected_fit"], "")
+        self.assertEqual(response.context["paginator"].count, 1)
 
     def test_theme_and_fit_filter_full_queryset_before_pagination(self):
         first_match = self.create_product(
@@ -165,6 +232,66 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertFalse(search.context.get("smart_selector_enabled", False))
         self.assertNotContains(search, 'data-smart-selector="true"')
 
+    def test_smart_selector_preserves_category_intro_and_color_seo_copy(self):
+        self.tshirts.seo_intro_html = "<p>Короткий SEO вступ для футболок.</p>"
+        self.tshirts.save(update_fields=["seo_intro_html"])
+        product = self.create_product(category=self.tshirts, slug="color-seo-tshirt")
+        black = Color.objects.create(name="black", primary_hex="#000000")
+        ProductColorVariant.objects.create(product=product, color=black, is_default=True)
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+            {"color": "black"},
+        )
+
+        self.assertContains(response, "Короткий SEO вступ для футболок.")
+        self.assertContains(response, 'data-color-seo-color="black"')
+
+    def test_smart_selector_color_chip_keeps_category_url_when_seo_landing_exists(self):
+        product = self.create_product(category=self.tshirts, slug="landing-color-tshirt")
+        black = Color.objects.create(name="black", primary_hex="#000000")
+        ProductColorVariant.objects.create(product=product, color=black, is_default=True)
+        CategoryColorLanding.objects.create(
+            category=self.tshirts,
+            color=black,
+            color_slug="black",
+            seo_title="Black T-shirts",
+            seo_description="Black T-shirts TwoComms.",
+            editorial_html="<p>Black T-shirts editorial copy.</p>",
+            is_published=True,
+        )
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        black_chip = next(
+            chip for chip in response.context["available_colors"]
+            if chip["slug"] == "black"
+        )
+        self.assertEqual(black_chip["url"], "/catalog/tshirts/?color=black")
+        self.assertFalse(black_chip["is_landing"])
+
+    def test_color_filtered_cards_do_not_reuse_another_color_fragment(self):
+        product = self.create_product(category=self.tshirts, slug="two-color-tshirt")
+        black = Color.objects.create(name="black", primary_hex="#000000")
+        white = Color.objects.create(name="white", primary_hex="#ffffff")
+        ProductColorVariant.objects.create(product=product, color=black, is_default=True)
+        ProductColorVariant.objects.create(product=product, color=white, is_default=False)
+
+        black_response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+            {"color": "black"},
+        )
+        white_response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+            {"color": "white"},
+        )
+
+        black_url = reverse("product", kwargs={"slug": product.slug, "v1": "black"})
+        white_url = reverse("product", kwargs={"slug": product.slug, "v1": "white"})
+        self.assertContains(black_response, f'data-product-url="{black_url}"')
+        self.assertContains(white_response, f'data-product-url="{white_url}"')
+        self.assertNotContains(white_response, f'data-product-url="{black_url}"')
+
     def test_price_sort_applies_to_full_queryset_before_pagination(self):
         expensive = self.create_product(category=self.tshirts, slug="expensive", price=1900)
         discounted = self.create_product(
@@ -197,6 +324,44 @@ class SmartSelectorCategoryTests(TestCase):
             ascending,
             'data-next-page-url="?sort=price-asc&amp;page=2"',
         )
+
+    def test_price_sort_uses_visible_variant_minimum_before_pagination(self):
+        base_cheapest = self.create_product(
+            category=self.tshirts,
+            slug="base-cheapest-variant-expensive",
+            price=700,
+        )
+        visible_cheapest = self.create_product(
+            category=self.tshirts,
+            slug="visible-cheapest",
+            price=1200,
+        )
+        black = Color.objects.create(name="black", primary_hex="#000000")
+        ProductColorVariant.objects.create(
+            product=base_cheapest,
+            color=black,
+            is_default=True,
+            price_override=1900,
+        )
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            response = self.client.get(
+                reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+                {"sort": "price-asc"},
+            )
+            second_page = self.client.get(
+                reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+                {"sort": "price-asc", "page": 2},
+            )
+
+        self.assertEqual(response.context["paginator"].count, 2)
+        self.assertEqual(
+            [product.pk for product in response.context["products"]],
+            [visible_cheapest.pk],
+        )
+        self.assertEqual(response.context["products"][0].card_price_min, 1200)
+        self.assertEqual(second_page.context["products"][0].card_price_min, 1900)
+        self.assertContains(second_page, 'data-smart-price="1900"')
 
     def test_faceted_category_page_is_noindex_but_followable(self):
         response = self.client.get(
