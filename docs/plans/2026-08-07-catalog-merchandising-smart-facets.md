@@ -238,6 +238,10 @@ Insert incoming product items into a document fragment, assign stable order, and
 
 At 320, 375, 390, 430, 768, and 1024 widths exercise every theme, collection, fit, audience, availability, size, color, reset, close, Escape, browser-back, and progressive-load path. Inspect computed `pointer-events`, stacking contexts, inert state, and loaded JS URL when any action fails.
 
+**Step 6: Protect the fixed mobile navigation area**
+
+Expose a CSS custom property for the measured bottom-navigation height plus the safe-area inset. Apply it to the selector shell, progressive sentinel, pagination, and editorial block. Assert in browser QA that the last visible card controls and the SEO CTA are not inside the navigation bounding box, and that the open filter sheet footer remains above both navigation and the device safe area.
+
 ---
 
 ## Task 8: Integrate analytics without polluting attribution
@@ -274,6 +278,8 @@ Use browser automation at 320x568, 375x812, 390x844, 430x932, 768x1024, 1024x900
 **Step 2: Check visual quality**
 
 Verify header/footer parity, first-viewport product visibility, symmetry, card rhythm, typography wrapping, flame marker clarity, 44px controls, no horizontal overflow, no overlay collision, and no visual overload. Review light/dark OS settings and reduced motion.
+
+Also verify that the fixed mobile navigation never occludes card content, pagination, the progressive-loading status, or the Create-your-print CTA at any target height.
 
 **Step 3: Measure Core Web Vitals**
 

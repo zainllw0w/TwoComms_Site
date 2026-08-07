@@ -110,6 +110,7 @@ Mobile is the source layout. At 375px:
 - filter groups are accordion sections with counts, active state, and a short affordance label;
 - thermochromic swatches show a small flame badge and a text label for assistive technology;
 - cards reserve media space with fixed aspect ratio and show title, truthful price range, fit, availability, audience, and color cues without text collisions.
+- fixed mobile bottom navigation reserves its own safe-area space; no card title, price, CTA, pagination, or SEO content may sit underneath it.
 
 At 768px the sheet remains available as a drawer. At 1024px and above the rail is sticky, compact, and keyboard navigable; the product grid uses stable 3/4-column tracks based on available width.
 
@@ -120,6 +121,8 @@ Animations are limited to opacity/transform and do not change layout:
 - 160ms accordion height/opacity transition with a reduced-motion fallback;
 - 220ms product reveal stagger capped at four items;
 - no animation is used for the first LCP image or for URL navigation.
+
+The mobile shell exposes a measured `--mobile-nav-reserved` value. Main content, the progressive-loading sentinel, and the editorial footer receive bottom padding derived from that value plus `env(safe-area-inset-bottom)`. When the filter dialog is open, its action footer sits above the safe area and the mobile navigation cannot capture pointer events.
 
 ### Accessibility and mobile reliability
 
