@@ -159,6 +159,19 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
 
         self.assertEqual(len(parse_lock(lock)), 2)
 
+    def test_preserves_hashes_inside_marker_strings_and_strips_trailing_comments(self):
+        from scripts.verify_locked_requirements import parse_lock
+
+        lock = "\n".join(
+            (
+                "marker-single==1; python_version == 'a # b'",
+                'marker-double==1; python_version == "a # b"',
+                "marker-comment==1; python_version == '3.14' # generated lock comment",
+            )
+        ) + "\n"
+
+        self.assertEqual(len(parse_lock(lock)), 3)
+
     def test_ignores_reference_like_marker_strings_but_rejects_real_references(self):
         from scripts.verify_locked_requirements import LockParseError, parse_lock
 

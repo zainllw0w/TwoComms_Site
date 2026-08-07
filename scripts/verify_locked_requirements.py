@@ -29,7 +29,6 @@ _HASH_OPTION = re.compile(r"--hash(?:=|\s+)\S+", re.I)
 _VCS_SCHEME = re.compile(r"(?:^|\s|@)(?:git|hg|svn|bzr)\+", re.I)
 _URL_REFERENCE = re.compile(r"\s@\s*(?:https?|ftp|file)://", re.I)
 _LOCAL_REFERENCE = re.compile(r"(?:^|\s)(?:file://|(?:\.\.?/)|/)", re.I)
-_INLINE_COMMENT = re.compile(r"\s+#.*$")
 
 # Fresh virtual environments may contain these packaging tools in addition to
 # the project lock.  Nothing else is implicitly trusted.
@@ -114,6 +113,28 @@ def _reject_unsupported(line: str, line_number: int) -> None:
         raise LockParseError(f"line {line_number}: VCS and URL references are not allowed")
     if _LOCAL_REFERENCE.search(line) and (" @ " in line or lowered.startswith(("./", "../", "/", "file:"))):
         raise LockParseError(f"line {line_number}: local requirements are not allowed")
+
+
+def _strip_inline_comment(line: str) -> str:
+    quote: str | None = None
+    index = 0
+    while index < len(line):
+        character = line[index]
+        if quote is None:
+            if character in {"'", '"'}:
+                quote = character
+            elif character == "#" and index > 0 and line[index - 1].isspace():
+                return line[:index].rstrip()
+            index += 1
+            continue
+        if character == "\\":
+            while index < len(line) and line[index] == "\\":
+                index += 1
+            continue
+        if character == quote:
+            quote = None
+        index += 1
+    return line
 
 
 def _tokenize_marker(marker: str, line_number: int) -> list[_MarkerToken]:
@@ -268,7 +289,7 @@ def parse_lock(text: str) -> dict[str, str]:
         # Standalone hash continuation lines are harmless lock metadata.
         if _HASH_ONLY.match(line):
             continue
-        line = _INLINE_COMMENT.sub("", line).strip()
+        line = _strip_inline_comment(line).strip()
         if not line:
             continue
         _reject_unsupported(line.split(";", 1)[0].rstrip(), line_number)
