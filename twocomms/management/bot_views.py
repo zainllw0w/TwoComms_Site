@@ -8,8 +8,8 @@ from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core import signing
 from django.db import IntegrityError, transaction
-from django.db.models import Count, DecimalField, Exists, ExpressionWrapper, F, Max, Min, OuterRef, Prefetch, Q, Subquery, Sum, Value
-from django.db.models.functions import Coalesce, TruncDate, TruncMonth, TruncWeek
+from django.db.models import Count, DecimalField, Exists, ExpressionWrapper, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -5234,19 +5234,45 @@ def bot_stats_api(request):
         unique_conversations=Count("sender_id", distinct=True),
     )
 
-    def build_message_series(message_queryset):
-        series_bounds = message_queryset.aggregate(
-            first=Min("stats_occurred_at"),
-            last=Max("stats_occurred_at"),
+    def build_message_series(message_queryset, *, expected_total):
+        # Bucket in application time. MariaDB's CONVERT_TZ returns NULL when
+        # timezone tables are unavailable, which previously hid real messages.
+        source_rows = list(
+            message_queryset.values_list(
+                "provider_created_at",
+                "created_at",
+                "role",
+            ).iterator(chunk_size=2000)
         )
-        series_start = since or series_bounds["first"]
+        occurred_rows = []
+        for provider_created_at, created_at, role in source_rows:
+            occurred_at = provider_created_at or created_at
+            if occurred_at is None:
+                continue
+            if timezone.is_naive(occurred_at):
+                occurred_at = timezone.make_aware(
+                    occurred_at,
+                    datetime_timezone.utc,
+                )
+            occurred_rows.append((occurred_at, role))
+
+        first = min((row[0] for row in occurred_rows), default=None)
+        last = max((row[0] for row in occurred_rows), default=None)
+        series_start = since or first
         series_until = until or (
-            series_bounds["last"] + timedelta(microseconds=1)
-            if series_bounds["last"]
-            else None
+            last + timedelta(microseconds=1) if last else None
         )
         if not series_start or not series_until:
-            return {"granularity": "day", "items": []}
+            return {
+                "granularity": "day",
+                "density": "single",
+                "has_data": False,
+                "max_total": 0,
+                "series_total": 0,
+                "expected_total": int(expected_total or 0),
+                "reconciled": int(expected_total or 0) == 0,
+                "items": [],
+            }
         local_start = series_start.astimezone(local_tz).date()
         local_until = series_until.astimezone(local_tz).date()
         if series_until.astimezone(local_tz).time() != time.min:
@@ -5254,33 +5280,21 @@ def bot_stats_api(request):
         span_days = max(1, (local_until - local_start).days)
         if span_days <= 31:
             granularity = "day"
-            bucket_expression = TruncDate("stats_occurred_at", tzinfo=local_tz)
         elif span_days <= 180:
             granularity = "week"
-            bucket_expression = TruncWeek("stats_occurred_at", tzinfo=local_tz)
         else:
             granularity = "month"
-            bucket_expression = TruncMonth("stats_occurred_at", tzinfo=local_tz)
 
-        series_rows = message_queryset.annotate(bucket=bucket_expression).values(
-            "bucket"
-        ).annotate(
-            messages=Count("id"),
-            inbound_messages=Count(
-                "id", filter=Q(role=InstagramBotMessage.Role.USER)
-            ),
-            bot_replies=Count(
-                "id", filter=Q(role=InstagramBotMessage.Role.MODEL)
-            ),
-            manager_messages=Count(
-                "id", filter=Q(role=InstagramBotMessage.Role.MANAGER)
-            ),
-        ).order_by("bucket")
-
-        def normalize_bucket(value):
-            if isinstance(value, datetime):
-                return value.astimezone(local_tz).date()
-            return value
+        if span_days == 1:
+            density = "single"
+        elif span_days <= 7:
+            density = "compact"
+        elif span_days <= 31:
+            density = "daily"
+        elif span_days <= 180:
+            density = "weekly"
+        else:
+            density = "monthly"
 
         def align_bucket(value):
             if granularity == "week":
@@ -5298,10 +5312,25 @@ def bot_stats_api(request):
                 return value.replace(month=value.month + 1, day=1)
             return value + timedelta(days=1)
 
-        rows_by_bucket = {
-            align_bucket(normalize_bucket(row["bucket"])): row
-            for row in series_rows
-        }
+        rows_by_bucket = {}
+        for occurred_at, role in occurred_rows:
+            bucket = align_bucket(occurred_at.astimezone(local_tz).date())
+            row = rows_by_bucket.setdefault(
+                bucket,
+                {
+                    "messages": 0,
+                    "inbound_messages": 0,
+                    "bot_replies": 0,
+                    "manager_messages": 0,
+                },
+            )
+            row["messages"] += 1
+            if role == InstagramBotMessage.Role.USER:
+                row["inbound_messages"] += 1
+            elif role == InstagramBotMessage.Role.MODEL:
+                row["bot_replies"] += 1
+            elif role == InstagramBotMessage.Role.MANAGER:
+                row["manager_messages"] += 1
         cursor = align_bucket(local_start)
         end_cursor = align_bucket(local_until)
         if end_cursor < local_until:
@@ -5317,9 +5346,23 @@ def bot_stats_api(request):
                 "manager_messages": int(row.get("manager_messages") or 0),
             })
             cursor = next_bucket(cursor)
-        return {"granularity": granularity, "items": items}
+        series_total = sum(item["messages"] for item in items)
+        expected_total = int(expected_total or 0)
+        return {
+            "granularity": granularity,
+            "density": density,
+            "has_data": series_total > 0,
+            "max_total": max((item["messages"] for item in items), default=0),
+            "series_total": series_total,
+            "expected_total": expected_total,
+            "reconciled": series_total == expected_total,
+            "items": items,
+        }
 
-    message_series = build_message_series(visible_messages)
+    message_series = build_message_series(
+        visible_messages,
+        expected_total=message_totals["messages"],
+    )
     ad_client_identity = ~(Q(ad_id="") & Q(ad_ref="") & Q(ad_title=""))
     ad_message_identity = ~(
         Q(client__ad_id="") & Q(client__ad_ref="") & Q(client__ad_title="")
@@ -5345,7 +5388,10 @@ def bot_stats_api(request):
         ),
         conversations=Count("sender_id", distinct=True),
     )
-    ad_message_series = build_message_series(ad_messages)
+    ad_message_series = build_message_series(
+        ad_messages,
+        expected_total=ad_message_totals["messages"],
+    )
     message_client_ids = visible_messages.exclude(client_id__isnull=True).values(
         "client_id"
     ).distinct()

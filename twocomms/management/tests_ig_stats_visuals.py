@@ -312,6 +312,45 @@ class StatsApiVisualContractTests(TestCase):
             ],
         )
 
+    def test_message_activity_series_exposes_integrity_metadata_and_reconciles_totals(self):
+        first_day = timezone.make_aware(datetime(2026, 8, 5, 12, 0), KYIV)
+        row = self._client("stats-series-integrity")
+        first = self._message(row, InstagramBotMessage.Role.USER, first_day)
+        second = self._message(
+            row,
+            InstagramBotMessage.Role.MODEL,
+            first_day + timedelta(minutes=1),
+        )
+        InstagramBotMessage.objects.filter(pk=second.pk).update(
+            provider_created_at=first_day + timedelta(minutes=2),
+        )
+
+        payload = self.client.get(
+            reverse("management_bot_stats_api")
+            + "?date_from=2026-08-05&date_to=2026-08-05"
+        ).json()
+
+        series = payload["message_series"]
+        self.assertTrue(series["has_data"])
+        self.assertEqual(series["density"], "single")
+        self.assertEqual(series["max_total"], 2)
+        self.assertTrue(all(item["bucket"] for item in series["items"]))
+        self.assertEqual(
+            sum(item["messages"] for item in series["items"]),
+            payload["totals"]["messages"],
+        )
+
+    def test_empty_message_activity_series_is_explicitly_empty(self):
+        payload = self.client.get(
+            reverse("management_bot_stats_api")
+            + "?date_from=2036-08-05&date_to=2036-08-05"
+        ).json()
+
+        series = payload["message_series"]
+        self.assertFalse(series["has_data"])
+        self.assertEqual(series["max_total"], 0)
+        self.assertEqual(series["density"], "single")
+
     def test_product_rows_connect_real_image_interest_and_verified_paid_items(self):
         from storefront.models import Category, Product
 
