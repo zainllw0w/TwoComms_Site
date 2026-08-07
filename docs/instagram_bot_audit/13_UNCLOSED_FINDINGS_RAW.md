@@ -258,7 +258,10 @@
   (Meta GET verification protocol совместим; secret не должен жить в наших
   server logs/backup.)
 - [ ] F-TEST-002 — OPEN: repeatable deployment gate и disposable MariaDB run.
-  (SQLite не проверяет реальные locks, constraints и max length.)
+  SQLite не проверяет реальные locks, constraints и max length. Deploy
+  `f327ac36` также повторил `cffi` wheel build failure, который `deploy.sh`
+  считает non-fatal; required/optional dependency policy, installed-version/
+  lock verification и fail-closed required dependency gate остаются открыты.
 
 ## Все незакрытые и частичные IMPR-* улучшения
 

@@ -178,7 +178,10 @@ rules and its own 1090–1450 acceptance, not for every commerce task.
   cwd-independent mandatory no-network suite from its documented directory,
   isolate mutable global state and classify any pre-existing red/flaky test.
   Repair a baseline blocker as its own slice; do not carry an unexplained red
-  suite into feature work. SQLite here is only fast structural evidence.
+  suite into feature work. Verify dependency lock/installed versions and make
+  required install failures fail closed; the repeated non-fatal `cffi` wheel
+  failure from deploy `f327ac36` is open evidence. SQLite here is only fast
+  structural evidence.
 - [ ] **P0.6 Release boundary.** Commit only one independently deployable
   slice, push, integrate into `main`, deploy, verify exact SHA, migrations,
   daemon heartbeat, dangerous queues and persisted DB/API evidence.

@@ -3910,7 +3910,15 @@ counts `0/0`.
   объявляет все ошибки «предсуществующими». Число зелёных тестов не является
   надёжным gate без стабильного списка и одинакового окружения.
 - **Задача:** IMP-094. Нужен детерминированный обязательный пакет, устранение
-  cwd/global-state зависимостей и отдельный MariaDB-run для DB-контрактов.
+  cwd/global-state зависимостей, явный required/optional dependency-install
+  policy и отдельный MariaDB-run для DB-контрактов.
+- **Fresh deploy evidence 2026-08-07:** docs-only release `f327ac36` повторил
+  известный `cffi` wheel build failure, а `deploy.sh` продолжил non-fatal с
+  текущим venv. Последующий migrate/static/compress/restart и production check
+  прошли, daemon/queues healthy, но deploy gate не доказывает, что environment
+  соответствует lock/requirements. Нужны captured dependency exit status,
+  environment/lock verification и fail-closed policy для реально обязательных
+  пакетов; warning-only разрешён только для явно optional dependency.
 
 ## F-TEST-003 (P1, VERIFIED 2026-08-03): SQLite пропустил overflow `failure_kind`, MariaDB остановила deploy
 

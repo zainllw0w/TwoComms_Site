@@ -78,6 +78,13 @@ reconcile rows остаются bounded terminal budget; новый manager-mess
 Failed analysis не является customer-delivery replay candidate и не имеет права
 менять operational episode/payment/order truth.
 
+Первый docs-only Implement2 release `f327ac36` fast-forwarded на production.
+`deploy.sh` завершил migrate/collectstatic/compress/restart, `manage.py check`
+чистый, migration `0146` applied, daemon `running/alive`, очереди reply/
+notification/analysis = 0. Dependency step снова не собрал wheel `cffi`, но
+продолжил как non-fatal с активным venv. Runtime здоров, однако этот повторяемый
+dependency-drift risk остаётся открытым evidence `F-TEST-002` / `IMP-094`.
+
 Два незавершённых code-WIP также сохранены локально и не считаются shipment:
 `ig-commerce-durable-state` содержит narrow `IMP-087.A`, а
 `codex-management-bot-statistics-visuals` содержит volatile tracked diff в

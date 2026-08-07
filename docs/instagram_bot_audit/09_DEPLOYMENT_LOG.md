@@ -4,6 +4,21 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 documentation release (2026-08-07)
+
+`f327ac361dbd28299a29e0618e2cbc9e6614a8a9` fast-forwarded production from
+`19f5ef70`. The release is docs-only. `deploy.sh` completed migrate (no pending
+migrations), collectstatic, compress and Passenger restart. Its dependency step
+again failed to build a `cffi` wheel and continued as non-fatal with the active
+venv; this is open `F-TEST-002`/`IMP-094` evidence, not a successful dependency
+parity claim.
+
+Post-deploy: exact server SHA `f327ac36`, tracked status clean, Django check
+0 issues, `management.0146` applied, daemon `running=True`/`alive=True`, provider
+`instagram_login`, heartbeat 0.9 seconds, `last_error=''`, reply/notification/
+analysis pending 0/0/0 and terminal analysis failed 18. No customer/Meta/payment
+test event was created.
+
 ## Runtime/source baseline before Implement2 docs release (2026-08-07)
 
 The synchronized starting SHA for this handoff is

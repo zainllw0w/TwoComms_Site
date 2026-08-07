@@ -859,7 +859,11 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   для deploy. Добавить MariaDB-run для ограничений, которые SQLite не
   проверяет (`varchar(max_length)`, locks/constraints), и держать
   `verify_ig_production_contract --rollback-fixtures` отдельным обязательным
-  no-network gate. Уже исправленные fixture/digest/media и 32-символьный
+  no-network gate. `deploy.sh` не должен молча считать dependency environment
+  valid после required wheel failure: `cffi` build снова упал на docs-release
+  `f327ac36`, а script продолжил. Зафиксировать required/optional policy,
+  проверить installed versions/lock и fail closed для required dependencies.
+  Уже исправленные fixture/digest/media и 32-символьный
   `failure_kind` не закрывают недетерминированность всего suite. Отдельно
   согласовать `InstagramLoginWebhookSecretTests` с действующим multi-secret
   ingress contract: два assert всё ещё требуют отвергать parent app secret,
