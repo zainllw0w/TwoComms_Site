@@ -64,9 +64,12 @@ Use a hybrid of A and B. The executive cockpit is the default. The funnel is the
 7. Revenue is net verified payment after recorded refunds where the amount is known.
 8. Payments without a trustworthy amount remain visible as paid without amount.
 9. Ad spend comes only from a durable Meta import/API source or an explicitly confirmed manual import for the selected period.
-10. ROAS is verified attributed revenue divided by ad spend.
+10. ROAS is calculated only for a named acquisition or operational-period basis whose identity, currency, timezone and observation window are complete.
 11. Revenue minus ad spend is labeled result after advertising, not profit.
 12. Profit is unavailable until product cost, fulfillment, discounts, refunds and other required costs have a documented coverage contract.
+13. A funnel row reconciles one entered cohort: continued, unrecovered loss and in progress are mutually exclusive sets from the same entered episodes.
+14. Percentages are suppressed when cohort reconciliation or amount coverage fails.
+15. A verified payment without a trustworthy amount is counted as a payment but not as zero revenue.
 
 ## 5. Metric Source Matrix
 
@@ -77,28 +80,30 @@ Use a hybrid of A and B. The executive cockpit is the default. The funnel is the
 | Customer messages | message events | message role user | message event time | all messages | stacked activity segment |
 | Bot replies | message events | message role model | message event time | all messages | stacked activity segment |
 | Manager messages | message events | message role manager | message event time | all messages | stacked activity segment |
-| Qualified | current client facts for selected scope | buying readiness | declared snapshot basis | scoped conversations | KPI with scope badge |
+| Qualified | current client facts for selected scope | buying readiness | declared snapshot basis | scoped conversations | secondary snapshot metric |
 | Product matched | current client facts | current product | declared snapshot basis | scoped conversations | funnel/supporting metric |
 | Funnel entered | distinct commercial episodes | IgFunnelStepEvent | event occurred time | none | funnel stage count |
-| Funnel advanced | same episodes at next event | IgFunnelStepEvent | event occurred time | entered at stage | funnel continuation segment |
-| Drop-off | classified drop-off facts | IgFunnelDropOff | drop-off occurred time | entered at mapped stage | funnel loss segment |
-| In progress | entered minus advanced minus drop-off | derived event cohort | event occurred time | entered at stage | neutral funnel segment |
+| Funnel advanced | entered episodes that reach the next event before the observation cutoff | reconciled event cohort | entry event plus cutoff | entered at stage | funnel continuation segment |
+| Drop-off | entered episodes with an unrecovered mapped loss before the same cutoff | reconciled event cohort | entry event plus cutoff | entered at stage | funnel loss segment |
+| In progress | entered episodes in neither continued nor unrecovered-loss sets | reconciled event cohort | entry event plus cutoff | entered at stage | neutral funnel segment |
 | Stage conversion | advanced / entered | event cohort | event occurred time | entered at stage | percent badge |
 | Time on step | hours | first event to next event | event occurred time | episodes with both facts | median/P90 interval plot |
 | Current stage | clients | IgClient stage with payment truth | current snapshot filtered by last interaction | scoped conversations | segmented distribution |
 | Objection clients | clients | primary objection | current snapshot | clients with an objection | ranked bars |
 | Objection signals | events | IgConversationSignal | signal created time | all matching signals | secondary evidence only |
-| Bot-only episodes | distinct episodes | funnel events | event occurred time | episodes with first bot reply | split bar |
-| Manager-touched episodes | distinct episodes | funnel events | event occurred time | episodes with bot or manager evidence | split bar |
+| Bot-only episodes | episodes with bot replies and no manager reply | message/funnel episode evidence | response event time inside the declared observation window | episodes with response evidence | split bar |
+| Shared episodes | episodes with both bot and manager replies | message/funnel episode evidence | response event time inside the declared observation window | episodes with response evidence | split bar |
+| Manager-only episodes | episodes with manager replies and no bot reply | message/funnel episode evidence | response event time inside the declared observation window | episodes with response evidence | split bar |
 | Discount offered | events/episodes | funnel events | event occurred time | episodes with offer evidence | bridge diagram |
 | Discount purchase | distinct episodes | offer intersect verified outcome | event occurred time | episodes with offer | bridge conversion |
 | Product interest | clients | current product | declared snapshot basis | scoped product-known clients | product demand bar |
 | Paid product units | units | verified IgDealItem | verified payment time | none | paid bar |
-| Attributed ad conversations | clients/conversations | persisted ad identity | current-client attribution snapshot | scoped conversations | attribution ring |
-| Campaign payment | verified deals | deal/payment projection | verified payment time | campaign attributed conversations | campaign mini-funnel |
-| Campaign revenue | currency | verified payment amount minus refund | verified payment time | none | money metric |
-| Meta spend | currency | Meta insight ledger or confirmed import | Meta reporting date | none | spend metric |
-| ROAS | ratio | attributed revenue / spend | selected aligned period | spend | ratio metric |
+| Attributed ad conversations | immutable entry facts; legacy snapshot separately | IgAdConversationFact plus IgClient legacy state | entry event time | scoped conversations | attribution ring |
+| Campaign period signals | independent counts | immutable facts and verified outcomes | named per metric | none | signal strip without causal connectors |
+| Campaign cohort outcome | verified deals joined to immutable entry cohort | fact/deal/payment projection | entry cohort plus observation cutoff | attributed entry conversations | cohort rail when complete |
+| Campaign revenue | known net currency plus amount coverage | verified payment amount minus refund | verified payment time or named cohort window | none | money metric with completeness |
+| Meta spend/results | currency and result count | daily Meta insight ledger or confirmed daily import | Meta reporting date and timezone | none | spend/result metric |
+| ROAS | ratio | attributed known net revenue / matched spend | named aligned basis | matched spend | ratio metric with basis label |
 | Cost per conversation | currency | spend / attributed conversations | selected aligned period | attributed conversations | efficiency metric |
 | Cost per verified payment | currency | spend / verified attributed payments | selected aligned period | verified attributed payments | efficiency metric |
 
@@ -118,15 +123,13 @@ The date is not repeated in every card. Each module carries only a short basis b
 
 ### 6.2 Two-second decision rail
 
-Five stable slots:
+Five stable slots are grouped by time basis rather than presented as one homogeneous total:
 
-1. Conversations.
-2. Qualified.
-3. Pay links issued.
-4. Verified payments.
-5. Verified revenue.
+1. Conversations and messages under **Activity time**.
+2. Pay links issued under **Funnel event time**.
+3. Verified payments and verified revenue under **Payment time**.
 
-Each slot contains one large value, one short label and at most one small supporting relation. Missing comparison data uses a dash. No explanatory paragraph appears in a KPI.
+Each slot contains one large value, one short label, one compact basis marker and at most one supporting relation. Qualified is moved to the current-snapshot module until immutable qualification facts exist. Missing comparison or partial amount coverage uses a dash/coverage marker, never a fabricated zero. No explanatory paragraph appears in a KPI.
 
 The rail also exposes one sentence-sized diagnostic chip, such as Biggest loss: payment link not opened. It is derived only when the event sample is adequate.
 
@@ -141,7 +144,9 @@ Tablet stacks these modules. Mobile keeps the activity chart first and renders t
 
 ### 6.4 Primary funnel
 
-The funnel is a stepped rail with ten canonical stages. Every stage shows:
+The funnel is a stepped rail with ten canonical stages. It uses **same-window entry-cohort semantics**: for each stage, the entered set contains episodes whose entry event occurred in the selected period; continuation and unrecovered loss are observed only up to the selected period end. Later outcomes do not rewrite a historical view. Recent entries are explicitly right-censored.
+
+Every stage shows:
 
 - entered count;
 - advanced count;
@@ -149,7 +154,7 @@ The funnel is a stepped rail with ten canonical stages. Every stage shows:
 - in-progress count;
 - conversion only when the sample supports it.
 
-The stage fill is a three-part rail, not one decorative width: continued, lost, in progress. This makes the denominator visible. The largest evidence-backed loss gets one restrained amber outline. It does not pulse continuously.
+The stage fill is a three-part rail, not one decorative width: continued, unrecovered loss, in progress. The three mutually exclusive sets must reconcile exactly to entered. The API exposes `reconciled`, `right_censored_count`, `observation_cutoff` and completeness. Percentages and bottleneck emphasis are suppressed when reconciliation fails. The largest evidence-backed loss uses a minimum entered sample of 20; ties choose the earliest commercial step and a zero-loss cohort shows no bottleneck. It gets one restrained amber outline and never pulses continuously.
 
 Clicking or tapping a stage:
 
@@ -193,7 +198,7 @@ This drawer is the only place for longer explanations. Hover is optional enhance
 
 ### 7.4 Bot and manager
 
-**Replacement:** one 100% split rail with Bot only, Shared cycle and Manager involved. Absolute episode counts sit below.  
+**Replacement:** one 100% split rail with Bot only, Shared cycle and Manager only. These three sets are mutually exclusive and reconcile to all episodes with response evidence. Absolute episode counts sit below.
 **Why:** the management load is a part-to-whole question, not a table question.
 
 ### 7.5 Discounts
@@ -251,40 +256,58 @@ The center shows coverage percent. The legend shows absolute counts. A basis bad
 Each campaign is one compact diagnostic row with:
 
 - campaign/ad label and persisted identifier;
-- miniature stage rail: conversations -> qualified -> product -> pay link -> verified payment;
+- a **period signal strip** for legacy/current-snapshot attribution, with independent conversations, qualification, product, pay-link and payment counts and no causal arrows;
+- a true acquisition-cohort rail only when an immutable entry fact and common observation contract exist;
 - verified revenue;
 - loss count;
 - top product thumbnail when trustworthy;
 - data-quality marker.
 
-The rail uses absolute counts in the tooltip and stage-to-stage percentages only when the same cohort semantics are valid. Eight rows are shown initially; more are disclosed.
+The signal strip never shows stage-to-stage conversion. A cohort rail uses absolute counts in the tooltip and conversion percentages only when every stage shares the immutable entry cohort. Eight rows are shown initially; more are disclosed.
 
 ### 9.4 Spend and profitability contract
 
 The UI supports three source states:
 
 1. **Connected Meta ledger:** imported daily spend with account, campaign and reporting date.
-2. **Confirmed manual import:** administrator supplies spend for an exact date range and optional campaign key; the record is persisted with author and timestamp.
+2. **Confirmed manual import:** administrator supplies daily spend rows for exact dates and optional campaign keys; a range total is rejected unless the administrator explicitly allocates it into daily rows.
 3. **Unavailable:** the card says Spend source not connected and no efficiency ratio is calculated.
 
-Required stored fields for a spend record:
+Required immutable conversation-attribution fields:
+
+- client and commercial episode identity;
+- first visible message or referral event identity;
+- occurred-at and reporting timezone;
+- normalized account, campaign, ad-set, ad and creative IDs when present;
+- raw referral identity and source;
+- payload hash/external event ID;
+- exact versus backfilled provenance.
+
+Required stored fields for a daily Meta insight record:
 
 - source type;
-- Meta account ID when known;
-- campaign/ad identity when known;
+- normalized Meta account, campaign, ad-set and ad IDs when known;
 - reporting date;
+- reporting timezone;
 - currency;
 - spend amount;
+- Meta-reported conversation/result count when available;
+- exact result `action_type`;
+- attribution window and placement scope;
 - imported/entered at;
 - imported/entered by;
-- source payload hash or external row ID for idempotency.
+- source payload hash or external row ID for idempotency;
+- correction/version metadata and superseded row reference.
+
+Daily rows are unique by source, account, entity level/ID, report date, currency, attribution window and result action type. Corrections are audited upserts. Measured zero is stored as zero; missing and unmatched rows remain absent/unavailable. Currency mismatch suppresses ratios unless an audited FX conversion is explicitly present.
 
 Money hierarchy:
 
-- Verified revenue.
+- Known net verified revenue plus payment/amount coverage.
 - Ad spend.
 - Result after advertising = revenue minus spend.
-- ROAS = revenue divided by spend.
+- Operational-period ROAS = payment-time attributed known revenue divided by same-period spend, with an explicit current-attribution warning where immutable facts are absent.
+- Acquisition-cohort ROAS = known revenue observed for immutable entry facts divided by matched spend, with observation cutoff and cohort maturity.
 - Cost per conversation.
 - Cost per verified payment.
 
@@ -300,7 +323,7 @@ The workspace shows a compact reconciliation strip:
 - attribution coverage;
 - selected date/timezone and attribution window.
 
-This is a diagnostic comparison, not an automatic correction. Divergence opens the source drawer with likely causes such as timezone, attribution window, missing identity and unsupported placement.
+The Meta result must name its exact `action_type`, attribution window, timezone and placement scope. This is a diagnostic comparison, not an automatic correction. Divergence opens the source drawer with likely causes such as timezone, attribution window, missing identity and unsupported placement.
 
 ## 10. Product Workspace
 
@@ -309,7 +332,7 @@ Each product row contains a real image when available, product title and two ind
 - conversation interest;
 - verified paid units.
 
-Independent scales are visually labeled so a small number of paid units does not disappear beside a large interest count. A compact conversion badge uses paid orders divided by interested conversations only when both belong to a compatible cohort; otherwise it is omitted.
+Independent scales are visually labeled so a small number of paid units does not disappear beside a large interest count. Current product interest remains a snapshot signal. A conversion badge is hidden until immutable product-interest and payment facts share a compatible cohort.
 
 Product detail opens:
 
@@ -325,11 +348,14 @@ Unknown product attribution remains a visible bucket and is never redistributed 
 ## 11. Interaction Model
 
 - Single click/tap selects a chart mark or stage and updates linked modules.
-- Second click or Escape clears the selection.
+- An explicit details control or Enter opens the drawer for the selection.
+- Escape closes the drawer first; a second Escape clears analytical selection.
+- Outside click can close the desktop drawer but never clears analytical selection.
+- Selection state is `{kind, id, basis}` and is restored after `innerHTML` rerenders when the identity and basis still exist.
 - Details open in a drawer/sheet without page navigation.
 - View switches preserve period and selected entity when compatible.
 - Refresh preserves scroll and selection if the selected identity still exists.
-- Changed values receive a short tint and count transition without layout shift.
+- Same-period refreshes may interpolate changed values. Period, account, basis or view changes use a short crossfade and never interpolate unrelated numbers.
 - No drag-and-drop is added; it does not improve this decision workflow.
 - No automatic sound is added. A future critical anomaly sound requires an explicit preference.
 
@@ -344,7 +370,7 @@ Motion communicates continuity:
 - selection: 160-200 ms emphasis and linked-module response;
 - refresh success: one small freshness pulse.
 
-No continuous decorative animation, no chart replay from zero on every refresh and no motion that delays an action. Reduced-motion removes transforms and interpolation but preserves state changes.
+No continuous decorative animation, no chart replay from zero on every refresh and no motion that delays an action. Reduced-motion removes transforms and interpolation for both charts and counters but preserves state changes.
 
 ## 13. Visual Direction
 
@@ -370,18 +396,20 @@ The page remains a quiet operational console, not a marketing dashboard.
 
 ### Tablet 768-1024
 
-- KPI grid 3+2 or horizontally scrollable stable rail.
+- KPI grid is deterministically 3+2 with no horizontal scroll.
 - Analysis modules stack.
-- Funnel keeps horizontal stage order only if labels remain readable; otherwise becomes vertical.
+- Funnel uses two rows of five stages with explicit continued flow between rows.
 
 ### Mobile 390 and 320
 
 - KPI rail becomes a two-column summary with the money metric full width.
 - Activity chart uses compact labels and touch tooltips.
-- Funnel becomes a vertical stage timeline; no two-column miniature nodes with unreadable labels.
+- At 560 px and below the funnel becomes a vertical stage timeline; no two-column miniature nodes with unreadable labels.
 - Ring becomes a horizontal distribution when its legend would be compressed.
-- Detail drawer becomes a full-width bottom sheet.
+- Detail drawer becomes a full-width bottom sheet capped at `min(86dvh, 720px)` with internal scroll, safe-area padding, body scroll lock, focus trap and an explicit close control.
 - No horizontal page overflow. Only an explicitly cued chart rail may scroll.
+
+The sticky scope bar offset is derived from the rendered global header and stats view switcher, not a hard-coded viewport assumption.
 
 ## 15. Empty, Loading And Failure States
 
@@ -392,8 +420,51 @@ The page remains a quiet operational console, not a marketing dashboard.
 - Loading uses stable skeleton dimensions.
 - Refresh failure preserves the last successful snapshot with stale status and retry.
 - Integrity mismatch shows a compact warning and suppresses derived percentages for the affected module.
+- Revenue completeness shows `known net revenue`, `verified payment count`, `priced payment count`, `unpriced payment count` and `amount coverage`. When all paid amounts are unknown, the visual shows a dash and the number of paid rows, never `0 грн`.
 
-## 16. Candidate Decision Register
+## 16. Cohort, Censoring And Performance Rules
+
+### 16.1 Funnel cohort contract
+
+For each stage, the backend materializes one `entered_episode_ids` set inside the selected period. It then derives continuation, unrecovered loss and in-progress from that same set, with event ordering and an observation cutoff equal to the selected period end. A row includes:
+
+- `entered`, `advanced`, `drop_off`, `in_progress`;
+- `reconciled`;
+- `right_censored_count`;
+- `observation_cutoff`;
+- `cohort_basis` and `time_field`.
+
+An episode cannot be counted as both advanced and lost. Recovered losses are not terminal loss at the cutoff. If the sets do not reconcile, the UI shows an integrity warning and hides conversion percentages.
+
+### 16.2 Snapshot and cohort separation
+
+Qualified, current stage and current product remain snapshot signals until immutable historical facts exist. They carry a visible `Current snapshot` badge and do not occupy the same visual role as historical funnel outcomes. The API supplies metric-level completeness instead of pretending that one period label makes all values comparable.
+
+### 16.3 Detail-module cohort rules
+
+- Response ownership is exactly one of `bot_only`, `shared` or `manager_only`; episodes without response evidence are a separate unavailable population and never forced into the rail.
+- Discount analysis starts from episodes whose discount-offer event occurred in the selected period. Purchases are observed through the declared cutoff. Purchases after an offer, purchases without any known offer and still-open offered episodes are separate sets; the view never labels an out-of-window offer as no discount.
+- Stage duration starts from stage-entry events in the selected period and may observe the next stage through the declared cutoff. Completed pairs drive median/P90. Open/right-censored pairs are counted separately and never serialized as zero hours.
+- Known revenue always travels with verified, priced and unpriced payment counts plus amount coverage. A partial sum is labeled known net revenue, not total revenue.
+
+### 16.4 Query and payload budgets
+
+Before adding further visual modules, the stats builder must record:
+
+- total SQL query count;
+- response time at 1, 7, 30 and all-time ranges;
+- maximum Python materialized rows;
+- serialized payload size.
+
+For the representative 30-day fixture, the hard contract is no more than 20 SQL queries, 2,000 materialized raw message rows and a 350 KiB uncompressed JSON payload. The local benchmark target is 750 ms after one warm-up run; production records p50/p95 separately because CI wall time is not a stable correctness assertion. The same measurement is recorded for 1, 7, 30 and all-time ranges.
+
+If all-time activity breaches the row or payload budget, add a daily role rollup/read model and a bounded distinct-conversation query before enabling all-time by default. Do not solve growth by silently truncating the series. A cache may reduce repeated cost but cannot be the only reason an uncached request meets the contract.
+
+### 16.5 Period change and refresh
+
+The frontend distinguishes `same-period refresh` from `period/basis/view change`. Only the first may interpolate values. Other changes use a short crossfade to avoid inventing a trend between unrelated denominators.
+
+## 17. Candidate Decision Register
 
 Each candidate is accepted only when it improves at least two of scan speed, truthfulness, actionability, responsive clarity and error recovery.
 
@@ -433,7 +504,7 @@ Each candidate is accepted only when it improves at least two of scan speed, tru
 34. Mix signal events with client objections: **reject**.
 35. One attribution coverage ring: **accept**.
 36. Hide advertising view when zero: **reject**.
-37. Campaign mini-funnel: **accept**.
+37. Campaign period signal strip: **accept**; a causal mini-funnel is **reject** until immutable entry-cohort facts exist.
 38. Long campaign prose cards: **reject**.
 39. Campaign creative thumbnail when persisted: **accept**.
 40. External image URL without provenance: **reject**.
@@ -459,11 +530,11 @@ Each candidate is accepted only when it improves at least two of scan speed, tru
 60. Repeated quality paragraph per card: **reject**.
 61. Preserve selection on refresh: **accept**.
 62. Full dashboard rerender with scroll reset: **reject**.
-63. Previous-to-new chart interpolation: **accept**.
+63. Previous-to-new chart interpolation: **accept only for same-period refresh with the same basis**.
 64. Replay all charts from zero: **reject**.
 65. Focus transfer to drawer: **accept**.
 66. Mouse-only interaction: **reject**.
-67. Escape clears selection: **accept**.
+67. Escape closes details first, then clears selection on the next action: **accept**.
 68. Custom drag-and-drop dashboard: **reject**.
 69. Sticky scope bar: **accept**.
 70. Repeat period in every panel: **reject**.
@@ -498,7 +569,7 @@ Each candidate is accepted only when it improves at least two of scan speed, tru
 99. API schema and production snapshot smoke: **accept**.
 100. Commit/push/deploy without deployed-SHA and live checks: **reject**.
 
-## 17. Implementation Boundaries
+## 18. Implementation Boundaries
 
 The first implementation must refactor the current Django/vanilla JavaScript statistics surface. It must not introduce a standalone dashboard framework or a new chart dependency unless native CSS/DOM rendering cannot truthfully express the selected visual.
 
@@ -512,19 +583,24 @@ The work is split into independently testable slices:
 6. Advertising and spend-source contract.
 7. Responsive, motion and failure-state QA.
 
-## 18. Acceptance Gates
+## 19. Acceptance Gates
 
-- The administrator can identify activity volume, verified payments, revenue and largest loss in one viewport.
+- At 1440x900 and 1280x800, geometry assertions prove that all five KPI values, revenue, basis/quality state, the diagnostic chip and the first funnel row end above `window.innerHeight` without scrolling.
+- At 390x844 and 320x568, DOM order and bounding boxes prove that all KPI values precede the primary chart and `documentElement.scrollWidth <= clientWidth`.
+- In a screenshot test, an operator can identify activity volume, verified payments, revenue and largest loss in about two seconds.
 - No default detail surface is a raw full-width table.
 - Every chart has a meaningful unit and denominator.
 - One-day, seven-day, thirty-day, custom and all-time ranges remain compact and legible.
 - Current snapshot and event cohort facts are visibly distinguished.
 - Advertising zero, partial attribution, full attribution and missing spend are all testable states.
 - Meta spend and ROAS are not shown until source and period alignment are valid.
+- Operational-period ROAS and acquisition-cohort ROAS are visibly named; neither is presented as causal when only legacy snapshot attribution exists.
+- Every funnel stage reconciles its entered cohort or displays an integrity warning with percentages suppressed.
+- Paid-without-amount and amount coverage are visible as completeness states.
 - Every interactive mark works with mouse, keyboard and touch.
 - No incoherent overlap or horizontal page overflow at 320 px.
 - Reduced-motion behavior preserves meaning.
 - Focused backend and template contract tests pass.
 - Browser screenshots and pixel/overflow checks pass at required viewports.
 - Production API schema, deployed SHA and live rendering are verified after integration.
-
+- A representative uncached 30-day response stays within 20 SQL queries, 2,000 materialized raw message rows and 350 KiB; its local benchmark is recorded against the 750 ms target. All-time uses a rollup before release if it breaches a hard row or payload budget.
