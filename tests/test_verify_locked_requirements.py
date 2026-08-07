@@ -110,6 +110,40 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
                 with self.assertRaises(LockParseError):
                     parse_lock(lock)
 
+    def test_accepts_packaging_marker_variable_aliases_but_rejects_unknown_dotted_names(self):
+        from scripts.verify_locked_requirements import LockParseError, parse_lock
+
+        lock = """
+        os-name==1; os.name == 'posix'
+        sys-platform==1; sys.platform == 'linux'
+        platform-version==1; platform.version == '6.0'
+        platform-machine==1; platform.machine == 'x86_64'
+        platform-python-implementation==1; platform.python_implementation == 'CPython'
+        python-implementation==1; python_implementation == 'CPython'
+        """
+
+        parsed = parse_lock(lock)
+        self.assertEqual(len(parsed), 6)
+
+        with self.assertRaises(LockParseError):
+            parse_lock("Django==5.2.11; unknown.marker == 'value'\n")
+
+    def test_accepts_non_delimiter_backslashes_in_marker_strings(self):
+        from scripts.verify_locked_requirements import parse_lock
+
+        lock = "\n".join(
+            (
+                r"marker-newline==1; python_version == 'a\nb'",
+                r"marker-tab==1; python_version == 'a\tb'",
+                r"marker-slashes==1; python_version == 'a\\b'",
+                r"marker-character==1; python_version == 'a\b'",
+                r"""marker-opposite-single==1; python_version == 'a\"b'""",
+                r'''marker-opposite-double==1; python_version == "a\'b"''',
+            )
+        ) + "\n"
+
+        self.assertEqual(len(parse_lock(lock)), 6)
+
     @patch("scripts.verify_locked_requirements.metadata.version")
     @patch("scripts.verify_locked_requirements.metadata.distributions")
     def test_reports_missing_and_mismatched_distributions(self, distributions, version):

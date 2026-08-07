@@ -42,15 +42,21 @@ _MARKER_VARIABLES = frozenset(
         "extras",
         "implementation_name",
         "implementation_version",
+        "os.name",
         "os_name",
         "platform_machine",
+        "platform.machine",
         "platform_python_implementation",
+        "platform.python_implementation",
         "platform_release",
         "platform_system",
         "platform_version",
+        "platform.version",
         "python_full_version",
+        "python_implementation",
         "python_version",
         "sys_platform",
+        "sys.platform",
     }
 )
 _SYMBOLIC_MARKER_OPERATORS = ("===", "~=", "<=", "!=", "==", ">=", "<", ">")
@@ -133,7 +139,7 @@ def _tokenize_marker(marker: str, line_number: int) -> list[_MarkerToken]:
             index += 1
             value: list[str] = []
             while index < len(marker) and marker[index] != quote:
-                if marker[index] == "\\":
+                if marker[index] == "\\" and index + 1 < len(marker) and marker[index + 1] == quote:
                     raise LockParseError(f"line {line_number}: backslashes are not allowed in marker strings")
                 value.append(marker[index])
                 index += 1
