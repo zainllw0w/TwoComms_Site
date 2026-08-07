@@ -296,6 +296,31 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
         self.assertEqual(result["mismatched"], [])
         self.assertEqual(result["unexpected"], [])
 
+    @patch("scripts.verify_locked_requirements.metadata.version", return_value="5.2.11")
+    @patch("scripts.verify_locked_requirements.metadata.distributions")
+    def test_cli_reads_and_verifies_one_immutable_lock_snapshot(self, distributions, _version):
+        from scripts.verify_locked_requirements import main
+
+        distributions.return_value = [_Distribution("Django", "5.2.11")]
+        valid = b"Django==5.2.11\n"
+        invalid = b"Django>=5.2\n"
+        cases = (
+            (valid, invalid, 0, "ok", 1),
+            (invalid, valid, 2, "failed", 0),
+        )
+        for first_snapshot, changed_snapshot, expected_exit, expected_status, expected_count in cases:
+            with self.subTest(expected_status=expected_status):
+                output = io.StringIO()
+                with patch.object(Path, "read_bytes", side_effect=(first_snapshot, changed_snapshot)) as read_bytes, redirect_stdout(output):
+                    exit_code = main(["--lock", "requirements.lock"])
+
+                self.assertEqual(read_bytes.call_count, 1)
+                self.assertEqual(exit_code, expected_exit)
+                result = json.loads(output.getvalue())
+                self.assertEqual(result["status"], expected_status)
+                self.assertEqual(result["requirement_count"], expected_count)
+                self.assertEqual(result["lock_sha256"], hashlib.sha256(first_snapshot).hexdigest())
+
 
 if __name__ == "__main__":
     unittest.main()

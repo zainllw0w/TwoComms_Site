@@ -364,15 +364,13 @@ def verify_environment(
     }
 
 
-def verify_locked_environment(
-    lock_path: str | Path,
+def _verify_locked_bytes(
+    raw: bytes,
     *,
     bootstrap_allowlist: Iterable[str] = BOOTSTRAP_ALLOWLIST,
 ) -> dict[str, object]:
-    """Build the sanitized JSON-compatible lock verification report."""
+    """Build a report from one immutable lock snapshot."""
 
-    path = Path(lock_path)
-    raw = path.read_bytes()
     requirements = parse_lock(raw.decode("utf-8"))
     result = verify_environment(requirements, bootstrap_allowlist=bootstrap_allowlist)
     return {
@@ -384,6 +382,19 @@ def verify_locked_environment(
         "mismatched": result["mismatched"],
         "unexpected": result["unexpected"],
     }
+
+
+def verify_locked_environment(
+    lock_path: str | Path,
+    *,
+    bootstrap_allowlist: Iterable[str] = BOOTSTRAP_ALLOWLIST,
+) -> dict[str, object]:
+    """Read a lock once and build its sanitized verification report."""
+
+    return _verify_locked_bytes(
+        Path(lock_path).read_bytes(),
+        bootstrap_allowlist=bootstrap_allowlist,
+    )
 
 
 def _failure_report(lock_bytes: bytes | None) -> dict[str, object]:
@@ -407,7 +418,7 @@ def main(argv: list[str] | None = None) -> int:
     raw: bytes | None = None
     try:
         raw = args.lock.read_bytes()
-        report = verify_locked_environment(args.lock)
+        report = _verify_locked_bytes(raw)
     except (OSError, UnicodeError, LockParseError) as exc:
         print(f"lock verification failed: {type(exc).__name__}", file=sys.stderr)
         print(json.dumps(_failure_report(raw), sort_keys=True, separators=(",", ":")))
