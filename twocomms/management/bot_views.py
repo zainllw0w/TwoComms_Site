@@ -7,7 +7,7 @@ Start/Stop, вибором джерела ключів і онлайн-конс�
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core import signing
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import Count, DecimalField, Exists, ExpressionWrapper, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
@@ -5140,6 +5140,11 @@ def bot_stats_api(request):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
+    query_count_start = (
+        len(connection.queries)
+        if (settings.DEBUG or connection.force_debug_cursor)
+        else None
+    )
     from datetime import date, datetime, time, timedelta, timezone as datetime_timezone
 
     from .models import (
@@ -5152,6 +5157,30 @@ def bot_stats_api(request):
         IgFollowUpTask,
         InstagramBotMessage,
     )
+
+    def metric_contract(
+        *,
+        unit,
+        basis,
+        time_field,
+        population,
+        numerator="",
+        denominator="",
+        completeness="complete",
+        source_kind,
+        available=True,
+    ):
+        return {
+            "unit": unit,
+            "basis": basis,
+            "time_field": time_field,
+            "population": population,
+            "numerator": numerator,
+            "denominator": denominator,
+            "completeness": completeness,
+            "source_kind": source_kind,
+            "available": bool(available),
+        }
 
     date_from_raw = (request.GET.get("date_from") or "").strip()
     date_to_raw = (request.GET.get("date_to") or "").strip()
@@ -5242,7 +5271,10 @@ def bot_stats_api(request):
         unique_conversations=Count("sender_id", distinct=True),
     )
 
+    materialized_message_rows = 0
+
     def build_message_series(message_queryset, *, expected_total):
+        nonlocal materialized_message_rows
         # Bucket in application time. MariaDB's CONVERT_TZ returns NULL when
         # timezone tables are unavailable, which previously hid real messages.
         source_rows = list(
@@ -5251,6 +5283,10 @@ def bot_stats_api(request):
                 "created_at",
                 "role",
             ).iterator(chunk_size=2000)
+        )
+        materialized_message_rows = max(
+            materialized_message_rows,
+            len(source_rows),
         )
         occurred_rows = []
         for provider_created_at, created_at, role in source_rows:
@@ -5279,6 +5315,8 @@ def bot_stats_api(request):
                 "series_total": 0,
                 "expected_total": int(expected_total or 0),
                 "reconciled": int(expected_total or 0) == 0,
+                "hourly_items": [],
+                "hourly_reconciled": int(expected_total or 0) == 0,
                 "items": [],
             }
         local_start = series_start.astimezone(local_tz).date()
@@ -5339,6 +5377,48 @@ def bot_stats_api(request):
                 row["bot_replies"] += 1
             elif role == InstagramBotMessage.Role.MANAGER:
                 row["manager_messages"] += 1
+        hourly_items = []
+        hourly_reconciled = True
+        if span_days == 1:
+            hourly_start = timezone.make_aware(
+                datetime.combine(local_start, time.min),
+                local_tz,
+            )
+            hourly_rows = {}
+            for occurred_at, role in occurred_rows:
+                local_value = occurred_at.astimezone(local_tz)
+                if local_value.date() != local_start:
+                    continue
+                bucket = hourly_rows.setdefault(
+                    local_value.hour,
+                    {
+                        "messages": 0,
+                        "inbound_messages": 0,
+                        "bot_replies": 0,
+                        "manager_messages": 0,
+                    },
+                )
+                bucket["messages"] += 1
+                if role == InstagramBotMessage.Role.USER:
+                    bucket["inbound_messages"] += 1
+                elif role == InstagramBotMessage.Role.MODEL:
+                    bucket["bot_replies"] += 1
+                elif role == InstagramBotMessage.Role.MANAGER:
+                    bucket["manager_messages"] += 1
+            for offset in range(24):
+                bucket_at = hourly_start + timedelta(hours=offset)
+                row = hourly_rows.get(offset, {})
+                hourly_items.append({
+                    "bucket": bucket_at.isoformat(),
+                    "messages": int(row.get("messages") or 0),
+                    "inbound_messages": int(row.get("inbound_messages") or 0),
+                    "bot_replies": int(row.get("bot_replies") or 0),
+                    "manager_messages": int(row.get("manager_messages") or 0),
+                })
+            hourly_reconciled = (
+                sum(item["messages"] for item in hourly_items)
+                == int(expected_total or 0)
+            )
         cursor = align_bucket(local_start)
         end_cursor = align_bucket(local_until)
         if end_cursor < local_until:
@@ -5364,6 +5444,8 @@ def bot_stats_api(request):
             "series_total": series_total,
             "expected_total": expected_total,
             "reconciled": series_total == expected_total,
+            "hourly_items": hourly_items,
+            "hourly_reconciled": hourly_reconciled,
             "items": items,
         }
 
@@ -5466,14 +5548,20 @@ def bot_stats_api(request):
         row["signal_type"]: row["count"]
         for row in signal_qs.values("signal_type").annotate(count=Count("id")).order_by()
     }
-    objections = {
+    objection_clients = {
         row["primary_objection"]: row["count"]
         for row in active_clients.exclude(primary_objection=IgClient.Objection.NONE)
         .values("primary_objection").annotate(count=Count("id")).order_by()
     }
+    objection_signals = {
+        key: value
+        for key, value in signals.items()
+        if "objection" in key or key in {"no_reply", "lost"}
+    }
     # Keep signal names too; the frontend can show both high-level client state
     # and granular event breakdown.
-    objections.update({k: v for k, v in signals.items() if "objection" in k or k in {"no_reply", "lost"}})
+    objections = dict(objection_clients)
+    objections.update(objection_signals)
     payment_deals = IgDeal.objects.all()
     if since:
         payment_deals = payment_deals.filter(
@@ -6080,10 +6168,158 @@ def bot_stats_api(request):
         "funnel_paid": funnel_clients.filter(paid_in_range=True).count(),
     }
     funnel_analytics = build_funnel_analytics(since=since, until=until)
-    return JsonResponse({
+    revenue_deals = payment_deals.filter(verified_payment_q())
+    revenue_rows = list(
+        revenue_deals.values(
+            "paid_amount",
+            "amount",
+            "refunded_amount",
+            "payment_projection__gross_amount",
+            "payment_projection__refunded_amount",
+        )
+    )
+    verified_payment_count = len(revenue_rows)
+    priced_payment_count = 0
+    known_net_revenue = Decimal("0.00")
+    for payment in revenue_rows:
+        projection_gross = payment["payment_projection__gross_amount"]
+        projection_refunded = payment["payment_projection__refunded_amount"]
+        legacy_amount = payment["paid_amount"]
+        if projection_gross is not None and projection_gross > 0:
+            gross = projection_gross
+            refunded = projection_refunded or Decimal("0")
+        elif legacy_amount is not None and legacy_amount > 0:
+            gross = legacy_amount
+            refunded = payment["refunded_amount"] or Decimal("0")
+        else:
+            continue
+        priced_payment_count += 1
+        known_net_revenue += max(Decimal("0"), gross - refunded)
+    amount_coverage_percent = (
+        round(priced_payment_count * 100 / verified_payment_count)
+        if verified_payment_count
+        else 0
+    )
+    revenue_status = (
+        "empty"
+        if verified_payment_count == 0
+        else "complete"
+        if priced_payment_count == verified_payment_count
+        else "partial"
+    )
+    revenue = {
+        "verified_payment_count": verified_payment_count,
+        "priced_payment_count": priced_payment_count,
+        "unpriced_payment_count": verified_payment_count - priced_payment_count,
+        "known_net_revenue": f"{known_net_revenue:.2f}",
+        "amount_coverage_percent": amount_coverage_percent,
+        "status": revenue_status,
+    }
+    modules = {
+        "activity": {
+            "time_basis": "message_event",
+            "metrics": {
+                "messages": metric_contract(
+                    unit="events",
+                    basis="visible_messages_in_period",
+                    time_field="provider_created_at_or_created_at",
+                    population="visible message events",
+                    numerator="messages",
+                    source_kind="message_event",
+                ),
+                "conversations": metric_contract(
+                    unit="conversations",
+                    basis="visible_senders_in_period",
+                    time_field="provider_created_at_or_created_at",
+                    population="distinct visible senders",
+                    numerator="unique_conversations",
+                    source_kind="message_event",
+                ),
+            },
+        },
+        "funnel": {
+            "time_basis": "event_cohort",
+            "metrics": {
+                "conversion": metric_contract(
+                    unit="percent",
+                    basis="entry_event_same_window",
+                    time_field="occurred_at",
+                    population="entered episodes",
+                    numerator="advanced",
+                    denominator="entered",
+                    completeness="row_level",
+                    source_kind="immutable_event",
+                ),
+            },
+        },
+        "current_stages": {
+            "time_basis": "current_snapshot",
+            "metrics": {
+                "count": metric_contract(
+                    unit="clients",
+                    basis="current_client_snapshot",
+                    time_field="last_interaction_or_created_at",
+                    population="scoped active clients",
+                    numerator="clients",
+                    source_kind="mutable_snapshot",
+                ),
+            },
+        },
+        "objection_clients": {
+            "time_basis": "current_snapshot",
+            "metrics": {
+                "count": metric_contract(
+                    unit="clients",
+                    basis="primary_objection_snapshot",
+                    time_field="last_interaction_or_created_at",
+                    population="clients with a primary objection",
+                    numerator="clients",
+                    source_kind="mutable_snapshot",
+                ),
+            },
+        },
+        "objection_signals": {
+            "time_basis": "signal_event",
+            "metrics": {
+                "count": metric_contract(
+                    unit="events",
+                    basis="classified_signal_events",
+                    time_field="created_at",
+                    population="objection signal events",
+                    numerator="events",
+                    source_kind="signal_event",
+                ),
+            },
+        },
+        "revenue": {
+            "time_basis": "payment_event",
+            "metrics": {
+                "known_net_revenue": metric_contract(
+                    unit="currency",
+                    basis="verified_priced_payments",
+                    time_field="paid_at",
+                    population="verified payments",
+                    numerator="known_net_revenue",
+                    denominator="",
+                    completeness=revenue_status,
+                    source_kind="payment_projection_or_legacy_truth",
+                    available=priced_payment_count > 0,
+                ),
+            },
+        },
+    }
+    payload = {
         "success": True,
-        "schema_version": 2,
+        "schema_version": 3,
         "generated_at": timezone.now().isoformat(),
+        "scope": {
+            "timezone": timezone.get_current_timezone_name(),
+            "mode": range_mode,
+            "date_from": period_date_from,
+            "date_to": period_date_to,
+        },
+        "modules": modules,
+        "revenue": revenue,
         "period": {
             "mode": range_mode,
             "label": period_label,
@@ -6111,6 +6347,8 @@ def bot_stats_api(request):
         "totals": totals,
         "stages": stage_counts,
         "interactions": interaction_counts,
+        "objection_clients": objection_clients,
+        "objection_signals": objection_signals,
         "objections": objections,
         "signals": signals,
         "products": product_interest,
@@ -6126,7 +6364,25 @@ def bot_stats_api(request):
             "manager_vs_bot": funnel_analytics["manager_vs_bot"],
             "time_on_step": funnel_analytics["time_on_step"],
         },
-    })
+    }
+    from .services.ig_stats_cockpit import build_performance_contract
+
+    query_count_available = query_count_start is not None
+    query_count = (
+        len(connection.queries) - query_count_start
+        if query_count_available
+        else None
+    )
+    serialized_payload_bytes = len(
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    )
+    payload["performance"] = build_performance_contract(
+        query_count=query_count,
+        query_count_available=query_count_available,
+        materialized_message_rows=materialized_message_rows,
+        serialized_payload_bytes=serialized_payload_bytes,
+    )
+    return JsonResponse(payload)
 
 
 # ---------------------------------------------------------------------------

@@ -702,25 +702,20 @@ def backfill_reconstructible_funnel_events(*, limit: int = 1000, apply: bool = F
 
 
 def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
-    """Build additive event-time cohorts; never consult mutable client stages."""
+    """Build reconciled entry cohorts without consulting mutable client stages."""
     from management.models import IgFollowUpTask, IgFunnelDropOff, IgFunnelStepEvent
 
+    observation_cutoff = until or timezone.now()
     events = IgFunnelStepEvent.objects.filter(
         episode__client__hidden_at__isnull=True
-    )
+    ).filter(occurred_at__lt=observation_cutoff)
     drop_offs = IgFunnelDropOff.objects.filter(
         episode__client__hidden_at__isnull=True
-    )
+    ).filter(occurred_at__lt=observation_cutoff)
     if client_ids is not None:
         events = events.filter(episode__client_id__in=client_ids)
         drop_offs = drop_offs.filter(episode__client_id__in=client_ids)
-    if since is not None:
-        events = events.filter(occurred_at__gte=since)
-        drop_offs = drop_offs.filter(occurred_at__gte=since)
-    if until is not None:
-        events = events.filter(occurred_at__lt=until)
-        drop_offs = drop_offs.filter(occurred_at__lt=until)
-    raw_events = list(events.values(
+    observed_events = list(events.values(
         "episode_id",
         "event_type",
         "occurred_at",
@@ -728,40 +723,83 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
         "evidence",
         "is_backfilled",
     ))
+    raw_events = [
+        event
+        for event in observed_events
+        if since is None or event["occurred_at"] >= since
+    ]
     episode_sets = {}
     for event in raw_events:
         episode_sets.setdefault(event["event_type"], set()).add(
             event["episode_id"]
         )
-    drop_rows = list(drop_offs.values(
+    observed_drop_rows = list(drop_offs.values(
+        "episode_id",
         "kind",
         "reason_code",
         "stage_at_drop",
         "is_recoverable",
+        "occurred_at",
         "recovered_at",
     ))
-    drop_counts_by_stage = {}
-    for drop in drop_rows:
-        stage = drop["stage_at_drop"]
-        drop_counts_by_stage[stage] = drop_counts_by_stage.get(stage, 0) + 1
+    drop_rows = [
+        drop
+        for drop in observed_drop_rows
+        if since is None or drop["occurred_at"] >= since
+    ]
+    observed_times = {}
+    for event in observed_events:
+        observed_times.setdefault(
+            (event["episode_id"], event["event_type"]),
+            [],
+        ).append(event["occurred_at"])
+    entered_times = {}
+    for event in raw_events:
+        key = (event["episode_id"], event["event_type"])
+        entered_times[key] = min(
+            entered_times.get(key, event["occurred_at"]),
+            event["occurred_at"],
+        )
     rows = []
     for index, (event_type, label) in enumerate(FUNNEL_STEPS):
-        entered_ids = episode_sets.get(event_type, set())
-        advanced_ids = (
-            entered_ids & episode_sets.get(FUNNEL_STEPS[index + 1][0], set())
-            if index + 1 < len(FUNNEL_STEPS)
-            else set()
-        )
+        entered_ids = {
+            episode_id
+            for episode_id, candidate_type in entered_times
+            if candidate_type == event_type
+        }
+        next_type = FUNNEL_STEPS[index + 1][0] if index + 1 < len(FUNNEL_STEPS) else None
+        advanced_ids = set()
+        if next_type:
+            for episode_id in entered_ids:
+                entered_at = entered_times[(episode_id, event_type)]
+                if any(
+                    occurred_at >= entered_at
+                    for occurred_at in observed_times.get((episode_id, next_type), [])
+                ):
+                    advanced_ids.add(episode_id)
         drop_stages = [
             stage
             for stage, mapped_step in DROP_OFF_STAGE_TO_STEP.items()
             if mapped_step == event_type
         ]
-        dropped = sum(
-            drop_counts_by_stage.get(stage, 0) for stage in drop_stages
-        )
+        dropped_ids = set()
+        for drop in observed_drop_rows:
+            episode_id = drop["episode_id"]
+            if episode_id not in entered_ids or episode_id in advanced_ids:
+                continue
+            entered_at = entered_times[(episode_id, event_type)]
+            recovered_at = drop["recovered_at"]
+            if (
+                drop["stage_at_drop"] in drop_stages
+                and drop["occurred_at"] >= entered_at
+                and (recovered_at is None or recovered_at >= observation_cutoff)
+            ):
+                dropped_ids.add(episode_id)
         entered = len(entered_ids)
         advanced = len(advanced_ids)
+        dropped = len(dropped_ids)
+        in_progress = len(entered_ids - advanced_ids - dropped_ids)
+        reconciled = entered == advanced + dropped + in_progress
         low_sample = entered < 20
         rows.append({
             "step": event_type,
@@ -769,8 +807,18 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
             "entered": entered,
             "advanced": advanced,
             "drop_off": dropped,
-            "in_progress": max(entered - advanced - dropped, 0),
-            "cr_percent": None if low_sample else round(advanced * 100 / entered, 1),
+            "in_progress": in_progress,
+            "right_censored_count": in_progress,
+            "observation_cutoff": observation_cutoff.isoformat(),
+            "cohort_basis": "entry_event_same_window",
+            "time_field": "occurred_at",
+            "reconciled": reconciled,
+            "completeness": "complete" if reconciled else "integrity_error",
+            "cr_percent": (
+                None
+                if low_sample or not reconciled
+                else round(advanced * 100 / entered, 1)
+            ),
             "low_sample": low_sample,
         })
     first_times = {}
@@ -781,11 +829,23 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
     for index, (event_type, label) in enumerate(FUNNEL_STEPS[:-1]):
         next_type = FUNNEL_STEPS[index + 1][0]
         durations = []
-        for episode_id in {key[0] for key in first_times if key[1] == event_type}:
+        entered_ids = {
+            episode_id
+            for episode_id, candidate_type in entered_times
+            if candidate_type == event_type
+        }
+        right_censored_count = 0
+        for episode_id in entered_ids:
             start = first_times.get((episode_id, event_type))
-            end = first_times.get((episode_id, next_type))
+            next_times = observed_times.get((episode_id, next_type), [])
+            end = min(
+                (candidate for candidate in next_times if candidate >= start),
+                default=None,
+            ) if start else None
             if start and end and end >= start:
                 durations.append((end - start).total_seconds() / 3600)
+            else:
+                right_censored_count += 1
         durations.sort()
         if durations:
             median = durations[len(durations) // 2] if len(durations) % 2 else (durations[len(durations) // 2 - 1] + durations[len(durations) // 2]) / 2
@@ -796,6 +856,7 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
                 "sample": len(durations),
                 "median_hours": round(median, 2),
                 "p90_hours": round(p90, 2),
+                "right_censored_count": right_censored_count,
             })
         else:
             time_on_step.append({
@@ -804,6 +865,7 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
                 "sample": 0,
                 "median_hours": None,
                 "p90_hours": None,
+                "right_censored_count": right_censored_count,
             })
 
     reason_counts = {}
@@ -852,7 +914,21 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
         event["event_type"] == IgFunnelStepEvent.Type.DISCOUNT_OFFERED
         for event in raw_events
     )
-    discount_bought = len(offer_episodes & bought_episodes)
+    bought_after_offer = set()
+    for episode_id in offer_episodes & bought_episodes:
+        offer_at = min(
+            entered_times[(episode_id, IgFunnelStepEvent.Type.DISCOUNT_OFFERED)]
+            for candidate in (episode_id,)
+            if (episode_id, IgFunnelStepEvent.Type.DISCOUNT_OFFERED) in entered_times
+        )
+        payment_times = observed_times.get(
+            (episode_id, IgFunnelStepEvent.Type.PAYMENT_CONFIRMED),
+            [],
+        ) + observed_times.get((episode_id, IgFunnelStepEvent.Type.ORDER_CREATED), [])
+        if any(payment_at >= offer_at for payment_at in payment_times):
+            bought_after_offer.add(episode_id)
+    discount_bought = len(bought_after_offer)
+    still_open = offer_episodes - bought_after_offer
     manager_episodes = episode_sets.get(
         IgFunnelStepEvent.Type.MANAGER_ENGAGED,
         set(),
@@ -870,13 +946,20 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
         "discounts": {
             "offered": discount_offers,
             "bought": discount_bought,
+            "bought_after_offer": discount_bought,
+            "still_open": len(still_open),
+            "bought_without_known_offer": len(bought_episodes - offer_episodes),
             "without_discount_bought": max(0, len(bought_episodes - offer_episodes)),
+            "observation_cutoff": observation_cutoff.isoformat(),
         },
         "manager_vs_bot": {
             "manager_engaged": len(manager_episodes),
             "bot_replied": len(bot_episodes),
             "bot_only": len(bot_episodes - manager_episodes),
+            "shared": len(manager_episodes & bot_episodes),
+            "manager_only": len(manager_episodes - bot_episodes),
             "manager_touched": len(manager_episodes & bot_episodes),
+            "episodes_with_response_evidence": len(bot_episodes | manager_episodes),
         },
         "time_on_step": time_on_step,
     }

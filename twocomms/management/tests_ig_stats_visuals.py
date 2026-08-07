@@ -76,7 +76,7 @@ class StatsApiVisualContractTests(TestCase):
         ).json()
 
         self.assertTrue(payload["success"])
-        self.assertEqual(payload["schema_version"], 2)
+        self.assertEqual(payload["schema_version"], 3)
         self.assertIsNotNone(datetime.fromisoformat(payload["generated_at"]).tzinfo)
         self.assertEqual(payload["period"]["mode"], "custom")
         self.assertEqual(payload["period"]["timezone"], "Europe/Kiev")
@@ -102,6 +102,72 @@ class StatsApiVisualContractTests(TestCase):
         ):
             container = payload["totals"] if key in {"conversations", "qualified", "paid"} else payload
             self.assertIn(key, container)
+
+    def test_stats_modules_expose_time_basis_and_denominators(self):
+        payload = self.client.get(
+            reverse("management_bot_stats_api") + "?days=7"
+        ).json()
+
+        self.assertEqual(payload["schema_version"], 3)
+        self.assertEqual(payload["scope"]["timezone"], "Europe/Kiev")
+        self.assertEqual(
+            payload["modules"]["activity"]["time_basis"],
+            "message_event",
+        )
+        self.assertEqual(
+            payload["modules"]["funnel"]["time_basis"],
+            "event_cohort",
+        )
+        self.assertEqual(
+            payload["modules"]["current_stages"]["time_basis"],
+            "current_snapshot",
+        )
+        conversion = payload["modules"]["funnel"]["metrics"]["conversion"]
+        self.assertEqual(conversion["unit"], "percent")
+        self.assertEqual(conversion["basis"], "entry_event_same_window")
+        self.assertEqual(conversion["time_field"], "occurred_at")
+        self.assertEqual(conversion["population"], "entered episodes")
+        self.assertEqual(conversion["numerator"], "advanced")
+        self.assertEqual(conversion["denominator"], "entered")
+        self.assertEqual(conversion["completeness"], "row_level")
+        self.assertEqual(conversion["source_kind"], "immutable_event")
+        self.assertTrue(conversion["available"])
+
+    def test_objection_clients_and_signal_events_are_separate_units(self):
+        from management.models import IgConversationSignal
+
+        moment = timezone.now()
+        row = self._client(
+            "stats-objection-units",
+            primary_objection=IgClient.Objection.PRICE,
+            last_message_at=moment,
+        )
+        self._message(row, InstagramBotMessage.Role.USER, moment)
+        for index in range(3):
+            signal = IgConversationSignal.objects.create(
+                client=row,
+                signal_type=IgConversationSignal.Type.PRICE_OBJECTION,
+                value=f"price-{index}",
+            )
+            IgConversationSignal.objects.filter(pk=signal.pk).update(
+                created_at=moment + timedelta(seconds=index)
+            )
+
+        payload = self.client.get(
+            reverse("management_bot_stats_api") + "?days=7"
+        ).json()
+
+        self.assertEqual(payload["objection_clients"]["price"], 1)
+        self.assertEqual(payload["objection_signals"]["price_objection"], 3)
+        self.assertEqual(
+            payload["modules"]["objection_clients"]["metrics"]["count"]["unit"],
+            "clients",
+        )
+        self.assertEqual(
+            payload["modules"]["objection_signals"]["metrics"]["count"]["unit"],
+            "events",
+        )
+        self.assertIn("objections", payload)
 
     def test_message_period_uses_provider_time_and_counts_unlinked_sender(self):
         inside = timezone.make_aware(datetime(2026, 8, 5, 12, 0), KYIV)
@@ -311,6 +377,42 @@ class StatsApiVisualContractTests(TestCase):
                 },
             ],
         )
+
+    def test_one_day_activity_exposes_24_local_hour_buckets(self):
+        first_day = timezone.make_aware(datetime(2026, 8, 5, 0, 0), KYIV)
+        row = self._client("stats-series-hourly")
+        self._message(row, InstagramBotMessage.Role.USER, first_day + timedelta(hours=1))
+        self._message(row, InstagramBotMessage.Role.MODEL, first_day + timedelta(hours=1, minutes=2))
+        self._message(row, InstagramBotMessage.Role.MANAGER, first_day + timedelta(hours=17))
+
+        payload = self.client.get(
+            reverse("management_bot_stats_api")
+            + "?date_from=2026-08-05&date_to=2026-08-05"
+        ).json()
+
+        series = payload["message_series"]
+        self.assertEqual(series["density"], "single")
+        self.assertEqual(len(series["hourly_items"]), 24)
+        self.assertEqual(series["hourly_items"][0]["bucket"], "2026-08-05T00:00:00+03:00")
+        self.assertEqual(series["hourly_items"][1]["messages"], 2)
+        self.assertEqual(series["hourly_items"][17]["manager_messages"], 1)
+        self.assertEqual(
+            sum(item["messages"] for item in series["hourly_items"]),
+            payload["totals"]["messages"],
+        )
+        self.assertTrue(series["hourly_reconciled"])
+
+    def test_empty_one_day_activity_keeps_24_zero_hour_buckets(self):
+        payload = self.client.get(
+            reverse("management_bot_stats_api")
+            + "?date_from=2036-08-05&date_to=2036-08-05"
+        ).json()
+
+        series = payload["message_series"]
+        self.assertFalse(series["has_data"])
+        self.assertEqual(len(series["hourly_items"]), 24)
+        self.assertTrue(all(item["messages"] == 0 for item in series["hourly_items"]))
+        self.assertTrue(series["hourly_reconciled"])
 
     def test_message_activity_series_exposes_integrity_metadata_and_reconciles_totals(self):
         first_day = timezone.make_aware(datetime(2026, 8, 5, 12, 0), KYIV)
@@ -843,6 +945,70 @@ class StatsApiVisualContractTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertLessEqual(len(captured), 65)
+
+    @override_settings(DEBUG=True)
+    def test_stats_api_reports_performance_budget_measurements(self):
+        moment = timezone.now()
+        row = self._client("stats-performance-contract", last_message_at=moment)
+        self._message(row, InstagramBotMessage.Role.USER, moment)
+
+        response = self.client.get(
+            reverse("management_bot_stats_api") + "?days=30"
+        )
+        performance = response.json()["performance"]
+
+        self.assertIn("query_count", performance)
+        self.assertTrue(performance["query_count_available"])
+        self.assertIsInstance(performance["query_count"], int)
+        self.assertIn("materialized_message_rows", performance)
+        self.assertLessEqual(performance["materialized_message_rows"], 2000)
+        self.assertGreater(performance["serialized_payload_bytes"], 0)
+        self.assertEqual(performance["budgets"]["max_sql_queries"], 20)
+        self.assertEqual(
+            performance["budgets"]["max_materialized_message_rows"],
+            2000,
+        )
+        self.assertEqual(
+            performance["budgets"]["max_serialized_payload_bytes"],
+            350 * 1024,
+        )
+        self.assertIn(
+            performance["budget_status"],
+            {"within_budget", "needs_rollup"},
+        )
+
+    def test_revenue_keeps_paid_without_amount_out_of_currency_total(self):
+        moment = timezone.now()
+        priced = self._client("stats-revenue-priced", last_message_at=moment)
+        unpriced = self._client("stats-revenue-unpriced", last_message_at=moment)
+        for row in (priced, unpriced):
+            self._message(row, InstagramBotMessage.Role.USER, moment)
+        IgDeal.objects.create(
+            client=priced,
+            status=IgDeal.Status.PAID,
+            amount=Decimal("1090.00"),
+            paid_amount=Decimal("1090.00"),
+            payment_status="paid",
+            paid_at=moment,
+        )
+        IgDeal.objects.create(
+            client=unpriced,
+            status=IgDeal.Status.PAID,
+            amount=Decimal("1090.00"),
+            payment_status="paid",
+            paid_at=moment,
+        )
+
+        revenue = self.client.get(
+            reverse("management_bot_stats_api") + "?days=7"
+        ).json()["revenue"]
+
+        self.assertEqual(revenue["verified_payment_count"], 2)
+        self.assertEqual(revenue["priced_payment_count"], 1)
+        self.assertEqual(revenue["unpriced_payment_count"], 1)
+        self.assertEqual(revenue["known_net_revenue"], "1090.00")
+        self.assertEqual(revenue["amount_coverage_percent"], 50)
+        self.assertEqual(revenue["status"], "partial")
 
 
 class StatsDashboardTemplateContractTests(SimpleTestCase):
