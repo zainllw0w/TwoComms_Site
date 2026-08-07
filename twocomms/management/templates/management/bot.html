@@ -863,6 +863,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-secondary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .bot-stats-ad-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bot-stats-context-path{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .bot-stats-context-step:nth-child(3n)::before{display:none}
   .bot-stats-details-content{grid-template-columns:minmax(0,1fr)}
   .bot-stats-skeleton-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -938,6 +939,9 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-attribution-center strong{font-size:19px}
   .bot-stats-ad-signal-path{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bot-stats-context-path{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bot-stats-context-step:nth-child(3n)::before{display:block}
+  .bot-stats-context-step:nth-child(2n)::before{display:none}
+  .bot-stats-context-step:nth-child(2n):not(:last-child)::after{content:'';position:absolute;z-index:0;right:calc(50% - .5px);bottom:-6px;width:1px;height:7px;background:#283445;}
   .bot-stats-ad-signal-step:nth-child(3n)::before{display:block}
   .bot-stats-ad-signal-step:nth-child(2n)::before{display:none}
   .bot-stats-ad-signal-step:nth-child(2n)::after{content:'';position:absolute;z-index:0;right:calc(50% - .5px);bottom:-6px;width:1px;height:7px;background:#283445;}

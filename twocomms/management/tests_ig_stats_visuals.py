@@ -993,6 +993,8 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "if(hasAdData||(!Object.values(values).some(value=>value>0)&&!num(overall.messages)))return ''",
             "toggleContextStep",
             "clearContextSelection",
+            ".bot-stats-context-step:nth-child(3n)::before",
+            ".bot-stats-context-step:nth-child(2n):not(:last-child)::after",
         ):
             self.assertIn(contract, self.template)
 
