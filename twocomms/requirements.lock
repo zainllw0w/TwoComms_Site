@@ -925,7 +925,8 @@ hiredis==3.3.1 \
     --hash=sha256:f915a34fb742e23d0d61573349aa45d6f74037fde9d58a9f340435eff8d62736
     # via -r twocomms/requirements.in
 http-ece==1.2.1 \
-    --hash=sha256:8c6ab23116bbf6affda894acfd5f2ca0fb8facbcbb72121c11c75c33e7ce8cff
+    --hash=sha256:8c6ab23116bbf6affda894acfd5f2ca0fb8facbcbb72121c11c75c33e7ce8cff \
+    --hash=sha256:4ee99a46e0ae3f8230632457b935ce953bbf0d8b5a8c3030bbf2b9bbfa6533a8
     # via pywebpush
 httpcore==1.0.9 \
     --hash=sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55 \

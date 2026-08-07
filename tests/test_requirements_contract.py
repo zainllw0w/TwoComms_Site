@@ -13,6 +13,7 @@ IN_PATH = ROOT / "twocomms" / "requirements.in"
 LOCK_PATH = ROOT / "twocomms" / "requirements.lock"
 COMPAT_PATH = ROOT / "twocomms" / "requirements.txt"
 COMPILE_PATH = ROOT / "scripts" / "compile_requirements.sh"
+HTTP_ECE_BUILDER_PATH = ROOT / "scripts" / "build_http_ece_wheel.py"
 
 
 # These are the project's direct requirements.  Resolver-owned transitive
@@ -123,6 +124,16 @@ class RequirementsContractTests(unittest.TestCase):
             "mv",
         ):
             self.assertIn(marker, script)
+
+    def test_compile_script_builds_http_ece_before_publishing_lock(self):
+        script = COMPILE_PATH.read_text(encoding="utf-8")
+        self.assertIn("HTTP_ECE_SDIST", script)
+        self.assertIn("build_http_ece_wheel.py", script)
+        self.assertIn("--wheel-dir", script)
+        self.assertIn("--lock", script)
+        self.assertIn("--source-date-epoch 315532800", script)
+        self.assertLess(script.index("build_http_ece_wheel.py"), script.index("mv -f"))
+        self.assertTrue(HTTP_ECE_BUILDER_PATH.is_file())
 
 
 if __name__ == "__main__":
