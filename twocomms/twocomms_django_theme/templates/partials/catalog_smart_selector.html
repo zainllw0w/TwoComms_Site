@@ -1,0 +1,252 @@
+{% load i18n %}
+{% load cache %}
+
+<div class="smart-selector"
+     data-smart-selector="true"
+     data-smart-category="{{ smart_selector_active_category.slug }}"
+     data-selected-theme="{{ smart_selector_selected_theme }}"
+     data-selected-fit="{{ smart_selector_selected_fit }}">
+  <nav class="smart-selector__categories" aria-label="{% trans 'Категорії одягу' %}">
+    {% for tab in smart_selector_category_tabs %}
+    <a href="{% url 'catalog_by_cat' tab.slug %}"
+       class="smart-selector__category{% if tab.id == smart_selector_active_category.id %} is-active{% endif %}"
+       {% if tab.id == smart_selector_active_category.id %}aria-current="page"{% endif %}>
+      {{ tab.name }}
+    </a>
+    {% endfor %}
+  </nav>
+
+  <div class="smart-selector__inner">
+    <nav class="smart-selector__breadcrumb" aria-label="{% trans 'Навігаційний шлях' %}">
+      <a href="{% url 'home' %}">{% trans 'Головна' %}</a>
+      <span aria-hidden="true">/</span>
+      <a href="{% url 'catalog' %}">{% trans 'Каталог' %}</a>
+    </nav>
+
+    <header class="smart-selector__intro" aria-labelledby="smart-selector-title">
+      <div>
+        <h1 id="smart-selector-title">{% if category.seo_h1 %}{{ category.seo_h1 }}{% else %}{{ category.name }}{% endif %}</h1>
+        {% if category.description %}
+        <p>{{ category.description|striptags|truncatewords:24 }}</p>
+        {% endif %}
+      </div>
+      <span class="smart-selector__result-count" data-smart-result-count aria-live="polite">
+        {% blocktrans count counter=paginator.count %}{{ counter }} модель{% plural %}{{ counter }} моделей{% endblocktrans %}
+      </span>
+    </header>
+
+    <div class="smart-selector__layout">
+      <aside class="smart-selector__rail" data-smart-desktop-rail aria-label="{% trans 'Фільтри каталогу' %}">
+        <div class="smart-selector__rail-head">
+          <h2>{% trans 'Фільтри' %}</h2>
+          <button type="button" data-smart-reset>{% trans 'Очистити' %}</button>
+        </div>
+
+        <section class="smart-selector__filter-group">
+          <h3>{% trans 'Тема' %}</h3>
+          {% for option in smart_selector_theme_options %}
+          <button type="button"
+                  data-smart-filter="theme"
+                  data-smart-value="{{ option.code }}"
+                  aria-pressed="{% if smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
+            <span>{{ option.label }}</span>
+          </button>
+          {% endfor %}
+        </section>
+
+        <section class="smart-selector__filter-group">
+          <h3>{% trans 'Крій' %}</h3>
+          {% for option in smart_selector_fit_options %}
+          <button type="button"
+                  data-smart-filter="fit"
+                  data-smart-value="{{ option.code }}"
+                  aria-pressed="{% if smart_selector_selected_fit == option.code %}true{% else %}false{% endif %}">
+            <span>{{ option.label }}</span>
+          </button>
+          {% empty %}
+          <p>{% trans 'Доступні посадки вказані у картках товарів.' %}</p>
+          {% endfor %}
+        </section>
+
+        {% if available_colors %}
+        <section class="smart-selector__filter-group">
+          <h3>{% trans 'Колір' %}</h3>
+          <div class="smart-selector__colors">
+            {% for color in available_colors %}
+            <a href="{{ color.url }}"
+               class="{% if color.is_selected %}is-active{% endif %}"
+               title="{{ color.label }}"
+               {% if color.is_selected %}aria-current="true"{% endif %}>
+              <span style="--smart-color: {{ color.primary_hex|default:'#687382' }};" aria-hidden="true"></span>
+              <span class="visually-hidden">{{ color.label }}</span>
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+      </aside>
+
+      <section class="smart-selector__products" aria-label="{% trans 'Товари категорії' %}">
+        <div class="smart-selector__command" data-smart-command>
+          <button type="button"
+                  class="smart-selector__filter-trigger"
+                  data-smart-open-filters
+                  aria-haspopup="dialog"
+                  aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
+            {% trans 'Фільтри' %}
+          </button>
+          <span class="smart-selector__command-count" data-smart-command-count aria-live="polite">
+            {% blocktrans count counter=paginator.count %}{{ counter }} модель{% plural %}{{ counter }} моделей{% endblocktrans %}
+          </span>
+          <label class="smart-selector__sort">
+            <span class="visually-hidden">{% trans 'Сортування' %}</span>
+            <select data-smart-sort aria-label="{% trans 'Сортування' %}">
+              <option value="recommended"{% if smart_selector_selected_sort == 'recommended' %} selected{% endif %}>{% trans 'Рекомендовані' %}</option>
+              <option value="price-asc"{% if smart_selector_selected_sort == 'price-asc' %} selected{% endif %}>{% trans 'Від дешевих' %}</option>
+              <option value="price-desc"{% if smart_selector_selected_sort == 'price-desc' %} selected{% endif %}>{% trans 'Від дорогих' %}</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="smart-selector__quick-facets" aria-label="{% trans 'Швидкий вибір' %}">
+          <button type="button" data-smart-open-filters data-smart-focus-filter="theme" aria-haspopup="dialog" aria-expanded="false">
+            <small>{% trans 'Тема' %}</small>
+            <span>{% if smart_selector_selected_theme %}{% for option in smart_selector_theme_options %}{% if option.code == smart_selector_selected_theme %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Усі' %}{% endif %}</span>
+          </button>
+          <button type="button" data-smart-open-filters data-smart-focus-filter="fit" aria-haspopup="dialog" aria-expanded="false">
+            <small>{% trans 'Крій' %}</small>
+            <span>{% if smart_selector_selected_fit %}{% for option in smart_selector_fit_options %}{% if option.code == smart_selector_selected_fit %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Будь-який' %}{% endif %}</span>
+          </button>
+          <button type="button" data-smart-open-filters data-smart-focus-filter="color" aria-haspopup="dialog" aria-expanded="false">
+            <small>{% trans 'Колір' %}</small>
+            <span>{% if selected_color_slugs %}{% trans 'Обрано' %}{% else %}{% trans 'Усі' %}{% endif %}</span>
+          </button>
+        </div>
+
+        <div class="smart-selector__grid"
+             role="list"
+             data-smart-product-grid
+             data-next-page-url="{% if page_obj.has_next %}?{{ pagination_query_prefix }}page={{ page_obj.next_page_number }}{% endif %}">
+          {% for p in products %}
+          <div class="smart-selector__product product-card-wrap"
+               role="listitem"
+               data-smart-product-item
+               data-smart-theme="{{ p.smart_selector_theme }}"
+               data-smart-fit="{{ p.smart_selector_fit }}"
+               data-smart-price="{{ p.final_price }}">
+            {% cache 900 smart_selector_product_card_v1 LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key forloop.counter0 using="fragments" %}
+              {% if forloop.counter0 < 2 %}
+                {% include "partials/product_card.html" with p=p stagger=True eager=True animate=True home_card=True %}
+              {% else %}
+                {% include "partials/product_card.html" with p=p stagger=True eager=False animate=True home_card=True %}
+              {% endif %}
+            {% endcache %}
+          </div>
+          {% empty %}
+          <div class="smart-selector__empty">
+            <h2>{% trans 'Не знайшли точного збігу' %}</h2>
+            <p>{% trans 'Очистіть один із параметрів або поверніться до всього каталогу.' %}</p>
+            <a href="{% url 'catalog_by_cat' smart_selector_active_category.slug %}">{% trans 'Показати всі моделі' %}</a>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="smart-selector__sentinel" data-smart-sentinel aria-hidden="true"></div>
+        <p class="smart-selector__load-status" data-smart-load-status role="status"></p>
+
+        <nav aria-label="{% trans 'Сторінки каталогу' %}" class="catalog-pagination" data-smart-pagination>
+          {% if page_obj.has_other_pages %}
+          <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ page_obj.previous_page_number }}" rel="prev">‹</a></li>
+            {% endif %}
+            {% for i in paginator.page_range %}
+              {% if page_obj.number == i %}
+              <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+              {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+              <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ i }}">{{ i }}</a></li>
+              {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ page_obj.next_page_number }}" rel="next">›</a></li>
+            {% endif %}
+          </ul>
+          {% endif %}
+        </nav>
+      </section>
+    </div>
+  </div>
+
+  <div class="smart-selector__overlay" data-smart-filter-sheet aria-hidden="true">
+    <section class="smart-selector__sheet"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="smart-selector-sheet-title"
+             tabindex="-1">
+      <header>
+        <div>
+          <small>{% trans 'Усі параметри' %}</small>
+          <h2 id="smart-selector-sheet-title">{% trans 'Фільтри' %}</h2>
+        </div>
+        <button type="button" data-smart-close-filters aria-label="{% trans 'Закрити фільтри' %}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+      <div class="smart-selector__sheet-body">
+        <section data-smart-filter-section="theme">
+          <h3>{% trans 'Тема' %}</h3>
+          <div>
+            {% for option in smart_selector_theme_options %}
+            <button type="button" data-smart-filter="theme" data-smart-value="{{ option.code }}" aria-pressed="{% if smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">{{ option.label }}</button>
+            {% endfor %}
+          </div>
+        </section>
+        <section data-smart-filter-section="fit">
+          <h3>{% trans 'Крій' %}</h3>
+          <div>
+            {% for option in smart_selector_fit_options %}
+            <button type="button" data-smart-filter="fit" data-smart-value="{{ option.code }}" aria-pressed="{% if smart_selector_selected_fit == option.code %}true{% else %}false{% endif %}">{{ option.label }}</button>
+            {% endfor %}
+          </div>
+        </section>
+        {% if available_colors %}
+        <section data-smart-filter-section="color">
+          <h3>{% trans 'Колір' %}</h3>
+          <div>
+            {% for color in available_colors %}
+            <a href="{{ color.url }}" class="{% if color.is_selected %}is-active{% endif %}">
+              <span style="--smart-color: {{ color.primary_hex|default:'#687382' }};" aria-hidden="true"></span>
+              {{ color.label }}
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+      </div>
+      <footer>
+        <button type="button" data-smart-reset>{% trans 'Очистити' %}</button>
+        <button type="button" data-smart-close-filters>{% blocktrans count counter=paginator.count %}Показати {{ counter }} модель{% plural %}Показати {{ counter }} моделей{% endblocktrans %}</button>
+      </footer>
+    </section>
+  </div>
+
+  {% if category_seo_layout.has_any %}
+  <section class="catalog-category-seo-blocks" aria-label="{% trans 'Додаткові розділи каталогу' %}">
+    <div class="catalog-redesign-container">
+      {% include "partials/category_seo_blocks.html" %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if category.description %}
+  <section class="catalog-category-description">
+    <div class="catalog-redesign-container">
+      <div class="catalog-description-panel">
+        <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
+        <div>{{ category.description|safe }}</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+</div>
