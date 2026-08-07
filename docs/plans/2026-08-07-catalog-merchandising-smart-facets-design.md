@@ -60,10 +60,12 @@ Add a normalized collection taxonomy for future growth:
 
 - `MerchCollection`: slug, kind (`theme`, `city`, `brigade`, `collab`), parent, localized name/title/description, SEO title/description, cover image, accent token, indexable flag, order, and active flag;
 - `ProductMerchCollection`: product-to-collection assignment with ordering and optional display label;
-- `MerchCollection` may be nested, so `military -> brigades -> 225` is represented without hard-coded template branches;
+- `MerchCollection` may be nested without hard-coded template branches. In the first catalog tree, `military`, `brigades`, `streetwear`, and `kharkiv` are sibling themes under the T-shirt category, while `225` and `127` are brigade children of `brigades`;
 - thermochromic remains authoritative on `ProductColorVariant.is_thermo`/Fable 5 color details and is never duplicated in free text.
 
 Fits, size grids, price, and stock continue to use the existing `ProductFitOption`, `variant_public_context()`, Fable 5 size-grid services, and inventory rules. The selector must never infer sellability from a size guide row alone.
+
+The hierarchy is editorial, not duplicate product data. Staff may assign the most specific fact such as `225`; the public resolver derives membership in the `brigades` parent for counts and filtering. A parent with children is a disclosure group with an explicit "all brigades" choice, while `225` and `127` remain independently selectable child values. Selecting several brigade children applies strict AND. Selecting a parent together with one of its children is canonicalized to the child because the parent is already implied. Catalog cards and the compact PDP rail show the most specific assigned label and do not repeat `Бригади / 225 ОШП` as two badges.
 
 ### PDP merchandising continuity
 
@@ -75,7 +77,7 @@ Fable 5 assignments are not complete until they are visible and truthful on the 
 - thermochromic state, material story, and price delta from the selected `ProductColorVariant` through `variant_public_context()`, never from a product title, collection tag, or free-text description;
 - fit, price, availability, and size truth from the existing variant/stock services rather than from merchandising labels.
 
-The upper PDP hierarchy remains purchase-first: gallery, product title, category, price, and primary selection/purchase action keep their current prominence. Merchandising appears as one compact context rail adjacent to the title/meta region, not as a hero or a wall of badges. Collection and brigade labels are meaningful links; audience is rendered as a labelled product fact. On narrow screens the rail is a single stable horizontal row with 44px link hit areas and no multi-line growth; secondary assignments remain reachable through horizontal scrolling or a compact `+N` disclosure. It must not move the first price or buy action below the expected first interaction area.
+The upper PDP hierarchy remains purchase-first: gallery, product title, category, price, and primary selection/purchase action keep their current prominence. Merchandising appears as one compact context rail adjacent to the title/meta region, not as a hero or a wall of badges. The rail uses the most specific normalized assignment, so a `225` product shows `225 ОШП` rather than a redundant `Бригади` plus `225 ОШП` pair. Collection and brigade labels are meaningful links; audience is rendered as a labelled product fact. On narrow screens the rail is a single stable horizontal row with 44px link hit areas and no multi-line growth; secondary assignments remain reachable through horizontal scrolling or a compact `+N` disclosure. It must not move the first price or buy action below the expected first interaction area.
 
 Static product assignments stay stable while a shopper changes color or fit. Variant-dependent markers update in place from the already-delivered variant payload: selecting a thermochromic color reveals the flame, material explanation, and truthful price delta; selecting an ordinary color removes them without reloading or moving surrounding layout. The server-rendered state, URL-selected state, and hydrated JavaScript state must agree.
 
@@ -83,7 +85,7 @@ PDP schema and analytics consume the same normalized codes, with lossless truth 
 
 ### Routes and landing pages
 
-The first collection route is `/merch/225/`, localized by the existing language routing convention. It is a `CollectionPage` with:
+The first collection route is `/merch/225/`, localized by the existing language routing convention. The `127` node is present in the taxonomy but remains non-indexable until it has assigned products and reviewed localized editorial content. The `225` route is a `CollectionPage` with:
 
 - one descriptive H1 such as `Мерч для 225 ОШП — TwoComms`;
 - a short collection identity line, not a large hero;
@@ -194,7 +196,7 @@ Every visible surface has one job and one measurable reason to exist:
 | Shared header | Same logo, navigation, search, cart, account, language controls as the home/checkout shell | Preserves trust and lets ad traffic recognize the brand immediately | A second catalog-only header |
 | Category switcher | Three real links, active state, horizontal scroll on narrow screens, keyboard-visible focus | Makes the landing category obvious and supports direct ad destinations | A carousel that hides category names |
 | H1/result row | One H1, concise intent copy, count aligned to the edge | Gives users and crawlers immediate context | A large hero or slogan before products |
-| Theme quick row | At most one compact row, counts, active state, scroll affordance | Lets high-intent military/Kharkiv/streetwear traffic branch in one tap | A wall of chips or duplicate filter controls |
+| Theme quick row | At most one compact row, counts, active state, scroll affordance; `Бригади` discloses `225` and `127` without leaving the product grid | Lets high-intent military/brigade/Kharkiv/streetwear traffic branch in one tap | A wall of chips, duplicated parent/child badges, or hidden child categories |
 | Command shelf | Filter trigger, applied-count, sort, and removable chips; sticky only after header exit | Keeps the action path visible without covering products | A permanent bottom commerce bar |
 | Mobile filter sheet | Full-height dialog with sticky header/footer, accordion groups, Apply/Reset, focus trap | Allows deep filtering without shrinking product cards | A nested modal inside the sheet |
 | Desktop rail | Sticky, compact, grouped by intent, counts and disabled states | Makes comparison efficient on large screens | Oversized card-like panels around every group |
@@ -219,6 +221,18 @@ The card must read as one product decision, not as an image, a price block, and 
 5. **Action boundary:** the card's bottom border separates cards, not price from color. There is no orphan dot below a horizontal rule and no swatch whose meaning depends on an adjacent card.
 
 The card contract is invariant on mobile and desktop; only the number of columns and the amount of meta wrapping changes. Tests must assert the DOM order `title -> price -> decision meta -> color`, and visual QA must check that long translated labels do not push the color row outside the card.
+
+### Measured baseline defects to remove
+
+The August 8 live audit at 390x844 and 1440x1000 establishes a concrete before-state:
+
+- on mobile the first product media starts around 322 CSS pixels, but the long H1 is visibly clipped and competes with the quick selectors;
+- the current card renders a divider after price/fit and then an unlabelled color dot, so the swatch reads as detached from the product;
+- the fixed mobile navigation overlaps the following product media and must reserve real safe-area space in the document;
+- the theme/fit/color selector row compresses labels instead of preserving a deliberate one-row hierarchy;
+- the desktop rail presents `Бригади` as a flat peer with no visible path to `225` or `127`.
+
+These are acceptance defects, not optional polish. The final screenshot matrix must include the first viewport, a card boundary with its complete color row, an open brigade disclosure, the mobile filter sheet, and the upper PDP merchandising rail.
 
 ### Decision psychology guardrails
 

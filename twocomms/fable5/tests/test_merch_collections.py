@@ -46,7 +46,6 @@ class MerchCollectionTaxonomyTests(TestCase):
         self.brigades = MerchCollection.objects.create(
             slug="brigades",
             kind=MerchCollection.Kind.THEME,
-            parent=self.military,
             name_uk="Бригади",
             name_ru="Бригады",
             name_en="Brigades",
@@ -61,6 +60,16 @@ class MerchCollectionTaxonomyTests(TestCase):
             name_en="225 Assault Regiment",
             indexable=True,
             order=30,
+        )
+        self.brigade_127 = MerchCollection.objects.create(
+            slug="127",
+            kind=MerchCollection.Kind.BRIGADE,
+            parent=self.brigades,
+            name_uk="127 бригада",
+            name_ru="127 бригада",
+            name_en="127 Brigade",
+            indexable=False,
+            order=31,
         )
         self.streetwear = MerchCollection.objects.create(
             slug="streetwear",
@@ -86,7 +95,7 @@ class MerchCollectionTaxonomyTests(TestCase):
         self.assertEqual(context[0]["label"], "225 Assault Regiment")
         self.assertEqual(
             [item["slug"] for item in context[0]["ancestors"]],
-            ["military", "brigades"],
+            ["brigades"],
         )
         self.assertEqual(context[0]["public_path"], "/merch/225/")
 
@@ -99,6 +108,35 @@ class MerchCollectionTaxonomyTests(TestCase):
                 product=self.product,
                 collection=self.brigade_225,
             )
+
+    def test_specific_child_assignment_removes_redundant_parent_assignment(self):
+        saved = set_product_collection_slugs(self.product, ["brigades", "225"])
+
+        self.assertEqual(saved, ["225"])
+        self.assertEqual(get_product_collection_slugs(self.product), ["225"])
+        self.assertEqual(
+            [row["path_label"] for row in product_collection_context(self.product)],
+            ["Бригади / 225 ОШП"],
+        )
+
+    def test_deep_child_assignment_removes_selected_root_without_intermediate(self):
+        collaboration = MerchCollection.objects.create(
+            slug="225-collaboration",
+            kind=MerchCollection.Kind.COLLAB,
+            parent=self.brigade_225,
+            name_uk="Колаборація 225",
+            name_ru="Коллаборация 225",
+            name_en="225 Collaboration",
+            order=32,
+        )
+
+        saved = set_product_collection_slugs(
+            self.product,
+            ["brigades", collaboration.slug],
+        )
+
+        self.assertEqual(saved, [collaboration.slug])
+        self.assertEqual(get_product_collection_slugs(self.product), [collaboration.slug])
 
     def test_inactive_or_non_indexable_collection_never_exposes_public_path(self):
         self.streetwear.indexable = False
@@ -156,7 +194,7 @@ class MerchCollectionTaxonomyTests(TestCase):
         collection_rows = response.context["bootstrap"]["dictionaries"]["collections"]
         row_225 = next(row for row in collection_rows if row["slug"] == "225")
         self.assertEqual(row_225["parent_slug"], "brigades")
-        self.assertEqual(row_225["path_label"], "Мілітарі / Бригади / 225 ОШП")
+        self.assertEqual(row_225["path_label"], "Бригади / 225 ОШП")
         self.assertContains(response, 'id="f-collection-options"', html=False)
         self.assertContains(response, 'id="f-collection-search"', html=False)
 

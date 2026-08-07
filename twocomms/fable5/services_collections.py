@@ -33,6 +33,30 @@ def _localized(collection, field: str, language: str) -> str:
     return next((str(value).strip() for value in values if str(value).strip()), collection.slug)
 
 
+def _without_implied_parents(
+    collections: Iterable[MerchCollection],
+    *,
+    by_id: dict[int, MerchCollection] | None = None,
+) -> list[MerchCollection]:
+    """Keep the most specific selected nodes and suppress their ancestors."""
+    rows = list(collections)
+    if by_id is None:
+        taxonomy = MerchCollection.objects.only("id", "parent_id")
+        by_id = {collection.pk: collection for collection in taxonomy}
+    selected_ids = {row.pk for row in rows}
+    implied_parent_ids = set()
+    for row in rows:
+        seen = {row.pk}
+        parent_id = row.parent_id
+        while parent_id and parent_id not in seen:
+            seen.add(parent_id)
+            if parent_id in selected_ids:
+                implied_parent_ids.add(parent_id)
+            parent = by_id.get(parent_id)
+            parent_id = parent.parent_id if parent is not None else None
+    return [row for row in rows if row.pk not in implied_parent_ids]
+
+
 def _ancestor_rows(collection, by_id, language: str) -> list[dict]:
     rows = []
     seen = {collection.pk}
@@ -62,7 +86,9 @@ def get_product_collection_slugs(product) -> list[str]:
         .select_related("collection")
         .order_by("order", "collection__order", "collection__slug")
     )
-    return [row.collection.slug for row in rows]
+    assignments = list(rows)
+    collections = _without_implied_parents(row.collection for row in assignments)
+    return [collection.slug for collection in collections]
 
 
 @transaction.atomic
@@ -78,6 +104,8 @@ def set_product_collection_slugs(product, slugs: Iterable[str] | None) -> list[s
     missing = [slug for slug in normalized if slug not in found]
     if missing:
         raise ValueError(f"Unknown or inactive collection slug(s): {', '.join(missing)}")
+    collections = _without_implied_parents(collections)
+    normalized = [collection.slug for collection in collections]
 
     ProductMerchCollection.objects.select_for_update().filter(product=product).exists()
     # A collection can be deactivated after products were assigned to it.
@@ -111,11 +139,22 @@ def product_collection_context(
     )
     if not include_inactive:
         assignments = assignments.filter(collection__is_active=True)
-    assignments = assignments.order_by("order", "collection__order", "collection__slug")
+    assignments = list(
+        assignments.order_by("order", "collection__order", "collection__slug")
+    )
+    visible_ids = {
+        collection.pk
+        for collection in _without_implied_parents(
+            (assignment.collection for assignment in assignments),
+            by_id=by_id,
+        )
+    }
 
     rows = []
     for assignment in assignments:
         collection = assignment.collection
+        if collection.pk not in visible_ids:
+            continue
         ancestors = _ancestor_rows(collection, by_id, language)
         label = assignment.display_label.strip() or _localized(collection, "name", language)
         rows.append(

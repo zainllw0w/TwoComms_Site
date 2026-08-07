@@ -105,7 +105,7 @@ Add `MerchCollection` with `kind`, optional parent, localized display and SEO co
 
 **Step 2: Seed the existing taxonomy**
 
-Create records for military, streetwear, Kharkiv, and the first brigade collection `225`. Seed only labels and safe fallback copy; do not fabricate military claims or brigade descriptions. Record which products are assigned by the existing theme resolver so staff can review them in Fable 5.
+Create sibling root records for military, brigades, streetwear, and Kharkiv. Seed brigade children `225` and `127` beneath brigades. Only `225` starts indexable; keep `127` non-indexable until products and localized editorial content are reviewed. Seed only labels and safe fallback copy; do not fabricate military claims or brigade descriptions. Record which products are assigned by the existing theme resolver so staff can review them in Fable 5.
 
 **Step 3: Add editor controls**
 
@@ -137,7 +137,7 @@ Build queryset filters from real product relations and annotate only what is nee
 
 **Step 3: Implement strict AND semantics**
 
-For audience and collection tags, apply one existence condition per selected value. For fit/theme/brigade/availability, apply all selected constraints. For size/color alternatives, use the documented availability semantics and expose counts that reflect the resulting queryset. Add tests for mixed combinations and zero-result recovery.
+For audience and collection tags, apply one existence condition per selected value. A selected root theme matches direct assignments and assignments to any active descendant, so a product assigned only to `225` is truthfully part of `brigades` without a duplicate stored assignment. Multiple explicit child collections such as `225` and `127` use strict AND. Canonicalize redundant parent+child state to the child. For fit/theme/brigade/availability, apply all selected constraints. For size/color alternatives, use the documented availability semantics and expose counts that reflect the resulting queryset. Add tests for mixed combinations and zero-result recovery.
 
 **Step 4: Produce view metadata**
 
@@ -197,7 +197,7 @@ Use labelled `fieldset` groups, `button` controls with `aria-pressed`, explicit 
 
 **Step 2: Add audience, availability, sizes, collections, and thermo controls**
 
-Place audience and availability near the top of the sheet. Show size counts from sellable combinations, fit controls only when supported, color swatches with text labels, and a visually distinct flame marker for thermo. Brigade choices appear under Collections and do not compete with the primary category tabs.
+Place audience and availability near the top of the sheet. Show size counts from sellable combinations, fit controls only when supported, color swatches with text labels, and a visually distinct flame marker for thermo. `Бригади` is a first-level theme disclosure; its `225` and `127` children open inline on desktop and in the same mobile sheet section, with clear parent context, independent 44px check targets, selected counts, and no nested modal.
 
 **Step 3: Add contextual editorial block**
 
@@ -209,7 +209,7 @@ Every category, collection, product, pagination, and internal SEO link remains n
 
 **Step 5: Recompose the product card meta zone**
 
-Keep title, visible price, fit/audience/availability facts, and color swatches in one semantic body flow. Remove the detached post-price color dot treatment from the prototype. Render a labelled color row with stable swatch hit areas, a contrast ring for light colors, a flame marker for thermo, and a `+N` overflow affordance only when needed. Add a template contract test for this exact DOM order and a screenshot check for card-bottom alignment at mobile and desktop widths.
+Keep title, visible price, fit/audience/availability facts, the most specific theme/brigade assignment, and color swatches in one semantic body flow. Remove the detached post-price color dot treatment from the prototype and live page. Render a labelled color row with stable swatch hit areas, a contrast ring for light colors, a flame marker for thermo, and a `+N` overflow affordance only when needed. Do not duplicate an implied parent (`Бригади`) beside a specific child (`225 ОШП`). Add a template contract test for this exact DOM order and a screenshot check for card-bottom alignment at mobile and desktop widths.
 
 ---
 
@@ -240,7 +240,7 @@ Insert incoming product items into a document fragment, assign stable order, and
 
 **Step 5: Verify the previous failure mode**
 
-At 320, 375, 390, 430, 768, and 1024 widths exercise every theme, collection, fit, audience, availability, size, color, reset, close, Escape, browser-back, and progressive-load path. Inspect computed `pointer-events`, stacking contexts, inert state, and loaded JS URL when any action fails.
+At 320, 375, 390, 430, 768, and 1024 widths exercise every theme, collection, fit, audience, availability, size, color, reset, close, Escape, browser-back, and progressive-load path. Verify that `Бригади` reveals `225` and `127` in place and that several child selections remain independent. Inspect computed `pointer-events`, stacking contexts, inert state, and loaded JS URL when any action fails.
 
 **Step 6: Protect the fixed mobile navigation area**
 
@@ -264,7 +264,7 @@ Expose a CSS custom property for the measured bottom-navigation height plus the 
 
 **Step 1: Write and verify the RED PDP continuity contracts**
 
-Create fixtures with multiple audience tags, nested military/brigade assignments, an active curated collection, a non-public collection, an ordinary color, and a thermochromic color. Assert that the initial PDP context preserves assignment order and localized labels, links only to real public collection routes, renders audience as a fact, and derives thermo only from the selected variant. Add a template-order assertion that the compact context belongs to the existing title/meta region without replacing the title, price, variant selectors, or primary purchase action.
+Create fixtures with multiple audience tags, a root `brigades` theme with `225`/`127` child assignments, an active curated collection, a non-public collection, an ordinary color, and a thermochromic color. Assert that the initial PDP context preserves assignment order and localized labels, collapses implied parents in favor of the most specific assigned fact, links only to real public collection routes, renders audience as a fact, and derives thermo only from the selected variant. Add a template-order assertion that the compact context belongs to the existing title/meta region without replacing the title, price, variant selectors, or primary purchase action.
 
 **Step 2: Build one presentation-safe PDP resolver**
 
@@ -329,7 +329,7 @@ Verify header/footer parity, first-viewport product visibility, symmetry, card r
 
 Also verify that the fixed mobile navigation never occludes card content, pagination, the progressive-loading status, or the Create-your-print CTA at any target height.
 
-For representative PDPs, verify that the merchandising rail visually belongs to the existing title/meta block, real collection links remain distinguishable from the audience fact, `+N`/horizontal overflow is understandable, and changing between ordinary and thermochromic colors updates the marker without moving the title, price, selectors, or primary action.
+For representative PDPs, verify that the merchandising rail visually belongs to the existing title/meta block, real collection links remain distinguishable from the audience fact, a `225` or `127` child is not repeated with its implied `Бригади` parent, `+N`/horizontal overflow is understandable, and changing between ordinary and thermochromic colors updates the marker without moving the title, price, selectors, or primary action.
 
 **Step 3: Measure Core Web Vitals**
 
