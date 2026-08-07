@@ -48,4 +48,13 @@ Authenticated QA session: `statsflow`, user `stats-qa`.
 
 ## Deployment gate
 
-Production deployment is intentionally performed only after this QA record, the implementation commit, and branch/main synchronization are complete. The deployed SHA and production HTTP/browser checks will be appended after release.
+## Production release evidence
+
+- Feature branch pushed: `codex/management-stats-flow-visual` at `54298e8f`.
+- `main` integrated and pushed at `3d9976485491fa09b46adf93b91f6d16e81c2e52`.
+- Production checkout: branch `main`, SHA `3d9976485491fa09b46adf93b91f6d16e81c2e52`, `HEAD...origin/main=0/0`.
+- Passenger restart marker refreshed at `tmp/restart.txt` after the fast-forward pull.
+- Server `python manage.py check --deploy`: exit 0 with two pre-existing security warnings (`SECURE_SSL_REDIRECT` and short `SECRET_KEY`); no application errors.
+- Public `https://twocomms.shop/healthz/`: HTTP 200, JSON status `ok`.
+- `https://management.twocomms.shop/bot/`: HTTP 302 to `/login/?next=/bot/`, confirming the expected staff authentication boundary.
+- `https://management.twocomms.shop/healthz/`: HTTP 404 because that subdomain does not publish the public health route; this is expected and not used as the release health check.
