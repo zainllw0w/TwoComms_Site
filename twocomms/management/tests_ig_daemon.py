@@ -426,6 +426,19 @@ class DaemonMaintenanceTests(SimpleTestCase):
             )
             self.assertFalse(os.path.exists(lease_path))
 
+    def test_activation_honors_a_requested_lease_id(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lease_path = os.path.join(temp_dir, "maintenance.json")
+            payload = activate_maintenance(
+                path=lease_path,
+                duration_seconds=60,
+                actor="deploy",
+                requested_lease_id="deploy-request-123",
+                now=100,
+            )
+
+            self.assertEqual(payload["lease_id"], "deploy-request-123")
+
     def test_active_owner_cannot_be_shortened_or_released_by_another_owner(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             lease_path = os.path.join(temp_dir, "maintenance.json")

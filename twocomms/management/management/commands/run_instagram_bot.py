@@ -358,6 +358,11 @@ class Command(BaseCommand):
             metavar="LEASE_ID",
             help="Зняти лише власний maintenance lease; потім запустіть --ensure.",
         )
+        parser.add_argument(
+            "--maintenance-lease-id",
+            metavar="LEASE_ID",
+            help="Внутрішній token для атомарного maintenance-on від release orchestrator.",
+        )
 
     def handle(self, *args, **opts):
         selected = sum(
@@ -368,8 +373,13 @@ class Command(BaseCommand):
         selected += int(opts.get("maintenance_off") is not None)
         if selected > 1:
             raise CommandError("choose exactly one daemon mode")
+        if opts.get("maintenance_lease_id") and opts.get("maintenance_on") is None:
+            raise CommandError("--maintenance-lease-id requires --maintenance-on")
         if opts.get("maintenance_on") is not None:
-            return self._maintenance_on(opts["maintenance_on"])
+            return self._maintenance_on(
+                opts["maintenance_on"],
+                requested_lease_id=opts.get("maintenance_lease_id"),
+            )
         if opts.get("maintenance_off") is not None:
             try:
                 deactivate_maintenance(
@@ -398,14 +408,15 @@ class Command(BaseCommand):
             "Вкажіть режим: --forever | --ensure | --once | --maintenance-on | --maintenance-off"
         )
 
-    def _maintenance_on(self, duration_seconds: int):
+    def _maintenance_on(self, duration_seconds: int, *, requested_lease_id: str | None = None):
         try:
             payload = activate_maintenance(
                 path=MAINTENANCE_FILE,
                 duration_seconds=duration_seconds,
                 actor="run_instagram_bot",
+                requested_lease_id=requested_lease_id,
             )
-        except MaintenanceLeaseConflict as exc:
+        except (MaintenanceLeaseConflict, ValueError) as exc:
             raise CommandError(str(exc)) from exc
         # The daemon observes the lease before its next work cycle. Do not
         # report a safe maintenance boundary until its OS singleton is free.

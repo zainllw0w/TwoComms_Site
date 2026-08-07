@@ -6,7 +6,14 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from management.models import InstagramBotSettings, InstagramBotTaskHeartbeat
+from management.models import (
+    IgBotNotification,
+    IgClient,
+    InstagramBotMessage,
+    InstagramBotSettings,
+    InstagramBotTaskHeartbeat,
+)
+from management.ig_bot_models import IgConversationAnalysisJob
 from management.services.ig_task_health import (
     TASK_SPECS,
     check_task_health,
@@ -14,6 +21,7 @@ from management.services.ig_task_health import (
     mark_task_succeeded,
     task_health_snapshot,
     task_heartbeat,
+    release_queue_snapshot,
 )
 
 
@@ -140,3 +148,37 @@ class BotHealthEndpointTests(TestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["status"], "degraded")
+
+    def test_public_endpoint_reports_dangerous_queues_and_analysis_failures(self):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = False
+        settings.save(update_fields=["is_enabled", "updated_at"])
+        self._make_all_tasks_healthy()
+        client = IgClient.objects.create(igsid="release-health-queue-client")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            status=InstagramBotMessage.Status.PENDING,
+            text="pending inbound",
+        )
+        IgBotNotification.objects.create(
+            client=client,
+            event_type="release-health",
+            dedupe_key="release-health-queue",
+            status=IgBotNotification.Status.UNKNOWN,
+        )
+        IgConversationAnalysisJob.objects.create(
+            client=client,
+            status=IgConversationAnalysisJob.Status.FAILED,
+        )
+
+        snapshot = release_queue_snapshot()
+        self.assertEqual(snapshot["dangerous_backlog"], 2)
+        self.assertEqual(snapshot["analysis_failed"], 1)
+
+        response = self.client.get("/bot/health/", HTTP_HOST="management.twocomms.shop", secure=True)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["queues"]["dangerous_backlog"], 2)
+        self.assertEqual(response.json()["queues"]["analysis_failed"], 1)

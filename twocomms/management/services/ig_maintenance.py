@@ -6,6 +6,7 @@ import fcntl
 import json
 import math
 import os
+import re
 import tempfile
 import threading
 import time
@@ -21,6 +22,7 @@ NOTIFICATION_SEND_LOCK_FILE = str(PROJECT_ROOT / "tmp" / "ig_bot_notification_se
 DEFAULT_MAINTENANCE_SECONDS = 15 * 60
 MAX_MAINTENANCE_SECONDS = 60 * 60
 MAX_CLOCK_SKEW_SECONDS = 300
+LEASE_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _THREAD_LOCK_STATE = threading.local()
 
 
@@ -137,12 +139,16 @@ def activate_maintenance(
     send_lock_path: str = NOTIFICATION_SEND_LOCK_FILE,
     duration_seconds: int = DEFAULT_MAINTENANCE_SECONDS,
     actor: str = "management-command",
+    requested_lease_id: str | None = None,
     now: float | None = None,
     max_seconds: int = MAX_MAINTENANCE_SECONDS,
 ) -> dict:
     """Atomically publish a bounded, single-owner maintenance lease."""
     started_at = float(time.time() if now is None else now)
     duration = _bounded_duration(duration_seconds, max_seconds=max_seconds)
+    requested = str(requested_lease_id or "")
+    if requested and not LEASE_ID_RE.fullmatch(requested):
+        raise ValueError("requested maintenance lease id is invalid")
     with _exclusive_file_lock(lock_path):
         with _exclusive_file_lock(send_lock_path):
             existing = maintenance_status(path=path, now=started_at, max_seconds=max_seconds)
@@ -152,7 +158,7 @@ def activate_maintenance(
                 )
             payload = {
                 "version": 1,
-                "lease_id": uuid.uuid4().hex,
+                "lease_id": requested or uuid.uuid4().hex,
                 "started_at": started_at,
                 "expires_at": started_at + duration,
                 "actor": str(actor or "management-command")[:80],

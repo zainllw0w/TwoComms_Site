@@ -231,6 +231,74 @@ def task_health_snapshot(*, now=None) -> dict:
     }
 
 
+def release_queue_snapshot() -> dict:
+    """Return sanitized release-boundary queue counts, without customer data."""
+    from management.models import IgBotNotification, InstagramBotMessage
+    from management.ig_bot_models import IgAiReplyRecoveryJob, IgConversationAnalysisJob
+
+    try:
+        inbound_pending = InstagramBotMessage.objects.filter(
+            role=InstagramBotMessage.Role.USER,
+            status__in=(InstagramBotMessage.Status.PENDING, InstagramBotMessage.Status.PROCESSING),
+        ).count()
+        reply_pending = InstagramBotMessage.objects.filter(
+            role=InstagramBotMessage.Role.MODEL,
+            status__in=(InstagramBotMessage.Status.PENDING, InstagramBotMessage.Status.PROCESSING),
+        ).count()
+        notification_unresolved = IgBotNotification.objects.filter(
+            status__in=(
+                IgBotNotification.Status.PENDING,
+                IgBotNotification.Status.SENDING,
+                IgBotNotification.Status.UNKNOWN,
+                IgBotNotification.Status.FAILED,
+                IgBotNotification.Status.DEAD_LETTER,
+            )
+        ).count()
+        analysis_pending = IgConversationAnalysisJob.objects.filter(
+            status__in=(
+                IgConversationAnalysisJob.Status.PENDING,
+                IgConversationAnalysisJob.Status.PROCESSING,
+            )
+        ).count()
+        recovery_unresolved = IgAiReplyRecoveryJob.objects.filter(
+            status__in=(
+                IgAiReplyRecoveryJob.Status.PENDING,
+                IgAiReplyRecoveryJob.Status.PROCESSING,
+                IgAiReplyRecoveryJob.Status.SENDING,
+                IgAiReplyRecoveryJob.Status.AMBIGUOUS,
+                IgAiReplyRecoveryJob.Status.FAILED,
+            )
+        ).count()
+        analysis_failed = IgConversationAnalysisJob.objects.filter(
+            status=IgConversationAnalysisJob.Status.FAILED
+        ).count()
+    except (DatabaseError, OperationalError, ProgrammingError) as exc:
+        return {
+            "available": False,
+            "dangerous_backlog": 0,
+            "analysis_failed": 0,
+            "error": type(exc).__name__,
+        }
+
+    dangerous_backlog = (
+        inbound_pending
+        + reply_pending
+        + notification_unresolved
+        + analysis_pending
+        + recovery_unresolved
+    )
+    return {
+        "available": True,
+        "dangerous_backlog": dangerous_backlog,
+        "inbound_pending": inbound_pending,
+        "reply_pending": reply_pending,
+        "notification_unresolved": notification_unresolved,
+        "analysis_pending": analysis_pending,
+        "recovery_unresolved": recovery_unresolved,
+        "analysis_failed": analysis_failed,
+    }
+
+
 def check_task_health(*, now=None) -> dict:
     """Alert once per hour when one or more expected operational tasks are bad."""
     snapshot = task_health_snapshot(now=now)
