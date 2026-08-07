@@ -37,11 +37,13 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
         from scripts.verify_locked_requirements import LockParseError, parse_lock
 
         bad_locks = (
+            "\n# comments only\n  # still empty\n",
             "requests>=2.0\n",
             "-r other-requirements.txt\n",
             "example @ git+https://github.com/example/example.git@abc123\n",
             "-e ./local-package\n",
             "Django==5.2.11\ndjango==5.2.10\n",
+            "Django==5.2.11; python_version >= '3.14' --no-index\n",
         )
         for lock in bad_locks:
             with self.subTest(lock=lock):
@@ -153,7 +155,7 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
 
         with TemporaryDirectory() as directory:
             lock_path = Path(directory) / "requirements.lock"
-            lock_path.write_text("Django>=5.2\n", encoding="utf-8")
+            lock_path.write_text("\n# comments only\n", encoding="utf-8")
             output = io.StringIO()
             with redirect_stdout(output):
                 self.assertEqual(main(["--lock", str(lock_path)]), 2)

@@ -14,6 +14,7 @@ import importlib.metadata as metadata
 import json
 import platform
 import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Iterable, Mapping
@@ -84,6 +85,18 @@ def _reject_unsupported(line: str, line_number: int) -> None:
         raise LockParseError(f"line {line_number}: local requirements are not allowed")
 
 
+def _validate_marker(marker: str, line_number: int) -> None:
+    marker = _HASH_OPTION.sub("", marker).strip()
+    if not marker:
+        raise LockParseError(f"line {line_number}: empty environment marker")
+    try:
+        marker_tokens = shlex.split(marker)
+    except ValueError as exc:
+        raise LockParseError(f"line {line_number}: malformed environment marker") from exc
+    if any(token.startswith("--") for token in marker_tokens):
+        raise LockParseError(f"line {line_number}: unsupported marker option")
+
+
 def parse_lock(text: str) -> dict[str, str]:
     """Parse exact ``name==version`` entries from lock text.
 
@@ -115,11 +128,7 @@ def parse_lock(text: str) -> dict[str, str]:
             if remainder.startswith(";"):
                 # Markers are allowed only because the requirement itself was
                 # already matched by the exact-pin expression above.
-                remainder = remainder[1:].strip()
-                if not remainder:
-                    raise LockParseError(f"line {line_number}: empty environment marker")
-                # The marker expression is intentionally opaque to this
-                # verifier.  Hash options may follow it on a continuation.
+                _validate_marker(remainder[1:], line_number)
                 remainder = ""
             else:
                 remainder = _HASH_OPTION.sub("", remainder).strip()
@@ -130,6 +139,8 @@ def parse_lock(text: str) -> dict[str, str]:
         if previous is not None and previous != version:
             raise LockParseError(f"line {line_number}: conflicting versions for {name}")
         requirements[name] = version
+    if not requirements:
+        raise LockParseError("lock contains no exact requirements")
     return requirements
 
 
