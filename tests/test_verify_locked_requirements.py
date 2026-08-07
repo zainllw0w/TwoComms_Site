@@ -41,6 +41,7 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
             "requests>=2.0\n",
             "-r other-requirements.txt\n",
             "example @ git+https://github.com/example/example.git@abc123\n",
+            "example @ https://example.test/example.whl\n",
             "-e ./local-package\n",
             "Django==5.2.11\ndjango==5.2.10\n",
             "Django==5.2.11; python_version >= '3.14' --no-index\n",
@@ -145,6 +146,34 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
         ) + "\n"
 
         self.assertEqual(len(parse_lock(lock)), 6)
+
+    def test_accepts_even_backslashes_before_marker_closing_quotes(self):
+        from scripts.verify_locked_requirements import parse_lock
+
+        lock = "\n".join(
+            (
+                r"marker-even-single==1; python_version == 'a\\'",
+                r'''marker-even-double==1; python_version == "a\\"''',
+            )
+        ) + "\n"
+
+        self.assertEqual(len(parse_lock(lock)), 2)
+
+    def test_ignores_reference_like_marker_strings_but_rejects_real_references(self):
+        from scripts.verify_locked_requirements import LockParseError, parse_lock
+
+        lock = "\n".join(
+            (
+                "marker-git==1; python_version == 'x git+foo'",
+                "marker-hg==1; python_version == 'x hg+foo'",
+                "marker-url==1; python_version == 'x @ https://foo'",
+                "marker-local==1; python_version == 'x @ ./foo'",
+            )
+        ) + "\n"
+        self.assertEqual(len(parse_lock(lock)), 4)
+
+        with self.assertRaises(LockParseError):
+            parse_lock("example @ https://example.test/example.whl\n")
 
     @patch("scripts.verify_locked_requirements.metadata.version")
     @patch("scripts.verify_locked_requirements.metadata.distributions")

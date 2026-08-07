@@ -138,8 +138,15 @@ def _tokenize_marker(marker: str, line_number: int) -> list[_MarkerToken]:
             index += 1
             value: list[str] = []
             while index < len(marker) and marker[index] != quote:
-                if marker[index] == "\\" and index + 1 < len(marker) and marker[index + 1] == quote:
-                    raise LockParseError(f"line {line_number}: backslashes are not allowed in marker strings")
+                if marker[index] == "\\":
+                    run_start = index
+                    while index < len(marker) and marker[index] == "\\":
+                        index += 1
+                    run_length = index - run_start
+                    if index < len(marker) and marker[index] == quote and run_length % 2:
+                        raise LockParseError(f"line {line_number}: backslash escapes marker delimiter")
+                    value.extend("\\" * run_length)
+                    continue
                 value.append(marker[index])
                 index += 1
             if index >= len(marker):
@@ -264,7 +271,7 @@ def parse_lock(text: str) -> dict[str, str]:
         line = _INLINE_COMMENT.sub("", line).strip()
         if not line:
             continue
-        _reject_unsupported(line, line_number)
+        _reject_unsupported(line.split(";", 1)[0].rstrip(), line_number)
 
         match = LOCKED_REQUIREMENT.match(line)
         if not match:
