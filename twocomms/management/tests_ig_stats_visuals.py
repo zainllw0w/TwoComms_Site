@@ -1031,12 +1031,116 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
         for contract in (
             "const source=(data&&data.funnel||[])",
             "const monotonic=source.every",
-            "const drops=model.monotonic?",
+            "const explicitLosses=rows.map",
             "Окремі події · без оцінки відсіву",
             "renderFunnel(analytics,previousAnalytics",
         ):
             self.assertIn(contract, self.template)
         self.assertNotIn("t.funnel_conversations", self.template)
+
+    def test_flow_map_exposes_truthful_step_facts_without_fake_fill(self):
+        for contract in (
+            "function renderFlowMap",
+            "bot-stats-flow-map",
+            "bot-stats-flow-lane",
+            "data-flow-step",
+            "data-flow-detail",
+            "data-flow-entered",
+            "data-flow-advanced",
+            "data-flow-drop-off",
+            "data-flow-in-progress",
+            "data-flow-cr-percent",
+            "data-flow-low-sample",
+            "flowRows(data)",
+            "explicitBottleneck",
+            "Math.max(0,row.dropOff)",
+            "const isPaid=Boolean(isPaidStage&&row.count)",
+            "data-flow-scale",
+            "style=\"--flow-width:0%\"",
+            "Втрачено на етапі",
+            "Окремі події · без оцінки відсіву",
+            ".bot-stats-flow-step.has-value .bot-stats-flow-fill{min-width:4px",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn("row.count-next.count", self.template)
+        self.assertNotIn("row.key.replace(/_/g,' ')", self.template)
+
+    def test_flow_map_interaction_has_keyboard_close_and_reduced_motion(self):
+        for contract in (
+            "toggleFlowStep",
+            "clearFlowSelection",
+            "data-flow-detail-label",
+            "data-flow-detail-value",
+            "event.key==='Escape'&&flowActive",
+            ".bot-stats-flow-step.is-active",
+            ".bot-stats-flow-connector",
+            ".bot-stats-flow-step",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn(
+            ".bot-stats-flow-step,.bot-stats-flow-connector",
+            self.template.split("@media(prefers-reduced-motion:reduce)", 1)[1],
+        )
+
+    def test_flow_map_groups_steps_and_connectors_into_a_compact_desktop_grid(self):
+        for contract in (
+            "bot-stats-flow-lane-track",
+            ".bot-stats-flow-lane-track{display:grid;grid-template-columns:repeat(var(--flow-lane-count,5),minmax(0,1fr))",
+            ".bot-stats-flow-step:last-child .bot-stats-flow-connector",
+            ".bot-stats-analysis-grid.has-flow-map",
+            'bot-stats-analysis-grid has-flow-map',
+            'bot-stats-ad-grid has-flow-map',
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(
+            "grid-template-columns:repeat(var(--flow-count,1)",
+            self.template,
+        )
+
+    def test_flow_map_uses_selected_range_for_single_day_density(self):
+        for contract in (
+            "const rangeDays=rangeMode==='all'?30:Math.max(1,num(data&&data.range_days||rangeSpan))",
+            "data-flow-range-days",
+            ".bot-stats-flow-map.is-single .bot-stats-flow-step{min-height:96px",
+            ".bot-stats-flow-map.is-single .bot-stats-flow-count{font-size:18px",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_flow_map_single_day_keeps_mobile_nodes_readable(self):
+        self.assertIn(
+            ".bot-stats-flow-map.is-single .bot-stats-flow-lane-track{grid-template-columns:repeat(2",
+            self.template,
+        )
+
+    def test_flow_map_derives_custom_range_span_when_api_range_days_is_zero(self):
+        for contract in (
+            "const rangeStart=String(data&&data.date_from||period.date_from||'')",
+            "const rangeEnd=String(data&&data.date_to||period.date_to||'')",
+            "Date.parse(rangeEnd+'T00:00:00Z')",
+            "const rangeSpan=rangeStart&&rangeEnd?Math.max(1",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_flow_map_collapses_completely_empty_ranges(self):
+        for contract in (
+            "const hasFacts=rows.some",
+            "За вибраний період подій ще не зафіксовано",
+            "if(!hasFacts)return",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_flow_map_keeps_all_time_in_dense_overview_density(self):
+        for contract in (
+            "const rangeMode=String(data&&data.range_mode||period.mode||'preset')",
+            "rangeMode==='all'?30:",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_bot_stats_uses_available_width_on_narrow_shell(self):
+        self.assertIn(
+            ".management-body[data-url-name=\"management_bot\"] .content-area{padding:16px 10px 24px",
+            self.template,
+        )
 
     def test_activity_uses_density_modes_and_a_single_composition_ring(self):
         for contract in (

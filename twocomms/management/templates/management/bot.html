@@ -216,11 +216,64 @@
 .bot-stats-ring-segment span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9.5px;font-weight:750;}
 .bot-stats-ring-segment strong{font-size:10px;font-variant-numeric:tabular-nums;}
 .bot-stats-analysis-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:10px;margin-bottom:10px;}
+.bot-stats-analysis-grid.has-flow-map,.bot-stats-ad-grid.has-flow-map{grid-template-columns:minmax(0,1fr);}
 .bot-stats-analysis-card{min-width:0;border:1px solid #202a39;border-radius:8px;background:#0d131c;padding:14px;animation:botStatsReveal var(--stats-motion-medium) var(--stats-ease) both;animation-delay:calc(var(--reveal-order,0) * 34ms);}
 .bot-stats-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:13px;}
 .bot-card .bot-stats-section-title{margin:0;color:#dbe3ec;font-size:12px;font-weight:800;line-height:1.35;text-transform:none;}
 .bot-stats-section-meta{color:#6f7d91;font-size:9.5px;font-weight:700;line-height:1.35;text-align:right;}
 .bot-stats-funnel,.bot-stats-ranked-list{display:grid;gap:10px;}
+.bot-stats-flow-map{--flow-accent:#60a5fa;display:grid;gap:11px;min-width:0;}
+.bot-stats-flow-track{display:grid;gap:10px;min-width:0;padding-top:1px;}
+.bot-stats-flow-lane{display:grid;gap:6px;min-width:0;}
+.bot-stats-flow-lane-head{display:flex;align-items:center;gap:7px;color:#728198;font-size:8.5px;font-weight:800;line-height:1.2;}
+.bot-stats-flow-lane-head::after{content:'';height:1px;flex:1;background:#202c3b;}
+.bot-stats-flow-lane-head b{display:grid;place-items:center;width:16px;height:16px;border:1px solid #304158;border-radius:5px;color:#8ba4c2;font-size:8px;font-variant-numeric:tabular-nums;}
+.bot-stats-flow-lane-track{display:grid;grid-template-columns:repeat(var(--flow-lane-count,5),minmax(0,1fr));align-items:stretch;gap:8px;min-width:0;}
+.bot-stats-flow-step{--flow-step-color:#54647a;position:relative;display:grid;grid-template-rows:auto auto minmax(24px,auto) auto auto;gap:5px;min-width:0;min-height:112px;border:1px solid #243044;border-radius:8px;background:#0b121b;color:#dbe5f0;padding:8px 8px 7px;text-align:left;cursor:pointer;transition:background var(--stats-motion-fast) var(--stats-ease),border-color var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease),opacity var(--stats-motion-fast) var(--stats-ease),box-shadow var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-flow-step:hover,.bot-stats-flow-step:focus-visible{border-color:#45617f;background:#111c29;outline:0;transform:translateY(-1px);}
+.bot-stats-flow-step.is-active{border-color:var(--flow-step-color,#60a5fa);box-shadow:0 0 0 1px color-mix(in srgb,var(--flow-step-color,#60a5fa) 35%,transparent),0 8px 18px rgba(0,0,0,.2);}
+.bot-stats-flow-step.is-dim{opacity:.46;}
+.bot-stats-flow-step.has-value{--flow-step-color:#60a5fa;}
+.bot-stats-flow-step.is-paid{--flow-step-color:#34d399;}
+.bot-stats-flow-step.is-bottleneck{--flow-step-color:#f59e0b;}
+.bot-stats-flow-index{display:flex;align-items:center;justify-content:space-between;gap:6px;color:#75849a;font-size:8.5px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;}
+.bot-stats-flow-node{display:inline-grid;place-items:center;width:17px;height:17px;border:1px solid color-mix(in srgb,var(--flow-step-color,#54647a) 62%,#2b3749);border-radius:6px;background:color-mix(in srgb,var(--flow-step-color,#54647a) 12%,#101722);color:var(--flow-step-color,#90a0b5);font-size:9px;}
+.bot-stats-flow-kind{overflow:hidden;color:#6e7e93;font-size:7.5px;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-flow-count{display:block;color:#f1f5f9;font-size:21px;font-weight:850;line-height:1;font-variant-numeric:tabular-nums;}
+.bot-stats-flow-label{display:block;overflow:hidden;color:#aebacc;font-size:9.5px;font-weight:800;line-height:1.25;text-overflow:ellipsis;}
+.bot-stats-flow-rail{position:relative;height:5px;overflow:hidden;border-radius:3px;background:#1a2635;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);}
+.bot-stats-flow-fill{display:block;width:var(--flow-width,0%);height:100%;border-radius:inherit;background:var(--flow-step-color,#60a5fa);transition:width var(--stats-motion-slow) var(--stats-ease);}
+.bot-stats-flow-step.has-value .bot-stats-flow-fill{min-width:4px;}
+.bot-stats-flow-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;min-width:0;color:#74849a;font-size:7.5px;font-weight:750;line-height:1.1;}
+.bot-stats-flow-fact{display:flex;align-items:baseline;gap:3px;min-width:0;overflow:hidden;}
+.bot-stats-flow-fact b{color:#70d4c5;font-size:9px;font-variant-numeric:tabular-nums;}
+.bot-stats-flow-fact small{overflow:hidden;font:inherit;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-flow-fact.is-loss b{color:#e4b15b;}
+.bot-stats-flow-connector{position:absolute;z-index:2;top:46px;left:100%;width:9px;height:2px;background:#2c4254;pointer-events:none;transition:background var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-flow-connector::after{content:'';position:absolute;top:50%;right:1px;width:5px;height:5px;border-top:1px solid #5d8290;border-right:1px solid #5d8290;transform:translateY(-50%) rotate(45deg);}
+.bot-stats-flow-step.has-advance .bot-stats-flow-connector{background:#2b746f;}
+.bot-stats-flow-step:last-child .bot-stats-flow-connector{display:none;}
+.bot-stats-flow-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;border-top:1px solid #202c3b;color:#7c8ca1;font-size:9px;font-weight:750;line-height:1.3;}
+.bot-stats-flow-summary>span{min-width:0;padding:8px 9px 0;text-align:center;}
+.bot-stats-flow-summary>span+span{border-left:1px solid #202c3b;}
+.bot-stats-flow-summary strong{color:#c8d4e2;font-size:10px;font-variant-numeric:tabular-nums;}
+.bot-stats-flow-summary .is-warning{color:#e7b45b;}
+.bot-stats-flow-detail{display:grid;grid-template-columns:minmax(92px,.75fr) minmax(0,2fr) auto;align-items:center;gap:10px;border:1px solid #30445f;border-radius:8px;background:#0b1420;color:#b8c7d8;padding:9px 10px;font-size:9.5px;line-height:1.3;animation:botStatsReveal var(--stats-motion-fast) var(--stats-ease) both;}
+.bot-stats-flow-detail[hidden]{display:none;}
+.bot-stats-flow-detail strong{color:#edf4fb;font-size:10.5px;}
+.bot-stats-flow-detail-value{display:flex;flex-wrap:wrap;gap:6px 10px;justify-content:flex-end;color:#9db1c8;font-variant-numeric:tabular-nums;}
+.bot-stats-flow-detail-value span{display:inline-flex;align-items:baseline;gap:3px;white-space:nowrap;}
+.bot-stats-flow-detail-value b{color:#e5edf7;font-size:10px;}
+.bot-stats-flow-detail-value small{color:#71839a;font:inherit;}
+.bot-stats-flow-detail-hint{color:#71839a;font-size:8.5px;white-space:nowrap;}
+.bot-stats-flow-map.is-sparse .bot-stats-flow-step{padding-top:8px;padding-bottom:7px;}
+.bot-stats-flow-map.is-sparse .bot-stats-flow-count{font-size:18px;}
+.bot-stats-flow-map.is-sparse .bot-stats-flow-label{font-size:8.8px;}
+.bot-stats-flow-map.is-single .bot-stats-flow-lane-track{grid-template-columns:repeat(var(--flow-lane-count,5),minmax(0,1fr));gap:6px;}
+.bot-stats-flow-map.is-single .bot-stats-flow-connector{display:none;}
+.bot-stats-flow-map.is-single .bot-stats-flow-step{min-height:96px;padding:6px 7px 5px;gap:4px;}
+.bot-stats-flow-map.is-single .bot-stats-flow-count{font-size:18px;}
+.bot-stats-flow-map.is-single .bot-stats-flow-facts{gap:3px;font-size:7px;}
 .bot-stats-bottleneck{display:inline-flex;align-items:center;gap:5px;max-width:210px;border:1px solid #5e4219;border-radius:6px;background:#21170b;color:#e7b45b;padding:5px 7px;font-size:9px;font-weight:800;line-height:1.2;text-align:left;}
 .bot-stats-bottleneck::before{content:'↓';display:grid;place-items:center;width:14px;height:14px;border-radius:4px;background:#3a270e;color:#fbbf24;}
 .bot-stats-funnel-row.is-bottleneck .bot-stats-bar-rail{box-shadow:0 0 0 1px rgba(245,158,11,.35),inset 0 0 0 1px rgba(255,255,255,.025);}
@@ -877,6 +930,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-apply{grid-column:1/-1;width:100%}
 }
 @media(max-width:560px){
+  .management-body[data-url-name="management_bot"] .content-area{padding:16px 10px 24px;}
   .bot-stats-view-switcher{max-width:none;width:100%}
   .bot-stats-view-btn{padding-right:7px;padding-left:7px;white-space:normal}
   .bot-stats-kpi-grid{grid-template-columns:minmax(0,1fr)}
@@ -904,6 +958,16 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-activity-columns.density-daily{height:118px}
   .bot-stats-activity-columns.density-weekly{height:128px}
   .bot-stats-activity-columns.density-monthly{height:132px}
+  .bot-stats-flow-lane-track{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+  .bot-stats-flow-map.is-single .bot-stats-flow-lane-track{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+  .bot-stats-flow-lane-track>.bot-stats-flow-step:last-child:nth-child(odd){grid-column:1/-1;}
+  .bot-stats-flow-connector{display:none;}
+  .bot-stats-flow-step{padding:8px 7px 7px;}
+  .bot-stats-flow-count{font-size:19px;}
+  .bot-stats-flow-label{font-size:9px;}
+  .bot-stats-flow-detail{grid-template-columns:1fr;align-items:start;}
+  .bot-stats-flow-detail-value{justify-content:flex-start;}
+  .bot-stats-flow-detail-hint{display:none;}
   .bot-stats-composition-body{grid-template-columns:96px minmax(0,1fr);gap:10px;min-height:118px}
   .bot-stats-composition-ring{width:96px}
   .bot-stats-composition-ring::after{inset:15px}
@@ -918,6 +982,11 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-ad-signal-step:nth-child(3n)::before{display:none}
   .bot-stats-reason-row{grid-template-columns:minmax(0,1fr) auto;}
   .bot-stats-reason-row span:nth-of-type(2),.bot-stats-reason-row span:nth-of-type(3){display:none}
+}
+@media(max-width:360px){
+  .management-body[data-url-name="management_bot"] .global-header{padding-inline:10px;}
+  .management-body[data-url-name="management_bot"] .header-tabs{gap:6px;}
+  .management-body[data-url-name="management_bot"] .header-tabs .tab{font-size:12px;padding-inline:4px;}
 }
 @media(max-width:390px){
   .bot-stats-periods{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-columns:auto}
@@ -949,6 +1018,12 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-ad-signal-label{font-size:9px;}
 }
 @media(max-width:340px){
+  .bot-stats-flow-lane-track{gap:5px;}
+  .bot-stats-flow-step{padding:7px 6px;}
+  .bot-stats-flow-count{font-size:17px;}
+  .bot-stats-flow-label{font-size:8.5px;}
+  .bot-stats-flow-facts{gap:4px;font-size:7.5px;}
+  .bot-stats-flow-fact b{font-size:8.5px;}
   .bot-stats-attribution-body{grid-template-columns:82px minmax(0,1fr);gap:8px}
   .bot-stats-attribution-ring{width:82px}
   .bot-stats-attribution-ring::after{inset:13px}
@@ -957,7 +1032,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-attribution-segment strong{font-size:9px}
   .bot-stats-attribution-segment span{font-size:9px}
 }
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-context-step,.bot-stats-context-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active,.bot-stats-context-step:hover,.bot-stats-context-step:focus-visible,.bot-stats-context-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter,.bot-stats-flow-detail{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-context-step,.bot-stats-context-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row,.bot-stats-flow-step,.bot-stats-flow-connector{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active,.bot-stats-context-step:hover,.bot-stats-context-step:focus-visible,.bot-stats-context-step.is-active,.bot-stats-flow-step:hover,.bot-stats-flow-step:focus-visible,.bot-stats-flow-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -2771,6 +2846,7 @@ body.bot-drawer-open{overflow:hidden;}
     let requestGeneration=0;
     let openHelpTrigger=null;
     let openActivityColumn=null;
+    let openFlowStep=null;
     let appliedSelection={mode:'preset',days:7,dateFrom:'',dateTo:''};
     let pendingSelection=null;
     let retrySelection=null;
@@ -2912,21 +2988,31 @@ body.bot-drawer-open{overflow:hidden;}
       const steps=specs.map(spec=>{const value=Math.max(0,num(values[spec.key]));const share=population?Math.round(value*100/population):0;const width=Math.min(100,share);return '<button type="button" class="bot-stats-context-step'+(value?' has-value':'')+'" data-context-step="'+spec.key+'" data-context-label="'+esc(spec.detail)+'" data-context-count="'+value+'" data-context-percent="'+share+'" data-context-population="'+population+'" aria-controls="bot-stats-context-detail" aria-pressed="false" aria-label="'+esc(spec.detail)+': '+numberFormat.format(value)+', '+share+' відсотків від усіх діалогів" style="--context-width:0%"><span class="bot-stats-context-node" aria-hidden="true"></span><strong class="bot-stats-context-count">'+numberFormat.format(value)+'</strong><span class="bot-stats-context-label">'+esc(spec.label)+'</span><span class="bot-stats-context-rail" aria-hidden="true"><span class="bot-stats-context-fill" data-context-width="'+width+'"></span></span></button>';}).join('');
       return '<section class="bot-stats-context-bridge" data-context-population="'+population+'" aria-label="Загальний потік · реклама ще не підтверджена"><div class="bot-stats-context-head"><div><h4>Загальний потік</h4><span>Загальний потік · реклама ще не підтверджена</span></div><strong class="bot-stats-context-status">Потрібна рекламна прив’язка</strong></div><div class="bot-stats-context-path">'+steps+'</div><div id="bot-stats-context-detail" class="bot-stats-context-detail" data-context-detail role="status" aria-live="polite" hidden><strong data-context-detail-label></strong><span data-context-detail-value></span></div></section>';
     }
-    function funnelRows(data){
-      const source=(data&&data.funnel||[]).map((row,index)=>({key:String(row.step||index),label:String(row.label||row.step||'Подія'),count:num(row.entered)}));
+    function flowRows(data){
+      const source=(data&&data.funnel||[]).map((row,index)=>({key:String(row.step||index),label:String(row.label||row.step||'Подія'),count:num(row.entered),advanced:num(row.advanced),dropOff:num(row.drop_off),inProgress:num(row.in_progress),crPercent:row.cr_percent===null||row.cr_percent===undefined?null:num(row.cr_percent),lowSample:Boolean(row.low_sample)}));
       const first=source.length?source[0].count:0;const max=Math.max(0,...source.map(row=>row.count));
       const monotonic=source.every((row,index)=>index===0||row.count<=source[index-1].count);
-      return {monotonic:monotonic,rows:source.map(row=>({...row,percent:first?Math.round(row.count*100/first):0,width:max?Math.round(row.count*100/max):0}))};
+      const rows=source.map(row=>{const percent=monotonic&&first?Math.round(row.count*100/first):null;const width=monotonic&&first?Math.round(row.count*100/first):(max?Math.round(row.count*100/max):0);return {...row,percent,width:Math.max(0,Math.min(100,width))};});
+      const explicitLosses=rows.map((row,index)=>({index,row,loss:Math.max(0,row.dropOff)})).filter(item=>item.loss>0).sort((a,b)=>b.loss-a.loss);
+      const explicitBottleneck=explicitLosses[0]||null;
+      return {monotonic,first,max,rows,explicitBottleneck};
     }
+    function funnelRows(data){return flowRows(data);}
     function barWidth(previousRows,key){const row=(previousRows||[]).find(item=>item.key===key);return row?row.width:0;}
-    function renderFunnel(data,previous,title='Шлях до оплати'){
-      const model=funnelRows(data);const rows=model.rows;const previousRows=previous?funnelRows(previous).rows:[];
-      const drops=model.monotonic?rows.slice(1).map((row,index)=>({index:index+1,from:rows[index],to:row,drop:Math.max(0,rows[index].count-row.count)})):[];
-      const bottleneck=drops.sort((a,b)=>b.drop-a.drop)[0];
-      const bottleneckMarkup=bottleneck&&bottleneck.drop?'<span class="bot-stats-bottleneck" title="Найбільше абсолютне падіння між сусідніми подіями">'+esc(bottleneck.from.label)+' → '+esc(bottleneck.to.label)+' · −'+numberFormat.format(bottleneck.drop)+'</span>':'<span class="bot-stats-section-meta">'+(model.monotonic?'Частка від першої події':'Окремі події · без оцінки відсіву')+'</span>';
-      const body=rows.length?rows.map((row,index)=>'<div class="bot-stats-funnel-row'+(bottleneck&&bottleneck.index===index?' is-bottleneck':'')+'"><span class="bot-stats-bar-label">'+esc(row.label)+'</span><span class="bot-stats-bar-rail" aria-hidden="true"><span class="bot-stats-bar-fill" data-target-width="'+row.width+'" style="--bar-width:'+barWidth(previousRows,row.key)+'%"></span></span><span class="bot-stats-bar-value" data-stats-percent="'+row.percent+'">'+numberFormat.format(row.count)+(model.monotonic?' <span>· '+row.percent+'%</span>':'')+'</span></div>').join(''):'<div class="bot-stats-empty-analysis">Події воронки за вибраний період ще не зафіксовані.</div>';
-      return '<section class="bot-stats-analysis-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3>'+bottleneckMarkup+'</div><div class="bot-stats-funnel">'+body+'</div></section>';
+    function renderFlowMap(data,previous,title='Шлях до оплати'){
+      const model=flowRows(data);const rows=model.rows;const hasFacts=rows.some(row=>row.count||row.advanced||row.dropOff||row.inProgress);const previousRows=previous?flowRows(previous).rows:[];const period=data&&data.period||{};const rangeMode=String(data&&data.range_mode||period.mode||'preset');const rangeStart=String(data&&data.date_from||period.date_from||'');const rangeEnd=String(data&&data.date_to||period.date_to||'');const rangeSpan=rangeStart&&rangeEnd?Math.max(1,Math.round((Date.parse(rangeEnd+'T00:00:00Z')-Date.parse(rangeStart+'T00:00:00Z'))/86400000)+1):1;const rangeDays=rangeMode==='all'?30:Math.max(1,num(data&&data.range_days||rangeSpan));const density=rangeDays<=1?'single':rangeDays<=7?'compact':'dense';
+      const bottleneck=model.explicitBottleneck;
+      const bottleneckMarkup=bottleneck?'<span class="bot-stats-bottleneck" title="Підтверджений відсів, зафіксований на цьому етапі">Втрачено на етапі · '+esc(bottleneck.row.label)+' · −'+numberFormat.format(bottleneck.loss)+'</span>':'<span class="bot-stats-section-meta">'+(model.monotonic?'Переходи між сусідніми етапами':'Окремі події · без оцінки відсіву')+'</span>';
+      const emptyMarkup='<section class="bot-stats-analysis-card bot-stats-flow-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">0 фактів</span></div><div class="bot-stats-empty-analysis">За вибраний період подій ще не зафіксовано.</div></section>';
+      if(!hasFacts)return emptyMarkup;
+      if(!rows.length)return emptyMarkup;
+      const laneSize=5;const scale=model.monotonic?'start':'max';
+      const stepMarkup=(row,index)=>{const isBottleneck=Boolean(bottleneck&&bottleneck.index===index);const isPaidStage=/payment_confirmed|order_created|ttn_created|delivered/.test(row.key);const isPaid=Boolean(isPaidStage&&row.count);const shareValid=model.monotonic&&!row.lowSample&&row.crPercent!==null;const shareLabel=shareValid?row.crPercent+'% перейшли далі':(model.monotonic&&row.lowSample?'мала вибірка':'окремий сигнал');const connector=(index+1)%laneSize&&index<rows.length-1?'<span class="bot-stats-flow-connector" aria-hidden="true"></span>':'';return '<button type="button" class="bot-stats-flow-step'+(row.count?' has-value':' is-zero')+(row.advanced?' has-advance':'')+(isPaid?' is-paid':'')+(isBottleneck?' is-bottleneck':'')+'" data-flow-step="'+esc(row.key)+'" data-flow-label="'+esc(row.label)+'" data-flow-entered="'+row.count+'" data-flow-advanced="'+row.advanced+'" data-flow-drop-off="'+row.dropOff+'" data-flow-in-progress="'+row.inProgress+'" data-flow-percent="'+(row.percent===null?'':row.percent)+'" data-flow-cr-percent="'+(shareValid?row.crPercent:'')+'" data-flow-low-sample="'+(row.lowSample?'true':'false')+'" data-flow-population="'+model.first+'" data-flow-width="'+row.width+'" data-flow-scale="'+scale+'" aria-controls="bot-stats-flow-detail" aria-pressed="false" aria-label="'+esc(row.label)+': '+numberFormat.format(row.count)+' увійшли, '+numberFormat.format(row.advanced)+' перейшли, '+numberFormat.format(row.dropOff)+' втрачено, '+esc(shareLabel)+'" style="--flow-width:0%"><span class="bot-stats-flow-index"><span class="bot-stats-flow-node" aria-hidden="true">'+(index+1)+'</span><span class="bot-stats-flow-kind">'+(isPaidStage?'покупка':model.monotonic?'етап':'сигнал')+'</span></span><strong class="bot-stats-flow-count">'+numberFormat.format(row.count)+'</strong><span class="bot-stats-flow-label">'+esc(row.label)+'</span><span class="bot-stats-flow-rail" aria-hidden="true"><span class="bot-stats-flow-fill" data-flow-width="'+row.width+'" style="--flow-width:'+barWidth(previousRows,row.key)+'%"></span></span><span class="bot-stats-flow-facts"><span class="bot-stats-flow-fact"><b>'+numberFormat.format(row.advanced)+'</b><small>далі</small></span><span class="bot-stats-flow-fact is-loss"><b>'+numberFormat.format(row.dropOff)+'</b><small>відсів</small></span></span>'+connector+'</button>';};
+      const laneNames=['Діалог і вибір','Оплата й виконання'];const lanes=[];for(let start=0;start<rows.length;start+=laneSize){const laneRows=rows.slice(start,start+laneSize);const laneIndex=Math.floor(start/laneSize);lanes.push('<section class="bot-stats-flow-lane" aria-label="'+esc(laneNames[laneIndex]||'Продовження шляху')+'"><div class="bot-stats-flow-lane-head"><b>'+(laneIndex+1)+'</b><span>'+esc(laneNames[laneIndex]||'Продовження шляху')+'</span></div><div class="bot-stats-flow-lane-track" style="--flow-lane-count:'+Math.min(laneSize,laneRows.length)+'">'+laneRows.map((row,offset)=>stepMarkup(row,start+offset)).join('')+'</div></section>');}
+      const totalFacts=rows.reduce((sum,row)=>sum+row.count,0);const activeSteps=rows.filter(row=>row.count>0).length;const summary='<div class="bot-stats-flow-summary"><span>Старт <strong>'+numberFormat.format(model.first)+'</strong></span><span class="'+(bottleneck?'is-warning':'')+'">'+(bottleneck?'Макс. відсів −'+numberFormat.format(bottleneck.loss):'Відсів не зафіксовано')+'</span><span>Фактів <strong>'+numberFormat.format(totalFacts)+'</strong> · '+activeSteps+'/'+rows.length+'</span></div>';
+      return '<section class="bot-stats-analysis-card bot-stats-flow-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3>'+bottleneckMarkup+'</div><div class="bot-stats-flow-map '+(density==='single'?'is-single ':density==='dense'?'is-sparse ':'')+(!model.monotonic?'is-non-monotonic ':'')+'" data-flow-map data-flow-density="'+density+'" data-flow-range-days="'+rangeDays+'" data-flow-count="'+rows.length+'" data-flow-monotonic="'+(model.monotonic?'true':'false')+'" data-flow-scale="'+scale+'"><div class="bot-stats-flow-track">'+lanes.join('')+'</div>'+summary+'<div id="bot-stats-flow-detail" class="bot-stats-flow-detail" data-flow-detail role="status" aria-live="polite" hidden><strong data-flow-detail-label></strong><span class="bot-stats-flow-detail-value" data-flow-detail-value></span><span class="bot-stats-flow-detail-hint">Escape · закрити</span></div></div></section>';
     }
+    function renderFunnel(data,previous,title='Шлях до оплати'){return renderFlowMap(data,previous,title);}
     function seriesMap(data){return new Map((((data||{}).message_series||{}).items||[]).map(row=>[String(row.bucket),row]));}
     function activityDensity(series,data){
       const declared=String(data&&data.message_series&&data.message_series.density||'');
@@ -3055,7 +3141,7 @@ body.bot-drawer-open{overflow:hidden;}
       const campaigns=renderCampaigns(analytics.campaigns,previousAnalytics.campaigns);
       const funnel=(analytics.funnel||[]).some(row=>num(row.entered))?renderFunnel(analytics,previousAnalytics,'Події рекламної воронки'):'';
       const products=renderProductPerformance(analytics.products,previousAnalytics.products,{title:'Товари з рекламних діалогів',meta:'інтерес · підтверджені позиції',limit:7,revealOrder:7});
-      const analysis=funnel&&campaigns?'<div class="bot-stats-ad-grid">'+funnel+campaigns+'</div>':funnel||campaigns?'<div class="bot-stats-ad-single">'+(funnel||campaigns)+'</div>':'';
+      const analysis=funnel&&campaigns?'<div class="bot-stats-ad-grid has-flow-map">'+funnel+campaigns+'</div>':funnel||campaigns?'<div class="bot-stats-ad-single">'+(funnel||campaigns)+'</div>':'';
       return renderAdvertisingKpis(data,previous)+renderAdvertisingNotes(analytics)+attributionRow+renderAdContextBridge(data,analytics)+activity+analysis+products+renderAdDropOffs(analytics.drop_off_reasons);
     }
     function renderProductsView(data,previous){
@@ -3166,6 +3252,20 @@ body.bot-drawer-open{overflow:hidden;}
       step.classList.add('is-active');step.setAttribute('aria-pressed','true');module.querySelectorAll('[data-context-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
       if(detail){detail.hidden=false;const label=detail.querySelector('[data-context-detail-label]');const value=detail.querySelector('[data-context-detail-value]');if(label)label.textContent=step.dataset.contextLabel||'Показник';if(value)value.textContent=(step.dataset.contextCount||'0')+' · '+(step.dataset.contextPercent||'0')+'% від '+(step.dataset.contextPopulation||'0')+' загальних діалогів';}
     }
+    function clearFlowSelection(returnFocus=false){
+      if(!box)return;const map=box.querySelector('[data-flow-map]');if(!map)return;const active=map.querySelector('[data-flow-step].is-active');
+      map.querySelectorAll('[data-flow-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
+      const detail=map.querySelector('[data-flow-detail]');if(detail)detail.hidden=true;openFlowStep=null;
+      if(returnFocus&&active&&document.contains(active))active.focus({preventScroll:true});
+    }
+    function toggleFlowStep(step){
+      const map=step&&step.closest('[data-flow-map]');if(!map)return;const wasActive=step.classList.contains('is-active');
+      map.querySelectorAll('[data-flow-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
+      const detail=map.querySelector('[data-flow-detail]');
+      if(wasActive){if(detail)detail.hidden=true;openFlowStep=null;return;}
+      openFlowStep=step;step.classList.add('is-active');step.setAttribute('aria-pressed','true');map.querySelectorAll('[data-flow-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
+      if(detail){detail.hidden=false;const label=detail.querySelector('[data-flow-detail-label]');const value=detail.querySelector('[data-flow-detail-value]');if(label)label.textContent=step.dataset.flowLabel||'Етап';if(value){const conversion=map.dataset.flowMonotonic!=='true'?'<span><small>окремий сигнал · без конверсії</small></span>':step.dataset.flowLowSample==='true'?'<span><small>мала вибірка · частку приховано</small></span>':step.dataset.flowCrPercent?'<span><b>'+esc(step.dataset.flowCrPercent)+'%</b><small>перейшли далі</small></span>':'';value.innerHTML='<span><b>'+numberFormat.format(num(step.dataset.flowEntered))+'</b><small>увійшли</small></span><span><b>'+numberFormat.format(num(step.dataset.flowAdvanced))+'</b><small>далі</small></span><span><b>'+numberFormat.format(num(step.dataset.flowDropOff))+'</b><small>відсів</small></span><span><b>'+numberFormat.format(num(step.dataset.flowInProgress))+'</b><small>у процесі</small></span>'+conversion;}}
+    }
     function showAlert(message){if(alertTextEl)alertTextEl.textContent=message;if(alertEl)alertEl.hidden=false;}
     function hideAlert(){if(alertEl)alertEl.hidden=true;}
     function activateBars(){
@@ -3174,14 +3274,15 @@ body.bot-drawer-open{overflow:hidden;}
       const pulses=Array.from(box.querySelectorAll('[data-pulse-width]'));
       const signalFills=Array.from(box.querySelectorAll('[data-ad-signal-width]'));
       const contextFills=Array.from(box.querySelectorAll('[data-context-width]'));
+      const flowFills=Array.from(box.querySelectorAll('[data-flow-width]'));
       const attributionRings=Array.from(box.querySelectorAll('[data-attribution-ring]'));
       const images=Array.from(box.querySelectorAll('.bot-stats-product-image'));
       images.forEach(item=>{const reveal=()=>item.classList.add('is-loaded');if(item.complete&&item.naturalWidth)reveal();else{item.addEventListener('load',reveal,{once:true});item.addEventListener('error',()=>item.remove(),{once:true});}});
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));pulses.forEach(segment=>segment.style.setProperty('--pulse-width',num(segment.dataset.pulseWidth)+'%'));signalFills.forEach(fill=>fill.style.setProperty('--signal-width',num(fill.dataset.adSignalWidth)+'%'));contextFills.forEach(fill=>fill.style.setProperty('--context-width',num(fill.dataset.contextWidth)+'%'));attributionRings.forEach(ring=>{ring.style.setProperty('--attribution-confirmed-angle',num(ring.dataset.attributionConfirmedAngle)+'deg');ring.style.setProperty('--attribution-partial-angle',num(ring.dataset.attributionPartialAngle)+'deg');});}));
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));pulses.forEach(segment=>segment.style.setProperty('--pulse-width',num(segment.dataset.pulseWidth)+'%'));signalFills.forEach(fill=>fill.style.setProperty('--signal-width',num(fill.dataset.adSignalWidth)+'%'));contextFills.forEach(fill=>fill.style.setProperty('--context-width',num(fill.dataset.contextWidth)+'%'));flowFills.forEach(fill=>fill.style.setProperty('--flow-width',num(fill.dataset.flowWidth)+'%'));attributionRings.forEach(ring=>{ring.style.setProperty('--attribution-confirmed-angle',num(ring.dataset.attributionConfirmedAngle)+'deg');ring.style.setProperty('--attribution-partial-angle',num(ring.dataset.attributionPartialAngle)+'deg');});}));
     }
     function renderOverview(data,previous){
       const allPrimaryZero=kpiSpecs.every(spec=>metricValue(data,spec.key)===0);
-      return renderKpis(data,previous)+(allPrimaryZero?'<div class="bot-stats-period-empty">За період «'+esc(periodLabel(data))+'» активності ще немає.</div>':'')+'<div class="bot-stats-signal-grid">'+renderActivity(data,previous)+renderCompositionRing(data)+'</div>'+renderSecondary(data)+'<div class="bot-stats-analysis-grid">'+renderFunnel(data,previous)+renderCategories(data,previous)+'</div>'+renderDetails(data);
+      return renderKpis(data,previous)+(allPrimaryZero?'<div class="bot-stats-period-empty">За період «'+esc(periodLabel(data))+'» активності ще немає.</div>':'')+'<div class="bot-stats-signal-grid">'+renderActivity(data,previous)+renderCompositionRing(data)+'</div>'+renderSecondary(data)+'<div class="bot-stats-analysis-grid has-flow-map">'+renderFunnel(data,previous)+renderCategories(data,previous)+'</div>'+renderDetails(data);
     }
     function syncViewControls(){
       viewButtons.forEach(button=>{const selected=button.dataset.statsView===activeView;button.setAttribute('aria-selected',selected?'true':'false');button.tabIndex=selected?0:-1;});
@@ -3190,6 +3291,7 @@ body.bot-drawer-open{overflow:hidden;}
     function renderDashboard(data,previous,direction=0){
       const openDisclosures=new Set(Array.from(box.querySelectorAll('details[open][data-stats-disclosure]')).map(item=>item.dataset.statsDisclosure));
       openActivityColumn=null;
+      openFlowStep=null;
       box.className='bot-stats-content';
       box.innerHTML=activeView==='ads'?renderAdvertising(data,previous):activeView==='products'?renderProductsView(data,previous):renderOverview(data,previous);
       openDisclosures.forEach(key=>{const detail=box.querySelector('[data-stats-disclosure="'+key+'"]');if(detail)detail.open=true;});
@@ -3271,6 +3373,8 @@ body.bot-drawer-open{overflow:hidden;}
       if(adSignalStep){event.stopPropagation();toggleAdSignalStep(adSignalStep);return;}
       const contextStep=event.target.closest('[data-context-step]');
       if(contextStep){event.stopPropagation();toggleContextStep(contextStep);return;}
+      const flowStep=event.target.closest('[data-flow-step]');
+      if(flowStep){event.stopPropagation();toggleFlowStep(flowStep);return;}
       const ringSegment=event.target.closest('[data-ring-segment]');
       if(ringSegment){event.stopPropagation();toggleRingSegment(ringSegment);return;}
       const activityColumn=event.target.closest('.bot-stats-activity-column');
@@ -3284,8 +3388,8 @@ body.bot-drawer-open{overflow:hidden;}
     if(box)box.addEventListener('pointerover',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     if(box)box.addEventListener('focusin',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     window.addEventListener('resize',()=>{if(openActivityColumn)positionActivityTooltip(openActivityColumn);});
-    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);if(box){const attribution=box.querySelector('.bot-stats-attribution');if(attribution&&!attribution.contains(event.target)&&attribution.querySelector('[data-attribution-segment].is-active'))clearAttributionSelection(false);const signal=box.querySelector('.bot-stats-ad-signal-card');if(signal&&!signal.contains(event.target)&&signal.querySelector('[data-ad-signal-step].is-active'))clearAdSignalSelection(false);const context=box.querySelector('.bot-stats-context-bridge');if(context&&!context.contains(event.target)&&context.querySelector('[data-context-step].is-active'))clearContextSelection(false);}});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}if(event.key==='Escape'&&box){const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');const contextActive=box.querySelector('[data-context-step].is-active');if(attributionActive||signalActive||contextActive){event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);if(contextActive)clearContextSelection(true);}}});
+    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);if(box){const attribution=box.querySelector('.bot-stats-attribution');if(attribution&&!attribution.contains(event.target)&&attribution.querySelector('[data-attribution-segment].is-active'))clearAttributionSelection(false);const signal=box.querySelector('.bot-stats-ad-signal-card');if(signal&&!signal.contains(event.target)&&signal.querySelector('[data-ad-signal-step].is-active'))clearAdSignalSelection(false);const context=box.querySelector('.bot-stats-context-bridge');if(context&&!context.contains(event.target)&&context.querySelector('[data-context-step].is-active'))clearContextSelection(false);const flow=box.querySelector('[data-flow-map]');if(flow&&!flow.contains(event.target)&&flow.querySelector('[data-flow-step].is-active'))clearFlowSelection(false);}});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}if(event.key==='Escape'&&box){const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');const contextActive=box.querySelector('[data-context-step].is-active');const flowActive=box.querySelector('[data-flow-step].is-active');if(event.key==='Escape'&&flowActive){event.preventDefault();clearFlowSelection(true);return;}if(attributionActive||signalActive||contextActive){event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);if(contextActive)clearContextSelection(true);}}});
     if(rangeBox) rangeBox.addEventListener('click',event=>{
       const target=event.target.closest('[data-stats-days]');
       if(!target) return;
