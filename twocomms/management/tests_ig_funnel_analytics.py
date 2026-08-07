@@ -104,6 +104,194 @@ class IgFunnelAnalyticsApiTests(TestCase):
         self.assertEqual(second["steps"][1]["entered"], 1)
         self.assertEqual(combined["steps"][1]["entered"], 2)
 
+    def test_stage_outcomes_reconcile_from_one_entered_episode_cohort(self):
+        from management.models import IgFunnelDropOff, IgFunnelStepEvent
+        from management.services.ig_funnel_analytics import (
+            build_funnel_analytics,
+            record_client_step_event,
+            record_drop_off_for_client,
+        )
+
+        kyiv = ZoneInfo("Europe/Kyiv")
+        since = timezone.make_aware(datetime(2026, 8, 5, 0, 0), kyiv)
+        until = since + timedelta(days=1)
+
+        advanced = IgClient.get_or_create_for_sender("ig-cohort-advanced")
+        lost = IgClient.get_or_create_for_sender("ig-cohort-lost")
+        open_client = IgClient.get_or_create_for_sender("ig-cohort-open")
+        unrelated = IgClient.get_or_create_for_sender("ig-cohort-unrelated-loss")
+
+        for client, suffix in (
+            (advanced, "advanced"),
+            (lost, "lost"),
+            (open_client, "open"),
+        ):
+            record_client_step_event(
+                client,
+                event_type=IgFunnelStepEvent.Type.PAYLINK_ISSUED,
+                event_key=f"cohort:{suffix}:issued",
+                occurred_at=since + timedelta(hours=1),
+                stage=IgClient.Stage.CHECKOUT,
+            )
+        record_client_step_event(
+            advanced,
+            event_type=IgFunnelStepEvent.Type.PAYLINK_VIEWED,
+            event_key="cohort:advanced:viewed",
+            occurred_at=since + timedelta(hours=2),
+            stage=IgClient.Stage.PAYMENT_PENDING,
+        )
+        record_drop_off_for_client(
+            lost,
+            kind=IgFunnelDropOff.Kind.SILENCE,
+            reason_code="cohort_lost",
+            stage=IgClient.Stage.CHECKOUT,
+            occurred_at=since + timedelta(hours=3),
+        )
+        record_client_step_event(
+            unrelated,
+            event_type=IgFunnelStepEvent.Type.PAYLINK_ISSUED,
+            event_key="cohort:unrelated:issued-before",
+            occurred_at=since - timedelta(hours=2),
+            stage=IgClient.Stage.CHECKOUT,
+        )
+        record_drop_off_for_client(
+            unrelated,
+            kind=IgFunnelDropOff.Kind.SILENCE,
+            reason_code="not_in_entered_cohort",
+            stage=IgClient.Stage.CHECKOUT,
+            occurred_at=since + timedelta(hours=4),
+        )
+
+        rows = {
+            row["step"]: row
+            for row in build_funnel_analytics(since=since, until=until)["steps"]
+        }
+        paylink = rows[IgFunnelStepEvent.Type.PAYLINK_ISSUED]
+
+        self.assertEqual(paylink["entered"], 3)
+        self.assertEqual(paylink["advanced"], 1)
+        self.assertEqual(paylink["drop_off"], 1)
+        self.assertEqual(paylink["in_progress"], 1)
+        self.assertEqual(paylink["right_censored_count"], 1)
+        self.assertEqual(paylink["cohort_basis"], "entry_event_same_window")
+        self.assertEqual(paylink["time_field"], "occurred_at")
+        self.assertEqual(paylink["observation_cutoff"], until.isoformat())
+        self.assertTrue(paylink["reconciled"])
+        self.assertEqual(
+            paylink["entered"],
+            paylink["advanced"] + paylink["drop_off"] + paylink["in_progress"],
+        )
+
+    def test_response_ownership_is_mutually_exclusive(self):
+        from management.models import IgFunnelStepEvent
+        from management.services.ig_funnel_analytics import (
+            build_funnel_analytics,
+            record_client_step_event,
+        )
+
+        # Keep all fixture events behind the default observation cutoff.
+        moment = timezone.now() - timedelta(minutes=1)
+        bot_only = IgClient.get_or_create_for_sender("ig-owner-bot-only")
+        shared = IgClient.get_or_create_for_sender("ig-owner-shared")
+        manager_only = IgClient.get_or_create_for_sender("ig-owner-manager-only")
+        record_client_step_event(
+            bot_only,
+            event_type=IgFunnelStepEvent.Type.BOT_REPLIED_FIRST,
+            event_key="owner:bot",
+            occurred_at=moment,
+        )
+        record_client_step_event(
+            shared,
+            event_type=IgFunnelStepEvent.Type.BOT_REPLIED_FIRST,
+            event_key="owner:shared-bot",
+            occurred_at=moment,
+        )
+        record_client_step_event(
+            shared,
+            event_type=IgFunnelStepEvent.Type.MANAGER_ENGAGED,
+            event_key="owner:shared-manager",
+            occurred_at=moment + timedelta(seconds=1),
+        )
+        record_client_step_event(
+            manager_only,
+            event_type=IgFunnelStepEvent.Type.MANAGER_ENGAGED,
+            event_key="owner:manager",
+            occurred_at=moment,
+        )
+
+        ownership = build_funnel_analytics()["manager_vs_bot"]
+
+        self.assertEqual(ownership["episodes_with_response_evidence"], 3)
+        self.assertEqual(ownership["bot_only"], 1)
+        self.assertEqual(ownership["shared"], 1)
+        self.assertEqual(ownership["manager_only"], 1)
+        self.assertEqual(
+            ownership["episodes_with_response_evidence"],
+            ownership["bot_only"] + ownership["shared"] + ownership["manager_only"],
+        )
+
+    def test_discount_bridge_exposes_open_offers_and_cutoff(self):
+        from management.models import IgFunnelStepEvent
+        from management.services.ig_funnel_analytics import (
+            build_funnel_analytics,
+            record_client_step_event,
+        )
+
+        kyiv = ZoneInfo("Europe/Kyiv")
+        since = timezone.make_aware(datetime(2026, 8, 5, 0, 0), kyiv)
+        until = since + timedelta(days=1)
+        offered = IgClient.get_or_create_for_sender("ig-discount-open")
+        bought = IgClient.get_or_create_for_sender("ig-discount-bought")
+        for client, suffix in ((offered, "open"), (bought, "bought")):
+            record_client_step_event(
+                client,
+                event_type=IgFunnelStepEvent.Type.DISCOUNT_OFFERED,
+                event_key=f"discount:{suffix}:offer",
+                occurred_at=since + timedelta(hours=1),
+            )
+        record_client_step_event(
+            bought,
+            event_type=IgFunnelStepEvent.Type.PAYMENT_CONFIRMED,
+            event_key="discount:bought:payment",
+            occurred_at=since + timedelta(hours=2),
+        )
+
+        discounts = build_funnel_analytics(since=since, until=until)["discounts"]
+
+        self.assertEqual(discounts["offered"], 2)
+        self.assertEqual(discounts["bought_after_offer"], 1)
+        self.assertEqual(discounts["still_open"], 1)
+        self.assertEqual(discounts["bought_without_known_offer"], 0)
+        self.assertEqual(discounts["observation_cutoff"], until.isoformat())
+
+    def test_stage_duration_reports_right_censored_entries(self):
+        from management.models import IgFunnelStepEvent
+        from management.services.ig_funnel_analytics import (
+            build_funnel_analytics,
+            record_client_step_event,
+        )
+
+        kyiv = ZoneInfo("Europe/Kyiv")
+        since = timezone.make_aware(datetime(2026, 8, 5, 0, 0), kyiv)
+        until = since + timedelta(days=1)
+        client = IgClient.get_or_create_for_sender("ig-duration-censored")
+        record_client_step_event(
+            client,
+            event_type=IgFunnelStepEvent.Type.PAYLINK_ISSUED,
+            event_key="duration:censored:start",
+            occurred_at=since + timedelta(hours=2),
+        )
+
+        duration = next(
+            row
+            for row in build_funnel_analytics(since=since, until=until)["time_on_step"]
+            if row["step"] == IgFunnelStepEvent.Type.PAYLINK_ISSUED
+        )
+
+        self.assertEqual(duration["sample"], 0)
+        self.assertEqual(duration["right_censored_count"], 1)
+        self.assertIsNone(duration["median_hours"])
+
     def test_drop_off_classification_distinguishes_unreachable_from_customer_silence(self):
         from management.services.ig_funnel_analytics import classify_drop_off
 
