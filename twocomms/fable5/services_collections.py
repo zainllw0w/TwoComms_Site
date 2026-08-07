@@ -1,0 +1,169 @@
+"""Normalized product collection helpers shared by Fable 5 and storefront."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+
+from django.db import transaction
+
+from .models import MerchCollection, ProductMerchCollection
+
+
+LANGUAGES = ("uk", "ru", "en")
+
+
+def _normalized_slugs(slugs: Iterable[str] | None) -> list[str]:
+    return sorted(
+        {
+            str(slug or "").strip().lower()
+            for slug in (slugs or ())
+            if str(slug or "").strip()
+        }
+    )
+
+
+def _localized(collection, field: str, language: str) -> str:
+    language = language if language in LANGUAGES else "uk"
+    values = (
+        getattr(collection, f"{field}_{language}", ""),
+        getattr(collection, f"{field}_uk", ""),
+        getattr(collection, f"{field}_ru", ""),
+        getattr(collection, f"{field}_en", ""),
+    )
+    return next((str(value).strip() for value in values if str(value).strip()), collection.slug)
+
+
+def _ancestor_rows(collection, by_id, language: str) -> list[dict]:
+    rows = []
+    seen = {collection.pk}
+    parent_id = collection.parent_id
+    while parent_id and parent_id not in seen:
+        seen.add(parent_id)
+        parent = by_id.get(parent_id)
+        if parent is None:
+            break
+        rows.append(
+            {
+                "slug": parent.slug,
+                "kind": parent.kind,
+                "label": _localized(parent, "name", language),
+            }
+        )
+        parent_id = parent.parent_id
+    rows.reverse()
+    return rows
+
+
+def get_product_collection_slugs(product) -> list[str]:
+    """Return active assignments in their canonical collection order."""
+    rows = (
+        ProductMerchCollection.objects
+        .filter(product=product, collection__is_active=True)
+        .select_related("collection")
+        .order_by("order", "collection__order", "collection__slug")
+    )
+    return [row.collection.slug for row in rows]
+
+
+@transaction.atomic
+def set_product_collection_slugs(product, slugs: Iterable[str] | None) -> list[str]:
+    """Atomically replace assignments after validating the complete requested set."""
+    normalized = _normalized_slugs(slugs)
+    collections = list(
+        MerchCollection.objects
+        .filter(slug__in=normalized, is_active=True)
+        .order_by("order", "slug")
+    )
+    found = {collection.slug for collection in collections}
+    missing = [slug for slug in normalized if slug not in found]
+    if missing:
+        raise ValueError(f"Unknown or inactive collection slug(s): {', '.join(missing)}")
+
+    ProductMerchCollection.objects.select_for_update().filter(product=product).exists()
+    # A collection can be deactivated after products were assigned to it.
+    # Preserve that historical fact when an editor saves unrelated active tags;
+    # inactive assignments remain available to admin/PDP context but are never
+    # returned by public facet or link helpers.
+    ProductMerchCollection.objects.filter(
+        product=product, collection__is_active=True
+    ).exclude(collection__slug__in=normalized).delete()
+    for index, collection in enumerate(collections):
+        ProductMerchCollection.objects.update_or_create(
+            product=product,
+            collection=collection,
+            defaults={"order": index},
+        )
+    return get_product_collection_slugs(product)
+
+
+def product_collection_context(
+    product,
+    *,
+    language: str = "uk",
+    include_inactive: bool = False,
+) -> list[dict]:
+    """Return presentation-safe assignments with localized ancestry and URLs."""
+    language = language if language in LANGUAGES else "uk"
+    all_collections = list(MerchCollection.objects.all())
+    by_id = {collection.pk: collection for collection in all_collections}
+    assignments = ProductMerchCollection.objects.filter(product=product).select_related(
+        "collection"
+    )
+    if not include_inactive:
+        assignments = assignments.filter(collection__is_active=True)
+    assignments = assignments.order_by("order", "collection__order", "collection__slug")
+
+    rows = []
+    for assignment in assignments:
+        collection = assignment.collection
+        ancestors = _ancestor_rows(collection, by_id, language)
+        label = assignment.display_label.strip() or _localized(collection, "name", language)
+        rows.append(
+            {
+                "slug": collection.slug,
+                "kind": collection.kind,
+                "label": label,
+                "description": _localized(collection, "description", language),
+                "ancestors": ancestors,
+                "path_label": " / ".join(
+                    [ancestor["label"] for ancestor in ancestors] + [label]
+                ),
+                "public_path": (
+                    f"/merch/{collection.slug}/"
+                    if collection.is_active and collection.indexable
+                    else ""
+                ),
+                "accent_token": collection.accent_token,
+                "indexable": collection.indexable,
+                "is_active": collection.is_active,
+            }
+        )
+    return rows
+
+
+def active_collection_dictionary(*, language: str = "uk") -> list[dict]:
+    """Return the searchable hierarchy used by the Fable 5 picker."""
+    collections = list(MerchCollection.objects.filter(is_active=True).order_by("order", "slug"))
+    by_id = {collection.pk: collection for collection in collections}
+    rows = []
+    for collection in collections:
+        ancestors = _ancestor_rows(collection, by_id, language)
+        label = _localized(collection, "name", language)
+        rows.append(
+            {
+                "slug": collection.slug,
+                "kind": collection.kind,
+                "label": label,
+                "label_uk": _localized(collection, "name", "uk"),
+                "label_ru": _localized(collection, "name", "ru"),
+                "label_en": _localized(collection, "name", "en"),
+                "parent_slug": by_id.get(collection.parent_id).slug
+                if collection.parent_id in by_id
+                else "",
+                "path_label": " / ".join(
+                    [ancestor["label"] for ancestor in ancestors] + [label]
+                ),
+                "indexable": collection.indexable,
+            }
+        )
+    return rows

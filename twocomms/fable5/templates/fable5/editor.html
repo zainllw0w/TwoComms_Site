@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>{% if product %}Редагування: {{ product.title }}{% else %}Новий товар{% endif %} · Fable 5</title>
-<link rel="stylesheet" href="{% static 'fable5/editor.css' %}?v=20260808-audience-v1">
+<link rel="stylesheet" href="{% static 'fable5/editor.css' %}?v=20260808-collections-v1">
 <link rel="stylesheet" href="{% static 'fable5/thermo-dot.css' %}">
 </head>
 <body>
@@ -91,17 +91,32 @@
           <label class="f5-field"><span>Спільне YouTube-відео</span><input id="f-video" class="f5-input" placeholder="Порожньо — без відео; колір може мати власне"></label>
         </section>
       </div>
-      <section class="f5-card f5-card--wide f5-audience-card">
-        <div class="f5-card-head">
-          <div><h2 class="f5-card__title">Для кого підходить</h2><p>Структуровані теги для каталогу. Можна вибрати кілька: наприклад, «Унісекс» і «Жіночі» одночасно.</p></div>
-          <span class="f5-source-badge" id="f-audience-summary" aria-live="polite">Не вибрано</span>
-        </div>
-        <fieldset class="f5-audience-fieldset">
-          <legend class="f5-visually-hidden">Аудиторія товару</legend>
-          <div class="f5-audience-grid" id="f-audience-options"></div>
-        </fieldset>
-        <p class="f5-hint">Для опублікованого одягу потрібен щонайменше один тег. Це поле керує фільтрами; текстове пояснення залишається у «Контент і SEO».</p>
-      </section>
+      <div class="f5-taxonomy-grid">
+        <section class="f5-card f5-audience-card">
+          <div class="f5-card-head">
+            <div><h2 class="f5-card__title">Для кого підходить</h2><p>Структуровані теги для каталогу. Можна вибрати кілька: наприклад, «Унісекс» і «Жіночі» одночасно.</p></div>
+            <span class="f5-source-badge" id="f-audience-summary" aria-live="polite">Не вибрано</span>
+          </div>
+          <fieldset class="f5-audience-fieldset">
+            <legend class="f5-visually-hidden">Аудиторія товару</legend>
+            <div class="f5-audience-grid" id="f-audience-options"></div>
+          </fieldset>
+          <p class="f5-hint">Для опублікованого одягу потрібен щонайменше один тег. Це поле керує фільтрами; текстове пояснення залишається у «Контент і SEO».</p>
+        </section>
+        <section class="f5-card f5-collection-card" aria-labelledby="f-collection-title">
+          <div class="f5-card-head">
+            <div><h2 class="f5-card__title" id="f-collection-title">Колекції, теми та бригади</h2><p>Ці призначення з одного джерела потрапляють у каталог і верхню зону картки товару. Повний шлях не дає сплутати бригаду з батьківською темою.</p></div>
+            <span class="f5-source-badge" id="f-collection-summary" aria-live="polite">Не вибрано</span>
+          </div>
+          <div class="f5-collection-assigned" id="f-collection-assigned" aria-live="polite" aria-label="Призначені колекції"></div>
+          <label class="f5-field f5-collection-search-field" for="f-collection-search"><span>Пошук колекції</span><input id="f-collection-search" class="f5-input" type="search" placeholder="Назва або шлях" autocomplete="off"></label>
+          <fieldset class="f5-collection-fieldset">
+            <legend class="f5-visually-hidden">Колекції товару</legend>
+            <div class="f5-collection-options" id="f-collection-options" role="group" aria-label="Доступні колекції"></div>
+          </fieldset>
+          <p class="f5-hint">Посилання з'являється на сайті лише для активної індексованої колекції. Інші призначення залишаються фактами для навігації та фільтрів.</p>
+        </section>
+      </div>
       <section class="f5-card f5-card--wide">
         <div class="f5-card-head"><div><h2 class="f5-card__title">Принти зі storage</h2><p>Оберіть один або кілька принтів. Зв'язок одразу буде видимий і в редакторі принта на storage.</p></div><span class="f5-source-badge" id="f-print-count">0 вибрано</span></div>
         <div class="f5-print-toolbar"><label class="f5-field"><span>Пошук принта</span><input id="f-print-search" class="f5-input" type="search" placeholder="Назва або категорія" autocomplete="off"></label></div>
@@ -161,6 +176,6 @@
 
 {{ bootstrap|json_script:"f5-bootstrap" }}
 <script src="{% static 'fable5/editor-inventory.js' %}?v=20260716-inventory-v3"></script>
-<script src="{% static 'fable5/editor.js' %}?v=20260808-audience-v1"></script>
+<script src="{% static 'fable5/editor.js' %}?v=20260808-collections-v1"></script>
 </body>
 </html>

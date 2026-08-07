@@ -175,6 +175,7 @@
 		feedOnly: [],
 		feeds: (dict.feeds || []).slice(),
 		selectedPrintIds: new Set(((boot.product && boot.product.print_ids) || []).map(String)),
+		collectionSlugs: new Set(((boot.product && boot.product.collection_slugs) || []).map(String)),
 		optionPresentations: Object.assign({}, (boot.product && boot.product.option_presentations) || {}),
 		dirty: false,
 		revision: 0,
@@ -301,6 +302,7 @@
 		updateSlugHint();
 		updateCoverState();
 		renderAudienceOptions();
+		renderCollectionOptions();
 	}
 
 	function collectAudienceCodes() {
@@ -327,6 +329,48 @@
 				<span><strong>${esc(item.label)}</strong><small>${esc(item.label_en)} · ${esc(item.label_ru)}</small></span>
 			</label>`).join("");
 		updateAudienceSummary();
+	}
+
+	function collectCollectionSlugs() {
+		return (dict.collections || [])
+			.filter((item) => state.collectionSlugs.has(String(item.slug)))
+			.map((item) => String(item.slug));
+	}
+
+	function selectedCollectionSlugs() {
+		return state.collectionSlugs;
+	}
+
+	function updateCollectionSummary() {
+		const selected = collectCollectionSlugs();
+		if (state.product) state.product.collection_slugs = selected.slice();
+		const summary = $("#f-collection-summary");
+		if (summary) summary.textContent = selected.length ? `${selected.length} вибрано` : "Не вибрано";
+		const assigned = $("#f-collection-assigned");
+		if (assigned) {
+			assigned.innerHTML = selected.length ? selected.map((slug) => {
+				const item = (dict.collections || []).find((row) => row.slug === slug);
+				const label = item ? (item.path_label || item.label) : slug;
+				return `<span class="f5-collection-chip"><span>${esc(label)}</span><button type="button" data-remove-collection="${esc(slug)}" aria-label="Прибрати колекцію ${esc(label)}" title="Прибрати">×</button></span>`;
+			}).join("") : '<span class="f5-hint">Додайте тему, місто або бригаду</span>';
+		}
+	}
+
+	function renderCollectionOptions(filterValue) {
+		const box = $("#f-collection-options");
+		if (!box) return;
+		const query = String(filterValue === undefined ? ($("#f-collection-search") || {}).value || "" : filterValue)
+			.trim().toLowerCase();
+		const selected = selectedCollectionSlugs();
+		const rows = (dict.collections || []).filter((item) => !query
+			|| [item.slug, item.label, item.path_label, item.label_uk, item.label_ru, item.label_en]
+				.some((value) => String(value || "").toLowerCase().includes(query)));
+		box.innerHTML = rows.length ? rows.map((item) => `
+			<label class="f5-collection-option" data-kind="${esc(item.kind)}">
+				<input type="checkbox" data-collection-slug="${esc(item.slug)}" data-parent-slug="${esc(item.parent_slug || "")}" aria-label="${esc(item.path_label || item.label || item.slug)}"${selected.has(String(item.slug)) ? " checked" : ""}>
+				<span><strong>${esc(item.label)}</strong><small>${esc(item.path_label)}${item.indexable ? " · публічна" : ""}</small></span>
+			</label>`).join("") : '<p class="f5-hint">Нічого не знайдено</p>';
+		updateCollectionSummary();
 	}
 
 	function updateSeoCounters() {
@@ -485,6 +529,7 @@
 			details_text: $("#f-details").value,
 			target_audience: $("#f-audience").value,
 			audience_codes: collectAudienceCodes(),
+			collection_slugs: collectCollectionSlugs(),
 			care_instructions: $("#f-care").value,
 			seo_title: $("#f-seo-title").value,
 			seo_description: $("#f-seo-desc").value,
@@ -565,6 +610,7 @@
 			const changedDuringSave = state.revision !== saveRevision;
 			if (changedDuringSave) {
 				state.product = Object.assign({}, resp.product, { variants: state.variants });
+				state.product.collection_slugs = collectCollectionSlugs();
 				if (state.files.main_image === mainImageFile) state.files.main_image = null;
 				if (state.files.home_card_image === homeCardImageFile) state.files.home_card_image = null;
 				if (resp.created && resp.edit_url) history.replaceState(null, "", resp.edit_url);
@@ -576,6 +622,7 @@
 			pendingFeedDrafts.forEach((draft) => { draft.card.dataset.dirty = "false"; });
 			if (pendingVariantDrafts.length) resp.product.variants = state.variants;
 			state.product = resp.product;
+			state.product.collection_slugs = (resp.product.collection_slugs || []).map(String);
 			state.variants = (resp.product.variants || []).map((variant) => Object.assign(
 				{}, variant, {
 					_dirty: false, _contentDirty: false, _sizesDirty: false,
@@ -585,6 +632,7 @@
 			state.faqs = (resp.product.faqs || []).map((f) => Object.assign({}, f));
 			state.fits = fitDefaults();
 			state.selectedPrintIds = new Set((resp.product.print_ids || []).map(String));
+			state.collectionSlugs = new Set(state.product.collection_slugs);
 			state.optionPresentations = Object.assign({}, resp.product.option_presentations || {});
 			state.files.main_image = null;
 			state.files.home_card_image = null;
@@ -2111,6 +2159,21 @@
 	$("#f-category").addEventListener("change", renderOptionProfiles);
 	$("#f-audience-options").addEventListener("change", () => {
 		updateAudienceSummary();
+		setDirty(true);
+	});
+	$("#f-collection-search").addEventListener("input", (e) => renderCollectionOptions(e.target.value));
+	$("#f-collection-options").addEventListener("change", (e) => {
+		if (!e.target.matches("[data-collection-slug]")) return;
+		if (e.target.checked) state.collectionSlugs.add(e.target.dataset.collectionSlug);
+		else state.collectionSlugs.delete(e.target.dataset.collectionSlug);
+		updateCollectionSummary();
+		setDirty(true);
+	});
+	$("#f-collection-assigned").addEventListener("click", (e) => {
+		const button = e.target.closest("[data-remove-collection]");
+		if (!button) return;
+		state.collectionSlugs.delete(button.dataset.removeCollection);
+		renderCollectionOptions();
 		setDirty(true);
 	});
 	$("#f-slug-auto").addEventListener("click", () => {

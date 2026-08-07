@@ -1,0 +1,195 @@
+import json
+from pathlib import Path
+
+from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
+from django.test import TestCase
+from django.urls import reverse
+
+from storefront.models import Category, Product
+
+from fable5.models import AudienceTag, MerchCollection, ProductMerchCollection
+from fable5.services_audience import set_product_audience_codes
+from fable5.services_collections import (
+    get_product_collection_slugs,
+    product_collection_context,
+    set_product_collection_slugs,
+)
+
+
+class MerchCollectionTaxonomyTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="Футболки", slug="tshirts")
+        self.product = Product.objects.create(
+            title="Collection test tee",
+            slug="collection-test-tee",
+            category=self.category,
+            price=1090,
+            status="published",
+        )
+        self.unisex = AudienceTag.objects.create(
+            code="unisex",
+            label_uk="Унісекс",
+            label_ru="Унисекс",
+            label_en="Unisex",
+            order=0,
+        )
+        set_product_audience_codes(self.product, ["unisex"])
+        self.military = MerchCollection.objects.create(
+            slug="military",
+            kind=MerchCollection.Kind.THEME,
+            name_uk="Мілітарі",
+            name_ru="Милитари",
+            name_en="Military",
+            order=10,
+        )
+        self.brigades = MerchCollection.objects.create(
+            slug="brigades",
+            kind=MerchCollection.Kind.THEME,
+            parent=self.military,
+            name_uk="Бригади",
+            name_ru="Бригады",
+            name_en="Brigades",
+            order=20,
+        )
+        self.brigade_225 = MerchCollection.objects.create(
+            slug="225",
+            kind=MerchCollection.Kind.BRIGADE,
+            parent=self.brigades,
+            name_uk="225 ОШП",
+            name_ru="225 ОШП",
+            name_en="225 Assault Regiment",
+            indexable=True,
+            order=30,
+        )
+        self.streetwear = MerchCollection.objects.create(
+            slug="streetwear",
+            kind=MerchCollection.Kind.THEME,
+            name_uk="Стрітвір",
+            name_ru="Стритвир",
+            name_en="Streetwear",
+            order=40,
+        )
+        self.staff = get_user_model().objects.create_user(
+            username="collection-editor",
+            password="test-password",
+            is_staff=True,
+        )
+        self.client.force_login(self.staff)
+
+    def test_nested_collection_context_has_localized_breadcrumbs_and_public_path(self):
+        set_product_collection_slugs(self.product, ["225"])
+
+        context = product_collection_context(self.product, language="en")
+
+        self.assertEqual(context[0]["slug"], "225")
+        self.assertEqual(context[0]["label"], "225 Assault Regiment")
+        self.assertEqual(
+            [item["slug"] for item in context[0]["ancestors"]],
+            ["military", "brigades"],
+        )
+        self.assertEqual(context[0]["public_path"], "/merch/225/")
+
+    def test_product_supports_ordered_multiple_collections_without_duplicates(self):
+        set_product_collection_slugs(self.product, ["streetwear", "225"])
+
+        self.assertEqual(get_product_collection_slugs(self.product), ["225", "streetwear"])
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            ProductMerchCollection.objects.create(
+                product=self.product,
+                collection=self.brigade_225,
+            )
+
+    def test_inactive_or_non_indexable_collection_never_exposes_public_path(self):
+        self.streetwear.indexable = False
+        self.streetwear.save(update_fields=["indexable"])
+        self.brigade_225.is_active = False
+        self.brigade_225.save(update_fields=["is_active"])
+        ProductMerchCollection.objects.create(
+            product=self.product, collection=self.streetwear, order=1
+        )
+        ProductMerchCollection.objects.create(
+            product=self.product, collection=self.brigade_225, order=2
+        )
+
+        context = product_collection_context(
+            self.product, language="uk", include_inactive=True
+        )
+
+        self.assertEqual([item["public_path"] for item in context], ["", ""])
+
+    def test_unknown_or_inactive_collection_assignment_is_rejected_atomically(self):
+        set_product_collection_slugs(self.product, ["streetwear"])
+        self.brigade_225.is_active = False
+        self.brigade_225.save(update_fields=["is_active"])
+
+        with self.assertRaises(ValueError):
+            set_product_collection_slugs(self.product, ["225", "missing"])
+
+        self.assertEqual(get_product_collection_slugs(self.product), ["streetwear"])
+
+    def test_replacing_active_assignments_preserves_inactive_historical_facts(self):
+        ProductMerchCollection.objects.create(
+            product=self.product, collection=self.brigade_225, order=1
+        )
+        self.brigade_225.is_active = False
+        self.brigade_225.save(update_fields=["is_active"])
+
+        set_product_collection_slugs(self.product, [])
+
+        self.assertEqual(get_product_collection_slugs(self.product), [])
+        context = product_collection_context(
+            self.product, language="uk", include_inactive=True
+        )
+        self.assertEqual([item["slug"] for item in context], ["225"])
+
+    def test_editor_bootstrap_exposes_hierarchy_and_current_multi_selection(self):
+        set_product_collection_slugs(self.product, ["225", "streetwear"])
+
+        response = self.client.get(reverse("fable5_product_edit", args=[self.product.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["bootstrap"]["product"]["collection_slugs"],
+            ["225", "streetwear"],
+        )
+        collection_rows = response.context["bootstrap"]["dictionaries"]["collections"]
+        row_225 = next(row for row in collection_rows if row["slug"] == "225")
+        self.assertEqual(row_225["parent_slug"], "brigades")
+        self.assertEqual(row_225["path_label"], "Мілітарі / Бригади / 225 ОШП")
+        self.assertContains(response, 'id="f-collection-options"', html=False)
+        self.assertContains(response, 'id="f-collection-search"', html=False)
+
+    def test_editor_save_persists_multiple_collection_slugs(self):
+        response = self.client.post(
+            reverse("fable5_api_product_save"),
+            data={
+                "payload": json.dumps(
+                    {
+                        "id": self.product.pk,
+                        "title": self.product.title,
+                        "category_id": self.category.pk,
+                        "price": self.product.price,
+                        "status": "published",
+                        "audience_codes": ["unisex"],
+                        "collection_slugs": ["streetwear", "225"],
+                    }
+                )
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["product"]["collection_slugs"],
+            ["225", "streetwear"],
+        )
+        self.assertEqual(get_product_collection_slugs(self.product), ["225", "streetwear"])
+
+    def test_editor_assets_define_searchable_touch_sized_collection_picker(self):
+        root = Path(__file__).resolve().parents[1]
+        javascript = (root / "static" / "fable5" / "editor.js").read_text(encoding="utf-8")
+        stylesheet = (root / "static" / "fable5" / "editor.css").read_text(encoding="utf-8")
+
+        self.assertIn("collection_slugs: collectCollectionSlugs()", javascript)
+        self.assertIn("renderCollectionOptions", javascript)
+        self.assertIn("min-height: 44px", stylesheet)

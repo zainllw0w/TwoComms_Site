@@ -72,6 +72,11 @@ from .services_audience import (
     set_product_audience_codes,
     validate_published_apparel_audience,
 )
+from .services_collections import (
+    active_collection_dictionary,
+    get_product_collection_slugs,
+    set_product_collection_slugs,
+)
 from .translit import smart_slugify, unique_product_slug
 
 FIT_PRESETS = [
@@ -374,6 +379,7 @@ def _product_payload(product):
         "details_text": getattr(product, "details_text", "") or "",
         "target_audience": getattr(product, "target_audience", "") or "",
         "audience_codes": get_product_audience_codes(product),
+        "collection_slugs": get_product_collection_slugs(product),
         "care_instructions": getattr(product, "care_instructions", "") or "",
         "seo_title": getattr(product, "seo_title", "") or "",
         "seo_description": getattr(product, "seo_description", "") or "",
@@ -506,6 +512,7 @@ def _bootstrap_payload(product=None):
                 }
                 for tag in AudienceTag.objects.filter(is_active=True).order_by("order", "code")
             ],
+            "collections": active_collection_dictionary(language="uk"),
             "garment_flows": [
                 {
                     "code": flow.code,
@@ -643,6 +650,8 @@ def api_product_save(request):
     product.save()
     if "audience_codes" in payload:
         set_product_audience_codes(product, payload.get("audience_codes") or [])
+    if "collection_slugs" in payload:
+        set_product_collection_slugs(product, payload.get("collection_slugs") or [])
     validate_published_apparel_audience(product)
     if request.FILES.get("main_image"):
         CoverSource.objects.update_or_create(
