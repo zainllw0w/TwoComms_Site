@@ -14,12 +14,20 @@ from collections import defaultdict
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
 from django.core.paginator import Paginator, EmptyPage
-from django.db.models import Count, Q
+from django.db.models import Case, Count, ExpressionWrapper, F, IntegerField, Q, Value, When
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from ..models import CategoryColorLanding, Product, Category, SurveySession, UserPromoCode, UserAction
+from ..models import (
+    CategoryColorLanding,
+    Product,
+    ProductFitOption,
+    Category,
+    SurveySession,
+    UserPromoCode,
+    UserAction,
+)
 from ..pagination import build_homepage_pagination_items
 from ..services.card_preview import (
     attach_preferred_card_image,
@@ -99,6 +107,199 @@ def _pagination_query_prefix(request):
     params.pop('page', None)
     encoded = params.urlencode()
     return f'{encoded}&' if encoded else ''
+
+
+SMART_SELECTOR_CATEGORY_SLUGS = ('tshirts', 'hoodie', 'long-sleeve')
+SMART_SELECTOR_THEME_OPTIONS = (
+    {'code': 'military', 'label': _('Мілітарі')},
+    {'code': 'brigades', 'label': _('Бригади')},
+    {'code': 'streetwear', 'label': _('Streetwear')},
+    {'code': 'kharkiv', 'label': _('Харків')},
+)
+SMART_SELECTOR_BRIGADE_TOKENS = ('225', 'ошп', 'brigade', 'бригад', 'підрозділ')
+SMART_SELECTOR_THEME_CONFIG_KEYS = {
+    'military': 'military',
+    'streetwear': 'streetwear',
+    'kharkiv': 'kharkiv-edition',
+}
+SMART_SELECTOR_FIT_QUERY_CODES = {
+    'classic': ('classic', 'класичн'),
+    'oversize': ('oversize', 'оверсайз'),
+    'standard': ('standard', 'regular', 'стандартн'),
+}
+SMART_SELECTOR_FIT_LABELS = {
+    'classic': _('Класичний'),
+    'oversize': _('Оверсайз'),
+    'standard': _('Стандартний'),
+}
+SMART_SELECTOR_FIT_ALIASES = {
+    'classic': 'classic',
+    'класичний': 'classic',
+    'regular': 'standard',
+    'standard': 'standard',
+    'стандартний': 'standard',
+    'oversize': 'oversize',
+    'оверсайз': 'oversize',
+}
+SMART_SELECTOR_SORT_VALUES = ('recommended', 'price-asc', 'price-desc')
+
+
+def _smart_selector_fit_codes(category, product_queryset):
+    if category.slug == 'long-sleeve':
+        allowed = {'standard'}
+    else:
+        allowed = {'classic', 'oversize'}
+
+    option_codes = (
+        ProductFitOption.objects
+        .filter(
+            product_id__in=product_queryset.values_list('pk', flat=True).order_by(),
+            is_active=True,
+        )
+        .values_list('code', flat=True)
+        .distinct()
+    )
+    normalized = {
+        SMART_SELECTOR_FIT_ALIASES.get((code or '').strip().lower())
+        for code in option_codes
+    }
+    normalized.discard(None)
+    return [code for code in ('classic', 'oversize', 'standard') if code in allowed and code in normalized]
+
+
+def _smart_selector_query_state(request, category, fit_codes=None):
+    """Return validated URL facets for a supported concrete category."""
+    if not category or category.slug not in SMART_SELECTOR_CATEGORY_SLUGS:
+        return '', ''
+
+    selected_theme = (request.GET.get('theme') or '').strip().lower()
+    selected_fit = (request.GET.get('fit') or '').strip().lower()
+    valid_themes = {item['code'] for item in SMART_SELECTOR_THEME_OPTIONS}
+    if selected_theme not in valid_themes:
+        selected_theme = ''
+
+    selected_fit = SMART_SELECTOR_FIT_ALIASES.get(selected_fit, '')
+    valid_fits = {'standard'} if category.slug == 'long-sleeve' else {'classic', 'oversize'}
+    if selected_fit not in valid_fits:
+        selected_fit = ''
+    return selected_theme, selected_fit
+
+
+def _smart_selector_theme_keywords(theme):
+    if theme == 'brigades':
+        return SMART_SELECTOR_BRIGADE_TOKENS
+    config_key = SMART_SELECTOR_THEME_CONFIG_KEYS.get(theme)
+    if not config_key:
+        return ()
+    return tuple(THEMATIC_LANDINGS_CONFIG[config_key]['match_keywords'])
+
+
+def _smart_selector_theme_query(theme):
+    """Reuse thematic landing keyword truth against the indexed slug/title fields."""
+    query = Q()
+    for token in _smart_selector_theme_keywords(theme):
+        query |= Q(slug__icontains=token) | Q(title__icontains=token)
+    return query
+
+
+def _smart_selector_fit_query(fit):
+    query = Q()
+    for code in SMART_SELECTOR_FIT_QUERY_CODES.get(fit, ()):
+        query |= Q(fit_options__code__iexact=code)
+    return query
+
+
+def _smart_selector_sort_state(request):
+    requested = (request.GET.get('sort') or '').strip().lower()
+    return requested if requested in SMART_SELECTOR_SORT_VALUES else 'recommended'
+
+
+def _apply_smart_selector_sort(product_queryset, selected_sort):
+    if selected_sort not in ('price-asc', 'price-desc'):
+        return product_queryset
+
+    discounted_price = ExpressionWrapper(
+        F('price') * (Value(100) - F('discount_percent')) / Value(100),
+        output_field=IntegerField(),
+    )
+    product_queryset = product_queryset.annotate(
+        smart_selector_sort_price=Case(
+            When(discount_percent__gt=0, then=discounted_price),
+            default=F('price'),
+            output_field=IntegerField(),
+        )
+    )
+    direction = '' if selected_sort == 'price-asc' else '-'
+    return product_queryset.order_by(
+        f'{direction}smart_selector_sort_price',
+        '-priority',
+        '-id',
+    )
+
+
+def _smart_selector_product_fit(product):
+    options = [option for option in product.fit_options.all() if option.is_active]
+    if not options:
+        return ''
+    code = (options[0].code or '').strip().lower()
+    return SMART_SELECTOR_FIT_ALIASES.get(code, code)
+
+
+def _smart_selector_product_theme(product):
+    searchable = f'{product.slug} {product.title}'.lower()
+    for theme in ('brigades', 'kharkiv', 'military', 'streetwear'):
+        if any(token in searchable for token in _smart_selector_theme_keywords(theme)):
+            return theme
+    return ''
+
+
+def _build_smart_selector_context(
+    request,
+    category,
+    categories,
+    products,
+    product_queryset,
+    *,
+    fit_codes=None,
+    selected_theme=None,
+    selected_fit=None,
+    selected_sort=None,
+):
+    if not category or category.slug not in SMART_SELECTOR_CATEGORY_SLUGS:
+        return {'smart_selector_enabled': False}
+
+    category_tabs = [
+        item for item in categories
+        if item.slug in SMART_SELECTOR_CATEGORY_SLUGS
+    ]
+    if fit_codes is None:
+        fit_codes = _smart_selector_fit_codes(category, product_queryset)
+    if selected_theme is None or selected_fit is None:
+        selected_theme, selected_fit = _smart_selector_query_state(
+            request,
+            category,
+            fit_codes,
+        )
+    if selected_sort is None:
+        selected_sort = _smart_selector_sort_state(request)
+    for product in products:
+        product.smart_selector_fit = _smart_selector_product_fit(product)
+        product.smart_selector_theme = _smart_selector_product_theme(product)
+
+    return {
+        'smart_selector_enabled': True,
+        'smart_selector_active_category': category,
+        'smart_selector_category_tabs': category_tabs,
+        'smart_selector_theme_options': SMART_SELECTOR_THEME_OPTIONS,
+        'smart_selector_fit_codes': fit_codes,
+        'smart_selector_fit_options': [
+            {'code': code, 'label': SMART_SELECTOR_FIT_LABELS[code]}
+            for code in fit_codes
+        ],
+        'smart_selector_selected_theme': selected_theme,
+        'smart_selector_selected_fit': selected_fit,
+        'smart_selector_selected_sort': selected_sort,
+    }
 
 
 def _match_showcase_category(categories, config):
@@ -320,8 +521,11 @@ def _normalize_swatch_overrides(value):
 # Legacy alias kept for any external test imports.
 _normalize_swatch_hexes = _normalize_swatch_overrides
 
-def _product_cards_queryset():
-    return Product.objects.select_related('category').prefetch_related('images', 'color_variants__images').defer(
+def _product_cards_queryset(*, include_fit_options=False):
+    prefetches = ['images', 'color_variants__images']
+    if include_fit_options:
+        prefetches.append('fit_options')
+    return Product.objects.select_related('category').prefetch_related(*prefetches).defer(
         'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
         'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
         'dropship_note', 'unpublished_reason'
@@ -574,11 +778,16 @@ def catalog(request, cat_slug=None):
     categories = get_categories_cached(fragment_cache)
     public_product_order_version = get_public_product_order_version(fragment_cache)
     public_category_version = get_public_category_version(fragment_cache)
+    smart_selector_fit_codes = None
+    smart_selector_selected_theme = ''
+    smart_selector_selected_fit = ''
+    smart_selector_selected_sort = 'recommended'
 
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug, is_active=True)
+        is_smart_selector_category = category.slug in SMART_SELECTOR_CATEGORY_SLUGS
         base_product_qs = apply_public_product_order(
-            _product_cards_queryset().filter(
+            _product_cards_queryset(include_fit_options=is_smart_selector_category).filter(
                 category=category,
                 status='published',
             )
@@ -590,6 +799,30 @@ def catalog(request, cat_slug=None):
             _product_cards_queryset().filter(status='published')
         )
         show_category_cards = True
+
+    if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
+        smart_selector_fit_codes = _smart_selector_fit_codes(category, base_product_qs)
+        smart_selector_selected_theme, smart_selector_selected_fit = _smart_selector_query_state(
+            request,
+            category,
+            smart_selector_fit_codes,
+        )
+        if smart_selector_selected_theme:
+            base_product_qs = base_product_qs.filter(
+                _smart_selector_theme_query(smart_selector_selected_theme)
+            )
+        if smart_selector_selected_fit:
+            base_product_qs = (
+                base_product_qs
+                .filter(fit_options__is_active=True)
+                .filter(_smart_selector_fit_query(smart_selector_selected_fit))
+                .distinct()
+            )
+        smart_selector_selected_sort = _smart_selector_sort_state(request)
+        base_product_qs = _apply_smart_selector_sort(
+            base_product_qs,
+            smart_selector_selected_sort,
+        )
 
     # Phase 9 — colour filter (?color=black,red). Build chips from the
     # *unfiltered* queryset so users can always OR-in another colour.
@@ -628,6 +861,17 @@ def catalog(request, cat_slug=None):
     # default ``homepage_image``).
     enrich_color_preview_with_slugs(products)
     attach_preferred_card_image(products, selected_color_slugs)
+    smart_selector_context = _build_smart_selector_context(
+        request,
+        category,
+        categories,
+        products,
+        base_product_qs,
+        fit_codes=smart_selector_fit_codes,
+        selected_theme=smart_selector_selected_theme,
+        selected_fit=smart_selector_selected_fit,
+        selected_sort=smart_selector_selected_sort,
+    )
 
     return render(
         request,
@@ -674,6 +918,7 @@ def catalog(request, cat_slug=None):
                 selected_color_slugs=selected_color_slugs,
                 available_colors=available_colors,
             ),
+            **smart_selector_context,
         }
     )
 
