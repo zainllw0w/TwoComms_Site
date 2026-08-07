@@ -15,7 +15,27 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def runtime_root() -> Path:
+    """Return the validated runtime root shared by staged and live code."""
+    configured = os.environ.get("TWC_IG_RUNTIME_ROOT")
+    if not configured:
+        return _DEFAULT_PROJECT_ROOT
+    candidate = Path(configured)
+    if not candidate.is_absolute():
+        raise RuntimeError("TWC_IG_RUNTIME_ROOT must be an absolute directory")
+    try:
+        resolved = candidate.resolve(strict=True)
+    except (FileNotFoundError, OSError) as exc:
+        raise RuntimeError("TWC_IG_RUNTIME_ROOT must be an existing directory") from exc
+    if not resolved.is_dir() or not (resolved / "manage.py").is_file():
+        raise RuntimeError("TWC_IG_RUNTIME_ROOT must contain manage.py")
+    return resolved
+
+
+PROJECT_ROOT = runtime_root()
 MAINTENANCE_FILE = str(PROJECT_ROOT / "tmp" / "ig_bot_maintenance.json")
 MAINTENANCE_LOCK_FILE = str(PROJECT_ROOT / "tmp" / "ig_bot_maintenance.lock")
 NOTIFICATION_SEND_LOCK_FILE = str(PROJECT_ROOT / "tmp" / "ig_bot_notification_send.lock")

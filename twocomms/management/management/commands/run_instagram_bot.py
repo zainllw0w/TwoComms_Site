@@ -43,6 +43,7 @@ from management.services.ig_maintenance import (
     activate_maintenance,
     deactivate_maintenance,
     maintenance_status,
+    runtime_root,
 )
 
 HB_KEY = "ig_bot_daemon_hb"            # heartbeat демона (epoch seconds)
@@ -54,13 +55,14 @@ CONV_REFRESH_PROGRESS_EVERY = 5        # швидко завершуємо resum
 ANALYSIS_RECONCILE_EVERY = 600         # bounded repair of missed scheduling, c
 ANALYSIS_RECONCILE_BATCH = 100
 RELOAD_LOCK_WAIT_SECONDS = 45
+MAX_RELOAD_LOCK_WAIT_SECONDS = 300
 DAEMON_START_WAIT_SECONDS = 15
 TASK_HEALTH_CHECK_EVERY = 60
 
 # Cron may invoke manage.py from an arbitrary working directory. Resolve the
 # entry point from this command module and keep the child in the Django root.
-MANAGE_PY_PATH = str(Path(__file__).resolve().parents[3] / "manage.py")
-PROJECT_ROOT = str(Path(MANAGE_PY_PATH).parent)
+PROJECT_ROOT = str(runtime_root())
+MANAGE_PY_PATH = str(Path(PROJECT_ROOT) / "manage.py")
 PID_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot.pid")
 SPAWN_LOCK_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_spawn.lock")
 DAEMON_LOCK_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_daemon.lock")
@@ -99,6 +101,22 @@ def _wait_for_lock(path: str, *, held: bool, timeout: float = 6.0) -> bool:
             return True
         time.sleep(0.1)
     return _process_lock_held(path) is held
+
+
+def _bounded_reload_lock_wait(value: int | float | None) -> float:
+    """Validate the operator-controlled drain wait without allowing infinity."""
+    if value is None:
+        return float(RELOAD_LOCK_WAIT_SECONDS)
+    try:
+        wait_seconds = float(value)
+    except (TypeError, ValueError) as exc:
+        raise CommandError("maintenance lock wait must be a number") from exc
+    if not 0 <= wait_seconds <= MAX_RELOAD_LOCK_WAIT_SECONDS:
+        raise CommandError(
+            "maintenance lock wait must be between 0 and "
+            f"{MAX_RELOAD_LOCK_WAIT_SECONDS} seconds"
+        )
+    return wait_seconds
 
 
 def _daemon_alive() -> bool:
@@ -363,6 +381,15 @@ class Command(BaseCommand):
             metavar="LEASE_ID",
             help="Внутрішній token для атомарного maintenance-on від release orchestrator.",
         )
+        parser.add_argument(
+            "--maintenance-wait-seconds",
+            type=float,
+            metavar="SECONDS",
+            help=(
+                "Максимальний час очікування штатного звільнення daemon lock "
+                f"(0..{MAX_RELOAD_LOCK_WAIT_SECONDS})."
+            ),
+        )
 
     def handle(self, *args, **opts):
         selected = sum(
@@ -379,6 +406,7 @@ class Command(BaseCommand):
             return self._maintenance_on(
                 opts["maintenance_on"],
                 requested_lease_id=opts.get("maintenance_lease_id"),
+                wait_seconds=opts.get("maintenance_wait_seconds"),
             )
         if opts.get("maintenance_off") is not None:
             try:
@@ -408,7 +436,14 @@ class Command(BaseCommand):
             "Вкажіть режим: --forever | --ensure | --once | --maintenance-on | --maintenance-off"
         )
 
-    def _maintenance_on(self, duration_seconds: int, *, requested_lease_id: str | None = None):
+    def _maintenance_on(
+        self,
+        duration_seconds: int,
+        *,
+        requested_lease_id: str | None = None,
+        wait_seconds: int | float | None = None,
+    ):
+        bounded_wait = _bounded_reload_lock_wait(wait_seconds)
         try:
             payload = activate_maintenance(
                 path=MAINTENANCE_FILE,
@@ -423,7 +458,7 @@ class Command(BaseCommand):
         if _process_lock_held(DAEMON_LOCK_FILE) and not _wait_for_lock(
             DAEMON_LOCK_FILE,
             held=False,
-            timeout=RELOAD_LOCK_WAIT_SECONDS,
+            timeout=bounded_wait,
         ):
             raise CommandError("daemon did not stop after maintenance activation")
         self.stdout.write(
@@ -506,6 +541,9 @@ class Command(BaseCommand):
             return self._forever_locked()
 
     def _forever_locked(self):
+        if maintenance_status(path=MAINTENANCE_FILE)["active"]:
+            self.stdout.write("maintenance active — daemon exit")
+            return
         # This process starts only after the previous daemon released the
         # singleton lock. Reconcile once with the newly deployed code before
         # any notification, analysis, payment, or reply work can run.

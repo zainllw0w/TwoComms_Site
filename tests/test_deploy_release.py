@@ -21,6 +21,7 @@ class FakeRunner:
         self.calls: list[tuple[str, ...]] = []
         self.timeouts: dict[tuple[str, ...], float | None] = {}
         self.environments: dict[tuple[str, ...], dict[str, str]] = {}
+        self.working_directories: dict[tuple[str, ...], Path | None] = {}
         self.outputs = outputs or {}
         self.failures = failures or set()
 
@@ -29,6 +30,7 @@ class FakeRunner:
         self.calls.append(command)
         self.timeouts[command] = timeout
         self.environments[command] = dict(env or {})
+        self.working_directories[command] = Path(cwd) if cwd is not None else None
         rendered = " ".join(command)
         if command in self.failures or any(
             marker in rendered for marker in self.failures if isinstance(marker, str)
@@ -282,6 +284,9 @@ class SwitchRunner(FakeRunner):
     ):
         super().__init__(failures=failures)
         self.config = config
+        self.prepared_worktree: Path | None = (
+            config.release_root / "worktrees" / ("a" * 40)
+        )
         self.maintenance_output = maintenance_output
         self.current_sha = current_sha
         self.branch = branch
@@ -294,16 +299,38 @@ class SwitchRunner(FakeRunner):
         except ValueError:
             return "lease-owned"
 
+    def _is_prepared_cwd(self, cwd):
+        return bool(
+            self.prepared_worktree
+            and cwd is not None
+            and Path(cwd).resolve() == self.prepared_worktree.resolve()
+        )
+
     def __call__(self, argv, *, cwd=None, env=None, timeout=None):
         command = tuple(str(part) for part in argv)
         if command == ("git", "rev-parse", "HEAD"):
             self.calls.append(command)
+            if self._is_prepared_cwd(cwd):
+                return deploy_release.CommandResult(0, "a" * 40 + "\n", "")
             return deploy_release.CommandResult(0, self.current_sha + "\n", "")
+        if command == ("git", "rev-parse", "--abbrev-ref", "HEAD"):
+            self.calls.append(command)
+            if self._is_prepared_cwd(cwd):
+                return deploy_release.CommandResult(0, "HEAD\n", "")
+            return deploy_release.CommandResult(0, self.branch + "\n", "")
         if command == ("git", "symbolic-ref", "--short", "HEAD"):
             self.calls.append(command)
             return deploy_release.CommandResult(0, self.branch + "\n", "")
         if command == ("git", "status", "--porcelain", "--untracked-files=no"):
             self.calls.append(command)
+            if self._is_prepared_cwd(cwd):
+                return deploy_release.CommandResult(0, "", "")
+            return deploy_release.CommandResult(0, self.tracked_status, "")
+        if command == ("git", "status", "--porcelain", "--untracked-files=all"):
+            self.calls.append(command)
+            if self._is_prepared_cwd(cwd):
+                untracked = "?? manage.py\n" if (Path(cwd) / "manage.py").is_file() else ""
+                return deploy_release.CommandResult(0, untracked, "")
             return deploy_release.CommandResult(0, self.tracked_status, "")
         result = super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
         rendered = " ".join(str(part) for part in argv)
@@ -427,7 +454,11 @@ class RollbackTrackedDriftRunner(SwitchRunner):
 
     def __call__(self, argv, *, cwd=None, env=None, timeout=None):
         command = tuple(str(part) for part in argv)
-        if command == ("git", "status", "--porcelain", "--untracked-files=no"):
+        if (
+            command == ("git", "status", "--porcelain", "--untracked-files=no")
+            and cwd is not None
+            and Path(cwd).resolve() == self.config.live_checkout.resolve()
+        ):
             self.status_calls += 1
             self.tracked_status = " M externally-edited.py\n" if self.status_calls >= 2 else ""
         return super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
@@ -539,6 +570,10 @@ class SwitchTests(unittest.TestCase):
         self.venv = self.release_root / "venvs" / self.target_sha
         self.static_root = self.release_root / "static" / self.target_sha
         self.worktree.mkdir(parents=True)
+        (self.worktree / "twocomms").mkdir()
+        (self.worktree / "twocomms" / "manage.py").write_text(
+            "", encoding="utf-8"
+        )
         (self.venv / "bin").mkdir(parents=True)
         (self.venv / "bin" / "python").write_text("", encoding="utf-8")
         (self.static_root / "CACHE").mkdir(parents=True)
@@ -554,6 +589,7 @@ class SwitchTests(unittest.TestCase):
             lock_sha256=hashlib.sha256(b"locked\n").hexdigest(),
         )
         self.runner = SwitchRunner(self.config)
+        self.runner.prepared_worktree = self.worktree
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -581,14 +617,68 @@ class SwitchTests(unittest.TestCase):
         stop_index = next(i for i, call in enumerate(self.runner.calls) if call[:2] == ("cloudlinux-selector", "stop"))
         self.assertLess(maintenance_index, stop_index)
 
-    def test_maintenance_activation_uses_bounded_subprocess_timeout(self):
+    def test_owned_maintenance_runs_from_prepared_release_against_live_runtime(self):
         deploy_release.switch(self.config, self.prepared, run=self.runner)
+
+        maintenance_calls = [
+            call
+            for call in self.runner.calls
+            if "run_instagram_bot" in call
+            and ("--maintenance-on" in call or "--maintenance-off" in call)
+        ]
+        self.assertEqual(len(maintenance_calls), 2)
+        expected_prefix = (
+            os.fspath(self.venv / "bin" / "python"),
+            os.fspath((self.worktree / "twocomms" / "manage.py").resolve()),
+        )
+        for call in maintenance_calls:
+            self.assertEqual(call[:2], expected_prefix)
+            self.assertEqual(
+                self.runner.working_directories[call],
+                (self.worktree / "twocomms").resolve(),
+            )
+            self.assertEqual(
+                self.runner.environments[call].get("TWC_IG_RUNTIME_ROOT"),
+                os.fspath(self.live.resolve()),
+            )
+            self.assertEqual(
+                self.runner.environments[call].get("DJANGO_SETTINGS_MODULE"),
+                "twocomms.production_settings",
+            )
+        self.assertNotIn(os.fspath(self.live / "manage.py"), maintenance_calls[0])
+
+    def test_maintenance_activation_uses_bounded_subprocess_timeout(self):
+        config = replace(
+            self.config,
+            maintenance_wait_seconds=120,
+            maintenance_timeout_seconds=140,
+        )
+        self.runner.config = config
+        deploy_release.switch(config, self.prepared, run=self.runner)
         maintenance_call = next(call for call in self.runner.calls if "--maintenance-on" in call)
 
         self.assertEqual(
             self.runner.timeouts[maintenance_call],
-            self.config.maintenance_timeout_seconds,
+            config.maintenance_timeout_seconds,
         )
+        self.assertEqual(
+            maintenance_call[
+                maintenance_call.index("--maintenance-wait-seconds") + 1
+            ],
+            "120",
+        )
+
+    def test_maintenance_activation_rejects_timeout_not_longer_than_lock_wait(self):
+        config = replace(
+            self.config,
+            maintenance_wait_seconds=120,
+            maintenance_timeout_seconds=120,
+        )
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "maintenance timeout"):
+            deploy_release.switch(config, self.prepared, run=self.runner)
+
+        self.assertFalse(any("--maintenance-on" in call for call in self.runner.calls))
 
     def test_subprocess_timeout_is_a_release_error(self):
         with patch.object(
@@ -606,6 +696,36 @@ class SwitchTests(unittest.TestCase):
             deploy_release.switch(self.config, self.prepared, run=runner)
 
         self.assertFalse(any("--maintenance-on" in call for call in runner.calls))
+
+    def test_prepared_worktree_outside_release_root_is_rejected_before_maintenance(self):
+        outside = Path(self.temp_dir.name) / "outside-worktree"
+        outside.mkdir()
+        prepared = replace(self.prepared, worktree=outside)
+
+        with self.assertRaises(deploy_release.ReleaseError):
+            deploy_release.switch(self.config, prepared, run=self.runner)
+
+        self.assertFalse(any("--maintenance-on" in call for call in self.runner.calls))
+
+    def test_untracked_root_manage_entry_cannot_replace_canonical_release_entrypoint(self):
+        # The repository's only supported entry point is twocomms/manage.py.
+        # A newly-created root manage.py must never become executable release code.
+        (self.worktree / "manage.py").write_text("raise SystemExit('untrusted')\n", encoding="utf-8")
+
+        with self.assertRaises(deploy_release.ReleaseError):
+            deploy_release.switch(self.config, self.prepared, run=self.runner)
+
+        self.assertFalse(any("--maintenance-on" in call for call in self.runner.calls))
+
+    def test_prepared_manage_path_preserves_supported_direct_layout(self):
+        (self.worktree / "twocomms" / "manage.py").unlink()
+        direct_manage = self.worktree / "manage.py"
+        direct_manage.write_text("", encoding="utf-8")
+
+        self.assertEqual(
+            deploy_release._prepared_manage_path(self.config, self.prepared),
+            direct_manage.resolve(),
+        )
 
     def test_switch_rejects_branch_drift_before_maintenance(self):
         runner = SwitchRunner(self.config, branch="release")

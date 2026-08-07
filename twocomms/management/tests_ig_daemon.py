@@ -60,6 +60,79 @@ class DaemonPathTests(SimpleTestCase):
         self.assertTrue(MANAGE_PY_PATH.endswith(os.path.join("twocomms", "manage.py")))
         self.assertEqual(PROJECT_ROOT, os.path.dirname(MANAGE_PY_PATH))
 
+    def test_release_runtime_root_routes_maintenance_and_daemon_files_to_live_tmp(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            runtime_root = os.path.join(temp_dir, "live")
+            os.makedirs(runtime_root)
+            with open(os.path.join(runtime_root, "manage.py"), "w", encoding="utf-8"):
+                pass
+            env = os.environ.copy()
+            env["TWC_IG_RUNTIME_ROOT"] = runtime_root
+            env["PYTHONPATH"] = os.pathsep.join(
+                filter(None, [PROJECT_ROOT, env.get("PYTHONPATH", "")])
+            )
+            child_code = """
+import json
+import django
+django.setup()
+from management.services import ig_maintenance as maintenance
+from management.management.commands import run_instagram_bot as runner
+print(json.dumps({
+    'maintenance': maintenance.MAINTENANCE_FILE,
+    'maintenance_lock': maintenance.MAINTENANCE_LOCK_FILE,
+    'notification_lock': maintenance.NOTIFICATION_SEND_LOCK_FILE,
+    'daemon_lock': runner.DAEMON_LOCK_FILE,
+    'spawn_lock': runner.SPAWN_LOCK_FILE,
+    'pid': runner.PID_FILE,
+}))
+"""
+            result = subprocess.run(
+                [sys.executable, "-c", child_code],
+                cwd=PROJECT_ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            paths = json.loads(result.stdout)
+            self.assertEqual(
+                set(paths.values()),
+                {
+                    os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_maintenance.json")),
+                    os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_maintenance.lock")),
+                    os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_notification_send.lock")),
+                    os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_daemon.lock")),
+                    os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_spawn.lock")),
+                    os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot.pid")),
+                },
+            )
+
+    def test_release_runtime_root_rejects_relative_paths(self):
+        env = os.environ.copy()
+        env["TWC_IG_RUNTIME_ROOT"] = "relative/live"
+        env["PYTHONPATH"] = os.pathsep.join(
+            filter(None, [PROJECT_ROOT, env.get("PYTHONPATH", "")])
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from management.services import ig_maintenance",
+            ],
+            cwd=PROJECT_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("TWC_IG_RUNTIME_ROOT", result.stderr)
+
     def test_conversation_refresh_backs_off_when_provider_is_degraded(self):
         settings = InstagramBotSettings(conversation_discovery_cursor="CURSOR")
 
@@ -90,6 +163,33 @@ class DaemonPathTests(SimpleTestCase):
             "reconcile_ig_commercial_episodes",
             passes=3,
         )
+
+    @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
+    @patch("management.management.commands.run_instagram_bot.activate_maintenance")
+    def test_maintenance_on_uses_explicit_bounded_lock_wait(
+        self, activate, _held, wait_for_lock
+    ):
+        activate.return_value = {
+            "lease_id": "deploy-test",
+            "expires_at": 9999999999,
+        }
+
+        Command()._maintenance_on(
+            900,
+            requested_lease_id="deploy-test",
+            wait_seconds=120,
+        )
+
+        wait_for_lock.assert_called_once_with(
+            DAEMON_LOCK_FILE,
+            held=False,
+            timeout=120,
+        )
+
+    def test_maintenance_on_rejects_wait_above_hard_bound(self):
+        with self.assertRaisesMessage(CommandError, "maintenance lock wait"):
+            Command()._maintenance_on(900, wait_seconds=301)
 
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
@@ -831,7 +931,7 @@ class DaemonHeartbeatTests(SimpleTestCase):
                 os.path.join(temp_dir, "daemon.pid"),
             ):
                 Command()._forever_locked()
-        _reconcile.assert_called_once_with()
+        _reconcile.assert_not_called()
         work_cycle.assert_not_called()
 
 

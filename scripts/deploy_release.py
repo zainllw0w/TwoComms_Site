@@ -29,6 +29,8 @@ HEX_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 LEASE_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 LEASE_RECEIPT_RE = re.compile(r"(?:^|\s)lease_id=([A-Za-z0-9._:-]{1,128})(?:\s|$)")
 REVIEWED_LOCK_SHA256 = "e7d03c919785fe20991a3b27d3228d50ffeafda6a8abbfd36419007f267bd575"
+MAX_MAINTENANCE_WAIT_SECONDS = 300
+MAINTENANCE_TIMEOUT_GRACE_SECONDS = 15
 LIVE_BRANCH = "main"
 FAILURE_PHASES = frozenset(
     {
@@ -91,7 +93,8 @@ class ReleaseConfig:
     maintenance_path: Path | None = None
     maintenance_file: Path | None = None
     maintenance_duration_seconds: int = 15 * 60
-    maintenance_timeout_seconds: int = 45
+    maintenance_wait_seconds: int = 180
+    maintenance_timeout_seconds: int = 210
     command_timeout_seconds: int = 120
     site_health_url: str = "https://twocomms.shop/healthz/"
     bot_health_url: str = "https://management.twocomms.shop/bot/health/"
@@ -340,6 +343,9 @@ def prepare(
         worktree.parent.mkdir(parents=True, exist_ok=True)
         venv.parent.mkdir(parents=True, exist_ok=True)
         static_root.parent.mkdir(parents=True, exist_ok=True)
+        # Register the path before invoking Git so a partial worktree creation
+        # is still removed when the command fails after creating its directory.
+        created.append(worktree)
         _run(
             run,
             ("git", "worktree", "add", "--detach", str(worktree), target_sha),
@@ -348,7 +354,6 @@ def prepare(
             timeout=config.command_timeout_seconds,
         )
         worktree.mkdir(parents=True, exist_ok=True)
-        created.append(worktree)
         _run(
             run,
             (os.fspath(config.system_python), "-m", "venv", str(venv)),
@@ -534,7 +539,87 @@ def _manage_path(checkout: Path) -> Path:
     return direct if direct.is_file() else checkout / "twocomms" / "manage.py"
 
 
-def _maintenance_command(config: ReleaseConfig, *arguments: str) -> tuple[str, ...]:
+def _runtime_root(config: ReleaseConfig) -> Path:
+    manage = _manage_path(config.live_checkout)
+    if not manage.is_file():
+        raise ReleaseError("live manage.py is missing")
+    root = manage.parent.resolve()
+    if not root.is_dir() or not (root / "manage.py").is_file():
+        raise ReleaseError("live runtime root is invalid")
+    return root
+
+
+def _maintenance_environment(config: ReleaseConfig) -> dict[str, str]:
+    environment = dict(os.environ)
+    environment.update(
+        {
+            "DJANGO_SETTINGS_MODULE": "twocomms.production_settings",
+            "DJANGO_ENV": "production",
+            "TWC_IG_RUNTIME_ROOT": os.fspath(_runtime_root(config)),
+        }
+    )
+    return environment
+
+
+def _prepared_manage_path(config: ReleaseConfig, prepared: PreparedRelease) -> Path:
+    worktree = _validate_release_path(config, prepared.worktree, label="prepared worktree")
+    # Keep the repository's supported nested/direct layouts. The prepared
+    # boundary below rejects every untracked file before this path executes.
+    manage = _manage_path(worktree)
+    try:
+        resolved_manage = manage.resolve(strict=True)
+        resolved_manage.relative_to(worktree)
+    except (FileNotFoundError, OSError, ValueError) as exc:
+        raise ReleaseError("prepared release manage.py is outside its worktree") from exc
+    if manage.is_symlink() or not manage.is_file():
+        raise ReleaseError("prepared release manage.py must be a regular file")
+    return manage
+
+
+def _maintenance_wait_seconds(config: ReleaseConfig) -> int:
+    try:
+        wait_seconds = int(config.maintenance_wait_seconds)
+    except (TypeError, ValueError) as exc:
+        raise ReleaseError("maintenance lock wait must be an integer") from exc
+    if not 0 <= wait_seconds <= MAX_MAINTENANCE_WAIT_SECONDS:
+        raise ReleaseError(
+            "maintenance lock wait must be between 0 and "
+            f"{MAX_MAINTENANCE_WAIT_SECONDS} seconds"
+        )
+    return wait_seconds
+
+
+def _maintenance_activation_timeout(config: ReleaseConfig) -> int:
+    try:
+        timeout_seconds = int(config.maintenance_timeout_seconds)
+    except (TypeError, ValueError) as exc:
+        raise ReleaseError("maintenance timeout must be an integer") from exc
+    required = _maintenance_wait_seconds(config) + MAINTENANCE_TIMEOUT_GRACE_SECONDS
+    if timeout_seconds < required:
+        raise ReleaseError(
+            "maintenance timeout must exceed maintenance lock wait by at least "
+            f"{MAINTENANCE_TIMEOUT_GRACE_SECONDS} seconds"
+        )
+    return timeout_seconds
+
+
+def _maintenance_command(
+    config: ReleaseConfig,
+    prepared: PreparedRelease,
+    *arguments: str,
+) -> tuple[str, ...]:
+    # Structural validation is repeated at command construction to narrow the
+    # interval in which a prepared path could be replaced before execution.
+    manage = _prepared_manage_path(config, prepared)
+    return (
+        os.fspath(prepared.venv / "bin" / "python"),
+        os.fspath(manage),
+        "run_instagram_bot",
+        *arguments,
+    )
+
+
+def _daemon_command(config: ReleaseConfig, *arguments: str) -> tuple[str, ...]:
     return (
         os.fspath(config.active_venv / "bin" / "python"),
         os.fspath(_manage_path(config.live_checkout)),
@@ -545,6 +630,7 @@ def _maintenance_command(config: ReleaseConfig, *arguments: str) -> tuple[str, .
 
 def _release_maintenance(
     config: ReleaseConfig,
+    prepared: PreparedRelease,
     lease_id: str,
     *,
     run: Runner,
@@ -555,8 +641,9 @@ def _release_maintenance(
     try:
         _run(
             run,
-            _maintenance_command(config, "--maintenance-off", lease_id),
-            cwd=config.live_checkout,
+            _maintenance_command(config, prepared, "--maintenance-off", lease_id),
+            cwd=_prepared_manage_path(config, prepared).parent,
+            env=_maintenance_environment(config),
             label="maintenance release",
             timeout=config.maintenance_timeout_seconds,
         )
@@ -567,24 +654,35 @@ def _release_maintenance(
         raise
 
 
-def _activate_maintenance(config: ReleaseConfig, *, run: Runner) -> str:
+def _activate_maintenance(
+    config: ReleaseConfig,
+    prepared: PreparedRelease,
+    *,
+    run: Runner,
+) -> str:
     lease_marker = maintenance_path(config)
     requested_id = f"deploy-{uuid.uuid4().hex}"
     result: CommandResult | None = None
     activation_error: ReleaseError | None = None
+    activation_timeout = _maintenance_activation_timeout(config)
+    wait_seconds = _maintenance_wait_seconds(config)
     try:
         result = _run(
             run,
             _maintenance_command(
                 config,
+                prepared,
                 "--maintenance-on",
                 str(max(30, int(config.maintenance_duration_seconds))),
+                "--maintenance-wait-seconds",
+                str(wait_seconds),
                 "--maintenance-lease-id",
                 requested_id,
             ),
-            cwd=config.live_checkout,
+            cwd=_prepared_manage_path(config, prepared).parent,
+            env=_maintenance_environment(config),
             label="maintenance activation",
-            timeout=config.maintenance_timeout_seconds,
+            timeout=activation_timeout,
         )
     except ReleaseError as exc:
         activation_error = exc
@@ -598,6 +696,7 @@ def _activate_maintenance(config: ReleaseConfig, *, run: Runner) -> str:
         if durable_id == requested_id:
             released = _release_maintenance(
                 config,
+                prepared,
                 requested_id,
                 run=run,
                 tolerate_failure=True,
@@ -613,6 +712,7 @@ def _activate_maintenance(config: ReleaseConfig, *, run: Runner) -> str:
         if durable_id == requested_id:
             released = _release_maintenance(
                 config,
+                prepared,
                 requested_id,
                 run=run,
                 tolerate_failure=True,
@@ -627,6 +727,7 @@ def _activate_maintenance(config: ReleaseConfig, *, run: Runner) -> str:
     if durable_id != requested_id:
         released = _release_maintenance(
             config,
+            prepared,
             requested_id,
             run=run,
             tolerate_failure=True,
@@ -665,6 +766,43 @@ def _validate_release_path(config: ReleaseConfig, path: Path, *, label: str) -> 
     if not resolved.is_dir() or path.is_symlink():
         raise ReleaseError(f"{label} must be a real release directory")
     return resolved
+
+
+def _assert_prepared_release_boundary(
+    config: ReleaseConfig,
+    prepared: PreparedRelease,
+    *,
+    run: Runner,
+) -> None:
+    worktree = _validate_release_path(config, prepared.worktree, label="prepared worktree")
+    _prepared_manage_path(config, prepared)
+    head = _stdout(
+        run,
+        ("git", "rev-parse", "HEAD"),
+        cwd=worktree,
+        label="prepared release HEAD",
+        timeout=config.command_timeout_seconds,
+    )
+    if head != prepared.target_sha:
+        raise ReleaseError("prepared worktree HEAD differs from the target SHA")
+    tracked_status = _stdout(
+        run,
+        ("git", "status", "--porcelain", "--untracked-files=all"),
+        cwd=worktree,
+        label="prepared release tracked status",
+        timeout=config.command_timeout_seconds,
+    )
+    if tracked_status:
+        raise ReleaseError("prepared worktree has tracked or untracked changes")
+    ref = _stdout(
+        run,
+        ("git", "rev-parse", "--abbrev-ref", "HEAD"),
+        cwd=worktree,
+        label="prepared release ref",
+        timeout=config.command_timeout_seconds,
+    )
+    if ref != "HEAD":
+        raise ReleaseError("prepared worktree must be detached")
 
 
 def _atomic_switch_path(active: Path, target: Path, retained: Path) -> _SwitchedPath:
@@ -1062,8 +1200,7 @@ def switch(
         raise ReleaseError("target SHA must differ from the live SHA")
     if not HEX_SHA256_RE.fullmatch(prepared.lock_sha256):
         raise ReleaseError("prepared lock digest is invalid")
-    if not prepared.worktree.is_dir():
-        raise ReleaseError("prepared worktree is missing")
+    _validate_release_path(config, prepared.worktree, label="prepared worktree")
     venv = _validate_release_path(config, prepared.venv, label="prepared venv")
     static_root = _validate_release_path(config, prepared.static_root, label="prepared static root")
     _validate_static_artifacts(static_root)
@@ -1078,9 +1215,10 @@ def switch(
     switched_paths: list[_SwitchedPath] = []
     failure_phase = "preflight"
     try:
+        _assert_prepared_release_boundary(config, prepared, run=run)
         _assert_live_checkout_boundary(config, previous_sha, run=run)
         failure_phase = "maintenance_activation"
-        lease_id = _activate_maintenance(config, run=run)
+        lease_id = _activate_maintenance(config, prepared, run=run)
         stop_attempted = True
         failure_phase = "passenger_stop"
         _run(
@@ -1123,12 +1261,12 @@ def switch(
         failure_phase = "site_health"
         _verify_release_health(config, prepared, run=run, include_bot=False)
         failure_phase = "maintenance_release"
-        _release_maintenance(config, lease_id, run=run)
+        _release_maintenance(config, prepared, lease_id, run=run)
         lease_id = None
         failure_phase = "daemon_ensure"
         _run(
             run,
-            _maintenance_command(config, "--ensure"),
+            _daemon_command(config, "--ensure"),
             cwd=config.live_checkout,
             label="daemon ensure",
             timeout=config.command_timeout_seconds,
@@ -1153,7 +1291,7 @@ def switch(
         can_restore_runtime = must_restore_runtime
         if must_restore_runtime and lease_id is None:
             try:
-                lease_id = _activate_maintenance(config, run=run)
+                lease_id = _activate_maintenance(config, prepared, run=run)
             except Exception as exc:
                 rollback_errors.append(exc)
                 can_restore_runtime = False
@@ -1200,6 +1338,7 @@ def switch(
         if lease_id is not None and can_restore_runtime:
             released = _release_maintenance(
                 config,
+                prepared,
                 lease_id,
                 run=run,
                 tolerate_failure=True,
@@ -1213,7 +1352,7 @@ def switch(
             try:
                 _run(
                     run,
-                    _maintenance_command(config, "--ensure"),
+                    _daemon_command(config, "--ensure"),
                     cwd=config.live_checkout,
                     label="previous daemon ensure",
                     timeout=config.command_timeout_seconds,
