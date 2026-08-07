@@ -974,6 +974,28 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             self.template,
         )
 
+    def test_ad_view_bridges_unattributed_overall_activity_without_calling_it_ads(self):
+        for contract in (
+            "function renderAdContextBridge",
+            "bot-stats-context-bridge",
+            "Загальний потік · реклама ще не підтверджена",
+            "Потрібна рекламна прив’язка",
+            "data-context-step",
+            "data-context-detail",
+            "data-context-population",
+            "paylink_issued",
+            "paylink_viewed",
+            "renderAdContextBridge(data,analytics)",
+            "metricValue(data,'conversations')",
+            "funnelValue('paylink_issued',overall.paylinks_issued)",
+            "funnelValue('paylink_viewed',overall.paylinks_viewed)",
+            "num(overall.paid)",
+            "if(hasAdData||(!Object.values(values).some(value=>value>0)&&!num(overall.messages)))return ''",
+            "toggleContextStep",
+            "clearContextSelection",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_campaign_ranking_keeps_rows_after_the_primary_eight_in_disclosure(self):
         for contract in (
             "const shown=ranked.slice(0,8)",

@@ -311,6 +311,29 @@
 .bot-stats-ad-signal-detail[hidden]{display:none;}
 .bot-stats-ad-signal-detail::before{content:'';flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--signal-detail-color,#5ab6b0);box-shadow:0 0 0 3px color-mix(in srgb,var(--signal-detail-color,#5ab6b0) 12%,transparent);}
 .bot-stats-ad-signal-detail strong{color:#dbe4ee;font-size:10px;}
+.bot-stats-context-bridge{min-width:0;margin-top:10px;border:1px solid #2b3544;border-radius:8px;background:#0b1119;overflow:hidden;}
+.bot-stats-context-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px 11px 8px;border-bottom:1px solid #202b39;}
+.bot-stats-context-head h4{margin:0;color:#d8e1eb;font-size:11px;font-weight:850;line-height:1.3;}
+.bot-stats-context-head span{display:block;margin-top:3px;color:#8592a4;font-size:9px;font-weight:700;line-height:1.35;}
+.bot-stats-context-status{flex:0 0 auto;color:#c8ab75;font-size:9px;font-weight:850;line-height:1.35;text-align:right;}
+.bot-stats-context-path{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;padding:8px 7px 7px;}
+.bot-stats-context-step{position:relative;display:grid;grid-template-rows:14px auto minmax(25px,auto) 3px;align-content:start;gap:5px;min-width:0;border:1px solid transparent;border-radius:7px;background:transparent;color:#7f8b9c;padding:7px 5px 8px;text-align:left;cursor:pointer;transition:border-color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease),opacity var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-context-step::before{content:'';position:absolute;z-index:0;top:13px;left:calc(50% + 6px);width:calc(50% + 6px);height:1px;background:#283445;}
+.bot-stats-context-step:last-child::before{display:none;}
+.bot-stats-context-node{position:relative;z-index:1;display:block;width:8px;height:8px;border:2px solid #46566a;border-radius:50%;background:#0d131c;box-shadow:0 0 0 3px #0d131c;}
+.bot-stats-context-step.has-value .bot-stats-context-node{border-color:#8b9caf;background:#8b9caf;box-shadow:0 0 0 3px #0d131c,0 0 0 5px rgba(139,156,175,.1);}
+.bot-stats-context-count{color:#e2e9f1;font-size:16px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1;}
+.bot-stats-context-label{min-width:0;color:#8795a8;font-size:8.5px;font-weight:750;line-height:1.3;}
+.bot-stats-context-rail{display:block;height:2px;overflow:hidden;border-radius:2px;background:#253140;}
+.bot-stats-context-fill{display:block;width:var(--context-width,0%);height:100%;border-radius:2px;background:#728197;transition:width var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-context-step:hover,.bot-stats-context-step:focus-visible,.bot-stats-context-step.is-active{border-color:#3a485b;background:#111a25;color:#e2e9f1;outline:0;transform:translateY(-1px);}
+.bot-stats-context-step:focus-visible{box-shadow:0 0 0 2px rgba(139,156,175,.22);}
+.bot-stats-context-step.is-active{border-color:#71839b;}
+.bot-stats-context-step.is-dim{opacity:.38;}
+.bot-stats-context-detail{display:flex;align-items:center;gap:7px;min-height:32px;margin:0 11px;border-top:1px solid #202b39;color:#8391a4;padding:9px 5px 10px;font-size:9.5px;font-weight:700;line-height:1.4;}
+.bot-stats-context-detail[hidden]{display:none;}
+.bot-stats-context-detail::before{content:'';flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:#8b9caf;box-shadow:0 0 0 3px rgba(139,156,175,.12);}
+.bot-stats-context-detail strong{color:#dbe4ee;font-size:10px;}
 .bot-stats-ad-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:10px;margin-bottom:10px;}
 .bot-stats-ad-single{margin-bottom:10px;}
 .bot-stats-ad-grid+.bot-stats-analysis-card{margin-bottom:10px;}
@@ -839,6 +862,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-product-list.is-expanded{grid-template-columns:minmax(0,1fr)}
   .bot-stats-secondary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .bot-stats-ad-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bot-stats-context-path{grid-template-columns:repeat(3,minmax(0,1fr))}
   .bot-stats-details-content{grid-template-columns:minmax(0,1fr)}
   .bot-stats-skeleton-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -889,6 +913,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-ad-summary{grid-template-columns:minmax(0,1fr)}
   .bot-stats-ad-notes{display:grid;grid-template-columns:minmax(0,1fr)}
   .bot-stats-ad-signal-path{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .bot-stats-context-path{grid-template-columns:repeat(3,minmax(0,1fr))}
   .bot-stats-ad-signal-step:nth-child(3n)::before{display:none}
   .bot-stats-reason-row{grid-template-columns:minmax(0,1fr) auto;}
   .bot-stats-reason-row span:nth-of-type(2),.bot-stats-reason-row span:nth-of-type(3){display:none}
@@ -912,6 +937,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-attribution-ring::after{inset:14px}
   .bot-stats-attribution-center strong{font-size:19px}
   .bot-stats-ad-signal-path{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bot-stats-context-path{grid-template-columns:repeat(2,minmax(0,1fr))}
   .bot-stats-ad-signal-step:nth-child(3n)::before{display:block}
   .bot-stats-ad-signal-step:nth-child(2n)::before{display:none}
   .bot-stats-ad-signal-step:nth-child(2n)::after{content:'';position:absolute;z-index:0;right:calc(50% - .5px);bottom:-6px;width:1px;height:7px;background:#283445;}
@@ -927,7 +953,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-attribution-segment strong{font-size:9px}
   .bot-stats-attribution-segment span{font-size:9px}
 }
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-context-step,.bot-stats-context-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active,.bot-stats-context-step:hover,.bot-stats-context-step:focus-visible,.bot-stats-context-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -2863,6 +2889,25 @@ body.bot-drawer-open{overflow:hidden;}
       const losses=Math.max(0,num(values.lost_or_refused));
       return '<section class="bot-stats-analysis-card bot-stats-ad-signal-card" style="--reveal-order:4"><div class="bot-stats-section-head"><div><h3 class="bot-stats-section-title">Шлях комерційних сигналів</h3><span class="bot-stats-section-meta">окремі сигнали за період · не когорта</span></div><div class="bot-stats-ad-signal-head-meta"><span class="bot-stats-ad-signal-loss">Втрати '+numberFormat.format(losses)+'</span></div></div><div class="bot-stats-ad-signal-path">'+steps+'</div><div id="bot-stats-ad-signal-detail" class="bot-stats-ad-signal-detail" data-ad-signal-detail role="status" aria-live="polite" hidden><strong data-ad-signal-detail-label></strong><span data-ad-signal-detail-value></span></div></section>';
     }
+    function renderAdContextBridge(data,analytics){
+      const adValues=analytics&&analytics.totals||{};
+      const hasAdData=Boolean(num(adValues.conversations)||num(adValues.qualified)||num(adValues.product_matched)||num(adValues.paylinks_issued)||num(adValues.paylinks_viewed)||num(adValues.verified_paid)||num(adValues.revenue)||num(adValues.revenue_unpriced_payments)||num(adValues.lost_or_refused)||(analytics&&analytics.campaigns||[]).length||(analytics&&analytics.products||[]).length);
+      const overall=totals(data);const population=Math.max(0,metricValue(data,'conversations'));
+      const funnel=new Map(((data&&data.funnel)||[]).map(row=>[String(row.step||''),num(row.entered)]));
+      const funnelValue=(key,fallback)=>funnel.has(key)?funnel.get(key):num(fallback);
+      const values={conversations:population,qualified:num(overall.qualified),product_matched:num(overall.product_matched),paylinks_issued:funnelValue('paylink_issued',overall.paylinks_issued),paylinks_viewed:funnelValue('paylink_viewed',overall.paylinks_viewed),paid:num(overall.paid)};
+      if(hasAdData||(!Object.values(values).some(value=>value>0)&&!num(overall.messages)))return '';
+      const specs=[
+        {key:'conversations',label:'Діалоги',detail:'Усі діалоги періоду'},
+        {key:'qualified',label:'Кваліфіковані',detail:'Усі кваліфіковані сигнали'},
+        {key:'product_matched',label:'Товар визначено',detail:'Усі сигнали з товаром'},
+        {key:'paylinks_issued',label:'Лінк видано',detail:'Усі видані платіжні посилання'},
+        {key:'paylinks_viewed',label:'Лінк відкрито',detail:'Усі переглянуті платіжні посилання'},
+        {key:'paid',label:'Оплачено',detail:'Усі підтверджені оплати'}
+      ];
+      const steps=specs.map(spec=>{const value=Math.max(0,num(values[spec.key]));const share=population?Math.round(value*100/population):0;const width=Math.min(100,share);return '<button type="button" class="bot-stats-context-step'+(value?' has-value':'')+'" data-context-step="'+spec.key+'" data-context-label="'+esc(spec.detail)+'" data-context-count="'+value+'" data-context-percent="'+share+'" data-context-population="'+population+'" aria-controls="bot-stats-context-detail" aria-pressed="false" aria-label="'+esc(spec.detail)+': '+numberFormat.format(value)+', '+share+' відсотків від усіх діалогів" style="--context-width:0%"><span class="bot-stats-context-node" aria-hidden="true"></span><strong class="bot-stats-context-count">'+numberFormat.format(value)+'</strong><span class="bot-stats-context-label">'+esc(spec.label)+'</span><span class="bot-stats-context-rail" aria-hidden="true"><span class="bot-stats-context-fill" data-context-width="'+width+'"></span></span></button>';}).join('');
+      return '<section class="bot-stats-context-bridge" data-context-population="'+population+'" aria-label="Загальний потік · реклама ще не підтверджена"><div class="bot-stats-context-head"><div><h4>Загальний потік</h4><span>Загальний потік · реклама ще не підтверджена</span></div><strong class="bot-stats-context-status">Потрібна рекламна прив’язка</strong></div><div class="bot-stats-context-path">'+steps+'</div><div id="bot-stats-context-detail" class="bot-stats-context-detail" data-context-detail role="status" aria-live="polite" hidden><strong data-context-detail-label></strong><span data-context-detail-value></span></div></section>';
+    }
     function funnelRows(data){
       const source=(data&&data.funnel||[]).map((row,index)=>({key:String(row.step||index),label:String(row.label||row.step||'Подія'),count:num(row.entered)}));
       const first=source.length?source[0].count:0;const max=Math.max(0,...source.map(row=>row.count));
@@ -3007,7 +3052,7 @@ body.bot-drawer-open{overflow:hidden;}
       const funnel=(analytics.funnel||[]).some(row=>num(row.entered))?renderFunnel(analytics,previousAnalytics,'Події рекламної воронки'):'';
       const products=renderProductPerformance(analytics.products,previousAnalytics.products,{title:'Товари з рекламних діалогів',meta:'інтерес · підтверджені позиції',limit:7,revealOrder:7});
       const analysis=funnel&&campaigns?'<div class="bot-stats-ad-grid">'+funnel+campaigns+'</div>':funnel||campaigns?'<div class="bot-stats-ad-single">'+(funnel||campaigns)+'</div>':'';
-      return renderAdvertisingKpis(data,previous)+renderAdvertisingNotes(analytics)+attributionRow+activity+analysis+products+renderAdDropOffs(analytics.drop_off_reasons);
+      return renderAdvertisingKpis(data,previous)+renderAdvertisingNotes(analytics)+attributionRow+renderAdContextBridge(data,analytics)+activity+analysis+products+renderAdDropOffs(analytics.drop_off_reasons);
     }
     function renderProductsView(data,previous){
       const products=renderProductPerformance(data.products,previous&&previous.products,{title:'Попит на товари',meta:'окремі шкали: інтерес · підтверджені одиниці',limit:25,expanded:true,revealOrder:4});
@@ -3106,6 +3151,17 @@ body.bot-drawer-open{overflow:hidden;}
       step.classList.add('is-active');step.setAttribute('aria-pressed','true');module.querySelectorAll('[data-ad-signal-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
       if(detail){detail.hidden=false;detail.style.setProperty('--signal-detail-color',step.dataset.adSignalColor||'#5ab6b0');const label=detail.querySelector('[data-ad-signal-detail-label]');const value=detail.querySelector('[data-ad-signal-detail-value]');if(label)label.textContent=step.dataset.adSignalLabel||'Сигнал';if(value)value.textContent=(step.dataset.adSignalCount||'0')+' · '+(step.dataset.adSignalPercent||'0')+'% від '+(step.dataset.adSignalPopulation||'0')+' діалогів у періоді';}
     }
+    function clearContextSelection(returnFocus=false){
+      if(!box)return;const module=box.querySelector('.bot-stats-context-bridge');if(!module)return;const active=module.querySelector('[data-context-step].is-active');
+      module.querySelectorAll('[data-context-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});const detail=module.querySelector('[data-context-detail]');if(detail)detail.hidden=true;if(returnFocus&&active&&document.contains(active))active.focus({preventScroll:true});
+    }
+    function toggleContextStep(step){
+      const module=step&&step.closest('.bot-stats-context-bridge');if(!module)return;const wasActive=step.classList.contains('is-active');
+      module.querySelectorAll('[data-context-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});const detail=module.querySelector('[data-context-detail]');
+      if(wasActive){if(detail)detail.hidden=true;return;}
+      step.classList.add('is-active');step.setAttribute('aria-pressed','true');module.querySelectorAll('[data-context-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
+      if(detail){detail.hidden=false;const label=detail.querySelector('[data-context-detail-label]');const value=detail.querySelector('[data-context-detail-value]');if(label)label.textContent=step.dataset.contextLabel||'Показник';if(value)value.textContent=(step.dataset.contextCount||'0')+' · '+(step.dataset.contextPercent||'0')+'% від '+(step.dataset.contextPopulation||'0')+' загальних діалогів';}
+    }
     function showAlert(message){if(alertTextEl)alertTextEl.textContent=message;if(alertEl)alertEl.hidden=false;}
     function hideAlert(){if(alertEl)alertEl.hidden=true;}
     function activateBars(){
@@ -3113,10 +3169,11 @@ body.bot-drawer-open{overflow:hidden;}
       const segments=Array.from(box.querySelectorAll('[data-activity-height]'));
       const pulses=Array.from(box.querySelectorAll('[data-pulse-width]'));
       const signalFills=Array.from(box.querySelectorAll('[data-ad-signal-width]'));
+      const contextFills=Array.from(box.querySelectorAll('[data-context-width]'));
       const attributionRings=Array.from(box.querySelectorAll('[data-attribution-ring]'));
       const images=Array.from(box.querySelectorAll('.bot-stats-product-image'));
       images.forEach(item=>{const reveal=()=>item.classList.add('is-loaded');if(item.complete&&item.naturalWidth)reveal();else{item.addEventListener('load',reveal,{once:true});item.addEventListener('error',()=>item.remove(),{once:true});}});
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));pulses.forEach(segment=>segment.style.setProperty('--pulse-width',num(segment.dataset.pulseWidth)+'%'));signalFills.forEach(fill=>fill.style.setProperty('--signal-width',num(fill.dataset.adSignalWidth)+'%'));attributionRings.forEach(ring=>{ring.style.setProperty('--attribution-confirmed-angle',num(ring.dataset.attributionConfirmedAngle)+'deg');ring.style.setProperty('--attribution-partial-angle',num(ring.dataset.attributionPartialAngle)+'deg');});}));
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));pulses.forEach(segment=>segment.style.setProperty('--pulse-width',num(segment.dataset.pulseWidth)+'%'));signalFills.forEach(fill=>fill.style.setProperty('--signal-width',num(fill.dataset.adSignalWidth)+'%'));contextFills.forEach(fill=>fill.style.setProperty('--context-width',num(fill.dataset.contextWidth)+'%'));attributionRings.forEach(ring=>{ring.style.setProperty('--attribution-confirmed-angle',num(ring.dataset.attributionConfirmedAngle)+'deg');ring.style.setProperty('--attribution-partial-angle',num(ring.dataset.attributionPartialAngle)+'deg');});}));
     }
     function renderOverview(data,previous){
       const allPrimaryZero=kpiSpecs.every(spec=>metricValue(data,spec.key)===0);
@@ -3208,6 +3265,8 @@ body.bot-drawer-open{overflow:hidden;}
       if(attributionSegment){event.stopPropagation();toggleAttributionSegment(attributionSegment);return;}
       const adSignalStep=event.target.closest('[data-ad-signal-step]');
       if(adSignalStep){event.stopPropagation();toggleAdSignalStep(adSignalStep);return;}
+      const contextStep=event.target.closest('[data-context-step]');
+      if(contextStep){event.stopPropagation();toggleContextStep(contextStep);return;}
       const ringSegment=event.target.closest('[data-ring-segment]');
       if(ringSegment){event.stopPropagation();toggleRingSegment(ringSegment);return;}
       const activityColumn=event.target.closest('.bot-stats-activity-column');
@@ -3216,13 +3275,13 @@ body.bot-drawer-open{overflow:hidden;}
       const wasOpen=trigger===openHelpTrigger;if(openHelpTrigger)closeHelp(false);if(!wasOpen){openHelpTrigger=trigger;trigger.closest('.bot-stats-help-wrap').classList.add('is-open');trigger.setAttribute('aria-expanded','true');}
     });
     if(box)box.addEventListener('keydown',event=>{
-      if(event.key!=='Escape')return;const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');if(!attributionActive&&!signalActive)return;event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);
+      if(event.key!=='Escape')return;const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');const contextActive=box.querySelector('[data-context-step].is-active');if(!attributionActive&&!signalActive&&!contextActive)return;event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);if(contextActive)clearContextSelection(true);
     });
     if(box)box.addEventListener('pointerover',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     if(box)box.addEventListener('focusin',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     window.addEventListener('resize',()=>{if(openActivityColumn)positionActivityTooltip(openActivityColumn);});
-    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);if(box){const attribution=box.querySelector('.bot-stats-attribution');if(attribution&&!attribution.contains(event.target)&&attribution.querySelector('[data-attribution-segment].is-active'))clearAttributionSelection(false);const signal=box.querySelector('.bot-stats-ad-signal-card');if(signal&&!signal.contains(event.target)&&signal.querySelector('[data-ad-signal-step].is-active'))clearAdSignalSelection(false);}});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}if(event.key==='Escape'&&box){const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');if(attributionActive||signalActive){event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);}}});
+    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);if(box){const attribution=box.querySelector('.bot-stats-attribution');if(attribution&&!attribution.contains(event.target)&&attribution.querySelector('[data-attribution-segment].is-active'))clearAttributionSelection(false);const signal=box.querySelector('.bot-stats-ad-signal-card');if(signal&&!signal.contains(event.target)&&signal.querySelector('[data-ad-signal-step].is-active'))clearAdSignalSelection(false);const context=box.querySelector('.bot-stats-context-bridge');if(context&&!context.contains(event.target)&&context.querySelector('[data-context-step].is-active'))clearContextSelection(false);}});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}if(event.key==='Escape'&&box){const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');const contextActive=box.querySelector('[data-context-step].is-active');if(attributionActive||signalActive||contextActive){event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);if(contextActive)clearContextSelection(true);}}});
     if(rangeBox) rangeBox.addEventListener('click',event=>{
       const target=event.target.closest('[data-stats-days]');
       if(!target) return;

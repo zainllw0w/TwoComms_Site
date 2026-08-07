@@ -49,6 +49,14 @@ Screenshots captured from the isolated QA server:
 
 The mobile signal path wraps to two columns and adds a short vertical bridge between rows. Labels are slightly increased below 390px, while the exact values remain available through the button label and the in-flow detail.
 
+## Context Bridge
+
+When the selected period contains general conversations but no confirmed advertising signal, the advertising view keeps the attribution ring honest and adds a neutral six-step context bridge. It uses the overall conversation, qualification, product, payment-link and verified-payment totals only as operational context; the heading explicitly says `Загальний потік · реклама ще не підтверджена` and `Потрібна рекламна прив’язка`. This avoids both failure modes: hiding real nonzero activity behind an empty advertising panel, or falsely presenting organic traffic as paid acquisition.
+
+The bridge is omitted as soon as campaign/product/payment advertising data exists. Each step exposes an absolute value, share of the overall conversation population, proportional rail, keyboard state and an in-flow detail row. The same Escape, outside-click and reduced-motion behavior is used as the attribution and commercial-signal modules.
+
+The production-shaped read-only API probe on 2026-08-07 returned `291` messages and `42` overall conversations for the last 30 days while the confirmed advertising slice was empty. That response is the intended nonzero context-bridge state; no production data was written and no Meta/customer message was sent.
+
 ## Release Gate
 
 Before shipping this branch, rerun the focused tests, `manage.py check`, migration drift, JavaScript syntax extraction and `git diff --check`. Then commit the QA evidence with the implementation, push the feature branch, fast-forward `main`, deploy and verify the deployed SHA plus authenticated stats responses for preset and custom ranges.
