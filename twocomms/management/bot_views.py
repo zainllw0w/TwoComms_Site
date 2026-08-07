@@ -8,8 +8,8 @@ from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core import signing
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
-from django.db.models.functions import Coalesce
+from django.db.models import Count, DecimalField, Exists, ExpressionWrapper, F, Max, Min, OuterRef, Prefetch, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce, TruncDate, TruncMonth, TruncWeek
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -5132,9 +5132,18 @@ def bot_stats_api(request):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
-    from datetime import date, datetime, time, timedelta
+    from datetime import date, datetime, time, timedelta, timezone as datetime_timezone
 
-    from .models import IgClient, IgConversationSignal, IgDeal, IgFollowUpTask
+    from .models import (
+        IgClient,
+        IgConversationSignal,
+        IgDeal,
+        IgDealItem,
+        IgFunnelDropOff,
+        IgFunnelStepEvent,
+        IgFollowUpTask,
+        InstagramBotMessage,
+    )
 
     date_from_raw = (request.GET.get("date_from") or "").strip()
     date_to_raw = (request.GET.get("date_to") or "").strip()
@@ -5185,6 +5194,177 @@ def bot_stats_api(request):
                 datetime.combine(local_tomorrow, time.min), local_tz
             )
             range_mode = "preset"
+
+    local_tz = timezone.get_current_timezone()
+    period_date_from = date_from_raw or (since.astimezone(local_tz).date().isoformat() if since else "")
+    period_date_to = date_to_raw or (
+        (until.astimezone(local_tz) - timedelta(days=1)).date().isoformat()
+        if until
+        else ""
+    )
+    if range_mode == "custom":
+        period_label = f"{date.fromisoformat(period_date_from).strftime('%d.%m.%Y')} — {date.fromisoformat(period_date_to).strftime('%d.%m.%Y')}"
+    elif range_days == 1:
+        period_label = "Сьогодні"
+    elif range_days:
+        period_label = f"Останні {range_days} днів"
+    else:
+        period_label = "Увесь час"
+
+    visible_messages = InstagramBotMessage.objects.filter(
+        client__hidden_at__isnull=True
+    ).annotate(
+        stats_occurred_at=Coalesce("provider_created_at", "created_at")
+    )
+    if since:
+        visible_messages = visible_messages.filter(stats_occurred_at__gte=since)
+    if until:
+        visible_messages = visible_messages.filter(stats_occurred_at__lt=until)
+    message_totals = visible_messages.aggregate(
+        messages=Count("id"),
+        inbound_messages=Count(
+            "id", filter=Q(role=InstagramBotMessage.Role.USER)
+        ),
+        bot_replies=Count(
+            "id", filter=Q(role=InstagramBotMessage.Role.MODEL)
+        ),
+        manager_messages=Count(
+            "id", filter=Q(role=InstagramBotMessage.Role.MANAGER)
+        ),
+        unique_conversations=Count("sender_id", distinct=True),
+    )
+
+    def build_message_series(message_queryset):
+        series_bounds = message_queryset.aggregate(
+            first=Min("stats_occurred_at"),
+            last=Max("stats_occurred_at"),
+        )
+        series_start = since or series_bounds["first"]
+        series_until = until or (
+            series_bounds["last"] + timedelta(microseconds=1)
+            if series_bounds["last"]
+            else None
+        )
+        if not series_start or not series_until:
+            return {"granularity": "day", "items": []}
+        local_start = series_start.astimezone(local_tz).date()
+        local_until = series_until.astimezone(local_tz).date()
+        if series_until.astimezone(local_tz).time() != time.min:
+            local_until += timedelta(days=1)
+        span_days = max(1, (local_until - local_start).days)
+        if span_days <= 31:
+            granularity = "day"
+            bucket_expression = TruncDate("stats_occurred_at", tzinfo=local_tz)
+        elif span_days <= 180:
+            granularity = "week"
+            bucket_expression = TruncWeek("stats_occurred_at", tzinfo=local_tz)
+        else:
+            granularity = "month"
+            bucket_expression = TruncMonth("stats_occurred_at", tzinfo=local_tz)
+
+        series_rows = message_queryset.annotate(bucket=bucket_expression).values(
+            "bucket"
+        ).annotate(
+            messages=Count("id"),
+            inbound_messages=Count(
+                "id", filter=Q(role=InstagramBotMessage.Role.USER)
+            ),
+            bot_replies=Count(
+                "id", filter=Q(role=InstagramBotMessage.Role.MODEL)
+            ),
+            manager_messages=Count(
+                "id", filter=Q(role=InstagramBotMessage.Role.MANAGER)
+            ),
+        ).order_by("bucket")
+
+        def normalize_bucket(value):
+            if isinstance(value, datetime):
+                return value.astimezone(local_tz).date()
+            return value
+
+        def align_bucket(value):
+            if granularity == "week":
+                return value - timedelta(days=value.weekday())
+            if granularity == "month":
+                return value.replace(day=1)
+            return value
+
+        def next_bucket(value):
+            if granularity == "week":
+                return value + timedelta(days=7)
+            if granularity == "month":
+                if value.month == 12:
+                    return value.replace(year=value.year + 1, month=1, day=1)
+                return value.replace(month=value.month + 1, day=1)
+            return value + timedelta(days=1)
+
+        rows_by_bucket = {
+            align_bucket(normalize_bucket(row["bucket"])): row
+            for row in series_rows
+        }
+        cursor = align_bucket(local_start)
+        end_cursor = align_bucket(local_until)
+        if end_cursor < local_until:
+            end_cursor = next_bucket(end_cursor)
+        items = []
+        while cursor < end_cursor:
+            row = rows_by_bucket.get(cursor, {})
+            items.append({
+                "bucket": cursor.isoformat(),
+                "messages": int(row.get("messages") or 0),
+                "inbound_messages": int(row.get("inbound_messages") or 0),
+                "bot_replies": int(row.get("bot_replies") or 0),
+                "manager_messages": int(row.get("manager_messages") or 0),
+            })
+            cursor = next_bucket(cursor)
+        return {"granularity": granularity, "items": items}
+
+    message_series = build_message_series(visible_messages)
+    ad_client_identity = ~(Q(ad_id="") & Q(ad_ref="") & Q(ad_title=""))
+    ad_message_identity = ~(
+        Q(client__ad_id="") & Q(client__ad_ref="") & Q(client__ad_title="")
+    )
+    ad_client_ids = list(
+        IgClient.objects.filter(
+            hidden_at__isnull=True,
+        ).filter(ad_client_identity).values_list("id", flat=True)
+    )
+    ad_messages = visible_messages.filter(
+        client_id__in=ad_client_ids,
+    ).filter(ad_message_identity)
+    ad_message_totals = ad_messages.aggregate(
+        messages=Count("id"),
+        inbound_messages=Count(
+            "id", filter=Q(role=InstagramBotMessage.Role.USER)
+        ),
+        bot_replies=Count(
+            "id", filter=Q(role=InstagramBotMessage.Role.MODEL)
+        ),
+        manager_messages=Count(
+            "id", filter=Q(role=InstagramBotMessage.Role.MANAGER)
+        ),
+        conversations=Count("sender_id", distinct=True),
+    )
+    ad_message_series = build_message_series(ad_messages)
+    message_client_ids = visible_messages.exclude(client_id__isnull=True).values(
+        "client_id"
+    ).distinct()
+
+    canonical_losses = IgFunnelDropOff.objects.filter(
+        episode__client__hidden_at__isnull=True,
+        recovered_at__isnull=True,
+        kind__in=[
+            IgFunnelDropOff.Kind.EXPLICIT_REFUSAL,
+            IgFunnelDropOff.Kind.SILENCE,
+        ],
+    )
+    if since:
+        canonical_losses = canonical_losses.filter(occurred_at__gte=since)
+    if until:
+        canonical_losses = canonical_losses.filter(occurred_at__lt=until)
+    lost_or_refused = canonical_losses.values(
+        "episode__client_id"
+    ).distinct().count()
 
     active_clients = _with_latest_interaction(annotate_verified_payment(
         IgClient.objects.filter(hidden_at__isnull=True)
@@ -5240,28 +5420,6 @@ def bot_stats_api(request):
     # Keep signal names too; the frontend can show both high-level client state
     # and granular event breakdown.
     objections.update({k: v for k, v in signals.items() if "objection" in k or k in {"no_reply", "lost"}})
-    product_interest = [
-        {
-            "product_id": row["current_product_id"],
-            "product_title": row["current_product__title"] or "",
-            "count": row["count"],
-        }
-        for row in active_clients.exclude(current_product__isnull=True)
-        .values("current_product_id", "current_product__title").annotate(count=Count("id"))
-        .order_by("-count")[:25]
-    ]
-    payment_event_filter = verified_payment_q("deals__")
-    if since:
-        payment_event_filter &= (
-            Q(deals__payment_projection__paid_at__gte=since)
-            | Q(deals__payment_projection__isnull=True, deals__paid_at__gte=since)
-        )
-    if until:
-        payment_event_filter &= (
-            Q(deals__payment_projection__paid_at__lt=until)
-            | Q(deals__payment_projection__isnull=True, deals__paid_at__lt=until)
-        )
-    revenue_filter = payment_event_filter
     payment_deals = IgDeal.objects.all()
     if since:
         payment_deals = payment_deals.filter(
@@ -5273,8 +5431,109 @@ def bot_stats_api(request):
             Q(payment_projection__paid_at__lt=until)
             | Q(payment_projection__isnull=True, paid_at__lt=until)
         )
+
+    interest_rows = list(
+        active_clients.exclude(current_product__isnull=True)
+        .values("current_product_id", "current_product__title")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+    paid_item_filter = verified_payment_q("deal__")
+    if since:
+        paid_item_filter &= (
+            Q(deal__payment_projection__paid_at__gte=since)
+            | Q(
+                deal__payment_projection__isnull=True,
+                deal__paid_at__gte=since,
+            )
+        )
+    if until:
+        paid_item_filter &= (
+            Q(deal__payment_projection__paid_at__lt=until)
+            | Q(
+                deal__payment_projection__isnull=True,
+                deal__paid_at__lt=until,
+            )
+        )
+    paid_product_rows = list(
+        IgDealItem.objects.filter(
+            deal__client__hidden_at__isnull=True,
+            product__isnull=False,
+        )
+        .filter(paid_item_filter)
+        .values("product_id")
+        .annotate(
+            verified_paid_orders=Count("deal_id", distinct=True),
+            verified_paid_qty=Sum("qty"),
+        )
+    )
+    interest_by_product = {
+        row["current_product_id"]: row for row in interest_rows
+    }
+    paid_by_product = {row["product_id"]: row for row in paid_product_rows}
+    product_ids = set(interest_by_product) | set(paid_by_product)
+    from storefront.models import Product
+
+    products_by_id = Product.objects.in_bulk(product_ids)
+    product_interest = []
+    for product_id in product_ids:
+        product = products_by_id.get(product_id)
+        interest = interest_by_product.get(product_id, {})
+        paid = paid_by_product.get(product_id, {})
+        image_url = ""
+        thumbnail_url = ""
+        image_field = None
+        if product:
+            image_field = product.home_card_image or product.main_image
+        if image_field:
+            try:
+                thumbnail_url = image_field.url
+                image_url = request.build_absolute_uri(thumbnail_url)
+            except (ValueError, OSError):
+                thumbnail_url = ""
+                image_url = ""
+        image_alt = (
+            getattr(product, "main_image_alt", "")
+            or getattr(product, "title", "")
+            or "Товар"
+        )
+        product_interest.append({
+            "product_id": product_id,
+            "product_title": (
+                getattr(product, "title", "")
+                or interest.get("current_product__title")
+                or ""
+            ),
+            "count": int(interest.get("count") or 0),
+            "interest_count": int(interest.get("count") or 0),
+            "verified_paid_orders": int(paid.get("verified_paid_orders") or 0),
+            "verified_paid_qty": int(paid.get("verified_paid_qty") or 0),
+            "image_url": image_url,
+            "image_alt": image_alt,
+            "thumbnail_url": thumbnail_url,
+            "thumbnail_alt": image_alt,
+        })
+    product_interest.sort(
+        key=lambda row: (
+            -row["interest_count"],
+            -row["verified_paid_qty"],
+            row["product_title"],
+        )
+    )
+    product_rows_by_id = {
+        row["product_id"]: row for row in product_interest
+    }
+    product_interest = product_interest[:25]
     active_clients = annotate_verified_payment(
         active_clients,
+        alias="paid_in_range",
+        deal_queryset=payment_deals,
+    )
+    funnel_clients = annotate_verified_payment(
+        IgClient.objects.filter(
+            hidden_at__isnull=True,
+            pk__in=Subquery(message_client_ids),
+        ),
         alias="paid_in_range",
         deal_queryset=payment_deals,
     )
@@ -5306,34 +5565,398 @@ def bot_stats_api(request):
         hidden_clients = hidden_clients.filter(hidden_at__lt=until)
         pending_followups = pending_followups.filter(due_at__lt=until)
         sent_followups = sent_followups.filter(sent_at__lt=until)
-    ad_rows = []
-    for row in (
-        active_clients.exclude(Q(ad_id="") & Q(ad_ref="") & Q(ad_title=""))
-        .values("ad_id", "ad_ref", "ad_title")
-        .annotate(
-            chats=Count("id", distinct=True),
-            paid=Count(
-                "id",
-                filter=payment_event_filter,
-                distinct=True,
-            ),
-            revenue=Sum(
-                F("deals__payment_projection__gross_amount")
-                - F("deals__payment_projection__refunded_amount"),
-                filter=revenue_filter,
-            ),
-        )
-        .order_by("-chats")[:50]
+
+    ad_active_clients = active_clients.filter(ad_client_identity)
+
+    def campaign_identity(ad_id, ad_ref, ad_title):
+        ad_id = str(ad_id or "").strip()
+        ad_ref = str(ad_ref or "").strip()
+        ad_title = str(ad_title or "").strip()
+        if ad_id:
+            return "ad_id", ad_id
+        if ad_ref:
+            return "ad_ref", ad_ref
+        return "ad_title", ad_title
+
+    campaign_buckets = {}
+
+    def campaign_bucket(
+        *,
+        ad_id="",
+        ad_ref="",
+        ad_title="",
+        ad_source="",
+        ad_creative_url="",
     ):
+        key_type, key_value = campaign_identity(ad_id, ad_ref, ad_title)
+        if not key_value:
+            return None
+        bucket = campaign_buckets.setdefault(
+            (key_type, key_value),
+            {
+                "attribution_key_type": key_type,
+                "attribution_key": key_value,
+                "ad_id": str(ad_id or ""),
+                "ad_ref": str(ad_ref or ""),
+                "ad_title": str(ad_title or ""),
+                "ad_source": str(ad_source or ""),
+                "ad_creative_url": str(ad_creative_url or ""),
+                "chats": 0,
+                "qualified": 0,
+                "product_matched": 0,
+                "paid": 0,
+                "gross_revenue": Decimal("0"),
+                "refunded_revenue": Decimal("0"),
+                "revenue": Decimal("0"),
+                "revenue_unpriced_payments": 0,
+                "lost_or_refused": 0,
+                "event_counts": {},
+                "product_counts": {},
+            },
+        )
+        for field, value in (
+            ("ad_id", ad_id),
+            ("ad_ref", ad_ref),
+            ("ad_title", ad_title),
+            ("ad_source", ad_source),
+            ("ad_creative_url", ad_creative_url),
+        ):
+            if value and not bucket[field]:
+                bucket[field] = str(value)
+        return bucket
+
+    ad_events = IgFunnelStepEvent.objects.filter(
+        episode__client_id__in=ad_client_ids,
+        episode__client__hidden_at__isnull=True,
+    )
+    if since:
+        ad_events = ad_events.filter(occurred_at__gte=since)
+    if until:
+        ad_events = ad_events.filter(occurred_at__lt=until)
+    for row in ad_events.values(
+        "episode__client__ad_id",
+        "episode__client__ad_ref",
+        "episode__client__ad_title",
+        "episode__client__ad_source",
+        "episode__client__ad_creative_url",
+        "event_type",
+    ).annotate(episodes=Count("episode_id", distinct=True)).order_by():
+        bucket = campaign_bucket(
+            ad_id=row["episode__client__ad_id"],
+            ad_ref=row["episode__client__ad_ref"],
+            ad_title=row["episode__client__ad_title"],
+            ad_source=row["episode__client__ad_source"],
+            ad_creative_url=row["episode__client__ad_creative_url"],
+        )
+        if bucket:
+            bucket["event_counts"][row["event_type"]] = (
+                bucket["event_counts"].get(row["event_type"], 0)
+                + int(row["episodes"] or 0)
+            )
+
+    ad_losses = canonical_losses.filter(episode__client_id__in=ad_client_ids)
+    for row in ad_losses.values(
+        "episode__client__ad_id",
+        "episode__client__ad_ref",
+        "episode__client__ad_title",
+        "episode__client__ad_source",
+        "episode__client__ad_creative_url",
+    ).annotate(count=Count("episode__client_id", distinct=True)).order_by():
+        bucket = campaign_bucket(
+            ad_id=row["episode__client__ad_id"],
+            ad_ref=row["episode__client__ad_ref"],
+            ad_title=row["episode__client__ad_title"],
+            ad_source=row["episode__client__ad_source"],
+            ad_creative_url=row["episode__client__ad_creative_url"],
+        )
+        if bucket:
+            bucket["lost_or_refused"] += int(row["count"] or 0)
+
+    campaign_product_rows = ad_active_clients.exclude(
+        current_product__isnull=True
+    ).values(
+        "ad_id",
+        "ad_ref",
+        "ad_title",
+        "ad_source",
+        "ad_creative_url",
+        "current_product__title",
+    ).annotate(count=Count("id", distinct=True)).order_by(
+        "ad_id", "ad_ref", "ad_title", "-count", "current_product__title"
+    )
+    for row in campaign_product_rows:
+        bucket = campaign_bucket(
+            ad_id=row["ad_id"],
+            ad_ref=row["ad_ref"],
+            ad_title=row["ad_title"],
+            ad_source=row["ad_source"],
+            ad_creative_url=row["ad_creative_url"],
+        )
+        if bucket:
+            title = row["current_product__title"] or ""
+            bucket["product_counts"][title] = (
+                bucket["product_counts"].get(title, 0)
+                + int(row["count"] or 0)
+            )
+
+    for row in ad_active_clients.values(
+        "ad_id",
+        "ad_ref",
+        "ad_title",
+        "ad_source",
+        "ad_creative_url",
+    ).annotate(
+        chats=Count("id", distinct=True),
+        qualified=Count(
+            "id", filter=Q(buying_readiness__gte=40), distinct=True
+        ),
+        product_matched=Count(
+            "id", filter=Q(current_product__isnull=False), distinct=True
+        ),
+    ).order_by():
+        bucket = campaign_bucket(
+            ad_id=row["ad_id"],
+            ad_ref=row["ad_ref"],
+            ad_title=row["ad_title"],
+            ad_source=row["ad_source"],
+            ad_creative_url=row["ad_creative_url"],
+        )
+        if bucket:
+            bucket["chats"] += int(row["chats"] or 0)
+            bucket["qualified"] += int(row["qualified"] or 0)
+            bucket["product_matched"] += int(row["product_matched"] or 0)
+
+    money_field = DecimalField(max_digits=14, decimal_places=2)
+    gross_expression = Coalesce(
+        F("payment_projection__gross_amount"),
+        F("paid_amount"),
+        Value(Decimal("0")),
+        output_field=money_field,
+    )
+    refunded_expression = Coalesce(
+        F("payment_projection__refunded_amount"),
+        F("refunded_amount"),
+        Value(Decimal("0")),
+        output_field=money_field,
+    )
+    net_expression = ExpressionWrapper(
+        gross_expression - refunded_expression,
+        output_field=money_field,
+    )
+    ad_deal_identity = ~(
+        Q(client__ad_id="")
+        & Q(client__ad_ref="")
+        & Q(client__ad_title="")
+    )
+    ad_paid_deals = payment_deals.filter(
+        client__hidden_at__isnull=True,
+    ).filter(ad_deal_identity).filter(verified_payment_q())
+    for row in ad_paid_deals.values(
+        "client__ad_id",
+        "client__ad_ref",
+        "client__ad_title",
+        "client__ad_source",
+        "client__ad_creative_url",
+    ).annotate(
+        paid=Count("id", distinct=True),
+        gross_revenue=Sum(gross_expression),
+        refunded_revenue=Sum(refunded_expression),
+        revenue=Sum(net_expression),
+        revenue_unpriced_payments=Count(
+            "id",
+            filter=Q(payment_projection__isnull=True, paid_amount=0),
+        ),
+    ).order_by():
+        bucket = campaign_bucket(
+            ad_id=row["client__ad_id"],
+            ad_ref=row["client__ad_ref"],
+            ad_title=row["client__ad_title"],
+            ad_source=row["client__ad_source"],
+            ad_creative_url=row["client__ad_creative_url"],
+        )
+        if bucket:
+            bucket["paid"] += int(row["paid"] or 0)
+            bucket["gross_revenue"] += row["gross_revenue"] or Decimal("0")
+            bucket["refunded_revenue"] += (
+                row["refunded_revenue"] or Decimal("0")
+            )
+            bucket["revenue"] += row["revenue"] or Decimal("0")
+            bucket["revenue_unpriced_payments"] += int(
+                row["revenue_unpriced_payments"] or 0
+            )
+
+    ad_rows = []
+    for bucket in campaign_buckets.values():
+        top_product_title = ""
+        if bucket["product_counts"]:
+            top_product_title = sorted(
+                bucket["product_counts"].items(),
+                key=lambda item: (-item[1], item[0]),
+            )[0][0]
+        event_counts = bucket["event_counts"]
         ad_rows.append({
-            "ad_id": row["ad_id"],
-            "ad_ref": row["ad_ref"],
-            "ad_title": row["ad_title"],
-            "chats": row["chats"],
-            "paid": row["paid"],
-            "revenue": str(row["revenue"] or 0),
+            key: bucket[key]
+            for key in (
+                "attribution_key_type",
+                "attribution_key",
+                "ad_id",
+                "ad_ref",
+                "ad_title",
+                "ad_source",
+                "ad_creative_url",
+                "chats",
+                "qualified",
+                "product_matched",
+                "paid",
+                "lost_or_refused",
+                "revenue_unpriced_payments",
+            )
+        } | {
+            "paylinks_issued": event_counts.get(
+                IgFunnelStepEvent.Type.PAYLINK_ISSUED, 0
+            ),
+            "paylinks_viewed": event_counts.get(
+                IgFunnelStepEvent.Type.PAYLINK_VIEWED, 0
+            ),
+            "top_product_title": top_product_title,
+            "gross_revenue": str(bucket["gross_revenue"]),
+            "refunded_revenue": str(bucket["refunded_revenue"]),
+            "revenue": str(bucket["revenue"]),
         })
+    ad_rows.sort(
+        key=lambda row: (
+            -row["paid"],
+            -Decimal(row["revenue"]),
+            -row["chats"],
+            row["ad_title"] or row["ad_id"] or row["ad_ref"],
+        )
+    )
+    ad_rows = ad_rows[:50]
+
+    ad_interest_rows = list(
+        ad_active_clients.exclude(current_product__isnull=True)
+        .values("current_product_id")
+        .annotate(count=Count("id", distinct=True))
+        .order_by()
+    )
+    ad_paid_product_rows = list(
+        IgDealItem.objects.filter(
+            deal__client_id__in=ad_client_ids,
+            deal__client__hidden_at__isnull=True,
+            product__isnull=False,
+        )
+        .filter(paid_item_filter)
+        .values("product_id")
+        .annotate(
+            verified_paid_orders=Count("deal_id", distinct=True),
+            verified_paid_qty=Sum("qty"),
+        )
+        .order_by()
+    )
+    ad_interest_by_product = {
+        row["current_product_id"]: row for row in ad_interest_rows
+    }
+    ad_paid_by_product = {row["product_id"]: row for row in ad_paid_product_rows}
+    ad_products = []
+    for product_id in set(ad_interest_by_product) | set(ad_paid_by_product):
+        base = dict(product_rows_by_id.get(product_id, {}))
+        interest = int(
+            ad_interest_by_product.get(product_id, {}).get("count") or 0
+        )
+        paid = ad_paid_by_product.get(product_id, {})
+        base.update({
+            "product_id": product_id,
+            "count": interest,
+            "interest_count": interest,
+            "verified_paid_orders": int(paid.get("verified_paid_orders") or 0),
+            "verified_paid_qty": int(paid.get("verified_paid_qty") or 0),
+        })
+        ad_products.append(base)
+    ad_products.sort(
+        key=lambda row: (
+            -row["interest_count"],
+            -row["verified_paid_qty"],
+            row.get("product_title", ""),
+        )
+    )
+
+    from management.services.ig_funnel_analytics import build_funnel_analytics
+
+    ad_funnel_analytics = build_funnel_analytics(
+        since=since,
+        until=until,
+        client_ids=ad_client_ids,
+    )
+    ad_paylinks_issued = next(
+        (
+            row["entered"]
+            for row in ad_funnel_analytics["steps"]
+            if row["step"] == IgFunnelStepEvent.Type.PAYLINK_ISSUED
+        ),
+        0,
+    )
+    ad_paylinks_viewed = next(
+        (
+            row["entered"]
+            for row in ad_funnel_analytics["steps"]
+            if row["step"] == IgFunnelStepEvent.Type.PAYLINK_VIEWED
+        ),
+        0,
+    )
+    ad_verified_paid = sum(
+        bucket["paid"] for bucket in campaign_buckets.values()
+    )
+    ad_gross_revenue = sum(
+        (bucket["gross_revenue"] for bucket in campaign_buckets.values()),
+        Decimal("0"),
+    )
+    ad_refunded_revenue = sum(
+        (bucket["refunded_revenue"] for bucket in campaign_buckets.values()),
+        Decimal("0"),
+    )
+    ad_revenue = sum(
+        (bucket["revenue"] for bucket in campaign_buckets.values()),
+        Decimal("0"),
+    )
+    ad_revenue_unpriced_payments = sum(
+        bucket["revenue_unpriced_payments"]
+        for bucket in campaign_buckets.values()
+    )
+    ad_analytics = {
+        "attribution": {
+            "basis": "current_client_snapshot",
+            "historical": False,
+            "label": "Поточна рекламна прив'язка клієнта",
+        },
+        "totals": {
+            **{key: int(value or 0) for key, value in ad_message_totals.items()},
+            "qualified": ad_active_clients.filter(
+                buying_readiness__gte=40
+            ).count(),
+            "product_matched": ad_active_clients.filter(
+                current_product__isnull=False
+            ).count(),
+            "paylinks_issued": int(ad_paylinks_issued),
+            "paylinks_viewed": int(ad_paylinks_viewed),
+            "verified_paid": int(ad_verified_paid),
+            "lost_or_refused": ad_losses.values(
+                "episode__client_id"
+            ).distinct().count(),
+            "gross_revenue": str(ad_gross_revenue),
+            "refunded_revenue": str(ad_refunded_revenue),
+            "revenue": str(ad_revenue),
+            "revenue_unpriced_payments": int(
+                ad_revenue_unpriced_payments
+            ),
+        },
+        "message_series": ad_message_series,
+        "funnel": ad_funnel_analytics["steps"],
+        "drop_off_reasons": ad_funnel_analytics["drop_off_reasons"],
+        "campaigns": ad_rows,
+        "products": ad_products[:25],
+    }
     totals = {
+        **{key: int(value or 0) for key, value in message_totals.items()},
         "conversations": conversations,
         "qualified": active_clients.filter(buying_readiness__gte=40).count(),
         "product_matched": active_clients.filter(current_product__isnull=False).count(),
@@ -5345,18 +5968,46 @@ def bot_stats_api(request):
         "discount_conversions": active_clients.filter(discount_offered_percent__gt=0, paid_in_range=True).count(),
         "manager_takeovers": active_clients.filter(manager_takeover=True).count(),
         "custom_print_handoffs": active_clients.filter(intent=IgClient.Intent.CUSTOM_PRINT, stage=IgClient.Stage.LEAD_TO_MANAGER).count(),
+        "lost_or_refused": lost_or_refused,
+        "funnel_conversations": funnel_clients.count(),
+        "funnel_qualified": funnel_clients.filter(buying_readiness__gte=40).count(),
+        "funnel_product_matched": funnel_clients.filter(
+            current_product__isnull=False
+        ).count(),
+        "funnel_checkout_or_payment": funnel_clients.filter(
+            stage__in=[IgClient.Stage.CHECKOUT, IgClient.Stage.PAYMENT_PENDING]
+        ).count(),
+        "funnel_paid": funnel_clients.filter(paid_in_range=True).count(),
     }
-    from management.services.ig_funnel_analytics import build_funnel_analytics
-
     funnel_analytics = build_funnel_analytics(since=since, until=until)
     return JsonResponse({
         "success": True,
+        "schema_version": 2,
+        "generated_at": timezone.now().isoformat(),
+        "period": {
+            "mode": range_mode,
+            "label": period_label,
+            "timezone": timezone.get_current_timezone_name(),
+            "date_from": period_date_from,
+            "date_to": period_date_to,
+            "event_time": "provider_created_at_or_created_at",
+            "local": {
+                "from": since.astimezone(local_tz).isoformat() if since else "",
+                "to_exclusive": until.astimezone(local_tz).isoformat() if until else "",
+            },
+            "utc": {
+                "from": since.astimezone(datetime_timezone.utc).isoformat() if since else "",
+                "to_exclusive": until.astimezone(datetime_timezone.utc).isoformat() if until else "",
+            },
+        },
+        "message_series": message_series,
+        "ad_analytics": ad_analytics,
         "range_mode": range_mode,
         "range_days": range_days,
         "range_from": since.isoformat() if since else "",
         "range_to": until.isoformat() if until else "",
-        "date_from": date_from_raw or (since.date().isoformat() if since else ""),
-        "date_to": date_to_raw or ((until - timedelta(days=1)).date().isoformat() if until else ""),
+        "date_from": period_date_from,
+        "date_to": period_date_to,
         "totals": totals,
         "stages": stage_counts,
         "interactions": interaction_counts,

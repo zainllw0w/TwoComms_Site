@@ -53,6 +53,30 @@ class IgFunnelAnalyticsApiTests(TestCase):
         self.assertEqual(payload["funnel"][0]["entered"], 1)
         self.assertEqual(payload["funnel"][0]["advanced"], 1)
 
+    def test_stats_funnel_excludes_hidden_client_events(self):
+        from management.models import IgFunnelStepEvent
+        from management.services.ig_funnel_analytics import record_client_step_event
+
+        visible = IgClient.get_or_create_for_sender("ig-funnel-visible")
+        hidden = IgClient.get_or_create_for_sender("ig-funnel-hidden")
+        hidden.hidden_at = timezone.now()
+        hidden.save(update_fields=["hidden_at", "updated_at"])
+        for client, suffix in ((visible, "visible"), (hidden, "hidden")):
+            record_client_step_event(
+                client,
+                event_type=IgFunnelStepEvent.Type.BOT_REPLIED_FIRST,
+                event_key=f"stats-hidden-filter:{suffix}",
+                occurred_at=timezone.now(),
+                actor="bot",
+            )
+
+        payload = self.client.get(
+            reverse("management_bot_stats_api") + "?days=7"
+        ).json()
+
+        self.assertEqual(payload["funnel"][0]["entered"], 1)
+        self.assertEqual(payload["funnel"][1]["entered"], 1)
+
     def test_stats_uses_occurred_at_and_adjacent_ranges_are_additive(self):
         from management.models import IgFunnelStepEvent
         from management.services.ig_funnel_analytics import (

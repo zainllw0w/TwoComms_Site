@@ -21,6 +21,7 @@ FUNNEL_STEPS = (
     ("product_pinned", "Товар визначено"),
     ("price_quoted", "Ціну названо"),
     ("paylink_issued", "Посилання видано"),
+    ("paylink_viewed", "Посилання відкрито"),
     ("payment_confirmed", "Оплату підтверджено"),
     ("order_created", "Замовлення створено"),
     ("ttn_created", "ТТН створено"),
@@ -700,29 +701,54 @@ def backfill_reconstructible_funnel_events(*, limit: int = 1000, apply: bool = F
     return result
 
 
-def build_funnel_analytics(since=None, until=None) -> dict:
+def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
     """Build additive event-time cohorts; never consult mutable client stages."""
     from management.models import IgFollowUpTask, IgFunnelDropOff, IgFunnelStepEvent
 
-    events = IgFunnelStepEvent.objects.all()
-    drop_offs = IgFunnelDropOff.objects.all()
+    events = IgFunnelStepEvent.objects.filter(
+        episode__client__hidden_at__isnull=True
+    )
+    drop_offs = IgFunnelDropOff.objects.filter(
+        episode__client__hidden_at__isnull=True
+    )
+    if client_ids is not None:
+        events = events.filter(episode__client_id__in=client_ids)
+        drop_offs = drop_offs.filter(episode__client_id__in=client_ids)
     if since is not None:
         events = events.filter(occurred_at__gte=since)
         drop_offs = drop_offs.filter(occurred_at__gte=since)
     if until is not None:
         events = events.filter(occurred_at__lt=until)
         drop_offs = drop_offs.filter(occurred_at__lt=until)
-    episode_sets = {
-        event_type: set(
-            events.filter(event_type=event_type).values_list("episode_id", flat=True)
+    raw_events = list(events.values(
+        "episode_id",
+        "event_type",
+        "occurred_at",
+        "actor",
+        "evidence",
+        "is_backfilled",
+    ))
+    episode_sets = {}
+    for event in raw_events:
+        episode_sets.setdefault(event["event_type"], set()).add(
+            event["episode_id"]
         )
-        for event_type, _label in FUNNEL_STEPS
-    }
+    drop_rows = list(drop_offs.values(
+        "kind",
+        "reason_code",
+        "stage_at_drop",
+        "is_recoverable",
+        "recovered_at",
+    ))
+    drop_counts_by_stage = {}
+    for drop in drop_rows:
+        stage = drop["stage_at_drop"]
+        drop_counts_by_stage[stage] = drop_counts_by_stage.get(stage, 0) + 1
     rows = []
     for index, (event_type, label) in enumerate(FUNNEL_STEPS):
-        entered_ids = episode_sets[event_type]
+        entered_ids = episode_sets.get(event_type, set())
         advanced_ids = (
-            entered_ids & episode_sets[FUNNEL_STEPS[index + 1][0]]
+            entered_ids & episode_sets.get(FUNNEL_STEPS[index + 1][0], set())
             if index + 1 < len(FUNNEL_STEPS)
             else set()
         )
@@ -731,7 +757,9 @@ def build_funnel_analytics(since=None, until=None) -> dict:
             for stage, mapped_step in DROP_OFF_STAGE_TO_STEP.items()
             if mapped_step == event_type
         ]
-        dropped = drop_offs.filter(stage_at_drop__in=drop_stages).count()
+        dropped = sum(
+            drop_counts_by_stage.get(stage, 0) for stage in drop_stages
+        )
         entered = len(entered_ids)
         advanced = len(advanced_ids)
         low_sample = entered < 20
@@ -745,9 +773,6 @@ def build_funnel_analytics(since=None, until=None) -> dict:
             "cr_percent": None if low_sample else round(advanced * 100 / entered, 1),
             "low_sample": low_sample,
         })
-    raw_events = list(events.values(
-        "episode_id", "event_type", "occurred_at", "actor", "evidence"
-    ))
     first_times = {}
     for row in raw_events:
         key = (row["episode_id"], row["event_type"])
@@ -782,9 +807,7 @@ def build_funnel_analytics(since=None, until=None) -> dict:
             })
 
     reason_counts = {}
-    for drop in drop_offs.values(
-        "kind", "reason_code", "stage_at_drop", "is_recoverable", "recovered_at"
-    ):
+    for drop in drop_rows:
         key = (drop["stage_at_drop"], drop["kind"], drop["reason_code"])
         row = reason_counts.setdefault(key, {
             "stage": drop["stage_at_drop"],
@@ -802,6 +825,8 @@ def build_funnel_analytics(since=None, until=None) -> dict:
         status=IgFollowUpTask.Status.SENT,
         client__hidden_at__isnull=True,
     )
+    if client_ids is not None:
+        sent_tasks = sent_tasks.filter(client_id__in=client_ids)
     if since is not None:
         sent_tasks = sent_tasks.filter(sent_at__gte=since)
     if until is not None:
@@ -815,15 +840,30 @@ def build_funnel_analytics(since=None, until=None) -> dict:
             "recovered": 0,
             "bought": 0,
         })
-    offer_episodes = set(events.filter(event_type=IgFunnelStepEvent.Type.DISCOUNT_OFFERED).values_list("episode_id", flat=True))
-    bought_episodes = set(events.filter(event_type__in=[IgFunnelStepEvent.Type.PAYMENT_CONFIRMED, IgFunnelStepEvent.Type.ORDER_CREATED]).values_list("episode_id", flat=True))
-    discount_offers = events.filter(event_type=IgFunnelStepEvent.Type.DISCOUNT_OFFERED).count()
+    offer_episodes = episode_sets.get(
+        IgFunnelStepEvent.Type.DISCOUNT_OFFERED,
+        set(),
+    )
+    bought_episodes = (
+        episode_sets.get(IgFunnelStepEvent.Type.PAYMENT_CONFIRMED, set())
+        | episode_sets.get(IgFunnelStepEvent.Type.ORDER_CREATED, set())
+    )
+    discount_offers = sum(
+        event["event_type"] == IgFunnelStepEvent.Type.DISCOUNT_OFFERED
+        for event in raw_events
+    )
     discount_bought = len(offer_episodes & bought_episodes)
-    manager_episodes = set(events.filter(event_type=IgFunnelStepEvent.Type.MANAGER_ENGAGED).values_list("episode_id", flat=True))
-    bot_episodes = set(events.filter(event_type=IgFunnelStepEvent.Type.BOT_REPLIED_FIRST).values_list("episode_id", flat=True))
+    manager_episodes = episode_sets.get(
+        IgFunnelStepEvent.Type.MANAGER_ENGAGED,
+        set(),
+    )
+    bot_episodes = episode_sets.get(
+        IgFunnelStepEvent.Type.BOT_REPLIED_FIRST,
+        set(),
+    )
     return {
         "steps": rows,
-        "backfilled": events.filter(is_backfilled=True).exists(),
+        "backfilled": any(event["is_backfilled"] for event in raw_events),
         "event_types": len(IgFunnelStepEvent.Type.values),
         "drop_off_reasons": sorted(reason_counts.values(), key=lambda row: (row["stage"], row["kind"], row["reason_code"])),
         "followup_effectiveness": followup_effectiveness,

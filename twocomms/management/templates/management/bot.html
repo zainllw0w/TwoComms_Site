@@ -67,14 +67,218 @@
 @media(max-width:880px){.bot-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:560px){.bot-overview-diagnostics{grid-template-columns:1fr;}}
 @media(max-width:360px){.bot-metrics{grid-template-columns:minmax(0,1fr);}}
-.bot-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
-.bot-stat-box{background:#0c0f17;border:1px solid #1a2030;border-radius:12px;padding:12px;}
-.bot-stat-box[title]{cursor:help;}
-.bot-stat-box .v{font-size:26px;font-weight:800;}
-.bot-stat-box .k{font-size:11px;color:#8b95a5;margin-top:4px;}
+/* ---- Sales statistics ---- */
+.bot-stats-card{--stats-motion-fast:.18s;--stats-motion-medium:.24s;--stats-motion-slow:.28s;--stats-ease:cubic-bezier(.2,.72,.2,1);padding:0;border:0;background:transparent;}
+.bot-stats-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
+.bot-stats-heading{min-width:0;}
+.bot-card .bot-stats-title{margin:0;color:#f2f5f9;font-size:18px;font-weight:800;line-height:1.25;text-transform:none;}
+.bot-stats-freshness{display:flex;align-items:center;gap:7px;min-height:18px;margin-top:5px;color:#7f8ba0;font-size:11px;font-variant-numeric:tabular-nums;}
+.bot-stats-freshness::before{content:'';width:6px;height:6px;border-radius:50%;background:#4b5565;transition:background var(--stats-motion-fast) var(--stats-ease),box-shadow var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-freshness.is-current::before{background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.1);}
+.bot-stats-freshness.is-stale::before{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.1);}
+.bot-stats-refresh{display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border:1px solid #29364a;border-radius:8px;background:#101722;color:#cbd5e1;cursor:pointer;transition:transform var(--stats-motion-fast) var(--stats-ease),border-color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-refresh:hover{border-color:#45617f;background:#152131;color:#fff;transform:translateY(-1px);}
+.bot-stats-refresh:focus-visible,.bot-stats-period-btn:focus-visible,.bot-stats-view-btn:focus-visible,.bot-stats-custom summary:focus-visible,.bot-stats-help:focus-visible,.bot-stats-disclosure summary:focus-visible,.bot-stats-retry:focus-visible{outline:0;box-shadow:0 0 0 3px rgba(96,165,250,.24);}
+.bot-stats-refresh:active,.bot-stats-period-btn:active,.bot-stats-retry:active{transform:translateY(1px) scale(.98);}
+.bot-stats-refresh[disabled]{cursor:wait;opacity:.72;}
+.bot-stats-refresh-mark{display:block;font-size:20px;line-height:1;transform-origin:center;}
+.bot-stats-refresh.is-running .bot-stats-refresh-mark{animation:botStatsRefreshSpin .8s linear infinite;}
+@keyframes botStatsRefreshSpin{to{transform:rotate(360deg)}}
+.bot-stats-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:9px;border:1px solid #202a38;border-radius:8px;background:#0d121a;}
+.bot-stats-periods{display:inline-grid;grid-auto-flow:column;grid-auto-columns:minmax(74px,auto);gap:3px;padding:3px;border:1px solid #202a38;border-radius:8px;background:#090d14;}
+.bot-stats-period-btn{min-height:32px;border:0;border-radius:6px;background:transparent;color:#8491a3;padding:6px 10px;font:750 11.5px/1 inherit;cursor:pointer;white-space:nowrap;transition:color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-period-btn:hover{color:#d8e0eb;background:#151d29;}
+.bot-stats-period-btn.active{background:#1d4ed8;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.2);}
+.bot-stats-period-btn.is-pending{color:#bfdbfe;background:#14233a;box-shadow:inset 0 0 0 1px #31547e;}
+.bot-stats-period-btn.is-pending::after{content:'';display:inline-block;width:5px;height:5px;margin-left:6px;border-radius:50%;background:#60a5fa;animation:botStatsPending .9s ease-in-out infinite alternate;vertical-align:middle;}
+.bot-stats-custom{position:relative;min-width:0;}
+.bot-stats-custom>summary{display:flex;align-items:center;gap:7px;min-height:34px;border-radius:7px;color:#94a3b8;padding:7px 9px;font-size:11.5px;font-weight:750;cursor:pointer;list-style:none;transition:background var(--stats-motion-fast) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-custom>summary::-webkit-details-marker{display:none;}
+.bot-stats-custom>summary::after{content:'⌄';font-size:13px;transition:transform var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-custom[open]>summary{background:#151d29;color:#dbe4ee;}
+.bot-stats-custom.is-applied>summary{color:#dbeafe;background:#132139;box-shadow:inset 0 0 0 1px #31547e;}
+.bot-stats-custom.is-pending>summary{color:#bfdbfe;background:#111d2e;box-shadow:inset 0 0 0 1px #31547e;}
+.bot-stats-custom.is-pending>summary::before{content:'';width:5px;height:5px;border-radius:50%;background:#60a5fa;animation:botStatsPending .9s ease-in-out infinite alternate;}
+.bot-stats-custom[open]>summary::after{transform:rotate(180deg);}
+.bot-stats-custom-body{display:grid!important;grid-template-rows:0fr;opacity:0;transition:grid-template-rows var(--stats-motion-slow) var(--stats-ease),opacity var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-custom[open]>.bot-stats-custom-body{grid-template-rows:1fr;opacity:1;}
+.bot-stats-custom-inner{min-height:0;overflow:hidden;display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding-top:0;}
+.bot-stats-custom[open] .bot-stats-custom-inner{padding-top:8px;}
+.bot-stats-custom-range{display:flex;align-items:end;gap:8px;flex-wrap:wrap;}
+.bot-stats-date{display:grid;gap:4px;color:#7f8ba0;font-size:9.5px;font-weight:800;text-transform:uppercase;}
+.bot-stats-date input{width:138px;min-height:34px;border:1px solid #263044;border-radius:7px;background:#101621;color:#e7ecf3;padding:6px 8px;color-scheme:dark;font:650 11px/1 inherit;}
+.bot-stats-date input:focus-visible{outline:0;border-color:#60a5fa;box-shadow:0 0 0 3px rgba(96,165,250,.2);}
+.bot-stats-apply{min-height:34px;}
+.bot-stats-apply.is-pending{cursor:wait;opacity:.78;}
+.bot-stats-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:10px 12px;border:1px solid #7c4a16;border-radius:8px;background:#24170b;color:#fcd59a;font-size:11.5px;line-height:1.4;animation:botStatsReveal var(--stats-motion-medium) var(--stats-ease) both;}
+.bot-stats-alert[hidden]{display:none;}
+.bot-stats-retry{flex:0 0 auto;border:1px solid #9a6329;border-radius:7px;background:#3b250f;color:#ffe1ad;padding:7px 9px;font:800 10.5px/1 inherit;cursor:pointer;transition:background var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-retry:hover{background:#523317;}
+.bot-stats-view-switcher{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;max-width:430px;margin:0 0 14px;padding:3px;border:1px solid #202a38;border-radius:8px;background:#090d14;}
+.bot-stats-view-btn{position:relative;min-width:0;min-height:36px;border:0;border-radius:6px;background:transparent;color:#8290a3;padding:7px 12px;font:800 11.5px/1 inherit;cursor:pointer;white-space:nowrap;transition:color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),box-shadow var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-view-btn:hover{color:#d8e0eb;background:#141c27;}
+.bot-stats-view-btn[aria-selected="true"]{background:#172235;color:#f2f6fb;box-shadow:inset 0 0 0 1px #30435c,0 3px 10px rgba(0,0,0,.18);}
+.bot-stats-view-btn[aria-selected="true"]::after{content:'';position:absolute;right:10px;bottom:5px;left:10px;height:2px;border-radius:2px;background:#60a5fa;}
+.bot-stats-view-btn:active{transform:translateY(1px) scale(.99);}
+.bot-stats-content{min-width:0;transition:opacity var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-content.is-refreshing{opacity:.72;}
+.bot-stats-content.bot-stats-view-enter{animation:botStatsViewForward var(--stats-motion-medium) var(--stats-ease) both;}
+.bot-stats-content.bot-stats-view-enter.is-backward{animation-name:botStatsViewBackward;}
+.bot-stats-content.bot-stats-view-enter.is-stationary{animation-name:botStatsViewFade;}
+.bot-stats-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.bot-stats-kpi{--stats-accent:#60a5fa;position:relative;min-width:0;min-height:116px;overflow:visible;border:1px solid #202a39;border-radius:8px;background:#0d131c;padding:14px 14px 13px;animation:botStatsReveal var(--stats-motion-medium) var(--stats-ease) both;animation-delay:calc(var(--reveal-order,0) * 34ms);transition:border-color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-kpi::before{content:'';position:absolute;inset:0 auto 0 0;width:2px;border-radius:8px 0 0 8px;background:var(--stats-accent);opacity:.72;}
+.bot-stats-kpi:hover{border-color:#334157;background:#101823;transform:translateY(-1px);}
+.bot-stats-kpi:hover,.bot-stats-kpi:focus-within{z-index:10;}
+.bot-stats-kpi.info{--stats-accent:#60a5fa}.bot-stats-kpi.neutral{--stats-accent:#94a3b8}.bot-stats-kpi.paid{--stats-accent:#34d399}.bot-stats-kpi.loss{--stats-accent:#f87171}
+.bot-stats-kpi.is-important-change{animation:botStatsImportantChange .72s var(--stats-ease),botStatsReveal var(--stats-motion-medium) var(--stats-ease) both;}
+.bot-stats-kpi-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.bot-stats-kpi-icon{display:grid;place-items:center;width:26px;height:26px;border:1px solid color-mix(in srgb,var(--stats-accent) 42%,#263044);border-radius:7px;background:color-mix(in srgb,var(--stats-accent) 10%,#101621);color:var(--stats-accent);font-size:14px;font-weight:900;}
+.bot-stats-kpi-value{position:relative;display:block;min-height:39px;margin-top:10px;color:#f5f7fa;font-size:30px;font-weight:850;line-height:1.05;font-variant-numeric:tabular-nums;}
+.bot-stats-value-stack{position:relative;display:inline-grid;overflow:hidden;vertical-align:top;}
+.bot-stats-value,.bot-stats-value-old{grid-area:1/1;display:block;}
+.bot-stats-value-old{animation:botStatsValueOut var(--stats-motion-fast) var(--stats-ease) both;}
+.bot-stats-value.is-entering{animation:botStatsValueIn var(--stats-motion-fast) var(--stats-ease) both;}
+.bot-stats-kpi-label{margin-top:5px;color:#9aa7b9;font-size:10.5px;font-weight:750;line-height:1.35;}
+.bot-stats-help-wrap{position:relative;z-index:3;}
+.bot-stats-help{display:grid;place-items:center;width:24px;height:24px;border:1px solid #2a3545;border-radius:7px;background:#101621;color:#8290a3;padding:0;font:850 11px/1 inherit;cursor:help;transition:border-color var(--stats-motion-fast) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-help:hover,.bot-stats-help[aria-expanded="true"]{border-color:#4b6788;background:#172335;color:#dbeafe;transform:translateY(-1px);}
+.bot-stats-tooltip{position:absolute;z-index:30;top:calc(100% + 7px);right:0;width:min(250px,calc(100vw - 36px));padding:9px 10px;border:1px solid #34445a;border-radius:7px;background:#080d14;color:#d6deea;box-shadow:0 14px 34px rgba(0,0,0,.42);font-size:10.5px;font-weight:600;line-height:1.45;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-3px) scale(.98);transform-origin:top right;transition:opacity var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease),visibility var(--stats-motion-fast);}
+.bot-stats-help-wrap:hover .bot-stats-tooltip,.bot-stats-help-wrap:focus-within .bot-stats-tooltip,.bot-stats-help-wrap.is-open .bot-stats-tooltip{opacity:1;visibility:visible;transform:none;}
+.bot-stats-period-empty{display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:10px 12px;border:1px dashed #2a3545;border-radius:8px;color:#8e9bad;background:#0b1017;font-size:11.5px;}
+.bot-stats-period-empty::before{content:'—';display:grid;place-items:center;width:22px;height:22px;border:1px solid #344154;border-radius:6px;color:#738196;font-weight:800;}
+.bot-stats-disclosure{border:1px solid #202a39;border-radius:8px;background:#0d131c;overflow:hidden;}
+.bot-stats-disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:43px;padding:10px 12px;color:#b8c3d0;font-size:11.5px;font-weight:800;cursor:pointer;list-style:none;transition:background var(--stats-motion-fast) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-disclosure>summary::-webkit-details-marker{display:none;}
+.bot-stats-disclosure>summary::after{content:'⌄';font-size:14px;color:#718096;transition:transform var(--stats-motion-medium) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-disclosure>summary:hover{background:#111a25;color:#e4eaf1;}
+.bot-stats-disclosure[open]>summary::after{transform:rotate(180deg);color:#9fc1ec;}
+.bot-stats-disclosure-body{display:grid!important;grid-template-rows:0fr;opacity:0;transition:grid-template-rows var(--stats-motion-slow) var(--stats-ease),opacity var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-disclosure[open]>.bot-stats-disclosure-body{grid-template-rows:1fr;opacity:1;}
+.bot-stats-disclosure-inner{min-height:0;overflow:hidden;}
+.bot-stats-secondary{margin-bottom:10px;}
+.bot-stats-secondary-count{margin-left:auto;color:#718096;font-size:10px;font-weight:700;}
+.bot-stats-secondary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:0 10px 10px;border:1px solid #202a39;border-radius:7px;background:#202a39;overflow:hidden;}
+.bot-stats-secondary-item{min-width:0;background:#0b1119;padding:10px;}
+.bot-stats-secondary-item b{display:block;color:#e4e9ef;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;}
+.bot-stats-secondary-item span{display:block;margin-top:3px;color:#778598;font-size:9.5px;font-weight:700;line-height:1.35;}
+.bot-stats-activity-chart{margin-bottom:10px;}
+.bot-stats-activity-head{align-items:center;}
+.bot-stats-activity-legend{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;color:#7e8b9d;font-size:9.5px;font-weight:700;}
+.bot-stats-activity-legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
+.bot-stats-activity-legend i{width:7px;height:7px;border-radius:2px;background:var(--legend-color);}
+.bot-stats-activity-scroll{min-width:0;overflow-x:auto;overflow-y:hidden;padding:4px 1px 1px;scrollbar-width:thin;}
+.bot-stats-activity-columns{display:grid;grid-template-columns:repeat(var(--bucket-count),minmax(10px,1fr));align-items:end;gap:5px;min-width:min(100%,calc(var(--bucket-count) * 15px));height:150px;border-bottom:1px solid #263142;background:repeating-linear-gradient(to top,transparent 0,transparent 36px,rgba(148,163,184,.055) 37px);}
+.bot-stats-activity-column{position:relative;display:flex;align-items:flex-end;justify-content:center;min-width:0;height:100%;border:0;background:transparent;padding:0 0 22px;color:inherit;cursor:pointer;}
+.bot-stats-activity-stack{display:flex;flex-direction:column-reverse;justify-content:flex-start;width:min(18px,72%);height:calc(100% - 2px);border-radius:4px 4px 2px 2px;overflow:hidden;background:#18212d;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);transition:transform var(--stats-motion-fast) var(--stats-ease),filter var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-activity-column:hover .bot-stats-activity-stack,.bot-stats-activity-column:focus-visible .bot-stats-activity-stack,.bot-stats-activity-column.is-open .bot-stats-activity-stack{transform:translateY(-2px);filter:brightness(1.12);}
+.bot-stats-activity-column:focus-visible{outline:0;}
+.bot-stats-activity-column:focus-visible .bot-stats-activity-stack,.bot-stats-activity-column.is-open .bot-stats-activity-stack{box-shadow:0 0 0 3px rgba(96,165,250,.22),inset 0 0 0 1px rgba(255,255,255,.05);}
+.bot-stats-activity-segment{flex:0 0 var(--activity-height,0%);min-height:0;transition:flex-basis var(--stats-motion-slow) var(--stats-ease);}
+.bot-stats-activity-segment.inbound{background:#60a5fa}.bot-stats-activity-segment.bot{background:#2dd4bf}.bot-stats-activity-segment.manager{background:#f59e0b}
+.bot-stats-activity-label{position:absolute;inset:auto -5px 2px;color:#657386;font-size:8.5px;font-weight:700;line-height:1;text-align:center;white-space:nowrap;}
+.bot-stats-activity-label-full{display:inline}.bot-stats-activity-label-compact{display:none}
+.bot-stats-activity-tooltip{position:absolute;z-index:12;left:50%;bottom:calc(100% - 3px);width:max-content;max-width:190px;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,4px) scale(.98);transform-origin:bottom center;border:1px solid #34445a;border-radius:7px;background:#080d14;color:#dce4ee;padding:8px 9px;box-shadow:0 12px 28px rgba(0,0,0,.4);font-size:9.5px;font-weight:700;line-height:1.45;text-align:left;transition:opacity var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease),visibility var(--stats-motion-fast);}
+.bot-stats-activity-column:hover .bot-stats-activity-tooltip,.bot-stats-activity-column:focus-visible .bot-stats-activity-tooltip,.bot-stats-activity-column.is-open .bot-stats-activity-tooltip{opacity:1;visibility:visible;transform:translate(-50%,0) scale(1);}
+.bot-stats-analysis-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:10px;margin-bottom:10px;}
+.bot-stats-analysis-card{min-width:0;border:1px solid #202a39;border-radius:8px;background:#0d131c;padding:14px;animation:botStatsReveal var(--stats-motion-medium) var(--stats-ease) both;animation-delay:calc(var(--reveal-order,0) * 34ms);}
+.bot-stats-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:13px;}
+.bot-card .bot-stats-section-title{margin:0;color:#dbe3ec;font-size:12px;font-weight:800;line-height:1.35;text-transform:none;}
+.bot-stats-section-meta{color:#6f7d91;font-size:9.5px;font-weight:700;line-height:1.35;text-align:right;}
+.bot-stats-funnel,.bot-stats-ranked-list{display:grid;gap:10px;}
+.bot-stats-bottleneck{display:inline-flex;align-items:center;gap:5px;max-width:210px;border:1px solid #5e4219;border-radius:6px;background:#21170b;color:#e7b45b;padding:5px 7px;font-size:9px;font-weight:800;line-height:1.2;text-align:left;}
+.bot-stats-bottleneck::before{content:'↓';display:grid;place-items:center;width:14px;height:14px;border-radius:4px;background:#3a270e;color:#fbbf24;}
+.bot-stats-funnel-row.is-bottleneck .bot-stats-bar-rail{box-shadow:0 0 0 1px rgba(245,158,11,.35),inset 0 0 0 1px rgba(255,255,255,.025);}
+.bot-stats-funnel-row,.bot-stats-bar-row{min-width:0;display:grid;grid-template-columns:minmax(96px,132px) minmax(0,1fr) minmax(62px,auto);align-items:center;gap:10px;}
+.bot-stats-bar-label{min-width:0;color:#aeb9c8;font-size:10.5px;font-weight:700;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-bar-rail{position:relative;height:7px;overflow:hidden;border-radius:3px;background:#1b2431;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);}
+.bot-stats-bar-fill{width:var(--bar-width,0%);height:100%;border-radius:3px;background:#60a5fa;transition:width var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-funnel-row:nth-child(2) .bot-stats-bar-fill{background:#38bdf8}.bot-stats-funnel-row:nth-child(3) .bot-stats-bar-fill{background:#a3b65f}.bot-stats-funnel-row:nth-child(4) .bot-stats-bar-fill{background:#f59e0b}.bot-stats-funnel-row:nth-child(5) .bot-stats-bar-fill{background:#34d399}
+.bot-stats-bar-row.product .bot-stats-bar-fill{background:#d3a64a}.bot-stats-bar-row.ad .bot-stats-bar-fill{background:#5ab6b0}
+.bot-stats-bar-value{color:#dce4ee;font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;}
+.bot-stats-bar-value span{color:#718096;font-weight:700;}
+.bot-stats-bar-extra{grid-column:2/4;display:flex;justify-content:flex-end;gap:10px;margin-top:-5px;color:#778598;font-size:9.5px;font-weight:700;font-variant-numeric:tabular-nums;}
+.bot-stats-empty-analysis{display:grid;place-items:center;min-height:158px;border:1px dashed #273243;border-radius:7px;color:#718096;padding:20px;text-align:center;font-size:11px;line-height:1.45;}
+.bot-stats-optional-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px;}
+.bot-stats-product-list{display:grid;gap:8px;}
+.bot-stats-product-row{display:grid;grid-template-columns:54px minmax(0,1fr);gap:11px;align-items:center;min-width:0;border:1px solid #1c2634;border-radius:7px;background:#0a1017;padding:8px;transition:border-color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-product-row:hover{border-color:#34455b;background:#0d151f;transform:translateY(-1px);}
+.bot-stats-product-media{position:relative;width:54px;aspect-ratio:4/5;overflow:hidden;border:1px solid #263244;border-radius:6px;background:#141b25;}
+.bot-stats-product-image{display:block;width:100%;height:100%;object-fit:cover;opacity:0;transform:scale(1.035);transition:opacity var(--stats-motion-medium) var(--stats-ease),transform var(--stats-motion-slow) var(--stats-ease);}
+.bot-stats-product-image.is-loaded{opacity:1;transform:none;}
+.bot-stats-product-fallback{position:absolute;inset:0;display:grid;place-items:center;color:#64748b;font-size:21px;font-weight:800;}
+.bot-stats-product-image.is-loaded+.bot-stats-product-fallback{opacity:0;}
+.bot-stats-product-body{min-width:0;}
+.bot-stats-product-title{display:block;overflow:hidden;color:#dbe4ee;font-size:10.5px;font-weight:800;line-height:1.3;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-product-metrics{display:grid;gap:6px;margin-top:7px;}
+.bot-stats-product-metric{display:grid;grid-template-columns:58px minmax(0,1fr) auto;align-items:center;gap:7px;min-width:0;}
+.bot-stats-product-metric-label{color:#758397;font-size:8.5px;font-weight:800;text-transform:uppercase;}
+.bot-stats-product-metric .bot-stats-bar-rail{height:5px;}
+.bot-stats-product-metric.interest .bot-stats-bar-fill{background:#60a5fa}.bot-stats-product-metric.paid .bot-stats-bar-fill{background:#34d399}
+.bot-stats-product-metric-value{color:#d9e2ec;font-size:9.5px;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.bot-stats-ad-paid{grid-column:2/4;display:grid;grid-template-columns:auto minmax(80px,150px) auto;align-items:center;justify-content:end;gap:7px;margin-top:-5px;color:#7e8b9c;font-size:9px;font-weight:750;}
+.bot-stats-ad-paid .bot-stats-bar-rail{width:100%;height:4px;}
+.bot-stats-ad-paid .bot-stats-bar-fill{background:#34d399;}
+.bot-stats-view-zero{display:grid;place-items:center;min-height:220px;border:1px dashed #273243;border-radius:8px;background:#0b1017;color:#8290a3;padding:28px;text-align:center;font-size:11.5px;line-height:1.55;}
+.bot-stats-ad-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin-bottom:10px;border:1px solid #202a39;border-radius:8px;background:#202a39;overflow:hidden;}
+.bot-stats-ad-summary-item{min-width:0;background:#0b1119;padding:11px 12px;}
+.bot-stats-ad-summary-item b{display:block;color:#e6ebf1;font-size:18px;font-weight:850;font-variant-numeric:tabular-nums;}
+.bot-stats-ad-summary-item span{display:block;margin-top:4px;color:#7f8da0;font-size:9.5px;font-weight:750;line-height:1.35;}
+.bot-stats-ad-notes{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.bot-stats-ad-note{display:flex;align-items:center;gap:8px;min-width:0;min-height:36px;border:1px solid #263244;border-radius:7px;background:#0c121a;color:#8795a8;padding:7px 9px;font-size:9.5px;font-weight:700;line-height:1.4;}
+.bot-stats-ad-note::before{content:'i';display:grid;place-items:center;flex:0 0 auto;width:17px;height:17px;border:1px solid #34455b;border-radius:5px;color:#8fb8e5;font-size:9px;font-weight:850;}
+.bot-stats-ad-note.is-warning{border-color:#5a431f;background:#17130d;color:#c8ab75;}
+.bot-stats-ad-note.is-warning::before{content:'!';border-color:#705127;color:#e0b35f;}
+.bot-stats-ad-note .bot-stats-help-wrap{margin-left:auto;}
+.bot-stats-ad-note .bot-stats-help{width:22px;height:22px;}
+.bot-stats-ad-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:10px;margin-bottom:10px;}
+.bot-stats-ad-single{margin-bottom:10px;}
+.bot-stats-ad-grid+.bot-stats-analysis-card{margin-bottom:10px;}
+.bot-stats-campaign-list{display:grid;gap:9px;}
+.bot-stats-campaign-more{margin-top:9px;background:#0a1017;}
+.bot-stats-campaign-more>summary{min-height:38px;padding:8px 10px;color:#91a0b3;font-size:10.5px;}
+.bot-stats-campaign-more-list{padding:0 10px 10px;}
+.bot-stats-campaign-row{min-width:0;border:1px solid #1d2735;border-radius:7px;background:#0a1017;padding:10px;transition:border-color var(--stats-motion-fast) var(--stats-ease),background var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-campaign-row:hover{border-color:#34455b;background:#0d151f;transform:translateY(-1px);}
+.bot-stats-campaign-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.bot-stats-campaign-title{min-width:0;color:#dce5ef;font-size:10.5px;font-weight:800;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-campaign-value{flex:0 0 auto;color:#eef3f8;font-size:11px;font-weight:850;font-variant-numeric:tabular-nums;}
+.bot-stats-campaign-rail{margin-top:8px;}
+.bot-stats-campaign-rail .bot-stats-bar-fill{background:#5ab6b0;}
+.bot-stats-campaign-facts{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-top:8px;color:#78879a;font-size:9px;font-weight:750;font-variant-numeric:tabular-nums;}
+.bot-stats-campaign-facts .paid{color:#77d5ad}.bot-stats-campaign-facts .loss{color:#de8d8d}.bot-stats-campaign-facts .unpriced{color:#d0aa67}.bot-stats-campaign-product{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-reason-list{display:grid;gap:1px;margin:0 10px 10px;border:1px solid #202938;border-radius:7px;background:#202938;overflow:hidden;}
+.bot-stats-reason-row{display:grid;grid-template-columns:minmax(0,1fr) repeat(3,auto);align-items:center;gap:8px;background:#0a1017;padding:9px 10px;color:#8593a6;font-size:9.5px;font-weight:700;}
+.bot-stats-reason-row strong{min-width:0;color:#cbd5e1;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-product-list.is-expanded{grid-template-columns:repeat(2,minmax(0,1fr));}
+.bot-stats-product-view-card{margin-bottom:10px;}
+.bot-stats-product-view-card .bot-stats-product-row{min-height:88px;}
+.bot-stats-details{margin-top:0;}
+.bot-stats-details-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 12px 12px;}
+.bot-stats-detail-section{min-width:0;}
+.bot-card .bot-stats-detail-title{margin:12px 0 7px;color:#8d9bad;font-size:10px;font-weight:800;text-transform:uppercase;}
+.bot-stats-table-wrap{max-width:100%;overflow-x:auto;border:1px solid #202938;border-radius:7px;scrollbar-gutter:stable;}
 .bot-table{width:100%;border-collapse:collapse;font-size:12px;color:#cdd5e1;}
 .bot-table th,.bot-table td{border-bottom:1px solid #1e2430;padding:8px 6px;text-align:left;vertical-align:top;}
 .bot-table th{color:#8b95a5;font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.04em;}
+.bot-stats-table-wrap .bot-table{min-width:420px;background:#0a1017;}
+.bot-stats-table-wrap .bot-table tr:last-child td{border-bottom:0;}
+.bot-stats-first-error{display:grid;place-items:center;min-height:310px;border:1px dashed #453326;border-radius:8px;background:#100e0c;color:#bda88f;padding:24px;text-align:center;font-size:12px;line-height:1.5;}
+.bot-stats-skeleton{display:grid;gap:10px;}
+.bot-stats-skeleton-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.bot-stats-skeleton-card,.bot-stats-skeleton-panel{position:relative;overflow:hidden;border:1px solid #1e2734;border-radius:8px;background:#0c121a;}
+.bot-stats-skeleton-card{height:116px;}.bot-stats-skeleton-panel{height:250px;}
+.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(148,163,184,.07),transparent);animation:botStatsSkeleton 1.25s ease-in-out infinite;}
+.bot-stats-skeleton-panels{display:grid;grid-template-columns:1.12fr .88fr;gap:10px;}
+@keyframes botStatsSkeleton{to{transform:translateX(100%)}}
+@keyframes botStatsPending{from{opacity:.4;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes botStatsReveal{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes botStatsValueOut{to{opacity:0;transform:translateY(-6px)}}
+@keyframes botStatsValueIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes botStatsImportantChange{0%,100%{border-color:#202a39;background:#0d131c}38%{border-color:var(--stats-accent);background:color-mix(in srgb,var(--stats-accent) 8%,#0d131c)}}
+@keyframes botStatsViewForward{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+@keyframes botStatsViewBackward{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes botStatsViewFade{from{opacity:.72}to{opacity:1}}
 .bot-state-text{font-size:17px;font-weight:600;}
 .bot-state-sub{font-size:12.5px;color:#8b95a5;margin-top:2px;}
 .bot-status-head{display:flex;align-items:center;gap:13px;margin-bottom:16px;}
@@ -311,9 +515,6 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 .bot-category-meta{margin-top:3px;font-size:11px;color:#8b95a5;line-height:1.4;}
 .bot-stage-chip{font-size:10px;padding:3px 8px;border-radius:20px;background:#1a2233;color:#9fb4d6;white-space:nowrap;font-weight:600;}
 .bot-post-sale-badge{font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid #9f3f55;background:#32131c;color:#fecdd3;white-space:nowrap;font-weight:700;}
-.bot-stats-custom-range{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-left:auto;}
-.bot-stats-date{display:grid;gap:4px;color:#8b95a5;font-size:10.5px;font-weight:700;text-transform:uppercase;}
-.bot-stats-date input{min-height:34px;border:1px solid #263044;border-radius:8px;background:#101621;color:#e7ecf3;padding:6px 8px;color-scheme:dark;}
 .st-new,.st-qualifying{background:#13233f;color:#7fb0ff;}
 .st-product_matched,.st-checkout{background:#3a2c10;color:#fbbf24;}
 .st-payment_pending{background:#3a2410;color:#fb923c;}
@@ -552,7 +753,69 @@ body.bot-drawer-open{overflow:hidden;}
 @media(max-width:390px){.bot-app{padding-left:10px;padding-right:10px}.bot-card{padding:14px}.bot-tabs{margin-left:-4px;margin-right:-4px}.bot-tab{padding-left:11px;padding-right:11px}.bot-orders-filter{flex:1;justify-content:center}.bot-order-facts{grid-template-columns:1fr 1fr}.bot-order-media-grid{grid-template-columns:1fr 1fr}.bot-client-row{gap:8px;padding:9px}.bot-client-tags{max-width:92px}.bot-client-primary-state>.bot-commercial-badge,.bot-client-primary-state>.bot-buyer-history-badge{padding:3px 6px;font-size:9.5px}.bot-client-context-line{gap:4px}.bot-client-context-line>span+span::before{margin-right:4px}}
 @media(max-width:340px){.bot-client-row{display:grid;grid-template-columns:38px minmax(0,1fr);position:relative;column-gap:8px;row-gap:5px}.bot-client-row>.bot-client-ava{grid-column:1;grid-row:1}.bot-client-meta{grid-column:2;grid-row:1}.bot-client-tags{grid-column:2;max-width:100%;grid-row:2;padding-top:0}.bot-client-row.needs-action,.bot-client-row.post-sale-action{padding-right:34px}.bot-client-row.needs-action::after,.bot-client-row.post-sale-action::after{position:absolute;top:8px;right:8px}.bot-client-primary-state{max-width:100%}}
 @media(max-width:320px){.bot-top{align-items:stretch}.bot-top-actions{width:100%}.bot-top-actions .bot-btn{flex:1;padding-left:10px;padding-right:10px}.bot-order-facts,.bot-client-commercial{grid-template-columns:1fr}.bot-order-media-grid{grid-template-columns:1fr}.bot-order-row-top{flex-direction:column}.bot-order-state{white-space:normal}}
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer{transition:none!important}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
+@media(max-width:880px){
+  .bot-stats-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bot-stats-analysis-grid,.bot-stats-optional-grid,.bot-stats-ad-grid,.bot-stats-skeleton-panels{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-product-list.is-expanded{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-secondary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .bot-stats-ad-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bot-stats-details-content{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-skeleton-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  .bot-stats-toolbar{align-items:stretch;flex-direction:column}
+  .bot-stats-periods{width:100%;grid-auto-columns:minmax(0,1fr)}
+  .bot-stats-custom>summary{justify-content:space-between}
+  .bot-stats-custom-inner{align-items:stretch;flex-direction:column}
+  .bot-stats-custom-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .bot-stats-date input{width:100%}
+  .bot-stats-apply{grid-column:1/-1;width:100%}
+}
+@media(max-width:560px){
+  .bot-stats-view-switcher{max-width:none;width:100%}
+  .bot-stats-view-btn{padding-right:7px;padding-left:7px;white-space:normal}
+  .bot-stats-kpi-grid{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-kpi{min-height:105px}
+  .bot-stats-kpi-value{font-size:28px}
+  .bot-stats-secondary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bot-stats-funnel-row,.bot-stats-bar-row{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px}
+  .bot-stats-bar-label{white-space:normal;overflow:visible;text-overflow:clip}
+  .bot-stats-bar-rail{grid-column:1/-1;grid-row:2}
+  .bot-stats-bar-value{grid-column:2;grid-row:1}
+  .bot-stats-bar-extra{grid-column:1/-1;grid-row:3;justify-content:flex-start;margin-top:0}
+  .bot-stats-ad-paid{grid-column:1/-1;grid-row:3;grid-template-columns:auto minmax(0,1fr) auto;justify-content:stretch;margin-top:0}
+  .bot-stats-bar-row.ad .bot-stats-bar-extra{grid-row:4}
+  .bot-stats-activity-columns{height:138px;gap:4px;min-width:max(100%,calc(var(--bucket-count) * 12px))}
+  .bot-stats-activity-legend{justify-content:flex-start}
+  .bot-stats-product-row{grid-template-columns:48px minmax(0,1fr);gap:9px}
+  .bot-stats-product-media{width:48px}
+  .bot-stats-product-metric{grid-template-columns:52px minmax(0,1fr) auto;gap:5px}
+  .bot-stats-product-row{grid-template-columns:44px minmax(0,1fr);gap:9px}
+  .bot-stats-product-media{width:44px}
+  .bot-stats-product-title{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .bot-stats-product-metric{grid-template-columns:50px minmax(0,1fr) auto;gap:5px}
+  .bot-stats-activity-columns{gap:3px;min-width:100%}
+  .bot-stats-skeleton-kpis{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-alert{align-items:flex-start;flex-direction:column}
+  .bot-stats-retry{width:100%}
+  .bot-stats-ad-summary{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-ad-notes{display:grid;grid-template-columns:minmax(0,1fr)}
+  .bot-stats-reason-row{grid-template-columns:minmax(0,1fr) auto;}
+  .bot-stats-reason-row span:nth-of-type(2),.bot-stats-reason-row span:nth-of-type(3){display:none}
+}
+@media(max-width:390px){
+  .bot-stats-periods{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-columns:auto}
+  .bot-stats-period-btn{white-space:normal}
+  .bot-stats-custom-range{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-apply{grid-column:1}
+  .bot-stats-secondary-grid{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-analysis-card{padding:12px}
+  .bot-stats-section-head{align-items:flex-start;flex-direction:column}
+  .bot-stats-bottleneck{max-width:100%}
+  .bot-stats-activity-label-full{display:none}
+  .bot-stats-activity-label-compact{display:inline}
+}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -867,27 +1130,59 @@ body.bot-drawer-open{overflow:hidden;}
 
   <!-- ===== Статистика ===== -->
   <section class="bot-panel" data-panel="stats">
-    <div class="bot-card">
-      <div class="bot-card-head">
-        <h2>Статистика продажів IG Direct</h2>
-        <button class="bot-mini-btn" id="bot-stats-refresh">Оновити</button>
+    <div class="bot-card bot-stats-card">
+      <header class="bot-stats-head">
+        <div class="bot-stats-heading">
+          <h2 class="bot-stats-title">Статистика продажів IG Direct</h2>
+          <div id="bot-stats-freshness" class="bot-stats-freshness" aria-live="polite">Очікуємо дані сервера</div>
+        </div>
+        <button type="button" class="bot-stats-refresh" id="bot-stats-refresh" aria-label="Оновити статистику" title="Оновити статистику">
+          <span class="bot-stats-refresh-mark" aria-hidden="true">↻</span>
+        </button>
+      </header>
+      <div class="bot-stats-toolbar" id="bot-stats-range">
+        <div class="bot-stats-periods" role="group" aria-label="Період статистики">
+          <button type="button" class="bot-stats-period-btn" data-stats-days="1" aria-pressed="false">Сьогодні</button>
+          <button type="button" class="bot-stats-period-btn active" data-stats-days="7" aria-pressed="true">7 днів</button>
+          <button type="button" class="bot-stats-period-btn" data-stats-days="30" aria-pressed="false">30 днів</button>
+          <button type="button" class="bot-stats-period-btn" data-stats-days="0" aria-pressed="false">Увесь час</button>
+        </div>
+        <details class="bot-stats-custom" id="bot-stats-custom">
+          <summary>Свій період</summary>
+          <div class="bot-stats-custom-body">
+            <div class="bot-stats-custom-inner">
+              <div class="bot-stats-custom-range">
+                <label class="bot-stats-date">Від
+                  <input type="date" id="bot-stats-date-from">
+                </label>
+                <label class="bot-stats-date">До
+                  <input type="date" id="bot-stats-date-to">
+                </label>
+                <button type="button" class="bot-mini-btn primary bot-stats-apply" id="bot-stats-apply-range">Застосувати</button>
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
-      <div class="bot-client-filters" id="bot-stats-range" style="margin-bottom:12px;">
-        <button type="button" class="bot-mini-btn" data-stats-days="1">Сьогодні</button>
-        <button type="button" class="bot-mini-btn active" data-stats-days="7">7 днів</button>
-        <button type="button" class="bot-mini-btn" data-stats-days="30">30 днів</button>
-        <button type="button" class="bot-mini-btn" data-stats-days="0">Увесь час</button>
-        <div class="bot-stats-custom-range">
-          <label class="bot-stats-date">Від
-            <input type="date" id="bot-stats-date-from">
-          </label>
-          <label class="bot-stats-date">До
-            <input type="date" id="bot-stats-date-to">
-          </label>
-          <button type="button" class="bot-mini-btn" id="bot-stats-apply-range">Застосувати</button>
+      <div class="bot-stats-view-switcher" id="bot-stats-view-switcher" role="tablist" aria-label="Подання статистики">
+        <button type="button" class="bot-stats-view-btn" id="bot-stats-view-overview" role="tab" data-stats-view="overview" aria-controls="bot-stats-content" aria-selected="true" tabindex="0">Огляд</button>
+        <button type="button" class="bot-stats-view-btn" id="bot-stats-view-ads" role="tab" data-stats-view="ads" aria-controls="bot-stats-content" aria-selected="false" tabindex="-1">Реклама</button>
+        <button type="button" class="bot-stats-view-btn" id="bot-stats-view-products" role="tab" data-stats-view="products" aria-controls="bot-stats-content" aria-selected="false" tabindex="-1">Товари</button>
+      </div>
+      <div id="bot-stats-alert" class="bot-stats-alert" role="alert" hidden>
+        <span id="bot-stats-alert-text">Не вдалося оновити статистику.</span>
+        <button type="button" id="bot-stats-retry" class="bot-stats-retry">Спробувати ще</button>
+      </div>
+      <div id="bot-stats-content" class="bot-stats-content" role="tabpanel" aria-labelledby="bot-stats-view-overview" aria-live="polite" aria-busy="true">
+        <div class="bot-stats-skeleton" aria-label="Завантаження статистики">
+          <div class="bot-stats-skeleton-kpis" aria-hidden="true">
+            <div class="bot-stats-skeleton-card"></div><div class="bot-stats-skeleton-card"></div><div class="bot-stats-skeleton-card"></div><div class="bot-stats-skeleton-card"></div>
+          </div>
+          <div class="bot-stats-skeleton-panels" aria-hidden="true">
+            <div class="bot-stats-skeleton-panel"></div><div class="bot-stats-skeleton-panel"></div>
+          </div>
         </div>
       </div>
-      <div id="bot-stats-content" class="bot-empty">Завантаження статистики…</div>
     </div>
   </section>
 
@@ -1018,14 +1313,28 @@ body.bot-drawer-open{overflow:hidden;}
   const tabs = Array.from(document.querySelectorAll('.bot-tab'));
   const panels = Array.from(document.querySelectorAll('.bot-panel'));
   const ind = document.getElementById('bot-tab-ind');
+  const tabsEl=document.getElementById('bot-tabs');
+  const tabMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
   const loaded = {};
+  let tabCenterGeneration=0;
+  let tabScrollFrame=0;
   function moveInd(btn){ if(btn&&ind){ ind.style.left = btn.offsetLeft+'px'; ind.style.width = btn.offsetWidth+'px'; } }
+  function animateBotTabScroll(targetLeft,generation){
+    cancelAnimationFrame(tabScrollFrame);const startLeft=tabsEl.scrollLeft;const startedAt=performance.now();const duration=220;
+    const step=now=>{if(generation!==tabCenterGeneration)return;const progress=Math.min(1,(now-startedAt)/duration);const eased=1-Math.pow(1-progress,3);tabsEl.scrollLeft=startLeft+(targetLeft-startLeft)*eased;if(progress<1)tabScrollFrame=requestAnimationFrame(step);else tabsEl.scrollLeft=targetLeft;};
+    tabScrollFrame=requestAnimationFrame(step);
+  }
+  function centerActiveBotTab(btn){
+    if(!tabsEl||!btn)return;const generation=++tabCenterGeneration;
+    const scroll=()=>{if(generation!==tabCenterGeneration||!btn.classList.contains('active'))return;const maxLeft=Math.max(0,tabsEl.scrollWidth-tabsEl.clientWidth);const targetLeft=Math.min(maxLeft,Math.max(0,btn.offsetLeft-(tabsEl.clientWidth-btn.offsetWidth)/2));if(tabMotion.matches){cancelAnimationFrame(tabScrollFrame);tabsEl.scrollLeft=targetLeft;return;}animateBotTabScroll(targetLeft,generation);};
+    requestAnimationFrame(()=>requestAnimationFrame(scroll));
+  }
   function activate(name, save){
     const btn = tabs.find(t=>t.dataset.tab===name) || tabs[0];
     tabs.forEach(t=>{t.classList.toggle('active',t===btn);t.setAttribute('aria-selected',t===btn?'true':'false');t.tabIndex=t===btn?0:-1;});
     panels.forEach(p=>{const active=p.dataset.panel===btn.dataset.tab;p.classList.toggle('active',active);p.setAttribute('aria-hidden',active?'false':'true');});
     moveInd(btn);
-    btn.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
+    centerActiveBotTab(btn);
     if(save){ try{ localStorage.setItem('bot_tab', btn.dataset.tab); }catch(e){} }
     if(btn.dataset.tab==='clients' && !loaded.clients){ loaded.clients=true; Clients.load(''); }
     if(btn.dataset.tab==='kb' && !loaded.kb){ loaded.kb=true; KB.load(); }
@@ -1033,8 +1342,8 @@ body.bot-drawer-open{overflow:hidden;}
     if(btn.dataset.tab==='orders'){ loaded.orders=true; CheckoutProposals.load(); Orders.load(); }
   }
   tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab,true)));
-  document.getElementById('bot-tabs').addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;let index=tabs.indexOf(document.activeElement);if(event.key==='Home')index=0;else if(event.key==='End')index=tabs.length-1;else index=(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;event.preventDefault();tabs[index].focus();activate(tabs[index].dataset.tab,true);});
-  window.addEventListener('resize',()=>moveInd(tabs.find(t=>t.classList.contains('active'))));
+  tabsEl.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;let index=tabs.indexOf(document.activeElement);if(event.key==='Home')index=0;else if(event.key==='End')index=tabs.length-1;else index=(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;event.preventDefault();tabs[index].focus();activate(tabs[index].dataset.tab,true);});
+  window.addEventListener('resize',()=>{const activeTab=tabs.find(t=>t.classList.contains('active'));moveInd(activeTab);centerActiveBotTab(activeTab);});
   // Початкову активацію вкладки виконуємо В КІНЦІ IIFE (після оголошення Clients/KB),
   // інакше activate('clients'/'kb') впаде в ReferenceError (TDZ) і обірве скрипт
   // (poll/setInterval не стартують → усе по нулях, поки не зайти спершу на «Огляд»).
@@ -2302,11 +2611,29 @@ body.bot-drawer-open{overflow:hidden;}
     const box=document.getElementById('bot-stats-content');
     const btn=document.getElementById('bot-stats-refresh');
     const rangeBox=document.getElementById('bot-stats-range');
+    const viewSwitcher=document.getElementById('bot-stats-view-switcher');
+    const viewButtons=Array.from(document.querySelectorAll('[data-stats-view]'));
+    const freshnessEl=document.getElementById('bot-stats-freshness');
+    const alertEl=document.getElementById('bot-stats-alert');
+    const alertTextEl=document.getElementById('bot-stats-alert-text');
+    const retryBtn=document.getElementById('bot-stats-retry');
+    const customDetails=document.getElementById('bot-stats-custom');
     const dateFromEl=document.getElementById('bot-stats-date-from');
     const dateToEl=document.getElementById('bot-stats-date-to');
     const applyRangeBtn=document.getElementById('bot-stats-apply-range');
+    const numberFormat=new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0});
+    const moneyFormat=new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0});
     let rangeDays=7;
     let customRange=false;
+    let currentData=null;
+    let requestGeneration=0;
+    let openHelpTrigger=null;
+    let openActivityColumn=null;
+    let appliedSelection={mode:'preset',days:7,dateFrom:'',dateTo:''};
+    let pendingSelection=null;
+    let retrySelection=null;
+    let activeView='overview';
+    const viewOrder=['overview','ads','products'];
     const objectionLabels={
       price:'Дорого',price_objection:'Дорого',prepayment:'Передоплата',prepayment_objection:'Передоплата',
       size:'Розмір',size_concern:'Розмір',thinking:'Потрібен час подумати',no_reply:'Не відповідає',
@@ -2319,11 +2646,13 @@ body.bot-drawer-open{overflow:hidden;}
     };
     const funnelOrder=['new','qualifying','product_matched','checkout','payment_pending','unverified','paid','order_created','done','lead_manager','spam','cold'];
     const metricHelp={
-      conversations:'Неприховані діалоги, активні або створені у вибраному періоді.',
+      messages:'Усі збережені повідомлення у вибраному періоді: клієнта, бота та менеджера. Приховані клієнти не враховуються.',
+      conversations:'Унікальні неприховані діалоги, у яких є повідомлення у вибраному періоді.',
       qualified:'Діалоги вибраного періоду з готовністю до покупки від 40 балів.',
       product_matched:'Діалоги вибраного періоду, де вже визначено товар.',
       checkout_or_payment:'Діалоги вибраного періоду на етапі оформлення або очікування оплати.',
-      paid:'Клієнти вибраного періоду з підтвердженою оплатою, отриманою у цьому ж періоді.',
+      paid:'Лише поточні підтверджені оплати у вибраному періоді. Стадія «Оплачено» без підтвердження не рахується.',
+      lost_or_refused:'Унікальні клієнти з незакритою явною відмовою або зафіксованою втратою через мовчання у вибраному періоді. Відписки, спам і технічна недоступність рахуються окремо.',
       pending_followups:'Невиконані контакти, дата яких припадає на вибраний період.',
       followup_recoveries:'Надіслані у вибраному періоді нагадування, після яких у цьому ж періоді підтверджено оплату.',
       discount_conversions:'Оплати у вибраному періоді в діалогах, де пропонували знижку.',
@@ -2331,76 +2660,346 @@ body.bot-drawer-open{overflow:hidden;}
       custom_print_handoffs:'Діалоги вибраного періоду про кастомний принт, передані менеджеру.',
       hidden:'Клієнти, яких приховали у вибраному періоді.'
     };
-    function stat(k,v,help){return '<div class="bot-stat-box" title="'+esc(help)+'"><div class="v">'+esc(String(v||0))+'</div><div class="k">'+esc(k)+'</div></div>';}
-    function table(title, rows, cols){
-      if(!(rows||[]).length) return '<h2 style="margin-top:18px;">'+esc(title)+'</h2><div class="bot-empty" style="padding:18px 10px;">Даних за цим розділом поки немає.</div>';
-      let h='<h2 style="margin-top:18px;">'+esc(title)+'</h2><table class="bot-table"><thead><tr>';
-      cols.forEach(c=>h+='<th>'+esc(c[1])+'</th>'); h+='</tr></thead><tbody>';
-      (rows||[]).forEach(r=>{h+='<tr>';cols.forEach(c=>{const value=r[c[0]];h+='<td>'+esc(String(value===0?0:(value||'')))+'</td>';});h+='</tr>';});
-      h+='</tbody></table>'; return h;
+    const kpiSpecs=[
+      {key:'messages',label:'Повідомлення',icon:'⇄',tone:'info'},
+      {key:'conversations',label:'Діалоги',icon:'◫',tone:'neutral'},
+      {key:'paid',label:'Підтверджені оплати',icon:'✓',tone:'paid'},
+      {key:'lost_or_refused',label:'Відмови / втрати',icon:'↓',tone:'loss'}
+    ];
+    function num(value){const parsed=Number(value);return Number.isFinite(parsed)?parsed:0;}
+    function totals(data){return data&&data.totals||{};}
+    function metricValue(data,key){
+      const values=totals(data);
+      if(key==='conversations')return num(values.unique_conversations!==undefined?values.unique_conversations:values.conversations);
+      return num(values[key]);
     }
-    function load(){
-      if(!box) return;
-      box.innerHTML='<div class="bot-empty">Завантаження статистики…</div>';
+    function helpMarkup(key,help){
+      const tooltipId='bot-stats-help-'+key;
+      return '<span class="bot-stats-help-wrap"><button type="button" class="bot-stats-help" aria-label="Пояснення показника" aria-expanded="false" aria-controls="'+tooltipId+'">i</button><span class="bot-stats-tooltip" id="'+tooltipId+'" role="tooltip">'+esc(help)+'</span></span>';
+    }
+    function valueMarkup(value,previousValue,changed,formatter=numberFormat,suffix=''){
+      const current=esc(formatter.format(value)+suffix);
+      if(!changed)return '<span class="bot-stats-value-stack"><span class="bot-stats-value">'+current+'</span></span>';
+      return '<span class="bot-stats-value-stack"><span class="bot-stats-value-old" aria-hidden="true">'+esc(formatter.format(previousValue)+suffix)+'</span><span class="bot-stats-value is-entering">'+current+'</span></span>';
+    }
+    function renderKpis(data,previous){
+      const samePeriod=Boolean(previous&&statsPeriodKey(previous)===statsPeriodKey(data));
+      return '<div class="bot-stats-kpi-grid">'+kpiSpecs.map((spec,index)=>{
+        const value=metricValue(data,spec.key);
+        const previousValue=previous?metricValue(previous,spec.key):value;
+        const changed=Boolean(previous&&previousValue!==value);
+        const important=changed&&samePeriod&&(spec.key==='paid'||spec.key==='lost_or_refused');
+        return '<article class="bot-stats-kpi '+spec.tone+(important?' is-important-change':'')+'" data-stats-kpi="'+spec.key+'" style="--reveal-order:'+index+'"><div class="bot-stats-kpi-top"><span class="bot-stats-kpi-icon" aria-hidden="true">'+spec.icon+'</span>'+helpMarkup(spec.key,metricHelp[spec.key])+'</div><strong class="bot-stats-kpi-value">'+valueMarkup(value,previousValue,changed)+'</strong><div class="bot-stats-kpi-label">'+esc(spec.label)+'</div></article>';
+      }).join('')+'</div>';
+    }
+    function renderAdvertisingKpis(data,previous){
+      const analytics=data.ad_analytics||{};const previousAnalytics=previous&&previous.ad_analytics||{};
+      const values=analytics.totals||{};const previousValues=previousAnalytics.totals||{};
+      const specs=[
+        {key:'conversations',label:'Діалоги з реклами',icon:'◫',tone:'info',help:'Унікальні діалоги з наявною рекламною атрибуцією у вибраному періоді.'},
+        {key:'paylinks_issued',label:'Посилання на оплату',icon:'↗',tone:'neutral',help:'Епізоди з незмінною подією видачі платіжного посилання у вибраному періоді.'},
+        {key:'verified_paid',label:'Підтверджені оплати',icon:'✓',tone:'paid',help:'Лише підтверджені оплати клієнтів з рекламною атрибуцією.'},
+        {key:'revenue',label:'Підтверджений дохід',icon:'₴',tone:'paid',help:'Чистий підтверджений дохід після повернень. Оплати без збереженої суми не додаються до цього показника.',formatter:moneyFormat,suffix:' грн'}
+      ];
+      const samePeriod=Boolean(previous&&statsPeriodKey(previous)===statsPeriodKey(data));
+      return '<div class="bot-stats-kpi-grid">'+specs.map((spec,index)=>{
+        const value=num(values[spec.key]);const previousValue=num(previousValues[spec.key]);const changed=Boolean(previous&&value!==previousValue);const important=changed&&samePeriod&&(spec.key==='verified_paid'||spec.key==='revenue');
+        return '<article class="bot-stats-kpi '+spec.tone+(important?' is-important-change':'')+'" data-stats-kpi="ad-'+spec.key+'" style="--reveal-order:'+index+'"><div class="bot-stats-kpi-top"><span class="bot-stats-kpi-icon" aria-hidden="true">'+spec.icon+'</span>'+helpMarkup('ad-'+spec.key,spec.help)+'</div><strong class="bot-stats-kpi-value">'+valueMarkup(value,previousValue,changed,spec.formatter||numberFormat,spec.suffix||'')+'</strong><div class="bot-stats-kpi-label">'+esc(spec.label)+'</div></article>';
+      }).join('')+'</div>';
+    }
+    function renderAdvertisingNotes(analytics){
+      const values=analytics.totals||{};const attribution=analytics.attribution||{};const notes=[];
+      const currentSnapshot=attribution.basis==='current_client_snapshot'&&attribution.historical===false;
+      const attributionLabel=attribution.label||'Поточна рекламна прив’язка клієнта';
+      const attributionHelp=currentSnapshot?'Групування використовує поточну рекламну прив’язку в картці клієнта. Це не незмінний історичний snapshot атрибуції на момент події.':'Джерело атрибуції визначене сервером для цього набору даних.';
+      notes.push('<div class="bot-stats-ad-note"><span>'+esc(attributionLabel)+'</span>'+helpMarkup('ad-attribution',attributionHelp)+'</div>');
+      const unpriced=num(values.revenue_unpriced_payments);
+      if(unpriced)notes.push('<div class="bot-stats-ad-note is-warning"><span>У дохід не включено '+numberFormat.format(unpriced)+' підтверджених оплат без суми</span>'+helpMarkup('ad-unpriced-revenue','Ці підтверджені legacy-оплати враховані у кількості оплат, але виключені з доходу: у збережених даних немає надійної суми.')+'</div>');
+      return '<div class="bot-stats-ad-notes">'+notes.join('')+'</div>';
+    }
+    function funnelRows(data){
+      const source=(data&&data.funnel||[]).map((row,index)=>({key:String(row.step||index),label:String(row.label||row.step||'Подія'),count:num(row.entered)}));
+      const first=source.length?source[0].count:0;const max=Math.max(0,...source.map(row=>row.count));
+      const monotonic=source.every((row,index)=>index===0||row.count<=source[index-1].count);
+      return {monotonic:monotonic,rows:source.map(row=>({...row,percent:first?Math.round(row.count*100/first):0,width:max?Math.round(row.count*100/max):0}))};
+    }
+    function barWidth(previousRows,key){const row=(previousRows||[]).find(item=>item.key===key);return row?row.width:0;}
+    function renderFunnel(data,previous,title='Шлях до оплати'){
+      const model=funnelRows(data);const rows=model.rows;const previousRows=previous?funnelRows(previous).rows:[];
+      const drops=model.monotonic?rows.slice(1).map((row,index)=>({index:index+1,from:rows[index],to:row,drop:Math.max(0,rows[index].count-row.count)})):[];
+      const bottleneck=drops.sort((a,b)=>b.drop-a.drop)[0];
+      const bottleneckMarkup=bottleneck&&bottleneck.drop?'<span class="bot-stats-bottleneck" title="Найбільше абсолютне падіння між сусідніми подіями">'+esc(bottleneck.from.label)+' → '+esc(bottleneck.to.label)+' · −'+numberFormat.format(bottleneck.drop)+'</span>':'<span class="bot-stats-section-meta">'+(model.monotonic?'Частка від першої події':'Окремі події · без оцінки відсіву')+'</span>';
+      const body=rows.length?rows.map((row,index)=>'<div class="bot-stats-funnel-row'+(bottleneck&&bottleneck.index===index?' is-bottleneck':'')+'"><span class="bot-stats-bar-label">'+esc(row.label)+'</span><span class="bot-stats-bar-rail" aria-hidden="true"><span class="bot-stats-bar-fill" data-target-width="'+row.width+'" style="--bar-width:'+barWidth(previousRows,row.key)+'%"></span></span><span class="bot-stats-bar-value" data-stats-percent="'+row.percent+'">'+numberFormat.format(row.count)+(model.monotonic?' <span>· '+row.percent+'%</span>':'')+'</span></div>').join(''):'<div class="bot-stats-empty-analysis">Події воронки за вибраний період ще не зафіксовані.</div>';
+      return '<section class="bot-stats-analysis-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3>'+bottleneckMarkup+'</div><div class="bot-stats-funnel">'+body+'</div></section>';
+    }
+    function seriesMap(data){return new Map((((data||{}).message_series||{}).items||[]).map(row=>[String(row.bucket),row]));}
+    function seriesLabel(bucket,granularity,index,total){
+      const date=new Date(bucket+'T12:00:00');if(Number.isNaN(date.getTime()))return bucket;
+      if(total>12&&index!==0&&index!==total-1&&index%Math.ceil(total/6)!==0)return '';
+      return new Intl.DateTimeFormat('uk-UA',granularity==='month'?{month:'short'}:{day:'2-digit',month:'short'}).format(date);
+    }
+    function compactActivityLabel(value,granularity){
+      const date=new Date(value+'T12:00:00');if(Number.isNaN(date.getTime()))return String(value||'');
+      if(granularity==='month')return new Intl.DateTimeFormat('uk-UA',{month:'short'}).format(date);
+      return String(date.getDate());
+    }
+    function renderActivity(data,previous,title='Активність повідомлень',contextLabel=''){
+      const series=(data.message_series&&data.message_series.items)||[];if(!series.length)return '';
+      const previousRows=seriesMap(previous);const maxTotal=Math.max(1,...series.map(row=>num(row.messages)));
+      const granularity=data.message_series.granularity||'day';
+      const columns=series.map((row,index)=>{
+        const prior=previousRows.get(String(row.bucket))||{};
+        const segment=(key,tone)=>{const target=Math.round(num(row[key])*100/maxTotal);const initial=Math.round(num(prior[key])*100/maxTotal);return '<span class="bot-stats-activity-segment '+tone+'" data-activity-height="'+target+'" style="--activity-height:'+initial+'%"></span>';};
+        const label=seriesLabel(String(row.bucket),granularity,index,series.length);
+        const compactLabel=label?compactActivityLabel(String(row.bucket),granularity):'';
+        const exact=esc(String(row.bucket))+' · Усього '+numberFormat.format(num(row.messages))+' · Вхідні '+numberFormat.format(num(row.inbound_messages))+' · Бот '+numberFormat.format(num(row.bot_replies))+' · Менеджер '+numberFormat.format(num(row.manager_messages));
+        return '<button type="button" class="bot-stats-activity-column" aria-label="'+exact+'" aria-expanded="false" title="'+exact+'"><span class="bot-stats-activity-tooltip">'+exact+'</span><span class="bot-stats-activity-stack" aria-hidden="true">'+segment('inbound_messages','inbound')+segment('bot_replies','bot')+segment('manager_messages','manager')+'</span><span class="bot-stats-activity-label"><span class="bot-stats-activity-label-full">'+esc(label)+'</span><span class="bot-stats-activity-label-compact" aria-hidden="true">'+esc(compactLabel)+'</span></span></button>';
+      }).join('');
+      const meta=(contextLabel?esc(contextLabel)+' · ':'')+'реальні '+esc(granularity==='day'?'денні':granularity==='week'?'тижневі':'місячні')+' інтервали';
+      return '<section class="bot-stats-analysis-card bot-stats-activity-chart" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-scroll"><div class="bot-stats-activity-columns" style="--bucket-count:'+series.length+'">'+columns+'</div></div></section>';
+    }
+    function rankedRows(rows,keyField,labelField,countField){
+      const normalized=(rows||[]).map((row,index)=>({key:String(row[keyField]||row[labelField]||index),label:String(row[labelField]||'Без назви'),count:num(row[countField]),raw:row})).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk'));
+      const total=normalized.reduce((sum,row)=>sum+row.count,0);
+      const shown=normalized.slice(0,7);
+      const max=Math.max(0,...shown.map(row=>row.count));
+      return shown.map(row=>({...row,width:max?Math.round(row.count*100/max):0,percent:total?Math.round(row.count*100/total):0}));
+    }
+    function previousRankWidth(previousRows,key){const row=(previousRows||[]).find(item=>item.key===key);return row?row.width:0;}
+    function renderRankedList(rows,previousRows,kind){
+      const maxPaid=Math.max(1,...rows.map(row=>num(row.raw.paid)));
+      return rows.map(row=>{
+        const previousRow=(previousRows||[]).find(item=>item.key===row.key)||{raw:{}};
+        const extra=kind==='ad'?'<span class="bot-stats-ad-paid"><span>Оплати</span><span class="bot-stats-bar-rail" aria-hidden="true"><span class="bot-stats-bar-fill" data-target-width="'+Math.round(num(row.raw.paid)*100/maxPaid)+'" style="--bar-width:'+Math.round(num(previousRow.raw.paid)*100/maxPaid)+'%"></span></span><span>'+numberFormat.format(num(row.raw.paid))+'</span></span><span class="bot-stats-bar-extra"><span>Дохід: '+moneyFormat.format(num(row.raw.revenue))+' грн</span></span>':'';
+        return '<div class="bot-stats-bar-row '+kind+'" title="'+esc(row.label)+'"><span class="bot-stats-bar-label">'+esc(row.label)+'</span><span class="bot-stats-bar-rail" aria-hidden="true"><span class="bot-stats-bar-fill" data-target-width="'+row.width+'" style="--bar-width:'+previousRankWidth(previousRows,row.key)+'%"></span></span><span class="bot-stats-bar-value" data-stats-percent="'+row.percent+'">'+numberFormat.format(row.count)+' <span>· '+row.percent+'%</span></span>'+extra+'</div>';
+      }).join('');
+    }
+    function renderCategories(data,previous){
+      const rows=rankedRows(data.interactions,'type','label','count');
+      const previousRows=previous?rankedRows(previous.interactions,'type','label','count'):[];
+      const body=rows.length?'<div class="bot-stats-ranked-list bot-stats-category-bars">'+renderRankedList(rows,previousRows,'category')+'</div>':'<div class="bot-stats-empty-analysis">У вибраному періоді діалоги ще не класифіковані.</div>';
+      return '<section class="bot-stats-analysis-card" style="--reveal-order:6"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">Категорії діалогів</h3><span class="bot-stats-section-meta">частка серед визначених</span></div>'+body+'</section>';
+    }
+    function productRows(rows,limit=7){return (rows||[]).slice().sort((a,b)=>num(b.interest_count)-num(a.interest_count)||num(b.verified_paid_qty)-num(a.verified_paid_qty)||String(a.product_title||'').localeCompare(String(b.product_title||''),'uk')).slice(0,limit);}
+    function renderProductPerformance(source,previousSource,{title='Товари: інтерес і підтверджені позиції',meta='діалоги · оплачені одиниці',limit=7,expanded=false,revealOrder=7}={}){
+      const rows=productRows(source,limit);if(!rows.length)return '';
+      const previousRows=new Map(productRows(previousSource,limit).map(row=>[String(row.product_id),row]));
+      const maxInterest=Math.max(1,...rows.map(row=>num(row.interest_count)));
+      const maxPaid=Math.max(1,...rows.map(row=>num(row.verified_paid_qty)));
+      const body=rows.map(row=>{
+        const prior=previousRows.get(String(row.product_id))||{};
+        const image=row.image_url||row.thumbnail_url||'';const alt=row.image_alt||row.thumbnail_alt||row.product_title||'Товар';
+        const rail=(kind,value,max,priorValue)=>'<div class="bot-stats-product-metric '+kind+'"><span class="bot-stats-product-metric-label">'+(kind==='interest'?'Інтерес':'Оплачено')+'</span><span class="bot-stats-bar-rail" aria-hidden="true"><span class="bot-stats-bar-fill" data-target-width="'+Math.round(value*100/max)+'" style="--bar-width:'+Math.round(priorValue*100/max)+'%"></span></span><span class="bot-stats-product-metric-value">'+numberFormat.format(value)+'</span></div>';
+        const media='<span class="bot-stats-product-media">'+(image?'<img class="bot-stats-product-image" src="'+esc(image)+'" alt="'+esc(alt)+'" loading="lazy" decoding="async">':'')+'<span class="bot-stats-product-fallback" aria-hidden="true">▥</span></span>';
+        return '<article class="bot-stats-product-row">'+media+'<div class="bot-stats-product-body"><strong class="bot-stats-product-title" title="'+esc(row.product_title||'Товар')+'">'+esc(row.product_title||'Товар')+'</strong><div class="bot-stats-product-metrics">'+rail('interest',num(row.interest_count),maxInterest,num(prior.interest_count))+rail('paid',num(row.verified_paid_qty),maxPaid,num(prior.verified_paid_qty))+'</div></div></article>';
+      }).join('');
+      return '<section class="bot-stats-analysis-card'+(expanded?' bot-stats-product-view-card':'')+'" style="--reveal-order:'+revealOrder+'"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+esc(meta)+'</span></div><div class="bot-stats-product-list bot-stats-product-bars'+(expanded?' is-expanded':'')+'">'+body+'</div></section>';
+    }
+    function campaignLabel(row,index){return String(row.ad_title||row.ad_ref||row.ad_id||row.attribution_key||('Реклама '+(index+1)));}
+    function campaignKey(row,index){const type=String(row.attribution_key_type||'');const key=String(row.attribution_key||'');return type&&key?type+'|'+key:'fallback|'+String(row.ad_id||row.ad_ref||row.ad_title||index);}
+    function renderCampaigns(rows,previousRows){
+      const ranked=(rows||[]).slice().sort((a,b)=>num(b.paid)-num(a.paid)||num(b.revenue)-num(a.revenue)||num(b.chats)-num(a.chats)||campaignLabel(a,0).localeCompare(campaignLabel(b,0),'uk'));
+      if(!ranked.length)return '';
+      const max=Math.max(1,...ranked.map(row=>num(row.chats)));const previousMap=new Map((previousRows||[]).map((row,index)=>[campaignKey(row,index),row]));
+      const shown=ranked.slice(0,8);const remaining=ranked.slice(8);
+      function renderCampaignRow(row,index){
+        const key=campaignKey(row,index);const prior=previousMap.get(key)||{};const width=Math.round(num(row.chats)*100/max);const priorWidth=Math.round(num(prior.chats)*100/max);const title=campaignLabel(row,index);
+        const unpriced=num(row.revenue_unpriced_payments);const unpricedMarkup=unpriced?'<span class="unpriced" title="Підтверджені оплати без надійної суми">Без суми: '+numberFormat.format(unpriced)+'</span>':'';
+        return '<article class="bot-stats-campaign-row" data-attribution-key="'+esc(key)+'"><div class="bot-stats-campaign-head"><strong class="bot-stats-campaign-title" title="'+esc(title)+'">'+esc(title)+'</strong><span class="bot-stats-campaign-value">'+numberFormat.format(num(row.chats))+' діал.</span></div><div class="bot-stats-bar-rail bot-stats-campaign-rail" aria-hidden="true"><span class="bot-stats-bar-fill" data-target-width="'+width+'" style="--bar-width:'+priorWidth+'%"></span></div><div class="bot-stats-campaign-facts"><span>Кваліф.: '+numberFormat.format(num(row.qualified))+'</span><span>Товар: '+numberFormat.format(num(row.product_matched))+'</span><span>Лінки: '+numberFormat.format(num(row.paylinks_issued))+'</span><span>Перегляди: '+numberFormat.format(num(row.paylinks_viewed))+'</span><span class="paid">Оплати: '+numberFormat.format(num(row.paid))+'</span><span class="loss">Втрати: '+numberFormat.format(num(row.lost_or_refused))+'</span><span>'+moneyFormat.format(num(row.revenue))+' грн</span>'+unpricedMarkup+(row.top_product_title?'<span class="bot-stats-campaign-product" title="'+esc(row.top_product_title)+'">· '+esc(row.top_product_title)+'</span>':'')+'</div></article>';
+      }
+      const body=shown.map(renderCampaignRow).join('');
+      const more=remaining.length?'<details class="bot-stats-disclosure bot-stats-campaign-more" data-stats-disclosure="campaign-more"><summary>Ще '+remaining.length+' кампаній</summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-campaign-list bot-stats-campaign-more-list">'+remaining.map((row,index)=>renderCampaignRow(row,index+shown.length)).join('')+'</div></div></div></details>':'';
+      return '<section class="bot-stats-analysis-card" style="--reveal-order:6"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">Кампанії</h3><span class="bot-stats-section-meta">діалоги · лінки · оплати · дохід</span></div><div class="bot-stats-campaign-list bot-stats-ad-bars">'+body+'</div>'+more+'</section>';
+    }
+    function reasonLabel(row){const code=String(row.reason_code||row.kind||'Інша причина');return objectionLabels[code]||code.replace(/_/g,' ');}
+    function renderAdDropOffs(rows){
+      if(!(rows||[]).length)return '';
+      const body=rows.map(row=>'<div class="bot-stats-reason-row"><strong title="'+esc(reasonLabel(row))+'">'+esc(reasonLabel(row))+'</strong><span>відновні '+numberFormat.format(num(row.recoverable))+'</span><span>безповоротні '+numberFormat.format(num(row.unrecoverable))+'</span><span>повернулись '+numberFormat.format(num(row.recovered))+'</span></div>').join('');
+      return '<details class="bot-stats-disclosure" data-stats-disclosure="ad-drop-offs"><summary>Причини втрат у рекламних діалогах</summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-reason-list">'+body+'</div></div></div></details>';
+    }
+    function renderAdvertising(data,previous){
+      const analytics=data.ad_analytics||{};const previousAnalytics=previous&&previous.ad_analytics||{};const values=analytics.totals||{};
+      const hasAdvertisingData=Boolean(num(values.conversations)||num(values.verified_paid)||num(values.revenue)||num(values.paylinks_issued)||num(values.paylinks_viewed)||num(values.revenue_unpriced_payments)||(analytics.campaigns||[]).length||(analytics.products||[]).length);
+      if(!hasAdvertisingData)return '<div class="bot-stats-view-zero">За період «'+esc(periodLabel(data))+'» рекламні діалоги, платіжні події та підтверджені оплати ще не зафіксовані.</div>';
+      const summary=[['qualified','Кваліфіковані'],['product_matched','Товар визначено'],['paylinks_viewed','Переглянули оплату'],['lost_or_refused','Відмови / втрати']].map(spec=>'<div class="bot-stats-ad-summary-item"><b>'+numberFormat.format(num(values[spec[0]]))+'</b><span>'+esc(spec[1])+'</span></div>').join('');
+      const activity=renderActivity(analytics,previousAnalytics,'Активність рекламних діалогів','лише атрибутовані діалоги');
+      const campaigns=renderCampaigns(analytics.campaigns,previousAnalytics.campaigns);
+      const funnel=(analytics.funnel||[]).some(row=>num(row.entered))?renderFunnel(analytics,previousAnalytics,'Події рекламної воронки'):'';
+      const products=renderProductPerformance(analytics.products,previousAnalytics.products,{title:'Товари з рекламних діалогів',meta:'інтерес · підтверджені позиції',limit:7,revealOrder:7});
+      const analysis=funnel&&campaigns?'<div class="bot-stats-ad-grid">'+funnel+campaigns+'</div>':funnel||campaigns?'<div class="bot-stats-ad-single">'+(funnel||campaigns)+'</div>':'';
+      return renderAdvertisingKpis(data,previous)+renderAdvertisingNotes(analytics)+'<div class="bot-stats-ad-summary">'+summary+'</div>'+activity+analysis+products+renderAdDropOffs(analytics.drop_off_reasons);
+    }
+    function renderProductsView(data,previous){
+      const products=renderProductPerformance(data.products,previous&&previous.products,{title:'Попит на товари',meta:'окремі шкали: інтерес · підтверджені одиниці',limit:25,expanded:true,revealOrder:4});
+      if(!products)return '<div class="bot-stats-view-zero">За період «'+esc(periodLabel(data))+'» товарний інтерес ще не зафіксований.</div>';
+      const rows=productRows(data.products,25).map(row=>({title:row.product_title||'Товар',interest:num(row.interest_count),orders:num(row.verified_paid_orders),quantity:num(row.verified_paid_qty)}));
+      const details=tableSection('Точні значення',rows,[['title','Товар'],['interest','Діалоги з інтересом'],['orders','Підтверджені оплати'],['quantity','Оплачені одиниці']]);
+      return products+'<details class="bot-stats-disclosure" data-stats-disclosure="product-details"><summary>Точні значення товарів</summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-details-content">'+details+'</div></div></div></details>';
+    }
+    function tableSection(title,rows,cols){
+      if(!(rows||[]).length)return '';
+      let html='<section class="bot-stats-detail-section"><h3 class="bot-stats-detail-title">'+esc(title)+'</h3><div class="bot-stats-table-wrap"><table class="bot-table"><thead><tr>';
+      cols.forEach(col=>html+='<th>'+esc(col[1])+'</th>');html+='</tr></thead><tbody>';
+      rows.forEach(row=>{html+='<tr>';cols.forEach(col=>{const value=row[col[0]];html+='<td>'+esc(String(value===0?0:(value||'')))+'</td>';});html+='</tr>';});
+      return html+'</tbody></table></div></section>';
+    }
+    function renderDetails(data){
+      const cohort=(data.funnel||[]).map(row=>({stage:row.label||row.step,entered:num(row.entered),advanced:num(row.advanced),dropped:num(row.drop_off),progress:num(row.in_progress),conversion:row.low_sample?'Мало даних':String(num(row.cr_percent))+'%'}));
+      const meta=data.funnel_meta||{};
+      const manager=meta.manager_vs_bot||{};
+      const managerRows=[{name:'Бот відповів',count:num(manager.bot_replied)},{name:'Менеджер долучився',count:num(manager.manager_engaged)},{name:'Тільки бот',count:num(manager.bot_only)},{name:'Спільний цикл',count:num(manager.manager_touched)}];
+      const discounts=meta.discounts||{};
+      const discountRows=[{name:'Запропоновано',count:num(discounts.offered)},{name:'Купили після пропозиції',count:num(discounts.bought)},{name:'Купили без знижки',count:num(discounts.without_discount_bought)}];
+      const currentStages=funnelOrder.map(key=>({stage:stageLabels[key]||'Невідомий етап',count:num((data.stages||{})[key]),share:metricValue(data,'conversations')?Math.round(num((data.stages||{})[key])*100/metricValue(data,'conversations'))+'%':'0%'}));
+      const objections=Object.entries(data.objections||{}).map(([key,value])=>({name:objectionLabels[key]||'Інше',count:num(value)})).sort((a,b)=>b.count-a.count);
+      const sections=[
+        tableSection('Когортна воронка',cohort,[['stage','Етап'],['entered','Увійшли'],['advanced','Перейшли'],['dropped','Відвалились'],['progress','У процесі'],['conversion','Конверсія']]),
+        tableSection('Причини відвалу',meta.drop_off_reasons||[],[['stage','Етап'],['kind','Тип'],['reason_code','Причина'],['recoverable','Відновні'],['unrecoverable','Безповоротні'],['recovered','Повернулись']]),
+        tableSection('Час на кроці',meta.time_on_step||[],[['label','Крок'],['sample','Вибірка'],['median_hours','Медіана, год'],['p90_hours','P90, год']]),
+        tableSection('Бот і менеджер',managerRows,[['name','Показник'],['count','Епізоди']]),
+        tableSection('Знижки',discountRows,[['name','Показник'],['count','Епізоди']]),
+        tableSection('Поточний стан діалогів',currentStages,[['stage','Етап'],['count','Клієнти'],['share','Частка']]),
+        tableSection('Заперечення клієнтів',objections,[['name','Причина'],['count','Кількість']])
+      ].filter(Boolean);
+      return '<details class="bot-stats-disclosure bot-stats-details" data-stats-disclosure="details"><summary>Детальні дані</summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-details-content">'+sections.join('')+'</div></div></div></details>';
+    }
+    function renderSecondary(data){
+      const t=totals(data);
+      const specs=[
+        ['inbound_messages','Вхідні повідомлення'],['bot_replies','Відповіді бота'],['manager_messages','Повідомлення менеджера'],['qualified','Кваліфіковані'],
+        ['product_matched','Товар визначено'],['checkout_or_payment','Оформлення / оплата'],['pending_followups','Заплановані контакти'],['followup_recoveries','Повернення після нагадування'],
+        ['discount_conversions','Конверсії зі знижкою'],['manager_takeovers','Діалоги менеджера'],['custom_print_handoffs','Кастомні принти менеджеру'],['hidden','Приховані']
+      ];
+      return '<details class="bot-stats-disclosure bot-stats-secondary" data-stats-disclosure="secondary"><summary><span>Додаткові показники</span><span class="bot-stats-secondary-count">'+specs.length+'</span></summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-secondary-grid">'+specs.map(spec=>'<div class="bot-stats-secondary-item"><b>'+numberFormat.format(num(t[spec[0]]))+'</b><span>'+esc(spec[1])+'</span></div>').join('')+'</div></div></div></details>';
+    }
+    function periodLabel(data){return data.period&&data.period.label||({'1':'Сьогодні','7':'Останні 7 днів','30':'Останні 30 днів','0':'Увесь час'}[String(data.range_days)]||'Вибраний період');}
+    function statsPeriodKey(data){const period=data&&data.period||{};return [period.mode||'',period.date_from||'',period.date_to||'',data&&data.range_days||0].join('|');}
+    function formatFreshness(data){
+      const value=data&&data.generated_at;const date=new Date(value);if(!value||Number.isNaN(date.getTime()))return 'Час оновлення недоступний · '+periodLabel(data||{});
+      return 'Оновлено '+new Intl.DateTimeFormat('uk-UA',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(date)+' · '+periodLabel(data);
+    }
+    function closeHelp(returnFocus){
+      if(!openHelpTrigger)return;const trigger=openHelpTrigger;const wrap=trigger.closest('.bot-stats-help-wrap');if(wrap)wrap.classList.remove('is-open');trigger.setAttribute('aria-expanded','false');openHelpTrigger=null;if(returnFocus)trigger.focus();
+    }
+    function closeActivityTooltip(returnFocus=false){
+      if(!openActivityColumn)return;const column=openActivityColumn;column.classList.remove('is-open');column.setAttribute('aria-expanded','false');openActivityColumn=null;if(returnFocus&&document.contains(column))column.focus({preventScroll:true});
+    }
+    function showAlert(message){if(alertTextEl)alertTextEl.textContent=message;if(alertEl)alertEl.hidden=false;}
+    function hideAlert(){if(alertEl)alertEl.hidden=true;}
+    function activateBars(){
+      const bars=Array.from(box.querySelectorAll('[data-target-width]'));
+      const segments=Array.from(box.querySelectorAll('[data-activity-height]'));
+      const images=Array.from(box.querySelectorAll('.bot-stats-product-image'));
+      images.forEach(item=>{const reveal=()=>item.classList.add('is-loaded');if(item.complete&&item.naturalWidth)reveal();else{item.addEventListener('load',reveal,{once:true});item.addEventListener('error',()=>item.remove(),{once:true});}});
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));}));
+    }
+    function renderOverview(data,previous){
+      const allPrimaryZero=kpiSpecs.every(spec=>metricValue(data,spec.key)===0);
+      return renderKpis(data,previous)+(allPrimaryZero?'<div class="bot-stats-period-empty">За період «'+esc(periodLabel(data))+'» активності ще немає.</div>':'')+renderActivity(data,previous)+renderSecondary(data)+'<div class="bot-stats-analysis-grid">'+renderFunnel(data,previous)+renderCategories(data,previous)+'</div>'+renderDetails(data);
+    }
+    function syncViewControls(){
+      viewButtons.forEach(button=>{const selected=button.dataset.statsView===activeView;button.setAttribute('aria-selected',selected?'true':'false');button.tabIndex=selected?0:-1;});
+      if(box){const selected=viewButtons.find(button=>button.dataset.statsView===activeView);if(selected)box.setAttribute('aria-labelledby',selected.id);}
+    }
+    function renderDashboard(data,previous,direction=0){
+      const openDisclosures=new Set(Array.from(box.querySelectorAll('details[open][data-stats-disclosure]')).map(item=>item.dataset.statsDisclosure));
+      openActivityColumn=null;
+      box.className='bot-stats-content';
+      box.innerHTML=activeView==='ads'?renderAdvertising(data,previous):activeView==='products'?renderProductsView(data,previous):renderOverview(data,previous);
+      openDisclosures.forEach(key=>{const detail=box.querySelector('[data-stats-disclosure="'+key+'"]');if(detail)detail.open=true;});
+      syncViewControls();
+      box.setAttribute('aria-busy','false');
+      activateBars();
+      void box.offsetWidth;
+      box.classList.add('bot-stats-view-enter',direction<0?'is-backward':direction>0?'is-forward':'is-stationary');
+    }
+    function setActiveView(nextView,{focus=false}={}){
+      if(!viewOrder.includes(nextView))return;
+      const previousIndex=viewOrder.indexOf(activeView);const nextIndex=viewOrder.indexOf(nextView);activeView=nextView;syncViewControls();
+      if(currentData)renderDashboard(currentData,currentData,nextIndex-previousIndex);
+      if(focus){const selected=viewButtons.find(button=>button.dataset.statsView===activeView);if(selected)requestAnimationFrame(()=>selected.focus());}
+    }
+    function selectionKey(selection){
+      if(!selection)return '';
+      return selection.mode==='custom'?'custom|'+String(selection.dateFrom||'')+'|'+String(selection.dateTo||''):'preset|'+String(selection.days||0);
+    }
+    function selectionFromData(data){
+      const period=data&&data.period||{};
+      if(period.mode==='custom')return {mode:'custom',days:0,dateFrom:period.date_from||'',dateTo:period.date_to||''};
+      return {mode:'preset',days:num(data&&data.range_days),dateFrom:'',dateTo:''};
+    }
+    function syncPeriodControls(){
+      const appliedKey=selectionKey(appliedSelection);const pendingKey=selectionKey(pendingSelection);const hasDifferentPending=Boolean(pendingKey&&pendingKey!==appliedKey);
+      rangeBox.querySelectorAll('[data-stats-days]').forEach(item=>{
+        const key=selectionKey({mode:'preset',days:num(item.dataset.statsDays)});const active=key===appliedKey;const pending=hasDifferentPending&&key===pendingKey;
+        item.classList.toggle('active',active);item.classList.toggle('is-pending',pending);item.setAttribute('aria-pressed',active?'true':'false');
+      });
+      if(customDetails){customDetails.classList.toggle('is-applied',appliedSelection.mode==='custom');customDetails.classList.toggle('is-pending',hasDifferentPending&&pendingSelection.mode==='custom');}
+      if(applyRangeBtn)applyRangeBtn.classList.toggle('is-pending',Boolean(pendingSelection&&pendingSelection.mode==='custom'));
+      if(rangeBox)rangeBox.setAttribute('aria-busy',pendingSelection?'true':'false');
+    }
+    function paramsForSelection(selection){
       const params=new URLSearchParams();
-      if(customRange){params.set('date_from',dateFromEl.value);params.set('date_to',dateToEl.value);}
-      else params.set('days',String(rangeDays));
-      fetch('{% url "management_bot_stats_api" %}?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}})
-        .then(r=>r.json()).then(d=>{
-          if(!d.success){ box.innerHTML='<div class="bot-empty">Не вдалося завантажити.</div>'; return; }
-          const t=d.totals||{};
-          let h='<div class="bot-stat-grid">'+
-            stat('Діалоги',t.conversations,metricHelp.conversations)+stat('Кваліфіковані',t.qualified,metricHelp.qualified)+stat('Товар визначено',t.product_matched,metricHelp.product_matched)+
-            stat('Оформлення / оплата',t.checkout_or_payment,metricHelp.checkout_or_payment)+stat('Оплачені',t.paid,metricHelp.paid)+stat('Заплановані контакти',t.pending_followups,metricHelp.pending_followups)+
-            stat('Повернення після нагадування',t.followup_recoveries,metricHelp.followup_recoveries)+stat('Конверсії зі знижкою',t.discount_conversions,metricHelp.discount_conversions)+
-            stat('Діалоги веде менеджер',t.manager_takeovers,metricHelp.manager_takeovers)+stat('Кастомні принти менеджеру',t.custom_print_handoffs,metricHelp.custom_print_handoffs)+stat('Приховані',t.hidden,metricHelp.hidden)+
-            '</div>';
-          const funnel=funnelOrder.map(key=>({
-            stage:stageLabels[key]||'Невідомий етап',count:Number((d.stages||{})[key]||0),share:t.conversations?Math.round(Number((d.stages||{})[key]||0)*100/t.conversations)+'%':'0%'
-          }));
-          const cohort=(d.funnel||[]).map(row=>({
-            stage:row.label||row.step,entered:Number(row.entered||0),advanced:Number(row.advanced||0),
-            dropped:Number(row.drop_off||0),progress:Number(row.in_progress||0),
-            conversion:row.low_sample?'Мало даних':String(row.cr_percent)+'%'
-          }));
-          h+=table('Категорії діалогів', d.interactions, [['label','Категорія'],['count','Клієнти']]);
-          h+=table('Когортна воронка', cohort, [['stage','Етап'],['entered','Увійшли'],['advanced','Перейшли'],['dropped','Відвалились'],['progress','У процесі'],['conversion','Конверсія']]);
-          const meta=d.funnel_meta||{};
-          h+=table('Причини відвалу', meta.drop_off_reasons||[], [['stage','Етап'],['kind','Тип'],['reason_code','Причина'],['recoverable','Відновні'],['unrecoverable','Безповоротні'],['recovered','Повернулись']]);
-          h+=table('Час на кроці', meta.time_on_step||[], [['label','Крок'],['sample','Вибірка'],['median_hours','Медіана, год'],['p90_hours','P90, год']]);
-          const manager=meta.manager_vs_bot||{};
-          h+=table('Бот і менеджер', [{name:'Бот відповів',count:manager.bot_replied||0},{name:'Менеджер долучився',count:manager.manager_engaged||0},{name:'Тільки бот',count:manager.bot_only||0},{name:'Спільний цикл',count:manager.manager_touched||0}], [['name','Показник'],['count','Епізоди']]);
-          const discounts=meta.discounts||{};
-          h+=table('Знижки', [{name:'Запропоновано',count:discounts.offered||0},{name:'Купили після пропозиції',count:discounts.bought||0},{name:'Купили без знижки',count:discounts.without_discount_bought||0}], [['name','Показник'],['count','Епізоди']]);
-          h+=table('Поточний стан діалогів', funnel, [['stage','Етап'],['count','Клієнти'],['share','Частка від діалогів']]);
-          h+=table('Інтерес до товарів', d.products, [['product_id','Код товару'],['product_title','Товар'],['count','Діалоги']]);
-          const ads=(d.ads||[]).map(r=>({...r,revenue:new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(Number(r.revenue||0))}));
-          h+=table('Ефективність реклами', ads, [['ad_id','Ідентифікатор реклами'],['ad_ref','Мітка'],['ad_title','Назва'],['chats','Діалоги'],['paid','Оплачені'],['revenue','Дохід, грн']]);
-          const obs=Object.entries(d.objections||{}).map(([k,v])=>({name:objectionLabels[k]||'Інше',count:v}));
-          h+=table('Заперечення клієнтів', obs, [['name','Причина'],['count','Кількість']]);
-          box.innerHTML=h;
-        }).catch(()=>{box.innerHTML='<div class="bot-empty">Помилка мережі.</div>';});
+      if(selection.mode==='custom'){params.set('date_from',selection.dateFrom);params.set('date_to',selection.dateTo);}else params.set('days',String(selection.days||0));
+      return params;
     }
-    if(btn) btn.addEventListener('click',load);
+    async function load(selection=appliedSelection){
+      if(!box)return false;const generation=++requestGeneration;
+      const requested={mode:selection.mode==='custom'?'custom':'preset',days:num(selection.days),dateFrom:String(selection.dateFrom||''),dateTo:String(selection.dateTo||'')};
+      pendingSelection=requested;syncPeriodControls();
+      if(btn){btn.disabled=true;btn.classList.add('is-running');}
+      box.setAttribute('aria-busy','true');if(currentData)box.classList.add('is-refreshing');hideAlert();
+      const params=paramsForSelection(requested);
+      try{
+        const response=await fetch('{% url "management_bot_stats_api" %}?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}});
+        const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося оновити статистику.');if(generation!==requestGeneration)return false;
+        const previous=currentData;renderDashboard(data,previous);currentData=data;
+        appliedSelection=selectionFromData(data);pendingSelection=null;retrySelection=null;rangeDays=appliedSelection.days;customRange=appliedSelection.mode==='custom';
+        if(customRange){if(dateFromEl)dateFromEl.value=appliedSelection.dateFrom;if(dateToEl)dateToEl.value=appliedSelection.dateTo;}else{if(customDetails)customDetails.open=false;}
+        syncPeriodControls();
+        if(freshnessEl){freshnessEl.textContent=formatFreshness(data);freshnessEl.title=data.generated_at||'';freshnessEl.classList.remove('is-stale');freshnessEl.classList.toggle('is-current',Boolean(data.generated_at));}
+        return true;
+      }catch(error){
+        if(generation!==requestGeneration)return false;retrySelection=requested;pendingSelection=null;syncPeriodControls();showAlert(currentData?'Нові дані не завантажилися. Показано останнє успішне оновлення за «'+periodLabel(currentData)+'».':(error.message||'Не вдалося завантажити статистику.'));
+        if(currentData&&freshnessEl){freshnessEl.classList.remove('is-current');freshnessEl.classList.add('is-stale');}
+        if(!currentData){box.className='bot-stats-content';box.innerHTML='<div class="bot-stats-first-error">Статистика тимчасово недоступна. Скористайтеся кнопкою «Спробувати ще».</div>';}
+        return false;
+      }finally{
+        if(generation===requestGeneration){box.classList.remove('is-refreshing');box.setAttribute('aria-busy','false');if(btn){btn.disabled=false;btn.classList.remove('is-running');}}
+      }
+    }
+    if(btn) btn.addEventListener('click',()=>load(appliedSelection));
+    if(retryBtn)retryBtn.addEventListener('click',()=>load(retrySelection||appliedSelection));
+    if(viewSwitcher){
+      viewSwitcher.addEventListener('click',event=>{const target=event.target.closest('[data-stats-view]');if(target)setActiveView(target.dataset.statsView,{focus:false});});
+      viewSwitcher.addEventListener('keydown',event=>{
+        const target=event.target.closest('[data-stats-view]');if(!target)return;let index=viewOrder.indexOf(target.dataset.statsView);
+        if(event.key==='ArrowRight')index=(index+1)%viewOrder.length;else if(event.key==='ArrowLeft')index=(index-1+viewOrder.length)%viewOrder.length;else if(event.key==='Home')index=0;else if(event.key==='End')index=viewOrder.length-1;else return;
+        event.preventDefault();setActiveView(viewOrder[index],{focus:true});
+      });
+    }
+    if(box)box.addEventListener('click',event=>{
+      const activityColumn=event.target.closest('.bot-stats-activity-column');
+      if(activityColumn){event.stopPropagation();const wasOpen=activityColumn===openActivityColumn;closeActivityTooltip(false);if(openHelpTrigger)closeHelp(false);if(!wasOpen){openActivityColumn=activityColumn;activityColumn.classList.add('is-open');activityColumn.setAttribute('aria-expanded','true');activityColumn.focus({preventScroll:true});}return;}
+      const trigger=event.target.closest('.bot-stats-help');if(!trigger)return;event.stopPropagation();
+      const wasOpen=trigger===openHelpTrigger;if(openHelpTrigger)closeHelp(false);if(!wasOpen){openHelpTrigger=trigger;trigger.closest('.bot-stats-help-wrap').classList.add('is-open');trigger.setAttribute('aria-expanded','true');}
+    });
+    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}});
     if(rangeBox) rangeBox.addEventListener('click',event=>{
       const target=event.target.closest('[data-stats-days]');
       if(!target) return;
-      rangeDays=Number(target.dataset.statsDays||30);
-      customRange=false;
-      if(dateFromEl)dateFromEl.value='';
-      if(dateToEl)dateToEl.value='';
-      rangeBox.querySelectorAll('[data-stats-days]').forEach(item=>item.classList.toggle('active',item===target));
-      load();
+      load({mode:'preset',days:Number(target.dataset.statsDays||0),dateFrom:'',dateTo:''});
     });
     if(applyRangeBtn) applyRangeBtn.addEventListener('click',()=>{
       if(!dateFromEl||!dateToEl||!dateFromEl.value||!dateToEl.value||dateFromEl.value>dateToEl.value){
-        if(box)box.innerHTML='<div class="bot-empty">Оберіть коректний діапазон дат.</div>';
+        showAlert('Оберіть коректний діапазон дат.');
+        if(dateFromEl)dateFromEl.focus();
         return;
       }
-      customRange=true;
-      rangeBox.querySelectorAll('[data-stats-days]').forEach(item=>item.classList.remove('active'));
-      load();
+      load({mode:'custom',days:0,dateFrom:dateFromEl.value,dateTo:dateToEl.value});
     });
+    syncViewControls();
     return {load:load};
   })();
 

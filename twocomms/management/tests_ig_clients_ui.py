@@ -274,7 +274,9 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.assertIn(contract, self.template)
 
     def test_mobile_client_context_drawer_stays_inside_the_dynamic_viewport(self):
-        mobile_start = self.template.rindex("@media(max-width:560px)")
+        mobile_start = self.template.index(
+            "@media(max-width:560px){.bot-orders-toolbar"
+        )
         mobile_styles = self.template[
             mobile_start:
             self.template.index("@media(max-width:390px)", mobile_start)
@@ -328,18 +330,50 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
-    def test_stats_keep_zero_stages_define_metrics_and_use_accessible_main_tabs(self):
+    def test_stats_use_truthful_visual_hierarchy_and_accessible_main_tabs(self):
         for contract in (
             'id="bot-tabs" role="tablist"',
             'class="bot-tab active" role="tab" aria-selected="true"',
             "t.setAttribute('aria-selected',t===btn?'true':'false')",
-            "const funnel=funnelOrder.map(key=>",
+            "function funnelRows(data)",
             "unverified:'Оплату ще не підтверджено'",
             "spam:'Спам'",
             "cold:'Неактивні'",
-            "function stat(k,v,help)",
-            "title=\"'+esc(help)+'\"",
+            "const kpiSpecs=[",
+            "lost_or_refused",
+            "bot-stats-help",
+            "data-stats-percent",
             "value===0?0:(value||'')",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_mobile_main_tabs_center_the_active_tab_after_layout_and_resize(self):
+        for contract in (
+            "const tabsEl=document.getElementById('bot-tabs')",
+            "const tabMotion=window.matchMedia('(prefers-reduced-motion: reduce)')",
+            "function animateBotTabScroll(targetLeft,generation)",
+            "const duration=220",
+            "tabsEl.scrollLeft=startLeft+(targetLeft-startLeft)*eased",
+            "function centerActiveBotTab(btn)",
+            "if(tabMotion.matches){cancelAnimationFrame(tabScrollFrame);tabsEl.scrollLeft=targetLeft;return;}",
+            "animateBotTabScroll(targetLeft,generation)",
+            "requestAnimationFrame(()=>requestAnimationFrame(scroll))",
+            "centerActiveBotTab(btn)",
+            "centerActiveBotTab(activeTab)",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_mobile_activity_chart_uses_compact_non_overlapping_date_labels(self):
+        for contract in (
+            "function compactActivityLabel(value,granularity)",
+            "if(granularity==='month')",
+            "return String(date.getDate())",
+            'class="bot-stats-activity-label-full"',
+            'class="bot-stats-activity-label-compact"',
+            'title="\'+exact+\'"',
+            ".bot-stats-activity-label-compact{display:none}",
+            ".bot-stats-activity-label-full{display:none}",
+            ".bot-stats-activity-label-compact{display:inline}",
         ):
             self.assertIn(contract, self.template)
 
@@ -690,12 +724,12 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
 
     def test_stats_default_to_seven_days(self):
         self.assertIn(
-            'class="bot-mini-btn active" data-stats-days="7">7 днів',
+            'class="bot-stats-period-btn active" data-stats-days="7" aria-pressed="true">7 днів',
             self.template,
         )
         self.assertIn("let rangeDays=7;", self.template)
         self.assertNotIn(
-            'class="bot-mini-btn active" data-stats-days="30">30 днів',
+            'class="bot-stats-period-btn active" data-stats-days="30"',
             self.template,
         )
 

@@ -255,63 +255,64 @@
 
 ### 5.1 RED — truthful stats API
 
-- [ ] Test `generated_at` and `schema_version`.
-- [ ] Test `totals.messages`, `inbound_messages`, `bot_replies`, `manager_messages`.
-- [ ] Test `unique_conversations` uses distinct clients in selected period.
-- [ ] Test `paid` uses verified/current payment truth, not stage alone and not historical archive alone.
-- [ ] Test `qualified` definition and denominator.
-- [ ] Test `lost_or_refused` definition from canonical stage/reason/analysis categories.
-- [ ] Test custom date range timezone boundaries.
-- [ ] Test zero/empty dataset returns zeros/arrays, never invented deltas.
-- [ ] Confirm existing API fields remain backwards compatible.
+- [x] Test `generated_at` and `schema_version`.
+- [x] Test `totals.messages`, `inbound_messages`, `bot_replies`, `manager_messages`.
+- [x] Test `unique_conversations` uses distinct clients in selected period.
+- [x] Test `paid` uses verified/current payment truth, not stage alone and not historical archive alone.
+- [x] Test `qualified` definition and denominator.
+- [x] Test `lost_or_refused` definition from canonical stage/reason/analysis categories.
+- [x] Test custom date range timezone boundaries.
+- [x] Test zero/empty dataset returns zeros/arrays, never invented deltas.
+- [x] Confirm existing API fields remain backwards compatible.
 
 ### 5.2 GREEN — stats API contract
 
-- [ ] Add additive totals without deleting current funnel/interactions/products/ads/meta data.
-- [ ] Return period label and exact UTC/local boundary metadata.
-- [ ] Keep revenue separate from counts.
-- [ ] Cap ranked lists server-side only where full list remains available in disclosure payload.
-- [ ] Avoid N+1 queries; record focused query-count ceiling where practical.
+- [x] Add additive totals without deleting current funnel/interactions/products/ads/meta data.
+- [x] Return period label and exact UTC/local boundary metadata.
+- [x] Keep revenue separate from counts.
+- [x] Cap ranked lists server-side only where full list remains available in disclosure payload.
+- [x] Avoid N+1 queries; record focused query-count ceiling where practical.
+- [x] Count repeated confirmed deals separately, even when they belong to one attributed client.
 
 ### 5.3 Visual hierarchy
 
-- [ ] Replace 11 equal KPI boxes with four primary KPI cards: `Повідомлення`, `Діалоги`, `Підтверджені оплати`, `Відмови / втрати`.
-- [ ] Each KPI has icon, number, short label and focus/click definition tooltip; no permanent paragraph.
-- [ ] Show `Оновлено …` from server `generated_at`, not browser guess.
-- [ ] Secondary metrics live in one compact expandable strip.
-- [ ] Use tabular numbers and consistent card heights.
-- [ ] Animate only changed values with 120 ms crossfade; no count-up theatre.
+- [x] Replace 11 equal KPI boxes with four primary KPI cards: `Повідомлення`, `Діалоги`, `Підтверджені оплати`, `Відмови / втрати`.
+- [x] Each KPI has icon, number, short label and focus/click definition tooltip; no permanent paragraph.
+- [x] Show `Оновлено …` from server `generated_at`, not browser guess.
+- [x] Secondary metrics live in one compact expandable strip.
+- [x] Use tabular numbers and consistent card heights.
+- [x] Animate only changed values with 120 ms crossfade; no count-up theatre.
 
 ### 5.4 Funnel and charts
 
-- [ ] Add proportional horizontal funnel: conversations → qualified → product → checkout/payment → verified paid.
-- [ ] Widths normalize to the first stage; exact count and percent remain visible/focusable.
-- [ ] Zero stages render an honest empty rail, not a misleading minimum bar.
-- [ ] Add compact horizontal bars for conversation categories.
-- [ ] Add compact ranked product bars with top values first.
-- [ ] Add ads visual with separate columns/bars for chats, paid and revenue; top 5 first, remaining in disclosure.
-- [ ] Keep cohort/drop-off/time-on-step/manager-vs-bot/discount tables inside `Детальні дані` disclosure.
-- [ ] Hide empty analytical sections instead of rendering repeated empty cards.
-- [ ] Add clear empty state describing selected period, not generic `Немає даних`.
+- [x] Add proportional horizontal funnel: conversations → qualified → product → checkout/payment → verified paid.
+- [x] Widths normalize to the first stage; exact count and percent remain visible/focusable.
+- [x] Zero stages render an honest empty rail, not a misleading minimum bar.
+- [x] Add compact horizontal bars for conversation categories.
+- [x] Add compact ranked product bars with top values first.
+- [x] Add ads visual with separate columns/bars for chats, paid and revenue; top 8 first, remaining in disclosure.
+- [x] Keep cohort/drop-off/time-on-step/manager-vs-bot/discount tables inside `Детальні дані` disclosure.
+- [x] Hide empty analytical sections instead of rendering repeated empty cards.
+- [x] Add clear empty state describing selected period, not generic `Немає даних`.
 
 ### 5.5 Responsive and interaction
 
-- [ ] 1440 px: balanced 4-column KPI row and 2-column chart area.
-- [ ] 768 px: 2-column KPI row and single-column charts.
-- [ ] 375/320 px: horizontally stable single-column cards, labels wrap without clipping.
-- [ ] Tooltips open on hover/focus desktop and tap mobile; Escape returns focus.
-- [ ] Date range controls collapse into compact disclosure on narrow screens.
-- [ ] Loading uses stable skeleton geometry; error keeps previous successful data with retry action.
-- [ ] No chart depends on color alone; labels and values stay visible for ordinary visual reading.
+- [x] 1440 px: balanced 4-column KPI row and 2-column chart area.
+- [x] 768 px: 2-column KPI row and single-column charts.
+- [x] 375/320 px: horizontally stable single-column cards, labels wrap without clipping.
+- [x] Tooltips open on hover/focus desktop and tap mobile; Escape returns focus.
+- [x] Date range controls collapse into compact disclosure on narrow screens.
+- [x] Loading uses stable skeleton geometry; error keeps previous successful data with retry action.
+- [x] No chart depends on color alone; labels and values stay visible for ordinary visual reading.
 
 ### 5.6 Release 2 verification and delivery
 
-- [ ] Stats API focused tests pass.
-- [ ] Zero/one/many data fixtures pass.
-- [ ] Timezone and custom range tests pass.
-- [ ] Browser screenshot matrix 320/375/768/1440 passes.
-- [ ] No horizontal overflow or clipped labels.
-- [ ] Definition tooltips and disclosures work by keyboard and touch.
+- [x] Stats API focused tests pass.
+- [x] Zero/one/many data fixtures pass.
+- [x] Timezone and custom range tests pass.
+- [x] Browser screenshot matrix 320/375/768/1440 passes.
+- [x] No horizontal overflow or clipped labels.
+- [x] Definition tooltips and disclosures work by keyboard and touch.
 - [ ] Commit, push feature, merge main, push main, deploy.
 - [ ] Verify server SHA, health, static asset hash and live stats response shape.
 
