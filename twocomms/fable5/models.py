@@ -96,6 +96,53 @@ class VariantDetails(models.Model):
         return f"Details for variant #{self.variant_id}"
 
 
+class AudienceTag(models.Model):
+    """Structured product audience label used by catalog facets."""
+
+    code = models.SlugField(max_length=32, unique=True)
+    label_uk = models.CharField(max_length=80)
+    label_ru = models.CharField(max_length=80)
+    label_en = models.CharField(max_length=80)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("order", "code")
+
+    def __str__(self):
+        return self.label_uk
+
+
+class ProductAudience(models.Model):
+    """Many-to-many audience assignment at product level."""
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="audience_assignments",
+        db_constraint=False,
+    )
+    tag = models.ForeignKey(
+        AudienceTag,
+        on_delete=models.PROTECT,
+        related_name="product_assignments",
+    )
+    note = models.CharField(max_length=255, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("product", "tag"),
+                name="f5_unique_product_audience",
+            )
+        ]
+        ordering = ("product_id", "tag__order", "tag_id")
+
+    def __str__(self):
+        return f"p{self.product_id}:{self.tag.code}"
+
+
 class ProductFitNote(models.Model):
     """Доступність посадки (класика/оверсайз) на рівні товару + причина.
 

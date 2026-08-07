@@ -47,6 +47,7 @@ except Exception:  # pragma: no cover
     DEFAULT_STATUS = "draft"
 
 from .models import (
+    AudienceTag,
     ColorProfile,
     CoverSource,
     FeedImageRule,
@@ -65,6 +66,11 @@ from .models import (
     VariantFitRule,
     VariantOptionSizeGrid,
     VariantSizeRule,
+)
+from .services_audience import (
+    get_product_audience_codes,
+    set_product_audience_codes,
+    validate_published_apparel_audience,
 )
 from .translit import smart_slugify, unique_product_slug
 
@@ -367,6 +373,7 @@ def _product_payload(product):
         "full_description": getattr(product, "full_description", "") or "",
         "details_text": getattr(product, "details_text", "") or "",
         "target_audience": getattr(product, "target_audience", "") or "",
+        "audience_codes": get_product_audience_codes(product),
         "care_instructions": getattr(product, "care_instructions", "") or "",
         "seo_title": getattr(product, "seo_title", "") or "",
         "seo_description": getattr(product, "seo_description", "") or "",
@@ -489,6 +496,16 @@ def _bootstrap_payload(product=None):
             ],
             "statuses": [{"value": v, "label": l} for v, l in STATUS_CHOICES],
             "fit_presets": FIT_PRESETS,
+            "audiences": [
+                {
+                    "code": tag.code,
+                    "label": tag.label_uk,
+                    "label_uk": tag.label_uk,
+                    "label_ru": tag.label_ru,
+                    "label_en": tag.label_en,
+                }
+                for tag in AudienceTag.objects.filter(is_active=True).order_by("order", "code")
+            ],
             "garment_flows": [
                 {
                     "code": flow.code,
@@ -624,6 +641,9 @@ def api_product_save(request):
         product.home_card_image = request.FILES["home_card_image"]
 
     product.save()
+    if "audience_codes" in payload:
+        set_product_audience_codes(product, payload.get("audience_codes") or [])
+    validate_published_apparel_audience(product)
     if request.FILES.get("main_image"):
         CoverSource.objects.update_or_create(
             product=product,

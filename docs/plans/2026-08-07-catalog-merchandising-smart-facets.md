@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Extend the Variant 3 Smart Selector and Fable 5 with truthful multi-dimensional merchandising, reliable mobile filters, curated brigade/collection SEO pages, and measurable mobile-first conversion UX.
+**Goal:** Extend the Variant 3 Smart Selector and Fable 5 with truthful multi-dimensional merchandising that continues through catalog cards and the upper PDP decision zone, reliable mobile filters, curated brigade/collection SEO pages, and measurable mobile-first conversion UX.
 
-**Architecture:** Keep the existing Django category branch and production header/footer. Add normalized Fable 5 audience and collection data, a service that resolves validated facet state from real inventory/fit/size sources, server-rendered category/collection pages, and a scoped Smart Selector UI enhanced by vanilla JavaScript. Keep arbitrary filters crawl-safe and make only curated collection URLs indexable.
+**Architecture:** Keep the existing Django category branch, PDP purchase flow, and production header/footer. Add normalized Fable 5 audience and collection data, services that resolve validated catalog facets and PDP merchandising from real inventory/variant sources, server-rendered category/collection/PDP context, and scoped vanilla JavaScript enhancement. Keep arbitrary filters crawl-safe and make only curated collection URLs indexable.
 
 **Tech Stack:** Django models/migrations, existing Fable 5 APIs and size-grid services, Django templates, scoped CSS, vanilla JavaScript, existing dataLayer/Meta adapters, Django TestCase, Node syntax checks, Playwright/agent-browser, Chrome DevTools Lighthouse and performance traces.
 
@@ -45,7 +45,7 @@ Cover repeated query keys, strict audience AND behavior, AND across facet groups
 
 **Step 4: Write failing template/SEO tests**
 
-Cover one H1, category tabs, collection H1, `ItemList`, `BreadcrumbList`, visible FAQ details, custom-print CTA, canonical/noindex behavior, pagination fallback, and the absence of Smart Selector markup on root catalog/search routes.
+Cover one H1, category tabs, collection H1, `ItemList`, `BreadcrumbList`, visible FAQ details, custom-print CTA, canonical/noindex behavior, pagination fallback, and the absence of Smart Selector markup on root catalog/search routes. Add a PDP regression contract proving that normalized audience/collection assignments reach the upper product context and that Product schema does not assert a merchandising theme without a real assignment.
 
 **Step 5: Verify RED**
 
@@ -207,6 +207,10 @@ Render the category/collection-specific At-a-glance, Explore, How-to-choose, FAQ
 
 Every category, collection, product, pagination, and internal SEO link remains navigable with JavaScript disabled.
 
+**Step 5: Recompose the product card meta zone**
+
+Keep title, visible price, fit/audience/availability facts, and color swatches in one semantic body flow. Remove the detached post-price color dot treatment from the prototype. Render a labelled color row with stable swatch hit areas, a contrast ring for light colors, a flame marker for thermo, and a `+N` overflow affordance only when needed. Add a template contract test for this exact DOM order and a screenshot check for card-bottom alignment at mobile and desktop widths.
+
 ---
 
 ## Task 7: Fix mobile filter reliability and implement restrained motion
@@ -244,7 +248,51 @@ Expose a CSS custom property for the measured bottom-navigation height plus the 
 
 ---
 
-## Task 8: Integrate analytics without polluting attribution
+## Task 8: Continue merchandising into the upper PDP decision zone
+
+**Files:**
+- Create: `twocomms/storefront/services/product_merchandising.py`
+- Modify: `twocomms/storefront/views/product.py`
+- Modify: `twocomms/twocomms_django_theme/templates/pages/product_detail.html`
+- Create: `twocomms/twocomms_django_theme/templates/partials/product_merchandising_context.html`
+- Modify: `twocomms/twocomms_django_theme/static/css/product-detail.css`
+- Modify: `twocomms/twocomms_django_theme/static/js/product-detail.js`
+- Modify: `twocomms/storefront/seo_utils.py`
+- Create: `twocomms/storefront/tests/test_product_merchandising.py`
+- Test: `twocomms/storefront/tests/test_product.py`
+- Test: `twocomms/twocomms_django_theme/static/js/product-detail.test.js`
+
+**Step 1: Write and verify the RED PDP continuity contracts**
+
+Create fixtures with multiple audience tags, nested military/brigade assignments, an active curated collection, a non-public collection, an ordinary color, and a thermochromic color. Assert that the initial PDP context preserves assignment order and localized labels, links only to real public collection routes, renders audience as a fact, and derives thermo only from the selected variant. Add a template-order assertion that the compact context belongs to the existing title/meta region without replacing the title, price, variant selectors, or primary purchase action.
+
+**Step 2: Build one presentation-safe PDP resolver**
+
+Implement `resolve_product_merchandising_context(product, selected_variant=None, fit_code="", language="uk")`. Reuse `services_audience`, `services_collections`, and `variant_public_context()`; do not query or parse `target_audience`, product titles, descriptions, or category names. Return normalized codes, localized labels, safe public URLs, a primary collection, overflow count, and selected-variant thermo/material state. Prefetch assignments in `product_detail()` so the resolver does not create per-marker queries.
+
+**Step 3: Render the compact server-first context rail**
+
+Insert one semantic partial in the current upper product panel next to the H1/category/meta region. Render collection/brigade assignments as normal links and audience as a labelled characteristic. On mobile keep one stable horizontal row with 44px link hit areas and a compact `+N` disclosure/scroll affordance; on desktop keep the rail aligned to the existing buy box. Do not add a hero, duplicate the category switcher, wrap into a badge wall, or push the first price and primary action out of the expected decision area.
+
+**Step 4: Synchronize selected-variant facts without layout shift**
+
+Expose normalized static product assignments and per-variant `is_thermo`, material story, and price delta through the existing product payload. Extend the existing delegated color/fit update path to toggle only the variant-dependent marker in place. Verify initial HTML, path-selected color, query-selected color, and client selection agree; selecting a non-thermo color removes the flame and explanation without leaving an empty gap.
+
+**Step 5: Make Product schema truthful**
+
+Replace the unconditional `Стріт & Мілітарі` `additionalProperty` in `generate_product_schema()` with values from active normalized assignments. Use normalized audiences instead of category-name inference. Emit `suggestedGender` only when the structured assignment can be represented without loss; preserve multiple audiences as explicit visible/schema values rather than collapsing them to a false single value. Tests must prove an untagged product has no invented style/brigade and a tagged product's HTML and schema agree.
+
+**Step 6: Reuse the existing PDP analytics event**
+
+After tracing the current consent and deduplication path, enrich the existing `view_item` and variant-selection dataLayer payloads with normalized collection and audience codes. Do not emit a second `view_item`, do not change Meta content IDs or price semantics, and do not send PII. Add serialization-only JavaScript tests with no network calls.
+
+**Step 7: Verify responsive hierarchy and performance**
+
+At 320/375/390/430/768/1024/1440 widths verify the product media, H1, price, and main action retain prominence; the context rail never overlaps panel actions, never creates horizontal page overflow, and has accessible focus/labels. Measure CLS while changing variants, inspect query counts, test reduced motion, and verify Ukrainian/Russian/English labels plus no-JS links.
+
+---
+
+## Task 9: Integrate analytics without polluting attribution
 
 **Files:**
 - Reference and modify only the existing analytics/dataLayer adapter files after tracing them
@@ -265,7 +313,7 @@ Use mocked dataLayer/Pixel adapters and assert payload shape, event IDs where ap
 
 ---
 
-## Task 9: Run Frontend Design and performance review
+## Task 10: Run Frontend Design and performance review
 
 **Files:**
 - Artifacts: `twocomms/output/playwright/catalog-smart-facets/`
@@ -281,6 +329,8 @@ Verify header/footer parity, first-viewport product visibility, symmetry, card r
 
 Also verify that the fixed mobile navigation never occludes card content, pagination, the progressive-loading status, or the Create-your-print CTA at any target height.
 
+For representative PDPs, verify that the merchandising rail visually belongs to the existing title/meta block, real collection links remain distinguishable from the audience fact, `+N`/horizontal overflow is understandable, and changing between ordinary and thermochromic colors updates the marker without moving the title, price, selectors, or primary action.
+
 **Step 3: Measure Core Web Vitals**
 
 Record LCP element and timing, CLS sources, INP for filter open/apply, TTFB, image sizes, console errors, failed requests, and long tasks. Correct root causes rather than masking metrics.
@@ -293,13 +343,15 @@ Run Lighthouse mobile/desktop, inspect accessibility tree, validate JSON-LD, can
 
 Review the design contract's quality matrix line by line. For each surface record a screenshot/DOM assertion proving its job: shared shell parity, category recognition, first product visibility, quick-row density, command-shelf behavior, dialog focus/inert state, rail density, card truthfulness, empty-state recovery, progressive status, collection identity, editorial SEO usefulness, and bottom-navigation safe-area clearance. Remove any decorative element that has no measurable user, SEO, accessibility, or performance purpose.
 
+Include a dedicated relationship audit for every card: image-to-title continuity, price-to-thermo explanation, fit/audience/availability alignment, and color-row attachment. Verify there is no horizontal divider that visually makes a color swatch look like metadata from another product.
+
 **Step 6: Validate decision psychology without adding noise**
 
 Confirm recognition-before-choice, progressive disclosure, immediate state feedback, postponed commitment, and trust-preserving motion at each viewport. In particular, verify that campaign landing traffic can choose its collection in one tap, that audience/availability/size filters are discoverable without scrolling through product cards, and that the custom-print CTA appears only after ready-made discovery content.
 
 ---
 
-## Task 10: Production-like data verification and rollout gates
+## Task 11: Production-like data verification and rollout gates
 
 **Files:**
 - Create: `twocomms/fable5/management/commands/backfill_tshirt_audience.py` if a command is preferred over a data migration
@@ -319,7 +371,7 @@ After code and migration checks, collect static assets, invalidate only affected
 
 **Step 4: Live verification**
 
-Check all language/category/collection URLs, filter URLs, product links, schema, robots/canonical, and browser interactions. Record deployed SHA and persisted data evidence.
+Check all language/category/collection URLs, filter URLs, representative tagged and untagged PDPs, selected-color PDP states, product links, schema, robots/canonical, and browser interactions. Confirm Fable 5 assignments match catalog-card and PDP output, then record deployed SHA and persisted data evidence.
 
 **Step 5: Integration gate**
 
@@ -336,6 +388,7 @@ DJANGO_SETTINGS_MODULE=test_settings SECRET_KEY=test_local_secret \
   fable5.tests.test_audience_taxonomy \
   fable5.tests.test_merch_collections \
   storefront.tests.test_catalog_merchandising_facets \
+  storefront.tests.test_product_merchandising \
   storefront.tests.test_category_smart_selector --noinput
 DJANGO_SETTINGS_MODULE=test_settings SECRET_KEY=test_local_secret \
   .venv/bin/python manage.py check

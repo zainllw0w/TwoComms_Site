@@ -300,6 +300,33 @@
 		updateSeoCounters();
 		updateSlugHint();
 		updateCoverState();
+		renderAudienceOptions();
+	}
+
+	function collectAudienceCodes() {
+		return $$("#f-audience-options [data-audience-code]:checked").map((input) => input.dataset.audienceCode);
+	}
+
+	function updateAudienceSummary() {
+		const selected = collectAudienceCodes();
+		const labels = selected.map((code) => {
+			const item = (dict.audiences || []).find((row) => row.code === code);
+			return item ? item.label : code;
+		});
+		const summary = $("#f-audience-summary");
+		if (summary) summary.textContent = labels.length ? labels.join(" · ") : "Не вибрано";
+	}
+
+	function renderAudienceOptions() {
+		const box = $("#f-audience-options");
+		if (!box) return;
+		const selected = new Set(((state.product && state.product.audience_codes) || []).map(String));
+		box.innerHTML = (dict.audiences || []).map((item) => `
+			<label class="f5-audience-option">
+				<input type="checkbox" data-audience-code="${esc(item.code)}"${selected.has(item.code) ? " checked" : ""}>
+				<span><strong>${esc(item.label)}</strong><small>${esc(item.label_en)} · ${esc(item.label_ru)}</small></span>
+			</label>`).join("");
+		updateAudienceSummary();
 	}
 
 	function updateSeoCounters() {
@@ -457,6 +484,7 @@
 			full_description: $("#f-full-desc").value,
 			details_text: $("#f-details").value,
 			target_audience: $("#f-audience").value,
+			audience_codes: collectAudienceCodes(),
 			care_instructions: $("#f-care").value,
 			seo_title: $("#f-seo-title").value,
 			seo_description: $("#f-seo-desc").value,
@@ -2081,6 +2109,10 @@
 	});
 	$("#f-slug").addEventListener("input", () => { state.slugTouched = true; updateSlugHint(); });
 	$("#f-category").addEventListener("change", renderOptionProfiles);
+	$("#f-audience-options").addEventListener("change", () => {
+		updateAudienceSummary();
+		setDirty(true);
+	});
 	$("#f-slug-auto").addEventListener("click", () => {
 		state.slugTouched = false;
 		$("#f-slug").value = f5Translit.slugify($("#f-title").value);

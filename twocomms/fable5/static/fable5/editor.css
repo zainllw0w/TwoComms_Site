@@ -239,6 +239,28 @@ textarea.f5-input { min-height: 72px; resize: vertical; }
 .f5-check--tile { min-height: 52px; padding: 8px 12px; border: 1px solid var(--f5-line); border-radius: 10px; background: rgba(255,255,255,.025); }
 .f5-check--tile span { display: grid; }
 .f5-check--tile small { color: var(--f5-muted); font-size: 11px; }
+.f5-visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.f5-audience-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.f5-audience-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.f5-audience-option {
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--f5-line);
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+  cursor: pointer;
+  transition: border-color 160ms var(--f5-ease), background 160ms var(--f5-ease), transform 160ms var(--f5-ease);
+}
+.f5-audience-option:hover { border-color: var(--f5-line-strong); transform: translateY(-1px); }
+.f5-audience-option:has(input:checked) { border-color: rgba(139,92,246,.58); background: rgba(139,92,246,.12); box-shadow: inset 0 0 0 1px rgba(139,92,246,.12); }
+.f5-audience-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--f5-violet); }
+.f5-audience-option span { min-width: 0; display: grid; gap: 2px; }
+.f5-audience-option strong { font-size: 13px; }
+.f5-audience-option small { overflow-wrap: anywhere; color: var(--f5-muted); font-size: 10px; }
 
 /* Signature variant rail */
 .f5-variant-studio { display: grid; gap: 16px; }
@@ -625,6 +647,8 @@ textarea.f5-input { min-height: 72px; resize: vertical; }
   .f5-section-head .f5-btn { width: 100%; }
   .f5-grid, .f5-cover-studio, .f5-overview-grid, .f5-color-builder { grid-template-columns: 1fr; }
   .f5-card { padding: 16px; border-radius: 12px; }
+  .f5-audience-grid { grid-template-columns: 1fr; }
+  .f5-audience-option { min-height: 52px; }
   .f5-price-fields { grid-template-columns: 1.3fr .8fr; }
   .f5-price-fields .f5-field:last-child { grid-column: 1 / -1; }
   .f5-variant-rail-wrap { width: calc(100% + 24px); max-width: none; margin-inline: -12px; padding-inline: 12px; border-right: 0; border-left: 0; }
