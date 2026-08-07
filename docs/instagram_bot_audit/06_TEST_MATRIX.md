@@ -45,7 +45,7 @@
 | T38 | Multiple open orders | PARTIAL | model support; durable commerce session IMP-087 |
 | T39 | Forwarded payment link | GREEN | paylink product/intent tests |
 | T40 | Rollback drill | PARTIAL | superseded-invoice recovery IMP-089 is GREEN; full deterministic deploy/rollback gate remains IMP-094 |
-| T41 | Full management suite | GREEN (SQLite) | 2675 tests passed, 3 skipped; MariaDB parity remains IMP-094 |
+| T41 | Full management suite | PARTIAL (SQLite GREEN) | Historical SQLite full runs passed; disposable MariaDB parity and deterministic current command remain IMP-094 |
 | T42 | Terminal Telegram outcome and lifecycle alert isolation | GREEN | 75 focused notification/lifecycle/send regressions: no retry for UNKNOWN/DEAD_LETTER, redacted bounded summary, distinct lifecycle keys and one failed-paylink alert; IMP-077 |
 | T43 | Superseded payment review не объединяет коммерческие episodes | GREEN | 134 local commercial/payment tests; production MySQL reconcile x3 = zero remainder; client 59 separate terminal episodes, daemon running/alive on `93ae8684` |
 | T44 | Verified sales semantics и inventory policy | PARTIAL | migrations `storefront.0088`/`fable5.0008`, InnoDB tables, 77 policies and append-only triggers verified; runtime/admin consumer + disposable MariaDB test gate remain IMP-081 |
@@ -63,7 +63,7 @@ production MariaDB returned `ambiguous` for customer/model/multi-amount input,
 left no synthetic clients after rollback. The daemon is running/alive on
 `instagram_login` with empty reply/notification queues and empty `last_error`.
 
-**Fresh local gate for current checkpoint:** full `management warehouse` suite
+**Historical local gate for the 2026-08-05 checkpoint:** full `management warehouse` suite
 passed **2897 tests, 3 skipped, `OK`** after the paid commitment guard and
 reduced-motion test repair. Focused inventory gate is 92/92; inbox/UI gate is
 188/188. Django check, migration drift, compileall and `git diff --check` are

@@ -1,0 +1,823 @@
+# 14_IMPLEMENT2 — канонический план продолжения Instagram-бота
+
+> **Для исполнения:** использовать `superpowers:executing-plans` и проходить
+> один independently deployable slice с review checkpoint за раз.
+>
+> **Для следующего агента:** это активный execution handoff после
+> `19f5ef70`. Полный неранжированный остаток находится в
+> `13_UNCLOSED_FINDINGS_RAW.md`; этот файл задаёт topological order,
+> зависимости, exact acceptance и правила обновления реестров.
+>
+> Выполнять не «по номеру любой ценой», а по зависимостям. BLOCKED-пункт
+> останавливает только своих dependents. Независимые safety-задачи продолжаются.
+
+## 1. Каноническая иерархия документов
+
+| Роль | Источник истины |
+|---|---|
+| Точка входа и текущая сводка | `docs/instagram_bot_audit/00_PROGRESS.md` |
+| Активный порядок продолжения | этот `14_IMPLEMENT2.md` |
+| Полный незакрытый inventory без приоритизации | `13_UNCLOSED_FINDINGS_RAW.md` |
+| Историческая/status matrix всех 105 `IMP-*`, 183 `F-*`, 51 `IMPR-*` | `07_IMPLEMENTATION_PLAN.md` |
+| Подробная причина и evidence finding | `03_FINDINGS_REGISTER.md` |
+| Подробное improvement rationale | `05_IMPROVEMENTS_REGISTER.md` |
+| Acceptance scenarios | `06_TEST_MATRIX.md` |
+| Verified completion/deploy evidence | `08_COMPLETION_LOG.md`, `09_DEPLOYMENT_LOG.md` |
+| Внешние решения и блокеры | `10_OPEN_QUESTIONS_AND_BLOCKERS.md` |
+| Ветки, worktree, WIP и superseded sources | `12_SOURCE_RECONCILIATION.md` |
+
+После каждого shipped slice обновить все затронутые источники. Нельзя менять
+только этот файл и оставлять противоречащую галочку в `07`, старый blocker в
+`10` или потерянный WIP в `12`.
+
+## 2. Проверенный pre-handoff runtime snapshot — 2026-08-07
+
+- До публикации этого docs-only handoff local `main` = `origin/main` =
+  production = `19f5ef70f20e1b3d5da5975786359fe8c7e06df4`; local divergence
+  0/0. Публикующий commit может продвинуть Git SHA без runtime-code diff.
+- Production `manage.py check`: 0 issues. Migrations through
+  `management.0146` applied. Daemon `running/alive`; active transport remains
+  `instagram_login`; pending analysis and notification queues = 0.
+- Tracked production tree clean. Untracked server files are not release proof.
+- Read-only production status has 18 terminal failed analysis jobs. Seventeen
+  are historical `trigger=reconcile` Gemini failures. Job `292`, client `310`,
+  `trigger=manager_message`, `attempts=5`, ended with
+  `stale_lease_retry_exhausted`; this is new `F-AI-018` under `IMP-044`.
+- Root worktree is intentionally dirty. Relevant local change
+  `twocomms/management/tests_ig_commerce_state.py` and the separate
+  `ig-commerce-durable-state` WIP must not be silently staged, reset or lost.
+
+| Реестр | Verified state |
+|---|---|
+| Implementation | 105 total: 80 DONE, 15 OPEN, 10 PARTIAL; 25 unchecked |
+| Finding matrix / handoff | 183 total: 139 checked, 31 OPEN, 1 BLOCKED, 12 PARTIAL; 44 unchecked |
+| Improvements | 51 total: 17 DONE, 12 OPEN, 21 PARTIAL, 1 REFRAMED; 34 unchecked |
+| Acceptance | 51 total: 40 GREEN, 11 PARTIAL (including SQLite-only `T41`); `T51` is GREEN regression guard |
+| Documentation conflicts | `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` reconciled by the 2026-08-07 handoff |
+
+Historical test totals such as 2675/2877/2897 prove only their named
+checkpoint. A new slice records its own command, database engine, count, skips,
+failures and rollback state.
+
+### 2.1 Database reality — обязательный контракт для следующего агента
+
+| Среда | Роль | Что разрешено / что она доказывает |
+|---|---|---|
+| Local SQLite | быстрый RED/GREEN, pure/domain/unit tests, no-network regressions | Не доказывает MariaDB locks, `select_for_update`, concurrent uniqueness, `varchar(max_length)`, trigger/migration/JSON/collation behavior или production data shape. Отсутствие локальных rows ничего не говорит о реальных клиентах. |
+| Disposable MariaDB/MySQL | destructive migration, lock/race, constraint, rollback and max-length acceptance | Создаётся отдельно от production; только test credentials/schema. Это обязательный технический gate для DB-sensitive closure. |
+| Production `qlknpodo_MySQL_DB` | главный источник реальных переписок, клиентов, товаров, сделок, оплат, очередей и фактической data shape | Read-only discovery/evidence до изменения; controlled migrate/deploy после verified code. Не использовать как fixture DB и не создавать synthetic customer/payment/Meta/ad rows. |
+
+Следствия:
+
+1. Любая гипотеза о количестве, пустоте таблицы, текущих статусах, реальных
+   сообщениях или связи customer→deal→payment проверяется на production
+   read-only через ORM/SQL с минимальным выводом PII.
+2. Реализация проектируется под MariaDB/MySQL semantics с самого начала.
+   SQLite-green — быстрый сигнал, не acceptance и не причина ставить `[x]`.
+3. Для locks/races проверять deterministic lock ordering, transaction boundary,
+   uniqueness/NULL behavior, rollback residue and deadlock/retry behavior на
+   disposable MariaDB.
+4. Для migrations проверять forward migration, rollback/compatibility fixture,
+   длины строк, indexes/constraints и существующие append-only triggers. Нельзя
+   считать, что SQLite автоматически воспроизводит production DDL.
+5. Production rollout начинается с backup/health/current SHA/migration state,
+   выполняет только запланированные migrations и завершается read-only
+   reconciliation. Реальные переписки и платежи не копируются в тесты и не
+   изменяются ради доказательства.
+6. Если local и production data расходятся, для business conclusion приоритет
+   имеет production. Для safety proof приоритет имеет reproducible disposable
+   MariaDB test плюс production read-only confirmation, а не ручная запись в
+   live DB.
+
+## 3. Непереговорные правила
+
+1. `[x]` requires code reachable from `main`, focused and adjacent tests,
+   relevant MariaDB/browser evidence, push, production pull/deploy and exact
+   server SHA/health proof.
+2. `PARTIAL` remains `[ ]`. A branch, local test, screenshot or agent report is
+   not completion evidence.
+3. `BLOCKED` requires blocker, owner, dependent IDs and next evidence. It does
+   not block unrelated work.
+4. `REFRAMED` and `REJECTED` are valid terminal outcomes only with rationale
+   and a replacement ID or explicit statement that no implementation follows.
+5. Production DB is read-only evidence, never a concurrency fixture. Do not
+   send synthetic customer, Meta, payment or ad events without authorization.
+6. Imported role/backfill truth comes only from provider message ID or outgoing
+   registry. Text similarity is never evidence.
+7. Ambiguous delivery is never blind-resend. Require provider receipt or
+   audited manager resolution.
+8. Every customer-facing slice preserves opt-out, manager takeover, pause,
+   Meta 24-hour window, payment/stock fail-closed guards and localization.
+9. `IMP-045` exception policy applies to every touched domain now; do not add a
+   new silent catch while waiting for the final cleanup wave.
+10. Old W9/follow-up/Meta worktrees are requirement sources, not merge bases.
+
+## 4. Dependency graph
+
+```mermaid
+flowchart TD
+  P["Preflight: authority, clean slice, production snapshot, WIP preservation"]
+  S["Wave 1: immediate safety independent of product/policy blockers"]
+  D["Wave 2: deterministic evidence, disposable MariaDB and DB reliability"]
+  H["Targeted send gates: F-CORE-004, W1.2/W1.4, T48"]
+  U["Targeted inbound gate: F-CORE-006 race proof"]
+  A["Bounded IMP-087.A: receipt-backed informational reply"]
+  X["Early decisions: IMP-046.A and IMP-088.A freshness/read-only audit"]
+  C1["Commerce foundation: semantic graph and current ownership"]
+  C2["Candidate binding, exact availability and allocation"]
+  B["IMP-088.B: authoritative payable digest"]
+  C3["Price/payment reply, full IMP-087 delivery and proposal review"]
+  Q["Wave 5: sales quality and merchandising"]
+  O["Wave 6: truthful data, reporting and operations"]
+  I["Independent lanes: IMP-090, IMP-096, IMP-093 baseline"]
+  W["IMP-095 after authoritative white assets/rules"]
+  L["Wave 7: debt, retention and visual backlog"]
+
+  P --> S
+  P --> D
+  P --> H
+  P --> U
+  H --> A
+  U --> A
+  P --> X
+  P --> I
+  P --> W
+  X --> C1
+  D --> C1
+  C1 --> C2 --> B --> C3 --> Q
+  C3 --> O
+  Q --> L
+  O --> L
+```
+
+Feature gates are edges, not a global stop: white-product assets block only
+`IMP-095`; ad source blocks only attribution/CAPI claims; retention policy
+blocks only `IMP-091`; checkout build/remove blocks only its dependent branch.
+Narrow `IMP-087.A` does not wait for Gemini lease work or the full MariaDB wave.
+`IMP-088.A` may run before exact availability; price/availability/payment speech
+must wait for `IMP-088.B`, after which full `IMP-087` can use that digest. Baseline
+`IMP-060`, `IMP-090`, `IMP-096` and truthful `IMP-093` work are independent of
+full commerce completion. `IMP-095` waits only for authoritative white assets/
+rules and its own 1090–1450 acceptance, not for every commerce task.
+
+## 5. Universal preflight for every slice
+
+- [ ] **P0.1 Scope and Git.** Start from fresh `origin/main` in a clean
+  `codex/*` worktree. Record `HEAD`, `git status --short`, intended files and
+  unrelated local WIP. Never stage the root commerce test accidentally.
+- [ ] **P0.2 Current truth.** Re-read the relevant rows in `13`, current code,
+  tests and reachable history. For any claim about conversations, products,
+  payments, queues or table usage, run a minimal-PII read-only production
+  MariaDB snapshot; never infer production state from empty local SQLite.
+- [ ] **P0.3 RED contract.** Add focused failing test first and retain the
+  failure reason in the evidence note. A test that is green before the change
+  does not prove the new behavior.
+- [ ] **P0.4 Evidence ledger.** Record exact command, settings, DB engine, test
+  count/skips/failures, rollback result and network policy.
+- [ ] **P0.5 Stable local baseline (`IMP-094.A`).** Before domain work, run the
+  cwd-independent mandatory no-network suite from its documented directory,
+  isolate mutable global state and classify any pre-existing red/flaky test.
+  Repair a baseline blocker as its own slice; do not carry an unexplained red
+  suite into feature work. SQLite here is only fast structural evidence.
+- [ ] **P0.6 Release boundary.** Commit only one independently deployable
+  slice, push, integrate into `main`, deploy, verify exact SHA, migrations,
+  daemon heartbeat, dangerous queues and persisted DB/API evidence.
+
+Default structural gate from the Django app directory:
+
+```bash
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python -m compileall -q management
+git diff --check
+```
+
+For UI changes add real browser QA at the stated breakpoints, console check and
+horizontal-overflow check. For data/concurrency changes add the disposable
+MariaDB command; SQLite is only a fast local layer.
+
+## 6. WIP recovery gate — do before writing replacement code
+
+### WIP-087: preserved narrow durable-reply slice
+
+Worktree:
+`/Users/zainllw0w/.config/superpowers/worktrees/site/ig-commerce-durable-state`
+
+Files:
+
+- `twocomms/management/services/ig_commerce_state.py`
+- `twocomms/management/services/instagram_bot.py`
+- `twocomms/management/tests_ig_commerce_state.py`
+- `twocomms/management/services/ig_commerce_replies.py` (new)
+- `twocomms/management/tests_ig_commerce_delivery.py` (new)
+
+Fresh recorded evidence: 101 tests plus Django check, migration drift,
+compileall and `git diff --check`. This evidence is useful but not shipment:
+the files are uncommitted/unpushed/undeployed. Worktree HEAD equals the
+`19f5ef70` handoff baseline, but must still be compared with fresh `origin/main`
+at execution time.
+
+- [ ] Compare patch against current `origin/main`; do not copy by file overwrite.
+- [ ] Reconcile the two relevant root-worktree tests with the WIP tests.
+- [ ] Preserve the safety boundary from
+  `docs/plans/2026-08-06-ig-commerce-durable-reply-delivery.md`: one short
+  deterministic text, no price/stock/payment/manager promise.
+- [ ] Run an independent code review before integration.
+- [ ] Local branch is 14 ahead / 1 behind `origin/codex/ig-commerce-durable-state`;
+  preserve both histories and rebase/cherry-pick patch-unique work deliberately.
+- [ ] Re-run focused and adjacent tests on current base, then release through
+  Wave 3 below. General `IMP-087` remains PARTIAL.
+
+### Other preserved sources
+
+| Source | Status / required action |
+|---|---|
+| `codex/ig-bot-w4-completion` paginator | SUPERSEDED by W7; do not integrate. |
+| `codex/ig-followup-policies` | `IMP-102/103` requirements already reimplemented; old migration/code not mergeable. |
+| `codex/ig-crm-master-audit` | Old-base Meta/analysis source; re-audit current code/live transport before using any requirement. |
+| assisted-checkout 390px diff | Preserve as `GAP-CHECKOUT-UX-001`; reproduce on current main. |
+| `codex-management-bot-statistics-visuals` code WIP | Modified `bot_views.py`, `ig_funnel_analytics.py`, `bot.html` and tests, plus untracked plan/test file; volatile tracked diff, inspect with fresh `git diff --stat`. Review event-time semantics and rebase on current main; do not rewrite or mark done. |
+| dirty `codex-management-bot-live-visuals` | Older detached/conflicted planning source. Current live-visual code is in main; preserve only unique planning evidence manually. |
+| `codex/instagram-assisted-checkout-pre-split` | Historical requirement source; compare patch-unique material only, never cherry-pick wholesale. |
+| `codex/ig-lease-docs` | Documentation superseded by current `00/07/13/14`. |
+
+## 7. Independent decision and infrastructure gates
+
+- [ ] **G-INFRA / BLOCKER-INFRA-001.** Provision isolated disposable MariaDB
+  and test credentials with create/drop only in the test schema. Required by
+  `IMP-044`, `IMP-081`, `IMP-084`, `IMP-086`, `IMP-088`, `IMP-094`,
+  `IMP-100` and any `IMP-046` migration branch **only for DB-sensitive DONE
+  acceptance**; pure/read-only audit, parser/cache logic and browser UI continue.
+- [ ] **G-CHECKOUT.** Re-audit current call graph and read-only production
+  counts before choosing BUILD or REMOVE for the alleged empty checkout domain.
+  Current main already has proposal, TTL token, reservation and hosted checkout
+  paths, so the old premise cannot be accepted without proof. `F-DATA-001`
+  belongs to `IMP-046.A`, not `IMP-081`.
+- [ ] **G-EPOCH.** Owner chooses epoch policy for multi-chunk replies only
+  after delivered-chunk evidence exists. Agent may not invent security/UX
+  semantics for `F-CORE-005`.
+- [ ] **G-PII.** Technical minimization can ship immediately; retention period,
+  reviewer access and operator policy need a written owner decision.
+- [ ] **G-ADS / BLOCKER-POLICY-001.** Obtain real click-to-message attribution
+  source and CAPI policy. This blocks `F-DATA-004`/`IMP-043`/`T03`; CAPI
+  `F-DATA-003`/`F-PAY-008`/`T08` additionally require consent and stable-event
+  policy. Missing fields are reported as unknown, not parsed from imagination.
+- [ ] **G-WHITE / BLOCKER-DATA-001.** Obtain authoritative white images,
+  fit/size/default rules for product 110 before `IMP-095`.
+- [ ] **G-RETENTION / BLOCKER-POLICY-002.** Decide discounts, preorder,
+  reactivation segments, consent and measurement before `IMP-091`,
+  `IMPR-FEAT-008…011`, `T20` and `T21`.
+
+## 8. Wave 1 — immediate safety independent of product/policy blockers
+
+These slices do not wait for white assets, attribution or retention policy.
+
+### W1.1 Webhook availability — `F-CORE-004`, `IMP-098.A`
+
+**Start files:** `twocomms/management/services/ig_maintenance.py`,
+`twocomms/management/services/instagram_bot.py`, relevant webhook/daemon tests.
+
+- [ ] Replace blocking `flock` only for HTTP pause/takeover/opt-out transition
+  paths with non-blocking or bounded retry, maximum one second. Preserve the
+  customer-send serialization lock.
+- [ ] RED/green cross-process test: another process holds the lock; webhook
+  responds within one second, persists a durable recovery action and applies
+  the transition exactly once after contention clears.
+- [ ] Acceptance: no duplicate processing, no send through the permission
+  boundary, bounded elapsed time and actionable telemetry without message/PII.
+
+### W1.2 Delivered-chunk evidence first — `F-CORE-005`, `IMP-098.B1`
+
+- [ ] Ship after or together with W1.4 technical PII minimization: full reply
+  evidence is stored in the restricted audit boundary, while alerts are
+  redacted/minimum-necessary.
+- [ ] Persist exact original reply text, planned chunk count, confirmed chunk
+  receipts/provider IDs/count and failure boundary.
+- [ ] Create one actionable, idempotent manager alert on partial delivery.
+- [ ] Do not change epoch policy yet. That is `G-EPOCH` + W2.5.
+
+### W1.3 Secrets and secure defaults — `IMP-061`, `IMP-101`
+
+- [ ] `F-SEC-010`: remove token from our diagnostic URLs, redact server logs
+  where compatible with Meta GET verification, rotate token and prove
+  resubscription.
+- [ ] `F-SEC-001`: move account IDs, allowed senders and debug reply from model
+  defaults to explicit singleton config; test fresh install, empty whitelist
+  semantics and operator warning.
+
+**Start files/tests:** `twocomms/management/models.py`,
+`twocomms/management/bot_views.py`, `tests_ig_webhook_security.py`,
+`tests_ig_audit_fixes.py`.
+
+### W1.4 PII technical boundary — `F-SEC-004`, `F-SEC-009`, `IMP-098.D`
+
+- [ ] Redacted/sandbox reviewer view and minimum necessary Telegram/operator
+  payload.
+- [ ] Separate technical minimization from owner-controlled retention/access.
+- [ ] Acceptance: no live PII in demo/reviewer path; policy-dependent residue
+  remains explicitly BLOCKED under `G-PII`.
+
+### W1.5 Analysis cannot mutate operations — `F-SCORE-010`, `IMP-098.E`
+
+- [ ] Inventory every analysis writer to episode/history/payment/order fields.
+- [ ] Allow operational mutation only through an owned, idempotent event
+  contract; failed/skipped analysis must leave operational state unchanged.
+
+### W1.6 Structured control safety before more bot delivery — `IMP-028.A`
+
+This safety slice precedes generic customer-facing commerce expansion.
+
+- [ ] `F-AI-010`: typed/validated structured control boundary over legacy tags;
+  invalid/unknown controls fail closed and never leak into customer text.
+- [ ] `F-AI-011`: adversarial prompt-injection tests prove customer text cannot
+  override payment, stock, consent or manager authority.
+- [ ] `F-CTX-003`: remove the duplicate legacy payment protocol instead of
+  merely masking it with prompt priority.
+
+**Start files/tests:** `twocomms/management/services/instagram_bot.py`,
+`twocomms/management/models.py`, `tests_ig_agentic_dialog.py`,
+`tests_ig_live_reply_priority.py`, `tests_ig_audit_fixes.py`.
+
+### W1.7 Historical attachment hardening — `IMP-060`
+
+- [ ] Historical/imported attachment URLs are metadata only and are never
+  re-downloaded; live webhook bytes continue through the owned media path.
+- [ ] Add typed media phase/error telemetry before provider analysis so
+  `F-AI-018` can distinguish a media stall from Gemini/provider timeout.
+- [ ] This independent hardening does not reopen the fixed historical
+  `F-DATA-011` incident and does not wait for commerce completion.
+
+## 9. Wave 2 — deterministic evidence and DB-dependent reliability
+
+**Primary tests/services:**
+
+- `twocomms/management/tests_ig_conversation_analysis_jobs.py`
+- `twocomms/management/tests_ig_webhook_security.py`
+- `twocomms/management/tests_ig_live_reply_priority.py`
+- `twocomms/management/services/bot_conversation_analysis.py`
+- `twocomms/management/services/instagram_bot.py`
+- the dedicated disposable-MariaDB settings/runner created by `IMP-094`
+
+### W2.1 Close residual local reliability debt after preflight — `IMP-094.A`
+
+- [ ] P0.5 already makes cwd-independent/no-network baseline mandatory. Here,
+  close its known residual `F-TEST-002`, `F-DEBT-006`, `F-DEBT-007`: root-cause
+  the telephony flake and run the stable gate three times from documented CWDs.
+- [ ] `T40`: deterministic rollback fixture with proof of no residue.
+- [ ] Keep `T41` as SQLite-fast evidence only; do not call it production parity.
+
+### W2.2 Disposable MariaDB — `IMP-094` second half
+
+- [ ] Provision `G-INFRA`; cover locks, uniqueness, constraints, varchar/max
+  length, migrations and rollback cleanup.
+- [ ] Record exact engine/version, schema name, command and cleanup result.
+- [ ] Never point this command at `qlknpodo_MySQL_DB`.
+
+### W2.3 Synthetic inbound idempotency — `F-CORE-006`, `IMP-098.C`
+
+- [ ] Mandatory deterministic dedupe identity when Meta `mid` is absent uses
+  sender, provider timestamp, normalized text and stable attachment identity.
+- [ ] MariaDB race test: two equal inbound attempts create one processing path
+  and at most one customer reply.
+- [ ] Regression: identical normalized text sent later, or with different
+  attachment identity, is a new inbound rather than a false duplicate.
+
+### W2.4 Gemini key/lease reliability — `IMP-044`
+
+**Findings:** `F-AI-003`, `F-AI-004`, `F-AI-013`, `F-DATA-012`, `F-AI-018`.
+
+**Start files/tests:** `twocomms/management/services/bot_conversation_analysis.py`,
+`twocomms/management/services/instagram_bot.py`, settings/model admin code,
+`tests_ig_conversation_analysis_jobs.py`, `tests_ig_live_reply_priority.py`.
+
+- [ ] Acquire/release atomic key lease in real generation path and release in
+  `finally`; add bounded jitter and shared model allowlist/UI options.
+- [ ] Derive current key health; do not expose stale `last_status` as truth.
+- [ ] For `F-AI-018`, persist enough typed telemetry to distinguish provider
+  timeout/hang, daemon/worker loss and ordinary lease expiry: phase,
+  alias/model, attempt start/end, effective deadline and daemon heartbeat.
+- [ ] Current analysis lease is 180 seconds and management deadline is 75
+  seconds. Provider deadline must fit inside the lease or the lease must be
+  safely renewed. Five stale leases must not end as an opaque string.
+- [ ] MariaDB competition/reclaim tests; failed analysis must not mutate
+  operational state and must not block live customer reply delivery.
+
+### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
+
+After `G-EPOCH`, implement only the chosen policy: validate before first chunk
+or between chunks. Test manager takeover/pause race, partial receipts and one
+terminal recovery action.
+
+## 10. Wave 3 — bounded `IMP-087.A` release
+
+Goal: ship the preserved safe informational slice without falsely closing full
+candidate/checkout delivery.
+
+Gate: P0.1–P0.6, WIP review, targeted `F-CORE-004` bounded-transition closure,
+`F-CORE-006` synthetic inbound dedupe/race proof, W1.2/W1.4 receipt-alert/PII
+contract and GREEN `T48` send-boundary regressions. This narrow slice does
+**not** wait for unrelated `IMP-044`, `G-EPOCH`, all remaining Wave 2 work or
+full commerce completion because it emits no price/stock/payment promise.
+
+- [ ] Port/rebase the five WIP files through review, not file overwrite.
+- [ ] Pure builder may emit only one short text for accepted trusted product
+  reference, explicit clarification or stale numeric candidate rejection.
+- [ ] No price, availability, payment URL, discount, reservation or manager
+  promise may be generated by this slice.
+- [ ] Persist reply before send. Require nonblank provider message ID for
+  `SENT`; any ambiguous/partial/exception outcome becomes `UNKNOWN`/review.
+- [ ] Replay and stale reclaim make zero duplicate provider sends.
+- [ ] Confirmed delivery writes exactly one local MODEL row and bypasses the
+  generic Gemini path; non-handled turns continue existing behavior.
+
+**Focused command:**
+
+```bash
+python manage.py test --settings=test_settings \
+  management.tests_ig_commerce_delivery \
+  management.tests_ig_commerce_state \
+  management.tests_ig_agentic_dialog
+```
+
+**Status rule:** after deploy, record `IMP-087.A DONE` as evidence inside the
+still-unchecked `IMP-087 PARTIAL`. Candidate anchoring, burst coalescing,
+reconciliation consumer and manager UI remain open.
+
+## 11. Wave 4 — commercial truth from selection to payment
+
+**Primary services/UI:**
+
+- `twocomms/management/services/ig_commerce_state.py`
+- `twocomms/management/services/ig_commerce_turns.py`
+- `twocomms/management/services/ig_catalog_graph.py`
+- `twocomms/management/services/ig_catalog_candidates.py`
+- `twocomms/management/services/ig_inventory.py`
+- `twocomms/management/services/ig_checkout.py`
+- `twocomms/management/services/ig_checkout_readiness.py`
+- `twocomms/management/services/bot_orders.py`
+- `twocomms/management/services/instagram_bot.py`
+- `twocomms/management/bot_views.py`
+- `twocomms/management/templates/management/bot.html`
+- `twocomms/storefront/views/ig_checkout.py`
+- `twocomms/storefront/views/manual_orders.py`
+
+**Primary regression suites:**
+
+- `management.tests_ig_commerce_state`
+- `management.tests_ig_commerce_turns`
+- `management.tests_ig_checkout_models`
+- `management.tests_ig_checkout_service`
+- `management.tests_ig_checkout_reconciliation`
+- `management.tests_ig_inventory_allocations`
+- `management.tests_ig_catalog_intelligence`
+- `storefront.tests.test_ig_checkout_view`
+- `storefront.tests.test_ig_checkout_access`
+
+### W4.0 `IMP-046.A` — early checkout-domain decision/re-audit
+
+- [ ] Trace proposal, TTL token, reservation, hosted checkout, order creation
+  and reconciliation from current main:
+  `services/bot_orders.py`, `services/ig_checkout.py`,
+  `storefront/views/ig_checkout.py`, `storefront/views/manual_orders.py`.
+- [ ] Read-only production counts and recent rows; no synthetic checkout.
+- [ ] Resolve `G-CHECKOUT`. `F-DATA-001` closes only through `IMP-046.A` with
+  either supported BUILD proof or migration/rollback-backed REMOVE proof.
+- [ ] Split `F-DATA-010`: **A** correct current session/proposal/deal/order
+  ownership now; **B** audit/cleanup or explicit exclusion of historical empty
+  episodes later. Finding closes only after A+B.
+
+### W4.1 Semantic and graph truth — `IMP-081`, `IMP-082`
+
+- [ ] `IMP-081`: runtime/admin consumer reads the authoritative semantic and
+  inventory revision; preserve append-only triggers and policy ownership.
+- [ ] `IMP-082`: complete print/blank/media/canonical-link topology and one
+  configuration identity across catalog, session and checkout.
+- [ ] `F-DATA-001` is not closed here. `T44` remains partial until current
+  consumer and MariaDB proof exist.
+
+**Improvements:** `IMPR-CAT-004`, part of `IMPR-FEAT-001`, `IMPR-INV-001`.
+
+### W4.2 Parser, candidate and stale binding — `IMP-085`, `IMP-083`
+
+- [ ] `IMP-085`: preserve customer edit ordering and turn facts through the
+  real selection/reply consumer. Parser ordering is distinct from later reply
+  burst coalescing.
+- [ ] `IMP-083`: bind candidate to durable session revision; revalidate before
+  send; relaxed alternatives only after hard constraints.
+- [ ] No old candidate survives a URL/product/color/fit/size correction.
+
+**Acceptance:** `T04`, `T38`, `T45`; `IMPR-FEAT-001/003`.
+
+### W4.3 Exact availability and allocation review — `IMP-084`, `IMP-086`
+
+- [ ] Readiness/alternative consumer uses exact variant/fit/size/quantity.
+- [ ] Preserve `F-CAT-004` contracts: quantity-aware `VariantSizeRule`, zero
+  stock does not infer dropship availability, shortage creates durable signal,
+  and `missing_fields` survives until explicitly answered.
+- [ ] MariaDB lock/constraint races prove last-unit and paid commitment safety.
+- [ ] Build the allocation/overbook manager queue for `IMP-086` only.
+
+**Acceptance:** `T47`; `IMPR-FEAT-002/003/004`, `IMPR-INV-001`.
+
+### W4.4 Explicit checkout/payment identity tasks
+
+- [ ] **`F-PAY-002` PARTIAL.** Reserve, TTL and bot/share access-token foundation
+  already exists. On BUILD, prove production reachability and one supported
+  proposal→reservation→hosted checkout→order flow. On REMOVE, prove the
+  replacement customer path before deleting anything.
+- [ ] **`F-PAY-003` PARTIAL.** Current commercial materialization uses
+  `ig-deal:{deal.pk}`. Remove/migrate or explicitly contain legacy
+  `ig-episode:*` paths; two deals in one episode remain distinct and replay of
+  one proposal does not duplicate an order.
+- [ ] **`F-PAY-006` PARTIAL.** Share token/access checks exist. Prove end-to-end
+  payer/recipient identity: authorization, expiry, payment binding, order
+  buyer/recipient fields and manager evidence.
+
+**Improvements:** `IMPR-FEAT-005/014/015`.
+
+### W4.5 Full `IMP-087` after the narrow slice
+
+Price/availability/payment-bearing delivery starts only after `088.B` supplies
+the authoritative current payable digest. Informational `IMP-087.A` remains
+independent and must not be widened while this dependency is missing.
+
+- [ ] **087.B Candidate anchoring:** reply/outbox references exact candidate,
+  session revision and selection digest.
+- [ ] **087.C Burst coalescing:** a bounded edit burst creates one final reply;
+  already receipted text is never withdrawn or duplicated.
+- [ ] **087.D Reconciliation:** provider receipt/read-back or audited manager
+  resolution moves `UNKNOWN` to a terminal state idempotently.
+- [ ] **087.E Delivery-review UI:** separate queue, reason, action, terminal
+  state and audit trail; no allocation or proposal action is mixed into it.
+- [ ] **087.F Authoritative commerce reply delivery:** only after `IMP-083`,
+  `IMP-084`, `IMP-086`, `088.B` and relevant `F-PAY-002/006` acceptance may
+  the outbox carry price, availability or payment URL. Persist the exact payable
+  digest/candidate revision used and revalidate immediately before send.
+
+### W4.6 Split `IMP-088` into verifiable slices
+
+Existing proposal digest/API code is a foundation, so `IMP-088` is
+`PARTIAL / requires current proof`, not greenfield.
+
+- [ ] **088.A Early cache freshness/read-only audit:** may run after W4.0,
+  before full exact-availability delivery. Add invalidation/versioning for
+  catalog/option facts, report stale/duplicate state read-only and cover
+  `IMPR-CAT-006`.
+- [ ] **088.B Authoritative payable digest:** after exact availability, produce
+  one current idempotent digest over exact
+  configuration, quantity, price, availability and TTL.
+- [ ] **088.C Proposal/catalog review UI:** its own reason/actions/terminals.
+- [ ] **088.D Evidence-only backfill:** consume the earlier 088.A report;
+  mutate only stale/duplicate rows with evidence and rollback.
+- [ ] **088.E Unified MariaDB proof and deploy:** races, constraints, cache
+  invalidation, replay and production read-only verification.
+
+### Three manager-review queues must remain distinct
+
+| Carrier | Queue meaning | Minimum owner actions | Terminal examples |
+|---|---|---|---|
+| `IMP-086` | allocation/overbook/paid capacity | allocate, reject, choose compatible stock, refund/escalate | resolved allocation, rejected, refunded |
+| `IMP-087` | ambiguous customer delivery | confirm provider delivery, send approved recovery, close without resend | delivered, recovery sent, no-send closed |
+| `IMP-088` | stale/ambiguous proposal or catalog | refresh proposal, approve current digest, cancel proposal | approved current, superseded, cancelled |
+
+Every queue needs unique idempotency key, reason code, actor, timestamp and
+auditable terminal state.
+
+## 12. Wave 5 — sales quality and authoritative merchandising
+
+### W5.1 Sales playbooks — `IMP-028.B`
+
+First create golden conversations; then implement:
+
+- [ ] `F-AI-009`: remove remaining prompt contradictions.
+- [ ] `F-AI-012`, `F-CTX-001`: intent-aware context budget with required
+  business facts and measured token ceiling.
+- [ ] `IMPR-SALES-001…011`: size recommendation, reactive-only exchange,
+  one contextual upsell, expensive/think/no-size handling, one question,
+  non-pressure, truthful scarcity and concrete close.
+- [ ] `IMPR-TXT-006`: versioned FAQ for safe delivery, tracking and reactive
+  exchange.
+
+`F-AI-010/011` and `F-CTX-003` should already be closed by W1.6; do not defer
+those safety boundaries to copywriting work.
+
+### W5.2 White 1090 variant — `IMP-095`, `F-DATA-016`
+
+Only after `G-WHITE`: create a real `ProductColorVariant` for product 110 with
+authoritative images, fit/size/default rules. Browser-test PDP, bot catalog,
+proposal and checkout across exact 1090–1450 configurations. Never reuse the
+thermo image or manufacture missing sellability data. This slice depends on
+authoritative white assets/rules and the already-shipped price authority guard,
+not on completion of every W4 commerce task.
+
+### W5.3 Model-authored follow-up — `IMP-090`, `IMPR-FUP-013`
+
+Model may compose only from verified facts. Deterministic trigger, opt-out,
+Meta window, payment/stock recheck and local fallback remain final authority.
+Provider/AI failure cannot lose or duplicate the durable task.
+This bounded composition slice may run after the relevant `IMP-044` AI
+reliability/timeout gate and its named factual guards; it does not wait for the
+full commerce chain.
+
+## 13. Wave 6 — truthful data, reporting and operations
+
+**Primary code/tests:** `twocomms/management/bot_views.py`,
+`twocomms/management/templates/management/bot.html`, lifecycle/import services,
+`management.tests_ig_funnel_analytics`, `management.tests_ig_sales_automation`,
+`management.tests_ig_inbox_refresh`, analytics/Meta contract tests and real
+browser QA for any changed dashboard surface.
+
+### W6.1 Role provenance — `IMP-096`, `F-DATA-015`
+
+Read-only report, dry-run evidence-only backfill and apply only unambiguous
+provider/outgoing-registry rows. Report unknowns; never classify by text.
+The read-only report and dry-run are an independent baseline slice.
+
+### W6.2 Attribution and actor truth — `IMP-043`
+
+- [ ] `F-SCORE-014`: bot-only, manager-assisted and manager-created reader/UI.
+- [ ] `F-DATA-004`, `T03`: show truthful `source unknown` until `G-ADS` supplies
+  real attribution. This blocked portion stays visible without blocking actor
+  separation.
+
+### W6.3 Lifecycle and CAPI are separate contracts
+
+- [ ] `F-DATA-002`: trace every `IgLifecycleEvent` producer and consumer through
+  one real flow; prove event ownership, dedupe and terminal consumption.
+- [ ] `F-DATA-003`, `F-PAY-008`, `T08`: only after policy/source approval,
+  serialize CAPI with stable business `event_id`, consent and replay proof.
+- [ ] No live ad test events merely to make a checkbox green.
+
+### W6.4 Data cleanup with one owner per meaning
+
+- [ ] `F-DATA-009`: separate manager observations from sales analytics.
+- [ ] `F-DATA-010.B`: explain/audit historical empty commercial episodes after
+  W4.0 current ownership is correct.
+- [ ] `F-SCORE-012`: either define producers/consumers for five signal types or
+  remove them with migration and rollback evidence.
+
+### W6.5 Operator value — `IMP-092`, `IMP-100`
+
+- [ ] `IMP-092`, `IMPR-FEAT-012/013`: fact-based manager priority and honest
+  after-hours behavior, preserving opt-out and Meta window.
+- [ ] `IMP-100`, `IMPR-OPS-002`: bounded UI-log dedupe with count/last-seen;
+  preserve full rotating incident evidence; MariaDB race/retention proof.
+
+### W6.6 Truthful analytics UX — `IMP-093`
+
+Use both `docs/plans/2026-08-05-management-bot-visual-selection-final.md` and
+the preserved code WIP
+`/Users/zainllw0w/.config/superpowers/worktrees/site/codex-management-bot-statistics-visuals/docs/plans/2026-08-07-management-bot-statistics-visuals.md`
+as requirement sources. The worktree also contains modified implementation and
+tests plus two untracked files; its diff is volatile, and neither the plan nor
+dirty code proves shipment.
+
+- [ ] `F-SCORE-007`: separately define satisfaction, service-risk and
+  repeat-potential with numerator, denominator and unknown state.
+- [ ] `IMPR-UX-002/004/005`: current-episode sparkline, unified evidence
+  timeline and KPI groups.
+- [ ] API includes schema version, generated-at/freshness, Kyiv period bounds,
+  persisted message totals and stable existing keys.
+- [ ] Period funnels, loss and conversion use event-time facts inside the
+  requested window; never reconstruct history from mutable current `stage` or
+  `lost_reason`.
+- [ ] Sparse/empty data renders zero/unknown honestly; no synthetic trends,
+  percentages or deltas.
+- [ ] UI preserves last successful data on refresh error, exposes stale/error/
+  retry state and works at 1440/768/375/320 px with reduced motion.
+
+Baseline data contract/API tests can be reviewed and shipped independently of
+full commerce completion; proposal/payment-specific panels retain their own
+dependencies.
+
+## 14. Wave 7 — debt, retention and visual releases
+
+### W7.1 Architecture cleanup — `IMP-045`, `IMP-046.B`
+
+- [ ] `IMP-045`, `F-DEBT-004`: classify every silent exception by domain;
+  retry, escalate or intentionally log. Work in small domain commits.
+- [ ] `IMP-046.A` decision was made in W4.0. Here execute only `IMP-046.B`:
+  separately audit `F-DEBT-001`, `F-DEBT-002`, `F-DEBT-003`, `F-OPS-002` and
+  the true `F-UX-011` residue. Assignments/provider live status are active;
+  delete only proven unused `log_items`, CSS selectors and dead entry points.
+- [ ] Do not delete `IgLifecycleEvent` as generic cleanup; it has an active
+  verification path under W6.3.
+
+### W7.2 Retention — `IMP-091`
+
+After `G-RETENTION`, implement reactivation, two-step satisfaction→review/UGC,
+loyalty and preorder as separate opt-in slices:
+
+- [ ] `IMPR-FEAT-008/009/010/011` each has audience, consent, offer, terminal,
+  opt-out and measurement.
+- [ ] `T20` covers the two-step received/UGC boundary.
+- [ ] `T21` remains staff/manual evidence unless policy explicitly authorizes
+  promotion automation.
+
+### W7.3 Existing UX gaps
+
+- [ ] **`GAP-CHECKOUT-UX-001`.** Reproduce the preserved 390px breakpoint
+  issue on current main at 320/375/390. Implement scoped CSS/test or mark
+  terminal REJECTED with evidence.
+- [ ] **`GAP-UX-001`.** Add stable loading/action feedback and skeletons with
+  `prefers-reduced-motion`; no decorative motion in place of state.
+
+### W7.4 Supplemental visual backlog
+
+Full definitions:
+`docs/audits/2026-08-05-management-bot-visual-improvements.md`.
+Status/release ledger:
+`docs/plans/2026-08-05-management-bot-visual-selection-final.md`.
+
+Implement one cohesive release at a time with backend fact, contract tests,
+browser matrix, accessibility/reduced-motion check and deployed SHA.
+
+- [ ] **NEXT RELEASE:** 2, 3, 4, 8, 12, 14, 15, 16, 17, 20, 22, 23, 25, 27,
+  30, 32, 33, 37, 38, 39, 42, 45, 47, 48, 50, 53, 54, 56, 57, 59, 61, 62,
+  63, 65, 66, 68, 70, 71, 72, 73, 74, 75, 76, 77, 79, 80, 83, 85, 86, 87,
+  89, 90, 96, 97, 98.
+- [ ] **AFTER BASELINE:** 1, 5, 6, 7, 9, 10, 11, 19, 21, 24, 26, 28, 29,
+  31, 34, 35, 36, 41, 43, 44, 46, 49, 52, 55, 58, 60, 64, 67, 69, 78, 81,
+  84, 88, 91, 92, 93, 94, 95, 99, 100.
+- [ ] **DEFERRED UNTIL MEASURED:** 18, 40, 51, 82.
+- **REJECTED:** 13, sound alerts, forced auto-open, fake countdowns,
+  decorative particles and unproven delivery claims.
+
+## 15. Exact coverage map
+
+| Plan area | Required unresolved IDs |
+|---|---|
+| Preflight/gates | `BLOCKER-INFRA-001`, `BLOCKER-DATA-001`, `BLOCKER-POLICY-001`, `BLOCKER-POLICY-002`; `RULE-BRANCH-001`, `RULE-DATA-001`, `RULE-SEND-001`; resolved `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` |
+| Wave 1 | `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`, `F-AI-010/011`, `F-CTX-003`; `IMP-028.A`, `IMP-060`, `IMP-061`, `IMP-098`, `IMP-101` |
+| Wave 2 | `F-CORE-006`, `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`; `IMP-044`, `IMP-094`; `T40`, `T41` |
+| Wave 3 | narrow `IMP-087.A`; full `IMP-087` remains PARTIAL |
+| Wave 4 | `F-CAT-004`, `F-DATA-001`, `F-DATA-010.A`, `F-PAY-002`, `F-PAY-003`, `F-PAY-006`; `IMP-046.A`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`; `IMPR-CAT-002`, `IMPR-CAT-004`, `IMPR-CAT-006`, `IMPR-FEAT-001`, `IMPR-FEAT-002`, `IMPR-FEAT-003`, `IMPR-FEAT-004`, `IMPR-FEAT-005`, `IMPR-FEAT-014`, `IMPR-FEAT-015`, `IMPR-INV-001`; `T04`, `T38`, `T44`, `T45`, `T47`; GREEN guard `T51` |
+| Wave 5 | `F-AI-009`, `F-AI-012`, `F-CTX-001`, `F-DATA-016`; `IMP-028.B`, `IMP-090`, `IMP-095`; `IMPR-SALES-001`, `IMPR-SALES-002`, `IMPR-SALES-003`, `IMPR-SALES-004`, `IMPR-SALES-005`, `IMPR-SALES-006`, `IMPR-SALES-007`, `IMPR-SALES-008`, `IMPR-SALES-009`, `IMPR-SALES-010`, `IMPR-SALES-011`, `IMPR-TXT-006`, `IMPR-FUP-013` |
+| Wave 6 | `F-DATA-002`, `F-DATA-003`, `F-DATA-004`, `F-DATA-009`, `F-DATA-010.B`, `F-DATA-015`, `F-PAY-008`, `F-SCORE-007`, `F-SCORE-012`, `F-SCORE-014`; `IMP-043`, `IMP-092`, `IMP-093`, `IMP-096`, `IMP-100`; `IMPR-FEAT-012`, `IMPR-FEAT-013`, `IMPR-OPS-002`, `IMPR-UX-002`, `IMPR-UX-004`, `IMPR-UX-005`; `T03`, `T08` |
+| Wave 7 | `F-DEBT-001`, `F-DEBT-002`, `F-DEBT-003`, `F-DEBT-004`, `F-OPS-002`, `F-UX-011`; `IMP-045`, `IMP-046.B`, `IMP-091`; `IMPR-FEAT-008`, `IMPR-FEAT-009`, `IMPR-FEAT-010`, `IMPR-FEAT-011`; `T20`, `T21`; `GAP-UX-001`, `GAP-CHECKOUT-UX-001`; all visual numbers |
+
+`F-DATA-010` appears twice by design: A fixes ownership for new work; B audits
+or excludes historical empty episodes. It closes only after both. No other
+finding may have two uncoordinated owners.
+
+## 16. Release and documentation closure protocol
+
+For each checkbox:
+
+1. Confirm it is still open in current code/data.
+2. Name owner, source of truth, negative case and fail-closed behavior.
+3. Write and run focused RED.
+4. Implement the smallest compatible slice.
+5. Run focused green, adjacent regressions, structural gate and diff check.
+6. Run disposable MariaDB or browser matrix when relevant.
+7. Independent review for payment, stock, delivery, migrations and PII.
+8. Commit scoped files, push/integrate `main`, deploy and verify exact server
+   SHA, migrations, daemon and persisted evidence.
+9. Update `00`, relevant `03/05/06`, `07`, `08`, `09`, `10`, `12`, `13` and
+   this file. Mark `[x]` only now.
+
+### Production topology and command boundary
+
+- Git root: `/home/qlknpodo/TWC/TwoComms_Site`
+- Django app: `/home/qlknpodo/TWC/TwoComms_Site/twocomms`
+- Venv:
+  `/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate`
+- Branch: `main`; pull must be fast-forward compatible.
+- `deploy.sh` lives in the Git root, not the Django app directory.
+
+Command shape after a pushed, reviewed slice (credentials stay outside docs and
+shell history where possible):
+
+```bash
+source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
+cd /home/qlknpodo/TWC/TwoComms_Site
+git pull --ff-only origin main
+./deploy.sh
+cd twocomms
+python manage.py check
+python manage.py showmigrations management
+python manage.py run_instagram_bot --ensure
+```
+
+Then run only the slice-specific read-only production reconciliation and record
+the exact deployed SHA. Never write SSH/DB/API secrets into audit files, commit
+messages, test output or Telegram diagnostics.
+
+## 17. Definition of completion
+
+This plan is complete only when every raw item is one of:
+
+- `[x]` with release evidence;
+- visibly `BLOCKED` with owner and dependent IDs;
+- terminal `REFRAMED`/`REJECTED` with rationale and replacement/no-action
+  decision.
+
+The final audit must mechanically prove:
+
+- every unchecked `IMP-*`, `F-*`, `IMPR-*`, blocker, rule, gap and unfinished
+  `T*` from `13` appears here;
+- all referenced paths exist or are explicitly worktree-only;
+- counts match `07` and `00`;
+- `git diff --check` is clean;
+- local `main`, `origin/main` and production release state are explicitly
+  reconciled rather than inferred from an old checkpoint.

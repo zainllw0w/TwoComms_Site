@@ -1,23 +1,24 @@
 # 00_PROGRESS — журнал прогресса аудита Instagram-бота
 
 > **Единственная точка входа для продолжения работ. Читать первым.**
-> Текущие статусы находятся в первых разделах этого файла и в
-> `07_IMPLEMENTATION_PLAN.md`. Более поздние по тексту разделы сохранены как
-> хронологический журнал и могут описывать состояние на момент конкретной волны.
+> Текущие per-ID статусы находятся в `07_IMPLEMENTATION_PLAN.md`, полный
+> незакрытый inventory — в `13_UNCLOSED_FINDINGS_RAW.md`, а активный порядок
+> выполнения — в `14_IMPLEMENT2.md`. Более поздние по тексту разделы сохранены
+> как хронологический журнал и могут описывать состояние конкретной волны.
 
 ## Быстрая сводка
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **W4B, W6/W7, P1 reliability/security/alerts, W12 delivery и event continuation закрыты; активный остаток: W5/W8/W9/W10/W11** |
-| Дата старта / обновления | 2026-08-06 (после синхронизированной production-проверки W9 repeat episode) |
+| Текущая фаза | **Implement2 handoff подготовлен; implementation не начата. Следующая работа идёт по topological Waves 1–7 из `14_IMPLEMENT2.md`, начиная с immediate safety и MariaDB evidence gates** |
+| Дата старта / обновления | 2026-08-07 (source reconciliation, live analysis-lease audit, Implement2) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `42b41c7f` подтверждён в `origin/main` и на production; он документирует кодовый срез `98bb160e` (payment-gated repeat episode) поверх `bc4ec2d5` (durable commerce state), `fbe33a68` (episode-scoped presentation), `18ddc636` (lease/reclaim), `b23dfeed` (late-payment inventory race) и всей предыдущей price/inventory hardening-цепочки |
-| **Статус 105 IMP-задач** | **80 закрыты, 16 открыты, 9 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`)** |
+| База внедрения | Runtime/code snapshot аудита — `19f5ef70`, который до публикации handoff совпадал с `origin/main` и production. Публикующий docs-only commit может продвинуть Git SHA без изменения runtime-кода. Кодовый предок остаётся `98bb160e` поверх `bc4ec2d5`, `fbe33a68`, `18ddc636`, `b23dfeed` и предыдущей price/inventory hardening-цепочки. |
+| **Статус 105 IMP-задач** | **80 закрыты, 15 открыты, 10 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
-| Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
-| Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **182 уникальных `F-*` идентификатора: 139 закрыты, 37 открыты, 6 partial**; F-CORE-003 и новый F-STATE-011 исправлены и verified |
+| Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; главный источник реальных переписок/товаров/сделок/оплат. Discovery — read-only; concurrency/destructive tests — только disposable MariaDB |
+| Локальная SQLite | **не источник business/data истины и не MariaDB acceptance**; только быстрый unit/regression слой, не проверяет locks, concurrent constraints, triggers и `varchar(max_length)`, см. F-TEST-003 |
+| Реестр находок | **183 уникальных `F-*` идентификатора: 139 закрыты, 31 OPEN, 1 BLOCKED, 12 PARTIAL**; `F-PAY-002/003/006` переклассифицированы в PARTIAL по current-main evidence, `F-DATA-004` BLOCKED внешним attribution source, новый `F-AI-018` добавлен после live job `292` |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **105** в W0–W12, включая W4B/W4C/W4D и IMP-062…105 |
@@ -27,15 +28,17 @@
 | Файл | Состояние |
 |---|---|
 | `00_PROGRESS.md` | каноническая точка входа, общий статус и реестр восстановленных источников |
-| `03_FINDINGS_REGISTER.md` | 182 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
+| `03_FINDINGS_REGISTER.md` | 183 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
 | `04_DECISION_LOG.md` | 11 решений (DR-001…DR-011) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 51 улучшение + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус 105 IMP-задач; отдельные checkbox-matrix покрывают все 182 F-* и все 51 IMPR-* |
+| `07_IMPLEMENTATION_PLAN.md` | историческая каноническая status matrix 105 IMP-задач, 183 F-* и 51 IMPR-*; активный порядок задаёт `14` |
+| `13_UNCLOSED_FINDINGS_RAW.md` | полный handoff inventory: unchecked IDs, test boundaries, blockers, rules, gaps, WIP и resolved DOC conflicts |
+| `14_IMPLEMENT2.md` | активный topological execution plan; после каждого release синхронизировать с `00/07/13` и evidence logs |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
 | `06_TEST_MATRIX.md` | оформлен; 51 acceptance-сценарий и текущие gates |
-| `08`–`12` | оформлены; completion, deploy, blockers, validation и source reconciliation |
+| `08`–`12` | completion, deploy, blockers, validation и source reconciliation; более старые цифры читаются как historical evidence |
 
 > ⚠️ **Особенность репозитория:** `.gitignore:227` содержит `*_PLAN.md`, поэтому
 > `07_IMPLEMENTATION_PLAN.md` пришлось добавить через `git add -f`. Он уже
@@ -51,29 +54,38 @@
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
 | Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`; `IMP-087` создаёт durable selection/transition/decision state и reducer запускается до classifier/Gemini на production `bc4ec2d5`. `98bb160e` добавляет payment-gated repeat episode и чистую следующую commerce session; exchange/return остаются post-sale flow. Открыты candidate reply anchoring, burst reduction, relaxed alternatives, полный topology, manager review UI и отдельный disposable MariaDB race/constraint gate |
-| Открыто, W9 | `IMP-088` |
-| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
+| Частично, W9 | `IMP-088` (digest/proposal workspace foundation есть; freshness, review UI, audit/backfill, MariaDB/deploy proof остаются) |
+| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; `IMP-060`, `IMP-090`, `IMP-096` и baseline `IMP-093` не зависят от завершения полного commerce chain. F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
 
-## Current synchronized production verification (2026-08-06)
+## Synchronized production verification before Implement2 docs release (2026-08-07)
 
 `main`, `origin/main` и production находятся на
-`42b41c7f04bac7a1da109462bc9248b99a56c737`. На production Git-root —
+`19f5ef70f20e1b3d5da5975786359fe8c7e06df4`. На production Git-root —
 `/home/qlknpodo/TWC/TwoComms_Site`, а Django application directory — его
 `twocomms/` child; поэтому `deploy.sh` корректно существует в Git-root, а не
 в application directory. Blob `deploy.sh` на сервере равен Git blob
 `37c26433...`, executable mode сохранён, а `git status --porcelain
 --untracked-files=no` пуст: tracked production tree синхронизирован с main.
 
-Read-only MariaDB check увидел 17 `IgConversationAnalysisJob` со статусом
-`FAILED`: все `trigger=reconcile`, `attempts=5`, 2026-07-30…2026-08-03 и
-`last_error` класса `CallAIAnalysisError` с Gemini (у трёх строк literal
-`429`); pending rows отсутствуют. Это намеренный terminal
-retry-budget, а не потеря нового customer work: та же revision не повторяется
-вслепую, а новое inbound-сообщение либо изменение payment/order truth создаёт
-следующую revision с новым budget. `status_snapshot()` отдаёт count как
-`analysis_failed`; повтор этих исторических rows не запускался и клиентам ничего
-не отправлялось.
+Read-only MariaDB check увидел 18 `IgConversationAnalysisJob` со статусом
+`FAILED`: 17 historical `trigger=reconcile`, `attempts=5`, 2026-07-30…2026-08-03
+и `last_error` класса `CallAIAnalysisError` с Gemini (у трёх строк literal
+`429`), плюс job `292`, client `310`, `trigger=manager_message`, attempts=5,
+`last_error=stale_lease_retry_exhausted`. Pending rows отсутствуют. Historical
+reconcile rows остаются bounded terminal budget; новый manager-message случай
+зарегистрирован как `F-AI-018` и требует typed provider/process/lease telemetry.
+Failed analysis не является customer-delivery replay candidate и не имеет права
+менять operational episode/payment/order truth.
+
+Два незавершённых code-WIP также сохранены локально и не считаются shipment:
+`ig-commerce-durable-state` содержит narrow `IMP-087.A`, а
+`codex-management-bot-statistics-visuals` содержит volatile tracked diff в
+`bot_views.py`, `ig_funnel_analytics.py`, `bot.html` и тестах плюс новые plan/test
+files для `IMP-093`; снять свежий `git diff --stat` перед recovery. Оба требуют
+current-main review/rebase; второй нельзя описывать как plan-only. Dirty `codex-management-bot-live-visuals` и historical
+`codex/instagram-assisted-checkout-pre-split` также внесены в source matrix и не
+подлежат wholesale cherry-pick.
 
 ## Current checkpoint: durable commerce state activation (2026-08-05)
 
@@ -106,9 +118,9 @@ retry-budget, а не потеря нового customer work: та же revisio
 
 `IMP-087` остаётся `[ ] PARTIAL`: candidate prompts/replies с provider receipts,
 burst reduction, safe delivery reconciliation и operational manager-review
-consumer ещё не подключены. `IMP-088` остаётся
-OPEN: payable digest, manager UI, freshness/audit commands и disposable MariaDB
-race/constraint suite требуют отдельной реализации.
+consumer ещё не подключены. `IMP-088` теперь `[ ] PARTIAL`: digest и proposal
+workspace foundation уже есть; payable lifecycle, freshness/audit, review UI и
+disposable MariaDB race/constraint suite требуют отдельной реализации и evidence.
 
 ## Previous checkpoint: lease/reclaim, late-payment inventory and episode-scoped presentation (2026-08-05)
 

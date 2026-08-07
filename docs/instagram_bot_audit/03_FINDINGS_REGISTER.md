@@ -55,7 +55,7 @@
 | F-DATA-001 | Вся checkout-подсистема (5 таблиц) в проде пуста при 42 KB тестов | P1 | OPEN | high | прод-SQL |
 | F-DATA-002 | `IgLifecycleEvent` — 0 строк: событийная модель жизненного цикла не пишется | P1 | OPEN | high | прод-SQL |
 | F-DATA-003 | `IgMetaEventLog` — 0 строк: Meta CAPI Purchase не логируется | P1 | OPEN | high | прод-SQL |
-| F-DATA-004 | `BotAdCampaign` — 0 строк: атрибуция рекламы не наполняется | P2 | OPEN | high | прод-SQL |
+| F-DATA-004 | `BotAdCampaign` — 0 строк: attribution source отсутствует в проверенных payload | P2 | BLOCKED | high | прод-SQL/payload audit |
 | F-SEC-001 | Хардкод `page_id` / `ig_user_id` / `allowed_senders` в default'ах модели | P2 | CONFIRMED | high | `models.py:3609-3627` |
 | F-DEBT-004 | ~60 мест `except Exception: pass` в ядре бота, часть скрывает бизнес-сбои | P1 | CONFIRMED | high | `instagram_bot.py` (список ниже) |
 | F-FUP-013 | Stale finalization exception мог откатить уже финальный `SENT` в `AMBIGUOUS` | P1 | FIXED / VERIFIED | high | `bot_followups.py:_mark_followup_finalization_failure`, `414e639e` |
@@ -176,22 +176,25 @@
 ## F-CORE-004: блокирующий файловый lock без таймаута в web-потоке webhook'а
 
 - **Статус:** CONFIRMED · **Тип:** performance / availability · **Severity:** P1 · **Confidence:** high
-- **Компоненты:** `instagram_bot.py:785` (`_handle_echo` → `with pause_reply_boundary()`),
-  `instagram_bot.py:4361` (`enqueue_inbound` при явном opt-out),
-  реализация лока `ig_maintenance._exclusive_file_lock` — `fcntl.flock(LOCK_EX)` без `LOCK_NB`
-- **Механика:** оба места вызываются синхронно внутри HTTP-запроса `POST /bot/webhook/`.
-  Демон берёт тот же лок в `customer_send_boundary` на время Meta-запроса.
+- **Компоненты:** HTTP pause/takeover и explicit opt-out transitions используют
+  `pause_reply_boundary()`; реализация лока
+  `ig_maintenance._exclusive_file_lock` — `fcntl.flock(LOCK_EX)` без `LOCK_NB`.
+- **Механика:** transition paths вызываются синхронно внутри HTTP-запроса
+  `POST /bot/webhook/`. Демон берёт тот же лок в `customer_send_boundary` на
+  время Meta-запроса.
   Если Meta-запрос отвечает медленно, webhook-поток ждёт неопределённо долго.
 - **Последствие:** Meta таймаутит webhook и ретраит доставку; при систематическом
   повторении Meta деградирует подписку. Плюс web-воркеры Passenger заняты ожиданием.
 - **Смягчение:** окно узкое (лок держится только вокруг одного Meta-вызова, генерация
   вне лока — это уже осознанно исправлено, см. docstring `ig_reply_boundary.py`).
-- **Рекомендация:** для web-пути использовать неблокирующий вариант с ограниченным
-  ретраем (`LOCK_NB` + короткий backoff, суммарно ≤1 с), а при неудаче — отложить
-  переход в durable-очередь (echo уже персистится отдельно). Нельзя просто убрать лок:
-  он гарантирует, что takeover не будет обойдён поздним send'ом.
-- **Тест:** держать лок из отдельного процесса, послать echo-webhook, замерить latency
-  ответа — должна остаться в пределах ~1 с.
+- **Рекомендация:** bounded/non-blocking поведение применяется только к HTTP
+  pause/opt-out transition. Customer-send serialization сохраняется: нельзя
+  убрать lock из `customer_send_boundary`, иначе поздний send обойдёт takeover.
+  При contention transition должен durable-персиститься для recovery, а webhook
+  завершиться не позднее одной секунды.
+- **Тест:** отдельный процесс удерживает lock; echo/opt-out webhook отвечает
+  ≤1 секунды, transition не теряется, durable recovery применяется ровно один
+  раз, а параллельный customer send не проходит permission boundary.
 
 ## F-CORE-005: разрыв многочанкового ответа при смене epoch
 
@@ -206,8 +209,10 @@
 - **Худший случай:** ответ содержал ссылку на оплату во втором чанке — клиент получил
   обещание оплаты без ссылки.
 - **Рекомендация (двухчастная):**
-  1. Алерт менеджеру должен содержать: сколько чанков доставлено, полный текст ответа
-     и явную инструкцию «клиент увидел только первую часть».
+  1. Restricted audit record должен содержать полный текст, planned/delivered
+     chunk count, provider IDs и failure boundary. Manager alert — redacted,
+     minimum-necessary, с безопасной ссылкой на review и инструкцией, какую
+     часть клиент мог увидеть.
   2. Проверять permission один раз перед первым чанком и далее не прерывать
      уже начатую доставку одного логического ответа — прерывание на середине хуже,
      чем доставка целого ответа с задержкой в секунды. Пауза при этом гарантированно
@@ -232,11 +237,14 @@
 - **Оценка вероятности:** нужна проверка на проде — сколько строк с `mid IS NULL`
   и `role='user'` существует, и есть ли среди них дубли по `(sender_id, text, время)`.
   **Это следующий шаг проверки, пока не выполнен.**
-- **Рекомендация:** для строк без `mid` строить синтетический ключ
-  `sha256(sender_id + provider_created_at + text)` и писать его в отдельное
-  индексируемое поле `dedupe_key` (NOT NULL). Тогда уникальность работает всегда.
-- **Тест:** дважды вызвать `enqueue_inbound` с `mid=""` и одинаковым текстом →
-  ровно одна `PENDING`-строка.
+- **Рекомендация:** для строк без `mid` строить синтетический ключ из
+  `sender_id`, provider timestamp, normalized text и stable attachment identity,
+  затем писать его в отдельное индексируемое поле `dedupe_key` (NOT NULL).
+  Нельзя дедуплицировать только по тексту: одинаковая фраза, отправленная позже,
+  является новым сообщением.
+- **Тест:** два attempts одного provider event дают одну processing path; тот же
+  normalized text с другим provider timestamp либо attachment identity создаёт
+  новое inbound и может получить отдельный ответ.
 
 ## F-AI-001: system prompt молча деградирует до «бота без каталога»
 
@@ -381,11 +389,11 @@
 | F-SCORE-014 | Нет разделения bot-only / manager-assisted / manager-created (данные есть) | P2 | CONFIRMED | high |
 | **F-PAY-001** | Старый monobank-инвойс не отменяется при смене товара → «потерянный платёж» | **P0** | CONFIRMED | high |
 | **F-PAY-007** | Нет детерминированного текста «оплата получена» — его генерирует LLM | **P0** | CONFIRMED | high |
-| F-PAY-002 | Checkout-домен мёртв: нет резерва стока, TTL ссылки, share-токена | P1 | CONFIRMED | high |
-| F-PAY-003 | Ключ идемпотентности заказа привязан к эпизоду, а не к сделке | P1 | CONFIRMED | high |
+| F-PAY-002 | Checkout-domain foundation существует; production reachability и полный supported flow не доказаны | P1 | PARTIAL | high |
+| F-PAY-003 | Current materialization deal-scoped; legacy `ig-episode:*` paths и two-deals regression остаются | P1 | PARTIAL | high |
 | F-PAY-004 | `poll_pending_deals` видит только `AWAITING_PAYMENT` и опрашивает terminal truth | P1 | **FIXED `2a89d860`** | high |
 | F-PAY-005 | У платёжной ссылки нет TTL, а follow-up утверждает «посилання ще активне» | P1 | CONFIRMED | high |
-| F-PAY-006 | По пересланной ссылке может заплатить кто угодно, заказ на исходного клиента | P2 | CONFIRMED | high |
+| F-PAY-006 | Share-token/access foundation существует; payer/recipient E2E contract не доказан | P2 | PARTIAL | high |
 | F-PAY-008 | Meta CAPI: `event_id` случайный вне order-пути, `meta_feedback_enabled` default False | P1 | CONFIRMED | high |
 | **F-PAY-009** | Тексты денежного контура (ссылка, ТТН, fallback) — только украинский | **P1** | CONFIRMED | high |
 | F-PAY-010 | Сумму предоплаты мог подтвердить сам клиент (`seller_roles` включал `model`) | P1 | FIXED/VERIFIED (`7440bb98`) | high |
@@ -1417,7 +1425,7 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
 | F-UX-008 | Таблица воронки в статистике теряет строки, доли не дают 100% | P1 | CONFIRMED | high |
 | F-UX-009 | Сетевые сбои проглатываются в 8 местах (`.catch(()=>{})`) | P1 | CONFIRMED | high |
 | F-UX-010 | Технический жаргон в точках принятия решения (Provider, override, scope) | P2 | CONFIRMED | high |
-| F-UX-011 | Мёртвые элементы: `log_items`, 6 CSS-классов, `assignments`, статичный «live» | P3 | CONFIRMED | high |
+| F-UX-011 | Остаточный UI debt: unused `log_items`, доказанные CSS leftovers и реально dead entry points | P3 | OPEN | high |
 | F-UX-012 | Контраст и размер текста ниже AA: подписи 8.5–9.8 px, серый на тёмном | P2 | CONFIRMED | high |
 | F-UX-013 | Главные табы без `role="tablist"`, тогда как табы заказов сделаны правильно | P2 | CONFIRMED | high |
 | F-AI-013 | *(уточнение)* селект модели содержит 5 опций при allowlist из 6 | P2 | CONFIRMED | high |
@@ -1707,10 +1715,11 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
 - **F-UX-013 (P2).** Главные табы — обычные кнопки без `role="tablist"`,
   `aria-selected`, навигации стрелками, тогда как фильтры заказов и мобильные
   табы клиента сделаны корректно. Несогласованность внутри одного файла.
-- **F-UX-011 (P3).** Мёртвое: `log_items` передаётся в шаблон и не используется
-  (`bot_views.py:325`); переменная `assignments` вычисляется и не используется
-  (`bot.html:1369`); статичный индикатор «live» горит всегда, даже когда
-  поллинг упал (`:485`); 6 CSS-классов без разметки (`:349, 359-362, 379, 405-406`).
+- **F-UX-011 (P3, OPEN; прежняя формулировка устарела).** Assignments и
+  provider-aware live status теперь активны и не должны удаляться как dead UI.
+  Остаток: доказать call-site usage `log_items`, удалить только реально unused
+  data/entry points и перепроверить CSS selectors по current template/browser.
+  Старый список из шести классов — hypothesis source, а не разрешение на blind delete.
 
 ### F-AI-013 уточнение
 Селект модели в шаблоне содержит 5 опций (`bot.html:539-544`), а
@@ -4038,7 +4047,7 @@ pooled cooldown для непустого custom key; для пула сообщ
 **Verification:** `management.tests_ig_audit_fixes` 45/45, production SHA
 `6b86e103`.
 
-### F-CAT-004 (P1, OPEN): W6 stock-policy requirements были только в dirty worktree
+### F-CAT-004 (P1, PARTIAL): stock-policy foundation перенесён, consumer/UI/MariaDB residue открыт
 
 В `.claude/worktrees/ig-bot-w1` обнаружены незакоммиченные требования/тесты для
 `VariantSizeRule`: количество должно учитываться явно, `is_dropship_available`
@@ -4275,3 +4284,48 @@ checkout assertions; production SHA `434428ad`.
   passed 2897 tests with 3 skipped.
 - **Task:** fixed reliability subtask under `IMP-094`; the broader disposable
   MariaDB production-like gate remains OPEN.
+
+### F-PAY-002 / F-PAY-003 / F-PAY-006 (PARTIAL, current-main re-audit 2026-08-07)
+
+- Checkout foundation is no longer absent: proposal inventory reservation,
+  proposal/access-token TTL and bot/share access tokens exist in current main.
+  `F-PAY-002` remains unchecked until production reachability, supported BUILD
+  versus REMOVE decision and end-to-end proposal→checkout→order proof exist.
+- Current commercial materialization uses `materialization_key="ig-deal:{deal.pk}"`.
+  Legacy `ig-episode:*` order paths still exist in
+  `storefront/views/manual_orders.py` and `orders/services/order_builder.py`.
+  `F-PAY-003` therefore needs a two-deals-in-one-episode regression, migration/
+  compatibility decision and replay proof rather than a greenfield rewrite.
+- Share-token issuance/expiry and access checks exist, but payer versus recipient,
+  order buyer fields and manager evidence have not been proven end to end.
+  `F-PAY-006` remains PARTIAL until that identity contract and negative cases pass.
+
+### F-AI-018 (P1, OPEN): fresh manager-message analysis exhausted stale leases without actionable telemetry
+
+- **Production evidence (read-only, 2026-08-07):**
+  `IgConversationAnalysisJob(id=292, client_id=310,
+  trigger="manager_message")` завершился после `attempts=5` с
+  `last_error="stale_lease_retry_exhausted"`. Это единственный свежий
+  manager-message failure среди 18 terminal failed jobs; остальные 17 —
+  historical `trigger=reconcile` Gemini failures.
+- **Проблема:** terminal marker не отвечает, что именно произошло: provider
+  call завис дольше lease, daemon/worker исчез, lease истёк при живом процессе
+  или retry budget был исчерпан после серии разных причин. Без typed attempt
+  telemetry оператор видит только итоговую строку и не может выбрать fix.
+- **Текущий timing contract:** analysis job lease = **180 секунд**
+  (`bot_conversation_analysis.LEASE_SECONDS`), management text deadline =
+  **75 секунд** (`call_ai_analysis.MANAGEMENT_TEXT_DEADLINE_SECONDS`). Provider
+  deadline должен гарантированно помещаться внутри lease либо worker должен
+  безопасно продлевать lease с ownership check.
+  Каждый attempt различает provider timeout/error, process/daemon loss,
+  lease expiry/reclaim и ownership conflict; диагностика не содержит PII или
+  secret values.
+- **Безопасность:** failure/skipped analysis не имеет права менять operational
+  episode/history, payment/order state, customer delivery или автоматически
+  создавать повторную отправку.
+- **Carrier / acceptance:** `IMP-044`; MariaDB competition/reclaim tests,
+  bounded provider deadline, daemon-loss simulation, derived status/API and
+  production deploy proof. Attempt telemetry содержит phase, alias/model,
+  attempt start/end, effective deadline и daemon heartbeat, чтобы отличить
+  provider hang от потери процесса; media phase из independent `IMP-060`
+  отделяет attachment stall до provider call. Finding остаётся `[ ]` до полного evidence.

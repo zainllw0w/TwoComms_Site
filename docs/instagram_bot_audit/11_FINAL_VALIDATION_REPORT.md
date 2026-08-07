@@ -1,5 +1,10 @@
 # 11_FINAL_VALIDATION_REPORT — production validation checkpoint through 2026-08-05
 
+> **Historical checkpoint, not current status authority.** Current counts and
+> execution order are in `00_PROGRESS.md`, `07_IMPLEMENTATION_PLAN.md`,
+> `13_UNCLOSED_FINDINGS_RAW.md` and `14_IMPLEMENT2.md`. The 181/104 counts below
+> remain only as evidence for what this 2026-08-05 run validated.
+
 ## Scope
 
 This checkpoint validates the durable funnel analytics, bounded

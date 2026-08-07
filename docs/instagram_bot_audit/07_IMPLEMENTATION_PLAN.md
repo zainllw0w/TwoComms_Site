@@ -1,10 +1,13 @@
-# 07_IMPLEMENTATION_PLAN — план внедрения
+# 07_IMPLEMENTATION_PLAN — историческая status matrix внедрения
 
-> **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 105 уникальных `IMP-*`: **80 закрыты, 17 открыты, 8 partial**
-> (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
-> в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 182 `F-*` и всех 51 `IMPR-*`:
+> **Канонический per-ID статус; активный порядок выполнения после 2026-08-07
+> находится в `14_IMPLEMENT2.md`, полный остаток — в
+> `13_UNCLOSED_FINDINGS_RAW.md`.** Всего 105 уникальных `IMP-*`:
+> **80 закрыты, 15 открыты, 10 partial** (`IMP-028`, `IMP-043`, `IMP-081`,
+> `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`,
+> `IMP-088`). Решения — в `04_DECISION_LOG.md`, находки и evidence — в
+> `03_FINDINGS_REGISTER.md`, общий вход — в `00_PROGRESS.md`. Ниже находятся
+> отдельные checkbox-матрицы всех 183 `F-*` и всех 51 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -48,11 +51,11 @@
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
 | **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
-| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 3 | 5 |
+| **W9** | Product reselection и коммерческая семантика | 9 | 1 | 2 | 6 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 3 | 2 | 1 | 0 |
 | **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 2 | 0 | 0 |
-| **Итого** | | **105** | **80** | **16** | **9** |
+| **Итого** | | **105** | **80** | **15** | **10** |
 
 ---
 
@@ -826,20 +829,28 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   MariaDB concurrency/retention тест и deploy. Это `IMPR-OPS-002`; не является
   условием уже закрытой сохранности incident evidence.
 - [ ] **IMP-060 (P2) — открыта.** Вложения (F-DATA-011): не качать URL импортированных
-  сообщений, сохранять байты при приёме живого webhook.
+  сообщений, сохранять байты при приёме живого webhook; записывать typed media
+  phase/error до AI, чтобы F-AI-018 не смешивал media stall с provider hang.
 - [ ] **IMP-061 (P2) — открыта.** `hub.verify_token` в access-логе (F-SEC-010):
   диагностику подписки без токена в query, затем ротация токена.
-- [ ] **IMP-044 (P2) — открыта.** Atomic lease Gemini-ключей + jitter (F-AI-003/004);
+- [ ] **IMP-044 (P1) — открыта.** Atomic lease Gemini-ключей + jitter (F-AI-003/004);
   UI-состояние ключей вычисляемое вместо хранимого `last_status` (F-DATA-012);
   data-migration невалидного `gemini_model` + предупреждение о расхождении
-  и полный allowlist в селекте (F-AI-013).
+  и полный allowlist в селекте (F-AI-013). Дополнительно F-AI-018: при текущем
+  analysis lease 180 секунд и management deadline 75 секунд сохранять typed
+  attempt telemetry (phase, alias/model, start/end, deadline, daemon heartbeat),
+  отличать provider hang от lease reclaim/потери worker и доказать MariaDB races.
 - [ ] **IMP-045 (P2) — открыта.** Классификация ~60 `except: pass` по домену (F-DEBT-004),
   правило «`pass` только для телеметрии с комментарием».
-- [ ] **IMP-046 (P2/P3) — открыта.** Решения по мёртвому коду: checkout-домен (5 таблиц, 0 записей —
-  достроить или удалить), `InstagramBotProcessedMessage`, `send_text_tagged`,
-  `resolve_gemini_key`, `ensure_instagram_subscription`, мёртвый CSS и `log_items`
-  (F-UX-011), 5 мёртвых типов сигналов (F-SCORE-012), `manager_observation`
-  как 56% снапшотов (F-DATA-009).
+- [ ] **IMP-046.A (P1) — открыта, раннее domain decision/re-audit.** Current
+  main уже имеет proposal/reservation/TTL/token foundation, поэтому до нового
+  commerce-кода заново проверить call graph и production rows и выбрать
+  поддерживаемый BUILD или migration-backed REMOVE для checkout domain.
+- [ ] **IMP-046.B (P2/P3) — открыта, поздний cleanup.** После решения 046.A:
+  `InstagramBotProcessedMessage`, `send_text_tagged`, `resolve_gemini_key`,
+  `ensure_instagram_subscription`, unused `log_items`, только доказанные CSS/
+  entry-point leftovers (assignments и live status активны), 5 мёртвых типов
+  сигналов (F-SCORE-012), `manager_observation` как 56% снапшотов (F-DATA-009).
   **Отдельно:** `IgLifecycleEvent` — не удалять, а достроить: через него правильно
   решаются IMP-021, IMP-008 и дедупликация Meta-событий.
 - [ ] **IMP-094 (P1) — детерминированный production-like test gate
@@ -944,10 +955,13 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   Последняя read-only production сверка на `42b41c7f` подтверждает, что
   `98bb160e` уже в deployed graph и terminal historical analysis jobs не
   создают customer sends; это не закрывает перечисленный delivery-остаток.
-- [ ] **IMP-088 (P1)** — proposal digest idempotency, manager review UI,
-  cache invalidation/freshness каталога (IMPR-CAT-006), read-only audit/backfill,
-  unified regression, production-like MariaDB proof,
-  интеграция в `main` и deploy.
+- [ ] **IMP-088 (P1) — PARTIAL, current proof required.** Current main уже
+  формирует deterministic quote/proposal digest и имеет proposal workspace/
+  preview/action API. Остаток: доказать cache invalidation/freshness каталога
+  (`IMPR-CAT-006`), payable digest lifecycle, отдельный proposal/catalog review
+  UI, read-only audit/backfill, unified MariaDB race/regression, интеграцию
+  каждого недостающего среза в `main` и deploy. Existing foundation нельзя
+  потерять, но она не закрывает весь task.
 
 - [x] **IMP-104 (P0) — authoritative configuration pricing.** Добавлена
   проверяемая связка цены с variant/fit/generic options от `[ITEM:...]` и
@@ -960,7 +974,7 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 ### Supplemental visual shortlist (100 items, outside canonical IMP count)
 
 The 100-item management-UI shortlist is tracked separately so it cannot silently
-inflate or replace the 104-task implementation plan. Current status is grouped
+inflate or replace the 105-task implementation plan. Current status is grouped
 by the ledger in `docs/plans/2026-08-05-management-bot-visual-selection-final.md`:
 
 - `[x] IN MAIN / baseline overlap`: existing list/detail/admin workspace,
@@ -1030,7 +1044,12 @@ IMP/Finding/Improvement totals.
 - [ ] **IMP-093 (P2)** — аналитический UX (IMPR-UX-002/004/005): sparkline по
   эпизоду, единый timeline сообщений/оплаты/ТТН/FSM и группировка KPI
   «воронка / деньги / сервис / реклама». Не дублировать уже закрытые
-  определения метрик IMP-040.
+  определения метрик IMP-040. Period metrics строить из immutable/event-time
+  facts, а не из mutable current `stage`/`lost_reason`. Сохранённый worktree
+  `codex-management-bot-statistics-visuals` содержит uncommitted implementation
+  (`bot_views.py`, `ig_funnel_analytics.py`, `bot.html`, tests; volatile tracked
+  diff плюс два untracked files, снять свежий `git diff --stat`) и должен быть reviewed/rebased,
+  а не переписан или принят как done.
 
 ---
 
@@ -1103,9 +1122,9 @@ continuation остаётся отдельным свежим срезом.
   Закрыто `4dfff3a2` + `35d3bd93`, migration `0143`, focused gate 180 tests,
   production `434428ad`; combined event/FSM/checkout/restock gate 255 tests.
 
-### Finding coverage matrix — 181 уникальный F-идентификатор
+### Finding coverage matrix — 183 уникальных F-идентификатора
 
-Итог матрицы: **137 `[x]` / 38 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
+Итог матрицы: **139 `[x]` / 35 `OPEN [ ]` / 9 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1128,10 +1147,11 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-AI-015 | FIXED/VERIFIED | IMP-076 |
 | [x] | F-AI-016 | FIXED/VERIFIED | IMP-078 |
 | [x] | F-AI-017 | FIXED/VERIFIED | IMP-097 |
+| [ ] | F-AI-018 | OPEN (`manager_message` job 292: `stale_lease_retry_exhausted`) | IMP-044 |
 | [x] | F-CAT-001 | FIXED/VERIFIED | IMP-067 |
 | [x] | F-CAT-002 | FIXED/VERIFIED | IMP-067 |
 | [x] | F-CAT-003 | FIXED/VERIFIED | IMP-080 |
-| [ ] | F-CAT-004 | OPEN | IMP-084/086 |
+| [ ] | F-CAT-004 | PARTIAL (stock-policy/allocation foundation; readiness/alternative/UI/MariaDB residue) | IMP-084/086 |
 | [x] | F-CAT-005 | FIXED/VERIFIED | IMP-081 |
 | [x] | F-CAT-006 | FIXED/VERIFIED | IMP-081 |
 | [x] | F-CAT-007 | FIXED/VERIFIED | IMP-082; `e44d1440`/`0ad694bc` |
@@ -1160,10 +1180,10 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-CTX-002 | FIXED/VERIFIED | IMP-016/052 |
 | [ ] | F-CTX-003 | PARTIAL (`042c48c8`: order resolves conflicts; duplicate legacy text remains) | IMP-028 |
 | [x] | F-CTX-004 | FIXED/VERIFIED | IMP-078 |
-| [ ] | F-DATA-001 | OPEN | IMP-046 |
-| [ ] | F-DATA-002 | OPEN | IMP-046 |
-| [ ] | F-DATA-003 | OPEN | IMP-046 |
-| [ ] | F-DATA-004 | OPEN | IMP-046 |
+| [ ] | F-DATA-001 | OPEN | IMP-046.A |
+| [ ] | F-DATA-002 | PARTIAL (lifecycle writer exists; full producer/consumer proof open) | IMP-046 / Implement2 W6.3 |
+| [ ] | F-DATA-003 | PARTIAL (CAPI writer scaffold exists; policy/stable event/live proof open) | IMP-046 / Implement2 W6.3 |
+| [ ] | F-DATA-004 | BLOCKED (нет authoritative click-to-message attribution source) | IMP-043 / owner decision |
 | [x] | F-DATA-005 | FIXED/VERIFIED | IMP-013 |
 | [x] | F-DATA-006 | FIXED/VERIFIED | IMP-002 |
 | [ ] | F-DATA-009 | OPEN | IMP-046 |
@@ -1217,11 +1237,11 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-PAT-004 | FIXED/VERIFIED | IMP-017 |
 | [x] | F-PAT-005 | FIXED/VERIFIED | IMP-017 |
 | [x] | F-PAY-001 | FIXED/VERIFIED | IMP-010 |
-| [ ] | F-PAY-002 | OPEN | IMP-087/088 |
-| [ ] | F-PAY-003 | OPEN | IMP-087/088 |
+| [ ] | F-PAY-002 | PARTIAL (reserve/TTL/access/share-token foundation exists; production reachability/full flow open) | IMP-046.A/088 |
+| [ ] | F-PAY-003 | PARTIAL (`ig-deal:{deal.pk}` materialization exists; legacy `ig-episode:*` and two-deals proof open) | IMP-087/088 |
 | [x] | F-PAY-004 | FIXED/VERIFIED | IMP-051 |
 | [x] | F-PAY-005 | FIXED/VERIFIED | IMP-050 |
-| [ ] | F-PAY-006 | OPEN | IMP-087/088 |
+| [ ] | F-PAY-006 | PARTIAL (share-token/access foundation exists; payer/recipient E2E open) | IMP-087/088 |
 | [x] | F-PAY-007 | FIXED/VERIFIED | IMP-021 |
 | [ ] | F-PAY-008 | OPEN | IMP-043 |
 | [x] | F-PAY-009 | FIXED/VERIFIED | IMP-022 |
@@ -1287,7 +1307,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-UX-008 | FIXED/VERIFIED | IMP-040 |
 | [x] | F-UX-009 | FIXED/VERIFIED | IMP-037 |
 | [x] | F-UX-010 | FIXED/VERIFIED | IMP-040 |
-| [ ] | F-UX-011 | OPEN | IMP-046 |
+| [ ] | F-UX-011 | OPEN (scope corrected: assignments/live status active; only proven `log_items`/CSS/dead-entry residue) | IMP-046.B |
 | [x] | F-UX-012 | FIXED/VERIFIED | IMP-040 |
 | [x] | F-UX-013 | FIXED/VERIFIED | IMP-040 |
 | [x] | F-UX-014 | FIXED/VERIFIED | IMP-018 |
