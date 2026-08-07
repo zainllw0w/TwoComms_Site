@@ -289,6 +289,14 @@ Record LCP element and timing, CLS sources, INP for filter open/apply, TTFB, ima
 
 Run Lighthouse mobile/desktop, inspect accessibility tree, validate JSON-LD, canonical/robots/hreflang, visible FAQ correspondence, and keyboard-only dialog flow.
 
+**Step 5: Complete the molecular surface checklist**
+
+Review the design contract's quality matrix line by line. For each surface record a screenshot/DOM assertion proving its job: shared shell parity, category recognition, first product visibility, quick-row density, command-shelf behavior, dialog focus/inert state, rail density, card truthfulness, empty-state recovery, progressive status, collection identity, editorial SEO usefulness, and bottom-navigation safe-area clearance. Remove any decorative element that has no measurable user, SEO, accessibility, or performance purpose.
+
+**Step 6: Validate decision psychology without adding noise**
+
+Confirm recognition-before-choice, progressive disclosure, immediate state feedback, postponed commitment, and trust-preserving motion at each viewport. In particular, verify that campaign landing traffic can choose its collection in one tap, that audience/availability/size filters are discoverable without scrolling through product cards, and that the custom-print CTA appears only after ready-made discovery content.
+
 ---
 
 ## Task 10: Production-like data verification and rollout gates

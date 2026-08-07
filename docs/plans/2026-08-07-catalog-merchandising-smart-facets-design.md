@@ -167,6 +167,48 @@ No raw form data or PII is sent. Existing Meta/GTM naming and browser/server ded
 - Assigning invented audience/size/stock values where production data is missing.
 - Creating indexable pages for every arbitrary filter combination.
 
+## Molecular UX quality matrix
+
+Every visible surface has one job and one measurable reason to exist:
+
+| Surface | Required behavior | Why it stays | What is deliberately excluded |
+| --- | --- | --- | --- |
+| Shared header | Same logo, navigation, search, cart, account, language controls as the home/checkout shell | Preserves trust and lets ad traffic recognize the brand immediately | A second catalog-only header |
+| Category switcher | Three real links, active state, horizontal scroll on narrow screens, keyboard-visible focus | Makes the landing category obvious and supports direct ad destinations | A carousel that hides category names |
+| H1/result row | One H1, concise intent copy, count aligned to the edge | Gives users and crawlers immediate context | A large hero or slogan before products |
+| Theme quick row | At most one compact row, counts, active state, scroll affordance | Lets high-intent military/Kharkiv/streetwear traffic branch in one tap | A wall of chips or duplicate filter controls |
+| Command shelf | Filter trigger, applied-count, sort, and removable chips; sticky only after header exit | Keeps the action path visible without covering products | A permanent bottom commerce bar |
+| Mobile filter sheet | Full-height dialog with sticky header/footer, accordion groups, Apply/Reset, focus trap | Allows deep filtering without shrinking product cards | A nested modal inside the sheet |
+| Desktop rail | Sticky, compact, grouped by intent, counts and disabled states | Makes comparison efficient on large screens | Oversized card-like panels around every group |
+| Product card | Stable image, truthful price range, fit, audience, availability, thermo marker, favorite, real detail link | Answers purchase questions before the PDP | Invented badges, fake scarcity, or price inferred from legacy text |
+| Empty state | Explain which constraints conflict, offer one-tap chip removal and a category reset | Recovers conversion instead of ending the session | A dead-end “nothing found” message |
+| Progressive status | Quiet status text and stable sentinel; pagination stays available | Gives feedback without page-jump or crawler loss | Skeletons that replace server-rendered cards |
+| Collection identity | Small collection mark, one-line context, optional cover, then products | Makes a brigade/collab landing page feel specific without a hero takeover | Military imagery or claims not supplied by content owners |
+| Editorial SEO module | Facts, links, FAQ, custom-print CTA in semantic sections/`details` | Serves intent, AEO/GEO extraction, and internal linking after discovery | Keyword-heavy paragraphs above the grid |
+| Mobile bottom navigation | Reserves measured safe-area space and never overlaps content; disabled while dialog is open | Preserves the existing shell and prevents occlusion | A second sticky row that competes with the command shelf |
+
+The implementation review must mark each row as verified or explain the residual risk. A surface that cannot be tied to a user decision, a crawl contract, or a performance/accessibility requirement is removed from the slice.
+
+### Decision psychology guardrails
+
+- Recognition precedes choice: category, H1, first image, and price appear before deep filters.
+- Choice is progressive: theme quick row first, then filter sheet groups ordered by campaign intent (collection/audience, availability, fit, size, color, thermo).
+- Feedback is immediate: counts, applied chips, and result status update with the URL state.
+- Commitment is postponed: the catalog offers product links and a subtle custom-print route, not a forced quick-view funnel.
+- Trust beats novelty: motion highlights state changes but never delays the first product image or disguises stock/price truth.
+
+### Cross-device invariants
+
+The following must remain true at every supported width and language:
+
+- no horizontal overflow and no clipped translated label;
+- every interactive target is at least 44 CSS pixels in its active axis;
+- no fixed element overlaps a card control or semantic heading;
+- the same URL state produces the same selected facets on reload and back/forward;
+- JS disabled still exposes category, collection, product, pagination, FAQ, and custom-print links;
+- reduced motion preserves all state changes without transition-dependent content;
+- focus order follows visual order and never moves behind an overlay.
+
 ## Acceptance
 
 The slice is accepted when the focused Django/JavaScript tests pass, the Fable 5 editor can save and reload multi-select audience tags, all three category routes and `/merch/225/` work in Ukrainian/Russian/English, mobile and desktop browser checks pass at 320/375/430/768/1024/1440 widths, LCP/CLS and accessibility budgets are measured, and live SEO output contains only truthful canonical/schema/indexation states.
