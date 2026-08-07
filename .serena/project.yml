@@ -84,7 +84,7 @@ symbol_info_budget:
 # Extends the list from the global configuration, merging the two lists.
 read_only_memory_patterns: []
 
-# list of language servers to start when using the LSP backend; choose from:
+# list of languages for which language servers are started (LSP backend only); choose from:
 #   ada                 al                  angular             ansible             bash
 #   bsl                 clojure             cpp                 cpp_ccls            crystal
 #   csharp              csharp_omnisharp    cue                 dart                elixir
@@ -116,7 +116,7 @@ read_only_memory_patterns: []
 # When using multiple language servers, the first language server that supports a given file will be used for that file.
 # The first language server is the default language and the respective language server will be used as a fallback.
 # Note that when using the JetBrains backend, language servers are not used and this list is correspondingly ignored.
-language_servers:
+languages:
 - python
 - typescript
 
