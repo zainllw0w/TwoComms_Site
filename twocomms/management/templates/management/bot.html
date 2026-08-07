@@ -167,10 +167,16 @@
 .bot-stats-activity-legend{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;color:#7e8b9d;font-size:9.5px;font-weight:700;}
 .bot-stats-activity-legend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
 .bot-stats-activity-legend i{width:7px;height:7px;border-radius:2px;background:var(--legend-color);}
+.bot-stats-signal-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(230px,.55fr);gap:10px;margin-bottom:10px;}
 .bot-stats-activity-scroll{min-width:0;overflow-x:auto;overflow-y:hidden;padding:4px 1px 1px;scrollbar-width:thin;}
 .bot-stats-activity-columns{display:grid;grid-template-columns:repeat(var(--bucket-count),minmax(10px,1fr));align-items:end;gap:5px;min-width:min(100%,calc(var(--bucket-count) * 15px));height:150px;border-bottom:1px solid #263142;background:repeating-linear-gradient(to top,transparent 0,transparent 36px,rgba(148,163,184,.055) 37px);}
+.bot-stats-activity-columns.density-compact{height:96px;}
+.bot-stats-activity-columns.density-daily{height:128px;}
+.bot-stats-activity-columns.density-weekly{height:138px;}
+.bot-stats-activity-columns.density-monthly{height:144px;}
 .bot-stats-activity-column{position:relative;display:flex;align-items:flex-end;justify-content:center;min-width:0;height:100%;border:0;background:transparent;padding:0 0 22px;color:inherit;cursor:pointer;}
-.bot-stats-activity-stack{display:flex;flex-direction:column-reverse;justify-content:flex-start;width:min(18px,72%);height:calc(100% - 2px);border-radius:4px 4px 2px 2px;overflow:hidden;background:#18212d;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);transition:transform var(--stats-motion-fast) var(--stats-ease),filter var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-activity-stack{display:flex;flex-direction:column-reverse;justify-content:flex-start;width:min(18px,72%);height:calc(100% - 2px);border-radius:4px 4px 2px 2px;overflow:hidden;background:transparent;box-shadow:none;transition:transform var(--stats-motion-fast) var(--stats-ease),filter var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-activity-column.is-zero .bot-stats-activity-stack{height:2px;background:#2a3545;box-shadow:0 0 0 1px rgba(148,163,184,.08);}
 .bot-stats-activity-column:hover .bot-stats-activity-stack,.bot-stats-activity-column:focus-visible .bot-stats-activity-stack,.bot-stats-activity-column.is-open .bot-stats-activity-stack{transform:translateY(-2px);filter:brightness(1.12);}
 .bot-stats-activity-column:focus-visible{outline:0;}
 .bot-stats-activity-column:focus-visible .bot-stats-activity-stack,.bot-stats-activity-column.is-open .bot-stats-activity-stack{box-shadow:0 0 0 3px rgba(96,165,250,.22),inset 0 0 0 1px rgba(255,255,255,.05);}
@@ -178,8 +184,35 @@
 .bot-stats-activity-segment.inbound{background:#60a5fa}.bot-stats-activity-segment.bot{background:#2dd4bf}.bot-stats-activity-segment.manager{background:#f59e0b}
 .bot-stats-activity-label{position:absolute;inset:auto -5px 2px;color:#657386;font-size:8.5px;font-weight:700;line-height:1;text-align:center;white-space:nowrap;}
 .bot-stats-activity-label-full{display:inline}.bot-stats-activity-label-compact{display:none}
-.bot-stats-activity-tooltip{position:absolute;z-index:12;left:50%;bottom:calc(100% - 3px);width:max-content;max-width:190px;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,4px) scale(.98);transform-origin:bottom center;border:1px solid #34445a;border-radius:7px;background:#080d14;color:#dce4ee;padding:8px 9px;box-shadow:0 12px 28px rgba(0,0,0,.4);font-size:9.5px;font-weight:700;line-height:1.45;text-align:left;transition:opacity var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease),visibility var(--stats-motion-fast);}
+.bot-stats-activity-tooltip{position:absolute;z-index:12;left:50%;bottom:calc(100% - 3px);width:var(--activity-tooltip-width,max-content);max-width:190px;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,4px) scale(.98);transform-origin:bottom center;border:1px solid #34445a;border-radius:7px;background:#080d14;color:#dce4ee;padding:8px 9px;box-shadow:0 12px 28px rgba(0,0,0,.4);font-size:9.5px;font-weight:700;line-height:1.45;text-align:left;transition:opacity var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease),visibility var(--stats-motion-fast);}
+.bot-stats-activity-column.is-tooltip-left .bot-stats-activity-tooltip{left:0;transform:translate(0,4px) scale(.98);transform-origin:bottom left;}
+.bot-stats-activity-column.is-tooltip-right .bot-stats-activity-tooltip{right:0;left:auto;transform:translate(0,4px) scale(.98);transform-origin:bottom right;}
 .bot-stats-activity-column:hover .bot-stats-activity-tooltip,.bot-stats-activity-column:focus-visible .bot-stats-activity-tooltip,.bot-stats-activity-column.is-open .bot-stats-activity-tooltip{opacity:1;visibility:visible;transform:translate(-50%,0) scale(1);}
+.bot-stats-activity-column.is-tooltip-left:hover .bot-stats-activity-tooltip,.bot-stats-activity-column.is-tooltip-left:focus-visible .bot-stats-activity-tooltip,.bot-stats-activity-column.is-tooltip-left.is-open .bot-stats-activity-tooltip,.bot-stats-activity-column.is-tooltip-right:hover .bot-stats-activity-tooltip,.bot-stats-activity-column.is-tooltip-right:focus-visible .bot-stats-activity-tooltip,.bot-stats-activity-column.is-tooltip-right.is-open .bot-stats-activity-tooltip{transform:translate(0,0) scale(1);}
+.bot-stats-activity-pulse{display:grid;gap:10px;min-height:74px;padding:12px 2px 6px;border-bottom:1px solid #263142;}
+.bot-stats-activity-pulse-track{display:flex;align-items:center;gap:3px;height:20px;padding:3px;border:1px solid #263244;border-radius:999px;background:#0a1017;overflow:hidden;}
+.bot-stats-activity-pulse-segment{flex:0 0 var(--pulse-width,0%);height:100%;min-width:0;border-radius:999px;transition:flex-basis var(--stats-motion-slow) var(--stats-ease);}
+.bot-stats-activity-pulse-segment.inbound{background:#60a5fa}.bot-stats-activity-pulse-segment.bot{background:#2dd4bf}.bot-stats-activity-pulse-segment.manager{background:#f59e0b}
+.bot-stats-activity-pulse-legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.bot-stats-activity-pulse-stat{display:grid;gap:2px;min-width:0;}
+.bot-stats-activity-pulse-stat strong{color:#e3eaf3;font-size:13px;font-variant-numeric:tabular-nums;}
+.bot-stats-activity-pulse-stat span{color:#778598;font-size:9px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bot-stats-activity-zero{display:flex;align-items:center;gap:8px;min-height:74px;padding:14px 2px;color:#78869a;font-size:10px;}
+.bot-stats-activity-zero::before{content:'';width:8px;height:8px;border:1px solid #506079;border-radius:50%;box-shadow:0 0 0 4px rgba(80,96,121,.1);}
+.bot-stats-composition{min-width:0;}
+.bot-stats-composition-body{display:grid;grid-template-columns:112px minmax(0,1fr);align-items:center;gap:13px;min-height:150px;}
+.bot-stats-composition-ring{position:relative;display:grid;place-items:center;width:112px;aspect-ratio:1;border-radius:50%;background:var(--ring-background,#18212d);box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);}
+.bot-stats-composition-ring::after{content:'';position:absolute;inset:18px;border-radius:50%;background:#0d131c;box-shadow:0 0 0 1px rgba(255,255,255,.035);}
+.bot-stats-composition-center{position:relative;z-index:1;display:grid;gap:2px;text-align:center;}
+.bot-stats-composition-center strong{color:#f3f6fa;font-size:21px;font-variant-numeric:tabular-nums;}
+.bot-stats-composition-center span{color:#78869a;font-size:8.5px;font-weight:800;text-transform:uppercase;}
+.bot-stats-composition-legend{display:grid;gap:7px;min-width:0;}
+.bot-stats-ring-segment{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;min-width:0;border:0;border-radius:6px;background:transparent;color:#aeb9c8;padding:5px 4px;text-align:left;cursor:pointer;transition:background var(--stats-motion-fast) var(--stats-ease),color var(--stats-motion-fast) var(--stats-ease),opacity var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-ring-segment:hover,.bot-stats-ring-segment:focus-visible,.bot-stats-ring-segment.is-active{background:#141e2b;color:#eef4fb;outline:0;}
+.bot-stats-ring-segment.is-dim{opacity:.38;}
+.bot-stats-ring-segment i{width:8px;height:8px;border-radius:2px;background:var(--ring-color);}
+.bot-stats-ring-segment span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9.5px;font-weight:750;}
+.bot-stats-ring-segment strong{font-size:10px;font-variant-numeric:tabular-nums;}
 .bot-stats-analysis-grid{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr);gap:10px;margin-bottom:10px;}
 .bot-stats-analysis-card{min-width:0;border:1px solid #202a39;border-radius:8px;background:#0d131c;padding:14px;animation:botStatsReveal var(--stats-motion-medium) var(--stats-ease) both;animation-delay:calc(var(--reveal-order,0) * 34ms);}
 .bot-stats-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:13px;}
@@ -755,7 +788,7 @@ body.bot-drawer-open{overflow:hidden;}
 @media(max-width:320px){.bot-top{align-items:stretch}.bot-top-actions{width:100%}.bot-top-actions .bot-btn{flex:1;padding-left:10px;padding-right:10px}.bot-order-facts,.bot-client-commercial{grid-template-columns:1fr}.bot-order-media-grid{grid-template-columns:1fr}.bot-order-row-top{flex-direction:column}.bot-order-state{white-space:normal}}
 @media(max-width:880px){
   .bot-stats-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .bot-stats-analysis-grid,.bot-stats-optional-grid,.bot-stats-ad-grid,.bot-stats-skeleton-panels{grid-template-columns:minmax(0,1fr)}
+  .bot-stats-signal-grid,.bot-stats-analysis-grid,.bot-stats-optional-grid,.bot-stats-ad-grid,.bot-stats-skeleton-panels{grid-template-columns:minmax(0,1fr)}
   .bot-stats-product-list.is-expanded{grid-template-columns:minmax(0,1fr)}
   .bot-stats-secondary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .bot-stats-ad-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -795,6 +828,14 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-product-title{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
   .bot-stats-product-metric{grid-template-columns:50px minmax(0,1fr) auto;gap:5px}
   .bot-stats-activity-columns{gap:3px;min-width:100%}
+  .bot-stats-activity-columns.density-compact{height:96px}
+  .bot-stats-activity-columns.density-daily{height:118px}
+  .bot-stats-activity-columns.density-weekly{height:128px}
+  .bot-stats-activity-columns.density-monthly{height:132px}
+  .bot-stats-composition-body{grid-template-columns:96px minmax(0,1fr);gap:10px;min-height:118px}
+  .bot-stats-composition-ring{width:96px}
+  .bot-stats-composition-ring::after{inset:15px}
+  .bot-stats-composition-center strong{font-size:18px}
   .bot-stats-skeleton-kpis{grid-template-columns:minmax(0,1fr)}
   .bot-stats-alert{align-items:flex-start;flex-direction:column}
   .bot-stats-retry{width:100%}
@@ -814,8 +855,11 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-bottleneck{max-width:100%}
   .bot-stats-activity-label-full{display:none}
   .bot-stats-activity-label-compact{display:inline}
+  .bot-stats-composition-body{grid-template-columns:88px minmax(0,1fr);gap:8px}
+  .bot-stats-composition-ring{width:88px}
+  .bot-stats-composition-ring::after{inset:14px}
 }
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row{transition:none!important}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -2733,6 +2777,14 @@ body.bot-drawer-open{overflow:hidden;}
       return '<section class="bot-stats-analysis-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3>'+bottleneckMarkup+'</div><div class="bot-stats-funnel">'+body+'</div></section>';
     }
     function seriesMap(data){return new Map((((data||{}).message_series||{}).items||[]).map(row=>[String(row.bucket),row]));}
+    function activityDensity(series,data){
+      const declared=String(data&&data.message_series&&data.message_series.density||'');
+      if(['single','compact','daily','weekly','monthly'].includes(declared))return declared;
+      if(series.length<=1)return 'single';
+      if(series.length<=7)return 'compact';
+      if(series.length<=31)return 'daily';
+      return 'monthly';
+    }
     function seriesLabel(bucket,granularity,index,total){
       const date=new Date(bucket+'T12:00:00');if(Number.isNaN(date.getTime()))return bucket;
       if(total>12&&index!==0&&index!==total-1&&index%Math.ceil(total/6)!==0)return '';
@@ -2743,20 +2795,47 @@ body.bot-drawer-open{overflow:hidden;}
       if(granularity==='month')return new Intl.DateTimeFormat('uk-UA',{month:'short'}).format(date);
       return String(date.getDate());
     }
+    function renderCompositionRing(data){
+      const totalsData=data&&data.totals||{};
+      const total=Math.max(0,num(totalsData.messages));
+      const configured=[
+        {key:'inbound_messages',label:'Клієнти',color:'#60a5fa',value:num(totalsData.inbound_messages)},
+        {key:'bot_replies',label:'Бот',color:'#2dd4bf',value:num(totalsData.bot_replies)},
+        {key:'manager_messages',label:'Менеджер',color:'#f59e0b',value:num(totalsData.manager_messages)}
+      ];
+      const known=configured.reduce((sum,row)=>sum+row.value,0);
+      const segments=known<total?configured.concat([{key:'other_messages',label:'Інші',color:'#64748b',value:total-known}]):configured;
+      let cursor=0;
+      const stops=[];
+      segments.forEach(row=>{const share=total?row.value*100/total:0;if(share){stops.push(row.color+' '+cursor.toFixed(2)+'% '+(cursor+share).toFixed(2)+'%');cursor+=share;}});
+      const background=stops.length?'conic-gradient(from -90deg,'+stops.join(',')+')':'#263244';
+      const legend=segments.map(row=>{const share=total?Math.round(row.value*100/total):0;return '<button type="button" class="bot-stats-ring-segment" data-ring-segment="'+row.key+'" data-ring-value="'+row.value+'" data-ring-percent="'+share+'" style="--ring-color:'+row.color+'" aria-pressed="false"><i aria-hidden="true"></i><span>'+esc(row.label)+'</span><strong>'+numberFormat.format(row.value)+' · '+share+'%</strong></button>';}).join('');
+      return '<section class="bot-stats-analysis-card bot-stats-composition" style="--reveal-order:4"><div class="bot-stats-section-head"><div><h3 class="bot-stats-section-title">Склад повідомлень</h3><span class="bot-stats-section-meta">частка від усіх повідомлень</span></div></div><div class="bot-stats-composition-body"><div class="bot-stats-composition-ring" data-ring-value="'+total+'" role="img" aria-label="Склад повідомлень: '+numberFormat.format(total)+'" style="--ring-background:'+background+'"><div class="bot-stats-composition-center"><strong>'+numberFormat.format(total)+'</strong><span>повідомлень</span></div></div><div class="bot-stats-composition-legend">'+legend+'</div></div></section>';
+    }
     function renderActivity(data,previous,title='Активність повідомлень',contextLabel=''){
-      const series=(data.message_series&&data.message_series.items)||[];if(!series.length)return '';
-      const previousRows=seriesMap(previous);const maxTotal=Math.max(1,...series.map(row=>num(row.messages)));
-      const granularity=data.message_series.granularity||'day';
+      const messageSeries=data&&data.message_series||{};const series=messageSeries.items||[];const density=activityDensity(series,data);const previousRows=seriesMap(previous);const granularity=messageSeries.granularity||'day';
+      const meta=(contextLabel?esc(contextLabel)+' · ':'')+(density==='single'?'одноденний pulse':density==='compact'?'щоденні інтервали · компактний масштаб':density==='daily'?'щоденні інтервали':density==='weekly'?'тижневі інтервали':'місячні інтервали');
+      const integrityWarning=messageSeries.reconciled===false&&num(messageSeries.expected_total)>0?'<span class="bot-stats-section-meta is-warning">дані потребують перевірки</span>':'';
+      if(!series.length||!messageSeries.has_data){
+        return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-'+density+'" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-zero">За вибраний період подій немає · baseline очікує нові дані</div>'+integrityWarning+'</section>';
+      }
+      const maxTotal=Math.max(1,num(messageSeries.max_total),...series.map(row=>num(row.messages)));
+      if(density==='single'){
+        const row=series[0]||{};const prior=previousRows.get(String(row.bucket))||{};const roleTotal=Math.max(1,num(row.messages));
+        const pulseSegment=(key,tone)=>'<span class="bot-stats-activity-pulse-segment '+tone+'" data-pulse-width="'+Math.round(num(row[key])*100/roleTotal)+'" style="--pulse-width:'+Math.round(num(prior[key])*100/Math.max(1,num(prior.messages)||roleTotal))+'%"></span>';
+        const stats=[['inbound_messages','Клієнти','inbound'],['bot_replies','Бот','bot'],['manager_messages','Менеджер','manager']];
+        const pulseLegend=stats.map(spec=>'<div class="bot-stats-activity-pulse-stat"><strong>'+numberFormat.format(num(row[spec[0]]))+'</strong><span>'+spec[1]+'</span></div>').join('');
+        return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-single" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+' · '+esc(String(row.bucket||''))+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-pulse" aria-label="Одноденний розподіл повідомлень"><div class="bot-stats-activity-pulse-track">'+stats.map(spec=>pulseSegment(spec[0],spec[2])).join('')+'</div><div class="bot-stats-activity-pulse-legend">'+pulseLegend+'</div></div>'+integrityWarning+'</section>';
+      }
       const columns=series.map((row,index)=>{
         const prior=previousRows.get(String(row.bucket))||{};
         const segment=(key,tone)=>{const target=Math.round(num(row[key])*100/maxTotal);const initial=Math.round(num(prior[key])*100/maxTotal);return '<span class="bot-stats-activity-segment '+tone+'" data-activity-height="'+target+'" style="--activity-height:'+initial+'%"></span>';};
-        const label=seriesLabel(String(row.bucket),granularity,index,series.length);
-        const compactLabel=label?compactActivityLabel(String(row.bucket),granularity):'';
+        const label=seriesLabel(String(row.bucket),granularity,index,series.length);const compactLabel=label?compactActivityLabel(String(row.bucket),granularity):'';
         const exact=esc(String(row.bucket))+' · Усього '+numberFormat.format(num(row.messages))+' · Вхідні '+numberFormat.format(num(row.inbound_messages))+' · Бот '+numberFormat.format(num(row.bot_replies))+' · Менеджер '+numberFormat.format(num(row.manager_messages));
-        return '<button type="button" class="bot-stats-activity-column" aria-label="'+exact+'" aria-expanded="false" title="'+exact+'"><span class="bot-stats-activity-tooltip">'+exact+'</span><span class="bot-stats-activity-stack" aria-hidden="true">'+segment('inbound_messages','inbound')+segment('bot_replies','bot')+segment('manager_messages','manager')+'</span><span class="bot-stats-activity-label"><span class="bot-stats-activity-label-full">'+esc(label)+'</span><span class="bot-stats-activity-label-compact" aria-hidden="true">'+esc(compactLabel)+'</span></span></button>';
+        const zero=num(row.messages)===0;
+        return '<button type="button" class="bot-stats-activity-column'+(zero?' is-zero':'')+'" data-tooltip-placement="auto" aria-label="'+exact+'" aria-expanded="false"><span class="bot-stats-activity-tooltip">'+exact+'</span><span class="bot-stats-activity-stack" aria-hidden="true">'+segment('inbound_messages','inbound')+segment('bot_replies','bot')+segment('manager_messages','manager')+'</span><span class="bot-stats-activity-label"><span class="bot-stats-activity-label-full">'+esc(label)+'</span><span class="bot-stats-activity-label-compact" aria-hidden="true">'+esc(compactLabel)+'</span></span></button>';
       }).join('');
-      const meta=(contextLabel?esc(contextLabel)+' · ':'')+'реальні '+esc(granularity==='day'?'денні':granularity==='week'?'тижневі':'місячні')+' інтервали';
-      return '<section class="bot-stats-analysis-card bot-stats-activity-chart" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-scroll"><div class="bot-stats-activity-columns" style="--bucket-count:'+series.length+'">'+columns+'</div></div></section>';
+      return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-'+density+'" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-scroll"><div class="bot-stats-activity-columns density-'+density+'" style="--bucket-count:'+series.length+'">'+columns+'</div></div>'+integrityWarning+'</section>';
     }
     function rankedRows(rows,keyField,labelField,countField){
       const normalized=(rows||[]).map((row,index)=>({key:String(row[keyField]||row[labelField]||index),label:String(row[labelField]||'Без назви'),count:num(row[countField]),raw:row})).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk'));
@@ -2884,18 +2963,32 @@ body.bot-drawer-open{overflow:hidden;}
     function closeActivityTooltip(returnFocus=false){
       if(!openActivityColumn)return;const column=openActivityColumn;column.classList.remove('is-open');column.setAttribute('aria-expanded','false');openActivityColumn=null;if(returnFocus&&document.contains(column))column.focus({preventScroll:true});
     }
+    function positionActivityTooltip(column){
+      if(!column)return;const scroll=column.closest('.bot-stats-activity-scroll');if(!scroll)return;
+      const rect=column.getBoundingClientRect();const viewport=scroll.getBoundingClientRect();const relativeCenter=rect.left-viewport.left+(rect.width/2);const tooltipWidth=Math.min(190,Math.max(120,viewport.width-16));
+      column.style.setProperty('--activity-tooltip-width',tooltipWidth+'px');
+      column.classList.remove('is-tooltip-left','is-tooltip-right');
+      if(relativeCenter<tooltipWidth/2)column.classList.add('is-tooltip-left');
+      else if(relativeCenter>viewport.width-tooltipWidth/2)column.classList.add('is-tooltip-right');
+    }
+    function toggleRingSegment(segment){
+      const composition=segment.closest('.bot-stats-composition');if(!composition)return;const wasActive=segment.classList.contains('is-active');
+      composition.querySelectorAll('[data-ring-segment]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
+      if(!wasActive){segment.classList.add('is-active');segment.setAttribute('aria-pressed','true');composition.querySelectorAll('[data-ring-segment]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));}
+    }
     function showAlert(message){if(alertTextEl)alertTextEl.textContent=message;if(alertEl)alertEl.hidden=false;}
     function hideAlert(){if(alertEl)alertEl.hidden=true;}
     function activateBars(){
       const bars=Array.from(box.querySelectorAll('[data-target-width]'));
       const segments=Array.from(box.querySelectorAll('[data-activity-height]'));
+      const pulses=Array.from(box.querySelectorAll('[data-pulse-width]'));
       const images=Array.from(box.querySelectorAll('.bot-stats-product-image'));
       images.forEach(item=>{const reveal=()=>item.classList.add('is-loaded');if(item.complete&&item.naturalWidth)reveal();else{item.addEventListener('load',reveal,{once:true});item.addEventListener('error',()=>item.remove(),{once:true});}});
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));}));
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{bars.forEach(bar=>bar.style.setProperty('--bar-width',num(bar.dataset.targetWidth)+'%'));segments.forEach(segment=>segment.style.setProperty('--activity-height',num(segment.dataset.activityHeight)+'%'));pulses.forEach(segment=>segment.style.setProperty('--pulse-width',num(segment.dataset.pulseWidth)+'%'));}));
     }
     function renderOverview(data,previous){
       const allPrimaryZero=kpiSpecs.every(spec=>metricValue(data,spec.key)===0);
-      return renderKpis(data,previous)+(allPrimaryZero?'<div class="bot-stats-period-empty">За період «'+esc(periodLabel(data))+'» активності ще немає.</div>':'')+renderActivity(data,previous)+renderSecondary(data)+'<div class="bot-stats-analysis-grid">'+renderFunnel(data,previous)+renderCategories(data,previous)+'</div>'+renderDetails(data);
+      return renderKpis(data,previous)+(allPrimaryZero?'<div class="bot-stats-period-empty">За період «'+esc(periodLabel(data))+'» активності ще немає.</div>':'')+'<div class="bot-stats-signal-grid">'+renderActivity(data,previous)+renderCompositionRing(data)+'</div>'+renderSecondary(data)+'<div class="bot-stats-analysis-grid">'+renderFunnel(data,previous)+renderCategories(data,previous)+'</div>'+renderDetails(data);
     }
     function syncViewControls(){
       viewButtons.forEach(button=>{const selected=button.dataset.statsView===activeView;button.setAttribute('aria-selected',selected?'true':'false');button.tabIndex=selected?0:-1;});
@@ -2979,11 +3072,16 @@ body.bot-drawer-open{overflow:hidden;}
       });
     }
     if(box)box.addEventListener('click',event=>{
+      const ringSegment=event.target.closest('[data-ring-segment]');
+      if(ringSegment){event.stopPropagation();toggleRingSegment(ringSegment);return;}
       const activityColumn=event.target.closest('.bot-stats-activity-column');
-      if(activityColumn){event.stopPropagation();const wasOpen=activityColumn===openActivityColumn;closeActivityTooltip(false);if(openHelpTrigger)closeHelp(false);if(!wasOpen){openActivityColumn=activityColumn;activityColumn.classList.add('is-open');activityColumn.setAttribute('aria-expanded','true');activityColumn.focus({preventScroll:true});}return;}
+      if(activityColumn){event.stopPropagation();const wasOpen=activityColumn===openActivityColumn;closeActivityTooltip(false);if(openHelpTrigger)closeHelp(false);if(!wasOpen){openActivityColumn=activityColumn;positionActivityTooltip(activityColumn);activityColumn.classList.add('is-open');activityColumn.setAttribute('aria-expanded','true');activityColumn.focus({preventScroll:true});}return;}
       const trigger=event.target.closest('.bot-stats-help');if(!trigger)return;event.stopPropagation();
       const wasOpen=trigger===openHelpTrigger;if(openHelpTrigger)closeHelp(false);if(!wasOpen){openHelpTrigger=trigger;trigger.closest('.bot-stats-help-wrap').classList.add('is-open');trigger.setAttribute('aria-expanded','true');}
     });
+    if(box)box.addEventListener('pointerover',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
+    if(box)box.addEventListener('focusin',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
+    window.addEventListener('resize',()=>{if(openActivityColumn)positionActivityTooltip(openActivityColumn);});
     document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}});
     if(rangeBox) rangeBox.addEventListener('click',event=>{

@@ -946,3 +946,40 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
         self.assertNotIn("t.funnel_conversations", self.template)
+
+    def test_activity_uses_density_modes_and_a_single_composition_ring(self):
+        for contract in (
+            "function activityDensity(series,data)",
+            "bot-stats-activity-pulse",
+            "bot-stats-activity-density-single",
+            "density-compact",
+            "density-daily",
+            "bot-stats-composition-ring",
+            "data-ring-segment",
+            "data-ring-value",
+            "zero?' is-zero':''",
+            "messageSeries.has_data",
+            "messageSeries.reconciled",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_activity_tooltips_have_one_custom_surface_and_reduced_motion_contract(self):
+        self.assertNotIn(
+            "data-tooltip-placement=\"auto\" aria-label=\"'+exact+'\" title=\"'+exact+'\"",
+            self.template,
+        )
+        for contract in (
+            ".bot-stats-activity-pulse-segment",
+            ".bot-stats-ring-segment",
+        ):
+            self.assertIn(contract, self.template.split("@media(prefers-reduced-motion:reduce)", 1)[1])
+
+    def test_activity_tooltip_applies_the_measured_chart_width(self):
+        self.assertIn(
+            "width:var(--activity-tooltip-width,max-content)",
+            self.template,
+        )
+        self.assertIn(
+            "column.style.setProperty('--activity-tooltip-width',tooltipWidth+'px')",
+            self.template,
+        )

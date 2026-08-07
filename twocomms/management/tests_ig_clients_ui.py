@@ -370,12 +370,13 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             "return String(date.getDate())",
             'class="bot-stats-activity-label-full"',
             'class="bot-stats-activity-label-compact"',
-            'title="\'+exact+\'"',
+            'data-tooltip-placement="auto" aria-label="\'+exact+\'"',
             ".bot-stats-activity-label-compact{display:none}",
             ".bot-stats-activity-label-full{display:none}",
             ".bot-stats-activity-label-compact{display:inline}",
         ):
             self.assertIn(contract, self.template)
+        self.assertNotIn('title="\'+exact+\'"', self.template)
 
     def test_payment_reconciliation_exposes_all_bounded_amount_evidence_links(self):
         self.assertIn("evidenceIds.slice(0,6).forEach", self.template)
