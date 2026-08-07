@@ -121,6 +121,8 @@ def _tokenize_marker(marker: str, line_number: int) -> list[_MarkerToken]:
 
         hash_match = _MARKER_HASH.match(marker, index)
         if hash_match:
+            if index == 0 or not marker[index - 1].isspace():
+                raise LockParseError(f"line {line_number}: marker hash requires leading whitespace")
             tokens.append(_MarkerToken("HASH"))
             index = hash_match.end()
             continue
@@ -131,8 +133,8 @@ def _tokenize_marker(marker: str, line_number: int) -> list[_MarkerToken]:
             index += 1
             value: list[str] = []
             while index < len(marker) and marker[index] != quote:
-                if marker[index] == "\\" and index + 1 < len(marker):
-                    index += 1
+                if marker[index] == "\\":
+                    raise LockParseError(f"line {line_number}: backslashes are not allowed in marker strings")
                 value.append(marker[index])
                 index += 1
             if index >= len(marker):

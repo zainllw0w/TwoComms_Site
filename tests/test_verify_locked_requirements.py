@@ -96,6 +96,20 @@ class VerifyLockedRequirementsTests(unittest.TestCase):
                 with self.assertRaises(LockParseError):
                     parse_lock(lock)
 
+    def test_rejects_glued_hashes_and_backslash_escaped_marker_quotes(self):
+        from scripts.verify_locked_requirements import LockParseError, parse_lock
+
+        invalid_markers = (
+            "Django==5.2.11; python_version >= '3.14'--hash=sha256:abc\n",
+            "Django==5.2.11; (python_version >= '3.14')--hash=sha256:abc\n",
+            "Django==5.2.11; python_version == '3.14\\'0'\n",
+            'Django==5.2.11; python_version == "3.14\\"0"\n',
+        )
+        for lock in invalid_markers:
+            with self.subTest(lock=lock):
+                with self.assertRaises(LockParseError):
+                    parse_lock(lock)
+
     @patch("scripts.verify_locked_requirements.metadata.version")
     @patch("scripts.verify_locked_requirements.metadata.distributions")
     def test_reports_missing_and_mismatched_distributions(self, distributions, version):
