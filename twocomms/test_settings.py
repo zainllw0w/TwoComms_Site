@@ -8,8 +8,9 @@ Django Test Settings для запуска тестов с SQLite вместо M
     coverage run --source=storefront manage.py test --settings=test_settings
 """
 
-# Устанавливаем тестовый SECRET_KEY перед импортом settings.
-os.environ.setdefault('SECRET_KEY', 'test-secret-key-for-testing-only-do-not-use-in-production')
+# Never let a production or developer secret leak into the deterministic test
+# settings profile when manage.py has loaded a local environment file first.
+os.environ['SECRET_KEY'] = 'test-secret-key-for-testing-only-do-not-use-in-production'
 
 # Test runs are also executed on the production host. The notification layer
 # reads these values directly from ``os.environ`` (not only from Django

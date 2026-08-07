@@ -9,7 +9,6 @@ provider or persist business data.
 from __future__ import annotations
 
 import base64
-import os
 import sys
 import unittest
 from pathlib import Path
@@ -18,11 +17,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
-# Never inherit deployment credentials when this contract is invoked from a
-# shell or CI runner that happens to carry production environment variables.
-os.environ["SECRET_KEY"] = "task3-runtime-contract-secret-key"
-os.environ["DJANGO_SETTINGS_MODULE"] = "test_settings"
 
 import cffi  # noqa: E402
 import cryptography  # noqa: E402
@@ -104,7 +98,10 @@ class DependencyRuntimeContracts(unittest.TestCase):
     def test_project_settings_load_with_nonproduction_secret(self):
         from twocomms import settings as project_settings
 
-        self.assertEqual(project_settings.SECRET_KEY, "task3-runtime-contract-secret-key")
+        self.assertEqual(
+            project_settings.SECRET_KEY,
+            "test-secret-key-for-testing-only-do-not-use-in-production",
+        )
 
 
 if __name__ == "__main__":
