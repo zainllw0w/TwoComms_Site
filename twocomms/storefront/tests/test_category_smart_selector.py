@@ -201,7 +201,7 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertNotIn('smart-product-card__old-price', card)
         self.assertNotIn("-0%", card)
 
-    def test_product_card_moves_all_color_links_into_media_stack(self):
+    def test_product_card_renders_direct_color_swatches_in_media(self):
         product = self.create_product(category=self.tshirts, slug="media-color-stack")
         for index, name in enumerate(("black", "white", "coyote", "menthol")):
             color = Color.objects.create(name=name, primary_hex=f"#{index + 1:06x}")
@@ -216,21 +216,29 @@ class SmartSelectorCategoryTests(TestCase):
         html = response.content.decode()
         card = html.split('data-product-title="Smart Product"', 1)[1].split("</article>", 1)[0]
         media, body = card.split('class="smart-product-card__body"', 1)
-        self.assertIn('class="smart-product-card__color-stack"', media)
+        self.assertIn('class="smart-product-card__color-links"', media)
         self.assertGreater(
-            media.index('class="smart-product-card__color-stack"'),
+            media.index('class="smart-product-card__color-links"'),
             media.index('class="favorite-btn smart-product-card__favorite"'),
         )
-        self.assertEqual(media.count('class="smart-product-card__color-toggle"'), 1)
-        self.assertIn('data-smart-color-toggle', media)
-        self.assertIn('aria-expanded="false"', media)
-        self.assertIn(">+3<", media)
-        self.assertEqual(media.count('class="smart-product-card__swatch"'), 4)
-        self.assertIn('class="smart-product-card__color-menu"', media)
+        self.assertNotIn('data-smart-color-toggle', media)
+        self.assertNotIn('smart-product-card__color-menu', media)
+        self.assertEqual(media.count('class="smart-product-card__color-choice"'), 3)
+        self.assertIn('aria-current="true"', media)
         self.assertNotIn('smart-product-card__color-row', body)
         self.assertNotIn("Колір:", card)
-        for variant in product.color_variants.select_related("color"):
-            self.assertIn(variant.public_url, media)
+        variants = list(product.color_variants.select_related("color").order_by("id"))
+        for variant in variants[:3]:
+            variant_url = reverse(
+                "product",
+                kwargs={"slug": product.slug, "v1": variant.slug or variant.color.slug},
+            )
+            self.assertIn(f'href="{variant_url}"', media)
+        fourth_url = reverse(
+            "product",
+            kwargs={"slug": product.slug, "v1": variants[3].slug or variants[3].color.slug},
+        )
+        self.assertNotIn(f'href="{fourth_url}"', media)
 
     @override_settings(STATIC_URL="/static/")
     def test_image_less_card_uses_static_placeholder_url(self):
@@ -248,8 +256,8 @@ class SmartSelectorCategoryTests(TestCase):
         )
         css = css_path.read_text(encoding="utf-8")
 
-        self.assertIn("@media (max-width: 340px)", css)
-        self.assertIn("aspect-ratio: 1 / 1", css)
+        self.assertIn("aspect-ratio: 4 / 5", css)
+        self.assertNotIn("aspect-ratio: 1 / 1", css)
 
     def test_catalog_command_and_variant_3_quick_facets_precede_grid(self):
         self.create_product(category=self.tshirts, slug="quick-facet-order")
@@ -329,8 +337,8 @@ class SmartSelectorCategoryTests(TestCase):
         ).read_text(encoding="utf-8")
         thermo_block = css.split(".smart-product-card__thermo {", 1)[1].split("}", 1)[0]
 
-        self.assertIn("fill: #ffb15f", thermo_block)
-        self.assertIn("filter: drop-shadow", thermo_block)
+        self.assertIn("fill: #111", thermo_block)
+        self.assertIn("filter: none", thermo_block)
         self.assertNotIn("background:", thermo_block)
         self.assertNotIn("border-radius:", thermo_block)
         self.assertNotIn("box-shadow:", thermo_block)
@@ -390,8 +398,9 @@ class SmartSelectorCategoryTests(TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("p.colors_preview|slice:':3'", template)
-        self.assertIn("p.colors_preview|length > 3", template)
-        self.assertIn("p.colors_preview|length|add:'-3'", template)
+        self.assertNotIn("p.colors_preview|length > 3", template)
+        self.assertNotIn("p.colors_preview|length|add:'-3'", template)
+        self.assertNotIn("smart-product-card__color-menu", template)
 
     def test_thermo_marker_is_centered_black_silhouette(self):
         css = (
@@ -1071,5 +1080,5 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
             / "catalog.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v12", template)
-        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v12", template)
+        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v15", template)
+        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v15", template)
