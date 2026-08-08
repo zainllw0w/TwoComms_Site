@@ -183,6 +183,7 @@ def _analysis_worker(stop_event: threading.Event):
         process_due_analysis,
         reconcile_analysis_jobs,
     )
+    from management.services.ig_analysis_events import process_due_analysis_events
 
     last_reconcile_at = None
     while not stop_event.is_set():
@@ -207,7 +208,28 @@ def _analysis_worker(stop_event: threading.Event):
                             pass
                     else:
                         last_reconcile_at = monotonic_now
-                process_due_analysis(limit=1)
+                try:
+                    process_due_analysis(limit=1)
+                except Exception as exc:
+                    try:
+                        bot.log("error", "conversation_analysis_due", repr(exc))
+                    except Exception:
+                        pass
+                try:
+                    event_result = process_due_analysis_events(limit=1)
+                    terminal_rejected = int(event_result.get("rejected", 0) or 0)
+                    terminal_failed = int(event_result.get("failed", 0) or 0)
+                    if terminal_rejected or terminal_failed:
+                        bot.log(
+                            "error" if terminal_failed else "warning",
+                            "conversation_analysis_events_terminal",
+                            f"rejected={terminal_rejected} failed={terminal_failed}",
+                        )
+                except Exception as exc:
+                    try:
+                        bot.log("error", "conversation_analysis_events", repr(exc))
+                    except Exception:
+                        pass
         except Exception as exc:
             try:
                 bot.log("error", "conversation_analysis", repr(exc))

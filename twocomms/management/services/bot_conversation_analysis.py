@@ -57,6 +57,31 @@ EXPLICIT_REPEAT_RE = re.compile(
     re.I,
 )
 
+# A received-item request can itself contain "ще одну" (for example, replacing
+# one shirt with another size).  In a mixed service + purchase message, accept
+# repeat intent only when a separate additive clause contains a purchase verb.
+ADDITIVE_REPEAT_PURCHASE_RE = re.compile(
+    r"(?:\+|[,;.]|\b(?:і|й|та|и|а|також|также|плюс|окремо|отдельно|"
+    r"додатково|дополнительно)\b).{0,50}?"
+    r"(?:\b(?:хочу|візьм\w*|возьм\w*|замов\w*|закаж\w*|куп\w*|"
+    r"придба\w*)\b.{0,50}\b(?:ще|еще)\b|"
+    r"\b(?:ще|еще)\b.{0,50}\b(?:хочу|візьм\w*|возьм\w*|замов\w*|"
+    r"закаж\w*|куп\w*|придба\w*)\b)",
+    re.I,
+)
+
+
+def _has_explicit_repeat_evidence(text: str) -> bool:
+    value = str(text or "")
+    if not EXPLICIT_REPEAT_RE.search(value):
+        return False
+    from management.services.ig_post_sale import detect_post_sale_type
+
+    return bool(
+        not detect_post_sale_type(value)
+        or ADDITIVE_REPEAT_PURCHASE_RE.search(value)
+    )
+
 SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для внутрішньої CRM TwoComms.
 Поверни лише JSON. Відокремлюй намір купити від факту оплати. Навіть підтверджена
 оплата не підвищує purchase_probability і confidence: вони описують лише намір,
@@ -745,8 +770,6 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
     raw_repeat = parsed.get("repeat_intent")
     repeat_intent = {}
     if isinstance(raw_repeat, dict):
-        from management.services.ig_post_sale import detect_post_sale_type
-
         repeat_kind = str(raw_repeat.get("kind") or "").strip()[:32]
         repeat_confidence = _decimal_01(raw_repeat.get("confidence"), "0")
         valid_repeat_kinds = {"explicit_more", "reorder", "gift", "another_recipient"}
@@ -761,8 +784,7 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
             if (
                 source
                 and source.get("role") == "user"
-                and EXPLICIT_REPEAT_RE.search(source_text)
-                and not detect_post_sale_type(source_text)
+                and _has_explicit_repeat_evidence(source_text)
                 and message_id not in repeat_evidence_ids
             ):
                 repeat_evidence_ids.append(message_id)
@@ -1157,27 +1179,9 @@ def _process_claim(
             if repeat_intent
             else {}
         )
-        if repeat_intent and verified_payment:
-            from management.services.ig_commercial_episodes import start_repeat_episode
-
-            commercial_episode = start_repeat_episode(
-                client,
-                repeat_kind=repeat_intent["kind"],
-                evidence_message_ids=repeat_intent["evidence_message_ids"],
-                confidence=repeat_intent["confidence"],
-                analysis_model=model,
-                analysis_prompt_version=ANALYSIS_PROMPT_VERSION,
-            )
-        elif repeat_intent:
-            # A repeat signal before any confirmed purchase is still useful
-            # conversational evidence, but it belongs to the current first
-            # purchase cycle and must not create a new episode/session.
-            commercial_episode = client.commercial_episodes.filter(open_slot=1).first()
-        else:
-            commercial_episode = client.commercial_episodes.filter(open_slot=1).first()
-        # Episode creation is a deterministic consequence of this analysis,
-        # not new external evidence. Persist the post-materialization fingerprint
-        # so the same message does not schedule a redundant second analysis.
+        # Analysis is descriptive only. Operational repeat-purchase state is
+        # materialized by the owned action consumer after this snapshot commits.
+        commercial_episode = client.commercial_episodes.filter(open_slot=1).first()
         final_truth_state = _required_truth_state(client)
         final_fingerprint = _fingerprint_for_truth(
             client.pk,
@@ -1220,6 +1224,19 @@ def _process_claim(
         ):
             snapshot.commercial_episode = commercial_episode
             snapshot.save(update_fields=["commercial_episode"])
+        if repeat_intent and verified_payment:
+            from management.services.ig_analysis_events import (
+                publish_repeat_episode_event,
+            )
+
+            publish_repeat_episode_event(
+                client=client,
+                snapshot=snapshot,
+                repeat_intent=repeat_intent,
+                analysis_model=model,
+                analysis_prompt_version=ANALYSIS_PROMPT_VERSION,
+                required_state_fingerprint=final_fingerprint,
+            )
         current_job.analysis_model = model
         current_job.analysis_prompt_version = ANALYSIS_PROMPT_VERSION
         current_job.required_state_fingerprint = final_fingerprint
@@ -1495,29 +1512,8 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
             )
             # Deterministic CRM state and a no-network snapshot are reconciled
             # only after cutoff/eligibility and the durable job boundary pass.
-            from management.services.bot_sales_classifier import (
-                ensure_rule_classification,
-                reconcile_rules_projection,
-            )
-            from management.services.instagram_bot import _recover_current_message_media
+            from management.services.bot_sales_classifier import reconcile_rules_projection
 
-            rule_messages = list(
-                InstagramBotMessage.objects.filter(
-                    client_id=client_id,
-                    pk__gte=current_message_floor(client),
-                    pk__lte=watermark,
-                    role__in=[InstagramBotMessage.Role.USER, InstagramBotMessage.Role.MANAGER],
-                ).order_by("-pk")[:MAX_MESSAGES]
-            )
-            rule_messages.reverse()
-            for rule_message in rule_messages:
-                ensure_rule_classification(
-                    client,
-                    rule_message,
-                    media_context=_recover_current_message_media(rule_message),
-                    operational_effects=False,
-                    allow_post_sale_effects=False,
-                )
             reconcile_rules_projection(client, watermark=watermark)
             queued += 1
     next_cursor = (

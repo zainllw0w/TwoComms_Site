@@ -45,6 +45,7 @@ __all__ = [
     "IgObjection",
     "IgObjectionAttempt",
     "IgConversationAnalysisSnapshot",
+    "IgConversationAnalysisEvent",
     "IgConversationAnalysisJob",
     "IgAiReplyRecoveryJob",
     "IgPermissionTransitionJob",
@@ -3937,6 +3938,138 @@ class IgConversationAnalysisSnapshot(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"{self.client_id}: {self.score_band} ({self.purchase_probability})"
+
+
+class _IgConversationAnalysisEventQuerySet(models.QuerySet):
+    _IMMUTABLE_FIELDS = {
+        "event_key",
+        "client",
+        "client_id",
+        "snapshot",
+        "snapshot_id",
+        "event_type",
+        "payload",
+        "required_state_fingerprint",
+        "source_digest",
+    }
+
+    def update(self, **kwargs):
+        if self._IMMUTABLE_FIELDS.intersection(kwargs):
+            raise ValueError("IgConversationAnalysisEvent identity is immutable")
+        return super().update(**kwargs)
+
+    def delete(self):
+        raise ValueError("IgConversationAnalysisEvent identity is immutable")
+
+
+class IgConversationAnalysisEvent(models.Model):
+    """Typed operational proposal emitted by a completed analysis snapshot.
+
+    The identity and payload are immutable after publication.  Only the
+    deterministic consumer may advance the outcome fields, which keeps a
+    provider result from mutating episodes, sessions or funnel state directly.
+    """
+
+    class EventType(models.TextChoices):
+        REPEAT_EPISODE = "repeat_episode", _("Новий епізод повторного замовлення")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує матеріалізації")
+        APPLIED = "applied", _("Матеріалізовано")
+        REJECTED = "rejected", _("Відхилено перевіркою")
+        FAILED = "failed", _("Вичерпано повторні спроби")
+
+    _IDENTITY_FIELDS = {
+        "event_key",
+        "client_id",
+        "snapshot_id",
+        "event_type",
+        "payload",
+        "required_state_fingerprint",
+        "source_digest",
+    }
+
+    event_key = models.CharField(max_length=160, unique=True)
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_events",
+        db_constraint=False,
+    )
+    snapshot = models.OneToOneField(
+        "management.IgConversationAnalysisSnapshot",
+        on_delete=models.DO_NOTHING,
+        related_name="operational_event",
+        db_constraint=False,
+    )
+    event_type = models.CharField(max_length=32, choices=EventType.choices)
+    payload = models.JSONField(default=dict, blank=True)
+    required_state_fingerprint = models.CharField(max_length=64, blank=True, default="")
+    source_digest = models.CharField(max_length=64, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    applied_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_events",
+        db_constraint=False,
+    )
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        default=timezone.now,
+        db_index=True,
+    )
+    last_error = models.CharField(max_length=1000, blank=True, default="")
+    rejected_reason = models.CharField(max_length=120, blank=True, default="")
+    applied_at = models.DateTimeField(null=True, blank=True)
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Операційна подія аналізу IG")
+        verbose_name_plural = _("Операційні події аналізу IG")
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(
+                fields=["status", "next_attempt_at", "id"],
+                name="ig_analysis_event_due",
+            ),
+            models.Index(fields=["client", "status"], name="ig_analysis_event_client"),
+        ]
+
+    objects = models.Manager.from_queryset(_IgConversationAnalysisEventQuerySet)()
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .values(*self._IDENTITY_FIELDS)
+                .first()
+            )
+            if previous:
+                for field_name in self._IDENTITY_FIELDS:
+                    value = getattr(self, field_name)
+                    if field_name.endswith("_id"):
+                        value = getattr(self, field_name)
+                    if value != previous[field_name]:
+                        raise ValueError("IgConversationAnalysisEvent identity is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgConversationAnalysisEvent identity is immutable")
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"{self.event_type}:{self.event_key} ({self.status})"
 
 
 class IgConversationAnalysisJob(models.Model):

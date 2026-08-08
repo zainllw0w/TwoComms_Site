@@ -7353,6 +7353,7 @@ def enqueue_inbound(
     reply_to_provider_message_id: str = "",
     quick_reply_payload: str = "",
     persistence_only: bool = False,
+    _commercial_lock_held: bool = False,
 ) -> bool:
     """Кладе вхідне в чергу (pending). Повертає True, якщо додано нове."""
     text = (text or "").strip()
@@ -7382,6 +7383,23 @@ def enqueue_inbound(
     explicit_opt_out = bot_sales_classifier.is_explicit_opt_out(text)
     permission_transition_job_id = None
     client = IgClient.get_or_create_for_sender(sender_id)
+    if not _commercial_lock_held:
+        from management.services.ig_commercial_episodes import commercial_episode_client_lock
+
+        with commercial_episode_client_lock(client.pk):
+            return enqueue_inbound(
+                s,
+                sender_id=sender_id,
+                text=text,
+                mid=mid,
+                source=source,
+                attachments=attachments,
+                received_at=received_at,
+                reply_to_provider_message_id=reply_to_provider_message_id,
+                quick_reply_payload=quick_reply_payload,
+                persistence_only=persistence_only,
+                _commercial_lock_held=True,
+            )
     existing_source = (
         InstagramBotMessage.objects.filter(mid=mid).first()
         if mid
@@ -7431,7 +7449,7 @@ def enqueue_inbound(
                 last_inbound_at=inbound_at
             )
             s.last_inbound_at = inbound_at
-            log("info", "observed", _inbound_log_detail(source, sender_id, text))
+            log("info", "observed", _inbound_log_detail(source, sender_id, text, ""))
         return bool(message_created or not job_existed)
     # Клієнт написав знову — саме момент перевірити, чи не висить пауза від
     # менеджера, який давно пішов. Інакше повідомлення тихо стане `observed`,

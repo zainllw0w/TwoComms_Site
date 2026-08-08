@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from contextlib import contextmanager
+from contextvars import ContextVar
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from threading import RLock
@@ -15,6 +16,7 @@ from django.utils import timezone
 
 _EPISODE_LOCKS = WeakValueDictionary()
 _EPISODE_LOCKS_GUARD = RLock()
+_HELD_DB_LOCKS = ContextVar("ig_episode_db_locks", default=frozenset())
 
 
 @contextmanager
@@ -22,11 +24,16 @@ def commercial_episode_client_lock(client_id: int):
     """Serialize episode/open-order decisions across MariaDB workers."""
     lock_name = f"twocomms:ig-episode:{int(client_id)}"
     if connection.vendor in {"mysql", "mariadb"}:
+        held_locks = _HELD_DB_LOCKS.get()
+        if lock_name in held_locks:
+            yield
+            return
         with connection.cursor() as cursor:
             cursor.execute("SELECT GET_LOCK(%s, 15)", [lock_name])
             acquired = cursor.fetchone()[0]
         if acquired != 1:
             raise RuntimeError("Could not acquire Instagram commercial episode lock")
+        token = _HELD_DB_LOCKS.set(held_locks | {lock_name})
         try:
             yield
         finally:
@@ -35,6 +42,7 @@ def commercial_episode_client_lock(client_id: int):
                     cursor.execute("SELECT RELEASE_LOCK(%s)", [lock_name])
             except Exception:
                 pass
+            _HELD_DB_LOCKS.reset(token)
         return
     with _EPISODE_LOCKS_GUARD:
         lock = _EPISODE_LOCKS.setdefault(int(client_id), RLock())
@@ -1140,6 +1148,8 @@ def start_repeat_episode(
     confidence,
     analysis_model: str,
     analysis_prompt_version: str,
+    _lock_held: bool = False,
+    preserve_client_stage: bool = False,
 ):
     from management.ig_bot_models import IgClient, IgCommercialEpisode
 
@@ -1153,18 +1163,9 @@ def start_repeat_episode(
     )
     if not evidence_ids:
         raise ValueError("Повторне замовлення потребує доказ повідомлення клієнта")
-    canonical = json.dumps(
-        {
-            "client_id": int(client.pk),
-            "evidence_message_ids": evidence_ids,
-            "repeat_kind": repeat_kind,
-        },
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-    key = f"ig-repeat:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
-    with commercial_episode_client_lock(client.pk):
+    key = repeat_materialization_key(client.pk, evidence_ids)
+    lock_context = nullcontext() if _lock_held else commercial_episode_client_lock(client.pk)
+    with lock_context:
         with transaction.atomic():
             client = IgClient.objects.select_for_update().get(pk=client.pk)
             episodes = list(
@@ -1275,7 +1276,10 @@ def start_repeat_episode(
             )
 
             start_new_session_for_episode(client, episode)
-            if client.stage not in {IgClient.Stage.NEW, IgClient.Stage.QUALIFYING}:
+            if (
+                not preserve_client_stage
+                and client.stage not in {IgClient.Stage.NEW, IgClient.Stage.QUALIFYING}
+            ):
                 previous_stage = client.stage
                 client.stage = IgClient.Stage.QUALIFYING
                 client.stage_updated_at = timezone.now()
@@ -1291,6 +1295,28 @@ def start_repeat_episode(
                     evidence={"message_ids": evidence_ids},
                 )
     return episode
+
+
+def repeat_materialization_key(client_id: int, evidence_message_ids) -> str:
+    """Stable repeat identity derived only from durable customer evidence."""
+    evidence_ids = sorted({
+        int(value)
+        for value in (evidence_message_ids or [])
+        if str(value).isdigit()
+    })
+    if not evidence_ids:
+        raise ValueError("Повторне замовлення потребує доказ повідомлення клієнта")
+    canonical = json.dumps(
+        {
+            "version": "ig-repeat-evidence-v1",
+            "client_id": int(client_id),
+            "evidence_message_ids": evidence_ids,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return f"ig-repeat:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 # Compatibility alias used by the bounded API/test contract. Keep the stored

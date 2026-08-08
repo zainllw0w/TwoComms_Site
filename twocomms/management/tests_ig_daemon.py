@@ -433,6 +433,126 @@ class _BoundedWorkerEvent:
 
 
 class AnalysisWorkerTests(SimpleTestCase):
+    @patch(
+        "management.services.ig_analysis_events.process_due_analysis_events",
+        return_value={
+            "applied": 0,
+            "already_applied": 0,
+            "already_rejected": 0,
+            "rejected": 2,
+            "retry_scheduled": 1,
+            "failed": 0,
+            "missing": 0,
+        },
+    )
+    @patch("management.management.commands.run_instagram_bot.bot.log")
+    @patch("management.services.bot_conversation_analysis.process_due_analysis")
+    @patch("management.services.bot_conversation_analysis.reconcile_analysis_jobs")
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    @patch("management.management.commands.run_instagram_bot.time.monotonic", return_value=100.0)
+    def test_analysis_worker_logs_terminal_event_outcomes(
+        self,
+        _monotonic,
+        _maintenance,
+        _close,
+        _reconcile,
+        _process,
+        log,
+        _process_events,
+    ):
+        _analysis_worker(_BoundedWorkerEvent(cycles=1))
+
+        log.assert_any_call(
+            "warning",
+            "conversation_analysis_events_terminal",
+            "rejected=2 failed=0",
+        )
+
+    @patch(
+        "management.services.ig_analysis_events.process_due_analysis_events",
+        return_value={
+            "applied": 0,
+            "already_applied": 0,
+            "already_rejected": 0,
+            "rejected": 0,
+            "retry_scheduled": 0,
+            "failed": 1,
+            "missing": 0,
+        },
+    )
+    @patch("management.management.commands.run_instagram_bot.bot.log")
+    @patch("management.services.bot_conversation_analysis.process_due_analysis")
+    @patch("management.services.bot_conversation_analysis.reconcile_analysis_jobs")
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    @patch("management.management.commands.run_instagram_bot.time.monotonic", return_value=100.0)
+    def test_analysis_worker_logs_exhausted_event_as_error(
+        self,
+        _monotonic,
+        _maintenance,
+        _close,
+        _reconcile,
+        _process,
+        log,
+        _process_events,
+    ):
+        _analysis_worker(_BoundedWorkerEvent(cycles=1))
+
+        log.assert_any_call(
+            "error",
+            "conversation_analysis_events_terminal",
+            "rejected=0 failed=1",
+        )
+
+    @patch(
+        "management.services.ig_analysis_events.process_due_analysis_events",
+        return_value={
+            "applied": 0,
+            "already_applied": 0,
+            "already_rejected": 0,
+            "rejected": 0,
+            "retry_scheduled": 1,
+            "failed": 0,
+            "missing": 0,
+        },
+    )
+    @patch("management.management.commands.run_instagram_bot.bot.log")
+    @patch("management.services.bot_conversation_analysis.process_due_analysis")
+    @patch("management.services.bot_conversation_analysis.reconcile_analysis_jobs")
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    @patch("management.management.commands.run_instagram_bot.time.monotonic", return_value=100.0)
+    def test_analysis_worker_does_not_log_retry_as_terminal(
+        self,
+        _monotonic,
+        _maintenance,
+        _close,
+        _reconcile,
+        _process,
+        log,
+        _process_events,
+    ):
+        _analysis_worker(_BoundedWorkerEvent(cycles=1))
+
+        terminal_calls = [
+            item
+            for item in log.call_args_list
+            if len(item.args) > 1
+            and item.args[1] == "conversation_analysis_events_terminal"
+        ]
+        self.assertEqual(terminal_calls, [])
+
+    @patch("management.services.ig_analysis_events.process_due_analysis_events")
     @patch("management.services.bot_conversation_analysis.process_due_analysis")
     @patch("management.services.bot_conversation_analysis.reconcile_analysis_jobs")
     @patch("management.management.commands.run_instagram_bot.close_old_connections")
@@ -442,13 +562,15 @@ class AnalysisWorkerTests(SimpleTestCase):
     )
     @patch("management.management.commands.run_instagram_bot.time.monotonic", return_value=100.0)
     def test_analysis_worker_reconciles_immediately_after_start(
-        self, _monotonic, _maintenance, _close, reconcile, process
+        self, _monotonic, _maintenance, _close, reconcile, process, process_events
     ):
         _analysis_worker(_BoundedWorkerEvent(cycles=1))
 
         reconcile.assert_called_once_with(limit=ANALYSIS_RECONCILE_BATCH)
         process.assert_called_once_with(limit=1)
+        process_events.assert_called_once_with(limit=1)
 
+    @patch("management.services.ig_analysis_events.process_due_analysis_events")
     @patch("management.management.commands.run_instagram_bot.bot.log")
     @patch(
         "management.services.bot_conversation_analysis.process_due_analysis"
@@ -464,18 +586,47 @@ class AnalysisWorkerTests(SimpleTestCase):
     )
     @patch("management.management.commands.run_instagram_bot.time.monotonic", return_value=100.0)
     def test_reconciliation_failure_does_not_block_due_job_drain(
-        self, _monotonic, _maintenance, _close, reconcile, process, log
+        self, _monotonic, _maintenance, _close, reconcile, process, log, process_events
     ):
         _analysis_worker(_BoundedWorkerEvent(cycles=1))
 
         reconcile.assert_called_once_with(limit=ANALYSIS_RECONCILE_BATCH)
         process.assert_called_once_with(limit=1)
+        process_events.assert_called_once_with(limit=1)
         log.assert_any_call(
             "error",
             "conversation_analysis_reconcile",
             "RuntimeError('reconcile unavailable')",
         )
 
+    @patch("management.services.ig_analysis_events.process_due_analysis_events")
+    @patch("management.management.commands.run_instagram_bot.bot.log")
+    @patch(
+        "management.services.bot_conversation_analysis.process_due_analysis",
+        side_effect=RuntimeError("analysis unavailable"),
+    )
+    @patch("management.services.bot_conversation_analysis.reconcile_analysis_jobs")
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    @patch("management.management.commands.run_instagram_bot.time.monotonic", return_value=100.0)
+    def test_analysis_failure_does_not_block_owned_event_drain(
+        self, _monotonic, _maintenance, _close, reconcile, process, log, process_events
+    ):
+        _analysis_worker(_BoundedWorkerEvent(cycles=1))
+
+        reconcile.assert_called_once_with(limit=ANALYSIS_RECONCILE_BATCH)
+        process.assert_called_once_with(limit=1)
+        process_events.assert_called_once_with(limit=1)
+        log.assert_any_call(
+            "error",
+            "conversation_analysis_due",
+            "RuntimeError('analysis unavailable')",
+        )
+
+    @patch("management.services.ig_analysis_events.process_due_analysis_events")
     @patch("management.services.bot_conversation_analysis.process_due_analysis")
     @patch("management.services.bot_conversation_analysis.reconcile_analysis_jobs")
     @patch("management.management.commands.run_instagram_bot.close_old_connections")
@@ -484,13 +635,15 @@ class AnalysisWorkerTests(SimpleTestCase):
         return_value={"active": True},
     )
     def test_analysis_worker_does_nothing_during_maintenance(
-        self, _maintenance, _close, reconcile, process
+        self, _maintenance, _close, reconcile, process, process_events
     ):
         _analysis_worker(_BoundedWorkerEvent(cycles=1))
 
         reconcile.assert_not_called()
         process.assert_not_called()
+        process_events.assert_not_called()
 
+    @patch("management.services.ig_analysis_events.process_due_analysis_events")
     @patch("management.services.bot_conversation_analysis.process_due_analysis")
     @patch("management.services.bot_conversation_analysis.reconcile_analysis_jobs")
     @patch("management.management.commands.run_instagram_bot.close_old_connections")
@@ -503,12 +656,13 @@ class AnalysisWorkerTests(SimpleTestCase):
         side_effect=[100.0, 101.0, 100.0 + ANALYSIS_RECONCILE_EVERY],
     )
     def test_analysis_worker_reconciles_only_at_bounded_interval(
-        self, _monotonic, _maintenance, _close, reconcile, process
+        self, _monotonic, _maintenance, _close, reconcile, process, process_events
     ):
         _analysis_worker(_BoundedWorkerEvent(cycles=3))
 
         self.assertEqual(reconcile.call_count, 2)
         self.assertEqual(process.call_count, 3)
+        self.assertEqual(process_events.call_count, 3)
 
 
 class AiReplyRecoveryWorkerTests(SimpleTestCase):

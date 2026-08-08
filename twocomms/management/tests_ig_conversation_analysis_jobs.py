@@ -1,10 +1,13 @@
 import json
+import inspect
+from io import StringIO
 from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 from django.test import SimpleTestCase, TestCase
+from django.core.management import call_command
 from django.utils import timezone
 
 from management.models import (
@@ -23,6 +26,41 @@ from management.services import bot_conversation_analysis as analysis
 
 
 class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
+    def test_analysis_module_has_no_direct_operational_writer_calls(self):
+        source = inspect.getsource(analysis)
+
+        for forbidden_call in (
+            "start_repeat_episode(",
+            "ensure_rule_classification(",
+            "project_observed_stage(",
+            "create_payment_review(",
+        ):
+            with self.subTest(forbidden_call=forbidden_call):
+                self.assertNotIn(forbidden_call, source)
+
+    def test_commercial_episode_lock_is_reentrant_per_client(self):
+        from management.services import ig_commercial_episodes
+
+        cursor = MagicMock()
+        cursor.fetchone.return_value = (1,)
+        cursor_context = MagicMock()
+        cursor_context.__enter__.return_value = cursor
+        with patch.object(ig_commercial_episodes, "connection") as connection:
+            connection.vendor = "mysql"
+            connection.cursor.return_value = cursor_context
+
+            with ig_commercial_episodes.commercial_episode_client_lock(42):
+                with ig_commercial_episodes.commercial_episode_client_lock(42):
+                    pass
+
+        self.assertEqual(
+            cursor.execute.call_args_list,
+            [
+                call("SELECT GET_LOCK(%s, 15)", ["twocomms:ig-episode:42"]),
+                call("SELECT RELEASE_LOCK(%s)", ["twocomms:ig-episode:42"]),
+            ],
+        )
+
     def test_latest_truth_change_ignores_unrelated_deal_updates(self):
         old_payment_truth = timezone.now() - timedelta(days=2)
         order_truth = timezone.now() - timedelta(days=1)
@@ -398,6 +436,139 @@ class ConversationAnalysisJobTests(TestCase):
             status=InstagramBotMessage.Status.DONE,
         )
 
+    def operational_digest(self):
+        from management.ig_bot_models import (
+            IgCommerceSelectionSession,
+            IgCommercialEpisode,
+            IgCommercialEpisodeEvent,
+        )
+
+        self.client.refresh_from_db()
+        return {
+            "client": (self.client.stage, self.client.current_commercial_episode_id),
+            "episodes": list(
+                IgCommercialEpisode.objects.filter(client=self.client)
+                .order_by("id")
+                .values_list(
+                    "id",
+                    "state",
+                    "open_slot",
+                    "opened_watermark_message_id",
+                    "repeat_kind",
+                )
+            ),
+            "episode_events": list(
+                IgCommercialEpisodeEvent.objects.filter(episode__client=self.client)
+                .order_by("id")
+                .values_list("id", "episode_id", "event_type")
+            ),
+            "sessions": list(
+                IgCommerceSelectionSession.objects.filter(client=self.client)
+                .order_by("id")
+                .values_list(
+                    "id", "state", "open_slot", "generation", "lines"
+                )
+            ),
+            "deals": list(
+                IgDeal.objects.filter(client=self.client)
+                .order_by("id")
+                .values_list(
+                    "id", "status", "payment_status", "order_id", "amount"
+                )
+            ),
+            "payments": list(
+                IgPaymentProjection.objects.filter(client=self.client)
+                .order_by("id")
+                .values_list("id", "deal_id", "truth", "gross_amount")
+            ),
+        }
+
+    def pending_repeat_event(
+        self,
+        *,
+        text="Мені сподобалось, хочу ще одну",
+        confidence="0.9500",
+        repeat_kind="explicit_more",
+        publish=True,
+    ):
+        from management.ig_bot_models import IgConversationAnalysisSnapshot
+        from management.services.ig_analysis_events import publish_repeat_episode_event
+
+        deal = IgDeal.objects.create(client=self.client, amount=Decimal("790.00"))
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.client,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("790.00"),
+            paid_at=timezone.now(),
+        )
+        message = self.message(text)
+        fingerprint = analysis._required_state_fingerprint(self.client, message.pk)
+        repeat_intent = {
+            "kind": repeat_kind,
+            "confidence": confidence,
+            "evidence_message_ids": [message.pk],
+        }
+        snapshot = IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            last_analyzed_message=message,
+            dedupe_key=f"test-repeat:{self.client.pk}:{message.pk}:{repeat_kind}",
+            score_band=IgConversationAnalysisSnapshot.Band.PAID,
+            interaction_type=IgConversationAnalysisSnapshot.InteractionType.HIGH_INTENT,
+            purchase_probability=Decimal("0.8600"),
+            confidence=Decimal("0.9200"),
+            repeat_intent=repeat_intent,
+            analysis_model="gemini-test",
+            analysis_prompt_version=analysis.ANALYSIS_PROMPT_VERSION,
+            required_state_fingerprint=fingerprint,
+        )
+        if not publish:
+            return message, snapshot
+        event = publish_repeat_episode_event(
+            client=self.client,
+            snapshot=snapshot,
+            repeat_intent=repeat_intent,
+            analysis_model=snapshot.analysis_model,
+            analysis_prompt_version=snapshot.analysis_prompt_version,
+            required_state_fingerprint=fingerprint,
+        )
+        return message, event
+
+    def test_repeat_normalization_accepts_mixed_exchange_and_new_purchase_only(self):
+        mixed = {
+            11: {
+                "role": "user",
+                "text": "Хочу обміняти розмір і ще одну футболку замовити",
+            }
+        }
+        exchange_only = {
+            12: {
+                "role": "user",
+                "text": "Хочу обміняти цю футболку на ще одну розміру L",
+            }
+        }
+        parsed = {
+            "repeat_intent": {
+                "kind": "explicit_more",
+                "confidence": 0.95,
+                "evidence_message_ids": [11],
+            }
+        }
+
+        self.assertEqual(
+            analysis._normalize(parsed, mixed, verified_payment=True)["repeat_intent"][
+                "evidence_message_ids"
+            ],
+            [11],
+        )
+        parsed["repeat_intent"]["evidence_message_ids"] = [12]
+        self.assertEqual(
+            analysis._normalize(parsed, exchange_only, verified_payment=True)[
+                "repeat_intent"
+            ],
+            {},
+        )
+
     def test_schedule_coalesces_to_latest_watermark_and_moves_due_time(self):
         first = self.message("Підкажіть розмір")
         second = self.message("І ціну чорної")
@@ -660,10 +831,12 @@ class ConversationAnalysisJobTests(TestCase):
             reaction,
             now=timezone.now() - timedelta(minutes=1),
         )
+        before = self.operational_digest()
 
         result = analysis.process_due_analysis(limit=1)
 
         self.assertEqual(result["skipped"], 1)
+        self.assertEqual(self.operational_digest(), before)
         generate.assert_not_called()
 
     def test_skipped_job_is_reconciled_when_verified_payment_truth_changes(self):
@@ -707,10 +880,12 @@ class ConversationAnalysisJobTests(TestCase):
         first = self.message("Перше")
         analysis.schedule_analysis(self.client, first, now=timezone.now() - timedelta(minutes=1))
         generate.side_effect = RuntimeError("provider down")
+        before = self.operational_digest()
 
         result = analysis.process_due_analysis(limit=1)
 
         self.assertEqual(result["failed"], 1)
+        self.assertEqual(self.operational_digest(), before)
         job = IgConversationAnalysisJob.objects.get(client=self.client)
         self.assertEqual(job.status, IgConversationAnalysisJob.Status.PENDING)
         self.assertEqual(job.watermark_message_id, first.id)
@@ -819,9 +994,7 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(job.watermark_message_id, message.id)
         self.assertEqual(job.trigger, "reconcile")
         generate.assert_not_called()
-        self.assertTrue(classify.called)
-        for call_args in classify.call_args_list:
-            self.assertFalse(call_args.kwargs.get("operational_effects", True))
+        classify.assert_not_called()
 
     @patch("management.services.ig_payment_review.create_payment_review")
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
@@ -1403,7 +1576,9 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
-    def test_confirmed_repeat_intent_starts_clean_episode_session_and_replay_keeps_it(self, generate):
+    def test_confirmed_repeat_analysis_publishes_intent_without_mutating_operations(
+        self, generate
+    ):
         from management.ig_bot_models import (
             IgCommerceSelectionSession,
             IgCommercialEpisode,
@@ -1452,15 +1627,17 @@ class ConversationAnalysisJobTests(TestCase):
             1,
             {**first_result, "last_error": first_job.last_error},
         )
-        self.assertEqual(IgCommercialEpisode.objects.filter(client=self.client).count(), 1)
-        episode = IgCommercialEpisode.objects.get(client=self.client)
-        session = IgCommerceSelectionSession.objects.get(client=self.client, open_slot=1)
-        self.assertEqual(session.commercial_episode_id, episode.pk)
-        self.assertEqual(session.generation, previous_session.generation + 1)
-        self.assertEqual(session.lines, [])
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+        self.assertEqual(
+            IgCommerceSelectionSession.objects.filter(client=self.client).count(),
+            1,
+        )
+        current_session = IgCommerceSelectionSession.objects.get(client=self.client)
+        self.assertEqual(current_session.pk, previous_session.pk)
+        self.assertEqual(current_session.generation, previous_session.generation)
         previous_session.refresh_from_db()
-        self.assertEqual(previous_session.state, IgCommerceSelectionSession.State.CLOSED)
-        self.assertIsNone(previous_session.open_slot)
+        self.assertNotEqual(previous_session.state, IgCommerceSelectionSession.State.CLOSED)
+        self.assertEqual(previous_session.open_slot, 1)
         snapshot_count = IgConversationAnalysisSnapshot.objects.filter(
             client=self.client
         ).count()
@@ -1474,14 +1651,396 @@ class ConversationAnalysisJobTests(TestCase):
         )
         analysis.process_due_analysis(limit=1)
 
-        self.assertEqual(
-            IgCommercialEpisode.objects.filter(client=self.client).count(),
-            1,
-        )
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
         self.assertEqual(
             IgConversationAnalysisSnapshot.objects.filter(client=self.client).count(),
             snapshot_count,
         )
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_repeat_event_consumer_materializes_once_and_replay_is_idempotent(self, generate):
+        from management.ig_bot_models import (
+            IgCommerceSelectionSession,
+            IgCommercialEpisode,
+            IgConversationAnalysisEvent,
+        )
+        from management.services.ig_analysis_events import process_due_analysis_events
+
+        deal = IgDeal.objects.create(client=self.client, amount=Decimal("790.00"))
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.client,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("790.00"),
+            paid_at=timezone.now(),
+        )
+        previous_session = __import__(
+            "management.services.ig_commerce_projection",
+            fromlist=["authoritative_session_for"],
+        ).authoritative_session_for(self.client)
+        message = self.message("Мені сподобалось, хочу ще одну")
+        analysis.schedule_analysis(
+            self.client, message, now=timezone.now() - timedelta(minutes=1)
+        )
+        generate.return_value = {
+            "parsed": {
+                "interaction_type": "high_intent",
+                "score_band": "high_intent",
+                "purchase_probability": 0.86,
+                "confidence": 0.92,
+                "evidence": [{"message_id": message.pk, "claim": "repeat"}],
+                "repeat_intent": {
+                    "kind": "explicit_more",
+                    "confidence": 0.95,
+                    "evidence_message_ids": [message.pk],
+                },
+            },
+            "model": "gemini-3.6-flash",
+            "meta": {},
+        }
+
+        analysis.process_due_analysis(limit=1)
+
+        action = IgConversationAnalysisEvent.objects.get(client=self.client)
+        self.assertEqual(action.status, IgConversationAnalysisEvent.Status.PENDING)
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+        first = process_due_analysis_events(limit=1)
+        action.refresh_from_db()
+        self.assertEqual(first["applied"], 1, {**first, "error": action.last_error})
+        episode = IgCommercialEpisode.objects.get(client=self.client)
+        session = IgCommerceSelectionSession.objects.get(client=self.client, open_slot=1)
+        self.assertEqual(session.commercial_episode_id, episode.pk)
+        self.assertEqual(session.generation, previous_session.generation + 1)
+
+        second = process_due_analysis_events(limit=1)
+        self.assertEqual(sum(second.values()), 0, second)
+        self.assertEqual(IgCommercialEpisode.objects.filter(client=self.client).count(), 1)
+        action.refresh_from_db()
+        self.assertEqual(action.status, IgConversationAnalysisEvent.Status.APPLIED)
+        self.assertEqual(action.applied_episode_id, episode.pk)
+        self.client.refresh_from_db()
+        self.assertEqual(self.client.stage, IgClient.Stage.NEW)
+
+    def test_repeat_event_rejects_stale_conversation_and_tampered_evidence(self):
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgConversationAnalysisEvent,
+        )
+        from management.services.ig_analysis_events import process_due_analysis_events
+
+        message, event = self.pending_repeat_event()
+        self.message("Нове уточнення після аналізу")
+
+        result = process_due_analysis_events(limit=1)
+
+        event.refresh_from_db()
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(event.rejected_reason, "conversation_advanced")
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+        other = IgClient.objects.create(igsid="analysis-event-tampered")
+        self.client = other
+        message, event = self.pending_repeat_event()
+        InstagramBotMessage.objects.filter(pk=message.pk).update(
+            text="Хочу лише обміняти розмір"
+        )
+
+        result = process_due_analysis_events(limit=1)
+
+        event.refresh_from_db()
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(event.rejected_reason, "repeat_evidence_missing")
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+    def test_same_customer_evidence_with_different_model_kind_materializes_once(self):
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgConversationAnalysisEvent,
+            IgConversationAnalysisSnapshot,
+        )
+        from management.services.ig_analysis_events import (
+            process_due_analysis_events,
+            publish_repeat_episode_event,
+        )
+
+        message, first_event = self.pending_repeat_event(repeat_kind="explicit_more")
+        fingerprint = analysis._required_state_fingerprint(self.client, message.pk)
+        second_intent = {
+            "kind": "reorder",
+            "confidence": "0.9400",
+            "evidence_message_ids": [message.pk],
+        }
+        second_snapshot = IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            last_analyzed_message=message,
+            dedupe_key=f"test-repeat-revision:{self.client.pk}:{message.pk}",
+            score_band=IgConversationAnalysisSnapshot.Band.PAID,
+            interaction_type=IgConversationAnalysisSnapshot.InteractionType.HIGH_INTENT,
+            purchase_probability=Decimal("0.8600"),
+            confidence=Decimal("0.9200"),
+            repeat_intent=second_intent,
+            analysis_model="gemini-test-revision",
+            analysis_prompt_version=analysis.ANALYSIS_PROMPT_VERSION,
+            required_state_fingerprint=fingerprint,
+        )
+        second_event = publish_repeat_episode_event(
+            client=self.client,
+            snapshot=second_snapshot,
+            repeat_intent=second_intent,
+            analysis_model=second_snapshot.analysis_model,
+            analysis_prompt_version=second_snapshot.analysis_prompt_version,
+            required_state_fingerprint=fingerprint,
+        )
+
+        result = process_due_analysis_events(limit=2)
+
+        self.assertEqual(result["applied"], 1, result)
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(IgCommercialEpisode.objects.filter(client=self.client).count(), 1)
+        first_event.refresh_from_db()
+        second_event.refresh_from_db()
+        self.assertEqual(first_event.status, IgConversationAnalysisEvent.Status.APPLIED)
+        self.assertEqual(second_event.rejected_reason, "already_materialized")
+
+    def test_repeat_event_failure_rolls_back_and_retry_applies_once(self):
+        from management.ig_bot_models import (
+            IgCommerceSelectionSession,
+            IgCommercialEpisode,
+            IgConversationAnalysisEvent,
+        )
+        from management.services import ig_commercial_episodes
+        from management.services.ig_analysis_events import process_due_analysis_events
+
+        _message, event = self.pending_repeat_event()
+        previous_session = IgCommerceSelectionSession.objects.create(
+            client=self.client,
+            generation=1,
+            open_slot=1,
+        )
+        real_start = ig_commercial_episodes.start_repeat_episode
+
+        def fail_after_write(*args, **kwargs):
+            real_start(*args, **kwargs)
+            raise RuntimeError("forced rollback")
+
+        failed_at = timezone.now()
+        with patch(
+            "management.services.ig_commercial_episodes.start_repeat_episode",
+            side_effect=fail_after_write,
+        ):
+            failed = process_due_analysis_events(limit=1, now=failed_at)
+
+        event.refresh_from_db()
+        previous_session.refresh_from_db()
+        self.assertEqual(failed["retry_scheduled"], 1, failed)
+        self.assertEqual(failed["failed"], 0, failed)
+        self.assertEqual(event.status, IgConversationAnalysisEvent.Status.PENDING)
+        self.assertEqual(event.attempts, 1)
+        self.assertIn("forced rollback", event.last_error)
+        self.assertGreater(event.next_attempt_at, failed_at)
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+        self.assertEqual(previous_session.open_slot, 1)
+
+        self.assertEqual(
+            sum(process_due_analysis_events(limit=1, now=failed_at).values()),
+            0,
+        )
+        applied = process_due_analysis_events(
+            limit=1,
+            now=event.next_attempt_at + timedelta(seconds=1),
+        )
+
+        event.refresh_from_db()
+        self.assertEqual(applied["applied"], 1, applied)
+        self.assertEqual(event.status, IgConversationAnalysisEvent.Status.APPLIED)
+        self.assertEqual(IgCommercialEpisode.objects.filter(client=self.client).count(), 1)
+
+    def test_repeat_event_stops_retrying_after_bounded_failures(self):
+        from management.ig_bot_models import IgConversationAnalysisEvent
+        from management.services.ig_analysis_events import (
+            MAX_EVENT_ATTEMPTS,
+            process_due_analysis_events,
+        )
+
+        _message, event = self.pending_repeat_event()
+        now = timezone.now()
+        with patch(
+            "management.services.ig_commercial_episodes.start_repeat_episode",
+            side_effect=RuntimeError("permanent failure"),
+        ):
+            for _attempt in range(MAX_EVENT_ATTEMPTS):
+                result = process_due_analysis_events(limit=1, now=now)
+                self.assertEqual(
+                    result["failed"],
+                    int(_attempt + 1 == MAX_EVENT_ATTEMPTS),
+                    result,
+                )
+                self.assertEqual(
+                    result["retry_scheduled"],
+                    int(_attempt + 1 < MAX_EVENT_ATTEMPTS),
+                    result,
+                )
+                event.refresh_from_db()
+                if _attempt + 1 < MAX_EVENT_ATTEMPTS:
+                    now = event.next_attempt_at + timedelta(seconds=1)
+
+        event.refresh_from_db()
+        self.assertEqual(event.status, IgConversationAnalysisEvent.Status.FAILED)
+        self.assertEqual(event.attempts, MAX_EVENT_ATTEMPTS)
+        self.assertIsNone(event.next_attempt_at)
+        self.assertEqual(sum(process_due_analysis_events(limit=1, now=now).values()), 0)
+
+    def test_repeat_event_publisher_rejects_confidence_below_operational_threshold(self):
+        from management.ig_bot_models import IgConversationAnalysisEvent
+        from management.services.ig_analysis_events import publish_repeat_episode_event
+
+        message, snapshot = self.pending_repeat_event(
+            confidence="0.6999",
+            publish=False,
+        )
+
+        with self.assertRaisesRegex(ValueError, "confidence"):
+            publish_repeat_episode_event(
+                client=self.client,
+                snapshot=snapshot,
+                repeat_intent=snapshot.repeat_intent,
+                analysis_model=snapshot.analysis_model,
+                analysis_prompt_version=snapshot.analysis_prompt_version,
+                required_state_fingerprint=snapshot.required_state_fingerprint,
+            )
+
+        self.assertFalse(
+            IgConversationAnalysisEvent.objects.filter(
+                snapshot=snapshot,
+            ).exists()
+        )
+
+    def test_repeat_event_consumer_rejects_untrusted_low_confidence_proposal(self):
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgConversationAnalysisEvent,
+        )
+        from management.services.ig_analysis_events import (
+            _event_key,
+            _snapshot_source_digest,
+            process_due_analysis_events,
+        )
+
+        message, snapshot = self.pending_repeat_event(
+            confidence="0.6999",
+            publish=False,
+        )
+        payload = {
+            "repeat_kind": "explicit_more",
+            "evidence_message_ids": [message.pk],
+            "confidence": "0.6999",
+            "analysis_model": snapshot.analysis_model,
+            "analysis_prompt_version": snapshot.analysis_prompt_version,
+        }
+        event = IgConversationAnalysisEvent.objects.create(
+            event_key=_event_key(snapshot.dedupe_key, payload),
+            client=self.client,
+            snapshot=snapshot,
+            event_type=IgConversationAnalysisEvent.EventType.REPEAT_EPISODE,
+            payload=payload,
+            required_state_fingerprint=snapshot.required_state_fingerprint,
+            source_digest=_snapshot_source_digest(snapshot),
+        )
+
+        result = process_due_analysis_events(limit=1)
+
+        event.refresh_from_db()
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(event.rejected_reason, "invalid_repeat_intent")
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+    def test_repeat_event_rejects_mutated_snapshot_source_before_operational_write(self):
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgConversationAnalysisSnapshot,
+        )
+        from management.services.ig_analysis_events import process_due_analysis_events
+
+        _message, event = self.pending_repeat_event()
+        IgConversationAnalysisSnapshot.objects.filter(pk=event.snapshot_id).update(
+            score_band=IgConversationAnalysisSnapshot.Band.COLD,
+        )
+
+        result = process_due_analysis_events(limit=1)
+
+        event.refresh_from_db()
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(event.rejected_reason, "snapshot_digest_mismatch")
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+    def test_analysis_event_identity_cannot_be_mutated_through_queryset_update(self):
+        from management.ig_bot_models import IgConversationAnalysisEvent
+
+        _message, event = self.pending_repeat_event()
+
+        with self.assertRaisesRegex(ValueError, "identity is immutable"):
+            IgConversationAnalysisEvent.objects.filter(pk=event.pk).update(
+                payload={"repeat_kind": "explicit_more"},
+            )
+
+    def test_analysis_event_identity_cannot_be_deleted(self):
+        from management.ig_bot_models import IgConversationAnalysisEvent
+
+        _message, event = self.pending_repeat_event()
+
+        with self.assertRaisesRegex(ValueError, "identity is immutable"):
+            event.delete()
+        with self.assertRaisesRegex(ValueError, "identity is immutable"):
+            IgConversationAnalysisEvent.objects.filter(pk=event.pk).delete()
+
+        self.assertTrue(IgConversationAnalysisEvent.objects.filter(pk=event.pk).exists())
+
+    def test_repeat_event_rejects_hidden_client_before_operational_write(self):
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_analysis_events import process_due_analysis_events
+
+        _message, event = self.pending_repeat_event()
+        IgClient.objects.filter(pk=self.client.pk).update(hidden_at=timezone.now())
+
+        result = process_due_analysis_events(limit=1)
+
+        event.refresh_from_db()
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(event.rejected_reason, "client_hidden")
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+    def test_repeat_event_rejects_blocked_client_before_operational_write(self):
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_analysis_events import process_due_analysis_events
+
+        _message, event = self.pending_repeat_event()
+        IgClient.objects.filter(pk=self.client.pk).update(is_blocked=True)
+
+        result = process_due_analysis_events(limit=1)
+
+        event.refresh_from_db()
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(event.rejected_reason, "client_blocked")
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
+    def test_repeat_event_rejects_active_opt_out_before_operational_write(self):
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_analysis_events import process_due_analysis_events
+
+        _message, event = self.pending_repeat_event()
+        IgClient.objects.filter(pk=self.client.pk).update(
+            opted_out_at=timezone.now(),
+            opted_in_at=None,
+        )
+
+        result = process_due_analysis_events(limit=1)
+
+        event.refresh_from_db()
+        self.assertEqual(result["rejected"], 1, result)
+        self.assertEqual(event.rejected_reason, "client_opted_out")
+        self.assertFalse(IgCommercialEpisode.objects.filter(client=self.client).exists())
+
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_opt_out_during_gemini_is_rechecked_before_snapshot(self, generate):
@@ -1884,10 +2443,12 @@ class ConversationAnalysisJobTests(TestCase):
             }
 
         generate.side_effect = enqueue_new_revision
+        before = self.operational_digest()
 
         result = analysis.process_due_analysis(limit=1)
 
         self.assertEqual(result["superseded"], 1)
+        self.assertEqual(self.operational_digest(), before)
         self.assertFalse(
             IgConversationAnalysisSnapshot.objects.exclude(
                 analysis_model="rules"
@@ -1927,3 +2488,30 @@ class ConversationAnalysisJobTests(TestCase):
         job = IgConversationAnalysisJob.objects.get(client=self.client)
         self.assertEqual(job.status, IgConversationAnalysisJob.Status.DONE)
         self.assertEqual(job.lease_token, "")
+
+
+class ConversationAnalysisCommandTests(SimpleTestCase):
+    @patch(
+        "management.management.commands.reconcile_ig_analysis_jobs.process_due_analysis_events"
+    )
+    @patch(
+        "management.management.commands.reconcile_ig_analysis_jobs.process_due_analysis",
+        return_value={"done": 1},
+    )
+    @patch(
+        "management.management.commands.reconcile_ig_analysis_jobs.reconcile_analysis_jobs",
+        return_value={"queued": 1},
+    )
+    def test_run_due_drains_analysis_and_owned_events(
+        self, reconcile, process_analysis, process_events
+    ):
+        process_events.return_value = {"applied": 1}
+        stdout = StringIO()
+
+        call_command("reconcile_ig_analysis_jobs", "--run-due", stdout=stdout)
+
+        reconcile.assert_called_once()
+        process_analysis.assert_called_once_with(limit=1)
+        process_events.assert_called_once_with(limit=1)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["processed_events"], {"applied": 1})

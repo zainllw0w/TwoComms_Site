@@ -824,11 +824,6 @@ def reconcile_rules_projection(
         .order_by("id")
         .values_list("signal_type", flat=True)
     ))
-    project_observed_stage(
-        client,
-        signal_types=signal_types,
-        reason="rules_reconcile",
-    )
     if existing:
         return existing
     message = client.messages.filter(pk=watermark).first()

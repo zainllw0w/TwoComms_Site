@@ -6,6 +6,7 @@ from management.services.bot_conversation_analysis import (
     process_due_analysis,
     reconcile_analysis_jobs,
 )
+from management.services.ig_analysis_events import process_due_analysis_events
 
 
 class Command(BaseCommand):
@@ -19,4 +20,5 @@ class Command(BaseCommand):
         result = reconcile_analysis_jobs(limit=options["limit"])
         if options["run_due"]:
             result["processed"] = process_due_analysis(limit=1)
+            result["processed_events"] = process_due_analysis_events(limit=1)
         self.stdout.write(json.dumps(result, ensure_ascii=False, sort_keys=True))
