@@ -252,6 +252,26 @@ class StagedReleaseTests(unittest.TestCase):
             (self.release_root / "worktrees" / self.target_sha / "twocomms" / "staticfiles").exists()
         )
 
+    def test_staged_commands_use_the_private_live_production_environment(self):
+        self._manifest()
+        production_env = self.live / ".env.production"
+        production_env.write_text("SECRET_KEY=private\n", encoding="utf-8")
+        production_env.chmod(0o600)
+
+        deploy_release.prepare(self.config, self.target_sha, run=self.runner)
+
+        staged_commands = [
+            command
+            for command in self.runner.calls
+            if command[0] == str(self.release_root / "venvs" / self.target_sha / "bin" / "python")
+        ]
+        self.assertGreater(len(staged_commands), 0)
+        for command in staged_commands:
+            self.assertEqual(
+                self.runner.environments[command].get("DJANGO_ENV_FILE"),
+                os.fspath(production_env.resolve()),
+            )
+
     def test_every_prepare_subprocess_has_a_bounded_timeout(self):
         self._manifest()
 

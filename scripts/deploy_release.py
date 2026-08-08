@@ -287,6 +287,30 @@ def _install_requirements(wheelhouse: Path, canonical_requirements: Path) -> Pat
     return install_requirements
 
 
+def _staged_environment(
+    config: ReleaseConfig,
+    static_root: Path,
+    environment: Mapping[str, str] | None,
+) -> dict[str, str]:
+    command_env = dict(environment or os.environ)
+    if not str(command_env.get("DJANGO_ENV_FILE") or "").strip():
+        candidates = (
+            config.live_checkout / ".env.production",
+            config.live_checkout / ".env",
+            config.live_checkout.parent / ".env.production",
+            config.live_checkout.parent / ".env",
+        )
+        for candidate in candidates:
+            if candidate.is_file() and not candidate.is_symlink():
+                command_env["DJANGO_ENV_FILE"] = os.fspath(candidate.resolve())
+                break
+    command_env["PYTHONNOUSERSITE"] = "1"
+    command_env["DJANGO_SETTINGS_MODULE"] = "twocomms.production_settings"
+    command_env["DJANGO_ENV"] = "production"
+    command_env["TWC_RELEASE_STATIC_ROOT"] = os.fspath(static_root)
+    return command_env
+
+
 def _validate_static_artifacts(static_root: Path) -> None:
     manifest_candidates = (
         static_root / "staticfiles.json",
@@ -418,11 +442,7 @@ def prepare(
             if not HEX_SHA256_RE.fullmatch(expected_lock_sha) or lock_sha != expected_lock_sha:
                 raise ReleaseError("staged requirements.lock does not match the reviewed lock digest")
         install_requirements = _install_requirements(wheelhouse, requirements)
-        command_env = dict(env or os.environ)
-        command_env["PYTHONNOUSERSITE"] = "1"
-        command_env["DJANGO_SETTINGS_MODULE"] = "twocomms.production_settings"
-        command_env["DJANGO_ENV"] = "production"
-        command_env["TWC_RELEASE_STATIC_ROOT"] = os.fspath(static_root)
+        command_env = _staged_environment(config, static_root, env)
         _run(
             run,
             (
