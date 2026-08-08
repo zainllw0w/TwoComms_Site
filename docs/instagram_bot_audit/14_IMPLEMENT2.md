@@ -283,14 +283,22 @@ These slices do not wait for white assets, attribution or retention policy.
 **Start files:** `twocomms/management/services/ig_maintenance.py`,
 `twocomms/management/services/instagram_bot.py`, relevant webhook/daemon tests.
 
-- [ ] Replace blocking `flock` only for HTTP pause/takeover/opt-out transition
+- [x] Replace blocking `flock` only for HTTP pause/takeover/opt-out transition
   paths with non-blocking or bounded retry, maximum one second. Preserve the
   customer-send serialization lock.
-- [ ] RED/green cross-process test: another process holds the lock; webhook
+- [x] RED/green cross-process test: another process holds the lock; webhook
   responds within one second, persists a durable recovery action and applies
   the transition exactly once after contention clears.
-- [ ] Acceptance: no duplicate processing, no send through the permission
+- [x] Acceptance: no duplicate processing, no send through the permission
   boundary, bounded elapsed time and actionable telemetry without message/PII.
+
+  **Closed 2026-08-08:** `282c089d` is deployed on production. Migration
+  `management.0147_ig_permission_transition_job` is applied and its runtime
+  table is `InnoDB`; the bot reports `running` with one daemon, fresh DB/cache
+  heartbeats, zero pending/processing/failed permission transitions, zero
+  dangerous backlog and redacted transition telemetry. The focused transition
+  suite passed 9/9 executable tests; its MariaDB-only `nowait` test is covered
+  by the production InnoDB contract and was skipped only on local SQLite.
 
 ### W1.2 Delivered-chunk evidence first — `F-CORE-005`, `IMP-098.B1`
 
