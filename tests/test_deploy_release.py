@@ -93,11 +93,15 @@ class StagedReleaseTests(unittest.TestCase):
         self.active_static = root / "active-static"
         self.lock_path = root / "deploy.lock"
         self.evidence_root = root / "evidence"
-        self.system_python = Path("/opt/alt/python314/bin/python3.14")
+        self.system_python = root / "python3.14"
+        self.system_python.write_text("#!/bin/sh\n", encoding="utf-8")
+        self.system_python.chmod(0o755)
         self.python_wrapper = root / "python_wrapper"
         self.python_wrapper.write_text("#!/bin/bash\n", encoding="utf-8")
+        self.python_wrapper.chmod(0o755)
         self.set_env_helper = root / "set_env_vars.py"
         self.set_env_helper.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        self.set_env_helper.chmod(0o755)
         self.target_sha = "a" * 40
         self.live_sha = "b" * 40
         self.config = deploy_release.ReleaseConfig(
@@ -214,6 +218,25 @@ class StagedReleaseTests(unittest.TestCase):
             f"VIRTUAL_ENV='{venv}'",
             (bin_dir / "activate").read_text(encoding="utf-8"),
         )
+
+    def test_staged_environment_discards_parent_python_runtime_state(self):
+        environment = deploy_release._staged_environment(
+            self.config,
+            self.release_root / "static" / self.target_sha,
+            {
+                "PATH": "/usr/bin",
+                "VIRTUAL_ENV": "/tmp/wrong-venv",
+                "PYTHONHOME": "/tmp/wrong-python-home",
+                "PYTHONPATH": "/tmp/wrong-python-path",
+                "__PYVENV_LAUNCHER__": "/tmp/wrong-launcher",
+            },
+        )
+
+        self.assertNotIn("VIRTUAL_ENV", environment)
+        self.assertNotIn("PYTHONHOME", environment)
+        self.assertNotIn("PYTHONPATH", environment)
+        self.assertNotIn("__PYVENV_LAUNCHER__", environment)
+        self.assertEqual(environment["PATH"], "/usr/bin")
 
     def test_install_uses_manifest_bound_install_lock(self):
         self._manifest()
@@ -692,16 +715,26 @@ class SwitchTests(unittest.TestCase):
         (self.live / "scripts").mkdir()
         (self.live / "scripts" / "verify_locked_requirements.py").write_text("", encoding="utf-8")
         self.release_root = root / "releases"
-        self.active_venv = root / "active-venv"
+        self.active_venv = root / "3.14"
         self.active_static = root / "active-static"
         self.active_venv.mkdir()
         self.active_static.mkdir()
+        (root / "python3.14").write_text("#!/bin/sh\n", encoding="utf-8")
+        (root / "python3.14").chmod(0o755)
+        self.python_wrapper = root / "python_wrapper"
+        self.python_wrapper.write_text("#!/bin/bash\n", encoding="utf-8")
+        self.python_wrapper.chmod(0o755)
+        self.set_env_helper = root / "set_env_vars.py"
+        self.set_env_helper.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        self.set_env_helper.chmod(0o755)
         self.config = deploy_release.ReleaseConfig(
             live_checkout=self.live,
             release_root=self.release_root,
             active_venv=self.active_venv,
             active_static=self.active_static,
-            system_python=Path("/opt/alt/python314/bin/python3.14"),
+            system_python=root / "python3.14",
+            cloudlinux_python_wrapper=self.python_wrapper,
+            cloudlinux_set_env_helper=self.set_env_helper,
             deploy_lock=root / "deploy.lock",
             evidence_root=root / "evidence",
             wheelhouse_root=root / "wheelhouse",
@@ -719,8 +752,17 @@ class SwitchTests(unittest.TestCase):
         (self.worktree / "twocomms" / "manage.py").write_text(
             "", encoding="utf-8"
         )
-        (self.venv / "bin").mkdir(parents=True)
-        (self.venv / "bin" / "python").write_text("", encoding="utf-8")
+        bin_dir = self.venv / "bin"
+        bin_dir.mkdir(parents=True)
+        (bin_dir / "activate").write_text(
+            f"VIRTUAL_ENV='{self.active_venv}'\nexport VIRTUAL_ENV\n",
+            encoding="utf-8",
+        )
+        (bin_dir / "python").symlink_to(self.python_wrapper)
+        (bin_dir / "python3").symlink_to("python")
+        (bin_dir / "python3.14").symlink_to("python")
+        (bin_dir / "python3.14_bin").symlink_to(self.config.system_python)
+        (bin_dir / "set_env_vars.py").symlink_to(self.set_env_helper)
         (self.static_root / "CACHE").mkdir(parents=True)
         (self.static_root / "CACHE" / "manifest.json").write_text("{}", encoding="utf-8")
         (self.static_root / "compressed-page.html").write_text("ok", encoding="utf-8")
@@ -761,6 +803,21 @@ class SwitchTests(unittest.TestCase):
         maintenance_index = next(i for i, call in enumerate(self.runner.calls) if "--maintenance-on" in call)
         stop_index = next(i for i, call in enumerate(self.runner.calls) if call[:2] == ("cloudlinux-selector", "stop"))
         self.assertLess(maintenance_index, stop_index)
+
+    def test_switch_rejects_tampered_cloudlinux_runtime_before_maintenance(self):
+        python = self.venv / "bin" / "python"
+        python.unlink()
+        python.symlink_to("/tmp/untrusted-python-wrapper")
+
+        with self.assertRaisesRegex(
+            deploy_release.ReleaseError,
+            "CloudLinux runtime binding",
+        ):
+            deploy_release.switch(self.config, self.prepared, run=self.runner)
+
+        rendered = " ".join(" ".join(call) for call in self.runner.calls)
+        self.assertNotIn("--maintenance-on", rendered)
+        self.assertNotIn("cloudlinux-selector stop", rendered)
 
     def test_owned_maintenance_runs_from_prepared_release_against_live_runtime(self):
         deploy_release.switch(self.config, self.prepared, run=self.runner)

@@ -295,6 +295,14 @@ def _staged_environment(
     environment: Mapping[str, str] | None,
 ) -> dict[str, str]:
     command_env = dict(environment or os.environ)
+    for key in (
+        "VIRTUAL_ENV",
+        "PYTHONHOME",
+        "PYTHONPATH",
+        "PYTHONEXECUTABLE",
+        "__PYVENV_LAUNCHER__",
+    ):
+        command_env.pop(key, None)
     if not str(command_env.get("DJANGO_ENV_FILE") or "").strip():
         candidates = (
             config.live_checkout / ".env.production",
@@ -332,7 +340,7 @@ def _bind_cloudlinux_runtime(
         (python_wrapper, "CloudLinux Python wrapper"),
         (set_env_helper, "CloudLinux environment helper"),
     ):
-        if path.is_symlink() or not path.is_file():
+        if path.is_symlink() or not path.is_file() or not os.access(path, os.X_OK):
             raise ReleaseError(f"{label} must be a regular file")
 
     bin_dir = venv / "bin"
@@ -367,6 +375,57 @@ def _bind_cloudlinux_runtime(
     environment_helper = bin_dir / "set_env_vars.py"
     environment_helper.unlink(missing_ok=True)
     environment_helper.symlink_to(set_env_helper)
+    _assert_cloudlinux_runtime_binding(
+        venv=venv,
+        active_venv=active_venv,
+        system_python=system_python,
+        python_wrapper=python_wrapper,
+        set_env_helper=set_env_helper,
+    )
+
+
+def _assert_cloudlinux_runtime_binding(
+    *,
+    venv: Path,
+    active_venv: Path,
+    system_python: Path,
+    python_wrapper: Path,
+    set_env_helper: Path,
+) -> None:
+    """Verify the immutable venv still resolves through the registered runtime."""
+
+    version = active_venv.name
+    if not re.fullmatch(r"\d+\.\d+", version):
+        raise ReleaseError("CloudLinux runtime binding has an invalid Python version")
+    if system_python.name != f"python{version}":
+        raise ReleaseError("CloudLinux runtime binding has a mismatched system Python")
+    for path, label in (
+        (python_wrapper, "CloudLinux Python wrapper"),
+        (set_env_helper, "CloudLinux environment helper"),
+    ):
+        if path.is_symlink() or not path.is_file() or not os.access(path, os.X_OK):
+            raise ReleaseError(f"CloudLinux runtime binding has an invalid {label}")
+
+    bin_dir = venv / "bin"
+    activate = bin_dir / "activate"
+    expected_links = {
+        "python": os.fspath(python_wrapper),
+        "python3": "python",
+        f"python{version}": "python",
+        f"python{version}_bin": os.fspath(system_python),
+        "set_env_vars.py": os.fspath(set_env_helper),
+    }
+    if not bin_dir.is_dir() or activate.is_symlink() or not activate.is_file():
+        raise ReleaseError("CloudLinux runtime binding has an invalid activation script")
+    activation = activate.read_text(encoding="utf-8")
+    if os.fspath(active_venv) not in activation:
+        raise ReleaseError("CloudLinux runtime binding activation path is missing")
+    if os.fspath(venv) in activation:
+        raise ReleaseError("CloudLinux runtime binding retains the staged activation path")
+    for name, expected in expected_links.items():
+        path = bin_dir / name
+        if not path.is_symlink() or os.readlink(path) != expected:
+            raise ReleaseError(f"CloudLinux runtime binding link is invalid: {name}")
 
 
 def _validate_static_artifacts(static_root: Path) -> None:
@@ -905,6 +964,13 @@ def _assert_prepared_release_boundary(
 ) -> None:
     worktree = _validate_release_path(config, prepared.worktree, label="prepared worktree")
     _prepared_manage_path(config, prepared)
+    _assert_cloudlinux_runtime_binding(
+        venv=prepared.venv,
+        active_venv=config.active_venv,
+        system_python=config.system_python,
+        python_wrapper=config.cloudlinux_python_wrapper,
+        set_env_helper=config.cloudlinux_set_env_helper,
+    )
     head = _stdout(
         run,
         ("git", "rev-parse", "HEAD"),
