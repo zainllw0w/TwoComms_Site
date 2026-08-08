@@ -1033,6 +1033,123 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
+    def test_stage2_decision_rail_exposes_five_primary_metrics_with_truth_metadata(self):
+        for contract in (
+            "bot-stats-decision-rail",
+            "function renderDecisionRail",
+            "decisionRailSpecs",
+            "known_net_revenue",
+            'data-stats-primary="\'+spec.key+\'"',
+            'data-stats-basis="\'+esc(contract.basis)+\'"',
+            'data-stats-time-field="\'+esc(contract.timeField)+\'"',
+            'data-stats-completeness="\'+esc(contract.completeness)+\'"',
+            "amount_coverage_percent",
+            "—",
+            "Покриття суми",
+            "Поточний snapshot",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_stage2_decision_rail_stays_compact_at_320px(self):
+        self.assertIn(
+            "@media(max-width:320px){.bot-stats-decision-rail{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-stats-decision-slot:last-child{grid-column:1/-1;}}",
+            self.template,
+        )
+
+    def test_stage2_funnel_nodes_expose_reconciled_v3_facts(self):
+        for contract in (
+            "data-funnel-entered",
+            "data-funnel-advanced",
+            "data-funnel-lost",
+            "data-funnel-progress",
+            'data-funnel-denominator=\"entered\"',
+            "funnel.manager_vs_bot",
+            "funnel.discounts",
+            "funnel.time_on_step",
+            "objection_clients",
+            "objection_signals",
+            "const selection={kind:'',id:'',basis:''}",
+            'data-selection-basis="event_cohort"',
+            "function restoreAnalysisSelection",
+            "largest-loss",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_stage2_details_use_a_compact_drawer_with_focus_return(self):
+        for contract in (
+            "bot-stats-detail-drawer",
+            "bot-stats-detail-drawer-panel",
+            'data-stats-detail-trigger',
+            'data-stats-detail-close',
+            "StatsDetailDrawer",
+            "returnFocus",
+            "drawer.hidden=true",
+            'tabindex="-1"',
+            "title.focus({preventScroll:true})",
+            "document.activeElement===title",
+            "event.shiftKey?last:first",
+            "bot-stats-detail-drawer-open",
+            "window.matchMedia('(min-width:561px)').matches",
+            "event.key==='Escape'",
+            "prefers-reduced-motion",
+            "max-height:min(86dvh,720px)",
+            "bot-stats-loss-bars",
+            "bot-stats-duration-plot",
+            "bot-stats-ownership-split",
+            "bot-stats-discount-bridge",
+            "bot-stats-stage-bars",
+            "bot-stats-objection-bars",
+            "episodes_with_response_evidence",
+            "manager_only",
+            "bought_after_offer",
+            "still_open",
+            "bought_without_known_offer",
+            "observation_cutoff",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_stage2_single_day_activity_uses_hourly_items_and_truthful_compact_empty_state(self):
+        for contract in (
+            "hourly_items",
+            "activityDensity(series,data)",
+            "bot-stats-activity-pulse",
+            "data-activity-role",
+            "bot-stats-activity-zero",
+            ".bot-stats-activity-zero{min-height:54px",
+            ".bot-stats-activity-pulse-hours{display:grid",
+            "height:72px",
+            "const hourTotal=num(hour.messages)",
+            "numberFormat.format(hourTotal)",
+            "24 години",
+            "(!messageSeries.has_data&&!(density==='single'&&hourlyItems.length))",
+            ".bot-stats-activity-hour.is-zero .bot-stats-activity-hour-stack{height:2px",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(
+            "const total=Math.max(1,num(hour.messages))",
+            self.template,
+        )
+
+    def test_stage2_selection_and_mobile_funnel_are_stable(self):
+        for contract in (
+            "function setAnalyticalSelection",
+            "function clearAnalyticalSelection",
+            "function restoreAnalysisSelection",
+            "selection.kind==='stage'",
+            "selection.id===String(step.dataset.flowStep||'')",
+            "selection.basis==='event_cohort'",
+            "StatsDetailDrawer.isOpen()",
+            "event.defaultPrevented",
+            "grid-template-columns:minmax(0,1fr)",
+            "overflow:visible",
+            "data-flow-mobile=\"timeline\"",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(
+            "flow&&!flow.contains(event.target)&&flow.querySelector('[data-flow-step].is-active')",
+            self.template,
+        )
+
     def test_dashboard_has_truthful_funnel_rankings_and_detail_disclosure(self):
         for contract in (
             "bot-stats-activity-chart",
@@ -1051,10 +1168,10 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "bot-stats-ad-bars",
             "Детальні дані",
             "Когортна воронка",
-            "Причини відвалу",
+            "Причини відсіву",
             "Час на кроці",
-            "Бот і менеджер",
-            "Знижки",
+            "Хто відповідав",
+            "Знижка → результат",
         ):
             self.assertIn(contract, self.template)
 
@@ -1196,13 +1313,27 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
     def test_visual_funnel_uses_event_cohorts_and_guards_non_monotonic_steps(self):
         for contract in (
             "const source=(data&&data.funnel||[])",
-            "const monotonic=source.every",
             "const explicitLosses=rows.map",
-            "Окремі події · без оцінки відсіву",
+            "entry_event_same_window",
+            "Кожен етап · окрема когорта входу",
             "renderFunnel(analytics,previousAnalytics",
         ):
             self.assertIn(contract, self.template)
+        self.assertNotIn("const monotonic=source.every", self.template)
         self.assertNotIn("t.funnel_conversations", self.template)
+
+    def test_flow_map_keeps_missing_segment_facts_unavailable(self):
+        for contract in (
+            "const advanced=hasAdvanced?num(row.advanced):null",
+            "const dropOff=hasLoss?Math.max(0,num(row.drop_off)):null",
+            "const inProgress=hasProgress?num(row.in_progress):null",
+            "const displayCount=value=>value===null?'—':numberFormat.format(value)",
+            "segmentsReconciled&&advanced!==null&&dropOff!==null&&inProgress!==null",
+            "displayCount(row.advanced)",
+            "displayCount(row.dropOff)",
+            "displayCount(row.inProgress)",
+        ):
+            self.assertIn(contract, self.template)
 
     def test_flow_map_exposes_truthful_step_facts_without_fake_fill(self):
         for contract in (
@@ -1224,7 +1355,7 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "data-flow-scale",
             "style=\"--flow-width:0%\"",
             "Втрачено на етапі",
-            "Окремі події · без оцінки відсіву",
+            "Кожен етап · окрема когорта входу",
             ".bot-stats-flow-step.has-value .bot-stats-flow-fill{min-width:4px",
         ):
             self.assertIn(contract, self.template)
@@ -1237,15 +1368,51 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "clearFlowSelection",
             "data-flow-detail-label",
             "data-flow-detail-value",
-            "event.key==='Escape'&&flowActive",
+            "event.key==='Escape'&&selection.kind==='stage'",
             ".bot-stats-flow-step.is-active",
             ".bot-stats-flow-connector",
             ".bot-stats-flow-step",
         ):
             self.assertIn(contract, self.template)
         self.assertIn(
-            ".bot-stats-flow-step,.bot-stats-flow-connector",
+            ".bot-stats-flow-step,.bot-stats-flow-connector,.bot-stats-flow-fill",
             self.template.split("@media(prefers-reduced-motion:reduce)", 1)[1],
+        )
+
+    def test_stage2_truth_corrections_keep_cohort_facts_and_diagnostics_linked(self):
+        """Stage 2 must expose truthful row facts, not inferred dashboard copy."""
+        for contract in (
+            "const eligibleForConversion=",
+            "row.reconciled&&!row.lowSample&&row.crPercent!==null",
+            "bot-stats-flow-segment",
+            "data-flow-segments-reconciled",
+            "data-flow-segment=\"advanced\"",
+            "data-flow-segment=\"lost\"",
+            "data-flow-segment=\"in_progress\"",
+            "const eligibleBottleneck=",
+            "row.hasLoss&&row.reconciled&&!row.lowSample&&row.crPercent!==null",
+            "row.crPercent===null||row.crPercent===undefined?'—'",
+            "function renderLinkedDiagnostics",
+            "data-diagnostic-step",
+            "selection.id===String(row.step||'')",
+            "aria-describedby=\"bot-stats-detail-drawer-description\"",
+            "id=\"bot-stats-detail-drawer-description\"",
+            "const allLossTotal=",
+            "remaining loss",
+            "right_censored_count",
+            "hourly_reconciled===false",
+            "basisLabel",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_stage2_segmented_rail_discloses_unreconciled_rows(self):
+        self.assertIn(
+            "Розподіл етапу не звірений",
+            self.template,
+        )
+        self.assertIn(
+            "segmentsReconciled",
+            self.template,
         )
 
     def test_flow_map_groups_steps_and_connectors_into_a_compact_desktop_grid(self):
@@ -1253,6 +1420,7 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "bot-stats-flow-lane-track",
             ".bot-stats-flow-lane-track{display:grid;grid-template-columns:repeat(var(--flow-lane-count,5),minmax(0,1fr))",
             ".bot-stats-flow-step:last-child .bot-stats-flow-connector",
+            "style=\"--flow-lane-count:'+laneSize+'\"",
             ".bot-stats-analysis-grid.has-flow-map",
             'bot-stats-analysis-grid has-flow-map',
             'bot-stats-ad-grid has-flow-map',
@@ -1260,6 +1428,10 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             self.assertIn(contract, self.template)
         self.assertNotIn(
             "grid-template-columns:repeat(var(--flow-count,1)",
+            self.template,
+        )
+        self.assertNotIn(
+            "--flow-lane-count:'+Math.min(laneSize,laneRows.length)",
             self.template,
         )
 
@@ -1274,7 +1446,11 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
 
     def test_flow_map_single_day_keeps_mobile_nodes_readable(self):
         self.assertIn(
-            ".bot-stats-flow-map.is-single .bot-stats-flow-lane-track{grid-template-columns:repeat(2",
+            ".bot-stats-flow-lane-track,.bot-stats-flow-map.is-single .bot-stats-flow-lane-track{position:relative;grid-template-columns:minmax(0,1fr);",
+            self.template,
+        )
+        self.assertIn(
+            '.bot-stats-flow-lane-track::before{content:\'\';position:absolute;',
             self.template,
         )
 

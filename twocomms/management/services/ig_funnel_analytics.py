@@ -872,6 +872,7 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
     for drop in drop_rows:
         key = (drop["stage_at_drop"], drop["kind"], drop["reason_code"])
         row = reason_counts.setdefault(key, {
+            "step": DROP_OFF_STAGE_TO_STEP.get(drop["stage_at_drop"], ""),
             "stage": drop["stage_at_drop"],
             "kind": drop["kind"],
             "reason_code": drop["reason_code"],
