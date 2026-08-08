@@ -53,6 +53,7 @@ EXPECTED_PLATFORM = "manylinux_2_28_x86_64"
 EXPECTED_IMAGE_DIGEST = (
     "sha256:fdb9a9c223b215604dc7b6f7e8fff4b39bfea5fbaa7777a2e5544a60dfa437f8"
 )
+EXPECTED_LIBFFI_DEVEL = "libffi-devel-3.1-24.el8.x86_64"
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _HASH_RE = re.compile(r"^\s*--hash=sha256:([0-9a-f]{64})(?: \\)?$")
 
@@ -295,9 +296,13 @@ def build_wheelhouse(
     if wheelhouse.exists():
         raise ValueError("immutable wheelhouse target already exists")
     metadata = _assert_builder_environment(image_digest)
+    libffi_devel = _tool_version(["rpm", "-q", "libffi-devel"])
+    if libffi_devel != EXPECTED_LIBFFI_DEVEL:
+        raise ValueError("builder libffi-devel package mismatch")
     metadata.update(
         {
             "auditwheel": _tool_version([auditwheel, "--version"]),
+            "libffi_devel": libffi_devel,
             "pip": _tool_version([str(python), "-m", "pip", "--version"]),
         }
     )

@@ -39,6 +39,20 @@ jobs:
           command -v auditwheel >/dev/null
           auditwheel --version
 
+      - name: Install hash-pinned libffi build headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          rpm_name=libffi-devel-3.1-24.el8.x86_64.rpm
+          rpm_path="/tmp/$rpm_name"
+          rpm_url="https://repo.almalinux.org/almalinux/8/BaseOS/x86_64/os/Packages/$rpm_name"
+          rpm_sha256=8f5458bc961d226a0383575823f04d89989d801d11b1eeece2fe5498df49f186
+          curl --fail --silent --show-error --location "$rpm_url" --output "$rpm_path"
+          printf '%s  %s\n' "$rpm_sha256" "$rpm_path" | sha256sum --check --strict -
+          rpm -Uvh --replacepkgs "$rpm_path"
+          test "$(rpm -q libffi-devel)" = "libffi-devel-3.1-24.el8.x86_64"
+          test -f /usr/include/ffi.h
+
       - name: Build and verify the immutable wheelhouse
         shell: bash
         run: |
@@ -86,6 +100,8 @@ jobs:
               raise SystemExit("invalid target SHA")
           if evidence["builder_image_digest"] != "sha256:fdb9a9c223b215604dc7b6f7e8fff4b39bfea5fbaa7777a2e5544a60dfa437f8":
               raise SystemExit("builder image provenance mismatch")
+          if evidence["libffi_devel"] != "libffi-devel-3.1-24.el8.x86_64":
+              raise SystemExit("libffi build dependency provenance mismatch")
           PY
 
       - name: Upload immutable wheelhouse artifact

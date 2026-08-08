@@ -28,12 +28,23 @@ class ImmutableReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("--image-digest", self.source)
         self.assertIn("--target-sha \"${{ github.sha }}\"", self.source)
 
+    def test_native_build_headers_are_installed_from_a_hash_pinned_rpm(self):
+        self.assertIn("libffi-devel-3.1-24.el8.x86_64.rpm", self.source)
+        self.assertIn(
+            "8f5458bc961d226a0383575823f04d89989d801d11b1eeece2fe5498df49f186",
+            self.source,
+        )
+        self.assertIn("sha256sum --check", self.source)
+        self.assertIn("rpm -Uvh --replacepkgs", self.source)
+        self.assertIn("libffi-devel-3.1-24.el8.x86_64", self.source)
+
     def test_workflow_builds_and_verifies_target_bound_artifact(self):
         self.assertIn("scripts/build_release_wheelhouse.py", self.source)
         self.assertIn("twocomms/requirements.lock", self.source)
         self.assertIn("wheelhouse/${{ github.sha }}", self.source)
         self.assertIn("manifest.sha256", self.source)
         self.assertIn("builder-evidence.json", self.source)
+        self.assertIn('evidence["libffi_devel"]', self.source)
         self.assertIn("actions/upload-artifact", self.source)
         self.assertIn("if-no-files-found: error", self.source)
 

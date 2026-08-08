@@ -151,9 +151,14 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                     return setuptools_wheel
                 return sdist
 
+            def fake_tool_version(command):
+                if command[:3] == ["rpm", "-q", "libffi-devel"]:
+                    return builder.EXPECTED_LIBFFI_DEVEL
+                return "tool 1"
+
             with (
                 patch.object(builder, "_assert_builder_environment", return_value={}),
-                patch.object(builder, "_tool_version", return_value="tool 1"),
+                patch.object(builder, "_tool_version", side_effect=fake_tool_version),
                 patch.object(builder, "_download_verified", side_effect=fake_download),
                 patch.object(builder, "_validate_cffi_source"),
                 patch.object(builder, "_build_cffi_once", return_value=cffi_wheel) as build_cffi,
