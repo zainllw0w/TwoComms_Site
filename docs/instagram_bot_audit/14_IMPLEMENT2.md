@@ -308,13 +308,27 @@ These slices do not wait for white assets, attribution or retention policy.
 
 ### W1.2 Delivered-chunk evidence first — `F-CORE-005`, `IMP-098.B1`
 
-- [ ] Ship after or together with W1.4 technical PII minimization: full reply
+- [x] Ship after or together with W1.4 technical PII minimization: full reply
   evidence is stored in the restricted audit boundary, while alerts are
   redacted/minimum-necessary.
-- [ ] Persist exact original reply text, planned chunk count, confirmed chunk
+- [x] Persist exact original reply text, planned chunk count, confirmed chunk
   receipts/provider IDs/count and failure boundary.
-- [ ] Create one actionable, idempotent manager alert on partial delivery.
+- [x] Create one actionable, idempotent manager alert on partial delivery.
 - [ ] Do not change epoch policy yet. That is `G-EPOCH` + W2.5.
+
+  **Closed 2026-08-08:** Source commit `4ccac72e` is on `origin/main` and the
+  production checkout. Migration `management.0148_ig_reply_delivery_evidence`
+  is applied against production MariaDB `11.4.12-MariaDB-cll-lve` (InnoDB).
+  The focused local gate passed `5/5` tests, `manage.py check`, migration
+  drift and scoped compile checks. A disposable production-DB probe (no Meta
+  or Telegram transport) persisted the full restricted original, `planned=2`,
+  `delivered=1`, provider ID `meta-probe-1` and boundary
+  `chunk:2:unknown`; two identical alert calls produced exactly one
+  `partial_delivery` row whose text/metadata contained no original marker.
+  Cleanup left zero synthetic clients/messages/notifications and zero pending
+  or processing message rows. Production `/healthz/` and `/bot/health/` are
+  `200/ok`; daemon `running`, `dangerous_backlog=0`. The broader W1.4 reviewer
+  boundary and epoch-policy work remain separate open items.
 
 ### W1.3 Secrets and secure defaults — `IMP-061`, `IMP-101`
 
