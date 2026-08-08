@@ -292,13 +292,19 @@ These slices do not wait for white assets, attribution or retention policy.
 - [x] Acceptance: no duplicate processing, no send through the permission
   boundary, bounded elapsed time and actionable telemetry without message/PII.
 
-  **Closed 2026-08-08:** `282c089d` is deployed on production. Migration
-  `management.0147_ig_permission_transition_job` is applied and its runtime
-  table is `InnoDB`; the bot reports `running` with one daemon, fresh DB/cache
-  heartbeats, zero pending/processing/failed permission transitions, zero
-  dangerous backlog and redacted transition telemetry. The focused transition
-  suite passed 9/9 executable tests; its MariaDB-only `nowait` test is covered
-  by the production InnoDB contract and was skipped only on local SQLite.
+  **Closed 2026-08-08:** `c61913ff` is deployed on production through the
+  ordinary SSH `git pull` path. Migration
+  `management.0147_ig_permission_transition_job` remains applied; production
+  runs MariaDB 11.4.12/InnoDB. A disposable production-DB contention probe
+  locked a synthetic `IgClient` row: explicit opt-out ingress returned in
+  45.2 ms, staged the source without a blocking client FK, persisted
+  `pending/database_busy`, and made reply permission fail closed. After lock
+  release, recovery processed the transition once (`1`, replay `0`), bound the
+  source, applied opt-out, and kept the epoch stable; cleanup left zero probe
+  client/message/job rows. Focused permission and manager-echo regressions
+  passed 11/11 executable tests (four MariaDB-only tests skipped on SQLite).
+  Production reports `running`, one daemon, and zero
+  pending/processing/failed permission transitions.
 
 ### W1.2 Delivered-chunk evidence first — `F-CORE-005`, `IMP-098.B1`
 
