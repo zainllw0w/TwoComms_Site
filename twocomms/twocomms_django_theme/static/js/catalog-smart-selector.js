@@ -114,6 +114,102 @@
     });
   };
 
+  const colorPickers = () => Array.from(root.querySelectorAll("[data-smart-color-picker]"));
+
+  const closeColorPickers = (except = null) => {
+    colorPickers().forEach((picker) => {
+      if (picker === except) return;
+      const trigger = picker.querySelector(".smart-product-card__color-trigger");
+      const panel = picker.querySelector(".smart-product-card__color-panel");
+      if (!panel || !picker.classList.contains("is-open")) return;
+      picker.classList.remove("is-open");
+      trigger?.setAttribute("aria-expanded", "false");
+      panel.classList.remove("is-open");
+      window.setTimeout(() => {
+        if (!picker.classList.contains("is-open")) panel.hidden = true;
+      }, prefersReducedMotion ? 0 : 180);
+    });
+  };
+
+  const setColorPickerOpen = (picker, open) => {
+    const trigger = picker?.querySelector(".smart-product-card__color-trigger");
+    const panel = picker?.querySelector(".smart-product-card__color-panel");
+    if (!picker || !trigger || !panel) return;
+    if (open) {
+      closeColorPickers(picker);
+      panel.hidden = false;
+      picker.classList.add("is-open");
+      trigger.setAttribute("aria-expanded", "true");
+      window.requestAnimationFrame(() => panel.classList.add("is-open"));
+    } else {
+      picker.classList.remove("is-open");
+      trigger.setAttribute("aria-expanded", "false");
+      panel.classList.remove("is-open");
+      window.setTimeout(() => {
+        if (!picker.classList.contains("is-open")) panel.hidden = true;
+      }, prefersReducedMotion ? 0 : 180);
+    }
+  };
+
+  const preloadCardImage = (src) => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve();
+    image.onerror = reject;
+    image.src = src;
+  });
+
+  const updateCardImage = (card, imageUrl) => {
+    if (!card || !imageUrl) return;
+    const image = card.querySelector(".smart-product-card__image");
+    if (!image || image.currentSrc === imageUrl || image.src === imageUrl) return;
+    const switchImage = () => {
+      const picture = image.closest("picture");
+      if (picture) {
+        const parsed = new URL(imageUrl, window.location.href);
+        const match = parsed.pathname.match(/^(.*)\/([^/]+)\.(jpg|jpeg|png|webp)$/i);
+        picture.querySelectorAll("source").forEach((source) => {
+          if (!match) {
+            source.removeAttribute("srcset");
+            return;
+          }
+          const type = source.getAttribute("type") || "";
+          const extension = type.includes("avif") ? "avif" : type.includes("webp") ? "webp" : match[3];
+          source.setAttribute("srcset", `${parsed.origin}${match[1]}/optimized/${match[2]}.${extension}`);
+        });
+      }
+      image.classList.add("is-color-switching");
+      image.src = imageUrl;
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => image.classList.remove("is-color-switching"), prefersReducedMotion ? 0 : 180);
+      });
+    };
+    preloadCardImage(imageUrl).then(switchImage).catch(() => {});
+  };
+
+  const selectCardColor = (choice) => {
+    const card = choice?.closest(".smart-product-card");
+    const picker = choice?.closest("[data-smart-color-picker]");
+    if (!card || !picker) return;
+    picker.querySelectorAll(".smart-product-card__color-choice").forEach((candidate) => {
+      const selected = candidate === choice;
+      candidate.classList.toggle("is-active", selected);
+      candidate.setAttribute("aria-pressed", String(selected));
+    });
+    const variantUrl = choice.dataset.variantUrl || "";
+    if (variantUrl) {
+      card.querySelectorAll("[data-product-card-link]").forEach((link) => link.setAttribute("href", variantUrl));
+      card.dataset.productUrl = variantUrl;
+    }
+    updateCardImage(card, choice.dataset.imageUrl || "");
+    emitCatalogAnalytics("CatalogSelectColor", {
+      product_id: card.dataset.productId || "",
+      variant_url: variantUrl,
+      thermo: choice.dataset.isThermo === "1",
+    });
+    setColorPickerOpen(picker, false);
+    picker.querySelector(".smart-product-card__color-trigger")?.focus({ preventScroll: true });
+  };
+
   const toggleRepeatedParameter = (url, key, value) => {
     const currentValues = url.searchParams.getAll(key);
     const hasValue = currentValues.includes(value);
@@ -411,6 +507,23 @@
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
 
+    const colorTrigger = target.closest(".smart-product-card__color-trigger");
+    if (colorTrigger && root.contains(colorTrigger)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const picker = colorTrigger.closest("[data-smart-color-picker]");
+      setColorPickerOpen(picker, !picker?.classList.contains("is-open"));
+      return;
+    }
+
+    const colorChoice = target.closest(".smart-product-card__color-choice");
+    if (colorChoice && root.contains(colorChoice)) {
+      event.preventDefault();
+      event.stopPropagation();
+      selectCardColor(colorChoice);
+      return;
+    }
+
     const cardLink = target.closest(".smart-product-card [data-product-card-link]");
     if (cardLink && root.contains(cardLink)) {
       const card = cardLink.closest(".smart-product-card");
@@ -512,7 +625,13 @@
     if (event.target === overlay) closeFilters();
   });
 
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest("[data-smart-color-picker]")) closeColorPickers();
+  }, { passive: true });
+
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeColorPickers();
     if (!overlay?.classList.contains("is-open")) return;
 
     if (event.key === "Escape") {

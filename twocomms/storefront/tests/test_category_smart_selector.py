@@ -201,7 +201,7 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertNotIn('smart-product-card__old-price', card)
         self.assertNotIn("-0%", card)
 
-    def test_product_card_renders_direct_color_swatches_in_media(self):
+    def test_product_card_renders_home_style_color_trigger_and_panel(self):
         product = self.create_product(category=self.tshirts, slug="media-color-stack")
         for index, name in enumerate(("black", "white", "coyote", "menthol")):
             color = Color.objects.create(name=name, primary_hex=f"#{index + 1:06x}")
@@ -216,29 +216,27 @@ class SmartSelectorCategoryTests(TestCase):
         html = response.content.decode()
         card = html.split('data-product-title="Smart Product"', 1)[1].split("</article>", 1)[0]
         media, body = card.split('class="smart-product-card__body"', 1)
-        self.assertIn('class="smart-product-card__color-links"', media)
+        self.assertIn('class="smart-product-card__colors"', media)
         self.assertGreater(
-            media.index('class="smart-product-card__color-links"'),
+            media.index('class="smart-product-card__colors"'),
             media.index('class="favorite-btn smart-product-card__favorite"'),
         )
-        self.assertNotIn('data-smart-color-toggle', media)
-        self.assertNotIn('smart-product-card__color-menu', media)
-        self.assertEqual(media.count('class="smart-product-card__color-choice"'), 3)
-        self.assertIn('aria-current="true"', media)
+        self.assertIn('class="smart-product-card__color-trigger"', media)
+        self.assertIn('class="smart-product-card__color-panel"', media)
+        self.assertIn('aria-expanded="false"', media)
+        self.assertEqual(media.count('smart-product-card__color-choice'), 4)
+        self.assertIn('data-image-url=', media)
+        self.assertIn('data-variant-url=', media)
+        self.assertNotIn('smart-product-card__color-links', media)
         self.assertNotIn('smart-product-card__color-row', body)
         self.assertNotIn("Колір:", card)
         variants = list(product.color_variants.select_related("color").order_by("id"))
-        for variant in variants[:3]:
+        for variant in variants:
             variant_url = reverse(
                 "product",
                 kwargs={"slug": product.slug, "v1": variant.slug or variant.color.slug},
             )
-            self.assertIn(f'href="{variant_url}"', media)
-        fourth_url = reverse(
-            "product",
-            kwargs={"slug": product.slug, "v1": variants[3].slug or variants[3].color.slug},
-        )
-        self.assertNotIn(f'href="{fourth_url}"', media)
+            self.assertIn(f'data-variant-url="{variant_url}"', media)
 
     @override_settings(STATIC_URL="/static/")
     def test_image_less_card_uses_static_placeholder_url(self):
@@ -365,7 +363,7 @@ class SmartSelectorCategoryTests(TestCase):
         response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
 
         html = response.content.decode()
-        price_row = html.split('class="smart-product-card__price-row"', 1)[1].split("</div>", 1)[0]
+        price_row = html.split('class="smart-product-card__price-row"', 1)[1].split("</div></div>", 1)[0]
         self.assertIn('class="smart-product-card__fit"', price_row)
         self.assertIn("Оверсайз", price_row)
 
@@ -391,16 +389,27 @@ class SmartSelectorCategoryTests(TestCase):
         card_block = css.split(".smart-product-card {", 1)[1].split("}", 1)[0]
         self.assertIn("border-bottom: 1px solid", card_block)
 
-    def test_product_card_color_preview_never_clips_a_fifth_touch_target(self):
+    def test_product_card_color_preview_uses_compact_trigger_and_full_panel(self):
         template = (
             Path(__file__).resolve().parents[2]
             / "twocomms_django_theme/templates/partials/catalog_smart_product_card.html"
         ).read_text(encoding="utf-8")
 
         self.assertIn("p.colors_preview|slice:':3'", template)
-        self.assertNotIn("p.colors_preview|length > 3", template)
-        self.assertNotIn("p.colors_preview|length|add:'-3'", template)
-        self.assertNotIn("smart-product-card__color-menu", template)
+        self.assertIn('class="smart-product-card__color-trigger-stack"', template)
+        self.assertIn('class="smart-product-card__color-panel"', template)
+        self.assertNotIn('class="smart-product-card__color-links"', template)
+
+    def test_product_card_fit_stack_keeps_price_row_compact(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/css/catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        fits = css.split(".smart-product-card__fits {", 1)[1].split("}", 1)[0]
+        price = css.split(".smart-product-card__price-row {", 1)[1].split("}", 1)[0]
+        self.assertIn("flex-direction: column", fits)
+        self.assertIn("white-space: nowrap", price)
+        self.assertNotIn("flex-wrap: wrap", price)
 
     def test_thermo_marker_is_centered_black_silhouette(self):
         css = (
@@ -1080,5 +1089,5 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
             / "catalog.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v15", template)
-        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v15", template)
+        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v16", template)
+        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v16", template)

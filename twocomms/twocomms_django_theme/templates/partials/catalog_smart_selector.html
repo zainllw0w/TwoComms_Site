@@ -316,7 +316,7 @@
                data-smart-fit="{{ p.smart_selector_fit }}"
                data-smart-fits="{{ p.smart_selector_fits_key }}"
                data-smart-price="{{ p.card_price_min|default:p.final_price }}">
-            {% cache 900 smart_selector_product_card_v6_direct_swatches LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key p.preferred_color_slug p.preferred_card_image_url p.smart_selector_audiences p.smart_selector_collections p.smart_selector_fits_key forloop.counter0 using="fragments" %}
+            {% cache 900 smart_selector_product_card_v7_color_panel_fit_stack LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key p.preferred_color_slug p.preferred_card_image_url p.smart_selector_audiences p.smart_selector_collections p.smart_selector_fits_key forloop.counter0 using="fragments" %}
               {% include "partials/catalog_smart_product_card.html" with p=p eager=forloop.first %}
             {% endcache %}
           </div>

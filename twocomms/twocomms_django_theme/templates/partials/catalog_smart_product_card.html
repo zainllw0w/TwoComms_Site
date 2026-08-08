@@ -63,13 +63,41 @@
       </button>
 
       {% if p.colors_preview %}
-      <div class="smart-product-card__color-links" role="group" aria-label="{% trans 'Доступні кольори' %}">
-        {% for v in p.colors_preview|slice:':3' %}
-          <a href="{{ v.public_url|default:product_url }}"
-             class="smart-product-card__color-choice{% if v.is_thermo %} is-thermo{% endif %}"
-             aria-current="{% if forloop.first %}true{% else %}false{% endif %}"
-             title="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}{% if v.is_thermo %} · {% trans 'Термохромний колір' %}{% endif %}"
-             aria-label="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}{% if v.is_thermo %}, {% trans 'термохромний колір' %}{% endif %}">
+      <div class="smart-product-card__colors" data-smart-color-picker>
+        <button type="button"
+                class="smart-product-card__color-trigger"
+                aria-expanded="false"
+                aria-controls="smart-card-colors-{{ p.id }}"
+                aria-label="{% blocktrans with title=p.title %}Показати кольори {{ title }}{% endblocktrans %}">
+          <span class="smart-product-card__color-trigger-stack" aria-hidden="true">
+            {% for v in p.colors_preview|slice:':3' %}
+            <span class="smart-product-card__color-mini-swatch{% if v.is_thermo %} is-thermo{% endif %}"
+                  style="--smart-swatch-a: {{ v.primary_hex|default:'#687382' }}; --smart-swatch-b: {{ v.secondary_hex|default:v.primary_hex|default:'#687382' }};">
+              {% if v.is_thermo %}
+              <svg class="smart-product-card__thermo" viewBox="0 0 16 16" focusable="false"><path d="M8.4 1.2c.6 2.5-.9 3.2-.9 4.8 0 .7.4 1.2 1 1.5.2-1 .7-1.8 1.5-2.5.8 1.2 1.7 2.6 1.7 4.4A3.8 3.8 0 0 1 8 13.3a3.8 3.8 0 0 1-3.8-3.9c0-2.6 1.7-4.8 4.2-8.2Z"/></svg>
+              {% endif %}
+            </span>
+            {% endfor %}
+          </span>
+          <span class="smart-product-card__color-count">{{ p.colors_preview|length }}</span>
+        </button>
+        <div id="smart-card-colors-{{ p.id }}"
+             class="smart-product-card__color-panel"
+             role="group"
+             aria-label="{% trans 'Кольори товару' %}"
+             hidden>
+          {% for v in p.colors_preview %}
+          <button type="button"
+                  class="smart-product-card__color-choice{% if v.is_thermo %} is-thermo{% endif %}{% if v.is_default or forloop.first %} is-active{% endif %}"
+                  aria-pressed="{% if v.is_default or forloop.first %}true{% else %}false{% endif %}"
+                  title="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}{% if v.is_thermo %} · {% trans 'Термохромний колір' %}{% endif %}"
+                  aria-label="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}{% if v.is_thermo %}, {% trans 'термохромний колір' %}{% endif %}"
+                  data-image-url="{{ v.first_image_url|default:'' }}"
+                  data-variant-url="{{ v.public_url|default:product_url }}"
+                  data-is-thermo="{{ v.is_thermo|yesno:'1,0' }}"
+                  data-variant-price="{{ v.final_price|default:'' }}"
+                  data-swatch-a="{{ v.primary_hex|default:'#687382' }}"
+                  data-swatch-b="{{ v.secondary_hex|default:v.primary_hex|default:'#687382' }}">
             <span class="smart-product-card__swatch-dot"
                   style="--smart-swatch-a: {{ v.primary_hex|default:'#687382' }}; --smart-swatch-b: {{ v.secondary_hex|default:v.primary_hex|default:'#687382' }};"
                   aria-hidden="true">
@@ -77,8 +105,9 @@
               <svg class="smart-product-card__thermo" viewBox="0 0 16 16" focusable="false"><path d="M8.4 1.2c.6 2.5-.9 3.2-.9 4.8 0 .7.4 1.2 1 1.5.2-1 .7-1.8 1.5-2.5.8 1.2 1.7 2.6 1.7 4.4A3.8 3.8 0 0 1 8 13.3a3.8 3.8 0 0 1-3.8-3.9c0-2.6 1.7-4.8 4.2-8.2Z"/></svg>
               {% endif %}
             </span>
-          </a>
-        {% endfor %}
+          </button>
+          {% endfor %}
+        </div>
       </div>
       {% endif %}
     </div>
@@ -87,12 +116,14 @@
       <a href="{{ product_url }}" class="smart-product-card__title" data-product-card-link>{{ p.title }}</a>
 
       <div class="smart-product-card__price-row">
-        <span class="smart-product-card__price">
-          {% if p.card_has_variant_prices %}{% trans 'Від' %} {% endif %}{{ p.card_price_min|default:p.final_price }} {% trans 'грн' %}
-        </span>
-        {% if p.has_discount and p.discount_percent %}
-        <span class="smart-product-card__old-price">{{ p.price }} {% trans 'грн' %}</span>
-        {% endif %}
+        <div class="smart-product-card__price-values">
+          <span class="smart-product-card__price">
+            {% if p.card_has_variant_prices %}{% trans 'Від' %} {% endif %}{{ p.card_price_min|default:p.final_price }} {% trans 'грн' %}
+          </span>
+          {% if p.has_discount and p.discount_percent %}
+          <span class="smart-product-card__old-price">{{ p.price }} {% trans 'грн' %}</span>
+          {% endif %}
+        </div>
         {% if p.smart_selector_fit_options %}
         <span class="smart-product-card__fits" aria-label="{% trans 'Доступні крої' %}">
           {% for fit in p.smart_selector_fit_options %}
