@@ -158,6 +158,10 @@ class ProviderDeliveryReceipt:
     kind: str
     hint: str = ""
     provider_message_id: str = ""
+    provider_message_ids: tuple[str, ...] = ()
+    planned_chunk_count: int = 0
+    delivered_chunk_count: int = 0
+    failure_boundary: str = ""
 
     def as_legacy_tuple(self) -> tuple[bool, str, str]:
         return self.ok, self.kind, self.hint
@@ -173,18 +177,26 @@ class SenderActionResult:
     action: str = ""
 
 
-def _delivery_receipt(result) -> tuple[bool, str, str, str, bool]:
+def _delivery_receipt(result) -> tuple[bool, str, str, str, bool, list[str]]:
     """Normalize old tuple callers while making an explicit receipt auditable."""
     if isinstance(result, ProviderDeliveryReceipt):
+        provider_message_ids = list(dict.fromkeys(
+            str(value).strip()
+            for value in (result.provider_message_ids or ())
+            if str(value).strip()
+        ))
+        if not provider_message_ids and result.provider_message_id:
+            provider_message_ids = [str(result.provider_message_id).strip()]
         return (
             bool(result.ok),
             str(result.kind or ""),
             str(result.hint or ""),
             str(result.provider_message_id or ""),
             True,
+            provider_message_ids,
         )
     ok, kind, hint = result
-    return bool(ok), str(kind or ""), str(hint or ""), "", False
+    return bool(ok), str(kind or ""), str(hint or ""), "", False, []
 
 
 def _provider_message_id(response_body) -> str:
@@ -4713,6 +4725,72 @@ def _send_with_typing_off(s, row, typing_active: bool, send_callable):
     return send_callable()
 
 
+def _persist_reply_delivery_evidence(
+    row: InstagramBotMessage,
+    *,
+    original_text: str,
+    planned_chunk_count: int,
+    delivered_chunk_count: int,
+    provider_message_ids: list[str] | tuple[str, ...],
+    failure_boundary: str = "",
+) -> None:
+    """Store complete delivery evidence on the restricted source row only."""
+    ids = list(dict.fromkeys(
+        str(value).strip() for value in provider_message_ids if str(value).strip()
+    ))
+    values = {
+        "delivery_original_text": str(original_text or ""),
+        "delivery_planned_chunk_count": max(0, int(planned_chunk_count or 0)),
+        "delivery_delivered_chunk_count": max(0, int(delivered_chunk_count or 0)),
+        "delivery_provider_message_ids": ids,
+        "delivery_failure_boundary": str(failure_boundary or "")[:64],
+    }
+    updated = _own_processing_claim(row).update(**values)
+    if updated:
+        for field, value in values.items():
+            setattr(row, field, value)
+
+
+def _queue_partial_delivery_alert(
+    row: InstagramBotMessage,
+    *,
+    planned_chunk_count: int,
+    delivered_chunk_count: int,
+    provider_message_ids: list[str],
+    failure_boundary: str,
+) -> None:
+    """Queue one actionable redacted alert; never include the reply text."""
+    from management.services.ig_alerts import alert_dedupe_key, client_admin_url, format_alert
+
+    ids = ", ".join(provider_message_ids[:8]) or "немає"
+    notify_manager(
+        format_alert(
+            "⚠️ IG: часткова доставка відповіді",
+            lines=[
+                f"Підтверджено частин: {delivered_chunk_count}/{planned_chunk_count}.",
+                f"Provider IDs: {ids}.",
+                f"Граница збою: {failure_boundary or 'невідома'}.",
+                "Автоматичний повтор вимкнено; перевірте Meta Inbox і доповніть відповідь вручну.",
+            ],
+            url=client_admin_url(row.client_id),
+            url_label="CRM:",
+        ),
+        dedupe_key=alert_dedupe_key(
+            "partial_delivery", client_id=row.client_id, entity_id=row.pk,
+        ),
+        event_type="partial_delivery",
+        client=row.client if row.client_id else None,
+        metadata={
+            "source_message_id": row.pk,
+            "planned_chunk_count": planned_chunk_count,
+            "delivered_chunk_count": delivered_chunk_count,
+            "provider_message_ids": provider_message_ids[:8],
+            "failure_boundary": failure_boundary[:64],
+        },
+        deliver_immediately=False,
+    )
+
+
 def _mark_sending_after_typing_off(s, row, typing_active: bool, mark_callable):
     """Run the durable send marker only after typing cleanup has been attempted."""
     _stop_typing_indicator(s, row, typing_active)
@@ -5205,16 +5283,40 @@ def send_text(
     customer reply may be retried exactly once after removing URLs. A timeout,
     disconnect, or 5xx remains ambiguous and is never automatically replayed.
     """
+    provider_message_ids: list[str] = []
+    provider_message_id = ""
+    parts: list[str] = []
+
+    def finish_delivery(
+        ok: bool,
+        kind: str,
+        hint: str,
+        *,
+        failure_boundary: str = "",
+    ) -> tuple[bool, str, str] | ProviderDeliveryReceipt:
+        if not return_receipt:
+            return ok, kind, hint
+        return ProviderDeliveryReceipt(
+            ok=ok,
+            kind=kind,
+            hint=hint,
+            provider_message_id=provider_message_id,
+            provider_message_ids=tuple(provider_message_ids),
+            planned_chunk_count=len(parts),
+            delivered_chunk_count=len(provider_message_ids),
+            failure_boundary=failure_boundary,
+        )
+
     account_id = _provider_account_id(s)
     if not account_id:
         hint = "missing_provider_account_id"
         _remember_send_error(s, hint)
-        return False, "permanent", hint
+        return finish_delivery(False, "permanent", hint, failure_boundary="preflight:missing_provider_account_id")
     page_token = get_page_token(s)
     if not page_token:
         hint = "немає provider token (перевірте IG_INSTAGRAM_BOT)"
         _remember_send_error(s, hint)
-        return False, "permanent", hint
+        return finish_delivery(False, "permanent", hint, failure_boundary="preflight:missing_provider_token")
     degraded_text = ""
     if (
         _contains_customer_url(text)
@@ -5225,16 +5327,15 @@ def send_text(
         if not fallback:
             hint = "Instagram тимчасово блокує посилання, а без URL повідомлення порожнє"
             _remember_send_error(s, hint)
-            return False, "permanent", hint
+            return finish_delivery(False, "permanent", hint, failure_boundary="preflight:empty_linkless_fallback")
         text = fallback
         degraded_text = fallback
 
     parts = _split_for_send(text)
     if not parts:
-        return False, "permanent", "порожня відповідь"
+        return finish_delivery(False, "permanent", "порожня відповідь", failure_boundary="preflight:empty_reply")
     ok_any = False
-    provider_message_id = ""
-    for part in parts:
+    for chunk_index, part in enumerate(parts):
         boundary = (
             permission_boundary_factory()
             if permission_boundary_factory
@@ -5244,8 +5345,14 @@ def send_text(
             if not send_allowed:
                 hint = "permission epoch changed before Meta request"
                 if ok_any:
-                    return False, "unknown", f"часткова доставка; {hint}"
-                return False, "cancelled", hint
+                    return finish_delivery(
+                        False, "unknown", f"часткова доставка; {hint}",
+                        failure_boundary=f"chunk:{chunk_index + 1}:permission_epoch_changed",
+                    )
+                return finish_delivery(
+                    False, "cancelled", hint,
+                    failure_boundary=f"chunk:{chunk_index + 1}:permission_epoch_changed",
+                )
             # Позначаємо ДО відправки: echo цього чанка прийде асинхронно і не має
             # сприйнятись за повідомлення менеджера (виправляє хибний авто-стоп).
             _mark_bot_sent(recipient_id, part)
@@ -5268,8 +5375,11 @@ def send_text(
                 # A multi-chunk response is confirmed only if every accepted
                 # chunk has its own Meta ID.  Earlier chunks may be delivered,
                 # so this must be terminally unknown rather than a retry.
-                return ProviderDeliveryReceipt(
-                    False, "unknown", "provider_message_id_missing", ""
+                return finish_delivery(
+                    False,
+                    "unknown",
+                    "provider_message_id_missing",
+                    failure_boundary=f"chunk:{chunk_index + 1}:provider_message_id_missing",
                 )
             if provider_message_callback:
                 try:
@@ -5280,6 +5390,8 @@ def send_text(
                 if callback_message_id:
                     provider_message_callback(callback_message_id)
             ok_any = True
+            if message_id:
+                provider_message_ids.append(message_id)
             provider_message_id = provider_message_id or message_id
             # Реєструємо `message_id` одразу: echo цього чанка прийде асинхронно,
             # і саме по цьому ідентифікатору ми його впізнаємо. Текстовий
@@ -5323,7 +5435,12 @@ def send_text(
                 )
                 with fallback_boundary as fallback_allowed:
                     if not fallback_allowed:
-                        return False, "cancelled", "permission epoch changed before Meta fallback request"
+                        return finish_delivery(
+                            False,
+                            "cancelled",
+                            "permission epoch changed before Meta fallback request",
+                            failure_boundary="fallback:permission_epoch_changed",
+                        )
                     _mark_bot_sent(recipient_id, fallback_part)
                     fallback_body = json.dumps({
                         "recipient": {"id": recipient_id},
@@ -5342,9 +5459,14 @@ def send_text(
                 if fallback_code == 200:
                     fallback_message_id = _provider_message_id(fallback_resp)
                     if return_receipt and not fallback_message_id:
-                        return ProviderDeliveryReceipt(
-                            False, "unknown", "provider_message_id_missing", ""
+                        return finish_delivery(
+                            False,
+                            "unknown",
+                            "provider_message_id_missing",
+                            failure_boundary="fallback:provider_message_id_missing",
                         )
+                    if fallback_message_id:
+                        provider_message_ids.append(fallback_message_id)
                     provider_message_id = provider_message_id or fallback_message_id
                     if provider_message_callback:
                         try:
@@ -5360,11 +5482,8 @@ def send_text(
                     _clear_client_delivery_error(recipient_id)
                     log("warning", "send_link_fallback", f"→ {recipient_id}: URL removed after Meta 508/2534122")
                     if return_receipt:
-                        return ProviderDeliveryReceipt(
-                            True,
-                            "degraded_link_restriction",
-                            fallback_part,
-                            provider_message_id,
+                        return finish_delivery(
+                            True, "degraded_link_restriction", fallback_part
                         )
                     return True, "degraded_link_restriction", fallback_part
                 fallback_kind, fallback_hint = _classify_send_error(
@@ -5390,7 +5509,12 @@ def send_text(
                         body=fallback_resp,
                     )
                 log("error", "send_link_fallback", f"HTTP {fallback_code} [{fallback_kind}] {fallback_hint}")
-                return False, fallback_kind, fallback_hint
+                return finish_delivery(
+                    False,
+                    fallback_kind,
+                    fallback_hint,
+                    failure_boundary=f"fallback:{fallback_kind}",
+                )
             kind = "permanent"
             hint = (
                 "Instagram тимчасово обмежив надсилання посилань; "
@@ -5411,18 +5535,18 @@ def send_text(
             kind = "unknown"
             hint = f"результат доставки не підтверджено: {hint}"
         log("error", "send", f"HTTP {code} [{kind}] {hint}")
-        return False, kind, hint
+        return finish_delivery(
+            False,
+            kind,
+            hint,
+            failure_boundary=f"chunk:{chunk_index + 1}:{kind}",
+        )
     if degraded_text:
         if return_receipt:
-            return ProviderDeliveryReceipt(
-                True,
-                "degraded_link_restriction",
-                degraded_text,
-                provider_message_id,
-            )
+            return finish_delivery(True, "degraded_link_restriction", degraded_text)
         return True, "degraded_link_restriction", degraded_text
     if return_receipt:
-        return ProviderDeliveryReceipt(True, "", "", provider_message_id)
+        return finish_delivery(True, "", "")
     return True, "", ""
 
 
@@ -8380,6 +8504,8 @@ def _process_one_inside_reply_boundary(
 
     from management.services.ig_reply_boundary import customer_send_boundary
 
+    original_reply_for_delivery = reply
+
     # Product discovery uses a separate media transport. A provider partial or
     # unknown result must never erase the useful text reply or be replayed
     # blindly; the durable message remains visible for operator reconciliation.
@@ -8486,6 +8612,14 @@ def _process_one_inside_reply_boundary(
         return skip_after_permission_change()
     if send_claim_lost:
         return False
+    planned_chunk_count = len(_split_for_send(reply))
+    _persist_reply_delivery_evidence(
+        row,
+        original_text=original_reply_for_delivery,
+        planned_chunk_count=planned_chunk_count,
+        delivered_chunk_count=0,
+        provider_message_ids=[],
+    )
     delivery = _send_with_typing_off(
         s,
         row,
@@ -8512,13 +8646,53 @@ def _process_one_inside_reply_boundary(
         ),
     )
     typing_active = False
-    ok, kind, hint, provider_message_id, receipt_present = _delivery_receipt(delivery)
-    if ok and receipt_present and not provider_message_id:
+    (
+        ok,
+        kind,
+        hint,
+        provider_message_id,
+        receipt_present,
+        provider_message_ids,
+    ) = _delivery_receipt(delivery)
+    receipt_planned_count = (
+        int(getattr(delivery, "planned_chunk_count", 0) or 0)
+        if receipt_present else 0
+    )
+    receipt_delivered_count = (
+        int(getattr(delivery, "delivered_chunk_count", 0) or 0)
+        if receipt_present else 0
+    )
+    failure_boundary = (
+        str(getattr(delivery, "failure_boundary", "") or "")
+        if receipt_present else ""
+    )
+    if receipt_planned_count > 0:
+        planned_chunk_count = receipt_planned_count
+    delivered_chunk_count = (
+        receipt_delivered_count or len(provider_message_ids)
+        if receipt_present else (1 if ok else 0)
+    )
+    if ok and receipt_present and (
+        not provider_message_ids
+        or len(provider_message_ids) < delivered_chunk_count
+        or delivered_chunk_count < planned_chunk_count
+    ):
         # The Send API may have accepted the request before returning a malformed
         # success body. Its delivery is therefore unknown and must not be replayed.
         ok = False
         kind = "unknown"
         hint = "provider_message_id_missing"
+        failure_boundary = failure_boundary or (
+            f"chunk:{delivered_chunk_count + 1}:provider_message_id_missing"
+        )
+    _persist_reply_delivery_evidence(
+        row,
+        original_text=original_reply_for_delivery,
+        planned_chunk_count=planned_chunk_count,
+        delivered_chunk_count=delivered_chunk_count,
+        provider_message_ids=provider_message_ids,
+        failure_boundary=failure_boundary,
+    )
     if kind == "cancelled":
         if outage_recovery_job is not None:
             try:
@@ -8601,17 +8775,29 @@ def _process_one_inside_reply_boundary(
             row.processed_at = timezone.now()
             row.save(update_fields=["status", "send_state", "processed_at"])
             log("error", "send_unknown", f"{row.sender_id}: {hint}; automatic retry disabled")
-            from management.services.ig_alerts import alert_dedupe_key
-
-            notify_manager(
-                f"⚠️ IG бот: результат доставки клієнту {row.sender_id} не підтверджено. "
-                "Автоматичний повтор вимкнено, перевірте Meta Inbox.",
-                dedupe_key=alert_dedupe_key(
-                    "delivery_unknown", client_id=row.client_id, entity_id=row.pk,
-                ),
-                event_type="delivery_unknown",
-                client=row.client if row.client_id else None,
+            partial_delivery = bool(
+                delivered_chunk_count > 0 and planned_chunk_count > delivered_chunk_count
             )
+            if partial_delivery:
+                _queue_partial_delivery_alert(
+                    row,
+                    planned_chunk_count=planned_chunk_count,
+                    delivered_chunk_count=delivered_chunk_count,
+                    provider_message_ids=provider_message_ids,
+                    failure_boundary=failure_boundary,
+                )
+            else:
+                from management.services.ig_alerts import alert_dedupe_key
+
+                notify_manager(
+                    f"⚠️ IG бот: результат доставки клієнту {row.sender_id} не підтверджено. "
+                    "Автоматичний повтор вимкнено, перевірте Meta Inbox.",
+                    dedupe_key=alert_dedupe_key(
+                        "delivery_unknown", client_id=row.client_id, entity_id=row.pk,
+                    ),
+                    event_type="delivery_unknown",
+                    client=row.client if row.client_id else None,
+                )
         elif row.attempts >= MAX_ATTEMPTS:
             row.status = InstagramBotMessage.Status.FAILED
             row.send_state = "failed"

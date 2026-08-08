@@ -3899,6 +3899,13 @@ class InstagramBotMessage(models.Model):
     send_state = models.CharField(max_length=16, blank=True, default="")
     send_started_at = models.DateTimeField(null=True, blank=True)
     send_completed_at = models.DateTimeField(null=True, blank=True)
+    # Restricted delivery evidence for the logical reply. Customer-facing
+    # alerts contain only counts, provider IDs and the failure boundary.
+    delivery_original_text = models.TextField(blank=True, default="")
+    delivery_planned_chunk_count = models.PositiveSmallIntegerField(default=0)
+    delivery_delivered_chunk_count = models.PositiveSmallIntegerField(default=0)
+    delivery_provider_message_ids = models.JSONField(default=list, blank=True)
+    delivery_failure_boundary = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     # Provider timestamp is separate from the local immutable ingest time.
     # Backfill/recovery may persist old messages today, but the chat must show
