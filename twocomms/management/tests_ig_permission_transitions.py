@@ -422,10 +422,136 @@ class PermissionTransitionNowaitTests(TransactionTestCase):
     reset_sequences = True
 
     def setUp(self):
+        if connection.vendor not in {"mysql", "mariadb"}:
+            self.skipTest("real row-contention proof requires disposable MariaDB")
         self.settings = InstagramBotSettings.load()
         self.settings.is_enabled = True
-        self.settings.save(update_fields=["is_enabled"])
+        self.settings.ai_enabled = True
+        self.settings.allowed_senders = ""
+        self.settings.save(update_fields=["is_enabled", "ai_enabled", "allowed_senders"])
         self.client_row = IgClient.objects.create(igsid="permission-nowait-client")
+
+    def _hold_row(self, model, row_id):
+        locked = threading.Event()
+        release = threading.Event()
+
+        def hold():
+            close_old_connections()
+            try:
+                with transaction.atomic():
+                    model.objects.select_for_update().get(pk=row_id)
+                    locked.set()
+                    release.wait(timeout=5)
+            finally:
+                close_old_connections()
+
+        holder = threading.Thread(target=hold)
+        holder.start()
+        self.assertTrue(locked.wait(timeout=2))
+        return holder, release
+
+    def _release_row(self, holder, release):
+        release.set()
+        holder.join(timeout=5)
+        self.assertFalse(holder.is_alive())
+
+    def test_opt_out_entry_returns_before_locked_client_and_recovers_once(self):
+        holder, release = self._hold_row(IgClient, self.client_row.pk)
+        try:
+            started = time.monotonic()
+            created = instagram_bot.enqueue_inbound(
+                self.settings,
+                sender_id=self.client_row.igsid,
+                text="STOP",
+                mid="mariadb-contended-opt-out",
+                persistence_only=True,
+            )
+            elapsed = time.monotonic() - started
+
+            self.assertTrue(created)
+            self.assertLess(elapsed, 1.0)
+            message = InstagramBotMessage.objects.get(mid="mariadb-contended-opt-out")
+            job = IgPermissionTransitionJob.objects.get(source_message=message)
+            self.assertEqual(job.status, IgPermissionTransitionJob.Status.PENDING)
+            self.assertEqual(job.last_error_kind, "database_busy")
+            self.assertFalse(capture_reply_permission(self.settings.pk, self.client_row.pk))
+        finally:
+            self._release_row(holder, release)
+
+        self.assertEqual(process_due_permission_transitions(limit=1), 1)
+        self.client_row.refresh_from_db()
+        job.refresh_from_db()
+        epoch = self.client_row.reply_permission_epoch
+        self.assertTrue(self.client_row.bot_paused)
+        self.assertEqual(self.client_row.paused_reason, "opt_out")
+        self.assertEqual(job.status, IgPermissionTransitionJob.Status.APPLIED)
+        self.assertEqual(process_due_permission_transitions(limit=1), 0)
+        self.client_row.refresh_from_db()
+        self.assertEqual(self.client_row.reply_permission_epoch, epoch)
+
+    def test_manager_echo_entry_returns_before_locked_client_and_recovers_once(self):
+        holder, release = self._hold_row(IgClient, self.client_row.pk)
+        try:
+            started = time.monotonic()
+            with patch(
+                "management.services.instagram_bot.notify_manager", return_value=True
+            ):
+                instagram_bot._handle_echo(
+                    self.client_row.igsid,
+                    "Менеджер відповів",
+                    mid="mariadb-contended-takeover",
+                    persistence_only=True,
+                )
+            elapsed = time.monotonic() - started
+
+            self.assertLess(elapsed, 1.0)
+            message = InstagramBotMessage.objects.get(mid="mariadb-contended-takeover")
+            job = IgPermissionTransitionJob.objects.get(source_message=message)
+            self.assertEqual(job.status, IgPermissionTransitionJob.Status.PENDING)
+            self.assertEqual(job.last_error_kind, "database_busy")
+            self.assertFalse(capture_reply_permission(self.settings.pk, self.client_row.pk))
+        finally:
+            self._release_row(holder, release)
+
+        self.assertEqual(process_due_permission_transitions(limit=1), 1)
+        self.client_row.refresh_from_db()
+        job.refresh_from_db()
+        epoch = self.client_row.reply_permission_epoch
+        self.assertTrue(self.client_row.manager_takeover)
+        self.assertTrue(self.client_row.bot_paused)
+        self.assertEqual(job.status, IgPermissionTransitionJob.Status.APPLIED)
+        self.assertEqual(process_due_permission_transitions(limit=1), 0)
+        self.client_row.refresh_from_db()
+        self.assertEqual(self.client_row.reply_permission_epoch, epoch)
+
+    def test_global_stop_entry_returns_before_locked_settings_and_recovers_once(self):
+        holder, release = self._hold_row(InstagramBotSettings, self.settings.pk)
+        try:
+            started = time.monotonic()
+            returned = instagram_bot.stop_bot()
+            elapsed = time.monotonic() - started
+
+            self.assertEqual(returned.pk, self.settings.pk)
+            self.assertLess(elapsed, 1.0)
+            job = IgPermissionTransitionJob.objects.get(
+                kind=IgPermissionTransitionJob.Kind.GLOBAL_PAUSE,
+                settings=self.settings,
+            )
+            self.assertEqual(job.status, IgPermissionTransitionJob.Status.PENDING)
+            self.assertEqual(job.last_error_kind, "database_busy")
+            self.assertFalse(capture_reply_permission(self.settings.pk, self.client_row.pk))
+        finally:
+            self._release_row(holder, release)
+
+        self.assertEqual(process_due_permission_transitions(limit=1), 1)
+        self.settings.refresh_from_db()
+        job.refresh_from_db()
+        epoch = self.settings.reply_permission_epoch
+        self.assertFalse(self.settings.is_enabled)
+        self.assertEqual(job.status, IgPermissionTransitionJob.Status.APPLIED)
+        self.assertEqual(process_due_permission_transitions(limit=1), 0)
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.reply_permission_epoch, epoch)
 
     def test_http_attempt_returns_bounded_when_client_row_is_locked(self):
         job = create_permission_transition(
@@ -434,29 +560,13 @@ class PermissionTransitionNowaitTests(TransactionTestCase):
             client=self.client_row,
             settings=self.settings,
         )
-        locked = threading.Event()
-        release = threading.Event()
-
-        def hold_client_row():
-            close_old_connections()
-            try:
-                with transaction.atomic():
-                    IgClient.objects.select_for_update().get(pk=self.client_row.pk)
-                    locked.set()
-                    release.wait(timeout=5)
-            finally:
-                close_old_connections()
-
-        holder = threading.Thread(target=hold_client_row)
-        holder.start()
-        self.assertTrue(locked.wait(timeout=2))
+        holder, release = self._hold_row(IgClient, self.client_row.pk)
         try:
             started = time.monotonic()
             applied = attempt_permission_transition(job.pk)
             elapsed = time.monotonic() - started
         finally:
-            release.set()
-            holder.join(timeout=5)
+            self._release_row(holder, release)
 
         self.assertFalse(applied)
         self.assertLess(elapsed, 1.0)

@@ -239,6 +239,134 @@ def _finish_job(job, *, status: str, now) -> None:
     ])
 
 
+def _bind_source_message(
+    job: IgPermissionTransitionJob,
+    client: IgClient,
+    *,
+    nowait: bool,
+    required: bool,
+) -> InstagramBotMessage | None:
+    source = None
+    if job.source_message_id:
+        source = (
+            InstagramBotMessage.objects.select_for_update(nowait=nowait)
+            .filter(pk=job.source_message_id)
+            .first()
+        )
+    if source is None:
+        if required:
+            raise RuntimeError("permission_transition_source_missing")
+        return None
+    if source.sender_id != client.igsid or source.client_id not in {None, client.pk}:
+        raise RuntimeError("permission_transition_source_client_mismatch")
+    if source.client_id is None:
+        source.client_id = client.pk
+        source.save(update_fields=["client"])
+    if source.client_id != client.pk:
+        raise RuntimeError("permission_transition_source_not_bound")
+    return source
+
+
+def _finish_source_message(source: InstagramBotMessage | None, *, now) -> None:
+    if source is None:
+        return
+    update_fields = []
+    if source.status != InstagramBotMessage.Status.DONE:
+        source.status = InstagramBotMessage.Status.DONE
+        update_fields.append("status")
+    if source.processing_started_at is not None:
+        source.processing_started_at = None
+        update_fields.append("processing_started_at")
+    if source.processed_at is None:
+        source.processed_at = now
+        update_fields.append("processed_at")
+    if update_fields:
+        source.save(update_fields=update_fields)
+
+
+def _locked_ids(rows, *, nowait: bool) -> list[int]:
+    return list(
+        rows.select_for_update(nowait=nowait)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+
+
+def _cancel_client_automation(
+    client: IgClient,
+    *,
+    reason: str,
+    now,
+    nowait: bool,
+) -> None:
+    followups = IgFollowUpTask.objects.filter(
+        client_id=client.pk,
+        status=IgFollowUpTask.Status.PENDING,
+    ).exclude(
+        kind=IgFollowUpTask.Kind.MANAGER_TASK,
+        reason="followup_delivery_review",
+    )
+    followup_ids = _locked_ids(followups, nowait=nowait)
+    if followup_ids:
+        IgFollowUpTask.objects.filter(pk__in=followup_ids).update(
+            status=IgFollowUpTask.Status.CANCELLED,
+            skip_reason=reason[:255],
+            updated_at=now,
+        )
+    messages = InstagramBotMessage.objects.filter(
+        client_id=client.pk,
+        role=InstagramBotMessage.Role.USER,
+        status__in=[
+            InstagramBotMessage.Status.PENDING,
+            InstagramBotMessage.Status.PROCESSING,
+        ],
+    ).exclude(send_state="sending")
+    message_ids = _locked_ids(messages, nowait=nowait)
+    if message_ids:
+        InstagramBotMessage.objects.filter(pk__in=message_ids).update(
+            status=InstagramBotMessage.Status.DONE,
+            processed_at=now,
+            processing_started_at=None,
+        )
+    if client.next_followup_at is not None:
+        client.next_followup_at = None
+        client.save(update_fields=["next_followup_at", "updated_at"])
+
+
+def _cancel_global_automation(*, now, nowait: bool) -> None:
+    messages = InstagramBotMessage.objects.filter(
+        role=InstagramBotMessage.Role.USER,
+        status__in=[
+            InstagramBotMessage.Status.PENDING,
+            InstagramBotMessage.Status.PROCESSING,
+        ],
+    ).exclude(send_state="sending")
+    message_ids = _locked_ids(messages, nowait=nowait)
+    if message_ids:
+        InstagramBotMessage.objects.filter(pk__in=message_ids).update(
+            status=InstagramBotMessage.Status.DONE,
+            processed_at=now,
+            processing_started_at=None,
+        )
+    followups = IgFollowUpTask.objects.filter(
+        status=IgFollowUpTask.Status.PENDING,
+    ).exclude(
+        kind=IgFollowUpTask.Kind.MANAGER_TASK,
+        reason="followup_delivery_review",
+    )
+    followup_ids = _locked_ids(followups, nowait=nowait)
+    if followup_ids:
+        IgFollowUpTask.objects.filter(pk__in=followup_ids).update(
+            status=IgFollowUpTask.Status.CANCELLED,
+            skip_reason="global_reply_stopped",
+            updated_at=now,
+        )
+    clients = IgClient.objects.filter(next_followup_at__isnull=False)
+    client_ids = _locked_ids(clients, nowait=nowait)
+    if client_ids:
+        IgClient.objects.filter(pk__in=client_ids).update(next_followup_at=None)
+
+
 def _apply_claimed_job(
     claimed: IgPermissionTransitionJob,
     *,
@@ -268,10 +396,16 @@ def _apply_claimed_job(
                 client = IgClient.objects.select_for_update(nowait=nowait).filter(
                     pk=job.client_id
                 ).first()
-                source = InstagramBotMessage.objects.filter(pk=job.source_message_id).first()
-                if client is None or source is None:
+                if client is None:
                     _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
                     return True
+                source = _bind_source_message(
+                    job,
+                    client,
+                    nowait=nowait,
+                    required=True,
+                )
+                _finish_source_message(source, now=now)
                 already_applied = bool(
                     client.opted_out_at
                     and client.opt_out_message_id == source.pk
@@ -279,6 +413,12 @@ def _apply_claimed_job(
                     and client.paused_reason == "opt_out"
                 )
                 if already_applied:
+                    _cancel_client_automation(
+                        client,
+                        reason="opt_out",
+                        now=now,
+                        nowait=nowait,
+                    )
                     _finish_job(job, status=IgPermissionTransitionJob.Status.APPLIED, now=now)
                     return True
                 if client.opted_in_at and source.provider_created_at and client.opted_in_at >= source.provider_created_at:
@@ -290,6 +430,9 @@ def _apply_claimed_job(
                 client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
                 client.paused_reason = "opt_out"
                 client.paused_at = client.paused_at or now
+                if client.first_contact_at is None:
+                    client.first_contact_at = now
+                client.last_message_at = now
                 client.save(update_fields=[
                     "opted_out_at",
                     "opt_out_message_id",
@@ -297,29 +440,75 @@ def _apply_claimed_job(
                     "reply_permission_epoch",
                     "paused_reason",
                     "paused_at",
+                    "first_contact_at",
+                    "last_message_at",
                     "updated_at",
                 ])
+                _cancel_client_automation(
+                    client,
+                    reason="opt_out",
+                    now=now,
+                    nowait=nowait,
+                )
+                try:
+                    from management.services.ig_funnel_analytics import (
+                        record_client_step_event_in_transaction,
+                        record_drop_off_for_client_in_transaction,
+                    )
+                    from management.models import IgFunnelStepEvent
+
+                    occurred_at = source.provider_created_at or source.created_at or now
+                    record_client_step_event_in_transaction(
+                        client,
+                        event_type=IgFunnelStepEvent.Type.CONVERSATION_STARTED,
+                        event_key=f"ig-inbound:{source.pk}",
+                        occurred_at=occurred_at,
+                        stage=client.stage,
+                        actor="customer",
+                        evidence={
+                            "message_id": source.pk,
+                            "mid": source.mid or "",
+                            "source": source.source,
+                        },
+                    )
+                    record_drop_off_for_client_in_transaction(
+                        client,
+                        kind="opt_out",
+                        reason_code="explicit_opt_out",
+                        occurred_at=occurred_at,
+                        stage=client.stage,
+                        actor="customer",
+                        evidence={"message_id": source.pk},
+                        is_recoverable=False,
+                    )
+                except Exception:
+                    pass
             elif job.kind == IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER:
                 client = IgClient.objects.select_for_update(nowait=nowait).filter(
                     pk=job.client_id
                 ).first()
-                source = InstagramBotMessage.objects.filter(pk=job.source_message_id).first()
                 if client is None:
                     _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
                     return True
-                if client.manager_takeover and client.bot_paused:
-                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
-                    return True
-                client.manager_takeover = True
-                client.bot_paused = True
-                client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
-                client.paused_reason = "manager_takeover"
+                source = _bind_source_message(
+                    job,
+                    client,
+                    nowait=nowait,
+                    required=bool(job.source_message_id),
+                )
+                _finish_source_message(source, now=now)
                 transition_at = (
                     getattr(source, "provider_created_at", None)
                     or getattr(source, "created_at", None)
                     or now
                 )
-                client.paused_at = transition_at
+                takeover_started = not (client.manager_takeover and client.bot_paused)
+                if takeover_started:
+                    client.manager_takeover = True
+                    client.bot_paused = True
+                    client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
+                    client.paused_reason = "manager_takeover"
+                    client.paused_at = transition_at
                 if (
                     client.last_manager_message_at is None
                     or client.last_manager_message_at < transition_at
@@ -334,6 +523,55 @@ def _apply_claimed_job(
                     "last_manager_message_at",
                     "updated_at",
                 ])
+                _cancel_client_automation(
+                    client,
+                    reason="manager_takeover",
+                    now=now,
+                    nowait=nowait,
+                )
+                if source is not None:
+                    try:
+                        from management.services.bot_conversation_analysis import schedule_analysis
+
+                        schedule_analysis(client, source, trigger="manager_message")
+                    except Exception:
+                        pass
+                if takeover_started:
+                    try:
+                        from management.models import IgFunnelStepEvent
+                        from management.services.ig_funnel_analytics import (
+                            record_client_step_event_in_transaction,
+                        )
+
+                        record_client_step_event_in_transaction(
+                            client,
+                            event_type=IgFunnelStepEvent.Type.MANAGER_ENGAGED,
+                            event_key=f"ig-manager-engaged:{client.pk}:{job.pk}",
+                            occurred_at=transition_at,
+                            stage=client.stage,
+                            actor="manager",
+                            evidence={
+                                "manager_message_id": source.pk if source else None,
+                                "provider_mid": source.mid if source else "",
+                                "takeover_started": True,
+                            },
+                        )
+                    except Exception:
+                        pass
+                    from management.services.instagram_bot import notify_manager
+
+                    notification_persisted = notify_manager(
+                        f"👤 IG: менеджер підключився до "
+                        f"{client.username or client.igsid} — бот на паузі для цього клієнта.",
+                        dedupe_key=f"takeover:{client.pk}:{job.pk}",
+                        event_type="takeover",
+                        client=client,
+                        deliver_immediately=False,
+                    )
+                    if not notification_persisted:
+                        raise RuntimeError(
+                            "manager takeover notification was not persisted"
+                        )
             elif job.kind == IgPermissionTransitionJob.Kind.CLIENT_PAUSE:
                 client = IgClient.objects.select_for_update(nowait=nowait).filter(
                     pk=job.client_id
@@ -355,25 +593,11 @@ def _apply_claimed_job(
                     "paused_at",
                     "updated_at",
                 ])
-                IgFollowUpTask.objects.filter(
-                    client_id=client.pk,
-                    status=IgFollowUpTask.Status.PENDING,
-                ).update(
-                    status=IgFollowUpTask.Status.CANCELLED,
-                    skip_reason="manual_pause",
-                    updated_at=now,
-                )
-                InstagramBotMessage.objects.filter(
-                    client_id=client.pk,
-                    role=InstagramBotMessage.Role.USER,
-                    status__in=[
-                        InstagramBotMessage.Status.PENDING,
-                        InstagramBotMessage.Status.PROCESSING,
-                    ],
-                ).exclude(send_state="sending").update(
-                    status=InstagramBotMessage.Status.DONE,
-                    processed_at=now,
-                    processing_started_at=None,
+                _cancel_client_automation(
+                    client,
+                    reason="manual_pause",
+                    now=now,
+                    nowait=nowait,
                 )
             elif job.kind == IgPermissionTransitionJob.Kind.GLOBAL_PAUSE:
                 settings_obj = InstagramBotSettings.objects.select_for_update(
@@ -384,17 +608,16 @@ def _apply_claimed_job(
                 if settings_obj is None:
                     _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
                     return True
-                if not settings_obj.is_enabled:
-                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
-                    return True
-                settings_obj.is_enabled = False
-                settings_obj.reply_permission_epoch = int(settings_obj.reply_permission_epoch or 0) + 1
-                settings_obj.last_stopped_at = now
-                settings_obj.save(update_fields=[
-                    "is_enabled",
-                    "reply_permission_epoch",
-                    "last_stopped_at",
-                ])
+                if settings_obj.is_enabled:
+                    settings_obj.is_enabled = False
+                    settings_obj.reply_permission_epoch = int(settings_obj.reply_permission_epoch or 0) + 1
+                    settings_obj.last_stopped_at = now
+                    settings_obj.save(update_fields=[
+                        "is_enabled",
+                        "reply_permission_epoch",
+                        "last_stopped_at",
+                    ])
+                _cancel_global_automation(now=now, nowait=nowait)
             else:
                 _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
                 return True

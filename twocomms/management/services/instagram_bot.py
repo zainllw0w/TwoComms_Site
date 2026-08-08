@@ -2132,6 +2132,52 @@ def _echo_media_items(msg: dict) -> list[dict]:
     return result[:8]
 
 
+def _stage_permission_message(
+    *,
+    sender_id: str,
+    role: str,
+    text: str,
+    mid: str,
+    source: str,
+    attachments: str = "",
+    provider_created_at=None,
+    reply_to_provider_message_id: str = "",
+    quick_reply_payload: str = "",
+) -> tuple[InstagramBotMessage | None, bool]:
+    """Persist a permission-changing message without locking its client FK."""
+    if mid:
+        existing = InstagramBotMessage.objects.filter(mid=mid).first()
+        if existing is not None:
+            if existing.sender_id != sender_id or existing.role != role:
+                return None, False
+            return existing, False
+    try:
+        with transaction.atomic():
+            return InstagramBotMessage.objects.create(
+                sender_id=sender_id,
+                client=None,
+                role=role,
+                text=text,
+                mid=mid or None,
+                status=InstagramBotMessage.Status.DONE,
+                source=source,
+                attachments=attachments,
+                provider_created_at=provider_created_at,
+                reply_to_provider_message_id=reply_to_provider_message_id,
+                quick_reply_payload=quick_reply_payload,
+                processed_at=timezone.now(),
+            ), True
+    except IntegrityError:
+        existing = InstagramBotMessage.objects.filter(mid=mid).first() if mid else None
+        if (
+            existing is None
+            or existing.sender_id != sender_id
+            or existing.role != role
+        ):
+            return None, False
+        return existing, False
+
+
 def _handle_echo(
     recipient_igsid: str,
     text: str,
@@ -2175,141 +2221,63 @@ def _handle_echo(
         return
     from management.models import IgPermissionTransitionJob
     from management.services.ig_permission_transitions import (
-        ACTIVE_STATUSES,
         attempt_permission_transition,
         create_permission_transition,
     )
 
     now = timezone.now()
-    permission_transition_job_id = None
-    # The takeover notification is a state transition, not a per-message
-    # event. Lock the client row so two webhook workers cannot both announce
-    # the same transition while manager messages are still stored separately.
-    with transaction.atomic():
-        with transaction.atomic():
-            client, _ = IgClient.objects.select_for_update().get_or_create(
-                igsid=recipient_igsid,
-                defaults={"first_contact_at": now, "last_message_at": now},
-            )
-            if mid and InstagramBotMessage.objects.filter(mid=mid).exists():
-                return
-            takeover_started = bool(
-                not client.manager_takeover
-                and not IgPermissionTransitionJob.objects.filter(
-                    client=client,
-                    kind=IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER,
-                    status__in=ACTIVE_STATUSES,
-                ).exists()
-            )
-            client.last_manager_message_at = received_at or now
-            client.save(update_fields=["last_manager_message_at", "updated_at"])
-            InstagramBotMessage.objects.filter(
-                client=client,
-                role=InstagramBotMessage.Role.USER,
-                status__in=[
-                    InstagramBotMessage.Status.PENDING,
-                    InstagramBotMessage.Status.PROCESSING,
-                ],
-            ).exclude(send_state="sending").update(
-                status=InstagramBotMessage.Status.DONE,
-                processed_at=now,
-                processing_started_at=None,
-            )
-            msg = None
-            if text or attachments:
-                try:
-                    with transaction.atomic():
-                        msg = InstagramBotMessage.objects.create(
-                            sender_id=recipient_igsid,
-                            client=client,
-                            role=InstagramBotMessage.Role.MANAGER,
-                            text=text or "(зображення менеджера)",
-                            mid=mid or None,
-                            status=InstagramBotMessage.Status.DONE,
-                            source="echo",
-                            attachments=json.dumps(
-                                [item.get("url") for item in (attachments or []) if item.get("url")],
-                                ensure_ascii=False,
-                            ) if attachments else "",
-                            provider_created_at=received_at,
-                            processed_at=timezone.now(),
-                        )
-                except IntegrityError:
-                    msg = InstagramBotMessage.objects.filter(mid=mid).first() if mid else None
-                except Exception:
-                    if persistence_only:
-                        raise
-                    msg = None
-            transition_job = create_permission_transition(
-                kind=IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER,
-                dedupe_key=(
-                    f"permission:manager_takeover:message:{msg.pk}"
-                    if msg is not None
-                    else (
-                        f"permission:manager_takeover:client:{client.pk}:"
-                        f"epoch:{int(client.reply_permission_epoch or 0)}"
-                    )
-                ),
-                client=client,
-                settings=InstagramBotSettings.load(),
-                source_message=msg,
-            )
-            permission_transition_job_id = transition_job.pk
-            if takeover_started:
-                from management.models import IgFunnelStepEvent
-                from management.services.ig_funnel_analytics import (
-                    record_client_step_event_in_transaction,
+    client = IgClient.get_or_create_for_sender(
+        recipient_igsid,
+        defaults={"first_contact_at": now, "last_message_at": now},
+    )
+    msg = None
+    if text or attachments:
+        msg, _created = _stage_permission_message(
+            sender_id=recipient_igsid,
+            role=InstagramBotMessage.Role.MANAGER,
+            text=text or "(зображення менеджера)",
+            mid=mid,
+            source="echo",
+            attachments=(
+                json.dumps(
+                    [item.get("url") for item in (attachments or []) if item.get("url")],
+                    ensure_ascii=False,
                 )
+                if attachments
+                else ""
+            ),
+            provider_created_at=received_at,
+        )
+        if msg is None:
+            return
+    dedupe_key = (
+        f"permission:manager_takeover:message:{msg.pk}"
+        if msg is not None
+        else (
+            f"permission:manager_takeover:client:{client.pk}:"
+            f"epoch:{int(client.reply_permission_epoch or 0)}"
+        )
+    )
+    transition_job = create_permission_transition(
+        kind=IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER,
+        dedupe_key=dedupe_key,
+        client=client,
+        settings=InstagramBotSettings.load(),
+        source_message=msg,
+    )
+    applied = attempt_permission_transition(transition_job.pk)
+    if applied:
+        if msg is not None and not persistence_only:
+            from management.services import bot_sales_classifier
 
-                record_client_step_event_in_transaction(
-                    client,
-                    event_type=IgFunnelStepEvent.Type.MANAGER_ENGAGED,
-                    event_key=f"ig-manager-engaged:{client.pk}:{transition_job.pk}",
-                    occurred_at=now,
-                    stage=client.stage,
-                    actor="manager",
-                    evidence={
-                        "manager_message_id": msg.pk if msg else None,
-                        "provider_mid": mid,
-                        "takeover_started": True,
-                    },
-                )
-            try:
-                from management.services import bot_followups, bot_sales_classifier
-                from management.services.bot_conversation_analysis import schedule_analysis
-
-                bot_followups.cancel_pending(client, reason="manager_takeover")
-                if msg:
-                    schedule_analysis(client, msg, trigger="manager_message")
-                    if not persistence_only:
-                        bot_sales_classifier.classify_message(
-                            client,
-                            message=msg,
-                            role=InstagramBotMessage.Role.MANAGER,
-                            media_context=_recover_current_message_media(msg),
-                        )
-            except Exception:
-                if persistence_only:
-                    raise
-            if takeover_started:
-                notification_persisted = notify_manager(
-                    f"👤 IG: менеджер підключився до {client.username or client.igsid} — "
-                    f"бот на паузі для цього клієнта.",
-                    dedupe_key=(
-                        f"takeover:{client.pk}:{transition_job.pk}"
-                    ),
-                    event_type="takeover",
-                    client=client,
-                    deliver_immediately=not persistence_only,
-                )
-                if persistence_only and not notification_persisted:
-                    raise RuntimeError("manager takeover notification was not persisted")
-    if permission_transition_job_id:
-        attempt_permission_transition(permission_transition_job_id)
-    if takeover_started:
+            client.refresh_from_db()
+            bot_sales_classifier.classify_message(
+                client,
+                message=msg,
+                role=InstagramBotMessage.Role.MANAGER,
+                media_context=_recover_current_message_media(msg),
+            )
         log("warning", "takeover", f"{recipient_igsid}: менеджер підключився")
-    else:
-        log("info", "manager_message", f"{recipient_igsid}: повідомлення менеджера збережено")
 
 
 def _match_allowed(sender_id: str, limit: int = 15, window: int = 3600) -> bool:
@@ -7211,6 +7179,7 @@ def enqueue_inbound(
     if not _is_allowed(s, sender_id):
         log("info", "skip_not_allowed", f"[{source}] {sender_id} поза білим списком")
         return False
+    from management.models import IgPermissionTransitionJob
     from management.services import bot_followups, bot_sales_classifier
     from management.services.ig_permission_transitions import (
         attempt_permission_transition,
@@ -7220,6 +7189,57 @@ def enqueue_inbound(
     explicit_opt_out = bot_sales_classifier.is_explicit_opt_out(text)
     permission_transition_job_id = None
     client = IgClient.get_or_create_for_sender(sender_id)
+    existing_source = (
+        InstagramBotMessage.objects.filter(mid=mid).first()
+        if mid
+        else None
+    )
+    provider_event_at = received_at or (
+        existing_source.provider_created_at if existing_source is not None else None
+    )
+    stale_explicit_opt_out = bool(
+        explicit_opt_out
+        and provider_event_at
+        and client.opted_in_at
+        and client.opted_in_at >= provider_event_at
+    )
+    if explicit_opt_out and not stale_explicit_opt_out:
+        if client.hidden_at:
+            log("info", "skip_hidden", f"[{source}] {sender_id}: прихований клієнт")
+            return False
+        msg, message_created = _stage_permission_message(
+            sender_id=sender_id,
+            role=InstagramBotMessage.Role.USER,
+            text=text or "(зображення)",
+            mid=mid,
+            source=source,
+            attachments=json.dumps(attachments) if attachments else "",
+            provider_created_at=received_at,
+            reply_to_provider_message_id=reply_to_provider_message_id,
+            quick_reply_payload=quick_reply_payload,
+        )
+        if msg is None:
+            return False
+        dedupe_key = f"permission:opt_out:message:{msg.pk}"
+        job_existed = IgPermissionTransitionJob.objects.filter(
+            dedupe_key=dedupe_key
+        ).exists()
+        transition_job = create_permission_transition(
+            kind=IgPermissionTransitionJob.Kind.OPT_OUT,
+            dedupe_key=dedupe_key,
+            client=client,
+            settings=s,
+            source_message=msg,
+        )
+        applied = attempt_permission_transition(transition_job.pk)
+        if applied:
+            inbound_at = timezone.now()
+            InstagramBotSettings.objects.filter(pk=s.pk).update(
+                last_inbound_at=inbound_at
+            )
+            s.last_inbound_at = inbound_at
+            log("info", "observed", _inbound_log_detail(source, sender_id, text))
+        return bool(message_created or not job_existed)
     # Клієнт написав знову — саме момент перевірити, чи не висить пауза від
     # менеджера, який давно пішов. Інакше повідомлення тихо стане `observed`,
     # і людина вирішить, що її ігнорують.
@@ -10075,22 +10095,20 @@ def stop_bot() -> InstagramBotSettings:
     )
 
     now = timezone.now()
-    permission_transition_job_id = None
-    with transaction.atomic():
-        s = InstagramBotSettings.objects.select_for_update().get(
-            pk=InstagramBotSettings.load().pk
+    s = InstagramBotSettings.load()
+    was = s.is_enabled
+    if was:
+        transition_job = create_permission_transition(
+            kind=IgPermissionTransitionJob.Kind.GLOBAL_PAUSE,
+            dedupe_key=(
+                f"permission:global_pause:settings:{s.pk}:"
+                f"epoch:{int(s.reply_permission_epoch or 0)}"
+            ),
+            settings=s,
         )
-        was = s.is_enabled
-        if was:
-            transition_job = create_permission_transition(
-                kind=IgPermissionTransitionJob.Kind.GLOBAL_PAUSE,
-                dedupe_key=(
-                    f"permission:global_pause:settings:{s.pk}:"
-                    f"epoch:{int(s.reply_permission_epoch or 0)}"
-                ),
-                settings=s,
-            )
-            permission_transition_job_id = transition_job.pk
+        if attempt_permission_transition(transition_job.pk):
+            s.refresh_from_db()
+    else:
         InstagramBotMessage.objects.filter(
             role=InstagramBotMessage.Role.USER,
             status__in=[
@@ -10113,9 +10131,6 @@ def stop_bot() -> InstagramBotSettings:
         IgClient.objects.filter(next_followup_at__isnull=False).update(
             next_followup_at=None
         )
-    if permission_transition_job_id:
-        attempt_permission_transition(permission_transition_job_id)
-        s.refresh_from_db()
     if was:
         log("warning", "stop", "Бот зупинено.")
     return s
