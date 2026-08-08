@@ -184,7 +184,7 @@ class SmartSelectorCategoryTests(TestCase):
             'class="smart-product-card__body"', 1
         )[0]
         self.assertEqual(media.count('class="smart-product-card__discount-marker"'), 1)
-        self.assertIn(">−20%<", media)
+        self.assertIn(">-20%<", media)
         self.assertIn('class="smart-product-card__price"', card)
         self.assertIn("872 грн", card)
         self.assertIn('class="smart-product-card__old-price"', card)
@@ -199,7 +199,7 @@ class SmartSelectorCategoryTests(TestCase):
         card = html.split('data-product-title="Smart Product"', 1)[1].split("</article>", 1)[0]
         self.assertNotIn('smart-product-card__discount-marker', card)
         self.assertNotIn('smart-product-card__old-price', card)
-        self.assertNotIn("−0%", card)
+        self.assertNotIn("-0%", card)
 
     def test_product_card_moves_all_color_links_into_media_stack(self):
         product = self.create_product(category=self.tshirts, slug="media-color-stack")

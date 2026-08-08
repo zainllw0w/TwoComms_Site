@@ -48,7 +48,7 @@
       </span>
       {% endif %}
       {% if p.has_discount and p.discount_percent %}
-      <span class="smart-product-card__discount-marker" aria-label="{% blocktrans with discount=p.discount_percent %}Знижка {{ discount }} відсотків{% endblocktrans %}">−{{ p.discount_percent }}%</span>
+      <span class="smart-product-card__discount-marker" aria-label="{% blocktrans with discount=p.discount_percent %}Знижка {{ discount }} відсотків{% endblocktrans %}">-{{ p.discount_percent }}%</span>
       {% endif %}
 
       <button type="button"
