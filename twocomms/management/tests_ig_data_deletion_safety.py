@@ -164,6 +164,20 @@ class AnonymousDeletionRequestTests(TestCase):
         self.assertEqual(request_row.deleted_clients_count, 0)
         self.assertEqual(request_row.normalized_identifier, "pending_user")
 
+    def test_deletion_alert_omits_identifier_and_confirmation_capability(self):
+        marker = "private.delete+marker@example.com"
+
+        with patch("management.bot_views.bot.notify_manager") as notify_manager:
+            self._post(marker)
+
+        request_row = BotDataDeletionRequest.objects.get()
+        alert = notify_manager.call_args.args[0]
+        self.assertNotIn(marker, alert)
+        self.assertNotIn(request_row.normalized_identifier, alert)
+        self.assertNotIn(request_row.confirmation_code, alert)
+        self.assertIn(f"Завдання ID: {request_row.pk}", alert)
+        self.assertIn("Статус: pending_verification", alert)
+
     def test_pending_request_is_visible_on_status_page(self):
         IgClient.objects.create(igsid="3000000003", username="status_user")
         self._post("status_user")

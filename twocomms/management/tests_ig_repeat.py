@@ -71,6 +71,8 @@ class OrderStatusNoteTests(TestCase):
         from management.services.ig_order_links import create_order_attribution
 
         c = IgClient.get_or_create_for_sender("ro-ambiguity-task")
+        c.username = "private.order-status@example.com"
+        c.save(update_fields=["username", "updated_at"])
         first = _order(status="prep", ttn="59000131")
         second = _order(status="ship", ttn="59000132")
         for order in (first, second):
@@ -97,7 +99,10 @@ class OrderStatusNoteTests(TestCase):
             event_type="ambiguous_order_status",
         )
         self.assertEqual(notifications.count(), 1)
-        self.assertIn("кілька замовлень", notifications.get().payload["text"])
+        alert = notifications.get().payload["text"]
+        self.assertIn("кілька замовлень", alert)
+        self.assertNotIn(c.username, alert)
+        self.assertIn(f"Клієнт ID: {c.pk}", alert)
 
         exact = bot_memory.order_status_note(c, second.order_number)
         self.assertIn("відправлено", exact)

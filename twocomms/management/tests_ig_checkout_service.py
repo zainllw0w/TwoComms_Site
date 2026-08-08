@@ -814,6 +814,88 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
         self.client.refresh_from_db()
         self.assertEqual(self.client.stage, IgClient.Stage.CHECKOUT)
 
+    @patch("orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification")
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch(
+        "storefront.views.monobank._monobank_api_request",
+        return_value={
+            "invoiceId": "PRIVATE_PROVIDER_INVOICE_MARKER",
+            "pageUrl": "https://pay.monobank.test/private-provider-marker",
+        },
+    )
+    def test_invoice_creation_uses_minimum_necessary_ig_operator_alert(
+        self, provider, notify_manager, legacy_payment_alert
+    ):
+        from types import SimpleNamespace
+
+        from django.contrib.auth.models import AnonymousUser
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.test import RequestFactory
+
+        from management.services import bot_orders
+        from management.services.ig_checkout_payment import create_or_reuse_invoice
+
+        result = bot_orders.create_deal_and_link(
+            self.client,
+            pay_type="full",
+            product_id=self.product.pk,
+            size="M",
+        )
+        self.assertTrue(result["ok"], result)
+        proposal = IgCheckoutProposal.objects.get(client=self.client)
+        request = RequestFactory().post("/offer/payment/", secure=True)
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.user = AnonymousUser()
+        delivery = SimpleNamespace(
+            city="PRIVATE_CITY_MARKER",
+            np_office="PRIVATE_OFFICE_MARKER",
+            settlement_ref="settlement-ref",
+            city_ref="city-ref",
+            warehouse_ref="warehouse-ref",
+            warehouse_kind="branch",
+        )
+        payload = {
+            "full_name": "Private Customer Marker",
+            "phone": "+380501234567",
+            "email": "private-marker@example.test",
+        }
+        with (
+            patch(
+                "management.services.ig_checkout_payment.resolve_delivery_selection",
+                return_value=delivery,
+            ),
+            patch(
+                "management.services.ig_checkout_payment._send_add_payment_info_if_missing",
+                return_value=True,
+            ),
+        ):
+            attempt, invoice_url, reused = create_or_reuse_invoice(
+                proposal,
+                request=request,
+                payload=payload,
+            )
+
+        self.assertFalse(reused)
+        self.assertEqual(invoice_url, "https://pay.monobank.test/private-provider-marker")
+        provider.assert_called_once()
+        legacy_payment_alert.assert_not_called()
+        notify_manager.assert_called_once()
+        alert = notify_manager.call_args.args[0]
+        for private_marker in (
+            payload["full_name"],
+            payload["phone"],
+            payload["email"],
+            delivery.city,
+            delivery.np_office,
+            self.product.title,
+            "PRIVATE_PROVIDER_INVOICE_MARKER",
+            invoice_url,
+        ):
+            self.assertNotIn(private_marker, alert)
+        for local_id in (self.client.pk, proposal.deal_id, proposal.pk, attempt.pk):
+            self.assertIn(str(local_id), alert)
+        self.assertIn("950.00", alert)
+
     @patch("storefront.views.monobank._monobank_api_request")
     def test_bot_deal_path_blocks_missing_generic_option(self, provider):
         from fable5.models import GarmentFlow, GarmentFlowCategory

@@ -70,41 +70,26 @@ def _is_reviewer_only(user) -> bool:
     return is_meta_bot_reviewer(user) and not _is_admin(user)
 
 
-_REVIEWER_STATUS_SENSITIVE_KEYS = frozenset({
-    "provider_account_id",
-    "last_error",
-    "error",
-    "detail",
-    "trigger_text",
-    "reply_text",
-    "allowed_senders",
-    "analysis_reconcile_cursor",
-    "analysis_reconcile_after",
-    "last_gemini_key",
-    "last_gemini_at",
-    "last_inbound_at",
-    "last_reply_at",
+_REVIEWER_STATUS_ALLOWED_KEYS = frozenset({
+    # Keep external reviewer telemetry closed so future status fields cannot
+    # become visible by default.
+    "state",
+    "running",
+    "daemon_online",
+    "pending",
 })
 
 
 def _reviewer_safe_status(request):
-    """Return status telemetry without account IDs, customer text or errors."""
+    """Return only the documented liveness telemetry to an external reviewer."""
     status = bot.status_snapshot()
     if not _is_reviewer_only(request.user):
         return status
-
-    def redact(value):
-        if isinstance(value, dict):
-            return {
-                key: redact(item)
-                for key, item in value.items()
-                if key not in _REVIEWER_STATUS_SENSITIVE_KEYS
-            }
-        if isinstance(value, list):
-            return [redact(item) for item in value]
-        return value
-
-    return redact(status)
+    return {
+        key: status[key]
+        for key in _REVIEWER_STATUS_ALLOWED_KEYS
+        if key in status
+    }
 
 
 def privacy_policy(request):
@@ -295,14 +280,17 @@ def data_deletion_submit(request):
     deletion_request = register_public_request(identifier, normalized)
 
     try:
+        from .services.ig_alerts import format_operator_alert
+
         bot.notify_manager(
-            "🧹 Запит на видалення даних DIRECT_BOT\n"
-            f"Код: {deletion_request.confirmation_code}\n"
-            f"Ідентифікатор: {normalized or '—'}\n"
-            "Підтвердіть володіння і виконайте:\n"
-            f"python manage.py fulfill_ig_data_deletion "
-            f"--code={deletion_request.confirmation_code}",
-            dedupe_key=f"data-deletion:{deletion_request.confirmation_code}",
+            format_operator_alert(
+                "🧹 Запит на видалення даних DIRECT_BOT",
+                event_type="data_deletion_request",
+                task_id=deletion_request.pk,
+                status="pending_verification",
+                instruction_code="data_deletion_request",
+            ),
+            dedupe_key=f"data-deletion:{deletion_request.pk}",
             event_type="data_deletion_request",
         )
     except Exception:
@@ -555,14 +543,23 @@ def _audit_reviewer_action(request, action: str) -> None:
     if not _is_reviewer_only(request.user):
         return
     who = getattr(request.user, "username", "") or "unknown"
+    actor_id = getattr(request.user, "pk", None)
     try:
         bot.log("warning", "reviewer_action", f"{who}: {action}")
     except Exception:
         pass
     try:
+        from .services.ig_alerts import format_technical_alert
+
         bot.notify_manager(
-            f"⚠️ Зовнішній Meta-reviewer «{who}» виконав дію: {action}",
-            dedupe_key=f"reviewer-action:{who}:{action}",
+            format_technical_alert(
+                "⚠️ Зовнішній Meta-reviewer виконав дію",
+                event_type="reviewer_action",
+                actor_id=actor_id,
+                failure_kind=action,
+                instruction_code="reviewer_action",
+            ),
+            dedupe_key=f"reviewer-action:{actor_id or 'unknown'}:{action}",
             event_type="reviewer_action",
         )
     except Exception:
@@ -5213,6 +5210,11 @@ def bot_stats_api(request):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
+    if _is_reviewer_only(request.user):
+        return JsonResponse(
+            {"success": False, "error": "Статистика доступна лише адміністраторам."},
+            status=403,
+        )
     query_count_start = (
         len(connection.queries)
         if (settings.DEBUG or connection.force_debug_cursor)

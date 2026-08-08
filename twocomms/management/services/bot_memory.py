@@ -182,11 +182,17 @@ def order_status_note(client, reference: str = "") -> str | None:
                     task.save(update_fields=changed)
                 try:
                     from management.services.instagram_bot import notify_manager
+                    from management.services.ig_alerts import format_operator_alert
 
-                    client_label = client.username or client.display_name or client.igsid
                     notify_manager(
-                        f"🧭 IG: у {client_label} кілька замовлень. "
-                        "Перед відповіддю про статус потрібен точний номер замовлення або ТТН.",
+                        format_operator_alert(
+                            "🧭 IG: у клієнта кілька замовлень",
+                            event_type="ambiguous_order_status",
+                            client_id=client.pk,
+                            task_id=task.pk,
+                            status="exact_reference_required",
+                            instruction_code="ambiguous_order_status",
+                        ),
                         dedupe_key=reason,
                         event_type="ambiguous_order_status",
                         client=client,

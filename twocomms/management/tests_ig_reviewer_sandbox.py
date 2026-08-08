@@ -83,6 +83,23 @@ class ReviewerSandboxTests(TestCase):
             ).exists()
         )
 
+    def test_reviewer_alert_omits_username_but_keeps_local_actor_id(self):
+        marker = "private.reviewer@example.com"
+        self.reviewer.username = marker
+        self.reviewer.save(update_fields=["username"])
+        self._login_reviewer()
+
+        with patch("management.bot_views.bot.stop_bot"), patch(
+            "management.bot_views.bot.notify_manager"
+        ) as notify_manager:
+            response = self._post("/bot/api/stop/")
+
+        self.assertEqual(response.status_code, 200)
+        alert = notify_manager.call_args.args[0]
+        self.assertNotIn(marker, alert)
+        self.assertIn(f"Актор ID: {self.reviewer.pk}", alert)
+        self.assertIn("Тип збою: bot_stop", alert)
+
     def test_admin_action_is_not_logged_as_reviewer(self):
         """След reviewer'а не должен появляться от действий администратора."""
         self.client.force_login(self.admin)
@@ -213,6 +230,69 @@ class ReviewerSandboxTests(TestCase):
         self.assertNotIn("provider_account_id", payload["status"])
         self.assertNotIn("last_error", payload["status"])
         self.assertNotIn("customer@example.com", response.content.decode())
+
+    def test_reviewer_status_is_allowlisted_and_drops_unknown_nested_fields(self):
+        marker = "future-private-customer-note-marker"
+        self._login_reviewer()
+
+        with patch(
+            "management.bot_views.bot.status_snapshot",
+            return_value={
+                "state": "running",
+                "running": True,
+                "daemon_online": True,
+                "pending": 0,
+                "customer_note": {"text": marker},
+                "future_sensitive_field": marker,
+            },
+        ):
+            response = self.client.get(
+                "/bot/api/status/",
+                HTTP_HOST="management.twocomms.shop",
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["status"],
+            {
+                "state": "running",
+                "running": True,
+                "daemon_online": True,
+                "pending": 0,
+            },
+        )
+        self.assertNotIn(marker, response.content.decode())
+
+    def test_reviewer_stats_api_is_blocked_before_business_queries(self):
+        self._login_reviewer()
+
+        with patch(
+            "management.models.InstagramBotMessage.objects.filter"
+        ) as message_query:
+            response = self.client.get(
+                "/bot/api/stats/",
+                HTTP_HOST="management.twocomms.shop",
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 403)
+        message_query.assert_not_called()
+        self.assertNotIn("live_client", response.content.decode())
+
+    def test_reviewer_dashboard_does_not_render_live_stats_panel(self):
+        self._login_reviewer()
+
+        response = self.client.get(
+            "/bot/",
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertNotIn('data-tab="stats"', body)
+        self.assertNotIn('data-panel="stats"', body)
 
     def test_reviewer_client_list_is_empty_sandbox(self):
         self._login_reviewer()

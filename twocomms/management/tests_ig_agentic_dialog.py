@@ -663,6 +663,8 @@ class SizeGapEscalationTests(TestCase):
         from management.services import instagram_bot as bot
 
         cache.clear()
+        self.client_row.username = "private_size_customer"
+        self.client_row.save(update_fields=["username", "updated_at"])
 
         self.assertTrue(bot.notify_size_gap(self.client_row))
         self.assertFalse(bot.notify_size_gap(self.client_row))
@@ -674,8 +676,10 @@ class SizeGapEscalationTests(TestCase):
         self.assertEqual(gap["fit_code"], "classic")
         self.assertEqual(gap["option_values"], {"fit": "classic"})
         message = mock_notify.call_args.args[0]
-        self.assertIn("M", message)
-        self.assertIn(self.product.title, message)
+        self.assertNotIn(self.client_row.igsid, message)
+        self.assertNotIn(self.client_row.username, message)
+        self.assertIn(f"Клієнт ID: {self.client_row.pk}", message)
+        self.assertIn(f"?client={self.client_row.pk}", message)
 
     @patch("management.services.instagram_bot.notify_manager")
     def test_available_size_does_not_bother_the_manager(self, mock_notify):

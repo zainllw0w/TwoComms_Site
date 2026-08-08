@@ -1192,7 +1192,9 @@ body.bot-drawer-open{overflow:hidden;}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="kb">Інструкції</button>
     {% endif %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="clients">Клієнти<span class="badge" id="badge-clients" style="display:none;"></span></button>
+    {% if not meta_bot_reviewer_mode %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="stats">Статистика</button>
+    {% endif %}
     {% if not meta_bot_reviewer_mode %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="orders">Замовлення<span class="badge" id="badge-orders-action" style="display:none;"></span></button>
     {% endif %}
@@ -1471,6 +1473,7 @@ body.bot-drawer-open{overflow:hidden;}
     </div>
   </section>
 
+  {% if not meta_bot_reviewer_mode %}
   <!-- ===== Статистика ===== -->
   <section class="bot-panel" data-panel="stats">
     <div class="bot-card bot-stats-card">
@@ -1542,6 +1545,7 @@ body.bot-drawer-open{overflow:hidden;}
       <div id="bot-stats-detail-drawer-body" class="bot-stats-detail-drawer-body"></div>
     </section>
   </div>
+  {% endif %}
 
   {% if not meta_bot_reviewer_mode %}
   <!-- ===== Замовлення ===== -->

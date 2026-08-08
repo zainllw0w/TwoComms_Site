@@ -236,12 +236,13 @@ class InstagramBotNotificationTests(TestCase):
         http.assert_not_called()
 
     def test_terminal_notifications_are_proactively_summarized_once_per_hour(self):
+        pii_marker = "customer@example.com +380501112233 private-provider-body"
         IgBotNotification.objects.create(
             dedupe_key="terminal-unknown",
             event_type="delivery_unknown",
             payload={"text": "Невідомий результат"},
             status=IgBotNotification.Status.UNKNOWN,
-            last_error="timeout access_token=secret-value",
+            last_error=f"timeout access_token=secret-value {pii_marker}",
         )
         IgBotNotification.objects.create(
             dedupe_key="terminal-dead",
@@ -258,6 +259,9 @@ class InstagramBotNotificationTests(TestCase):
         self.assertIn("DEAD_LETTER: 1", monitor.payload["text"])
         self.assertIn("/bot/", monitor.payload["text"])
         self.assertNotIn("secret-value", monitor.payload["text"])
+        self.assertNotIn(pii_marker, monitor.payload["text"])
+        self.assertNotIn("customer@example.com", monitor.payload["text"])
+        self.assertNotIn("+380501112233", monitor.payload["text"])
 
         # The same unresolved rows do not produce a second notification inside
         # the dedupe window.
@@ -281,6 +285,21 @@ class InstagramBotNotificationTests(TestCase):
         self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
         monitor = IgBotNotification.objects.get(event_type="notification_terminal_monitor")
         self.assertIn("UNKNOWN: 101", monitor.payload["text"])
+
+    def test_terminal_monitor_sanitizes_persisted_event_metadata(self):
+        marker = "terminal_PRIVATE_MONITOR_MARKER"
+        IgBotNotification.objects.create(
+            dedupe_key="terminal-private-marker",
+            event_type=marker,
+            status=IgBotNotification.Status.UNKNOWN,
+            last_error=marker,
+            payload={"text": marker, "chat_id": "123"},
+        )
+
+        self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
+        monitor = IgBotNotification.objects.get(event_type="notification_terminal_monitor")
+        self.assertNotIn(marker, monitor.payload["text"])
+        self.assertIn("UNKNOWN", monitor.payload["text"])
 
     @patch.dict(
         "os.environ",

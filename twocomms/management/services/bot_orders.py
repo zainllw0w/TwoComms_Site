@@ -28,6 +28,12 @@ from management.services.bot_payment_truth import (
     verified_payment_q,
 )
 from management.services.call_ai_analysis import gemini_generate_text
+from management.services.ig_alerts import (
+    alert_dedupe_key,
+    client_admin_url,
+    deal_admin_url,
+    format_operator_alert,
+)
 from management.services.instagram_bot import notify_manager, send_text
 from orders.services.order_builder import create_order_from_deal
 
@@ -140,8 +146,20 @@ def fulfill_if_ready(deal, created_by=None) -> bool:
     try:
         paid_amount = _confirmed_payment_amount(deal)
         notify_manager(
-            f"✅ IG: оплачено і створено замовлення {order.order_number} "
-            f"({paid_amount:.2f} грн) — {deal.np_full_name}, {deal.np_city}, {deal.np_office}."
+            format_operator_alert(
+                "✅ IG: оплачено і створено замовлення",
+                event_type="order_created",
+                client_id=deal.client_id,
+                deal_id=deal.pk,
+                amount=paid_amount,
+                status="created",
+                instruction_code="order_created",
+            ),
+            dedupe_key=alert_dedupe_key(
+                "order_created", client_id=deal.client_id, entity_id=deal.pk,
+            ),
+            event_type="order_created",
+            client=deal.client,
         )
     except Exception:
         pass
@@ -199,7 +217,15 @@ def _queue_delivery_validation_review(deal, reason: str):
         task.save(update_fields=["last_error", "message_text", "updated_at"])
     try:
         notify_manager(
-            f"📦 IG: угода #{deal.pk} очікує підтвердження доставки НП. {reason}",
+            format_operator_alert(
+                "📦 IG: потрібна перевірка доставки Новою Поштою",
+                event_type="delivery_validation_review",
+                client_id=deal.client_id,
+                deal_id=deal.pk,
+                task_id=task.pk,
+                status="validation_required",
+                instruction_code="delivery_reference",
+            ),
             dedupe_key=f"delivery_validation_review:{deal.pk}",
             event_type="delivery_validation_review",
             client=deal.client,
@@ -245,8 +271,22 @@ def on_deal_paid(deal) -> None:
         try:
             paid_amount = _confirmed_payment_amount(deal)
             notify_manager(
-                f"💸 IG: оплата отримана (угода #{deal.id}, {paid_amount:.2f} грн), "
-                f"але бракує даних доставки — бот збирає ПІБ/телефон/місто/відділення."
+                format_operator_alert(
+                    "💸 IG: оплата отримана; очікуються дані доставки",
+                    event_type="payment_received_delivery_pending",
+                    client_id=deal.client_id,
+                    deal_id=deal.pk,
+                    amount=paid_amount,
+                    status="delivery_pending",
+                    instruction_code="context_in_crm",
+                ),
+                dedupe_key=alert_dedupe_key(
+                    "payment_received_delivery_pending",
+                    client_id=deal.client_id,
+                    entity_id=deal.pk,
+                ),
+                event_type="payment_received_delivery_pending",
+                client=deal.client,
             )
         except Exception:
             pass
@@ -1851,10 +1891,16 @@ def _queue_shipment_manager_review(deal, text: str, *, reason: str, hint: str = 
         if changed:
             changed.append("updated_at")
             task.save(update_fields=changed)
-    client_label = deal.client.username or deal.client.display_name or deal.client.igsid
     notify_manager(
-        f"📦 IG: потрібна ручна відповідь про відправку для {client_label}. "
-        f"Угода #{deal.pk}; готовий текст збережено у завданні менеджеру.",
+        format_operator_alert(
+            "📦 IG: потрібна ручна відповідь про відправку",
+            event_type="shipment_human_review",
+            client_id=deal.client_id,
+            deal_id=deal.pk,
+            task_id=task.pk,
+            status="human_reply_required",
+            instruction_code="manager_task_ready",
+        ),
         dedupe_key=f"{reason}:{deal.pk}",
         event_type="shipment_human_review",
         client=deal.client,
@@ -1891,14 +1937,15 @@ def _queue_episode_shipment_manager_review(episode, text: str, *, reason: str, h
         if changed:
             changed.append("updated_at")
             task.save(update_fields=changed)
-    client_label = (
-        episode.client.username
-        or episode.client.display_name
-        or episode.client.igsid
-    )
     notify_manager(
-        f"📦 IG: потрібна ручна відповідь про відправку для {client_label}. "
-        f"Епізод #{episode.pk}; готовий текст збережено у завданні менеджеру.",
+        format_operator_alert(
+            "📦 IG: потрібна ручна відповідь про відправку",
+            event_type="shipment_human_review",
+            client_id=episode.client_id,
+            task_id=task.pk,
+            status="human_reply_required",
+            instruction_code="manager_task_ready",
+        ),
         dedupe_key=scoped_reason,
         event_type="shipment_human_review",
         client=episode.client,

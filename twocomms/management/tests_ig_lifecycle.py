@@ -153,6 +153,11 @@ class InstagramLifecycleTests(TestCase):
             f"ig-lifecycle:window:{event.event_key}",
         )
         self.assertIn("потребує відповіді менеджера", notify_manager.call_args.args[0])
+        alert = notify_manager.call_args.args[0]
+        self.assertNotIn(self.order.order_number, alert)
+        self.assertIn(str(self.client.pk), alert)
+        self.assertIn(str(self.deal.pk), alert)
+        self.assertIn(str(event.pk), alert)
         self.order.refresh_from_db()
         channel = self.order.payment_payload["post_payment_channels"]["instagram_lifecycle"]
         self.assertEqual(channel["state"], "pending")
@@ -215,6 +220,11 @@ class InstagramLifecycleTests(TestCase):
             f"ig-lifecycle:delivery:{event.event_key}",
         )
         self.assertIn("не вдалося доставити lifecycle-подію", notify_manager.call_args.args[0])
+        alert = notify_manager.call_args.args[0]
+        self.assertNotIn(self.order.order_number, alert)
+        self.assertIn(str(self.client.pk), alert)
+        self.assertIn(str(self.deal.pk), alert)
+        self.assertIn(str(event.pk), alert)
 
     @patch("management.services.instagram_bot._deliver_manager_notification", return_value=False)
     @patch("management.services.instagram_bot.send_text", return_value=(False, "permanent", "blocked"))

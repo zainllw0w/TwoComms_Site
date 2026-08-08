@@ -92,9 +92,12 @@ class PersistedReplyEvidenceTests(TestCase):
         alerts = IgBotNotification.objects.filter(event_type="partial_delivery")
         self.assertEqual(alerts.count(), 1)
         alert_text = alerts.get().payload["text"]
-        self.assertIn("1/2", alert_text)
-        self.assertIn("meta-part-1", alert_text)
+        self.assertIn("DELIVERED_CHUNKS: 1", alert_text)
+        self.assertIn("PLANNED_CHUNKS: 2", alert_text)
+        self.assertIn(f"Повідомлення ID: {self.source.pk}", alert_text)
+        self.assertNotIn("meta-part-1", alert_text)
         self.assertNotIn("RESTRICTED-ORIGINAL-", alert_text)
+        self.assertNotIn("provider_message_ids", alerts.get().payload)
 
         instagram_bot.notify_manager(
             alert_text,

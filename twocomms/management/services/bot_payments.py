@@ -1002,7 +1002,7 @@ def handle_webhook_invoice(invoice_id, payload=None, request=None) -> bool:
     superseded = _deal_for_superseded_invoice(invoice_id)
     if not superseded:
         return False
-    _ensure_invoice_lifecycle(
+    lifecycle = _ensure_invoice_lifecycle(
         superseded,
         invoice_id,
         superseded_at=timezone.now(),
@@ -1012,21 +1012,20 @@ def handle_webhook_invoice(invoice_id, payload=None, request=None) -> bool:
     from management.services import instagram_bot
 
     poll_deal_status(superseded, invoice_id=invoice_id, apply=False)
-    client_label = (
-        superseded.client.username
-        or superseded.client.display_name
-        or superseded.client.igsid
-        if superseded.client_id
-        else f"deal#{superseded.pk}"
-    )
     try:
+        from management.services.ig_alerts import format_operator_alert
+
         instagram_bot.notify_manager(
-            "⚠️ Оплата за застарілим посиланням\n"
-            f"Клієнт: {client_label}\n"
-            f"Угода #{superseded.pk}, invoice {invoice_id}\n"
-            "Посилання було замінено (зміна товару або типу оплати), "
-            "тому платіж потребує ручного розбору.",
-            dedupe_key=f"superseded-invoice:{invoice_id}",
+            format_operator_alert(
+                "⚠️ IG: оплата за заміненим посиланням",
+                event_type="superseded_invoice_payment",
+                client_id=superseded.client_id,
+                deal_id=superseded.pk,
+                task_id=getattr(lifecycle, "pk", None),
+                status="manual_review_required",
+                instruction_code="superseded_invoice_payment",
+            ),
+            dedupe_key=f"superseded-invoice:{getattr(lifecycle, 'pk', superseded.pk)}",
             event_type="superseded_invoice_payment",
             client=superseded.client if superseded.client_id else None,
         )
@@ -1087,15 +1086,20 @@ def poll_pending_deals(limit: int = 50) -> int:
             continue
         try:
             from management.services import instagram_bot
+            from management.services.ig_alerts import format_operator_alert
 
             client = lifecycle.deal.client
-            label = client.username or client.display_name or client.igsid
             instagram_bot.notify_manager(
-                "⚠️ Оплата за заміненим посиланням\n"
-                f"Клієнт: {label}\n"
-                f"Угода #{lifecycle.deal_id}, invoice {lifecycle.invoice_id}\n"
-                "Платіж знайдено backstop-перевіркою; потрібен ручний розбір.",
-                dedupe_key=f"superseded-invoice:{lifecycle.invoice_id}",
+                format_operator_alert(
+                    "⚠️ IG: оплата за заміненим посиланням",
+                    event_type="superseded_invoice_payment",
+                    client_id=client.pk,
+                    deal_id=lifecycle.deal_id,
+                    task_id=lifecycle.pk,
+                    status="manual_review_required",
+                    instruction_code="superseded_invoice_payment",
+                ),
+                dedupe_key=f"superseded-invoice:{lifecycle.pk}",
                 event_type="superseded_invoice_payment",
                 client=client,
             )

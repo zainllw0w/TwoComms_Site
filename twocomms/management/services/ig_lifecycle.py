@@ -312,11 +312,20 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                 _project_order_channel(owned)
                 _queue_manager_task(event)
                 try:
+                    from management.services.ig_alerts import format_operator_alert
                     from management.services.instagram_bot import notify_manager
 
                     notify_manager(
-                        "⚠️ IG: lifecycle-подія потребує відповіді менеджера: "
-                        f"{event.kind}, замовлення #{event.order.order_number}",
+                        format_operator_alert(
+                            "⚠️ IG: lifecycle-подія потребує відповіді менеджера",
+                            event_type="ig_lifecycle_window_review",
+                            client_id=event.client_id,
+                            deal_id=event.deal_id,
+                            proposal_id=event.proposal_id,
+                            lifecycle_event_id=event.pk,
+                            status="response_window_closed",
+                            instruction_code="ig_lifecycle_window_review",
+                        ),
                         dedupe_key=f"ig-lifecycle:window:{event.event_key}",
                         event_type="ig_lifecycle_window_review",
                         client=event.client,
@@ -377,11 +386,20 @@ def dispatch_lifecycle_event(event_id: int) -> str:
     }:
         _queue_manager_task(event)
         try:
+            from management.services.ig_alerts import format_operator_alert
             from management.services.instagram_bot import notify_manager
 
             notify_manager(
-                "⚠️ IG: не вдалося доставити lifecycle-подію: "
-                f"{event.kind}, замовлення #{event.order.order_number}",
+                format_operator_alert(
+                    "⚠️ IG: не вдалося доставити lifecycle-подію",
+                    event_type="ig_lifecycle_delivery_review",
+                    client_id=event.client_id,
+                    deal_id=event.deal_id,
+                    proposal_id=event.proposal_id,
+                    lifecycle_event_id=event.pk,
+                    status="delivery_failed",
+                    instruction_code="ig_lifecycle_delivery_review",
+                ),
                 dedupe_key=f"ig-lifecycle:delivery:{event.event_key}",
                 event_type="ig_lifecycle_delivery_review",
                 client=event.client,

@@ -151,9 +151,15 @@ class WebhookErrorRateAlertTests(TestCase):
         from management.services import instagram_bot as bot
 
         for _ in range(4):
-            result = bot.record_webhook_response(403, reason="invalid_signature")
+            result = bot.record_webhook_response(
+                403,
+                reason="invalid_signature_PRIVATE_WEBHOOK_MARKER",
+            )
             self.assertFalse(result["degraded"])
-        result = bot.record_webhook_response(403, reason="invalid_signature")
+        result = bot.record_webhook_response(
+            403,
+            reason="invalid_signature_PRIVATE_WEBHOOK_MARKER",
+        )
 
         self.assertTrue(result["degraded"])
         self.assertEqual(result["errors"], 5)
@@ -161,6 +167,8 @@ class WebhookErrorRateAlertTests(TestCase):
         self.assertEqual(notify.call_count, 1)
         self.assertFalse(notify.call_args.kwargs["deliver_immediately"])
         self.assertEqual(notify.call_args.kwargs["event_type"], "ig_webhook_4xx_rate")
+        self.assertNotIn("PRIVATE_WEBHOOK_MARKER", notify.call_args.args[0])
+        self.assertEqual(bot.webhook_rejection_status()["reason"], "http_4xx")
 
     @patch("management.services.instagram_bot.notify_manager")
     def test_small_4xx_share_does_not_alert_or_degrade(self, notify):

@@ -176,7 +176,7 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         )
         self.assertEqual(result["order_draft"]["delivery"]["full_name"], "Ніколаєнко Яна")
 
-    def test_manager_alert_preserves_conversation_total_and_uncertainty(self):
+    def test_manager_alert_keeps_only_typed_total_and_review_reference(self):
         from types import SimpleNamespace
 
         from management.services.ig_payment_review import _alert_text
@@ -194,11 +194,14 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         )
         client = SimpleNamespace(display_name="Яна", username="yana", igsid="1735898131060065")
         text = _alert_text(review, client)
-        self.assertIn("2100 грн", text)
-        self.assertIn("Базова футболка · S · 1 шт.", text)
-        self.assertIn("товар не зіставлено з каталогом", text)
-        self.assertIn("management.twocomms.shop/bot/", text)
-        self.assertNotIn("ціна сайту", text)
+        self.assertIn("Review ID: 42", text)
+        self.assertIn("Сума: 2100.00", text)
+        self.assertIn("management.twocomms.shop/bot/?payment_review=42", text)
+        self.assertNotIn("Яна", text)
+        self.assertNotIn("yana", text)
+        self.assertNotIn("1735898131060065", text)
+        self.assertNotIn("Базова футболка", text)
+        self.assertNotIn("catalog_product_not_identified", text)
 
     def test_single_line_conversation_total_prefills_negotiated_unit_price(self):
         from management.services.ig_payment_review import extract_payment_review_evidence
@@ -266,7 +269,7 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
             [("790", "unit_price"), ("200", "payment_evidence")],
         )
 
-    def test_manager_alert_has_review_button_and_media_summary(self):
+    def test_manager_alert_has_review_button_and_redacted_media_counts(self):
         from management.services.ig_payment_review import _alert_text, _review_keyboard
 
         review = SimpleNamespace(
@@ -279,8 +282,13 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         )
         client = SimpleNamespace(display_name="Яна", username="yana", igsid="1735898131060065")
         text = _alert_text(review, client)
-        self.assertIn("чеків 1", text)
-        self.assertIn("Футболка «Харків Вокзальна»", text)
+        self.assertIn("RECEIPT_EVIDENCE: 1", text)
+        self.assertIn("UNRESOLVED_MEDIA: 0", text)
+        self.assertNotIn("Яна", text)
+        self.assertNotIn("yana", text)
+        self.assertNotIn("1735898131060065", text)
+        self.assertNotIn("Футболка «Харків Вокзальна»", text)
+        self.assertNotIn("https://twocomms.shop/product/kharkiv/", text)
         keyboard = _review_keyboard(review)
         self.assertEqual(keyboard["inline_keyboard"][0][0]["text"], "Підтвердити оплату 2100.00 грн")
         self.assertEqual(keyboard["inline_keyboard"][0][0]["callback_data"], "igpay:confirm:42")
@@ -575,6 +583,58 @@ class PaymentReviewEpisodeScopeTests(TestCase):
 
         self.assertEqual(replay.pk, first.pk)
         self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 1)
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MANAGEMENT_TG_BOT_TOKEN": "test-token",
+            "MANAGEMENT_TG_ADMIN_CHAT_ID": "777",
+        },
+        clear=False,
+    )
+    @patch(
+        "management.services.instagram_bot._http",
+        return_value=(200, json.dumps({"ok": True, "result": {"message_id": 91}})),
+    )
+    def test_payment_review_keeps_receipt_media_in_crm_without_telegram_photo(self, http):
+        from management.ig_bot_models import (
+            IgBotNotification,
+            IgClient,
+            IgPaymentConfirmationReview,
+        )
+        from management.services.ig_payment_review import create_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-private-receipt-boundary")
+        receipt_url = "https://cdn.test/private-receipt-marker.jpg"
+        messages = [
+            {"id": 233, "role": "user", "text": "Беру базову S за 790 грн"},
+            {"id": 237, "role": "manager", "text": "До сплати 790 грн"},
+            {
+                "id": 238,
+                "role": "user",
+                "text": "Я оплатила, ось чек",
+                "media": [{"url": receipt_url, "type": "image"}],
+            },
+        ]
+        with (
+            patch(
+                "management.services.ig_payment_review._persist_review_media",
+                side_effect=lambda rows: rows,
+            ),
+            patch(
+                "management.services.ig_payment_review._resolve_payment_media_candidates",
+                side_effect=lambda rows: rows,
+            ),
+            patch("management.services.ig_commercial_episodes.ensure_episode_for_review"),
+        ):
+            review = create_payment_review(client, watermark=238, messages=messages)
+
+        self.assertIsInstance(review, IgPaymentConfirmationReview)
+        self.assertEqual(review.evidence["media"][0]["url"], receipt_url)
+        notification = IgBotNotification.objects.get(dedupe_key=review.dedupe_key)
+        self.assertNotIn("media", notification.payload)
+        self.assertNotIn(receipt_url, json.dumps(notification.payload, ensure_ascii=False))
+        self.assertFalse(any(call.args[0].endswith("/sendPhoto") for call in http.call_args_list))
 
     def test_later_context_reuses_receipt_review_without_reprocessing_media(self):
         from management.ig_bot_models import IgClient, IgPaymentConfirmationReview

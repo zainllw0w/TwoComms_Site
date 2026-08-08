@@ -156,6 +156,8 @@ class SpamStrikeTests(TestCase):
     @patch("management.services.instagram_bot.notify_manager")
     def test_three_strikes_pause_and_stage(self, mock_notify):
         c = IgClient.get_or_create_for_sender("sp1")
+        c.username = "private_spam_customer"
+        c.save(update_fields=["username", "updated_at"])
         self.assertFalse(bot._register_spam(c))
         self.assertFalse(bot._register_spam(c))
         self.assertTrue(bot._register_spam(c))  # 3-й — блок
@@ -163,6 +165,11 @@ class SpamStrikeTests(TestCase):
         self.assertTrue(c.bot_paused)
         self.assertEqual(c.stage, IgClient.Stage.SPAM)
         self.assertTrue(mock_notify.called)
+        text = mock_notify.call_args.args[0]
+        self.assertNotIn(c.igsid, text)
+        self.assertNotIn(c.username, text)
+        self.assertIn(f"Клієнт ID: {c.pk}", text)
+        self.assertIn(f"?client={c.pk}", text)
 
 
 class PhoneCaptureTests(TestCase):

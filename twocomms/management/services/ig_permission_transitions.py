@@ -559,10 +559,17 @@ def _apply_claimed_job(
                     except Exception:
                         pass
                     from management.services.instagram_bot import notify_manager
+                    from management.services.ig_alerts import format_technical_alert
 
                     notification_persisted = notify_manager(
-                        f"👤 IG: менеджер підключився до "
-                        f"{client.username or client.igsid} — бот на паузі для цього клієнта.",
+                        format_technical_alert(
+                            "👤 IG: менеджер підключився; бот поставлено на паузу",
+                            event_type="takeover",
+                            client_id=client.pk,
+                            message_id=source.pk if source else None,
+                            job_id=job.pk,
+                            instruction_code="permission_takeover",
+                        ),
                         dedupe_key=f"takeover:{client.pk}:{job.pk}",
                         event_type="takeover",
                         client=client,

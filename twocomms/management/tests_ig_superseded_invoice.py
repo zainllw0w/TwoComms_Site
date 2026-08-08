@@ -113,6 +113,8 @@ class WebhookForSupersededInvoiceTests(TestCase):
     def test_webhook_for_superseded_invoice_finds_the_deal(self):
         from management.services.bot_payments import handle_webhook_invoice
 
+        self.client_card.username = "private.invoice-alert@example.com"
+        self.client_card.save(update_fields=["username", "updated_at"])
         with patch(
             "management.services.bot_payments.poll_deal_status", return_value="success"
         ) as poll, patch(
@@ -128,6 +130,11 @@ class WebhookForSupersededInvoiceTests(TestCase):
             notify.called,
             "менеджер должен узнать о платеже по замещённой ссылке",
         )
+        alert = notify.call_args.args[0]
+        self.assertNotIn(self.client_card.username, alert)
+        self.assertNotIn("mono-invoice-old", alert)
+        self.assertIn(f"Клієнт ID: {self.client_card.pk}", alert)
+        self.assertIn(f"Угода ID: {self.deal.pk}", alert)
 
     def test_current_invoice_still_wins_and_does_not_alert(self):
         from management.services.bot_payments import handle_webhook_invoice

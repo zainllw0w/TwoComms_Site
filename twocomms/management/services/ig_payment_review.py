@@ -1231,76 +1231,24 @@ def _deal_payload(deal) -> dict:
 def _alert_text(review, client) -> str:
     evidence = review.evidence if isinstance(review.evidence, dict) else {}
     draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
-    items = draft.get("items") or []
     amount = draft.get("quoted_total") or "не вказано"
-    lines = [
-        "⚠️ Instagram: потрібна перевірка заяви про оплату",
-        f"Клієнт: {client.display_name or client.username or client.igsid} (IGSID {client.igsid})",
-        f"Review #{review.pk}",
-        "Оплата: не підтверджена provider ledger; потрібне ручне рішення.",
-        f"Сума з переписки: {amount} грн",
-    ]
-    if items:
-        lines.append("Позиції з переписки:")
-        for item in items:
-            catalog = item.get("catalog") if isinstance(item.get("catalog"), dict) else {}
-            product_label = catalog.get("title") or item.get("title") or item.get("fit") or "Товар"
-            variant_label = ""
-            variant_id = catalog.get("color_variant_id")
-            for variant in catalog.get("variant_candidates") or []:
-                if variant.get("id") == variant_id and variant.get("color"):
-                    variant_label = f" · {variant['color']}"
-                    break
-            lines.append(
-                f"• {product_label}{variant_label} · "
-                f"{item.get('size') or 'розмір не вказано'} · {item.get('qty') or 1} шт."
-            )
-    else:
-        lines.append("Позиції з переписки: не визначені")
-    packaging = draft.get("packaging_preference") or ""
-    if packaging:
-        lines.append(f"Пакування: {packaging}")
-    delivery = draft.get("delivery") if isinstance(draft.get("delivery"), dict) else {}
-    delivery_text = ", ".join(
-        value for value in (delivery.get("full_name"), delivery.get("phone"), delivery.get("city"), delivery.get("office")) if value
-    )
-    if delivery_text:
-        lines.append(f"Доставка: {delivery_text}")
-    reasons = draft.get("uncertainty_reasons") or []
-    if reasons:
-        labels = {
-            "catalog_product_not_identified": "товар не зіставлено з каталогом; виберіть його вручну",
-            "conversation_price_not_found": "ціну з переписки не знайдено",
-            "conversation_price_allocation_required": "загальну суму з переписки потрібно розподілити між позиціями вручну",
-            "conversation_price_not_authorized": "ціну не підтверджено менеджером; перевірте вручну",
-        }
-        lines.append("Потрібно уточнити: " + "; ".join(labels.get(reason, reason) for reason in reasons))
-    catalog_matches = evidence.get("catalog_matches") if isinstance(evidence.get("catalog_matches"), list) else []
-    if not catalog_matches:
-        legacy_match = evidence.get("catalog_match") if isinstance(evidence.get("catalog_match"), dict) else {}
-        catalog_matches = [legacy_match] if legacy_match else []
-    matched_catalog = [match for match in catalog_matches if match.get("status") == "matched"]
-    if matched_catalog:
-        lines.append("Зіставлення з каталогом:")
-        for match in matched_catalog:
-            lines.append(
-                f"• {match.get('title') or 'товар'} "
-                f"({round(float(match.get('confidence') or 0) * 100)}% впевненості)"
-                + (f" — {match['url']}" if match.get("url") else "")
-            )
-    elif catalog_matches:
-        lines.append("Зображення товару: точного збігу з каталогом не знайдено — перевірте вручну.")
     media = evidence.get("media") if isinstance(evidence.get("media"), list) else []
     receipts = [item for item in media if item.get("role") == "receipt"]
     payment_candidates = [item for item in media if item.get("role") == "payment_candidate"]
-    products = [item for item in media if item.get("role") == "product"]
-    lines.append(
-        f"Вкладення: чеків {len(receipts)}, ймовірних чеків для звірки "
-        f"{len(payment_candidates)}, зображень товару {len(products)}."
+    from management.services.ig_alerts import (
+        format_operator_alert,
     )
-    base = getattr(settings, "MANAGEMENT_BASE_URL", "https://management.twocomms.shop").rstrip("/")
-    lines.append(f"Відкрити review: {base}/bot/?payment_review={review.pk}")
-    return "\n".join(lines)
+
+    return format_operator_alert(
+        "⚠️ Instagram: потрібна перевірка заяви про оплату",
+        event_type="payment_review",
+        client_id=getattr(client, "pk", None),
+        review_id=review.pk,
+        amount=amount,
+        status="provider_unconfirmed",
+        counts={"receipt_evidence": len(receipts), "unresolved_media": len(payment_candidates)},
+        instruction_code="payment_review",
+    )
 
 
 def _review_keyboard(review) -> dict:
@@ -2064,7 +2012,6 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             event_type="payment_review",
             client=client,
             reply_markup=_review_keyboard(review),
-            media=enriched_media,
             metadata={"payment_candidate": payment_confirmation_candidate(review)},
         )
         return review

@@ -8,6 +8,7 @@
 події не доходив ніколи, а різні клієнти давали пачку.
 """
 from datetime import timedelta
+from types import SimpleNamespace
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -135,6 +136,132 @@ class AlertFormatTests(TestCase):
         text = format_alert("Заголовок", lines=["", "   ", "Факт"])
         self.assertEqual(text, "Заголовок\nФакт")
 
+    def test_technical_alert_accepts_only_typed_local_references(self):
+        from management.services.ig_alerts import format_technical_alert
+
+        raw_provider_body = "customer@example.com +380501112233 provider exploded"
+        text = format_technical_alert(
+            "⚠️ IG: технічна помилка",
+            event_type="send_gave_up",
+            client_id=42,
+            message_id=91,
+            failure_kind=raw_provider_body,
+            attempts=3,
+        )
+
+        self.assertIn("Подія: send_gave_up", text)
+        self.assertIn("Клієнт ID: 42", text)
+        self.assertIn("Повідомлення ID: 91", text)
+        self.assertIn("Тип збою: unknown", text)
+        self.assertIn("Спроби: 3", text)
+        self.assertIn("?client=42", text)
+        self.assertNotIn("customer@example.com", text)
+        self.assertNotIn("+380501112233", text)
+        self.assertNotIn("provider exploded", text)
+
+    def test_operator_alert_accepts_only_typed_local_references(self):
+        from management.services.ig_alerts import format_operator_alert
+
+        text = format_operator_alert(
+            "⚠️ Потрібна перевірка оплати",
+            event_type="payment_review",
+            client_id=42,
+            deal_id=17,
+            review_id=91,
+            amount="1550.00",
+            status="raw provider body customer@example.com",
+            instruction_code="payment_review",
+        )
+
+        self.assertIn("Подія: payment_review", text)
+        self.assertIn("Клієнт ID: 42", text)
+        self.assertIn("Угода ID: 17", text)
+        self.assertIn("Review ID: 91", text)
+        self.assertIn("Сума: 1550.00", text)
+        self.assertIn("CRM: https://management.twocomms.shop/bot/?payment_review=91", text)
+        self.assertNotIn("customer@example.com", text)
+        self.assertNotIn("raw provider body", text)
+
+    def test_alert_formatters_do_not_accept_freeform_instruction_or_url(self):
+        import inspect
+
+        from management.services.ig_alerts import (
+            format_operator_alert,
+            format_technical_alert,
+        )
+
+        technical_params = inspect.signature(format_technical_alert).parameters
+        operator_params = inspect.signature(format_operator_alert).parameters
+        self.assertNotIn("instruction", technical_params)
+        self.assertNotIn("instruction", operator_params)
+        self.assertNotIn("url", operator_params)
+        self.assertIn("instruction_code", technical_params)
+        self.assertIn("instruction_code", operator_params)
+
+        marker = "private-question-marker customer@example.com"
+        technical = format_technical_alert(
+            marker,
+            event_type="generation_failed",
+            client_id=42,
+            instruction_code=marker,
+        )
+        operator = format_operator_alert(
+            marker,
+            event_type="payment_review",
+            client_id=42,
+            review_id=91,
+            instruction_code=marker,
+        )
+        self.assertNotIn(marker, technical)
+        self.assertNotIn(marker, operator)
+        self.assertIn("?payment_review=91", operator)
+
+
+class PaymentReviewAlertTests(TestCase):
+    def test_payment_review_alert_omits_customer_identity_delivery_and_raw_evidence(self):
+        from management.services.ig_payment_review import _alert_text
+
+        client = SimpleNamespace(
+            pk=42,
+            igsid="17841400000009999",
+            username="private_customer_name",
+            display_name="Private Customer",
+        )
+        review = SimpleNamespace(
+            pk=91,
+            evidence={
+                "order_draft": {
+                    "quoted_total": "1550.00",
+                    "delivery": {
+                        "full_name": "Іван Іванов",
+                        "phone": "+380501112233",
+                        "city": "Київ",
+                        "office": "123",
+                    },
+                    "context_messages": [
+                        {"text": "private-question-marker customer@example.com"},
+                    ],
+                },
+                "media": [{"role": "receipt"}],
+            },
+        )
+
+        text = _alert_text(review, client)
+
+        for private_value in (
+            client.igsid,
+            client.username,
+            client.display_name,
+            "Іван Іванов",
+            "+380501112233",
+            "customer@example.com",
+            "private-question-marker",
+        ):
+            self.assertNotIn(private_value, text)
+        self.assertIn("Клієнт ID: 42", text)
+        self.assertIn("Review ID: 91", text)
+        self.assertIn("?payment_review=91", text)
+
 
 class AdminUrlTests(TestCase):
     def test_client_url_points_at_the_crm_card(self):
@@ -172,44 +299,75 @@ class BatchSummaryTests(TestCase):
 
 
 class EscalationAlertTests(TestCase):
-    """Найчастіший алерт мав містити лише IGSID — тепер ім'я і посилання."""
+    """Telegram receives local references, while the CRM keeps conversation PII."""
 
-    def test_escalation_alert_contains_name_and_card_link(self):
+    def test_escalation_alert_omits_customer_identity_and_question(self):
         from unittest.mock import patch
 
-        from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
+        from management.models import IgClient, InstagramBotMessage
         from management.services import instagram_bot as bot
 
-        settings_row = InstagramBotSettings.load()
-        client = IgClient.get_or_create_for_sender("escalation-alert")
-        client.username = "lesiakolt"
-        client.save(update_fields=["username", "updated_at"])
+        client = IgClient.get_or_create_for_sender("17841400000009999")
+        client.username = "private_customer_name"
+        client.phone = "+380501112233"
+        client.save(update_fields=["username", "phone", "updated_at"])
         row = InstagramBotMessage.objects.create(
             sender_id=client.igsid, client=client,
-            role=InstagramBotMessage.Role.USER, text="покличте менеджера",
+            role=InstagramBotMessage.Role.USER,
+            text="private-question-marker customer@example.com +380501112233",
         )
 
         with patch.object(bot, "notify_manager") as notify, \
                 patch.object(bot, "_apply_stage", return_value=True):
-            # Викликаємо саме гілку ескалації через публічний формат алерту.
-            from management.services.ig_alerts import (
-                alert_dedupe_key, client_admin_url, format_alert,
-            )
-
-            notify(
-                format_alert(
-                    "🔔 IG Direct — клієнту потрібен менеджер.",
-                    lines=[f"Клієнт: {client.username}", f"Питання: {row.text}"],
-                    url=client_admin_url(client.pk),
-                    url_label="Картка:",
-                ),
-                dedupe_key=alert_dedupe_key("escalation", client_id=client.pk, window_minutes=60),
-                event_type="escalation",
-                client=client,
-            )
+            bot._escalate_manager_for_row(row)
             text = notify.call_args.args[0]
 
-        self.assertIn("lesiakolt", text)
+        for private_value in (
+            client.igsid, client.username, "customer@example.com", client.phone,
+            "private-question-marker",
+        ):
+            self.assertNotIn(private_value, text)
+        self.assertIn(f"Клієнт ID: {client.pk}", text)
+        self.assertIn(f"Повідомлення ID: {row.pk}", text)
         self.assertIn(f"?client={client.pk}", text)
         self.assertEqual(notify.call_args.kwargs["event_type"], "escalation")
-        del settings_row
+
+
+class AiFallbackOperatorPayloadTests(TestCase):
+    def test_handoff_task_and_alert_reference_crm_without_raw_customer_data(self):
+        from unittest.mock import patch
+
+        from management.models import IgClient, IgFollowUpTask, InstagramBotMessage
+        from management.services.bot_reply_fallback import _queue_manager_handoff
+
+        client = IgClient.get_or_create_for_sender("17841400000008888")
+        client.username = "private_fallback_customer"
+        client.save(update_fields=["username", "updated_at"])
+        row = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="private-fallback-question customer@example.com +380501112233",
+        )
+
+        with patch("management.services.instagram_bot.notify_manager") as notify:
+            _queue_manager_handoff(
+                row,
+                kind="support",
+                reference="TWC-PRIVATE-REFERENCE",
+            )
+
+        task = IgFollowUpTask.objects.get(client=client)
+        alert_text = notify.call_args.args[0]
+        combined = f"{task.message_text}\n{alert_text}"
+        for private_value in (
+            client.igsid,
+            client.username,
+            row.text,
+            "customer@example.com",
+            "+380501112233",
+            "TWC-PRIVATE-REFERENCE",
+        ):
+            self.assertNotIn(private_value, combined)
+        self.assertIn(f"Повідомлення ID: {row.pk}", combined)
+        self.assertIn(f"?client={client.pk}", alert_text)

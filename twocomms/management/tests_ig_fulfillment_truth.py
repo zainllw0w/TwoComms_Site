@@ -1,6 +1,7 @@
 """Task 3: Nova Poshta delivery truth gates for Instagram fulfillment."""
 
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -81,6 +82,43 @@ class InstagramFulfillmentTruthTests(TestCase):
                 reason="delivery_validation_review",
             ).exists()
         )
+
+    def test_delivery_review_alert_keeps_pii_and_raw_reason_in_crm_only(self):
+        deal = _paid_deal()
+
+        with patch("management.services.bot_orders.notify_manager") as notify:
+            self.assertFalse(bot_orders.fulfill_if_ready(deal))
+
+        text = notify.call_args.args[0]
+        for private_value in (
+            deal.np_full_name,
+            deal.np_phone,
+            deal.np_city,
+            deal.np_office,
+            "Ref Нової Пошти",
+        ):
+            self.assertNotIn(private_value, text)
+        self.assertIn(f"Клієнт ID: {deal.client_id}", text)
+        self.assertIn(f"Угода ID: {deal.pk}", text)
+        self.assertIn(f"?deal={deal.pk}", text)
+
+    def test_order_created_alert_omits_delivery_identity(self):
+        deal = _paid_deal(delivery_status="validated", with_refs=True)
+
+        with patch("management.services.bot_orders.notify_manager") as notify:
+            self.assertTrue(bot_orders.fulfill_if_ready(deal))
+
+        text = notify.call_args.args[0]
+        for private_value in (
+            deal.np_full_name,
+            deal.np_phone,
+            deal.np_city,
+            deal.np_office,
+        ):
+            self.assertNotIn(private_value, text)
+        self.assertIn(f"Клієнт ID: {deal.client_id}", text)
+        self.assertIn(f"Угода ID: {deal.pk}", text)
+        self.assertIn(f"?deal={deal.pk}", text)
 
     def test_signed_directory_selection_sets_source_qualified_truth(self):
         deal = _paid_deal()

@@ -21,6 +21,10 @@ class ManagerTakeoverAlertTests(TestCase):
             bot._handle_echo(client.igsid, text)
 
         self.assertEqual(notify.call_count, 1)
+        first_alert = notify.call_args.args[0]
+        self.assertNotIn(client.igsid, first_alert)
+        self.assertIn(f"Клієнт ID: {client.pk}", first_alert)
+        self.assertIn(f"?client={client.pk}", first_alert)
         self.assertEqual(
             InstagramBotMessage.objects.filter(
                 client=client, role=InstagramBotMessage.Role.MANAGER

@@ -286,11 +286,9 @@ def _queue_manager_handoff(row, *, kind: str, reference: str = "") -> None:
     client = row.client
     reason = f"ai_fallback:{kind}:{row.pk}"
     message_text = (
-        f"Gemini недоступний. Потрібна ручна відповідь клієнту на повідомлення "
-        f"#{row.pk}: {(row.text or '')[:700]}"
+        f"Gemini недоступний. Потрібна ручна відповідь на повідомлення "
+        f"ID {row.pk}. Відкрийте діалог у CRM."
     )
-    if reference:
-        message_text += f"\nНомер із повідомлення: {reference}. Перевірте зв'язок із клієнтом."
     if client:
         task, created = IgFollowUpTask.objects.get_or_create(
             client=client,
@@ -321,14 +319,17 @@ def _queue_manager_handoff(row, *, kind: str, reference: str = "") -> None:
 
     from management.services.instagram_bot import notify_manager
 
-    label = (
-        client.username or client.display_name or client.igsid
-        if client
-        else f"IGSID {row.sender_id}"
-    )
+    from management.services.ig_alerts import format_technical_alert
+
     notify_manager(
-        f"⚠️ IG: Gemini недоступний; для {label} підготовлено безпечну відповідь, "
-        f"але потрібна ручна перевірка ({kind}).",
+        format_technical_alert(
+            "⚠️ IG: Gemini недоступний; потрібна ручна перевірка",
+            event_type="ai_reply_fallback",
+            client_id=getattr(client, "pk", None),
+            message_id=row.pk,
+            failure_kind=kind,
+            instruction_code="fallback_ready",
+        ),
         dedupe_key=f"ig_ai_fallback:{row.pk}",
         event_type="ai_reply_fallback",
         client=client,

@@ -691,10 +691,27 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
 
     _send_add_payment_info_if_missing(attempt, request)
     try:
-        from orders.telegram_notifications import TelegramNotifier
-        TelegramNotifier().send_payment_attempt_notification(attempt)
+        from management.services.ig_alerts import format_operator_alert
+        from management.services.instagram_bot import notify_manager
+
+        notify_manager(
+            format_operator_alert(
+                "💳 IG: платіжне посилання створено",
+                event_type="ig_checkout_invoice_created",
+                client_id=locked.client_id,
+                deal_id=locked.deal_id,
+                proposal_id=locked.pk,
+                attempt_id=attempt.pk,
+                amount=attempt.payment_amount,
+                status="invoice_created",
+                instruction_code="ig_checkout_invoice_created",
+            ),
+            dedupe_key=f"ig-checkout-invoice-created:{attempt.pk}",
+            event_type="ig_checkout_invoice_created",
+            client=locked.client,
+        )
     except Exception:
-        logger.warning("Failed to send IG payment attempt notification %s", attempt.pk, exc_info=True)
+        logger.warning("Failed to send IG checkout invoice alert %s", attempt.pk, exc_info=True)
     attempt.refresh_from_db()
     return attempt, attempt.invoice_url, False
 

@@ -126,18 +126,24 @@ class SendApiErrorClassificationTests(TestCase):
         self.assertNotIn("тимчасово обмежив надсилання посилань", hint)
 
     def test_only_advanced_access_failure_claims_non_role_permission_problem(self):
+        generic_marker = "customer@example.com +380501112233 raw-provider-body"
+        advanced_marker = "private-provider-user-body"
         generic = bot._permanent_send_alert_text(
-            "відмова Graph API (code 100)",
+            generic_marker,
             graph_subcode=0,
         )
         advanced = bot._permanent_send_alert_text(
-            "Meta відхилила нерольового отримувача",
+            advanced_marker,
             graph_subcode=bot.ADVANCED_ACCESS_SUBCODE,
         )
 
         self.assertNotIn("нерольов", generic)
         self.assertNotIn("Advanced Access", generic)
         self.assertIn("Advanced Access", advanced)
+        self.assertNotIn(generic_marker, generic)
+        self.assertNotIn("customer@example.com", generic)
+        self.assertNotIn("+380501112233", generic)
+        self.assertNotIn(advanced_marker, advanced)
 
 
 class SendApiBoundedRetryTests(TestCase):
@@ -487,23 +493,42 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertNotIn("заблокувала доставку платіжного посилання", notify_manager.call_args.args[0])
 
     @patch("management.services.instagram_bot.notify_manager")
-    def test_payment_delivery_alert_contains_preserved_invoice_message(
+    def test_payment_delivery_alert_keeps_invoice_and_provider_detail_in_crm_only(
         self, notify_manager
     ):
+        self.client.username = "private_payment_customer"
+        self.client.phone = "+380501112233"
+        self.client.save(update_fields=["username", "phone", "updated_at"])
         deal = IgDeal.objects.create(
             client=self.client,
             invoice_id="invoice-visible",
             invoice_url="https://pay.example/invoice/visible",
         )
         reply = f"Оплата: {deal.invoice_url}"
+        provider_hint = (
+            "Instagram тимчасово обмежив надсилання посилань "
+            "customer@example.com (code 508, subcode 2534122)"
+        )
 
         bot._queue_payment_link_delivery_review(
             self.client,
             reply,
-            "Instagram тимчасово обмежив надсилання посилань (code 508, subcode 2534122)",
+            provider_hint,
         )
 
-        self.assertIn(reply, notify_manager.call_args.args[0])
+        text = notify_manager.call_args.args[0]
+        for private_value in (
+            self.client.igsid,
+            self.client.username,
+            self.client.phone,
+            reply,
+            provider_hint,
+            "customer@example.com",
+        ):
+            self.assertNotIn(private_value, text)
+        self.assertIn(f"Клієнт ID: {self.client.pk}", text)
+        self.assertIn(f"Угода ID: {deal.pk}", text)
+        self.assertIn(f"?deal={deal.pk}", text)
 
     @patch("management.services.instagram_bot.notify_manager")
     def test_payment_delivery_review_cancels_only_failed_deal_payment_reminder(
