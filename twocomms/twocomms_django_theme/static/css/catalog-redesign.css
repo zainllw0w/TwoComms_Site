@@ -1481,10 +1481,10 @@ html.perf-lite .catalog-print-panel {
 
   .catalog-mobile-reference__category-image {
     position: absolute;
-    top: -4px;
+    top: -9px;
     left: 0;
-    width: 136px;
-    height: 128px;
+    width: 150px;
+    height: 141px;
     max-width: none;
     object-fit: contain;
     object-position: center;
@@ -1492,18 +1492,18 @@ html.perf-lite .catalog-print-panel {
   }
 
   .catalog-mobile-reference__category--hoodies .catalog-mobile-reference__category-image {
-    top: -3px;
+    top: -8px;
     left: 10px;
-    width: 132px;
-    height: 132px;
+    width: 147px;
+    height: 147px;
     filter: brightness(0.78) contrast(1.08) drop-shadow(10px 9px 12px rgba(0, 0, 0, 0.48));
   }
 
   .catalog-mobile-reference__category--longsleeves .catalog-mobile-reference__category-image {
-    top: -4px;
+    top: -9px;
     left: 0;
-    width: 142px;
-    height: 134px;
+    width: 157px;
+    height: 149px;
     filter: brightness(0.88) saturate(0.88) contrast(1.03) drop-shadow(10px 9px 12px rgba(0, 0, 0, 0.48));
   }
 
