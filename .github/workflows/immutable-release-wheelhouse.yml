@@ -1,0 +1,97 @@
+name: Immutable release wheelhouse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_release_wheelhouse.py"
+      - "scripts/build_http_ece_wheel.py"
+      - "scripts/verify_locked_requirements.py"
+      - "twocomms/requirements.lock"
+      - ".github/workflows/immutable-release-wheelhouse.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build CPython 3.14 wheelhouse
+    runs-on: ubuntu-24.04
+    container:
+      image: quay.io/pypa/manylinux_2_28_x86_64@sha256:fdb9a9c223b215604dc7b6f7e8fff4b39bfea5fbaa7777a2e5544a60dfa437f8
+    steps:
+      - name: Check out the exact release revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Verify the pinned build runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python=/opt/python/cp314-cp314/bin/python
+          test -x "$python"
+          test "$("$python" -c 'import platform, sys; print(platform.python_version())')" = "3.14.6"
+          test "$("$python" -c 'import sysconfig; print(sysconfig.get_config_var("SOABI"))')" = "cpython-314-x86_64-linux-gnu"
+          test "$(ldd --version 2>&1 | head -n 1)" = "ldd (GNU libc) 2.28"
+          command -v auditwheel >/dev/null
+          auditwheel --version
+
+      - name: Build and verify the immutable wheelhouse
+        shell: bash
+        run: |
+          set -euo pipefail
+          python=/opt/python/cp314-cp314/bin/python
+          "$python" scripts/build_release_wheelhouse.py \
+            --target-sha "${{ github.sha }}" \
+            --lock twocomms/requirements.lock \
+            --wheelhouse "wheelhouse/${{ github.sha }}" \
+            --python "$python" \
+            --auditwheel auditwheel \
+            --image-digest "sha256:fdb9a9c223b215604dc7b6f7e8fff4b39bfea5fbaa7777a2e5544a60dfa437f8"
+
+      - name: Assert artifact provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python=/opt/python/cp314-cp314/bin/python
+          artifact="wheelhouse/${{ github.sha }}"
+          test -f "$artifact/manifest.sha256"
+          test -f "$artifact/builder-evidence.json"
+          test -f "$artifact/requirements.install.lock"
+          "$python" - "$artifact" "${{ github.sha }}" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          target_sha = sys.argv[2]
+          manifest = json.loads((root / "manifest.sha256").read_text())
+          evidence = json.loads((root / "builder-evidence.json").read_text())
+          if manifest["target_sha"] != target_sha or evidence["target_sha"] != target_sha:
+              raise SystemExit("artifact target binding mismatch")
+          if manifest["source_lock_sha256"] != hashlib.sha256(pathlib.Path("twocomms/requirements.lock").read_bytes()).hexdigest():
+              raise SystemExit("artifact source lock binding mismatch")
+          if set(manifest["files"]) != {path.name for path in root.iterdir() if path.name != "manifest.sha256"}:
+              raise SystemExit("artifact manifest file set mismatch")
+          for name, expected in manifest["files"].items():
+              actual = hashlib.sha256((root / name).read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f"artifact hash mismatch: {name}")
+          if not re.fullmatch(r"[0-9a-f]{40}", target_sha):
+              raise SystemExit("invalid target SHA")
+          if evidence["builder_image_digest"] != "sha256:fdb9a9c223b215604dc7b6f7e8fff4b39bfea5fbaa7777a2e5544a60dfa437f8":
+              raise SystemExit("builder image provenance mismatch")
+          PY
+
+      - name: Upload immutable wheelhouse artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-wheelhouse-${{ github.sha }}
+          path: wheelhouse/${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30

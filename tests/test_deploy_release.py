@@ -116,9 +116,26 @@ class StagedReleaseTests(unittest.TestCase):
         wheelhouse.mkdir(parents=True, exist_ok=True)
         wheel = wheelhouse / "example-1.0.0-py3-none-any.whl"
         wheel.write_bytes(b"wheel")
+        install_lock = wheelhouse / "requirements.install.lock"
+        install_lock.write_text(
+            "example==1.0.0 --hash=sha256:" + "0" * 64 + "\n",
+            encoding="utf-8",
+        )
         digest = digest or hashlib.sha256(wheel.read_bytes()).hexdigest()
         (wheelhouse / "manifest.sha256").write_text(
-            json.dumps({"target_sha": self.target_sha, "files": {wheel.name: digest}}, sort_keys=True),
+            json.dumps(
+                {
+                    "target_sha": self.target_sha,
+                    "source_lock_sha256": hashlib.sha256(
+                        ("example==1.0.0 --hash=sha256:" + "0" * 64 + "\n").encode()
+                    ).hexdigest(),
+                    "files": {
+                        wheel.name: digest,
+                        install_lock.name: hashlib.sha256(install_lock.read_bytes()).hexdigest(),
+                    },
+                },
+                sort_keys=True,
+            ),
             encoding="utf-8",
         )
 
@@ -149,6 +166,66 @@ class StagedReleaseTests(unittest.TestCase):
         self.assertEqual(prepared.venv, expected)
         self.assertIn((str(self.system_python), "-m", "venv", str(expected)), self.runner.calls)
         self.assertFalse(any("mv" in call for call in self.runner.calls))
+
+    def test_install_uses_manifest_bound_install_lock(self):
+        self._manifest()
+
+        deploy_release.prepare(self.config, self.target_sha, run=self.runner)
+
+        install = next(
+            call
+            for call in self.runner.calls
+            if call[:3] == (str(self.release_root / "venvs" / self.target_sha / "bin" / "python"), "-m", "pip")
+            and "install" in call
+        )
+        self.assertEqual(
+            install[install.index("-r") + 1],
+            str(self.config.wheelhouse_root / self.target_sha / "requirements.install.lock"),
+        )
+
+    def test_install_lock_must_match_canonical_package_versions(self):
+        self._manifest()
+        install_lock = (
+            self.config.wheelhouse_root / self.target_sha / "requirements.install.lock"
+        )
+        install_lock.write_text(
+            "example==2.0.0 --hash=sha256:" + "0" * 64 + "\n",
+            encoding="utf-8",
+        )
+        manifest_path = self.config.wheelhouse_root / self.target_sha / "manifest.sha256"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["files"][install_lock.name] = hashlib.sha256(install_lock.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "install lock"):
+            deploy_release.prepare(self.config, self.target_sha, run=self.runner)
+
+        self.assertFalse(any("pip" in call for call in self.runner.calls))
+
+    def test_wheelhouse_target_symlink_is_rejected_before_staging(self):
+        external = self.release_root.parent / "external-wheelhouse"
+        external.mkdir(parents=True)
+        self.config.wheelhouse_root.mkdir(parents=True, exist_ok=True)
+        target = self.config.wheelhouse_root / self.target_sha
+        target.symlink_to(external, target_is_directory=True)
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "wheelhouse target"):
+            deploy_release.prepare(self.config, self.target_sha, run=self.runner)
+
+        self.assertFalse(any(call[:2] == ("git", "worktree") for call in self.runner.calls))
+
+    def test_wheelhouse_root_symlink_is_rejected_before_staging(self):
+        actual_root = self.release_root.parent / "actual-wheelhouse"
+        actual_root.mkdir(parents=True)
+        root_link = self.release_root / "wheelhouse"
+        root_link.parent.mkdir(parents=True, exist_ok=True)
+        root_link.symlink_to(actual_root, target_is_directory=True)
+        config = replace(self.config, wheelhouse_root=root_link)
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "wheelhouse root"):
+            deploy_release.prepare(config, self.target_sha, run=self.runner)
+
+        self.assertFalse(any(call[:2] == ("git", "worktree") for call in self.runner.calls))
 
     def test_static_build_commands_receive_the_release_specific_static_root(self):
         self._manifest()

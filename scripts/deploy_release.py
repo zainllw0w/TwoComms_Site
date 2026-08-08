@@ -23,6 +23,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
+try:
+    from scripts.verify_locked_requirements import LockParseError, parse_lock_file
+except ModuleNotFoundError:  # Direct execution from the scripts directory.
+    from verify_locked_requirements import LockParseError, parse_lock_file
+
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -217,7 +222,16 @@ def maintenance_path(config: ReleaseConfig) -> Path:
 
 
 def _manifest_and_wheelhouse(config: ReleaseConfig, target_sha: str) -> Path:
+    wheelhouse_root = Path(config.wheelhouse_root)
+    if wheelhouse_root.is_symlink() or not wheelhouse_root.is_dir():
+        raise ReleaseError("immutable wheelhouse root must be a real directory")
     wheelhouse = config.wheelhouse_root / target_sha
+    if wheelhouse.is_symlink() or not wheelhouse.is_dir():
+        raise ReleaseError("immutable wheelhouse target must be a real directory")
+    try:
+        wheelhouse.resolve().relative_to(wheelhouse_root.resolve())
+    except ValueError as exc:
+        raise ReleaseError("immutable wheelhouse target escapes wheelhouse root") from exc
     manifest_path = wheelhouse / "manifest.sha256"
     if not manifest_path.is_file():
         raise ReleaseError("immutable wheelhouse manifest is missing")
@@ -225,7 +239,11 @@ def _manifest_and_wheelhouse(config: ReleaseConfig, target_sha: str) -> Path:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ReleaseError("immutable wheelhouse manifest is invalid") from exc
-    if manifest.get("target_sha") != target_sha or not isinstance(manifest.get("files"), dict):
+    if (
+        manifest.get("target_sha") != target_sha
+        or not HEX_SHA256_RE.fullmatch(str(manifest.get("source_lock_sha256", "")))
+        or not isinstance(manifest.get("files"), dict)
+    ):
         raise ReleaseError("immutable wheelhouse target binding is invalid")
     files: dict[str, str] = manifest["files"]
     listed = set(files)
@@ -242,6 +260,31 @@ def _manifest_and_wheelhouse(config: ReleaseConfig, target_sha: str) -> Path:
         if digest != expected:
             raise ReleaseError(f"immutable wheelhouse hash mismatch for {name}")
     return wheelhouse
+
+
+def _install_requirements(wheelhouse: Path, canonical_requirements: Path) -> Path:
+    """Return the manifest-bound install lock after semantic equivalence proof."""
+
+    install_requirements = wheelhouse / "requirements.install.lock"
+    if not install_requirements.is_file():
+        raise ReleaseError("immutable wheelhouse install lock is missing")
+    manifest_path = wheelhouse / "manifest.sha256"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        expected_source_lock = str(manifest["source_lock_sha256"])
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ReleaseError("immutable wheelhouse install lock provenance is invalid") from exc
+    canonical_digest = hashlib.sha256(canonical_requirements.read_bytes()).hexdigest()
+    if expected_source_lock != canonical_digest:
+        raise ReleaseError("immutable wheelhouse install lock source digest mismatch")
+    try:
+        canonical = parse_lock_file(canonical_requirements)
+        install = parse_lock_file(install_requirements)
+    except (OSError, UnicodeError, LockParseError) as exc:
+        raise ReleaseError("immutable wheelhouse install lock is invalid") from exc
+    if install != canonical:
+        raise ReleaseError("immutable wheelhouse install lock changes package versions")
+    return install_requirements
 
 
 def _validate_static_artifacts(static_root: Path) -> None:
@@ -374,6 +417,7 @@ def prepare(
             expected_lock_sha = str(config.reviewed_lock_sha256).lower()
             if not HEX_SHA256_RE.fullmatch(expected_lock_sha) or lock_sha != expected_lock_sha:
                 raise ReleaseError("staged requirements.lock does not match the reviewed lock digest")
+        install_requirements = _install_requirements(wheelhouse, requirements)
         command_env = dict(env or os.environ)
         command_env["PYTHONNOUSERSITE"] = "1"
         command_env["DJANGO_SETTINGS_MODULE"] = "twocomms.production_settings"
@@ -393,7 +437,7 @@ def prepare(
                 ":all:",
                 "--require-hashes",
                 "-r",
-                str(requirements),
+                str(install_requirements),
             ),
             cwd=worktree,
             env=command_env,
