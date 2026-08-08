@@ -39,6 +39,13 @@ CFFI_SDIST_URL = (
     "008a1939e372c06329a3fce4279c02f328488f3526744906eeec3da7ad5f/"
     "cffi-2.1.1.tar.gz"
 )
+SETUPTOOLS_VERSION = "80.9.0"
+SETUPTOOLS_WHEEL_SHA256 = "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922"
+SETUPTOOLS_WHEEL_URL = (
+    "https://files.pythonhosted.org/packages/a3/dc/"
+    "17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/"
+    "setuptools-80.9.0-py3-none-any.whl"
+)
 SOURCE_DATE_EPOCH = 315532800
 EXPECTED_PYTHON = (3, 14, 6)
 EXPECTED_SOABI = "cpython-314-x86_64-linux-gnu"
@@ -144,14 +151,18 @@ def _run(command: list[str], *, cwd: Path | None = None, env: dict[str, str] | N
 
 
 def _download_verified(url: str, destination: Path, expected_hash: str) -> Path:
-    if url != CFFI_SDIST_URL or not url.startswith("https://files.pythonhosted.org/"):
-        raise ValueError("cffi source URL is not the pinned Python-hosted URL")
+    allowed = {
+        CFFI_SDIST_URL: CFFI_SDIST_SHA256,
+        SETUPTOOLS_WHEEL_URL: SETUPTOOLS_WHEEL_SHA256,
+    }
+    if allowed.get(url) != expected_hash or not url.startswith("https://files.pythonhosted.org/"):
+        raise ValueError("build dependency URL/hash is not pinned")
     with urllib.request.urlopen(url, timeout=60) as response, destination.open("wb") as output:
         while chunk := response.read(1024 * 1024):
             output.write(chunk)
     actual = sha256(destination)
     if actual != expected_hash:
-        raise ValueError(f"cffi sdist SHA256 mismatch: expected {expected_hash}, got {actual}")
+        raise ValueError(f"build dependency SHA256 mismatch: expected {expected_hash}, got {actual}")
     return destination
 
 
@@ -308,8 +319,38 @@ def build_wheelhouse(
             CFFI_SDIST_SHA256,
         )
         _validate_cffi_source(cffi_sdist)
-        first = _build_cffi_once(python, auditwheel, cffi_sdist, build, label="one")
-        second = _build_cffi_once(python, auditwheel, cffi_sdist, build, label="two")
+        setuptools_wheel = _download_verified(
+            SETUPTOOLS_WHEEL_URL,
+            build / "setuptools-80.9.0-py3-none-any.whl",
+            SETUPTOOLS_WHEEL_SHA256,
+        )
+        build_venv = temporary / "build-venv"
+        _run([str(python), "-m", "venv", str(build_venv)])
+        build_python = build_venv / "bin" / "python"
+        backend_lock = build / "setuptools-build.lock"
+        backend_lock.write_text(
+            f"setuptools=={SETUPTOOLS_VERSION} --hash=sha256:{SETUPTOOLS_WHEEL_SHA256}\n",
+            encoding="utf-8",
+        )
+        _run(
+            [
+                str(build_python),
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                "--no-index",
+                "--find-links",
+                str(setuptools_wheel.parent),
+                "--only-binary",
+                ":all:",
+                "--require-hashes",
+                "-r",
+                str(backend_lock),
+            ]
+        )
+        first = _build_cffi_once(build_python, auditwheel, cffi_sdist, build, label="one")
+        second = _build_cffi_once(build_python, auditwheel, cffi_sdist, build, label="two")
         _validate_cffi_wheel(first)
         _validate_cffi_wheel(second)
         if first.name != second.name or first.read_bytes() != second.read_bytes():
@@ -388,6 +429,8 @@ def build_wheelhouse(
             {
                 "cffi_sdist_sha256": CFFI_SDIST_SHA256,
                 "cffi_wheel_sha256": sha256(cffi_wheel),
+                "setuptools_version": SETUPTOOLS_VERSION,
+                "setuptools_wheel_sha256": SETUPTOOLS_WHEEL_SHA256,
                 "source_lock_sha256": source_lock_sha256,
                 "target_sha": target_sha,
             }

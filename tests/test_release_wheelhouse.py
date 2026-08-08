@@ -131,6 +131,8 @@ class ReleaseWheelhouseTests(unittest.TestCase):
             wheelhouse = root / "wheelhouse" / target_sha
             sdist = root / "cffi-2.1.1.tar.gz"
             sdist.write_bytes(b"verified source")
+            setuptools_wheel = root / "setuptools-80.9.0-py3-none-any.whl"
+            setuptools_wheel.write_bytes(b"verified build backend")
             cffi_wheel = root / "cffi-2.1.1-cp314-cp314-manylinux_2_28_x86_64.whl"
             cffi_wheel.write_bytes(b"verified wheel")
             calls: list[tuple[str, ...]] = []
@@ -144,10 +146,15 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                     destination = Path(rendered[rendered.index("--dest") + 1])
                     (destination / "dependency-1.0-py3-none-any.whl").write_bytes(b"dependency")
 
+            def fake_download(url, destination, expected_hash):
+                if "setuptools" in url:
+                    return setuptools_wheel
+                return sdist
+
             with (
                 patch.object(builder, "_assert_builder_environment", return_value={}),
                 patch.object(builder, "_tool_version", return_value="tool 1"),
-                patch.object(builder, "_download_verified", return_value=sdist),
+                patch.object(builder, "_download_verified", side_effect=fake_download),
                 patch.object(builder, "_validate_cffi_source"),
                 patch.object(builder, "_build_cffi_once", return_value=cffi_wheel) as build_cffi,
                 patch.object(builder, "_validate_cffi_wheel"),
@@ -165,7 +172,15 @@ class ReleaseWheelhouseTests(unittest.TestCase):
 
             self.assertEqual(result, wheelhouse)
             self.assertEqual(build_cffi.call_count, 2)
+            for call in build_cffi.call_args_list:
+                self.assertIn("build-venv/bin/python", str(call.args[0]))
             self.assertTrue(build_http_ece.called)
+            backend_install = next(
+                call for call in calls if "install" in call and "setuptools-build.lock" in " ".join(call)
+            )
+            self.assertIn("--no-index", backend_install)
+            self.assertIn("--only-binary", backend_install)
+            self.assertIn("--require-hashes", backend_install)
             install = next(call for call in calls if "install" in call and "pip" in call)
             self.assertIn("--no-index", install)
             self.assertIn("--only-binary", install)
