@@ -164,6 +164,8 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertContains(response, 'data-smart-product-card')
         self.assertContains(response, 'class="smart-product-card__media"')
         self.assertContains(response, f'href="{reverse("product", kwargs={"slug": product.slug})}"')
+        self.assertNotContains(response, "Швидкий перегляд")
+        self.assertNotContains(response, "data-quick-view")
         self.assertNotContains(response, 'class="home-product-card card product')
 
     @override_settings(STATIC_URL="/static/")
@@ -185,16 +187,46 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertIn("@media (max-width: 340px)", css)
         self.assertIn("aspect-ratio: 1 / 1", css)
 
-    def test_catalog_command_precedes_grid_without_permanent_quick_facets(self):
+    def test_catalog_command_and_variant_3_quick_facets_precede_grid(self):
         self.create_product(category=self.tshirts, slug="quick-facet-order")
         response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
 
         html = response.content.decode()
         command_position = html.index('class="smart-selector__command"')
+        quick_facets_position = html.index('class="smart-selector__quick-facets"')
         grid_position = html.index('class="smart-selector__grid"')
 
-        self.assertNotIn('class="smart-selector__quick-facets"', html)
-        self.assertLess(command_position, grid_position)
+        self.assertLess(command_position, quick_facets_position)
+        self.assertLess(quick_facets_position, grid_position)
+        for mode in ("theme", "fit", "color"):
+            self.assertContains(response, f'data-smart-focus-filter="{mode}"')
+
+    def test_mobile_sort_and_sheet_expose_focused_variant_3_modes(self):
+        self.create_product(category=self.tshirts, slug="focused-sheet")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertContains(response, 'data-smart-focus-filter="all"')
+        self.assertContains(response, 'data-smart-focus-filter="sort"')
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "partials"
+            / "catalog_smart_selector.html"
+        ).read_text(encoding="utf-8")
+        for section in ("theme", "fit", "color", "sort", "audience", "availability", "size", "thermo"):
+            self.assertIn(f'data-smart-filter-section="{section}"', template)
+        self.assertContains(response, 'data-smart-sort-value="recommended"')
+        self.assertContains(response, 'data-smart-sort-value="price-asc"')
+        self.assertContains(response, 'data-smart-sort-value="price-desc"')
+
+    def test_base_category_uses_compact_category_name_as_visible_h1(self):
+        self.create_product(category=self.tshirts, slug="compact-heading")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertContains(response, '<h1 id="smart-selector-title">Футболки</h1>')
 
     def test_product_card_hides_decision_metadata_and_visible_color_label(self):
         product = self.create_product(category=self.tshirts, slug="quiet-card")
@@ -239,7 +271,7 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertNotIn("border-radius:", thermo_block)
         self.assertNotIn("box-shadow:", thermo_block)
 
-    def test_product_card_uses_a_restrained_separated_surface(self):
+    def test_product_card_uses_open_variant_3_surface(self):
         css = (
             Path(__file__).resolve().parents[2]
             / "twocomms_django_theme"
@@ -249,11 +281,41 @@ class SmartSelectorCategoryTests(TestCase):
         ).read_text(encoding="utf-8")
         card_block = css.split(".smart-product-card {", 1)[1].split("}", 1)[0]
 
-        self.assertIn("padding: 5px", card_block)
-        self.assertIn("border: 1px solid", card_block)
-        self.assertIn("border-radius: 8px", card_block)
-        self.assertIn("background:", card_block)
-        self.assertIn("box-shadow:", card_block)
+        self.assertIn("padding: 0", card_block)
+        self.assertIn("border: 0", card_block)
+        self.assertIn("background: transparent", card_block)
+        self.assertIn("box-shadow: none", card_block)
+
+    def test_product_card_renders_quiet_fit_marker_next_to_price(self):
+        product = self.create_product(category=self.tshirts, slug="fit-marker")
+        self.add_fit_options(product, "oversize")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        html = response.content.decode()
+        price_row = html.split('class="smart-product-card__price-row"', 1)[1].split("</div>", 1)[0]
+        self.assertIn('class="smart-product-card__fit"', price_row)
+        self.assertIn("Oversize", price_row)
+
+    def test_css_keeps_sticky_rail_unframed_and_favorite_visually_transparent(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        root_block = css.split("[data-smart-selector] {", 1)[1].split("}", 1)[0]
+        favorite_block = css.split(".smart-product-card__favorite {", 1)[1].split("}", 1)[0]
+        desktop = css.split("@media (min-width: 1024px)", 1)[1]
+        rail_block = desktop.split(".smart-selector__rail {", 1)[1].split("}", 1)[0]
+
+        self.assertNotIn("overflow-x:", root_block)
+        self.assertIn("border-right: 1px solid", rail_block)
+        self.assertIn("background: transparent", rail_block)
+        self.assertIn("box-shadow: none", rail_block)
+        self.assertIn("background: transparent", favorite_block)
+        self.assertIn("border-radius: 0", favorite_block)
 
     def test_category_tabs_use_real_urls_and_selected_category(self):
         self.create_product(category=self.hoodie)
@@ -850,5 +912,5 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
             / "catalog.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v10", template)
-        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v10", template)
+        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v11", template)
+        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v11", template)

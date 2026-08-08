@@ -67,6 +67,9 @@
         <span class="smart-product-card__price">
           {% if p.card_has_variant_prices %}{% trans 'Від' %} {% endif %}{{ p.card_price_min|default:p.final_price }} {% trans 'грн' %}
         </span>
+        {% if p.smart_selector_fit %}
+        <span class="smart-product-card__fit">{{ p.smart_selector_fit|title }}</span>
+        {% endif %}
       </div>
 
       {% if p.colors_preview %}

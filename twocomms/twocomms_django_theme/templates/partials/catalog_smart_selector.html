@@ -33,7 +33,7 @@
 
     <header class="smart-selector__intro" aria-labelledby="smart-selector-title">
       <div>
-        <h1 id="smart-selector-title">{% if merch_collection_page %}{{ merch_collection_page.h1 }}{% elif category.seo_h1 %}{{ category.seo_h1 }}{% else %}{{ category.name }}{% endif %}</h1>
+        <h1 id="smart-selector-title">{% if merch_collection_page %}{{ merch_collection_page.h1 }}{% else %}{{ category.name }}{% endif %}</h1>
         {% if merch_collection_page.intro %}
         <p>{{ merch_collection_page.intro|striptags|truncatewords:24 }}</p>
         {% elif category.description %}
@@ -215,6 +215,7 @@
           <button type="button"
                   class="smart-selector__filter-trigger"
                   data-smart-open-filters
+                  data-smart-focus-filter="all"
                   aria-controls="smart-selector-filter-sheet"
                   aria-haspopup="dialog"
                   aria-expanded="false">
@@ -225,6 +226,10 @@
           <span class="smart-selector__command-count" data-smart-command-count aria-live="polite">
             {% blocktrans count counter=paginator.count %}{{ counter }} модель{% plural %}{{ counter }} моделей{% endblocktrans %}
           </span>
+          <button type="button" class="smart-selector__sort-trigger" data-smart-open-filters data-smart-focus-filter="sort" aria-controls="smart-selector-filter-sheet" aria-haspopup="dialog" aria-expanded="false">
+            <span data-smart-sort-label>{% trans 'Рекомендовані' %}</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+          </button>
           <label class="smart-selector__sort">
             <span class="visually-hidden">{% trans 'Сортування' %}</span>
             <select data-smart-sort aria-label="{% trans 'Сортування' %}">
@@ -233,6 +238,18 @@
               <option value="price-desc"{% if smart_selector_selected_sort == 'price-desc' %} selected{% endif %}>{% trans 'Від дорогих' %}</option>
             </select>
           </label>
+        </div>
+
+        <div class="smart-selector__quick-facets" aria-label="{% trans 'Швидкий вибір' %}">
+          <button type="button" class="smart-selector__quick-facet" data-smart-open-filters data-smart-focus-filter="theme" aria-controls="smart-selector-filter-sheet" aria-haspopup="dialog" aria-expanded="false">
+            <span>{% trans 'Тема' %}</span><strong>{% trans 'Усі' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+          </button>
+          <button type="button" class="smart-selector__quick-facet" data-smart-open-filters data-smart-focus-filter="fit" aria-controls="smart-selector-filter-sheet" aria-haspopup="dialog" aria-expanded="false">
+            <span>{% trans 'Крій' %}</span><strong>{% trans 'Будь-який' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+          </button>
+          <button type="button" class="smart-selector__quick-facet" data-smart-open-filters data-smart-focus-filter="color" aria-controls="smart-selector-filter-sheet" aria-haspopup="dialog" aria-expanded="false">
+            <span>{% trans 'Колір' %}</span><strong>{% trans 'Усі' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+          </button>
         </div>
 
         <div class="smart-selector__applied" aria-label="{% trans 'Обрані фільтри' %}">
@@ -360,6 +377,15 @@
       </header>
 
       <div class="smart-selector__sheet-body">
+        <fieldset data-smart-filter-section="sort">
+          <legend>{% trans 'Сортування' %}</legend>
+          <div class="smart-selector__sheet-options smart-selector__sort-options">
+            <button type="button" class="smart-selector__choice" data-smart-sort-value="recommended" aria-pressed="true">{% trans 'Рекомендовані' %}</button>
+            <button type="button" class="smart-selector__choice" data-smart-sort-value="price-asc" aria-pressed="false">{% trans 'Від дешевих' %}</button>
+            <button type="button" class="smart-selector__choice" data-smart-sort-value="price-desc" aria-pressed="false">{% trans 'Від дорогих' %}</button>
+          </div>
+        </fieldset>
+
         {% if smart_selector_theme_options %}
         <fieldset data-smart-filter-section="theme">
           <legend>{% trans 'Тема' %}</legend>

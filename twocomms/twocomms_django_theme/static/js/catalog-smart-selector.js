@@ -11,6 +11,8 @@
   const sentinel = root.querySelector("[data-smart-sentinel]");
   const loadStatus = root.querySelector("[data-smart-load-status]");
   const sortControl = root.querySelector("[data-smart-sort]");
+  const sheetTitle = root.querySelector("#smart-selector-sheet-title");
+  const sheetEyebrow = sheetTitle?.previousElementSibling;
   const main = root.closest("main");
   const mobileNavigation = document.querySelector(
     "[data-mobile-bottom-nav], .bottom-nav, .mobile-bottom-nav, .bottom-navigation, .mobile-nav"
@@ -44,6 +46,14 @@
   let nextOrder = 0;
   let sheetHistoryActive = false;
   let navWasInert = false;
+  let sheetMode = "all";
+  const sheetModes = {
+    all: { eyebrow: "Каталог", title: "Підібрати модель" },
+    theme: { eyebrow: "Швидкий вибір", title: "Оберіть тему" },
+    fit: { eyebrow: "Швидкий вибір", title: "Оберіть крій" },
+    color: { eyebrow: "Швидкий вибір", title: "Оберіть колір" },
+    sort: { eyebrow: "Каталог", title: "Сортування" },
+  };
 
   const emitCatalogAnalytics = (eventName, payload = {}) => {
     if (!eventName) return;
@@ -164,6 +174,13 @@
     grid.appendChild(fragment);
 
     if (sortControl && sortControl.value !== sortValue) sortControl.value = sortValue;
+    const activeOption = root.querySelector(`[data-smart-sort-value="${CSS.escape(sortValue)}"]`);
+    root.querySelectorAll("[data-smart-sort-value]").forEach((option) => {
+      option.setAttribute("aria-pressed", String(option === activeOption));
+    });
+    root.querySelectorAll("[data-smart-sort-label]").forEach((label) => {
+      label.textContent = activeOption?.textContent?.trim() || sortControl?.selectedOptions?.[0]?.textContent || "";
+    });
   };
 
   const readInitialSort = () => {
@@ -265,6 +282,15 @@
   const openFilters = (trigger) => {
     if (!overlay || !sheet || overlay.classList.contains("is-open")) return;
     lastFilterTrigger = trigger;
+    sheetMode = trigger?.dataset.smartFocusFilter || "all";
+    if (!sheetModes[sheetMode]) sheetMode = "all";
+    overlay.dataset.smartSheetMode = sheetMode;
+    const modeCopy = sheetModes[sheetMode];
+    if (sheetTitle) sheetTitle.textContent = modeCopy.title;
+    if (sheetEyebrow) sheetEyebrow.textContent = modeCopy.eyebrow;
+    sheet.querySelectorAll("[data-smart-filter-section]").forEach((section) => {
+      section.hidden = sheetMode !== "all" && section.dataset.smartFilterSection !== sheetMode;
+    });
     emitCatalogAnalytics("CatalogFilterSheetOpen", {
       source: trigger?.dataset.smartFocusFilter || "all",
     });
@@ -284,7 +310,7 @@
     );
     sheetHistoryActive = true;
 
-    const focusFilter = trigger?.dataset.smartFocusFilter;
+    const focusFilter = sheetMode === "all" ? null : sheetMode;
     const section = focusFilter
       ? sheet.querySelector(`[data-smart-filter-section="${focusFilter}"]`)
       : null;
@@ -407,6 +433,20 @@
     if (closer && root.contains(closer)) {
       event.preventDefault();
       closeFilters();
+      return;
+    }
+
+    const sortOption = target.closest("[data-smart-sort-value]");
+    if (sortOption && root.contains(sortOption)) {
+      event.preventDefault();
+      const requested = sortOption.dataset.smartSortValue || "recommended";
+      const selected = allowedSorts.has(requested) ? requested : "recommended";
+      emitCatalogAnalytics("CatalogSortApply", { value: selected, source: "sheet" });
+      const url = new URL(window.location.href);
+      if (selected === "recommended") url.searchParams.delete("sort");
+      else url.searchParams.set("sort", selected);
+      url.searchParams.delete("page");
+      window.location.assign(url.toString());
     }
   });
 
