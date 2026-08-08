@@ -387,9 +387,27 @@ These slices do not wait for white assets, attribution or retention policy.
 
 ### W1.5 Analysis cannot mutate operations — `F-SCORE-010`, `IMP-098.E`
 
-- [ ] Inventory every analysis writer to episode/history/payment/order fields.
-- [ ] Allow operational mutation only through an owned, idempotent event
+- [x] Inventory every analysis writer to episode/history/payment/order fields.
+- [x] Allow operational mutation only through an owned, idempotent event
   contract; failed/skipped analysis must leave operational state unchanged.
+
+  **Closed 2026-08-08:** source commit `c3543832` is on `origin/main` and the
+  production checkout. Gemini/rules analysis now publishes an immutable
+  `IgConversationAnalysisEvent`; only its owned consumer may materialize a
+  repeat episode, with evidence/fingerprint/payment/permission revalidation,
+  durable evidence-based idempotency and bounded retry. The focused local gate
+  passed `139/139`; Django check, migration check, compile and diff checks were
+  clean; an independent review approved the final retry telemetry contract.
+  Production MariaDB `11.4.12-MariaDB-cll-lve` applied migration
+  `management.0150`. A provider-free production-DB probe proved publication is
+  operationally inert, owned exactly-once materialization, cross-model replay
+  dedupe, preserved client stage, fail-closed newer-inbound/hidden/blocked/
+  opt-out guards, retry followed by terminal failure on attempt five, and full
+  rollback after an injected post-write exception. Cleanup left zero synthetic
+  clients/events/snapshots/episodes/sessions/deals/payments/messages and
+  restored both append-only episode-event triggers. Final production evidence:
+  exact SHA `c3543832`, one daemon, event total/pending `0/0`, `/healthz/` and
+  `/bot/health/` `ok`, dangerous backlog `0`.
 
 ### W1.6 Structured control safety before more bot delivery — `IMP-028.A`
 
