@@ -787,6 +787,11 @@ class SwitchTests(unittest.TestCase):
             "https://management.twocomms.shop/bot/health/",
         )
 
+    def test_cloudlinux_lifecycle_commands_request_json_mode(self):
+        for action in ("stop", "start"):
+            command = deploy_release._cloudlinux_command(self.config, action)
+            self.assertEqual(command[:3], ("cloudlinux-selector", action, "--json"))
+
     def test_default_maintenance_marker_is_relative_to_manage_py(self):
         nested_root = Path(self.temp_dir.name) / "nested-root"
         (nested_root / "twocomms").mkdir(parents=True)

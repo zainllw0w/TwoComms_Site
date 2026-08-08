@@ -936,6 +936,7 @@ def _cloudlinux_command(config: ReleaseConfig, action: str) -> tuple[str, ...]:
     return (
         "cloudlinux-selector",
         action,
+        "--json",
         "--interpreter",
         "python",
         "--user",
