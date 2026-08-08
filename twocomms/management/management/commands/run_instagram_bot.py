@@ -327,6 +327,8 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
             bot.log("warning", "profile_refresh_batch", repr(exc))
     if enabled:
         bot.process_pending(settings_obj)
+        if maintenance_status(path=MAINTENANCE_FILE)["active"]:
+            return enabled, last_poll
         bot_followups.process_due_followups(settings_obj)
         if settings_obj.pk:
             _process_order_fulfillment()
@@ -351,6 +353,8 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
             settings_obj.save(update_fields=["last_poll_at", "last_error", "updated_at"])
         if enabled:
             bot.process_pending(settings_obj)
+            if maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                return enabled, last_poll
             bot_followups.process_due_followups(settings_obj)
         last_poll = now
     return enabled, last_poll
@@ -460,6 +464,19 @@ class Command(BaseCommand):
             held=False,
             timeout=bounded_wait,
         ):
+            try:
+                deactivate_maintenance(
+                    path=MAINTENANCE_FILE,
+                    lease_id=str(payload["lease_id"]),
+                )
+            except MaintenanceLeaseConflict:
+                # Another owner replaced the marker after activation. Exact
+                # token cleanup must preserve that newer lease.
+                pass
+            except OSError as exc:
+                raise CommandError(
+                    "daemon did not stop and owned maintenance lease cleanup failed"
+                ) from exc
             raise CommandError("daemon did not stop after maintenance activation")
         self.stdout.write(
             f"maintenance active lease_id={payload['lease_id']} "

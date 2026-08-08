@@ -915,6 +915,13 @@ class SwitchTests(unittest.TestCase):
         self.assertFalse(self.active_static.is_symlink())
         rendered = " ".join(" ".join(call) for call in runner.calls)
         self.assertIn("git update-ref refs/heads/main", rendered)
+        previous_ensure = next(
+            call for call in runner.calls if call[-1:] == ("--ensure",)
+        )
+        self.assertEqual(
+            runner.environments[previous_ensure].get("TWC_IG_RUNTIME_ROOT"),
+            os.fspath(self.live.resolve()),
+        )
 
     def test_transient_site_health_retries_before_rolling_back(self):
         config = replace(
@@ -951,6 +958,13 @@ class SwitchTests(unittest.TestCase):
         self.assertEqual(off_call[-1], SwitchRunner._requested_lease_id(on_call))
         rendered = " ".join(" ".join(call) for call in self.runner.calls)
         self.assertIn("run_instagram_bot --ensure", rendered)
+        ensure_call = next(
+            call for call in self.runner.calls if call[-1:] == ("--ensure",)
+        )
+        self.assertEqual(
+            self.runner.environments[ensure_call].get("TWC_IG_RUNTIME_ROOT"),
+            os.fspath(self.live.resolve()),
+        )
 
     def test_failure_does_not_release_an_unowned_maintenance_lease(self):
         lease_path = deploy_release.maintenance_path(self.config)

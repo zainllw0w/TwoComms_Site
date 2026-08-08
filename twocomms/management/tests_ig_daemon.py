@@ -191,6 +191,75 @@ print(json.dumps({
         with self.assertRaisesMessage(CommandError, "maintenance lock wait"):
             Command()._maintenance_on(900, wait_seconds=301)
 
+    @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=False)
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
+    def test_maintenance_on_cleans_owned_lease_when_daemon_drain_times_out(
+        self, _held, _wait_for_lock
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            marker = os.path.join(temp_dir, "maintenance.json")
+            with patch(
+                "management.management.commands.run_instagram_bot.MAINTENANCE_FILE",
+                marker,
+            ):
+                with self.assertRaisesMessage(CommandError, "daemon did not stop"):
+                    Command()._maintenance_on(
+                        900,
+                        requested_lease_id="deploy-timeout",
+                        wait_seconds=0,
+                    )
+
+            self.assertFalse(os.path.exists(marker))
+
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
+    def test_maintenance_timeout_cleanup_preserves_replacement_lease(self, _held):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            marker = os.path.join(temp_dir, "maintenance.json")
+
+            def replace_owned_lease(*_args, **_kwargs):
+                with open(marker, "w", encoding="utf-8") as marker_file:
+                    json.dump(
+                        {
+                            "version": 1,
+                            "lease_id": "foreign-replacement",
+                            "started_at": time.time(),
+                            "expires_at": time.time() + 900,
+                            "actor": "other-deploy",
+                        },
+                        marker_file,
+                    )
+                return False
+
+            with (
+                patch(
+                    "management.management.commands.run_instagram_bot.MAINTENANCE_FILE",
+                    marker,
+                ),
+                patch(
+                    "management.management.commands.run_instagram_bot._wait_for_lock",
+                    side_effect=replace_owned_lease,
+                ),
+                patch(
+                    "management.management.commands.run_instagram_bot.deactivate_maintenance",
+                    wraps=deactivate_maintenance,
+                ) as cleanup,
+            ):
+                with self.assertRaisesMessage(CommandError, "daemon did not stop"):
+                    Command()._maintenance_on(
+                        900,
+                        requested_lease_id="deploy-owned",
+                        wait_seconds=0,
+                    )
+
+            cleanup.assert_called_once_with(
+                path=marker,
+                lease_id="deploy-owned",
+            )
+            self.assertEqual(
+                maintenance_status(path=marker).get("lease_id"),
+                "foreign-replacement",
+            )
+
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
     @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=False)
@@ -806,6 +875,25 @@ class ReplyPermissionEpochModelTests(TestCase):
         self.assertEqual(other_before.client_epoch, other_after.client_epoch)
 
 
+class DaemonMaintenanceDrainTests(SimpleTestCase):
+    def test_pending_drain_checks_maintenance_before_claiming_next_row(self):
+        settings = InstagramBotSettings(is_enabled=True)
+        first_row = object()
+        with (
+            patch.object(bot, "_send_rate_limit_backoff_active", return_value=False),
+            patch.object(bot, "_gemini_backoff_active", return_value=False),
+            patch.object(bot, "reclaim_stale_processing"),
+            patch.object(bot, "maintenance_status", side_effect=[{"active": False}, {"active": True}]),
+            patch.object(bot, "_claim_next", return_value=first_row) as claim_next,
+            patch.object(bot, "_process_one", return_value=True) as process_one,
+        ):
+            handled = bot.process_pending(settings, max_items=2)
+
+        self.assertEqual(handled, 1)
+        claim_next.assert_called_once_with()
+        process_one.assert_called_once_with(settings, first_row)
+
+
 class DaemonHeartbeatTests(SimpleTestCase):
     def setUp(self):
         self.payment_backstop_patcher = patch(
@@ -874,6 +962,34 @@ class DaemonHeartbeatTests(SimpleTestCase):
 
         process_fulfillment.assert_called_once_with()
         refresh_profiles.assert_not_called()
+
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": True},
+    )
+    @patch("management.management.commands.run_instagram_bot.cache.add", return_value=False)
+    @patch("management.management.commands.run_instagram_bot._process_order_fulfillment")
+    @patch("management.management.commands.run_instagram_bot.bot_followups.process_due_followups")
+    @patch("management.management.commands.run_instagram_bot.bot.process_pending")
+    @patch("management.management.commands.run_instagram_bot.bot.drain_manager_notifications")
+    def test_cycle_stops_after_inflight_reply_observes_maintenance(
+        self,
+        _drain,
+        process_pending,
+        followups,
+        fulfill,
+        _cache_add,
+        _maintenance,
+    ):
+        settings = InstagramBotSettings(is_enabled=True, receive_via_poll=False)
+
+        enabled, last_poll = _run_work_cycle(settings, 17.0)
+
+        self.assertTrue(enabled)
+        self.assertEqual(last_poll, 17.0)
+        process_pending.assert_called_once_with(settings)
+        followups.assert_not_called()
+        fulfill.assert_not_called()
 
     @patch("management.management.commands.run_instagram_bot.time.time", return_value=100.0)
     @patch("management.management.commands.run_instagram_bot.bot.poll_ingest")

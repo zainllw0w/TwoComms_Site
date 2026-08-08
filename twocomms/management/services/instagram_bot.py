@@ -50,6 +50,7 @@ from management.models import (
     InstagramBotMessage,
     InstagramBotSettings,
 )
+from management.services.ig_maintenance import maintenance_status
 
 GRAPH_VERSION = "v25.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
@@ -8829,6 +8830,10 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
         log("warning", "reclaim", repr(exc))
     handled = 0
     for _ in range(max_items):
+        # Finish the in-flight row, then cooperatively drain before claiming
+        # more work so a bounded deploy lease can acquire the daemon lock.
+        if maintenance_status()["active"]:
+            break
         row = _claim_next()
         if not row:
             break

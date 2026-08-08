@@ -1268,6 +1268,7 @@ def switch(
             run,
             _daemon_command(config, "--ensure"),
             cwd=config.live_checkout,
+            env=_maintenance_environment(config),
             label="daemon ensure",
             timeout=config.command_timeout_seconds,
         )
@@ -1354,6 +1355,7 @@ def switch(
                     run,
                     _daemon_command(config, "--ensure"),
                     cwd=config.live_checkout,
+                    env=_maintenance_environment(config),
                     label="previous daemon ensure",
                     timeout=config.command_timeout_seconds,
                 )
