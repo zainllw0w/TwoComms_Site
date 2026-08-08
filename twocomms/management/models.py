@@ -3647,11 +3647,13 @@ class InstagramBotSettings(models.Model):
         db_column="custom_gemini_key", blank=True, default=""
     )
 
-    page_id = models.CharField(max_length=64, default="401216546416228")
-    ig_user_id = models.CharField(max_length=64, default="17841467101471112")
+    # Account identity is explicit singleton configuration, never a repository
+    # default that can silently bind a fresh install to a real account.
+    page_id = models.CharField(max_length=64, default="")
+    ig_user_id = models.CharField(max_length=64, default="")
 
-    trigger_text = models.CharField(max_length=255, default="1")
-    reply_text = models.CharField(max_length=1000, default="Привет, ты написал единичку")
+    trigger_text = models.CharField(max_length=255, default="")
+    reply_text = models.CharField(max_length=1000, default="")
     poll_interval_seconds = models.PositiveIntegerField(default=3)
 
     # AI-режим (Gemini). Якщо увімкнено — бот веде вільну розмову; інакше
@@ -3665,7 +3667,7 @@ class InstagramBotSettings(models.Model):
     # Білий список IGSID відправників (через кому/новий рядок). Якщо список
     # непорожній — відповідаємо лише переліченим. Якщо очистити повністю —
     # відповідаємо всім, хто має право отримати відповідь за правилами Meta.
-    allowed_senders = models.TextField(blank=True, default="955313600823130")
+    allowed_senders = models.TextField(blank=True, default="")
     # Резервний поллінг інбоксу IG. Після Live за замовчуванням ВИМКНЕНО:
     # бот суто event-driven (webhook), без фонових запитів до IG. Можна
     # увімкнути вручну як backstop, якщо webhook раптом не доставляє.

@@ -1221,6 +1221,7 @@ body.bot-drawer-open{overflow:hidden;}
         <div class="bot-metric"><div class="v compact" id="bot-reply-barrier">0 · 0</div><div class="k">Перевірка перед відповіддю</div></div>
       </div>
       <div class="bot-overview-diagnostics" id="bot-overview-diagnostics" hidden>
+        <div class="bot-overview-diagnostic warning" id="bot-configuration-warning" hidden></div>
         <div class="bot-overview-diagnostic error" id="bot-error" hidden></div>
         <div class="bot-overview-diagnostic" id="bot-outbox-help" hidden></div>
         <div class="bot-overview-diagnostic" id="bot-meta-capability" hidden></div>
@@ -1805,6 +1806,18 @@ body.bot-drawer-open{overflow:hidden;}
       const aborts=Number((st.reply_barrier||{}).aborts||0);
       replyBarrier.textContent='Очікувань: '+waits+' · скасовано: '+aborts;
       replyBarrier.title='Відповідь зачекала, поки завершиться інше надсилання: '+waits+' · скасовано після зміни дозволу: '+aborts;
+    }
+    const configurationWarning=document.getElementById('bot-configuration-warning');
+    const configurationWarningLabels={
+      provider_account_unconfigured:'Не налаштовано ідентифікатор Instagram-акаунта.',
+      sender_allowlist_active:'Відповіді обмежені явним списком відправників.',
+      sender_allowlist_open:'Порожній allowlist: відповіді дозволені всім локально дозволеним відправникам.',
+      debug_reply_unconfigured:'Режим тригера увімкнено без повного trigger/reply налаштування.',
+    };
+    if(configurationWarning){
+      const warningCodes=Array.isArray(st.configuration_warnings)?st.configuration_warnings:[];
+      const warningText=warningCodes.map(code=>configurationWarningLabels[code]||'Налаштування потребують перевірки.').join(' ');
+      setOverviewDiagnostic(configurationWarning,warningText,'#fbbf24');
     }
     setOverviewDiagnostic(document.getElementById('bot-error'),st.last_error||'','#f87171');
     syncOverviewDiagnostics();

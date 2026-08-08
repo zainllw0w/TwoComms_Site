@@ -7168,6 +7168,20 @@ def _is_allowed(s: InstagramBotSettings, sender_id: str) -> bool:
     return True if not ids else sender_id in ids
 
 
+def configuration_warnings(s: InstagramBotSettings) -> list[str]:
+    """Return stable, redacted warnings for singleton configuration drift."""
+    warnings: list[str] = []
+    if not _provider_account_id(s):
+        warnings.append("provider_account_unconfigured")
+    if allowed_sender_ids(s):
+        warnings.append("sender_allowlist_active")
+    else:
+        warnings.append("sender_allowlist_open")
+    if not s.ai_enabled and (not (s.trigger_text or "").strip() or not (s.reply_text or "").strip()):
+        warnings.append("debug_reply_unconfigured")
+    return warnings
+
+
 def _promote_manual_refresh_message(
     existing: InstagramBotMessage,
     *,
@@ -10533,6 +10547,7 @@ def status_snapshot() -> dict:
         ),
         "unique_senders": unique_senders_count(),
         "allow_all": not bool(allowed_sender_ids(s)),
+        "configuration_warnings": configuration_warnings(s),
         "last_error": s.last_error,
         "direct_source": s.direct_source,
         "provider_transport": provider_transport(s),
