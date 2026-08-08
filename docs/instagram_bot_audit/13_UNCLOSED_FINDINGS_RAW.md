@@ -248,11 +248,14 @@
 
 - [ ] F-SEC-001 — OPEN: safe defaults вместо hardcoded account/debug values.
   (Fresh install не должен молча получить неправильный доступ.)
-- [ ] F-SEC-004 — PARTIAL: reviewer PII sandbox/redacted view. (Mutations
-  ограничены, но внешний reviewer всё ещё может увидеть live list/log.)
-- [ ] F-SEC-009 — PARTIAL: PII policy, access/retention/redaction boundary for
-  Telegram/operator channels. (DB log redacted, но части текста клиента ещё
-  уходят в notifications.)
+- [ ] F-SEC-004 — PARTIAL: reviewer PII sandbox/redacted view задеплоен на
+  `71498170` (allowlisted status, empty clients/log, stats `403` before queries,
+  no stats DOM). Остаток — только намеренно разрешённый и атрибутируемый DR-006
+  demo-control плюс общий owner access-policy scope.
+- [ ] F-SEC-009 — PARTIAL: DB log и Telegram/operator payload технически
+  минимизированы на `71498170`; customer/provider text, receipt media и checkout
+  PII больше не уходят в notifications. Открыты owner-controlled retention,
+  access/audit policy и итоговый `G-PII` acceptance.
 - [ ] F-SEC-010 — OPEN: не использовать token в собственных diagnostic URL,
   маскировать его в web-server access-log где возможно и затем rotate.
   (Meta GET verification protocol совместим; secret не должен жить в наших

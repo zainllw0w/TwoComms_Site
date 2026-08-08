@@ -357,8 +357,30 @@ These slices do not wait for white assets, attribution or retention policy.
 
 ### W1.4 PII technical boundary — `F-SEC-004`, `F-SEC-009`, `IMP-098.D`
 
-- [ ] Redacted/sandbox reviewer view and minimum necessary Telegram/operator
+- [x] Redacted/sandbox reviewer view and minimum necessary Telegram/operator
   payload.
+  Source commit `71498170` moved reviewer telemetry to the closed allowlist
+  `state/running/daemon_online/pending`, blocks reviewer stats before business
+  queries, returns an empty client sandbox and omits the stats UI. Typed
+  Telegram/operator formatters now accept only local IDs, bounded machine
+  codes, counts/status/amount and internal CRM links; payment-review evidence
+  remains inside restricted CRM state and is no longer copied into notification
+  `media` or delivered via `sendPhoto`. The Instagram checkout path no longer
+  calls the legacy order notifier that exposed customer, delivery, item and
+  provider-invoice details.
+
+  Verification on 2026-08-08: two independent final reviews reported no
+  blockers; the focused W1.4 gate passed `144/144`, `manage.py check`, migration
+  drift, compile and `git diff --check`. Production runs `71498170` on MariaDB
+  `11.4.12`; `/healthz/` and `/bot/health/` return `200/ok`, bot state is
+  `running`, `dangerous_backlog=0`, `notification_unresolved=0`. Live reviewer
+  proof returned stats `403` with zero business-table queries, allowlisted
+  status only, empty clients/log and no stats DOM, while admin status/stats
+  remained `200`. A mocked-transport production-DB probe preserved receipt
+  evidence in restricted CRM, found no name/phone/email/IGSID/provider invoice/
+  receipt URL or `media` in the notification payload, called `sendMessage` once
+  and `sendPhoto` zero times; cleanup left zero synthetic client, notification,
+  review and auth rows.
 - [ ] Separate technical minimization from owner-controlled retention/access.
 - [ ] Acceptance: no live PII in demo/reviewer path; policy-dependent residue
   remains explicitly BLOCKED under `G-PII`.

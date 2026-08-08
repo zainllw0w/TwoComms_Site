@@ -275,10 +275,12 @@ F-OPS-001 — отключённый backstop платежей, который �
 след **не** появляется от действий администратора; 2 на то, что администратор
 не потерял прав. Все в `tests_ig_reviewer_sandbox.py`.
 
-**Остаточный риск:** reviewer по-прежнему видит список клиентов с PII и консоль
-лога. Частично снято в этом же срезе — текст сообщений больше не пишется
-в `InstagramBotLog.detail` (F-SEC-009). Полное разделение (отдельный тестовый
-клиент для reviewer) — отдельная задача, в W1 не входит.
+**Обновление 2026-08-08 (`71498170`):** PII-остаток в reviewer view закрыт
+первым checkbox W1.4. Reviewer получает только allowlisted liveness status,
+пустые clients/log, `403` на stats до business queries и dashboard без stats
+DOM. Разрешённый DR-006 demo-control остаётся атрибутируемым. Отдельно открыты
+owner-controlled retention/access policy и итоговый `G-PII` acceptance; этот
+технический срез их не подменяет.
 
 ---
 

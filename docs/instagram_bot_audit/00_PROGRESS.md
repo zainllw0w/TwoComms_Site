@@ -10,8 +10,8 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **Implement2 handoff подготовлен; implementation не начата. Следующая работа идёт по topological Waves 1–7 из `14_IMPLEMENT2.md`, начиная с immediate safety и MariaDB evidence gates** |
-| Дата старта / обновления | 2026-08-07 (source reconciliation, live analysis-lease audit, Implement2) |
+| Текущая фаза | **Implement2 Wave 1 выполняется по `14_IMPLEMENT2.md`: W1.2, W1.3 и первый технический checkbox W1.4 задеплоены; следующий открытый пункт — owner-controlled retention/access внутри W1.4** |
+| Дата старта / обновления | 2026-08-08 (W1.4 reviewer/Telegram PII technical boundary deployed and production-verified) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
 | База внедрения | Runtime/code snapshot аудита — `19f5ef70`, который до публикации handoff совпадал с `origin/main` и production. Публикующий docs-only commit может продвинуть Git SHA без изменения runtime-кода. Кодовый предок остаётся `98bb160e` поверх `bc4ec2d5`, `fbe33a68`, `18ddc636`, `b23dfeed` и предыдущей price/inventory hardening-цепочки. |
 | **Статус 105 IMP-задач** | **80 закрыты, 15 открыты, 10 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`)** |
@@ -57,6 +57,27 @@
 | Частично, W9 | `IMP-088` (digest/proposal workspace foundation есть; freshness, review UI, audit/backfill, MariaDB/deploy proof остаются) |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; `IMP-060`, `IMP-090`, `IMP-096` и baseline `IMP-093` не зависят от завершения полного commerce chain. F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
+
+## W1.4 reviewer/operator PII technical boundary (2026-08-08)
+
+Source commit `71498170` находится в локальном `main`, `origin/main` и на
+production. Reviewer status теперь fail-closed и содержит только
+`state/running/daemon_online/pending`; stats отвечают `403` до business queries,
+clients/log пусты, stats DOM не рендерится. Admin status/stats сохранили `200`.
+Telegram/operator alerts принимают только типизированные локальные факты и CRM
+links; payment-review receipt evidence остаётся в restricted CRM и не попадает в
+notification `media`/`sendPhoto`, а IG checkout больше не вызывает legacy
+payment-attempt notifier с customer/order/provider PII.
+
+Локальный gate: `144/144`, Django check, migration drift, compile и diff check;
+два final-reviewer verdict — без блокеров. Production: MariaDB `11.4.12`, оба
+health endpoint `200/ok`, bot `running`, `dangerous_backlog=0`,
+`notification_unresolved=0`. Mocked-transport production-DB probe не нашёл в
+payload имя, телефон, email, IGSID, provider invoice, receipt URL или `media`,
+вызвал `sendMessage` один раз и `sendPhoto` ноль раз; cleanup оставил ноль
+synthetic client/notification/review/auth rows. Это закрывает только первый
+checkbox W1.4; retention/access policy и итоговый `G-PII` acceptance остаются
+открытыми.
 
 ## Synchronized production verification before Implement2 docs release (2026-08-07)
 
