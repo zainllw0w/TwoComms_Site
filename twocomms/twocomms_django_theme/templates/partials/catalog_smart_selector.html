@@ -45,19 +45,6 @@
       </span>
     </header>
 
-    <div class="smart-selector__quick-facets" aria-label="{% trans 'Теми колекції' %}">
-      {% for option in smart_selector_theme_options %}
-      <button type="button"
-              data-smart-filter="theme"
-              data-smart-value="{{ option.code }}"
-              data-smart-source="quick_row"
-              aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
-        <span>{{ option.label }}</span>
-        {% if option.children %}<small aria-hidden="true">{{ option.children|length }}</small>{% endif %}
-      </button>
-      {% endfor %}
-    </div>
-
     <div class="smart-selector__layout">
       <aside class="smart-selector__rail" data-smart-desktop-rail aria-label="{% trans 'Фільтри каталогу' %}">
         <div class="smart-selector__rail-head">

@@ -185,17 +185,75 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertIn("@media (max-width: 340px)", css)
         self.assertIn("aspect-ratio: 1 / 1", css)
 
-    def test_quick_facets_precede_catalog_command_and_product_grid(self):
+    def test_catalog_command_precedes_grid_without_permanent_quick_facets(self):
         self.create_product(category=self.tshirts, slug="quick-facet-order")
         response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
 
         html = response.content.decode()
-        quick_facets_position = html.index('class="smart-selector__quick-facets"')
         command_position = html.index('class="smart-selector__command"')
         grid_position = html.index('class="smart-selector__grid"')
 
-        self.assertLess(quick_facets_position, command_position)
+        self.assertNotIn('class="smart-selector__quick-facets"', html)
         self.assertLess(command_position, grid_position)
+
+    def test_product_card_hides_decision_metadata_and_visible_color_label(self):
+        product = self.create_product(category=self.tshirts, slug="quiet-card")
+        self.add_fit_options(product, "classic")
+        color = Color.objects.create(name="black", primary_hex="#111111")
+        ProductColorVariant.objects.create(product=product, color=color, is_default=True)
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertNotContains(response, 'class="smart-product-card__decision-meta"')
+        self.assertNotContains(response, 'class="smart-product-card__color-label"')
+        self.assertContains(response, 'aria-label="Доступні кольори"')
+
+    def test_thermo_flame_is_nested_inside_color_swatch_dot(self):
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "partials"
+            / "catalog_smart_product_card.html"
+        ).read_text(encoding="utf-8")
+        swatch_dot_markup = template.split('class="smart-product-card__swatch-dot"', 1)[1]
+
+        self.assertLess(
+            swatch_dot_markup.index('class="smart-product-card__thermo"'),
+            swatch_dot_markup.index("</span>"),
+        )
+
+    def test_thermo_flame_has_no_secondary_circular_badge(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        thermo_block = css.split(".smart-product-card__thermo {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("fill: #ffb15f", thermo_block)
+        self.assertIn("filter: drop-shadow", thermo_block)
+        self.assertNotIn("background:", thermo_block)
+        self.assertNotIn("border-radius:", thermo_block)
+        self.assertNotIn("box-shadow:", thermo_block)
+
+    def test_product_card_uses_a_restrained_separated_surface(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        card_block = css.split(".smart-product-card {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("padding: 5px", card_block)
+        self.assertIn("border: 1px solid", card_block)
+        self.assertIn("border-radius: 8px", card_block)
+        self.assertIn("background:", card_block)
+        self.assertIn("box-shadow:", card_block)
 
     def test_category_tabs_use_real_urls_and_selected_category(self):
         self.create_product(category=self.hoodie)
@@ -750,6 +808,22 @@ class SmartSelectorCategoryTests(TestCase):
 
 
 class SmartSelectorAnalyticsContractTests(SimpleTestCase):
+    def test_catalog_selector_uses_checkout_palette_without_purple(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("#a77bf7", css.lower())
+        self.assertNotIn("#7c4bd8", css.lower())
+        self.assertIn("--smart-accent: #f3a43d", css)
+        self.assertIn("--smart-action: #ff6b2b", css)
+        self.assertIn("border-radius: 22px 22px 0 0", css)
+        self.assertIn(".smart-selector__sheet::before", css)
+
     def test_smart_selector_tracks_state_changes_and_smart_card_selection(self):
         source = (
             Path(__file__).resolve().parents[2]
@@ -776,5 +850,5 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
             / "catalog.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v9", template)
-        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v9", template)
+        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v10", template)
+        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v10", template)
