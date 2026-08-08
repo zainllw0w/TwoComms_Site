@@ -49,7 +49,16 @@ class FakeRunner:
             (worktree / "twocomms" / "manage.py").write_text("", encoding="utf-8")
             (worktree / "scripts" / "verify_locked_requirements.py").write_text("", encoding="utf-8")
         if "-m" in command and "venv" in command:
-            Path(command[-1]).mkdir(parents=True, exist_ok=True)
+            venv = Path(command[-1])
+            bin_dir = venv / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            (bin_dir / "activate").write_text(
+                f"VIRTUAL_ENV='{venv}'\nexport VIRTUAL_ENV\n",
+                encoding="utf-8",
+            )
+            (bin_dir / "python3.14").symlink_to(command[0])
+            (bin_dir / "python3").symlink_to("python3.14")
+            (bin_dir / "python").symlink_to("python3.14")
         if "collectstatic" in command and env:
             static_root = (
                 Path(env["TWC_RELEASE_STATIC_ROOT"])
@@ -80,11 +89,15 @@ class StagedReleaseTests(unittest.TestCase):
         (self.live / "scripts" / "verify_locked_requirements.py").write_text("", encoding="utf-8")
         (self.live / ".git").mkdir()
         self.release_root = root / "releases"
-        self.active_venv = root / "active-venv"
+        self.active_venv = root / "3.14"
         self.active_static = root / "active-static"
         self.lock_path = root / "deploy.lock"
         self.evidence_root = root / "evidence"
         self.system_python = Path("/opt/alt/python314/bin/python3.14")
+        self.python_wrapper = root / "python_wrapper"
+        self.python_wrapper.write_text("#!/bin/bash\n", encoding="utf-8")
+        self.set_env_helper = root / "set_env_vars.py"
+        self.set_env_helper.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
         self.target_sha = "a" * 40
         self.live_sha = "b" * 40
         self.config = deploy_release.ReleaseConfig(
@@ -93,6 +106,8 @@ class StagedReleaseTests(unittest.TestCase):
             active_venv=self.active_venv,
             active_static=self.active_static,
             system_python=self.system_python,
+            cloudlinux_python_wrapper=self.python_wrapper,
+            cloudlinux_set_env_helper=self.set_env_helper,
             deploy_lock=self.lock_path,
             evidence_root=self.evidence_root,
             wheelhouse_root=self.release_root / "wheelhouse",
@@ -166,6 +181,39 @@ class StagedReleaseTests(unittest.TestCase):
         self.assertEqual(prepared.venv, expected)
         self.assertIn((str(self.system_python), "-m", "venv", str(expected)), self.runner.calls)
         self.assertFalse(any("mv" in call for call in self.runner.calls))
+
+    def test_staged_venv_is_bound_to_the_registered_cloudlinux_runtime(self):
+        venv = self.release_root / "venvs" / self.target_sha
+        bin_dir = venv / "bin"
+        bin_dir.mkdir(parents=True)
+        (bin_dir / "activate").write_text(
+            f"VIRTUAL_ENV='{venv}'\nexport VIRTUAL_ENV\n",
+            encoding="utf-8",
+        )
+        (bin_dir / "python3.14").symlink_to(self.system_python)
+        (bin_dir / "python3").symlink_to("python3.14")
+        (bin_dir / "python").symlink_to("python3.14")
+        deploy_release._bind_cloudlinux_runtime(
+            venv=venv,
+            active_venv=self.active_venv,
+            system_python=self.system_python,
+            python_wrapper=self.python_wrapper,
+            set_env_helper=self.set_env_helper,
+        )
+
+        self.assertEqual(os.readlink(bin_dir / "python"), os.fspath(self.python_wrapper))
+        self.assertEqual(os.readlink(bin_dir / "python3"), "python")
+        self.assertEqual(os.readlink(bin_dir / "python3.14"), "python")
+        self.assertEqual(os.readlink(bin_dir / "python3.14_bin"), os.fspath(self.system_python))
+        self.assertEqual(os.readlink(bin_dir / "set_env_vars.py"), os.fspath(self.set_env_helper))
+        self.assertIn(
+            f"VIRTUAL_ENV='{self.active_venv}'",
+            (bin_dir / "activate").read_text(encoding="utf-8"),
+        )
+        self.assertNotIn(
+            f"VIRTUAL_ENV='{venv}'",
+            (bin_dir / "activate").read_text(encoding="utf-8"),
+        )
 
     def test_install_uses_manifest_bound_install_lock(self):
         self._manifest()

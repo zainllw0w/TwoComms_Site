@@ -89,6 +89,8 @@ class ReleaseConfig:
     active_venv: Path = Path("/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14")
     active_static: Path = Path("/home/qlknpodo/TWC/TwoComms_Site/twocomms/staticfiles")
     system_python: Path = Path("/opt/alt/python314/bin/python3.14")
+    cloudlinux_python_wrapper: Path = Path("/usr/share/l.v.e-manager/utils/python_wrapper")
+    cloudlinux_set_env_helper: Path = Path("/usr/share/l.v.e-manager/utils/set_env_vars.py")
     deploy_lock: Path = Path("/home/qlknpodo/TWC/TwoComms_Site/releases/deploy.lock")
     evidence_root: Path = Path("/home/qlknpodo/TWC/TwoComms_Site/releases/evidence")
     wheelhouse_root: Path = Path("/home/qlknpodo/TWC/TwoComms_Site/releases/wheelhouse")
@@ -311,6 +313,62 @@ def _staged_environment(
     return command_env
 
 
+def _bind_cloudlinux_runtime(
+    *,
+    venv: Path,
+    active_venv: Path,
+    system_python: Path,
+    python_wrapper: Path,
+    set_env_helper: Path,
+) -> None:
+    """Make an immutable venv use the registered CloudLinux app environment."""
+
+    version = active_venv.name
+    if not re.fullmatch(r"\d+\.\d+", version):
+        raise ReleaseError("active CloudLinux venv must end in a Python major.minor version")
+    if system_python.name != f"python{version}":
+        raise ReleaseError("system Python does not match the registered CloudLinux version")
+    for path, label in (
+        (python_wrapper, "CloudLinux Python wrapper"),
+        (set_env_helper, "CloudLinux environment helper"),
+    ):
+        if path.is_symlink() or not path.is_file():
+            raise ReleaseError(f"{label} must be a regular file")
+
+    bin_dir = venv / "bin"
+    activate = bin_dir / "activate"
+    python = bin_dir / "python"
+    python_aliases = (bin_dir / "python3", bin_dir / f"python{version}")
+    if (
+        activate.is_symlink()
+        or not activate.is_file()
+        or not python.is_symlink()
+        or any(not alias.is_symlink() for alias in python_aliases)
+    ):
+        raise ReleaseError("fresh release venv has an unexpected runtime layout")
+    activation = activate.read_text(encoding="utf-8")
+    staged_path = os.fspath(venv)
+    path_occurrences = activation.count(staged_path)
+    if path_occurrences < 1 or path_occurrences > 4:
+        raise ReleaseError("fresh release venv activation path is invalid")
+    if any(character in os.fspath(active_venv) for character in ("'", "\n", "\r")):
+        raise ReleaseError("active CloudLinux venv path is unsafe")
+
+    activation = activation.replace(staged_path, os.fspath(active_venv))
+    activate.write_text(activation, encoding="utf-8")
+    python.unlink()
+    python.symlink_to(python_wrapper)
+    for alias in python_aliases:
+        alias.unlink()
+        alias.symlink_to("python")
+    versioned_binary = bin_dir / f"python{version}_bin"
+    versioned_binary.unlink(missing_ok=True)
+    versioned_binary.symlink_to(system_python)
+    environment_helper = bin_dir / "set_env_vars.py"
+    environment_helper.unlink(missing_ok=True)
+    environment_helper.symlink_to(set_env_helper)
+
+
 def _validate_static_artifacts(static_root: Path) -> None:
     manifest_candidates = (
         static_root / "staticfiles.json",
@@ -430,6 +488,13 @@ def prepare(
         )
         venv.mkdir(parents=True, exist_ok=True)
         created.append(venv)
+        _bind_cloudlinux_runtime(
+            venv=venv,
+            active_venv=config.active_venv,
+            system_python=config.system_python,
+            python_wrapper=config.cloudlinux_python_wrapper,
+            set_env_helper=config.cloudlinux_set_env_helper,
+        )
         python = venv / "bin" / "python"
         requirements = worktree / "twocomms" / "requirements.lock"
         if not requirements.is_file():
