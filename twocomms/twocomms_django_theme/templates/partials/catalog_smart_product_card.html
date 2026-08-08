@@ -47,6 +47,9 @@
         <span aria-hidden="true"></span>{{ p.smart_selector_availability_label }}
       </span>
       {% endif %}
+      {% if p.has_discount and p.discount_percent %}
+      <span class="smart-product-card__discount-marker" aria-label="{% blocktrans with discount=p.discount_percent %}Знижка {{ discount }} відсотків{% endblocktrans %}">−{{ p.discount_percent }}%</span>
+      {% endif %}
 
       <button type="button"
               class="favorite-btn smart-product-card__favorite"
@@ -58,30 +61,32 @@
           <svg class="favorite-icon-filled" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35 10.55 20C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z"/></svg>
         </span>
       </button>
-    </div>
-
-    <div class="smart-product-card__body">
-      <a href="{{ product_url }}" class="smart-product-card__title" data-product-card-link>{{ p.title }}</a>
-
-      <div class="smart-product-card__price-row">
-        <span class="smart-product-card__price">
-          {% if p.card_has_variant_prices %}{% trans 'Від' %} {% endif %}{{ p.card_price_min|default:p.final_price }} {% trans 'грн' %}
-        </span>
-        {% if p.smart_selector_fit_options %}
-        <span class="smart-product-card__fits" aria-label="{% trans 'Доступні крої' %}">
-          {% for fit in p.smart_selector_fit_options %}
-          <span class="smart-product-card__fit" data-fit-code="{{ fit.code }}">{{ fit.label }}</span>
-          {% endfor %}
-        </span>
-        {% endif %}
-      </div>
 
       {% if p.colors_preview %}
-      <div class="smart-product-card__color-row" aria-label="{% trans 'Доступні кольори' %}">
-        <div class="smart-product-card__colors">
-          {% for v in p.colors_preview|slice:':3' %}
+      {% with selected_color=p.colors_preview|first %}
+      <div class="smart-product-card__color-stack" data-smart-color-stack>
+        <button type="button"
+                class="smart-product-card__color-toggle"
+                data-smart-color-toggle
+                aria-expanded="false"
+                aria-label="{% if selected_color.name %}{{ selected_color.name|translate_color }}{% else %}{{ selected_color.primary_hex }}{% endif %}. {% trans 'Обрати інший колір' %}">
+          <span class="smart-product-card__swatch-dot"
+                style="--smart-swatch-a: {{ selected_color.primary_hex|default:'#687382' }}; --smart-swatch-b: {{ selected_color.secondary_hex|default:selected_color.primary_hex|default:'#687382' }};"
+                aria-hidden="true">
+            {% if selected_color.is_thermo %}
+            <svg class="smart-product-card__thermo" viewBox="0 0 16 16" focusable="false"><path d="M8.4 1.2c.6 2.5-.9 3.2-.9 4.8 0 .7.4 1.2 1 1.5.2-1 .7-1.8 1.5-2.5.8 1.2 1.7 2.6 1.7 4.4A3.8 3.8 0 0 1 8 13.3a3.8 3.8 0 0 1-3.8-3.9c0-2.6 1.7-4.8 4.2-8.2Z"/></svg>
+            {% endif %}
+          </span>
+          {% if p.colors_preview|length > 1 %}
+          <span aria-hidden="true">+{{ p.colors_preview|length|add:'-1' }}</span>
+          {% endif %}
+        </button>
+        <div class="smart-product-card__color-menu" role="group" aria-label="{% trans 'Варіанти кольору' %}">
+          {% for v in p.colors_preview %}
             <a href="{{ v.public_url|default:product_url }}"
                class="smart-product-card__swatch{% if v.is_thermo %} is-thermo{% endif %}"
+               data-smart-color-choice
+               aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"
                title="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}{% if v.is_thermo %} · {% trans 'Термохромний колір' %}{% endif %}"
                aria-label="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}{% if v.is_thermo %}, {% trans 'термохромний колір' %}{% endif %}">
               <span class="smart-product-card__swatch-dot"
@@ -96,12 +101,31 @@
               {% endif %}
             </a>
           {% endfor %}
-          {% if p.colors_preview|length > 3 %}
-          <a href="{{ product_url }}" class="smart-product-card__color-more" aria-label="{% trans 'Переглянути всі кольори' %}">+{{ p.colors_preview|length|add:'-3' }}</a>
-          {% endif %}
         </div>
       </div>
+      {% endwith %}
       {% endif %}
+    </div>
+
+    <div class="smart-product-card__body">
+      <a href="{{ product_url }}" class="smart-product-card__title" data-product-card-link>{{ p.title }}</a>
+
+      <div class="smart-product-card__price-row">
+        <span class="smart-product-card__price">
+          {% if p.card_has_variant_prices %}{% trans 'Від' %} {% endif %}{{ p.card_price_min|default:p.final_price }} {% trans 'грн' %}
+        </span>
+        {% if p.has_discount and p.discount_percent %}
+        <span class="smart-product-card__old-price">{{ p.price }} {% trans 'грн' %}</span>
+        {% endif %}
+        {% if p.smart_selector_fit_options %}
+        <span class="smart-product-card__fits" aria-label="{% trans 'Доступні крої' %}">
+          {% for fit in p.smart_selector_fit_options %}
+          <span class="smart-product-card__fit" data-fit-code="{{ fit.code }}">{{ fit.label }}</span>
+          {% endfor %}
+        </span>
+        {% endif %}
+      </div>
+
     </div>
   </article>
 {% endwith %}

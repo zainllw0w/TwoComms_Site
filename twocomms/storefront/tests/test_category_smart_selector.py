@@ -168,6 +168,70 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertNotContains(response, "data-quick-view")
         self.assertNotContains(response, 'class="home-product-card card product')
 
+    def test_discounted_product_card_renders_image_edge_marker_and_original_price(self):
+        self.create_product(
+            category=self.tshirts,
+            slug="discount-card",
+            price=1090,
+            discount_percent=20,
+        )
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        html = response.content.decode()
+        card = html.split('data-product-title="Smart Product"', 1)[1].split("</article>", 1)[0]
+        media = card.split('class="smart-product-card__media"', 1)[1].split(
+            'class="smart-product-card__body"', 1
+        )[0]
+        self.assertEqual(media.count('class="smart-product-card__discount-marker"'), 1)
+        self.assertIn(">−20%<", media)
+        self.assertIn('class="smart-product-card__price"', card)
+        self.assertIn("872 грн", card)
+        self.assertIn('class="smart-product-card__old-price"', card)
+        self.assertIn("1090 грн", card)
+
+    def test_non_discounted_product_card_has_no_discount_only_markup(self):
+        self.create_product(category=self.tshirts, slug="regular-card", price=1090)
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        html = response.content.decode()
+        card = html.split('data-product-title="Smart Product"', 1)[1].split("</article>", 1)[0]
+        self.assertNotIn('smart-product-card__discount-marker', card)
+        self.assertNotIn('smart-product-card__old-price', card)
+        self.assertNotIn("−0%", card)
+
+    def test_product_card_moves_all_color_links_into_media_stack(self):
+        product = self.create_product(category=self.tshirts, slug="media-color-stack")
+        for index, name in enumerate(("black", "white", "coyote", "menthol")):
+            color = Color.objects.create(name=name, primary_hex=f"#{index + 1:06x}")
+            ProductColorVariant.objects.create(
+                product=product,
+                color=color,
+                is_default=index == 0,
+            )
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        html = response.content.decode()
+        card = html.split('data-product-title="Smart Product"', 1)[1].split("</article>", 1)[0]
+        media, body = card.split('class="smart-product-card__body"', 1)
+        self.assertIn('class="smart-product-card__color-stack"', media)
+        self.assertGreater(
+            media.index('class="smart-product-card__color-stack"'),
+            media.index('class="favorite-btn smart-product-card__favorite"'),
+        )
+        self.assertEqual(media.count('class="smart-product-card__color-toggle"'), 1)
+        self.assertIn('data-smart-color-toggle', media)
+        self.assertIn('aria-expanded="false"', media)
+        self.assertIn(">+3<", media)
+        self.assertEqual(media.count('class="smart-product-card__swatch"'), 4)
+        self.assertIn('class="smart-product-card__color-menu"', media)
+        self.assertNotIn('smart-product-card__color-row', body)
+        self.assertNotIn("Колір:", card)
+        for variant in product.color_variants.select_related("color"):
+            self.assertIn(variant.public_url, media)
+
     @override_settings(STATIC_URL="/static/")
     def test_image_less_card_uses_static_placeholder_url(self):
         self.create_product(category=self.tshirts, slug="placeholder-card")

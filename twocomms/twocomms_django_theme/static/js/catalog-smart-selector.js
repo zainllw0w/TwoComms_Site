@@ -114,6 +114,15 @@
     });
   };
 
+  const closeColorStacks = ({ restoreFocus = false } = {}) => {
+    root.querySelectorAll("[data-smart-color-stack].is-open").forEach((stack) => {
+      stack.classList.remove("is-open");
+      const toggle = stack.querySelector("[data-smart-color-toggle]");
+      toggle?.setAttribute("aria-expanded", "false");
+      if (restoreFocus) toggle?.focus();
+    });
+  };
+
   const toggleRepeatedParameter = (url, key, value) => {
     const currentValues = url.searchParams.getAll(key);
     const hasValue = currentValues.includes(value);
@@ -411,6 +420,23 @@
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
 
+    const colorToggle = target.closest("[data-smart-color-toggle]");
+    if (colorToggle && root.contains(colorToggle)) {
+      event.preventDefault();
+      const stack = colorToggle.closest("[data-smart-color-stack]");
+      const willOpen = !stack?.classList.contains("is-open");
+      closeColorStacks();
+      stack?.classList.toggle("is-open", willOpen);
+      colorToggle.setAttribute("aria-expanded", String(willOpen));
+      return;
+    }
+
+    const colorChoice = target.closest("[data-smart-color-choice]");
+    if (colorChoice && root.contains(colorChoice)) {
+      closeColorStacks();
+      return;
+    }
+
     const cardLink = target.closest(".smart-product-card [data-product-card-link]");
     if (cardLink && root.contains(cardLink)) {
       const card = cardLink.closest(".smart-product-card");
@@ -508,11 +534,22 @@
     }
   });
 
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && !target.closest("[data-smart-color-stack]")) closeColorStacks();
+  });
+
   overlay?.addEventListener("click", (event) => {
     if (event.target === overlay) closeFilters();
   });
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && root.querySelector("[data-smart-color-stack].is-open")) {
+      event.preventDefault();
+      closeColorStacks({ restoreFocus: true });
+      return;
+    }
+
     if (!overlay?.classList.contains("is-open")) return;
 
     if (event.key === "Escape") {

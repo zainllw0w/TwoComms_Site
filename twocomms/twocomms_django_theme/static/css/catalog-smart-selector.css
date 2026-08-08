@@ -524,6 +524,26 @@
   box-shadow: 0 0 0 2px rgba(104, 214, 154, 0.13);
 }
 
+[data-smart-selector] .smart-product-card__discount-marker {
+  position: absolute;
+  top: 38px;
+  left: 0;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  min-width: 42px;
+  min-height: 22px;
+  padding: 0 7px;
+  color: #ffd09a;
+  font-size: 0.62rem;
+  font-weight: 860;
+  line-height: 1;
+  border: 1px solid rgba(243, 164, 61, 0.48);
+  border-left: 0;
+  border-radius: 0 4px 4px 0;
+  background: rgba(24, 20, 16, 0.9);
+}
+
 [data-smart-selector] .smart-product-card__favorite {
   position: absolute;
   top: 4px;
@@ -573,6 +593,56 @@
 [data-smart-selector] .smart-product-card__favorite .favorite-btn-icon {
   display: grid;
   place-items: center;
+}
+
+[data-smart-selector] .smart-product-card__color-stack {
+  position: absolute;
+  top: 45px;
+  right: 5px;
+  z-index: 3;
+  width: 40px;
+  min-height: 40px;
+}
+
+[data-smart-selector] .smart-product-card__color-toggle {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  gap: 3px;
+  padding: 0 4px;
+  color: #fff;
+  font-size: 0.56rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid #53606e;
+  border-radius: 5px;
+  background: rgba(8, 11, 15, 0.92);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+[data-smart-selector] .smart-product-card__color-toggle .smart-product-card__swatch-dot {
+  width: 15px;
+  height: 15px;
+}
+
+[data-smart-selector] .smart-product-card__color-menu {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: none;
+  grid-template-columns: repeat(2, 40px);
+  width: 84px;
+  gap: 4px;
+}
+
+[data-smart-selector] .smart-product-card__color-stack.is-open .smart-product-card__color-toggle {
+  visibility: hidden;
+}
+
+[data-smart-selector] .smart-product-card__color-stack.is-open .smart-product-card__color-menu {
+  display: grid;
 }
 
 [data-smart-selector] .smart-product-card__body {
@@ -627,6 +697,15 @@
   white-space: nowrap;
 }
 
+[data-smart-selector] .smart-product-card__old-price {
+  color: var(--smart-muted);
+  font-size: 0.68rem;
+  font-weight: 650;
+  white-space: nowrap;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
 [data-smart-selector] .smart-product-card__fit {
   display: inline-flex;
   align-items: center;
@@ -641,45 +720,36 @@
   border-radius: 3px;
 }
 
-[data-smart-selector] .smart-product-card__color-row {
-  min-width: 0;
-  margin-top: 3px;
-}
-
-[data-smart-selector] .smart-product-card__colors {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 0;
-  overflow: visible;
-  scrollbar-width: none;
-}
-
-[data-smart-selector] .smart-product-card__swatch,
-[data-smart-selector] .smart-product-card__color-more {
+[data-smart-selector] .smart-product-card__swatch {
   position: relative;
   display: grid;
   place-items: center;
   width: 40px;
   height: 40px;
-  min-width: 0;
-  max-width: 40px;
-  flex: 1 1 40px;
+  min-width: 40px;
+  flex: 0 0 40px;
   color: var(--smart-muted);
   text-decoration: none;
-  border-radius: 5px;
+  border-radius: 4px;
 }
 
 [data-smart-selector] .smart-product-card__swatch:hover,
-[data-smart-selector] .smart-product-card__color-more:hover {
+[data-smart-selector] .smart-product-card__swatch:focus-visible {
+  outline: 1px solid var(--smart-accent);
+  outline-offset: -2px;
   background: rgba(255, 255, 255, 0.045);
+}
+
+[data-smart-selector] .smart-product-card__swatch[aria-pressed="true"] {
+  outline: 1px solid var(--smart-accent);
+  outline-offset: -2px;
 }
 
 [data-smart-selector] .smart-product-card__swatch-dot {
   position: relative;
   display: block;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 50%;
   background: linear-gradient(135deg, var(--smart-swatch-a) 0 52%, var(--smart-swatch-b) 53% 100%);
@@ -689,18 +759,13 @@
 [data-smart-selector] .smart-product-card__thermo {
   position: absolute;
   inset: 0;
-  width: 11px;
-  height: 11px;
+  width: 9px;
+  height: 9px;
   margin: auto;
   overflow: visible;
   fill: #111;
   filter: none;
   pointer-events: none;
-}
-
-[data-smart-selector] .smart-product-card__color-more {
-  font-size: 0.66rem;
-  font-weight: 820;
 }
 
 [data-smart-selector] .smart-selector__empty {
