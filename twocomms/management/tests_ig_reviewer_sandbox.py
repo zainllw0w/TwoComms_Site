@@ -189,6 +189,46 @@ class ReviewerSandboxTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    def test_reviewer_status_redacts_live_diagnostics_and_logs(self):
+        settings_row = InstagramBotSettings.load()
+        settings_row.page_id = "real-page-id"
+        settings_row.last_error = "customer@example.com leaked diagnostic"
+        settings_row.save(update_fields=["page_id", "last_error", "updated_at"])
+        InstagramBotLog.objects.create(
+            level="error",
+            event="provider_failure",
+            detail="IGSID 5000000001 customer@example.com",
+        )
+        self._login_reviewer()
+
+        response = self.client.get(
+            "/bot/api/status/",
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["log"], [])
+        self.assertNotIn("provider_account_id", payload["status"])
+        self.assertNotIn("last_error", payload["status"])
+        self.assertNotIn("customer@example.com", response.content.decode())
+
+    def test_reviewer_client_list_is_empty_sandbox(self):
+        self._login_reviewer()
+
+        response = self.client.get(
+            "/bot/api/clients/",
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["clients"], [])
+        self.assertTrue(payload["reviewer_sandbox"])
+        self.assertNotIn("live_client", response.content.decode())
+
     # ------------------------------------------- админ не пострадал
     def test_admin_can_still_pause_client(self):
         self.client.force_login(self.admin)

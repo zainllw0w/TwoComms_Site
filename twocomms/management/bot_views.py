@@ -70,6 +70,43 @@ def _is_reviewer_only(user) -> bool:
     return is_meta_bot_reviewer(user) and not _is_admin(user)
 
 
+_REVIEWER_STATUS_SENSITIVE_KEYS = frozenset({
+    "provider_account_id",
+    "last_error",
+    "error",
+    "detail",
+    "trigger_text",
+    "reply_text",
+    "allowed_senders",
+    "analysis_reconcile_cursor",
+    "analysis_reconcile_after",
+    "last_gemini_key",
+    "last_gemini_at",
+    "last_inbound_at",
+    "last_reply_at",
+})
+
+
+def _reviewer_safe_status(request):
+    """Return status telemetry without account IDs, customer text or errors."""
+    status = bot.status_snapshot()
+    if not _is_reviewer_only(request.user):
+        return status
+
+    def redact(value):
+        if isinstance(value, dict):
+            return {
+                key: redact(item)
+                for key, item in value.items()
+                if key not in _REVIEWER_STATUS_SENSITIVE_KEYS
+            }
+        if isinstance(value, list):
+            return [redact(item) for item in value]
+        return value
+
+    return redact(status)
+
+
 def privacy_policy(request):
     response = render(request, "management/privacy_policy.html")
     response["Cache-Control"] = "public, max-age=300"
@@ -558,8 +595,8 @@ def bot_dashboard(request):
         "management/bot.html",
         {
             "settings": settings_obj,
-            "status": bot.status_snapshot(),
-            "log_items": _log_items(),
+            "status": _reviewer_safe_status(request),
+            "log_items": [] if reviewer_mode else _log_items(),
             "cred_env": InstagramBotSettings.CredSource.ENV,
             "cred_custom": InstagramBotSettings.CredSource.CUSTOM,
             "has_custom_direct_token": settings_obj.has_custom_direct_token,
@@ -578,7 +615,7 @@ def bot_start_api(request):
         return blocked
     _audit_reviewer_action(request, "bot_start")
     bot.start_bot()
-    return JsonResponse({"success": True, "status": bot.status_snapshot()})
+    return JsonResponse({"success": True, "status": _reviewer_safe_status(request)})
 
 
 @login_required(login_url="management_login")
@@ -589,7 +626,7 @@ def bot_stop_api(request):
         return blocked
     _audit_reviewer_action(request, "bot_stop")
     bot.stop_bot()
-    return JsonResponse({"success": True, "status": bot.status_snapshot()})
+    return JsonResponse({"success": True, "status": _reviewer_safe_status(request)})
 
 
 @login_required(login_url="management_login")
@@ -602,6 +639,13 @@ def bot_status_api(request):
         after_id = int(request.GET.get("after_id") or 0)
     except (TypeError, ValueError):
         after_id = 0
+
+    if _is_reviewer_only(request.user):
+        return JsonResponse({
+            "success": True,
+            "status": _reviewer_safe_status(request),
+            "log": [],
+        })
 
     rows = InstagramBotLog.objects.all()
     if after_id:
@@ -618,7 +662,7 @@ def bot_status_api(request):
         }
         for r in rows
     ]
-    return JsonResponse({"success": True, "status": bot.status_snapshot(), "log": items})
+    return JsonResponse({"success": True, "status": _reviewer_safe_status(request), "log": items})
 
 
 @require_GET
@@ -3189,7 +3233,7 @@ def bot_settings_save_api(request):
         "settings_saved",
         f"ai={s.ai_enabled}, model={s.gemini_model}, direct={s.direct_source}, gemini={s.gemini_source}",
     )
-    return JsonResponse({"success": True, "status": bot.status_snapshot()})
+    return JsonResponse({"success": True, "status": _reviewer_safe_status(request)})
 
 
 # ---------------------------------------------------------------------------
@@ -3865,6 +3909,21 @@ def bot_clients_api(request):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
+    if _is_reviewer_only(request.user):
+        return JsonResponse({
+            "success": True,
+            "clients": [],
+            "total": 0,
+            "pagination": {
+                "page": 1,
+                "total_pages": 1,
+                "total_items": 0,
+                "start_item": 0,
+                "end_item": 0,
+                "has_next": False,
+            },
+            "reviewer_sandbox": True,
+        })
     from django.db.models import Q
 
     from .models import IgClient, IgDeal
