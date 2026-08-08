@@ -1038,7 +1038,7 @@ class IgFunnelAnalyticsApiTests(TestCase):
     def test_admin_template_renders_event_cohort_separately_from_stage_snapshot(self):
         response = self.client.get(reverse("management_bot"))
 
-        self.assertContains(response, "Когортна воронка")
+        self.assertContains(response, "Переходи між етапами")
         self.assertContains(response, "Поточні етапи")
 
     def test_variant_aware_quote_accepts_thermo_price_instead_of_base_price(self):

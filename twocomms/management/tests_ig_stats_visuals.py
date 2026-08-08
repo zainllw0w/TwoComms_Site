@@ -1046,7 +1046,6 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "amount_coverage_percent",
             "—",
             "Покриття суми",
-            "Поточний snapshot",
         ):
             self.assertIn(contract, self.template)
 
@@ -1075,13 +1074,14 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
-    def test_stage2_details_use_a_compact_drawer_with_focus_return(self):
+    def test_stage2_details_use_a_centered_modal_with_focus_return(self):
         for contract in (
             "bot-stats-detail-drawer",
             "bot-stats-detail-drawer-panel",
             'data-stats-detail-trigger',
             'data-stats-detail-close',
             "StatsDetailDrawer",
+            "statsDrawerParent.appendChild(drawer)",
             "returnFocus",
             "drawer.hidden=true",
             'tabindex="-1"',
@@ -1089,10 +1089,14 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "document.activeElement===title",
             "event.shiftKey?last:first",
             "bot-stats-detail-drawer-open",
-            "window.matchMedia('(min-width:561px)').matches",
+            "window.matchMedia('(min-width:701px)').matches",
             "event.key==='Escape'",
             "prefers-reduced-motion",
-            "max-height:min(86dvh,720px)",
+            "place-items:center",
+            ".bot-stats-detail-drawer,.bot-stats-detail-drawer *{box-sizing:border-box;}",
+            "width:min(1080px,calc(100vw - 48px))",
+            "max-height:min(88dvh,780px)",
+            "@media(max-width:700px)",
             "bot-stats-loss-bars",
             "bot-stats-duration-plot",
             "bot-stats-ownership-split",
@@ -1107,6 +1111,87 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "observation_cutoff",
         ):
             self.assertIn(contract, self.template)
+
+    def test_stage2_detail_modal_groups_losses_and_uses_plain_language(self):
+        for contract in (
+            "function isStructuralLossReason",
+            "function aggregateLossReasons",
+            "new_deal_episode",
+            "new_review_episode",
+            "new_attribution_episode",
+            "code==='silence'||code.startsWith('silence_')",
+            "kind==='silence'",
+            "Немає відповіді",
+            "Інші причини",
+            "найчастіші причини",
+            "Розподіл поточних етапів",
+            "function formatDurationHours",
+            "Зазвичай",
+            "90% діалогів до",
+            "Діалогів",
+            "Ще тривають",
+            "Недостатньо даних",
+            "Переходи між етапами",
+            "Кожен діалог враховано в одній групі",
+            "Дані враховано до '+fmtDateTime(cutoff)",
+        ):
+            self.assertIn(contract, self.template)
+
+        for visible_internal_copy in (
+            "remaining loss:",
+            "total до Top-N",
+            "sample · right-censored",
+            "Поточний snapshot",
+            "primary objection snapshot",
+            ">CR</span>",
+            "спостереження до ",
+        ):
+            self.assertNotIn(visible_internal_copy, self.template)
+
+    def test_primary_decision_rail_uses_human_facing_service_labels(self):
+        for contract in (
+            "function decisionMetaLabel",
+            "Унікальні клієнти за період",
+            "Усі повідомлення за період",
+            "Посилання, створені за період",
+            "Оплати, підтверджені за період",
+            "Підтверджені оплати з відомою сумою",
+            "metricHelp[spec.key]||coverage",
+        ):
+            self.assertIn(contract, self.template)
+
+        self.assertNotIn(
+            "spec.key==='paid'?'події оплати · '+esc(contract.timeField):esc(contract.basis)",
+            self.template,
+        )
+
+    def test_secondary_stats_keep_machine_contracts_out_of_visible_copy(self):
+        for contract in (
+            "Повідомлення клієнтів · за вибраний період",
+            "Відповіді бота · за вибраний період",
+            "Повідомлення менеджера · за вибраний період",
+            "Заплановані контакти · за вибраний період",
+            "Оплати після нагадування · за вибраний період",
+            "Конверсії зі знижкою · за вибраний період",
+            "Приховані клієнти · за вибраний період",
+            "За вибраний період подій не зафіксовано.",
+            'data-stats-basis="\'+esc(spec[3])+\'"',
+            "basisLabel=spec=>spec[2]",
+            ".bot-stats-discount-bridge{min-width:0;overflow:hidden;}",
+            ".bot-stats-discount-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px;min-width:0;}",
+            ".bot-stats-discount-node span{min-width:0;color:#7f8fa3;font-size:7.8px;line-height:1.2;overflow-wrap:anywhere;}",
+            "@media(prefers-reduced-motion:reduce){.bot-stats-detail-drawer,.bot-stats-detail-drawer-panel{animation:none!important;}}",
+        ):
+            self.assertIn(contract, self.template)
+
+        for visible_internal_copy in (
+            "події · provider_created_at / created_at",
+            "черга · due_at у періоді",
+            "оплата · paid_at у періоді",
+            "клієнти · hidden_at у періоді",
+            "baseline очікує нові дані",
+        ):
+            self.assertNotIn(visible_internal_copy, self.template)
 
     def test_stage2_single_day_activity_uses_hourly_items_and_truthful_compact_empty_state(self):
         for contract in (
@@ -1167,8 +1252,8 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "interest_count",
             "bot-stats-ad-bars",
             "Детальні дані",
-            "Когортна воронка",
-            "Причини відсіву",
+            "Переходи між етапами",
+            "Причини втрат",
             "Час на кроці",
             "Хто відповідав",
             "Знижка → результат",
@@ -1398,7 +1483,7 @@ class StatsDashboardTemplateContractTests(SimpleTestCase):
             "aria-describedby=\"bot-stats-detail-drawer-description\"",
             "id=\"bot-stats-detail-drawer-description\"",
             "const allLossTotal=",
-            "remaining loss",
+            "Інші причини",
             "right_censored_count",
             "hourly_reconciled===false",
             "basisLabel",

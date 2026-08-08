@@ -86,7 +86,7 @@
 .bot-stats-detail-hub-title{margin:0;color:#dce5ef;font-size:11.5px;font-weight:850;}
 .bot-stats-detail-hub-meta{color:#78879a;font-size:9px;font-weight:700;}
 .bot-stats-detail-modules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
-.bot-stats-detail-module{min-width:0;min-height:126px;border:1px solid #202c3b;border-radius:7px;background:#0b1119;padding:10px;}
+.bot-stats-detail-module{min-width:0;min-height:126px;border:1px solid #202c3b;border-radius:7px;background:#0b1119;padding:10px;overflow:hidden;}
 .bot-stats-detail-module-title{display:flex;align-items:center;justify-content:space-between;gap:6px;color:#aebacc;font-size:9px;font-weight:800;}
 .bot-stats-detail-module-title>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bot-stats-detail-module-title strong{color:#e6edf5;font-size:10px;font-variant-numeric:tabular-nums;}
@@ -99,8 +99,9 @@
 .bot-stats-fact-row{display:grid;gap:5px;border:1px solid #202c3b;border-radius:6px;background:#101925;padding:8px;}
 .bot-stats-fact-row>strong{color:#dce5ef;font-size:9px;}
 .bot-stats-fact-values{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
-.bot-stats-fact-values span{display:grid;gap:2px;min-width:0;color:#718197;font-size:8px;}
-.bot-stats-fact-values b{color:#e5edf6;font-size:10px;font-variant-numeric:tabular-nums;}
+.bot-stats-fact-values span{display:grid;gap:3px;min-width:0;color:#718197;}
+.bot-stats-fact-values small{font-size:8px;font-weight:750;line-height:1.2;}
+.bot-stats-fact-values b{color:#e5edf6;font-size:10px;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 .bot-stats-mini-list{display:grid;gap:7px;margin-top:9px;}
 .bot-stats-mini-row{display:grid;grid-template-columns:minmax(80px,1fr) minmax(80px,1.25fr) auto;align-items:center;gap:7px;color:#91a0b3;font-size:8.5px;}
 .bot-stats-mini-row>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -108,11 +109,15 @@
 .bot-stats-mini-rail{display:flex;height:6px;overflow:hidden;border-radius:3px;background:#1b2635;}
 .bot-stats-mini-rail>i{display:block;width:var(--mini-width,0%);height:100%;background:var(--mini-color,#60a5fa);transition:width var(--stats-motion-medium) var(--stats-ease);}
 .bot-stats-loss-bars .is-recoverable{background:#d4a85e}.bot-stats-loss-bars .is-final{background:#ef7d68}
-.bot-stats-duration-row{display:grid;grid-template-columns:minmax(80px,1fr) minmax(100px,1.35fr) auto;align-items:center;gap:7px;color:#91a0b3;font-size:8.5px;}
+.bot-stats-duration-row{display:grid;grid-template-columns:minmax(100px,.7fr) minmax(140px,1.3fr);align-items:center;gap:7px 10px;color:#91a0b3;font-size:8.5px;}
+.bot-stats-duration-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bot-stats-duration-track{position:relative;height:7px;border-radius:4px;background:#1b2635;}
 .bot-stats-duration-track::before{content:'';position:absolute;top:2px;left:0;width:var(--p90-width,0%);height:3px;border-radius:2px;background:#516b89;}
 .bot-stats-duration-track::after{content:'';position:absolute;top:-2px;left:var(--median-width,0%);width:2px;height:11px;border-radius:1px;background:#60a5fa;transform:translateX(-1px);}
-.bot-stats-duration-row strong{color:#c8d5e3;font-size:8.5px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.bot-stats-duration-facts{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}
+.bot-stats-duration-facts span{display:grid;gap:2px;min-width:0;border-left:1px solid #263448;padding-left:7px;color:#718197;}
+.bot-stats-duration-facts small{font-size:7.5px;font-weight:750;line-height:1.2;}
+.bot-stats-duration-facts b{color:#c8d5e3;font-size:9px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
 .bot-stats-duration-plot{display:grid;gap:9px;margin-top:10px;}
 .bot-stats-ownership-bar{display:flex;height:10px;margin-top:12px;overflow:hidden;border-radius:5px;background:#1b2635;}
 .bot-stats-ownership-bar i{display:block;width:var(--ownership-width,0%);min-width:0;transition:width var(--stats-motion-medium) var(--stats-ease);}
@@ -120,28 +125,44 @@
 .bot-stats-ownership-legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:9px;}
 .bot-stats-ownership-legend span{display:grid;gap:2px;color:#78889d;font-size:8px;}
 .bot-stats-ownership-legend b{color:#dce5ef;font-size:10px;font-variant-numeric:tabular-nums;}
-.bot-stats-discount-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px;}
-.bot-stats-discount-node{position:relative;display:grid;gap:3px;min-width:0;border-left:2px solid var(--discount-color,#60a5fa);background:#101925;padding:7px 7px 7px 8px;}
+.bot-stats-discount-bridge{min-width:0;overflow:hidden;}
+.bot-stats-discount-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px;min-width:0;}
+.bot-stats-discount-node{position:relative;display:grid;gap:3px;min-width:0;border-left:2px solid var(--discount-color,#60a5fa);background:#101925;padding:7px 7px 7px 8px;overflow:hidden;}
 .bot-stats-discount-node:not(:last-child)::after{content:'›';position:absolute;top:50%;right:-7px;z-index:1;color:#52647a;transform:translateY(-50%);}
-.bot-stats-discount-node b{color:#e5edf6;font-size:13px;font-variant-numeric:tabular-nums;}
-.bot-stats-discount-node span{min-width:0;color:#7f8fa3;font-size:7.8px;line-height:1.2;}
-.bot-stats-discount-baseline{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;border-top:1px solid #202c3b;padding-top:7px;color:#7f8fa3;font-size:8px;}
+.bot-stats-discount-node b{min-width:0;color:#e5edf6;font-size:13px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+.bot-stats-discount-node span{min-width:0;color:#7f8fa3;font-size:7.8px;line-height:1.2;overflow-wrap:anywhere;}
+.bot-stats-discount-baseline{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;margin-top:7px;border-top:1px solid #202c3b;padding-top:7px;color:#7f8fa3;font-size:8px;}
+.bot-stats-discount-baseline span{min-width:0;overflow-wrap:anywhere;}
 .bot-stats-discount-baseline b{color:#cbd7e4;font-variant-numeric:tabular-nums;}
 .bot-stats-stage-bars .bot-stats-mini-rail>i{background:#60a5fa}.bot-stats-objection-bars .bot-stats-mini-rail>i{background:#d3a64a}
-.bot-stats-detail-drawer-body .bot-stats-detail-modules{grid-template-columns:minmax(0,1fr);}
-.bot-stats-detail-drawer-body .bot-stats-detail-module{min-height:0;}
-.bot-stats-detail-drawer-body .bot-stats-detail-section{margin-top:10px;}
-.bot-stats-detail-drawer{position:fixed;z-index:80;inset:0;display:grid;place-items:stretch end;padding:14px;background:rgba(2,6,12,.7);opacity:1;transition:opacity var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-detail-drawer-body .bot-stats-details-content{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding:0;}
+.bot-stats-detail-drawer-body .bot-stats-detail-modules{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.bot-stats-detail-drawer-body .bot-stats-detail-module{min-height:0;padding:13px;}
+.bot-stats-detail-drawer-body .bot-stats-detail-module-title{font-size:11px;}
+.bot-stats-detail-drawer-body .bot-stats-detail-module-title strong{font-size:12px;}
+.bot-stats-detail-drawer-body .bot-stats-detail-module-meta{font-size:9.5px;}
+.bot-stats-detail-drawer-body .bot-stats-mini-row{grid-template-columns:minmax(120px,1fr) minmax(130px,1.25fr) auto;font-size:10px;}
+.bot-stats-detail-drawer-body .bot-stats-mini-row>strong{font-size:10.5px;}
+.bot-stats-detail-drawer-body .bot-stats-detail-key,.bot-stats-detail-drawer-body .bot-stats-detail-completeness{font-size:9px;}
+.bot-stats-detail-drawer-body .bot-stats-detail-section{margin-top:0;}
+.bot-stats-detail-drawer,.bot-stats-detail-drawer *{box-sizing:border-box;}
+.bot-stats-detail-drawer{position:fixed;z-index:80;inset:0;display:grid;place-items:center;padding:24px;background:rgba(2,6,12,.74);opacity:1;animation:botStatsDetailBackdropIn var(--stats-motion-medium) var(--stats-ease) both;}
 .bot-stats-detail-drawer[hidden]{display:none;}
+.bot-stats-detail-drawer.is-closing{animation:botStatsDetailBackdropOut var(--stats-motion-fast) ease both;}
 .bot-stats-detail-drawer-backdrop{position:absolute;inset:0;border:0;background:transparent;cursor:pointer;}
-.bot-stats-detail-drawer-panel{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr);width:min(420px,calc(100vw - 28px));height:calc(100dvh - 28px);max-height:720px;overflow:hidden;border:1px solid #33445a;border-radius:8px;background:#0b1119;box-shadow:-20px 0 60px rgba(0,0,0,.48);transform:translateX(0);transition:transform var(--stats-motion-medium) var(--stats-ease);}
-.bot-stats-detail-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #202c3b;}
-.bot-stats-detail-drawer-definition{grid-column:1;display:block;margin:3px 0 0;color:#71839a;font-size:9px;font-weight:700;line-height:1.3;}
-.bot-stats-detail-drawer-title{margin:0;color:#edf3f8;font-size:13px;font-weight:850;}
-.bot-stats-detail-drawer-close{display:grid;place-items:center;width:28px;height:28px;border:1px solid #2a394d;border-radius:6px;background:#101925;color:#b7c5d5;font-size:16px;cursor:pointer;}
-.bot-stats-detail-drawer-body{min-height:0;overflow:auto;padding:12px;overscroll-behavior:contain;}
-.bot-stats-detail-drawer-body .bot-stats-details-content{padding:0;}
+.bot-stats-detail-drawer-panel{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr);width:min(1080px,calc(100vw - 48px));height:min(88dvh,780px);max-width:100%;max-height:min(88dvh,780px);min-width:0;overflow:hidden;border:1px solid #33445a;border-radius:8px;background:#0b1119;box-shadow:0 24px 80px rgba(0,0,0,.54);animation:botStatsDetailModalIn var(--stats-motion-medium) var(--stats-ease) both;}
+.bot-stats-detail-drawer.is-closing .bot-stats-detail-drawer-panel{animation:botStatsDetailModalOut var(--stats-motion-fast) ease both;}
+.bot-stats-detail-drawer-head{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #202c3b;background:#0b1119;}
+.bot-stats-detail-drawer-definition{grid-column:1;display:block;margin:4px 0 0;color:#8290a4;font-size:10px;font-weight:700;line-height:1.35;}
+.bot-stats-detail-drawer-title{margin:0;color:#edf3f8;font-size:15px;font-weight:850;line-height:1.3;}
+.bot-stats-detail-drawer-close{display:grid;place-items:center;width:32px;height:32px;border:1px solid #2a394d;border-radius:6px;background:#101925;color:#c4d0de;font-size:18px;cursor:pointer;transition:background var(--stats-motion-fast) var(--stats-ease),border-color var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-detail-drawer-close:hover,.bot-stats-detail-drawer-close:focus-visible{border-color:#557294;background:#162334;color:#fff;}
+.bot-stats-detail-drawer-body{min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;padding:16px 18px 20px;overscroll-behavior:contain;scrollbar-gutter:stable;}
 .bot-stats-detail-drawer-body .bot-stats-detail-section{border-color:#253246;background:#0d151f;}
+@keyframes botStatsDetailBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes botStatsDetailBackdropOut{from{opacity:1}to{opacity:0}}
+@keyframes botStatsDetailModalIn{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
+@keyframes botStatsDetailModalOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(6px) scale(.995)}}
 .bot-stats-detail-trigger{min-height:32px;border:1px solid #2c4059;border-radius:7px;background:#101c2a;color:#c8ddf1;padding:7px 10px;font:800 10px/1 inherit;cursor:pointer;transition:background var(--stats-motion-fast) var(--stats-ease),border-color var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
 .bot-stats-detail-trigger:hover{border-color:#4b6b90;background:#162638;transform:translateY(-1px);}
 body.bot-stats-detail-drawer-open{overflow:hidden;}
@@ -154,8 +175,10 @@ body.bot-stats-detail-drawer-open{overflow:hidden;}
 .bot-stats-activity-hour-segment.inbound{background:#60a5fa}.bot-stats-activity-hour-segment.bot{background:#2dd4bf}.bot-stats-activity-hour-segment.manager{background:#f59e0b}
 .bot-stats-activity-hour-label{position:absolute;bottom:-14px;color:#657386;font-size:7px;font-weight:750;line-height:1;}
 @media(max-width:880px){.bot-stats-decision-rail{grid-template-columns:repeat(3,minmax(0,1fr));}.bot-stats-detail-modules{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:780px){.bot-stats-detail-drawer-body .bot-stats-detail-modules{grid-template-columns:minmax(0,1fr);}}
 @media(max-width:680px){.bot-stats-detail-modules{grid-template-columns:minmax(0,1fr);}}
-@media(max-width:560px){.bot-stats-decision-rail{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-stats-decision-slot{min-height:92px;padding:10px;}.bot-stats-decision-value{font-size:22px;}.bot-stats-detail-drawer{place-items:end stretch;padding:0;}.bot-stats-detail-drawer-backdrop{display:none;}.bot-stats-detail-drawer-panel{width:100%;height:auto;max-height:min(86dvh,720px);border-width:1px 0 0;border-radius:10px 10px 0 0;box-shadow:0 -20px 60px rgba(0,0,0,.48);transform:translateY(0);}.bot-stats-detail-drawer-body{height:auto;max-height:calc(min(86dvh,720px) - 54px);padding-bottom:calc(12px + env(safe-area-inset-bottom));}.bot-stats-ownership-legend{grid-template-columns:minmax(0,1fr);}.bot-stats-discount-path{grid-template-columns:minmax(0,1fr);}.bot-stats-discount-node:not(:last-child)::after{display:none;}}
+@media(max-width:700px){.bot-stats-detail-drawer{place-items:stretch;padding:0;}.bot-stats-detail-drawer-backdrop{display:none;}.bot-stats-detail-drawer-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;}.bot-stats-detail-drawer-head{padding:12px 14px;}.bot-stats-detail-drawer-body{padding:14px 12px calc(16px + env(safe-area-inset-bottom));scrollbar-gutter:auto;}.bot-stats-fact-values{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}.bot-stats-fact-values span{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #202c3b;padding:5px 0;}.bot-stats-fact-values span:nth-child(5){grid-column:1/-1;}.bot-stats-duration-facts{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-stats-ownership-legend{grid-template-columns:minmax(0,1fr);}.bot-stats-discount-path{grid-template-columns:minmax(0,1fr);}.bot-stats-discount-node:not(:last-child)::after{display:none;}}
+@media(max-width:560px){.bot-stats-decision-rail{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-stats-decision-slot{min-height:92px;padding:10px;}.bot-stats-decision-value{font-size:22px;}.bot-stats-detail-drawer-body .bot-stats-mini-row{grid-template-columns:minmax(92px,1fr) minmax(86px,1fr) auto;gap:6px;}.bot-stats-duration-row{grid-template-columns:minmax(86px,.7fr) minmax(110px,1.3fr);}.bot-stats-duration-facts{gap:6px;}.bot-stats-duration-facts span{padding-left:6px;}}
 @media(max-width:320px){.bot-stats-decision-rail{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-stats-decision-slot:last-child{grid-column:1/-1;}}
 .bot-stats-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
 .bot-stats-heading{min-width:0;}
@@ -1134,6 +1157,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-attribution-segment span{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter,.bot-stats-flow-detail{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-context-step,.bot-stats-context-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row,.bot-stats-flow-step,.bot-stats-flow-connector,.bot-stats-flow-fill,.bot-stats-flow-segment,.bot-stats-detail-drawer,.bot-stats-detail-drawer-panel,.bot-stats-mini-rail>i,.bot-stats-ownership-bar i{transition:none!important}.bot-stats-flow-step,.bot-stats-flow-connector,.bot-stats-flow-fill{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active,.bot-stats-context-step:hover,.bot-stats-context-step:focus-visible,.bot-stats-context-step.is-active,.bot-stats-flow-step:hover,.bot-stats-flow-step:focus-visible,.bot-stats-flow-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
+@media(prefers-reduced-motion:reduce){.bot-stats-detail-drawer,.bot-stats-detail-drawer-panel{animation:none!important;}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -1510,7 +1534,7 @@ body.bot-drawer-open{overflow:hidden;}
       <header class="bot-stats-detail-drawer-head">
         <div>
           <h2 id="bot-stats-detail-drawer-title" class="bot-stats-detail-drawer-title" data-detail-drawer-title tabindex="-1">Детальні дані</h2>
-          <p id="bot-stats-detail-drawer-description" class="bot-stats-detail-drawer-definition">Когортні факти та діагностика за вибраний період.</p>
+          <p id="bot-stats-detail-drawer-description" class="bot-stats-detail-drawer-definition">Причини втрат, час проходження та переходи клієнтів за вибраний період.</p>
         </div>
         <button type="button" class="bot-stats-detail-drawer-close" data-stats-detail-close data-detail-drawer-close aria-label="Закрити">×</button>
       </header>
@@ -2938,14 +2962,15 @@ body.bot-drawer-open{overflow:hidden;}
     return {load:load,openClient:openClient,renderOrderCard:renderOrderCard};
   })();
 
-  /* ============ Stats detail drawer ============ */
+  /* ============ Stats detail modal ============ */
   const StatsDetailDrawer=(function(){
-    const drawer=document.getElementById('bot-stats-detail-drawer');const panel=drawer&&drawer.querySelector('.bot-stats-detail-drawer-panel');const body=document.getElementById('bot-stats-detail-drawer-body');const title=document.getElementById('bot-stats-detail-drawer-title');let returnFocus=null;
+    const drawer=document.getElementById('bot-stats-detail-drawer');const panel=drawer&&drawer.querySelector('.bot-stats-detail-drawer-panel');const body=document.getElementById('bot-stats-detail-drawer-body');const title=document.getElementById('bot-stats-detail-drawer-title');let returnFocus=null;let closeTimer=null;
+    const statsDrawerParent=document.body;if(drawer&&drawer.parentElement!==statsDrawerParent)statsDrawerParent.appendChild(drawer);
     function focusable(){return panel?Array.from(panel.querySelectorAll('button,a,input,select,textarea,[tabindex]:not([tabindex="-1"])')).filter(item=>!item.disabled&&item.offsetParent!==null):[];}
-    function close({restoreFocus=true}={}){if(!drawer||drawer.hidden)return;drawer.hidden=true;document.body.classList.remove('bot-stats-detail-drawer-open');const trigger=returnFocus;returnFocus=null;if(restoreFocus&&trigger&&document.contains(trigger))trigger.focus({preventScroll:true});}
+    function close({restoreFocus=true}={}){if(!drawer||drawer.hidden||drawer.classList.contains('is-closing'))return;const trigger=returnFocus;returnFocus=null;const finish=()=>{closeTimer=null;drawer.hidden=true;drawer.classList.remove('is-closing');document.body.classList.remove('bot-stats-detail-drawer-open');if(body)body.scrollTop=0;if(restoreFocus&&trigger&&document.contains(trigger))trigger.focus({preventScroll:true});};if(window.matchMedia('(prefers-reduced-motion:reduce)').matches){finish();return;}drawer.classList.add('is-closing');closeTimer=window.setTimeout(finish,180);}
     function trap(event){if(!drawer||drawer.hidden||event.key!=='Tab')return;const items=focusable();if(!items.length){event.preventDefault();panel.focus();return;}const first=items[0],last=items[items.length-1];if(document.activeElement===title){event.preventDefault();(event.shiftKey?last:first).focus();return;}if(document.activeElement===panel||!panel.contains(document.activeElement)){event.preventDefault();first.focus();}else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
-    function open(trigger,html,heading='Детальні дані'){if(!drawer||!panel||!body||!title)return;returnFocus=trigger||document.activeElement;title.textContent=heading;body.innerHTML=html||'<div class="bot-stats-empty-analysis">Немає додаткових даних.</div>';drawer.hidden=false;document.body.classList.add('bot-stats-detail-drawer-open');requestAnimationFrame(()=>title.focus({preventScroll:true}));}
-    if(drawer){drawer.querySelectorAll('[data-stats-detail-close]').forEach(button=>button.addEventListener('click',()=>close()));const backdrop=drawer.querySelector('[data-stats-detail-backdrop]');if(backdrop)backdrop.addEventListener('click',()=>{if(window.matchMedia('(min-width:561px)').matches)close();});drawer.addEventListener('keydown',trap);}
+    function open(trigger,html,heading='Детальні дані'){if(!drawer||!panel||!body||!title)return;if(closeTimer){window.clearTimeout(closeTimer);closeTimer=null;}drawer.classList.remove('is-closing');returnFocus=trigger||document.activeElement;title.textContent=heading;body.innerHTML=html||'<div class="bot-stats-empty-analysis">Немає додаткових даних.</div>';body.scrollTop=0;drawer.hidden=false;document.body.classList.add('bot-stats-detail-drawer-open');requestAnimationFrame(()=>title.focus({preventScroll:true}));}
+    if(drawer){drawer.querySelectorAll('[data-stats-detail-close]').forEach(button=>button.addEventListener('click',()=>close()));const backdrop=drawer.querySelector('[data-stats-detail-backdrop]');if(backdrop)backdrop.addEventListener('click',()=>{if(window.matchMedia('(min-width:701px)').matches)close();});drawer.addEventListener('keydown',trap);}
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drawer&&!drawer.hidden){event.preventDefault();event.stopImmediatePropagation();close();}});
     return {open:open,close:close,isOpen:()=>Boolean(drawer&&!drawer.hidden)};
   })();
@@ -2998,6 +3023,8 @@ body.bot-drawer-open{overflow:hidden;}
       product_matched:'Діалоги вибраного періоду, де вже визначено товар.',
       checkout_or_payment:'Діалоги вибраного періоду на етапі оформлення або очікування оплати.',
       paid:'Лише поточні підтверджені оплати у вибраному періоді. Стадія «Оплачено» без підтвердження не рахується.',
+      paylinks:'Посилання на оплату, які бот або менеджер створили у вибраному періоді.',
+      known_net_revenue:'Сума підтверджених оплат, для яких відома вартість замовлення. Покриття показує, для якої частки оплат сума доступна.',
       lost_or_refused:'Унікальні клієнти з незакритою явною відмовою або зафіксованою втратою через мовчання у вибраному періоді. Відписки, спам і технічна недоступність рахуються окремо.',
       pending_followups:'Невиконані контакти, дата яких припадає на вибраний період.',
       followup_recoveries:'Надіслані у вибраному періоді нагадування, після яких у цьому ж періоді підтверджено оплату.',
@@ -3042,13 +3069,23 @@ body.bot-drawer-open{overflow:hidden;}
       const modules=data&&data.modules||{};const module=modules[spec.source]||{};const metrics=module.metrics||{};const contract=metrics[spec.key]||{};
       return {basis:contract.basis||spec.basis,timeField:contract.time_field||spec.timeField,completeness:contract.completeness||spec.completeness};
     }
+    function decisionMetaLabel(spec,incomplete){
+      if(incomplete)return 'Покриття суми';
+      return {
+        conversations:'Унікальні клієнти за період',
+        messages:'Усі повідомлення за період',
+        paylinks:'Посилання, створені за період',
+        paid:'Оплати, підтверджені за період',
+        known_net_revenue:'Підтверджені оплати з відомою сумою'
+      }[spec.key]||'Дані за вибраний період';
+    }
     function renderDecisionRail(data,previous){
       const samePeriod=Boolean(previous&&statsPeriodKey(previous)===statsPeriodKey(data));
       const cells=decisionRailSpecs.map((spec,index)=>{
         const contract=decisionContract(data,spec);const value=decisionValue(data,spec);const previousValue=previous?decisionValue(previous,spec):value;const changed=value!==null&&previousValue!==null&&value!==previousValue;const revenue=data&&data.revenue||{};const incomplete=spec.key==='known_net_revenue'&&(!num(revenue.priced_payment_count)||String(revenue.status||'')!=='complete');
         const valueText=value===null?'—':(spec.key==='known_net_revenue'?moneyFormat.format(value)+' грн':numberFormat.format(value));
-        const coverage=incomplete?'Покриття суми · '+numberFormat.format(num(revenue.amount_coverage_percent))+'%':spec.key==='paid'?'події оплати · '+esc(contract.timeField):esc(contract.basis);
-        return '<article class="bot-stats-decision-slot '+(spec.tone==='paid'?'is-paid ':'')+(spec.tone==='revenue'?'is-revenue ':'')+(changed&&samePeriod?'is-important-change ':'')+'" data-stats-primary="'+spec.key+'" data-stats-basis="'+esc(contract.basis)+'" data-stats-time-field="'+esc(contract.timeField)+'" data-stats-completeness="'+esc(contract.completeness)+'" style="--reveal-order:'+index+'"><div class="bot-stats-decision-top"><span aria-hidden="true">'+spec.icon+'</span>'+helpMarkup('decision-'+spec.key,metricHelp[spec.key]||contract.basis)+'</div><strong class="bot-stats-decision-value">'+esc(valueText)+'</strong><span class="bot-stats-decision-label">'+esc(spec.label)+'</span><span class="bot-stats-decision-meta '+(incomplete?'is-warning':'')+'" title="'+esc(contract.basis)+' · '+esc(contract.timeField)+'">'+coverage+'</span></article>';
+        const coverage=incomplete?decisionMetaLabel(spec,true)+' · '+numberFormat.format(num(revenue.amount_coverage_percent))+'%':decisionMetaLabel(spec,false);
+        return '<article class="bot-stats-decision-slot '+(spec.tone==='paid'?'is-paid ':'')+(spec.tone==='revenue'?'is-revenue ':'')+(changed&&samePeriod?'is-important-change ':'')+'" data-stats-primary="'+spec.key+'" data-stats-basis="'+esc(contract.basis)+'" data-stats-time-field="'+esc(contract.timeField)+'" data-stats-completeness="'+esc(contract.completeness)+'" style="--reveal-order:'+index+'"><div class="bot-stats-decision-top"><span aria-hidden="true">'+spec.icon+'</span>'+helpMarkup('decision-'+spec.key,metricHelp[spec.key]||coverage)+'</div><strong class="bot-stats-decision-value">'+esc(valueText)+'</strong><span class="bot-stats-decision-label">'+esc(spec.label)+'</span><span class="bot-stats-decision-meta '+(incomplete?'is-warning':'')+'" title="'+esc(coverage)+'">'+esc(coverage)+'</span></article>';
       }).join('');
       return '<section class="bot-stats-decision-rail" aria-label="Ключові показники за період">'+cells+'</section>';
     }
@@ -3090,7 +3127,7 @@ body.bot-drawer-open{overflow:hidden;}
       const values=analytics.totals||{};const attribution=analytics.attribution||{};const notes=[];
       const currentSnapshot=attribution.basis==='current_client_snapshot'&&attribution.historical===false;
       const attributionLabel=attribution.label||'Поточна рекламна прив’язка клієнта';
-      const attributionHelp=currentSnapshot?'Групування використовує поточну рекламну прив’язку в картці клієнта. Це не незмінний історичний snapshot атрибуції на момент події.':'Джерело атрибуції визначене сервером для цього набору даних.';
+      const attributionHelp=currentSnapshot?'Групування використовує поточну рекламну прив’язку в картці клієнта. Це не незмінний історичний знімок атрибуції на момент події.':'Джерело атрибуції визначене сервером для цього набору даних.';
       notes.push('<div class="bot-stats-ad-note"><span>'+esc(attributionLabel)+'</span>'+helpMarkup('ad-attribution',attributionHelp)+'</div>');
       const unpriced=num(values.revenue_unpriced_payments);
       if(unpriced)notes.push('<div class="bot-stats-ad-note is-warning"><span>У дохід не включено '+numberFormat.format(unpriced)+' підтверджених оплат без суми</span>'+helpMarkup('ad-unpriced-revenue','Ці підтверджені legacy-оплати враховані у кількості оплат, але виключені з доходу: у збережених даних немає надійної суми.')+'</div>');
@@ -3226,7 +3263,7 @@ body.bot-drawer-open{overflow:hidden;}
       const meta=(contextLabel?esc(contextLabel)+' · ':'')+(density==='single'?'одноденний pulse':density==='compact'?'щоденні інтервали · компактний масштаб':density==='daily'?'щоденні інтервали':density==='weekly'?'тижневі інтервали':'місячні інтервали');
       const integrityWarning=((messageSeries.reconciled===false)||(density==='single'&&messageSeries.hourly_reconciled===false))&&num(messageSeries.expected_total)>0?'<span class="bot-stats-section-meta is-warning">дані потребують перевірки</span>':'';
       if(!series.length||(!messageSeries.has_data&&!(density==='single'&&hourlyItems.length))){
-        return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-'+density+'" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-zero">За вибраний період подій немає · baseline очікує нові дані</div>'+integrityWarning+'</section>';
+        return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-'+density+'" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-zero">За вибраний період подій не зафіксовано.</div>'+integrityWarning+'</section>';
       }
       const maxTotal=Math.max(1,num(messageSeries.max_total),...series.map(row=>num(row.messages)));
       if(density==='single'){
@@ -3300,10 +3337,21 @@ body.bot-drawer-open{overflow:hidden;}
       const more=remaining.length?'<details class="bot-stats-disclosure bot-stats-campaign-more" data-stats-disclosure="campaign-more"><summary>Ще '+remaining.length+' кампаній</summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-campaign-list bot-stats-campaign-more-list">'+remaining.map((row,index)=>renderCampaignRow(row,index+shown.length)).join('')+'</div></div></div></details>':'';
       return '<section class="bot-stats-analysis-card" style="--reveal-order:6"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">Кампанії</h3><span class="bot-stats-section-meta">діалоги · лінки · оплати · дохід</span></div><div class="bot-stats-campaign-list bot-stats-ad-bars">'+body+'</div>'+more+'</section>';
     }
-    function reasonLabel(row){const code=String(row.reason_code||row.kind||'Інша причина');return objectionLabels[code]||code.replace(/_/g,' ');}
+    function reasonLabel(row){
+      const code=String(row&&row.reason_code||row&&row.kind||'').trim().toLowerCase();const kind=String(row&&row.kind||'').trim().toLowerCase();
+      if(kind==='silence'||code==='silence'||code.startsWith('silence_'))return 'Немає відповіді';
+      const lossReasonLabels={explicit_refusal:'Явна відмова',opt_out:'Відмова від повідомлень',unreachable:'Повідомлення не доставлено',spam:'Спам',superseded:'Діалог продовжено в новому циклі'};
+      return objectionLabels[code]||lossReasonLabels[code]||lossReasonLabels[kind]||'Інша причина';
+    }
+    function isStructuralLossReason(code){return ['new_deal_episode','new_review_episode','new_attribution_episode'].includes(String(code||'').trim().toLowerCase());}
+    function aggregateLossReasons(rows){
+      const grouped=new Map();
+      (rows||[]).forEach(row=>{const code=String(row&&row.reason_code||row&&row.kind||'other').trim().toLowerCase();if(isStructuralLossReason(code))return;const label=reasonLabel(row);const step=String(row&&row.step||'');const current=grouped.get(label)||{reason_code:code,kind:String(row&&row.kind||''),label:label,step:step,recoverable:0,unrecoverable:0,recovered:0};current.recoverable+=num(row&&row.recoverable);current.unrecoverable+=num(row&&row.unrecoverable);current.recovered+=num(row&&row.recovered);if(current.step!==step)current.step='';grouped.set(label,current);});
+      return Array.from(grouped.values());
+    }
     function renderAdDropOffs(rows){
-      if(!(rows||[]).length)return '';
-      const body=rows.map(row=>'<div class="bot-stats-reason-row"><strong title="'+esc(reasonLabel(row))+'">'+esc(reasonLabel(row))+'</strong><span>відновні '+numberFormat.format(num(row.recoverable))+'</span><span>безповоротні '+numberFormat.format(num(row.unrecoverable))+'</span><span>повернулись '+numberFormat.format(num(row.recovered))+'</span></div>').join('');
+      const grouped=aggregateLossReasons(rows);if(!grouped.length)return '';
+      const body=grouped.map(row=>'<div class="bot-stats-reason-row"><strong title="'+esc(row.label)+'">'+esc(row.label)+'</strong><span>можна повернути '+numberFormat.format(num(row.recoverable))+'</span><span>остаточно '+numberFormat.format(num(row.unrecoverable))+'</span><span>повернулися '+numberFormat.format(num(row.recovered))+'</span></div>').join('');
       return '<details class="bot-stats-disclosure" data-stats-disclosure="ad-drop-offs"><summary>Причини втрат у рекламних діалогах</summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-reason-list">'+body+'</div></div></div></details>';
     }
     function renderAdvertising(data,previous){
@@ -3334,25 +3382,26 @@ body.bot-drawer-open{overflow:hidden;}
     function compactCohortFacts(rows){
       if(!(rows||[]).length)return '';
       const displayFactCount=value=>value===null?'—':numberFormat.format(value);
-      const body=rows.map(row=>{const conversionUnavailable=row.crPercent===null||row.crPercent===undefined?'—':String(row.crPercent)+'%';return '<article class="bot-stats-fact-row" data-diagnostic-step="'+esc(row.key||'')+'"><strong>'+esc(row.label||row.key||'Етап')+'</strong><div class="bot-stats-fact-values"><span><b>'+displayFactCount(row.count)+'</b>увійшли</span><span><b>'+displayFactCount(row.advanced)+'</b>далі</span><span><b>'+displayFactCount(row.dropOff)+'</b>відсів</span><span><b>'+displayFactCount(row.inProgress)+'</b>у процесі</span><span><b>'+esc(row.lowSample?'Мало даних':conversionUnavailable)+'</b>CR</span></div></article>';}).join('');
-      return '<section class="bot-stats-detail-section"><h3 class="bot-stats-detail-title">Когортна воронка · точні значення</h3><div class="bot-stats-fact-list">'+body+'</div></section>';
+      const body=rows.map(row=>{const conversionUnavailable=row.crPercent===null||row.crPercent===undefined?'—':String(row.crPercent)+'%';const conversion=row.lowSample?'Недостатньо даних':conversionUnavailable;return '<article class="bot-stats-fact-row" data-diagnostic-step="'+esc(row.key||'')+'"><strong>'+esc(row.label||stageLabels[row.key]||'Етап')+'</strong><div class="bot-stats-fact-values"><span><small>На етапі</small><b>'+displayFactCount(row.count)+'</b></span><span><small>Перейшли</small><b>'+displayFactCount(row.advanced)+'</b></span><span><small>Втрачено</small><b>'+displayFactCount(row.dropOff)+'</b></span><span><small>Ще в роботі</small><b>'+displayFactCount(row.inProgress)+'</b></span><span><small>Конверсія</small><b>'+esc(conversion)+'</b></span></div></article>';}).join('');
+      return '<section class="bot-stats-detail-section"><h3 class="bot-stats-detail-title">Переходи між етапами</h3><div class="bot-stats-fact-list">'+body+'</div></section>';
     }
     function detailVisualModule(title,meta,body,total=null){return '<article class="bot-stats-detail-module"><div class="bot-stats-detail-module-title"><span>'+esc(title)+'</span>'+(total===null?'':'<strong>'+numberFormat.format(Math.max(0,num(total)))+'</strong>')+'</div>'+body+(meta?'<span class="bot-stats-detail-module-meta">'+esc(meta)+'</span>':'')+'</article>';}
     function emptyDetailVisual(message){return '<div class="bot-stats-empty-analysis">'+esc(message)+'</div>';}
     function selectedDiagnosticRows(rows){const source=Array.isArray(rows)?rows:[];if(selection.kind!=='stage'||!selection.id)return source;return source.filter(row=>selection.id===String(row.step||''));}
     function renderLossBars(rows,limit=4){
-      const normalized=(rows||[]).map(row=>({...row,total:num(row.recoverable)+num(row.unrecoverable)})).filter(row=>row.total>0).sort((a,b)=>b.total-a.total||reasonLabel(a).localeCompare(reasonLabel(b),'uk'));
+      const normalized=aggregateLossReasons(rows).map(row=>({...row,total:num(row.recoverable)+num(row.unrecoverable)})).filter(row=>row.total>0).sort((a,b)=>b.total-a.total||a.label.localeCompare(b.label,'uk'));
       const allLossTotal=normalized.reduce((sum,row)=>sum+row.total,0);const shown=normalized.slice(0,limit);const remaining=normalized.slice(limit);const remainingTotal=remaining.reduce((sum,row)=>sum+row.total,0);const recoveredTotal=normalized.reduce((sum,row)=>sum+num(row.recovered),0);
-      if(!shown.length)return detailVisualModule('Причини відсіву','когортні події втрат · stage '+(selection.id||'усі'),emptyDetailVisual(selection.kind==='stage'?'Для вибраного етапу звірених причин немає.':'Класифікованих втрат немає.'),0);
+      if(!shown.length)return detailVisualModule('Причини втрат',selection.kind==='stage'?'Вибраний етап':'Усі етапи разом',emptyDetailVisual(selection.kind==='stage'?'Для вибраного етапу звірених причин немає.':'Класифікованих втрат немає.'),0);
       const max=Math.max(1,...shown.map(row=>row.total));
-      const body='<div class="bot-stats-mini-list bot-stats-loss-bars">'+shown.map(row=>{const recoverable=Math.round(num(row.recoverable)*100/max);const final=Math.round(num(row.unrecoverable)*100/max);const label=reasonLabel(row);return '<div class="bot-stats-mini-row" data-diagnostic-step="'+esc(row.step||'')+'"><span title="'+esc(label)+'">'+esc(label)+'</span><span class="bot-stats-mini-rail" role="img" aria-label="'+esc(label)+': відновні '+num(row.recoverable)+', безповоротні '+num(row.unrecoverable)+'"><i class="is-recoverable" style="--mini-width:'+recoverable+'%"></i><i class="is-final" style="--mini-width:'+final+'%"></i></span><strong>'+numberFormat.format(row.total)+'</strong></div>';}).join('')+'</div><div class="bot-stats-detail-key" aria-hidden="true"><span><i style="--key-color:#d4a85e"></i>відновні</span><span><i style="--key-color:#ef7d68"></i>безповоротні</span></div><div class="bot-stats-detail-completeness">Повернулись: '+numberFormat.format(recoveredTotal)+(remaining.length?' · remaining loss: '+numberFormat.format(remainingTotal):'')+'</div>';
-      return detailVisualModule('Причини відсіву','відновність і фінальна втрата · total до Top-N',body,allLossTotal);
+      const body='<div class="bot-stats-mini-list bot-stats-loss-bars">'+shown.map(row=>{const recoverable=Math.round(num(row.recoverable)*100/max);const final=Math.round(num(row.unrecoverable)*100/max);const label=row.label;return '<div class="bot-stats-mini-row" data-diagnostic-step="'+esc(row.step||'')+'"><span title="'+esc(label)+'">'+esc(label)+'</span><span class="bot-stats-mini-rail" role="img" aria-label="'+esc(label)+': можна повернути '+num(row.recoverable)+', остаточно втрачено '+num(row.unrecoverable)+'"><i class="is-recoverable" style="--mini-width:'+recoverable+'%"></i><i class="is-final" style="--mini-width:'+final+'%"></i></span><strong>'+numberFormat.format(row.total)+'</strong></div>';}).join('')+'</div><div class="bot-stats-detail-key" aria-hidden="true"><span><i style="--key-color:#d4a85e"></i>можна повернути</span><span><i style="--key-color:#ef7d68"></i>остаточна втрата</span></div><div class="bot-stats-detail-completeness">Повернулися: '+numberFormat.format(recoveredTotal)+(remaining.length?' · Інші причини: '+numberFormat.format(remainingTotal):'')+'</div>';
+      return detailVisualModule('Причини втрат','відновні та остаточні втрати · найчастіші причини',body,allLossTotal);
     }
+    function formatDurationHours(value){if(value===null||value===undefined||value===''||!Number.isFinite(Number(value)))return '—';const hours=Math.max(0,Number(value));if(hours<1)return Math.round(hours*60)+' хв';if(hours<24)return hours.toLocaleString('uk-UA',{maximumFractionDigits:1})+' год';return (hours/24).toLocaleString('uk-UA',{maximumFractionDigits:1})+' дн';}
     function renderDurationPlot(rows,limit=4){
       const available=(rows||[]).filter(row=>num(row.sample)>0||num(row.right_censored_count)>0).sort((a,b)=>num(b.p90_hours)-num(a.p90_hours)).slice(0,limit);
-      if(!available.length)return detailVisualModule('Час на кроці','медіана · P90 · завершені переходи',emptyDetailVisual('Переходів для часу ще немає.'),0);
-      const max=Math.max(1,...available.map(row=>num(row.p90_hours)));const body='<div class="bot-stats-duration-plot">'+available.map(row=>{const hasMedian=row.median_hours!==null&&row.median_hours!==undefined;const hasP90=row.p90_hours!==null&&row.p90_hours!==undefined;const median=hasMedian?Math.min(100,Math.round(num(row.median_hours)*100/max)):0;const p90=hasP90?Math.min(100,Math.round(num(row.p90_hours)*100/max)):0;const label=row.label||row.step||'Крок';return '<div class="bot-stats-duration-row" data-diagnostic-step="'+esc(row.step||'')+'"><span title="'+esc(label)+'">'+esc(label)+'</span><span class="bot-stats-duration-track" role="img" aria-label="Медіана '+(hasMedian?num(row.median_hours):'—')+' годин, P90 '+(hasP90?num(row.p90_hours):'—')+' годин, вибірка '+num(row.sample)+', праве цензурування '+num(row.right_censored_count)+'" style="--median-width:'+median+'%;--p90-width:'+p90+'%"></span><strong>M '+(hasMedian?num(row.median_hours):'—')+' · P90 '+(hasP90?num(row.p90_hours):'—')+' · n '+numberFormat.format(num(row.sample))+' · rc '+numberFormat.format(num(row.right_censored_count))+'</strong></div>';}).join('')+'</div>';
-      return detailVisualModule('Час на кроці','медіана · P90 · sample · right-censored',body,available.reduce((sum,row)=>sum+num(row.sample),0));
+      if(!available.length)return detailVisualModule('Час на кроці','Від входу на етап до наступного переходу',emptyDetailVisual('Переходів для часу ще немає.'),0);
+      const max=Math.max(1,...available.map(row=>num(row.p90_hours)));const body='<div class="bot-stats-duration-plot">'+available.map(row=>{const hasMedian=row.median_hours!==null&&row.median_hours!==undefined;const hasP90=row.p90_hours!==null&&row.p90_hours!==undefined;const median=hasMedian?Math.min(100,Math.round(num(row.median_hours)*100/max)):0;const p90=hasP90?Math.min(100,Math.round(num(row.p90_hours)*100/max)):0;const label=row.label||stageLabels[row.step]||'Крок';return '<div class="bot-stats-duration-row" data-diagnostic-step="'+esc(row.step||'')+'"><span class="bot-stats-duration-label" title="'+esc(label)+'">'+esc(label)+'</span><span class="bot-stats-duration-track" role="img" aria-label="Медіана '+(hasMedian?num(row.median_hours):'—')+' годин, P90 '+(hasP90?num(row.p90_hours):'—')+' годин, вибірка '+num(row.sample)+', праве цензурування '+num(row.right_censored_count)+'" style="--median-width:'+median+'%;--p90-width:'+p90+'%"></span><div class="bot-stats-duration-facts"><span><small>Зазвичай</small><b>'+formatDurationHours(hasMedian?row.median_hours:null)+'</b></span><span><small>90% діалогів до</small><b>'+formatDurationHours(hasP90?row.p90_hours:null)+'</b></span><span><small>Діалогів</small><b>'+numberFormat.format(num(row.sample))+'</b></span><span><small>Ще тривають</small><b>'+numberFormat.format(num(row.right_censored_count))+'</b></span></div></div>';}).join('')+'</div>';
+      return detailVisualModule('Час на кроці','Від входу на етап до наступного переходу',body,available.reduce((sum,row)=>sum+num(row.sample),0));
     }
     function renderLinkedDiagnostics(data,limit=4){
       const meta=data.funnel_meta||{};const manager=meta.manager_vs_bot||(data.funnel&&data.funnel.manager_vs_bot)||{};const discounts=meta.discounts||(data.funnel&&data.funnel.discounts)||{};const timeOnStep=meta.time_on_step||(data.funnel&&data.funnel.time_on_step)||[];const linkedLoss=selectedDiagnosticRows(meta.drop_off_reasons);const linkedDuration=selectedDiagnosticRows(timeOnStep);return [renderLossBars(linkedLoss,limit),renderDurationPlot(linkedDuration,limit),renderOwnershipSplit(manager),renderDiscountBridge(discounts),renderStageBars(data.stages,limit+2),renderObjectionBars(data.objection_clients,limit+2)].join('');
@@ -3361,31 +3410,31 @@ body.bot-drawer-open{overflow:hidden;}
       const total=Math.max(0,num(manager.episodes_with_response_evidence));const parts=[['bot-only','Тільки бот',num(manager.bot_only)],['shared','Спільний цикл',num(manager.shared)],['manager-only','Тільки менеджер',num(manager.manager_only)]];
       if(!total)return detailVisualModule('Хто відповідав','епізоди з доказом відповіді',emptyDetailVisual('Відповіді бота або менеджера не зафіксовані.'),0);
       const bar='<div class="bot-stats-ownership-split"><div class="bot-stats-ownership-bar" role="img" aria-label="Тільки бот '+parts[0][2]+', спільний цикл '+parts[1][2]+', тільки менеджер '+parts[2][2]+'">'+parts.map(part=>'<i class="'+part[0]+'" style="--ownership-width:'+Math.round(part[2]*100/total)+'%"></i>').join('')+'</div><div class="bot-stats-ownership-legend">'+parts.map(part=>'<span>'+esc(part[1])+'<b>'+numberFormat.format(part[2])+'</b></span>').join('')+'</div></div>';
-      return detailVisualModule('Хто відповідав','взаємовиключні епізоди відповіді',bar,total);
+      return detailVisualModule('Хто відповідав','Кожен діалог враховано в одній групі',bar,total);
     }
     function renderDiscountBridge(discounts){
       const offered=num(discounts.offered);const bought=num(discounts.bought_after_offer);const open=num(discounts.still_open);const without=num(discounts.bought_without_known_offer);const cutoff=String(discounts.observation_cutoff||'');
-      const path='<div class="bot-stats-discount-bridge"><div class="bot-stats-discount-path"><span class="bot-stats-discount-node" style="--discount-color:#60a5fa"><b>'+numberFormat.format(offered)+'</b><span>події пропозиції</span></span><span class="bot-stats-discount-node" style="--discount-color:#34d399"><b>'+numberFormat.format(bought)+'</b><span>епізоди з оплатою після</span></span><span class="bot-stats-discount-node" style="--discount-color:#d4a85e"><b>'+numberFormat.format(open)+'</b><span>епізоди ще відкриті</span></span></div><div class="bot-stats-discount-baseline"><span>Оплати без відомої пропозиції</span><b>'+numberFormat.format(without)+'</b></div></div>';
-      return detailVisualModule('Знижка → результат',cutoff?'спостереження до '+cutoff:'межа спостереження не вказана',path,offered);
+      const path='<div class="bot-stats-discount-bridge"><div class="bot-stats-discount-path"><span class="bot-stats-discount-node" style="--discount-color:#60a5fa"><b>'+numberFormat.format(offered)+'</b><span>пропозицій зі знижкою</span></span><span class="bot-stats-discount-node" style="--discount-color:#34d399"><b>'+numberFormat.format(bought)+'</b><span>оплат після знижки</span></span><span class="bot-stats-discount-node" style="--discount-color:#d4a85e"><b>'+numberFormat.format(open)+'</b><span>ще очікують результат</span></span></div><div class="bot-stats-discount-baseline"><span>Оплати без зафіксованої знижки</span><b>'+numberFormat.format(without)+'</b></div></div>';
+      return detailVisualModule('Знижка → результат',cutoff?'Дані враховано до '+fmtDateTime(cutoff):'Дата завершення спостереження невідома',path,offered);
     }
     function renderStageBars(stages,limit=6){
-      const ranked=Object.entries(stages||{}).map(([key,value])=>({key,label:stageLabels[key]||key.replace(/_/g,' '),count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk')).slice(0,limit);
-      const population=Object.values(stages||{}).reduce((sum,value)=>sum+num(value),0);if(!ranked.length)return detailVisualModule('Поточні етапи','Поточний snapshot · клієнти без історичного cohort',emptyDetailVisual('Активних етапів у вибірці немає.'),0);
+      const ranked=Object.entries(stages||{}).map(([key,value])=>({key,label:stageLabels[key]||'Інший етап',count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk')).slice(0,limit);
+      const population=Object.values(stages||{}).reduce((sum,value)=>sum+num(value),0);if(!ranked.length)return detailVisualModule('Поточні етапи','Розподіл поточних етапів · активні клієнти',emptyDetailVisual('Активних етапів у вибірці немає.'),0);
       const max=Math.max(1,...ranked.map(row=>row.count));const body='<div class="bot-stats-mini-list bot-stats-stage-bars">'+ranked.map(row=>'<div class="bot-stats-mini-row"><span title="'+esc(row.label)+'">'+esc(row.label)+'</span><span class="bot-stats-mini-rail" aria-hidden="true"><i style="--mini-width:'+Math.round(row.count*100/max)+'%"></i></span><strong>'+numberFormat.format(row.count)+' · '+Math.round(row.count*100/Math.max(1,population))+'%</strong></div>').join('')+'</div>';
-      return detailVisualModule('Поточні етапи','Поточний snapshot · частка серед етапів',body,population);
+      return detailVisualModule('Поточні етапи','Розподіл поточних етапів · частка активних клієнтів',body,population);
     }
     function renderObjectionBars(objections,limit=6){
-      const ranked=Object.entries(objections||{}).map(([key,value])=>({key,label:objectionLabels[key]||key.replace(/_/g,' '),count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk')).slice(0,limit);const population=Object.values(objections||{}).reduce((sum,value)=>sum+num(value),0);
-      if(!ranked.length)return detailVisualModule('Заперечення клієнтів','клієнти · primary objection snapshot',emptyDetailVisual('Основні заперечення не зафіксовані.'),0);
+      const ranked=Object.entries(objections||{}).map(([key,value])=>({key,label:objectionLabels[key]||'Інше заперечення',count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk')).slice(0,limit);const population=Object.values(objections||{}).reduce((sum,value)=>sum+num(value),0);
+      if(!ranked.length)return detailVisualModule('Заперечення клієнтів','Поточний розподіл клієнтів · основне заперечення',emptyDetailVisual('Основні заперечення не зафіксовані.'),0);
       const max=Math.max(1,...ranked.map(row=>row.count));const body='<div class="bot-stats-mini-list bot-stats-objection-bars">'+ranked.map(row=>'<div class="bot-stats-mini-row"><span title="'+esc(row.label)+'">'+esc(row.label)+'</span><span class="bot-stats-mini-rail" aria-hidden="true"><i style="--mini-width:'+Math.round(row.count*100/max)+'%"></i></span><strong>'+numberFormat.format(row.count)+'</strong></div>').join('')+'</div>';
-      return detailVisualModule('Заперечення клієнтів','клієнти · не кількість сигналів',body,population);
+      return detailVisualModule('Заперечення клієнтів','Кількість клієнтів, а не окремих згадок',body,population);
     }
     function renderDetailDrawerContent(data){
       const meta=data.funnel_meta||{};
       const manager=meta.manager_vs_bot||(data.funnel&&data.funnel.manager_vs_bot)||{};
       const discounts=meta.discounts||(data.funnel&&data.funnel.discounts)||{};
       const timeOnStep=meta.time_on_step||(data.funnel&&data.funnel.time_on_step)||[];
-      const signalRows=Object.entries(data.objection_signals||{}).map(([key,value])=>({name:objectionLabels[key]||key.replace(/_/g,' '),count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'uk'));
+      const signalRows=Object.entries(data.objection_signals||{}).map(([key,value])=>({name:objectionLabels[key]||'Інший сигнал',count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'uk'));
       const visuals=renderLinkedDiagnostics(data,8);
       const exact=compactCohortFacts(flowRows(data).rows.filter(row=>selection.kind!=='stage'||row.key===selection.id));
       const signals=tableSection('Сигнали заперечень · окремі події',signalRows,[['name','Сигнал'],['count','Події']]);
@@ -3399,12 +3448,12 @@ body.bot-drawer-open{overflow:hidden;}
     function renderSecondary(data){
       const t=totals(data);
       const specs=[
-        ['inbound_messages','Вхідні повідомлення','події · provider_created_at / created_at'],['bot_replies','Відповіді бота','події · provider_created_at / created_at'],['manager_messages','Повідомлення менеджера','події · provider_created_at / created_at'],['qualified','Кваліфіковані','клієнти · зріз активних у періоді'],
-        ['product_matched','Товар визначено','клієнти · зріз активних у періоді'],['checkout_or_payment','Оформлення / оплата','клієнти · зріз активних у періоді'],['pending_followups','Заплановані контакти','черга · due_at у періоді'],['followup_recoveries','Повернення після нагадування','оплата · paid_at у періоді'],
-        ['discount_conversions','Конверсії зі знижкою','оплата · paid_at у періоді'],['manager_takeovers','Діалоги менеджера','клієнти · зріз активних у періоді'],['custom_print_handoffs','Кастомні принти менеджеру','клієнти · зріз активних у періоді'],['hidden','Приховані','клієнти · hidden_at у періоді']
+        ['inbound_messages','Вхідні повідомлення','Повідомлення клієнтів · за вибраний період','provider_created_at_or_created_at'],['bot_replies','Відповіді бота','Відповіді бота · за вибраний період','provider_created_at_or_created_at'],['manager_messages','Повідомлення менеджера','Повідомлення менеджера · за вибраний період','provider_created_at_or_created_at'],['qualified','Кваліфіковані','Кваліфіковані клієнти · за вибраний період','active_period_snapshot'],
+        ['product_matched','Товар визначено','Клієнти з визначеним товаром · за вибраний період','active_period_snapshot'],['checkout_or_payment','Оформлення / оплата','Клієнти на оформленні або оплаті · за вибраний період','active_period_snapshot'],['pending_followups','Заплановані контакти','Заплановані контакти · за вибраний період','followup_due_in_period'],['followup_recoveries','Повернення після нагадування','Оплати після нагадування · за вибраний період','verified_payment_in_period'],
+        ['discount_conversions','Конверсії зі знижкою','Конверсії зі знижкою · за вибраний період','verified_payment_in_period'],['manager_takeovers','Діалоги менеджера','Діалоги менеджера · за вибраний період','active_period_snapshot'],['custom_print_handoffs','Кастомні принти менеджеру','Кастомні принти менеджеру · за вибраний період','active_period_snapshot'],['hidden','Приховані','Приховані клієнти · за вибраний період','hidden_in_period']
       ];
       const basisLabel=spec=>spec[2];
-      return '<details class="bot-stats-disclosure bot-stats-secondary" data-stats-disclosure="secondary"><summary><span>Зріз періоду · додаткові показники</span><span class="bot-stats-secondary-count">'+specs.length+'</span></summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-secondary-grid">'+specs.map(spec=>'<div class="bot-stats-secondary-item"><b>'+numberFormat.format(num(t[spec[0]]))+'</b><span>'+esc(spec[1])+'</span><small data-stats-basis="'+esc(basisLabel(spec))+'">'+esc(basisLabel(spec))+'</small></div>').join('')+'</div></div></div></details>';
+      return '<details class="bot-stats-disclosure bot-stats-secondary" data-stats-disclosure="secondary"><summary><span>Зріз періоду · додаткові показники</span><span class="bot-stats-secondary-count">'+specs.length+'</span></summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-secondary-grid">'+specs.map(spec=>'<div class="bot-stats-secondary-item"><b>'+numberFormat.format(num(t[spec[0]]))+'</b><span>'+esc(spec[1])+'</span><small data-stats-basis="'+esc(spec[3])+'">'+esc(basisLabel(spec))+'</small></div>').join('')+'</div></div></div></details>';
     }
     function periodLabel(data){return data.period&&data.period.label||({'1':'Сьогодні','7':'Останні 7 днів','30':'Останні 30 днів','0':'Увесь час'}[String(data.range_days)]||'Вибраний період');}
     function statsPeriodKey(data){const period=data&&data.period||{};return [period.mode||'',period.date_from||'',period.date_to||'',data&&data.range_days||0].join('|');}
@@ -3600,7 +3649,7 @@ body.bot-drawer-open{overflow:hidden;}
     }
     if(box)box.addEventListener('click',event=>{
       const detailTrigger=event.target.closest('[data-stats-detail-trigger]');
-      if(detailTrigger){event.stopPropagation();if(currentData)StatsDetailDrawer.open(detailTrigger,renderDetailDrawerContent(currentData),'Детальні дані · '+periodLabel(currentData));return;}
+      if(detailTrigger){event.stopPropagation();if(currentData){const stageContext=selection.kind==='stage'&&selection.id?' · '+(stageLabels[selection.id]||'Вибраний етап'):'';StatsDetailDrawer.open(detailTrigger,renderDetailDrawerContent(currentData),'Детальні дані · '+periodLabel(currentData)+stageContext);}return;}
       const attributionSegment=event.target.closest('[data-attribution-segment]');
       if(attributionSegment){event.stopPropagation();toggleAttributionSegment(attributionSegment);return;}
       const adSignalStep=event.target.closest('[data-ad-signal-step]');
