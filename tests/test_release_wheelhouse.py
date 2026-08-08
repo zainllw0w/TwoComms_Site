@@ -6,6 +6,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -191,6 +192,61 @@ class ReleaseWheelhouseTests(unittest.TestCase):
             self.assertIn("--only-binary", install)
             self.assertIn("--require-hashes", install)
             self.assertTrue((wheelhouse / "manifest.sha256").is_file())
+
+    def test_cffi_validator_accepts_auditwheel_dual_platform_tag(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wheel = Path(directory) / (
+                "cffi-2.1.1-cp314-cp314-"
+                "manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+            )
+            with zipfile.ZipFile(wheel, "w") as archive:
+                archive.writestr(
+                    "cffi-2.1.1.dist-info/METADATA",
+                    "Name: cffi\nVersion: 2.1.1\n",
+                )
+                archive.writestr(
+                    "cffi-2.1.1.dist-info/WHEEL",
+                    "Tag: cp314-cp314-manylinux_2_27_x86_64\n"
+                    "Tag: cp314-cp314-manylinux_2_28_x86_64\n",
+                )
+                archive.writestr("_cffi_backend.cpython-314-x86_64-linux-gnu.so", b"binary")
+
+            builder._validate_cffi_wheel(wheel)
+
+    def test_cffi_build_disables_nondeterministic_debug_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sdist = root / "cffi-2.1.1.tar.gz"
+            sdist.write_bytes(b"source")
+            (root / "build").mkdir()
+            environments: list[dict[str, str]] = []
+
+            def fake_run(command, *, cwd=None, env=None):
+                environments.append(dict(env or {}))
+                rendered = tuple(str(part) for part in command)
+                output = Path(rendered[rendered.index("--wheel-dir") + 1])
+                if "repair" in rendered:
+                    name = (
+                        "cffi-2.1.1-cp314-cp314-"
+                        "manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"
+                    )
+                else:
+                    name = "cffi-2.1.1-cp314-cp314-linux_x86_64.whl"
+                (output / name).write_bytes(b"wheel")
+
+            with patch.object(builder, "_run", side_effect=fake_run):
+                builder._build_cffi_once(
+                    root / "python",
+                    "auditwheel",
+                    sdist,
+                    root / "build",
+                    label="one",
+                )
+
+            build_env = environments[0]
+            self.assertIn("-g0", build_env["CFLAGS"])
+            self.assertIn("-ffile-prefix-map=/tmp=.", build_env["CFLAGS"])
+            self.assertEqual(build_env["LDFLAGS"], "-Wl,--build-id=sha1")
 
 
 if __name__ == "__main__":

@@ -215,7 +215,15 @@ def _build_cffi_once(
     raw.mkdir()
     repaired.mkdir()
     env = dict(os.environ)
-    env.update({"PYTHONHASHSEED": "0", "SOURCE_DATE_EPOCH": str(SOURCE_DATE_EPOCH)})
+    env.update(
+        {
+            "CFLAGS": "-O2 -g0 -ffile-prefix-map=/tmp=.",
+            "CXXFLAGS": "-O2 -g0 -ffile-prefix-map=/tmp=.",
+            "LDFLAGS": "-Wl,--build-id=sha1",
+            "PYTHONHASHSEED": "0",
+            "SOURCE_DATE_EPOCH": str(SOURCE_DATE_EPOCH),
+        }
+    )
     _run(
         [
             str(python),
@@ -254,7 +262,13 @@ def _build_cffi_once(
 
 
 def _validate_cffi_wheel(wheel: Path) -> None:
-    if "cp314-cp314-manylinux_2_28_x86_64" not in wheel.name:
+    prefix = "cffi-2.1.1-cp314-cp314-"
+    platform_tags = (
+        wheel.name[len(prefix) : -4].split(".")
+        if wheel.name.startswith(prefix) and wheel.name.endswith(".whl")
+        else []
+    )
+    if EXPECTED_PLATFORM not in platform_tags:
         raise ValueError("cffi wheel has an unexpected compatibility tag")
     try:
         with zipfile.ZipFile(wheel) as archive:
