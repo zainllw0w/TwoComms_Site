@@ -169,7 +169,109 @@ point at themselves.
 {% if smart_selector_enabled %}
 {% include "partials/catalog_smart_selector.html" %}
 {% else %}
-<div class="catalog-redesign-shell">
+<div class="catalog-redesign-shell{% if show_category_cards %} catalog-redesign-shell--root{% endif %}">
+  {% if show_category_cards and catalog_mobile_showcase_cards %}
+  <section class="catalog-mobile-reference" aria-labelledby="catalog-mobile-reference-title" data-catalog-mobile-reference data-cart-count-url="{% url 'get_cart_count' %}">
+    <svg class="catalog-mobile-reference__symbols" aria-hidden="true" focusable="false">
+      <symbol id="catalog-ref-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+      <symbol id="catalog-ref-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></symbol>
+      <symbol id="catalog-ref-shirt" viewBox="0 0 24 24"><path d="m8 4-5 3 2.5 4L8 9v11h8V9l2.5 2L21 7l-5-3c-.7 1.3-2 2-4 2S8.7 5.3 8 4Z"/></symbol>
+      <symbol id="catalog-ref-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></symbol>
+      <symbol id="catalog-ref-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21c.7-5 3.4-7 8-7s7.3 2 8 7"/></symbol>
+      <symbol id="catalog-ref-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+    </svg>
+
+    <header class="catalog-mobile-reference__header" data-catalog-reference-header>
+      <button class="catalog-mobile-reference__icon-button" type="button" aria-label="{% trans 'Відкрити меню' %}" aria-expanded="false" data-catalog-reference-menu-button><span class="catalog-mobile-reference__menu-icon" aria-hidden="true"><span></span></span></button>
+      <a class="catalog-mobile-reference__wordmark" href="{% url 'home' %}" aria-label="TwoComms">TWOCOMMS</a>
+      <form class="catalog-mobile-reference__search-form" action="{% url 'search' %}" role="search" data-catalog-reference-search-form>
+        <label class="visually-hidden" for="catalog-reference-search">{% trans 'Пошук' %}</label>
+        <input id="catalog-reference-search" type="search" name="q" placeholder="{% trans 'Пошук у каталозі' %}">
+      </form>
+      <div class="catalog-mobile-reference__header-actions">
+        <button class="catalog-mobile-reference__icon-button" type="button" aria-label="{% trans 'Відкрити пошук' %}" aria-expanded="false" data-catalog-reference-search-button><svg aria-hidden="true"><use href="#catalog-ref-search"/></svg></button>
+        <a class="catalog-mobile-reference__icon-button" href="{% url 'cart' %}" aria-label="{% trans 'Кошик' %}"><svg aria-hidden="true"><use href="#catalog-ref-bag"/></svg><span class="catalog-mobile-reference__bag-badge" data-catalog-reference-cart-count>0</span></a>
+      </div>
+    </header>
+    <nav class="catalog-mobile-reference__menu-panel" aria-label="{% trans 'Головне меню' %}" data-catalog-reference-menu>
+      <a href="{% url 'catalog' %}">{% trans 'Каталог' %}</a>
+      <a href="{% url 'custom_print' %}">{% trans 'Створити свій принт' %}</a>
+      <a href="{% url 'about' %}">{% trans 'Про нас' %}</a>
+    </nav>
+
+    <div class="catalog-mobile-reference__content">
+    <div class="catalog-mobile-reference__hero" aria-labelledby="catalog-mobile-reference-title">
+      <div class="catalog-mobile-reference__hero-copy">
+        <p class="catalog-mobile-reference__eyebrow">{% trans 'Новинки сезону' %}</p>
+        <h1 id="catalog-mobile-reference-title">{% trans 'Нова колекція' %}<br>{% trans 'вже тут' %}</h1>
+        <p class="catalog-mobile-reference__lede">{% trans 'Комфорт. Якість. Сенс.' %}<br>{% trans 'Одяг, що говорить замість тебе.' %}</p>
+      </div>
+      <img class="catalog-mobile-reference__hero-image" src="{% static 'img/configurator/custom-ref/hoodie-black-b.webp' %}" width="1200" height="1400" alt="{% trans 'Чорне худі TwoComms, вид зі спини' %}" loading="eager" decoding="async" fetchpriority="high">
+      <span class="catalog-mobile-reference__hero-shade" aria-hidden="true"></span>
+    </div>
+
+    <div class="catalog-mobile-reference__head">
+      <h2>{% trans 'Каталог' %}</h2>
+      <a class="catalog-mobile-reference__filter" href="#catalog-mobile-reference-categories" aria-label="{% trans 'Перейти до категорій' %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h10M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>
+        <span>{% trans 'Фільтри' %}</span>
+      </a>
+    </div>
+
+    <div id="catalog-mobile-reference-categories" class="catalog-mobile-reference__categories">
+      {% for card in catalog_mobile_showcase_cards %}
+      <a class="catalog-mobile-reference__category catalog-mobile-reference__category--{{ card.key }}" href="{% if card.category %}{% url 'catalog_by_cat' card.category.slug %}{% else %}{% url 'catalog_by_cat' card.fallback_slug %}{% endif %}">
+        <span class="catalog-mobile-reference__badge">{% if card.key == 'hoodies' %}{% trans 'Новинка' %}{% else %}{% trans 'Хіт' %}{% endif %}</span>
+        <span class="catalog-mobile-reference__category-text">
+          <span class="catalog-mobile-reference__category-title">{{ card.title }}</span>
+          <span class="catalog-mobile-reference__price">{% trans 'Від' %} {{ card.starting_price|floatformat:0 }} ₴</span>
+          <span class="catalog-mobile-reference__details">
+            <span class="catalog-mobile-reference__swatches" aria-label="{% trans 'Доступні кольори' %}">
+              {% for swatch in card.swatch_specs|slice:":3" %}
+              <span class="catalog-mobile-reference__swatch{% if swatch.secondary %} catalog-mobile-reference__swatch--split{% endif %}" style="--swatch: {{ swatch.primary }};{% if swatch.secondary %} --swatch-2: {{ swatch.secondary }};{% endif %}"></span>
+              {% endfor %}
+              {% if card.swatch_specs|length > 3 %}<span class="catalog-mobile-reference__swatch catalog-mobile-reference__swatch--more">+{{ card.swatch_specs|length|add:'-3' }}</span>{% endif %}
+            </span>
+          </span>
+          <span class="catalog-mobile-reference__availability{% if not card.product_count %} catalog-mobile-reference__availability--empty{% endif %}">{% if card.product_count %}{% trans 'В наявності' %}{% else %}{% trans 'Скоро в наявності' %}{% endif %}</span>
+        </span>
+        <picture class="catalog-mobile-reference__category-media">
+          {% if card.mobile_image_avif %}<source srcset="{% static card.mobile_image_avif %}" type="image/avif">{% endif %}
+          <img class="catalog-mobile-reference__category-image" src="{% static card.mobile_image_webp %}" width="{{ card.mobile_image_width }}" height="{{ card.mobile_image_height }}" alt="{{ card.title }} TwoComms" loading="lazy" decoding="async">
+        </picture>
+        <svg class="catalog-mobile-reference__arrow" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+      </a>
+      {% endfor %}
+    </div>
+
+    <a class="catalog-mobile-reference__custom-print" href="{% url 'custom_print' %}">
+      <span class="catalog-mobile-reference__custom-copy">
+        <span class="catalog-mobile-reference__custom-title">{% trans 'Створи свій принт' %}</span>
+        <span class="catalog-mobile-reference__custom-lede">{% trans 'Твій дизайн. Твій сенс.' %}<br>{% trans 'Наше виробництво.' %}</span>
+        <span class="catalog-mobile-reference__custom-cta">{% trans 'Створити принт' %}<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M14 7l5 5-5 5"/></svg></span>
+      </span>
+      <picture class="catalog-mobile-reference__custom-media">
+        <source srcset="{% static 'img/catalog/catalog-custom-print.avif' %}" type="image/avif">
+        <img class="catalog-mobile-reference__custom-image" data-custom-print-image-slot src="{% static 'img/catalog/catalog-custom-print.webp' %}" width="1200" height="1130" alt="{% trans 'Приклад футболки для власного принта' %}" loading="lazy" decoding="async">
+      </picture>
+    </a>
+
+    <section class="catalog-mobile-reference__benefits" aria-label="{% trans 'Переваги TwoComms' %}">
+      <div class="catalog-mobile-reference__benefit"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 3 7 3v5c0 4.7-2.6 8.1-7 10-4.4-1.9-7-5.3-7-10V6l7-3Z"/><path d="m9 12 2 2 4-5"/></svg><span>{% trans 'Якість і матеріали преміум класу' %}</span></div>
+      <div class="catalog-mobile-reference__benefit"><img src="{% static 'img/catalog/tryzub.svg' %}" width="19" height="22" alt="{% trans 'Тризуб України' %}"><span>{% trans 'Друк, що витримує час і виклики' %}</span></div>
+      <div class="catalog-mobile-reference__benefit"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m4 7 8-4 8 4-8 4-8-4Z"/><path d="M4 7v10l8 4 8-4V7M12 11v10"/></svg><span>{% trans 'Швидка доставка по Україні' %}</span></div>
+    </section>
+    </div>
+
+    <nav class="catalog-mobile-reference__bottom-nav" aria-label="{% trans 'Нижня навігація' %}">
+      <a class="catalog-mobile-reference__nav-item is-active" href="{% url 'catalog' %}" aria-current="page"><svg aria-hidden="true"><use href="#catalog-ref-shirt"/></svg><span>{% trans 'Каталог' %}</span></a>
+      <a class="catalog-mobile-reference__nav-item" href="{% url 'favorites' %}"><svg aria-hidden="true"><use href="#catalog-ref-star"/></svg><span>{% trans 'Обране' %}</span></a>
+      <a class="catalog-mobile-reference__nav-item" href="{% url 'profile_setup' %}"><svg aria-hidden="true"><use href="#catalog-ref-user"/></svg><span>{% trans 'Профіль' %}</span></a>
+      <a class="catalog-mobile-reference__nav-item" href="{% url 'about' %}"><svg aria-hidden="true"><use href="#catalog-ref-info"/></svg><span>{% trans 'Про нас' %}</span></a>
+    </nav>
+  </section>
+  {% endif %}
+
   <section class="catalog-hero{% if not show_category_cards %} catalog-hero--products{% endif %}" aria-labelledby="catalog-title">
     <div class="catalog-hero__backdrop" aria-hidden="true"></div>
     <div class="catalog-hero__smoke catalog-hero__smoke--left" aria-hidden="true"></div>

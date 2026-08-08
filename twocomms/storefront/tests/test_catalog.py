@@ -157,6 +157,40 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertContains(response, "Зона друку")
         self.assertContains(response, "js/catalog-redesign.js")
 
+    def test_catalog_root_renders_mobile_reference_section_with_category_links(self):
+        tshirts = Category.objects.create(name="Футболки", slug="tshirts", is_active=True)
+        Category.objects.create(name="Худі", slug="hoodie", is_active=True)
+        Category.objects.create(name="Лонгсліви", slug="long-sleeve", is_active=True)
+        self.create_product(title="Root Product", slug="root-product", category=tshirts, price=790)
+        response = self.client.get(reverse("catalog"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="catalog-mobile-reference"')
+        self.assertContains(response, 'class="catalog-mobile-reference__hero"')
+        self.assertContains(response, 'class="catalog-mobile-reference__categories"')
+        self.assertContains(response, 'class="catalog-mobile-reference__custom-print"')
+        self.assertContains(response, 'class="catalog-mobile-reference__benefits"')
+        self.assertContains(response, 'href="/catalog/tshirts/"')
+        self.assertContains(response, 'href="/catalog/hoodie/"')
+        self.assertContains(response, 'href="/catalog/long-sleeve/"')
+        self.assertContains(response, "Від 790 ₴")
+        self.assertContains(response, "tshirt-bej-oversize.webp")
+        self.assertContains(response, "catalog-longsleeve-cutout.avif")
+        self.assertContains(response, "catalog-longsleeve-cutout.webp")
+        self.assertContains(response, "catalog-custom-print.avif")
+        self.assertContains(response, "catalog-custom-print.webp")
+
+        html = response.content.decode("utf-8")
+        self.assertLess(html.index('href="/catalog/tshirts/"'), html.index('href="/catalog/hoodie/"'))
+        self.assertLess(html.index('href="/catalog/hoodie/"'), html.index('href="/catalog/long-sleeve/"'))
+
+    def test_catalog_category_does_not_render_root_mobile_reference_section(self):
+        self.create_product(title="Category Product", slug="category-product")
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'class="catalog-mobile-reference"')
+
     def test_catalog_by_category_limits_results_to_selected_category(self):
         in_category = self.create_product(title="Category Product", slug="category-product")
         self.create_product(

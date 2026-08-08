@@ -15,7 +15,7 @@ from decimal import Decimal
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
 from django.core.paginator import Paginator, EmptyPage
-from django.db.models import Case, Count, ExpressionWrapper, F, IntegerField, Prefetch, Q, Value, When
+from django.db.models import Case, Count, ExpressionWrapper, F, IntegerField, Min, Prefetch, Q, Value, When
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.translation import get_language
@@ -80,7 +80,14 @@ CATALOG_SHOWCASE_CARD_CONFIG = (
         'number': '01',
         'title': _('Лонгсліви'),
         'subtitle': _('Функціональність. Стиль. Характер.'),
+        'starting_price': 1090,
+        'fallback_slug': 'long-sleeve',
         'image': 'img/catalog/catalog-longsleeves.webp',
+        'mobile_order': 3,
+        'mobile_image_avif': 'img/catalog/catalog-longsleeve-cutout.avif',
+        'mobile_image_webp': 'img/catalog/catalog-longsleeve-cutout.webp',
+        'mobile_image_width': 1107,
+        'mobile_image_height': 1200,
         'slugs': ('longslivy', 'longsleeves', 'longsleeve', 'longslivi'),
         'tokens': ('лонг', 'long'),
         'swatches': ('#050505', '#6a6b60', '#e7e1d3', '#8c8f79'),
@@ -90,7 +97,13 @@ CATALOG_SHOWCASE_CARD_CONFIG = (
         'number': '02',
         'title': _('Футболки'),
         'subtitle': _('Графіка, що говорить гучніше за слова.'),
+        'starting_price': 790,
+        'fallback_slug': 'tshirts',
         'image': 'img/catalog/catalog-tshirts.webp',
+        'mobile_order': 1,
+        'mobile_image_webp': 'img/configurator/custom-ref/tshirt-bej-oversize.webp',
+        'mobile_image_width': 1200,
+        'mobile_image_height': 1400,
         'slugs': ('futbolki', 'futbolky', 'tshirts', 't-shirts', 'tshirt', 'tees'),
         'tokens': ('футбол', 'tshirt', 'shirt', 'tee'),
         'swatches': ('#050505', '#3a3d3f', '#62684a', '#ede8dc'),
@@ -100,7 +113,13 @@ CATALOG_SHOWCASE_CARD_CONFIG = (
         'number': '03',
         'title': _('Худі'),
         'subtitle': _('Тепло. Захист. Нічого зайвого.'),
+        'starting_price': 1790,
+        'fallback_slug': 'hoodie',
         'image': 'img/catalog/catalog-hoodies.webp',
+        'mobile_order': 2,
+        'mobile_image_webp': 'img/configurator/custom-ref/hoodie-black.webp',
+        'mobile_image_width': 1200,
+        'mobile_image_height': 1400,
         'slugs': ('hudi', 'hoodie', 'hoodies', 'khudi'),
         'tokens': ('худі', 'hood'),
         'swatches': ('#050505', '#303436', '#6a6f48', '#efe9dc'),
@@ -687,14 +706,14 @@ def _build_catalog_showcase_cards(categories):
             matched_categories[config['key']] = category
 
     category_ids = [category.id for category in matched_categories.values()]
-    product_counts = {}
+    product_stats = {}
     if category_ids:
-        product_counts = {
-            item['category_id']: item['total']
+        product_stats = {
+            item['category_id']: item
             for item in Product.objects.filter(
                 category_id__in=category_ids,
                 status='published',
-            ).values('category_id').annotate(total=Count('id'))
+            ).values('category_id').annotate(total=Count('id'), min_price=Min('price'))
         }
 
     # Phase 19g: build per-category fallback map from the legacy
@@ -735,7 +754,9 @@ def _build_catalog_showcase_cards(categories):
         # Keep the legacy ``swatches`` key as a tuple of primaries for
         # any code path that still consumes it (back-compat).
         card['swatches'] = tuple(s['primary'] for s in card['swatch_specs'])
-        card['product_count'] = product_counts.get(category.id, 0) if category else None
+        stats = product_stats.get(category.id, {}) if category else {}
+        card['product_count'] = stats.get('total', 0) if category else None
+        card['starting_price'] = stats.get('min_price') or config.get('starting_price')
         cards.append(card)
     return cards
 
@@ -1238,6 +1259,13 @@ def catalog(request, cat_slug=None, collection_slug=None):
         facet_state=smart_selector_facet_state,
         merchandising=smart_selector_merchandising,
     )
+    catalog_showcase_cards = (
+        _build_catalog_showcase_cards(categories) if show_category_cards else []
+    )
+    catalog_mobile_showcase_cards = sorted(
+        catalog_showcase_cards,
+        key=lambda card: card.get('mobile_order', 99),
+    )
 
     return render(
         request,
@@ -1247,7 +1275,8 @@ def catalog(request, cat_slug=None, collection_slug=None):
             'category': category,
             'products': products,
             'show_category_cards': show_category_cards,
-            'catalog_showcase_cards': _build_catalog_showcase_cards(categories) if show_category_cards else [],
+            'catalog_showcase_cards': catalog_showcase_cards,
+            'catalog_mobile_showcase_cards': catalog_mobile_showcase_cards,
             'cat_slug': cat_slug or '',
             'page_obj': page_obj,
             'paginator': paginator,

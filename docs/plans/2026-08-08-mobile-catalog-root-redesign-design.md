@@ -51,4 +51,3 @@ Custom print remains discoverable but visually secondary. Its click source shoul
 ## Verification
 
 Before shipping, verify 320x568, 375x812, 390x844, 430x932, 768x1024, and 1440x1000. Acceptance requires all three category links in the first mobile viewport, no horizontal overflow, no bottom-nav overlap, readable 44px targets, working category navigation, unchanged desktop composition, valid semantic heading order, and no console/image failures.
-

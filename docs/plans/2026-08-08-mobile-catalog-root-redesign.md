@@ -120,4 +120,3 @@ Run the user-provided production pull command. Then run the repository's static/
 **Step 5: Verify production**
 
 Confirm the deployed SHA, live 320/390 mobile category gateway, unchanged desktop layout, working category/custom-print URLs, zero overflow, and no console or image failures.
-
