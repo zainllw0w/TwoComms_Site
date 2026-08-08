@@ -206,6 +206,33 @@
     });
   };
 
+  const updateQuickFacetValues = () => {
+    const labels = { theme: "Усі", fit: "Будь-який", color: "Усі" };
+    const themeControls = root.querySelectorAll(
+      '[data-smart-filter="theme"][aria-pressed="true"], [data-smart-filter="collection"][aria-pressed="true"]'
+    );
+    const fitControls = root.querySelectorAll('[data-smart-filter="fit"][aria-pressed="true"]');
+    const labelFor = (controls, fallback) => {
+      const values = Array.from(controls)
+        .map((control) => control.querySelector("span:not([aria-hidden])")?.childNodes?.[0]?.textContent?.trim() || control.textContent.trim())
+        .filter(Boolean);
+      const unique = Array.from(new Set(values));
+      return unique.length > 1 ? `${unique.length} обрано` : unique[0] || fallback;
+    };
+    labels.theme = labelFor(themeControls, labels.theme);
+    labels.fit = labelFor(fitControls, labels.fit);
+    const activeColor = root.querySelector(".smart-selector__colors a.is-active, .smart-selector__sheet-colors a.is-active");
+    if (activeColor) {
+      const colorLabel = activeColor.cloneNode(true);
+      colorLabel.querySelectorAll(".smart-selector__choice-count, .visually-hidden").forEach((node) => node.remove());
+      labels.color = activeColor.getAttribute("title") || colorLabel.textContent.trim();
+    }
+    root.querySelectorAll("[data-smart-quick-value]").forEach((value) => {
+      const facet = value.dataset.smartQuickValue;
+      if (facet && labels[facet]) value.textContent = labels[facet];
+    });
+  };
+
   const lockPage = () => {
     const body = document.body;
     const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
@@ -414,11 +441,38 @@
       return;
     }
 
+    const clearFilter = target.closest("[data-smart-clear-filter]");
+    if (clearFilter && root.contains(clearFilter)) {
+      event.preventDefault();
+      const facet = clearFilter.dataset.smartClearFilter || "";
+      if (!resettableFilters.includes(facet)) return;
+      const url = new URL(window.location.href);
+      url.searchParams.delete(facet);
+      url.searchParams.delete("page");
+      emitCatalogAnalytics("CatalogFilterClear", { source: "focused-sheet", facet });
+      window.location.assign(url.toString());
+      return;
+    }
+
     const reset = target.closest("[data-smart-reset]");
     if (reset && root.contains(reset)) {
       event.preventDefault();
-      emitCatalogAnalytics("CatalogFilterClear", { source: "reset" });
-      window.location.assign(resetUrl().toString());
+      const url = new URL(window.location.href);
+      const focusedKeys = {
+        theme: ["theme", "collection"],
+        fit: ["fit"],
+        color: ["color"],
+        sort: ["sort"],
+      };
+      const keys = focusedKeys[sheetMode];
+      if (keys) {
+        keys.forEach((key) => url.searchParams.delete(key));
+        url.searchParams.delete("page");
+      } else {
+        resettableFilters.forEach((key) => url.searchParams.delete(key));
+      }
+      emitCatalogAnalytics("CatalogFilterClear", { source: "reset", mode: sheetMode });
+      window.location.assign(url.toString());
       return;
     }
 
@@ -569,6 +623,7 @@
   observeFavoriteButtons(productItems());
   applySort(readInitialSort());
   updateActiveCount();
+  updateQuickFacetValues();
   initializeDisclosures();
   measureMobileNavigation();
 

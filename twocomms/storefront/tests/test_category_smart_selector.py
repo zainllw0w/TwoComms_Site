@@ -912,5 +912,5 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
             / "catalog.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v11", template)
-        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v11", template)
+        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v12", template)
+        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v12", template)

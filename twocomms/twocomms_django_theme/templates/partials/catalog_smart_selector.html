@@ -242,13 +242,13 @@
 
         <div class="smart-selector__quick-facets" aria-label="{% trans 'Швидкий вибір' %}">
           <button type="button" class="smart-selector__quick-facet" data-smart-open-filters data-smart-focus-filter="theme" aria-controls="smart-selector-filter-sheet" aria-haspopup="dialog" aria-expanded="false">
-            <span>{% trans 'Тема' %}</span><strong>{% trans 'Усі' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+            <span>{% trans 'Тема' %}</span><strong data-smart-quick-value="theme">{% trans 'Усі' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
           </button>
           <button type="button" class="smart-selector__quick-facet" data-smart-open-filters data-smart-focus-filter="fit" aria-controls="smart-selector-filter-sheet" aria-haspopup="dialog" aria-expanded="false">
-            <span>{% trans 'Крій' %}</span><strong>{% trans 'Будь-який' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+            <span>{% trans 'Крій' %}</span><strong data-smart-quick-value="fit">{% trans 'Будь-який' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
           </button>
           <button type="button" class="smart-selector__quick-facet" data-smart-open-filters data-smart-focus-filter="color" aria-controls="smart-selector-filter-sheet" aria-haspopup="dialog" aria-expanded="false">
-            <span>{% trans 'Колір' %}</span><strong>{% trans 'Усі' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+            <span>{% trans 'Колір' %}</span><strong data-smart-quick-value="color">{% trans 'Усі' %}</strong><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
           </button>
         </div>
 
@@ -390,6 +390,9 @@
         <fieldset data-smart-filter-section="theme">
           <legend>{% trans 'Тема' %}</legend>
           <div class="smart-selector__sheet-options">
+            <button type="button" class="smart-selector__choice smart-selector__choice--all{% if not smart_selector_selected_theme %} is-current{% endif %}" data-smart-clear-filter="theme" aria-pressed="{% if not smart_selector_selected_theme %}true{% else %}false{% endif %}">
+              <span>{% trans 'Показати всі' %}</span><small class="smart-selector__choice-count">{{ paginator.count }}</small>
+            </button>
             {% for option in smart_selector_theme_options %}
               {% if option.children %}
               <div class="smart-selector__branch{% if option.selected %} has-selection{% endif %}">
@@ -481,6 +484,9 @@
         <fieldset data-smart-filter-section="fit">
           <legend>{% trans 'Крій' %}</legend>
           <div class="smart-selector__sheet-options">
+            <button type="button" class="smart-selector__choice smart-selector__choice--all{% if not smart_selector_selected_fit %} is-current{% endif %}" data-smart-clear-filter="fit" aria-pressed="{% if not smart_selector_selected_fit %}true{% else %}false{% endif %}">
+              <span>{% trans 'Будь-який крій' %}</span><small class="smart-selector__choice-count">{{ paginator.count }}</small>
+            </button>
             {% for option in smart_selector_fit_options %}
             <button type="button"
                     class="smart-selector__choice"
@@ -535,6 +541,9 @@
         <fieldset data-smart-filter-section="color">
           <legend>{% trans 'Колір' %}</legend>
           <div class="smart-selector__sheet-options smart-selector__sheet-colors">
+            <a href="{{ color_filter_reset_url|default:request.path }}" class="{% if not selected_color_slugs %}is-active is-current{% endif %}" data-smart-clear-filter="color" aria-pressed="{% if not selected_color_slugs %}true{% else %}false{% endif %}">
+              <span class="smart-selector__all-colors-icon" aria-hidden="true">✦</span>{% trans 'Показати всі' %}<small class="smart-selector__choice-count">{{ paginator.count }}</small>
+            </a>
             {% for color in available_colors %}
             <a href="{{ color.url }}" class="{% if color.is_selected %}is-active{% endif %}" {% if color.is_selected %}aria-current="true"{% endif %}>
               <span style="--smart-color: {{ color.primary_hex|default:'#687382' }};" aria-hidden="true"></span>

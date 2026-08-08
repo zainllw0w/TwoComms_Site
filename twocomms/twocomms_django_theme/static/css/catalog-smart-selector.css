@@ -445,6 +445,8 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--smart-line);
 }
 
 [data-smart-selector] .smart-product-card__media {
@@ -539,6 +541,22 @@
   transition: color 160ms ease, background-color 160ms ease;
 }
 
+[data-smart-selector] .favorite-btn.smart-product-card__favorite,
+[data-smart-selector] .favorite-btn.smart-product-card__favorite:hover,
+[data-smart-selector] .favorite-btn.smart-product-card__favorite:focus {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-smart-selector] .smart-product-card__favorite .favorite-btn-icon {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 [data-smart-selector] .smart-product-card__favorite:hover {
   color: #ffd09a;
   background: transparent;
@@ -561,6 +579,12 @@
   flex: 1;
   flex-direction: column;
   padding-top: 9px;
+}
+
+[data-smart-selector] .smart-product-card__price-row {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--smart-line);
 }
 
 [data-smart-selector] .smart-product-card__title {
@@ -856,6 +880,11 @@
   background: rgba(243, 164, 61, 0.08);
 }
 
+[data-smart-selector] .smart-selector__sheet > header button {
+  border: 0;
+  background: transparent;
+}
+
 [data-smart-selector] .smart-selector__sheet > header svg {
   width: 20px;
   height: 20px;
@@ -887,6 +916,13 @@
 
 [data-smart-selector] .smart-selector__sheet-body fieldset:last-child {
   border-bottom: 0;
+}
+
+[data-smart-selector] .smart-selector__overlay[data-smart-sheet-mode="theme"] .smart-selector__sheet-options,
+[data-smart-selector] .smart-selector__overlay[data-smart-sheet-mode="fit"] .smart-selector__sheet-options,
+[data-smart-selector] .smart-selector__overlay[data-smart-sheet-mode="color"] .smart-selector__sheet-options,
+[data-smart-selector] .smart-selector__overlay[data-smart-sheet-mode="sort"] .smart-selector__sheet-options {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 [data-smart-selector] .smart-selector__sheet-body legend,
@@ -933,6 +969,134 @@
   border-radius: 6px;
   background: var(--smart-field);
   transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+/* Variant 3 option rows: icon well, title, helper copy, and a quiet result edge. */
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice {
+  min-height: 76px;
+  padding: 10px 48px 10px 82px;
+  border-color: var(--smart-line);
+  border-radius: 7px;
+  background: #0c1118;
+  font-size: 0.87rem;
+  font-weight: 820;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice::before {
+  left: 19px;
+  width: 52px;
+  height: 52px;
+  border: 2px solid #2a3442;
+  border-radius: 7px;
+  background: #0e141c;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice::after {
+  left: 35px;
+  width: auto;
+  height: auto;
+  color: #9da8b8;
+  content: "✦";
+  font-size: 1.25rem;
+  line-height: 1;
+  border: 0;
+  opacity: 1;
+  transform: none;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice > span:not([aria-hidden]) {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice > span:not([aria-hidden])::after {
+  display: block;
+  margin-top: 5px;
+  color: #9da8b8;
+  content: "Застосувати до поточної категорії";
+  font-size: 0.68rem;
+  font-weight: 560;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice[aria-pressed="true"] {
+  border-color: #a46a25;
+  background: #191712;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice[aria-pressed="true"]::before {
+  border-color: var(--smart-accent);
+  background: #17130d;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__choice[aria-pressed="true"]::after {
+  color: var(--smart-accent);
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sheet-colors > a {
+  min-height: 76px;
+  padding: 10px 48px 10px 82px;
+  border-color: var(--smart-line);
+  border-radius: 7px;
+  background: #0c1118;
+  font-size: 0.87rem;
+  font-weight: 820;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sheet-colors > a::before {
+  left: 19px;
+  width: 52px;
+  height: 52px;
+  border: 2px solid #2a3442;
+  border-radius: 7px;
+  background: #0e141c;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sheet-colors > a::after {
+  display: none;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sheet-colors > a > span {
+  width: 26px;
+  height: 26px;
+  margin-right: 14px;
+  border-width: 2px;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sheet-colors > a .smart-selector__all-colors-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--smart-accent);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-smart-selector] .smart-selector__choice-count {
+  position: absolute;
+  right: 18px;
+  color: #9da8b8;
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sheet-colors > a::marker {
+  display: none;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sort-options .smart-selector__choice {
+  min-height: 64px;
+}
+
+[data-smart-selector] .smart-selector__sheet-body .smart-selector__sort-options .smart-selector__choice > span::after {
+  display: none;
 }
 
 [data-smart-selector] .smart-selector__choice::before {
@@ -1320,10 +1484,12 @@
 
   [data-smart-selector] .smart-selector__rail {
     position: sticky;
-    top: 88px;
+    top: 145px;
     display: block;
-    max-height: calc(100vh - 104px);
+    align-self: start;
+    max-height: calc(100vh - 160px);
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0 14px 28px 0;
     border: 0;
     border-right: 1px solid var(--smart-line);
@@ -1331,6 +1497,7 @@
     background: transparent;
     box-shadow: none;
     scrollbar-width: thin;
+    scrollbar-color: var(--smart-line-strong) transparent;
   }
 
   [data-smart-selector] .smart-selector__rail-head {

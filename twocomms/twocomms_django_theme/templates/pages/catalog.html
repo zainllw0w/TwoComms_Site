@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}">
 {% if smart_selector_enabled %}
-<link rel="stylesheet" href="{% static 'css/catalog-smart-selector.css' %}?v=20260808-v11">
+<link rel="stylesheet" href="{% static 'css/catalog-smart-selector.css' %}?v=20260808-v12">
 {% endif %}
 {% endblock %}
 
@@ -539,7 +539,7 @@ point at themselves.
 {% block extra_js %}
 {{ block.super }}
 {% if smart_selector_enabled %}
-<script defer src="{% static 'js/catalog-smart-selector.js' %}?v=20260808-v11"></script>
+<script defer src="{% static 'js/catalog-smart-selector.js' %}?v=20260808-v12"></script>
 {% else %}
 <script defer src="{% static 'js/catalog-redesign.js' %}"></script>
 {% endif %}
