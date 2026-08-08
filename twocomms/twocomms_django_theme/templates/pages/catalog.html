@@ -13,7 +13,7 @@
 <link rel="preload" as="image" href="{% static 'img/catalog/catalog-hero.webp' %}" fetchpriority="high">
 {% endif %}
 <link rel="stylesheet" href="{% static 'css/home.css' %}?v=20260715-fable5-v1">
-<link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}">
+<link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}?v=20260809-mobile-shell">
 <link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}">
 {% if smart_selector_enabled %}
@@ -171,34 +171,7 @@ point at themselves.
 {% else %}
 <div class="catalog-redesign-shell{% if show_category_cards %} catalog-redesign-shell--root{% endif %}">
   {% if show_category_cards and catalog_mobile_showcase_cards %}
-  <section class="catalog-mobile-reference" aria-labelledby="catalog-mobile-reference-title" data-catalog-mobile-reference data-cart-count-url="{% url 'get_cart_count' %}">
-    <svg class="catalog-mobile-reference__symbols" aria-hidden="true" focusable="false">
-      <symbol id="catalog-ref-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
-      <symbol id="catalog-ref-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></symbol>
-      <symbol id="catalog-ref-shirt" viewBox="0 0 24 24"><path d="m8 4-5 3 2.5 4L8 9v11h8V9l2.5 2L21 7l-5-3c-.7 1.3-2 2-4 2S8.7 5.3 8 4Z"/></symbol>
-      <symbol id="catalog-ref-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9-5.6 2.9 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></symbol>
-      <symbol id="catalog-ref-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21c.7-5 3.4-7 8-7s7.3 2 8 7"/></symbol>
-      <symbol id="catalog-ref-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
-    </svg>
-
-    <header class="catalog-mobile-reference__header" data-catalog-reference-header>
-      <button class="catalog-mobile-reference__icon-button" type="button" aria-label="{% trans 'Відкрити меню' %}" aria-expanded="false" data-catalog-reference-menu-button><span class="catalog-mobile-reference__menu-icon" aria-hidden="true"><span></span></span></button>
-      <a class="catalog-mobile-reference__wordmark" href="{% url 'home' %}" aria-label="TwoComms">TWOCOMMS</a>
-      <form class="catalog-mobile-reference__search-form" action="{% url 'search' %}" role="search" data-catalog-reference-search-form>
-        <label class="visually-hidden" for="catalog-reference-search">{% trans 'Пошук' %}</label>
-        <input id="catalog-reference-search" type="search" name="q" placeholder="{% trans 'Пошук у каталозі' %}">
-      </form>
-      <div class="catalog-mobile-reference__header-actions">
-        <button class="catalog-mobile-reference__icon-button" type="button" aria-label="{% trans 'Відкрити пошук' %}" aria-expanded="false" data-catalog-reference-search-button><svg aria-hidden="true"><use href="#catalog-ref-search"/></svg></button>
-        <a class="catalog-mobile-reference__icon-button" href="{% url 'cart' %}" aria-label="{% trans 'Кошик' %}"><svg aria-hidden="true"><use href="#catalog-ref-bag"/></svg><span class="catalog-mobile-reference__bag-badge" data-catalog-reference-cart-count>0</span></a>
-      </div>
-    </header>
-    <nav class="catalog-mobile-reference__menu-panel" aria-label="{% trans 'Головне меню' %}" data-catalog-reference-menu>
-      <a href="{% url 'catalog' %}">{% trans 'Каталог' %}</a>
-      <a href="{% url 'custom_print' %}">{% trans 'Створити свій принт' %}</a>
-      <a href="{% url 'about' %}">{% trans 'Про нас' %}</a>
-    </nav>
-
+  <section class="catalog-mobile-reference" aria-labelledby="catalog-mobile-reference-title" data-catalog-mobile-reference>
     <div class="catalog-mobile-reference__content">
     <div class="catalog-mobile-reference__hero" aria-labelledby="catalog-mobile-reference-title">
       <div class="catalog-mobile-reference__hero-copy">
@@ -208,14 +181,15 @@ point at themselves.
       </div>
       <img class="catalog-mobile-reference__hero-image" src="{% static 'img/configurator/custom-ref/hoodie-black-b.webp' %}" width="1200" height="1400" alt="{% trans 'Чорне худі TwoComms, вид зі спини' %}" loading="eager" decoding="async" fetchpriority="high">
       <span class="catalog-mobile-reference__hero-shade" aria-hidden="true"></span>
+      <span class="catalog-mobile-reference__hero-progress" aria-hidden="true"><i></i><i></i></span>
     </div>
 
     <div class="catalog-mobile-reference__head">
       <h2>{% trans 'Каталог' %}</h2>
-      <a class="catalog-mobile-reference__filter" href="#catalog-mobile-reference-categories" aria-label="{% trans 'Перейти до категорій' %}">
+      <button class="catalog-mobile-reference__filter" type="button" data-mobile-open-filters aria-label="{% trans 'Відкрити фільтри каталогу' %}">
         <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h10M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>
         <span>{% trans 'Фільтри' %}</span>
-      </a>
+      </button>
     </div>
 
     <div id="catalog-mobile-reference-categories" class="catalog-mobile-reference__categories">
@@ -245,6 +219,10 @@ point at themselves.
     </div>
 
     <a class="catalog-mobile-reference__custom-print" href="{% url 'custom_print' %}">
+      <span class="catalog-mobile-reference__floating-mark catalog-mobile-reference__floating-mark--one" aria-hidden="true"><img src="{% static 'img/logo.svg' %}" width="11" height="11" alt=""></span>
+      <span class="catalog-mobile-reference__floating-mark catalog-mobile-reference__floating-mark--two" aria-hidden="true"><img src="{% static 'img/logo.svg' %}" width="9" height="9" alt=""></span>
+      <span class="catalog-mobile-reference__floating-mark catalog-mobile-reference__floating-mark--three" aria-hidden="true"><img src="{% static 'img/logo.svg' %}" width="11" height="11" alt=""></span>
+      <span class="catalog-mobile-reference__floating-mark catalog-mobile-reference__floating-mark--four" aria-hidden="true"><img src="{% static 'img/logo.svg' %}" width="8" height="8" alt=""></span>
       <span class="catalog-mobile-reference__custom-copy">
         <span class="catalog-mobile-reference__custom-title">{% trans 'Створи свій принт' %}</span>
         <span class="catalog-mobile-reference__custom-lede">{% trans 'Твій дизайн. Твій сенс.' %}<br>{% trans 'Наше виробництво.' %}</span>
@@ -263,12 +241,6 @@ point at themselves.
     </section>
     </div>
 
-    <nav class="catalog-mobile-reference__bottom-nav" aria-label="{% trans 'Нижня навігація' %}">
-      <a class="catalog-mobile-reference__nav-item is-active" href="{% url 'catalog' %}" aria-current="page"><svg aria-hidden="true"><use href="#catalog-ref-shirt"/></svg><span>{% trans 'Каталог' %}</span></a>
-      <a class="catalog-mobile-reference__nav-item" href="{% url 'favorites' %}"><svg aria-hidden="true"><use href="#catalog-ref-star"/></svg><span>{% trans 'Обране' %}</span></a>
-      <a class="catalog-mobile-reference__nav-item" href="{% url 'profile_setup' %}"><svg aria-hidden="true"><use href="#catalog-ref-user"/></svg><span>{% trans 'Профіль' %}</span></a>
-      <a class="catalog-mobile-reference__nav-item" href="{% url 'about' %}"><svg aria-hidden="true"><use href="#catalog-ref-info"/></svg><span>{% trans 'Про нас' %}</span></a>
-    </nav>
   </section>
   {% endif %}
 
@@ -643,6 +615,6 @@ point at themselves.
 {% if smart_selector_enabled %}
 <script defer src="{% static 'js/catalog-smart-selector.js' %}?v=20260808-v16"></script>
 {% else %}
-<script defer src="{% static 'js/catalog-redesign.js' %}"></script>
+<script defer src="{% static 'js/catalog-redesign.js' %}?v=20260809-mobile-shell"></script>
 {% endif %}
 {% endblock %}

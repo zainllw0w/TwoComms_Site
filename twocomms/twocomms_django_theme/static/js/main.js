@@ -735,7 +735,7 @@ function applySwatchColors(root) {
 
 // Мини‑корзина с кэшированием
 function miniCartPanel() {
-  if (window.innerWidth < 576) {
+  if (window.innerWidth < 992) {
     return DOMCache.get('mini-cart-panel-mobile');
   } else {
     return DOMCache.get('mini-cart-panel');
@@ -775,7 +775,7 @@ function openMiniCart(opts = {}) {
     .forEach(up => { if (up && !up.classList.contains('d-none')) { up.classList.remove('show'); setTimeout(() => up.classList.add('d-none'), 200); } });
   panel.classList.remove('d-none', 'hiding');
   // Мобильный полноэкранный режим
-  if (window.innerWidth < 576) {
+  if (window.innerWidth < 992) {
     panel.classList.add('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
     panel.style.right = '';
     panel.style.top = '0';
@@ -1199,7 +1199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const supGuard = Date.now() < uiGuardUntil;
     const supGlob = Date.now() < suppressGlobalCloseUntil;
     const panel = miniCartPanel();
-    const toggle = window.innerWidth < 576 ?
+    const toggle = window.innerWidth < 992 ?
       document.getElementById('cart-toggle-mobile') :
       document.getElementById('cart-toggle') || document.querySelector('[data-cart-toggle]');
     if (!panel) return;
@@ -1222,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const wasShown = panel.classList.contains('show');
       if (wasShown) panel.classList.remove('show');
       // режим позиционирования
-      if (window.innerWidth < 576) {
+      if (window.innerWidth < 992) {
         panel.classList.add('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
         panel.style.right = '';
         panel.style.top = '0';

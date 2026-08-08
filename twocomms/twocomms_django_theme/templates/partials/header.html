@@ -3,7 +3,7 @@
 {% load i18n %}
 {% load i18n_links %}
 {% language_switch_links as header_langs %}
-<nav class='navbar navbar-expand-lg border-bottom sticky-top bg-body backdrop-blur'>
+<nav class='navbar navbar-expand-lg border-bottom sticky-top bg-body backdrop-blur' data-mobile-legacy-navbar>
   <div class='container-xxl'>
     <a class='navbar-brand fw-bold d-flex align-items-center gap-2' href='{% url 'home' %}'>
       <img src='{% static 'img/logo.svg' %}' width='28' height='28' alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}"> TwoComms
@@ -176,91 +176,65 @@
     </div>
   </div>
 </nav>
-<!-- Красивое нижнее меню для мобильных устройств -->
-<div class='d-lg-none bottom-nav'>
-  <div class="bottom-nav-container">
-    <!-- Домой -->
-    <a href='{% url 'home' %}' class='bottom-nav-item {% if request and request.resolver_match and request.resolver_match.url_name == 'home' %}active{% endif %}'>
-      <div class="bottom-nav-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-        </svg>
-      </div>
-      <span class="bottom-nav-label">{% trans 'Головна' %}</span>
-    </a>
-    
-    <!-- Каталог -->
-    <a href='{% url 'catalog' %}' class='bottom-nav-item {% if request and request.resolver_match and request.resolver_match.url_name == 'catalog' %}active{% endif %}'>
-      <div class="bottom-nav-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
-        </svg>
-      </div>
-      <span class="bottom-nav-label">{% trans 'Каталог' %}</span>
-    </a>
-    
-    <!-- Корзина -->
-    <div class="bottom-nav-item cart-container-mobile">
-      <button id="cart-toggle-mobile" type="button" class="cart-btn-mobile" aria-label="{% trans 'Відкрити міні-корзину' %}">
-        {# Phase 21 (T20 a11y) — see desktop cart-toggle comment; same pattern. #}
-        <div class="cart-icon-wrapper-mobile" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
-            <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-          </svg>
-          <div class="cart-glow-mobile"></div>
-          <span id="cart-count-mobile" class="cart-badge-mobile">0</span>
-        </div>
-      </button>
-      <span class="bottom-nav-label">{% trans 'Кошик' %}</span>
-    </div>
-    
-    <!-- Избранное - СКРЫТО В МОБИЛЬНОЙ ВЕРСИИ -->
-    <a href='{% url 'favorites' %}' class='bottom-nav-item {% if request and request.resolver_match and request.resolver_match.url_name == 'favorites' %}active{% endif %}' style="display: none !important;" id="favorites-mobile-bottom-nav">
-      <div class="bottom-nav-icon position-relative">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-        </svg>
-        <!-- Счетчик избранного для мобильных -->
-        <span id="favorites-count-mobile" class="favorites-badge-mobile" aria-label="{% trans 'Кількість товарів у обраних' %}">0</span>
-      </div>
-      <span class="bottom-nav-label">{% trans 'Обране' %}</span>
-    </a>
-    
-    <!-- Профиль -->
-    <div class="bottom-nav-item user-profile-container-mobile">
-      {% if request.user.is_authenticated %}
-      <button id="user-toggle-mobile" type="button" class="user-avatar-btn-mobile" aria-label="{% trans 'Відкрити панель користувача' %}">
-        <div class="avatar-wrapper-mobile">
-          {% if request.user.userprofile and request.user.userprofile.avatar %}
-            <img src="{{ request.user.userprofile.avatar.url }}" alt="{% trans 'Аватар користувача — TwoComms' %}" class="avatar-image-mobile" width="36" height="36">
-          {% elif request.session.profile_avatar %}
-            <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" alt="{% trans 'Аватар користувача — TwoComms' %}" class="avatar-image-mobile" width="36" height="36">
-          {% else %}
-            <img src="{% static 'img/placeholder.jpg' %}" alt="{% trans 'Аватар користувача — TwoComms' %}" class="avatar-image-mobile" width="36" height="36">
-          {% endif %}
-          <div class="avatar-glow-mobile"></div>
-          {% if request.user.is_staff and orders_processing_count > 0 %}
-            <span class="orders-badge-mobile">
-              {{ orders_processing_count }}
-            </span>
-          {% endif %}
-        </div>
-      </button>
-      {% else %}
-      <a href="{% url 'login' %}" class="user-login-link-mobile" aria-label="{% trans 'Увійти або зареєструватися' %}">
-        <div class="avatar-wrapper-mobile">
-          <div class="guest-avatar-mobile">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-          </div>
-          <div class="avatar-glow-mobile"></div>
-        </div>
-      </a>
-      {% endif %}
-      <span class="bottom-nav-label">{% if request.user.is_authenticated %}{% trans 'Профіль' %}{% else %}{% trans 'Увійти' %}{% endif %}</span>
-    </div>
-  </div>
-</div>
 
+{# Global mobile shell. It is hidden above 991px by mobile-shell.css. #}
+<div class="mobile-site-shell" data-mobile-site-shell="true">
+  <header class="mobile-site-shell__header" data-mobile-shell-header>
+    <button class="mobile-site-shell__icon" type="button" data-mobile-menu-toggle aria-expanded="false" aria-controls="mobile-site-menu" aria-label="{% trans 'Відкрити меню' %}">
+      <span class="mobile-site-shell__burger" aria-hidden="true"><span></span></span>
+    </button>
+    <a class="mobile-site-shell__wordmark" href="{% url 'home' %}" aria-label="TwoComms">TWOCOMMS</a>
+    <form class="mobile-site-shell__search" action="{% url 'search' %}" role="search" data-mobile-search-form>
+      <label class="visually-hidden" for="mobile-shell-search-input">{% trans 'Пошук' %}</label>
+      <input id="mobile-shell-search-input" type="search" name="q" placeholder="{% trans 'Пошук у каталозі' %}">
+    </form>
+    <div class="mobile-site-shell__actions">
+      <button class="mobile-site-shell__icon" type="button" data-mobile-search-toggle aria-expanded="false" aria-controls="mobile-shell-search-input" aria-label="{% trans 'Відкрити пошук' %}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+      </button>
+      <button id="cart-toggle-mobile" class="mobile-site-shell__icon mobile-site-shell__cart" type="button" aria-label="{% trans 'Відкрити міні-корзину' %}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8Z"></path><path d="M9 9V6a3 3 0 0 1 6 0v3"></path></svg>
+        <span id="cart-count-mobile" class="mobile-site-shell__badge" aria-live="polite">0</span>
+      </button>
+    </div>
+  </header>
+  <nav id="mobile-site-menu" class="mobile-site-shell__menu" data-mobile-menu-panel aria-label="{% trans 'Головне меню' %}" aria-hidden="true" hidden>
+    <a href="{% url 'catalog' %}">{% trans 'Каталог' %}</a>
+    <a href="{% url 'custom_print' %}">{% trans 'Створити свій принт' %}</a>
+    <a href="{% url 'delivery' %}">{% trans 'Доставка і оплата' %}</a>
+    <a href="{% url 'about' %}">{% trans 'Про нас' %}</a>
+    <a href="{% url 'contacts' %}">{% trans 'Контакти' %}</a>
+    <div class="mobile-site-shell__languages" data-mobile-language-switcher aria-label="{% trans 'Мова сайту' %}">
+      <span>{% trans 'Мова' %}</span>
+      <div class="mobile-site-shell__language-links">
+        {% for item in header_langs %}
+        <a href="{{ item.url }}" lang="{{ item.code }}" hreflang="{{ item.code }}" class="{% if item.is_current %}is-active{% endif %}"{% if item.is_current %} aria-current="page"{% endif %}>{{ item.short }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </nav>
+  {% with route_name=request.resolver_match.url_name|default:'' %}
+  <nav class="bottom-nav" data-mobile-bottom-nav aria-label="{% trans 'Нижня навігація' %}">
+    {% if route_name == 'catalog' or route_name == 'catalog_by_cat' %}
+    <button type="button" class="bottom-nav-item bottom-nav-item--action active" data-bottom-nav-context="filters" data-mobile-open-filters aria-label="{% trans 'Відкрити фільтри каталогу' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h10M18 18h2"></path><circle cx="16" cy="6" r="2"></circle><circle cx="9" cy="12" r="2"></circle><circle cx="16" cy="18" r="2"></circle></svg>
+      <span class="bottom-nav-label">{% trans 'Фільтри' %}</span><strong class="bottom-nav-count" data-mobile-filter-count hidden>0</strong>
+    </button>
+    {% else %}
+    <a href="{% url 'catalog' %}" class="bottom-nav-item" data-bottom-nav-context="catalog">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4-5 3 2.5 4L8 9v11h8V9l2.5 2L21 7l-5-3c-.7 1.3-2 2-4 2S8.7 5.3 8 4Z"></path></svg><span class="bottom-nav-label">{% trans 'Каталог' %}</span>
+    </a>
+    {% endif %}
+    <a href="{% url 'favorites' %}" class="bottom-nav-item{% if route_name == 'favorites' %} active{% endif %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 21-1.5-1.3C5.4 15.2 2 12.1 2 8.5 2 5.4 4.4 3 7.5 3c1.8 0 3.5.8 4.5 2.1C13 3.8 14.7 3 16.5 3 19.6 3 22 5.4 22 8.5c0 3.6-3.4 6.7-8.5 11.2L12 21Z"></path></svg><span class="bottom-nav-label">{% trans 'Обране' %}</span>
+    </a>
+    <a href="{% url 'profile_setup' %}" class="bottom-nav-item{% if route_name == 'profile_setup' %} active{% endif %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"></circle><path d="M4 21c.7-5 3.4-7 8-7s7.3 2 8 7"></path></svg><span class="bottom-nav-label">{% trans 'Профіль' %}</span>
+    </a>
+    <a href="{% url 'about' %}" class="bottom-nav-item{% if route_name == 'about' %} active{% endif %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7h.01"></path></svg><span class="bottom-nav-label">{% trans 'Про нас' %}</span>
+    </a>
+  </nav>
+  {% endwith %}
+</div>
 <!-- hideOnMobile moved to main.js -->

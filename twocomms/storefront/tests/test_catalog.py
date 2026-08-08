@@ -124,6 +124,35 @@ class HomeViewTests(CatalogViewTestCase):
 
 
 class CatalogViewTests(CatalogViewTestCase):
+    def test_global_mobile_shell_owns_header_cart_menu_and_bottom_navigation(self):
+        self.create_product(title="Root Product", slug="root-product")
+
+        response = self.client.get(reverse("catalog"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-mobile-site-shell="true"')
+        self.assertContains(response, 'data-mobile-menu-panel')
+        self.assertContains(response, 'id="cart-toggle-mobile"')
+        self.assertContains(response, 'data-mobile-language-switcher')
+        self.assertContains(response, 'data-bottom-nav-context="filters"')
+        self.assertContains(response, 'data-mobile-open-filters')
+        self.assertContains(response, "css/mobile-shell.css")
+        self.assertNotContains(response, '>Кошик</span>')
+
+        html = response.content.decode("utf-8")
+        self.assertEqual(html.count('id="cart-toggle-mobile"'), 1)
+        self.assertEqual(html.count('id="cart-count-mobile"'), 1)
+        self.assertNotIn("data-catalog-reference-header", html)
+        self.assertNotIn("catalog-mobile-reference__bottom-nav", html)
+        self.assertNotIn("data-mobile-legacy-bottom-nav", html)
+
+    def test_global_mobile_shell_uses_catalog_link_outside_catalog(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-bottom-nav-context="catalog"')
+        self.assertContains(response, 'href="/catalog/"')
+
     def test_catalog_root_shows_published_products_and_category_cards(self):
         self.create_product(title="Root Product", slug="root-product")
         self.create_product(
