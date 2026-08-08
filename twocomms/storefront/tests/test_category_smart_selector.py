@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 from django.core.cache import cache, caches
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from productcolors.models import Color, ProductColorVariant
+from fable5.models import (
+    AudienceTag,
+    ColorProfile,
+    MerchCollection,
+    ProductAudience,
+    ProductMerchCollection,
+    VariantSizeRule,
+)
 from storefront.models import Category, CategoryColorLanding, Product, ProductFitOption
 
 
@@ -56,6 +65,81 @@ class SmartSelectorCategoryTests(TestCase):
                 is_active=True,
             )
 
+    def create_merch_taxonomy(self):
+        military = MerchCollection.objects.create(
+            slug="military",
+            kind=MerchCollection.Kind.THEME,
+            name_uk="Мілітарі",
+            name_ru="Милитари",
+            name_en="Military",
+            order=10,
+        )
+        brigades = MerchCollection.objects.create(
+            slug="brigades",
+            kind=MerchCollection.Kind.THEME,
+            name_uk="Бригади",
+            name_ru="Бригады",
+            name_en="Brigades",
+            order=20,
+        )
+        brigade_225 = MerchCollection.objects.create(
+            slug="225",
+            kind=MerchCollection.Kind.BRIGADE,
+            parent=brigades,
+            name_uk="225 ОШП",
+            name_ru="225 ОШП",
+            name_en="225 Assault Regiment",
+            order=21,
+            indexable=True,
+        )
+        brigade_127 = MerchCollection.objects.create(
+            slug="127",
+            kind=MerchCollection.Kind.BRIGADE,
+            parent=brigades,
+            name_uk="127 бригада",
+            name_ru="127 бригада",
+            name_en="127 Brigade",
+            order=22,
+        )
+        streetwear = MerchCollection.objects.create(
+            slug="streetwear",
+            kind=MerchCollection.Kind.THEME,
+            name_uk="Стрітвір",
+            name_ru="Стритвир",
+            name_en="Streetwear",
+            order=30,
+        )
+        kharkiv = MerchCollection.objects.create(
+            slug="kharkiv",
+            kind=MerchCollection.Kind.CITY,
+            name_uk="Харків",
+            name_ru="Харьков",
+            name_en="Kharkiv",
+            order=40,
+        )
+        return {
+            "military": military,
+            "brigades": brigades,
+            "225": brigade_225,
+            "127": brigade_127,
+            "streetwear": streetwear,
+            "kharkiv": kharkiv,
+        }
+
+    def create_audience_tags(self):
+        return {
+            code: AudienceTag.objects.create(
+                code=code,
+                label_uk=label,
+                label_ru=label,
+                label_en=code.title(),
+                order=order,
+            )
+            for order, (code, label) in enumerate(
+                (("unisex", "Унісекс"), ("women", "Жіночий"), ("men", "Чоловічий"))
+            )
+        }
+
     def test_supported_category_renders_smart_selector_and_preserves_seo_contract(self):
         product = self.create_product(category=self.tshirts)
         response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
@@ -81,6 +165,25 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertContains(response, 'class="smart-product-card__media"')
         self.assertContains(response, f'href="{reverse("product", kwargs={"slug": product.slug})}"')
         self.assertNotContains(response, 'class="home-product-card card product')
+
+    @override_settings(STATIC_URL="/static/")
+    def test_image_less_card_uses_static_placeholder_url(self):
+        self.create_product(category=self.tshirts, slug="placeholder-card")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertContains(response, 'src="/static/img/placeholder.jpg"')
+        self.assertNotContains(response, 'src="img/placeholder.jpg"')
+
+    def test_narrow_mobile_cards_keep_title_and_price_above_bottom_navigation(self):
+        css_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/css/catalog-smart-selector.css"
+        )
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("@media (max-width: 340px)", css)
+        self.assertIn("aspect-ratio: 1 / 1", css)
 
     def test_quick_facets_precede_catalog_command_and_product_grid(self):
         self.create_product(category=self.tshirts, slug="quick-facet-order")
@@ -145,12 +248,17 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertEqual(response.context["smart_selector_selected_fit"], "classic")
 
     def test_smart_selector_validates_theme_and_fit_query_state(self):
+        taxonomy = self.create_merch_taxonomy()
         product = self.create_product(
             category=self.tshirts,
             title="Military field tee",
             slug="military-field-tee",
         )
         self.add_fit_options(product, "oversize")
+        ProductMerchCollection.objects.create(
+            product=product,
+            collection=taxonomy["military"],
+        )
 
         response = self.client.get(
             reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
@@ -180,6 +288,7 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertEqual(response.context["paginator"].count, 1)
 
     def test_theme_and_fit_filter_full_queryset_before_pagination(self):
+        taxonomy = self.create_merch_taxonomy()
         first_match = self.create_product(
             category=self.tshirts,
             title="Military oversize one",
@@ -204,6 +313,15 @@ class SmartSelectorCategoryTests(TestCase):
         self.add_fit_options(second_match, "oversize")
         self.add_fit_options(wrong_theme, "oversize")
         self.add_fit_options(wrong_fit, "classic")
+        for product in (first_match, second_match, wrong_fit):
+            ProductMerchCollection.objects.create(
+                product=product,
+                collection=taxonomy["military"],
+            )
+        ProductMerchCollection.objects.create(
+            product=wrong_theme,
+            collection=taxonomy["streetwear"],
+        )
 
         with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
             response = self.client.get(
@@ -221,6 +339,107 @@ class SmartSelectorCategoryTests(TestCase):
         )
         self.assertNotContains(response, wrong_theme.title)
         self.assertNotContains(response, wrong_fit.title)
+
+    def test_theme_filter_uses_only_explicit_collection_assignments(self):
+        taxonomy = self.create_merch_taxonomy()
+        misleading = self.create_product(
+            category=self.tshirts,
+            title="Military 225 streetwear tee",
+            slug="military-225-streetwear-tee",
+        )
+        assigned = self.create_product(
+            category=self.tshirts,
+            title="Нейтральна назва",
+            slug="neutral-name",
+        )
+        ProductMerchCollection.objects.create(
+            product=misleading,
+            collection=taxonomy["streetwear"],
+        )
+        ProductMerchCollection.objects.create(
+            product=assigned,
+            collection=taxonomy["military"],
+        )
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+            {"theme": "military"},
+        )
+
+        self.assertEqual(response.context["paginator"].count, 1)
+        self.assertContains(response, assigned.title)
+        self.assertNotContains(response, misleading.title)
+
+    def test_repeated_brigades_and_audiences_use_strict_and_before_pagination(self):
+        taxonomy = self.create_merch_taxonomy()
+        audiences = self.create_audience_tags()
+        complete = self.create_product(category=self.tshirts, title="Повний збіг", slug="complete-match")
+        one_brigade = self.create_product(category=self.tshirts, title="Лише 225", slug="only-225")
+        one_audience = self.create_product(category=self.tshirts, title="Лише унісекс", slug="only-unisex")
+        for product, collections, tags in (
+            (complete, ("225", "127"), ("unisex", "women")),
+            (one_brigade, ("225",), ("unisex", "women")),
+            (one_audience, ("225", "127"), ("unisex",)),
+        ):
+            for slug in collections:
+                ProductMerchCollection.objects.create(product=product, collection=taxonomy[slug])
+            for code in tags:
+                ProductAudience.objects.create(product=product, tag=audiences[code])
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            response = self.client.get(
+                reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+                [
+                    ("collection", "225"),
+                    ("collection", "127"),
+                    ("audience", "unisex"),
+                    ("audience", "women"),
+                ],
+            )
+
+        self.assertEqual(response.context["paginator"].count, 1)
+        self.assertEqual(response.context["smart_selector_facet_state"]["collection"], ("127", "225"))
+        self.assertEqual(response.context["smart_selector_facet_state"]["audience"], ("unisex", "women"))
+        self.assertContains(response, complete.title)
+        self.assertNotContains(response, one_brigade.title)
+        self.assertNotContains(response, one_audience.title)
+
+    def test_brigades_theme_exposes_nested_children_in_public_context(self):
+        self.create_merch_taxonomy()
+        self.create_product(category=self.tshirts, slug="nested-brigade-context")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        brigades = next(
+            option
+            for option in response.context["smart_selector_theme_options"]
+            if option["code"] == "brigades"
+        )
+        self.assertEqual(
+            [(child["code"], child["label"]) for child in brigades["children"]],
+            [("225", "225 ОШП"), ("127", "127 бригада")],
+        )
+
+    def test_card_context_keeps_leaf_collection_and_structured_audiences(self):
+        taxonomy = self.create_merch_taxonomy()
+        audiences = self.create_audience_tags()
+        product = self.create_product(category=self.tshirts, slug="leaf-card-context")
+        ProductMerchCollection.objects.create(product=product, collection=taxonomy["brigades"])
+        ProductMerchCollection.objects.create(product=product, collection=taxonomy["225"], order=1)
+        ProductAudience.objects.create(product=product, tag=audiences["unisex"])
+        ProductAudience.objects.create(product=product, tag=audiences["women"])
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+        rendered_product = response.context["products"][0]
+
+        self.assertEqual(
+            [row["slug"] for row in rendered_product.smart_selector_collections],
+            ["225"],
+        )
+        self.assertEqual(
+            [row["code"] for row in rendered_product.smart_selector_audiences],
+            ["unisex", "women"],
+        )
 
     def test_root_and_search_keep_legacy_catalog_branch(self):
         self.create_product(category=self.tshirts, slug="root-product")
@@ -291,6 +510,28 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertContains(black_response, f'data-product-url="{black_url}"')
         self.assertContains(white_response, f'data-product-url="{white_url}"')
         self.assertNotContains(white_response, f'data-product-url="{black_url}"')
+
+    def test_card_swatch_with_legacy_unicode_slug_falls_back_to_product_url(self):
+        product = self.create_product(category=self.tshirts, slug="legacy-thermo-slug")
+        thermo = Color.objects.create(
+            name="Термохром чорний",
+            primary_hex="#171717",
+            secondary_hex="#b5482d",
+        )
+        variant = ProductColorVariant.objects.create(
+            product=product,
+            color=thermo,
+            is_default=True,
+        )
+        ProductColorVariant.objects.filter(pk=variant.pk).update(slug="термохром-black")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'href="{reverse("product", kwargs={"slug": product.slug})}"',
+        )
 
     def test_price_sort_applies_to_full_queryset_before_pagination(self):
         expensive = self.create_product(category=self.tshirts, slug="expensive", price=1900)
@@ -375,3 +616,165 @@ class SmartSelectorCategoryTests(TestCase):
             'href="https://twocomms.shop/catalog/tshirts/"',
             html=False,
         )
+
+    def test_indexable_brigade_has_curated_merch_landing(self):
+        taxonomy = self.create_merch_taxonomy()
+        product = self.create_product(
+            category=self.tshirts,
+            title="Мерч 225",
+            slug="merch-225-product",
+        )
+        ProductMerchCollection.objects.create(
+            product=product,
+            collection=taxonomy["225"],
+        )
+
+        response = self.client.get(
+            reverse("merch_collection", kwargs={"collection_slug": "225"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["smart_selector_enabled"])
+        self.assertEqual(response.context["paginator"].count, 1)
+        self.assertEqual(response.context["merch_collection_page"]["slug"], "225")
+        self.assertContains(response, "Мерч для 225 ОШП — TwoComms")
+        self.assertContains(response, 'content="index, follow, max-image-preview:large', html=False)
+        self.assertContains(response, 'href="https://twocomms.shop/merch/225/"', html=False)
+
+    def test_non_indexable_brigade_has_no_public_merch_landing(self):
+        self.create_merch_taxonomy()
+
+        response = self.client.get(
+            reverse("merch_collection", kwargs={"collection_slug": "127"})
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_curated_merch_facet_state_is_noindex_and_canonical_to_collection(self):
+        taxonomy = self.create_merch_taxonomy()
+        product = self.create_product(category=self.tshirts, slug="merch-225-filtered")
+        ProductMerchCollection.objects.create(product=product, collection=taxonomy["225"])
+
+        response = self.client.get(
+            reverse("merch_collection", kwargs={"collection_slug": "225"}),
+            {"audience": "unisex"},
+        )
+
+        self.assertContains(response, 'content="noindex, follow"', html=False)
+        self.assertContains(response, 'href="https://twocomms.shop/merch/225/"', html=False)
+
+    def test_inventory_filter_controls_render_in_desktop_rail_and_mobile_sheet(self):
+        product = self.create_product(category=self.tshirts, slug="inventory-filter-ui")
+        color = Color.objects.create(name="thermo-black", primary_hex="#151515")
+        variant = ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            is_default=True,
+        )
+        ColorProfile.objects.create(color=color, is_thermo=True)
+        VariantSizeRule.objects.create(
+            variant=variant,
+            size="M",
+            is_enabled=True,
+            stock=3,
+        )
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertEqual(response.context["smart_selector_size_options"][2]["code"], "M")
+        self.assertContains(response, 'data-smart-filter="availability"', count=2)
+        self.assertContains(response, 'data-smart-filter="size"', count=12)
+        self.assertContains(response, 'data-smart-filter="thermo"', count=2)
+
+    def test_product_card_exposes_authoritative_availability_label(self):
+        product = self.create_product(
+            category=self.tshirts,
+            slug="availability-card-label",
+        )
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "availability-card-label")
+        self.assertContains(response, "В наявності")
+
+    def test_inventory_facets_filter_before_pagination(self):
+        available = self.create_product(
+            category=self.tshirts,
+            title="Available Thermo Product",
+            slug="available-thermo",
+        )
+        sold_out = self.create_product(
+            category=self.tshirts,
+            title="Sold Out Ordinary Product",
+            slug="sold-out-ordinary",
+        )
+        thermo_color = Color.objects.create(name="thermo-black", primary_hex="#111111")
+        thermo_variant = ProductColorVariant.objects.create(
+            product=available,
+            color=thermo_color,
+            is_default=True,
+        )
+        ColorProfile.objects.create(color=thermo_color, is_thermo=True)
+        VariantSizeRule.objects.create(
+            variant=thermo_variant,
+            size="M",
+            is_enabled=True,
+            stock=2,
+        )
+        ordinary_color = Color.objects.create(name="ordinary-red", primary_hex="#aa2222")
+        ordinary_variant = ProductColorVariant.objects.create(
+            product=sold_out,
+            color=ordinary_color,
+            is_default=True,
+        )
+        VariantSizeRule.objects.create(
+            variant=ordinary_variant,
+            size="M",
+            is_enabled=True,
+            stock=0,
+        )
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}),
+            {"availability": "in_stock", "size": "M", "thermo": "thermo"},
+        )
+
+        self.assertEqual(response.context["paginator"].count, 1)
+        self.assertEqual(response.context["smart_selector_facet_state"]["size"], ("M",))
+        self.assertEqual(response.context["smart_selector_facet_state"]["thermo"], ("thermo",))
+        self.assertContains(response, available.title)
+        self.assertNotContains(response, sold_out.title)
+
+
+class SmartSelectorAnalyticsContractTests(SimpleTestCase):
+    def test_smart_selector_tracks_state_changes_and_smart_card_selection(self):
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "catalog-smart-selector.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("CatalogFilterApply", source)
+        self.assertIn("CatalogFilterClear", source)
+        self.assertIn("CatalogFilterSheetOpen", source)
+        self.assertIn("CatalogFilterSheetClose", source)
+        self.assertIn("CatalogProgressiveLoad", source)
+        self.assertIn("smart-product-card", source)
+        self.assertIn("CatalogSelectItem", source)
+
+    def test_smart_selector_bumps_assets_after_interaction_contract_change(self):
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "pages"
+            / "catalog.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v9", template)
+        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v9", template)

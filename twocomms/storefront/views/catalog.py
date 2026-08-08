@@ -15,9 +15,10 @@ from decimal import Decimal
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
 from django.core.paginator import Paginator, EmptyPage
-from django.db.models import Case, Count, ExpressionWrapper, F, IntegerField, Q, Value, When
+from django.db.models import Case, Count, ExpressionWrapper, F, IntegerField, Prefetch, Q, Value, When
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.translation import get_language
 from django.utils.translation import gettext_lazy as _
 
 from ..models import (
@@ -33,6 +34,10 @@ from ..pagination import build_homepage_pagination_items
 from ..services.card_preview import (
     attach_preferred_card_image,
     enrich_color_preview_with_slugs,
+)
+from ..services.catalog_facets import (
+    filter_products_by_facets,
+    normalize_catalog_facet_state,
 )
 from ..services.catalog_helpers import (
     apply_public_product_order,
@@ -111,18 +116,6 @@ def _pagination_query_prefix(request):
 
 
 SMART_SELECTOR_CATEGORY_SLUGS = ('tshirts', 'hoodie', 'long-sleeve')
-SMART_SELECTOR_THEME_OPTIONS = (
-    {'code': 'military', 'label': _('Мілітарі')},
-    {'code': 'brigades', 'label': _('Бригади')},
-    {'code': 'streetwear', 'label': _('Streetwear')},
-    {'code': 'kharkiv', 'label': _('Харків')},
-)
-SMART_SELECTOR_BRIGADE_TOKENS = ('225', 'ошп', 'brigade', 'бригад', 'підрозділ')
-SMART_SELECTOR_THEME_CONFIG_KEYS = {
-    'military': 'military',
-    'streetwear': 'streetwear',
-    'kharkiv': 'kharkiv-edition',
-}
 SMART_SELECTOR_FIT_QUERY_CODES = {
     'classic': ('classic', 'класичн'),
     'oversize': ('oversize', 'оверсайз'),
@@ -143,6 +136,12 @@ SMART_SELECTOR_FIT_ALIASES = {
     'оверсайз': 'oversize',
 }
 SMART_SELECTOR_SORT_VALUES = ('recommended', 'price-asc', 'price-desc')
+SMART_SELECTOR_SIZE_CODES = ('XS', 'S', 'M', 'L', 'XL', '2XL')
+SMART_SELECTOR_SIZE_LABELS = {code: code for code in SMART_SELECTOR_SIZE_CODES}
+SMART_SELECTOR_AVAILABILITY_LABELS = {
+    'in_stock': _('В наявності'),
+}
+SMART_SELECTOR_THERMO_LABEL = _('Термохромна тканина')
 
 
 def _smart_selector_fit_codes(category, product_queryset):
@@ -168,43 +167,27 @@ def _smart_selector_fit_codes(category, product_queryset):
     return [code for code in ('classic', 'oversize', 'standard') if code in allowed and code in normalized]
 
 
-def _smart_selector_query_state(request, category, fit_codes=None):
-    """Return validated URL facets for a supported concrete category."""
+def _smart_selector_facet_state(request, category, fit_codes):
+    """Return the normalized public state supported by the current selector."""
     if not category or category.slug not in SMART_SELECTOR_CATEGORY_SLUGS:
-        return '', ''
-
-    selected_theme = (request.GET.get('theme') or '').strip().lower()
-    selected_fit = (request.GET.get('fit') or '').strip().lower()
-    valid_themes = {item['code'] for item in SMART_SELECTOR_THEME_OPTIONS}
-    if selected_theme not in valid_themes:
-        selected_theme = ''
-
-    selected_fit = SMART_SELECTOR_FIT_ALIASES.get(selected_fit, '')
-    valid_fits = (
-        set(fit_codes)
-        if fit_codes is not None
-        else ({'standard'} if category.slug == 'long-sleeve' else {'classic', 'oversize'})
+        return {}
+    state = normalize_catalog_facet_state(request.GET)
+    supported = {
+        key: tuple(values)
+        for key, values in state.items()
+        if key in {
+            "theme", "collection", "audience", "availability", "fit",
+            "size", "thermo",
+        }
+    }
+    selected_fits = tuple(
+        code for code in supported.get("fit", ()) if code in set(fit_codes or ())
     )
-    if selected_fit not in valid_fits:
-        selected_fit = ''
-    return selected_theme, selected_fit
-
-
-def _smart_selector_theme_keywords(theme):
-    if theme == 'brigades':
-        return SMART_SELECTOR_BRIGADE_TOKENS
-    config_key = SMART_SELECTOR_THEME_CONFIG_KEYS.get(theme)
-    if not config_key:
-        return ()
-    return tuple(THEMATIC_LANDINGS_CONFIG[config_key]['match_keywords'])
-
-
-def _smart_selector_theme_query(theme):
-    """Reuse thematic landing keyword truth against the indexed slug/title fields."""
-    query = Q()
-    for token in _smart_selector_theme_keywords(theme):
-        query |= Q(slug__icontains=token) | Q(title__icontains=token)
-    return query
+    if selected_fits:
+        supported["fit"] = selected_fits
+    else:
+        supported.pop("fit", None)
+    return supported
 
 
 def _smart_selector_fit_query(fit):
@@ -276,12 +259,222 @@ def _smart_selector_product_fit(product):
     return SMART_SELECTOR_FIT_ALIASES.get(code, code)
 
 
-def _smart_selector_product_theme(product):
-    searchable = f'{product.slug} {product.title}'.lower()
-    for theme in ('brigades', 'kharkiv', 'military', 'streetwear'):
-        if any(token in searchable for token in _smart_selector_theme_keywords(theme)):
-            return theme
-    return ''
+def _smart_selector_language():
+    language = (get_language() or "uk").lower().replace("_", "-").split("-", 1)[0]
+    return language if language in {"uk", "ru", "en"} else "uk"
+
+
+def _localized_collection_label(collection, language):
+    return next(
+        (
+            str(value).strip()
+            for value in (
+                getattr(collection, f"name_{language}", ""),
+                collection.name_uk,
+                collection.name_ru,
+                collection.name_en,
+                collection.slug,
+            )
+            if str(value or "").strip()
+        ),
+        collection.slug,
+    )
+
+
+def _localized_collection_value(collection, field, language):
+    return next(
+        (
+            str(value).strip()
+            for value in (
+                getattr(collection, f"{field}_{language}", ""),
+                getattr(collection, f"{field}_uk", ""),
+                getattr(collection, f"{field}_ru", ""),
+                getattr(collection, f"{field}_en", ""),
+            )
+            if str(value or "").strip()
+        ),
+        "",
+    )
+
+
+def _build_merch_collection_page(collection):
+    language = _smart_selector_language()
+    label = _localized_collection_label(collection, language)
+    description = _localized_collection_value(collection, "description", language)
+    if language == "en":
+        fallback_title = f"{label} merch — TwoComms"
+        fallback_description = f"Explore {label} apparel and prints by TwoComms."
+    elif language == "ru":
+        fallback_title = f"Мерч для {label} — TwoComms"
+        fallback_description = f"Мерч {label}: доступные модели и принты TwoComms."
+    else:
+        fallback_title = f"Мерч для {label} — TwoComms"
+        fallback_description = f"Мерч {label}: доступні моделі та принти TwoComms."
+    return {
+        "slug": collection.slug,
+        "kind": collection.kind,
+        "label": label,
+        "h1": fallback_title,
+        "title": _localized_collection_value(collection, "seo_title", language) or fallback_title,
+        "description": _localized_collection_value(collection, "seo_description", language) or description or fallback_description,
+        "intro": description or fallback_description,
+        "canonical_path": f"/merch/{collection.slug}/",
+        "accent_token": collection.accent_token,
+    }
+
+
+def _smart_selector_merchandising_contract(facet_state):
+    """Load the active taxonomy once for filters and card presentation."""
+    from fable5.models import AudienceTag, MerchCollection
+
+    language = _smart_selector_language()
+    collections = list(
+        MerchCollection.objects.filter(is_active=True).order_by("order", "slug")
+    )
+    by_id = {collection.pk: collection for collection in collections}
+    by_parent = defaultdict(list)
+    for collection in collections:
+        by_parent[collection.parent_id].append(collection)
+
+    selected_themes = set(facet_state.get("theme", ()))
+    selected_collections = set(facet_state.get("collection", ()))
+
+    def public_row(collection, ancestors=(), seen=()):
+        label = _localized_collection_label(collection, language)
+        row = {
+            "code": collection.slug,
+            "slug": collection.slug,
+            "kind": collection.kind,
+            "label": label,
+            "selected": (
+                collection.slug in selected_themes
+                if collection.parent_id is None
+                else collection.slug in selected_collections
+            ),
+            "path_label": " / ".join((*ancestors, label)),
+            "public_path": (
+                f"/merch/{collection.slug}/" if collection.indexable else ""
+            ),
+            "children": [],
+        }
+        branch_seen = (*seen, collection.pk)
+        row["children"] = [
+            public_row(child, (*ancestors, label), branch_seen)
+            for child in by_parent.get(collection.pk, ())
+            if child.pk not in branch_seen
+        ]
+        return row
+
+    theme_options = [
+        public_row(collection)
+        for collection in by_parent.get(None, ())
+        if collection.kind in {MerchCollection.Kind.THEME, MerchCollection.Kind.CITY}
+    ]
+    audiences = list(
+        AudienceTag.objects.filter(is_active=True).order_by("order", "code")
+    )
+    selected_audiences = set(facet_state.get("audience", ()))
+    audience_options = [
+        {
+            "code": tag.code,
+            "label": (
+                getattr(tag, f"label_{language}", "")
+                or tag.label_uk
+                or tag.label_ru
+                or tag.label_en
+                or tag.code
+            ),
+            "selected": tag.code in selected_audiences,
+        }
+        for tag in audiences
+    ]
+    audience_by_id = {tag.pk: row for tag, row in zip(audiences, audience_options)}
+    return {
+        "language": language,
+        "collections": collections,
+        "collection_by_id": by_id,
+        "theme_options": theme_options,
+        "audience_options": audience_options,
+        "audience_by_id": audience_by_id,
+    }
+
+
+def _attach_smart_selector_product_context(products, merchandising):
+    """Attach presentation-safe prefetched audience and leaf collection facts."""
+    by_id = merchandising["collection_by_id"]
+    language = merchandising["language"]
+    audience_by_id = merchandising["audience_by_id"]
+    for product in products:
+        product.smart_selector_fit = _smart_selector_product_fit(product)
+        assignments = sorted(
+            (
+                row
+                for row in product.merch_collection_assignments.all()
+                if row.collection.is_active
+            ),
+            key=lambda row: (row.order, row.collection.order, row.collection.slug),
+        )
+        selected_ids = {row.collection_id for row in assignments}
+        implied_parent_ids = set()
+        for assignment in assignments:
+            seen = {assignment.collection_id}
+            parent_id = assignment.collection.parent_id
+            while parent_id and parent_id not in seen:
+                seen.add(parent_id)
+                if parent_id in selected_ids:
+                    implied_parent_ids.add(parent_id)
+                parent = by_id.get(parent_id)
+                parent_id = parent.parent_id if parent is not None else None
+
+        collection_rows = []
+        root_theme_slugs = []
+        for assignment in assignments:
+            collection = assignment.collection
+            if collection.pk in implied_parent_ids:
+                continue
+            label = assignment.display_label.strip() or _localized_collection_label(
+                collection, language
+            )
+            collection_rows.append(
+                {
+                    "slug": collection.slug,
+                    "kind": collection.kind,
+                    "label": label,
+                    "public_path": (
+                        f"/merch/{collection.slug}/" if collection.indexable else ""
+                    ),
+                }
+            )
+            root = collection
+            seen = {root.pk}
+            while root.parent_id and root.parent_id not in seen:
+                seen.add(root.parent_id)
+                root = by_id.get(root.parent_id) or root
+            if root.parent_id is None and root.slug not in root_theme_slugs:
+                root_theme_slugs.append(root.slug)
+
+        audience_rows = []
+        for assignment in product.audience_assignments.all():
+            row = audience_by_id.get(assignment.tag_id)
+            if row is not None:
+                audience_rows.append(dict(row))
+
+        product.smart_selector_collections = collection_rows
+        product.smart_selector_audiences = audience_rows
+        product.smart_selector_theme = root_theme_slugs[0] if root_theme_slugs else ""
+        preview_rows = list(getattr(product, "colors_preview", []) or [])
+        product.smart_selector_has_thermo = any(
+            bool(row.get("is_thermo")) for row in preview_rows
+        )
+        product.smart_selector_available = bool(
+            getattr(product, "is_dropship_available", True)
+            and (preview_rows or not getattr(product, "color_variants", None))
+        )
+        product.smart_selector_availability_label = (
+            _("В наявності")
+            if product.smart_selector_available
+            else _("Немає в наявності")
+        )
 
 
 def _build_smart_selector_context(
@@ -292,9 +485,9 @@ def _build_smart_selector_context(
     product_queryset,
     *,
     fit_codes=None,
-    selected_theme=None,
-    selected_fit=None,
     selected_sort=None,
+    facet_state=None,
+    merchandising=None,
 ):
     if not category or category.slug not in SMART_SELECTOR_CATEGORY_SLUGS:
         return {'smart_selector_enabled': False}
@@ -306,30 +499,57 @@ def _build_smart_selector_context(
     category_tabs.sort(key=lambda item: SMART_SELECTOR_CATEGORY_SLUGS.index(item.slug))
     if fit_codes is None:
         fit_codes = _smart_selector_fit_codes(category, product_queryset)
-    if selected_theme is None or selected_fit is None:
-        selected_theme, selected_fit = _smart_selector_query_state(
-            request,
-            category,
-            fit_codes,
-        )
     if selected_sort is None:
         selected_sort = _smart_selector_sort_state(request)
-    for product in products:
-        product.smart_selector_fit = _smart_selector_product_fit(product)
-        product.smart_selector_theme = _smart_selector_product_theme(product)
+    if facet_state is None:
+        facet_state = _smart_selector_facet_state(request, category, fit_codes)
+    if merchandising is None:
+        merchandising = _smart_selector_merchandising_contract(facet_state)
+    _attach_smart_selector_product_context(products, merchandising)
+    selected_themes = facet_state.get("theme", ())
+    selected_fits = facet_state.get("fit", ())
 
     return {
         'smart_selector_enabled': True,
         'smart_selector_active_category': category,
         'smart_selector_category_tabs': category_tabs,
-        'smart_selector_theme_options': SMART_SELECTOR_THEME_OPTIONS,
+        'smart_selector_theme_options': merchandising["theme_options"],
+        'smart_selector_audience_options': merchandising["audience_options"],
+        'smart_selector_facet_state': facet_state,
         'smart_selector_fit_codes': fit_codes,
         'smart_selector_fit_options': [
-            {'code': code, 'label': SMART_SELECTOR_FIT_LABELS[code]}
+            {
+                'code': code,
+                'label': SMART_SELECTOR_FIT_LABELS[code],
+                'selected': code in selected_fits,
+            }
             for code in fit_codes
         ],
-        'smart_selector_selected_theme': selected_theme,
-        'smart_selector_selected_fit': selected_fit,
+        'smart_selector_availability_options': [
+            {
+                'code': code,
+                'label': label,
+                'selected': code in facet_state.get('availability', ()),
+            }
+            for code, label in SMART_SELECTOR_AVAILABILITY_LABELS.items()
+        ],
+        'smart_selector_size_options': [
+            {
+                'code': code,
+                'label': SMART_SELECTOR_SIZE_LABELS[code],
+                'selected': code in facet_state.get('size', ()),
+            }
+            for code in SMART_SELECTOR_SIZE_CODES
+        ],
+        'smart_selector_thermo_options': [
+            {
+                'code': 'thermo',
+                'label': SMART_SELECTOR_THERMO_LABEL,
+                'selected': 'thermo' in facet_state.get('thermo', ()),
+            }
+        ],
+        'smart_selector_selected_theme': selected_themes[0] if selected_themes else '',
+        'smart_selector_selected_fit': selected_fits[0] if selected_fits else '',
         'smart_selector_selected_sort': selected_sort,
     }
 
@@ -553,10 +773,35 @@ def _normalize_swatch_overrides(value):
 # Legacy alias kept for any external test imports.
 _normalize_swatch_hexes = _normalize_swatch_overrides
 
-def _product_cards_queryset(*, include_fit_options=False):
+def _product_cards_queryset(*, include_fit_options=False, include_merchandising=False):
     prefetches = ['images', 'color_variants__images']
     if include_fit_options:
         prefetches.append('fit_options')
+    if include_merchandising:
+        from fable5.models import ProductAudience, ProductMerchCollection
+
+        prefetches.extend(
+            (
+                Prefetch(
+                    'audience_assignments',
+                    queryset=(
+                        ProductAudience.objects
+                        .filter(tag__is_active=True)
+                        .select_related('tag')
+                        .order_by('tag__order', 'tag__code')
+                    ),
+                ),
+                Prefetch(
+                    'merch_collection_assignments',
+                    queryset=(
+                        ProductMerchCollection.objects
+                        .filter(collection__is_active=True)
+                        .select_related('collection')
+                        .order_by('order', 'collection__order', 'collection__slug')
+                    ),
+                ),
+            )
+        )
     return Product.objects.select_related('category').prefetch_related(*prefetches).defer(
         'description', 'full_description', 'short_description', 'ai_description', 'ai_keywords',
         'seo_title', 'seo_description', 'seo_keywords', 'seo_schema', 'recommendation_tags',
@@ -794,7 +1039,7 @@ def load_more_products(request):
 # W3-3: @ensure_csrf_cookie снят (см. комментарий у home)
 @canonical_color_filter
 @cache_page_for_anon(600, key_prefix=public_product_listing_cache_prefix)  # Кэшируем каталог на 10 минут только для анонимов
-def catalog(request, cat_slug=None):
+def catalog(request, cat_slug=None, collection_slug=None):
     """
     Страница каталога товаров.
 
@@ -806,6 +1051,32 @@ def catalog(request, cat_slug=None):
     - Цветовые варианты товаров
     - Карточки категорий (если не выбрана конкретная категория)
     """
+    merch_collection = None
+    merch_collection_page = None
+    if collection_slug:
+        from fable5.models import MerchCollection
+
+        merch_collection = get_object_or_404(
+            MerchCollection,
+            slug=collection_slug,
+            is_active=True,
+            indexable=True,
+        )
+        assigned_category_slugs = set(
+            Product.objects.filter(
+                status='published',
+                merch_collection_assignments__collection=merch_collection,
+            ).values_list('category__slug', flat=True)
+        )
+        cat_slug = next(
+            (
+                slug for slug in SMART_SELECTOR_CATEGORY_SLUGS
+                if slug in assigned_category_slugs
+            ),
+            'tshirts',
+        )
+        merch_collection_page = _build_merch_collection_page(merch_collection)
+
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
     public_product_order_version = get_public_product_order_version(fragment_cache)
@@ -814,12 +1085,18 @@ def catalog(request, cat_slug=None):
     smart_selector_selected_theme = ''
     smart_selector_selected_fit = ''
     smart_selector_selected_sort = 'recommended'
+    smart_selector_facet_state = {}
+    smart_selector_merchandising = None
+    selected_color_slugs = parse_color_filter(request)
 
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug, is_active=True)
         is_smart_selector_category = category.slug in SMART_SELECTOR_CATEGORY_SLUGS
         base_product_qs = apply_public_product_order(
-            _product_cards_queryset(include_fit_options=is_smart_selector_category).filter(
+            _product_cards_queryset(
+                include_fit_options=is_smart_selector_category,
+                include_merchandising=is_smart_selector_category,
+            ).filter(
                 category=category,
                 status='published',
             )
@@ -834,20 +1111,35 @@ def catalog(request, cat_slug=None):
 
     if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
         smart_selector_fit_codes = _smart_selector_fit_codes(category, base_product_qs)
-        smart_selector_selected_theme, smart_selector_selected_fit = _smart_selector_query_state(
+        smart_selector_facet_state = _smart_selector_facet_state(
             request,
             category,
             smart_selector_fit_codes,
         )
-        if smart_selector_selected_theme:
-            base_product_qs = base_product_qs.filter(
-                _smart_selector_theme_query(smart_selector_selected_theme)
+        if merch_collection is not None:
+            selected_collections = set(
+                smart_selector_facet_state.get('collection', ())
             )
-        if smart_selector_selected_fit:
-            fit_query = _smart_selector_fit_query(smart_selector_selected_fit)
-            if category.slug == 'long-sleeve' and smart_selector_selected_fit == 'standard':
+            selected_collections.add(merch_collection.slug)
+            smart_selector_facet_state['collection'] = tuple(
+                sorted(selected_collections)
+            )
+        base_product_qs = filter_products_by_facets(
+            base_product_qs,
+            smart_selector_facet_state,
+        )
+        for selected_fit in smart_selector_facet_state.get('fit', ()):
+            fit_query = _smart_selector_fit_query(selected_fit)
+            if category.slug == 'long-sleeve' and selected_fit == 'standard':
                 fit_query |= Q(fit_options__isnull=True)
             base_product_qs = base_product_qs.filter(fit_query).distinct()
+        selected_themes = smart_selector_facet_state.get('theme', ())
+        selected_fits = smart_selector_facet_state.get('fit', ())
+        smart_selector_selected_theme = selected_themes[0] if selected_themes else ''
+        smart_selector_selected_fit = selected_fits[0] if selected_fits else ''
+        smart_selector_merchandising = _smart_selector_merchandising_contract(
+            smart_selector_facet_state
+        )
         smart_selector_selected_sort = _smart_selector_sort_state(request)
         base_product_qs = _apply_smart_selector_sort(
             base_product_qs,
@@ -856,7 +1148,6 @@ def catalog(request, cat_slug=None):
 
     # Phase 9 — colour filter (?color=black,red). Build chips from the
     # *unfiltered* queryset so users can always OR-in another colour.
-    selected_color_slugs = parse_color_filter(request)
     # Smart Selector owns the concrete category experience. Keep its colour
     # chips on the same query-string route so theme/fit state and the bottom
     # sheet remain available; dedicated SEO colour landings keep serving
@@ -871,7 +1162,17 @@ def catalog(request, cat_slug=None):
     )
     has_active_color_filter = bool(selected_color_slugs)
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
-    product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
+    if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
+        if selected_color_slugs:
+            smart_selector_facet_state["color"] = tuple(selected_color_slugs)
+            product_qs = filter_products_by_facets(
+                base_product_qs,
+                {"color": tuple(selected_color_slugs)},
+            )
+        else:
+            product_qs = base_product_qs
+    else:
+        product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
     if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
         product_qs = _sort_smart_selector_products_by_visible_price(
             product_qs,
@@ -912,9 +1213,9 @@ def catalog(request, cat_slug=None):
         products,
         base_product_qs,
         fit_codes=smart_selector_fit_codes,
-        selected_theme=smart_selector_selected_theme,
-        selected_fit=smart_selector_selected_fit,
         selected_sort=smart_selector_selected_sort,
+        facet_state=smart_selector_facet_state,
+        merchandising=smart_selector_merchandising,
     )
 
     return render(
@@ -935,6 +1236,14 @@ def catalog(request, cat_slug=None):
             'selected_color_slugs': selected_color_slugs,
             'has_active_color_filter': has_active_color_filter,
             'color_filter_reset_url': color_filter_reset_url,
+            'merch_collection_page': merch_collection_page,
+            'smart_selector_request_has_facets': any(
+                key in request.GET
+                for key in (
+                    'theme', 'collection', 'audience', 'availability', 'fit',
+                    'size', 'color', 'thermo', 'sort',
+                )
+            ),
             'pagination_query_prefix': _pagination_query_prefix(request),
             # Phase 10 — structured SEO blocks shown after the products grid.
             'category_seo_blocks': get_category_seo_blocks(category) if category else [],

@@ -2,7 +2,7 @@
 
 **Status:** Approved design contract, ready for implementation planning
 
-**Scope:** The concrete category pages `/catalog/tshirts/`, `/catalog/hoodie/`, and `/catalog/long-sleeve/`, plus indexable merchandising collection pages such as `/merch/225/`. The root catalog and search pages remain on their current rendering path until a separate decision is made.
+**Scope:** The concrete category pages `/catalog/tshirts/`, `/catalog/hoodie/`, and `/catalog/long-sleeve/`, indexable merchandising collection pages such as `/merch/225/`, and the compact merchandising context in the upper decision zone of every affected product detail page (PDP). The root catalog and search pages remain on their current rendering path until a separate decision is made.
 
 ## Product Goal
 
@@ -21,6 +21,7 @@ Use a hybrid of Variant 3 Smart Selector and curated collection landing pages:
 - high-frequency themes are visible as a single horizontally scrollable row on mobile and a compact row on desktop;
 - every other facet lives in a mobile bottom sheet or a sticky desktop rail;
 - collection and brigade pages reuse the same product grid and filters but add a small collection identity block;
+- audience and collection assignments made in Fable 5 continue into both the catalog card and the upper PDP decision zone from the same normalized source;
 - category, collection, and product URLs remain real links and work without JavaScript;
 - the server renders the initial product set and pagination fallback; JavaScript adds progressive loading and visual transitions only.
 
@@ -59,14 +60,32 @@ Add a normalized collection taxonomy for future growth:
 
 - `MerchCollection`: slug, kind (`theme`, `city`, `brigade`, `collab`), parent, localized name/title/description, SEO title/description, cover image, accent token, indexable flag, order, and active flag;
 - `ProductMerchCollection`: product-to-collection assignment with ordering and optional display label;
-- `MerchCollection` may be nested, so `military -> brigades -> 225` is represented without hard-coded template branches;
+- `MerchCollection` may be nested without hard-coded template branches. In the first catalog tree, `military`, `brigades`, `streetwear`, and `kharkiv` are sibling themes under the T-shirt category, while `225` and `127` are brigade children of `brigades`;
 - thermochromic remains authoritative on `ProductColorVariant.is_thermo`/Fable 5 color details and is never duplicated in free text.
 
 Fits, size grids, price, and stock continue to use the existing `ProductFitOption`, `variant_public_context()`, Fable 5 size-grid services, and inventory rules. The selector must never infer sellability from a size guide row alone.
 
+The hierarchy is editorial, not duplicate product data. Staff may assign the most specific fact such as `225`; the public resolver derives membership in the `brigades` parent for counts and filtering. A parent with children is a disclosure group with an explicit "all brigades" choice, while `225` and `127` remain independently selectable child values. Selecting several brigade children applies strict AND. Selecting a parent together with one of its children is canonicalized to the child because the parent is already implied. Catalog cards and the compact PDP rail show the most specific assigned label and do not repeat `Бригади / 225 ОШП` as two badges.
+
+### PDP merchandising continuity
+
+Fable 5 assignments are not complete until they are visible and truthful on the public product page. A single server-side resolver accepts the product, active language, selected color variant, and selected fit, then returns a presentation-safe context for both initial HTML and variant JavaScript. It combines only authoritative sources:
+
+- audience labels from active `ProductAudience` assignments;
+- theme, city, brigade, and collaboration markers from active `ProductMerchCollection` assignments in their stored order;
+- public links only for collections with a real active curated route; unpublished or non-indexable assignments may be shown as plain facts when appropriate but never as dead links;
+- thermochromic state, material story, and price delta from the selected `ProductColorVariant` through `variant_public_context()`, never from a product title, collection tag, or free-text description;
+- fit, price, availability, and size truth from the existing variant/stock services rather than from merchandising labels.
+
+The upper PDP hierarchy remains purchase-first: gallery, product title, category, price, and primary selection/purchase action keep their current prominence. Merchandising appears as one compact context rail adjacent to the title/meta region, not as a hero or a wall of badges. The rail uses the most specific normalized assignment, so a `225` product shows `225 ОШП` rather than a redundant `Бригади` plus `225 ОШП` pair. Collection and brigade labels are meaningful links; audience is rendered as a labelled product fact. On narrow screens the rail is a single stable horizontal row with 44px link hit areas and no multi-line growth; secondary assignments remain reachable through horizontal scrolling or a compact `+N` disclosure. It must not move the first price or buy action below the expected first interaction area.
+
+Static product assignments stay stable while a shopper changes color or fit. Variant-dependent markers update in place from the already-delivered variant payload: selecting a thermochromic color reveals the flame, material explanation, and truthful price delta; selecting an ordinary color removes them without reloading or moving surrounding layout. The server-rendered state, URL-selected state, and hydrated JavaScript state must agree.
+
+PDP schema and analytics consume the same normalized codes, with lossless truth taking priority over additional fields. Product schema must remove the current universal `Стріт & Мілітарі` style assertion and emit collection/style properties only for real assignments. A single unambiguous audience may map to `suggestedGender`; multiple audience tags remain visible as audience values and must not be collapsed into a false single gender. Existing `view_item` and variant-selection events may be enriched with normalized audience/collection codes after the current consent and deduplication path is traced; no second page-view event and no PII are introduced.
+
 ### Routes and landing pages
 
-The first collection route is `/merch/225/`, localized by the existing language routing convention. It is a `CollectionPage` with:
+The first collection route is `/merch/225/`, localized by the existing language routing convention. The `127` node is present in the taxonomy but remains non-indexable until it has assigned products and reviewed localized editorial content. The `225` route is a `CollectionPage` with:
 
 - one descriptive H1 such as `Мерч для 225 ОШП — TwoComms`;
 - a short collection identity line, not a large hero;
@@ -146,6 +165,7 @@ Use the existing analytics/dataLayer adapters after tracing their current naming
 - `catalog_filter_sheet_open` and `catalog_filter_sheet_close`;
 - `select_item` and `quick_view_open`;
 - `view_merch_collection` with collection/brigade slug;
+- the existing PDP `view_item` and variant-selection payloads may carry normalized collection/audience codes from the same server context, without duplicating the event;
 - `catalog_progressive_load`;
 - `custom_print_click`.
 
@@ -163,10 +183,77 @@ No raw form data or PII is sent. Existing Meta/GTM naming and browser/server ded
 ## Non-goals
 
 - Redesigning the root `/catalog/` or search page in this slice.
-- Replacing the existing product card, checkout, or payment flow.
+- Replacing the entire PDP, checkout, or payment flow. This slice does recompose the catalog card meta zone and add a compact merchandising context to the existing upper PDP decision zone.
 - Assigning invented audience/size/stock values where production data is missing.
 - Creating indexable pages for every arbitrary filter combination.
 
+## Molecular UX quality matrix
+
+Every visible surface has one job and one measurable reason to exist:
+
+| Surface | Required behavior | Why it stays | What is deliberately excluded |
+| --- | --- | --- | --- |
+| Shared header | Same logo, navigation, search, cart, account, language controls as the home/checkout shell | Preserves trust and lets ad traffic recognize the brand immediately | A second catalog-only header |
+| Category switcher | Three real links, active state, horizontal scroll on narrow screens, keyboard-visible focus | Makes the landing category obvious and supports direct ad destinations | A carousel that hides category names |
+| H1/result row | One H1, concise intent copy, count aligned to the edge | Gives users and crawlers immediate context | A large hero or slogan before products |
+| Theme quick row | At most one compact row, counts, active state, scroll affordance; `Бригади` discloses `225` and `127` without leaving the product grid | Lets high-intent military/brigade/Kharkiv/streetwear traffic branch in one tap | A wall of chips, duplicated parent/child badges, or hidden child categories |
+| Command shelf | Filter trigger, applied-count, sort, and removable chips; sticky only after header exit | Keeps the action path visible without covering products | A permanent bottom commerce bar |
+| Mobile filter sheet | Full-height dialog with sticky header/footer, accordion groups, Apply/Reset, focus trap | Allows deep filtering without shrinking product cards | A nested modal inside the sheet |
+| Desktop rail | Sticky, compact, grouped by intent, counts and disabled states | Makes comparison efficient on large screens | Oversized card-like panels around every group |
+| Product card | Stable image, truthful price range, fit, audience, availability, thermo marker, favorite, real detail link | Answers purchase questions before the PDP | Invented badges, fake scarcity, or price inferred from legacy text |
+| PDP merchandising rail | Same normalized audience/collection assignments as Fable 5 and catalog; selected-variant thermo state; real curated links | Preserves context from campaign/category to product without delaying purchase decisions | A badge wall, dead links, free-text inference, or a second hero |
+| Empty state | Explain which constraints conflict, offer one-tap chip removal and a category reset | Recovers conversion instead of ending the session | A dead-end “nothing found” message |
+| Progressive status | Quiet status text and stable sentinel; pagination stays available | Gives feedback without page-jump or crawler loss | Skeletons that replace server-rendered cards |
+| Collection identity | Small collection mark, one-line context, optional cover, then products | Makes a brigade/collab landing page feel specific without a hero takeover | Military imagery or claims not supplied by content owners |
+| Editorial SEO module | Facts, links, FAQ, custom-print CTA in semantic sections/`details` | Serves intent, AEO/GEO extraction, and internal linking after discovery | Keyword-heavy paragraphs above the grid |
+| Mobile bottom navigation | Reserves measured safe-area space and never overlaps content; disabled while dialog is open | Preserves the existing shell and prevents occlusion | A second sticky row that competes with the command shelf |
+
+The implementation review must mark each row as verified or explain the residual risk. A surface that cannot be tied to a user decision, a crawl contract, or a performance/accessibility requirement is removed from the slice.
+
+### Product card relationship audit
+
+The card must read as one product decision, not as an image, a price block, and a detached color control:
+
+1. **Media layer:** image, availability badge, favorite button, and optional quick-view affordance share one stable media box.
+2. **Identity layer:** title is followed by the truthful visible price/range. A thermo price delta is marked beside the price with the flame icon and a short reason, never as a second unexplained price.
+3. **Decision meta layer:** fit, audience, and availability are compact labelled facts in one aligned row/grid. Empty facts are omitted rather than leaving blank gaps.
+4. **Color layer:** a labelled `Колір` row sits directly under the decision meta, inside the same card body and border rhythm. Swatches use 44px hit areas with 20-24px visual dots, contrast rings for white/light colors, and a flame badge for thermochromic variants. A `+N` affordance appears only when there are more variants than the compact row can show.
+5. **Action boundary:** the card's bottom border separates cards, not price from color. There is no orphan dot below a horizontal rule and no swatch whose meaning depends on an adjacent card.
+
+The card contract is invariant on mobile and desktop; only the number of columns and the amount of meta wrapping changes. Tests must assert the DOM order `title -> price -> decision meta -> color`, and visual QA must check that long translated labels do not push the color row outside the card.
+
+### Measured baseline defects to remove
+
+The August 8 live audit at 390x844 and 1440x1000 establishes a concrete before-state:
+
+- on mobile the first product media starts around 322 CSS pixels, but the long H1 is visibly clipped and competes with the quick selectors;
+- the current card renders a divider after price/fit and then an unlabelled color dot, so the swatch reads as detached from the product;
+- the fixed mobile navigation overlaps the following product media and must reserve real safe-area space in the document;
+- the theme/fit/color selector row compresses labels instead of preserving a deliberate one-row hierarchy;
+- the desktop rail presents `Бригади` as a flat peer with no visible path to `225` or `127`.
+
+These are acceptance defects, not optional polish. The final screenshot matrix must include the first viewport, a card boundary with its complete color row, an open brigade disclosure, the mobile filter sheet, and the upper PDP merchandising rail.
+
+### Decision psychology guardrails
+
+- Recognition precedes choice: category, H1, first image, and price appear before deep filters.
+- Choice is progressive: theme quick row first, then filter sheet groups ordered by campaign intent (collection/audience, availability, fit, size, color, thermo).
+- Feedback is immediate: counts, applied chips, and result status update with the URL state.
+- Commitment is postponed: the catalog offers product links and a subtle custom-print route, not a forced quick-view funnel.
+- Trust beats novelty: motion highlights state changes but never delays the first product image or disguises stock/price truth.
+
+### Cross-device invariants
+
+The following must remain true at every supported width and language:
+
+- no horizontal overflow and no clipped translated label;
+- every interactive target is at least 44 CSS pixels in its active axis;
+- no fixed element overlaps a card control or semantic heading;
+- the same URL state produces the same selected facets on reload and back/forward;
+- JS disabled still exposes category, collection, product, pagination, FAQ, and custom-print links;
+- reduced motion preserves all state changes without transition-dependent content;
+- focus order follows visual order and never moves behind an overlay.
+
 ## Acceptance
 
-The slice is accepted when the focused Django/JavaScript tests pass, the Fable 5 editor can save and reload multi-select audience tags, all three category routes and `/merch/225/` work in Ukrainian/Russian/English, mobile and desktop browser checks pass at 320/375/430/768/1024/1440 widths, LCP/CLS and accessibility budgets are measured, and live SEO output contains only truthful canonical/schema/indexation states.
+The slice is accepted when the focused Django/JavaScript tests pass, the Fable 5 editor can save and reload multi-select audience and collection assignments, those assignments appear consistently on catalog cards and the upper PDP context, selected-color thermo state remains synchronized, all three category routes and `/merch/225/` work in Ukrainian/Russian/English, mobile and desktop browser checks pass at 320/375/430/768/1024/1440 widths, LCP/CLS and accessibility budgets are measured, and live SEO output contains only truthful canonical/schema/indexation states.

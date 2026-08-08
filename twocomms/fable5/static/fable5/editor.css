@@ -239,6 +239,51 @@ textarea.f5-input { min-height: 72px; resize: vertical; }
 .f5-check--tile { min-height: 52px; padding: 8px 12px; border: 1px solid var(--f5-line); border-radius: 10px; background: rgba(255,255,255,.025); }
 .f5-check--tile span { display: grid; }
 .f5-check--tile small { color: var(--f5-muted); font-size: 11px; }
+.f5-visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.f5-audience-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.f5-audience-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.f5-audience-option {
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--f5-line);
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+  cursor: pointer;
+  transition: border-color 160ms var(--f5-ease), background 160ms var(--f5-ease), transform 160ms var(--f5-ease);
+}
+.f5-audience-option:hover { border-color: var(--f5-line-strong); transform: translateY(-1px); }
+.f5-audience-option:has(input:checked) { border-color: rgba(139,92,246,.58); background: rgba(139,92,246,.12); box-shadow: inset 0 0 0 1px rgba(139,92,246,.12); }
+.f5-audience-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--f5-violet); }
+.f5-audience-option span { min-width: 0; display: grid; gap: 2px; }
+.f5-audience-option strong { font-size: 13px; }
+.f5-audience-option small { overflow-wrap: anywhere; color: var(--f5-muted); font-size: 10px; }
+.f5-taxonomy-grid { min-width: 0; display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: 16px; align-items: start; }
+.f5-taxonomy-grid .f5-card { min-width: 0; margin-bottom: 16px; }
+.f5-collection-card, .f5-collection-fieldset { min-width: 0; }
+.f5-collection-card .f5-card-head { min-width: 0; flex-wrap: wrap; }
+.f5-collection-card .f5-card-head > div { min-width: 0; flex: 1 1 280px; }
+.f5-collection-assigned { min-width: 0; min-height: 44px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.f5-collection-search-field { margin-bottom: 12px; }
+.f5-collection-fieldset { margin: 0 0 12px; padding: 0; border: 0; }
+.f5-collection-options { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 300px; overflow-x: hidden; overflow-y: auto; padding: 2px; scrollbar-width: thin; }
+.f5-collection-option { position: relative; min-height: 52px; display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 10px; padding: 8px 34px 8px 11px; overflow: hidden; border: 1px solid var(--f5-line); border-radius: 10px; background: rgba(255,255,255,.025); cursor: pointer; transition: border-color 160ms var(--f5-ease), background 160ms var(--f5-ease), transform 160ms var(--f5-ease); }
+.f5-collection-option::after { content: attr(data-kind); position: absolute; top: 8px; right: 8px; color: #777f8f; font-size: 8px; font-weight: 750; text-transform: uppercase; }
+.f5-collection-option:hover { border-color: var(--f5-line-strong); transform: translateY(-1px); }
+.f5-collection-option:focus-within { border-color: var(--f5-violet); box-shadow: var(--f5-focus); }
+.f5-collection-option:has(input:checked) { border-color: rgba(139,92,246,.58); background: rgba(139,92,246,.12); }
+.f5-collection-option input { width: 18px; height: 18px; margin: 0; accent-color: var(--f5-violet); }
+.f5-collection-option span { min-width: 0; display: grid; gap: 2px; }
+.f5-collection-option strong { overflow-wrap: anywhere; font-size: 13px; }
+.f5-collection-option small { overflow-wrap: anywhere; color: var(--f5-muted); font-size: 10px; line-height: 1.35; }
+.f5-collection-chip { max-width: 100%; min-width: 0; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding-left: 10px; border: 1px solid rgba(139,92,246,.32); border-radius: 999px; background: rgba(139,92,246,.09); font-size: 11px; }
+.f5-collection-chip > span { min-width: 0; overflow-wrap: anywhere; }
+.f5-collection-chip button { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.08); color: var(--f5-muted); cursor: pointer; font-size: 18px; line-height: 1; }
+.f5-collection-chip button:hover { background: rgba(255,255,255,.16); color: var(--f5-text); }
+.f5-collection-chip button:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; background: rgba(255,255,255,.16); color: var(--f5-text); }
 
 /* Signature variant rail */
 .f5-variant-studio { display: grid; gap: 16px; }
@@ -624,7 +669,11 @@ textarea.f5-input { min-height: 72px; resize: vertical; }
   .f5-section-head h1 { font-size: 25px; }
   .f5-section-head .f5-btn { width: 100%; }
   .f5-grid, .f5-cover-studio, .f5-overview-grid, .f5-color-builder { grid-template-columns: 1fr; }
+  .f5-taxonomy-grid { grid-template-columns: 1fr; gap: 0; }
   .f5-card { padding: 16px; border-radius: 12px; }
+  .f5-audience-grid { grid-template-columns: 1fr; }
+  .f5-audience-option { min-height: 52px; }
+  .f5-collection-options { grid-template-columns: 1fr; max-height: 280px; }
   .f5-price-fields { grid-template-columns: 1.3fr .8fr; }
   .f5-price-fields .f5-field:last-child { grid-column: 1 / -1; }
   .f5-variant-rail-wrap { width: calc(100% + 24px); max-width: none; margin-inline: -12px; padding-inline: 12px; border-right: 0; border-left: 0; }

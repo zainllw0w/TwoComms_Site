@@ -96,6 +96,133 @@ class VariantDetails(models.Model):
         return f"Details for variant #{self.variant_id}"
 
 
+class AudienceTag(models.Model):
+    """Structured product audience label used by catalog facets."""
+
+    code = models.SlugField(max_length=32, unique=True)
+    label_uk = models.CharField(max_length=80)
+    label_ru = models.CharField(max_length=80)
+    label_en = models.CharField(max_length=80)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("order", "code")
+
+    def __str__(self):
+        return self.label_uk
+
+
+class ProductAudience(models.Model):
+    """Many-to-many audience assignment at product level."""
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="audience_assignments",
+        db_constraint=False,
+    )
+    tag = models.ForeignKey(
+        AudienceTag,
+        on_delete=models.PROTECT,
+        related_name="product_assignments",
+    )
+    note = models.CharField(max_length=255, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("product", "tag"),
+                name="f5_unique_product_audience",
+            )
+        ]
+        ordering = ("product_id", "tag__order", "tag_id")
+
+    def __str__(self):
+        return f"p{self.product_id}:{self.tag.code}"
+
+
+class MerchCollection(models.Model):
+    """Normalized merchandising theme, city, brigade, or collaboration."""
+
+    class Kind(models.TextChoices):
+        THEME = "theme", "Тема"
+        CITY = "city", "Місто"
+        BRIGADE = "brigade", "Бригада"
+        COLLAB = "collab", "Колаборація"
+
+    slug = models.SlugField(max_length=80, unique=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        related_name="children",
+        blank=True,
+        null=True,
+    )
+    name_uk = models.CharField(max_length=120)
+    name_ru = models.CharField(max_length=120, blank=True, default="")
+    name_en = models.CharField(max_length=120, blank=True, default="")
+    description_uk = models.TextField(blank=True, default="")
+    description_ru = models.TextField(blank=True, default="")
+    description_en = models.TextField(blank=True, default="")
+    seo_title_uk = models.CharField(max_length=180, blank=True, default="")
+    seo_title_ru = models.CharField(max_length=180, blank=True, default="")
+    seo_title_en = models.CharField(max_length=180, blank=True, default="")
+    seo_description_uk = models.CharField(max_length=320, blank=True, default="")
+    seo_description_ru = models.CharField(max_length=320, blank=True, default="")
+    seo_description_en = models.CharField(max_length=320, blank=True, default="")
+    cover_image = models.ImageField(
+        upload_to="fable5/merch_collections/",
+        blank=True,
+        null=True,
+    )
+    accent_token = models.SlugField(max_length=40, blank=True, default="")
+    indexable = models.BooleanField(default=False)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("order", "slug")
+
+    def __str__(self):
+        return self.name_uk or self.slug
+
+
+class ProductMerchCollection(models.Model):
+    """Product-level collection assignment shared by editor, catalog, and PDP."""
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="merch_collection_assignments",
+        db_constraint=False,
+    )
+    collection = models.ForeignKey(
+        MerchCollection,
+        on_delete=models.PROTECT,
+        related_name="product_assignments",
+    )
+    order = models.PositiveIntegerField(default=0)
+    display_label = models.CharField(max_length=120, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("product", "collection"),
+                name="f5_unique_product_merch_collection",
+            )
+        ]
+        ordering = ("product_id", "order", "collection__order", "collection_id")
+
+    def __str__(self):
+        return f"p{self.product_id}:{self.collection.slug}"
+
+
 class ProductFitNote(models.Model):
     """Доступність посадки (класика/оверсайз) на рівні товару + причина.
 

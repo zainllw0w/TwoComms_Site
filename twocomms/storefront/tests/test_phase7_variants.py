@@ -162,6 +162,18 @@ class PathVariantUrlTests(TestCase):
         self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
         self.assertEqual(response.context["preselected_size"], "M")
 
+    def test_legacy_unicode_color_slug_survives_direct_reload(self):
+        ProductColorVariant.objects.filter(pk=self.variant_white.pk).update(
+            slug="термо-burgundy"
+        )
+        url = f"/product/{self.product.slug}/термо-burgundy/m/"
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
+        self.assertEqual(response.context["preselected_size"], "M")
+
     def test_order_insensitive_parsing(self):
         """Phase 7.2 parser is content-addressable — segment order
         shouldn't matter. ``/white/m/`` and ``/m/white/`` are equivalent.

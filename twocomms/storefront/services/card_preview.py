@@ -38,6 +38,8 @@ from __future__ import annotations
 
 from typing import Iterable, Optional, Sequence
 
+from django.urls import NoReverseMatch, reverse
+
 
 def _variant_for_slug(colors_preview, slug: str):
     """Find the colour preview entry whose slug matches.
@@ -158,6 +160,15 @@ def enrich_color_preview_with_slugs(products: Iterable) -> None:
         return
 
     for p in products:
+        base_product_url = reverse("product", kwargs={"slug": p.slug})
         for entry in getattr(p, "colors_preview", None) or []:
             vid = entry.get("id")
-            entry["slug"] = slug_by_id.get(vid, "") if isinstance(vid, int) else ""
+            slug = slug_by_id.get(vid, "") if isinstance(vid, int) else ""
+            entry["slug"] = slug
+            try:
+                entry["public_url"] = (
+                    reverse("product", kwargs={"slug": p.slug, "v1": slug})
+                    if slug else base_product_url
+                )
+            except NoReverseMatch:
+                entry["public_url"] = base_product_url

@@ -21,12 +21,22 @@
       <a href="{% url 'home' %}">{% trans 'Головна' %}</a>
       <span aria-hidden="true">/</span>
       <a href="{% url 'catalog' %}">{% trans 'Каталог' %}</a>
+      <span aria-hidden="true">/</span>
+      {% if merch_collection_page %}
+      <a href="{% url 'catalog_by_cat' category.slug %}">{{ category.name }}</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">{{ merch_collection_page.label }}</span>
+      {% else %}
+      <span aria-current="page">{{ category.name }}</span>
+      {% endif %}
     </nav>
 
     <header class="smart-selector__intro" aria-labelledby="smart-selector-title">
       <div>
-        <h1 id="smart-selector-title">{% if category.seo_h1 %}{{ category.seo_h1 }}{% else %}{{ category.name }}{% endif %}</h1>
-        {% if category.description %}
+        <h1 id="smart-selector-title">{% if merch_collection_page %}{{ merch_collection_page.h1 }}{% elif category.seo_h1 %}{{ category.seo_h1 }}{% else %}{{ category.name }}{% endif %}</h1>
+        {% if merch_collection_page.intro %}
+        <p>{{ merch_collection_page.intro|striptags|truncatewords:24 }}</p>
+        {% elif category.description %}
         <p>{{ category.description|striptags|truncatewords:24 }}</p>
         {% endif %}
       </div>
@@ -35,42 +45,169 @@
       </span>
     </header>
 
+    <div class="smart-selector__quick-facets" aria-label="{% trans 'Теми колекції' %}">
+      {% for option in smart_selector_theme_options %}
+      <button type="button"
+              data-smart-filter="theme"
+              data-smart-value="{{ option.code }}"
+              data-smart-source="quick_row"
+              aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
+        <span>{{ option.label }}</span>
+        {% if option.children %}<small aria-hidden="true">{{ option.children|length }}</small>{% endif %}
+      </button>
+      {% endfor %}
+    </div>
+
     <div class="smart-selector__layout">
       <aside class="smart-selector__rail" data-smart-desktop-rail aria-label="{% trans 'Фільтри каталогу' %}">
         <div class="smart-selector__rail-head">
-          <h2>{% trans 'Фільтри' %}</h2>
+          <div>
+            <small>{% trans 'Швидкий вибір' %}</small>
+            <h2>{% trans 'Фільтри' %}</h2>
+          </div>
           <button type="button" data-smart-reset>{% trans 'Очистити' %}</button>
         </div>
 
-        <section class="smart-selector__filter-group">
-          <h3>{% trans 'Тема' %}</h3>
+        {% if smart_selector_theme_options %}
+        <fieldset class="smart-selector__filter-group">
+          <legend>{% trans 'Тема' %}</legend>
           {% for option in smart_selector_theme_options %}
+            {% if option.children %}
+            <div class="smart-selector__branch{% if option.selected %} has-selection{% endif %}">
+              <div class="smart-selector__branch-row">
+                <button type="button"
+                        class="smart-selector__choice"
+                        data-smart-filter="theme"
+                        data-smart-value="{{ option.code }}"
+                        data-smart-source="rail"
+                        aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
+                  <span>{{ option.label }}</span>
+                </button>
+                <button type="button"
+                        class="smart-selector__disclosure"
+                        data-smart-disclosure
+                        data-smart-disclosure-value="{{ option.code }}"
+                        aria-expanded="{% if option.selected %}true{% else %}false{% endif %}"
+                        aria-controls="smart-rail-branch-{{ option.code }}"
+                        aria-label="{% blocktrans with label=option.label %}Показати підкатегорії: {{ label }}{% endblocktrans %}">
+                  <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+                </button>
+              </div>
+              <div class="smart-selector__branch-children" id="smart-rail-branch-{{ option.code }}" {% if not option.selected %}hidden{% endif %}>
+                <div>
+                  {% for child in option.children %}
+                  <button type="button"
+                          class="smart-selector__choice smart-selector__choice--child"
+                          data-smart-filter="collection"
+                          data-smart-value="{{ child.code }}"
+                          data-smart-source="rail"
+                          aria-pressed="{% if child.selected %}true{% else %}false{% endif %}">
+                    <span>{{ child.label }}</span>
+                  </button>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <button type="button"
+                    class="smart-selector__choice"
+                    data-smart-filter="theme"
+                    data-smart-value="{{ option.code }}"
+                    data-smart-source="rail"
+                    aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
+              <span>{{ option.label }}</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+        </fieldset>
+        {% endif %}
+
+        {% if smart_selector_audience_options %}
+        <fieldset class="smart-selector__filter-group">
+          <legend>{% trans 'Для кого' %}</legend>
+          {% for option in smart_selector_audience_options %}
           <button type="button"
-                  data-smart-filter="theme"
+                  class="smart-selector__choice"
+                  data-smart-filter="audience"
                   data-smart-value="{{ option.code }}"
-                  aria-pressed="{% if smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
+                  data-smart-source="rail"
+                  aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
             <span>{{ option.label }}</span>
           </button>
           {% endfor %}
-        </section>
+        </fieldset>
+        {% endif %}
 
-        <section class="smart-selector__filter-group">
-          <h3>{% trans 'Крій' %}</h3>
+        {% if smart_selector_availability_options %}
+        <fieldset class="smart-selector__filter-group">
+          <legend>{% trans 'Доступність' %}</legend>
+          {% for option in smart_selector_availability_options %}
+          <button type="button"
+                  class="smart-selector__choice"
+                  data-smart-filter="availability"
+                  data-smart-value="{{ option.code }}"
+                  data-smart-source="rail"
+                  aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
+            <span>{{ option.label }}</span>
+          </button>
+          {% endfor %}
+        </fieldset>
+        {% endif %}
+
+        <fieldset class="smart-selector__filter-group">
+          <legend>{% trans 'Крій' %}</legend>
           {% for option in smart_selector_fit_options %}
           <button type="button"
+                  class="smart-selector__choice"
                   data-smart-filter="fit"
                   data-smart-value="{{ option.code }}"
-                  aria-pressed="{% if smart_selector_selected_fit == option.code %}true{% else %}false{% endif %}">
+                  data-smart-source="rail"
+                  aria-pressed="{% if option.selected or smart_selector_selected_fit == option.code %}true{% else %}false{% endif %}">
             <span>{{ option.label }}</span>
           </button>
           {% empty %}
           <p>{% trans 'Доступні посадки вказані у картках товарів.' %}</p>
           {% endfor %}
-        </section>
+        </fieldset>
+
+        {% if smart_selector_size_options %}
+        <fieldset class="smart-selector__filter-group">
+          <legend>{% trans 'Розмір' %}</legend>
+          <div class="smart-selector__size-options">
+            {% for option in smart_selector_size_options %}
+            <button type="button"
+                    class="smart-selector__choice smart-selector__choice--size"
+                    data-smart-filter="size"
+                    data-smart-value="{{ option.code }}"
+                    data-smart-source="rail"
+                    aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
+              <span>{{ option.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% endif %}
+
+        {% if smart_selector_thermo_options %}
+        <fieldset class="smart-selector__filter-group">
+          <legend>{% trans 'Технологія' %}</legend>
+          {% for option in smart_selector_thermo_options %}
+          <button type="button"
+                  class="smart-selector__choice smart-selector__choice--thermo"
+                  data-smart-filter="thermo"
+                  data-smart-value="{{ option.code }}"
+                  data-smart-source="rail"
+                  aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
+            <span aria-hidden="true">🔥</span>
+            <span>{{ option.label }}</span>
+          </button>
+          {% endfor %}
+        </fieldset>
+        {% endif %}
 
         {% if available_colors %}
-        <section class="smart-selector__filter-group">
-          <h3>{% trans 'Колір' %}</h3>
+        <fieldset class="smart-selector__filter-group">
+          <legend>{% trans 'Колір' %}</legend>
           <div class="smart-selector__colors">
             {% for color in available_colors %}
             <a href="{{ color.url }}"
@@ -82,34 +219,21 @@
             </a>
             {% endfor %}
           </div>
-        </section>
+        </fieldset>
         {% endif %}
       </aside>
 
       <section class="smart-selector__products" aria-label="{% trans 'Товари категорії' %}">
-        <div class="smart-selector__quick-facets" aria-label="{% trans 'Швидкий вибір' %}">
-          <button type="button" data-smart-open-filters data-smart-focus-filter="theme" aria-haspopup="dialog" aria-expanded="false">
-            <small>{% trans 'Тема' %}</small>
-            <span>{% if smart_selector_selected_theme %}{% for option in smart_selector_theme_options %}{% if option.code == smart_selector_selected_theme %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Усі' %}{% endif %}</span>
-          </button>
-          <button type="button" data-smart-open-filters data-smart-focus-filter="fit" aria-haspopup="dialog" aria-expanded="false">
-            <small>{% trans 'Крій' %}</small>
-            <span>{% if smart_selector_selected_fit %}{% for option in smart_selector_fit_options %}{% if option.code == smart_selector_selected_fit %}{{ option.label }}{% endif %}{% endfor %}{% else %}{% trans 'Будь-який' %}{% endif %}</span>
-          </button>
-          <button type="button" data-smart-open-filters data-smart-focus-filter="color" aria-haspopup="dialog" aria-expanded="false">
-            <small>{% trans 'Колір' %}</small>
-            <span>{% if selected_color_slugs %}{% trans 'Обрано' %}{% else %}{% trans 'Усі' %}{% endif %}</span>
-          </button>
-        </div>
-
         <div class="smart-selector__command" data-smart-command>
           <button type="button"
                   class="smart-selector__filter-trigger"
                   data-smart-open-filters
+                  aria-controls="smart-selector-filter-sheet"
                   aria-haspopup="dialog"
                   aria-expanded="false">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
-            {% trans 'Фільтри' %}
+            <span>{% trans 'Фільтри' %}</span>
+            <strong data-smart-active-count hidden>0</strong>
           </button>
           <span class="smart-selector__command-count" data-smart-command-count aria-live="polite">
             {% blocktrans count counter=paginator.count %}{{ counter }} модель{% plural %}{{ counter }} моделей{% endblocktrans %}
@@ -124,6 +248,58 @@
           </label>
         </div>
 
+        <div class="smart-selector__applied" aria-label="{% trans 'Обрані фільтри' %}">
+          {% for option in smart_selector_theme_options %}
+            {% if option.selected or smart_selector_selected_theme == option.code %}
+            <button type="button" data-smart-filter="theme" data-smart-value="{{ option.code }}" aria-pressed="true">
+              {{ option.label }}<span aria-hidden="true">×</span>
+            </button>
+            {% endif %}
+            {% for child in option.children %}
+              {% if child.selected %}
+              <button type="button" data-smart-filter="collection" data-smart-value="{{ child.code }}" aria-pressed="true">
+                {{ child.label }}<span aria-hidden="true">×</span>
+              </button>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {% for option in smart_selector_audience_options %}
+            {% if option.selected %}
+            <button type="button" data-smart-filter="audience" data-smart-value="{{ option.code }}" aria-pressed="true">
+              {{ option.label }}<span aria-hidden="true">×</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+          {% for option in smart_selector_fit_options %}
+            {% if option.selected or smart_selector_selected_fit == option.code %}
+            <button type="button" data-smart-filter="fit" data-smart-value="{{ option.code }}" aria-pressed="true">
+              {{ option.label }}<span aria-hidden="true">×</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+          {% for option in smart_selector_availability_options %}
+            {% if option.selected %}
+            <button type="button" data-smart-filter="availability" data-smart-value="{{ option.code }}" aria-pressed="true">
+              {{ option.label }}<span aria-hidden="true">×</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+          {% for option in smart_selector_size_options %}
+            {% if option.selected %}
+            <button type="button" data-smart-filter="size" data-smart-value="{{ option.code }}" aria-pressed="true">
+              {% trans 'Розмір' %} {{ option.label }}<span aria-hidden="true">×</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+          {% for option in smart_selector_thermo_options %}
+            {% if option.selected %}
+            <button type="button" data-smart-filter="thermo" data-smart-value="{{ option.code }}" aria-pressed="true">
+              <span aria-hidden="true">🔥</span>{{ option.label }}<span aria-hidden="true">×</span>
+            </button>
+            {% endif %}
+          {% endfor %}
+        </div>
+
         <div class="smart-selector__grid"
              role="list"
              data-smart-product-grid
@@ -135,21 +311,27 @@
                data-smart-theme="{{ p.smart_selector_theme }}"
                data-smart-fit="{{ p.smart_selector_fit }}"
                data-smart-price="{{ p.card_price_min|default:p.final_price }}">
-            {% cache 900 smart_selector_product_card_v3 LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key p.preferred_color_slug p.preferred_card_image_url forloop.counter0 using="fragments" %}
+            {% cache 900 smart_selector_product_card_v4 LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key p.preferred_color_slug p.preferred_card_image_url p.smart_selector_audiences p.smart_selector_collections forloop.counter0 using="fragments" %}
               {% include "partials/catalog_smart_product_card.html" with p=p eager=forloop.first %}
             {% endcache %}
           </div>
           {% empty %}
           <div class="smart-selector__empty">
             <h2>{% trans 'Не знайшли точного збігу' %}</h2>
-            <p>{% trans 'Очистіть один із параметрів або поверніться до всього каталогу.' %}</p>
+            <p>{% trans 'Схоже, разом обрані параметри не зустрічаються. Приберіть один фільтр або поверніться до всіх моделей.' %}</p>
             <a href="{% url 'catalog_by_cat' smart_selector_active_category.slug %}">{% trans 'Показати всі моделі' %}</a>
           </div>
           {% endfor %}
         </div>
 
         <div class="smart-selector__sentinel" data-smart-sentinel aria-hidden="true"></div>
-        <p class="smart-selector__load-status" data-smart-load-status role="status"></p>
+        <p class="smart-selector__load-status"
+           data-smart-load-status
+           data-loading-text="{% trans 'Завантажуємо наступні моделі…' %}"
+           data-loaded-text="{% trans 'Нові моделі додано' %}"
+           data-complete-text="{% trans 'Усі моделі вже показано' %}"
+           data-error-text="{% trans 'Не вдалося завантажити ще товари. Скористайтеся сторінками нижче.' %}"
+           role="status"></p>
 
         <nav aria-label="{% trans 'Сторінки каталогу' %}" class="catalog-pagination" data-smart-pagination>
           {% if page_obj.has_other_pages %}
@@ -174,7 +356,7 @@
     </div>
   </div>
 
-  <div class="smart-selector__overlay" data-smart-filter-sheet aria-hidden="true">
+  <div class="smart-selector__overlay" id="smart-selector-filter-sheet" data-smart-filter-sheet aria-hidden="true">
     <section class="smart-selector__sheet"
              role="dialog"
              aria-modal="true"
@@ -182,44 +364,175 @@
              tabindex="-1">
       <header>
         <div>
-          <small>{% trans 'Усі параметри' %}</small>
-          <h2 id="smart-selector-sheet-title">{% trans 'Фільтри' %}</h2>
+          <small>{% trans 'Каталог' %}</small>
+          <h2 id="smart-selector-sheet-title">{% trans 'Підібрати модель' %}</h2>
         </div>
         <button type="button" data-smart-close-filters aria-label="{% trans 'Закрити фільтри' %}">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg>
         </button>
       </header>
+
       <div class="smart-selector__sheet-body">
-        <section data-smart-filter-section="theme">
-          <h3>{% trans 'Тема' %}</h3>
-          <div>
+        {% if smart_selector_theme_options %}
+        <fieldset data-smart-filter-section="theme">
+          <legend>{% trans 'Тема' %}</legend>
+          <div class="smart-selector__sheet-options">
             {% for option in smart_selector_theme_options %}
-            <button type="button" data-smart-filter="theme" data-smart-value="{{ option.code }}" aria-pressed="{% if smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">{{ option.label }}</button>
+              {% if option.children %}
+              <div class="smart-selector__branch{% if option.selected %} has-selection{% endif %}">
+                <div class="smart-selector__branch-row">
+                  <button type="button"
+                          class="smart-selector__choice"
+                          data-smart-filter="theme"
+                          data-smart-value="{{ option.code }}"
+                          data-smart-source="sheet"
+                          aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
+                    <span>{{ option.label }}</span>
+                  </button>
+                  <button type="button"
+                          class="smart-selector__disclosure"
+                          data-smart-disclosure
+                          data-smart-disclosure-value="{{ option.code }}"
+                          aria-expanded="{% if option.selected %}true{% else %}false{% endif %}"
+                          aria-controls="smart-sheet-branch-{{ option.code }}"
+                          aria-label="{% blocktrans with label=option.label %}Показати підкатегорії: {{ label }}{% endblocktrans %}">
+                    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="m6.5 8 3.5 3.5L13.5 8"/></svg>
+                  </button>
+                </div>
+                <div class="smart-selector__branch-children" id="smart-sheet-branch-{{ option.code }}" {% if not option.selected %}hidden{% endif %}>
+                  <div>
+                    {% for child in option.children %}
+                    <button type="button"
+                            class="smart-selector__choice smart-selector__choice--child"
+                            data-smart-filter="collection"
+                            data-smart-value="{{ child.code }}"
+                            data-smart-source="sheet"
+                            aria-pressed="{% if child.selected %}true{% else %}false{% endif %}">
+                      <span>{{ child.label }}</span>
+                    </button>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              {% else %}
+              <button type="button"
+                      class="smart-selector__choice"
+                      data-smart-filter="theme"
+                      data-smart-value="{{ option.code }}"
+                      data-smart-source="sheet"
+                      aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
+                <span>{{ option.label }}</span>
+              </button>
+              {% endif %}
             {% endfor %}
           </div>
-        </section>
-        <section data-smart-filter-section="fit">
-          <h3>{% trans 'Крій' %}</h3>
-          <div>
+        </fieldset>
+        {% endif %}
+
+        {% if smart_selector_audience_options %}
+        <fieldset data-smart-filter-section="audience">
+          <legend>{% trans 'Для кого' %}</legend>
+          <div class="smart-selector__sheet-options">
+            {% for option in smart_selector_audience_options %}
+            <button type="button"
+                    class="smart-selector__choice"
+                    data-smart-filter="audience"
+                    data-smart-value="{{ option.code }}"
+                    data-smart-source="sheet"
+                    aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
+              <span>{{ option.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% endif %}
+
+        {% if smart_selector_availability_options %}
+        <fieldset data-smart-filter-section="availability">
+          <legend>{% trans 'Доступність' %}</legend>
+          <div class="smart-selector__sheet-options">
+            {% for option in smart_selector_availability_options %}
+            <button type="button"
+                    class="smart-selector__choice"
+                    data-smart-filter="availability"
+                    data-smart-value="{{ option.code }}"
+                    data-smart-source="sheet"
+                    aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
+              <span>{{ option.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% endif %}
+
+        <fieldset data-smart-filter-section="fit">
+          <legend>{% trans 'Крій' %}</legend>
+          <div class="smart-selector__sheet-options">
             {% for option in smart_selector_fit_options %}
-            <button type="button" data-smart-filter="fit" data-smart-value="{{ option.code }}" aria-pressed="{% if smart_selector_selected_fit == option.code %}true{% else %}false{% endif %}">{{ option.label }}</button>
+            <button type="button"
+                    class="smart-selector__choice"
+                    data-smart-filter="fit"
+                    data-smart-value="{{ option.code }}"
+                    data-smart-source="sheet"
+                    aria-pressed="{% if option.selected or smart_selector_selected_fit == option.code %}true{% else %}false{% endif %}">
+              <span>{{ option.label }}</span>
+            </button>
             {% endfor %}
           </div>
-        </section>
+        </fieldset>
+
+        {% if smart_selector_size_options %}
+        <fieldset data-smart-filter-section="size">
+          <legend>{% trans 'Розмір' %}</legend>
+          <div class="smart-selector__sheet-options smart-selector__size-options">
+            {% for option in smart_selector_size_options %}
+            <button type="button"
+                    class="smart-selector__choice smart-selector__choice--size"
+                    data-smart-filter="size"
+                    data-smart-value="{{ option.code }}"
+                    data-smart-source="sheet"
+                    aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
+              <span>{{ option.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% endif %}
+
+        {% if smart_selector_thermo_options %}
+        <fieldset data-smart-filter-section="thermo">
+          <legend>{% trans 'Технологія' %}</legend>
+          <div class="smart-selector__sheet-options">
+            {% for option in smart_selector_thermo_options %}
+            <button type="button"
+                    class="smart-selector__choice smart-selector__choice--thermo"
+                    data-smart-filter="thermo"
+                    data-smart-value="{{ option.code }}"
+                    data-smart-source="sheet"
+                    aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
+              <span aria-hidden="true">🔥</span>
+              <span>{{ option.label }}</span>
+            </button>
+            {% endfor %}
+          </div>
+        </fieldset>
+        {% endif %}
+
         {% if available_colors %}
-        <section data-smart-filter-section="color">
-          <h3>{% trans 'Колір' %}</h3>
-          <div>
+        <fieldset data-smart-filter-section="color">
+          <legend>{% trans 'Колір' %}</legend>
+          <div class="smart-selector__sheet-options smart-selector__sheet-colors">
             {% for color in available_colors %}
-            <a href="{{ color.url }}" class="{% if color.is_selected %}is-active{% endif %}">
+            <a href="{{ color.url }}" class="{% if color.is_selected %}is-active{% endif %}" {% if color.is_selected %}aria-current="true"{% endif %}>
               <span style="--smart-color: {{ color.primary_hex|default:'#687382' }};" aria-hidden="true"></span>
               {{ color.label }}
             </a>
             {% endfor %}
           </div>
-        </section>
+        </fieldset>
         {% endif %}
       </div>
+
       <footer>
         <button type="button" data-smart-reset>{% trans 'Очистити' %}</button>
         <button type="button" data-smart-close-filters>{% blocktrans count counter=paginator.count %}Показати {{ counter }} модель{% plural %}Показати {{ counter }} моделей{% endblocktrans %}</button>

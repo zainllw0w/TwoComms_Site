@@ -272,6 +272,8 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'catalog__options__values',
             'fit_options',
             'faqs',
+            'audience_assignments__tag',
+            'merch_collection_assignments__collection',
         ),
         slug=slug,
         status='published',
@@ -619,6 +621,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     # availability must therefore all be derived from that same entry.
     selected_variant_merchandising = color_variants[0] if color_variants else {}
     selected_variant_price = selected_variant_merchandising.get('final_price') or product.final_price
+
     selected_variant_original_price = product.price
 
     # Keep every active product-level fit visible. Colour-specific rules mark
@@ -831,6 +834,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
                 }
                 for size in available_sizes
             ]
+
         except CONFIGURATOR_EXPECTED_EXCEPTIONS as exc:
             configurator_failed = True
             logger.exception(
@@ -882,6 +886,16 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
     all_product_sizes_unavailable = bool(product_size_options) and not any(
         option["is_available"] for option in product_size_options
+    )
+
+    # Build the PDP merchandising rail only after fit/configuration resolution.
+    # This keeps its thermo, material, and price facts aligned with the same
+    # combination that drives the visible title and purchase controls.
+    from ..services.product_merchandising import build_product_merchandising_context
+    product_merchandising_context = build_product_merchandising_context(
+        product,
+        language=language,
+        selected_variant_context=selected_variant_merchandising,
     )
 
     if not product_option_payload.get("axes") and not configurator_failed:
@@ -1069,6 +1083,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'selected_variant_price': selected_variant_price,
             'selected_variant_original_price': selected_variant_original_price,
             'selected_variant_merchandising': selected_variant_merchandising,
+            'product_merchandising_context': product_merchandising_context,
             # Phase 7.3 — variant-aware SEO meta.
             'variant_canonical_path': variant_meta['canonical_path'],
             'variant_page_title': variant_meta['page_title'],

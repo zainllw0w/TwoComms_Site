@@ -12,41 +12,56 @@
   const loadStatus = root.querySelector("[data-smart-load-status]");
   const sortControl = root.querySelector("[data-smart-sort]");
   const main = root.closest("main");
+  const mobileNavigation = document.querySelector(
+    "[data-mobile-bottom-nav], .bottom-nav, .mobile-bottom-nav, .bottom-navigation, .mobile-nav"
+  );
   const mainContain = main?.style.contain || "";
-  const allowedFilters = new Set(["theme", "fit"]);
+  const repeatableFilters = new Set([
+    "theme",
+    "collection",
+    "audience",
+    "availability",
+    "fit",
+    "size",
+    "thermo",
+  ]);
+  const resettableFilters = [
+    "theme",
+    "collection",
+    "audience",
+    "fit",
+    "availability",
+    "size",
+    "color",
+    "thermo",
+    "sort",
+    "page",
+  ];
   const allowedSorts = new Set(["recommended", "price-asc", "price-desc"]);
   const lockState = {};
   let lastFilterTrigger = null;
   let loadingNextPage = false;
   let nextOrder = 0;
+  let sheetHistoryActive = false;
+  let navWasInert = false;
 
-  const checkFavoriteButton = (button) => {
-    const productId = button?.getAttribute("data-product-id");
-    if (productId && typeof window.checkFavoriteStatus === "function") {
-      window.checkFavoriteStatus(productId, button);
+  const emitCatalogAnalytics = (eventName, payload = {}) => {
+    if (!eventName) return;
+    const detail = {
+      category: root.dataset.smartCategory || "",
+      language: document.documentElement.lang || "",
+      ...payload,
+    };
+    try {
+      if (typeof window.trackEvent === "function") {
+        window.trackEvent(eventName, detail);
+      } else if (Array.isArray(window.dataLayer)) {
+        window.dataLayer.push({ event: eventName, ...detail });
+      }
+    } catch (_) {
+      // Analytics must never interfere with catalog navigation.
     }
   };
-
-  const favoriteStatusObserver = "IntersectionObserver" in window
-    ? new IntersectionObserver((entries, observer) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          checkFavoriteButton(entry.target);
-          observer.unobserve(entry.target);
-        });
-      }, { rootMargin: "100px 0px", threshold: 0.01 })
-    : null;
-
-  const observeFavoriteButtons = (items) => {
-    items.forEach((item) => {
-      item.querySelectorAll(".favorite-btn").forEach((button) => {
-        if (favoriteStatusObserver) favoriteStatusObserver.observe(button);
-        else checkFavoriteButton(button);
-      });
-    });
-  };
-
-  if (main) main.style.contain = "none";
 
   const productItems = () => Array.from(grid?.querySelectorAll("[data-smart-product-item]") || []);
 
@@ -59,27 +74,69 @@
     });
   };
 
-  assignProductOrder(productItems());
+  const checkFavoriteButton = (button) => {
+    const productId = button?.getAttribute("data-product-id");
+    if (productId && typeof window.checkFavoriteStatus === "function") {
+      window.checkFavoriteStatus(productId, button);
+    }
+  };
+
+  const favoriteStatusObserver = "IntersectionObserver" in window
+    ? new IntersectionObserver(
+        (entries, observer) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            checkFavoriteButton(entry.target);
+            observer.unobserve(entry.target);
+          });
+        },
+        { rootMargin: "100px 0px", threshold: 0.01 }
+      )
+    : null;
+
+  const observeFavoriteButtons = (items) => {
+    items.forEach((item) => {
+      item.querySelectorAll(".favorite-btn").forEach((button) => {
+        if (favoriteStatusObserver) favoriteStatusObserver.observe(button);
+        else checkFavoriteButton(button);
+      });
+    });
+  };
+
+  const toggleRepeatedParameter = (url, key, value) => {
+    const currentValues = url.searchParams.getAll(key);
+    const hasValue = currentValues.includes(value);
+    url.searchParams.delete(key);
+
+    currentValues.forEach((currentValue) => {
+      if (currentValue !== value) url.searchParams.append(key, currentValue);
+    });
+
+    if (!hasValue) url.searchParams.append(key, value);
+  };
 
   const buildFacetUrl = (filter, value) => {
     const url = new URL(window.location.href);
-    const current = url.searchParams.get(filter) || "";
-
-    if (current === value) url.searchParams.delete(filter);
-    else url.searchParams.set(filter, value);
-
+    toggleRepeatedParameter(url, filter, value);
     url.searchParams.delete("page");
     return url;
   };
 
-  const navigateToFacet = (filter, value) => {
-    if (!allowedFilters.has(filter) || !value) return;
-    window.location.assign(buildFacetUrl(filter, value).toString());
+  const navigateToFacet = (filter, value, source = "unknown") => {
+    if (!repeatableFilters.has(filter) || !value) return;
+    const url = buildFacetUrl(filter, value);
+    emitCatalogAnalytics("CatalogFilterApply", {
+      facet: filter,
+      value,
+      values: url.searchParams.getAll(filter),
+      source,
+    });
+    window.location.assign(url.toString());
   };
 
   const resetUrl = () => {
     const url = new URL(window.location.href);
-    ["theme", "fit", "color", "sort", "page"].forEach((key) => url.searchParams.delete(key));
+    resettableFilters.forEach((key) => url.searchParams.delete(key));
     return url;
   };
 
@@ -107,12 +164,29 @@
     grid.appendChild(fragment);
 
     if (sortControl && sortControl.value !== sortValue) sortControl.value = sortValue;
-
   };
 
   const readInitialSort = () => {
     const requested = new URL(window.location.href).searchParams.get("sort") || "recommended";
     return allowedSorts.has(requested) ? requested : "recommended";
+  };
+
+  const updateActiveCount = () => {
+    const activeFacets = new Set();
+    root.querySelectorAll('[data-smart-filter][aria-pressed="true"]').forEach((control) => {
+      const key = control.dataset.smartFilter;
+      const value = control.dataset.smartValue;
+      if (repeatableFilters.has(key) && value) activeFacets.add(`${key}:${value}`);
+    });
+    if (root.querySelector(".smart-selector__colors a.is-active, .smart-selector__sheet-colors a.is-active")) {
+      activeFacets.add("color:selected");
+    }
+    const activeCount = activeFacets.size;
+
+    root.querySelectorAll("[data-smart-active-count]").forEach((badge) => {
+      badge.textContent = String(activeCount);
+      badge.hidden = activeCount === 0;
+    });
   };
 
   const lockPage = () => {
@@ -146,6 +220,11 @@
       if (child === overlay) return;
       child.inert = inert;
     });
+
+    if (mobileNavigation) {
+      if (inert) navWasInert = Boolean(mobileNavigation.inert);
+      mobileNavigation.inert = inert || navWasInert;
+    }
   };
 
   const focusableElements = () => {
@@ -157,10 +236,11 @@
     ).filter((element) => element.getClientRects().length > 0);
   };
 
-  const closeFilters = ({ restoreFocus = true } = {}) => {
+  const closeFilters = ({ restoreFocus = true, consumeHistory = true } = {}) => {
     if (!overlay?.classList.contains("is-open")) return;
     overlay.classList.remove("is-open");
     overlay.setAttribute("aria-hidden", "true");
+    root.classList.remove("is-filter-open");
     root.querySelectorAll("[data-smart-open-filters]").forEach((trigger) => {
       trigger.setAttribute("aria-expanded", "false");
     });
@@ -169,52 +249,165 @@
 
     const trigger = lastFilterTrigger;
     lastFilterTrigger = null;
+    emitCatalogAnalytics("CatalogFilterSheetClose", {
+      source: trigger?.dataset.smartFocusFilter || "all",
+    });
     if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
+
+    if (consumeHistory && sheetHistoryActive && window.history.state?.smartFilterSheet) {
+      sheetHistoryActive = false;
+      window.history.back();
+    } else {
+      sheetHistoryActive = false;
+    }
   };
 
   const openFilters = (trigger) => {
     if (!overlay || !sheet || overlay.classList.contains("is-open")) return;
     lastFilterTrigger = trigger;
+    emitCatalogAnalytics("CatalogFilterSheetOpen", {
+      source: trigger?.dataset.smartFocusFilter || "all",
+    });
     overlay.classList.add("is-open");
     overlay.setAttribute("aria-hidden", "false");
-    trigger?.setAttribute("aria-expanded", "true");
+    root.classList.add("is-filter-open");
+    root.querySelectorAll("[data-smart-open-filters]").forEach((candidate) => {
+      candidate.setAttribute("aria-expanded", candidate === trigger ? "true" : "false");
+    });
     setBackgroundInert(true);
     lockPage();
 
+    window.history.pushState(
+      { ...(window.history.state || {}), smartFilterSheet: true },
+      "",
+      window.location.href
+    );
+    sheetHistoryActive = true;
+
     const focusFilter = trigger?.dataset.smartFocusFilter;
-    window.requestAnimationFrame(() => {
-      const section = focusFilter
-        ? sheet.querySelector(`[data-smart-filter-section="${focusFilter}"]`)
-        : null;
-      const target = section?.querySelector("button, a[href]") || sheet.querySelector("[data-smart-close-filters]") || sheet;
-      section?.scrollIntoView({ block: "start" });
-      const focusTarget = () => {
-        if (!overlay.classList.contains("is-open") || !target.isConnected) return;
-        target.focus({ preventScroll: !section });
-      };
-      focusTarget();
-      window.setTimeout(() => {
-        if (!sheet.contains(document.activeElement)) focusTarget();
-      }, 80);
+    const section = focusFilter
+      ? sheet.querySelector(`[data-smart-filter-section="${focusFilter}"]`)
+      : null;
+    const target = section?.querySelector("button, a[href]") || sheet.querySelector("[data-smart-close-filters]") || sheet;
+    section?.scrollIntoView({ block: "start" });
+    const focusTarget = () => {
+      if (!overlay.classList.contains("is-open") || !target.isConnected) return;
+      if (sheet.contains(document.activeElement)) return;
+      target.focus({ preventScroll: !section });
+    };
+    // The trigger becomes inert during the opening click. Focus once now for
+    // fast user agents, then retry after inert/default-action processing so
+    // Chromium cannot leave the active element on <body>.
+    focusTarget();
+    window.requestAnimationFrame(focusTarget);
+    window.setTimeout(focusTarget, 60);
+  };
+
+  const setDisclosureState = (value, expanded) => {
+    root.querySelectorAll(`[data-smart-disclosure-value="${CSS.escape(value)}"]`).forEach((control) => {
+      const targetId = control.getAttribute("aria-controls");
+      const target = targetId ? document.getElementById(targetId) : null;
+      control.setAttribute("aria-expanded", String(expanded));
+      control.closest(".smart-selector__branch")?.classList.toggle("is-open", expanded);
+      if (!target) return;
+
+      if (expanded) {
+        target.hidden = false;
+        window.requestAnimationFrame(() => target.classList.add("is-visible"));
+      } else {
+        target.classList.remove("is-visible");
+        window.setTimeout(() => {
+          if (control.getAttribute("aria-expanded") === "false") target.hidden = true;
+        }, 160);
+      }
     });
   };
 
-  root.querySelectorAll("[data-smart-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      navigateToFacet(button.dataset.smartFilter || "", button.dataset.smartValue || "");
+  const initializeDisclosures = () => {
+    const values = new Set(
+      Array.from(root.querySelectorAll("[data-smart-disclosure-value]"))
+        .map((control) => control.dataset.smartDisclosureValue)
+        .filter(Boolean)
+    );
+
+    values.forEach((value) => {
+      const branches = Array.from(root.querySelectorAll(`[data-smart-disclosure-value="${CSS.escape(value)}"]`))
+        .map((control) => control.closest(".smart-selector__branch"))
+        .filter(Boolean);
+      const hasSelectedChild = branches.some((branch) =>
+        branch.querySelector('.smart-selector__branch-children [aria-pressed="true"]')
+      );
+      const explicitlyExpanded = Array.from(
+        root.querySelectorAll(`[data-smart-disclosure-value="${CSS.escape(value)}"]`)
+      ).some((control) => control.getAttribute("aria-expanded") === "true");
+      setDisclosureState(value, hasSelectedChild || explicitlyExpanded);
     });
-  });
+  };
 
-  root.querySelectorAll("[data-smart-reset]").forEach((button) => {
-    button.addEventListener("click", () => window.location.assign(resetUrl().toString()));
-  });
+  const measureMobileNavigation = () => {
+    if (!mobileNavigation) return;
+    const height = Math.ceil(mobileNavigation.getBoundingClientRect().height);
+    if (height > 0) root.style.setProperty("--mobile-nav-reserved", `${height}px`);
+  };
 
-  root.querySelectorAll("[data-smart-open-filters]").forEach((trigger) => {
-    trigger.addEventListener("click", () => openFilters(trigger));
-  });
+  root.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
 
-  root.querySelectorAll("[data-smart-close-filters]").forEach((button) => {
-    button.addEventListener("click", () => closeFilters());
+    const cardLink = target.closest(".smart-product-card [data-product-card-link]");
+    if (cardLink && root.contains(cardLink)) {
+      const card = cardLink.closest(".smart-product-card");
+      if (card) {
+        emitCatalogAnalytics("CatalogSelectItem", {
+          product_id: card.dataset.productId || "",
+          offer_id: card.dataset.defaultOfferId || "",
+          item_name: card.dataset.productTitle || "",
+          item_category: card.dataset.productCategory || "",
+          position: productItems().indexOf(card) + 1,
+        });
+      }
+      return;
+    }
+
+    const disclosure = target.closest("[data-smart-disclosure]");
+    if (disclosure && root.contains(disclosure)) {
+      event.preventDefault();
+      const value = disclosure.dataset.smartDisclosureValue || "";
+      if (value) setDisclosureState(value, disclosure.getAttribute("aria-expanded") !== "true");
+      return;
+    }
+
+    const filter = target.closest("[data-smart-filter]");
+    if (filter && root.contains(filter)) {
+      event.preventDefault();
+      navigateToFacet(
+        filter.dataset.smartFilter || "",
+        filter.dataset.smartValue || "",
+        filter.dataset.smartSource || "unknown"
+      );
+      return;
+    }
+
+    const reset = target.closest("[data-smart-reset]");
+    if (reset && root.contains(reset)) {
+      event.preventDefault();
+      emitCatalogAnalytics("CatalogFilterClear", { source: "reset" });
+      window.location.assign(resetUrl().toString());
+      return;
+    }
+
+    const opener = target.closest("[data-smart-open-filters]");
+    if (opener && root.contains(opener)) {
+      event.preventDefault();
+      openFilters(opener);
+      return;
+    }
+
+    const closer = target.closest("[data-smart-close-filters]");
+    if (closer && root.contains(closer)) {
+      event.preventDefault();
+      closeFilters();
+    }
   });
 
   overlay?.addEventListener("click", (event) => {
@@ -259,8 +452,6 @@
     window.location.assign(url.toString());
   });
 
-  applySort(readInitialSort());
-
   const progressiveLoad = async (observer) => {
     if (!grid || loadingNextPage) return;
     const nextPageUrl = grid.dataset.nextPageUrl;
@@ -271,7 +462,7 @@
 
     loadingNextPage = true;
     observer?.unobserve(sentinel);
-    if (loadStatus) loadStatus.textContent = "Завантажуємо наступні моделі...";
+    if (loadStatus) loadStatus.textContent = loadStatus.dataset.loadingText || "";
 
     try {
       const response = await window.fetch(new URL(nextPageUrl, window.location.href), {
@@ -301,7 +492,10 @@
 
       assignProductOrder(incoming);
       const fragment = document.createDocumentFragment();
-      incoming.forEach((item) => fragment.appendChild(item));
+      incoming.forEach((item, index) => {
+        if (index < 4) item.classList.add("is-revealing");
+        fragment.appendChild(item);
+      });
       grid.appendChild(fragment);
       observeFavoriteButtons(incoming);
       grid.dataset.nextPageUrl = remoteGrid.dataset.nextPageUrl || "";
@@ -312,20 +506,35 @@
       applySort(sortControl?.value || "recommended");
       if (loadStatus) {
         loadStatus.textContent = incoming.length
-          ? `Додано ${incoming.length} моделей`
-          : "Усі моделі вже показано";
+          ? loadStatus.dataset.loadedText || ""
+          : loadStatus.dataset.completeText || "";
       }
+      emitCatalogAnalytics("CatalogProgressiveLoad", {
+        loaded: incoming.length,
+        total: productItems().length,
+      });
 
       if (grid.dataset.nextPageUrl && sentinel) observer?.observe(sentinel);
       else observer?.disconnect();
     } catch (error) {
-      if (loadStatus) loadStatus.textContent = "Не вдалося завантажити ще товари. Скористайтеся сторінками нижче.";
+      if (loadStatus) loadStatus.textContent = loadStatus.dataset.errorText || "";
       observer?.disconnect();
       if (window.console?.warn) window.console.warn("Smart Selector progressive loading stopped", error);
     } finally {
       loadingNextPage = false;
     }
   };
+
+  assignProductOrder(productItems());
+  observeFavoriteButtons(productItems());
+  applySort(readInitialSort());
+  updateActiveCount();
+  initializeDisclosures();
+  measureMobileNavigation();
+
+  if (mobileNavigation && "ResizeObserver" in window) {
+    new ResizeObserver(measureMobileNavigation).observe(mobileNavigation);
+  }
 
   if (sentinel && grid?.dataset.nextPageUrl && "IntersectionObserver" in window) {
     const observer = new IntersectionObserver(
@@ -337,14 +546,23 @@
     observer.observe(sentinel);
   }
 
+  window.addEventListener("popstate", () => {
+    if (overlay?.classList.contains("is-open")) {
+      closeFilters({ restoreFocus: true, consumeHistory: false });
+    }
+  });
+
   window.addEventListener("pageshow", () => {
     if (!overlay?.classList.contains("is-open")) {
       unlockPage();
       setBackgroundInert(false);
     }
+    measureMobileNavigation();
   });
 
   window.addEventListener("pagehide", () => {
     if (main) main.style.contain = mainContain;
   });
+
+  if (main) main.style.contain = "none";
 })();

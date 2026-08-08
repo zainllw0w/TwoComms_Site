@@ -858,6 +858,22 @@ class StructuredDataGenerator:
             variant_merchandising.get("final_price")
             if variant_merchandising else product.final_price
         )
+        try:
+            from storefront.services.product_merchandising import (
+                build_product_merchandising_context,
+            )
+
+            merchandising_context = build_product_merchandising_context(
+                product,
+                language=(get_language() or "uk"),
+                selected_variant_context=variant_merchandising,
+            )
+        except Exception:
+            merchandising_context = {
+                "audiences": [],
+                "collections": [],
+                "variant": {},
+            }
 
         # Phase 21 — schema URL must mirror the page's canonical strategy.
         # ``canonical_path`` (if provided by the view) already reflects
@@ -914,11 +930,6 @@ class StructuredDataGenerator:
                     "@type": "PropertyValue",
                     "name": _("Країна виробництва"),
                     "value": _("Україна"),
-                },
-                {
-                    "@type": "PropertyValue",
-                    "name": _("Стиль"),
-                    "value": _("Стріт & Мілітарі"),
                 },
             ],
             "brand": {
@@ -1051,40 +1062,53 @@ class StructuredDataGenerator:
                 if review_blocks:
                     schema["review"] = review_blocks
 
-        # Merchant-level properties (age_group, gender, google_product_category)
+        # Merchant-level properties use explicit Fable 5 assignments only.
         age_group = "adult"
-        gender = "unisex"
-        if product.category:
-            category_name = product.category.name.lower()
-            if any(word in category_name for word in ['чоловіч', 'мужск', 'men']):
-                gender = "male"
-            elif any(word in category_name for word in ['жіноч', 'женск', 'women']):
-                gender = "female"
+        audience_rows = merchandising_context.get("audiences") or []
+        audience_codes = [row.get("code") for row in audience_rows if row.get("code")]
+        audience_labels = [row.get("label") for row in audience_rows if row.get("label")]
+        collection_labels = [
+            row.get("label")
+            for row in (merchandising_context.get("collections") or [])
+            if row.get("label")
+        ]
 
-        # SEO molecular-upgrade US-8 (2026-05-16) — explicit
-        # PeopleAudience so Google Shopping / AI Search can resolve
-        # gender targeting without parsing additionalProperty. Maps the
-        # already-derived ``gender`` to schema.org audienceType vocab.
-        audience_type_map = {
-            "male": "Men",
-            "female": "Women",
-            "unisex": "Adults",
-        }
-        suggested_gender_map = {
-            "male": "https://schema.org/Male",
-            "female": "https://schema.org/Female",
-            "unisex": "https://schema.org/Unisex",
-        }
-        schema["audience"] = {
-            "@type": "PeopleAudience",
-            "audienceType": audience_type_map.get(gender, "Adults"),
-            "suggestedGender": suggested_gender_map.get(gender, "https://schema.org/Unisex"),
-            "suggestedMinAge": 16,
-        }
+        if audience_rows:
+            schema["audience"] = {
+                "@type": "PeopleAudience",
+                "audienceType": ", ".join(audience_labels),
+                "suggestedMinAge": 16,
+            }
+            schema["additionalProperty"].append({
+                "@type": "PropertyValue",
+                "name": _("Аудиторія"),
+                "value": ", ".join(audience_labels),
+            })
+
+        if len(audience_codes) == 1:
+            gender_by_code = {
+                "men": ("male", "https://schema.org/Male"),
+                "women": ("female", "https://schema.org/Female"),
+                "unisex": ("unisex", "https://schema.org/Unisex"),
+            }
+            gender = gender_by_code.get(audience_codes[0])
+            if gender:
+                schema["audience"]["suggestedGender"] = gender[1]
+                schema["additionalProperty"].append({
+                    "@type": "PropertyValue",
+                    "name": "gender",
+                    "value": gender[0],
+                })
+
+        if collection_labels:
+            schema["additionalProperty"].append({
+                "@type": "PropertyValue",
+                "name": _("Колекція"),
+                "value": ", ".join(collection_labels),
+            })
 
         schema["additionalProperty"].extend([
             {"@type": "PropertyValue", "name": "age_group", "value": age_group},
-            {"@type": "PropertyValue", "name": "gender", "value": gender},
             {"@type": "PropertyValue", "name": "size_type", "value": "regular"},
             {"@type": "PropertyValue", "name": "size_system", "value": "UA"},
         ])
