@@ -50,8 +50,12 @@ class MaintenanceLeaseConflict(RuntimeError):
     """Raised when another active owner controls the maintenance lease."""
 
 
+class FileLockTimeout(TimeoutError):
+    """Raised when a bounded file-lock acquisition cannot complete in time."""
+
+
 @contextmanager
-def _exclusive_file_lock(path: str):
+def _exclusive_file_lock(path: str, *, timeout_seconds: float | None = None):
     canonical_path = os.path.realpath(path)
     held_paths = getattr(_THREAD_LOCK_STATE, "held_paths", None)
     if held_paths is None:
@@ -62,7 +66,22 @@ def _exclusive_file_lock(path: str):
         return
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "a+") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        if timeout_seconds is None:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        else:
+            timeout = max(0.0, float(timeout_seconds))
+            deadline = time.monotonic() + timeout
+            while True:
+                try:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError as exc:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise FileLockTimeout(
+                            "exclusive file lock acquisition timed out"
+                        ) from exc
+                    time.sleep(min(0.01, remaining))
         held_paths.add(canonical_path)
         try:
             yield

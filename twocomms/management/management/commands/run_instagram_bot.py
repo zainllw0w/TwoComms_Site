@@ -239,6 +239,33 @@ def _ai_reply_recovery_worker(stop_event: threading.Event):
             break
 
 
+def _permission_transition_worker(stop_event: threading.Event):
+    """Apply durable reply-permission changes outside the webhook thread."""
+    from management.services.ig_permission_transitions import (
+        process_due_permission_transitions,
+    )
+
+    while not stop_event.is_set():
+        worked = False
+        try:
+            close_old_connections()
+            if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                worked = bool(process_due_permission_transitions(limit=1))
+        except Exception as exc:
+            try:
+                bot.log(
+                    "error",
+                    "permission_transition",
+                    exc.__class__.__name__,
+                )
+            except Exception:
+                pass
+        finally:
+            close_old_connections()
+        if stop_event.wait(0.25 if worked else 1):
+            break
+
+
 def _inbox_refresh_worker(stop_event: threading.Event):
     """Drain administrator-requested inbox recovery outside the reply loop."""
     from management.services.ig_inbox_refresh import process_refresh_slice
@@ -596,6 +623,12 @@ class Command(BaseCommand):
             daemon=True,
         )
         recovery_worker.start()
+        permission_transition_worker = threading.Thread(
+            target=_permission_transition_worker,
+            args=(stop_event,),
+            daemon=True,
+        )
+        permission_transition_worker.start()
         inbox_refresh_worker = threading.Thread(
             target=_inbox_refresh_worker,
             args=(stop_event,),

@@ -32,6 +32,7 @@ from management.management.commands.run_instagram_bot import (
     _daemon_alive,
     _ai_reply_recovery_worker,
     _analysis_worker,
+    _permission_transition_worker,
     _conversation_refresh_wait_seconds,
     _process_lock_held,
     _reconcile_commercial_episodes_after_reload,
@@ -47,6 +48,7 @@ from management.services.ig_maintenance import (
     notification_send_boundary,
 )
 from management.services.ig_reply_boundary import (
+    ReplyBoundaryTimeout,
     ReplyPermission,
     customer_send_boundary,
     pause_reply_boundary,
@@ -524,6 +526,24 @@ class AiReplyRecoveryWorkerTests(SimpleTestCase):
         process_due.assert_called_once_with(limit=1)
 
 
+class PermissionTransitionWorkerTests(SimpleTestCase):
+    @patch(
+        "management.services.ig_permission_transitions.process_due_permission_transitions",
+        return_value=1,
+    )
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    def test_permission_worker_drains_one_due_job_independently(
+        self, _maintenance, _close, process_due
+    ):
+        _permission_transition_worker(_BoundedWorkerEvent(cycles=1))
+
+        process_due.assert_called_once_with(limit=1)
+
+
 class DaemonMaintenanceTests(SimpleTestCase):
     def test_active_lease_blocks_watchdog_spawn(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -836,6 +856,42 @@ with pause_reply_boundary(lock_path=sys.argv[1]):
                 with pause_reply_boundary(lock_path=lock_path):
                     waited = time.monotonic() - started
                 self.assertGreaterEqual(waited, 1.0)
+            finally:
+                child.terminate()
+                child.wait(timeout=5)
+
+    def test_web_transition_times_out_while_another_process_holds_boundary(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_path = os.path.join(temp_dir, "reply.lock")
+            child_code = """
+import sys, time
+from management.services.ig_reply_boundary import pause_reply_boundary
+with pause_reply_boundary(lock_path=sys.argv[1]):
+    print('entered', flush=True)
+    time.sleep(2)
+"""
+            env = os.environ.copy()
+            env["PYTHONPATH"] = os.pathsep.join(
+                filter(None, [PROJECT_ROOT, env.get("PYTHONPATH", "")])
+            )
+            child = subprocess.Popen(
+                [sys.executable, "-c", child_code, lock_path],
+                cwd=PROJECT_ROOT,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                self.assertEqual(child.stdout.readline().strip(), "entered")
+                started = time.monotonic()
+                with self.assertRaises(ReplyBoundaryTimeout):
+                    with pause_reply_boundary(
+                        lock_path=lock_path,
+                        timeout_seconds=0.1,
+                    ):
+                        pass
+                self.assertLess(time.monotonic() - started, 0.5)
             finally:
                 child.terminate()
                 child.wait(timeout=5)

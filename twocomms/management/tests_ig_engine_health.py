@@ -161,6 +161,45 @@ class IgEngineAuditTests(TestCase):
         ):
             migration.convert_analysis_tables_to_innodb(None, schema_editor)
 
+    def test_permission_transition_migration_is_non_atomic_and_enforces_innodb(self):
+        migration = importlib.import_module(
+            "management.migrations.0147_ig_permission_transition_job"
+        )
+        self.assertFalse(migration.Migration.atomic)
+        cursor = Mock()
+        cursor.__enter__ = Mock(return_value=cursor)
+        cursor.__exit__ = Mock(return_value=False)
+        cursor.fetchone.return_value = ("MyISAM",)
+        schema_editor = Mock()
+        schema_editor.connection.vendor = "mysql"
+        schema_editor.connection.cursor.return_value = cursor
+        schema_editor.quote_name.side_effect = lambda value: f"`{value}`"
+
+        migration.ensure_permission_transition_table_innodb(None, schema_editor)
+
+        schema_editor.execute.assert_called_once_with(
+            "ALTER TABLE `management_igpermissiontransitionjob` ENGINE=InnoDB"
+        )
+
+    def test_permission_transition_migration_fails_when_table_is_missing(self):
+        migration = importlib.import_module(
+            "management.migrations.0147_ig_permission_transition_job"
+        )
+        cursor = Mock()
+        cursor.__enter__ = Mock(return_value=cursor)
+        cursor.__exit__ = Mock(return_value=False)
+        cursor.fetchone.return_value = None
+        schema_editor = Mock()
+        schema_editor.connection.vendor = "mysql"
+        schema_editor.connection.cursor.return_value = cursor
+
+        with self.assertRaisesMessage(
+            RuntimeError,
+            "required permission transition table is missing: "
+            "management_igpermissiontransitionjob",
+        ):
+            migration.ensure_permission_transition_table_innodb(None, schema_editor)
+
     def test_notification_outbox_tables_are_part_of_transactional_contract(self):
         self.assertIn("management_igbotnotification", IG_RUNTIME_TABLES)
         self.assertIn("management_igbotnotificationaudit", IG_RUNTIME_TABLES)
@@ -170,6 +209,7 @@ class IgEngineAuditTests(TestCase):
         self.assertIn("management_geminimodelstate", IG_RUNTIME_TABLES)
         self.assertIn("management_geminirequestattempt", IG_RUNTIME_TABLES)
         self.assertIn("management_igaireplyrecoveryjob", IG_RUNTIME_TABLES)
+        self.assertIn("management_igpermissiontransitionjob", IG_RUNTIME_TABLES)
 
     def test_read_only_engine_audit_reports_every_runtime_table(self):
         out = StringIO()

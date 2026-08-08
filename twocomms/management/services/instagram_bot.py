@@ -2173,13 +2173,19 @@ def _handle_echo(
             "вважаю власним, takeover не вмикаю",
         )
         return
-    from management.services.ig_reply_boundary import pause_reply_boundary
+    from management.models import IgPermissionTransitionJob
+    from management.services.ig_permission_transitions import (
+        ACTIVE_STATUSES,
+        attempt_permission_transition,
+        create_permission_transition,
+    )
 
     now = timezone.now()
+    permission_transition_job_id = None
     # The takeover notification is a state transition, not a per-message
     # event. Lock the client row so two webhook workers cannot both announce
     # the same transition while manager messages are still stored separately.
-    with pause_reply_boundary():
+    with transaction.atomic():
         with transaction.atomic():
             client, _ = IgClient.objects.select_for_update().get_or_create(
                 igsid=recipient_igsid,
@@ -2187,22 +2193,16 @@ def _handle_echo(
             )
             if mid and InstagramBotMessage.objects.filter(mid=mid).exists():
                 return
-            takeover_started = not client.manager_takeover
-            client.manager_takeover = True
-            client.bot_paused = True
-            client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
-            client.paused_reason = "manager_takeover"
-            if takeover_started:
-                client.paused_at = now
-            client.last_manager_message_at = now
-            update_fields = [
-                "manager_takeover", "bot_paused", "paused_reason",
-                "reply_permission_epoch",
-                "last_manager_message_at", "updated_at",
-            ]
-            if takeover_started:
-                update_fields.append("paused_at")
-            client.save(update_fields=update_fields)
+            takeover_started = bool(
+                not client.manager_takeover
+                and not IgPermissionTransitionJob.objects.filter(
+                    client=client,
+                    kind=IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER,
+                    status__in=ACTIVE_STATUSES,
+                ).exists()
+            )
+            client.last_manager_message_at = received_at or now
+            client.save(update_fields=["last_manager_message_at", "updated_at"])
             InstagramBotMessage.objects.filter(
                 client=client,
                 role=InstagramBotMessage.Role.USER,
@@ -2240,6 +2240,21 @@ def _handle_echo(
                     if persistence_only:
                         raise
                     msg = None
+            transition_job = create_permission_transition(
+                kind=IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER,
+                dedupe_key=(
+                    f"permission:manager_takeover:message:{msg.pk}"
+                    if msg is not None
+                    else (
+                        f"permission:manager_takeover:client:{client.pk}:"
+                        f"epoch:{int(client.reply_permission_epoch or 0)}"
+                    )
+                ),
+                client=client,
+                settings=InstagramBotSettings.load(),
+                source_message=msg,
+            )
+            permission_transition_job_id = transition_job.pk
             if takeover_started:
                 from management.models import IgFunnelStepEvent
                 from management.services.ig_funnel_analytics import (
@@ -2249,7 +2264,7 @@ def _handle_echo(
                 record_client_step_event_in_transaction(
                     client,
                     event_type=IgFunnelStepEvent.Type.MANAGER_ENGAGED,
-                    event_key=f"ig-manager-engaged:{client.pk}:{int(client.paused_at.timestamp()) if client.paused_at else int(now.timestamp())}",
+                    event_key=f"ig-manager-engaged:{client.pk}:{transition_job.pk}",
                     occurred_at=now,
                     stage=client.stage,
                     actor="manager",
@@ -2281,8 +2296,7 @@ def _handle_echo(
                     f"👤 IG: менеджер підключився до {client.username or client.igsid} — "
                     f"бот на паузі для цього клієнта.",
                     dedupe_key=(
-                        f"takeover:{client.pk}:"
-                        f"{client.paused_at.isoformat() if client.paused_at else 'unknown'}"
+                        f"takeover:{client.pk}:{transition_job.pk}"
                     ),
                     event_type="takeover",
                     client=client,
@@ -2290,6 +2304,8 @@ def _handle_echo(
                 )
                 if persistence_only and not notification_persisted:
                     raise RuntimeError("manager takeover notification was not persisted")
+    if permission_transition_job_id:
+        attempt_permission_transition(permission_transition_job_id)
     if takeover_started:
         log("warning", "takeover", f"{recipient_igsid}: менеджер підключився")
     else:
@@ -7196,10 +7212,13 @@ def enqueue_inbound(
         log("info", "skip_not_allowed", f"[{source}] {sender_id} поза білим списком")
         return False
     from management.services import bot_followups, bot_sales_classifier
-    from management.services.ig_reply_boundary import pause_reply_boundary
+    from management.services.ig_permission_transitions import (
+        attempt_permission_transition,
+        create_permission_transition,
+    )
 
     explicit_opt_out = bot_sales_classifier.is_explicit_opt_out(text)
-    permission_transition = pause_reply_boundary() if explicit_opt_out else nullcontext()
+    permission_transition_job_id = None
     client = IgClient.get_or_create_for_sender(sender_id)
     # Клієнт написав знову — саме момент перевірити, чи не висить пауза від
     # менеджера, який давно пішов. Інакше повідомлення тихо стане `observed`,
@@ -7209,9 +7228,7 @@ def enqueue_inbound(
     except Exception as exc:  # noqa: BLE001
         log("warning", "takeover_release", repr(exc))
     try:
-        # Opt-out follows the same lock order as send/pause: permission file
-        # lock first, then database rows. Normal ingress takes no global lock.
-        with permission_transition, transaction.atomic():
+        with transaction.atomic():
             current_settings = InstagramBotSettings.objects.select_for_update().get(pk=s.pk)
             # Серіалізуємо ingress із hide: або вхідне повністю оброблено до
             # приховування, або приховування вже виграло і жодного side effect
@@ -7349,21 +7366,14 @@ def enqueue_inbound(
             # durable and impossible to reach Gemini or customer transport.
             if explicit_opt_out and not stale_explicit_opt_out:
                 opted_out_at = timezone.now()
-                client.opted_out_at = opted_out_at
-                client.opt_out_message_id = msg.pk
-                client.bot_paused = True
-                client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
-                client.paused_reason = "opt_out"
-                client.paused_at = client.paused_at or opted_out_at
-                client.save(update_fields=[
-                    "opted_out_at",
-                    "opt_out_message_id",
-                    "bot_paused",
-                    "reply_permission_epoch",
-                    "paused_reason",
-                    "paused_at",
-                    "updated_at",
-                ])
+                transition_job = create_permission_transition(
+                    kind="opt_out",
+                    dedupe_key=f"permission:opt_out:message:{msg.pk}",
+                    client=client,
+                    settings=current_settings,
+                    source_message=msg,
+                )
+                permission_transition_job_id = transition_job.pk
                 from management.services.ig_funnel_analytics import (
                     record_drop_off_for_client_in_transaction,
                 )
@@ -7517,6 +7527,8 @@ def enqueue_inbound(
                     pass
     except IntegrityError:
         return False  # вже у черзі/оброблено (mid unique)
+    if permission_transition_job_id:
+        attempt_permission_transition(permission_transition_job_id)
     inbound_at = timezone.now()
     InstagramBotSettings.objects.filter(pk=s.pk).update(last_inbound_at=inbound_at)
     s.last_inbound_at = inbound_at
@@ -10025,12 +10037,20 @@ def poll_once(s: InstagramBotSettings | None = None) -> dict:
 # Start / Stop / Status
 # ---------------------------------------------------------------------------
 def start_bot() -> InstagramBotSettings:
+    from management.models import IgPermissionTransitionJob
+    from management.services.ig_permission_transitions import (
+        supersede_permission_transitions,
+    )
     from management.services.ig_reply_boundary import pause_reply_boundary
 
     with pause_reply_boundary():
         with transaction.atomic():
             s = InstagramBotSettings.objects.select_for_update().get(
                 pk=InstagramBotSettings.load().pk
+            )
+            supersede_permission_transitions(
+                settings_id=s.pk,
+                kinds=[IgPermissionTransitionJob.Kind.GLOBAL_PAUSE],
             )
             was = s.is_enabled
             s.is_enabled = True
@@ -10048,42 +10068,54 @@ def start_bot() -> InstagramBotSettings:
 
 
 def stop_bot() -> InstagramBotSettings:
-    from management.models import IgFollowUpTask
-    from management.services.ig_reply_boundary import pause_reply_boundary
+    from management.models import IgFollowUpTask, IgPermissionTransitionJob
+    from management.services.ig_permission_transitions import (
+        attempt_permission_transition,
+        create_permission_transition,
+    )
 
     now = timezone.now()
-    with pause_reply_boundary():
-        with transaction.atomic():
-            s = InstagramBotSettings.objects.select_for_update().get(
-                pk=InstagramBotSettings.load().pk
+    permission_transition_job_id = None
+    with transaction.atomic():
+        s = InstagramBotSettings.objects.select_for_update().get(
+            pk=InstagramBotSettings.load().pk
+        )
+        was = s.is_enabled
+        if was:
+            transition_job = create_permission_transition(
+                kind=IgPermissionTransitionJob.Kind.GLOBAL_PAUSE,
+                dedupe_key=(
+                    f"permission:global_pause:settings:{s.pk}:"
+                    f"epoch:{int(s.reply_permission_epoch or 0)}"
+                ),
+                settings=s,
             )
-            was = s.is_enabled
-            s.is_enabled = False
-            s.reply_permission_epoch = int(s.reply_permission_epoch or 0) + 1
-            s.last_stopped_at = now
-            s.save(update_fields=["is_enabled", "reply_permission_epoch", "last_stopped_at"])
-            InstagramBotMessage.objects.filter(
-                role=InstagramBotMessage.Role.USER,
-                status__in=[
-                    InstagramBotMessage.Status.PENDING,
-                    InstagramBotMessage.Status.PROCESSING,
-                ],
-            ).exclude(send_state="sending").update(
-                status=InstagramBotMessage.Status.DONE,
-                processed_at=now,
-                processing_started_at=None,
-            )
-            IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.PENDING).exclude(
-                kind=IgFollowUpTask.Kind.MANAGER_TASK,
-                reason="followup_delivery_review",
-            ).update(
-                status=IgFollowUpTask.Status.CANCELLED,
-                skip_reason="global_reply_stopped",
-                updated_at=now,
-            )
-            IgClient.objects.filter(next_followup_at__isnull=False).update(
-                next_followup_at=None
-            )
+            permission_transition_job_id = transition_job.pk
+        InstagramBotMessage.objects.filter(
+            role=InstagramBotMessage.Role.USER,
+            status__in=[
+                InstagramBotMessage.Status.PENDING,
+                InstagramBotMessage.Status.PROCESSING,
+            ],
+        ).exclude(send_state="sending").update(
+            status=InstagramBotMessage.Status.DONE,
+            processed_at=now,
+            processing_started_at=None,
+        )
+        IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.PENDING).exclude(
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="followup_delivery_review",
+        ).update(
+            status=IgFollowUpTask.Status.CANCELLED,
+            skip_reason="global_reply_stopped",
+            updated_at=now,
+        )
+        IgClient.objects.filter(next_followup_at__isnull=False).update(
+            next_followup_at=None
+        )
+    if permission_transition_job_id:
+        attempt_permission_transition(permission_transition_job_id)
+        s.refresh_from_db()
     if was:
         log("warning", "stop", "Бот зупинено.")
     return s
@@ -10168,6 +10200,9 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
 
 def status_snapshot() -> dict:
     from management.services.ig_maintenance import maintenance_status
+    from management.services.ig_permission_transitions import (
+        permission_transition_snapshot,
+    )
     from management.services.ig_reply_boundary import reply_barrier_telemetry
 
     s = InstagramBotSettings.load()
@@ -10185,8 +10220,21 @@ def status_snapshot() -> dict:
         daemon_heartbeat_age = None
     daemon_online = bool(daemon_heartbeat_age is not None and daemon_heartbeat_age < 45)
     ingress = ingress_status(s, now=now)
+    try:
+        permission_transitions = permission_transition_snapshot()
+    except Exception:
+        permission_transitions = {
+            "pending": None,
+            "processing": None,
+            "failed": None,
+            "error_kinds": [],
+            "global_pause_pending": False,
+        }
+    pause_pending = bool(permission_transitions["global_pause_pending"])
     if maintenance["active"]:
         state = "maintenance"
+    elif pause_pending:
+        state = "pause_pending"
     elif not s.is_enabled:
         state = "disabled"
     elif daemon_online and not ingress["healthy"]:
@@ -10250,9 +10298,15 @@ def status_snapshot() -> dict:
         "alive": daemon_online,
         "daemon_online": daemon_online,
         "running": bool(
-            s.is_enabled and daemon_online and ingress["healthy"] and not maintenance["active"]
+            s.is_enabled
+            and daemon_online
+            and ingress["healthy"]
+            and not maintenance["active"]
+            and not pause_pending
         ),
         "state": state,
+        "pause_pending": pause_pending,
+        "permission_transitions": permission_transitions,
         "ingress": ingress,
         "recovery_expected": bool(s.is_enabled and not daemon_online and not maintenance["active"]),
         "maintenance": maintenance,

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from django.core.cache import cache
 
-from management.services.ig_maintenance import _exclusive_file_lock
+from management.services.ig_maintenance import FileLockTimeout, _exclusive_file_lock
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +26,11 @@ REPLY_PERMISSION_LOCK_FILE = str(PROJECT_ROOT / "tmp" / "ig_bot_reply_boundary.l
 REPLY_BOUNDARY_LOCK_FILE = REPLY_PERMISSION_LOCK_FILE
 _WAIT_COUNTER = "ig_reply_barrier_waits"
 _ABORT_COUNTER = "ig_reply_barrier_aborts"
+MAX_WEB_TRANSITION_WAIT_SECONDS = 1.0
+
+
+class ReplyBoundaryTimeout(TimeoutError):
+    """A web-triggered permission transition could not acquire the send edge."""
 
 
 def _increment_counter(key: str) -> None:
@@ -66,6 +71,7 @@ def _client_allowed(client) -> tuple[bool, str]:
 def capture_reply_permission(settings_id: int | None, client_id: int | None) -> ReplyPermission:
     """Read the current permission truth without holding a cross-request lock."""
     from management.models import IgClient, InstagramBotSettings
+    from management.services.ig_permission_transitions import permission_transition_blocks
 
     settings = (
         InstagramBotSettings.objects.filter(pk=settings_id)
@@ -75,6 +81,23 @@ def capture_reply_permission(settings_id: int | None, client_id: int | None) -> 
         else None
     )
     settings_epoch = int(getattr(settings, "reply_permission_epoch", 0) or 0)
+    if permission_transition_blocks(settings_id=settings_id, client_id=client_id):
+        client_epoch = 0
+        if client_id:
+            client_epoch = int(
+                IgClient.objects.filter(pk=client_id)
+                .values_list("reply_permission_epoch", flat=True)
+                .first()
+                or 0
+            )
+        return ReplyPermission(
+            settings_id=settings_id,
+            settings_epoch=settings_epoch,
+            client_id=client_id,
+            client_epoch=client_epoch,
+            allowed=False,
+            reason="permission_transition_pending",
+        )
     if not settings or not settings.is_enabled:
         return ReplyPermission(
             settings_id=settings_id,
@@ -117,14 +140,25 @@ def capture_reply_permission(settings_id: int | None, client_id: int | None) -> 
 
 
 @contextmanager
-def pause_reply_boundary(*, lock_path: str = REPLY_PERMISSION_LOCK_FILE):
+def pause_reply_boundary(
+    *,
+    lock_path: str = REPLY_PERMISSION_LOCK_FILE,
+    timeout_seconds: float | None = None,
+):
     """Own a short permission transition edge.
 
     Callers must increment the relevant durable epoch inside this context.
     The lock is never held during Gemini or other provider work.
     """
-    with _exclusive_file_lock(lock_path):
-        yield
+    if timeout_seconds is not None and not (
+        0 <= float(timeout_seconds) <= MAX_WEB_TRANSITION_WAIT_SECONDS
+    ):
+        raise ValueError("web permission transition timeout must be between 0 and 1 second")
+    try:
+        with _exclusive_file_lock(lock_path, timeout_seconds=timeout_seconds):
+            yield
+    except FileLockTimeout as exc:
+        raise ReplyBoundaryTimeout("reply permission boundary is busy") from exc
 
 
 @contextmanager

@@ -4894,39 +4894,34 @@ def bot_client_pause_api(request, client_id):
     blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
-    from django.utils import timezone
+    from .models import IgClient, IgPermissionTransitionJob, InstagramBotSettings
+    from .services.ig_permission_transitions import (
+        ACTIVE_STATUSES,
+        attempt_permission_transition,
+        create_permission_transition,
+    )
 
-    from .models import IgClient, InstagramBotMessage
-    from .services import bot_followups
-    from .services.ig_reply_boundary import pause_reply_boundary
-
-    with pause_reply_boundary():
-        with transaction.atomic():
-            c = IgClient.objects.select_for_update().filter(id=client_id).first()
-            if not c:
-                return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
-            now = timezone.now()
-            c.bot_paused = True
-            c.reply_permission_epoch = int(c.reply_permission_epoch or 0) + 1
-            c.paused_reason = "manual"
-            c.paused_at = now
-            c.save(update_fields=[
-                "bot_paused", "reply_permission_epoch", "paused_reason", "paused_at", "updated_at",
-            ])
-            bot_followups.cancel_pending(c, reason="manual_pause")
-            InstagramBotMessage.objects.filter(
-                client=c,
-                role=InstagramBotMessage.Role.USER,
-                status__in=[
-                    InstagramBotMessage.Status.PENDING,
-                    InstagramBotMessage.Status.PROCESSING,
-                ],
-            ).exclude(send_state="sending").update(
-                status=InstagramBotMessage.Status.DONE,
-                processed_at=now,
-                processing_started_at=None,
-            )
-    return JsonResponse({"success": True, "bot_paused": True})
+    c = IgClient.objects.filter(id=client_id).first()
+    if not c:
+        return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
+    job = create_permission_transition(
+        kind=IgPermissionTransitionJob.Kind.CLIENT_PAUSE,
+        dedupe_key=(
+            f"permission:client_pause:client:{c.pk}:"
+            f"epoch:{int(c.reply_permission_epoch or 0)}"
+        ),
+        client=c,
+        settings=InstagramBotSettings.load(),
+    )
+    attempt_permission_transition(job.pk)
+    job.refresh_from_db()
+    c.refresh_from_db()
+    pause_pending = job.status in ACTIVE_STATUSES
+    return JsonResponse({
+        "success": True,
+        "bot_paused": bool(c.bot_paused or pause_pending),
+        "pause_pending": pause_pending,
+    })
 
 
 @login_required(login_url="management_login")
@@ -4938,7 +4933,11 @@ def bot_client_resume_api(request, client_id):
         return blocked
     from django.utils import timezone
 
-    from .models import IgClient
+    from .models import IgClient, IgPermissionTransitionJob
+    from .services.ig_permission_transitions import (
+        active_permission_transition_exists,
+        supersede_permission_transitions,
+    )
     from .services.ig_reply_boundary import pause_reply_boundary
 
     with pause_reply_boundary():
@@ -4949,6 +4948,13 @@ def bot_client_resume_api(request, client_id):
             active_opt_out = bool(
                 c.opted_out_at
                 and (not c.opted_in_at or c.opted_in_at < c.opted_out_at)
+            )
+            active_opt_out = bool(
+                active_opt_out
+                or active_permission_transition_exists(
+                    client_id=c.pk,
+                    kinds=[IgPermissionTransitionJob.Kind.OPT_OUT],
+                )
             )
             if active_opt_out and request.POST.get("confirm_opt_in") not in {"1", "true"}:
                 return JsonResponse({
@@ -4961,6 +4967,14 @@ def bot_client_resume_api(request, client_id):
                 }, status=409)
             c.bot_paused = False
             c.manager_takeover = False
+            supersede_permission_transitions(
+                client_id=c.pk,
+                kinds=[
+                    IgPermissionTransitionJob.Kind.OPT_OUT,
+                    IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER,
+                    IgPermissionTransitionJob.Kind.CLIENT_PAUSE,
+                ],
+            )
             c.reply_permission_epoch = int(c.reply_permission_epoch or 0) + 1
             c.paused_reason = ""
             update_fields = [

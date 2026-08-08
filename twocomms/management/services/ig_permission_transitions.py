@@ -1,0 +1,497 @@
+"""Durable, bounded reply-permission transitions for HTTP ingress."""
+from __future__ import annotations
+
+import secrets
+from datetime import timedelta
+
+from django.db import DatabaseError, transaction
+from django.db.models import Q
+from django.utils import timezone
+
+from management.models import (
+    IgClient,
+    IgFollowUpTask,
+    IgPermissionTransitionJob,
+    InstagramBotMessage,
+    InstagramBotSettings,
+)
+from management.services import ig_reply_boundary
+
+
+JOB_LEASE_DURATION = timedelta(minutes=2)
+HTTP_JOB_LEASE_DURATION = timedelta(seconds=5)
+MAX_ATTEMPTS = 5
+WEB_LOCK_TIMEOUT_SECONDS = 0.25
+ACTIVE_STATUSES = frozenset({
+    IgPermissionTransitionJob.Status.PENDING,
+    IgPermissionTransitionJob.Status.PROCESSING,
+    IgPermissionTransitionJob.Status.FAILED,
+})
+
+
+def active_permission_transition_exists(
+    *,
+    settings_id: int | None = None,
+    client_id: int | None = None,
+    kinds: list[str] | tuple[str, ...] | None = None,
+) -> bool:
+    rows = IgPermissionTransitionJob.objects.filter(status__in=ACTIVE_STATUSES)
+    if settings_id is not None:
+        rows = rows.filter(settings_id=settings_id)
+    if client_id is not None:
+        rows = rows.filter(client_id=client_id)
+    if kinds:
+        rows = rows.filter(kind__in=kinds)
+    return rows.exists()
+
+
+def supersede_permission_transitions(
+    *,
+    settings_id: int | None = None,
+    client_id: int | None = None,
+    kinds: list[str] | tuple[str, ...] | None = None,
+) -> int:
+    """Cancel active transitions after an authoritative operator reversal."""
+    rows = IgPermissionTransitionJob.objects.filter(status__in=ACTIVE_STATUSES)
+    if settings_id is not None:
+        rows = rows.filter(settings_id=settings_id)
+    if client_id is not None:
+        rows = rows.filter(client_id=client_id)
+    if kinds:
+        rows = rows.filter(kind__in=kinds)
+    now = timezone.now()
+    return rows.update(
+        status=IgPermissionTransitionJob.Status.SUPERSEDED,
+        next_attempt_at=None,
+        lease_token="",
+        lease_until=None,
+        last_error_kind="",
+        completed_at=now,
+        updated_at=now,
+    )
+
+
+def permission_transition_blocks(*, settings_id: int | None, client_id: int | None) -> bool:
+    filters = Q()
+    if settings_id:
+        filters |= Q(
+            kind=IgPermissionTransitionJob.Kind.GLOBAL_PAUSE,
+            settings_id=settings_id,
+        )
+    if client_id:
+        filters |= Q(client_id=client_id)
+    if not filters:
+        return False
+    return IgPermissionTransitionJob.objects.filter(
+        filters,
+        status__in=ACTIVE_STATUSES,
+    ).exists()
+
+
+def create_permission_transition(
+    *,
+    kind: str,
+    dedupe_key: str,
+    client: IgClient | None = None,
+    settings: InstagramBotSettings | None = None,
+    source_message: InstagramBotMessage | None = None,
+) -> IgPermissionTransitionJob:
+    """Persist the fail-closed marker before any file-lock acquisition."""
+    job, created = IgPermissionTransitionJob.objects.get_or_create(
+        dedupe_key=str(dedupe_key)[:255],
+        defaults={
+            "kind": kind,
+            "client": client,
+            "settings": settings,
+            "source_message": source_message,
+            "status": IgPermissionTransitionJob.Status.PENDING,
+            "next_attempt_at": timezone.now(),
+        },
+    )
+    if not created:
+        expected = (
+            kind,
+            getattr(client, "pk", None),
+            getattr(settings, "pk", None),
+            getattr(source_message, "pk", None),
+        )
+        actual = (job.kind, job.client_id, job.settings_id, job.source_message_id)
+        if actual != expected:
+            raise ValueError("permission transition dedupe ownership mismatch")
+    return job
+
+
+def _claim_job(
+    job_id: int | None = None,
+    *,
+    nowait: bool = False,
+    lease_duration: timedelta = JOB_LEASE_DURATION,
+) -> IgPermissionTransitionJob | None:
+    now = timezone.now()
+    due = (
+        Q(
+            status__in=[
+                IgPermissionTransitionJob.Status.PENDING,
+                IgPermissionTransitionJob.Status.FAILED,
+            ],
+            next_attempt_at__isnull=False,
+            next_attempt_at__lte=now,
+        )
+        | Q(
+            status=IgPermissionTransitionJob.Status.PROCESSING,
+            lease_until__lt=now,
+        )
+    )
+    with transaction.atomic():
+        rows = IgPermissionTransitionJob.objects.select_for_update(
+            nowait=nowait
+        ).filter(due)
+        if job_id is not None:
+            rows = rows.filter(pk=job_id)
+        job = rows.order_by("next_attempt_at", "id").first()
+        if job is None:
+            return None
+        job.status = IgPermissionTransitionJob.Status.PROCESSING
+        job.lease_token = secrets.token_hex(16)
+        job.lease_until = now + lease_duration
+        job.attempts = int(job.attempts or 0) + 1
+        job.last_error_kind = ""
+        job.save(update_fields=[
+            "status",
+            "lease_token",
+            "lease_until",
+            "attempts",
+            "last_error_kind",
+            "updated_at",
+        ])
+        return job
+
+
+def _mark_retry(
+    job: IgPermissionTransitionJob,
+    *,
+    error_kind: str,
+    retry_delay_seconds: int | None = None,
+    nowait: bool = False,
+) -> None:
+    now = timezone.now()
+    exhausted = int(job.attempts or 0) >= MAX_ATTEMPTS
+    values = {
+        "status": (
+            IgPermissionTransitionJob.Status.FAILED
+            if exhausted
+            else IgPermissionTransitionJob.Status.PENDING
+        ),
+        "next_attempt_at": (
+            None
+            if exhausted
+            else now + timedelta(
+                seconds=(
+                    min(30, 2 ** job.attempts)
+                    if retry_delay_seconds is None
+                    else max(0, int(retry_delay_seconds))
+                )
+            )
+        ),
+        "lease_token": "",
+        "lease_until": None,
+        "last_error_kind": str(error_kind or "transition_error")[:64],
+        "updated_at": now,
+    }
+    if not nowait:
+        IgPermissionTransitionJob.objects.filter(
+            pk=job.pk,
+            status=IgPermissionTransitionJob.Status.PROCESSING,
+            lease_token=job.lease_token,
+        ).update(**values)
+        return
+    with transaction.atomic():
+        current = (
+            IgPermissionTransitionJob.objects.select_for_update(nowait=True)
+            .filter(
+                pk=job.pk,
+                status=IgPermissionTransitionJob.Status.PROCESSING,
+                lease_token=job.lease_token,
+            )
+            .first()
+        )
+        if current is not None:
+            for field, value in values.items():
+                setattr(current, field, value)
+            current.save(update_fields=[*values])
+
+
+def _finish_job(job, *, status: str, now) -> None:
+    job.status = status
+    job.next_attempt_at = None
+    job.lease_token = ""
+    job.lease_until = None
+    job.last_error_kind = ""
+    job.completed_at = now
+    job.save(update_fields=[
+        "status",
+        "next_attempt_at",
+        "lease_token",
+        "lease_until",
+        "last_error_kind",
+        "completed_at",
+        "updated_at",
+    ])
+
+
+def _apply_claimed_job(
+    claimed: IgPermissionTransitionJob,
+    *,
+    lock_path: str | None = None,
+    timeout_seconds: float | None = None,
+    nowait: bool = False,
+) -> bool:
+    boundary_kwargs = {}
+    if lock_path is not None:
+        boundary_kwargs["lock_path"] = lock_path
+    if timeout_seconds is not None:
+        boundary_kwargs["timeout_seconds"] = timeout_seconds
+
+    with ig_reply_boundary.pause_reply_boundary(**boundary_kwargs):
+        with transaction.atomic():
+            job = IgPermissionTransitionJob.objects.select_for_update(
+                nowait=nowait
+            ).filter(
+                pk=claimed.pk,
+                status=IgPermissionTransitionJob.Status.PROCESSING,
+                lease_token=claimed.lease_token,
+            ).first()
+            if job is None:
+                return False
+            now = timezone.now()
+            if job.kind == IgPermissionTransitionJob.Kind.OPT_OUT:
+                client = IgClient.objects.select_for_update(nowait=nowait).filter(
+                    pk=job.client_id
+                ).first()
+                source = InstagramBotMessage.objects.filter(pk=job.source_message_id).first()
+                if client is None or source is None:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                    return True
+                already_applied = bool(
+                    client.opted_out_at
+                    and client.opt_out_message_id == source.pk
+                    and client.bot_paused
+                    and client.paused_reason == "opt_out"
+                )
+                if already_applied:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.APPLIED, now=now)
+                    return True
+                if client.opted_in_at and source.provider_created_at and client.opted_in_at >= source.provider_created_at:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                    return True
+                client.opted_out_at = source.provider_created_at or source.created_at or now
+                client.opt_out_message_id = source.pk
+                client.bot_paused = True
+                client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
+                client.paused_reason = "opt_out"
+                client.paused_at = client.paused_at or now
+                client.save(update_fields=[
+                    "opted_out_at",
+                    "opt_out_message_id",
+                    "bot_paused",
+                    "reply_permission_epoch",
+                    "paused_reason",
+                    "paused_at",
+                    "updated_at",
+                ])
+            elif job.kind == IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER:
+                client = IgClient.objects.select_for_update(nowait=nowait).filter(
+                    pk=job.client_id
+                ).first()
+                source = InstagramBotMessage.objects.filter(pk=job.source_message_id).first()
+                if client is None:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                    return True
+                if client.manager_takeover and client.bot_paused:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                    return True
+                client.manager_takeover = True
+                client.bot_paused = True
+                client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
+                client.paused_reason = "manager_takeover"
+                transition_at = (
+                    getattr(source, "provider_created_at", None)
+                    or getattr(source, "created_at", None)
+                    or now
+                )
+                client.paused_at = transition_at
+                if (
+                    client.last_manager_message_at is None
+                    or client.last_manager_message_at < transition_at
+                ):
+                    client.last_manager_message_at = transition_at
+                client.save(update_fields=[
+                    "manager_takeover",
+                    "bot_paused",
+                    "reply_permission_epoch",
+                    "paused_reason",
+                    "paused_at",
+                    "last_manager_message_at",
+                    "updated_at",
+                ])
+            elif job.kind == IgPermissionTransitionJob.Kind.CLIENT_PAUSE:
+                client = IgClient.objects.select_for_update(nowait=nowait).filter(
+                    pk=job.client_id
+                ).first()
+                if client is None:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                    return True
+                if client.bot_paused and client.paused_reason == "manual":
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.APPLIED, now=now)
+                    return True
+                client.bot_paused = True
+                client.reply_permission_epoch = int(client.reply_permission_epoch or 0) + 1
+                client.paused_reason = "manual"
+                client.paused_at = now
+                client.save(update_fields=[
+                    "bot_paused",
+                    "reply_permission_epoch",
+                    "paused_reason",
+                    "paused_at",
+                    "updated_at",
+                ])
+                IgFollowUpTask.objects.filter(
+                    client_id=client.pk,
+                    status=IgFollowUpTask.Status.PENDING,
+                ).update(
+                    status=IgFollowUpTask.Status.CANCELLED,
+                    skip_reason="manual_pause",
+                    updated_at=now,
+                )
+                InstagramBotMessage.objects.filter(
+                    client_id=client.pk,
+                    role=InstagramBotMessage.Role.USER,
+                    status__in=[
+                        InstagramBotMessage.Status.PENDING,
+                        InstagramBotMessage.Status.PROCESSING,
+                    ],
+                ).exclude(send_state="sending").update(
+                    status=InstagramBotMessage.Status.DONE,
+                    processed_at=now,
+                    processing_started_at=None,
+                )
+            elif job.kind == IgPermissionTransitionJob.Kind.GLOBAL_PAUSE:
+                settings_obj = InstagramBotSettings.objects.select_for_update(
+                    nowait=nowait
+                ).filter(
+                    pk=job.settings_id
+                ).first()
+                if settings_obj is None:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                    return True
+                if not settings_obj.is_enabled:
+                    _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                    return True
+                settings_obj.is_enabled = False
+                settings_obj.reply_permission_epoch = int(settings_obj.reply_permission_epoch or 0) + 1
+                settings_obj.last_stopped_at = now
+                settings_obj.save(update_fields=[
+                    "is_enabled",
+                    "reply_permission_epoch",
+                    "last_stopped_at",
+                ])
+            else:
+                _finish_job(job, status=IgPermissionTransitionJob.Status.SUPERSEDED, now=now)
+                return True
+            _finish_job(job, status=IgPermissionTransitionJob.Status.APPLIED, now=now)
+    return True
+
+
+def attempt_permission_transition(
+    job_id: int,
+    *,
+    lock_path: str | None = None,
+    timeout_seconds: float = WEB_LOCK_TIMEOUT_SECONDS,
+) -> bool:
+    try:
+        claimed = _claim_job(
+            job_id,
+            nowait=True,
+            lease_duration=HTTP_JOB_LEASE_DURATION,
+        )
+    except DatabaseError:
+        return False
+    if claimed is None:
+        return False
+    try:
+        return _apply_claimed_job(
+            claimed,
+            lock_path=lock_path,
+            timeout_seconds=timeout_seconds,
+            nowait=True,
+        )
+    except ig_reply_boundary.ReplyBoundaryTimeout:
+        _mark_retry(
+            claimed,
+            error_kind="reply_boundary_busy",
+            retry_delay_seconds=0,
+        )
+        return False
+    except DatabaseError:
+        try:
+            _mark_retry(
+                claimed,
+                error_kind="database_busy",
+                retry_delay_seconds=0,
+                nowait=True,
+            )
+        except DatabaseError:
+            pass
+        return False
+    except Exception as exc:
+        _mark_retry(claimed, error_kind=exc.__class__.__name__)
+        raise
+
+
+def process_due_permission_transitions(
+    *,
+    limit: int = 10,
+    lock_path: str | None = None,
+) -> int:
+    processed = 0
+    for _index in range(max(0, int(limit))):
+        claimed = _claim_job()
+        if claimed is None:
+            break
+        try:
+            if _apply_claimed_job(claimed, lock_path=lock_path):
+                processed += 1
+        except Exception as exc:
+            _mark_retry(claimed, error_kind=exc.__class__.__name__)
+    return processed
+
+
+def permission_transition_snapshot() -> dict[str, object]:
+    """Return redacted operational state for the management status surface."""
+    rows = IgPermissionTransitionJob.objects.all()
+    counts = {
+        status: rows.filter(status=status).count()
+        for status in (
+            IgPermissionTransitionJob.Status.PENDING,
+            IgPermissionTransitionJob.Status.PROCESSING,
+            IgPermissionTransitionJob.Status.FAILED,
+        )
+    }
+    error_kinds = sorted(
+        set(
+            rows.filter(status__in=ACTIVE_STATUSES)
+            .exclude(last_error_kind="")
+            .values_list("last_error_kind", flat=True)
+        )
+    )
+    global_pause_pending = rows.filter(
+        kind=IgPermissionTransitionJob.Kind.GLOBAL_PAUSE,
+        status__in=ACTIVE_STATUSES,
+    ).exists()
+    return {
+        "pending": counts[IgPermissionTransitionJob.Status.PENDING],
+        "processing": counts[IgPermissionTransitionJob.Status.PROCESSING],
+        "failed": counts[IgPermissionTransitionJob.Status.FAILED],
+        "error_kinds": error_kinds,
+        "global_pause_pending": global_pause_pending,
+    }

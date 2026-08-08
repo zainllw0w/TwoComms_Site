@@ -47,6 +47,7 @@ __all__ = [
     "IgConversationAnalysisSnapshot",
     "IgConversationAnalysisJob",
     "IgAiReplyRecoveryJob",
+    "IgPermissionTransitionJob",
     "IgMetaEventLog",
     "BotDataDeletionRequest",
     "IgBotNotification",
@@ -4085,6 +4086,81 @@ class IgAiReplyRecoveryJob(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"recovery:{self.source_message_id}:{self.status}"
+
+
+class IgPermissionTransitionJob(models.Model):
+    """Durable fail-closed pause/takeover/opt-out transition."""
+
+    class Kind(models.TextChoices):
+        OPT_OUT = "opt_out", _("Відмова від повідомлень")
+        MANAGER_TAKEOVER = "manager_takeover", _("Діалог веде менеджер")
+        CLIENT_PAUSE = "client_pause", _("Ручна пауза для клієнта")
+        GLOBAL_PAUSE = "global_pause", _("Глобальна пауза бота")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує застосування")
+        PROCESSING = "processing", _("Застосовується")
+        APPLIED = "applied", _("Застосовано")
+        SUPERSEDED = "superseded", _("Вже не актуально")
+        FAILED = "failed", _("Потрібне відновлення")
+
+    kind = models.CharField(max_length=32, choices=Kind.choices, db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="permission_transition_jobs",
+        db_constraint=False,
+    )
+    settings = models.ForeignKey(
+        "management.InstagramBotSettings",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="permission_transition_jobs",
+        db_constraint=False,
+    )
+    source_message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="permission_transition_jobs",
+        db_constraint=False,
+    )
+    dedupe_key = models.CharField(max_length=255, unique=True)
+    next_attempt_at = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    lease_token = models.CharField(max_length=40, blank=True, default="")
+    lease_until = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error_kind = models.CharField(max_length=64, blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            models.Index(
+                fields=["status", "next_attempt_at", "id"],
+                name="ig_perm_transition_due",
+            ),
+            models.Index(
+                fields=["client", "status"],
+                name="ig_perm_transition_client",
+            ),
+            models.Index(fields=["lease_until"], name="ig_perm_transition_lease"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"permission:{self.kind}:{self.status}:{self.pk}"
 
 
 class IgCommerceSelectionSession(models.Model):

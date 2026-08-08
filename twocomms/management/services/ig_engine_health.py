@@ -8,6 +8,7 @@ IG_RUNTIME_TABLES = (
     "management_geminimodelstate",
     "management_geminirequestattempt",
     "management_igaireplyrecoveryjob",
+    "management_igpermissiontransitionjob",
     "management_igdeal",
     "management_igdealitem",
     "management_igfollowuptask",

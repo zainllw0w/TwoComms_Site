@@ -22,8 +22,10 @@ from django.utils import timezone
 from management.models import (
     IgClient,
     IgConversationAnalysisSnapshot,
+    IgPermissionTransitionJob,
     InstagramBotLog,
     InstagramBotMessage,
+    InstagramBotSettings,
 )
 from management.ig_bot_models import (
     IgDeal,
@@ -3048,6 +3050,41 @@ class ClientPauseResumeApiTests(TestCase):
         self.assertTrue(
             InstagramBotLog.objects.filter(event="manual_opt_in", detail__contains=f"user={self.admin.id}").exists()
         )
+
+    def test_pending_opt_out_requires_consent_and_is_superseded_by_opt_in(self):
+        settings = InstagramBotSettings.load()
+        message = InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role=InstagramBotMessage.Role.USER,
+            text="stop",
+            mid="pending-opt-out-resume",
+            status=InstagramBotMessage.Status.DONE,
+        )
+        job = IgPermissionTransitionJob.objects.create(
+            kind=IgPermissionTransitionJob.Kind.OPT_OUT,
+            status=IgPermissionTransitionJob.Status.PENDING,
+            client=self.c,
+            settings=settings,
+            source_message=message,
+            dedupe_key="permission:opt_out:pending-resume",
+            next_attempt_at=timezone.now(),
+        )
+        url = reverse("management_bot_client_resume_api", args=[self.c.id])
+
+        refused = self.client.post(url)
+
+        self.assertEqual(refused.status_code, 409)
+        self.assertTrue(refused.json()["requires_opt_in_confirmation"])
+
+        accepted = self.client.post(url, {"confirm_opt_in": "1"})
+
+        self.assertEqual(accepted.status_code, 200)
+        job.refresh_from_db()
+        self.c.refresh_from_db()
+        self.assertEqual(job.status, IgPermissionTransitionJob.Status.SUPERSEDED)
+        self.assertEqual(self.c.opted_in_by_id, self.admin.id)
+        self.assertIsNotNone(self.c.opted_in_at)
 
 
 @MGMT
