@@ -295,7 +295,51 @@ class SmartSelectorCategoryTests(TestCase):
         html = response.content.decode()
         price_row = html.split('class="smart-product-card__price-row"', 1)[1].split("</div>", 1)[0]
         self.assertIn('class="smart-product-card__fit"', price_row)
-        self.assertIn("Oversize", price_row)
+        self.assertIn("Оверсайз", price_row)
+
+    def test_product_card_keeps_price_colors_and_all_fits_in_one_information_block(self):
+        product = self.create_product(category=self.tshirts, slug="multi-fit-card")
+        self.add_fit_options(product, "classic", "oversize")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        html = response.content.decode()
+        card_body = html.split('class="smart-product-card__body"', 1)[1].split("</article>", 1)[0]
+        self.assertEqual(card_body.count('class="smart-product-card__fit"'), 2)
+        self.assertIn("Класичний", card_body)
+        self.assertIn("Оверсайз", card_body)
+
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/css/catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        price_blocks = css.split(".smart-product-card__price-row {")[1:]
+        self.assertTrue(price_blocks)
+        self.assertTrue(all("border-top" not in block.split("}", 1)[0] for block in price_blocks))
+        card_block = css.split(".smart-product-card {", 1)[1].split("}", 1)[0]
+        self.assertIn("border-bottom: 1px solid", card_block)
+
+    def test_product_card_color_preview_never_clips_a_fifth_touch_target(self):
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/templates/partials/catalog_smart_product_card.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("p.colors_preview|slice:':3'", template)
+        self.assertIn("p.colors_preview|length > 3", template)
+        self.assertIn("p.colors_preview|length|add:'-3'", template)
+
+    def test_thermo_marker_is_centered_black_silhouette(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/css/catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        thermo_block = css.split(".smart-product-card__thermo {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("inset: 0", thermo_block)
+        self.assertIn("margin: auto", thermo_block)
+        self.assertIn("fill: #111", thermo_block)
+        self.assertIn("filter: none", thermo_block)
 
     def test_css_keeps_sticky_rail_unframed_and_favorite_visually_transparent(self):
         css = (
@@ -316,6 +360,57 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertIn("box-shadow: none", rail_block)
         self.assertIn("background: transparent", favorite_block)
         self.assertIn("border-radius: 0", favorite_block)
+
+    def test_desktop_catalog_uses_a_real_viewport_scroll_container_for_sticky_rail(self):
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/css/catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        desktop = css.split("@media (min-width: 1024px)", 1)[1]
+        rail_block = desktop.split(".smart-selector__rail {", 1)[1].split("}", 1)[0]
+
+        self.assertIn('html[data-route-name="catalog_by_cat"] body', desktop)
+        self.assertIn("overflow-x: clip", desktop)
+        self.assertIn("overflow-y: visible", desktop)
+        self.assertIn("position: sticky", rail_block)
+        self.assertIn("max-height: calc(100vh - 160px)", rail_block)
+
+    def test_progressive_loading_preserves_existing_grid_nodes_and_uses_semantic_icons(self):
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/js/catalog-smart-selector.js"
+        ).read_text(encoding="utf-8")
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/templates/partials/catalog_smart_selector.html"
+        ).read_text(encoding="utf-8")
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/css/catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("const orderChanged", source)
+        self.assertIn('grid.setAttribute("aria-busy", "true")', source)
+        self.assertIn('grid.removeAttribute("aria-busy")', source)
+        for icon in ("sort-recommended", "sort-asc", "sort-desc", "theme", "audience", "availability", "fit", "size", "thermo"):
+            self.assertIn(f'data-smart-icon="{icon}"', template)
+        self.assertIn("--smart-choice-icon", css)
+        self.assertIn("prefersReducedMotion", source)
+
+    def test_smart_selector_seo_content_uses_compact_editorial_surface(self):
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/templates/partials/catalog_smart_selector.html"
+        ).read_text(encoding="utf-8")
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme/static/css/catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("smart-selector__seo-band", template)
+        self.assertIn(".smart-selector__seo-band", css)
+        self.assertIn(".category-seo-blocks", css)
+        self.assertIn(".catalog-description-panel", css)
 
     def test_category_tabs_use_real_urls_and_selected_category(self):
         self.create_product(category=self.hoodie)

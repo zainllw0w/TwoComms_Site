@@ -250,13 +250,25 @@ def _sort_smart_selector_products_by_visible_price(product_queryset, selected_so
     return products
 
 
-def _smart_selector_product_fit(product):
+def _smart_selector_product_fits(product):
     options = [option for option in product.fit_options.all() if option.is_active]
     if not options:
         category = getattr(product, 'category', None)
-        return 'standard' if getattr(category, 'slug', '') == 'long-sleeve' else ''
-    code = (options[0].code or '').strip().lower()
-    return SMART_SELECTOR_FIT_ALIASES.get(code, code)
+        return ['standard'] if getattr(category, 'slug', '') == 'long-sleeve' else []
+
+    fits = []
+    for option in options:
+        code = (option.code or '').strip().lower()
+        normalized = SMART_SELECTOR_FIT_ALIASES.get(code, code)
+        if normalized and normalized not in fits:
+            fits.append(normalized)
+    return fits
+
+
+def _smart_selector_product_fit(product):
+    """Keep the legacy scalar value for data attributes and older consumers."""
+    fits = _smart_selector_product_fits(product)
+    return fits[0] if fits else ''
 
 
 def _smart_selector_language():
@@ -405,7 +417,16 @@ def _attach_smart_selector_product_context(products, merchandising):
     language = merchandising["language"]
     audience_by_id = merchandising["audience_by_id"]
     for product in products:
-        product.smart_selector_fit = _smart_selector_product_fit(product)
+        product.smart_selector_fits = _smart_selector_product_fits(product)
+        product.smart_selector_fit_options = [
+            {
+                'code': code,
+                'label': SMART_SELECTOR_FIT_LABELS.get(code, code.replace('-', ' ').title()),
+            }
+            for code in product.smart_selector_fits
+        ]
+        product.smart_selector_fit = product.smart_selector_fits[0] if product.smart_selector_fits else ''
+        product.smart_selector_fits_key = ','.join(product.smart_selector_fits)
         assignments = sorted(
             (
                 row

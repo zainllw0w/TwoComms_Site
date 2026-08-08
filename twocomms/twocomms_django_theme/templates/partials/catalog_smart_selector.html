@@ -314,8 +314,9 @@
                data-smart-product-item
                data-smart-theme="{{ p.smart_selector_theme }}"
                data-smart-fit="{{ p.smart_selector_fit }}"
+               data-smart-fits="{{ p.smart_selector_fits_key }}"
                data-smart-price="{{ p.card_price_min|default:p.final_price }}">
-            {% cache 900 smart_selector_product_card_v4 LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key p.preferred_color_slug p.preferred_card_image_url p.smart_selector_audiences p.smart_selector_collections forloop.counter0 using="fragments" %}
+            {% cache 900 smart_selector_product_card_v5 LANGUAGE_CODE p.id p.updated_at|date:'U' p.final_price p.discount_percent p.home_card_image.name p.display_image.name p.category_id p.colors_preview_key p.preferred_color_slug p.preferred_card_image_url p.smart_selector_audiences p.smart_selector_collections p.smart_selector_fits_key forloop.counter0 using="fragments" %}
               {% include "partials/catalog_smart_product_card.html" with p=p eager=forloop.first %}
             {% endcache %}
           </div>
@@ -380,9 +381,9 @@
         <fieldset data-smart-filter-section="sort">
           <legend>{% trans 'Сортування' %}</legend>
           <div class="smart-selector__sheet-options smart-selector__sort-options">
-            <button type="button" class="smart-selector__choice" data-smart-sort-value="recommended" aria-pressed="true">{% trans 'Рекомендовані' %}</button>
-            <button type="button" class="smart-selector__choice" data-smart-sort-value="price-asc" aria-pressed="false">{% trans 'Від дешевих' %}</button>
-            <button type="button" class="smart-selector__choice" data-smart-sort-value="price-desc" aria-pressed="false">{% trans 'Від дорогих' %}</button>
+            <button type="button" class="smart-selector__choice" data-smart-icon="sort-recommended" data-smart-sort-value="recommended" aria-pressed="true">{% include "partials/catalog_filter_icon.html" with icon="sort-recommended" only %}{% trans 'Рекомендовані' %}</button>
+            <button type="button" class="smart-selector__choice" data-smart-icon="sort-asc" data-smart-sort-value="price-asc" aria-pressed="false">{% include "partials/catalog_filter_icon.html" with icon="sort-asc" only %}{% trans 'Від дешевих' %}</button>
+            <button type="button" class="smart-selector__choice" data-smart-icon="sort-desc" data-smart-sort-value="price-desc" aria-pressed="false">{% include "partials/catalog_filter_icon.html" with icon="sort-desc" only %}{% trans 'Від дорогих' %}</button>
           </div>
         </fieldset>
 
@@ -390,7 +391,8 @@
         <fieldset data-smart-filter-section="theme">
           <legend>{% trans 'Тема' %}</legend>
           <div class="smart-selector__sheet-options">
-            <button type="button" class="smart-selector__choice smart-selector__choice--all{% if not smart_selector_selected_theme %} is-current{% endif %}" data-smart-clear-filter="theme" aria-pressed="{% if not smart_selector_selected_theme %}true{% else %}false{% endif %}">
+            <button type="button" class="smart-selector__choice smart-selector__choice--all" data-smart-icon="theme" data-smart-clear-filter="theme" aria-pressed="{% if not smart_selector_selected_theme %}true{% else %}false{% endif %}">
+              {% include "partials/catalog_filter_icon.html" with icon="theme" only %}
               <span>{% trans 'Показати всі' %}</span><small class="smart-selector__choice-count">{{ paginator.count }}</small>
             </button>
             {% for option in smart_selector_theme_options %}
@@ -399,11 +401,12 @@
                 <div class="smart-selector__branch-row">
                   <button type="button"
                           class="smart-selector__choice"
+                          data-smart-icon="theme"
                           data-smart-filter="theme"
                           data-smart-value="{{ option.code }}"
                           data-smart-source="sheet"
                           aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
-                    <span>{{ option.label }}</span>
+                    {% include "partials/catalog_filter_icon.html" with icon="theme" only %}<span>{{ option.label }}</span>
                   </button>
                   <button type="button"
                           class="smart-selector__disclosure"
@@ -420,11 +423,12 @@
                     {% for child in option.children %}
                     <button type="button"
                             class="smart-selector__choice smart-selector__choice--child"
+                            data-smart-icon="theme"
                             data-smart-filter="collection"
                             data-smart-value="{{ child.code }}"
                             data-smart-source="sheet"
                             aria-pressed="{% if child.selected %}true{% else %}false{% endif %}">
-                      <span>{{ child.label }}</span>
+                      {% include "partials/catalog_filter_icon.html" with icon="theme" only %}<span>{{ child.label }}</span>
                     </button>
                     {% endfor %}
                   </div>
@@ -433,11 +437,12 @@
               {% else %}
               <button type="button"
                       class="smart-selector__choice"
+                      data-smart-icon="theme"
                       data-smart-filter="theme"
                       data-smart-value="{{ option.code }}"
                       data-smart-source="sheet"
                       aria-pressed="{% if option.selected or smart_selector_selected_theme == option.code %}true{% else %}false{% endif %}">
-                <span>{{ option.label }}</span>
+                {% include "partials/catalog_filter_icon.html" with icon="theme" only %}<span>{{ option.label }}</span>
               </button>
               {% endif %}
             {% endfor %}
@@ -452,11 +457,12 @@
             {% for option in smart_selector_audience_options %}
             <button type="button"
                     class="smart-selector__choice"
+                    data-smart-icon="audience"
                     data-smart-filter="audience"
                     data-smart-value="{{ option.code }}"
                     data-smart-source="sheet"
                     aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
-              <span>{{ option.label }}</span>
+              {% include "partials/catalog_filter_icon.html" with icon="audience" only %}<span>{{ option.label }}</span>
             </button>
             {% endfor %}
           </div>
@@ -470,11 +476,12 @@
             {% for option in smart_selector_availability_options %}
             <button type="button"
                     class="smart-selector__choice"
+                    data-smart-icon="availability"
                     data-smart-filter="availability"
                     data-smart-value="{{ option.code }}"
                     data-smart-source="sheet"
                     aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
-              <span>{{ option.label }}</span>
+              {% include "partials/catalog_filter_icon.html" with icon="availability" only %}<span>{{ option.label }}</span>
             </button>
             {% endfor %}
           </div>
@@ -484,17 +491,19 @@
         <fieldset data-smart-filter-section="fit">
           <legend>{% trans 'Крій' %}</legend>
           <div class="smart-selector__sheet-options">
-            <button type="button" class="smart-selector__choice smart-selector__choice--all{% if not smart_selector_selected_fit %} is-current{% endif %}" data-smart-clear-filter="fit" aria-pressed="{% if not smart_selector_selected_fit %}true{% else %}false{% endif %}">
+            <button type="button" class="smart-selector__choice smart-selector__choice--all" data-smart-icon="fit" data-smart-clear-filter="fit" aria-pressed="{% if not smart_selector_selected_fit %}true{% else %}false{% endif %}">
+              {% include "partials/catalog_filter_icon.html" with icon="fit" only %}
               <span>{% trans 'Будь-який крій' %}</span><small class="smart-selector__choice-count">{{ paginator.count }}</small>
             </button>
             {% for option in smart_selector_fit_options %}
             <button type="button"
                     class="smart-selector__choice"
+                    data-smart-icon="fit"
                     data-smart-filter="fit"
                     data-smart-value="{{ option.code }}"
                     data-smart-source="sheet"
                     aria-pressed="{% if option.selected or smart_selector_selected_fit == option.code %}true{% else %}false{% endif %}">
-              <span>{{ option.label }}</span>
+              {% include "partials/catalog_filter_icon.html" with icon="fit" only %}<span>{{ option.label }}</span>
             </button>
             {% endfor %}
           </div>
@@ -507,6 +516,7 @@
             {% for option in smart_selector_size_options %}
             <button type="button"
                     class="smart-selector__choice smart-selector__choice--size"
+                    data-smart-icon="size"
                     data-smart-filter="size"
                     data-smart-value="{{ option.code }}"
                     data-smart-source="sheet"
@@ -525,12 +535,12 @@
             {% for option in smart_selector_thermo_options %}
             <button type="button"
                     class="smart-selector__choice smart-selector__choice--thermo"
+                    data-smart-icon="thermo"
                     data-smart-filter="thermo"
                     data-smart-value="{{ option.code }}"
                     data-smart-source="sheet"
                     aria-pressed="{% if option.selected %}true{% else %}false{% endif %}">
-              <span aria-hidden="true">🔥</span>
-              <span>{{ option.label }}</span>
+              {% include "partials/catalog_filter_icon.html" with icon="thermo" only %}<span>{{ option.label }}</span>
             </button>
             {% endfor %}
           </div>
@@ -541,8 +551,8 @@
         <fieldset data-smart-filter-section="color">
           <legend>{% trans 'Колір' %}</legend>
           <div class="smart-selector__sheet-options smart-selector__sheet-colors">
-            <a href="{{ color_filter_reset_url|default:request.path }}" class="{% if not selected_color_slugs %}is-active is-current{% endif %}" data-smart-clear-filter="color" aria-pressed="{% if not selected_color_slugs %}true{% else %}false{% endif %}">
-              <span class="smart-selector__all-colors-icon" aria-hidden="true">✦</span>{% trans 'Показати всі' %}<small class="smart-selector__choice-count">{{ paginator.count }}</small>
+            <a href="{{ color_filter_reset_url|default:request.path }}" class="{% if not selected_color_slugs %}is-active is-current{% endif %}" data-smart-icon="color" data-smart-clear-filter="color" aria-pressed="{% if not selected_color_slugs %}true{% else %}false{% endif %}">
+              {% include "partials/catalog_filter_icon.html" with icon="color" only %}{% trans 'Показати всі' %}<small class="smart-selector__choice-count">{{ paginator.count }}</small>
             </a>
             {% for color in available_colors %}
             <a href="{{ color.url }}" class="{% if color.is_selected %}is-active{% endif %}" {% if color.is_selected %}aria-current="true"{% endif %}>
@@ -563,7 +573,7 @@
   </div>
 
   {% if category.seo_intro_html %}
-  <section class="catalog-category-intro smart-selector__seo-intro" aria-label="{% trans 'Опис категорії' %}">
+  <section class="catalog-category-intro smart-selector__seo-intro smart-selector__seo-band" aria-label="{% trans 'Опис категорії' %}">
     <div class="catalog-redesign-container">
       <div class="catalog-intro-panel">
         {{ category.seo_intro_html|safe }}
@@ -573,7 +583,7 @@
   {% endif %}
 
   {% if category_seo_layout.has_any %}
-  <section class="catalog-category-seo-blocks" aria-label="{% trans 'Додаткові розділи каталогу' %}">
+  <section class="catalog-category-seo-blocks smart-selector__seo-band" aria-label="{% trans 'Додаткові розділи каталогу' %}">
     <div class="catalog-redesign-container">
       {% include "partials/category_seo_blocks.html" %}
     </div>
@@ -581,7 +591,7 @@
   {% endif %}
 
   {% if category.description %}
-  <section class="catalog-category-description">
+  <section class="catalog-category-description smart-selector__seo-band">
     <div class="catalog-redesign-container">
       <div class="catalog-description-panel">
         <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
@@ -592,7 +602,7 @@
   {% endif %}
 
   {% if color_seo_copy %}
-  <section class="catalog-category-description catalog-category-description--color-aware">
+  <section class="catalog-category-description catalog-category-description--color-aware smart-selector__seo-band">
     <div class="catalog-redesign-container">
       <div class="catalog-description-panel">
         {% include "partials/catalog_color_seo.html" %}

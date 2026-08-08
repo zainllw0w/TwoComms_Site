@@ -67,15 +67,19 @@
         <span class="smart-product-card__price">
           {% if p.card_has_variant_prices %}{% trans 'Від' %} {% endif %}{{ p.card_price_min|default:p.final_price }} {% trans 'грн' %}
         </span>
-        {% if p.smart_selector_fit %}
-        <span class="smart-product-card__fit">{{ p.smart_selector_fit|title }}</span>
+        {% if p.smart_selector_fit_options %}
+        <span class="smart-product-card__fits" aria-label="{% trans 'Доступні крої' %}">
+          {% for fit in p.smart_selector_fit_options %}
+          <span class="smart-product-card__fit" data-fit-code="{{ fit.code }}">{{ fit.label }}</span>
+          {% endfor %}
+        </span>
         {% endif %}
       </div>
 
       {% if p.colors_preview %}
       <div class="smart-product-card__color-row" aria-label="{% trans 'Доступні кольори' %}">
         <div class="smart-product-card__colors">
-          {% for v in p.colors_preview|slice:':4' %}
+          {% for v in p.colors_preview|slice:':3' %}
             <a href="{{ v.public_url|default:product_url }}"
                class="smart-product-card__swatch{% if v.is_thermo %} is-thermo{% endif %}"
                title="{% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% endif %}{% if v.is_thermo %} · {% trans 'Термохромний колір' %}{% endif %}"
@@ -92,8 +96,8 @@
               {% endif %}
             </a>
           {% endfor %}
-          {% if p.colors_preview|length > 4 %}
-          <a href="{{ product_url }}" class="smart-product-card__color-more" aria-label="{% trans 'Переглянути всі кольори' %}">+{{ p.colors_preview|length|add:'-4' }}</a>
+          {% if p.colors_preview|length > 3 %}
+          <a href="{{ product_url }}" class="smart-product-card__color-more" aria-label="{% trans 'Переглянути всі кольори' %}">+{{ p.colors_preview|length|add:'-3' }}</a>
           {% endif %}
         </div>
       </div>

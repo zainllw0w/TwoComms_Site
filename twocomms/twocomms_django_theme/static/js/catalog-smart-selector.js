@@ -40,6 +40,7 @@
     "page",
   ];
   const allowedSorts = new Set(["recommended", "price-asc", "price-desc"]);
+  const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
   const lockState = {};
   let lastFilterTrigger = null;
   let loadingNextPage = false;
@@ -160,8 +161,8 @@
   const applySort = (sortValue) => {
     if (!grid || !allowedSorts.has(sortValue)) return;
 
-    const items = productItems();
-    items.sort((a, b) => {
+    const currentItems = productItems();
+    const items = [...currentItems].sort((a, b) => {
       if (sortValue === "recommended") {
         return Number(a.dataset.smartOrder) - Number(b.dataset.smartOrder);
       }
@@ -169,9 +170,12 @@
       return priceDelta || Number(a.dataset.smartOrder) - Number(b.dataset.smartOrder);
     });
 
-    const fragment = document.createDocumentFragment();
-    items.forEach((item) => fragment.appendChild(item));
-    grid.appendChild(fragment);
+    const orderChanged = items.some((item, index) => item !== currentItems[index]);
+    if (orderChanged) {
+      const fragment = document.createDocumentFragment();
+      items.forEach((item) => fragment.appendChild(item));
+      grid.appendChild(fragment);
+    }
 
     if (sortControl && sortControl.value !== sortValue) sortControl.value = sortValue;
     const activeOption = root.querySelector(`[data-smart-sort-value="${CSS.escape(sortValue)}"]`);
@@ -556,6 +560,7 @@
 
     loadingNextPage = true;
     observer?.unobserve(sentinel);
+    grid.setAttribute("aria-busy", "true");
     if (loadStatus) loadStatus.textContent = loadStatus.dataset.loadingText || "";
 
     try {
@@ -587,7 +592,16 @@
       assignProductOrder(incoming);
       const fragment = document.createDocumentFragment();
       incoming.forEach((item, index) => {
-        if (index < 4) item.classList.add("is-revealing");
+        if (!prefersReducedMotion) {
+          const clearReveal = () => {
+            item.classList.remove("is-revealing");
+            item.style.removeProperty("--smart-reveal-index");
+          };
+          item.style.setProperty("--smart-reveal-index", String(Math.min(index, 7)));
+          item.classList.add("is-revealing");
+          item.addEventListener("animationend", clearReveal, { once: true });
+          window.setTimeout(clearReveal, 700);
+        }
         fragment.appendChild(item);
       });
       grid.appendChild(fragment);
@@ -615,6 +629,7 @@
       observer?.disconnect();
       if (window.console?.warn) window.console.warn("Smart Selector progressive loading stopped", error);
     } finally {
+      grid.removeAttribute("aria-busy");
       loadingNextPage = false;
     }
   };
