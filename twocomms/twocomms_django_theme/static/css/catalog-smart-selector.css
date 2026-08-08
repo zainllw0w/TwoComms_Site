@@ -1586,12 +1586,12 @@
 
 @media (min-width: 1024px) {
   html[data-route-name="catalog_by_cat"] {
-    overflow-x: clip;
+    overflow-x: clip !important;
   }
 
   html[data-route-name="catalog_by_cat"] body {
-    overflow-x: clip;
-    overflow-y: visible;
+    overflow-x: clip !important;
+    overflow-y: visible !important;
   }
 }
 
