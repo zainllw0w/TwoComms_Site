@@ -335,9 +335,21 @@ These slices do not wait for white assets, attribution or retention policy.
 - [ ] `F-SEC-010`: remove token from our diagnostic URLs, redact server logs
   where compatible with Meta GET verification, rotate token and prove
   resubscription.
-- [ ] `F-SEC-001`: move account IDs, allowed senders and debug reply from model
+- [x] `F-SEC-001`: move account IDs, allowed senders and debug reply from model
   defaults to explicit singleton config; test fresh install, empty whitelist
   semantics and operator warning.
+
+  **Closed 2026-08-08:** Model defaults for account IDs, allowlist and legacy
+  trigger/reply are empty, so a fresh install cannot silently bind to a real
+  Instagram account or send a repository-provided debug reply. The status API
+  exposes only redacted warning codes and the overview renders operator-safe
+  text for missing account configuration, restricted allowlists, open empty
+  allowlists and incomplete legacy trigger mode. Focused tests passed `6/6`,
+  migration drift and `manage.py check` passed. Production read-only MariaDB
+  proof: `11.4.12-MariaDB-cll-lve`, migration `0149` applied, both account IDs
+  configured, legacy fields explicitly configured, `allowlist_entries=0`,
+  `allow_all=true`, warnings `sender_allowlist_open`, bot state `running` and
+  daemon online. No Meta/Telegram send or synthetic production rows were used.
 
 **Start files/tests:** `twocomms/management/models.py`,
 `twocomms/management/bot_views.py`, `tests_ig_webhook_security.py`,
