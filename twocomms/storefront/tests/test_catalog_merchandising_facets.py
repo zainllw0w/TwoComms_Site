@@ -8,10 +8,13 @@ from storefront.services.catalog_facets import (
 
 from fable5.models import (
     AudienceTag,
+    ColorProfile,
     MerchCollection,
     ProductAudience,
     ProductMerchCollection,
+    VariantSizeRule,
 )
+from productcolors.models import Color, ProductColorVariant
 
 
 class CatalogFacetContractTests(TestCase):
@@ -165,3 +168,64 @@ class CatalogFacetContractTests(TestCase):
         )
 
         self.assertEqual(state["collection"], ("225",))
+
+    def test_inventory_facets_normalize_without_treating_informational_3xl_as_sellable(self):
+        state = normalize_catalog_facet_state(
+            {
+                "availability": ["in_stock"],
+                "size": ["M", "3XL"],
+                "thermo": ["thermo"],
+                "color": ["black", "red"],
+            },
+            allowed_colors={"black", "red"},
+        )
+
+        self.assertEqual(state["availability"], ("in_stock",))
+        self.assertEqual(state["size"], ("M",))
+        self.assertEqual(state["thermo"], ("thermo",))
+        self.assertEqual(state["color"], ("black", "red"))
+
+    def test_variant_facets_use_size_rules_and_color_profile_truth(self):
+        thermo_color = Color.objects.create(
+            name="Thermo black",
+            primary_hex="#111111",
+        )
+        thermo_variant = ProductColorVariant.objects.create(
+            product=self.both,
+            color=thermo_color,
+            is_default=True,
+        )
+        ColorProfile.objects.create(color=thermo_color, is_thermo=True)
+        VariantSizeRule.objects.create(
+            variant=thermo_variant,
+            fit_code="",
+            size="M",
+            is_enabled=True,
+            stock=2,
+        )
+
+        ordinary_color = Color.objects.create(
+            name="Ordinary red",
+            primary_hex="#aa2222",
+        )
+        ordinary_variant = ProductColorVariant.objects.create(
+            product=self.only_unisex,
+            color=ordinary_color,
+            is_default=True,
+        )
+        VariantSizeRule.objects.create(
+            variant=ordinary_variant,
+            fit_code="",
+            size="M",
+            is_enabled=True,
+            stock=0,
+        )
+
+        state = normalize_catalog_facet_state(
+            {"availability": ["in_stock"], "size": ["M"], "thermo": ["thermo"]}
+        )
+        result = filter_products_by_facets(
+            Product.objects.filter(category=self.category), state
+        )
+
+        self.assertEqual(list(result), [self.both])

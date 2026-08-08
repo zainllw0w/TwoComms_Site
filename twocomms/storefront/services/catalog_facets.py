@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import re
 
-from django.db.models import QuerySet
+from django.db.models import Case, IntegerField, QuerySet, Value, When
 
 
 FACET_ORDER = ("theme", "collection", "audience", "availability", "fit", "size", "color", "thermo")
@@ -14,10 +15,23 @@ FACET_ALLOWED = {
     "audience": {"unisex", "women", "men"},
     "availability": {"in_stock"},
     "fit": {"classic", "oversize", "standard"},
-    "size": {"XS", "S", "M", "L", "XL", "2XL", "3XL"},
+    # XXXL/3XL can exist in an informational guide, but is not a public
+    # sellable facet until a persisted inventory rule makes it purchasable.
+    "size": {"XS", "S", "M", "L", "XL", "2XL"},
     "color": set(),
     "thermo": {"thermo"},
 }
+SELLABLE_SIZE_ORDER = ("XS", "S", "M", "L", "XL", "2XL")
+FIT_ALIASES = {
+    "classic": "classic",
+    "класичний": "classic",
+    "oversize": "oversize",
+    "оверсайз": "oversize",
+    "regular": "standard",
+    "standard": "standard",
+    "стандартний": "standard",
+}
+_COLOR_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def _active_collection_rows():
@@ -60,7 +74,11 @@ def _values(query, key: str) -> list[str]:
     return [str(value or "").strip() for value in raw if str(value or "").strip()]
 
 
-def normalize_catalog_facet_state(query) -> dict[str, tuple[str, ...]]:
+def normalize_catalog_facet_state(
+    query,
+    *,
+    allowed_colors: set[str] | None = None,
+) -> dict[str, tuple[str, ...]]:
     """Normalize repeated query keys and drop unknown values."""
     theme_values, collection_values, parent_by_child = _collection_facet_contract()
     allowed_by_facet = {
@@ -72,10 +90,16 @@ def normalize_catalog_facet_state(query) -> dict[str, tuple[str, ...]]:
     for facet in FACET_ORDER:
         values = _values(query, facet)
         allowed = allowed_by_facet[facet]
+        if facet == "color" and allowed_colors is not None:
+            allowed = {str(value).strip().lower() for value in allowed_colors}
         normalized = []
         for value in values:
             candidate = value.lower() if facet != "size" else value.upper()
             is_dynamic_collection_facet = facet in {"theme", "collection"}
+            if facet == "color" and not _COLOR_SLUG_RE.fullmatch(candidate):
+                continue
+            if facet == "color" and allowed_colors is None and not candidate:
+                continue
             if (allowed or is_dynamic_collection_facet) and candidate not in allowed:
                 continue
             if candidate not in normalized:
@@ -115,8 +139,154 @@ def _descendant_slugs(root_slug: str) -> set[str]:
     return slugs
 
 
+def _prefetched(product, relation):
+    return getattr(product, "_prefetched_objects_cache", {}).get(relation)
+
+
+def _variant_rows(product):
+    cached = _prefetched(product, "color_variants")
+    if cached is not None:
+        return list(cached)
+    from productcolors.models import ProductColorVariant
+
+    return list(
+        ProductColorVariant.objects.filter(product=product)
+        .select_related("color__fable5_profile")
+        .prefetch_related("fable5_fit_rules", "fable5_size_rules")
+        .order_by("order", "id")
+    )
+
+
+def _rules_for(variant, relation):
+    cached = _prefetched(variant, relation)
+    if cached is not None:
+        return list(cached)
+    return list(getattr(variant, relation).all())
+
+
+def _normal_size(value):
+    from fable5.size_grid_services import normalize_size_value
+
+    return normalize_size_value(value)
+
+
+def _rule_allows_size(variant, size, fit_code=""):
+    wanted = _normal_size(size)
+    if wanted not in SELLABLE_SIZE_ORDER:
+        return False
+    rules = [
+        rule for rule in _rules_for(variant, "fable5_size_rules")
+        if _normal_size(rule.size) == wanted and str(rule.fit_code or "").strip().lower() in {"", str(fit_code or "").strip().lower()}
+    ]
+    if not rules:
+        # A missing rule preserves the legacy made-to-order size surface; the
+        # informational 3XL row is excluded above and never becomes sellable.
+        return True
+    specific_fit = str(fit_code or "").strip().lower()
+    specific = next((rule for rule in reversed(rules) if str(rule.fit_code or "").strip().lower() == specific_fit and specific_fit), None)
+    general = next((rule for rule in reversed(rules) if not str(rule.fit_code or "").strip()), None)
+    rule = specific or general or rules[-1]
+    return bool(rule.is_enabled and (rule.stock is None or rule.stock > 0))
+
+
+def _rule_allows_fit(variant, fit_code=""):
+    wanted = str(fit_code or "").strip().lower()
+    if not wanted:
+        return True
+    rules = [
+        rule for rule in _rules_for(variant, "fable5_fit_rules")
+        if str(rule.fit_code or "").strip().lower() == wanted
+    ]
+    return not rules or bool(rules[-1].is_enabled)
+
+
+def _product_fit_codes(product):
+    cached = _prefetched(product, "fit_options")
+    if cached is None:
+        try:
+            cached = list(product.fit_options.filter(is_active=True).order_by("order", "id"))
+        except Exception:
+            cached = []
+    return {
+        FIT_ALIASES.get(
+            str(option.code or "").strip().lower(),
+            str(option.code or "").strip().lower(),
+        )
+        for option in cached
+        if getattr(option, "is_active", True) and str(option.code or "").strip()
+    }
+
+
+def _product_matches_inventory_facets(product, state):
+    if state.get("availability") and not getattr(product, "is_dropship_available", True):
+        return False
+
+    variants = _variant_rows(product)
+    if state.get("thermo"):
+        variants = [
+            variant for variant in variants
+            if bool(getattr(getattr(variant.color, "fable5_profile", None), "is_thermo", False))
+        ]
+        if not variants:
+            return False
+
+    selected_fits = tuple(state.get("fit", ()))
+    if selected_fits:
+        product_fits = _product_fit_codes(product)
+        inventory_requires_variant = bool(
+            state.get("availability")
+            or state.get("size")
+            or state.get("color")
+            or state.get("thermo")
+        )
+        if product_fits:
+            if any(code not in product_fits for code in selected_fits):
+                return False
+        elif not variants and selected_fits != ("standard",):
+            return False
+        if not variants and not inventory_requires_variant:
+            return True
+        variants = [
+            variant for variant in variants
+            if all(_rule_allows_fit(variant, fit) for fit in selected_fits)
+        ]
+        if not variants:
+            return False
+
+    selected_colors = tuple(state.get("color", ()))
+    if selected_colors:
+        variant_colors = {str(getattr(variant, "slug", "") or "").strip().lower() for variant in _variant_rows(product)}
+        if not all(color in variant_colors for color in selected_colors):
+            return False
+
+    selected_sizes = tuple(state.get("size", ()))
+    if selected_sizes:
+        # Multiple sizes are strict AND constraints: each requested size must
+        # be purchasable for the selected fit/variant surface.
+        for size in selected_sizes:
+            if not any(
+                all(_rule_allows_fit(variant, fit) for fit in selected_fits)
+                and _rule_allows_size(variant, size, selected_fits[0] if selected_fits else "")
+                for variant in variants
+            ):
+                return False
+
+    if state.get("availability"):
+        if not variants:
+            return False
+        if selected_sizes:
+            return True
+        if not any(
+            all(_rule_allows_fit(variant, fit) for fit in selected_fits)
+            and any(_rule_allows_size(variant, size, selected_fits[0] if selected_fits else "") for size in SELLABLE_SIZE_ORDER)
+            for variant in variants
+        ):
+            return False
+    return True
+
+
 def filter_products_by_facets(products: QuerySet, state: Mapping[str, tuple[str, ...]]) -> QuerySet:
-    """Apply strict product-level identity constraints from normalized facts."""
+    """Apply strict normalized merchandising and inventory constraints."""
     result = products
     for code in state.get("audience", ()):
         result = result.filter(
@@ -133,4 +303,25 @@ def filter_products_by_facets(products: QuerySet, state: Mapping[str, tuple[str,
             merch_collection_assignments__collection__slug=slug,
             merch_collection_assignments__collection__is_active=True,
         )
-    return result.distinct()
+    result = result.distinct()
+    inventory_facets = {"availability", "fit", "size", "color", "thermo"}
+    if not inventory_facets.intersection(state):
+        return result
+
+    candidates = list(
+        result.select_related("category")
+        .prefetch_related(
+            "color_variants__color__fable5_profile",
+            "color_variants__fable5_fit_rules",
+            "color_variants__fable5_size_rules",
+            "fit_options",
+        )
+    )
+    matched_ids = [product.pk for product in candidates if _product_matches_inventory_facets(product, state)]
+    if not matched_ids:
+        return result.none()
+    ordering = Case(
+        *[When(pk=pk, then=Value(index)) for index, pk in enumerate(matched_ids)],
+        output_field=IntegerField(),
+    )
+    return result.filter(pk__in=matched_ids).order_by(ordering)

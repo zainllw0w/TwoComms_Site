@@ -1224,6 +1224,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const configurationAvailable = !optionResolution.hasMatrix || Boolean(
       configuration && configuration.is_available !== false
     );
+    const activeFit = optionValues.fit || String(state.container.dataset.currentFit || '').toLowerCase();
+    const fitOverrides = baseVariant.merchandising_by_fit || {};
+    const variant = Object.assign({}, baseVariant, fitOverrides[activeFit] || {}, configuration || {});
+    applyPdpMerchandisingRail(state, variant);
     setConfiguratorPurchaseAvailability(state, configurationAvailable);
     if (!configurationAvailable) {
       state.root.querySelectorAll('[data-pdp-current-price], [data-pdp-sticky-price]').forEach((node) => {
@@ -1238,9 +1242,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       applyVariantSizeGuides(state, baseVariant);
       return;
     }
-    const activeFit = optionValues.fit || String(state.container.dataset.currentFit || '').toLowerCase();
-    const fitOverrides = baseVariant.merchandising_by_fit || {};
-    const variant = Object.assign({}, baseVariant, fitOverrides[activeFit] || {}, configuration || {});
     const breakdown = resolvePriceBreakdown(variant.price_breakdown);
 
     if (variant.seo_title) document.title = String(variant.seo_title);
@@ -1333,6 +1334,39 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       );
     }
     applyVariantSizeGuides(state, baseVariant);
+  }
+
+  function applyPdpMerchandisingRail(state, variant) {
+    const rail = state.root.querySelector('[data-pdp-merchandising]');
+    if (!rail) return;
+
+    const current = variant && typeof variant === 'object' ? variant : {};
+    const isThermo = Boolean(current.is_thermo);
+    const thermoNote = String(current.thermo_note || '').trim();
+    const priceReason = String(current.price_reason || current.price_delta_reason || '').trim();
+    const hasStaticItems = Boolean(rail.querySelector(
+      '.tc-pdp-merchandising__item--collection, .tc-pdp-merchandising__item--audience'
+    ));
+
+    rail.dataset.merchThermo = isThermo ? '1' : '0';
+    const thermo = rail.querySelector('[data-pdp-merch-thermo]');
+    if (thermo) {
+      thermo.hidden = !isThermo;
+      thermo.setAttribute('aria-hidden', isThermo ? 'false' : 'true');
+      thermo.dataset.pdpMerchThermoNote = thermoNote;
+      const label = thermo.querySelector('[data-pdp-merch-thermo-label]');
+      if (label) label.textContent = thermoNote || 'Термохромна тканина';
+    }
+
+    const reason = rail.querySelector('[data-pdp-merch-price-reason]');
+    if (reason) {
+      reason.hidden = !priceReason;
+      reason.setAttribute('aria-hidden', priceReason ? 'false' : 'true');
+      const reasonText = reason.querySelector('[data-pdp-merch-price-reason-text]');
+      if (reasonText) reasonText.textContent = priceReason;
+    }
+
+    rail.hidden = !(hasStaticItems || isThermo || priceReason);
   }
 
   function setConfiguratorPurchaseAvailability(state, available) {
@@ -2724,6 +2758,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const category = payload.dataset.category || state.container.getAttribute('data-product-category') || '';
       const eventId = makeEventId();
       const trackingCtx = (typeof window.getTrackingContext === 'function' && window.getTrackingContext()) || {};
+      const merchRail = state.root.querySelector('[data-pdp-merchandising]');
+      const normalizeMerchCodes = (key) => String(merchRail && merchRail.dataset[key] || '')
+        .split('|')
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .join('|');
+      const merchCollections = normalizeMerchCodes('merchCollections');
+      const merchAudiences = normalizeMerchCodes('merchAudiences');
       const item = {
         item_id: offerId,
         item_name: title,
@@ -2733,6 +2775,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         price,
         quantity: 1,
         currency: 'UAH',
+        merch_collections: merchCollections,
+        merch_audiences: merchAudiences,
       };
 
       state.viewContentTracked = true;
@@ -2752,7 +2796,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
           value: price,
           currency: 'UAH',
           content_name: title,
-          items: [{ id: offerId, name: title, price, quantity: 1 }],
+          items: [{
+            id: offerId,
+            name: title,
+            price,
+            quantity: 1,
+            merch_collections: merchCollections,
+            merch_audiences: merchAudiences,
+          }],
           ecomm_prodid: [offerId],
           ecomm_pagetype: 'product',
           ecomm_totalvalue: price,

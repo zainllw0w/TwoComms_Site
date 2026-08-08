@@ -149,6 +149,7 @@ class ProductConfiguratorRenderTests(TestCase):
         self.assertEqual(html.count("data-pdp-material-story"), 1)
         self.assertNotIn("data-generic-premium-fabric", html)
         self.assertEqual(html.count("Змінює відтінок під дією тепла."), 1)
+        self.assertNotIn("data-pdp-merch-thermo-description", html)
         self.assertIn('data-material-story-kind="thermo"', html)
         self.assertEqual(
             response.context["selected_variant_merchandising"]["material_story"],
@@ -239,11 +240,11 @@ class ProductConfiguratorRenderTests(TestCase):
     def test_versioned_pdp_assets_use_one_fresh_release_key(self):
         html = self.client.get(self.url).content.decode()
 
-        self.assertIn("css/product-detail.css?v=20260804-gallery-v4", html)
-        self.assertIn("css/product-media-fit.css?v=20260804-gallery-v4", html)
+        self.assertIn("css/product-detail.css?v=20260808-merch-v1", html)
+        self.assertIn("css/product-media-fit.css?v=20260808-merch-v1", html)
         self.assertIn("css/product-seo-landing.css?v=20260716-pdp-v2", html)
-        self.assertIn("js/product-detail.js?v=20260804-gallery-v4", html)
-        self.assertIn("js/product-media-fit.js?v=20260804-gallery-v4", html)
+        self.assertIn("js/product-detail.js?v=20260808-merch-v1", html)
+        self.assertIn("js/product-media-fit.js?v=20260808-merch-v1", html)
         self.assertIn("js/telegram-verify.js?v=20260716-pdp-v2", html)
         self.assertNotIn("20260715-fable5-v1", html)
         self.assertNotIn("20260716-configurator-v1", html)

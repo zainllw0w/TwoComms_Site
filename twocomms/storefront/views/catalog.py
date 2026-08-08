@@ -136,6 +136,12 @@ SMART_SELECTOR_FIT_ALIASES = {
     'оверсайз': 'oversize',
 }
 SMART_SELECTOR_SORT_VALUES = ('recommended', 'price-asc', 'price-desc')
+SMART_SELECTOR_SIZE_CODES = ('XS', 'S', 'M', 'L', 'XL', '2XL')
+SMART_SELECTOR_SIZE_LABELS = {code: code for code in SMART_SELECTOR_SIZE_CODES}
+SMART_SELECTOR_AVAILABILITY_LABELS = {
+    'in_stock': _('В наявності'),
+}
+SMART_SELECTOR_THERMO_LABEL = _('Термохромна тканина')
 
 
 def _smart_selector_fit_codes(category, product_queryset):
@@ -169,7 +175,10 @@ def _smart_selector_facet_state(request, category, fit_codes):
     supported = {
         key: tuple(values)
         for key, values in state.items()
-        if key in {"theme", "collection", "audience", "fit"}
+        if key in {
+            "theme", "collection", "audience", "availability", "fit",
+            "size", "thermo",
+        }
     }
     selected_fits = tuple(
         code for code in supported.get("fit", ()) if code in set(fit_codes or ())
@@ -270,6 +279,48 @@ def _localized_collection_label(collection, language):
         ),
         collection.slug,
     )
+
+
+def _localized_collection_value(collection, field, language):
+    return next(
+        (
+            str(value).strip()
+            for value in (
+                getattr(collection, f"{field}_{language}", ""),
+                getattr(collection, f"{field}_uk", ""),
+                getattr(collection, f"{field}_ru", ""),
+                getattr(collection, f"{field}_en", ""),
+            )
+            if str(value or "").strip()
+        ),
+        "",
+    )
+
+
+def _build_merch_collection_page(collection):
+    language = _smart_selector_language()
+    label = _localized_collection_label(collection, language)
+    description = _localized_collection_value(collection, "description", language)
+    if language == "en":
+        fallback_title = f"{label} merch — TwoComms"
+        fallback_description = f"Explore {label} apparel and prints by TwoComms."
+    elif language == "ru":
+        fallback_title = f"Мерч для {label} — TwoComms"
+        fallback_description = f"Мерч {label}: доступные модели и принты TwoComms."
+    else:
+        fallback_title = f"Мерч для {label} — TwoComms"
+        fallback_description = f"Мерч {label}: доступні моделі та принти TwoComms."
+    return {
+        "slug": collection.slug,
+        "kind": collection.kind,
+        "label": label,
+        "h1": fallback_title,
+        "title": _localized_collection_value(collection, "seo_title", language) or fallback_title,
+        "description": _localized_collection_value(collection, "seo_description", language) or description or fallback_description,
+        "intro": description or fallback_description,
+        "canonical_path": f"/merch/{collection.slug}/",
+        "accent_token": collection.accent_token,
+    }
 
 
 def _smart_selector_merchandising_contract(facet_state):
@@ -411,6 +462,19 @@ def _attach_smart_selector_product_context(products, merchandising):
         product.smart_selector_collections = collection_rows
         product.smart_selector_audiences = audience_rows
         product.smart_selector_theme = root_theme_slugs[0] if root_theme_slugs else ""
+        preview_rows = list(getattr(product, "colors_preview", []) or [])
+        product.smart_selector_has_thermo = any(
+            bool(row.get("is_thermo")) for row in preview_rows
+        )
+        product.smart_selector_available = bool(
+            getattr(product, "is_dropship_available", True)
+            and (preview_rows or not getattr(product, "color_variants", None))
+        )
+        product.smart_selector_availability_label = (
+            _("В наявності")
+            if product.smart_selector_available
+            else _("Немає в наявності")
+        )
 
 
 def _build_smart_selector_context(
@@ -454,8 +518,35 @@ def _build_smart_selector_context(
         'smart_selector_facet_state': facet_state,
         'smart_selector_fit_codes': fit_codes,
         'smart_selector_fit_options': [
-            {'code': code, 'label': SMART_SELECTOR_FIT_LABELS[code]}
+            {
+                'code': code,
+                'label': SMART_SELECTOR_FIT_LABELS[code],
+                'selected': code in selected_fits,
+            }
             for code in fit_codes
+        ],
+        'smart_selector_availability_options': [
+            {
+                'code': code,
+                'label': label,
+                'selected': code in facet_state.get('availability', ()),
+            }
+            for code, label in SMART_SELECTOR_AVAILABILITY_LABELS.items()
+        ],
+        'smart_selector_size_options': [
+            {
+                'code': code,
+                'label': SMART_SELECTOR_SIZE_LABELS[code],
+                'selected': code in facet_state.get('size', ()),
+            }
+            for code in SMART_SELECTOR_SIZE_CODES
+        ],
+        'smart_selector_thermo_options': [
+            {
+                'code': 'thermo',
+                'label': SMART_SELECTOR_THERMO_LABEL,
+                'selected': 'thermo' in facet_state.get('thermo', ()),
+            }
         ],
         'smart_selector_selected_theme': selected_themes[0] if selected_themes else '',
         'smart_selector_selected_fit': selected_fits[0] if selected_fits else '',
@@ -948,7 +1039,7 @@ def load_more_products(request):
 # W3-3: @ensure_csrf_cookie снят (см. комментарий у home)
 @canonical_color_filter
 @cache_page_for_anon(600, key_prefix=public_product_listing_cache_prefix)  # Кэшируем каталог на 10 минут только для анонимов
-def catalog(request, cat_slug=None):
+def catalog(request, cat_slug=None, collection_slug=None):
     """
     Страница каталога товаров.
 
@@ -960,6 +1051,32 @@ def catalog(request, cat_slug=None):
     - Цветовые варианты товаров
     - Карточки категорий (если не выбрана конкретная категория)
     """
+    merch_collection = None
+    merch_collection_page = None
+    if collection_slug:
+        from fable5.models import MerchCollection
+
+        merch_collection = get_object_or_404(
+            MerchCollection,
+            slug=collection_slug,
+            is_active=True,
+            indexable=True,
+        )
+        assigned_category_slugs = set(
+            Product.objects.filter(
+                status='published',
+                merch_collection_assignments__collection=merch_collection,
+            ).values_list('category__slug', flat=True)
+        )
+        cat_slug = next(
+            (
+                slug for slug in SMART_SELECTOR_CATEGORY_SLUGS
+                if slug in assigned_category_slugs
+            ),
+            'tshirts',
+        )
+        merch_collection_page = _build_merch_collection_page(merch_collection)
+
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
     public_product_order_version = get_public_product_order_version(fragment_cache)
@@ -970,6 +1087,7 @@ def catalog(request, cat_slug=None):
     smart_selector_selected_sort = 'recommended'
     smart_selector_facet_state = {}
     smart_selector_merchandising = None
+    selected_color_slugs = parse_color_filter(request)
 
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug, is_active=True)
@@ -998,6 +1116,14 @@ def catalog(request, cat_slug=None):
             category,
             smart_selector_fit_codes,
         )
+        if merch_collection is not None:
+            selected_collections = set(
+                smart_selector_facet_state.get('collection', ())
+            )
+            selected_collections.add(merch_collection.slug)
+            smart_selector_facet_state['collection'] = tuple(
+                sorted(selected_collections)
+            )
         base_product_qs = filter_products_by_facets(
             base_product_qs,
             smart_selector_facet_state,
@@ -1022,7 +1148,6 @@ def catalog(request, cat_slug=None):
 
     # Phase 9 — colour filter (?color=black,red). Build chips from the
     # *unfiltered* queryset so users can always OR-in another colour.
-    selected_color_slugs = parse_color_filter(request)
     # Smart Selector owns the concrete category experience. Keep its colour
     # chips on the same query-string route so theme/fit state and the bottom
     # sheet remain available; dedicated SEO colour landings keep serving
@@ -1037,7 +1162,17 @@ def catalog(request, cat_slug=None):
     )
     has_active_color_filter = bool(selected_color_slugs)
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
-    product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
+    if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
+        if selected_color_slugs:
+            smart_selector_facet_state["color"] = tuple(selected_color_slugs)
+            product_qs = filter_products_by_facets(
+                base_product_qs,
+                {"color": tuple(selected_color_slugs)},
+            )
+        else:
+            product_qs = base_product_qs
+    else:
+        product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
     if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
         product_qs = _sort_smart_selector_products_by_visible_price(
             product_qs,
@@ -1101,6 +1236,14 @@ def catalog(request, cat_slug=None):
             'selected_color_slugs': selected_color_slugs,
             'has_active_color_filter': has_active_color_filter,
             'color_filter_reset_url': color_filter_reset_url,
+            'merch_collection_page': merch_collection_page,
+            'smart_selector_request_has_facets': any(
+                key in request.GET
+                for key in (
+                    'theme', 'collection', 'audience', 'availability', 'fit',
+                    'size', 'color', 'thermo', 'sort',
+                )
+            ),
             'pagination_query_prefix': _pagination_query_prefix(request),
             # Phase 10 — structured SEO blocks shown after the products grid.
             'category_seo_blocks': get_category_seo_blocks(category) if category else [],

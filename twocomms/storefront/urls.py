@@ -87,6 +87,11 @@ urlpatterns = [
     path('page/<int:page>/', _legacy_pagination_redirect, name='home_pagination_legacy'),
     path('load-more-products/', views.load_more_products, name='load_more_products'),
     path('catalog/', views.catalog, name='catalog'),
+    path(
+        'merch/<slug:collection_slug>/',
+        views.catalog,
+        name='merch_collection',
+    ),
     # SEO 2026-05-16 — same legacy paginator pattern fix as on the homepage.
     path(
         'catalog/page/<int:page>/',
@@ -122,16 +127,18 @@ urlpatterns = [
     path('product/<int:product_id>/images/', views.get_product_images, name='get_product_images'),
     path('product/<int:product_id>/variants/', views.get_product_variants, name='get_product_variants'),
     path('product/<int:product_id>/quick-view/', views.quick_view, name='quick_view'),
-    # Phase 7.2 — path-style variant URLs. Up to three ``slug`` segments
+    # Phase 7.2 — path-style variant URLs. Up to three path segments
     # capture any combination of size code / colour slug / fit code.
     # The view parses them content-addressably (not positionally), so
     # ``/product/x/m/`` and ``/product/x/black/`` both resolve cleanly.
+    # ``str`` keeps legacy Unicode colour slugs reloadable; the view still
+    # allow-lists every segment against the product's real variants/options.
     # All patterns share ``name='product'`` so ``reverse('product',
     # kwargs=...)`` picks the right arity automatically based on
     # which of ``v1/v2/v3`` the caller supplied.
-    path('product/<slug:slug>/<slug:v1>/', views.product_detail, name='product'),
-    path('product/<slug:slug>/<slug:v1>/<slug:v2>/', views.product_detail, name='product'),
-    path('product/<slug:slug>/<slug:v1>/<slug:v2>/<slug:v3>/', views.product_detail, name='product'),
+    path('product/<slug:slug>/<str:v1>/', views.product_detail, name='product'),
+    path('product/<slug:slug>/<str:v1>/<str:v2>/', views.product_detail, name='product'),
+    path('product/<slug:slug>/<str:v1>/<str:v2>/<str:v3>/', views.product_detail, name='product'),
     path('add-product/', views.add_product, name='add_product'),
     path('admin-panel/product/add/', views.add_product, name='admin_add_product'),
     path('add-category/', views.add_category, name='add_category'),

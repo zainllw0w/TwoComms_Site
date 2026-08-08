@@ -17,21 +17,21 @@
 <link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}">
 {% if smart_selector_enabled %}
-<link rel="stylesheet" href="{% static 'css/catalog-smart-selector.css' %}?v=20260807-v4">
+<link rel="stylesheet" href="{% static 'css/catalog-smart-selector.css' %}?v=20260808-v9">
 {% endif %}
 {% endblock %}
 
 {# Phase 21 (2026-05-10) — prefer per-category manual SEO overrides over auto-generated boilerplate. #}
 {# SEO v1.0 Phase 12 (2026-05-12) — finding (VV)+(B19). Page > 1 gets a "сторінка N" suffix so Search Console stops flagging duplicate-title across the catalog paginator; the same applies to /?sort=new|sale|price_asc|price_desc which previously rendered identical titles to the base catalog. #}
 {# SEO v1.0 Phase 12 (2026-05-13) — finding (N). Catalog root title was 24 chars («Каталог одягу — TwoComms»), 36 chars below the SERP cap and devoid of intent keywords. Expanded to 56 chars including the three core categories so SERP snippet conveys the full product catalogue at a glance. #}
-{% block title %}{% if thematic_landing %}{{ thematic_landing.title }}{% elif is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
+{% block title %}{% if merch_collection_page %}{{ merch_collection_page.title }}{% elif thematic_landing %}{{ thematic_landing.title }}{% elif is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
 
 {# SEO v1.0 Phase 12 (2026-05-13) — finding (N). Description for catalog root was 99 chars; expanded to ~155 chars to use the full SERP cap and surface DTF, fabric and Nova Poshta delivery USPs that the audit ranks as «highest CTR levers» for catalog landing intents. #}
 {# SEO 2026-05-16 — uniqueness fix for "Crawled, currently not indexed" on /catalog/?page=N. The base #}
 {# description above is reused on every paginator state, so Google sees a thin near-duplicate. The #}
 {# block now appends "сторінка N з M" when N>1, mirroring the title fix and giving the paginator URL #}
 {# enough uniqueness signal to be indexed alongside the canonical /catalog/ root. #}
-{% block description %}{% if thematic_landing %}{{ thematic_landing.description }}{% elif is_search_page %}{% trans 'Результати пошуку TwoComms' %}{% if query %} {% blocktrans with q=query %}за запитом «{{ q }}»{% endblocktrans %}{% endif %}. {% trans 'Сторінка відкрита для переходу по товарах, але не призначена для індексації.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name|lower %}Купити {{ cat }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% endblocktrans %}{% endif %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}{% else %}{% trans 'Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні.' %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}{% endif %}{% endblock %}
+{% block description %}{% if merch_collection_page %}{{ merch_collection_page.description }}{% elif thematic_landing %}{{ thematic_landing.description }}{% elif is_search_page %}{% trans 'Результати пошуку TwoComms' %}{% if query %} {% blocktrans with q=query %}за запитом «{{ q }}»{% endblocktrans %}{% endif %}. {% trans 'Сторінка відкрита для переходу по товарах, але не призначена для індексації.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name|lower %}Купити {{ cat }} в TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном і швидкою доставкою по Україні.{% endblocktrans %}{% endif %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}{% else %}{% trans 'Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні.' %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}{% endif %}{% endblock %}
 
 {% block keywords %}{% if thematic_landing %}{{ thematic_landing.keywords }}, {% endif %}{% if category %}{{ category.name|lower }}, {% endif %}{% trans 'стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, каталог одягу' %}{% endblock %}
 
@@ -49,7 +49,7 @@ Treat them like any other facet: noindex, follow + canonical → base catalog.
 {# ItemList) — NOT by hiding pagination from the index, which would block discovery of products only #}
 {# reachable via the paginator. Sort/colour-filter facets keep noindex,follow because they re-order #}
 {# the same dataset on the same canonical URL. #}
-{% block robots %}{% if selected_color_slugs|length > 1 %}noindex, nofollow{% elif is_search_page or has_active_color_filter or request.GET.sort or request.GET.theme or request.GET.fit %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% block robots %}{% if smart_selector_enabled and smart_selector_request_has_facets %}noindex, follow{% elif selected_color_slugs|length > 1 %}noindex, nofollow{% elif is_search_page or has_active_color_filter or request.GET.sort or request.GET.theme or request.GET.fit %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {# SEO 2026-05-16 — self-canonical on every paginator state (Google explicitly recommends "do not designate the first page as the canonical for paginator pages — give each its own canonical URL"; #}
 {# https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading). #}
@@ -68,11 +68,11 @@ point at themselves.
 {% endblock %}
 
 {% block og_type %}website{% endblock %}
-{% block og_title %}{% if is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% endblock %}
-{% block og_description %}{% if is_search_page %}{% trans 'Результати пошуку TwoComms за товарами каталогу.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name %}{{ cat }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% endblocktrans %}{% endif %}{% else %}{% trans 'Повний каталог стріт та мілітарі одягу TwoComms.' %}{% endif %}{% endblock %}
+{% block og_title %}{% if merch_collection_page %}{{ merch_collection_page.title }}{% elif is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% endblock %}
+{% block og_description %}{% if merch_collection_page %}{{ merch_collection_page.description }}{% elif is_search_page %}{% trans 'Результати пошуку TwoComms за товарами каталогу.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name %}{{ cat }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% endblocktrans %}{% endif %}{% else %}{% trans 'Повний каталог стріт та мілітарі одягу TwoComms.' %}{% endif %}{% endblock %}
 {% block og_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
-{% block twitter_title %}{% if is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% endblock %}
-{% block twitter_description %}{% if is_search_page %}{% trans 'Результати пошуку TwoComms за товарами каталогу.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name %}{{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}{% endif %}{% else %}{% trans 'Каталог стріт та мілітарі одягу TwoComms.' %}{% endif %}{% endblock %}
+{% block twitter_title %}{% if merch_collection_page %}{{ merch_collection_page.title }}{% elif is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% endblock %}
+{% block twitter_description %}{% if merch_collection_page %}{{ merch_collection_page.description }}{% elif is_search_page %}{% trans 'Результати пошуку TwoComms за товарами каталогу.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name %}{{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}{% endif %}{% else %}{% trans 'Каталог стріт та мілітарі одягу TwoComms.' %}{% endif %}{% endblock %}
 {% block twitter_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
@@ -89,7 +89,7 @@ point at themselves.
       "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "{% trans 'Головна' %}", "item": "{{ site_base_url }}/"},
         {"@type": "ListItem", "position": 2, "name": "{% trans 'Каталог' %}", "item": "{{ site_base_url }}{% url 'catalog' %}"},
-        {"@type": "ListItem", "position": 3, "name": "{{ category.name }}", "item": "{{ site_base_url }}{{ request.path }}"}
+        {"@type": "ListItem", "position": 3, "name": "{% if merch_collection_page %}{{ merch_collection_page.label }}{% else %}{{ category.name }}{% endif %}", "item": "{{ site_base_url }}{{ request.path }}"}
       ]
     },
     {
@@ -97,8 +97,8 @@ point at themselves.
       {# SEO 2026-05-16 — page-specific @id so each paginator state is a distinct entity #}
       {# in the knowledge graph; same pattern as the catalog root above. #}
       "@id": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}#collection{% else %}{{ site_base_url }}{{ request.path }}#collection{% endif %}",
-      "name": "{{ category.name }} — TwoComms{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
-      "description": "{% blocktrans with cat=category.name|lower %}Категорія {{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}",
+      "name": "{% if merch_collection_page %}{{ merch_collection_page.title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
+      "description": "{% if merch_collection_page %}{{ merch_collection_page.description|escapejs }}{% else %}{% blocktrans with cat=category.name|lower %}Категорія {{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}{% endif %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}",
       "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
       "mainEntity": {
         "@type": "ItemList",
@@ -539,7 +539,7 @@ point at themselves.
 {% block extra_js %}
 {{ block.super }}
 {% if smart_selector_enabled %}
-<script defer src="{% static 'js/catalog-smart-selector.js' %}?v=20260807-v3"></script>
+<script defer src="{% static 'js/catalog-smart-selector.js' %}?v=20260808-v9"></script>
 {% else %}
 <script defer src="{% static 'js/catalog-redesign.js' %}"></script>
 {% endif %}
