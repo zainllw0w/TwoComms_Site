@@ -1,10 +1,10 @@
-# Variant 3 Filter Restoration Design
+# Variant 3 Catalog Restoration Design
 
 ## Decision
 
-Restore the approved Variant 3 catalog controls and product-card hierarchy instead of iterating on the heavier production treatment. The supplied Variant 3 screenshots are the visual reference for mobile selector sheets, the desktop rail, the compact command shelf, and favorite-button weight.
+Restore the approved Variant 3 as the visual base of the complete category catalog instead of iterating on the heavier production treatment. The original HTML prototype and supplied screenshots are the reference for the mobile first viewport, selector sheets, desktop rail, compact command shelf, product grid, card proportions, favorite-button weight and overall visual density.
 
-The work is a presentation and interaction correction. Existing Fable 5 taxonomy, AND multi-select URL semantics, audience, availability, size, thermochromic, brigade children, analytics, pagination, SEO and product pricing remain authoritative.
+The work is a presentation and interaction correction, not a new design. Existing Fable 5 taxonomy, AND multi-select URL semantics, audience, availability, size, thermochromic, brigade children, analytics, pagination, SEO and product pricing remain authoritative and are fitted into the Variant 3 composition.
 
 ## Product-first hierarchy
 
