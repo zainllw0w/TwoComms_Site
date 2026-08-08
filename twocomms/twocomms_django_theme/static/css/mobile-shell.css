@@ -100,6 +100,9 @@
   .mobile-site-shell__header.is-menu-open .mobile-site-shell__burger::after { transform: translateY(-8px) rotate(-45deg); }
 
   .mobile-site-shell__wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     justify-self: center;
     color: #f6f6f5;
     font-family: "Roboto Condensed", "Arial Narrow", sans-serif;
@@ -107,6 +110,12 @@
     font-weight: 900;
     line-height: 1;
     text-decoration: none;
+  }
+  .mobile-site-shell__wordmark img {
+    display: block;
+    width: 22px;
+    height: 24px;
+    object-fit: contain;
   }
 
   .mobile-site-shell__actions { display: flex; gap: 2px; }
