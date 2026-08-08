@@ -71,6 +71,92 @@
 @property --attribution-confirmed-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
 @property --attribution-partial-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
 .bot-stats-card{--stats-motion-fast:.18s;--stats-motion-medium:.24s;--stats-motion-slow:.28s;--stats-ease:cubic-bezier(.2,.72,.2,1);padding:0;border:0;background:transparent;}
+.bot-stats-decision-rail{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;margin:0 0 10px;border:1px solid #202a39;border-radius:8px;background:#202a39;overflow:hidden;}
+.bot-stats-decision-slot{position:relative;display:grid;grid-template-rows:auto auto auto;min-width:0;min-height:104px;gap:5px;padding:11px 12px;background:#0d131c;color:#dce5ef;transition:background var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-decision-slot:hover,.bot-stats-decision-slot:focus-within{background:#111b27;z-index:1;}
+.bot-stats-decision-slot::before{content:'';position:absolute;inset:0 auto 0 0;width:2px;background:var(--decision-accent,#60a5fa);opacity:.8;}
+.bot-stats-decision-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#8290a3;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
+.bot-stats-decision-value{display:block;min-height:28px;color:#f5f7fa;font-size:24px;font-weight:850;line-height:1;font-variant-numeric:tabular-nums;}
+.bot-stats-decision-label{display:block;min-width:0;color:#9aa7b9;font-size:10px;font-weight:750;line-height:1.3;}
+.bot-stats-decision-meta{display:block;min-width:0;overflow:hidden;color:#68788d;font-size:8.5px;font-weight:700;line-height:1.25;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-decision-meta.is-warning{color:#d4a85e;}
+.bot-stats-decision-slot.is-paid{--decision-accent:#34d399}.bot-stats-decision-slot.is-revenue{--decision-accent:#2dd4bf}.bot-stats-decision-slot.is-loss{--decision-accent:#f59e0b}
+.bot-stats-detail-hub{display:grid;gap:10px;margin-top:10px;padding-top:12px;border-top:1px solid #202a39;}
+.bot-stats-detail-hub-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.bot-stats-detail-hub-title{margin:0;color:#dce5ef;font-size:11.5px;font-weight:850;}
+.bot-stats-detail-hub-meta{color:#78879a;font-size:9px;font-weight:700;}
+.bot-stats-detail-modules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.bot-stats-detail-module{min-width:0;min-height:126px;border:1px solid #202c3b;border-radius:7px;background:#0b1119;padding:10px;}
+.bot-stats-detail-module-title{display:flex;align-items:center;justify-content:space-between;gap:6px;color:#aebacc;font-size:9px;font-weight:800;}
+.bot-stats-detail-module-title>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-detail-module-title strong{color:#e6edf5;font-size:10px;font-variant-numeric:tabular-nums;}
+.bot-stats-detail-module-meta{display:block;margin-top:7px;color:#6f8095;font-size:8.5px;font-weight:700;line-height:1.3;}
+.bot-stats-detail-key{display:flex;align-items:center;gap:10px;margin-top:8px;color:#718197;font-size:8px;font-weight:750;}
+.bot-stats-detail-key span{display:inline-flex;align-items:center;gap:4px;}
+.bot-stats-detail-key i{width:7px;height:7px;border-radius:2px;background:var(--key-color,#60a5fa);}
+.bot-stats-detail-completeness{margin-top:7px;color:#718197;font-size:8px;font-weight:750;line-height:1.3;}
+.bot-stats-fact-list{display:grid;gap:7px;margin-top:9px;}
+.bot-stats-fact-row{display:grid;gap:5px;border:1px solid #202c3b;border-radius:6px;background:#101925;padding:8px;}
+.bot-stats-fact-row>strong{color:#dce5ef;font-size:9px;}
+.bot-stats-fact-values{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
+.bot-stats-fact-values span{display:grid;gap:2px;min-width:0;color:#718197;font-size:8px;}
+.bot-stats-fact-values b{color:#e5edf6;font-size:10px;font-variant-numeric:tabular-nums;}
+.bot-stats-mini-list{display:grid;gap:7px;margin-top:9px;}
+.bot-stats-mini-row{display:grid;grid-template-columns:minmax(80px,1fr) minmax(80px,1.25fr) auto;align-items:center;gap:7px;color:#91a0b3;font-size:8.5px;}
+.bot-stats-mini-row>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.bot-stats-mini-row>strong{color:#dce5ef;font-size:9px;font-variant-numeric:tabular-nums;}
+.bot-stats-mini-rail{display:flex;height:6px;overflow:hidden;border-radius:3px;background:#1b2635;}
+.bot-stats-mini-rail>i{display:block;width:var(--mini-width,0%);height:100%;background:var(--mini-color,#60a5fa);transition:width var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-loss-bars .is-recoverable{background:#d4a85e}.bot-stats-loss-bars .is-final{background:#ef7d68}
+.bot-stats-duration-row{display:grid;grid-template-columns:minmax(80px,1fr) minmax(100px,1.35fr) auto;align-items:center;gap:7px;color:#91a0b3;font-size:8.5px;}
+.bot-stats-duration-track{position:relative;height:7px;border-radius:4px;background:#1b2635;}
+.bot-stats-duration-track::before{content:'';position:absolute;top:2px;left:0;width:var(--p90-width,0%);height:3px;border-radius:2px;background:#516b89;}
+.bot-stats-duration-track::after{content:'';position:absolute;top:-2px;left:var(--median-width,0%);width:2px;height:11px;border-radius:1px;background:#60a5fa;transform:translateX(-1px);}
+.bot-stats-duration-row strong{color:#c8d5e3;font-size:8.5px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.bot-stats-duration-plot{display:grid;gap:9px;margin-top:10px;}
+.bot-stats-ownership-bar{display:flex;height:10px;margin-top:12px;overflow:hidden;border-radius:5px;background:#1b2635;}
+.bot-stats-ownership-bar i{display:block;width:var(--ownership-width,0%);min-width:0;transition:width var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-ownership-bar .bot-only{background:#2dd4bf}.bot-stats-ownership-bar .shared{background:#60a5fa}.bot-stats-ownership-bar .manager-only{background:#f59e0b}
+.bot-stats-ownership-legend{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:9px;}
+.bot-stats-ownership-legend span{display:grid;gap:2px;color:#78889d;font-size:8px;}
+.bot-stats-ownership-legend b{color:#dce5ef;font-size:10px;font-variant-numeric:tabular-nums;}
+.bot-stats-discount-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px;}
+.bot-stats-discount-node{position:relative;display:grid;gap:3px;min-width:0;border-left:2px solid var(--discount-color,#60a5fa);background:#101925;padding:7px 7px 7px 8px;}
+.bot-stats-discount-node:not(:last-child)::after{content:'›';position:absolute;top:50%;right:-7px;z-index:1;color:#52647a;transform:translateY(-50%);}
+.bot-stats-discount-node b{color:#e5edf6;font-size:13px;font-variant-numeric:tabular-nums;}
+.bot-stats-discount-node span{min-width:0;color:#7f8fa3;font-size:7.8px;line-height:1.2;}
+.bot-stats-discount-baseline{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;border-top:1px solid #202c3b;padding-top:7px;color:#7f8fa3;font-size:8px;}
+.bot-stats-discount-baseline b{color:#cbd7e4;font-variant-numeric:tabular-nums;}
+.bot-stats-stage-bars .bot-stats-mini-rail>i{background:#60a5fa}.bot-stats-objection-bars .bot-stats-mini-rail>i{background:#d3a64a}
+.bot-stats-detail-drawer-body .bot-stats-detail-modules{grid-template-columns:minmax(0,1fr);}
+.bot-stats-detail-drawer-body .bot-stats-detail-module{min-height:0;}
+.bot-stats-detail-drawer-body .bot-stats-detail-section{margin-top:10px;}
+.bot-stats-detail-drawer{position:fixed;z-index:80;inset:0;display:grid;place-items:stretch end;padding:14px;background:rgba(2,6,12,.7);opacity:1;transition:opacity var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-detail-drawer[hidden]{display:none;}
+.bot-stats-detail-drawer-backdrop{position:absolute;inset:0;border:0;background:transparent;cursor:pointer;}
+.bot-stats-detail-drawer-panel{position:relative;z-index:1;display:grid;grid-template-rows:auto minmax(0,1fr);width:min(420px,calc(100vw - 28px));height:calc(100dvh - 28px);max-height:720px;overflow:hidden;border:1px solid #33445a;border-radius:8px;background:#0b1119;box-shadow:-20px 0 60px rgba(0,0,0,.48);transform:translateX(0);transition:transform var(--stats-motion-medium) var(--stats-ease);}
+.bot-stats-detail-drawer-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #202c3b;}
+.bot-stats-detail-drawer-definition{grid-column:1;display:block;margin:3px 0 0;color:#71839a;font-size:9px;font-weight:700;line-height:1.3;}
+.bot-stats-detail-drawer-title{margin:0;color:#edf3f8;font-size:13px;font-weight:850;}
+.bot-stats-detail-drawer-close{display:grid;place-items:center;width:28px;height:28px;border:1px solid #2a394d;border-radius:6px;background:#101925;color:#b7c5d5;font-size:16px;cursor:pointer;}
+.bot-stats-detail-drawer-body{min-height:0;overflow:auto;padding:12px;overscroll-behavior:contain;}
+.bot-stats-detail-drawer-body .bot-stats-details-content{padding:0;}
+.bot-stats-detail-drawer-body .bot-stats-detail-section{border-color:#253246;background:#0d151f;}
+.bot-stats-detail-trigger{min-height:32px;border:1px solid #2c4059;border-radius:7px;background:#101c2a;color:#c8ddf1;padding:7px 10px;font:800 10px/1 inherit;cursor:pointer;transition:background var(--stats-motion-fast) var(--stats-ease),border-color var(--stats-motion-fast) var(--stats-ease),transform var(--stats-motion-fast) var(--stats-ease);}
+.bot-stats-detail-trigger:hover{border-color:#4b6b90;background:#162638;transform:translateY(-1px);}
+body.bot-stats-detail-drawer-open{overflow:hidden;}
+.bot-stats-activity-zero{min-height:54px;}
+.bot-stats-activity-pulse-hours{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));align-items:end;gap:3px;height:72px;margin:4px 0 8px;padding:0 1px;border-bottom:1px solid #263142;}
+.bot-stats-activity-hour{position:relative;display:flex;align-items:flex-end;justify-content:center;height:100%;min-width:0;border:0;background:transparent;padding:0;cursor:pointer;}
+.bot-stats-activity-hour-stack{display:flex;flex-direction:column-reverse;width:100%;height:calc(100% - 4px);overflow:hidden;border-radius:3px 3px 1px 1px;background:#202c3b;}
+.bot-stats-activity-hour.is-zero .bot-stats-activity-hour-stack{height:2px;background:#263142;}
+.bot-stats-activity-hour-segment{flex:0 0 var(--hour-height,0%);min-height:0;}
+.bot-stats-activity-hour-segment.inbound{background:#60a5fa}.bot-stats-activity-hour-segment.bot{background:#2dd4bf}.bot-stats-activity-hour-segment.manager{background:#f59e0b}
+.bot-stats-activity-hour-label{position:absolute;bottom:-14px;color:#657386;font-size:7px;font-weight:750;line-height:1;}
+@media(max-width:880px){.bot-stats-decision-rail{grid-template-columns:repeat(3,minmax(0,1fr));}.bot-stats-detail-modules{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:680px){.bot-stats-detail-modules{grid-template-columns:minmax(0,1fr);}}
+@media(max-width:560px){.bot-stats-decision-rail{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-stats-decision-slot{min-height:92px;padding:10px;}.bot-stats-decision-value{font-size:22px;}.bot-stats-detail-drawer{place-items:end stretch;padding:0;}.bot-stats-detail-drawer-backdrop{display:none;}.bot-stats-detail-drawer-panel{width:100%;height:auto;max-height:min(86dvh,720px);border-width:1px 0 0;border-radius:10px 10px 0 0;box-shadow:0 -20px 60px rgba(0,0,0,.48);transform:translateY(0);}.bot-stats-detail-drawer-body{height:auto;max-height:calc(min(86dvh,720px) - 54px);padding-bottom:calc(12px + env(safe-area-inset-bottom));}.bot-stats-ownership-legend{grid-template-columns:minmax(0,1fr);}.bot-stats-discount-path{grid-template-columns:minmax(0,1fr);}.bot-stats-discount-node:not(:last-child)::after{display:none;}}
+@media(max-width:320px){.bot-stats-decision-rail{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-stats-decision-slot:last-child{grid-column:1/-1;}}
 .bot-stats-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
 .bot-stats-heading{min-width:0;}
 .bot-card .bot-stats-title{margin:0;color:#f2f5f9;font-size:18px;font-weight:800;line-height:1.25;text-transform:none;}
@@ -164,6 +250,7 @@
 .bot-stats-secondary-item{min-width:0;background:#0b1119;padding:10px;}
 .bot-stats-secondary-item b{display:block;color:#e4e9ef;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;}
 .bot-stats-secondary-item span{display:block;margin-top:3px;color:#778598;font-size:9.5px;font-weight:700;line-height:1.35;}
+.bot-stats-secondary-item small{display:block;margin-top:5px;color:#53657b;font-size:8px;font-weight:750;line-height:1.25;}
 .bot-stats-activity-chart{margin-bottom:10px;}
 .bot-stats-activity-head{align-items:center;}
 .bot-stats-activity-legend{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;color:#7e8b9d;font-size:9.5px;font-weight:700;}
@@ -243,6 +330,14 @@
 .bot-stats-flow-label{display:block;overflow:hidden;color:#aebacc;font-size:9.5px;font-weight:800;line-height:1.25;text-overflow:ellipsis;}
 .bot-stats-flow-rail{position:relative;height:5px;overflow:hidden;border-radius:3px;background:#1a2635;box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);}
 .bot-stats-flow-fill{display:block;width:var(--flow-width,0%);height:100%;border-radius:inherit;background:var(--flow-step-color,#60a5fa);transition:width var(--stats-motion-slow) var(--stats-ease);}
+.bot-stats-flow-segments{display:flex;width:100%;height:100%;overflow:hidden;border-radius:inherit;}
+.bot-stats-flow-segment{display:block;width:var(--segment-width,0%);height:100%;min-width:0;transition:width var(--stats-motion-slow) var(--stats-ease);}
+.bot-stats-flow-segment.is-advanced{background:#2dd4bf;}
+.bot-stats-flow-segment.is-lost{background:#ef7d68;}
+.bot-stats-flow-segment.is-in-progress{background:#d4a85e;}
+.bot-stats-flow-segment.is-unknown{width:100%;background:#526174;}
+.bot-stats-flow-step.is-unreconciled .bot-stats-flow-rail{background:#202c3b;}
+.bot-stats-flow-segment[hidden]{display:none;}
 .bot-stats-flow-step.has-value .bot-stats-flow-fill{min-width:4px;}
 .bot-stats-flow-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;min-width:0;color:#74849a;font-size:7.5px;font-weight:750;line-height:1.1;}
 .bot-stats-flow-fact{display:flex;align-items:baseline;gap:3px;min-width:0;overflow:hidden;}
@@ -958,13 +1053,19 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-activity-columns.density-daily{height:118px}
   .bot-stats-activity-columns.density-weekly{height:128px}
   .bot-stats-activity-columns.density-monthly{height:132px}
-  .bot-stats-flow-lane-track{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
-  .bot-stats-flow-map.is-single .bot-stats-flow-lane-track{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
-  .bot-stats-flow-lane-track>.bot-stats-flow-step:last-child:nth-child(odd){grid-column:1/-1;}
+  .bot-stats-flow-track{gap:12px;overflow:visible;}
+  .bot-stats-flow-lane-track,.bot-stats-flow-map.is-single .bot-stats-flow-lane-track{position:relative;grid-template-columns:minmax(0,1fr);gap:6px;overflow:visible;padding-left:0;}
+  .bot-stats-flow-lane-track::before{content:'';position:absolute;top:17px;bottom:17px;left:18px;width:1px;background:#2c4254;}
+  .bot-stats-flow-lane-track>.bot-stats-flow-step:last-child:nth-child(odd){grid-column:auto;}
   .bot-stats-flow-connector{display:none;}
-  .bot-stats-flow-step{padding:8px 7px 7px;}
-  .bot-stats-flow-count{font-size:19px;}
-  .bot-stats-flow-label{font-size:9px;}
+  .bot-stats-flow-step,.bot-stats-flow-map.is-single .bot-stats-flow-step{grid-template-columns:28px minmax(0,1fr) auto;grid-template-rows:auto auto auto;min-height:76px;gap:3px 8px;padding:8px 9px;overflow:visible;}
+  .bot-stats-flow-index{z-index:1;grid-column:1;grid-row:1/4;align-self:stretch;align-items:center;justify-content:flex-start;flex-direction:column;padding-top:1px;}
+  .bot-stats-flow-kind{max-width:26px;writing-mode:vertical-rl;display:none;}
+  .bot-stats-flow-node{background:#101a27;}
+  .bot-stats-flow-count{grid-column:2;grid-row:1;font-size:19px;}
+  .bot-stats-flow-label{grid-column:2;grid-row:2;overflow:visible;font-size:9.5px;text-overflow:clip;}
+  .bot-stats-flow-rail{grid-column:2/4;grid-row:3;}
+  .bot-stats-flow-facts{grid-column:3;grid-row:1/3;align-content:center;min-width:76px;}
   .bot-stats-flow-detail{grid-template-columns:1fr;align-items:start;}
   .bot-stats-flow-detail-value{justify-content:flex-start;}
   .bot-stats-flow-detail-hint{display:none;}
@@ -1032,7 +1133,7 @@ body.bot-drawer-open{overflow:hidden;}
   .bot-stats-attribution-segment strong{font-size:9px}
   .bot-stats-attribution-segment span{font-size:9px}
 }
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter,.bot-stats-flow-detail{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-context-step,.bot-stats-context-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row,.bot-stats-flow-step,.bot-stats-flow-connector{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active,.bot-stats-context-step:hover,.bot-stats-context-step:focus-visible,.bot-stats-context-step.is-active,.bot-stats-flow-step:hover,.bot-stats-flow-step:focus-visible,.bot-stats-flow-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action,.bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon,.bot-client-row.has-live-activity::before,.bot-stats-kpi,.bot-stats-analysis-card,.bot-stats-alert,.bot-stats-value,.bot-stats-value-old,.bot-stats-refresh-mark,.bot-stats-skeleton-card::after,.bot-stats-skeleton-panel::after,.bot-stats-content.bot-stats-view-enter,.bot-stats-flow-detail{animation:none!important}.bot-clients-workspace,.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer,.bot-stats-bar-fill,.bot-stats-activity-segment,.bot-stats-activity-stack,.bot-stats-activity-tooltip,.bot-stats-activity-pulse-segment,.bot-stats-ring-segment,.bot-stats-attribution-ring,.bot-stats-ad-signal-step,.bot-stats-ad-signal-fill,.bot-stats-context-step,.bot-stats-context-fill,.bot-stats-product-row,.bot-stats-product-image,.bot-stats-disclosure-body,.bot-stats-custom-body,.bot-stats-tooltip,.bot-stats-refresh,.bot-stats-period-btn,.bot-stats-view-btn,.bot-stats-kpi,.bot-stats-campaign-row,.bot-stats-flow-step,.bot-stats-flow-connector,.bot-stats-flow-fill,.bot-stats-flow-segment,.bot-stats-detail-drawer,.bot-stats-detail-drawer-panel,.bot-stats-mini-rail>i,.bot-stats-ownership-bar i{transition:none!important}.bot-stats-flow-step,.bot-stats-flow-connector,.bot-stats-flow-fill{transition:none!important}.bot-stats-ad-signal-step:hover,.bot-stats-ad-signal-step:focus-visible,.bot-stats-ad-signal-step.is-active,.bot-stats-context-step:hover,.bot-stats-context-step:focus-visible,.bot-stats-context-step.is-active,.bot-stats-flow-step:hover,.bot-stats-flow-step:focus-visible,.bot-stats-flow-step.is-active{transform:none}.bot-client-row.is-live-moving{transform:none!important;will-change:auto!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -1402,6 +1503,20 @@ body.bot-drawer-open{overflow:hidden;}
       </div>
     </div>
   </section>
+
+  <div id="bot-stats-detail-drawer" class="bot-stats-detail-drawer" data-detail-drawer hidden>
+    <button type="button" class="bot-stats-detail-drawer-backdrop" data-stats-detail-backdrop aria-label="Закрити детальні дані"></button>
+    <section class="bot-stats-detail-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="bot-stats-detail-drawer-title" aria-describedby="bot-stats-detail-drawer-description" tabindex="-1">
+      <header class="bot-stats-detail-drawer-head">
+        <div>
+          <h2 id="bot-stats-detail-drawer-title" class="bot-stats-detail-drawer-title" data-detail-drawer-title tabindex="-1">Детальні дані</h2>
+          <p id="bot-stats-detail-drawer-description" class="bot-stats-detail-drawer-definition">Когортні факти та діагностика за вибраний період.</p>
+        </div>
+        <button type="button" class="bot-stats-detail-drawer-close" data-stats-detail-close data-detail-drawer-close aria-label="Закрити">×</button>
+      </header>
+      <div id="bot-stats-detail-drawer-body" class="bot-stats-detail-drawer-body"></div>
+    </section>
+  </div>
 
   {% if not meta_bot_reviewer_mode %}
   <!-- ===== Замовлення ===== -->
@@ -2823,6 +2938,18 @@ body.bot-drawer-open{overflow:hidden;}
     return {load:load,openClient:openClient,renderOrderCard:renderOrderCard};
   })();
 
+  /* ============ Stats detail drawer ============ */
+  const StatsDetailDrawer=(function(){
+    const drawer=document.getElementById('bot-stats-detail-drawer');const panel=drawer&&drawer.querySelector('.bot-stats-detail-drawer-panel');const body=document.getElementById('bot-stats-detail-drawer-body');const title=document.getElementById('bot-stats-detail-drawer-title');let returnFocus=null;
+    function focusable(){return panel?Array.from(panel.querySelectorAll('button,a,input,select,textarea,[tabindex]:not([tabindex="-1"])')).filter(item=>!item.disabled&&item.offsetParent!==null):[];}
+    function close({restoreFocus=true}={}){if(!drawer||drawer.hidden)return;drawer.hidden=true;document.body.classList.remove('bot-stats-detail-drawer-open');const trigger=returnFocus;returnFocus=null;if(restoreFocus&&trigger&&document.contains(trigger))trigger.focus({preventScroll:true});}
+    function trap(event){if(!drawer||drawer.hidden||event.key!=='Tab')return;const items=focusable();if(!items.length){event.preventDefault();panel.focus();return;}const first=items[0],last=items[items.length-1];if(document.activeElement===title){event.preventDefault();(event.shiftKey?last:first).focus();return;}if(document.activeElement===panel||!panel.contains(document.activeElement)){event.preventDefault();first.focus();}else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
+    function open(trigger,html,heading='Детальні дані'){if(!drawer||!panel||!body||!title)return;returnFocus=trigger||document.activeElement;title.textContent=heading;body.innerHTML=html||'<div class="bot-stats-empty-analysis">Немає додаткових даних.</div>';drawer.hidden=false;document.body.classList.add('bot-stats-detail-drawer-open');requestAnimationFrame(()=>title.focus({preventScroll:true}));}
+    if(drawer){drawer.querySelectorAll('[data-stats-detail-close]').forEach(button=>button.addEventListener('click',()=>close()));const backdrop=drawer.querySelector('[data-stats-detail-backdrop]');if(backdrop)backdrop.addEventListener('click',()=>{if(window.matchMedia('(min-width:561px)').matches)close();});drawer.addEventListener('keydown',trap);}
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drawer&&!drawer.hidden){event.preventDefault();event.stopImmediatePropagation();close();}});
+    return {open:open,close:close,isOpen:()=>Boolean(drawer&&!drawer.hidden)};
+  })();
+
   /* ============ Stats ============ */
   const Stats=(function(){
     const box=document.getElementById('bot-stats-content');
@@ -2852,6 +2979,7 @@ body.bot-drawer-open{overflow:hidden;}
     let retrySelection=null;
     let activeView='overview';
     const viewOrder=['overview','ads','products'];
+    const selection={kind:'',id:'',basis:''};
     const objectionLabels={
       price:'Дорого',price_objection:'Дорого',prepayment:'Передоплата',prepayment_objection:'Передоплата',
       size:'Розмір',size_concern:'Розмір',thinking:'Потрібен час подумати',no_reply:'Не відповідає',
@@ -2884,12 +3012,45 @@ body.bot-drawer-open{overflow:hidden;}
       {key:'paid',label:'Підтверджені оплати',icon:'✓',tone:'paid'},
       {key:'lost_or_refused',label:'Відмови / втрати',icon:'↓',tone:'loss'}
     ];
+    const decisionRailSpecs=[
+      {key:'conversations',label:'Діалоги',icon:'◫',basis:'visible_senders_in_period',timeField:'provider_created_at_or_created_at',completeness:'complete',tone:'neutral',source:'activity'},
+      {key:'messages',label:'Повідомлення',icon:'⇄',basis:'visible_messages_in_period',timeField:'provider_created_at_or_created_at',completeness:'complete',tone:'info',source:'activity'},
+      {key:'paylinks',label:'Посилання на оплату',icon:'↗',basis:'paylink_issued_event_cohort',timeField:'occurred_at',completeness:'event_cohort',tone:'info',source:'funnel'},
+      {key:'paid',label:'Підтверджені оплати',icon:'✓',basis:'verified_payment_events',timeField:'paid_at',completeness:'complete',tone:'paid',source:'revenue'},
+      {key:'known_net_revenue',label:'Відомий чистий дохід',icon:'₴',basis:'verified_priced_payments',timeField:'paid_at',completeness:'partial',tone:'revenue',source:'revenue'}
+    ];
     function num(value){const parsed=Number(value);return Number.isFinite(parsed)?parsed:0;}
     function totals(data){return data&&data.totals||{};}
     function metricValue(data,key){
       const values=totals(data);
       if(key==='conversations')return num(values.unique_conversations!==undefined?values.unique_conversations:values.conversations);
       return num(values[key]);
+    }
+    function decisionValue(data,spec){
+      const values=totals(data);const funnel=new Map(((data&&data.funnel)||[]).map(row=>[String(row.step||''),num(row.entered)]));
+      if(spec.key==='paylinks')return funnel.has('paylink_issued')?funnel.get('paylink_issued'):num(values.paylinks_issued);
+      if(spec.key==='known_net_revenue'){
+        const revenue=data&&data.revenue||{};const priced=num(revenue.priced_payment_count);const known=revenue.known_net_revenue;
+        return priced>0&&known!==null&&known!==undefined&&known!==''?Number(known):null;
+      }
+      if(spec.key==='paid'){
+        const revenue=data&&data.revenue||{};return revenue.verified_payment_count!==undefined?num(revenue.verified_payment_count):num(values.paid);
+      }
+      return metricValue(data,spec.key);
+    }
+    function decisionContract(data,spec){
+      const modules=data&&data.modules||{};const module=modules[spec.source]||{};const metrics=module.metrics||{};const contract=metrics[spec.key]||{};
+      return {basis:contract.basis||spec.basis,timeField:contract.time_field||spec.timeField,completeness:contract.completeness||spec.completeness};
+    }
+    function renderDecisionRail(data,previous){
+      const samePeriod=Boolean(previous&&statsPeriodKey(previous)===statsPeriodKey(data));
+      const cells=decisionRailSpecs.map((spec,index)=>{
+        const contract=decisionContract(data,spec);const value=decisionValue(data,spec);const previousValue=previous?decisionValue(previous,spec):value;const changed=value!==null&&previousValue!==null&&value!==previousValue;const revenue=data&&data.revenue||{};const incomplete=spec.key==='known_net_revenue'&&(!num(revenue.priced_payment_count)||String(revenue.status||'')!=='complete');
+        const valueText=value===null?'—':(spec.key==='known_net_revenue'?moneyFormat.format(value)+' грн':numberFormat.format(value));
+        const coverage=incomplete?'Покриття суми · '+numberFormat.format(num(revenue.amount_coverage_percent))+'%':spec.key==='paid'?'події оплати · '+esc(contract.timeField):esc(contract.basis);
+        return '<article class="bot-stats-decision-slot '+(spec.tone==='paid'?'is-paid ':'')+(spec.tone==='revenue'?'is-revenue ':'')+(changed&&samePeriod?'is-important-change ':'')+'" data-stats-primary="'+spec.key+'" data-stats-basis="'+esc(contract.basis)+'" data-stats-time-field="'+esc(contract.timeField)+'" data-stats-completeness="'+esc(contract.completeness)+'" style="--reveal-order:'+index+'"><div class="bot-stats-decision-top"><span aria-hidden="true">'+spec.icon+'</span>'+helpMarkup('decision-'+spec.key,metricHelp[spec.key]||contract.basis)+'</div><strong class="bot-stats-decision-value">'+esc(valueText)+'</strong><span class="bot-stats-decision-label">'+esc(spec.label)+'</span><span class="bot-stats-decision-meta '+(incomplete?'is-warning':'')+'" title="'+esc(contract.basis)+' · '+esc(contract.timeField)+'">'+coverage+'</span></article>';
+      }).join('');
+      return '<section class="bot-stats-decision-rail" aria-label="Ключові показники за період">'+cells+'</section>';
     }
     function helpMarkup(key,help){
       const tooltipId='bot-stats-help-'+key;
@@ -2989,28 +3150,39 @@ body.bot-drawer-open{overflow:hidden;}
       return '<section class="bot-stats-context-bridge" data-context-population="'+population+'" aria-label="Загальний потік · реклама ще не підтверджена"><div class="bot-stats-context-head"><div><h4>Загальний потік</h4><span>Загальний потік · реклама ще не підтверджена</span></div><strong class="bot-stats-context-status">Потрібна рекламна прив’язка</strong></div><div class="bot-stats-context-path">'+steps+'</div><div id="bot-stats-context-detail" class="bot-stats-context-detail" data-context-detail role="status" aria-live="polite" hidden><strong data-context-detail-label></strong><span data-context-detail-value></span></div></section>';
     }
     function flowRows(data){
-      const source=(data&&data.funnel||[]).map((row,index)=>({key:String(row.step||index),label:String(row.label||row.step||'Подія'),count:num(row.entered),advanced:num(row.advanced),dropOff:num(row.drop_off),inProgress:num(row.in_progress),crPercent:row.cr_percent===null||row.cr_percent===undefined?null:num(row.cr_percent),lowSample:Boolean(row.low_sample)}));
+      const source=(data&&data.funnel||[]).map((row,index)=>{const hasLoss=row.drop_off!==null&&row.drop_off!==undefined;const hasAdvanced=row.advanced!==null&&row.advanced!==undefined;const hasProgress=row.in_progress!==null&&row.in_progress!==undefined;const count=num(row.entered);const advanced=hasAdvanced?num(row.advanced):null;const dropOff=hasLoss?Math.max(0,num(row.drop_off)):null;const inProgress=hasProgress?num(row.in_progress):null;const segmentsReconciled=Boolean(row.reconciled)&&hasAdvanced&&hasLoss&&hasProgress&&count===advanced+dropOff+inProgress;const segmentFactsAvailable=segmentsReconciled&&advanced!==null&&dropOff!==null&&inProgress!==null;return {key:String(row.step||index),label:String(row.label||row.step||'Подія'),count,advanced,dropOff,inProgress,crPercent:row.cr_percent===null||row.cr_percent===undefined?null:num(row.cr_percent),lowSample:Boolean(row.low_sample),reconciled:Boolean(row.reconciled),hasLoss,segmentsReconciled:segmentFactsAvailable};});
       const first=source.length?source[0].count:0;const max=Math.max(0,...source.map(row=>row.count));
-      const monotonic=source.every((row,index)=>index===0||row.count<=source[index-1].count);
-      const rows=source.map(row=>{const percent=monotonic&&first?Math.round(row.count*100/first):null;const width=monotonic&&first?Math.round(row.count*100/first):(max?Math.round(row.count*100/max):0);return {...row,percent,width:Math.max(0,Math.min(100,width))};});
-      const explicitLosses=rows.map((row,index)=>({index,row,loss:Math.max(0,row.dropOff)})).filter(item=>item.loss>0).sort((a,b)=>b.loss-a.loss);
+      const rows=source.map(row=>{const width=max?Math.round(row.count*100/max):0;return {...row,percent:null,width:Math.max(0,Math.min(100,width)),basis:'entry_event_same_window'};});
+      const eligibleForConversion=row=>row.reconciled&&!row.lowSample&&row.crPercent!==null;
+      const eligibleBottleneck=row=>row.hasLoss&&row.reconciled&&!row.lowSample&&row.crPercent!==null;
+      const explicitLosses=rows.map((row,index)=>({index,row,loss:Math.max(0,row.dropOff)})).filter(item=>item.loss>0&&eligibleBottleneck(item.row)).sort((a,b)=>b.loss-a.loss);
       const explicitBottleneck=explicitLosses[0]||null;
-      return {monotonic,first,max,rows,explicitBottleneck};
+      return {first,max,rows,explicitBottleneck,eligibleForConversion,eligibleBottleneck,basis:'entry_event_same_window'};
     }
     function funnelRows(data){return flowRows(data);}
     function barWidth(previousRows,key){const row=(previousRows||[]).find(item=>item.key===key);return row?row.width:0;}
     function renderFlowMap(data,previous,title='Шлях до оплати'){
-      const model=flowRows(data);const rows=model.rows;const hasFacts=rows.some(row=>row.count||row.advanced||row.dropOff||row.inProgress);const previousRows=previous?flowRows(previous).rows:[];const period=data&&data.period||{};const rangeMode=String(data&&data.range_mode||period.mode||'preset');const rangeStart=String(data&&data.date_from||period.date_from||'');const rangeEnd=String(data&&data.date_to||period.date_to||'');const rangeSpan=rangeStart&&rangeEnd?Math.max(1,Math.round((Date.parse(rangeEnd+'T00:00:00Z')-Date.parse(rangeStart+'T00:00:00Z'))/86400000)+1):1;const rangeDays=rangeMode==='all'?30:Math.max(1,num(data&&data.range_days||rangeSpan));const density=rangeDays<=1?'single':rangeDays<=7?'compact':'dense';
+      const model=flowRows(data);const rows=model.rows;const hasFacts=rows.some(row=>row.count||row.advanced||row.dropOff||row.inProgress);const previousRows=previous?flowRows(previous).rows:[];const period=data&&data.period||{};const rangeMode=String(data&&data.range_mode||period.mode||'preset');const rangeStart=String(data&&data.date_from||period.date_from||'');const rangeEnd=String(data&&data.date_to||period.date_to||'');const rangeSpan=rangeStart&&rangeEnd?Math.max(1,Math.round((Date.parse(rangeEnd+'T00:00:00Z')-Date.parse(rangeStart+'T00:00:00Z'))/86400000)+1):1;const rangeDays=rangeMode==='all'?30:Math.max(1,num(data&&data.range_days||rangeSpan));const density=rangeDays<=1?'single':rangeDays<=7?'compact':'dense';const displayCount=value=>value===null?'—':numberFormat.format(value);const dataCount=value=>value===null?'':value;
       const bottleneck=model.explicitBottleneck;
-      const bottleneckMarkup=bottleneck?'<span class="bot-stats-bottleneck" title="Підтверджений відсів, зафіксований на цьому етапі">Втрачено на етапі · '+esc(bottleneck.row.label)+' · −'+numberFormat.format(bottleneck.loss)+'</span>':'<span class="bot-stats-section-meta">'+(model.monotonic?'Переходи між сусідніми етапами':'Окремі події · без оцінки відсіву')+'</span>';
+      const bottleneckMarkup=bottleneck?'<span class="bot-stats-bottleneck" title="Підтверджений відсів, зафіксований на цьому етапі">Втрачено на етапі · '+esc(bottleneck.row.label)+' · −'+numberFormat.format(bottleneck.loss)+'</span>':'<span class="bot-stats-section-meta">Кожен етап · окрема когорта входу</span>';
       const emptyMarkup='<section class="bot-stats-analysis-card bot-stats-flow-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">0 фактів</span></div><div class="bot-stats-empty-analysis">За вибраний період подій ще не зафіксовано.</div></section>';
       if(!hasFacts)return emptyMarkup;
       if(!rows.length)return emptyMarkup;
-      const laneSize=5;const scale=model.monotonic?'start':'max';
-      const stepMarkup=(row,index)=>{const isBottleneck=Boolean(bottleneck&&bottleneck.index===index);const isPaidStage=/payment_confirmed|order_created|ttn_created|delivered/.test(row.key);const isPaid=Boolean(isPaidStage&&row.count);const shareValid=model.monotonic&&!row.lowSample&&row.crPercent!==null;const shareLabel=shareValid?row.crPercent+'% перейшли далі':(model.monotonic&&row.lowSample?'мала вибірка':'окремий сигнал');const connector=(index+1)%laneSize&&index<rows.length-1?'<span class="bot-stats-flow-connector" aria-hidden="true"></span>':'';return '<button type="button" class="bot-stats-flow-step'+(row.count?' has-value':' is-zero')+(row.advanced?' has-advance':'')+(isPaid?' is-paid':'')+(isBottleneck?' is-bottleneck':'')+'" data-flow-step="'+esc(row.key)+'" data-flow-label="'+esc(row.label)+'" data-flow-entered="'+row.count+'" data-flow-advanced="'+row.advanced+'" data-flow-drop-off="'+row.dropOff+'" data-flow-in-progress="'+row.inProgress+'" data-flow-percent="'+(row.percent===null?'':row.percent)+'" data-flow-cr-percent="'+(shareValid?row.crPercent:'')+'" data-flow-low-sample="'+(row.lowSample?'true':'false')+'" data-flow-population="'+model.first+'" data-flow-width="'+row.width+'" data-flow-scale="'+scale+'" aria-controls="bot-stats-flow-detail" aria-pressed="false" aria-label="'+esc(row.label)+': '+numberFormat.format(row.count)+' увійшли, '+numberFormat.format(row.advanced)+' перейшли, '+numberFormat.format(row.dropOff)+' втрачено, '+esc(shareLabel)+'" style="--flow-width:0%"><span class="bot-stats-flow-index"><span class="bot-stats-flow-node" aria-hidden="true">'+(index+1)+'</span><span class="bot-stats-flow-kind">'+(isPaidStage?'покупка':model.monotonic?'етап':'сигнал')+'</span></span><strong class="bot-stats-flow-count">'+numberFormat.format(row.count)+'</strong><span class="bot-stats-flow-label">'+esc(row.label)+'</span><span class="bot-stats-flow-rail" aria-hidden="true"><span class="bot-stats-flow-fill" data-flow-width="'+row.width+'" style="--flow-width:'+barWidth(previousRows,row.key)+'%"></span></span><span class="bot-stats-flow-facts"><span class="bot-stats-flow-fact"><b>'+numberFormat.format(row.advanced)+'</b><small>далі</small></span><span class="bot-stats-flow-fact is-loss"><b>'+numberFormat.format(row.dropOff)+'</b><small>відсів</small></span></span>'+connector+'</button>';};
-      const laneNames=['Діалог і вибір','Оплата й виконання'];const lanes=[];for(let start=0;start<rows.length;start+=laneSize){const laneRows=rows.slice(start,start+laneSize);const laneIndex=Math.floor(start/laneSize);lanes.push('<section class="bot-stats-flow-lane" aria-label="'+esc(laneNames[laneIndex]||'Продовження шляху')+'"><div class="bot-stats-flow-lane-head"><b>'+(laneIndex+1)+'</b><span>'+esc(laneNames[laneIndex]||'Продовження шляху')+'</span></div><div class="bot-stats-flow-lane-track" style="--flow-lane-count:'+Math.min(laneSize,laneRows.length)+'">'+laneRows.map((row,offset)=>stepMarkup(row,start+offset)).join('')+'</div></section>');}
+      const laneSize=5;const scale='max';
+      const stepMarkup=(row,index)=>{
+        const isBottleneck=Boolean(bottleneck&&bottleneck.index===index);
+        const isPaidStage=/payment_confirmed|order_created|ttn_created|delivered/.test(row.key);
+        const isPaid=Boolean(isPaidStage&&row.count);
+        const shareValid=model.eligibleForConversion(row);
+        const shareLabel=shareValid?row.crPercent+'% перейшли далі':row.lowSample?'мала вибірка':!row.reconciled?'звірка недоступна':'окрема когорта';
+        const segmentFactsAvailable=row.segmentsReconciled&&row.advanced!==null&&row.dropOff!==null&&row.inProgress!==null;
+        const segmentMarkup=segmentFactsAvailable?'<span class="bot-stats-flow-segments"><span class="bot-stats-flow-segment is-advanced" data-flow-segment="advanced" style="--segment-width:'+Math.round(row.advanced*100/Math.max(1,row.count))+'%"></span><span class="bot-stats-flow-segment is-lost" data-flow-segment="lost" style="--segment-width:'+Math.round(row.dropOff*100/Math.max(1,row.count))+'%"></span><span class="bot-stats-flow-segment is-in-progress" data-flow-segment="in_progress" style="--segment-width:'+Math.round(row.inProgress*100/Math.max(1,row.count))+'%"></span></span>':'<span class="bot-stats-flow-segment is-unknown" data-flow-segment="unknown"></span>';
+        const connector=(index+1)%laneSize&&index<rows.length-1?'<span class="bot-stats-flow-connector" aria-hidden="true"></span>':'';
+        return '<button type="button" class="bot-stats-flow-step'+(row.count?' has-value':' is-zero')+(row.advanced?' has-advance':'')+(isPaid?' is-paid':'')+(isBottleneck?' is-bottleneck is-largest-loss':'')+(!segmentFactsAvailable?' is-unreconciled':'')+'" data-flow-step="'+esc(row.key)+'" data-flow-label="'+esc(row.label)+'" data-selection-basis="event_cohort" data-flow-cohort-basis="entry_event_same_window" data-flow-entered="'+dataCount(row.count)+'" data-flow-advanced="'+dataCount(row.advanced)+'" data-flow-drop-off="'+dataCount(row.dropOff)+'" data-flow-in-progress="'+dataCount(row.inProgress)+'" data-funnel-entered="'+dataCount(row.count)+'" data-funnel-advanced="'+dataCount(row.advanced)+'" data-funnel-lost="'+dataCount(row.dropOff)+'" data-funnel-progress="'+dataCount(row.inProgress)+'" data-funnel-denominator="entered" data-funnel-largest-loss="'+(isBottleneck?'true':'false')+'" data-flow-percent="" data-flow-cr-percent="'+(shareValid?row.crPercent:'')+'" data-flow-low-sample="'+(row.lowSample?'true':'false')+'" data-flow-reconciled="'+(row.reconciled?'true':'false')+'" data-flow-segments-reconciled="'+(segmentFactsAvailable?'true':'false')+'" data-flow-population="'+model.max+'" data-flow-width="'+row.width+'" data-flow-scale="'+scale+'" aria-controls="bot-stats-flow-detail" aria-pressed="false" aria-label="'+esc(row.label)+': '+displayCount(row.count)+' увійшли, '+displayCount(row.advanced)+' перейшли, '+displayCount(row.dropOff)+' втрачено, '+displayCount(row.inProgress)+' у процесі, '+esc(shareLabel)+'" style="--flow-width:0%"><span class="bot-stats-flow-index"><span class="bot-stats-flow-node" aria-hidden="true">'+(index+1)+'</span><span class="bot-stats-flow-kind">'+(isPaidStage?'покупка':'етап')+'</span></span><strong class="bot-stats-flow-count">'+displayCount(row.count)+'</strong><span class="bot-stats-flow-label">'+esc(row.label)+'</span><span class="bot-stats-flow-rail" aria-hidden="true">'+segmentMarkup+'</span><span class="bot-stats-flow-facts"><span class="bot-stats-flow-fact"><b>'+displayCount(row.advanced)+'</b><small>далі</small></span><span class="bot-stats-flow-fact is-loss"><b>'+displayCount(row.dropOff)+'</b><small>відсів</small></span><span class="bot-stats-flow-fact"><b>'+displayCount(row.inProgress)+'</b><small>у процесі</small></span></span>'+(!segmentFactsAvailable?'<span class="bot-stats-flow-integrity">Розподіл етапу не звірений</span>':'')+connector+'</button>';
+      };
+      const laneNames=['Діалог і вибір','Оплата й виконання'];const lanes=[];for(let start=0;start<rows.length;start+=laneSize){const laneRows=rows.slice(start,start+laneSize);const laneIndex=Math.floor(start/laneSize);lanes.push('<section class="bot-stats-flow-lane" aria-label="'+esc(laneNames[laneIndex]||'Продовження шляху')+'"><div class="bot-stats-flow-lane-head"><b>'+(laneIndex+1)+'</b><span>'+esc(laneNames[laneIndex]||'Продовження шляху')+'</span></div><div class="bot-stats-flow-lane-track" style="--flow-lane-count:'+laneSize+'">'+laneRows.map((row,offset)=>stepMarkup(row,start+offset)).join('')+'</div></section>');}
       const totalFacts=rows.reduce((sum,row)=>sum+row.count,0);const activeSteps=rows.filter(row=>row.count>0).length;const summary='<div class="bot-stats-flow-summary"><span>Старт <strong>'+numberFormat.format(model.first)+'</strong></span><span class="'+(bottleneck?'is-warning':'')+'">'+(bottleneck?'Макс. відсів −'+numberFormat.format(bottleneck.loss):'Відсів не зафіксовано')+'</span><span>Фактів <strong>'+numberFormat.format(totalFacts)+'</strong> · '+activeSteps+'/'+rows.length+'</span></div>';
-      return '<section class="bot-stats-analysis-card bot-stats-flow-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3>'+bottleneckMarkup+'</div><div class="bot-stats-flow-map '+(density==='single'?'is-single ':density==='dense'?'is-sparse ':'')+(!model.monotonic?'is-non-monotonic ':'')+'" data-flow-map data-flow-density="'+density+'" data-flow-range-days="'+rangeDays+'" data-flow-count="'+rows.length+'" data-flow-monotonic="'+(model.monotonic?'true':'false')+'" data-flow-scale="'+scale+'"><div class="bot-stats-flow-track">'+lanes.join('')+'</div>'+summary+'<div id="bot-stats-flow-detail" class="bot-stats-flow-detail" data-flow-detail role="status" aria-live="polite" hidden><strong data-flow-detail-label></strong><span class="bot-stats-flow-detail-value" data-flow-detail-value></span><span class="bot-stats-flow-detail-hint">Escape · закрити</span></div></div></section>';
+      return '<section class="bot-stats-analysis-card bot-stats-flow-card" style="--reveal-order:5"><div class="bot-stats-section-head"><h3 class="bot-stats-section-title">'+esc(title)+'</h3>'+bottleneckMarkup+'</div><div class="bot-stats-flow-map '+(density==='single'?'is-single ':density==='dense'?'is-sparse ':'')+'" data-flow-map data-flow-mobile="timeline" data-flow-density="'+density+'" data-flow-range-days="'+rangeDays+'" data-flow-count="'+rows.length+'" data-flow-cohort-basis="entry_event_same_window" data-flow-scale="'+scale+'"><div class="bot-stats-flow-track">'+lanes.join('')+'</div>'+summary+'<div id="bot-stats-flow-detail" class="bot-stats-flow-detail" data-flow-detail role="status" aria-live="polite" hidden><strong data-flow-detail-label></strong><span class="bot-stats-flow-detail-value" data-flow-detail-value></span><span class="bot-stats-flow-detail-hint">Escape · закрити</span></div></div></section>';
     }
     function renderFunnel(data,previous,title='Шлях до оплати'){return renderFlowMap(data,previous,title);}
     function seriesMap(data){return new Map((((data||{}).message_series||{}).items||[]).map(row=>[String(row.bucket),row]));}
@@ -3050,19 +3222,20 @@ body.bot-drawer-open{overflow:hidden;}
       return '<section class="bot-stats-analysis-card bot-stats-composition" style="--reveal-order:4"><div class="bot-stats-section-head"><div><h3 class="bot-stats-section-title">Склад повідомлень</h3><span class="bot-stats-section-meta">частка від усіх повідомлень</span></div></div><div class="bot-stats-composition-body"><div class="bot-stats-composition-ring" data-ring-value="'+total+'" role="img" aria-label="Склад повідомлень: '+numberFormat.format(total)+'" style="--ring-background:'+background+'"><div class="bot-stats-composition-center"><strong>'+numberFormat.format(total)+'</strong><span>повідомлень</span></div></div><div class="bot-stats-composition-legend">'+legend+'</div></div></section>';
     }
     function renderActivity(data,previous,title='Активність повідомлень',contextLabel=''){
-      const messageSeries=data&&data.message_series||{};const series=messageSeries.items||[];const density=activityDensity(series,data);const previousRows=seriesMap(previous);const granularity=messageSeries.granularity||'day';
+      const messageSeries=data&&data.message_series||{};const hourlyItems=Array.isArray(messageSeries.hourly_items)?messageSeries.hourly_items:[];const rawSeries=messageSeries.items||[];const density=activityDensity(rawSeries,data);const series=density==='single'&&hourlyItems.length?hourlyItems:rawSeries;const previousRows=seriesMap(previous);const granularity=messageSeries.granularity||'day';
       const meta=(contextLabel?esc(contextLabel)+' · ':'')+(density==='single'?'одноденний pulse':density==='compact'?'щоденні інтервали · компактний масштаб':density==='daily'?'щоденні інтервали':density==='weekly'?'тижневі інтервали':'місячні інтервали');
-      const integrityWarning=messageSeries.reconciled===false&&num(messageSeries.expected_total)>0?'<span class="bot-stats-section-meta is-warning">дані потребують перевірки</span>':'';
-      if(!series.length||!messageSeries.has_data){
+      const integrityWarning=((messageSeries.reconciled===false)||(density==='single'&&messageSeries.hourly_reconciled===false))&&num(messageSeries.expected_total)>0?'<span class="bot-stats-section-meta is-warning">дані потребують перевірки</span>':'';
+      if(!series.length||(!messageSeries.has_data&&!(density==='single'&&hourlyItems.length))){
         return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-'+density+'" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-zero">За вибраний період подій немає · baseline очікує нові дані</div>'+integrityWarning+'</section>';
       }
       const maxTotal=Math.max(1,num(messageSeries.max_total),...series.map(row=>num(row.messages)));
       if(density==='single'){
-        const row=series[0]||{};const prior=previousRows.get(String(row.bucket))||{};const roleTotal=Math.max(1,num(row.messages));
-        const pulseSegment=(key,tone)=>'<span class="bot-stats-activity-pulse-segment '+tone+'" data-pulse-width="'+Math.round(num(row[key])*100/roleTotal)+'" style="--pulse-width:'+Math.round(num(prior[key])*100/Math.max(1,num(prior.messages)||roleTotal))+'%"></span>';
+        const pulseRows=hourlyItems.length?hourlyItems:series;const aggregate=pulseRows.reduce((acc,row)=>{acc.messages+=num(row.messages);acc.inbound_messages+=num(row.inbound_messages);acc.bot_replies+=num(row.bot_replies);acc.manager_messages+=num(row.manager_messages);return acc;},{messages:0,inbound_messages:0,bot_replies:0,manager_messages:0});const prior=previousRows.get(String((rawSeries[0]||{}).bucket||''))||{};const roleTotal=Math.max(1,num(aggregate.messages));
+        const pulseSegment=(key,tone)=>'<span class="bot-stats-activity-pulse-segment '+tone+'" data-pulse-width="'+Math.round(num(aggregate[key])*100/roleTotal)+'" data-activity-role="'+tone+'" style="--pulse-width:'+Math.round(num(prior[key])*100/Math.max(1,num(prior.messages)||roleTotal))+'%"></span>';
         const stats=[['inbound_messages','Клієнти','inbound'],['bot_replies','Бот','bot'],['manager_messages','Менеджер','manager']];
-        const pulseLegend=stats.map(spec=>'<div class="bot-stats-activity-pulse-stat"><strong>'+numberFormat.format(num(row[spec[0]]))+'</strong><span>'+spec[1]+'</span></div>').join('');
-        return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-single" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+' · '+esc(String(row.bucket||''))+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-pulse" aria-label="Одноденний розподіл повідомлень"><div class="bot-stats-activity-pulse-track">'+stats.map(spec=>pulseSegment(spec[0],spec[2])).join('')+'</div><div class="bot-stats-activity-pulse-legend">'+pulseLegend+'</div></div>'+integrityWarning+'</section>';
+        const pulseLegend=stats.map(spec=>'<div class="bot-stats-activity-pulse-stat"><strong>'+numberFormat.format(num(aggregate[spec[0]]))+'</strong><span>'+spec[1]+'</span></div>').join('');
+        const hourlyMax=Math.max(1,...pulseRows.map(row=>num(row.messages)));const hourGrid=pulseRows.map((hour,index)=>{const hourTotal=num(hour.messages);const label=index%3===0?String(index).padStart(2,'0'):'';const hourSegments=stats.map(spec=>'<i class="bot-stats-activity-hour-segment '+spec[2]+'" data-activity-role="'+spec[2]+'" style="--hour-height:'+Math.round(num(hour[spec[0]])*100/hourlyMax)+'%" title="'+esc(spec[1]+': '+numberFormat.format(num(hour[spec[0]])))+'"></i>').join('');return '<button type="button" class="bot-stats-activity-hour'+(hourTotal===0?' is-zero':'')+'" aria-label="'+esc(String(hour.bucket||index)+' · '+numberFormat.format(hourTotal)+' повідомлень')+'"><span class="bot-stats-activity-hour-stack">'+hourSegments+'</span><span class="bot-stats-activity-hour-label">'+label+'</span></button>';}).join('');
+        return '<section class="bot-stats-analysis-card bot-stats-activity-chart bot-stats-activity-density-single" style="--reveal-order:4"><div class="bot-stats-section-head bot-stats-activity-head"><div><h3 class="bot-stats-section-title">'+esc(title)+'</h3><span class="bot-stats-section-meta">'+meta+' · '+(hourlyItems.length?'24 години':'один день')+'</span></div><div class="bot-stats-activity-legend" aria-label="Легенда"><span><i style="--legend-color:#60a5fa"></i>Клієнт</span><span><i style="--legend-color:#2dd4bf"></i>Бот</span><span><i style="--legend-color:#f59e0b"></i>Менеджер</span></div></div><div class="bot-stats-activity-pulse" aria-label="Одноденний розподіл повідомлень"><div class="bot-stats-activity-pulse-track">'+stats.map(spec=>pulseSegment(spec[0],spec[2])).join('')+'</div><div class="bot-stats-activity-pulse-hours" aria-label="24 години">'+hourGrid+'</div><div class="bot-stats-activity-pulse-legend">'+pulseLegend+'</div></div>'+integrityWarning+'</section>';
       }
       const columns=series.map((row,index)=>{
         const prior=previousRows.get(String(row.bucket))||{};
@@ -3158,34 +3331,80 @@ body.bot-drawer-open{overflow:hidden;}
       rows.forEach(row=>{html+='<tr>';cols.forEach(col=>{const value=row[col[0]];html+='<td>'+esc(String(value===0?0:(value||'')))+'</td>';});html+='</tr>';});
       return html+'</tbody></table></div></section>';
     }
-    function renderDetails(data){
-      const cohort=(data.funnel||[]).map(row=>({stage:row.label||row.step,entered:num(row.entered),advanced:num(row.advanced),dropped:num(row.drop_off),progress:num(row.in_progress),conversion:row.low_sample?'Мало даних':String(num(row.cr_percent))+'%'}));
-      const meta=data.funnel_meta||{};
-      const manager=meta.manager_vs_bot||{};
-      const managerRows=[{name:'Бот відповів',count:num(manager.bot_replied)},{name:'Менеджер долучився',count:num(manager.manager_engaged)},{name:'Тільки бот',count:num(manager.bot_only)},{name:'Спільний цикл',count:num(manager.manager_touched)}];
-      const discounts=meta.discounts||{};
-      const discountRows=[{name:'Запропоновано',count:num(discounts.offered)},{name:'Купили після пропозиції',count:num(discounts.bought)},{name:'Купили без знижки',count:num(discounts.without_discount_bought)}];
-      const currentStages=funnelOrder.map(key=>({stage:stageLabels[key]||'Невідомий етап',count:num((data.stages||{})[key]),share:metricValue(data,'conversations')?Math.round(num((data.stages||{})[key])*100/metricValue(data,'conversations'))+'%':'0%'}));
-      const objections=Object.entries(data.objections||{}).map(([key,value])=>({name:objectionLabels[key]||'Інше',count:num(value)})).sort((a,b)=>b.count-a.count);
-      const sections=[
-        tableSection('Когортна воронка',cohort,[['stage','Етап'],['entered','Увійшли'],['advanced','Перейшли'],['dropped','Відвалились'],['progress','У процесі'],['conversion','Конверсія']]),
-        tableSection('Причини відвалу',meta.drop_off_reasons||[],[['stage','Етап'],['kind','Тип'],['reason_code','Причина'],['recoverable','Відновні'],['unrecoverable','Безповоротні'],['recovered','Повернулись']]),
-        tableSection('Час на кроці',meta.time_on_step||[],[['label','Крок'],['sample','Вибірка'],['median_hours','Медіана, год'],['p90_hours','P90, год']]),
-        tableSection('Бот і менеджер',managerRows,[['name','Показник'],['count','Епізоди']]),
-        tableSection('Знижки',discountRows,[['name','Показник'],['count','Епізоди']]),
-        tableSection('Поточний стан діалогів',currentStages,[['stage','Етап'],['count','Клієнти'],['share','Частка']]),
-        tableSection('Заперечення клієнтів',objections,[['name','Причина'],['count','Кількість']])
-      ].filter(Boolean);
-      return '<details class="bot-stats-disclosure bot-stats-details" data-stats-disclosure="details"><summary>Детальні дані</summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-details-content">'+sections.join('')+'</div></div></div></details>';
+    function compactCohortFacts(rows){
+      if(!(rows||[]).length)return '';
+      const displayFactCount=value=>value===null?'—':numberFormat.format(value);
+      const body=rows.map(row=>{const conversionUnavailable=row.crPercent===null||row.crPercent===undefined?'—':String(row.crPercent)+'%';return '<article class="bot-stats-fact-row" data-diagnostic-step="'+esc(row.key||'')+'"><strong>'+esc(row.label||row.key||'Етап')+'</strong><div class="bot-stats-fact-values"><span><b>'+displayFactCount(row.count)+'</b>увійшли</span><span><b>'+displayFactCount(row.advanced)+'</b>далі</span><span><b>'+displayFactCount(row.dropOff)+'</b>відсів</span><span><b>'+displayFactCount(row.inProgress)+'</b>у процесі</span><span><b>'+esc(row.lowSample?'Мало даних':conversionUnavailable)+'</b>CR</span></div></article>';}).join('');
+      return '<section class="bot-stats-detail-section"><h3 class="bot-stats-detail-title">Когортна воронка · точні значення</h3><div class="bot-stats-fact-list">'+body+'</div></section>';
     }
+    function detailVisualModule(title,meta,body,total=null){return '<article class="bot-stats-detail-module"><div class="bot-stats-detail-module-title"><span>'+esc(title)+'</span>'+(total===null?'':'<strong>'+numberFormat.format(Math.max(0,num(total)))+'</strong>')+'</div>'+body+(meta?'<span class="bot-stats-detail-module-meta">'+esc(meta)+'</span>':'')+'</article>';}
+    function emptyDetailVisual(message){return '<div class="bot-stats-empty-analysis">'+esc(message)+'</div>';}
+    function selectedDiagnosticRows(rows){const source=Array.isArray(rows)?rows:[];if(selection.kind!=='stage'||!selection.id)return source;return source.filter(row=>selection.id===String(row.step||''));}
+    function renderLossBars(rows,limit=4){
+      const normalized=(rows||[]).map(row=>({...row,total:num(row.recoverable)+num(row.unrecoverable)})).filter(row=>row.total>0).sort((a,b)=>b.total-a.total||reasonLabel(a).localeCompare(reasonLabel(b),'uk'));
+      const allLossTotal=normalized.reduce((sum,row)=>sum+row.total,0);const shown=normalized.slice(0,limit);const remaining=normalized.slice(limit);const remainingTotal=remaining.reduce((sum,row)=>sum+row.total,0);const recoveredTotal=normalized.reduce((sum,row)=>sum+num(row.recovered),0);
+      if(!shown.length)return detailVisualModule('Причини відсіву','когортні події втрат · stage '+(selection.id||'усі'),emptyDetailVisual(selection.kind==='stage'?'Для вибраного етапу звірених причин немає.':'Класифікованих втрат немає.'),0);
+      const max=Math.max(1,...shown.map(row=>row.total));
+      const body='<div class="bot-stats-mini-list bot-stats-loss-bars">'+shown.map(row=>{const recoverable=Math.round(num(row.recoverable)*100/max);const final=Math.round(num(row.unrecoverable)*100/max);const label=reasonLabel(row);return '<div class="bot-stats-mini-row" data-diagnostic-step="'+esc(row.step||'')+'"><span title="'+esc(label)+'">'+esc(label)+'</span><span class="bot-stats-mini-rail" role="img" aria-label="'+esc(label)+': відновні '+num(row.recoverable)+', безповоротні '+num(row.unrecoverable)+'"><i class="is-recoverable" style="--mini-width:'+recoverable+'%"></i><i class="is-final" style="--mini-width:'+final+'%"></i></span><strong>'+numberFormat.format(row.total)+'</strong></div>';}).join('')+'</div><div class="bot-stats-detail-key" aria-hidden="true"><span><i style="--key-color:#d4a85e"></i>відновні</span><span><i style="--key-color:#ef7d68"></i>безповоротні</span></div><div class="bot-stats-detail-completeness">Повернулись: '+numberFormat.format(recoveredTotal)+(remaining.length?' · remaining loss: '+numberFormat.format(remainingTotal):'')+'</div>';
+      return detailVisualModule('Причини відсіву','відновність і фінальна втрата · total до Top-N',body,allLossTotal);
+    }
+    function renderDurationPlot(rows,limit=4){
+      const available=(rows||[]).filter(row=>num(row.sample)>0||num(row.right_censored_count)>0).sort((a,b)=>num(b.p90_hours)-num(a.p90_hours)).slice(0,limit);
+      if(!available.length)return detailVisualModule('Час на кроці','медіана · P90 · завершені переходи',emptyDetailVisual('Переходів для часу ще немає.'),0);
+      const max=Math.max(1,...available.map(row=>num(row.p90_hours)));const body='<div class="bot-stats-duration-plot">'+available.map(row=>{const hasMedian=row.median_hours!==null&&row.median_hours!==undefined;const hasP90=row.p90_hours!==null&&row.p90_hours!==undefined;const median=hasMedian?Math.min(100,Math.round(num(row.median_hours)*100/max)):0;const p90=hasP90?Math.min(100,Math.round(num(row.p90_hours)*100/max)):0;const label=row.label||row.step||'Крок';return '<div class="bot-stats-duration-row" data-diagnostic-step="'+esc(row.step||'')+'"><span title="'+esc(label)+'">'+esc(label)+'</span><span class="bot-stats-duration-track" role="img" aria-label="Медіана '+(hasMedian?num(row.median_hours):'—')+' годин, P90 '+(hasP90?num(row.p90_hours):'—')+' годин, вибірка '+num(row.sample)+', праве цензурування '+num(row.right_censored_count)+'" style="--median-width:'+median+'%;--p90-width:'+p90+'%"></span><strong>M '+(hasMedian?num(row.median_hours):'—')+' · P90 '+(hasP90?num(row.p90_hours):'—')+' · n '+numberFormat.format(num(row.sample))+' · rc '+numberFormat.format(num(row.right_censored_count))+'</strong></div>';}).join('')+'</div>';
+      return detailVisualModule('Час на кроці','медіана · P90 · sample · right-censored',body,available.reduce((sum,row)=>sum+num(row.sample),0));
+    }
+    function renderLinkedDiagnostics(data,limit=4){
+      const meta=data.funnel_meta||{};const manager=meta.manager_vs_bot||(data.funnel&&data.funnel.manager_vs_bot)||{};const discounts=meta.discounts||(data.funnel&&data.funnel.discounts)||{};const timeOnStep=meta.time_on_step||(data.funnel&&data.funnel.time_on_step)||[];const linkedLoss=selectedDiagnosticRows(meta.drop_off_reasons);const linkedDuration=selectedDiagnosticRows(timeOnStep);return [renderLossBars(linkedLoss,limit),renderDurationPlot(linkedDuration,limit),renderOwnershipSplit(manager),renderDiscountBridge(discounts),renderStageBars(data.stages,limit+2),renderObjectionBars(data.objection_clients,limit+2)].join('');
+    }
+    function renderOwnershipSplit(manager){
+      const total=Math.max(0,num(manager.episodes_with_response_evidence));const parts=[['bot-only','Тільки бот',num(manager.bot_only)],['shared','Спільний цикл',num(manager.shared)],['manager-only','Тільки менеджер',num(manager.manager_only)]];
+      if(!total)return detailVisualModule('Хто відповідав','епізоди з доказом відповіді',emptyDetailVisual('Відповіді бота або менеджера не зафіксовані.'),0);
+      const bar='<div class="bot-stats-ownership-split"><div class="bot-stats-ownership-bar" role="img" aria-label="Тільки бот '+parts[0][2]+', спільний цикл '+parts[1][2]+', тільки менеджер '+parts[2][2]+'">'+parts.map(part=>'<i class="'+part[0]+'" style="--ownership-width:'+Math.round(part[2]*100/total)+'%"></i>').join('')+'</div><div class="bot-stats-ownership-legend">'+parts.map(part=>'<span>'+esc(part[1])+'<b>'+numberFormat.format(part[2])+'</b></span>').join('')+'</div></div>';
+      return detailVisualModule('Хто відповідав','взаємовиключні епізоди відповіді',bar,total);
+    }
+    function renderDiscountBridge(discounts){
+      const offered=num(discounts.offered);const bought=num(discounts.bought_after_offer);const open=num(discounts.still_open);const without=num(discounts.bought_without_known_offer);const cutoff=String(discounts.observation_cutoff||'');
+      const path='<div class="bot-stats-discount-bridge"><div class="bot-stats-discount-path"><span class="bot-stats-discount-node" style="--discount-color:#60a5fa"><b>'+numberFormat.format(offered)+'</b><span>події пропозиції</span></span><span class="bot-stats-discount-node" style="--discount-color:#34d399"><b>'+numberFormat.format(bought)+'</b><span>епізоди з оплатою після</span></span><span class="bot-stats-discount-node" style="--discount-color:#d4a85e"><b>'+numberFormat.format(open)+'</b><span>епізоди ще відкриті</span></span></div><div class="bot-stats-discount-baseline"><span>Оплати без відомої пропозиції</span><b>'+numberFormat.format(without)+'</b></div></div>';
+      return detailVisualModule('Знижка → результат',cutoff?'спостереження до '+cutoff:'межа спостереження не вказана',path,offered);
+    }
+    function renderStageBars(stages,limit=6){
+      const ranked=Object.entries(stages||{}).map(([key,value])=>({key,label:stageLabels[key]||key.replace(/_/g,' '),count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk')).slice(0,limit);
+      const population=Object.values(stages||{}).reduce((sum,value)=>sum+num(value),0);if(!ranked.length)return detailVisualModule('Поточні етапи','Поточний snapshot · клієнти без історичного cohort',emptyDetailVisual('Активних етапів у вибірці немає.'),0);
+      const max=Math.max(1,...ranked.map(row=>row.count));const body='<div class="bot-stats-mini-list bot-stats-stage-bars">'+ranked.map(row=>'<div class="bot-stats-mini-row"><span title="'+esc(row.label)+'">'+esc(row.label)+'</span><span class="bot-stats-mini-rail" aria-hidden="true"><i style="--mini-width:'+Math.round(row.count*100/max)+'%"></i></span><strong>'+numberFormat.format(row.count)+' · '+Math.round(row.count*100/Math.max(1,population))+'%</strong></div>').join('')+'</div>';
+      return detailVisualModule('Поточні етапи','Поточний snapshot · частка серед етапів',body,population);
+    }
+    function renderObjectionBars(objections,limit=6){
+      const ranked=Object.entries(objections||{}).map(([key,value])=>({key,label:objectionLabels[key]||key.replace(/_/g,' '),count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'uk')).slice(0,limit);const population=Object.values(objections||{}).reduce((sum,value)=>sum+num(value),0);
+      if(!ranked.length)return detailVisualModule('Заперечення клієнтів','клієнти · primary objection snapshot',emptyDetailVisual('Основні заперечення не зафіксовані.'),0);
+      const max=Math.max(1,...ranked.map(row=>row.count));const body='<div class="bot-stats-mini-list bot-stats-objection-bars">'+ranked.map(row=>'<div class="bot-stats-mini-row"><span title="'+esc(row.label)+'">'+esc(row.label)+'</span><span class="bot-stats-mini-rail" aria-hidden="true"><i style="--mini-width:'+Math.round(row.count*100/max)+'%"></i></span><strong>'+numberFormat.format(row.count)+'</strong></div>').join('')+'</div>';
+      return detailVisualModule('Заперечення клієнтів','клієнти · не кількість сигналів',body,population);
+    }
+    function renderDetailDrawerContent(data){
+      const meta=data.funnel_meta||{};
+      const manager=meta.manager_vs_bot||(data.funnel&&data.funnel.manager_vs_bot)||{};
+      const discounts=meta.discounts||(data.funnel&&data.funnel.discounts)||{};
+      const timeOnStep=meta.time_on_step||(data.funnel&&data.funnel.time_on_step)||[];
+      const signalRows=Object.entries(data.objection_signals||{}).map(([key,value])=>({name:objectionLabels[key]||key.replace(/_/g,' '),count:num(value)})).filter(row=>row.count>0).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'uk'));
+      const visuals=renderLinkedDiagnostics(data,8);
+      const exact=compactCohortFacts(flowRows(data).rows.filter(row=>selection.kind!=='stage'||row.key===selection.id));
+      const signals=tableSection('Сигнали заперечень · окремі події',signalRows,[['name','Сигнал'],['count','Події']]);
+      return '<div class="bot-stats-details-content"><div class="bot-stats-detail-modules">'+visuals+'</div>'+exact+signals+'</div>';
+    }
+    function renderDetails(data){
+      const modules=renderLinkedDiagnostics(data,3);
+      return '<section class="bot-stats-detail-hub" style="--reveal-order:7"><div class="bot-stats-detail-hub-head"><div><h3 class="bot-stats-detail-hub-title">Сигнали для рішення</h3><span class="bot-stats-detail-hub-meta">короткий зріз · точні значення у деталях</span></div><button type="button" class="bot-stats-detail-trigger" data-stats-detail-trigger aria-controls="bot-stats-detail-drawer">Детальні дані</button></div><div class="bot-stats-detail-modules" data-linked-diagnostics>'+modules+'</div></section>';
+    }
+    function refreshLinkedDiagnostics(){if(!box||!currentData)return;const target=box.querySelector('[data-linked-diagnostics]');if(target)target.innerHTML=renderLinkedDiagnostics(currentData,3);}
     function renderSecondary(data){
       const t=totals(data);
       const specs=[
-        ['inbound_messages','Вхідні повідомлення'],['bot_replies','Відповіді бота'],['manager_messages','Повідомлення менеджера'],['qualified','Кваліфіковані'],
-        ['product_matched','Товар визначено'],['checkout_or_payment','Оформлення / оплата'],['pending_followups','Заплановані контакти'],['followup_recoveries','Повернення після нагадування'],
-        ['discount_conversions','Конверсії зі знижкою'],['manager_takeovers','Діалоги менеджера'],['custom_print_handoffs','Кастомні принти менеджеру'],['hidden','Приховані']
+        ['inbound_messages','Вхідні повідомлення','події · provider_created_at / created_at'],['bot_replies','Відповіді бота','події · provider_created_at / created_at'],['manager_messages','Повідомлення менеджера','події · provider_created_at / created_at'],['qualified','Кваліфіковані','клієнти · зріз активних у періоді'],
+        ['product_matched','Товар визначено','клієнти · зріз активних у періоді'],['checkout_or_payment','Оформлення / оплата','клієнти · зріз активних у періоді'],['pending_followups','Заплановані контакти','черга · due_at у періоді'],['followup_recoveries','Повернення після нагадування','оплата · paid_at у періоді'],
+        ['discount_conversions','Конверсії зі знижкою','оплата · paid_at у періоді'],['manager_takeovers','Діалоги менеджера','клієнти · зріз активних у періоді'],['custom_print_handoffs','Кастомні принти менеджеру','клієнти · зріз активних у періоді'],['hidden','Приховані','клієнти · hidden_at у періоді']
       ];
-      return '<details class="bot-stats-disclosure bot-stats-secondary" data-stats-disclosure="secondary"><summary><span>Додаткові показники</span><span class="bot-stats-secondary-count">'+specs.length+'</span></summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-secondary-grid">'+specs.map(spec=>'<div class="bot-stats-secondary-item"><b>'+numberFormat.format(num(t[spec[0]]))+'</b><span>'+esc(spec[1])+'</span></div>').join('')+'</div></div></div></details>';
+      const basisLabel=spec=>spec[2];
+      return '<details class="bot-stats-disclosure bot-stats-secondary" data-stats-disclosure="secondary"><summary><span>Зріз періоду · додаткові показники</span><span class="bot-stats-secondary-count">'+specs.length+'</span></summary><div class="bot-stats-disclosure-body"><div class="bot-stats-disclosure-inner"><div class="bot-stats-secondary-grid">'+specs.map(spec=>'<div class="bot-stats-secondary-item"><b>'+numberFormat.format(num(t[spec[0]]))+'</b><span>'+esc(spec[1])+'</span><small data-stats-basis="'+esc(basisLabel(spec))+'">'+esc(basisLabel(spec))+'</small></div>').join('')+'</div></div></div></details>';
     }
     function periodLabel(data){return data.period&&data.period.label||({'1':'Сьогодні','7':'Останні 7 днів','30':'Останні 30 днів','0':'Увесь час'}[String(data.range_days)]||'Вибраний період');}
     function statsPeriodKey(data){const period=data&&data.period||{};return [period.mode||'',period.date_from||'',period.date_to||'',data&&data.range_days||0].join('|');}
@@ -3252,19 +3471,31 @@ body.bot-drawer-open{overflow:hidden;}
       step.classList.add('is-active');step.setAttribute('aria-pressed','true');module.querySelectorAll('[data-context-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
       if(detail){detail.hidden=false;const label=detail.querySelector('[data-context-detail-label]');const value=detail.querySelector('[data-context-detail-value]');if(label)label.textContent=step.dataset.contextLabel||'Показник';if(value)value.textContent=(step.dataset.contextCount||'0')+' · '+(step.dataset.contextPercent||'0')+'% від '+(step.dataset.contextPopulation||'0')+' загальних діалогів';}
     }
-    function clearFlowSelection(returnFocus=false){
-      if(!box)return;const map=box.querySelector('[data-flow-map]');if(!map)return;const active=map.querySelector('[data-flow-step].is-active');
+    function setAnalyticalSelection(kind,id,basis){selection.kind=String(kind||'');selection.id=String(id||'');selection.basis=String(basis||'');}
+    function paintFlowSelection(step){
+      const map=step&&step.closest('[data-flow-map]');if(!map)return;
       map.querySelectorAll('[data-flow-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
-      const detail=map.querySelector('[data-flow-detail]');if(detail)detail.hidden=true;openFlowStep=null;
+      openFlowStep=step;step.classList.add('is-active');step.setAttribute('aria-pressed','true');map.querySelectorAll('[data-flow-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
+      const detail=map.querySelector('[data-flow-detail]');if(detail){detail.hidden=false;const label=detail.querySelector('[data-flow-detail-label]');const value=detail.querySelector('[data-flow-detail-value]');if(label)label.textContent=step.dataset.flowLabel||'Етап';if(value){const flowFact=value=>value===''?'—':numberFormat.format(num(value));const conversion=step.dataset.flowReconciled!=='true'?'<span><small>звірка недоступна · конверсія —</small></span>':step.dataset.flowLowSample==='true'?'<span><small>мала вибірка · частку приховано</small></span>':step.dataset.flowCrPercent!==''?'<span><b>'+esc(step.dataset.flowCrPercent)+'%</b><small>перейшли далі</small></span>':'<span><small>конверсія —</small></span>';value.innerHTML='<span><b>'+flowFact(step.dataset.flowEntered)+'</b><small>увійшли</small></span><span><b>'+flowFact(step.dataset.flowAdvanced)+'</b><small>далі</small></span><span><b>'+flowFact(step.dataset.flowDropOff)+'</b><small>відсів</small></span><span><b>'+flowFact(step.dataset.flowInProgress)+'</b><small>у процесі</small></span>'+conversion;}}
+    }
+    function clearAnalyticalSelection(returnFocus=false){
+      const active=box&&box.querySelector('[data-flow-step].is-active');setAnalyticalSelection('','','');openFlowStep=null;
+      if(box)box.querySelectorAll('[data-flow-map]').forEach(map=>{map.querySelectorAll('[data-flow-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});const detail=map.querySelector('[data-flow-detail]');if(detail)detail.hidden=true;});
+      refreshLinkedDiagnostics();
       if(returnFocus&&active&&document.contains(active))active.focus({preventScroll:true});
     }
+    function restoreAnalysisSelection(data=currentData){
+      if(selection.kind!=='stage'||!selection.id)return;
+      const identityExists=Boolean(data&&(data.funnel||[]).some(row=>String(row.step||'')===selection.id));if(!identityExists){clearAnalyticalSelection(false);return;}
+      if(!box)return;const steps=Array.from(box.querySelectorAll('[data-flow-step]'));if(!steps.length)return;
+      const step=steps.find(step=>selection.id===String(step.dataset.flowStep||'')&&selection.basis===String(step.dataset.selectionBasis||''));if(!step)return;
+      paintFlowSelection(step);
+    }
+    function clearFlowSelection(returnFocus=false){clearAnalyticalSelection(returnFocus);}
     function toggleFlowStep(step){
-      const map=step&&step.closest('[data-flow-map]');if(!map)return;const wasActive=step.classList.contains('is-active');
-      map.querySelectorAll('[data-flow-step]').forEach(item=>{item.classList.remove('is-active','is-dim');item.setAttribute('aria-pressed','false');});
-      const detail=map.querySelector('[data-flow-detail]');
-      if(wasActive){if(detail)detail.hidden=true;openFlowStep=null;return;}
-      openFlowStep=step;step.classList.add('is-active');step.setAttribute('aria-pressed','true');map.querySelectorAll('[data-flow-step]:not(.is-active)').forEach(item=>item.classList.add('is-dim'));
-      if(detail){detail.hidden=false;const label=detail.querySelector('[data-flow-detail-label]');const value=detail.querySelector('[data-flow-detail-value]');if(label)label.textContent=step.dataset.flowLabel||'Етап';if(value){const conversion=map.dataset.flowMonotonic!=='true'?'<span><small>окремий сигнал · без конверсії</small></span>':step.dataset.flowLowSample==='true'?'<span><small>мала вибірка · частку приховано</small></span>':step.dataset.flowCrPercent?'<span><b>'+esc(step.dataset.flowCrPercent)+'%</b><small>перейшли далі</small></span>':'';value.innerHTML='<span><b>'+numberFormat.format(num(step.dataset.flowEntered))+'</b><small>увійшли</small></span><span><b>'+numberFormat.format(num(step.dataset.flowAdvanced))+'</b><small>далі</small></span><span><b>'+numberFormat.format(num(step.dataset.flowDropOff))+'</b><small>відсів</small></span><span><b>'+numberFormat.format(num(step.dataset.flowInProgress))+'</b><small>у процесі</small></span>'+conversion;}}
+      const map=step&&step.closest('[data-flow-map]');if(!map)return;const sameSelection=selection.kind==='stage'&&selection.id===String(step.dataset.flowStep||'')&&selection.basis==='event_cohort';
+      if(sameSelection){clearAnalyticalSelection(false);return;}
+      setAnalyticalSelection('stage',step.dataset.flowStep||'',step.dataset.selectionBasis||'event_cohort');paintFlowSelection(step);refreshLinkedDiagnostics();
     }
     function showAlert(message){if(alertTextEl)alertTextEl.textContent=message;if(alertEl)alertEl.hidden=false;}
     function hideAlert(){if(alertEl)alertEl.hidden=true;}
@@ -3282,7 +3513,7 @@ body.bot-drawer-open{overflow:hidden;}
     }
     function renderOverview(data,previous){
       const allPrimaryZero=kpiSpecs.every(spec=>metricValue(data,spec.key)===0);
-      return renderKpis(data,previous)+(allPrimaryZero?'<div class="bot-stats-period-empty">За період «'+esc(periodLabel(data))+'» активності ще немає.</div>':'')+'<div class="bot-stats-signal-grid">'+renderActivity(data,previous)+renderCompositionRing(data)+'</div>'+renderSecondary(data)+'<div class="bot-stats-analysis-grid has-flow-map">'+renderFunnel(data,previous)+renderCategories(data,previous)+'</div>'+renderDetails(data);
+      return renderDecisionRail(data,previous)+(allPrimaryZero?'<div class="bot-stats-period-empty">За період «'+esc(periodLabel(data))+'» активності ще немає.</div>':'')+'<div class="bot-stats-signal-grid">'+renderActivity(data,previous)+renderCompositionRing(data)+'</div>'+renderSecondary(data)+'<div class="bot-stats-analysis-grid has-flow-map">'+renderFunnel(data,previous)+renderCategories(data,previous)+'</div>'+renderDetails(data);
     }
     function syncViewControls(){
       viewButtons.forEach(button=>{const selected=button.dataset.statsView===activeView;button.setAttribute('aria-selected',selected?'true':'false');button.tabIndex=selected?0:-1;});
@@ -3298,6 +3529,7 @@ body.bot-drawer-open{overflow:hidden;}
       syncViewControls();
       box.setAttribute('aria-busy','false');
       activateBars();
+      restoreAnalysisSelection(data);
       void box.offsetWidth;
       box.classList.add('bot-stats-view-enter',direction<0?'is-backward':direction>0?'is-forward':'is-stationary');
     }
@@ -3341,7 +3573,7 @@ body.bot-drawer-open{overflow:hidden;}
       try{
         const response=await fetch('{% url "management_bot_stats_api" %}?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}});
         const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося оновити статистику.');if(generation!==requestGeneration)return false;
-        const previous=currentData;renderDashboard(data,previous);currentData=data;
+        const previous=currentData;currentData=data;renderDashboard(data,previous);
         appliedSelection=selectionFromData(data);pendingSelection=null;retrySelection=null;rangeDays=appliedSelection.days;customRange=appliedSelection.mode==='custom';
         if(customRange){if(dateFromEl)dateFromEl.value=appliedSelection.dateFrom;if(dateToEl)dateToEl.value=appliedSelection.dateTo;}else{if(customDetails)customDetails.open=false;}
         syncPeriodControls();
@@ -3367,6 +3599,8 @@ body.bot-drawer-open{overflow:hidden;}
       });
     }
     if(box)box.addEventListener('click',event=>{
+      const detailTrigger=event.target.closest('[data-stats-detail-trigger]');
+      if(detailTrigger){event.stopPropagation();if(currentData)StatsDetailDrawer.open(detailTrigger,renderDetailDrawerContent(currentData),'Детальні дані · '+periodLabel(currentData));return;}
       const attributionSegment=event.target.closest('[data-attribution-segment]');
       if(attributionSegment){event.stopPropagation();toggleAttributionSegment(attributionSegment);return;}
       const adSignalStep=event.target.closest('[data-ad-signal-step]');
@@ -3388,8 +3622,8 @@ body.bot-drawer-open{overflow:hidden;}
     if(box)box.addEventListener('pointerover',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     if(box)box.addEventListener('focusin',event=>{const column=event.target.closest('.bot-stats-activity-column');if(column)positionActivityTooltip(column);});
     window.addEventListener('resize',()=>{if(openActivityColumn)positionActivityTooltip(openActivityColumn);});
-    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);if(box){const attribution=box.querySelector('.bot-stats-attribution');if(attribution&&!attribution.contains(event.target)&&attribution.querySelector('[data-attribution-segment].is-active'))clearAttributionSelection(false);const signal=box.querySelector('.bot-stats-ad-signal-card');if(signal&&!signal.contains(event.target)&&signal.querySelector('[data-ad-signal-step].is-active'))clearAdSignalSelection(false);const context=box.querySelector('.bot-stats-context-bridge');if(context&&!context.contains(event.target)&&context.querySelector('[data-context-step].is-active'))clearContextSelection(false);const flow=box.querySelector('[data-flow-map]');if(flow&&!flow.contains(event.target)&&flow.querySelector('[data-flow-step].is-active'))clearFlowSelection(false);}});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}if(event.key==='Escape'&&box){const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');const contextActive=box.querySelector('[data-context-step].is-active');const flowActive=box.querySelector('[data-flow-step].is-active');if(event.key==='Escape'&&flowActive){event.preventDefault();clearFlowSelection(true);return;}if(attributionActive||signalActive||contextActive){event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);if(contextActive)clearContextSelection(true);}}});
+    document.addEventListener('click',event=>{if(openHelpTrigger&&!openHelpTrigger.closest('.bot-stats-help-wrap').contains(event.target))closeHelp(false);if(openActivityColumn&&!openActivityColumn.contains(event.target))closeActivityTooltip(false);if(box){const attribution=box.querySelector('.bot-stats-attribution');if(attribution&&!attribution.contains(event.target)&&attribution.querySelector('[data-attribution-segment].is-active'))clearAttributionSelection(false);const signal=box.querySelector('.bot-stats-ad-signal-card');if(signal&&!signal.contains(event.target)&&signal.querySelector('[data-ad-signal-step].is-active'))clearAdSignalSelection(false);const context=box.querySelector('.bot-stats-context-bridge');if(context&&!context.contains(event.target)&&context.querySelector('[data-context-step].is-active'))clearContextSelection(false);}});
+    document.addEventListener('keydown',event=>{if(event.defaultPrevented||StatsDetailDrawer.isOpen())return;if(event.key==='Escape'&&openHelpTrigger){event.preventDefault();closeHelp(true);}if(event.key==='Escape'&&openActivityColumn){event.preventDefault();closeActivityTooltip(true);}if(event.key==='Escape'&&box){const attributionActive=box.querySelector('[data-attribution-segment].is-active');const signalActive=box.querySelector('[data-ad-signal-step].is-active');const contextActive=box.querySelector('[data-context-step].is-active');if(event.key==='Escape'&&selection.kind==='stage'){event.preventDefault();clearFlowSelection(true);return;}if(attributionActive||signalActive||contextActive){event.preventDefault();if(signalActive)clearAdSignalSelection(true);if(attributionActive)clearAttributionSelection(true);if(contextActive)clearContextSelection(true);}}});
     if(rangeBox) rangeBox.addEventListener('click',event=>{
       const target=event.target.closest('[data-stats-days]');
       if(!target) return;

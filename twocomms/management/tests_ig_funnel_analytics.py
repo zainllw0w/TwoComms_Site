@@ -292,6 +292,33 @@ class IgFunnelAnalyticsApiTests(TestCase):
         self.assertEqual(duration["right_censored_count"], 1)
         self.assertIsNone(duration["median_hours"])
 
+    def test_drop_off_reasons_expose_their_funnel_step_identity(self):
+        from management.models import IgFunnelDropOff
+        from management.services.ig_funnel_analytics import (
+            build_funnel_analytics,
+            record_drop_off_for_client,
+            record_client_step_event,
+        )
+        from management.models import IgFunnelStepEvent
+
+        client = IgClient.get_or_create_for_sender("ig-loss-step-identity")
+        record_client_step_event(
+            client,
+            event_type=IgFunnelStepEvent.Type.PAYLINK_ISSUED,
+            event_key="loss-step:paylink",
+            stage=IgClient.Stage.CHECKOUT,
+        )
+        record_drop_off_for_client(
+            client,
+            kind=IgFunnelDropOff.Kind.SILENCE,
+            reason_code="step_identity",
+            stage=IgClient.Stage.CHECKOUT,
+        )
+
+        rows = build_funnel_analytics()["drop_off_reasons"]
+        reason = next(row for row in rows if row["reason_code"] == "step_identity")
+        self.assertEqual(reason["step"], IgFunnelStepEvent.Type.PAYLINK_ISSUED)
+
     def test_drop_off_classification_distinguishes_unreachable_from_customer_silence(self):
         from management.services.ig_funnel_analytics import classify_drop_off
 
@@ -1012,7 +1039,7 @@ class IgFunnelAnalyticsApiTests(TestCase):
         response = self.client.get(reverse("management_bot"))
 
         self.assertContains(response, "Когортна воронка")
-        self.assertContains(response, "Поточний стан діалогів")
+        self.assertContains(response, "Поточні етапи")
 
     def test_variant_aware_quote_accepts_thermo_price_instead_of_base_price(self):
         from management.services.instagram_bot import _validated_price_quote
