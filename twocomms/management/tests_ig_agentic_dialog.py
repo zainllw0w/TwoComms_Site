@@ -21,7 +21,7 @@
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from management.models import IgClient, IgFollowUpTask, InstagramBotMessage
@@ -32,6 +32,201 @@ from storefront.models import Category, Product, ProductFitOption, ProductStatus
 
 def _client(igsid="agentic-dialog"):
     return IgClient.get_or_create_for_sender(igsid)
+
+
+class ResponseControlBoundaryTests(SimpleTestCase):
+    """The model may propose controls only through a typed, fail-closed boundary."""
+
+    def test_structured_response_projects_valid_controls_for_downstream(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        result = parse_structured_response({
+            "reply_text": "Готово, покажу варіанти",
+            "controls": [
+                {"kind": "manager", "value": True},
+                {"kind": "stage", "value": "qualifying"},
+                {"kind": "paylink", "value": "full"},
+                {"kind": "product", "value": 12},
+                {"kind": "item", "value": "12|1|M|classic|81"},
+                {"kind": "option", "value": "material=thermo"},
+                {"kind": "qty", "value": 2},
+                {"kind": "size", "value": "M"},
+                {"kind": "fit", "value": "classic"},
+                {"kind": "color_variant_id", "value": 81},
+                {"kind": "price", "value": "1450"},
+                {"kind": "price_quoted", "value": 1450},
+                {"kind": "payment", "value": 200},
+                {"kind": "order", "value": True},
+                {"kind": "show_products", "value": [12, 34]},
+                {"kind": "catalog_link", "value": True},
+            ],
+        })
+
+        self.assertTrue(result.valid)
+        self.assertEqual(result.reply_text, "Готово, покажу варіанти")
+        self.assertEqual(result.control["manager"], True)
+        self.assertEqual(result.control["stage"], "qualifying")
+        self.assertEqual(result.control["paylink"], "full")
+        self.assertEqual(result.control["product"], "12")
+        self.assertEqual(result.control["items"], ["12|1|M|classic|81"])
+        self.assertEqual(result.control["options"], ["material=thermo"])
+        self.assertEqual(result.control["qty"], "2")
+        self.assertEqual(result.control["size"], "M")
+        self.assertEqual(result.control["fit"], "classic")
+        self.assertEqual(result.control["color_variant_id"], "81")
+        self.assertEqual(result.control["price"], "1450")
+        self.assertEqual(result.control["price_quoted"], "1450")
+        self.assertEqual(result.control["payment"], "200")
+        self.assertEqual(result.control["order"], True)
+        self.assertEqual(result.control["show_products"], "12,34")
+        self.assertEqual(result.control["catalog_link"], True)
+
+    def test_structured_result_is_immutable_and_projection_is_copy(self):
+        from dataclasses import FrozenInstanceError
+
+        from management.services.ig_response_control import parse_structured_response
+
+        result = parse_structured_response({"reply_text": "ok", "controls": []})
+        with self.assertRaises(FrozenInstanceError):
+            result.reply_text = "changed"
+        projection = result.control
+        projection["manager"] = True
+        self.assertEqual(result.control, {})
+
+    def test_structured_unknown_control_fails_closed_without_controls(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        result = parse_structured_response({
+            "reply_text": "Ось відповідь",
+            "controls": [{"kind": "handover_now", "value": True}],
+        })
+
+        self.assertFalse(result.valid)
+        self.assertEqual(result.control, {})
+        self.assertEqual(result.controls, ())
+        self.assertEqual(result.reply_text, "Ось відповідь")
+
+    def test_structured_malformed_control_and_extra_payload_keys_fail_closed(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        for payload in (
+            {"reply_text": "x", "controls": [{"kind": "manager"}]},
+            {"reply_text": "x", "controls": "[MANAGER]"},
+            {"reply_text": "x", "controls": [], "debug": "leak"},
+        ):
+            with self.subTest(payload=payload):
+                result = parse_structured_response(payload)
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
+
+    def test_structured_conflicting_singleton_controls_fail_closed(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        result = parse_structured_response({
+            "reply_text": "Відповідь",
+            "controls": [
+                {"kind": "paylink", "value": "full"},
+                {"kind": "paylink", "value": "prepay"},
+            ],
+        })
+
+        self.assertFalse(result.valid)
+        self.assertEqual(result.control, {})
+
+    def test_structured_hard_stage_and_invalid_ids_or_numbers_fail_closed(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        for control in (
+            {"kind": "stage", "value": "paid"},
+            {"kind": "stage", "value": "order_created"},
+            {"kind": "product", "value": 0},
+            {"kind": "color_variant_id", "value": -4},
+            {"kind": "qty", "value": 1.5},
+            {"kind": "price", "value": "not-a-number"},
+        ):
+            with self.subTest(control=control):
+                result = parse_structured_response({
+                    "reply_text": "Відповідь",
+                    "controls": [control],
+                })
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
+
+    def test_structured_reply_text_cannot_carry_control_tokens(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        result = parse_structured_response({
+            "reply_text": "Оплата [MANAGER] [PAYLINK:full]",
+            "controls": [],
+        })
+
+        self.assertFalse(result.valid)
+        self.assertEqual(result.control, {})
+        self.assertNotIn("[MANAGER]", result.reply_text)
+        self.assertNotIn("[PAYLINK:full]", result.reply_text)
+
+    def test_legacy_known_uppercase_tags_are_parsed_and_removed(self):
+        from management.services.ig_response_control import parse_legacy_response
+
+        result = parse_legacy_response(
+            "Готово [MANAGER] [STAGE:qualifying] [PAYLINK:full] "
+            "[PRODUCT:12] [ITEM:12|1|M|classic|81] [OPTION:material=thermo] "
+            "[QTY:2] [SIZE:M] [FIT:classic] [VARIANT:81] [PRICE:1450] "
+            "[PRICE_QUOTED:1450] [PAYMENT:200] [ORDER] [SHOW_PRODUCTS:12,34] "
+            "[CATALOG_LINK]"
+        )
+
+        self.assertTrue(result.valid)
+        self.assertEqual(result.reply_text, "Готово")
+        self.assertEqual(result.control["manager"], True)
+        self.assertEqual(result.control["stage"], "qualifying")
+        self.assertEqual(result.control["paylink"], "full")
+        self.assertEqual(result.control["product"], "12")
+        self.assertEqual(result.control["items"], ["12|1|M|classic|81"])
+        self.assertEqual(result.control["options"], ["material=thermo"])
+        self.assertEqual(result.control["color_variant_id"], "81")
+
+    def test_legacy_unknown_lowercase_typo_and_malformed_controls_fail_closed(self):
+        from management.services.ig_response_control import parse_legacy_response
+
+        for text in (
+            "Відповідь [manager]",
+            "Відповідь [MANAGR]",
+            "Відповідь [UNSAFE:delete]",
+            "Відповідь [PAYLINK:]",
+            "Відповідь [STAGE:paid]",
+            "Відповідь [PAYLINK:full] [PAYLINK:prepay]",
+        ):
+            with self.subTest(text=text):
+                result = parse_legacy_response(text)
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
+                self.assertNotRegex(result.reply_text, r"\[[A-Za-z][^\]]*\]")
+
+    def test_legacy_control_shaped_brackets_are_stripped_even_when_invalid(self):
+        from management.services.ig_response_control import parse_legacy_response
+
+        result = parse_legacy_response(
+            "Пояснення [unknown command] і [manager:yes], але [приклад] лишається"
+        )
+
+        self.assertFalse(result.valid)
+        self.assertEqual(result.control, {})
+        self.assertNotIn("[unknown command]", result.reply_text)
+        self.assertNotIn("[manager:yes]", result.reply_text)
+        self.assertIn("[приклад]", result.reply_text)
+
+    def test_legacy_repeated_items_are_allowed_but_singleton_conflicts_are_not(self):
+        from management.services.ig_response_control import parse_legacy_response
+
+        result = parse_legacy_response(
+            "Варіанти [ITEM:12|1|M|classic|81] [ITEM:13|1|S|oversize|82] "
+            "[OPTION:material=cotton] [OPTION:lining=fleece]"
+        )
+
+        self.assertTrue(result.valid)
+        self.assertEqual(len(result.control["items"]), 2)
+        self.assertEqual(result.control["options"], ["material=cotton", "lining=fleece"])
 
 
 class LanguageTruthTests(TestCase):
