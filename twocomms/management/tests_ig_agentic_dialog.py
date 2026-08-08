@@ -106,6 +106,46 @@ class ResponseControlBoundaryTests(SimpleTestCase):
         self.assertEqual(result.controls, ())
         self.assertEqual(result.reply_text, "Ось відповідь")
 
+    def test_structured_controls_are_canonical_positive_proposals_only(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        for control in (
+            {"kind": "variant", "value": 81},
+            {"kind": "manager", "value": False},
+            {"kind": "spam", "value": False},
+            {"kind": "order", "value": False},
+            {"kind": "catalog_link", "value": False},
+            {"kind": "opt_in", "value": True},
+            {"kind": "consent", "value": True},
+        ):
+            with self.subTest(control=control):
+                result = parse_structured_response({
+                    "reply_text": "Безпечна відповідь",
+                    "controls": [control],
+                })
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
+
+    def test_structured_application_limits_fail_closed(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        oversized_text = parse_structured_response({
+            "reply_text": "x" * 4001,
+            "controls": [],
+        })
+        oversized_controls = parse_structured_response({
+            "reply_text": "ok",
+            "controls": [
+                {"kind": "option", "value": f"axis_{index}=value"}
+                for index in range(33)
+            ],
+        })
+
+        self.assertFalse(oversized_text.valid)
+        self.assertFalse(oversized_controls.valid)
+        self.assertEqual(oversized_text.control, {})
+        self.assertEqual(oversized_controls.control, {})
+
     def test_structured_malformed_control_and_extra_payload_keys_fail_closed(self):
         from management.services.ig_response_control import parse_structured_response
 
@@ -132,6 +172,49 @@ class ResponseControlBoundaryTests(SimpleTestCase):
 
         self.assertFalse(result.valid)
         self.assertEqual(result.control, {})
+
+    def test_structured_duplicate_singleton_controls_fail_closed_even_when_equal(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        for kind, value in (("manager", True), ("order", True), ("paylink", "full")):
+            with self.subTest(kind=kind):
+                result = parse_structured_response({
+                    "reply_text": "Відповідь",
+                    "controls": [
+                        {"kind": kind, "value": value},
+                        {"kind": kind, "value": value},
+                    ],
+                })
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
+
+    def test_structured_duplicate_singleton_with_same_value_fails_closed(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        for kind, value in (("order", True), ("manager", True), ("stage", "qualifying")):
+            with self.subTest(kind=kind):
+                result = parse_structured_response({
+                    "reply_text": "Безпечна відповідь",
+                    "controls": [
+                        {"kind": kind, "value": value},
+                        {"kind": kind, "value": value},
+                    ],
+                })
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
+
+    def test_legacy_duplicate_singleton_with_same_value_fails_closed(self):
+        from management.services.ig_response_control import parse_legacy_response
+
+        for reply in (
+            "Відповідь [ORDER] [ORDER]",
+            "Відповідь [MANAGER] [MANAGER]",
+            "Відповідь [STAGE:qualifying] [STAGE:qualifying]",
+        ):
+            with self.subTest(reply=reply):
+                result = parse_legacy_response(reply)
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
 
     def test_structured_hard_stage_and_invalid_ids_or_numbers_fail_closed(self):
         from management.services.ig_response_control import parse_structured_response
@@ -173,7 +256,7 @@ class ResponseControlBoundaryTests(SimpleTestCase):
             "[PRODUCT:12] [ITEM:12|1|M|classic|81] [OPTION:material=thermo] "
             "[QTY:2] [SIZE:M] [FIT:classic] [VARIANT:81] [PRICE:1450] "
             "[PRICE_QUOTED:1450] [PAYMENT:200] [ORDER] [SHOW_PRODUCTS:12,34] "
-            "[CATALOG_LINK]"
+            "[CATALOG_LINK] [OBJHANDLE:price:value_breakdown]"
         )
 
         self.assertTrue(result.valid)
@@ -185,6 +268,26 @@ class ResponseControlBoundaryTests(SimpleTestCase):
         self.assertEqual(result.control["items"], ["12|1|M|classic|81"])
         self.assertEqual(result.control["options"], ["material=thermo"])
         self.assertEqual(result.control["color_variant_id"], "81")
+        self.assertEqual(result.control["objhandle"], "price:value_breakdown")
+
+    def test_long_control_shaped_suffix_is_invalid_and_never_leaks(self):
+        from management.services.ig_response_control import (
+            parse_legacy_response,
+            parse_structured_response,
+        )
+
+        token = "[PAYLINK:" + ("x" * 300) + "]"
+        for result in (
+            parse_legacy_response("Готово " + token),
+            parse_structured_response({
+                "reply_text": "Готово " + token,
+                "controls": [],
+            }),
+        ):
+            with self.subTest(error=result.error):
+                self.assertFalse(result.valid)
+                self.assertEqual(result.control, {})
+                self.assertEqual(result.reply_text, "Готово")
 
     def test_legacy_unknown_lowercase_typo_and_malformed_controls_fail_closed(self):
         from management.services.ig_response_control import parse_legacy_response
@@ -227,6 +330,60 @@ class ResponseControlBoundaryTests(SimpleTestCase):
         self.assertTrue(result.valid)
         self.assertEqual(len(result.control["items"]), 2)
         self.assertEqual(result.control["options"], ["material=cotton", "lining=fleece"])
+
+    def test_worker_normalization_converges_structured_and_legacy_replies(self):
+        from management.services.instagram_bot import _normalize_generated_reply
+
+        structured = {
+            "reply_text": "Покажу ціну.",
+            "controls": [{"kind": "stage", "value": "qualifying"}],
+        }
+        legacy = "Покажу ціну. [STAGE:qualifying]"
+
+        self.assertEqual(
+            _normalize_generated_reply(structured),
+            ("Покажу ціну.", {"stage": "qualifying"}, True),
+        )
+        self.assertEqual(
+            _normalize_generated_reply(legacy),
+            ("Покажу ціну.", {"stage": "qualifying"}, True),
+        )
+
+    def test_worker_normalization_discards_invalid_controls_before_effects(self):
+        from management.services.instagram_bot import _normalize_generated_reply
+
+        text, control, valid = _normalize_generated_reply(
+            "Оплата [MANAGR] [PAYLINK:false]"
+        )
+
+        self.assertEqual(text, "Оплата")
+        self.assertEqual(control, {})
+        self.assertFalse(valid)
+
+    def test_worker_normalization_discards_invalid_structured_reply_text(self):
+        from management.services.instagram_bot import _normalize_generated_reply
+
+        text, control, valid = _normalize_generated_reply({
+            "reply_text": "x" * 4001,
+            "controls": [],
+        })
+
+        self.assertEqual(text, "")
+        self.assertEqual(control, {})
+        self.assertFalse(valid)
+
+    def test_worker_normalization_rejects_invalid_reply_text_for_delivery(self):
+        from management.services.instagram_bot import _normalize_generated_reply
+
+        for payload in (
+            {"reply_text": "x" * 4001, "controls": []},
+            {"reply_text": {"secret": "leak"}, "controls": []},
+        ):
+            with self.subTest(payload_type=type(payload["reply_text"]).__name__):
+                self.assertEqual(
+                    _normalize_generated_reply(payload),
+                    ("", {}, False),
+                )
 
 
 class LanguageTruthTests(TestCase):
@@ -1367,3 +1524,170 @@ class PhotoProtocolTests(TestCase):
         from management.services.instagram_bot import PAYMENT_PROTOCOL_NOTE
 
         self.assertIn("скриншот", PAYMENT_PROTOCOL_NOTE)
+
+
+class StructuredPromptProtocolTests(SimpleTestCase):
+    def test_migration_default_matches_model_default_byte_for_byte(self):
+        import importlib
+
+        from django.db import migrations
+        from management.models import DEFAULT_BOT_SYSTEM_PROMPT
+
+        migration = importlib.import_module(
+            "management.migrations.0151_remove_duplicate_ig_payment_protocol"
+        )
+        alter = next(
+            operation
+            for operation in migration.Migration.operations
+            if isinstance(operation, migrations.AlterField)
+            and operation.model_name == "instagrambotsettings"
+            and operation.name == "system_prompt"
+        )
+
+        self.assertEqual(alter.field.default, DEFAULT_BOT_SYSTEM_PROMPT)
+
+    def test_default_prompt_does_not_keep_legacy_direct_payment_link_promise(self):
+        from management.models import DEFAULT_BOT_SYSTEM_PROMPT
+
+        self.assertNotIn(
+            "я сформую посилання на оплату сюди",
+            DEFAULT_BOT_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "персональну пропозицію TwoComms",
+            DEFAULT_BOT_SYSTEM_PROMPT,
+        )
+
+    def test_default_prompt_has_no_legacy_control_protocol(self):
+        from management.models import DEFAULT_BOT_SYSTEM_PROMPT
+
+        for marker in ("[PAYLINK", "[PAYMENT", "[STAGE", "[MANAGER]", "[ORDER]", "[SPAM]"):
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, DEFAULT_BOT_SYSTEM_PROMPT)
+        self.assertIn("JSON", DEFAULT_BOT_SYSTEM_PROMPT)
+
+    def test_runtime_protocol_describes_structured_controls_once(self):
+        from management.services.instagram_bot import PAYMENT_PROTOCOL_NOTE
+
+        self.assertIn("reply_text", PAYMENT_PROTOCOL_NOTE)
+        self.assertIn("controls", PAYMENT_PROTOCOL_NOTE)
+        self.assertNotIn("[PAYLINK", PAYMENT_PROTOCOL_NOTE)
+
+    def test_prompt_cleanup_preserves_operator_text_and_is_idempotent(self):
+        import importlib
+
+        migration = importlib.import_module(
+            "management.migrations.0151_remove_duplicate_ig_payment_protocol"
+        )
+        prompt = (
+            "CUSTOM PREFIX\n\n"
+            "СЛУЖБОВІ ТЕГИ (клієнт їх НЕ бачить — система вирізає; додавай у САМОМУ КІНЦІ):\n"
+            "• [MANAGER] — коли потрібен живий менеджер.\n"
+            "CUSTOM SUFFIX"
+        )
+
+        cleaned = migration._remove_legacy_protocol_fragments(prompt)
+
+        self.assertIn("CUSTOM PREFIX", cleaned)
+        self.assertIn("CUSTOM SUFFIX", cleaned)
+        self.assertNotIn("[MANAGER]", cleaned)
+        self.assertEqual(cleaned, migration._remove_legacy_protocol_fragments(cleaned))
+        self.assertEqual(
+            migration._remove_legacy_protocol_fragments("operator-only prompt"),
+            "operator-only prompt",
+        )
+
+    def test_prompt_cleanup_preserves_custom_bullet_after_known_legacy_line(self):
+        import importlib
+
+        migration = importlib.import_module(
+            "management.migrations.0151_remove_duplicate_ig_payment_protocol"
+        )
+        custom_bullet = "• Завжди уточнюй, чи потрібне подарункове пакування."
+        prompt = (
+            "СЛУЖБОВІ ТЕГИ (клієнт їх НЕ бачить — система вирізає; додавай у САМОМУ КІНЦІ):\n"
+            "• [MANAGER] — коли потрібен живий менеджер.\n"
+            f"{custom_bullet}\n"
+            "CUSTOM SUFFIX"
+        )
+
+        cleaned = migration._remove_legacy_protocol_fragments(prompt)
+
+        self.assertNotIn("[MANAGER]", cleaned)
+        self.assertIn(custom_bullet, cleaned)
+        self.assertIn("CUSTOM SUFFIX", cleaned)
+
+    def test_prompt_cleanup_removes_legacy_payment_promise_and_keeps_neighbors(self):
+        import importlib
+
+        migration = importlib.import_module(
+            "management.migrations.0151_remove_duplicate_ig_payment_protocol"
+        )
+        previous_bullet = "• Не вигадуй ціни або залишки."
+        legacy_payment = "• Оплата: на сайті або я сформую посилання на оплату сюди."
+        next_bullet = "• Доставка Новою Поштою, зазвичай 1-3 дні."
+        prompt = "\n".join((
+            "CUSTOM PREFIX",
+            previous_bullet,
+            legacy_payment,
+            next_bullet,
+            "CUSTOM SUFFIX",
+        ))
+
+        cleaned = migration._remove_legacy_protocol_fragments(prompt)
+
+        self.assertNotIn(legacy_payment, cleaned)
+        self.assertIn(previous_bullet, cleaned)
+        self.assertIn(next_bullet, cleaned)
+        self.assertIn("CUSTOM PREFIX", cleaned)
+        self.assertIn("CUSTOM SUFFIX", cleaned)
+        self.assertEqual(cleaned, migration._remove_legacy_protocol_fragments(cleaned))
+
+    def test_prompt_cleanup_removes_legacy_payment_paragraph_and_keeps_neighbors(self):
+        import importlib
+
+        migration = importlib.import_module(
+            "management.migrations.0151_remove_duplicate_ig_payment_protocol"
+        )
+        legacy_payment = (
+            "Способи оплати — на сайті або я сформую посилання на оплату сюди. "
+            "Згадай передоплату коротко (див. нижче)."
+        )
+        prompt = "\n".join((
+            "CUSTOM PREFIX",
+            legacy_payment,
+            "CUSTOM SUFFIX",
+        ))
+
+        cleaned = migration._remove_legacy_protocol_fragments(prompt)
+
+        self.assertNotIn(legacy_payment, cleaned)
+        self.assertIn("CUSTOM PREFIX", cleaned)
+        self.assertIn("CUSTOM SUFFIX", cleaned)
+        self.assertEqual(cleaned, migration._remove_legacy_protocol_fragments(cleaned))
+
+    def test_prompt_cleanup_removes_all_known_historical_protocol_variants(self):
+        import importlib
+
+        migration = importlib.import_module(
+            "management.migrations.0151_remove_duplicate_ig_payment_protocol"
+        )
+        historical_fragments = (
+            "• [STAGE:x] — поточний етап клієнта. x із: new, qualifying, "
+            "product_matched, checkout, payment_pending, paid, order_created, done, "
+            "lead_manager, cold.",
+            "• [PAYLINK:full] або [PAYLINK:prepay] — коли клієнт підтвердив товар і "
+            "готовий платити (повна оплата / передоплата 200). Система сформує і "
+            "надішле посилання.",
+            "• Передоплата 200 грн (решта — накладеним при отриманні) можлива; "
+            "згадуй коротко, деталі (навіщо передоплата) пояснюй лише якщо запитають.",
+        )
+        prompt = "\n".join(("CUSTOM PREFIX", *historical_fragments, "CUSTOM SUFFIX"))
+
+        cleaned = migration._remove_legacy_protocol_fragments(prompt)
+
+        for fragment in historical_fragments:
+            self.assertNotIn(fragment, cleaned)
+        self.assertIn("CUSTOM PREFIX", cleaned)
+        self.assertIn("CUSTOM SUFFIX", cleaned)
+        self.assertEqual(cleaned, migration._remove_legacy_protocol_fragments(cleaned))

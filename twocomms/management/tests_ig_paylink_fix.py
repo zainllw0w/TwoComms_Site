@@ -792,7 +792,7 @@ class FinalizePaylinkTests(TestCase):
         )
         mock_notify.assert_called_once()
         self.assertIn("insufficient_stock", mock_notify.call_args.args[0])
-        self.assertIn("insufficient_warehouse_stock", mock_notify.call_args.args[0])
+        self.assertNotIn("insufficient_warehouse_stock", mock_notify.call_args.args[0])
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")
@@ -1567,25 +1567,37 @@ class PaymentItemControlTests(SimpleTestCase):
 
 
 # ===========================================================================
-# Task 3 — Інжект протоколу [PRODUCT:id] у gemini_generate (migration-free).
-# Модель має ставити [PAYLINK:x] + [PRODUCT:<id>] і НЕ вигадувати URL. Це дає
-# явний надійний сигнал товару (швидше за модельний резолвер).
+# Task 3 — structured response protocol in gemini_generate.
+# The model proposes typed ``reply_text``/``controls`` values; the worker owns
+# authorization and never relies on customer-visible bracket tags.
 # ===========================================================================
 class PaymentProtocolInjectionTests(TestCase):
     @patch("management.services.call_ai_analysis.gemini_generate_text")
     def test_injects_product_protocol_into_system_instruction(self, mock_gen):
         from management.models import InstagramBotSettings
 
-        mock_gen.return_value = {"parsed": "ок", "model": "x", "meta": {"key": "k"}}
+        mock_gen.return_value = {
+            "parsed": {"reply_text": "ок", "controls": []},
+            "model": "x",
+            "meta": {"key": "k"},
+        }
         s = InstagramBotSettings.load()
-        bot.gemini_generate(s, [{"role": "user", "text": "скільки коштує?"}])
+        result = bot.gemini_generate(
+            s, [{"role": "user", "text": "скільки коштує?"}]
+        )
         self.assertTrue(mock_gen.called)
+        self.assertTrue(result.valid)
+        self.assertEqual(result.reply_text, "ок")
         payload = mock_gen.call_args.args[0]
         sys_text = payload["system_instruction"]["parts"][0]["text"]
-        # [PRODUCT: немає у DEFAULT_BOT_SYSTEM_PROMPT — отже додав саме інжект.
-        self.assertIn("[PRODUCT:", sys_text)
-        self.assertIn("[PAYLINK:", sys_text)
-        self.assertIn("[ITEM:", sys_text)
+        self.assertIn("reply_text", sys_text)
+        self.assertIn("controls", sys_text)
+        self.assertIn("product", sys_text)
+        self.assertIn("paylink", sys_text)
+        self.assertIn("color_variant_id", sys_text)
+        self.assertNotIn("[PRODUCT:", sys_text)
+        self.assertNotIn("[PAYLINK:", sys_text)
+        self.assertNotIn("[ITEM:", sys_text)
         self.assertIn("кільк", sys_text.lower())
         self.assertIn("розмір", sys_text.lower())
         self.assertIn("крій", sys_text.lower())

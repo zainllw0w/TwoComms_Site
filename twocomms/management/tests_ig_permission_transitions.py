@@ -39,6 +39,59 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 User = get_user_model()
 
 
+class DurableOptOutReplyBoundaryTests(TestCase):
+    def setUp(self):
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.save(update_fields=["is_enabled"])
+        self.client_row = IgClient.objects.create(
+            igsid="durable-opt-out-boundary",
+            bot_paused=False,
+            opted_out_at=timezone.now(),
+        )
+
+    def test_active_opt_out_blocks_permission_even_without_pause_flag(self):
+        permission = capture_reply_permission(
+            self.settings.pk, self.client_row.pk
+        )
+
+        self.assertFalse(permission)
+        self.assertEqual(permission.reason, "opt_out")
+
+    def test_active_opt_out_blocks_customer_send_boundary(self):
+        permission = capture_reply_permission(
+            self.settings.pk, self.client_row.pk
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with customer_send_boundary(
+                self.settings.pk,
+                self.client_row.pk,
+                permission,
+                lock_path=os.path.join(temp_dir, "reply.lock"),
+            ) as allowed:
+                self.assertFalse(allowed)
+
+    def test_explicit_opt_in_after_opt_out_allows_capture_and_send(self):
+        self.client_row.opted_in_at = self.client_row.opted_out_at + timedelta(seconds=1)
+        self.client_row.save(update_fields=["opted_in_at", "updated_at"])
+
+        permission = capture_reply_permission(
+            self.settings.pk, self.client_row.pk
+        )
+
+        self.assertTrue(permission)
+        self.assertEqual(permission.reason, "")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with customer_send_boundary(
+                self.settings.pk,
+                self.client_row.pk,
+                permission,
+                lock_path=os.path.join(temp_dir, "reply.lock"),
+            ) as allowed:
+                self.assertTrue(allowed)
+
+
 class PermissionTransitionWebhookTests(TestCase):
     def setUp(self):
         self.settings = InstagramBotSettings.load()

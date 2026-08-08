@@ -28,9 +28,9 @@ from management.services.ig_reply_boundary import (
     capture_reply_permission,
     customer_send_boundary,
 )
+from management.services.ig_response_control import ValidatedResponse, parse_legacy_response
 from management.services.instagram_bot import (
     HISTORY_LIMIT,
-    _extract_control,
     acquire_client_automation_lease,
     gemini_generate,
     notify_manager,
@@ -78,8 +78,12 @@ def _window_deadline(source: InstagramBotMessage, client: IgClient):
 
 def _trim_draft(text: str) -> str:
     """Keep recovery to one Meta text request without silently making controls."""
-    clean, _control = _extract_control(str(text or ""))
-    clean = clean.strip()
+    if not isinstance(text, str):
+        return ""
+    parsed = parse_legacy_response(text)
+    if not parsed.reply_text or parsed.error == "invalid_reply_text":
+        return ""
+    clean = parsed.reply_text.strip()
     if len(clean.encode("utf-8")) <= MAX_RECOVERY_REPLY_CHARS:
         return clean
     # Meta's limit is byte-based.  Slice bytes and decode losslessly so a
@@ -622,6 +626,13 @@ def _generate_recovery_draft(job: IgAiReplyRecoveryJob) -> str:
             "незворотні дії. Відповідай мовою останнього повідомлення клієнта."
         ),
     )
+    if isinstance(draft, ValidatedResponse):
+        # Recovery may compose customer text but never executes model controls.
+        if not draft.valid:
+            return ""
+        draft = draft.reply_text
+    elif not isinstance(draft, str):
+        return ""
     return _ensure_recovery_apology(draft or "", job.source_message.text)
 
 

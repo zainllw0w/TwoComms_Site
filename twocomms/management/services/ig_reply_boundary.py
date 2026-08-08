@@ -59,6 +59,10 @@ def _client_allowed(client) -> tuple[bool, str]:
         return False, "client_missing"
     if client.hidden_at:
         return False, "hidden"
+    if client.opted_out_at and (
+        not client.opted_in_at or client.opted_out_at > client.opted_in_at
+    ):
+        return False, "opt_out"
     if client.bot_paused:
         return False, "client_paused"
     if client.manager_takeover:
@@ -124,6 +128,8 @@ def capture_reply_permission(settings_id: int | None, client_id: int | None) -> 
             "manager_takeover",
             "is_blocked",
             "hidden_at",
+            "opted_out_at",
+            "opted_in_at",
         )
         .first()
     )

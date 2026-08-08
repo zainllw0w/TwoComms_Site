@@ -273,6 +273,170 @@ def _extract_control(reply: str) -> tuple[str, dict]:
     return clean, tags
 
 
+def _normalize_generated_reply(reply) -> tuple[str, dict, bool]:
+    """Normalize structured or rolling legacy model output before any effects.
+
+    The worker deliberately receives a copied compatibility mapping only after
+    the typed boundary has validated the provider result.  Invalid controls are
+    discarded, while their sanitized customer text can still use the normal
+    safe delivery path.
+    """
+    from management.services.ig_response_control import (
+        ValidatedResponse,
+        parse_legacy_response,
+        parse_structured_response,
+    )
+
+    if isinstance(reply, ValidatedResponse):
+        result = reply
+    elif isinstance(reply, dict):
+        result = parse_structured_response(reply)
+    elif isinstance(reply, str):
+        result = parse_legacy_response(reply)
+    else:
+        return "", {}, False
+    if not result.valid and result.error in {
+        "invalid_json",
+        "invalid_reply_text",
+        "malformed_payload",
+        "malformed_text",
+    }:
+        return "", {}, False
+    if not result.valid:
+        # The text itself is safe after control-shaped content was removed; only
+        # the operational proposal is discarded.  This is the rolling adapter's
+        # deliberate compatibility behavior for malformed controls.
+        return result.reply_text, {}, False
+    return result.reply_text, result.control, True
+
+
+_AUTHORITY_CLAIM_WINDOW = r"[^\n.!?]{0,80}"
+
+
+def _authority_claim_pattern(nouns: str, verbs: str) -> re.Pattern:
+    """Match either word order while remaining conservative at sentence bounds."""
+    return re.compile(
+        rf"(?:\b(?:{nouns})\b{_AUTHORITY_CLAIM_WINDOW}\b(?:{verbs})\b"
+        rf"|\b(?:{verbs})\b{_AUTHORITY_CLAIM_WINDOW}\b(?:{nouns})\b)",
+        re.I,
+    )
+
+
+_AUTHORITATIVE_REPLY_CLAIMS = {
+    "payment": _authority_claim_pattern(
+        r"оплат\w*|платеж\w*|платіж\w*|payment",
+        r"підтвердж\w*|подтвержд\w*|отрим\w*|получ\w*|зарах\w*|успіш\w*|успеш\w*|"
+        r"confirmed|received|successful|completed",
+    ),
+    "stock": _authority_claim_pattern(
+        r"товар\w*|продукт\w*|модел\w*|футболк\w*|item|product|model|t-shirt",
+        r"наявн\w*|налич\w*|доступн\w*|available|in\s+stock|stock",
+    ),
+    "order": _authority_claim_pattern(
+        r"замовлен\w*|заказ\w*|order",
+        r"створен\w*|создан\w*|оформлен\w*|розміщен\w*|размещен\w*|"
+        r"placed|created|registered|готов\w*|ready",
+    ),
+    "consent": _authority_claim_pattern(
+        r"згод\w*|соглас\w*|consent",
+        r"збереж\w*|сохран\w*|зафікс\w*|зафикс\w*|отрим\w*|получ\w*|"
+        r"accepted|saved|recorded",
+    ),
+    "manager": _authority_claim_pattern(
+        r"менеджер\w*|manager",
+        r"підтверд\w*|подтверд\w*|схвал\w*|одобр\w*|перевір\w*|провер\w*|"
+        r"узгод\w*|approved|confirmed|verified|checked",
+    ),
+}
+_AUTHORITY_CLAIM_FALLBACK = {
+    "uk": "Дякую! Перевірю це за системними даними й одразу уточню відповідь 🙌",
+    "ru": "Спасибо! Проверю это по системным данным и сразу уточню ответ 🙌",
+    "en": "Thank you! I will verify this against our records and get right back to you 🙌",
+}
+
+
+def _has_exact_stock_evidence(client, control: dict) -> bool:
+    """Return true only for a fully identified, allocatable inventory unit."""
+    product_id = _control_product_id(control) or getattr(client, "current_product_id", None)
+    try:
+        product_id = int(product_id or 0)
+    except (TypeError, ValueError):
+        return False
+    if not product_id:
+        return False
+    selection = _checkout_selection_state(client, product_id)
+    try:
+        variant_id = int(
+            control.get("color_variant_id")
+            or selection.get("color_variant_id")
+            or 0
+        )
+        quantity = int(control.get("qty") or getattr(client, "current_qty", 1) or 1)
+    except (TypeError, ValueError):
+        return False
+    size = str(control.get("size") or getattr(client, "current_size", "") or "").strip()
+    fit = str(control.get("fit") or selection.get("fit_option_code") or "").strip()
+    if not variant_id or not size or quantity <= 0:
+        return False
+    try:
+        from management.services.ig_availability import (
+            AllocationSpec,
+            AvailabilityStatus,
+            resolve_allocation,
+        )
+
+        decision = resolve_allocation(
+            AllocationSpec(
+                product_id=product_id,
+                color_variant_id=variant_id,
+                size=size,
+                fit_code=fit,
+                quantity=quantity,
+            )
+        )
+    except Exception:
+        return False
+    return decision.status == AvailabilityStatus.ALLOCATABLE
+
+
+def _authoritative_reply_claim_failures(client, reply: str, control: dict) -> tuple[str, ...]:
+    """Identify positive operational facts that lack application-owned evidence."""
+    claimed = {
+        kind for kind, pattern in _AUTHORITATIVE_REPLY_CLAIMS.items()
+        if pattern.search(str(reply or ""))
+    }
+    if not claimed:
+        return ()
+    failures = set(claimed)
+    if "payment" in claimed:
+        try:
+            from management.services.bot_payment_truth import current_payment_confirmation
+
+            if current_payment_confirmation(client).get("confirmed"):
+                failures.discard("payment")
+        except Exception:
+            pass
+    if "stock" in claimed and _has_exact_stock_evidence(client, control):
+        failures.discard("stock")
+    if "order" in claimed:
+        try:
+            episode = getattr(client, "current_commercial_episode", None)
+            has_order = bool(episode and getattr(episode, "intended_order_id", None))
+            has_order = has_order or client.deals.filter(order_id__isnull=False).exists()
+            has_order = has_order or client.order_attributions.exists()
+            has_order = has_order or client.order_assignments.filter(
+                unassigned_at__isnull=True, order_id__isnull=False
+            ).exists()
+            if has_order:
+                failures.discard("order")
+        except Exception:
+            pass
+    # Consent and generic manager approval have no typed evidence in this reply
+    # contract. They therefore remain fail-closed instead of being inferred from
+    # customer text or an unrelated historical message.
+    return tuple(sorted(failures))
+
+
 def _apply_stage(client, stage_value) -> bool:
     """Apply only model-authorized workflow stages.
 
@@ -1306,49 +1470,27 @@ CANONICAL_PROMPT_AUTHORITY_POLICY = (
     "апселлу; без тиску."
 )
 
-# Протокол оплати — інжектимо в system_instruction завжди (migration-free), щоб
-# модель давала ЯВНИЙ сигнал товару й типу оплати, а не лише обіцяла лінк текстом.
-# Не чіпаємо DEFAULT_BOT_SYSTEM_PROMPT (щоб не робити міграцію й не затирати
-# правки адміна в UI) — інжект застосовується до будь-яких налаштувань.
+# Structured response protocol.  It is appended to legacy/custom prompts during
+# the rolling deployment, while the provider schema and application validator
+# remain the actual authorization boundary.
 PAYMENT_PROTOCOL_NOTE = (
-    "[ПРОТОКОЛ ПЕРСОНАЛЬНОЇ ПРОПОЗИЦІЇ — службове, клієнт цього не бачить]\n"
-    "Це правило має пріоритет над старими фразами про пряме посилання на оплату. "
-    "Коли клієнт підтвердив КОНКРЕТНИЙ товар і готовий платити — додай у самому "
-    "кінці відповіді службові теги: [PAYLINK:prepay] для погодженої передоплати або "
-    "[PAYLINK:full] (повна оплата), і поряд [PRODUCT:<id>], де <id> — число з "
-    "рядка каталогу (формат «id=NN»). Система надішле персональну пропозицію TwoComms "
-    "на власному сайті, а не прямий Monobank checkout. НЕ вигадуй і НЕ пиши URL "
-    "власноруч. На сторінці клієнт перевіряє товари, вводить Нову Пошту та email для "
-    "чека за бажанням, після чого сам переходить до оплати. Не збирай email, ПІБ, телефон, місто "
-    "чи відділення в Direct для assisted checkout і не став [ORDER] у цьому сценарії. "
-    "Посилання дійсне 25 хвилин від створення, його можна переслати; зміни товарів клієнт просить "
-    "у Direct до створення рахунку. Якщо товар ще не визначено однозначно — спершу "
-    "уточни його, тег [PAYLINK] поки не став. Для кожної позиції додай "
-    "[ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>|<key=value;...>] "
-    "(шосте поле можна залишити порожнім лише коли додаткових опцій немає), щоб "
-    "зберегти кількість, розмір, крій, колір і всі осі конфігурації. Для однієї "
-    "позиції додаткові осі також можна передати тегами [OPTION:<key>=<value>]. "
-    "Якщо ціна залежить від кольору/матеріалу або фасону, спочатку уточни їх і "
-    "назви точну ціну саме цієї конфігурації та ОБОВ'ЯЗКОВО додай [PRICE_QUOTED:<сума>] "
-    "у тому ж ходу. Точна сума в тексті без маркера буде перевірена сервером і "
-    "заблокована при несовпадении с каталогом. Для футболки з "
-    "кількома фасонами спочатку обов'язково запитай classic чи oversize, покажи сітку "
-    "саме обраного фасону і лише потім запитуй розмір. Для однієї позиції також дозволено "
-    "[QTY:n] [SIZE:XS] [FIT:oversize]. "
-    "ВАЖЛИВО: став [FIT:...], [SIZE:...], [QTY:...] і [PRODUCT:...] ОДРАЗУ того ходу, "
-    "коли ти дізналась відповідь, навіть якщо до посилання ще далеко і решти даних "
-    "бракує. Ці теги — те, як ти запам'ятовуєш вибір клієнта: без них наступного разу "
-    "ти знову не знатимеш фасону й перепитаєш те саме. Якщо клієнт передумав і назвав "
-    "інший товар — став [PRODUCT:<новий id>], і тоді розмір/колір потрібно уточнити "
-    "заново, бо для нового товару вони можуть бути інші. "
-    "Для передоплати обов'язково додай "
-    "[PAYMENT:сума], але лише якщо ця точна сума явно погоджена в поточному діалозі. "
-    "Не використовуй фіксовані 200 грн і не перенось суму з попереднього замовлення. "
-    "Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] лише коли це число "
-    "дослівно є у збереженій переписці; не вигадуй знижку. Якщо клієнт просить "
-    "показати товари/фото, додай [SHOW_PRODUCTS:<id1,id2>] з точними id каталогу; "
-    "система надішле 3–4 реальні фото без товарних URL. Додавай [CATALOG_LINK] "
-    "тільки коли клієнт прямо попросив посилання на товар.\n"
+    "[СТРУКТУРОВАНА ВІДПОВІДЬ — службове, клієнт цього не бачить]\n"
+    "Поверни лише JSON-об'єкт рівно з ключами reply_text і controls. reply_text — "
+    "короткий customer-facing текст без службових маркерів. controls — масив "
+    "об'єктів kind/value; додавай лише точні пропозиції з поточного контексту. "
+    "Дозволені kind: manager, spam, stage, paylink, payment, product, item, option, "
+    "qty, size, fit, color_variant_id, price, price_quoted, order, show_products, "
+    "catalog_link, objhandle. Не додавай невідомі kind, неповні значення або суперечливі "
+    "singleton controls. Система повторно перевіряє кожну пропозицію.\n"
+    "ОПЛАТА. paylink=full або prepay — лише після однозначного вибору товару та "
+    "конфігурації. Для prepay payment має бути точно погоджений у поточній "
+    "переписці; не вигадуй фіксовану суму, знижку, залишок або URL. Система сама "
+    "сформує персональну пропозицію TwoComms і перевірить оплату, склад, згоду, "
+    "замовлення та підключення менеджера. Не збирай email, ПІБ, телефон, місто чи "
+    "відділення в Direct для assisted checkout.\n"
+    "КОНФІГУРАЦІЯ. Зберігай product, item, qty, size, fit, color_variant_id та "
+    "option лише коли клієнт явно це обрав. Ціна залежної конфігурації має бути "
+    "точною і підтверджуватися каталогом; не підміняй її базовою ціною.\n"
     "ПОРЯДОК ПОКАЗУ ФОТО. Фото — це відповідь на конкретний запит, а не спосіб "
     "почати розмову. Спершу з'ясуй текстом, що людині потрібно: тип речі "
     "(футболка/худі/лонгслів), тематика принта, колір, фасон. Показуй фото, коли "
@@ -5811,6 +5953,7 @@ def gemini_generate(
         "generationConfig": {
             "temperature": 0.5,
             "maxOutputTokens": 4096,
+            "responseMimeType": "application/json",
         },
         "safetySettings": [
             {"category": c, "threshold": "BLOCK_ONLY_HIGH"}
@@ -5822,6 +5965,9 @@ def gemini_generate(
             )
         ],
     }
+    from management.services.ig_response_control import structured_response_schema
+
+    payload["generationConfig"]["responseJsonSchema"] = structured_response_schema()
     if sys_text:
         payload["system_instruction"] = {"parts": [{"text": sys_text}]}
 
@@ -5856,6 +6002,7 @@ def gemini_generate(
             log_cb=_cb,
             model_override=effective_model,
             reasoning_task=reasoning_task,
+            parse=True,
         )
     except CallAIAnalysisError as exc:
         if failure_context is not None:
@@ -5867,7 +6014,26 @@ def gemini_generate(
             failure_context["kind"] = "generation_error"
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {repr(exc)}")
         return None
-    text = (out.get("parsed") or "").strip()
+    parsed = out.get("parsed")
+    if isinstance(parsed, dict):
+        from management.services.ig_response_control import parse_structured_response
+
+        text = parse_structured_response(parsed)
+        if not text.reply_text or text.error == "invalid_reply_text":
+            if failure_context is not None:
+                failure_context["kind"] = "invalid_response" if text.error else "empty_response"
+            log("warning", "gemini_empty", f"порожня відповідь ({_time.monotonic() - _t0:.1f}с)")
+            return None
+        if not text.valid:
+            # Keep valid customer text but never return an invalid structured
+            # result to callers: controls are proposal-only and are dropped.
+            log("warning", "gemini_invalid_controls", text.error or "invalid_control")
+            from management.services.ig_response_control import ValidatedResponse
+
+            text = ValidatedResponse(reply_text=text.reply_text)
+    else:
+        # Rolling compatibility: old workers/tests may still return free text.
+        text = (parsed or "").strip() if isinstance(parsed, str) else ""
     if not text:
         if failure_context is not None:
             failure_context["kind"] = "empty_response"
@@ -8424,9 +8590,29 @@ def _process_one_inside_reply_boundary(
 
     # Керуючі теги моделі: [MANAGER] (ескалація), [STAGE:x] (воронка) тощо.
     control = {}
+    controls_valid = True
     if reply:
-        reply, control = _extract_control(reply)
+        reply, control, controls_valid = _normalize_generated_reply(reply)
+        if not controls_valid:
+            log("warning", "invalid_model_controls", f"{row.sender_id}: controls discarded")
+    # Invalid controls are discarded, not interpreted as a manager request.
+    # A customer-safe reply may continue without changing CRM authority state;
+    # explicit manager escalation remains separately validated below.
     needs_manager = bool(control.get("manager"))
+    if reply and row.client_id:
+        claim_failures = _authoritative_reply_claim_failures(row.client, reply, control)
+        if claim_failures:
+            needs_manager = True
+            control["manager"] = True
+            reply = _AUTHORITY_CLAIM_FALLBACK.get(
+                _assisted_checkout_locale(row.client),
+                _AUTHORITY_CLAIM_FALLBACK["uk"],
+            )
+            log(
+                "warning",
+                "authority_claim_gate",
+                f"{row.sender_id}: unverified {','.join(claim_failures)} claim",
+            )
     if reply and row.client_id:
         checked_reply, control, price_quote = _extract_authoritative_price_claim(
             row.client,

@@ -43,10 +43,13 @@ class SystemPromptMigrationTests(TestCase):
 
 
 class PlaybookPromptTests(SimpleTestCase):
-    def test_prompt_has_control_tag_protocol(self):
+    def test_prompt_has_structured_control_protocol(self):
         p = DEFAULT_BOT_SYSTEM_PROMPT
+        self.assertIn("JSON", p)
+        self.assertIn("reply_text", p)
+        self.assertIn("controls", p)
         for token in ["[STAGE:", "[MANAGER]", "[PAYLINK:", "[ORDER]", "[SPAM]"]:
-            self.assertIn(token, p)
+            self.assertNotIn(token, p)
 
     def test_prompt_has_sales_and_safety_rules(self):
         p = DEFAULT_BOT_SYSTEM_PROMPT.lower()

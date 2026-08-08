@@ -105,4 +105,3 @@ unittest/Django TestCase, MariaDB migration.
    probes, one daemon and healthy queues.
 5. Only after production evidence mark all three W1.6 checkboxes `[x]`, commit
    the evidence, push and pull it on production.
-

@@ -70,4 +70,3 @@ makemigrations check, compileall and diff check. After deployment, verify the
 exact SHA/migration, production prompt markers, provider-free parser probes,
 one daemon and healthy queues. No live Gemini, Meta, Telegram or payment call is
 part of acceptance.
-

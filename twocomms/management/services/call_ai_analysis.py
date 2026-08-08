@@ -1018,7 +1018,8 @@ def gemini_generate_grounded(
 def gemini_generate_text(payload: dict, *, role: str = "chat",
                          manual_key: str | None = None, log_cb=None,
                          model_override: str | None = None,
-                         reasoning_task: str | None = None) -> dict:
+                         reasoning_task: str | None = None,
+                         parse: bool = False) -> dict:
     """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
     моделей. У result['parsed'] — сирий текст відповіді моделі.
     log_cb (опц.) отримує короткі рядки про кожну спробу (для консолі бота)."""
@@ -1026,7 +1027,7 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
         return _run_chat_with_pool(
             payload,
             manual_key=(manual_key or "").strip() or None,
-            parse=False,
+            parse=parse,
             log_cb=log_cb,
             model_override=model_override,
             reasoning_task=reasoning_task or "customer_chat",
@@ -1036,7 +1037,7 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
         role,
         payload,
         manual_key=(manual_key or "").strip() or None,
-        parse=False,
+        parse=parse,
         timeout=MANAGEMENT_TEXT_TIMEOUT if bounded_management else None,
         deadline_seconds=(
             MANAGEMENT_TEXT_DEADLINE_SECONDS if bounded_management else None

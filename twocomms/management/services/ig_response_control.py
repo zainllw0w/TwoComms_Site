@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -27,13 +28,13 @@ CONTROL_KINDS = frozenset(
         "qty",
         "size",
         "fit",
-        "variant",
         "color_variant_id",
         "price",
         "price_quoted",
         "order",
         "show_products",
         "catalog_link",
+        "objhandle",
     }
 )
 _KIND_ALIASES = {"opt": "option", "variant": "color_variant_id"}
@@ -56,16 +57,62 @@ _STAGES = frozenset(
     }
 )
 
-# The broad matcher is intentional: an ASCII bracket token which looks like a
-# command must never reach a customer, even if its name is misspelled.
-_ASCII_CONTROL_TOKEN_RE = re.compile(r"\[[A-Za-z][^\]\n]{0,240}\]")
-_ASCII_UNCLOSED_TOKEN_RE = re.compile(r"\[[A-Za-z][^\]\n]{0,240}(?:\n|$)")
+# These broad, unbounded-by-length matchers are intentional: an ASCII bracket
+# token which looks like a command must never reach a customer, even if its
+# name is misspelled or a malformed provider response makes it very long.  The
+# negated character classes keep both passes linear in the reply length.
+_ASCII_CLOSED_CONTROL_TOKEN_RE = re.compile(r"\[[A-Za-z][^\]\r\n]*\]")
+_ASCII_CONTROL_SHAPED_RE = re.compile(r"\[[A-Za-z][^\]\r\n]*(?:\]|\r?\n|$)")
 _KNOWN_KIND_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _ID_RE = re.compile(r"^[1-9][0-9]{0,9}$")
 _QTY_RE = re.compile(r"^[1-9][0-9]{0,3}$")
 _SIZE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,15}$")
 _FIT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,49}$")
 _OPTION_RE = re.compile(r"^[a-z][a-z0-9_-]{0,48}=[^=;\[\]\r\n]{1,80}$", re.I)
+_OBJHANDLE_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}:[a-z][a-z0-9_]{0,47}$")
+
+# Gemini's structured-output schema is deliberately broader than the
+# application validator: ``value`` has different types for different kinds,
+# and the validator below remains the authorization boundary.
+STRUCTURED_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "reply_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+        },
+        "controls": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": sorted(CONTROL_KINDS),
+                    },
+                    "value": {
+                        "anyOf": [
+                            {"type": "string"},
+                            {"type": "boolean"},
+                            {"type": "integer"},
+                            {"type": "number"},
+                            {"type": "array", "items": {"type": "integer"}},
+                        ]
+                    },
+                },
+                "required": ["kind", "value"],
+            },
+        },
+    },
+    "required": ["reply_text", "controls"],
+}
+
+
+def structured_response_schema() -> dict[str, Any]:
+    """Return a caller-owned copy of the provider response schema."""
+    return deepcopy(STRUCTURED_RESPONSE_SCHEMA)
 
 
 @dataclass(frozen=True)
@@ -109,15 +156,17 @@ class ValidatedResponse:
 
 def _clean_text(text: object) -> str:
     value = str(text or "")
-    value = _ASCII_CONTROL_TOKEN_RE.sub("", value)
-    value = _ASCII_UNCLOSED_TOKEN_RE.sub("", value)
+    value = _ASCII_CONTROL_SHAPED_RE.sub("", value)
     value = re.sub(r"[ \t]{2,}", " ", value)
     value = re.sub(r"\n{3,}", "\n\n", value)
     return value.strip()
 
 
 def _failure(text: object, reason: str) -> ValidatedResponse:
-    return ValidatedResponse(reply_text=_clean_text(text), valid=False, error=reason)
+    # Invalid provider text must not be retained in a compatibility result:
+    # stringifying an object can expose fields that were never customer text.
+    clean = "" if reason == "invalid_reply_text" else _clean_text(text)
+    return ValidatedResponse(reply_text=clean, valid=False, error=reason)
 
 
 def _positive_integer(value: object, *, quantity: bool = False) -> str | None:
@@ -194,7 +243,8 @@ def _normalize_show_products(value: object) -> str | None:
 def _normalize_control(kind: object, value: object, *, legacy: bool, has_value: bool) -> ResponseControl | None:
     if not isinstance(kind, str):
         return None
-    canonical = _KIND_ALIASES.get(kind.lower(), kind.lower())
+    normalized_kind = kind.lower()
+    canonical = _KIND_ALIASES.get(normalized_kind, normalized_kind) if legacy else normalized_kind
     if canonical not in CONTROL_KINDS:
         return None
 
@@ -203,9 +253,9 @@ def _normalize_control(kind: object, value: object, *, legacy: bool, has_value: 
             if has_value:
                 return None
             return ResponseControl(canonical, True)
-        if not isinstance(value, bool):
+        if value is not True:
             return None
-        return ResponseControl(canonical, value)
+        return ResponseControl(canonical, True)
     if canonical == "stage":
         if not isinstance(value, str):
             return None
@@ -244,8 +294,11 @@ def _normalize_control(kind: object, value: object, *, legacy: bool, has_value: 
     if canonical == "show_products":
         normalized = _normalize_show_products(value)
         return ResponseControl(canonical, normalized) if normalized else None
-    if canonical == "catalog_link":
-        return None
+    if canonical == "objhandle":
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().lower()
+        return ResponseControl(canonical, normalized) if _OBJHANDLE_RE.fullmatch(normalized) else None
     return None
 
 
@@ -254,7 +307,10 @@ def _append_control(controls: list[ResponseControl], entry: ResponseControl) -> 
         controls.append(entry)
         return True
     for previous in controls:
-        if previous.kind == entry.kind and previous.value != entry.value:
+        if previous.kind == entry.kind:
+            # A singleton is an assertion, not an ordered list.  Repeating it
+            # is ambiguous even when the values happen to be equal: duplicate
+            # model output must fail closed instead of being silently accepted.
             return False
     controls.append(entry)
     return True
@@ -271,9 +327,15 @@ def parse_structured_response(payload: object) -> ValidatedResponse:
         return _failure(payload.get("reply_text", "") if isinstance(payload, dict) else "", "malformed_payload")
     reply_text = payload.get("reply_text")
     controls_payload = payload.get("controls")
-    if not isinstance(reply_text, str) or not isinstance(controls_payload, list):
+    if not isinstance(reply_text, str):
+        return _failure("", "invalid_reply_text")
+    if not isinstance(controls_payload, list):
         return _failure(reply_text, "malformed_payload")
-    if _ASCII_CONTROL_TOKEN_RE.search(reply_text) or _ASCII_UNCLOSED_TOKEN_RE.search(reply_text):
+    if not reply_text.strip() or len(reply_text) > 4000:
+        return _failure(reply_text, "invalid_reply_text")
+    if len(controls_payload) > 32:
+        return _failure(reply_text, "too_many_controls")
+    if _ASCII_CONTROL_SHAPED_RE.search(reply_text):
         return _failure(reply_text, "control_token_in_reply_text")
 
     controls: list[ResponseControl] = []
@@ -292,8 +354,9 @@ def parse_legacy_response(text: object) -> ValidatedResponse:
     """Parse the historical uppercase bracket protocol with fail-closed output."""
     if not isinstance(text, str):
         return _failure("", "malformed_text")
-    tokens = list(_ASCII_CONTROL_TOKEN_RE.finditer(text))
-    if _ASCII_UNCLOSED_TOKEN_RE.search(text):
+    shaped_tokens = list(_ASCII_CONTROL_SHAPED_RE.finditer(text))
+    tokens = list(_ASCII_CLOSED_CONTROL_TOKEN_RE.finditer(text))
+    if any(not match.group(0).endswith("]") for match in shaped_tokens):
         return _failure(text, "malformed_token")
     controls: list[ResponseControl] = []
     invalid_reason = ""
@@ -327,10 +390,12 @@ parse_legacy_tags = parse_legacy_response
 __all__ = [
     "CONTROL_KINDS",
     "ResponseControl",
+    "STRUCTURED_RESPONSE_SCHEMA",
     "ValidatedResponse",
     "parse_legacy_response",
     "parse_legacy_tags",
     "parse_model_response",
     "parse_structured_response",
+    "structured_response_schema",
     "validate_structured_response",
 ]

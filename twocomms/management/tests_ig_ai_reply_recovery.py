@@ -168,6 +168,56 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertTrue(draft.startswith("Вибачте за технічну затримку."))
         self.assertIn("Вітаю! Чим можу допомогти?", draft)
 
+    def test_generated_recovery_consumes_typed_reply_text_without_dataclass_leak(self):
+        from management.services.ig_response_control import ValidatedResponse
+
+        job = self.recovery.schedule_recovery(self.source)
+        generated = ValidatedResponse(reply_text="Підкажу по наявності.")
+
+        with patch.object(self.recovery, "gemini_generate", return_value=generated):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertIn("Підкажу по наявності.", draft)
+        self.assertNotIn("ValidatedResponse", draft)
+
+    def test_generated_recovery_rejects_invalid_typed_reply_without_delivery_text(self):
+        from management.services.ig_response_control import ValidatedResponse
+
+        job = self.recovery.schedule_recovery(self.source)
+        generated = ValidatedResponse(
+            reply_text="unsafe provider text",
+            valid=False,
+            error="invalid_reply_text",
+        )
+
+        with patch.object(self.recovery, "gemini_generate", return_value=generated):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertEqual(draft, "")
+
+    def test_generated_recovery_rejects_non_string_provider_payload(self):
+        job = self.recovery.schedule_recovery(self.source)
+
+        with patch.object(self.recovery, "gemini_generate", return_value={"reply_text": "leak"}):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertEqual(draft, "")
+
+    def test_invalid_typed_recovery_reply_is_not_deliverable(self):
+        from management.services.ig_response_control import ValidatedResponse
+
+        job = self.recovery.schedule_recovery(self.source)
+        generated = ValidatedResponse(
+            reply_text="x" * 4001,
+            valid=False,
+            error="invalid_reply_text",
+        )
+
+        with patch.object(self.recovery, "gemini_generate", return_value=generated):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertEqual(draft, "")
+
     def test_generated_recovery_uses_russian_apology_for_russian_turn(self):
         self.source.text = "Привет, нужна футболка"
         self.source.save(update_fields=["text"])
@@ -371,6 +421,13 @@ class IgAIReplyRecoveryTests(TestCase):
 
         self.assertLessEqual(len(draft.encode("utf-8")), 950)
         self.assertEqual(len(_split_for_send(draft)), 1)
+
+    def test_recovery_draft_uses_fail_closed_control_sanitizer(self):
+        draft = self.recovery._trim_draft(
+            "Підкажу по наявності. [manager] [MANAGER:false]"
+        )
+
+        self.assertEqual(draft, "Підкажу по наявності.")
 
     def test_draft_and_history_row_exist_before_meta_request(self):
         job = self.recovery.schedule_recovery(self.source)
