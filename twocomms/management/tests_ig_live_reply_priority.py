@@ -76,6 +76,29 @@ class StructuredProviderBoundaryTests(TestCase):
         self.assertNotIn("variant", kinds)
         self.assertTrue(generate.call_args.kwargs["parse"])
 
+    def test_customer_chat_keeps_invalid_control_result_fail_closed(self):
+        settings = InstagramBotSettings()
+        provider = {
+            "parsed": {
+                "reply_text": "Ось посилання на оплату.",
+                "controls": [{"kind": "stage", "value": "paid"}],
+            },
+            "model": "gemini-test",
+            "usage": {},
+            "meta": {"key": "test", "reasoning_task": "customer_chat"},
+        }
+        with patch(
+            "management.services.call_ai_analysis.gemini_generate_text",
+            return_value=provider,
+        ):
+            result = instagram_bot.gemini_generate(
+                settings, [{"role": "user", "text": "Дайте лінк"}]
+            )
+
+        self.assertFalse(result.valid)
+        self.assertEqual(result.control, {})
+        self.assertEqual(result.error, "invalid_control")
+
     def test_invalid_reply_text_from_provider_becomes_generation_failure(self):
         settings = InstagramBotSettings()
         failure_context = {}
@@ -281,6 +304,72 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
 
         self.assertEqual(handled, 1)
         self.assertEqual(delivered, "Оплата підтверджена. Товар є в наявності.")
+
+    def test_negated_authority_status_is_not_treated_as_verified_claim(self):
+        replies = (
+            "Оплата ще не підтверджена, я перевірю статус.",
+            "Не підтверджено оплату, я ще перевіряю.",
+            "Не подтверждена оплата, я ещё проверяю.",
+            "Payment has not been confirmed, I am still checking.",
+        )
+        for index, reply in enumerate(replies):
+            with self.subTest(reply=reply):
+                client = self._client(f"claim-negated-{index}")
+                _source, handled, delivered = self._run(
+                    client,
+                    {"reply_text": reply, "controls": []},
+                    suffix=f"claim-negated-{index}",
+                    text="Чи вже пройшла оплата?",
+                )
+
+                self.assertEqual(handled, 1)
+                self.assertEqual(delivered, reply)
+
+    def test_unrelated_negation_does_not_hide_positive_authority_claim(self):
+        client = self._client("claim-positive-after-negation")
+        claim = "Не хвилюйтеся, оплату підтверджено."
+        _source, handled, delivered = self._run(
+            client,
+            {"reply_text": claim, "controls": []},
+            suffix="claim-positive-after-negation",
+            text="Чи вже пройшла оплата?",
+        )
+
+        self.assertEqual(handled, 1)
+        self.assertNotEqual(delivered, claim)
+
+    def test_invalid_structured_paylink_cannot_use_free_text_fallback(self):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="W16 invalid paylink", slug="w16-invalid-paylink")
+        product = Product.objects.create(
+            title="W16 invalid paylink product",
+            slug="w16-invalid-paylink-product",
+            category=category,
+            price=900,
+            status=ProductStatus.PUBLISHED,
+        )
+        client = self._client("invalid-paylink")
+        client.current_product_id = product.pk
+        client.current_size = "M"
+        client.save(update_fields=["current_product_id", "current_size", "updated_at"])
+
+        with patch(
+            "management.services.bot_orders.create_checkout_proposal_link"
+        ) as create_proposal:
+            _source, handled, delivered = self._run(
+                client,
+                {
+                    "reply_text": "Ось посилання на оплату.",
+                    "controls": [{"kind": "paylink", "value": "invalid"}],
+                },
+                suffix="invalid-paylink",
+                text="Я готовий оплатити.",
+            )
+
+        self.assertEqual(handled, 1)
+        create_proposal.assert_not_called()
+        self.assertNotIn("посилання на оплату", delivered.lower())
 
     def test_valid_non_hard_stage_crosses_worker_boundary(self):
         client = self._client("qualifying")

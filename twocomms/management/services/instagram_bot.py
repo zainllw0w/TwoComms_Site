@@ -353,6 +353,29 @@ _AUTHORITY_CLAIM_FALLBACK = {
     "ru": "Спасибо! Проверю это по системным данным и сразу уточню ответ 🙌",
     "en": "Thank you! I will verify this against our records and get right back to you 🙌",
 }
+_AUTHORITY_NEGATION_RE = re.compile(
+    r"\b(?:не|нет|немає|ще\s+не|поки\s+не|не\s+було|"
+    r"not|no|isn['’]?t|is\s+not|hasn['’]?t|has\s+not|doesn['’]?t|does\s+not)\b",
+    re.I,
+)
+
+
+def _positive_authority_claim(pattern: re.Pattern, reply: str) -> bool:
+    """Match only positive authority assertions, not a negated status update."""
+    text = str(reply or "")
+    for match in pattern.finditer(text):
+        # The match can begin at the verb ("not confirmed payment"), leaving
+        # the negation just outside ``match.group(0)``. Inspect the whole current
+        # clause, bounded by punctuation, so that unrelated text in an earlier
+        # clause cannot suppress a real positive assertion.
+        clause_start = max(
+            text.rfind(delimiter, 0, match.start())
+            for delimiter in "\n.!?;:,"
+        ) + 1
+        claim_clause = text[clause_start:match.end()]
+        if not _AUTHORITY_NEGATION_RE.search(claim_clause):
+            return True
+    return False
 
 
 def _has_exact_stock_evidence(client, control: dict) -> bool:
@@ -403,7 +426,7 @@ def _authoritative_reply_claim_failures(client, reply: str, control: dict) -> tu
     """Identify positive operational facts that lack application-owned evidence."""
     claimed = {
         kind for kind, pattern in _AUTHORITATIVE_REPLY_CLAIMS.items()
-        if pattern.search(str(reply or ""))
+        if _positive_authority_claim(pattern, reply)
     }
     if not claimed:
         return ()
@@ -6027,10 +6050,17 @@ def gemini_generate(
         if not text.valid:
             # Keep valid customer text but never return an invalid structured
             # result to callers: controls are proposal-only and are dropped.
+            # Preserve the invalid state so the worker can also prevent legacy
+            # free-text fallbacks (for example "here is your payment link")
+            # from becoming an operational action.
             log("warning", "gemini_invalid_controls", text.error or "invalid_control")
             from management.services.ig_response_control import ValidatedResponse
 
-            text = ValidatedResponse(reply_text=text.reply_text)
+            text = ValidatedResponse(
+                reply_text=text.reply_text,
+                valid=False,
+                error=text.error or "invalid_control",
+            )
     else:
         # Rolling compatibility: old workers/tests may still return free text.
         text = (parsed or "").strip() if isinstance(parsed, str) else ""
@@ -8594,6 +8624,7 @@ def _process_one_inside_reply_boundary(
     if reply:
         reply, control, controls_valid = _normalize_generated_reply(reply)
         if not controls_valid:
+            control["_invalid"] = True
             log("warning", "invalid_model_controls", f"{row.sender_id}: controls discarded")
     # Invalid controls are discarded, not interpreted as a manager request.
     # A customer-safe reply may continue without changing CRM authority state;
