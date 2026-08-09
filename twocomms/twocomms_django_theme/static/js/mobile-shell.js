@@ -12,7 +12,12 @@
   const searchInput = searchForm?.querySelector("input");
   const filterTriggers = Array.from(document.querySelectorAll("[data-mobile-open-filters]"));
   const filterCount = shell.querySelector("[data-mobile-filter-count]");
+  const rootFilters = document.querySelector("[data-catalog-root-filters]");
+  const rootFilterSheet = rootFilters?.querySelector("[role='dialog']");
+  const rootFilterClose = rootFilters?.querySelector("[data-catalog-root-filter-close]");
   let menuReturnFocus = null;
+  let filterReturnFocus = null;
+  let filterCloseTimer = 0;
   let scrollY = 0;
 
   const lockBody = () => {
@@ -56,6 +61,39 @@
 
   menuToggle?.addEventListener("click", () => setMenuOpen(menu?.classList.contains("is-open") !== true));
 
+  const setRootFiltersOpen = (open, restoreFocus = true) => {
+    if (!rootFilters || !rootFilterSheet) return false;
+    window.clearTimeout(filterCloseTimer);
+    if (open) {
+      if (menu?.classList.contains("is-open")) setMenuOpen(false, false);
+      filterReturnFocus = document.activeElement;
+      rootFilters.hidden = false;
+      rootFilters.setAttribute("aria-hidden", "false");
+      filterTriggers.forEach((trigger) => trigger.setAttribute("aria-expanded", "true"));
+      lockBody();
+      window.requestAnimationFrame(() => {
+        rootFilters.classList.add("is-open");
+        rootFilterClose?.focus({ preventScroll: true });
+      });
+      return true;
+    }
+    rootFilters.classList.remove("is-open");
+    rootFilters.setAttribute("aria-hidden", "true");
+    filterTriggers.forEach((trigger) => trigger.setAttribute("aria-expanded", "false"));
+    unlockBody();
+    filterCloseTimer = window.setTimeout(() => { rootFilters.hidden = true; }, 220);
+    if (restoreFocus && filterReturnFocus?.isConnected) {
+      filterReturnFocus.focus({ preventScroll: true });
+    }
+    filterReturnFocus = null;
+    return true;
+  };
+
+  rootFilterClose?.addEventListener("click", () => setRootFiltersOpen(false));
+  rootFilters?.addEventListener("pointerdown", (event) => {
+    if (event.target === rootFilters) setRootFiltersOpen(false);
+  });
+
   searchToggle?.addEventListener("click", () => {
     const open = header?.classList.toggle("is-searching");
     searchToggle.setAttribute("aria-expanded", String(Boolean(open)));
@@ -70,13 +108,19 @@
   }, true);
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && rootFilters?.classList.contains("is-open")) {
+      event.preventDefault();
+      setRootFiltersOpen(false);
+      return;
+    }
     if (event.key === "Escape" && menu?.classList.contains("is-open")) {
       event.preventDefault();
       setMenuOpen(false);
       return;
     }
-    if (event.key !== "Tab" || !menu?.classList.contains("is-open")) return;
-    const focusable = Array.from(menu.querySelectorAll("a[href], button:not([disabled]), input:not([disabled])"));
+    const activePanel = rootFilters?.classList.contains("is-open") ? rootFilterSheet : (menu?.classList.contains("is-open") ? menu : null);
+    if (event.key !== "Tab" || !activePanel) return;
+    const focusable = Array.from(activePanel.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])"));
     if (!focusable.length) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -85,12 +129,10 @@
   });
 
   const openExistingFilters = () => {
+    if (rootFilters) return setRootFiltersOpen(true);
     const root = document.querySelector("[data-smart-selector]");
     const trigger = root?.querySelector("[data-smart-open-filters]");
     if (!trigger) {
-      // The general catalog intentionally keeps its legacy category showcase
-      // (the smart selector is category-scoped). Keep its filter affordance
-      // useful by taking the shopper to the three primary choices.
       const categories = document.getElementById("catalog-mobile-reference-categories");
       categories?.scrollIntoView({ behavior: "smooth", block: "start" });
       return Boolean(categories);
@@ -106,7 +148,7 @@
 
   const syncFilterCount = () => {
     if (!filterCount) return;
-    const source = document.querySelector("[data-smart-active-count]");
+    const source = document.querySelector("[data-root-active-count], [data-smart-active-count]");
     if (!source || source.hidden) {
       filterCount.hidden = true;
       filterCount.textContent = "0";
@@ -124,5 +166,6 @@
 
   window.addEventListener("popstate", () => {
     if (menu?.classList.contains("is-open")) setMenuOpen(false, false);
+    if (rootFilters?.classList.contains("is-open")) setRootFiltersOpen(false, false);
   });
 })();

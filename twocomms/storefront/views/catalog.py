@@ -36,6 +36,7 @@ from ..services.card_preview import (
     enrich_color_preview_with_slugs,
 )
 from ..services.catalog_facets import (
+    SELLABLE_SIZE_ORDER,
     filter_products_by_facets,
     normalize_catalog_facet_state,
 )
@@ -161,6 +162,12 @@ SMART_SELECTOR_AVAILABILITY_LABELS = {
     'in_stock': _('В наявності'),
 }
 SMART_SELECTOR_THERMO_LABEL = _('Термохромна тканина')
+ROOT_CATALOG_SORT_VALUES = ('recommended', 'newest', 'price-asc', 'price-desc')
+ROOT_CATALOG_CATEGORY_LABELS = {
+    'tshirts': _('Футболки'),
+    'hoodie': _('Худі'),
+    'long-sleeve': _('Лонгсліви'),
+}
 
 
 def _smart_selector_fit_codes(category, product_queryset):
@@ -242,6 +249,25 @@ def _apply_smart_selector_sort(product_queryset, selected_sort):
         '-priority',
         '-id',
     )
+
+
+def _root_catalog_sort_state(request):
+    requested = (request.GET.get('sort') or '').strip().lower()
+    return requested if requested in ROOT_CATALOG_SORT_VALUES else 'recommended'
+
+
+def _apply_root_catalog_sort(product_queryset, selected_sort):
+    if selected_sort == 'newest':
+        return product_queryset.order_by('-published_at', '-created_at', '-id')
+    return _apply_smart_selector_sort(product_queryset, selected_sort)
+
+
+def _root_catalog_selected_categories(request):
+    requested = {
+        str(value or '').strip().lower()
+        for value in request.GET.getlist('category')
+    }
+    return tuple(slug for slug in SMART_SELECTOR_CATEGORY_SLUGS if slug in requested)
 
 
 def _sort_smart_selector_products_by_visible_price(product_queryset, selected_sort):
@@ -1130,6 +1156,10 @@ def catalog(request, cat_slug=None, collection_slug=None):
     smart_selector_facet_state = {}
     smart_selector_merchandising = None
     selected_color_slugs = parse_color_filter(request)
+    root_catalog_selected_categories = ()
+    root_catalog_facet_state = {}
+    root_catalog_selected_sort = 'recommended'
+    root_catalog_filter_active_count = 0
 
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug, is_active=True)
@@ -1146,9 +1176,15 @@ def catalog(request, cat_slug=None, collection_slug=None):
         show_category_cards = False
     else:
         category = None
+        root_catalog_selected_categories = _root_catalog_selected_categories(request)
         base_product_qs = apply_public_product_order(
             _product_cards_queryset().filter(status='published')
         )
+        if root_catalog_selected_categories:
+            base_product_qs = base_product_qs.filter(
+                category__slug__in=root_catalog_selected_categories,
+                category__is_active=True,
+            )
         show_category_cards = True
 
     if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
@@ -1202,9 +1238,45 @@ def catalog(request, cat_slug=None, collection_slug=None):
     available_colors = build_available_colors(
         base_product_qs, request, selected_color_slugs, category=color_landing_category,
     )
-    has_active_color_filter = bool(selected_color_slugs)
-    color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
-    if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
+    if category is None:
+        allowed_root_colors = {
+            str(option.get('slug') or '').strip().lower()
+            for option in available_colors
+            if option.get('slug')
+        }
+        # ``parse_color_filter`` still accepts the legacy comma-separated
+        # form (``?color=black,red``). Feed its canonical values back as
+        # repeated keys so the aggregate facet normalizer preserves both
+        # legacy links and the new checkbox form.
+        root_facet_query = request.GET.copy()
+        root_facet_query.setlist('color', selected_color_slugs)
+        normalized_root_state = normalize_catalog_facet_state(
+            root_facet_query,
+            allowed_colors=allowed_root_colors,
+        )
+        root_catalog_facet_state = {
+            key: tuple(values)
+            for key, values in normalized_root_state.items()
+            if key in {'availability', 'size', 'color'}
+        }
+        selected_color_slugs = list(root_catalog_facet_state.get('color', ()))
+        root_catalog_selected_sort = _root_catalog_sort_state(request)
+        product_qs = filter_products_by_facets(
+            base_product_qs,
+            root_catalog_facet_state,
+        )
+        product_qs = _apply_root_catalog_sort(
+            product_qs,
+            root_catalog_selected_sort,
+        )
+        root_catalog_filter_active_count = (
+            len(root_catalog_selected_categories)
+            + sum(len(values) for values in root_catalog_facet_state.values())
+            + int(root_catalog_selected_sort != 'recommended')
+        )
+        if root_catalog_filter_active_count:
+            show_category_cards = False
+    elif category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
         if selected_color_slugs:
             smart_selector_facet_state["color"] = tuple(selected_color_slugs)
             product_qs = filter_products_by_facets(
@@ -1215,6 +1287,8 @@ def catalog(request, cat_slug=None, collection_slug=None):
             product_qs = base_product_qs
     else:
         product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
+    has_active_color_filter = bool(selected_color_slugs)
+    color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
     if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
         product_qs = _sort_smart_selector_products_by_visible_price(
             product_qs,
@@ -1286,6 +1360,26 @@ def catalog(request, cat_slug=None, collection_slug=None):
             'selected_color_slugs': selected_color_slugs,
             'has_active_color_filter': has_active_color_filter,
             'color_filter_reset_url': color_filter_reset_url,
+            'root_catalog_selected_categories': root_catalog_selected_categories,
+            'root_catalog_facet_state': root_catalog_facet_state,
+            'root_catalog_selected_color_slugs': root_catalog_facet_state.get('color', ()),
+            'root_catalog_selected_sizes': root_catalog_facet_state.get('size', ()),
+            'root_catalog_selected_availability': root_catalog_facet_state.get('availability', ()),
+            'root_catalog_selected_sort': root_catalog_selected_sort,
+            'root_catalog_filter_active_count': root_catalog_filter_active_count,
+            'root_catalog_filters_active': bool(root_catalog_filter_active_count),
+            'root_catalog_size_options': SELLABLE_SIZE_ORDER,
+            'root_catalog_category_options': [
+                {
+                    'slug': slug,
+                    'label': next(
+                        (item.name for item in categories if item.slug == slug),
+                        ROOT_CATALOG_CATEGORY_LABELS[slug],
+                    ),
+                    'selected': slug in root_catalog_selected_categories,
+                }
+                for slug in SMART_SELECTOR_CATEGORY_SLUGS
+            ] if category is None else [],
             'merch_collection_page': merch_collection_page,
             'smart_selector_request_has_facets': any(
                 key in request.GET

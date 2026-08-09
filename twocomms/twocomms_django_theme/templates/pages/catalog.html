@@ -13,7 +13,7 @@
 <link rel="preload" as="image" href="{% static 'img/catalog/catalog-hero.webp' %}" fetchpriority="high">
 {% endif %}
 <link rel="stylesheet" href="{% static 'css/home.css' %}?v=20260715-fable5-v1">
-<link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}?v=20260809-mobile-shell">
+<link rel="stylesheet" href="{% static 'css/catalog-redesign.css' %}?v=20260809-shell-stability-v2">
 <link rel="stylesheet" href="{% static 'css/color-filter.css' %}">
 <link rel="stylesheet" href="{% static 'css/category-seo-blocks.css' %}">
 {% if smart_selector_enabled %}
@@ -49,7 +49,7 @@ Treat them like any other facet: noindex, follow + canonical → base catalog.
 {# ItemList) — NOT by hiding pagination from the index, which would block discovery of products only #}
 {# reachable via the paginator. Sort/colour-filter facets keep noindex,follow because they re-order #}
 {# the same dataset on the same canonical URL. #}
-{% block robots %}{% if smart_selector_enabled and smart_selector_request_has_facets %}noindex, follow{% elif selected_color_slugs|length > 1 %}noindex, nofollow{% elif is_search_page or has_active_color_filter or request.GET.sort or request.GET.theme or request.GET.fit %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% block robots %}{% if smart_selector_enabled and smart_selector_request_has_facets %}noindex, follow{% elif selected_color_slugs|length > 1 %}noindex, nofollow{% elif is_search_page or root_catalog_filters_active or has_active_color_filter or request.GET.sort or request.GET.theme or request.GET.fit %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {# SEO 2026-05-16 — self-canonical on every paginator state (Google explicitly recommends "do not designate the first page as the canonical for paginator pages — give each its own canonical URL"; #}
 {# https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading). #}
@@ -169,7 +169,88 @@ point at themselves.
 {% if smart_selector_enabled %}
 {% include "partials/catalog_smart_selector.html" %}
 {% else %}
-<div class="catalog-redesign-shell{% if show_category_cards %} catalog-redesign-shell--root{% endif %}">
+<div class="catalog-redesign-shell{% if show_category_cards %} catalog-redesign-shell--root{% elif not category and not is_search_page %} catalog-redesign-shell--root-results{% endif %}">
+  {% if not category and not is_search_page %}
+  <div class="catalog-root-filters" data-catalog-root-filters id="catalog-root-filter-sheet" aria-hidden="true" hidden>
+    <section class="catalog-root-filters__sheet" role="dialog" aria-modal="true" aria-labelledby="catalog-root-filter-title" tabindex="-1">
+      <header class="catalog-root-filters__header">
+        <div>
+          <p>{% trans 'Весь каталог' %}</p>
+          <h2 id="catalog-root-filter-title">{% trans 'Фільтри' %}</h2>
+        </div>
+        <button type="button" class="catalog-root-filters__close" data-catalog-root-filter-close aria-label="{% trans 'Закрити фільтри' %}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+        </button>
+      </header>
+
+      <form class="catalog-root-filters__form" method="get" action="{% url 'catalog' %}" data-catalog-root-filter-form>
+        <div class="catalog-root-filters__body">
+          <fieldset class="catalog-root-filters__group">
+            <legend>{% trans 'Одяг' %}</legend>
+            <div class="catalog-root-filters__choices catalog-root-filters__choices--garments">
+              {% for option in root_catalog_category_options %}
+              <label class="catalog-root-filters__choice">
+                <input type="checkbox" name="category" value="{{ option.slug }}"{% if option.selected %} checked{% endif %}>
+                <span>{{ option.label }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          <fieldset class="catalog-root-filters__group">
+            <legend>{% trans 'Колір' %}</legend>
+            <div class="catalog-root-filters__choices catalog-root-filters__choices--colors">
+              {% for option in available_colors %}
+              <label class="catalog-root-filters__choice catalog-root-filters__choice--color">
+                <input type="checkbox" name="color" value="{{ option.slug }}"{% if option.slug in root_catalog_selected_color_slugs %} checked{% endif %}>
+                <span class="catalog-root-filters__swatch" style="--filter-color: {{ option.primary_hex }}; --filter-color-secondary: {{ option.secondary_hex|default:option.primary_hex }};" aria-hidden="true"></span>
+                <span>{{ option.label|default:option.slug }}</span>
+              </label>
+              {% empty %}
+              <p class="catalog-root-filters__empty">{% trans 'Кольори зʼявляться разом із доступними моделями.' %}</p>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          <fieldset class="catalog-root-filters__group">
+            <legend>{% trans 'Розмір' %}</legend>
+            <div class="catalog-root-filters__choices catalog-root-filters__choices--sizes">
+              {% for size in root_catalog_size_options %}
+              <label class="catalog-root-filters__choice catalog-root-filters__choice--size">
+                <input type="checkbox" name="size" value="{{ size }}"{% if size in root_catalog_selected_sizes %} checked{% endif %}>
+                <span>{{ size }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          <fieldset class="catalog-root-filters__group">
+            <legend>{% trans 'Наявність і сортування' %}</legend>
+            <label class="catalog-root-filters__choice catalog-root-filters__choice--wide">
+              <input type="checkbox" name="availability" value="in_stock"{% if 'in_stock' in root_catalog_selected_availability %} checked{% endif %}>
+              <span>{% trans 'Тільки в наявності' %}</span>
+            </label>
+            <label class="catalog-root-filters__select-label" for="catalog-root-sort">{% trans 'Порядок товарів' %}</label>
+            <select id="catalog-root-sort" class="catalog-root-filters__select" name="sort">
+              <option value="recommended"{% if root_catalog_selected_sort == 'recommended' %} selected{% endif %}>{% trans 'Рекомендовані' %}</option>
+              <option value="newest"{% if root_catalog_selected_sort == 'newest' %} selected{% endif %}>{% trans 'Спочатку новинки' %}</option>
+              <option value="price-asc"{% if root_catalog_selected_sort == 'price-asc' %} selected{% endif %}>{% trans 'Від дешевих' %}</option>
+              <option value="price-desc"{% if root_catalog_selected_sort == 'price-desc' %} selected{% endif %}>{% trans 'Від дорогих' %}</option>
+            </select>
+          </fieldset>
+        </div>
+
+        <footer class="catalog-root-filters__actions">
+          <a href="{% url 'catalog' %}" class="catalog-root-filters__reset" data-catalog-root-filter-reset>{% trans 'Скинути' %}</a>
+          <button type="submit" class="catalog-root-filters__apply" data-catalog-root-filter-apply>
+            {% trans 'Показати товари' %}
+          </button>
+        </footer>
+      </form>
+      <span class="visually-hidden" data-root-active-count{% if not root_catalog_filter_active_count %} hidden{% endif %}>{{ root_catalog_filter_active_count }}</span>
+    </section>
+  </div>
+  {% endif %}
   {% if show_category_cards and catalog_mobile_showcase_cards %}
   <section class="catalog-mobile-reference" aria-labelledby="catalog-mobile-reference-title" data-catalog-mobile-reference>
     <div class="catalog-mobile-reference__content">

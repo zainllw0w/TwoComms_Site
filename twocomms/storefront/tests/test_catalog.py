@@ -4,6 +4,7 @@ Regression tests for storefront home/catalog/search endpoints.
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 from django.core.cache import cache, caches
@@ -122,8 +123,32 @@ class HomeViewTests(CatalogViewTestCase):
         self.assertContains(response, 'data-twc-image-protected="true"')
         self.assertContains(response, 'draggable="false"')
 
+    def test_home_preloads_and_async_decodes_the_single_hero_logo(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            '<link rel="preload" as="image" href="/static/img/logo.svg" fetchpriority="high">',
+        )
+        self.assertContains(
+            response,
+            'class="hero-logo-image" loading="eager" fetchpriority="high" decoding="async"',
+        )
+        self.assertContains(response, 'width="600" height="600" class="hero-logo-image"')
+        self.assertEqual(response.content.decode("utf-8").count('class="hero-logo-image"'), 1)
+
 
 class CatalogViewTests(CatalogViewTestCase):
+    def create_color_variant(self, product: Product, *, name: str, hex_value: str, stock: int = 3):
+        color = Color.objects.create(name=name, primary_hex=hex_value)
+        return ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            is_default=True,
+            stock=stock,
+        )
+
     def test_global_mobile_shell_owns_header_cart_menu_and_bottom_navigation(self):
         self.create_product(title="Root Product", slug="root-product")
 
@@ -153,6 +178,96 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertContains(response, 'data-bottom-nav-context="catalog"')
         self.assertContains(response, 'href="/catalog/"')
 
+    def test_global_header_uses_explicit_desktop_and_mobile_brand_groups(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "class='navbar-brand navbar-brand--twocomms")
+        self.assertContains(response, 'class="navbar-brand__name">TwoComms</span>')
+        self.assertContains(response, 'class="mobile-site-shell__brand-name">TWOCOMMS</span>')
+
+    def test_mobile_catalog_css_uses_stable_viewports_and_four_distinct_mark_paths(self):
+        static_root = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+        )
+        catalog_css = (static_root / "catalog-redesign.css").read_text(encoding="utf-8")
+        shell_css = (static_root / "mobile-shell.css").read_text(encoding="utf-8")
+
+        self.assertIn("100svh", catalog_css)
+        self.assertIn("100dvh", catalog_css)
+        self.assertIn("overflow: visible", catalog_css)
+        self.assertIn(
+            "animation: mobile-shell-mark-path-one 7.4s ease-in-out -1.2s infinite !important;",
+            shell_css,
+        )
+        self.assertIn(
+            'html[data-route-name="catalog"] .catalog-mobile-reference__floating-mark { animation: none !important;',
+            shell_css,
+        )
+        for path_number in ("one", "two", "three", "four"):
+            self.assertIn(f"@keyframes mobile-shell-mark-path-{path_number}", shell_css)
+        self.assertNotIn("floating-mark--four { display: none;", shell_css)
+
+    def test_root_results_mobile_grid_has_stable_tracks_and_single_card_span(self):
+        shell_css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "catalog-redesign.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            ".catalog-redesign-shell--root-results .catalog-products-grid",
+            shell_css,
+        )
+        self.assertIn("display: grid;", shell_css)
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr));", shell_css)
+        self.assertIn(
+            ".catalog-redesign-shell--root-results .catalog-products-grid > .product-card-wrap:only-child",
+            shell_css,
+        )
+        self.assertIn("grid-column: 1 / -1;", shell_css)
+
+    def test_mini_cart_template_exposes_stable_semantic_item_tracks(self):
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "partials"
+            / "mini_cart.html"
+        ).read_text(encoding="utf-8")
+
+        for class_name in (
+            "mini-cart-row",
+            "mini-cart-row__media",
+            "mini-cart-row__copy",
+            "mini-cart-row__title",
+            "mini-cart-row__meta",
+            "mini-cart-row__actions",
+            "mini-cart-row__price",
+            "mini-cart-row__remove",
+        ):
+            self.assertIn(class_name, template)
+
+        shell_css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "mobile-shell.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "grid-template-columns: 48px minmax(0, 1fr) minmax(64px, auto);",
+            shell_css,
+        )
+        self.assertIn("#mini-cart-panel-mobile .mini-cart-primary-cta", shell_css)
+        self.assertIn("background: #f15a0b !important;", shell_css)
+        self.assertIn("font-variant-numeric: tabular-nums;", shell_css)
+
     def test_catalog_root_shows_published_products_and_category_cards(self):
         self.create_product(title="Root Product", slug="root-product")
         self.create_product(
@@ -170,6 +285,92 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertIn("Root Product", product_titles)
         self.assertIn("Other Product", product_titles)
         self.assertNotIn("Hidden Product", product_titles)
+
+    def test_catalog_root_renders_accessible_aggregate_filter_sheet(self):
+        tshirts = Category.objects.create(name="Футболки", slug="tshirts", is_active=True)
+        Category.objects.create(name="Худі", slug="hoodie", is_active=True)
+        Category.objects.create(name="Лонгсліви", slug="long-sleeve", is_active=True)
+        product = self.create_product(title="Black Tee", slug="black-tee", category=tshirts)
+        self.create_color_variant(product, name="Black", hex_value="#111111")
+
+        response = self.client.get(reverse("catalog"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-catalog-root-filters')
+        self.assertContains(response, 'id="catalog-root-filter-sheet"')
+        self.assertContains(response, 'role="dialog"')
+        self.assertContains(response, 'aria-modal="true"')
+        self.assertContains(response, 'method="get"')
+        for category_slug in ("tshirts", "hoodie", "long-sleeve"):
+            self.assertContains(response, f'name="category" value="{category_slug}"')
+        for size in ("XS", "S", "M", "L", "XL", "2XL"):
+            self.assertContains(response, f'name="size" value="{size}"')
+        self.assertContains(response, 'name="color" value="black"')
+        self.assertContains(response, 'name="availability" value="in_stock"')
+        self.assertContains(response, 'name="sort"')
+        self.assertContains(response, 'data-catalog-root-filter-reset')
+        self.assertContains(response, 'data-catalog-root-filter-apply')
+        self.assertContains(response, 'data-root-active-count')
+
+    def test_catalog_root_filters_multiple_categories_and_inventory(self):
+        tshirts = Category.objects.create(name="Футболки", slug="tshirts", is_active=True)
+        hoodie = Category.objects.create(name="Худі", slug="hoodie", is_active=True)
+        long_sleeve = Category.objects.create(name="Лонгсліви", slug="long-sleeve", is_active=True)
+
+        tee = self.create_product(title="Available Tee", slug="available-tee", category=tshirts)
+        available_hoodie = self.create_product(
+            title="Available Hoodie",
+            slug="available-hoodie",
+            category=hoodie,
+        )
+        unavailable_hoodie = self.create_product(
+            title="Unavailable Hoodie",
+            slug="unavailable-hoodie",
+            category=hoodie,
+        )
+        unavailable_hoodie.is_dropship_available = False
+        unavailable_hoodie.save(update_fields=["is_dropship_available"])
+        excluded_long_sleeve = self.create_product(
+            title="Excluded Long Sleeve",
+            slug="excluded-long-sleeve",
+            category=long_sleeve,
+        )
+
+        self.create_color_variant(tee, name="Tee Black", hex_value="#111111")
+        self.create_color_variant(available_hoodie, name="Hoodie Black", hex_value="#121212")
+        self.create_color_variant(unavailable_hoodie, name="Hoodie Gray", hex_value="#222222")
+        self.create_color_variant(excluded_long_sleeve, name="Long Black", hex_value="#131313")
+
+        response = self.client.get(
+            f'{reverse("catalog")}?category=tshirts&category=hoodie&availability=in_stock'
+        )
+        product_titles = [product.title for product in response.context["products"]]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["root_catalog_selected_categories"], ("tshirts", "hoodie"))
+        self.assertEqual(response.context["root_catalog_facet_state"]["availability"], ("in_stock",))
+        self.assertEqual(response.context["root_catalog_filter_active_count"], 3)
+        self.assertFalse(response.context["show_category_cards"])
+        self.assertIn("Available Tee", product_titles)
+        self.assertIn("Available Hoodie", product_titles)
+        self.assertNotIn("Unavailable Hoodie", product_titles)
+        self.assertNotIn("Excluded Long Sleeve", product_titles)
+        self.assertContains(response, "catalog-products-grid")
+        self.assertContains(response, "home-product-card card product")
+
+    def test_catalog_root_preserves_legacy_comma_separated_color_filter(self):
+        tshirts = Category.objects.create(name="Футболки", slug="tshirts", is_active=True)
+        product = self.create_product(title="Legacy Color Tee", slug="legacy-color-tee", category=tshirts)
+        variant = self.create_color_variant(product, name="Black", hex_value="#111111")
+        variant.slug = "black"
+        variant.save(update_fields=["slug"])
+
+        response = self.client.get(f'{reverse("catalog")}?color=black,red', follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["root_catalog_selected_color_slugs"], ("black",))
+        self.assertFalse(response.context["show_category_cards"])
+        self.assertIn("Legacy Color Tee", [product.title for product in response.context["products"]])
 
     def test_catalog_root_renders_print_zone_selector(self):
         self.create_product(title="Root Product", slug="root-product")

@@ -45,6 +45,10 @@ hard-coded the UA URL and broke reciprocity for /ru/ and /en/ visitors.
 {# Home не использует Font Awesome — отключаем загрузку CSS (~103 KB, ~99.7% unused). #}
 {% block fontawesome_css %}{% endblock %}
 
+{% block preload_hints %}
+<link rel="preload" as="image" href="{% static 'img/logo.svg' %}" fetchpriority="high">
+{% endblock %}
+
 {% block extra_css %}
   {{ block.super }}
   {% comment %}
@@ -153,7 +157,7 @@ canonical entry point for the brand's URL graph.
   <!-- Фоновый логотип -->
   <div class="hero-logo-bg">
     {% static 'img/logo.svg' as hero_logo_url %}
-    <img src="{{ hero_logo_url }}" alt="{% trans 'TwoComms логотип — український streetwear бренд' %}" width="600" height="600" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="sync">
+    <img src="{{ hero_logo_url }}" alt="{% trans 'TwoComms логотип — український streetwear бренд' %}" width="600" height="600" class="hero-logo-image" loading="eager" fetchpriority="high" decoding="async">
   </div>
   
   <div class="hero-container row align-items-center g-4">

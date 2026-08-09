@@ -107,3 +107,17 @@ SECRET_KEY=test_local_secret .venv/bin/python twocomms/manage.py test storefront
 5. Deploy via the authorized SSH pull, then run `collectstatic --noinput`, `compress --force`, `check`, and Passenger restart.
 6. Verify production SHA, cache-busted assets, filter interactions, mini-cart, catalog height, header alignment, and homepage hero markup.
 
+## Execution Status (2026-08-09)
+
+- [x] Task 1: aggregate root-filter RED contracts were added and observed failing before implementation.
+- [x] Task 2: repeated garment categories, normalized inventory facets, server-rendered aggregate results, focus handling, body lock, Escape/backdrop close, apply/reset, and legacy comma-separated color URLs are implemented.
+- [x] Task 3: continuous `svh`/`dvh` catalog geometry, filter-sheet geometry, four distinct Custom Print motion paths, the `effects-lite` cascade exception, and a route-scoped reduced-motion freeze are implemented.
+- [x] Task 4 implementation: semantic mini-cart tracks, stable panel rows, long-copy wrapping, a 64px action track, compact summary, primary checkout CTA, and short-height reductions are implemented.
+- [x] Task 5: global brand groups, mobile alignment, homepage logo preload, async decode, and redundant hero-image work removal are implemented.
+- [x] Browser geometry: 320x568, 375x667, 390x844, 430x932, and 1280x900 have zero horizontal overflow; the mobile header is 64px, the dock is 72px, and desktop keeps the existing non-mobile grid.
+- [x] Aggregate result grid: mobile results use two stable tracks without Bootstrap negative gutters; an only child spans both tracks.
+- [x] Focused verification: all nine new acceptance tests pass; `manage.py check`, `node --check`, and `git diff --check` pass.
+- [ ] Full affected suites are not entirely green: 77/80 pass. Three untouched Smart Selector expectations remain failing (`white-space: nowrap`, the old color-group aria label, and legacy SEO copy).
+- [x] Populated mini-cart browser verification: a real server session with two products, long and short titles, stable price tracks, summary, primary checkout CTA, and mono checkout was verified at 320x568 and 390x844 with zero horizontal overflow and no console errors.
+- [ ] A populated custom-print mini-cart item remains a separate follow-up scenario because it requires a valid Custom Print lead and moderation state; its semantic row uses the same stable grid contract.
+- [ ] Commit, push, deploy, and production verification are intentionally not performed in this local-only phase.

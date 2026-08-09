@@ -211,6 +211,11 @@
   letter-spacing: 0;
 }
 
+.hero-logo-image {
+  filter: none;
+  will-change: auto;
+}
+
 #survey-section .featured-floating-logos img {
   display: block;
   height: 100%;

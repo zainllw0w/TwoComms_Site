@@ -957,7 +957,7 @@
   {% endcomment %}
 
   {% block extra_css %}{% endblock %}
-  <link rel="stylesheet" href="{% static 'css/mobile-shell.css' %}?v=20260809-shell-v2">
+  <link rel="stylesheet" href="{% static 'css/mobile-shell.css' %}?v=20260809-shell-stability-v2">
   <style>{% inline_static "fable5/thermo-dot.css" %}</style>
 
   <link rel="stylesheet" href="{% static 'css/telegram-verify.css' %}"
@@ -1279,7 +1279,7 @@
   </div>
 
   <!-- Мобильные мини-панели (только для мобильной версии) -->
-  <div id="mini-cart-panel-mobile" class="cart-panel d-none d-lg-none">
+  <div id="mini-cart-panel-mobile" class="cart-panel mobile-mini-cart d-none d-lg-none">
     <!-- Анимация искр для корзины -->
     <div class="cart-sparks-container">
       <div class="cart-spark cart-spark-1"></div>
@@ -1291,7 +1291,7 @@
     </div>
 
     <!-- Заголовок корзины -->
-    <div class="cart-header">
+    <div class="cart-header mobile-mini-cart__header">
       <div class="cart-header-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path
@@ -1308,7 +1308,7 @@
     </div>
 
     <!-- Содержимое корзины -->
-    <div id="mini-cart-content-mobile" class="cart-content">
+    <div id="mini-cart-content-mobile" class="cart-content mobile-mini-cart__content">
       <div class="cart-loading">
         <div class="loading-spinner"></div>
         <div class="loading-text">{% trans 'Завантаження…' %}</div>
@@ -1316,7 +1316,7 @@
     </div>
 
     <!-- Меню действий корзины -->
-    <div class="cart-menu">
+    <div class="cart-menu mobile-mini-cart__menu">
       <a href="{% url 'delivery' %}" class="cart-menu-item">
         <div class="cart-menu-icon">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1334,7 +1334,7 @@
     </div>
 
     <!-- Информационная панель -->
-    <div class="cart-info">
+    <div class="cart-info mobile-mini-cart__info">
       <div class="cart-info-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
@@ -1384,7 +1384,7 @@
   {% endif %}
   <script type="module" src="{% static 'js/main.js' %}?v=20260809-mobile-shell" onload="this.classList.add('script-loaded')"
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
-  <script defer src="{% static 'js/mobile-shell.js' %}?v=20260809-shell"></script>
+  <script defer src="{% static 'js/mobile-shell.js' %}?v=20260809-shell-stability"></script>
 
   <!-- UI fallback helpers (QtyInc/QtyDec/AddToCart/CartRemove*) -->
   {% comment %}

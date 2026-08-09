@@ -291,6 +291,16 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertContains(response, 'data-smart-sort-value="price-asc"')
         self.assertContains(response, 'data-smart-sort-value="price-desc"')
 
+    def test_category_route_keeps_smart_selector_instead_of_root_filter_sheet(self):
+        self.create_product(category=self.tshirts, slug="category-selector-contract")
+
+        response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-smart-selector')
+        self.assertContains(response, 'data-smart-filter-sheet')
+        self.assertNotContains(response, 'data-catalog-root-filters')
+
     def test_base_category_uses_compact_category_name_as_visible_h1(self):
         self.create_product(category=self.tshirts, slug="compact-heading")
 
