@@ -120,4 +120,5 @@ SECRET_KEY=test_local_secret .venv/bin/python twocomms/manage.py test storefront
 - [ ] Full affected suites are not entirely green: 77/80 pass. Three untouched Smart Selector expectations remain failing (`white-space: nowrap`, the old color-group aria label, and legacy SEO copy).
 - [x] Populated mini-cart browser verification: a real server session with two products, long and short titles, stable price tracks, summary, primary checkout CTA, and mono checkout was verified at 320x568 and 390x844 with zero horizontal overflow and no console errors.
 - [ ] A populated custom-print mini-cart item remains a separate follow-up scenario because it requires a valid Custom Print lead and moderation state; its semantic row uses the same stable grid contract.
-- [ ] Commit, push, deploy, and production verification are intentionally not performed in this local-only phase.
+- [x] Commit `6441828b`, push to `main`, SSH deploy, `collectstatic`, offline compression, Django check, and Passenger restart completed successfully.
+- [x] Production smoke checks: `https://twocomms.shop/catalog/` serves the new shell markup and cache-busted assets; root filters return aggregate results with `noindex, follow`; live mini-cart endpoint returns 200; mobile geometry is stable at 320/390 and desktop keeps the legacy navbar.
