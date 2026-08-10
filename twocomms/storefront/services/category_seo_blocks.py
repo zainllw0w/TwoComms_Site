@@ -12,18 +12,93 @@ pass the returned list as ``category_seo_blocks`` in the context.
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from urllib.parse import urlsplit, urlunsplit
 
 from django.db.models import Prefetch
+from django.urls import reverse
+
+
+_MAX_PRODUCT_ID = (1 << 63) - 1
+
+
+def _product_id(item) -> int | None:
+    """Return a positive product id from an item's JSON payload."""
+    if not isinstance(getattr(item, "extra", None), dict):
+        return None
+    raw_id = item.extra.get("product_id")
+    if type(raw_id) is int:
+        product_id = raw_id
+    elif (
+        isinstance(raw_id, str)
+        and raw_id.isascii()
+        and raw_id.isdecimal()
+    ):
+        normalized_id = raw_id.lstrip("0") or "0"
+        if len(normalized_id) > 19:
+            return None
+        product_id = int(normalized_id, 10)
+    else:
+        return None
+    return product_id if 0 < product_id <= _MAX_PRODUCT_ID else None
+
+
+def _has_product_reference(item) -> bool:
+    return (
+        isinstance(getattr(item, "extra", None), dict)
+        and "product_id" in item.extra
+    )
+
+
+def _normalize_custom_print_url(url: str) -> str:
+    """Return the working, locale-aware owner for stale custom-print links."""
+    raw_url = str(url or "")
+    try:
+        parsed = urlsplit(raw_url)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        return raw_url
+
+    is_absolute = bool(parsed.scheme or parsed.netloc)
+    if is_absolute:
+        if parsed.scheme and parsed.scheme.lower() not in {"http", "https"}:
+            return raw_url
+        if hostname not in {"twocomms.shop", "www.twocomms.shop"}:
+            return raw_url
+        if port not in {None, 80, 443}:
+            return raw_url
+    elif not parsed.path.startswith("/"):
+        return raw_url
+
+    if parsed.path.rstrip("/") not in {"/catalog/custom-print", "/custom-print"}:
+        return raw_url
+
+    path = reverse("custom_print")
+    if is_absolute:
+        return urlunsplit(
+            ("https", "twocomms.shop", path, parsed.query, parsed.fragment)
+        )
+    return urlunsplit(("", "", path, parsed.query, parsed.fragment))
 
 
 def _hydrate_product_items(items, products_by_id):
-    """Attach ``product`` to items that reference one via ``extra.product_id``."""
+    """Attach live products and remove unavailable product references."""
+    hydrated = []
     for item in items:
-        product_id = None
-        if isinstance(item.extra, dict):
-            product_id = item.extra.get("product_id")
-        item.product = products_by_id.get(product_id) if product_id else None
-    return items
+        product_id = _product_id(item)
+        if _has_product_reference(item):
+            if product_id is None:
+                continue
+            product = products_by_id.get(product_id)
+            if product is None:
+                continue
+            item.product = product
+            item.url = reverse("product", kwargs={"slug": product.slug})
+        else:
+            item.product = None
+            item.url = _normalize_custom_print_url(item.url)
+        hydrated.append(item)
+    return hydrated
 
 
 def get_category_seo_blocks(category) -> List[Dict[str, Any]]:
@@ -56,10 +131,9 @@ def get_category_seo_blocks(category) -> List[Dict[str, Any]]:
     product_ids = set()
     for block in blocks:
         for item in block.items.all():
-            if isinstance(item.extra, dict):
-                pid = item.extra.get("product_id")
-                if isinstance(pid, int) and pid > 0:
-                    product_ids.add(pid)
+            product_id = _product_id(item)
+            if product_id is not None:
+                product_ids.add(product_id)
 
     products_by_id: Dict[int, Any] = {}
     if product_ids:
@@ -72,8 +146,7 @@ def get_category_seo_blocks(category) -> List[Dict[str, Any]]:
 
     result: List[Dict[str, Any]] = []
     for block in blocks:
-        items = list(block.items.all())
-        _hydrate_product_items(items, products_by_id)
+        items = _hydrate_product_items(list(block.items.all()), products_by_id)
         if not items and block.block_type != "best_prices":
             continue
         result.append({
