@@ -259,13 +259,22 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
     def test_authority_claim_variants_fail_closed_without_evidence(self):
         claims = (
             "Платіж уже зараховано, дякую!",
+            "Оплата пройшла.",
+            "Оплата прошла.",
             "Оплата успішно пройшла.",
             "Оплата подтверждена, всё хорошо.",
+            "Футболка є.",
+            "Футболка есть.",
             "Товар доступний для замовлення.",
             "Модель сейчас есть в наличии.",
+            "Замовлення прийнято.",
+            "Заказ принят.",
             "Заказ уже оформлен.",
             "Замовлення створено, очікуйте.",
+            "Consent has been granted.",
             "Consent has been recorded.",
+            "Менеджер погодив це.",
+            "Менеджер согласовал это.",
             "Менеджер уже одобрил это.",
             "The manager approved your request.",
         )
@@ -326,17 +335,22 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
                 self.assertEqual(delivered, reply)
 
     def test_unrelated_negation_does_not_hide_positive_authority_claim(self):
-        client = self._client("claim-positive-after-negation")
-        claim = "Не хвилюйтеся, оплату підтверджено."
-        _source, handled, delivered = self._run(
-            client,
-            {"reply_text": claim, "controls": []},
-            suffix="claim-positive-after-negation",
-            text="Чи вже пройшла оплата?",
-        )
+        for index, claim in enumerate((
+            "Не хвилюйтеся, оплату підтверджено.",
+            "Не хвилюйтеся оплату підтверджено.",
+            "Не переживайте заказ принят.",
+        )):
+            with self.subTest(claim=claim):
+                client = self._client(f"claim-positive-after-negation-{index}")
+                _source, handled, delivered = self._run(
+                    client,
+                    {"reply_text": claim, "controls": []},
+                    suffix=f"claim-positive-after-negation-{index}",
+                    text="Чи вже пройшла оплата?",
+                )
 
-        self.assertEqual(handled, 1)
-        self.assertNotEqual(delivered, claim)
+                self.assertEqual(handled, 1)
+                self.assertNotEqual(delivered, claim)
 
     def test_invalid_structured_paylink_cannot_use_free_text_fallback(self):
         from storefront.models import Category, Product, ProductStatus

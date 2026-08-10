@@ -319,6 +319,30 @@ class ResponseControlBoundaryTests(SimpleTestCase):
         self.assertNotIn("[manager:yes]", result.reply_text)
         self.assertIn("[приклад]", result.reply_text)
 
+    def test_obfuscated_control_prefixes_fail_closed_and_never_leak(self):
+        from management.services.ig_response_control import (
+            parse_legacy_response,
+            parse_structured_response,
+        )
+
+        for token in (
+            "[ MANAGER]",
+            "[\tPAYLINK:full]",
+            "[\u200bMANAGER]",
+            "[\u2060ORDER]",
+            "[ MANAGER",
+        ):
+            with self.subTest(token=repr(token)):
+                legacy = parse_legacy_response(f"Готово {token}")
+                structured = parse_structured_response({
+                    "reply_text": f"Готово {token}",
+                    "controls": [],
+                })
+                for result in (legacy, structured):
+                    self.assertFalse(result.valid)
+                    self.assertEqual(result.control, {})
+                    self.assertEqual(result.reply_text, "Готово")
+
     def test_legacy_repeated_items_are_allowed_but_singleton_conflicts_are_not(self):
         from management.services.ig_response_control import parse_legacy_response
 
@@ -1526,7 +1550,7 @@ class PhotoProtocolTests(TestCase):
         self.assertIn("скриншот", PAYMENT_PROTOCOL_NOTE)
 
 
-class StructuredPromptProtocolTests(SimpleTestCase):
+class StructuredPromptProtocolTests(TestCase):
     def test_migration_default_matches_model_default_byte_for_byte(self):
         import importlib
 
@@ -1534,7 +1558,7 @@ class StructuredPromptProtocolTests(SimpleTestCase):
         from management.models import DEFAULT_BOT_SYSTEM_PROMPT
 
         migration = importlib.import_module(
-            "management.migrations.0151_remove_duplicate_ig_payment_protocol"
+            "management.migrations.0152_harden_ig_stage_prompt"
         )
         alter = next(
             operation
@@ -1572,6 +1596,22 @@ class StructuredPromptProtocolTests(SimpleTestCase):
         self.assertIn("reply_text", PAYMENT_PROTOCOL_NOTE)
         self.assertIn("controls", PAYMENT_PROTOCOL_NOTE)
         self.assertNotIn("[PAYLINK", PAYMENT_PROTOCOL_NOTE)
+
+    def test_existing_custom_prompt_gets_runtime_hard_stage_guard(self):
+        from types import SimpleNamespace
+
+        from management.services.instagram_bot import assemble_system_instruction
+
+        prompt = assemble_system_instruction(SimpleNamespace(
+            system_prompt="CUSTOM OPERATOR PROMPT",
+            knowledge_base="",
+        ))
+
+        self.assertIn("CUSTOM OPERATOR PROMPT", prompt)
+        self.assertIn(
+            "Не заявляй і не пропонуй paid, order_created або done",
+            prompt,
+        )
 
     def test_prompt_cleanup_preserves_operator_text_and_is_idempotent(self):
         import importlib

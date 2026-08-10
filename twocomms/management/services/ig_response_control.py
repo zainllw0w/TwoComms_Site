@@ -61,8 +61,19 @@ _STAGES = frozenset(
 # token which looks like a command must never reach a customer, even if its
 # name is misspelled or a malformed provider response makes it very long.  The
 # negated character classes keep both passes linear in the reply length.
-_ASCII_CLOSED_CONTROL_TOKEN_RE = re.compile(r"\[[A-Za-z][^\]\r\n]*\]")
-_ASCII_CONTROL_SHAPED_RE = re.compile(r"\[[A-Za-z][^\]\r\n]*(?:\]|\r?\n|$)")
+# Permit only invisible/spacing characters between ``[`` and the command's
+# first ASCII letter. This catches obfuscated or truncated legacy controls
+# without treating ordinary Cyrillic bracket text as a command.
+_CONTROL_PREFIX_GAP = (
+    r"(?:[^\S\r\n]|\u200b|\u200c|\u200d|\u200e|\u200f|"
+    r"\u202a|\u202b|\u202c|\u202d|\u202e|\u2060|\u2066|\u2067|\u2068|\u2069|\ufeff)*"
+)
+_ASCII_CLOSED_CONTROL_TOKEN_RE = re.compile(
+    rf"\[{_CONTROL_PREFIX_GAP}[A-Za-z][^\]\r\n]*\]"
+)
+_ASCII_CONTROL_SHAPED_RE = re.compile(
+    rf"\[{_CONTROL_PREFIX_GAP}[A-Za-z][^\]\r\n]*(?:\]|\r?\n|$)"
+)
 _KNOWN_KIND_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _ID_RE = re.compile(r"^[1-9][0-9]{0,9}$")
 _QTY_RE = re.compile(r"^[1-9][0-9]{0,3}$")

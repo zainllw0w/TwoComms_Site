@@ -220,7 +220,11 @@ MODEL_HARD_STAGES = {
     IgClient.Stage.ORDER_CREATED,
     IgClient.Stage.DONE,
 }
-_CONTROL_TAG_RE = re.compile(r"\[([A-Z][A-Z_]*)(?::([^\]]+))?\]")
+_CONTROL_TAG_RE = re.compile(
+    r"\[(?:[^\S\r\n]|\u200b|\u200c|\u200d|\u200e|\u200f|"
+    r"\u202a|\u202b|\u202c|\u202d|\u202e|\u2060|\u2066|\u2067|\u2068|\u2069|\ufeff)*"
+    r"([A-Z][A-Z_]*)(?::([^\]]+))?\]"
+)
 _PRICE_CLAIM_RE = re.compile(
     r"(?<![\d])(?P<amount>\d{3,7}(?:[.,]\d{1,2})?)\s*(?:грн|₴|uah)\b",
     re.IGNORECASE,
@@ -316,8 +320,10 @@ _AUTHORITY_CLAIM_WINDOW = r"[^\n.!?]{0,80}"
 def _authority_claim_pattern(nouns: str, verbs: str) -> re.Pattern:
     """Match either word order while remaining conservative at sentence bounds."""
     return re.compile(
-        rf"(?:\b(?:{nouns})\b{_AUTHORITY_CLAIM_WINDOW}\b(?:{verbs})\b"
-        rf"|\b(?:{verbs})\b{_AUTHORITY_CLAIM_WINDOW}\b(?:{nouns})\b)",
+        rf"(?:\b(?:{nouns})\b{_AUTHORITY_CLAIM_WINDOW}"
+        rf"\b(?P<verb_after>{verbs})\b"
+        rf"|\b(?P<verb_before>{verbs})\b{_AUTHORITY_CLAIM_WINDOW}"
+        rf"\b(?:{nouns})\b)",
         re.I,
     )
 
@@ -326,26 +332,28 @@ _AUTHORITATIVE_REPLY_CLAIMS = {
     "payment": _authority_claim_pattern(
         r"оплат\w*|платеж\w*|платіж\w*|payment",
         r"підтвердж\w*|подтвержд\w*|отрим\w*|получ\w*|зарах\w*|успіш\w*|успеш\w*|"
+        r"пройш\w*|прош\w*|проведен\w*|went\s+through|passed|"
         r"confirmed|received|successful|completed",
     ),
     "stock": _authority_claim_pattern(
         r"товар\w*|продукт\w*|модел\w*|футболк\w*|item|product|model|t-shirt",
-        r"наявн\w*|налич\w*|доступн\w*|available|in\s+stock|stock",
+        r"є|есть|наявн\w*|налич\w*|доступн\w*|available|in\s+stock|stock",
     ),
     "order": _authority_claim_pattern(
         r"замовлен\w*|заказ\w*|order",
         r"створен\w*|создан\w*|оформлен\w*|розміщен\w*|размещен\w*|"
-        r"placed|created|registered|готов\w*|ready",
+        r"прийнят\w*|принят\w*|підтвердж\w*|подтвержд\w*|"
+        r"placed|created|registered|accepted|confirmed|готов\w*|ready",
     ),
     "consent": _authority_claim_pattern(
         r"згод\w*|соглас\w*|consent",
         r"збереж\w*|сохран\w*|зафікс\w*|зафикс\w*|отрим\w*|получ\w*|"
-        r"accepted|saved|recorded",
+        r"надан\w*|дан\w*|accepted|saved|recorded|granted|given",
     ),
     "manager": _authority_claim_pattern(
         r"менеджер\w*|manager",
-        r"підтверд\w*|подтверд\w*|схвал\w*|одобр\w*|перевір\w*|провер\w*|"
-        r"узгод\w*|approved|confirmed|verified|checked",
+        r"підтверд\w*|подтверд\w*|схвал\w*|одобр\w*|погод\w*|соглас\w*|"
+        r"перевір\w*|провер\w*|узгод\w*|approved|confirmed|verified|checked|agreed",
     ),
 }
 _AUTHORITY_CLAIM_FALLBACK = {
@@ -353,9 +361,10 @@ _AUTHORITY_CLAIM_FALLBACK = {
     "ru": "Спасибо! Проверю это по системным данным и сразу уточню ответ 🙌",
     "en": "Thank you! I will verify this against our records and get right back to you 🙌",
 }
-_AUTHORITY_NEGATION_RE = re.compile(
-    r"\b(?:не|нет|немає|ще\s+не|поки\s+не|не\s+було|"
-    r"not|no|isn['’]?t|is\s+not|hasn['’]?t|has\s+not|doesn['’]?t|does\s+not)\b",
+_AUTHORITY_NEGATION_SUFFIX_RE = re.compile(
+    r"\b(?:не|нет|немає|not|no|isn['’]?t|is\s+not|hasn['’]?t|has\s+not|"
+    r"doesn['’]?t|does\s+not)\b"
+    r"(?:\s+(?:була|був|було|быть|была|было|been|yet))*\s*$",
     re.I,
 )
 
@@ -365,16 +374,23 @@ def _positive_authority_claim(pattern: re.Pattern, reply: str) -> bool:
     text = str(reply or "")
     for match in pattern.finditer(text):
         # The match can begin at the verb ("not confirmed payment"), leaving
-        # the negation just outside ``match.group(0)``. Inspect the whole current
-        # clause, bounded by punctuation, so that unrelated text in an earlier
-        # clause cannot suppress a real positive assertion.
+        # the negation just outside ``match.group(0)``. Inspect only the short
+        # phrase immediately before the noun/verb, so unrelated reassurance
+        # text cannot suppress a real positive assertion.
         clause_start = max(
             text.rfind(delimiter, 0, match.start())
             for delimiter in "\n.!?;:,"
         ) + 1
-        claim_clause = text[clause_start:match.end()]
-        if not _AUTHORITY_NEGATION_RE.search(claim_clause):
-            return True
+        verb_start = match.start("verb_after")
+        if verb_start < 0:
+            verb_start = match.start("verb_before")
+        before_verb = text[clause_start:verb_start]
+        before_match = text[clause_start:match.start()]
+        if _AUTHORITY_NEGATION_SUFFIX_RE.search(before_verb):
+            continue
+        if _AUTHORITY_NEGATION_SUFFIX_RE.search(before_match):
+            continue
+        return True
     return False
 
 
@@ -1514,6 +1530,8 @@ PAYMENT_PROTOCOL_NOTE = (
     "КОНФІГУРАЦІЯ. Зберігай product, item, qty, size, fit, color_variant_id та "
     "option лише коли клієнт явно це обрав. Ціна залежної конфігурації має бути "
     "точною і підтверджуватися каталогом; не підміняй її базовою ціною.\n"
+    "СТАДІЇ. Не заявляй і не пропонуй paid, order_created або done: ці стани "
+    "встановлює лише система за підтвердженими подіями оплати та виконання.\n"
     "ПОРЯДОК ПОКАЗУ ФОТО. Фото — це відповідь на конкретний запит, а не спосіб "
     "почати розмову. Спершу з'ясуй текстом, що людині потрібно: тип речі "
     "(футболка/худі/лонгслів), тематика принта, колір, фасон. Показуй фото, коли "
