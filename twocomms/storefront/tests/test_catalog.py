@@ -171,6 +171,56 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertNotIn("catalog-mobile-reference__bottom-nav", html)
         self.assertNotIn("data-mobile-legacy-bottom-nav", html)
 
+    def test_mobile_profile_dock_opens_existing_panel_and_exposes_avatar_contract(self):
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="user-toggle-mobile"')
+        self.assertContains(response, 'aria-controls="user-panel-mobile"')
+        self.assertContains(response, 'aria-expanded="false"')
+        self.assertContains(response, 'id="user-panel-mobile"')
+        self.assertContains(response, 'aria-hidden="true"')
+        self.assertContains(response, 'inert')
+
+        header_template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "partials"
+            / "header.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("request.user.userprofile.avatar", header_template)
+        self.assertIn("request.session.profile_avatar", header_template)
+        self.assertIn('class="bottom-nav-avatar"', header_template)
+        self.assertIn('class="bottom-nav-avatar-placeholder"', header_template)
+
+    def test_mobile_panels_use_accessible_bottom_sheet_contract(self):
+        static_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "static"
+        shell_css = (static_root / "css" / "mobile-shell.css").read_text(encoding="utf-8")
+        main_js = (static_root / "js" / "main.js").read_text(encoding="utf-8")
+        base_template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "base.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("position: fixed !important;", shell_css)
+        self.assertIn("top: auto !important;", shell_css)
+        self.assertIn("bottom: calc(var(--mobile-shell-dock-height) + 10px) !important;", shell_css)
+        self.assertIn("padding: 0 0 env(safe-area-inset-bottom, 0px) !important;", shell_css)
+        self.assertIn("transform: translateY(calc(100% +", shell_css)
+        self.assertIn("transform: translateY(0)", shell_css)
+        self.assertIn("100svh", shell_css)
+        self.assertIn("100dvh", shell_css)
+        self.assertIn("pointer-events: none !important;", shell_css)
+        self.assertIn("prefers-reduced-motion: reduce", shell_css)
+
+        self.assertNotIn("panel.classList.add('position-fixed', 'top-0'", main_js)
+        self.assertIn("userToggleMobile.setAttribute('aria-expanded'", main_js)
+        self.assertIn("cartToggleMobile.setAttribute('aria-expanded'", main_js)
+        self.assertIn('aria-hidden="true" inert', base_template)
+
     def test_global_mobile_shell_uses_catalog_link_outside_catalog(self):
         response = self.client.get(reverse("home"))
 

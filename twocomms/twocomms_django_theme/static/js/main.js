@@ -762,6 +762,11 @@ function showAnimatedPanel(panel) {
     setTimeout(commitOpen, 0);
   }
 }
+function setMobileCartExpanded(expanded) {
+  if (window.innerWidth >= 992) return;
+  const cartToggleMobile = DOMCache.get('cart-toggle-mobile');
+  if (cartToggleMobile) cartToggleMobile.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
 function openMiniCart(opts = {}) {
   const { skipRefresh = false } = opts;
   const id = nextEvt();
@@ -772,13 +777,27 @@ function openMiniCart(opts = {}) {
   panel.classList.remove('hiding');
   // Закрываем открытый мини‑профиль (desktop/mobile), если он был открыт
   [DOMCache.get('user-panel'), DOMCache.get('user-panel-mobile')]
-    .forEach(up => { if (up && !up.classList.contains('d-none')) { up.classList.remove('show'); setTimeout(() => up.classList.add('d-none'), 200); } });
+    .forEach(up => {
+      if (!up || up.classList.contains('d-none')) return;
+      up.classList.remove('show');
+      up.classList.add('hiding');
+      up.setAttribute('aria-hidden', 'true');
+      up.setAttribute('inert', '');
+      const userTrigger = up.id === 'user-panel-mobile'
+        ? DOMCache.get('user-toggle-mobile')
+        : DOMCache.get('user-toggle');
+      if (userTrigger) userTrigger.setAttribute('aria-expanded', 'false');
+      setTimeout(() => { up.classList.add('d-none'); up.classList.remove('hiding'); }, 220);
+    });
   panel.classList.remove('d-none', 'hiding');
-  // Мобильный полноэкранный режим
+  panel.removeAttribute('inert');
+  panel.setAttribute('aria-hidden', 'false');
+  setMobileCartExpanded(true);
+  // Desktop positioning stays anchored to the header; mobile geometry lives in mobile-shell.css.
   if (window.innerWidth < 992) {
-    panel.classList.add('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
-    panel.style.right = '';
-    panel.style.top = '0';
+    panel.classList.remove('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
+    panel.style.removeProperty('right');
+    panel.style.removeProperty('top');
   } else {
     panel.classList.remove('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
     panel.style.right = '0';
@@ -802,6 +821,9 @@ function closeMiniCart(reason) {
   panel._opId = (panel._opId || 0) + 1; const opId = panel._opId;
   panel.classList.remove('show');
   panel.classList.add('hiding');
+  panel.setAttribute('aria-hidden', 'true');
+  panel.setAttribute('inert', '');
+  setMobileCartExpanded(false);
   const hideAfter = setTimeout(() => {
     if (opId !== panel._opId) return; // Уже было другое действие
     panel.classList.add('d-none');
@@ -1170,8 +1192,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const userToggleMobile = document.getElementById('user-toggle-mobile');
   const userPanelMobile = document.getElementById('user-panel-mobile');
   if (userToggleMobile && userPanelMobile) {
-    const openUserMobile = () => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; if (userPanelMobile._hideTimeout) { clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout = null; } showAnimatedPanel(userPanelMobile); };
-    const closeUserMobile = (reason) => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; userPanelMobile.classList.remove('show'); userPanelMobile.classList.add('hiding'); const t = setTimeout(() => { if (opId !== userPanelMobile._opId) return; userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); userPanelMobile.setAttribute('inert', ''); userPanelMobile.setAttribute('aria-hidden', 'true'); }, 220); userPanelMobile._hideTimeout = t; userPanelMobile.addEventListener('transitionend', function onEnd(e) { if (e.target !== userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); if (opId !== userPanelMobile._opId) return; clearTimeout(t); userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); userPanelMobile.setAttribute('inert', ''); userPanelMobile.setAttribute('aria-hidden', 'true'); }); };
+    const openUserMobile = () => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; if (userPanelMobile._hideTimeout) { clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout = null; } showAnimatedPanel(userPanelMobile); userToggleMobile.setAttribute('aria-expanded', 'true'); };
+    const closeUserMobile = (reason) => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; userPanelMobile.classList.remove('show'); userPanelMobile.classList.add('hiding'); userPanelMobile.setAttribute('aria-hidden', 'true'); userPanelMobile.setAttribute('inert', ''); userToggleMobile.setAttribute('aria-expanded', 'false'); const t = setTimeout(() => { if (opId !== userPanelMobile._opId) return; userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); }, 220); userPanelMobile._hideTimeout = t; userPanelMobile.addEventListener('transitionend', function onEnd(e) { if (e.target !== userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); if (opId !== userPanelMobile._opId) return; clearTimeout(t); userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); }); };
     if (!userToggleMobile.dataset.uiBoundUser) {
       userToggleMobile.dataset.uiBoundUser = '1';
       userToggleMobile.addEventListener('pointerdown', (e) => { suppressNextDocPointerdownUntil = Date.now() + 250; }, { passive: true });
@@ -1223,9 +1245,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (wasShown) panel.classList.remove('show');
       // режим позиционирования
       if (window.innerWidth < 992) {
-        panel.classList.add('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
-        panel.style.right = '';
-        panel.style.top = '0';
+        panel.classList.remove('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
+        panel.style.removeProperty('right');
+        panel.style.removeProperty('top');
       } else {
         panel.classList.remove('position-fixed', 'top-0', 'start-0', 'vw-100', 'vh-100', 'rounded-0');
         panel.style.right = '0';
