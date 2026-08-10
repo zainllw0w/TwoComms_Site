@@ -34,6 +34,7 @@ proof. Branch-only work is listed in `12_SOURCE_RECONCILIATION.md`, not here.
 | F-CORE-003 lease/reclaim invariant | `18ddc636` | Lease duration is normalized to strictly outlive stale-processing reclaim; strict timeout boundary and claim ownership regressions prevent a second automation sender from entering the former overlap window |
 | F-CAT-011 late-payment race extension | `b23dfeed` | Provider-confirmed payment time distinguishes a delayed callback from a late payment; reallocated capacity becomes one idempotent `OVERBOOKED_REVIEW`/manager task rather than a second stock promise |
 | IMP-105 / F-STATE-011 | `fbe33a68` | Current paid/shipped presentation and paid filter are episode-scoped; historical order/payment remains visible only as buyer history. Direct presentation 18 tests; current buyer/UI gate 159 tests; production current checkpoint `fbe33a68` |
+| Implement2 W1.6 / F-AI-010/011 / F-CTX-003 | `05d2cef4`, `ec6febcc`, `0c536e0a`, `796028ba`, `130cd920` | Typed immutable Gemini JSON controls, fail-closed legacy compatibility, application-owned authority/evidence gates, obfuscated-token sanitization and removal of duplicate saved payment protocol. Migration `0152`; 240/240 local gate and production parser/prompt/health proof |
 
 The current canonical status is the checkbox list in `07_IMPLEMENTATION_PLAN.md`.
 `IMP-081` is intentionally absent from the completed table: its deployed

@@ -4,6 +4,33 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W1.6 structured control safety (2026-08-10)
+
+`130cd920b8d06ce0edc3b04ed5bf51dc88ed6cd4` was fast-forwarded from
+`9141bce1` to production `main`. Migration
+`management.0152_harden_ig_stage_prompt` applied successfully; applied history
+also confirms `0151_remove_duplicate_ig_payment_protocol=[X]`. Server Django
+check returned no issues, migration drift returned `No changes detected`, and
+`run_instagram_bot --ensure` spawned the singleton worker on the deployed code.
+
+Fresh local evidence on the rebased main state: 240/240 W1.6 tests, Django
+check, migration drift, compileall and diff check. Production read-only prompt
+probe found one stored settings row: its historical/custom stored text is not
+rewritten by `0152`, while `assemble_system_instruction()` adds the hard-stage
+guard and structured `reply_text`/`controls` protocol; no legacy `[PAYLINK:]`,
+`[PAYMENT:]`, `[STAGE:]` or `[MANAGER]` protocol remains in runtime.
+
+Production parser probes rejected and removed four whitespace/tab/zero-width/
+truncated control forms for both structured and legacy input. Authority probes
+recognized `Оплата пройшла`, `Замовлення прийнято`, `Менеджер погодив` and
+`Футболка є`; `Оплата ще не підтверджена` remained a safe negative status.
+`https://twocomms.shop/healthz/` and
+`https://management.twocomms.shop/bot/health/` returned HTTP 200 / `ok`; bot
+state is `running`, dangerous backlog and all pending queues are `0`. The 18
+analysis failures are the already-recorded terminal historical rows, not a new
+pending backlog. No customer, Gemini, Meta, Telegram, payment, order or
+synthetic DB event was created by verification.
+
 ## Implement2 documentation release (2026-08-07)
 
 `f327ac361dbd28299a29e0618e2cbc9e6614a8a9` fast-forwarded production from

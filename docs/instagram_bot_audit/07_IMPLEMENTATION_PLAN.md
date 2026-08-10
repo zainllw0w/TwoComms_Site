@@ -603,6 +603,10 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   потери ни одного товара, `variant_id`, цены конфигурации, fit/size или visual
   fingerprint (MySQL: 71/71 строк, 19 696 chars; полный каталог 27 157; prompt
   35 495). Brand/live/directives/links режутся только целыми смысловыми блоками.
+  **Implement2 W1.6 safety slice закрыт 2026-08-10, `130cd920`:** typed JSON
+  control boundary, injection/authority gates и удаление duplicate legacy
+  protocol закрывают F-AI-010/011 и F-CTX-003 независимо от remaining sales
+  copywriting scope.
   **Не закрыто:** сами сценарные playbooks, FAQ, concrete close/voice и golden
   conversations; поэтому checkbox намеренно остаётся `[ ]`.
 - [x] **IMP-029 (P1) — закрыта 2026-08-02.** `[СИГНАЛИ КЛІЄНТА]` передаёт тип,
@@ -1149,8 +1153,8 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-AI-007 | FIXED/VERIFIED | IMP-029 |
 | [x] | F-AI-008 | FIXED/VERIFIED | IMP-029 |
 | [ ] | F-AI-009 | PARTIAL (`042c48c8`: runtime authority; остаток сценариев) | IMP-028 |
-| [ ] | F-AI-010 | OPEN | IMP-028 |
-| [ ] | F-AI-011 | OPEN | IMP-028 |
+| [x] | F-AI-010 | FIXED/VERIFIED (`130cd920`) | IMP-028.A |
+| [x] | F-AI-011 | FIXED/VERIFIED (`130cd920`) | IMP-028.A |
 | [ ] | F-AI-012 | OPEN | IMP-028 |
 | [ ] | F-AI-013 | OPEN | IMP-044 |
 | [x] | F-AI-014 | FIXED/VERIFIED | IMP-064 |
@@ -1188,7 +1192,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-CORE-018 | FIXED/VERIFIED | IMP-097 |
 | [ ] | F-CTX-001 | PARTIAL (`042c48c8`: compact/bounded sources; adaptive context остаётся) | IMP-028 |
 | [x] | F-CTX-002 | FIXED/VERIFIED | IMP-016/052 |
-| [ ] | F-CTX-003 | PARTIAL (`042c48c8`: order resolves conflicts; duplicate legacy text remains) | IMP-028 |
+| [x] | F-CTX-003 | FIXED/VERIFIED (`130cd920`, migration `0151`/`0152`) | IMP-028.A |
 | [x] | F-CTX-004 | FIXED/VERIFIED | IMP-078 |
 | [ ] | F-DATA-001 | OPEN | IMP-046.A |
 | [ ] | F-DATA-002 | PARTIAL (lifecycle writer exists; full producer/consumer proof open) | IMP-046 / Implement2 W6.3 |
@@ -1396,8 +1400,10 @@ continuation остаётся отдельным свежим срезом.
   актуальная топовая Flash-модель, логика приоритета (model-major по всем
   6 ключам) корректна. Менять нечего, кроме мусорного значения в БД.
 - **Массовое удаление «мёртвых» таблиц** до решения по каждому домену.
-- **Structured output вместо тегов** (F-AI-010): контракт тегов пронизывает весь
-  пайплайн, менять только после golden-тестов и стабилизации W1–W5.
+- **Structured output вместо тегов** больше не является отложенным риском:
+  F-AI-010/011 и F-CTX-003 закрыты в Implement2 W1.6 typed JSON contract с
+  fail-closed compatibility adapter; дальнейшие copywriting-задачи не должны
+  возвращать operational authority модели.
 - **Предзаказ, лояльность, реактивация базы** больше не потеряны: они учтены
   как decision-gated IMP-091 и не реализуются без продуктовой политики.
 

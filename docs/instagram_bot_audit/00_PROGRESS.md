@@ -10,15 +10,15 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **Implement2 Wave 1 выполняется по `14_IMPLEMENT2.md`: W1.2, W1.3 и первый технический checkbox W1.4 задеплоены; следующий открытый пункт — owner-controlled retention/access внутри W1.4** |
-| Дата старта / обновления | 2026-08-08 (W1.4 reviewer/Telegram PII technical boundary deployed and production-verified) |
+| Текущая фаза | **Implement2 W1.6 полностью задеплоен и проверен; следующий открытый блок — W1.7 historical attachment hardening** |
+| Дата старта / обновления | 2026-08-10 (W1.6 structured controls, injection authority и duplicate protocol closed on production) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | Runtime/code snapshot аудита — `19f5ef70`, который до публикации handoff совпадал с `origin/main` и production. Публикующий docs-only commit может продвинуть Git SHA без изменения runtime-кода. Кодовый предок остаётся `98bb160e` поверх `bc4ec2d5`, `fbe33a68`, `18ddc636`, `b23dfeed` и предыдущей price/inventory hardening-цепочки. |
+| База внедрения | Current runtime/code checkpoint — `130cd920` в `origin/main` и production; migration `management.0152` применена. Предыдущие Implement2 W1.6 code commits `05d2cef4`/`ec6febcc`/`0c536e0a`/`796028ba` являются его предками, а не альтернативными ветками. |
 | **Статус 105 IMP-задач** | **80 закрыты, 15 открыты, 10 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; главный источник реальных переписок/товаров/сделок/оплат. Discovery — read-only; concurrency/destructive tests — только disposable MariaDB |
 | Локальная SQLite | **не источник business/data истины и не MariaDB acceptance**; только быстрый unit/regression слой, не проверяет locks, concurrent constraints, triggers и `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **187 уникальных `F-*` идентификатора: 139 закрыты, 35 OPEN, 1 BLOCKED, 12 PARTIAL**; `F-PAY-002/003/006` переклассифицированы в PARTIAL, `F-DATA-004` BLOCKED, `F-AI-018` и release-gates `F-DEPLOY-001…004` открыты |
+| Реестр находок | **187 уникальных `F-*` идентификатора: 142 закрыты, 33 OPEN, 1 BLOCKED, 11 PARTIAL**; W1.6 закрыл `F-AI-010`, `F-AI-011`, `F-CTX-003`; `F-DATA-004` BLOCKED, `F-AI-018` и release-gates `F-DEPLOY-001…004` открыты |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **105** в W0–W12, включая W4B/W4C/W4D и IMP-062…105 |
@@ -57,6 +57,25 @@
 | Частично, W9 | `IMP-088` (digest/proposal workspace foundation есть; freshness, review UI, audit/backfill, MariaDB/deploy proof остаются) |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; `IMP-060`, `IMP-090`, `IMP-096` и baseline `IMP-093` не зависят от завершения полного commerce chain. F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
+
+## Implement2 W1.6 structured control closure (2026-08-10)
+
+`130cd920` находится в `origin/main` и production; migration
+`management.0152_harden_ig_stage_prompt` применена. Typed immutable JSON
+response contract и fail-closed legacy adapter блокируют unknown, malformed,
+duplicate, conflicting, whitespace/zero-width и truncated controls до любых
+side effects. Customer text не может объявить application-owned payment,
+stock, consent, order, manager или hard-stage truth без evidence.
+
+Fresh local gate: 240/240, Django check, migration drift, compileall и diff
+check. Production read-only proof: exact SHA `130cd920`, `0152=[X]`, stored
+custom prompt остаётся операторским, но assembled runtime содержит JSON
+contract и hard-stage guard; legacy bracket protocol отсутствует. Parser
+probes вернули `valid=false` и чистый reply для четырёх obfuscated/truncated
+tokens; common authority wording распознано, negated status не превращён в
+ложный claim. `twocomms.shop/healthz/` и management `/bot/health/` вернули
+`200/ok`, bot `running`, dangerous backlog и pending queues `0`. Ни customer,
+provider, payment, order, notification или analysis event не создавался.
 
 ## W1.4 reviewer/operator PII technical boundary (2026-08-08)
 

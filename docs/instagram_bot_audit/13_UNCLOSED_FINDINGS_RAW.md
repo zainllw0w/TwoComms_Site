@@ -1,6 +1,6 @@
 # 13_UNCLOSED_FINDINGS_RAW — полный неранжированный реестр остатка
 
-> Создано: 2026-08-06; повторно сверено 2026-08-07. Это первый из двух
+> Создано: 2026-08-06; повторно сверено 2026-08-10. Это первый из двух
 > handoff-файлов: здесь намеренно
 > **нет нового порядка работ**. Его задача — сохранить каждую незакрытую
 > находку, улучшение, тестовую границу, блокер и source-of-truth конфликт в
@@ -15,17 +15,18 @@
   или отдельной тестовой инфраструктуры. Это не разрешение придумать данные.
 - REFRAMED — старый способ решения отвергнут; нужный результат перенесён в
   другой пункт и не должен дублироваться.
-- [x] в старых документах не переносится сюда без актуального доказательства.
+- [x] переносится сюда только как release marker после актуального main и
+  production proof; такие строки не входят в незакрытый остаток.
 
 ## Снимок, по которому сделана сверка
 
-- Pre-handoff runtime/code snapshot: локальный `main`, `origin/main` и production
-  совпадали на `19f5ef70f20e1b3d5da5975786359fe8c7e06df4`; локальное расхождение 0/0.
-  Последующий docs-only publish может продвинуть Git SHA без runtime-code diff.
-- Fresh production check 2026-08-07: `manage.py check` без ошибок, migrations
-  through `management.0146` applied, daemon `running/alive`, pending analysis
-  and notification queues = 0. Production tree tracked-clean; server-side
-  untracked files не являются частью Git release.
+- Current runtime/code snapshot: `origin/main` и production совпадают на
+  `130cd920b8d06ce0edc3b04ed5bf51dc88ed6cd4`; локальный feature worktree
+  содержит тот же code commit и последующий docs diff.
+- Fresh production check 2026-08-10: `manage.py check` без ошибок, migrations
+  through `management.0152` applied, daemon `running/alive`, dangerous backlog
+  and pending reply/notification/analysis queues = 0. Runtime prompt/parser/
+  authority probes W1.6 прошли без записи synthetic/customer/provider events.
 - Read-only production status показывает 18 terminal failed analysis jobs:
   17 historical `trigger=reconcile` Gemini failures и новый job `292`, client
   `310`, `trigger=manager_message`, `attempts=5`,
@@ -143,11 +144,14 @@
 - [ ] F-AI-009 — PARTIAL: очистить оставшиеся противоречия prompt и сделать
   scenario acceptance. (Порядок authority уже добавлен, но старый DB prompt и
   golden conversations отсутствуют.)
-- [ ] F-AI-010 — OPEN: structured control output поверх legacy tags. (Иначе
-  опечатанный control tag может быть показан клиенту либо совершить неверное
-  действие.)
-- [ ] F-AI-011 — OPEN: prompt-injection boundary и adversarial tests. (Текст
-  клиента не может стоять выше business/payment guard.)
+- [x] F-AI-010 — FIXED/VERIFIED (`130cd920`): typed JSON controls, immutable
+  validation и fail-closed legacy adapter; malformed, unknown, duplicate,
+  conflicting, whitespace/zero-width и truncated control tokens не попадают
+  клиенту и не создают operational action.
+- [x] F-AI-011 — FIXED/VERIFIED (`130cd920`): adversarial worker tests и
+  application-evidence gates не дают customer text подтвердить payment, stock,
+  consent, order или manager authority; common UA/RU/EN claims и unrelated
+  negation проверены отдельно.
 - [ ] F-AI-012 — OPEN: adaptive intent-aware context budget. (На простом
   приветствии не нужен большой дорогой prompt.)
 - [ ] F-AI-013 — OPEN: единый DB value, allowlist и UI model options. (Админ
@@ -174,8 +178,9 @@
   неполного факта.)
 - [ ] F-CTX-001 — PARTIAL: adaptive prompt context по текущей задаче. (Bounded
   blocks не равны релевантному контексту.)
-- [ ] F-CTX-003 — PARTIAL: убрать duplicate legacy payment protocol. (Новый
-  priority order маскирует конфликт, но не удаляет его источник.)
+- [x] F-CTX-003 — FIXED/VERIFIED (`130cd920`, migrations `0151`/`0152`):
+  duplicate saved legacy protocol удалён точечно, runtime использует один JSON
+  protocol и добавляет hard-stage guard к существующему custom stored prompt.
 
 ### Данные, event contracts и import provenance
 

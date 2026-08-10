@@ -413,12 +413,24 @@ These slices do not wait for white assets, attribution or retention policy.
 
 This safety slice precedes generic customer-facing commerce expansion.
 
-- [ ] `F-AI-010`: typed/validated structured control boundary over legacy tags;
+- [x] `F-AI-010`: typed/validated structured control boundary over legacy tags;
   invalid/unknown controls fail closed and never leak into customer text.
-- [ ] `F-AI-011`: adversarial prompt-injection tests prove customer text cannot
+- [x] `F-AI-011`: adversarial prompt-injection tests prove customer text cannot
   override payment, stock, consent or manager authority.
-- [ ] `F-CTX-003`: remove the duplicate legacy payment protocol instead of
+- [x] `F-CTX-003`: remove the duplicate legacy payment protocol instead of
   merely masking it with prompt priority.
+
+**Closed 2026-08-10.** `05d2cef4`/`ec6febcc`/`0c536e0a`/`796028ba` introduced
+the typed immutable response contract, Gemini JSON schema, fail-closed legacy
+adapter and application-owned authority gates. Review-fix `130cd920` added
+obfuscated/truncated control sanitization, common UA/RU/EN authority wording,
+negation-scoped matching and migration `0152_harden_ig_stage_prompt` without
+rewriting already-applied `0151`. Fresh combined gate: 240/240; Django check,
+migration drift, compileall and diff check passed. Production is exactly
+`130cd920`, migration `0152=[X]`, the existing stored prompt receives the
+hard-stage guard through runtime assembly, legacy bracket protocol is absent,
+`/healthz/` and `/bot/health/` return `200/ok`, dangerous backlog is `0`, and
+all read-only parser/authority probes passed without customer/provider events.
 
 **Start files/tests:** `twocomms/management/services/instagram_bot.py`,
 `twocomms/management/models.py`, `tests_ig_agentic_dialog.py`,
@@ -716,8 +728,8 @@ First create golden conversations; then implement:
 - [ ] `IMPR-TXT-006`: versioned FAQ for safe delivery, tracking and reactive
   exchange.
 
-`F-AI-010/011` and `F-CTX-003` should already be closed by W1.6; do not defer
-those safety boundaries to copywriting work.
+`F-AI-010/011` and `F-CTX-003` are closed by W1.6; do not reopen or defer those
+safety boundaries during copywriting work.
 
 ### W5.2 White 1090 variant — `IMP-095`, `F-DATA-016`
 
@@ -866,7 +878,7 @@ browser matrix, accessibility/reduced-motion check and deployed SHA.
 | Plan area | Required unresolved IDs |
 |---|---|
 | Preflight/gates | `BLOCKER-INFRA-001`, `BLOCKER-DATA-001`, `BLOCKER-POLICY-001`, `BLOCKER-POLICY-002`; `RULE-BRANCH-001`, `RULE-DATA-001`, `RULE-SEND-001`; resolved `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` |
-| Wave 1 | `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`, `F-AI-010/011`, `F-CTX-003`; `IMP-028.A`, `IMP-060`, `IMP-061`, `IMP-098`, `IMP-101` |
+| Wave 1 | unresolved `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`; `IMP-060`, `IMP-061`, `IMP-098`, `IMP-101`; resolved W1.6 `F-AI-010/011`, `F-CTX-003`, `IMP-028.A` |
 | Wave 2 | `F-CORE-006`, `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`, `F-DEPLOY-001/002/003/004`; `IMP-044`, `IMP-094`; `T40`, `T41` |
 | Wave 3 | narrow `IMP-087.A`; full `IMP-087` remains PARTIAL |
 | Wave 4 | `F-CAT-004`, `F-DATA-001`, `F-DATA-010.A`, `F-PAY-002`, `F-PAY-003`, `F-PAY-006`; `IMP-046.A`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`; `IMPR-CAT-002`, `IMPR-CAT-004`, `IMPR-CAT-006`, `IMPR-FEAT-001`, `IMPR-FEAT-002`, `IMPR-FEAT-003`, `IMPR-FEAT-004`, `IMPR-FEAT-005`, `IMPR-FEAT-014`, `IMPR-FEAT-015`, `IMPR-INV-001`; `T04`, `T38`, `T44`, `T45`, `T47`; GREEN guard `T51` |

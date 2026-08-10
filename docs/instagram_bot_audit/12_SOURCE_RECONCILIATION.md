@@ -1,6 +1,6 @@
 # 12_SOURCE_RECONCILIATION — main, ветки, worktree и WIP
 
-Проверка дополнена 2026-08-07. Статус `IN MAIN` означает, что результат уже
+Проверка дополнена 2026-08-10. Статус `IN MAIN` означает, что результат уже
 доступен из текущего `main`; `SUPERSEDED` означает, что перенос патча откатил
 бы более новую реализацию; `BRANCH-ONLY` означает сохранённый, но не deployed
 код; `WIP` — незакоммиченная работа, не имеющая статуса реализации.
@@ -21,6 +21,7 @@
 | `codex/ig-order-fulfillment-links` `20dd44b2` | searchable order assignment drawer | Semantics IN MAIN via W7; old commit is not a safe cherry-pick |
 | local `codex/instagram-assisted-checkout` | five historical product-reselection commits `61ad2cb8`, `a8ccfa63`, `468fe2ba`, `e9d982df`, `dc9889c3` | PRESERVED SOURCE; `IMP-081` was reimplemented in current main as `bf4e0d80`/`674d6858`/`3678ddf4`; availability foundation from `e9d982df` was ported as `17f5b672`; `dc9889c3` remains parser source for `IMP-085`; no wholesale cherry-pick |
 | `codex/ig-bot-imp028-prompt` | price-aware graph/candidate slice plus exact variant-specific prompt size binding | IN MAIN / production through `e44d1440`/`0ad694bc`; F-CAT-007 fixed, IMP-082/083 remain PARTIAL only for explicit runtime/topology/stale-binding residuals |
+| current `main` Implement2 W1.6 slice | typed Gemini JSON response controls, fail-closed legacy adapter, authority/evidence gates, hard-stage runtime guard and migrations `0151`/`0152` | IN MAIN and production as `130cd920`; F-AI-010, F-AI-011 and F-CTX-003 closed after 240/240 tests and read-only production parser/prompt/health proof |
 | `codex/ig-commercial-reconcile-fix` | F-PAY-015 superseded review ownership/backfill fix | IN MAIN and production as `93ae8684`; MySQL reconcile, client 59 and daemon heartbeat verified |
 | assisted-checkout dirty CSS/test | mobile breakpoint 390px | WIP only; not counted and not integrated |
 | `codex/management-bot-statistics-visuals` | modified `bot_views.py`, `services/ig_funnel_analytics.py`, `templates/management/bot.html`, `tests_ig_clients_ui.py`, `tests_ig_funnel_analytics.py`; untracked plan and `tests_ig_stats_visuals.py`; volatile tracked diff, inspect with fresh `git diff --stat` | CODE WIP for `IMP-093`, uncommitted/unpushed/undeployed. Review event-time metric semantics, rebase on current main and preserve patch-unique tests/UI; do not rewrite from the plan or mark complete. |
