@@ -745,13 +745,14 @@ function miniCartPanel() {
 let uiGuardUntil = 0;
 let suppressGlobalCloseUntil = 0;
 let suppressNextDocPointerdownUntil = 0; // блокируем ближайший pointerdown от документа (клик по тогглеру)
-function showAnimatedPanel(panel) {
+function showAnimatedPanel(panel, opId) {
   if (!panel) return;
   panel.classList.remove('hiding');
   panel.classList.remove('d-none');
   panel.removeAttribute('inert');
   panel.setAttribute('aria-hidden', 'false');
   const commitOpen = () => {
+    if (opId !== undefined && panel._opId !== opId) return;
     panel.classList.add('show');
   };
   if ('requestAnimationFrame' in window) {
@@ -779,6 +780,9 @@ function openMiniCart(opts = {}) {
   [DOMCache.get('user-panel'), DOMCache.get('user-panel-mobile')]
     .forEach(up => {
       if (!up || up.classList.contains('d-none')) return;
+      up._opId = (up._opId || 0) + 1;
+      const closeOpId = up._opId;
+      if (up._hideTimeout) { clearTimeout(up._hideTimeout); up._hideTimeout = null; }
       up.classList.remove('show');
       up.classList.add('hiding');
       up.setAttribute('aria-hidden', 'true');
@@ -787,7 +791,12 @@ function openMiniCart(opts = {}) {
         ? DOMCache.get('user-toggle-mobile')
         : DOMCache.get('user-toggle');
       if (userTrigger) userTrigger.setAttribute('aria-expanded', 'false');
-      setTimeout(() => { up.classList.add('d-none'); up.classList.remove('hiding'); }, 220);
+      up._hideTimeout = setTimeout(() => {
+        if (up._opId !== closeOpId) return;
+        up.classList.add('d-none');
+        up.classList.remove('hiding');
+        up._hideTimeout = null;
+      }, 220);
     });
   panel.classList.remove('d-none', 'hiding');
   panel.removeAttribute('inert');
@@ -1176,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userToggle = document.getElementById('user-toggle');
   const userPanel = document.getElementById('user-panel');
   if (userToggle && userPanel) {
-    const openUser = () => { const id = nextEvt(); userPanel._opId = (userPanel._opId || 0) + 1; const opId = userPanel._opId; if (userPanel._hideTimeout) { clearTimeout(userPanel._hideTimeout); userPanel._hideTimeout = null; } showAnimatedPanel(userPanel); };
+    const openUser = () => { const id = nextEvt(); userPanel._opId = (userPanel._opId || 0) + 1; const opId = userPanel._opId; if (userPanel._hideTimeout) { clearTimeout(userPanel._hideTimeout); userPanel._hideTimeout = null; } showAnimatedPanel(userPanel, opId); };
     const closeUser = (reason) => { const id = nextEvt(); userPanel._opId = (userPanel._opId || 0) + 1; const opId = userPanel._opId; userPanel.classList.remove('show'); userPanel.classList.add('hiding'); const t = setTimeout(() => { if (opId !== userPanel._opId) return; userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); userPanel.setAttribute('inert', ''); userPanel.setAttribute('aria-hidden', 'true'); }, 220); userPanel._hideTimeout = t; userPanel.addEventListener('transitionend', function onEnd(e) { if (e.target !== userPanel) return; userPanel.removeEventListener('transitionend', onEnd); if (opId !== userPanel._opId) return; clearTimeout(t); userPanel.classList.add('d-none'); userPanel.classList.remove('hiding'); userPanel.setAttribute('inert', ''); userPanel.setAttribute('aria-hidden', 'true'); }); };
     if (!userToggle.dataset.uiBoundUser) {
       userToggle.dataset.uiBoundUser = '1';
@@ -1192,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userToggleMobile = document.getElementById('user-toggle-mobile');
   const userPanelMobile = document.getElementById('user-panel-mobile');
   if (userToggleMobile && userPanelMobile) {
-    const openUserMobile = () => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; if (userPanelMobile._hideTimeout) { clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout = null; } showAnimatedPanel(userPanelMobile); userToggleMobile.setAttribute('aria-expanded', 'true'); };
+    const openUserMobile = () => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; if (userPanelMobile._hideTimeout) { clearTimeout(userPanelMobile._hideTimeout); userPanelMobile._hideTimeout = null; } showAnimatedPanel(userPanelMobile, opId); userToggleMobile.setAttribute('aria-expanded', 'true'); };
     const closeUserMobile = (reason) => { const id = nextEvt(); userPanelMobile._opId = (userPanelMobile._opId || 0) + 1; const opId = userPanelMobile._opId; userPanelMobile.classList.remove('show'); userPanelMobile.classList.add('hiding'); userPanelMobile.setAttribute('aria-hidden', 'true'); userPanelMobile.setAttribute('inert', ''); userToggleMobile.setAttribute('aria-expanded', 'false'); const t = setTimeout(() => { if (opId !== userPanelMobile._opId) return; userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); }, 220); userPanelMobile._hideTimeout = t; userPanelMobile.addEventListener('transitionend', function onEnd(e) { if (e.target !== userPanelMobile) return; userPanelMobile.removeEventListener('transitionend', onEnd); if (opId !== userPanelMobile._opId) return; clearTimeout(t); userPanelMobile.classList.add('d-none'); userPanelMobile.classList.remove('hiding'); }); };
     if (!userToggleMobile.dataset.uiBoundUser) {
       userToggleMobile.dataset.uiBoundUser = '1';

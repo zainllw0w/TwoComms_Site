@@ -7,6 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+from django.contrib.auth.models import User
 from django.core.cache import cache, caches
 from django.test import TestCase
 from django.urls import reverse
@@ -193,6 +194,65 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertIn("request.session.profile_avatar", header_template)
         self.assertIn('class="bottom-nav-avatar"', header_template)
         self.assertIn('class="bottom-nav-avatar-placeholder"', header_template)
+
+    def test_mobile_profile_dock_renders_selected_avatar(self):
+        user = User.objects.create_user(username="mobile-avatar-user", password="test-pass")
+        user.userprofile.avatar.name = "avatars/mobile-selected.webp"
+        user.userprofile.save(update_fields=["avatar"])
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="bottom-nav-avatar"')
+        self.assertContains(response, 'src="/media/avatars/mobile-selected.webp"')
+        self.assertNotContains(response, 'class="bottom-nav-avatar-placeholder"')
+
+    def test_mobile_cart_visibility_is_immediate_only_while_opening(self):
+        shell_css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "mobile-shell.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "#mini-cart-panel-mobile.show {\n"
+            "    transition: transform 240ms cubic-bezier(.2, .8, .2, 1), "
+            "visibility 0s linear 0s !important;",
+            shell_css,
+        )
+        self.assertIn(
+            "transition: transform 240ms cubic-bezier(.2, .8, .2, 1), "
+            "visibility 0s linear 240ms !important;",
+            shell_css,
+        )
+
+    def test_mobile_panel_open_frame_is_cancelled_by_newer_operation(self):
+        main_js = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "main.js"
+        ).read_text(encoding="utf-8")
+        animated_panel_source = main_js[
+            main_js.index("function showAnimatedPanel"):
+            main_js.index("function setMobileCartExpanded")
+        ]
+        cart_open_source = main_js[
+            main_js.index("function openMiniCart"):
+            main_js.index("function closeMiniCart")
+        ]
+
+        self.assertIn("function showAnimatedPanel(panel, opId)", animated_panel_source)
+        self.assertIn(
+            "if (opId !== undefined && panel._opId !== opId) return;",
+            animated_panel_source,
+        )
+        self.assertIn("up._opId = (up._opId || 0) + 1;", cart_open_source)
+        self.assertIn("showAnimatedPanel(userPanelMobile, opId)", main_js)
 
     def test_mobile_panels_use_accessible_bottom_sheet_contract(self):
         static_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "static"

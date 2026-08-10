@@ -272,7 +272,6 @@
   }
 
   #mini-cart-panel-mobile,
-  #mini-cart-panel-mobile.show,
   #mini-cart-panel-mobile.hiding {
     position: fixed !important;
     top: auto !important;
@@ -302,6 +301,7 @@
   }
 
   #mini-cart-panel-mobile.show {
+    transition: transform 240ms cubic-bezier(.2, .8, .2, 1), visibility 0s linear 0s !important;
     visibility: visible !important;
     pointer-events: auto !important;
     transform: translateY(0) !important;
