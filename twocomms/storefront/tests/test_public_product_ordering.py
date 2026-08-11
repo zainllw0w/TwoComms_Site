@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
+from django.core.cache import cache, caches
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
@@ -173,6 +173,21 @@ class PublicProductOrderingTests(TestCase):
             self.high_priority.save(update_fields=["title"])
 
         self.assertGreater(get_public_product_order_version(), initial_version)
+
+    def test_product_save_invalidates_cached_catalog_grid(self):
+        caches["fragments"].clear()
+        catalog_url = reverse("catalog_by_cat", args=[self.category.slug])
+        initial_html = self.client.get(catalog_url, secure=True).content.decode("utf-8")
+        self.assertIn("Priority High Middle", initial_html)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.high_priority.title = "Priority High Updated"
+            self.high_priority.save(update_fields=["title"])
+
+        updated_html = self.client.get(catalog_url, secure=True).content.decode("utf-8")
+
+        self.assertIn("Priority High Updated", updated_html)
+        self.assertNotIn("Priority High Middle", updated_html)
 
     def test_color_variant_changes_bump_public_product_version(self):
         initial_version = get_public_product_order_version()

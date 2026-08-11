@@ -1011,8 +1011,8 @@ def home(request):
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
-    public_product_order_version = get_public_product_order_version(fragment_cache)
-    public_category_version = get_public_category_version(fragment_cache)
+    public_product_order_version = get_public_product_order_version()
+    public_category_version = get_public_category_version()
 
     # Пагинация
     page_number = request.GET.get('page', '1')
@@ -1241,8 +1241,8 @@ def catalog(request, cat_slug=None, collection_slug=None):
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
-    public_product_order_version = get_public_product_order_version(fragment_cache)
-    public_category_version = get_public_category_version(fragment_cache)
+    public_product_order_version = get_public_product_order_version()
+    public_category_version = get_public_category_version()
     smart_selector_fit_codes = None
     smart_selector_selected_theme = ''
     smart_selector_selected_fit = ''
@@ -1639,8 +1639,8 @@ def search(request):
 
         fragment_cache = get_fragment_cache()
         categories = get_categories_cached(fragment_cache)
-        public_product_order_version = get_public_product_order_version(fragment_cache)
-        public_category_version = get_public_category_version(fragment_cache)
+        public_product_order_version = get_public_product_order_version()
+        public_category_version = get_public_category_version()
 
         # Phase 9 — colour filter on search results.
         base_search_qs = apply_public_product_order(product_qs)
@@ -1700,8 +1700,8 @@ def search(request):
         try:
             fragment_cache = get_fragment_cache()
             categories = get_categories_cached(fragment_cache) if fragment_cache else []
-            public_product_order_version = get_public_product_order_version(fragment_cache)
-            public_category_version = get_public_category_version(fragment_cache)
+            public_product_order_version = get_public_product_order_version()
+            public_category_version = get_public_category_version()
         except Exception:
             categories = []
             public_product_order_version = 1
@@ -1987,8 +1987,8 @@ def thematic_landing(request, theme_slug):
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
-    public_product_order_version = get_public_product_order_version(fragment_cache)
-    public_category_version = get_public_category_version(fragment_cache)
+    public_product_order_version = get_public_product_order_version()
+    public_category_version = get_public_category_version()
 
     # Build keyword-OR filter from match_keywords.
     keyword_q = Q()
