@@ -501,6 +501,39 @@ class CartUtilityEndpointTests(CartViewTestCase):
         self.assertIn("grid-template-areas: \"image info\"\n    \"image actions\"", css)
         self.assertIn("@media (min-width: 768px)", css)
 
+    def test_cart_redesign_resets_legacy_alignment_and_bottom_nav_spacing(self):
+        css_path = settings.BASE_DIR / "twocomms_django_theme" / "static" / "css" / "cart-items-redesign.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("text-align: left !important", css)
+        self.assertIn("align-items: flex-start !important", css)
+        self.assertIn("grid-template-columns: 72px minmax(0, 1fr)", css)
+        self.assertIn("grid-template-columns: 92px minmax(0, 1fr) 148px", css)
+        self.assertIn("--mobile-shell-dock-height", css)
+        self.assertIn("body:has(.cart-page-container) main.container-xxl", css)
+
+    def test_cart_redesign_resets_legacy_alignment_and_bottom_nav_spacing(self):
+        css_path = settings.BASE_DIR / "twocomms_django_theme" / "static" / "css" / "cart-items-redesign.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("text-align: left !important", css)
+        self.assertIn("align-items: flex-start !important", css)
+        self.assertIn("grid-template-columns: 72px minmax(0, 1fr)", css)
+        self.assertIn("grid-template-columns: 92px minmax(0, 1fr) 148px", css)
+        self.assertIn("--mobile-shell-dock-height", css)
+        self.assertIn("body:has(.cart-page-container) main.container-xxl", css)
+
+    def test_cart_redesign_resets_legacy_alignment_and_bottom_nav_spacing(self):
+        css_path = settings.BASE_DIR / "twocomms_django_theme" / "static" / "css" / "cart-items-redesign.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("text-align: left !important", css)
+        self.assertIn("align-items: flex-start !important", css)
+        self.assertIn("grid-template-columns: 72px minmax(0, 1fr)", css)
+        self.assertIn("grid-template-columns: 92px minmax(0, 1fr) 148px", css)
+        self.assertIn("--mobile-shell-dock-height", css)
+        self.assertIn("body:has(.cart-page-container) main.container-xxl", css)
+
     def set_foreign_variant_cart(self):
         from productcolors.models import Color, ProductColorVariant
 
