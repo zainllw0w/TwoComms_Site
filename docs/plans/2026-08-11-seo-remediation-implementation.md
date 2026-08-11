@@ -361,6 +361,8 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [x] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
 - [x] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
+- [x] **5.4a.1** Restore the documented OR contract within the color facet while keeping different inventory axes intersected on the same eligible color variant. This release gate was triggered by production-backed selector evidence, not by a keyword or ranking hypothesis.
+- [ ] **5.4a.2** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, align page and fragment invalidation versions, and remeasure default/fragments cardinality without flushing production caches.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
 **Files:** catalog views/templates, pagination/canonical helpers, `general_catalog_seo.py`, `color_seo_copy.py`, robots/hreflang helpers and tests.
@@ -470,6 +472,35 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   content/configurator, product text, catalog data or variant inventory was
   inspected or changed in this slice. No ranking, traffic, rich-result or
   conversion uplift is claimed.
+
+#### Task 5.4a.1 execution evidence (checkpoint prepared)
+
+- Root cause: the legacy color service, selector chip contract and existing
+  integration regression all define multiple colors as an OR choice, but the
+  shared inventory-facet resolver required every selected color to exist on
+  one product. Production DB evidence made the user impact concrete: `65`
+  published products owned black or coyote, only `7` owned both, so the
+  `black+coyote` selector suppressed `58` valid OR matches.
+- Code/test commit: `5809a221` (`fix(catalog): restore multi-color OR filtering`)
+  filters the already fit/thermo-eligible variant set to any selected color.
+  Size and availability checks then continue on that filtered set, preventing
+  a disjoint color variant from satisfying another selected inventory axis.
+- TDD/local gates: the existing multi-color regression reproduced RED by
+  returning only the both-color product. A second RED regression proved that
+  `color=black,coyote&size=M` must keep the coyote variant with sellable M and
+  reject a black-only variant whose M is disabled. Both passed GREEN; the
+  color/canonical suite passed `29/29`, the merchandising/selector suite passed
+  `64/64`, and `manage.py check`, `py_compile` and `git diff --check` passed.
+- Production deploy: `origin/main` and server code were advanced to
+  `5809a22186bd810f047b3135e43f2d316ae073fb`; Passenger was restarted. A
+  fresh valid `?sort=recommended&color=black,coyote` response returned `200`
+  with `16` product links on the first page instead of the previous seven,
+  retained both color controls and remained `noindex, nofollow`. Single black
+  and coyote controls remained operational; `/healthz/` returned `200`.
+- Scope boundary: this changes selector result correctness only. It creates no
+  indexable facet URL, SEO copy, landing, canonical, hreflang, product data,
+  DTF/subdomain/blog behavior or Custom Print behavior, and makes no ranking
+  or traffic claim.
 
 #### Task 5.3 execution evidence (checkpoint prepared)
 
