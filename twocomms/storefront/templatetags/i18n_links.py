@@ -127,6 +127,11 @@ def language_alternates(context) -> Dict[str, str]:
     """
 
     request = context.get("request")
+    # Query-based catalog/search states are UX surfaces, not independent
+    # locale owners. Their canonical points at the clean listing, so emitting
+    # hreflang URLs with the same query would create a contradictory cluster.
+    if context.get("suppress_hreflang"):
+        return {}
     publication = context.get("locale_publication")
     if publication is not None:
         if not publication.get("indexable"):

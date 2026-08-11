@@ -197,6 +197,16 @@ class MultilingualRobotsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "noindex, follow")
 
+    def test_catalog_color_filter_suppresses_hreflang_cluster(self):
+        response = self.client.get("/ru/catalog/tshirts/?color=black")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "noindex, follow")
+        self.assertTrue(response.context["suppress_hreflang"])
+        self.assertNotIn(
+            'rel="alternate" hreflang=',
+            response.content.decode("utf-8"),
+        )
+
     def test_search_stays_noindex_on_ru(self):
         response = self.client.get("/ru/search/?q=black")
         self.assertEqual(response.status_code, 200)
