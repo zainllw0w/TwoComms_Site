@@ -16,6 +16,7 @@ from django.core.cache import cache, caches
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+from product_catalog.models import VariantSizeRule
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
 from storefront.services.color_filter import (
@@ -174,6 +175,35 @@ class CatalogColorFilterIntegrationTests(_BaseColorFilterTests):
         self.assertCountEqual(
             product_slugs, ["black-tee", "coyote-hoodie", "multi-tee"]
         )
+
+    def test_catalog_combines_color_or_with_size_on_the_matching_variant(self):
+        black_variant = self.black_product.color_variants.get(slug="black")
+        coyote_variant = self.coyote_product.color_variants.get(slug="coyote")
+        multi_black = self.both_product.color_variants.get(slug="black")
+        multi_coyote = self.both_product.color_variants.get(slug="coyote")
+        VariantSizeRule.objects.bulk_create(
+            [
+                VariantSizeRule(
+                    variant=black_variant, size="M", is_enabled=False, stock=0
+                ),
+                VariantSizeRule(
+                    variant=coyote_variant, size="M", is_enabled=True, stock=2
+                ),
+                VariantSizeRule(
+                    variant=multi_black, size="M", is_enabled=False, stock=0
+                ),
+                VariantSizeRule(
+                    variant=multi_coyote, size="M", is_enabled=True, stock=2
+                ),
+            ]
+        )
+
+        response = self.client.get(
+            reverse("catalog") + "?size=M&color=black%2Ccoyote"
+        )
+        product_slugs = [p.slug for p in response.context["products"]]
+
+        self.assertCountEqual(product_slugs, ["coyote-hoodie", "multi-tee"])
 
     def test_catalog_renders_chips_partial(self):
         response = self.client.get(reverse("catalog_by_cat",
