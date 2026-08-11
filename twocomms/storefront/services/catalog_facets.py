@@ -255,8 +255,14 @@ def _product_matches_inventory_facets(product, state):
 
     selected_colors = tuple(state.get("color", ()))
     if selected_colors:
-        variant_colors = {str(getattr(variant, "slug", "") or "").strip().lower() for variant in _variant_rows(product)}
-        if not all(color in variant_colors for color in selected_colors):
+        selected_color_set = set(selected_colors)
+        variants = [
+            variant
+            for variant in variants
+            if str(getattr(variant, "slug", "") or "").strip().lower()
+            in selected_color_set
+        ]
+        if not variants:
             return False
 
     selected_sizes = tuple(state.get("size", ()))

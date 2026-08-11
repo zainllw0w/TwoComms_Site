@@ -639,6 +639,17 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertContains(response, 'content="noindex, follow')
         self.assertEqual(response.context["products"], [])
 
+    def test_unowned_grey_and_olive_color_aliases_redirect_to_clean_category(self):
+        self.create_product(title="Canonical color product", slug="canonical-color-product")
+        url = reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+
+        for color_slug in ("grey", "olive"):
+            with self.subTest(color_slug=color_slug):
+                response = self.client.get(f"{url}?color={color_slug}")
+
+                self.assertEqual(response.status_code, 301)
+                self.assertEqual(response["Location"], url)
+
 
 class SearchViewTests(CatalogViewTestCase):
     def test_search_finds_products_by_title_case_insensitively(self):

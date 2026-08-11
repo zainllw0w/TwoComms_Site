@@ -1011,8 +1011,8 @@ def home(request):
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
-    public_product_order_version = get_public_product_order_version(fragment_cache)
-    public_category_version = get_public_category_version(fragment_cache)
+    public_product_order_version = get_public_product_order_version()
+    public_category_version = get_public_category_version()
 
     # Пагинация
     page_number = request.GET.get('page', '1')
@@ -1241,8 +1241,8 @@ def catalog(request, cat_slug=None, collection_slug=None):
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
-    public_product_order_version = get_public_product_order_version(fragment_cache)
-    public_category_version = get_public_category_version(fragment_cache)
+    public_product_order_version = get_public_product_order_version()
+    public_category_version = get_public_category_version()
     smart_selector_fit_codes = None
     smart_selector_selected_theme = ''
     smart_selector_selected_fit = ''
@@ -1386,6 +1386,17 @@ def catalog(request, cat_slug=None, collection_slug=None):
         product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
     has_active_color_filter = bool(selected_color_slugs)
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
+    suppress_hreflang = bool(
+        has_active_color_filter
+        or root_catalog_filter_active_count
+        or any(
+            request.GET.get(key)
+            for key in (
+                'sort', 'theme', 'collection', 'audience', 'availability',
+                'fit', 'size', 'thermo',
+            )
+        )
+    )
     if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
         product_qs = _sort_smart_selector_products_by_visible_price(
             product_qs,
@@ -1460,6 +1471,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
             'root_catalog_selected_sort': root_catalog_selected_sort,
             'root_catalog_filter_active_count': root_catalog_filter_active_count,
             'root_catalog_filters_active': bool(root_catalog_filter_active_count),
+            'suppress_hreflang': suppress_hreflang,
             'root_catalog_size_options': SELLABLE_SIZE_ORDER,
             'root_catalog_category_options': [
                 {
@@ -1627,8 +1639,8 @@ def search(request):
 
         fragment_cache = get_fragment_cache()
         categories = get_categories_cached(fragment_cache)
-        public_product_order_version = get_public_product_order_version(fragment_cache)
-        public_category_version = get_public_category_version(fragment_cache)
+        public_product_order_version = get_public_product_order_version()
+        public_category_version = get_public_category_version()
 
         # Phase 9 — colour filter on search results.
         base_search_qs = apply_public_product_order(product_qs)
@@ -1674,6 +1686,7 @@ def search(request):
                 'selected_color_slugs': selected_color_slugs,
                 'has_active_color_filter': has_active_color_filter,
                 'color_filter_reset_url': color_filter_reset_url,
+                'suppress_hreflang': True,
                 'pagination_query_prefix': _pagination_query_prefix(request),
             }
         )
@@ -1687,8 +1700,8 @@ def search(request):
         try:
             fragment_cache = get_fragment_cache()
             categories = get_categories_cached(fragment_cache) if fragment_cache else []
-            public_product_order_version = get_public_product_order_version(fragment_cache)
-            public_category_version = get_public_category_version(fragment_cache)
+            public_product_order_version = get_public_product_order_version()
+            public_category_version = get_public_category_version()
         except Exception:
             categories = []
             public_product_order_version = 1
@@ -1708,6 +1721,7 @@ def search(request):
                 'error': 'Произошла ошибка при поиске. Попробуйте еще раз.',
                 'public_product_order_version': public_product_order_version,
                 'public_category_version': public_category_version,
+                'suppress_hreflang': True,
             }
         )
 
@@ -1973,8 +1987,8 @@ def thematic_landing(request, theme_slug):
 
     fragment_cache = get_fragment_cache()
     categories = get_categories_cached(fragment_cache)
-    public_product_order_version = get_public_product_order_version(fragment_cache)
-    public_category_version = get_public_category_version(fragment_cache)
+    public_product_order_version = get_public_product_order_version()
+    public_category_version = get_public_category_version()
 
     # Build keyword-OR filter from match_keywords.
     keyword_q = Q()
