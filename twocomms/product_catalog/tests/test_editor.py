@@ -8,7 +8,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -61,7 +61,7 @@ class ProductCatalogEditorAccessTests(TestCase):
         ).content.decode()
 
         self.assertIn("product_catalog/editor-inventory.js?v=20260716-inventory-v3", content)
-        self.assertIn("product_catalog/editor.js?v=20260810-catalog-editor-v2", content)
+        self.assertIn("product_catalog/editor.js?v=20260811-catalog-editor-v6", content)
 
     def test_staff_can_create_product_with_unified_save_endpoint(self):
         self.client.force_login(self.staff)
@@ -87,6 +87,50 @@ class ProductCatalogEditorAccessTests(TestCase):
         self.assertEqual(created.title, "Нова термо футболка")
         self.assertEqual(created.price, 1200)
         self.assertEqual(created.status, "draft")
+
+    def test_product_save_rejects_discount_percent_above_server_limit(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_product_save"),
+            data={
+                "payload": json.dumps(
+                    {
+                        "id": self.product.pk,
+                        "title": self.product.title,
+                        "category_id": self.category.pk,
+                        "price": self.product.price,
+                        "discount_percent": 101,
+                    }
+                )
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.product.refresh_from_db()
+        self.assertNotEqual(self.product.discount_percent, 101)
+
+    def test_product_save_rejects_negative_discount_percent(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_product_save"),
+            data={
+                "payload": json.dumps(
+                    {
+                        "id": self.product.pk,
+                        "title": self.product.title,
+                        "category_id": self.category.pk,
+                        "price": self.product.price,
+                        "discount_percent": -1,
+                    }
+                )
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.product.refresh_from_db()
+        self.assertNotEqual(self.product.discount_percent, -1)
 
     def test_feed_rule_rejects_an_image_owned_by_another_product(self):
         other = Product.objects.create(
@@ -166,6 +210,72 @@ class ProductCatalogEditorAccessTests(TestCase):
         self.assertEqual(source.product_image, image)
         self.assertEqual(response.json()["cover_source"]["product_image_id"], image.pk)
 
+    @patch("product_catalog.image_jobs.schedule_image_optimization")
+    def test_deleting_home_card_only_gallery_image_clears_the_override(self, schedule):
+        image = ProductImage.objects.create(
+            product=self.product,
+            image="products/extra/home-card-only.webp",
+        )
+        self.product.home_card_image = image.image.name
+        self.product.save(update_fields=["home_card_image"])
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_image_update"),
+            data=json.dumps({
+                "product_id": self.product.pk,
+                "kind": "product",
+                "id": image.pk,
+                "delete": True,
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.product.refresh_from_db()
+        self.assertFalse(self.product.home_card_image)
+        self.assertEqual(response.json()["home_card_image_url"], "")
+
+    def test_home_card_override_can_be_reset_to_the_main_cover(self):
+        self.product.main_image = "products/qa/main.webp"
+        self.product.home_card_image = "products/qa/home.webp"
+        self.product.save(update_fields=["main_image", "home_card_image"])
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_set_cover"),
+            data=json.dumps({
+                "product_id": self.product.pk,
+                "target": "home_card",
+                "reset": True,
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.product.refresh_from_db()
+        self.assertFalse(self.product.home_card_image)
+        self.assertEqual(response.json()["home_card_image_url"], "")
+        self.assertTrue(response.json()["main_image_url"].endswith("/products/qa/main.webp"))
+
+    def test_home_card_reset_control_is_wired_instead_of_disabled(self):
+        template = (
+            Path(__file__).resolve().parents[1]
+            / "templates"
+            / "product_catalog"
+            / "editor.html"
+        ).read_text(encoding="utf-8")
+        javascript = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "product_catalog"
+            / "editor.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('id="f-home-image-reset"', template)
+        self.assertNotIn("Скидання буде доступне після підключення", template)
+        self.assertIn("resetHomeCardOverride", javascript)
+
     def test_editor_css_preserves_hidden_buttons_and_wraps_mobile_actions(self):
         css = (
             Path(__file__).resolve().parents[1]
@@ -192,7 +302,7 @@ class ProductCatalogEditorAccessTests(TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn(".catalog-editor-price-fields .catalog-editor-field { min-width: 0; }", css)
-        self.assertIn("product_catalog/editor.css' %}?v=20260810-catalog-editor-v2", template)
+        self.assertIn("product_catalog/editor.css' %}?v=20260811-catalog-editor-v8", template)
 
     def test_print_picker_uses_only_print_artwork_and_marks_selection_state(self):
         javascript = (
@@ -259,6 +369,229 @@ class ProductCatalogImageJobTests(TestCase):
             content_type="image/png",
         )
 
+    def _oversized_png(self, name="oversized.png"):
+        return SimpleUploadedFile(
+            name,
+            b"x" * ((15 * 1024 * 1024) + 1),
+            content_type="image/png",
+        )
+
+    def _high_pixel_png(self, name="too-many-pixels.png"):
+        from PIL import Image
+
+        payload = BytesIO()
+        Image.new("1", (10_000, 6_000)).save(payload, format="PNG")
+        return SimpleUploadedFile(
+            name,
+            payload.getvalue(),
+            content_type="image/png",
+        )
+
+    @override_settings(TESTING=True)
+    @patch("concurrent.futures.ThreadPoolExecutor")
+    def test_test_mode_does_not_spawn_detached_image_runner(self, executor_class):
+        from product_catalog.image_jobs import schedule_image_optimization
+
+        schedule_image_optimization(123)
+
+        executor_class.assert_not_called()
+
+    @override_settings(TESTING=False, PRODUCT_CATALOG_IMAGE_WORKERS=1)
+    @patch("product_catalog.image_jobs.run_image_optimization_job")
+    @patch("concurrent.futures.ThreadPoolExecutor")
+    def test_scheduler_reuses_one_bounded_executor(self, executor_class, run_job):
+        from product_catalog import image_jobs
+
+        previous_executor = getattr(image_jobs, "_IMAGE_JOB_EXECUTOR", None)
+        previous_scheduled = set(image_jobs._IMAGE_JOB_SCHEDULED)
+        image_jobs._IMAGE_JOB_EXECUTOR = None
+        image_jobs._IMAGE_JOB_SCHEDULED.clear()
+        try:
+            image_jobs.schedule_image_optimization(101)
+            image_jobs.schedule_image_optimization(102)
+        finally:
+            image_jobs._IMAGE_JOB_EXECUTOR = previous_executor
+            image_jobs._IMAGE_JOB_SCHEDULED.clear()
+            image_jobs._IMAGE_JOB_SCHEDULED.update(previous_scheduled)
+
+        executor_class.assert_called_once_with(
+            max_workers=1,
+            thread_name_prefix="catalog-image",
+        )
+        executor = executor_class.return_value
+        self.assertEqual(executor.submit.call_count, 2)
+        self.assertEqual(
+            [call.args[1] for call in executor.submit.call_args_list],
+            [101, 102],
+        )
+        run_job.assert_not_called()
+
+    @override_settings(TESTING=False, PRODUCT_CATALOG_IMAGE_WORKERS=1)
+    @patch("concurrent.futures.ThreadPoolExecutor")
+    def test_scheduler_deduplicates_pending_job_submissions(self, executor_class):
+        from product_catalog import image_jobs
+
+        previous_executor = getattr(image_jobs, "_IMAGE_JOB_EXECUTOR", None)
+        previous_scheduled = set(image_jobs._IMAGE_JOB_SCHEDULED)
+        image_jobs._IMAGE_JOB_EXECUTOR = None
+        image_jobs._IMAGE_JOB_SCHEDULED.clear()
+        try:
+            image_jobs.schedule_image_optimization(901)
+            image_jobs.schedule_image_optimization(901)
+        finally:
+            image_jobs._IMAGE_JOB_EXECUTOR = previous_executor
+            image_jobs._IMAGE_JOB_SCHEDULED.clear()
+            image_jobs._IMAGE_JOB_SCHEDULED.update(previous_scheduled)
+
+        executor_class.return_value.submit.assert_called_once_with(
+            image_jobs._run_scheduled_image_job,
+            901,
+        )
+
+    @override_settings(
+        TESTING=False,
+        PRODUCT_CATALOG_IMAGE_WORKERS=1,
+        PRODUCT_CATALOG_IMAGE_QUEUE_CAPACITY=1,
+    )
+    @patch("concurrent.futures.ThreadPoolExecutor")
+    def test_scheduler_leaves_excess_jobs_for_reconciliation_when_capacity_is_full(
+        self, executor_class
+    ):
+        from product_catalog import image_jobs
+
+        previous_executor = getattr(image_jobs, "_IMAGE_JOB_EXECUTOR", None)
+        previous_scheduled = set(image_jobs._IMAGE_JOB_SCHEDULED)
+        image_jobs._IMAGE_JOB_EXECUTOR = None
+        image_jobs._IMAGE_JOB_SCHEDULED.clear()
+        try:
+            image_jobs.schedule_image_optimization(911)
+            image_jobs.schedule_image_optimization(912)
+            image_jobs.schedule_image_optimization(913)
+
+            self.assertEqual(executor_class.return_value.submit.call_count, 2)
+            self.assertEqual(image_jobs._IMAGE_JOB_SCHEDULED, {911, 912})
+        finally:
+            image_jobs._IMAGE_JOB_EXECUTOR = previous_executor
+            image_jobs._IMAGE_JOB_SCHEDULED.clear()
+            image_jobs._IMAGE_JOB_SCHEDULED.update(previous_scheduled)
+
+    def test_image_jobs_persist_a_runner_lease(self):
+        self.assertIn(
+            "lease_token",
+            {field.name for field in ImageOptimizationJob._meta.local_fields},
+        )
+
+    @patch("storefront.tasks.optimize_image_field_task", side_effect=RuntimeError("AVIF encoder failed"))
+    def test_failed_job_keeps_the_last_backend_stage_for_diagnostics(self, optimize):
+        image = ProductImage.objects.create(
+            product=self.product,
+            image=self._png("failed-stage.png"),
+        )
+        job = ImageOptimizationJob.objects.filter(
+            model_label="storefront.productimage",
+            object_id=image.pk,
+            field_name="image",
+        ).latest("id")
+
+        from product_catalog.image_jobs import run_image_optimization_job
+
+        run_image_optimization_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, ImageOptimizationJob.Status.ERROR)
+        self.assertEqual(job.stage, "loading")
+        self.assertEqual(job.progress, 5)
+        self.assertIn("AVIF encoder failed", job.error_message)
+
+    def test_image_job_model_indexes_the_reconciliation_queue(self):
+        indexes = {
+            index.name: tuple(index.fields)
+            for index in ImageOptimizationJob._meta.indexes
+        }
+        self.assertEqual(
+            indexes["pc_job_status_upd_9f3d_idx"],
+            ("status", "-updated_at"),
+        )
+        self.assertEqual(
+            indexes["pc_job_status_crt_9f3d_idx"],
+            ("status", "created_at"),
+        )
+
+    def test_reconcile_command_cleans_only_old_terminal_jobs(self):
+        old_completed = ImageOptimizationJob.objects.create(
+            model_label="storefront.productimage",
+            object_id=self.product.pk,
+            field_name="image",
+            status=ImageOptimizationJob.Status.COMPLETED,
+            stage="ready",
+        )
+        old_cancelled = ImageOptimizationJob.objects.create(
+            model_label="storefront.productimage",
+            object_id=self.product.pk,
+            field_name="image",
+            status=ImageOptimizationJob.Status.CANCELLED,
+            stage="cancelled",
+        )
+        recent_error = ImageOptimizationJob.objects.create(
+            model_label="storefront.productimage",
+            object_id=self.product.pk,
+            field_name="image",
+            status=ImageOptimizationJob.Status.ERROR,
+            stage="avif",
+        )
+        old_cutoff = timezone.now() - timedelta(days=31)
+        ImageOptimizationJob.objects.filter(
+            pk__in=(old_completed.pk, old_cancelled.pk)
+        ).update(updated_at=old_cutoff)
+
+        call_command(
+            "reconcile_image_optimization_jobs",
+            max_jobs=1,
+            retention_days=30,
+            cleanup_limit=10,
+            verbosity=0,
+        )
+
+        self.assertFalse(
+            ImageOptimizationJob.objects.filter(
+                pk__in=(old_completed.pk, old_cancelled.pk)
+            ).exists()
+        )
+        self.assertTrue(ImageOptimizationJob.objects.filter(pk=recent_error.pk).exists())
+
+    def test_reconcile_command_retains_latest_job_for_derivative_health_checks(self):
+        image = ProductImage.objects.create(
+            product=self.product,
+            image="products/extra/retained-health-check.webp",
+        )
+        job = ImageOptimizationJob.objects.filter(
+            model_label="storefront.productimage",
+            object_id=image.pk,
+            field_name="image",
+        ).latest("id")
+        ImageOptimizationJob.objects.filter(pk=job.pk).update(
+            status=ImageOptimizationJob.Status.COMPLETED,
+            stage="ready",
+            progress=100,
+            completed_at=timezone.now() - timedelta(days=31),
+            updated_at=timezone.now() - timedelta(days=31),
+        )
+
+        call_command(
+            "reconcile_image_optimization_jobs",
+            max_jobs=1,
+            retention_days=30,
+            cleanup_limit=10,
+            verbosity=0,
+        )
+
+        self.assertTrue(ImageOptimizationJob.objects.filter(pk=job.pk).exists())
+        from product_catalog.image_jobs import image_job_payload
+
+        payload = image_job_payload(image, "image")
+        self.assertEqual(payload["status"], ImageOptimizationJob.Status.ERROR)
+        self.assertIn("відсутні", payload["error_message"])
+
     @patch("product_catalog.management.commands.reconcile_image_optimization_jobs.run_image_optimization_job")
     def test_reconcile_command_requeues_stale_jobs_and_processes_pending(self, run_job):
         stale = ImageOptimizationJob.objects.create(
@@ -267,10 +600,10 @@ class ProductCatalogImageJobTests(TestCase):
             field_name="image",
             status=ImageOptimizationJob.Status.RUNNING,
             stage="optimizing",
-            updated_at=timezone.now() - timedelta(minutes=10),
+            updated_at=timezone.now() - timedelta(minutes=31),
         )
         ImageOptimizationJob.objects.filter(pk=stale.pk).update(
-            updated_at=timezone.now() - timedelta(minutes=10)
+            updated_at=timezone.now() - timedelta(minutes=31)
         )
         pending = ImageOptimizationJob.objects.create(
             model_label="storefront.productimage",
@@ -289,6 +622,32 @@ class ProductCatalogImageJobTests(TestCase):
             {call.args[0] for call in run_job.call_args_list},
             {stale.pk, pending.pk},
         )
+
+    @patch("product_catalog.image_jobs.schedule_image_optimization")
+    def test_editor_poll_does_not_requeue_a_job_before_the_cron_timeout(self, schedule):
+        from product_catalog.image_jobs import resume_image_optimization
+
+        self.product.main_image = "products/qa/slow-avif.png"
+        self.product.save(update_fields=["main_image"])
+        running = ImageOptimizationJob.objects.create(
+            model_label="storefront.product",
+            object_id=self.product.pk,
+            field_name="main_image",
+            source_name=self.product.main_image.name,
+            status=ImageOptimizationJob.Status.RUNNING,
+            stage="avif",
+            progress=50,
+        )
+        ImageOptimizationJob.objects.filter(pk=running.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=10)
+        )
+
+        resumed = resume_image_optimization(self.product, "main_image")
+
+        resumed.refresh_from_db()
+        self.assertEqual(resumed.status, ImageOptimizationJob.Status.RUNNING)
+        self.assertEqual(resumed.stage, "avif")
+        schedule.assert_not_called()
 
     @patch("product_catalog.image_jobs.schedule_image_optimization")
     def test_gallery_upload_returns_persisted_pending_job(self, schedule):
@@ -345,6 +704,105 @@ class ProductCatalogImageJobTests(TestCase):
             ],
         )
         self.assertEqual(schedule.call_count, 2)
+
+    @patch(
+        "product_catalog.image_jobs.schedule_image_optimization",
+        side_effect=RuntimeError("executor unavailable"),
+    )
+    def test_scheduler_failure_after_commit_does_not_turn_created_product_into_500(
+        self, schedule
+    ):
+        self.client.force_login(self.staff)
+        before = Product.objects.count()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("product_catalog_api_product_save"),
+                data={
+                    "payload": json.dumps(
+                        {
+                            "title": "Committed despite scheduler outage",
+                            "category_id": self.category.pk,
+                            "price": 700,
+                            "status": "draft",
+                        }
+                    ),
+                    "main_image": self._png("commit-safe-cover.png"),
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Product.objects.count(), before + 1)
+        self.assertTrue(response.json()["created"])
+        schedule.assert_called_once()
+
+    def test_gallery_rejects_images_larger_than_advertised_limit(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_images_upload"),
+            data={
+                "product_id": self.product.pk,
+                "target": "product",
+                "files": [self._oversized_png()],
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("15 МБ", response.json()["error"])
+        self.assertFalse(self.product.images.exists())
+
+    def test_product_cover_rejects_images_larger_than_advertised_limit(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_product_save"),
+            data={
+                "payload": json.dumps(
+                    {
+                        "id": self.product.pk,
+                        "title": self.product.title,
+                        "category_id": self.category.pk,
+                        "price": self.product.price,
+                    }
+                ),
+                "main_image": self._oversized_png("oversized-cover.png"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("15 МБ", response.json()["error"])
+
+    def test_feed_only_upload_rejects_images_larger_than_advertised_limit(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_feed_image_upload"),
+            data={
+                "product_id": self.product.pk,
+                "files": [self._oversized_png("oversized-feed.png")],
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("15 МБ", response.json()["error"])
+        self.assertFalse(FeedOnlyImage.objects.filter(product=self.product).exists())
+
+    def test_gallery_rejects_excessive_pixel_dimensions_before_intake(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("product_catalog_api_images_upload"),
+            data={
+                "product_id": self.product.pk,
+                "target": "product",
+                "files": [self._high_pixel_png()],
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("50 мегапікселів", response.json()["error"])
+        self.assertFalse(self.product.images.exists())
 
     def test_enqueue_cancels_an_older_active_job_for_the_same_image_field(self):
         image = ProductImage.objects.create(
@@ -424,6 +882,103 @@ class ProductCatalogImageJobTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, ImageOptimizationJob.Status.CANCELLED)
         variants_are_current.assert_called_once()
+
+    @patch(
+        "storefront.services.image_variants.optimized_variants_are_current",
+        return_value=True,
+    )
+    @patch("storefront.tasks.optimize_image_field_task")
+    def test_reclaimed_job_ignores_a_late_runner_completion(
+        self, optimize, variants_are_current
+    ):
+        image = ProductImage.objects.create(
+            product=self.product,
+            image=self._png("reclaimed-during-optimization.png"),
+        )
+        job = ImageOptimizationJob.objects.filter(
+            model_label="storefront.productimage",
+            object_id=image.pk,
+            field_name="image",
+        ).latest("id")
+
+        def reclaim(*_args, **_kwargs):
+            ImageOptimizationJob.objects.filter(pk=job.pk).update(
+                status=ImageOptimizationJob.Status.RUNNING,
+                stage="replacement-runner",
+                progress=15,
+                lease_token="replacement-lease",
+                attempts=2,
+            )
+
+        optimize.side_effect = reclaim
+
+        from product_catalog.image_jobs import run_image_optimization_job
+
+        run_image_optimization_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, ImageOptimizationJob.Status.RUNNING)
+        self.assertEqual(job.stage, "replacement-runner")
+        self.assertEqual(job.lease_token, "replacement-lease")
+        variants_are_current.assert_called_once()
+
+    @patch("product_catalog.image_jobs.schedule_image_optimization")
+    def test_completed_job_with_missing_derivatives_exposes_retry(self, schedule):
+        image = ProductImage.objects.create(
+            product=self.product,
+            image=self._png("missing-derivatives.png"),
+        )
+        job = ImageOptimizationJob.objects.filter(
+            model_label="storefront.productimage",
+            object_id=image.pk,
+            field_name="image",
+        ).latest("id")
+        ImageOptimizationJob.objects.filter(pk=job.pk).update(
+            status=ImageOptimizationJob.Status.COMPLETED,
+            stage="ready",
+            progress=100,
+            completed_at=timezone.now(),
+        )
+
+        from product_catalog.image_jobs import image_job_payload, retry_image_optimization
+
+        payload = image_job_payload(image, "image")
+        self.assertEqual(payload["status"], ImageOptimizationJob.Status.ERROR)
+        self.assertIn("відсутні", payload["error_message"])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            retried = retry_image_optimization(image, "image")
+
+        retried.refresh_from_db()
+        self.assertEqual(retried.status, ImageOptimizationJob.Status.PENDING)
+        schedule.assert_called_once_with(job.pk)
+
+    @patch("product_catalog.image_jobs.schedule_image_optimization")
+    def test_legacy_image_without_job_exposes_retry_when_derivatives_are_missing(
+        self, schedule
+    ):
+        image = ProductImage.objects.create(
+            product=self.product,
+            image=self._png("legacy-without-job.png"),
+        )
+        ImageOptimizationJob.objects.filter(
+            model_label="storefront.productimage",
+            object_id=image.pk,
+            field_name="image",
+        ).delete()
+
+        from product_catalog.image_jobs import image_job_payload, retry_image_optimization
+
+        payload = image_job_payload(image, "image")
+        self.assertIsNone(payload["id"])
+        self.assertEqual(payload["status"], ImageOptimizationJob.Status.ERROR)
+        self.assertIn("відсутні", payload["error_message"])
+
+        with self.captureOnCommitCallbacks(execute=True):
+            retried = retry_image_optimization(image, "image")
+
+        self.assertEqual(retried.status, ImageOptimizationJob.Status.PENDING)
+        schedule.assert_called_once_with(retried.pk)
 
     def test_image_job_status_enforces_product_ownership(self):
         image = ProductImage.objects.create(
@@ -578,6 +1133,34 @@ class ProductCatalogImageJobTests(TestCase):
         self.assertEqual(image_payload["job"]["id"], job.pk)
         self.assertEqual(image_payload["job"]["status"], job.status)
 
+    @patch("product_catalog.image_jobs.schedule_image_optimization")
+    def test_feed_only_image_job_status_uses_product_ownership(self, schedule):
+        feed = FeedProfile.objects.create(name="Google status", slug="google-status")
+        image = FeedOnlyImage.objects.create(
+            product=self.product,
+            feed=feed,
+            image="product_catalog/feed_images/status.webp",
+        )
+        job = ImageOptimizationJob.objects.filter(
+            model_label="product_catalog.feedonlyimage",
+            object_id=image.pk,
+            field_name="image",
+        ).latest("id")
+        self.client.force_login(self.staff)
+
+        response = self.client.get(
+            reverse("product_catalog_api_image_optimization_status"),
+            {
+                "product_id": self.product.pk,
+                "kind": "feed",
+                "image_id": image.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["job"]["id"], job.pk)
+        schedule.assert_called_once_with(job.pk)
+
     @patch("storefront.tasks.optimize_image_field_task", return_value=True)
     def test_late_runner_marks_deleted_image_job_cancelled(self, optimize):
         image = ProductImage.objects.create(
@@ -612,6 +1195,145 @@ class ProductCatalogImageJobTests(TestCase):
         self.assertIn(".catalog-editor-print-card:focus-within", css)
         self.assertNotIn("Light workspace controls", css)
         self.assertIn(".catalog-editor-cover__retry", css)
+
+    def test_active_variant_rail_stays_dark_with_warm_operational_signal(self):
+        css = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "product_catalog"
+            / "editor.css"
+        ).read_text(encoding="utf-8")
+        active_rule = css.split(".catalog-editor-rail-item.is-active", 1)[1].split("}", 1)[0]
+
+        self.assertNotIn("#edf4ff", active_rule)
+        self.assertIn("rgba(255,126,41", active_rule)
+
+    def test_main_panel_uses_balanced_desktop_working_grids(self):
+        root = Path(__file__).resolve().parents[1]
+        template = (root / "templates" / "product_catalog" / "editor.html").read_text(
+            encoding="utf-8"
+        )
+        css = (root / "static" / "product_catalog" / "editor.css").read_text(
+            encoding="utf-8"
+        )
+        javascript = (root / "static" / "product_catalog" / "editor.js").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("catalog-editor-card--identity", template)
+        self.assertIn("catalog-editor-card--commerce", template)
+        self.assertIn("catalog-editor-essentials-board", template)
+        self.assertIn(
+            ".catalog-editor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));",
+            css,
+        )
+        self.assertIn(
+            ".catalog-editor-taxonomy-grid { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));",
+            css,
+        )
+        self.assertIn(".catalog-editor-essentials-board {", css)
+        self.assertIn("border: 1px solid var(--catalog-editor-line);", css)
+        self.assertIn(".catalog-editor-essentials-board .catalog-editor-card--commerce { border-left: 1px solid var(--catalog-editor-line);", css)
+        self.assertIn(
+            ".catalog-editor-taxonomy-grid { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: stretch; }",
+            css,
+        )
+        self.assertIn('class="catalog-editor-row catalog-editor-row--catalog-meta"', template)
+        self.assertIn(
+            ".catalog-editor-row--catalog-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 12px; }",
+            css,
+        )
+        self.assertIn("catalog-editor-hint catalog-editor-row-note", template)
+        self.assertIn(".catalog-editor-row-note { grid-column: 3;", css)
+        self.assertIn("max-height: 172px;", css)
+        self.assertIn('data-kind-label="${esc(collectionKindLabel(item))}"', javascript)
+        self.assertIn('theme: "Тема"', javascript)
+        self.assertNotIn('data-kind="${esc(item.kind)}"', javascript)
+        self.assertIn(".catalog-editor-collection-option.is-derived { border-style: solid;", css)
+        self.assertIn(".catalog-editor-audience-option.is-derived { border-style: solid;", css)
+
+    def test_main_taxonomy_controls_are_compact_and_use_the_current_stylesheet(self):
+        root = Path(__file__).resolve().parents[1]
+        template = (root / "templates" / "product_catalog" / "editor.html").read_text(
+            encoding="utf-8"
+        )
+        css = (root / "static" / "product_catalog" / "editor.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("catalog-editor-collection-library", template)
+        self.assertIn("Змінити теми та підкатегорії", template)
+        self.assertIn("product_catalog/editor.css' %}?v=20260811-catalog-editor-v8", template)
+        self.assertIn(
+            ".catalog-editor-collection-library summary::after { content: \"+\";",
+            css,
+        )
+        self.assertIn(".catalog-editor-collection-options {", css)
+        self.assertIn("max-height: 172px;", css)
+
+    def test_unisex_is_a_master_selection_with_compact_derived_audiences(self):
+        root = Path(__file__).resolve().parents[1]
+        javascript = (root / "static" / "product_catalog" / "editor.js").read_text(
+            encoding="utf-8"
+        )
+        css = (root / "static" / "product_catalog" / "editor.css").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("catalog-editor-audience-option--master", javascript)
+        self.assertIn("catalog-editor-audience-derived-group", javascript)
+        self.assertIn("Автоматично в каталоги", javascript)
+        self.assertIn(".catalog-editor-audience-derived-group", css)
+        self.assertIn(".catalog-editor-audience-grid:has(.catalog-editor-audience-derived-group)", css)
+
+    def test_variant_rerender_preserves_the_active_inner_pane(self):
+        javascript = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "product_catalog"
+            / "editor.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('const activePane = variant._activePane || "overview";', javascript)
+        self.assertIn(
+            "variant._activePane = paneButton.dataset.variantPane;",
+            javascript,
+        )
+        self.assertIn('variantPaneAttributes("photos", activePane)', javascript)
+        self.assertNotIn('tabIndex === 0 ? " is-active"', javascript)
+
+    def test_feed_images_use_the_same_progress_polling_pipeline(self):
+        javascript = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "product_catalog"
+            / "editor.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("watchFeedImageJob", javascript)
+        self.assertIn('kind: "feed"', javascript)
+        self.assertIn("postFormWithProgress(urls.feed_image_upload", javascript)
+        self.assertIn('const canRemove = !image.provisional || ui.status === "error";', javascript)
+
+    def test_collection_picker_renders_depth_as_a_visual_hierarchy(self):
+        javascript = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "product_catalog"
+            / "editor.js"
+        ).read_text(encoding="utf-8")
+        css = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "product_catalog"
+            / "editor.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('data-depth="${Math.max(0, Number(item.depth) || 0)}"', javascript)
+        self.assertIn("groupCollections(rows)", javascript)
+        self.assertIn("catalog-editor-collection-group", javascript)
+        self.assertIn(".catalog-editor-collection-group", css)
+        self.assertIn('.catalog-editor-collection-option[data-depth="1"]', css)
 
     def test_javascript_transliteration_matches_server_for_russian_yo(self):
         javascript = (
@@ -878,6 +1600,14 @@ class ProductCatalogImageJobTests(TestCase):
             / "pages"
             / "admin_panel.html"
         ).read_text(encoding="utf-8")
+        taxonomy_partial = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "partials"
+            / "catalog_taxonomy_row.html"
+        ).read_text(encoding="utf-8")
+        template += "\n" + taxonomy_partial
 
         self.assertIn("{% url 'product_catalog_product_new' %}", template)
         self.assertIn("{% url 'product_catalog_product_edit' product.id %}", template)
@@ -889,7 +1619,8 @@ class ProductCatalogImageJobTests(TestCase):
         self.assertIn('data-index-state', template)
         self.assertIn('catalog-category-list', template)
         self.assertIn('aria-label="Категорії товарів"', template)
-        self.assertIn('aria-level="{% if collection.parent_id %}2', template)
+        self.assertIn('aria-level="{{ collection.depth|add:\'1\' }}"', template)
+        self.assertIn('data-taxonomy-depth="{{ collection.depth }}"', template)
         self.assertIn('role="tabpanel"', template)
         self.assertIn('data-taxonomy-preview="icon"', template)
         self.assertIn('textarea name="description_', template)

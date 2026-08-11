@@ -120,7 +120,7 @@ Test provisional preview without reload, circular upload and optimization progre
 
 **Step 2: Run rename and recovery gates**
 
-Prove zero runtime Fable or Fable5 references, schema resume and rollback behavior, external MyISAM db_constraint=False, migration state, and all focused suites.
+Prove zero references to the retired editor identity, schema resume and rollback behavior, external MyISAM db_constraint=False, migration state, and all focused suites.
 
 **Step 3: Integrate current origin/main safely**
 
@@ -129,4 +129,3 @@ Preserve incoming PDP gallery changes and rerun verification. Exclude .serena/pr
 **Step 4: Commit, push, and deploy only after MariaDB proof**
 
 Take and validate a production MySQL backup, inspect real table engines, collations, and constraints, run guarded schema adoption and migrations, dry-run and apply reviewed taxonomy data, collect and compress static assets, restart Passenger, verify deployed SHA, and perform authenticated staff plus public catalog QA.
-

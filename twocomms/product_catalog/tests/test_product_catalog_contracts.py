@@ -14,7 +14,7 @@ from storefront.models import (
     Product,
 )
 from storefront.views.admin import _build_catalogs_context
-from product_catalog.models import AudienceTag, ProductAudience
+from product_catalog.models import AudienceTag, MerchCollection, ProductAudience
 from product_catalog.services_audience import get_effective_audience_codes
 from product_catalog.services_collections import collection_picker_state
 from product_catalog.views import _print_preview
@@ -72,8 +72,6 @@ class ProductCatalogContractsTests(TestCase):
         self.assertTrue(men.is_active and women.is_active)
 
     def test_collection_picker_marks_ancestors_as_derived_and_locked(self):
-        from product_catalog.models import MerchCollection
-
         suffix = uuid4().hex[:8]
         parent_slug = f"test-brigades-{suffix}"
         child_slug = f"test-225-{suffix}"
@@ -105,6 +103,33 @@ class ProductCatalogContractsTests(TestCase):
         self.assertTrue(parent_row["is_locked"])
         self.assertEqual(child_row["selection_state"], "selected")
         self.assertFalse(child_row["is_locked"])
+
+    def test_active_collection_dictionary_keeps_parents_before_children(self):
+        suffix = uuid4().hex[:8]
+        parent = MerchCollection.objects.create(
+            slug=f"parent-{suffix}",
+            kind=MerchCollection.Kind.BRIGADE,
+            name_uk="Бригади",
+            order=20,
+        )
+        child = MerchCollection.objects.create(
+            slug=f"child-{suffix}",
+            kind=MerchCollection.Kind.BRIGADE,
+            parent=parent,
+            name_uk="225",
+            order=10,
+        )
+
+        from product_catalog.services_collections import active_collection_dictionary
+
+        rows = active_collection_dictionary()
+        slugs = [row["slug"] for row in rows if row["slug"] in {parent.slug, child.slug}]
+        self.assertEqual(slugs, [parent.slug, child.slug])
+        by_slug = {row["slug"]: row for row in rows}
+        self.assertEqual(by_slug[parent.slug]["depth"], 0)
+        self.assertEqual(by_slug[child.slug]["depth"], 1)
+        self.assertEqual(by_slug[parent.slug]["kind_label"], "Бригада")
+        self.assertEqual(by_slug[child.slug]["kind_label"], "Бригада")
 
     def test_print_preview_never_falls_back_to_finished_product_artwork(self):
         item = SimpleNamespace(
@@ -143,6 +168,144 @@ class ProductCatalogContractsTests(TestCase):
         ):
             with self.subTest(element_id=element_id):
                 self.assertIn(f'id="{element_id}"', source)
+
+    def test_custom_admin_catalog_uses_dense_visual_card_grids(self):
+        project_root = Path(__file__).resolve().parents[2]
+        template = (
+            project_root
+            / "twocomms_django_theme/templates/pages/admin_panel.html"
+        ).read_text(encoding="utf-8")
+        styles = (
+            project_root
+            / "twocomms_django_theme/static/css/styles.css"
+        ).read_text(encoding="utf-8")
+        purged_styles = (
+            project_root
+            / "twocomms_django_theme/static/css/styles.purged.css"
+        ).read_text(encoding="utf-8")
+
+        for marker in (
+            'class="catalog-product-media"',
+            'class="catalog-product-metrics"',
+            'class="catalog-product-metric"',
+            'class="catalog-product-footer"',
+            'class="catalog-category-media"',
+            'data-product-id="{{ product.id }}"',
+            'data-order-position="{{ forloop.counter }}"',
+            'data-drag-handle',
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, template)
+
+        self.assertIn(
+            "grid-template-columns: repeat(4, minmax(0, 1fr));",
+            styles,
+        )
+        self.assertIn(
+            "grid-template-columns: repeat(3, minmax(0, 1fr));",
+            styles,
+        )
+        self.assertIn("aspect-ratio: 4 / 3;", styles)
+        self.assertNotIn("aspect-ratio: 4 / 5;", styles)
+        self.assertRegex(
+            styles,
+            r"\.catalog-workspace \.catalog-product-metrics \{[^}]*"
+            r"grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);",
+        )
+        self.assertIn("container: catalog-workspace / inline-size;", styles)
+        self.assertIn("@container catalog-workspace (max-width: 1040px)", styles)
+        self.assertRegex(
+            styles,
+            r'\.catalog-index-button\[data-index-state="accepted"\] \{[^}]*'
+            r"background: #143c2d;[^}]*border-color: #2f7f58;",
+        )
+        self.assertIn("product.items_sold", template)
+        self.assertIn(
+            'aria-label="Користувачі: {{ user_data|length }}"',
+            template,
+        )
+        for marker in (
+            ".catalog-workspace .products-grid{",
+            ".catalog-workspace .catalog-product-media{",
+            ".catalog-workspace .catalog-product-metrics{",
+            ".catalog-workspace .catalog-product-footer{",
+            ".catalog-taxonomy-board{",
+            ".catalog-taxonomy-panel{",
+        ):
+            with self.subTest(purged_marker=marker):
+                self.assertIn(marker, purged_styles)
+
+    def test_catalog_cards_keep_status_readable_and_catalog_shell_uses_management_tone(self):
+        project_root = Path(__file__).resolve().parents[2]
+        template = (
+            project_root
+            / "twocomms_django_theme/templates/pages/admin_panel.html"
+        ).read_text(encoding="utf-8")
+        styles = (
+            project_root
+            / "twocomms_django_theme/static/css/styles.css"
+        ).read_text(encoding="utf-8")
+        purged_styles = (
+            project_root
+            / "twocomms_django_theme/static/css/styles.purged.css"
+        ).read_text(encoding="utf-8")
+        editor_styles = (
+            project_root / "product_catalog/static/product_catalog/editor.css"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('class="catalog-product-status-row"', template)
+        self.assertIn(
+            ".catalog-workspace .catalog-product-status-row {",
+            styles,
+        )
+        self.assertIn(
+            "class=\"admin-panel{% if section == 'catalogs' %} admin-panel--catalogs{% endif %}\"",
+            template,
+        )
+        self.assertIn(
+            ".admin-panel--catalogs .admin-header",
+            styles,
+        )
+        self.assertIn(
+            ".admin-panel--catalogs .admin-header",
+            purged_styles,
+        )
+        self.assertIn(
+            ".catalog-workspace .catalog-product-status-row{",
+            purged_styles,
+        )
+        self.assertIn("@font-face", editor_styles)
+        self.assertIn("Inter-Regular.woff2", editor_styles)
+        self.assertIn("max-height: 54px", editor_styles)
+
+    def test_catalog_search_restores_card_layout_without_inline_display_override(self):
+        project_root = Path(__file__).resolve().parents[2]
+        template = (
+            project_root
+            / "twocomms_django_theme/templates/pages/admin_panel.html"
+        ).read_text(encoding="utf-8")
+        filter_source = template.split("function filterCatalogs(searchTerm) {", 1)[1].split(
+            "function clearCatalogsSearch() {",
+            1,
+        )[0]
+
+        self.assertEqual(filter_source.count("card.style.display = '';"), 2)
+        self.assertNotIn("card.style.display = 'block';", filter_source)
+
+    def test_compact_status_selector_rolls_back_after_rejected_update(self):
+        project_root = Path(__file__).resolve().parents[2]
+        template = (
+            project_root
+            / "twocomms_django_theme/templates/pages/admin_panel.html"
+        ).read_text(encoding="utf-8")
+        status_source = template.split("(function setupProductStatus() {", 1)[1].split(
+            "function updateOrderStatus(",
+            1,
+        )[0]
+
+        self.assertIn("const previousStatus = select.dataset.previousStatus || select.value;", status_source)
+        self.assertIn("select.dataset.previousStatus = status;", status_source)
+        self.assertIn("select.value = previousStatus;", status_source)
 
     def test_legacy_product_crud_paths_are_unresolved(self):
         for path in (
@@ -264,3 +427,8 @@ class ProductCatalogContractsTests(TestCase):
         self.assertEqual(product.google_index_state_label, "Прийнято API")
         self.assertEqual(product.indexnow_state, "accepted")
         self.assertEqual(product.indexnow_state_label, "Прийнято API")
+
+    def test_catalog_context_exposes_paid_items_sold_for_product_cards(self):
+        product = _build_catalogs_context()["products"][0]
+
+        self.assertEqual(product.items_sold, 0)

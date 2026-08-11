@@ -1039,6 +1039,7 @@ class ImageOptimizationJob(models.Model):
     progress = models.PositiveSmallIntegerField(null=True, blank=True)
     error_message = models.TextField(blank=True, default="")
     attempts = models.PositiveSmallIntegerField(default=0)
+    lease_token = models.CharField(max_length=32, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -1050,6 +1051,14 @@ class ImageOptimizationJob(models.Model):
             models.Index(
                 fields=("model_label", "object_id", "field_name", "-created_at"),
                 name="product_cat_model_l_5e4b9f_idx",
+            ),
+            models.Index(
+                fields=("status", "-updated_at"),
+                name="pc_job_status_upd_9f3d_idx",
+            ),
+            models.Index(
+                fields=("status", "created_at"),
+                name="pc_job_status_crt_9f3d_idx",
             ),
         ]
 

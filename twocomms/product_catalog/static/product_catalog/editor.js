@@ -47,6 +47,11 @@
 			xhr.upload.onprogress = (event) => {
 				if (typeof onProgress === "function") onProgress(uploadUi.progressFromEvent(event));
 			};
+			xhr.upload.onload = () => {
+				if (typeof onProgress === "function") {
+					onProgress({ status: "optimizing", progress: null, stage: "processing" });
+				}
+			};
 			xhr.onerror = () => reject(new Error("Мережеве завантаження не вдалося"));
 			xhr.onabort = () => reject(new Error("Завантаження скасовано"));
 			xhr.onload = () => {
@@ -185,6 +190,9 @@
 	const canonicalAudienceCodes = window.productCatalogAudience.canonicalAudienceCodes;
 	const effectiveAudienceCodes = window.productCatalogAudience.effectiveAudienceCodes;
 	const toggleAudienceCode = window.productCatalogAudience.toggleAudienceCode;
+	const groupCollections = window.productCatalogEditorCatalog.groupCollections;
+	const derivedCollectionSlugs = window.productCatalogEditorCatalog.derivedCollectionSlugs;
+	const canonicalCollectionSlugs = window.productCatalogEditorCatalog.canonicalCollectionSlugs;
 	const uploadUi = window.productCatalogUpload;
 
 	const state = {
@@ -202,7 +210,10 @@
 		feedOnly: [],
 		feeds: (dict.feeds || []).slice(),
 		selectedPrintIds: new Set(((boot.product && boot.product.print_ids) || []).map(String)),
-		collectionSlugs: new Set(((boot.product && boot.product.collection_slugs) || []).map(String)),
+		collectionSlugs: canonicalCollectionSlugs(
+			dict.collections || [],
+			new Set(((boot.product && boot.product.collection_slugs) || []).map(String)),
+		),
 		audienceCodes: new Set(canonicalAudienceCodes(
 			(boot.product && (boot.product.audience_codes || boot.product.effective_audience_codes)) || []
 		)),
@@ -361,11 +372,27 @@
 		const box = $("#f-audience-options");
 		if (!box) return;
 		const selected = new Set(effectiveAudienceCodes(state.audienceCodes));
-		box.innerHTML = (dict.audiences || []).map((item) => `
-			<label class="catalog-editor-audience-option${item.code !== "unisex" && selected.has("unisex") ? " is-derived" : ""}">
-				<input type="checkbox" data-audience-code="${esc(item.code)}"${selected.has(item.code) ? " checked" : ""}${item.code !== "unisex" && selected.has("unisex") ? " data-audience-derived=\"true\" disabled" : ""}>
-				<span><strong>${esc(item.label)}</strong><small>${item.code !== "unisex" && selected.has("unisex") ? "Автоматично через «Унісекс»" : `${esc(item.label_en)} · ${esc(item.label_ru)}`}</small></span>
-			</label>`).join("");
+		const derived = new Set(Array.from(selected).filter((code) => !state.audienceCodes.has(code)));
+		const renderOption = (item, master = false) => `
+			<label class="catalog-editor-audience-option${derived.has(item.code) ? " is-derived" : ""}${master ? " catalog-editor-audience-option--master" : ""}">
+				<input type="checkbox" data-audience-code="${esc(item.code)}"${selected.has(item.code) ? " checked" : ""}${derived.has(item.code) ? " data-audience-derived=\"true\" disabled" : ""}>
+				<span><strong>${esc(item.label)}</strong><small>${derived.has(item.code) ? "Автоматично через «Унісекс»" : item.code === "unisex" ? "Канонічний вибір" : "Ручний вибір"}</small></span>
+			</label>`;
+		const audiences = dict.audiences || [];
+		const unisex = audiences.find((item) => item.code === "unisex");
+		const secondary = audiences.filter((item) => item.code !== "unisex");
+		const derivedItems = secondary.filter((item) => derived.has(item.code));
+		const manualItems = secondary.filter((item) => !derived.has(item.code));
+		const sections = [];
+		if (unisex) sections.push(renderOption(unisex, true));
+		if (derivedItems.length) {
+			sections.push(`<div class="catalog-editor-audience-derived-group" aria-label="Автоматично обрані каталоги">
+				<span class="catalog-editor-audience-derived-group__label">Автоматично в каталоги</span>
+				${derivedItems.map((item) => `<span class="catalog-editor-audience-derived-chip"><b aria-hidden="true">✓</b>${esc(item.label)}</span>`).join("")}
+			</div>`);
+		}
+		sections.push(manualItems.map((item) => renderOption(item)).join(""));
+		box.innerHTML = sections.join("");
 		updateAudienceSummary();
 	}
 
@@ -379,19 +406,50 @@
 		return state.collectionSlugs;
 	}
 
+	function collectionKindLabel(item) {
+		const labels = {
+			theme: "Тема",
+			city: "Місто",
+			brigade: "Бригада",
+			collab: "Колаборація",
+		};
+		return String(item.kind_label || labels[item.kind] || "Категорія");
+	}
+
 	function updateCollectionSummary() {
 		const selected = collectCollectionSlugs();
+		const derived = derivedCollectionSlugs(dict.collections || [], state.collectionSlugs);
 		if (state.product) state.product.collection_slugs = selected.slice();
 		const summary = $("#f-collection-summary");
 		if (summary) summary.textContent = selected.length ? `${selected.length} вибрано` : "Не вибрано";
 		const assigned = $("#f-collection-assigned");
 		if (assigned) {
-			assigned.innerHTML = selected.length ? selected.map((slug) => {
+			const derivedChips = Array.from(derived).map((slug) => {
+				const item = (dict.collections || []).find((row) => String(row.slug) === slug);
+				const label = item ? (item.label || item.slug) : slug;
+				return `<span class="catalog-editor-collection-chip is-derived"><span>${esc(label)} · автоматично</span><i aria-hidden="true">✓</i></span>`;
+			});
+			const selectedChips = selected.map((slug) => {
 				const item = (dict.collections || []).find((row) => row.slug === slug);
 				const label = item ? (item.path_label || item.label) : slug;
 				return `<span class="catalog-editor-collection-chip"><span>${esc(label)}</span><button type="button" data-remove-collection="${esc(slug)}" aria-label="Прибрати колекцію ${esc(label)}" title="Прибрати">×</button></span>`;
-			}).join("") : '<span class="catalog-editor-hint">Додайте тему, місто або бригаду</span>';
+			});
+			assigned.innerHTML = selected.length
+				? derivedChips.concat(selectedChips).join("")
+				: '<span class="catalog-editor-hint">Оберіть тему або підкатегорію</span>';
 		}
+	}
+
+	function collectionOptionHtml(item, derived) {
+		const isDerived = derived.has(String(item.slug));
+		const children = (item.children || []).map((child) => collectionOptionHtml(child, derived)).join("");
+		const option = `
+				<label class="catalog-editor-collection-option${isDerived ? " is-derived" : ""}" data-kind-label="${esc(collectionKindLabel(item))}" data-depth="${Math.max(0, Number(item.depth) || 0)}" data-collection-derived="${isDerived ? "true" : "false"}">
+				<input type="checkbox" data-collection-slug="${esc(item.slug)}" data-parent-slug="${esc(item.parent_slug || "")}" aria-label="${esc(item.path_label || item.label || item.slug)}"${state.collectionSlugs.has(String(item.slug)) || isDerived ? " checked" : ""}${isDerived ? " disabled" : ""}>
+				<span><strong>${esc(item.label)}</strong><small>${isDerived ? "Автоматично через підкатегорію" : esc(item.path_label)}${item.indexable ? " · SEO" : ""}</small></span>
+			</label>`;
+		if (!children) return option;
+		return `${option}<div class="catalog-editor-collection-children">${children}</div>`;
 	}
 
 	function renderCollectionOptions(filterValue) {
@@ -400,24 +458,32 @@
 		const query = String(filterValue === undefined ? ($("#f-collection-search") || {}).value || "" : filterValue)
 			.trim().toLowerCase();
 		const selected = selectedCollectionSlugs();
-		const derived = new Set();
-		selected.forEach((slug) => {
-			let row = (dict.collections || []).find((item) => String(item.slug) === String(slug));
-			const seen = new Set();
-			while (row && row.parent_slug && !seen.has(row.parent_slug)) {
-				seen.add(row.parent_slug);
-				if (!selected.has(String(row.parent_slug))) derived.add(String(row.parent_slug));
-				row = (dict.collections || []).find((item) => String(item.slug) === String(row.parent_slug));
-			}
+		const derived = derivedCollectionSlugs(dict.collections || [], selected);
+		const allRows = dict.collections || [];
+		const matching = new Set();
+		allRows.forEach((item) => {
+			if (!query || [item.slug, item.label, item.path_label, item.label_uk, item.label_ru, item.label_en]
+				.some((value) => String(value || "").toLowerCase().includes(query))) matching.add(String(item.slug));
 		});
-		const rows = (dict.collections || []).filter((item) => !query
-			|| [item.slug, item.label, item.path_label, item.label_uk, item.label_ru, item.label_en]
-				.some((value) => String(value || "").toLowerCase().includes(query)));
-		box.innerHTML = rows.length ? rows.map((item) => `
-			<label class="catalog-editor-collection-option${derived.has(String(item.slug)) ? " is-derived" : ""}" data-kind="${esc(item.kind)}" data-collection-derived="${derived.has(String(item.slug)) ? "true" : "false"}">
-				<input type="checkbox" data-collection-slug="${esc(item.slug)}" data-parent-slug="${esc(item.parent_slug || "")}" aria-label="${esc(item.path_label || item.label || item.slug)}"${selected.has(String(item.slug)) || derived.has(String(item.slug)) ? " checked" : ""}${derived.has(String(item.slug)) ? " disabled" : ""}>
-				<span><strong>${esc(item.label)}</strong><small>${derived.has(String(item.slug)) ? "Автоматично через підкатегорію" : esc(item.path_label)}${item.indexable ? " · публічна" : ""}</small></span>
-			</label>`).join("") : '<p class="catalog-editor-hint">Нічого не знайдено</p>';
+		if (query) {
+			const bySlug = new Map(allRows.map((item) => [String(item.slug), item]));
+			Array.from(matching).forEach((slug) => {
+				let row = bySlug.get(slug);
+				const seen = new Set();
+				while (row && row.parent_slug && !seen.has(String(row.parent_slug))) {
+					const parentSlug = String(row.parent_slug);
+					seen.add(parentSlug);
+					matching.add(parentSlug);
+					row = bySlug.get(parentSlug);
+				}
+			});
+		}
+		const rows = allRows.filter((item) => matching.has(String(item.slug)));
+		const groups = groupCollections(rows);
+		box.innerHTML = groups.length ? groups.map((group) => `
+			<div class="catalog-editor-collection-group" data-root-slug="${esc(group.slug)}">
+				${collectionOptionHtml(group, derived)}
+			</div>`).join("") : '<p class="catalog-editor-hint">Нічого не знайдено</p>';
 		updateCollectionSummary();
 	}
 
@@ -442,6 +508,7 @@
 		const home = $("#f-home-image");
 		const mainSource = $("#f-main-image-source");
 		const homeSource = $("#f-home-image-source");
+		const homeReset = $("#f-home-image-reset");
 		if (home && main && !home.getAttribute("src") && main.getAttribute("src")) {
 			home.src = main.src;
 			home.dataset.fallback = "true";
@@ -459,6 +526,7 @@
 				: "Обкладинка не обрана";
 		}
 		if (homeSource) homeSource.textContent = home && home.getAttribute("src") && home.dataset.fallback !== "true" ? "Власний override" : "Fallback: обкладинка";
+		if (homeReset) homeReset.disabled = !state.files.home_card_image && !(state.product && state.product.home_card_image_url);
 	}
 
 	const COVER_UI = {
@@ -485,13 +553,7 @@
 			return;
 		}
 		const progress = ui && ui.progress != null ? ui.progress : null;
-		const label = stateName === "error"
-			? "Помилка"
-			: stateName === "ready"
-				? "Готово"
-				: stateName === "uploading" && progress != null
-					? `${progress}%`
-					: ui && ui.stage === "queued" ? "У черзі" : ui && ui.stage === "checking" ? "Перевіряємо" : "Оптимізація";
+		const label = uploadUi.progressLabel(ui);
 		ring.hidden = false;
 		ring.dataset.progress = progress == null ? "indeterminate" : String(progress);
 		ring.style.removeProperty("--catalog-upload-progress");
@@ -527,6 +589,13 @@
 				}
 			} catch (error) {
 				failures += 1;
+				const failedState = uploadUi.pollFailureState(failures);
+				if (failedState) {
+					state.product[`${fieldName}_job`] = Object.assign({}, job, failedState);
+					renderCoverJob(fieldName);
+					state.jobWatchers.delete(watcherKey);
+					return;
+				}
 				setCoverUploadState(fieldName, { status: "optimizing", progress: null, stage: "checking", error: "" });
 			}
 			const timer = window.setTimeout(poll, uploadUi.pollRetryDelay(failures));
@@ -782,7 +851,10 @@
 			state.faqs = (resp.product.faqs || []).map((f) => Object.assign({}, f));
 			state.fits = fitDefaults();
 			state.selectedPrintIds = new Set((resp.product.print_ids || []).map(String));
-			state.collectionSlugs = new Set(state.product.collection_slugs);
+			state.collectionSlugs = canonicalCollectionSlugs(
+				dict.collections || [],
+				new Set(state.product.collection_slugs),
+			);
 			state.optionPresentations = Object.assign({}, resp.product.option_presentations || {});
 			state.files.main_image = null;
 			state.files.home_card_image = null;
@@ -839,10 +911,10 @@
 	/* ---------------- галереї (append + drag&drop + вибір головної) ---------------- */
 	function thumbHtml(img, kind, variantId, index) {
 		const ui = img.provisional
-			? { status: img.status || "uploading", progress: img.progress == null ? null : img.progress, stage: "uploading", error: img.error || "" }
+			? { status: img.status || "uploading", progress: img.progress == null ? null : img.progress, stage: img.stage || "uploading", error: img.error || "" }
 			: uploadUi.jobToUiState(img.job);
 		const draggable = uploadUi.canDrag(img) ? "true" : "false";
-		const progressLabel = ui.status === "error" ? "Помилка" : ui.status === "ready" ? "Готово" : ui.status === "uploading" && ui.progress != null ? `${ui.progress}%` : ui.status === "optimizing" ? "Оптимізація" : "У черзі";
+		const progressLabel = uploadUi.progressLabel(ui);
 		const progressStyle = ui.progress == null ? "" : ` style="--catalog-upload-progress:${ui.progress}%"`;
 		const retryOptimization = uploadUi.canRetryOptimization(img.job)
 			? `<button type="button" class="catalog-editor-btn catalog-editor-btn--ghost catalog-editor-btn--small" data-act="retry-optimization" aria-label="Повторити оптимізацію" title="Повторити оптимізацію">↻</button>`
@@ -911,6 +983,13 @@
 				}
 			} catch (error) {
 				failures += 1;
+				const failedState = uploadUi.pollFailureState(failures);
+				if (failedState) {
+					img.job = Object.assign({}, img.job || {}, failedState);
+					updateImageInGallery(img, kind, variantId);
+					state.jobWatchers.delete(watcherKey);
+					return;
+				}
 			}
 		const timer = window.setTimeout(poll, uploadUi.pollRetryDelay(failures));
 		state.jobWatchers.set(watcherKey, timer);
@@ -927,14 +1006,19 @@
 			fd.append("target", kind);
 			if (variantId) fd.append("variant_id", variantId);
 			fd.append("files", file);
-			const updateProgress = (progress, status) => {
-				uploadUi.applyProgress(provisional, progress, status);
+			const updateProgress = (progress, status, stage) => {
+				uploadUi.applyProgress(provisional, progress, status, stage);
 				renderImageGallery(kind, variantId);
 			};
 			xhr.upload.onprogress = (event) => {
 				const stateUpdate = uploadUi.progressFromEvent(event);
-				updateProgress(stateUpdate.progress, "uploading");
+				updateProgress(
+					stateUpdate.progress,
+					stateUpdate.stage === "processing" ? "optimizing" : "uploading",
+					stateUpdate.stage,
+				);
 			};
+			xhr.upload.onload = () => updateProgress(null, "optimizing", "processing");
 			xhr.onerror = () => reject(new Error("Мережеве завантаження не вдалося"));
 			xhr.onabort = () => reject(new Error("Завантаження скасовано"));
 			xhr.onload = () => {
@@ -961,11 +1045,11 @@
 		const provisional = files.map((file, index) => ({
 			id: `upload-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
 			url: URL.createObjectURL(file), alt: file.name.replace(/\.[^.]+$/, ""), order: images.length + index,
-			file, provisional: true, status: "uploading", progress: 0,
+			file, provisional: true, status: "uploading", progress: 0, stage: "uploading",
 		}));
 		images.push(...provisional);
 		renderImageGallery(kind, variantId);
-		const results = await Promise.all(provisional.map(async (img) => {
+		const results = await uploadUi.mapWithConcurrency(provisional, 2, async (img) => {
 			try {
 				const resp = await uploadRequest(kind, variantId, img.file, img);
 				state.uploadRequests.delete(String(img.id));
@@ -986,7 +1070,7 @@
 				renderImageGallery(kind, variantId);
 				return { error: err };
 			}
-		}));
+		});
 		const added = results.filter((result) => result.image).length;
 		const failed = results.filter((result) => result.error).length;
 		if (added) toast(`Додано картинок: ${added} · оптимізація триває у фоні`);
@@ -1043,7 +1127,7 @@
 				const images = galleryImagesRef(kind, variantId);
 				const idx = images.findIndex((im) => im.id === imageId);
 				if (idx >= 0) images.splice(idx, 1);
-				if (resp && resp.cover_invalidated) {
+				if (resp) {
 					state.product.main_image_url = resp.main_image_url || "";
 					state.product.home_card_image_url = resp.home_card_image_url || "";
 					state.product.cover_source = resp.cover_source || state.product.cover_source;
@@ -1567,9 +1651,26 @@
 		if (stateLabel) stateLabel.textContent = !fitEnabled ? "Недоступна" : (custom ? "Власні" : "Успадковано");
 	}
 
+	function variantPaneAttributes(name, activePane) {
+		const active = name === activePane;
+		return {
+			activeClass: active ? " is-active" : "",
+			ariaSelected: active ? "true" : "false",
+			tabIndex: active ? "0" : "-1",
+			hidden: active ? "" : " hidden",
+		};
+	}
+
 	function variantHtml(variant, index) {
 		const d = variant.details || {};
 		const selected = index === state.selectedVariantIndex;
+		const activePane = variant._activePane || "overview";
+		const overviewPane = variantPaneAttributes("overview", activePane);
+		const contentPane = variantPaneAttributes("content", activePane);
+		const seoPane = variantPaneAttributes("seo", activePane);
+		const photosPane = variantPaneAttributes("photos", activePane);
+		const fitsPane = variantPaneAttributes("fits", activePane);
+		const faqPane = variantPaneAttributes("faq", activePane);
 		const basePrice = variant.price_override != null ? variant.price_override : Number($("#f-price").value || (state.product && state.product.price) || 0);
 		const finalPrice = Number(basePrice) + Number(d.price_delta || 0);
 		const previewImage = ((variant.images || [])[0] || {}).url || (state.product && state.product.main_image_url) || "";
@@ -1592,13 +1693,13 @@
 				<button type="button" class="catalog-editor-btn catalog-editor-btn--ghost catalog-editor-btn--small catalog-editor-variant-move" data-act="variant-down" title="Перемістити нижче" aria-label="Перемістити варіант нижче">↓</button>
 			</header>
 			<div class="catalog-editor-variant__body">
-				<nav class="catalog-editor-variant-subnav" role="tablist" aria-label="Налаштування ${esc(variant.color.name || "кольору")}">${[["overview","Огляд"],["content","Контент"],["seo","SEO"],["photos","Фото"],["fits","Посадки й розміри"],["faq","FAQ"]].map((tab, tabIndex) => `<button type="button" id="catalog-editor-variant-${index}-tab-${tab[0]}" class="catalog-editor-variant-subtab${tabIndex === 0 ? " is-active" : ""}" data-variant-pane="${tab[0]}" role="tab" aria-controls="catalog-editor-variant-${index}-pane-${tab[0]}" aria-selected="${tabIndex === 0 ? "true" : "false"}" tabindex="${tabIndex === 0 ? "0" : "-1"}">${tab[1]}</button>`).join("")}</nav>
-				<section id="catalog-editor-variant-${index}-pane-overview" class="catalog-editor-variant-pane is-active" data-pane="overview" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-overview"><div class="catalog-editor-overview-grid"><div class="catalog-editor-store-card"><div class="catalog-editor-store-card__media">${previewImage ? `<img src="${esc(previewImage)}" alt="">` : '<span class="catalog-editor-store-card__placeholder">Фото варіанта з’явиться тут</span>'}${variant.color.is_thermo ? `<span class="catalog-editor-store-card__thermo">${flameHtml()} Термотканина</span>` : ""}</div><div class="catalog-editor-store-card__body"><h4 data-role="preview-title">${esc(d.display_name || ((state.product && state.product.title) || "Назва товару") + " · " + (variant.color.name || "колір"))}</h4><div class="catalog-editor-store-card__price"><strong data-role="preview-price">${finalPrice} грн</strong>${d.price_delta ? `<span data-role="preview-delta">+${d.price_delta} за матеріал</span>` : ""}</div><div class="catalog-editor-store-card__colors">${dotHtml(variant.color, 18)}<span>Так покупець розпізнає варіант</span></div></div></div><div class="catalog-editor-overview-stack"><div class="catalog-editor-merch-block"><div class="catalog-editor-merch-block__head"><strong>Ціна цього кольору</strong><span class="catalog-editor-source-badge">Результат для вітрини</span></div><div class="catalog-editor-price-equation"><label class="catalog-editor-field"><span>База / override</span><input type="number" min="0" class="catalog-editor-input" data-f="price_override" value="${variant.price_override != null ? variant.price_override : ""}" placeholder="${basePrice}"></label><span>+</span><label class="catalog-editor-field"><span>Надбавка</span><input type="number" class="catalog-editor-input" data-f="price_delta" value="${d.price_delta || 0}"></label><span>=</span><output class="catalog-editor-effective-price" data-role="effective-price">${finalPrice} грн</output></div><label class="catalog-editor-field"><span>Чому дорожче — бачить покупець</span><input class="catalog-editor-input" data-f="price_delta_reason" value="${esc(d.price_delta_reason)}" placeholder="${esc(DEFAULTS.priceReason)}"></label><div class="catalog-editor-fallback-preview" data-role="price-fallback"${d.price_delta && !d.price_delta_reason ? "" : " hidden"}><svg class="catalog-editor-icon"><use href="#catalog-editor-i-warning"/></svg><span>Порожньо — автоматично буде використано: “${esc(DEFAULTS.priceReason)}”</span></div></div><div class="catalog-editor-merch-block"><div class="catalog-editor-merch-block__head"><strong>Ідентифікація</strong><span class="catalog-editor-source-badge">Варіант</span></div><div class="catalog-editor-row"><label class="catalog-editor-field"><span>SKU кольору</span><input class="catalog-editor-input" data-f="sku" value="${esc(variant.sku)}" placeholder="Напр.: CRC-THERMO-GREEN"></label><label class="catalog-editor-check catalog-editor-check--tile"><input type="checkbox" data-f="is_default" ${variant.is_default ? "checked" : ""}><span><strong>Головний колір</strong><small>Перший на вітрині</small></span></label></div></div><div class="catalog-editor-merch-block"><div class="catalog-editor-merch-block__head"><strong>Заготовка зі складу</strong><span class="catalog-editor-source-badge">На посадку цього кольору</span></div>${storageBlankHtml(variant)}</div></div></div></section>
-				<section id="catalog-editor-variant-${index}-pane-content" class="catalog-editor-variant-pane" data-pane="content" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-content" hidden>${colorPickerHtml(variant)}<div class="catalog-editor-subsection"><div class="catalog-editor-source-row"><strong>Текст для цього кольору</strong><span class="catalog-editor-source-badge">Порожньо = з товару</span></div><label class="catalog-editor-field"><span>Назва на вітрині</span><input class="catalog-editor-input" data-f="display_name" value="${esc(d.display_name)}" placeholder="${esc(((state.product && state.product.title) || "Назва товару") + " · " + (variant.color.name || "колір"))}"></label><label class="catalog-editor-field"><span>Маркетинговий опис кольору</span><textarea class="catalog-editor-input" rows="5" data-f="marketing_html" placeholder="Порожньо — використовується спільний опис товару">${esc(d.marketing_html)}</textarea></label><label class="catalog-editor-field"><span>YouTube для кольору</span><input class="catalog-editor-input" data-f="youtube_url" value="${esc(d.youtube_url)}" placeholder="Порожньо — спільне відео товару"></label></div></section>
-				<section id="catalog-editor-variant-${index}-pane-seo" class="catalog-editor-variant-pane" data-pane="seo" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-seo" hidden><div class="catalog-editor-variant-pane__head"><div><h3>SEO саме цього кольору</h3><p>Цей блок головний для кольорової URL. Порожні поля успадковуються з товару.</p></div><span class="catalog-editor-source-badge">Колір → товар</span></div><div class="catalog-editor-row"><label class="catalog-editor-field"><span>SEO Title <small data-role="variant-seo-title-count">${(d.seo_title || "").length}/60</small></span><input class="catalog-editor-input" data-f="seo_title" maxlength="180" value="${esc(d.seo_title)}"></label><label class="catalog-editor-field"><span>SEO Keywords</span><input class="catalog-editor-input" data-f="seo_keywords" maxlength="300" value="${esc(d.seo_keywords)}"></label></div><label class="catalog-editor-field"><span>SEO Description <small data-role="variant-seo-desc-count">${(d.seo_description || "").length}/160</small></span><textarea class="catalog-editor-input" rows="3" maxlength="320" data-f="seo_description">${esc(d.seo_description)}</textarea></label><div class="catalog-editor-google-preview" data-role="variant-google"><span>twocomms.shop › product › ${esc((state.product && state.product.slug) || "slug")}</span><strong>${esc(d.seo_title || d.display_name || (state.product && state.product.title) || "Назва кольорового варіанта")}</strong><p>${esc(d.seo_description || (state.product && state.product.seo_description) || "Опис буде успадковано з основної сторінки товару.")}</p></div>${combinationWorkspaceHtml(variant)}</section>
-				<section id="catalog-editor-variant-${index}-pane-photos" class="catalog-editor-variant-pane" data-pane="photos" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-photos" hidden><div class="catalog-editor-variant-pane__head"><div><h3>Галерея кольору</h3><p>Порядок = порядок у каруселі. «Обкладинка» робить обране фото канонічним для товару.</p></div><span class="catalog-editor-source-badge">${(variant.images || []).length} фото</span></div>${uploadBlock}</section>
-				<section id="catalog-editor-variant-${index}-pane-fits" class="catalog-editor-variant-pane" data-pane="fits" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-fits" hidden><div class="catalog-editor-variant-pane__head"><div><h3>Посадки, сітки та доступні розміри</h3><p>Вимкнена посадка деактивує її сітку й розміри. Окрема сітка перевизначає спільну лише для цього кольору й посадки; порожньо — успадкувати.</p></div><span class="catalog-editor-source-badge">Цей колір</span></div>${fitWorkspaceHtml(variant)}</section>
-				<section id="catalog-editor-variant-${index}-pane-faq" class="catalog-editor-variant-pane" data-pane="faq" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-faq" hidden><div class="catalog-editor-variant-pane__head"><div><h3>FAQ кольору</h3><p>Відповіді, що стосуються лише матеріалу або відтінку.</p></div><button type="button" class="catalog-editor-btn catalog-editor-btn--ghost" data-act="variant-faq-add">Додати питання</button></div><div data-role="variant-faqs">${variantFaqs || '<p class="catalog-editor-hint">Спеціальних питань для кольору ще немає.</p>'}</div></section>
+				<nav class="catalog-editor-variant-subnav" role="tablist" aria-label="Налаштування ${esc(variant.color.name || "кольору")}">${[["overview","Огляд"],["content","Контент"],["seo","SEO"],["photos","Фото"],["fits","Посадки й розміри"],["faq","FAQ"]].map((tab) => { const pane = variantPaneAttributes(tab[0], activePane); return `<button type="button" id="catalog-editor-variant-${index}-tab-${tab[0]}" class="catalog-editor-variant-subtab${pane.activeClass}" data-variant-pane="${tab[0]}" role="tab" aria-controls="catalog-editor-variant-${index}-pane-${tab[0]}" aria-selected="${pane.ariaSelected}" tabindex="${pane.tabIndex}">${tab[1]}</button>`; }).join("")}</nav>
+				<section id="catalog-editor-variant-${index}-pane-overview" class="catalog-editor-variant-pane${overviewPane.activeClass}" data-pane="overview" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-overview"${overviewPane.hidden}><div class="catalog-editor-overview-grid"><div class="catalog-editor-store-card"><div class="catalog-editor-store-card__media">${previewImage ? `<img src="${esc(previewImage)}" alt="">` : '<span class="catalog-editor-store-card__placeholder">Фото варіанта з’явиться тут</span>'}${variant.color.is_thermo ? `<span class="catalog-editor-store-card__thermo">${flameHtml()} Термотканина</span>` : ""}</div><div class="catalog-editor-store-card__body"><h4 data-role="preview-title">${esc(d.display_name || ((state.product && state.product.title) || "Назва товару") + " · " + (variant.color.name || "колір"))}</h4><div class="catalog-editor-store-card__price"><strong data-role="preview-price">${finalPrice} грн</strong>${d.price_delta ? `<span data-role="preview-delta">+${d.price_delta} за матеріал</span>` : ""}</div><div class="catalog-editor-store-card__colors">${dotHtml(variant.color, 18)}<span>Так покупець розпізнає варіант</span></div></div></div><div class="catalog-editor-overview-stack"><div class="catalog-editor-merch-block"><div class="catalog-editor-merch-block__head"><strong>Ціна цього кольору</strong><span class="catalog-editor-source-badge">Результат для вітрини</span></div><div class="catalog-editor-price-equation"><label class="catalog-editor-field"><span>База / override</span><input type="number" min="0" class="catalog-editor-input" data-f="price_override" value="${variant.price_override != null ? variant.price_override : ""}" placeholder="${basePrice}"></label><span>+</span><label class="catalog-editor-field"><span>Надбавка</span><input type="number" class="catalog-editor-input" data-f="price_delta" value="${d.price_delta || 0}"></label><span>=</span><output class="catalog-editor-effective-price" data-role="effective-price">${finalPrice} грн</output></div><label class="catalog-editor-field"><span>Чому дорожче — бачить покупець</span><input class="catalog-editor-input" data-f="price_delta_reason" value="${esc(d.price_delta_reason)}" placeholder="${esc(DEFAULTS.priceReason)}"></label><div class="catalog-editor-fallback-preview" data-role="price-fallback"${d.price_delta && !d.price_delta_reason ? "" : " hidden"}><svg class="catalog-editor-icon"><use href="#catalog-editor-i-warning"/></svg><span>Порожньо — автоматично буде використано: “${esc(DEFAULTS.priceReason)}”</span></div></div><div class="catalog-editor-merch-block"><div class="catalog-editor-merch-block__head"><strong>Ідентифікація</strong><span class="catalog-editor-source-badge">Варіант</span></div><div class="catalog-editor-row"><label class="catalog-editor-field"><span>SKU кольору</span><input class="catalog-editor-input" data-f="sku" value="${esc(variant.sku)}" placeholder="Напр.: CRC-THERMO-GREEN"></label><label class="catalog-editor-check catalog-editor-check--tile"><input type="checkbox" data-f="is_default" ${variant.is_default ? "checked" : ""}><span><strong>Головний колір</strong><small>Перший на вітрині</small></span></label></div></div><div class="catalog-editor-merch-block"><div class="catalog-editor-merch-block__head"><strong>Заготовка зі складу</strong><span class="catalog-editor-source-badge">На посадку цього кольору</span></div>${storageBlankHtml(variant)}</div></div></div></section>
+				<section id="catalog-editor-variant-${index}-pane-content" class="catalog-editor-variant-pane${contentPane.activeClass}" data-pane="content" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-content"${contentPane.hidden}>${colorPickerHtml(variant)}<div class="catalog-editor-subsection"><div class="catalog-editor-source-row"><strong>Текст для цього кольору</strong><span class="catalog-editor-source-badge">Порожньо = з товару</span></div><label class="catalog-editor-field"><span>Назва на вітрині</span><input class="catalog-editor-input" data-f="display_name" value="${esc(d.display_name)}" placeholder="${esc(((state.product && state.product.title) || "Назва товару") + " · " + (variant.color.name || "колір"))}"></label><label class="catalog-editor-field"><span>Маркетинговий опис кольору</span><textarea class="catalog-editor-input" rows="5" data-f="marketing_html" placeholder="Порожньо — використовується спільний опис товару">${esc(d.marketing_html)}</textarea></label><label class="catalog-editor-field"><span>YouTube для кольору</span><input class="catalog-editor-input" data-f="youtube_url" value="${esc(d.youtube_url)}" placeholder="Порожньо — спільне відео товару"></label></div></section>
+				<section id="catalog-editor-variant-${index}-pane-seo" class="catalog-editor-variant-pane${seoPane.activeClass}" data-pane="seo" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-seo"${seoPane.hidden}><div class="catalog-editor-variant-pane__head"><div><h3>SEO саме цього кольору</h3><p>Цей блок головний для кольорової URL. Порожні поля успадковуються з товару.</p></div><span class="catalog-editor-source-badge">Колір → товар</span></div><div class="catalog-editor-row"><label class="catalog-editor-field"><span>SEO Title <small data-role="variant-seo-title-count">${(d.seo_title || "").length}/60</small></span><input class="catalog-editor-input" data-f="seo_title" maxlength="180" value="${esc(d.seo_title)}"></label><label class="catalog-editor-field"><span>SEO Keywords</span><input class="catalog-editor-input" data-f="seo_keywords" maxlength="300" value="${esc(d.seo_keywords)}"></label></div><label class="catalog-editor-field"><span>SEO Description <small data-role="variant-seo-desc-count">${(d.seo_description || "").length}/160</small></span><textarea class="catalog-editor-input" rows="3" maxlength="320" data-f="seo_description">${esc(d.seo_description)}</textarea></label><div class="catalog-editor-google-preview" data-role="variant-google"><span>twocomms.shop › product › ${esc((state.product && state.product.slug) || "slug")}</span><strong>${esc(d.seo_title || d.display_name || (state.product && state.product.title) || "Назва кольорового варіанта")}</strong><p>${esc(d.seo_description || (state.product && state.product.seo_description) || "Опис буде успадковано з основної сторінки товару.")}</p></div>${combinationWorkspaceHtml(variant)}</section>
+				<section id="catalog-editor-variant-${index}-pane-photos" class="catalog-editor-variant-pane${photosPane.activeClass}" data-pane="photos" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-photos"${photosPane.hidden}><div class="catalog-editor-variant-pane__head"><div><h3>Галерея кольору</h3><p>Порядок = порядок у каруселі. «Обкладинка» робить обране фото канонічним для товару.</p></div><span class="catalog-editor-source-badge">${(variant.images || []).length} фото</span></div>${uploadBlock}</section>
+				<section id="catalog-editor-variant-${index}-pane-fits" class="catalog-editor-variant-pane${fitsPane.activeClass}" data-pane="fits" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-fits"${fitsPane.hidden}><div class="catalog-editor-variant-pane__head"><div><h3>Посадки, сітки та доступні розміри</h3><p>Вимкнена посадка деактивує її сітку й розміри. Окрема сітка перевизначає спільну лише для цього кольору й посадки; порожньо — успадкувати.</p></div><span class="catalog-editor-source-badge">Цей колір</span></div>${fitWorkspaceHtml(variant)}</section>
+				<section id="catalog-editor-variant-${index}-pane-faq" class="catalog-editor-variant-pane${faqPane.activeClass}" data-pane="faq" role="tabpanel" aria-labelledby="catalog-editor-variant-${index}-tab-faq"${faqPane.hidden}><div class="catalog-editor-variant-pane__head"><div><h3>FAQ кольору</h3><p>Відповіді, що стосуються лише матеріалу або відтінку.</p></div><button type="button" class="catalog-editor-btn catalog-editor-btn--ghost" data-act="variant-faq-add">Додати питання</button></div><div data-role="variant-faqs">${variantFaqs || '<p class="catalog-editor-hint">Спеціальних питань для кольору ще немає.</p>'}</div></section>
 				<footer class="catalog-editor-variant-footer"><button type="button" class="catalog-editor-btn catalog-editor-btn--danger" data-act="variant-delete">Видалити колір</button><button type="button" class="catalog-editor-btn catalog-editor-btn--primary" data-act="variant-save"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-save"/></svg>Зберегти колір</button></footer>
 			</div>
 		</article>`;
@@ -1729,6 +1830,7 @@
 				return;
 			}
 			resp.variant._open = true;
+			resp.variant._activePane = variant._activePane || "overview";
 			clearVariantDirty(card, resp.variant);
 			state.variants[currentIndex] = resp.variant;
 			if (resp.variant.is_default) {
@@ -1910,14 +2012,15 @@
 	$("#f-variants").addEventListener("click", (e) => {
 		const card = e.target.closest(".catalog-editor-variant");
 		if (!card) return;
+		const index = parseInt(card.dataset.index, 10);
+		const variant = state.variants[index];
 		const paneButton = e.target.closest("[data-variant-pane]");
 		if (paneButton) {
+			variant._activePane = paneButton.dataset.variantPane;
 			$$('.catalog-editor-variant-subtab', card).forEach((node) => { const active = node === paneButton; node.classList.toggle("is-active", active); node.setAttribute("aria-selected", active ? "true" : "false"); node.tabIndex = active ? 0 : -1; });
 			$$('.catalog-editor-variant-pane', card).forEach((node) => { const active = node.dataset.pane === paneButton.dataset.variantPane; node.classList.toggle("is-active", active); node.hidden = !active; });
 			return;
 		}
-		const index = parseInt(card.dataset.index, 10);
-		const variant = state.variants[index];
 		const actEl = e.target.closest("[data-act]");
 		if (!actEl) return;
 		const act = actEl.dataset.act;
@@ -2207,6 +2310,129 @@
 		return "";
 	}
 
+	function feedImageHtml(image) {
+		const ui = image.provisional
+			? {
+				status: image.status || "uploading",
+				progress: image.progress == null ? null : image.progress,
+				stage: image.stage || "uploading",
+				error: image.error || "",
+			}
+			: uploadUi.jobToUiState(image.job);
+		const label = uploadUi.progressLabel(ui);
+		const progressStyle = ui.progress == null ? "" : ` style="--catalog-upload-progress:${ui.progress}%"`;
+		const ring = ui.status === "saved"
+			? ""
+			: `<span class="catalog-editor-upload-ring" data-progress="${ui.progress == null ? "indeterminate" : ui.progress}"${progressStyle} aria-label="${esc(label)}" title="${esc(ui.error || label)}"><b>${esc(label)}</b></span>`;
+		const retry = image.provisional && ui.status === "error"
+			? '<button type="button" class="catalog-editor-btn catalog-editor-btn--ghost catalog-editor-btn--small" data-act="feed-only-retry-upload" aria-label="Повторити завантаження" title="Повторити завантаження">↻</button>'
+			: uploadUi.canRetryOptimization(image.job)
+				? '<button type="button" class="catalog-editor-btn catalog-editor-btn--ghost catalog-editor-btn--small" data-act="feed-only-retry-optimization" aria-label="Повторити оптимізацію" title="Повторити оптимізацію">↻</button>'
+				: "";
+		const canRemove = !image.provisional || ui.status === "error";
+		const removeAction = image.provisional ? "feed-only-cancel-upload" : "feed-only-del";
+		const removeLabel = image.provisional ? "Прибрати незавантажене зображення" : "Видалити фід-зображення";
+		const remove = canRemove
+			? `<button type="button" class="catalog-editor-btn catalog-editor-btn--danger catalog-editor-btn--small" data-act="${removeAction}" aria-label="${removeLabel}" title="${removeLabel}">×</button>`
+			: "";
+		const actions = retry || remove ? `<div class="catalog-editor-feed-img__actions">${retry}${remove}</div>` : "";
+		return `<figure class="catalog-editor-feed-img catalog-editor-feed-img--${esc(ui.status)} is-allowed${image.provisional ? " is-provisional" : ""}" data-feed-only="${esc(image.id)}">
+			<img src="${esc(image.url)}" alt="" loading="lazy">
+			${ring}
+			${ui.status === "error" ? `<span class="catalog-editor-upload-error">${esc(ui.error || "Помилка оптимізації")}</span>` : ""}
+			<figcaption class="catalog-editor-feed-img__tag">${image.provisional ? "завантаження" : "тільки фід"}</figcaption>
+			${actions}
+		</figure>`;
+	}
+
+	function updateFeedImage(image) {
+		const index = state.feedOnly.findIndex((item) => String(item.id) === String(image.id));
+		if (index >= 0) state.feedOnly[index] = image;
+		const markup = feedImageHtml(image);
+		$$('[data-feed-only]').filter((node) => String(node.dataset.feedOnly) === String(image.id)).forEach((node) => {
+			node.outerHTML = markup;
+		});
+	}
+
+	function stopFeedImageWatchers(imageId) {
+		const prefix = `feed:${imageId}:`;
+		Array.from(state.jobWatchers.keys()).forEach((key) => {
+			if (!key.startsWith(prefix)) return;
+			window.clearTimeout(state.jobWatchers.get(key));
+			state.jobWatchers.delete(key);
+		});
+	}
+
+	function watchFeedImageJob(image) {
+		if (!image || image.provisional || !image.job || !image.job.id || ["completed", "saved", "error", "cancelled"].includes(image.job.status)) return;
+		const watcherKey = `feed:${image.id}:${image.job.id}`;
+		if (state.jobWatchers.has(watcherKey)) return;
+		let failures = 0;
+		const poll = async () => {
+			try {
+				const params = new URLSearchParams({ product_id: state.product.id, kind: "feed", image_id: image.id });
+				const response = await getJSON(`${urls.image_optimization_status}?${params.toString()}`);
+				image.job = response.job;
+				failures = 0;
+				updateFeedImage(image);
+				if (!response.job || ["completed", "saved", "error", "cancelled"].includes(response.job.status)) {
+					state.jobWatchers.delete(watcherKey);
+					return;
+				}
+			} catch (error) {
+				failures += 1;
+				const failedState = uploadUi.pollFailureState(failures);
+				if (failedState) {
+					image.job = Object.assign({}, image.job || {}, failedState);
+					updateFeedImage(image);
+					state.jobWatchers.delete(watcherKey);
+					return;
+				}
+			}
+			const timer = window.setTimeout(poll, uploadUi.pollRetryDelay(failures));
+			state.jobWatchers.set(watcherKey, timer);
+		};
+		const timer = window.setTimeout(poll, uploadUi.pollRetryDelay(0));
+		state.jobWatchers.set(watcherKey, timer);
+	}
+
+	function releaseFeedPreview(image) {
+		if (image && image.previewUrl) URL.revokeObjectURL(image.previewUrl);
+	}
+
+	async function uploadFeedOnlyImages(feedId, files, provisionalImages) {
+		const fd = new FormData();
+		fd.append("product_id", state.product.id);
+		fd.append("feed_id", feedId);
+		files.forEach((file) => fd.append("files", file));
+		try {
+			const response = await postFormWithProgress(urls.feed_image_upload, fd, (uploadState) => {
+				provisionalImages.forEach((image) => {
+					image.status = uploadState.status || "uploading";
+					image.progress = uploadState.progress;
+					image.stage = uploadState.stage || "uploading";
+					image.error = "";
+					updateFeedImage(image);
+				});
+			});
+			const provisionalIds = new Set(provisionalImages.map((image) => String(image.id)));
+			state.feedOnly = state.feedOnly.filter((image) => !provisionalIds.has(String(image.id)));
+			provisionalImages.forEach(releaseFeedPreview);
+			state.feedOnly = state.feedOnly.concat(response.images || []);
+			renderFeeds();
+			(response.images || []).forEach(watchFeedImageJob);
+			toast("Фід-картинки додано");
+		} catch (error) {
+			provisionalImages.forEach((image) => {
+				image.status = "error";
+				image.progress = 0;
+				image.error = error.message;
+				updateFeedImage(image);
+			});
+			toast("Помилка: " + error.message, true);
+		}
+	}
+
 	function renderFeeds() {
 		const box = $("#f-feeds");
 		if (!state.product) {
@@ -2226,12 +2452,10 @@
 					${c.url ? `<img src="${esc(c.url)}" alt="" loading="lazy">` : '<span class="catalog-editor-hint">немає</span>'}
 					<span class="catalog-editor-feed-img__tag">${esc(c.label)}</span>
 				</button>`).join("");
-			const feedOnly = state.feedOnly.filter((im) => !im.feed_id || im.feed_id === feed.id).map((im) => `
-				<figure class="catalog-editor-feed-img is-allowed" data-feed-only="${im.id}">
-					<img src="${esc(im.url)}" alt="" loading="lazy">
-					<figcaption class="catalog-editor-feed-img__tag">тільки фід</figcaption>
-					<button type="button" class="catalog-editor-btn catalog-editor-btn--danger catalog-editor-btn--small" data-act="feed-only-del" title="Видалити">✕</button>
-				</figure>`).join("");
+			const feedOnly = state.feedOnly
+				.filter((im) => !im.feed_id || im.feed_id === feed.id)
+				.map(feedImageHtml)
+				.join("");
 			return `<article class="catalog-editor-feed is-open" data-feed="${feed.id}">
 				<header class="catalog-editor-feed__head">
 					<label class="catalog-editor-switch" title="Товар у цьому фіді"><input type="checkbox" data-f="is_included" ${included ? "checked" : ""}><i></i></label>
@@ -2264,6 +2488,7 @@
 			state.feedOnly = resp.feed_only_images || [];
 		} catch (err) { /* не критично */ }
 		renderFeeds();
+		state.feedOnly.forEach(watchFeedImageJob);
 	}
 
 	function collectFeedPayload(feedCard) {
@@ -2314,12 +2539,43 @@
 			$("[data-role=feed-only-input]", feedCard).click();
 			return;
 		}
+		if (act === "feed-only-retry-upload") {
+			const fig = actEl.closest("[data-feed-only]");
+			const image = state.feedOnly.find((item) => String(item.id) === String(fig.dataset.feedOnly));
+			if (image && image.file) uploadFeedOnlyImages(image.feed_id, [image.file], [image]);
+			return;
+		}
+		if (act === "feed-only-retry-optimization") {
+			const fig = actEl.closest("[data-feed-only]");
+			const image = state.feedOnly.find((item) => String(item.id) === String(fig.dataset.feedOnly));
+			if (!image) return;
+			try {
+				const response = await postJSON(urls.image_optimization_retry, {
+					product_id: state.product.id,
+					kind: "feed",
+					image_id: image.id,
+				});
+				image.job = response.job;
+				updateFeedImage(image);
+				watchFeedImageJob(image);
+			} catch (err) { toast("Помилка: " + err.message, true); }
+			return;
+		}
+		if (act === "feed-only-cancel-upload") {
+			const fig = actEl.closest("[data-feed-only]");
+			const image = state.feedOnly.find((item) => String(item.id) === String(fig.dataset.feedOnly));
+			if (image) releaseFeedPreview(image);
+			state.feedOnly = state.feedOnly.filter((item) => String(item.id) !== String(fig.dataset.feedOnly));
+			renderFeeds();
+			return;
+		}
 		if (act === "feed-only-del") {
 			if (!confirm("Видалити фід-картинку?")) return;
 			const fig = actEl.closest("[data-feed-only]");
 			const id = parseInt(fig.dataset.feedOnly, 10);
 			try {
 				await postJSON(urls.feed_image_delete, { id: id });
+				stopFeedImageWatchers(id);
 				state.feedOnly = state.feedOnly.filter((im) => im.id !== id);
 				renderFeeds();
 				toast("Фід-картинку видалено");
@@ -2355,17 +2611,30 @@
 	$("#f-feeds").addEventListener("change", async (e) => {
 		if (!e.target.matches("[data-role=feed-only-input]")) return;
 		const feedCard = e.target.closest(".catalog-editor-feed");
-		const fd = new FormData();
-		fd.append("product_id", state.product.id);
-		fd.append("feed_id", feedCard.dataset.feed);
-		for (const f of e.target.files) fd.append("files", f);
+		const files = Array.from(e.target.files || []);
 		e.target.value = "";
-		try {
-			const resp = await postForm(urls.feed_image_upload, fd);
-			state.feedOnly = state.feedOnly.concat(resp.images);
-			renderFeeds();
-			toast("Фід-картинки додано (append)");
-		} catch (err) { toast("Помилка: " + err.message, true); }
+		if (!files.length) return;
+		const feedId = parseInt(feedCard.dataset.feed, 10);
+		const uploadToken = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+		const provisionalImages = files.map((file, index) => {
+			const previewUrl = URL.createObjectURL(file);
+			return {
+				id: `upload-${uploadToken}-${index}`,
+				feed_id: feedId,
+				url: previewUrl,
+				previewUrl: previewUrl,
+				alt: file.name,
+				file: file,
+					provisional: true,
+					status: "uploading",
+					progress: 0,
+					stage: "uploading",
+				error: "",
+			};
+		});
+		state.feedOnly = state.feedOnly.concat(provisionalImages);
+		renderFeeds();
+		await uploadFeedOnlyImages(feedId, files, provisionalImages);
 	});
 
 	$("#f-add-feed").addEventListener("click", async () => {
@@ -2407,6 +2676,41 @@
 	}
 	bindCover("#f-main-image-btn", "#f-main-image-file", "#f-main-image", "main_image");
 	bindCover("#f-home-image-btn", "#f-home-image-file", "#f-home-image", "home_card_image");
+
+	function clearStagedHomeCardImage() {
+		delete state.files.home_card_image;
+		const objectUrl = state.coverObjectUrls.get("home_card_image");
+		if (objectUrl) URL.revokeObjectURL(objectUrl);
+		state.coverObjectUrls.delete("home_card_image");
+		$("#f-home-image-file").value = "";
+		const image = $("#f-home-image");
+		image.removeAttribute("src");
+		delete image.dataset.fallback;
+	}
+
+	async function resetHomeCardOverride() {
+		clearStagedHomeCardImage();
+		if (!state.product || !state.product.id) {
+			updateCoverState();
+			setDirty(true);
+			return;
+		}
+		const response = await postJSON(urls.set_cover, {
+			product_id: state.product.id,
+			target: "home_card",
+			reset: true,
+		});
+		state.product.main_image_url = response.main_image_url || "";
+		state.product.home_card_image_url = "";
+		state.product.home_card_image_job = { status: "saved", stage: "saved", progress: 100 };
+		setCoverUploadState("home_card_image", uploadUi.jobToUiState(state.product.home_card_image_job));
+		updateCoverState();
+		toast("Картка головної використовує основну обкладинку");
+	}
+
+	$("#f-home-image-reset").addEventListener("click", () => {
+		resetHomeCardOverride().catch((error) => toast(error.message, true));
+	});
 
 	async function retryCover(fieldName) {
 		if (state.files[fieldName]) {
@@ -2537,6 +2841,7 @@
 		if (!e.target.matches("[data-collection-slug]")) return;
 		if (e.target.checked) state.collectionSlugs.add(e.target.dataset.collectionSlug);
 		else state.collectionSlugs.delete(e.target.dataset.collectionSlug);
+		state.collectionSlugs = canonicalCollectionSlugs(dict.collections || [], state.collectionSlugs);
 		renderCollectionOptions();
 		updateCollectionSummary();
 		setDirty(true);

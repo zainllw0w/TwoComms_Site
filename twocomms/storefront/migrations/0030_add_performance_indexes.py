@@ -6,7 +6,7 @@ from django.db import migrations, models
 _INDEXES = (
     ("Category", "idx_category_active", ("is_active",)),
     ("Category", "idx_category_featured", ("is_featured",)),
-    ("Category", "idx_category_order", ("order",)),
+    ("Category", "idx_category_order", ("order", "name")),
     ("Product", "idx_product_featured", ("featured",)),
     ("Product", "idx_product_dropship", ("is_dropship_available",)),
     ("Product", "idx_product_category_id", ("category", "-id")),
@@ -17,34 +17,67 @@ _INDEXES = (
 )
 
 
-def _has_index(schema_editor, model, name):
+_REUSED_INDEXES = {
+    ("Category", "idx_category_active"),
+    ("Category", "idx_category_order"),
+    ("Product", "idx_product_featured"),
+}
+
+
+def _expected_index_columns(model, fields):
+    return tuple(
+        model._meta.get_field(field_name.lstrip("-")).column
+        for field_name in fields
+    )
+
+
+def _index_columns(schema_editor, model, name):
     with schema_editor.connection.cursor() as cursor:
         constraints = schema_editor.connection.introspection.get_constraints(
             cursor, model._meta.db_table
         )
-    return name in constraints
+    row = constraints.get(name)
+    if row is None:
+        return None
+    return tuple(row.get("columns") or ())
 
 
 def _ensure_indexes(apps, schema_editor):
     for model_name, name, fields in _INDEXES:
         model = apps.get_model("storefront", model_name)
-        # Migration 0018 predates this batch and used three of these names.
-        # Keep the already-created index rather than failing the whole graph.
-        if not _has_index(schema_editor, model, name):
-            schema_editor.add_index(
-                model,
-                models.Index(fields=list(fields), name=name),
-            )
+        expected_columns = _expected_index_columns(model, fields)
+        actual_columns = _index_columns(schema_editor, model, name)
+        if actual_columns is not None:
+            if actual_columns != expected_columns:
+                raise RuntimeError(
+                    f"index definition mismatch for {name}: "
+                    f"expected {expected_columns}, got {actual_columns}"
+                )
+            continue
+        schema_editor.add_index(
+            model,
+            models.Index(fields=list(fields), name=name),
+        )
 
 
 def _remove_indexes(apps, schema_editor):
     for model_name, name, fields in reversed(_INDEXES):
+        if (model_name, name) in _REUSED_INDEXES:
+            continue
         model = apps.get_model("storefront", model_name)
-        if _has_index(schema_editor, model, name):
-            schema_editor.remove_index(
-                model,
-                models.Index(fields=list(fields), name=name),
+        expected_columns = _expected_index_columns(model, fields)
+        actual_columns = _index_columns(schema_editor, model, name)
+        if actual_columns is None:
+            continue
+        if actual_columns != expected_columns:
+            raise RuntimeError(
+                f"index definition mismatch for {name}: "
+                f"expected {expected_columns}, got {actual_columns}"
             )
+        schema_editor.remove_index(
+            model,
+            models.Index(fields=list(fields), name=name),
+        )
 
 
 class Migration(migrations.Migration):
@@ -58,5 +91,16 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(_ensure_indexes, _remove_indexes),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(_ensure_indexes, _remove_indexes),
+            ],
+            state_operations=[
+                migrations.AddIndex(
+                    model_name=model_name.lower(),
+                    index=models.Index(fields=list(fields), name=name),
+                )
+                for model_name, name, fields in _INDEXES
+            ],
+        ),
     ]

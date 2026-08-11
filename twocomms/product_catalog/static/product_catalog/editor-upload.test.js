@@ -11,6 +11,10 @@ test("upload progress maps bytes to a stable percentage", () => {
     progress: null,
     stage: "uploading",
   });
+  assert.deepEqual(upload.progressFromEvent({ loaded: 100, total: 100 }), {
+    progress: null,
+    stage: "processing",
+  });
 });
 
 test("optimization jobs expose persisted UI states", () => {
@@ -26,13 +30,51 @@ test("optimization jobs expose persisted UI states", () => {
     stage: "ready",
     error: "",
   });
-  assert.equal(upload.jobToUiState({ status: "error", error_message: "bad" }).status, "error");
+  assert.deepEqual(upload.jobToUiState({ status: "error", stage: "avif", progress: 50, error_message: "bad" }), {
+    status: "error",
+    progress: 50,
+    stage: "avif",
+    error: "bad",
+  });
   assert.deepEqual(upload.jobToUiState({ status: "saved", progress: 100 }), {
     status: "saved",
     progress: 100,
     stage: "saved",
     error: "",
   });
+});
+
+test("optimization progress names the backend derivative stage", () => {
+  assert.equal(
+    upload.progressLabel({ status: "optimizing", stage: "webp", progress: 25 }),
+    "WebP 25%"
+  );
+  assert.equal(
+    upload.progressLabel({ status: "optimizing", stage: "avif", progress: 50 }),
+    "AVIF 50%"
+  );
+  assert.equal(
+    upload.progressLabel({ status: "optimizing", stage: "responsive", progress: 75 }),
+    "Розм. 75%"
+  );
+  assert.equal(
+    upload.progressLabel({ status: "error", stage: "avif", progress: 50 }),
+    "Помилка · AVIF"
+  );
+});
+
+test("queued optimization keeps indeterminate progress without a false zero", () => {
+  assert.equal(
+    upload.progressLabel({ status: "optimizing", stage: "queued", progress: null }),
+    "У черзі"
+  );
+});
+
+test("cancelled optimization has an explicit terminal label", () => {
+  assert.equal(
+    upload.progressLabel({ status: "cancelled", stage: "cancelled", progress: 100 }),
+    "Скасовано"
+  );
 });
 
 test("missing optimization job keeps the progress overlay idle", () => {
@@ -63,6 +105,19 @@ test("single provisional image receives byte progress without array iteration", 
   });
 });
 
+test("completed byte transfer becomes indeterminate server processing", () => {
+  const image = { status: "uploading", progress: 99, stage: "uploading" };
+  assert.deepEqual(upload.applyProgress(image, null, "optimizing", "processing"), {
+    status: "optimizing",
+    progress: null,
+    stage: "processing",
+  });
+  assert.equal(
+    upload.progressLabel(image),
+    "Обробка"
+  );
+});
+
 test("persisted active cover jobs are selected for polling after reload", () => {
   assert.deepEqual(
     upload.coverFieldsToWatch({
@@ -80,9 +135,36 @@ test("persisted active cover jobs are selected for polling after reload", () => 
   );
 });
 
-test("only a persisted failed optimization job exposes retry", () => {
+test("failed optimization exposes retry even for a legacy image without a job", () => {
   assert.equal(upload.canRetryOptimization({ id: 3, status: "error" }), true);
+  assert.equal(upload.canRetryOptimization({ id: null, status: "error" }), true);
   assert.equal(upload.canRetryOptimization({ id: 3, status: "pending" }), false);
   assert.equal(upload.canRetryOptimization({ id: 3, status: "completed" }), false);
   assert.equal(upload.canRetryOptimization(null), false);
+});
+
+test("batch uploads keep at most two network requests active", async () => {
+  assert.equal(typeof upload.mapWithConcurrency, "function");
+  let active = 0;
+  let maximum = 0;
+  const completed = await upload.mapWithConcurrency([1, 2, 3, 4, 5], 2, async (value) => {
+    active += 1;
+    maximum = Math.max(maximum, active);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    active -= 1;
+    return value * 10;
+  });
+
+  assert.equal(maximum, 2);
+  assert.deepEqual(completed, [10, 20, 30, 40, 50]);
+});
+
+test("persistent polling failures become a visible terminal error", () => {
+  assert.equal(upload.pollFailureState(4), null);
+  assert.deepEqual(upload.pollFailureState(5), {
+    status: "error",
+    stage: "error",
+    progress: 0,
+    error_message: "Не вдалося отримати статус оптимізації",
+  });
 });

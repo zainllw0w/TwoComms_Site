@@ -119,7 +119,7 @@ def normalize_catalog_facet_state(
     return state
 
 
-def _descendant_slugs(root_slug: str) -> set[str]:
+def active_collection_descendant_slugs(root_slug: str) -> set[str]:
     rows = _active_collection_rows()
     by_parent = {}
     for row in rows:
@@ -299,12 +299,12 @@ def filter_products_by_facets(products: QuerySet, state: Mapping[str, tuple[str,
         )
     for slug in state.get("theme", ()):
         result = result.filter(
-            merch_collection_assignments__collection__slug__in=_descendant_slugs(slug),
+            merch_collection_assignments__collection__slug__in=active_collection_descendant_slugs(slug),
             merch_collection_assignments__collection__is_active=True,
         )
     for slug in state.get("collection", ()):
         result = result.filter(
-            merch_collection_assignments__collection__slug=slug,
+            merch_collection_assignments__collection__slug__in=active_collection_descendant_slugs(slug),
             merch_collection_assignments__collection__is_active=True,
         )
     result = result.distinct()

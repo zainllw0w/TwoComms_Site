@@ -5,8 +5,8 @@ from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import Client, TestCase
 
-from orders.models import Order
-from storefront.models import PageView, SiteSession, UserAction
+from orders.models import Order, OrderItem
+from storefront.models import Category, PageView, Product, SiteSession, UserAction
 from storefront.services.admin_analytics import (
     build_integration_status_widget,
     build_product_admin_metrics,
@@ -131,6 +131,50 @@ class AdminAnalyticsApiTests(TestCase):
         )
         self.assertEqual(product["total_views"], 2)
         self.assertEqual(product["unique_ip_views"], 2)
+
+    def test_product_metrics_count_only_paid_items_as_sold(self):
+        category = Category.objects.create(name="Metrics tees", slug="metrics-tees")
+        product = Product.objects.create(
+            title="Metrics product",
+            slug="metrics-product",
+            category=category,
+            price=1090,
+        )
+        paid_order = Order.objects.create(
+            full_name="Paid buyer",
+            phone="+380991110001",
+            city="Kyiv",
+            np_office="1",
+            payment_status="paid",
+        )
+        unpaid_order = Order.objects.create(
+            full_name="Unpaid buyer",
+            phone="+380991110002",
+            city="Kyiv",
+            np_office="2",
+            payment_status="unpaid",
+        )
+        OrderItem.objects.create(
+            order=paid_order,
+            product=product,
+            title=product.title,
+            qty=2,
+            unit_price=Decimal(1090),
+            line_total=Decimal(2180),
+        )
+        OrderItem.objects.create(
+            order=unpaid_order,
+            product=product,
+            title=product.title,
+            qty=5,
+            unit_price=Decimal(1090),
+            line_total=Decimal(5450),
+        )
+
+        metrics = build_product_admin_metrics([product.pk])
+
+        self.assertEqual(metrics[product.pk]["purchase_orders"], 1)
+        self.assertEqual(metrics[product.pk]["items_sold"], 2)
 
     def test_unlinked_purchase_remains_in_dashboard_actions(self):
         UserAction.objects.create(action_type="purchase", order_id=12345)

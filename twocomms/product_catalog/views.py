@@ -95,6 +95,16 @@ FIT_PRESETS = [
 LANGS = ("uk", "ru", "en")
 DEFAULT_SIZES = ["S", "M", "L", "XL", "XXL"]
 HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+COLLECTION_ICON_MAX_BYTES = 2 * 1024 * 1024
+COLLECTION_COVER_MAX_BYTES = 8 * 1024 * 1024
+PRODUCT_IMAGE_MAX_BYTES = 15 * 1024 * 1024
+PRODUCT_IMAGE_MAX_PIXELS = 50_000_000
+SYSTEM_COLLECTION_PARENTS = {
+    "military": None,
+    "brigades": None,
+    "225": "brigades",
+    "127": "brigades",
+}
 logger = logging.getLogger(__name__)
 
 
@@ -173,17 +183,38 @@ def _alt_from_filename(name):
     return re.sub(r"[-_]+", " ", stem).strip()[:200]
 
 
-def _validate_uploaded_images(files):
+def _validate_uploaded_images(
+    files,
+    *,
+    max_bytes=PRODUCT_IMAGE_MAX_BYTES,
+    max_pixels=PRODUCT_IMAGE_MAX_PIXELS,
+    allowed_formats=None,
+):
     """Validate actual image content before model-level ImageField saves."""
     validator = forms.ImageField()
     validated = []
     for uploaded in files:
-        validator.clean(uploaded)
+        if max_bytes is not None and uploaded.size > max_bytes:
+            raise forms.ValidationError(
+                f"Зображення завелике. Максимум {max_bytes // (1024 * 1024)} МБ."
+            )
+        cleaned = validator.clean(uploaded)
+        image = getattr(cleaned, "image", None)
+        width, height = getattr(image, "size", (0, 0))
+        if max_pixels is not None and width * height > max_pixels:
+            raise forms.ValidationError(
+                f"Зображення завелике. Максимум {max_pixels // 1_000_000} мегапікселів."
+            )
+        image_format = str(
+            getattr(image, "format", "")
+        ).upper()
+        if allowed_formats and image_format not in allowed_formats:
+            raise forms.ValidationError("Непідтримуваний формат зображення")
         try:
-            uploaded.seek(0)
+            cleaned.seek(0)
         except Exception:
             pass
-        validated.append(uploaded)
+        validated.append(cleaned)
     return validated
 
 
@@ -591,6 +622,8 @@ def api_product_save(request):
     product.size_grid_id = _int_or_none(payload.get("size_grid_id"))
     product.price = _int_or_none(payload.get("price")) or 0
     product.discount_percent = _int_or_none(payload.get("discount_percent"))
+    if product.discount_percent is not None and not 0 <= product.discount_percent <= 100:
+        raise forms.ValidationError("Знижка має бути в межах від 0 до 100%")
     if "featured" in payload:
         product.featured = bool(payload.get("featured"))
     if hasattr(product, "priority"):
@@ -849,6 +882,41 @@ def _validate_collection_parent(collection, parent):
         current = current.parent
 
 
+def _validate_system_collection_hierarchy(collection, slug, parent):
+    existing_slug = str(collection.slug) if collection is not None else ""
+    if existing_slug in SYSTEM_COLLECTION_PARENTS and slug != existing_slug:
+        raise forms.ValidationError("Системний slug цієї колекції не можна змінювати")
+    system_slug = existing_slug if existing_slug in SYSTEM_COLLECTION_PARENTS else slug
+    if system_slug not in SYSTEM_COLLECTION_PARENTS:
+        return
+    required_parent_slug = SYSTEM_COLLECTION_PARENTS[system_slug]
+    actual_parent_slug = str(parent.slug) if parent is not None else None
+    if actual_parent_slug != required_parent_slug:
+        if required_parent_slug is None:
+            raise forms.ValidationError(
+                f"{system_slug} має залишатися колекцією верхнього рівня"
+            )
+        raise forms.ValidationError(
+            f"{system_slug} має входити безпосередньо до {required_parent_slug}"
+        )
+
+
+def _validate_collection_active_state(collection, parent, is_active):
+    """Keep active taxonomy paths intact for both save and archive flows."""
+    if is_active and parent is not None and not parent.is_active:
+        raise forms.ValidationError(
+            "Активна колекція не може належати неактивній батьківській колекції"
+        )
+    if (
+        collection is not None
+        and not is_active
+        and collection.children.filter(is_active=True).exists()
+    ):
+        raise forms.ValidationError(
+            "Спочатку архівуйте активні дочірні підкатегорії"
+        )
+
+
 @staff_api
 @require_POST
 @transaction.atomic
@@ -879,6 +947,9 @@ def api_collection_save(request):
     parent_id = _int_or_none(request.POST.get("parent_id"))
     parent = get_object_or_404(MerchCollection, pk=parent_id) if parent_id else None
     _validate_collection_parent(collection, parent)
+    _validate_system_collection_hierarchy(collection, slug, parent)
+    is_active = _post_bool(request, "is_active", default=True)
+    _validate_collection_active_state(collection, parent, is_active)
 
     if collection is None:
         max_order = MerchCollection.objects.aggregate(value=Max("order"))["value"] or 0
@@ -898,12 +969,20 @@ def api_collection_save(request):
     ):
         setattr(collection, field, str(request.POST.get(field) or "").strip())
     collection.indexable = _post_bool(request, "indexable")
-    collection.is_active = _post_bool(request, "is_active", default=True)
+    collection.is_active = is_active
 
     if request.FILES.get("icon"):
-        collection.icon = request.FILES["icon"]
+        collection.icon = _validate_uploaded_images(
+            [request.FILES["icon"]],
+            max_bytes=COLLECTION_ICON_MAX_BYTES,
+            allowed_formats={"PNG", "WEBP"},
+        )[0]
     if request.FILES.get("cover_image"):
-        collection.cover_image = request.FILES["cover_image"]
+        collection.cover_image = _validate_uploaded_images(
+            [request.FILES["cover_image"]],
+            max_bytes=COLLECTION_COVER_MAX_BYTES,
+            allowed_formats={"PNG", "JPEG", "WEBP"},
+        )[0]
     if _post_bool(request, "clear_icon"):
         collection.icon = None
     if _post_bool(request, "clear_cover"):
@@ -920,8 +999,7 @@ def api_collection_save(request):
 def api_collection_archive(request):
     data = _json_body(request)
     collection = get_object_or_404(MerchCollection, pk=_int_or_none(data.get("id")))
-    if collection.children.filter(is_active=True).exists():
-        raise forms.ValidationError("Спочатку архівуйте активні дочірні підкатегорії")
+    _validate_collection_active_state(collection, collection.parent, False)
     collection.is_active = False
     collection.indexable = False
     collection.save(update_fields=("is_active", "indexable", "updated_at"))
@@ -1026,6 +1104,7 @@ def api_image_update(request):
     if data.get("delete"):
         cover = CoverSource.objects.filter(product=product).first()
         cover_was_deleted = False
+        image_name = getattr(image.image, "name", "")
         if cover and (
             (
                 isinstance(image, ProductColorImage)
@@ -1039,16 +1118,15 @@ def api_image_update(request):
             cover_was_deleted = True
             cover.source_missing = True
             cover.save(update_fields=["source_missing", "updated_at"])
-            update_fields = []
-            image_name = getattr(image.image, "name", "")
-            if getattr(product.main_image, "name", "") == image_name:
-                product.main_image = None
-                update_fields.append("main_image")
-            if hasattr(product, "home_card_image") and getattr(product.home_card_image, "name", "") == image_name:
-                product.home_card_image = None
-                update_fields.append("home_card_image")
-            if update_fields:
-                product.save(update_fields=update_fields)
+        update_fields = []
+        if getattr(product.main_image, "name", "") == image_name:
+            product.main_image = None
+            update_fields.append("main_image")
+        if hasattr(product, "home_card_image") and getattr(product.home_card_image, "name", "") == image_name:
+            product.home_card_image = None
+            update_fields.append("home_card_image")
+        if update_fields:
+            product.save(update_fields=update_fields)
         cancel_image_jobs(image, "image")
         image.delete()
         return JsonResponse({
@@ -1067,14 +1145,22 @@ def api_image_update(request):
 
 def _image_job_for_request(request, data):
     product = get_object_or_404(Product, pk=_int_or_none(data.get("product_id")))
-    if (data.get("kind") or "product") == "cover":
+    kind = data.get("kind") or "product"
+    if kind == "cover":
         field_name = data.get("field_name") or ""
         if field_name not in {"main_image", "home_card_image"}:
             raise Http404("Невідоме поле обкладинки")
         if not getattr(product, field_name, None):
             raise Http404("Зображення обкладинки не знайдено")
         return product, product, field_name
-    image = _get_image(data.get("kind") or "product", _int_or_none(data.get("image_id")), product)
+    if kind == "feed":
+        image = get_object_or_404(
+            FeedOnlyImage,
+            pk=_int_or_none(data.get("image_id")),
+            product=product,
+        )
+        return product, image, "image"
+    image = _get_image(kind, _int_or_none(data.get("image_id")), product)
     return product, image, "image"
 
 
@@ -1121,8 +1207,19 @@ def api_set_cover(request):
     """
     data = _json_body(request)
     product = get_object_or_404(Product, pk=_int_or_none(data.get("product_id")))
-    image = _get_image(data.get("kind") or "product", _int_or_none(data.get("image_id")), product)
     target = data.get("target") or "main"
+    if target == "home_card" and data.get("reset") and hasattr(product, "home_card_image"):
+        cancel_image_jobs(product, "home_card_image")
+        product.home_card_image = None
+        product.save(update_fields=["home_card_image"])
+        return JsonResponse({
+            "ok": True,
+            "main_image_url": _img_url(product.main_image),
+            "home_card_image_url": "",
+            "cover_source": _product_payload(product)["cover_source"],
+        })
+
+    image = _get_image(data.get("kind") or "product", _int_or_none(data.get("image_id")), product)
     update_fields = []
     if target == "home_card" and hasattr(product, "home_card_image"):
         product.home_card_image.name = image.image.name

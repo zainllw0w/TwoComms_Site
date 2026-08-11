@@ -33,7 +33,7 @@
 
     <header class="smart-selector__intro" aria-labelledby="smart-selector-title">
       <div>
-      <h1 id="smart-selector-title">{% if merch_collection_page %}{{ merch_collection_page.h1 }}{% else %}{{ category.seo_h1|default:category.name }}{% endif %}</h1>
+        <h1 id="smart-selector-title">{% if merch_collection_page %}{{ merch_collection_page.h1 }}{% else %}{{ category.seo_h1|default:category.name }}{% endif %}</h1>
         {% if merch_collection_page.intro %}
         <p>{{ merch_collection_page.intro|striptags|truncatewords:24 }}</p>
         {% elif category.description %}

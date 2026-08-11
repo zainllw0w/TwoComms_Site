@@ -134,8 +134,14 @@ class GenericOptionEditorTests(TestCase):
         self.assertFalse(no_fleece.is_active)
 
     def test_hoodie_seed_enables_only_fleece(self):
-        self.flow.code = "hoodie"
-        self.flow.save(update_fields=["code"])
+        hoodie_flow, _ = GarmentFlow.objects.get_or_create(
+            code="hoodie",
+            defaults={"name": "Hoodie", "axes": []},
+        )
+        GarmentFlowCategory.objects.get_or_create(
+            flow=hoodie_flow,
+            category=self.category,
+        )
         migration = importlib.import_module("product_catalog.migrations.0006_seed_hoodie_lining_profiles")
 
         migration.seed_hoodie_lining_profiles(apps, None)

@@ -9,11 +9,14 @@ the editor with an orphaned queue entry.
 
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 from datetime import timedelta
-from threading import Thread
+from threading import Lock
+from uuid import uuid4
 
 from django.apps import apps
+from django.conf import settings
 from django.db import close_old_connections, transaction
 from django.db.models import F
 from django.utils import timezone
@@ -26,7 +29,11 @@ ACTIVE_STATUSES = (
     ImageOptimizationJob.Status.PENDING,
     ImageOptimizationJob.Status.RUNNING,
 )
-STALE_JOB_AFTER = timedelta(minutes=5)
+STALE_JOB_AFTER = timedelta(minutes=30)
+_IMAGE_JOB_EXECUTOR = None
+_IMAGE_JOB_EXECUTOR_LOCK = Lock()
+_IMAGE_JOB_SCHEDULED = set()
+_IMAGE_JOB_SCHEDULED_LOCK = Lock()
 
 
 def _model_label(instance) -> str:
@@ -62,10 +69,24 @@ def latest_image_job(instance, field_name: str = "image") -> ImageOptimizationJo
     )
 
 
+def _optimized_variants_current(instance, field_name: str) -> bool:
+    image_field = getattr(instance, field_name, None)
+    try:
+        source_path = image_field.path
+    except Exception:
+        return False
+    from pathlib import Path
+
+    from storefront.services.image_variants import optimized_variants_are_current
+
+    path = Path(source_path)
+    return path.exists() and optimized_variants_are_current(path)
+
+
 def image_job_payload(instance, field_name: str = "image") -> dict:
     job = latest_image_job(instance, field_name)
     if job is None:
-        return {
+        payload = {
             "id": None,
             "status": "saved",
             "stage": "saved",
@@ -74,6 +95,28 @@ def image_job_payload(instance, field_name: str = "image") -> dict:
             "attempts": 0,
             "updated_at": None,
         }
+        if _source_name(instance, field_name) and not _optimized_variants_current(
+            instance, field_name
+        ):
+            payload.update(
+                status=ImageOptimizationJob.Status.ERROR,
+                stage="error",
+                progress=0,
+                error_message="Оптимізовані файли відсутні або застаріли",
+            )
+        return payload
+    if (
+        job.status == ImageOptimizationJob.Status.COMPLETED
+        and not _optimized_variants_current(instance, field_name)
+    ):
+        payload = _job_payload(job)
+        payload.update(
+            status=ImageOptimizationJob.Status.ERROR,
+            stage="error",
+            progress=0,
+            error_message="Оптимізовані файли відсутні або застаріли",
+        )
+        return payload
     return _job_payload(job)
 
 
@@ -97,6 +140,7 @@ def enqueue_image_optimization(instance, field_name: str = "image") -> ImageOpti
             status=ImageOptimizationJob.Status.CANCELLED,
             stage="superseded",
             progress=100,
+            lease_token="",
             completed_at=now,
             updated_at=now,
         )
@@ -107,7 +151,10 @@ def enqueue_image_optimization(instance, field_name: str = "image") -> ImageOpti
             stage="queued",
             progress=0,
         )
-        transaction.on_commit(lambda job_id=job.pk: schedule_image_optimization(job_id))
+        transaction.on_commit(
+            lambda job_id=job.pk: schedule_image_optimization(job_id),
+            robust=True,
+        )
     return job
 
 
@@ -120,16 +167,25 @@ def _resolve_instance(job: ImageOptimizationJob):
     return model.objects.filter(pk=job.object_id).first()
 
 
-def _mark(job_id: int, *, expected_status=None, **values) -> int:
+def _mark(
+    job_id: int,
+    *,
+    expected_status=None,
+    expected_lease_token=None,
+    **values,
+) -> int:
     jobs = ImageOptimizationJob.objects.filter(pk=job_id)
     if expected_status is not None:
         jobs = jobs.filter(status=expected_status)
+    if expected_lease_token is not None:
+        jobs = jobs.filter(lease_token=expected_lease_token)
     return jobs.update(**values, updated_at=timezone.now())
 
 
 def run_image_optimization_job(job_id: int) -> None:
     """Run one job idempotently and persist a terminal state."""
     now = timezone.now()
+    lease_token = uuid4().hex
     claimed = ImageOptimizationJob.objects.filter(
         pk=job_id,
         status=ImageOptimizationJob.Status.PENDING,
@@ -138,6 +194,7 @@ def run_image_optimization_job(job_id: int) -> None:
         stage="optimizing",
         progress=None,
         error_message="",
+        lease_token=lease_token,
         started_at=now,
         attempts=F("attempts") + 1,
         updated_at=now,
@@ -155,8 +212,10 @@ def run_image_optimization_job(job_id: int) -> None:
             stage="cancelled",
             progress=100,
             error_message="",
+            lease_token="",
             completed_at=timezone.now(),
             expected_status=ImageOptimizationJob.Status.RUNNING,
+            expected_lease_token=lease_token,
         )
         return
 
@@ -168,8 +227,10 @@ def run_image_optimization_job(job_id: int) -> None:
             stage="superseded",
             progress=100,
             error_message="",
+            lease_token="",
             completed_at=timezone.now(),
             expected_status=ImageOptimizationJob.Status.RUNNING,
+            expected_lease_token=lease_token,
         )
         return
 
@@ -177,7 +238,30 @@ def run_image_optimization_job(job_id: int) -> None:
         from storefront.tasks import optimize_image_field_task
         from storefront.services.image_variants import optimized_variants_are_current
 
-        optimize_image_field_task(job.model_label, job.object_id, job.field_name)
+        def report_progress(stage, progress):
+            _mark(
+                job.pk,
+                status=ImageOptimizationJob.Status.RUNNING,
+                stage=stage,
+                progress=progress,
+                expected_status=ImageOptimizationJob.Status.RUNNING,
+                expected_lease_token=lease_token,
+            )
+
+        _mark(
+            job.pk,
+            status=ImageOptimizationJob.Status.RUNNING,
+            stage="loading",
+            progress=5,
+            expected_status=ImageOptimizationJob.Status.RUNNING,
+            expected_lease_token=lease_token,
+        )
+        optimize_image_field_task(
+            job.model_label,
+            job.object_id,
+            job.field_name,
+            report_progress,
+        )
         current_instance = _resolve_instance(job)
         if (
             current_instance is None
@@ -189,8 +273,10 @@ def run_image_optimization_job(job_id: int) -> None:
                 stage="superseded",
                 progress=100,
                 error_message="",
+                lease_token="",
                 completed_at=timezone.now(),
                 expected_status=ImageOptimizationJob.Status.RUNNING,
+                expected_lease_token=lease_token,
             )
             return
         try:
@@ -207,11 +293,11 @@ def run_image_optimization_job(job_id: int) -> None:
         _mark(
             job.pk,
             status=ImageOptimizationJob.Status.ERROR,
-            stage="error",
-            progress=0,
             error_message=str(exc)[:1000],
+            lease_token="",
             completed_at=timezone.now(),
             expected_status=ImageOptimizationJob.Status.RUNNING,
+            expected_lease_token=lease_token,
         )
         return
 
@@ -221,22 +307,77 @@ def run_image_optimization_job(job_id: int) -> None:
         stage="ready",
         progress=100,
         error_message="",
+        lease_token="",
         completed_at=timezone.now(),
         expected_status=ImageOptimizationJob.Status.RUNNING,
+        expected_lease_token=lease_token,
     )
 
 
-def schedule_image_optimization(job_id: int) -> None:
-    """Start a daemon runner without making the upload request wait."""
-    def runner():
+def _run_scheduled_image_job(job_id: int) -> None:
+    close_old_connections()
+    try:
+        run_image_optimization_job(job_id)
+    finally:
+        with _IMAGE_JOB_SCHEDULED_LOCK:
+            _IMAGE_JOB_SCHEDULED.discard(job_id)
         close_old_connections()
-        try:
-            run_image_optimization_job(job_id)
-        finally:
-            close_old_connections()
 
-    thread = Thread(target=runner, daemon=True)
-    thread.start()
+
+def _image_job_executor():
+    global _IMAGE_JOB_EXECUTOR
+    if _IMAGE_JOB_EXECUTOR is None:
+        with _IMAGE_JOB_EXECUTOR_LOCK:
+            if _IMAGE_JOB_EXECUTOR is None:
+                worker_count = max(
+                    1,
+                    int(getattr(settings, "PRODUCT_CATALOG_IMAGE_WORKERS", 1)),
+                )
+                _IMAGE_JOB_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+                    max_workers=worker_count,
+                    thread_name_prefix="catalog-image",
+                )
+    return _IMAGE_JOB_EXECUTOR
+
+
+def _image_job_submission_capacity() -> int:
+    worker_count = max(
+        1,
+        int(getattr(settings, "PRODUCT_CATALOG_IMAGE_WORKERS", 1)),
+    )
+    queue_capacity = max(
+        0,
+        int(
+            getattr(
+                settings,
+                "PRODUCT_CATALOG_IMAGE_QUEUE_CAPACITY",
+                worker_count,
+            )
+        ),
+    )
+    return worker_count + queue_capacity
+
+
+def schedule_image_optimization(job_id: int) -> None:
+    """Submit work while keeping the executor's internal queue bounded."""
+    if getattr(settings, "TESTING", False):
+        return
+    with _IMAGE_JOB_SCHEDULED_LOCK:
+        if job_id in _IMAGE_JOB_SCHEDULED:
+            return
+        if len(_IMAGE_JOB_SCHEDULED) >= _image_job_submission_capacity():
+            logger.info(
+                "Image optimization job %s remains pending because local capacity is full",
+                job_id,
+            )
+            return
+        _IMAGE_JOB_SCHEDULED.add(job_id)
+    try:
+        _image_job_executor().submit(_run_scheduled_image_job, job_id)
+    except Exception:
+        with _IMAGE_JOB_SCHEDULED_LOCK:
+            _IMAGE_JOB_SCHEDULED.discard(job_id)
+        raise
 
 
 def resume_image_optimization(instance, field_name: str = "image") -> ImageOptimizationJob | None:
@@ -257,6 +398,7 @@ def resume_image_optimization(instance, field_name: str = "image") -> ImageOptim
             stage="queued",
             progress=0,
             error_message="",
+            lease_token="",
             updated_at=timezone.now(),
         )
         if recovered:
@@ -271,17 +413,26 @@ def retry_image_optimization(instance, field_name: str = "image") -> ImageOptimi
     job = latest_image_job(instance, field_name)
     if job is None:
         return enqueue_image_optimization(instance, field_name)
-    if job.status in ACTIVE_STATUSES or job.status == ImageOptimizationJob.Status.COMPLETED:
+    if job.status in ACTIVE_STATUSES:
+        return job
+    if (
+        job.status == ImageOptimizationJob.Status.COMPLETED
+        and _optimized_variants_current(instance, field_name)
+    ):
         return job
     job.status = ImageOptimizationJob.Status.PENDING
     job.stage = "queued"
     job.progress = 0
     job.error_message = ""
+    job.lease_token = ""
     job.source_name = _source_name(instance, field_name)
     job.started_at = None
     job.completed_at = None
-    job.save(update_fields=("status", "stage", "progress", "error_message", "source_name", "started_at", "completed_at", "updated_at"))
-    transaction.on_commit(lambda job_id=job.pk: schedule_image_optimization(job_id))
+    job.save(update_fields=("status", "stage", "progress", "error_message", "lease_token", "source_name", "started_at", "completed_at", "updated_at"))
+    transaction.on_commit(
+        lambda job_id=job.pk: schedule_image_optimization(job_id),
+        robust=True,
+    )
     return job
 
 
@@ -295,6 +446,7 @@ def cancel_image_jobs(instance, field_name: str = "image") -> int:
         status=ImageOptimizationJob.Status.CANCELLED,
         stage="cancelled",
         progress=100,
+        lease_token="",
         completed_at=timezone.now(),
         updated_at=timezone.now(),
     )

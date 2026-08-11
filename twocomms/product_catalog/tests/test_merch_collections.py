@@ -27,57 +27,81 @@ class MerchCollectionTaxonomyTests(TestCase):
             price=1090,
             status="published",
         )
-        self.unisex = AudienceTag.objects.create(
+        self.unisex, _created = AudienceTag.objects.update_or_create(
             code="unisex",
-            label_uk="Унісекс",
-            label_ru="Унисекс",
-            label_en="Unisex",
-            order=0,
+            defaults={
+                "label_uk": "Унісекс",
+                "label_ru": "Унисекс",
+                "label_en": "Unisex",
+                "order": 0,
+                "is_active": True,
+            },
         )
         set_product_audience_codes(self.product, ["unisex"])
-        self.military = MerchCollection.objects.create(
+        self.military, _created = MerchCollection.objects.update_or_create(
             slug="military",
-            kind=MerchCollection.Kind.THEME,
-            name_uk="Мілітарі",
-            name_ru="Милитари",
-            name_en="Military",
-            order=10,
+            defaults={
+                "kind": MerchCollection.Kind.THEME,
+                "parent": None,
+                "name_uk": "Мілітарі",
+                "name_ru": "Милитари",
+                "name_en": "Military",
+                "order": 10,
+                "indexable": False,
+                "is_active": True,
+            },
         )
-        self.brigades = MerchCollection.objects.create(
+        self.brigades, _created = MerchCollection.objects.update_or_create(
             slug="brigades",
-            kind=MerchCollection.Kind.THEME,
-            name_uk="Бригади",
-            name_ru="Бригады",
-            name_en="Brigades",
-            order=20,
+            defaults={
+                "kind": MerchCollection.Kind.THEME,
+                "parent": None,
+                "name_uk": "Бригади",
+                "name_ru": "Бригады",
+                "name_en": "Brigades",
+                "order": 20,
+                "indexable": False,
+                "is_active": True,
+            },
         )
-        self.brigade_225 = MerchCollection.objects.create(
+        self.brigade_225, _created = MerchCollection.objects.update_or_create(
             slug="225",
-            kind=MerchCollection.Kind.BRIGADE,
-            parent=self.brigades,
-            name_uk="225 ОШП",
-            name_ru="225 ОШП",
-            name_en="225 Assault Regiment",
-            indexable=True,
-            order=30,
+            defaults={
+                "kind": MerchCollection.Kind.BRIGADE,
+                "parent": self.brigades,
+                "name_uk": "225 ОШП",
+                "name_ru": "225 ОШП",
+                "name_en": "225 Assault Regiment",
+                "indexable": True,
+                "order": 30,
+                "is_active": True,
+            },
         )
-        self.brigade_127 = MerchCollection.objects.create(
+        self.brigade_127, _created = MerchCollection.objects.update_or_create(
             slug="127",
-            kind=MerchCollection.Kind.BRIGADE,
-            parent=self.brigades,
-            name_uk="127 бригада",
-            name_ru="127 бригада",
-            name_en="127 Brigade",
-            indexable=False,
-            order=31,
+            defaults={
+                "kind": MerchCollection.Kind.BRIGADE,
+                "parent": self.brigades,
+                "name_uk": "127 бригада",
+                "name_ru": "127 бригада",
+                "name_en": "127 Brigade",
+                "indexable": False,
+                "order": 31,
+                "is_active": True,
+            },
         )
-        self.streetwear = MerchCollection.objects.create(
+        self.streetwear, _created = MerchCollection.objects.update_or_create(
             slug="streetwear",
-            kind=MerchCollection.Kind.THEME,
-            name_uk="Стрітвір",
-            name_ru="Стритвир",
-            name_en="Streetwear",
-            order=40,
+            defaults={
+                "kind": MerchCollection.Kind.THEME,
+                "parent": None,
+                "name_uk": "Стрітвір",
+                "name_ru": "Стритвир",
+                "name_en": "Streetwear",
+                "order": 40,
+                "indexable": False,
+                "is_active": True,
+            },
         )
         self.staff = get_user_model().objects.create_user(
             username="collection-editor",

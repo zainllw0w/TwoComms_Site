@@ -87,10 +87,19 @@ class Command(BaseCommand):
         modes = parser.add_mutually_exclusive_group(required=True)
         modes.add_argument("--check", action="store_true", help="Run a read-only preflight.")
         modes.add_argument("--apply", action="store_true", help="Apply the guarded adoption.")
+        modes.add_argument(
+            "--resume-snapshot",
+            metavar="PATH",
+            help="Resume an interrupted adoption from its original private snapshot.",
+        )
         modes.add_argument("--rollback-snapshot", metavar="PATH", help="Rollback from a private snapshot.")
         parser.add_argument("--legacy-app-label")
         parser.add_argument("--legacy-table-prefix")
-        parser.add_argument("--legacy-last-migration", default="0011_refine_brigade_taxonomy")
+        parser.add_argument(
+            "--legacy-last-migration",
+            default="0011_refine_brigade_taxonomy",
+            help="Exact last migration recorded by the legacy catalog app (defaults to 0011).",
+        )
         parser.add_argument("--expected-database")
         parser.add_argument("--media-root")
         parser.add_argument("--snapshot-path")
@@ -128,39 +137,44 @@ class Command(BaseCommand):
         legacy_prefix = values.get("legacy_table_prefix")
         if not legacy_label or not legacy_prefix:
             raise CommandError("--legacy-app-label and --legacy-table-prefix are required")
+        legacy_last_migration = values.get("legacy_last_migration") or "0011_refine_brigade_taxonomy"
         media_root = values.get("media_root") or getattr(settings, "MEDIA_ROOT", None)
         try:
             return SchemaAdoption(
                 legacy_app_label=legacy_label,
                 legacy_table_prefix=legacy_prefix,
                 media_root=media_root,
-                adoption_last_migration=values.get("legacy_last_migration")
-                or "0011_refine_brigade_taxonomy",
+                adoption_last_migration=legacy_last_migration,
             )
         except SchemaAdoptionError as exc:
             raise CommandError(str(exc)) from exc
 
-    def _write_snapshot(self, path: str | None, payload: dict):
+    def _write_snapshot(self, path: str | None, payload: dict, *, must_not_exist=False):
         if not path:
             raise CommandError("--snapshot-path is required for --apply")
+        if must_not_exist and Path(path).exists():
+            raise CommandError(f"snapshot already exists: {path}")
         try:
             write_snapshot(path, payload)
         except OSError as exc:
             raise CommandError(f"could not write adoption snapshot: {path}") from exc
 
-    def _confirm_write(self, options):
+    def _confirm_write(self, options, *, config=None):
+        expected = config or options
         if options.get("confirm_write") != WRITE_CONFIRMATION:
             raise CommandError(f"--confirm-write must equal {WRITE_CONFIRMATION}")
         if options.get("confirm_maintenance") != MAINTENANCE_CONFIRMATION:
             raise CommandError(f"--confirm-maintenance must equal {MAINTENANCE_CONFIRMATION}")
-        if options.get("confirm_app_label") != options.get("legacy_app_label"):
+        if options.get("confirm_app_label") != expected.get("legacy_app_label"):
             raise CommandError("--confirm-app-label must exactly match --legacy-app-label")
-        if options.get("confirm_database") != options.get("expected_database"):
+        if options.get("confirm_database") != expected.get("expected_database"):
             raise CommandError("--confirm-database must exactly match --expected-database")
 
     def handle(self, *args, **options):
         if options.get("rollback_snapshot"):
             return self._rollback(options)
+        if options.get("resume_snapshot"):
+            return self._resume(options)
 
         self._validate_database(options)
         self._validate_sha(options)
@@ -185,7 +199,17 @@ class Command(BaseCommand):
                     return
 
                 self._confirm_write(options)
-                self._write_snapshot(options.get("snapshot_path"), payload)
+                if (
+                    preflight.get("state") != "legacy"
+                    or preflight.get("metadata_state") != "legacy"
+                ):
+                    raise CommandError(
+                        "a new adoption requires the complete legacy state; "
+                        "resume an interrupted run with --resume-snapshot"
+                    )
+                self._write_snapshot(
+                    options.get("snapshot_path"), payload, must_not_exist=True
+                )
 
                 def checkpoint(progress):
                     payload["progress"] = progress
@@ -196,6 +220,7 @@ class Command(BaseCommand):
                     result = adopter.apply(
                         last_migration=options["legacy_last_migration"],
                         checkpoint=checkpoint,
+                        initial_preflight=preflight,
                     )
                 except Exception as exc:
                     payload["phase"] = "failed"
@@ -209,6 +234,66 @@ class Command(BaseCommand):
         except SchemaAdoptionError as exc:
             raise CommandError(str(exc)) from exc
 
+    def _resume(self, options):
+        path = Path(options["resume_snapshot"])
+        payload = _read_snapshot(path)
+        phase = str(payload.get("phase") or "")
+        if payload.get("rollback_progress") is not None or phase.startswith("rollback"):
+            raise CommandError(
+                "snapshot rollback has already started; continue with "
+                "--rollback-snapshot"
+            )
+        if payload.get("phase") in {"complete", "rolled-back"}:
+            raise CommandError(
+                "snapshot is already complete; use --rollback-snapshot to reverse it"
+            )
+        config = payload["adoption"]
+        expected = config.get("expected_database")
+        if not expected:
+            raise CommandError("snapshot has no expected database")
+        actual = str(settings.DATABASES["default"].get("NAME") or "")
+        if actual != expected:
+            raise CommandError(
+                f"database mismatch: expected {expected!r}, connected to {actual!r}"
+            )
+        self._validate_sha(
+            {"apply": True, "expected_sha": config.get("expected_sha")}
+        )
+        self._confirm_write(options, config=config)
+        adopter = self._build_adopter(options, config=config)
+        preflight = payload.get("preflight")
+        if not isinstance(preflight, dict):
+            raise CommandError("snapshot is missing its original preflight")
+        saved_progress = payload.get("progress")
+        if saved_progress is not None and not isinstance(saved_progress, dict):
+            raise CommandError("snapshot contains invalid adoption progress")
+
+        def checkpoint(progress):
+            payload["progress"] = progress
+            payload["phase"] = progress.get("phase", "in-progress")
+            self._write_snapshot(str(path), payload)
+
+        try:
+            with _advisory_lock(adopter.connection):
+                result = adopter.apply(
+                    last_migration=config["legacy_last_migration"],
+                    checkpoint=checkpoint,
+                    initial_preflight=preflight,
+                    saved_progress=saved_progress,
+                )
+        except Exception as exc:
+            payload["phase"] = "failed"
+            payload["error"] = str(exc)
+            self._write_snapshot(str(path), payload)
+            raise CommandError(str(exc)) from exc
+        payload.pop("error", None)
+        payload["phase"] = result.get("phase", "complete")
+        payload["result"] = result
+        self._write_snapshot(str(path), payload)
+        self.stdout.write(
+            json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True, default=str)
+        )
+
     def _rollback(self, options):
         path = Path(options["rollback_snapshot"])
         payload = _read_snapshot(path)
@@ -221,28 +306,39 @@ class Command(BaseCommand):
             raise CommandError(f"database mismatch: expected {expected!r}, connected to {actual!r}")
         self._validate_sha({"apply": True, "expected_sha": config.get("expected_sha")})
         adopter = self._build_adopter(options, config=config)
-        if options.get("confirm_write") != WRITE_CONFIRMATION:
-            raise CommandError(f"--confirm-write must equal {WRITE_CONFIRMATION}")
-        if options.get("confirm_maintenance") != MAINTENANCE_CONFIRMATION:
-            raise CommandError(f"--confirm-maintenance must equal {MAINTENANCE_CONFIRMATION}")
-        if options.get("confirm_database") not in {None, expected}:
-            raise CommandError("--confirm-database must match the snapshot database")
+        self._confirm_write(options, config=config)
         try:
             with _advisory_lock(adopter.connection):
                 preflight = payload.get("preflight") or {}
                 saved = payload.get("result") or payload.get("progress") or {}
+
+                def checkpoint(progress):
+                    payload["rollback_progress"] = progress
+                    payload["phase"] = progress.get("phase", "rollback-in-progress")
+                    self._write_snapshot(str(path), payload)
+
                 result = adopter.rollback(
-                    last_migration=config.get("legacy_last_migration"),
+                    last_migration=config["legacy_last_migration"],
                     identifier_renames=preflight.get("identifier_renames"),
+                    data_media_manifest_state=saved.get(
+                        "data_media_manifest_state"
+                    ),
                     data_changes=saved.get("data_changes"),
                     media_changes=saved.get("media_changes"),
                     migrations=preflight.get("legacy_migrations"),
                     content_types=preflight.get("legacy_content_types"),
                     permissions=preflight.get("legacy_permissions"),
+                    checkpoint=checkpoint,
+                    initial_preflight=preflight,
+                    saved_progress=payload.get("rollback_progress"),
                 )
         except Exception as exc:
+            payload["phase"] = "rollback-failed"
+            payload["error"] = str(exc)
+            self._write_snapshot(str(path), payload)
             raise CommandError(str(exc)) from exc
+        payload.pop("error", None)
         payload["phase"] = result.get("phase", "rolled-back")
         payload["rollback_result"] = result
-        write_snapshot(path, payload)
+        self._write_snapshot(str(path), payload)
         self.stdout.write(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True, default=str))

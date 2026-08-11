@@ -110,7 +110,7 @@ class GeneralCatalogSeoServiceTests(_Base):
         # for SEO crawlers landing on /catalog/.
         self.assertTrue(layout["has_any"])
         types = [e["block"].block_type for e in layout["tab_blocks"]]
-        self.assertEqual(types, ["top_queries"])
+        self.assertEqual(types, ["top_menu", "top_queries"])
 
     def test_block_get_block_type_display_callable(self):
         # Django templates auto-invoke callable attributes; SimpleNamespace

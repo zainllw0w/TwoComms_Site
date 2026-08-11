@@ -103,6 +103,7 @@ from storefront.services.admin_analytics import (
     build_product_admin_metrics,
 )
 from storefront.services.catalog_helpers import bump_public_product_order_version
+from product_catalog.services_audience import validate_published_apparel_audience
 from storefront.services.web_push import (
     WebPushConfigurationError,
     get_default_notification_icon_url,
@@ -818,6 +819,7 @@ def admin_order_payment_snapshots(request):
 def _build_catalogs_context():
     """Контекст для управления каталогами."""
     from product_catalog.models import MerchCollection
+    from product_catalog.services_collections import order_collections_tree
 
     categories = list(
         Category.objects.filter(is_active=True)
@@ -875,6 +877,7 @@ def _build_catalogs_context():
         metrics = product_metrics.get(product.id, {})
         product.total_views = metrics.get('total_views', 0)
         product.unique_ip_views = metrics.get('unique_ip_views', 0)
+        product.items_sold = metrics.get('items_sold', 0)
         public_url = product_urls.get(product.id)
         apply_index_state(
             product,
@@ -908,8 +911,8 @@ def _build_catalogs_context():
             IndexNowSubmission.STATUS_SUCCESS,
         )
 
-    collections = list(
-        MerchCollection.objects.filter(is_active=True)
+    collections = order_collections_tree(
+        MerchCollection.objects.all()
         .select_related("parent")
         .prefetch_related("children", "product_assignments")
         .order_by("order", "slug")
@@ -929,6 +932,7 @@ def _build_catalogs_context():
             "kind_label": collection.get_kind_display(),
             "parent_id": collection.parent_id,
             "parent_slug": collection.parent.slug if collection.parent else "",
+            "depth": len(ancestors),
             "path_label": " / ".join([*reversed(ancestors), collection.name_uk or collection.slug]),
             "name_uk": collection.name_uk,
             "name_ru": collection.name_ru,
@@ -958,12 +962,37 @@ def _build_catalogs_context():
             "cover_url": collection.cover_image.url if collection.cover_image else "",
         })
 
+    rows_by_id = {row["id"]: row for row in collection_rows}
+    collection_groups = []
+    groups_by_root_id = {}
+
+    def resolve_root_id(row):
+        current = row
+        seen = set()
+        while current.get("parent_id") in rows_by_id:
+            if current["id"] in seen:
+                break
+            seen.add(current["id"])
+            current = rows_by_id[current["parent_id"]]
+        return current["id"]
+
+    for row in collection_rows:
+        root_id = resolve_root_id(row)
+        group = groups_by_root_id.get(root_id)
+        if group is None:
+            group = {"root": rows_by_id[root_id], "descendants": []}
+            groups_by_root_id[root_id] = group
+            collection_groups.append(group)
+        if row["id"] != root_id:
+            group["descendants"].append(row)
+
     return {
         'categories': categories,
         'products': product_list,
         'catalogs': catalogs,
         'product_statuses': ProductStatus,
         'merch_collections': collection_rows,
+        'merch_collection_groups': collection_groups,
         'merch_collections_payload': collection_rows,
         'taxonomy_languages': (("uk", "UK"), ("ru", "RU"), ("en", "EN")),
     }
@@ -1574,11 +1603,23 @@ def admin_update_product_status(request):
         return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
 
     with transaction.atomic():
-        updated = Product.objects.filter(id=product_id).update(status=status_value)
-        if updated:
-            transaction.on_commit(bump_public_product_order_version)
-    if not updated:
-        return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+        product = (
+            Product.objects.select_for_update()
+            .select_related('category')
+            .filter(id=product_id)
+            .first()
+        )
+        if product is None:
+            return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+
+        product.status = status_value
+        try:
+            validate_published_apparel_audience(product)
+        except ValueError as exc:
+            return JsonResponse({'success': False, 'error': str(exc)}, status=400)
+
+        Product.objects.filter(id=product_id).update(status=status_value)
+        transaction.on_commit(bump_public_product_order_version)
 
     return JsonResponse({'success': True})
 

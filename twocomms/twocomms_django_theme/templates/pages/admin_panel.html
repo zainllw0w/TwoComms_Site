@@ -865,7 +865,7 @@
 
 {% block content %}
 {% csrf_token %}
-<div class="admin-panel">
+<div class="admin-panel{% if section == 'catalogs' %} admin-panel--catalogs{% endif %}">
   <!-- Заголовок админ-панели -->
         <div class="admin-header">
         <div class="admin-header-content">
@@ -1026,7 +1026,7 @@
           </div>
           
           <div class="section-stats">
-            <div class="stat-badge">
+            <div class="stat-badge" aria-label="Користувачі: {{ user_data|length }}" title="Кількість користувачів">
               <span class="stat-number" id="users-count">{{ user_data|length }}</span>
               <span class="stat-label">Користувачів</span>
             </div>
@@ -1499,13 +1499,13 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
-              <span id="categories-count">{{ categories|length }}</span>
+              <span class="stat-badge-label">Категорії</span><span id="categories-count">{{ categories|length }}</span>
             </div>
-            <div class="stat-badge">
+            <div class="stat-badge" aria-label="Товари: {{ products|length }}" title="Кількість товарів">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7V9h10v2zm0-4H7V7h10v2z"/>
               </svg>
-              <span id="products-count">{{ products|length }}</span>
+              <span class="stat-badge-label">Товари</span><span id="products-count">{{ products|length }}</span>
             </div>
             <button type="button" class="catalog-index-button catalog-index-button--bulk" data-action="indexnow-submit" data-index-state="idle" data-target-type="all" title="IndexNow: Не надсилали. Це статус прийняття API, а не гарантія появи у пошуку.">
               <span class="catalog-index-provider" aria-hidden="true">IN</span><span class="catalog-index-state-icon" aria-hidden="true"></span><span class="visually-hidden">IndexNow: Не надсилали</span>
@@ -1534,6 +1534,44 @@
           </div>
         </div>
 
+        <section class="catalog-taxonomy-section" aria-labelledby="catalog-taxonomy-heading">
+          <div class="catalog-taxonomy-header">
+            <div>
+              <div class="catalog-eyebrow">Мерчандайзинг</div>
+              <h3 id="catalog-taxonomy-heading">Колекції та підкатегорії</h3>
+            </div>
+            <button type="button" class="catalog-primary-button" data-taxonomy-action="add">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              Додати колекцію
+            </button>
+          </div>
+          <div class="catalog-taxonomy-overview" aria-label="Структура колекцій">
+            <span><strong>{{ merch_collection_groups|length }}</strong> верхнього рівня</span>
+            <span><strong>{{ merch_collections|length }}</strong> всього</span>
+          </div>
+          <div class="catalog-taxonomy-list catalog-taxonomy-board" id="catalog-taxonomy-list" role="tree" aria-label="Дерево колекцій та підкатегорій">
+            <div class="catalog-taxonomy-roots" role="none">
+              {% for group in merch_collection_groups %}
+                <div class="catalog-taxonomy-panel" role="none" data-root-id="{{ group.root.id }}">
+                  {% include 'partials/catalog_taxonomy_row.html' with collection=group.root taxonomy_first=forloop.first %}
+                </div>
+              {% empty %}
+                <div class="catalog-taxonomy-empty">Колекції ще не створені</div>
+              {% endfor %}
+            </div>
+            <div class="catalog-taxonomy-details" role="none">
+              {% for group in merch_collection_groups %}
+                <div class="catalog-taxonomy-children" role="group" aria-label="Підкатегорії {{ group.root.name_uk }}" data-taxonomy-children-root="{{ group.root.id }}" hidden>
+                  {% for collection in group.descendants %}
+                    {% include 'partials/catalog_taxonomy_row.html' with collection=collection taxonomy_first=False %}
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          {{ merch_collections_payload|json_script:"catalog-taxonomy-data" }}
+        </section>
+
         <!-- Категории -->
         <div class="categories-admin-section">
           <div class="subsection-header">
@@ -1557,16 +1595,18 @@
             {% for category in categories %}
               <div class="category-card catalog-category-row" role="listitem" data-category-name="{{ category.name|lower }}" data-category-id="{{ category.id }}">
                 <div class="category-header">
-                  <div class="category-icon">
-                    {% if category.icon %}
-                      <img src="{{ category.icon.url }}" alt="{{ category.name }}" class="category-icon-img">
-                    {% else %}
-                      <div class="category-icon-placeholder">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                        </svg>
-                      </div>
-                    {% endif %}
+                  <div class="catalog-category-media">
+                    <div class="category-icon">
+                      {% if category.icon %}
+                        <img src="{{ category.icon.url }}" alt="{{ category.name }}" class="category-icon-img">
+                      {% else %}
+                        <div class="category-icon-placeholder">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
+                        </div>
+                      {% endif %}
+                    </div>
                   </div>
                   <div class="category-info">
                     <div class="category-name" title="{{ category.name }}">{{ category.name }}</div>
@@ -1625,58 +1665,6 @@
                     </div>
         </div>
 
-        <section class="catalog-taxonomy-section" aria-labelledby="catalog-taxonomy-heading">
-          <div class="catalog-taxonomy-header">
-            <div>
-              <div class="catalog-eyebrow">Мерчандайзинг</div>
-              <h3 id="catalog-taxonomy-heading">Колекції та підкатегорії</h3>
-            </div>
-            <button type="button" class="catalog-primary-button" data-taxonomy-action="add">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              Додати колекцію
-            </button>
-          </div>
-          <div class="catalog-taxonomy-legend" aria-label="Стани SEO та індексації">
-            <span class="catalog-taxonomy-legend-item"><span class="catalog-taxonomy-dot catalog-taxonomy-dot-parent"></span> Верхній рівень</span>
-            <span class="catalog-taxonomy-legend-item"><span class="catalog-taxonomy-dot catalog-taxonomy-dot-child"></span> Підкатегорія</span>
-            <span class="catalog-taxonomy-legend-item"><span class="catalog-taxonomy-status catalog-taxonomy-status-indexable">SEO</span> Індексована</span>
-          </div>
-          <div class="catalog-taxonomy-list" id="catalog-taxonomy-list" role="tree" aria-label="Дерево колекцій та підкатегорій">
-            {% for collection in merch_collections %}
-              <div class="catalog-taxonomy-row{% if collection.parent_id %} is-child{% endif %}" role="treeitem" tabindex="{% if forloop.first %}0{% else %}-1{% endif %}" aria-level="{% if collection.parent_id %}2{% else %}1{% endif %}"{% if collection.children_count %} aria-expanded="true"{% endif %} aria-label="{{ collection.name_uk }}{% if collection.parent_id %}, підкатегорія{% endif %}" data-collection-id="{{ collection.id }}" data-parent-id="{{ collection.parent_id|default:'' }}" data-collection-name="{{ collection.name_uk|lower }}">
-                <div class="catalog-taxonomy-asset">
-                  {% if collection.icon_url %}<img src="{{ collection.icon_url }}" alt="" loading="lazy">{% elif collection.cover_url %}<img src="{{ collection.cover_url }}" alt="" loading="lazy">{% else %}<span class="catalog-taxonomy-asset-placeholder" aria-hidden="true">{{ collection.name_uk|slice:':1' }}</span>{% endif %}
-                </div>
-                <div class="catalog-taxonomy-main">
-                  <div class="catalog-taxonomy-name-line">
-                    {% if collection.parent_id %}<span class="catalog-taxonomy-branch" aria-hidden="true">↳</span>{% endif %}
-                    <strong title="{{ collection.name_uk }}">{{ collection.name_uk }}</strong>
-                    <span class="catalog-taxonomy-kind">{{ collection.kind_label }}</span>
-                  </div>
-                  <div class="catalog-taxonomy-path">{{ collection.path_label }} <span aria-hidden="true">·</span> {{ collection.slug }}</div>
-                </div>
-                <div class="catalog-taxonomy-metrics">
-                  <span>{{ collection.product_count }} товарів</span>
-                  {% if collection.children_count %}<span>{{ collection.children_count }} підкатег.</span>{% endif %}
-                </div>
-                <div class="catalog-taxonomy-seo">
-                  {% if collection.indexable %}<span class="catalog-taxonomy-status catalog-taxonomy-status-indexable" title="Сторінка дозволена до індексації">SEO</span>{% else %}<span class="catalog-taxonomy-status" title="Сторінка не надсилається як indexable">NOINDEX</span>{% endif %}
-                  {% if collection.seo_title_uk and collection.seo_description_uk %}<span class="catalog-taxonomy-status catalog-taxonomy-status-complete" title="Заповнено title та description">Meta</span>{% else %}<span class="catalog-taxonomy-status catalog-taxonomy-status-warning" title="SEO-поля потребують уваги">Meta</span>{% endif %}
-                </div>
-                <div class="catalog-taxonomy-actions">
-                  <button type="button" class="catalog-icon-button" data-taxonomy-action="move" data-direction="up" data-id="{{ collection.id }}" aria-label="Підняти {{ collection.name_uk }}" title="Підняти"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7.41 15.41 4.59-4.58 4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
-                  <button type="button" class="catalog-icon-button" data-taxonomy-action="move" data-direction="down" data-id="{{ collection.id }}" aria-label="Опустити {{ collection.name_uk }}" title="Опустити"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7.41 8.59 4.59 4.58 4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
-                  <button type="button" class="catalog-icon-button catalog-icon-button-edit" data-taxonomy-action="edit" data-id="{{ collection.id }}" aria-label="Редагувати {{ collection.name_uk }}" title="Редагувати"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
-                  <button type="button" class="catalog-icon-button catalog-icon-button-delete" data-taxonomy-action="archive" data-id="{{ collection.id }}" data-name="{{ collection.name_uk }}" aria-label="Архівувати {{ collection.name_uk }}" title="Архівувати"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.54 5.23 19.15 3.5A1.99 1.99 0 0 0 17.59 3H6.41c-.61 0-1.18.28-1.56.75L3.46 5.23A.99.99 0 0 0 3 6v2c0 .55.45 1 1 1h1v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V9h1c.55 0 1-.45 1-1V6c0-.28-.1-.55-.46-.77zM6.24 5h11.52l.8 1H5.44l.8-1zM17 19H7V9h10v10z"/></svg></button>
-                </div>
-              </div>
-            {% empty %}
-              <div class="catalog-taxonomy-empty">Колекції ще не створені</div>
-            {% endfor %}
-          </div>
-          {{ merch_collections_payload|json_script:"catalog-taxonomy-data" }}
-        </section>
-
         <!-- Товары -->
         <div class="products-admin-section">
           <div class="subsection-header">
@@ -1703,23 +1691,10 @@
           <div class="products-grid">
             {% for product in products %}
               <div class="product-card catalog-product-row" data-product-id="{{ product.id }}" data-product-name="{{ product.title|lower }}" data-category-name="{{ product.category.name|lower }}" data-order-position="{{ forloop.counter }}">
-                <div class="product-header">
-                  <button type="button" class="product-drag-handle" data-drag-handle aria-label="Перемістити товар {{ product.title }}. Стрілки вгору або вниз змінюють позицію">
-                    <span class="product-drag-handle-icon" aria-hidden="true">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                        <circle cx="8" cy="6" r="1.5"></circle>
-                        <circle cx="16" cy="6" r="1.5"></circle>
-                        <circle cx="8" cy="12" r="1.5"></circle>
-                        <circle cx="16" cy="12" r="1.5"></circle>
-                        <circle cx="8" cy="18" r="1.5"></circle>
-                        <circle cx="16" cy="18" r="1.5"></circle>
-                      </svg>
-                    </span>
-                    <span class="product-drag-order" data-product-order-index>{{ forloop.counter }}</span>
-                  </button>
+                <div class="catalog-product-media">
                   <div class="product-image">
                     {% if product.display_image %}
-                      <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-img">
+                      <img src="{{ product.display_image.url }}" alt="{{ product.title }}" class="product-img" loading="lazy">
                     {% else %}
                       <div class="product-image-placeholder">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
@@ -1728,15 +1703,30 @@
                       </div>
                     {% endif %}
                   </div>
+                  <button type="button" class="product-drag-handle" data-drag-handle aria-label="Перемістити товар {{ product.title }}. Стрілки вгору або вниз змінюють позицію" title="Перемістити товар">
+                    <span class="product-drag-handle-icon" aria-hidden="true">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+                        <circle cx="8" cy="6" r="1.5"></circle><circle cx="16" cy="6" r="1.5"></circle>
+                        <circle cx="8" cy="12" r="1.5"></circle><circle cx="16" cy="12" r="1.5"></circle>
+                        <circle cx="8" cy="18" r="1.5"></circle><circle cx="16" cy="18" r="1.5"></circle>
+                      </svg>
+                    </span>
+                  </button>
+                  <span class="product-drag-order" data-product-order-index title="Позиція у каталозі">{{ forloop.counter }}</span>
+                  <span class="catalog-product-state catalog-product-state--{{ product.status }}">{{ product.get_status_display }}</span>
+                </div>
+
+                <div class="catalog-product-body">
                   <div class="product-info">
                     <div class="product-title" title="{{ product.title }}">{{ product.title }}</div>
-                    <div class="product-category">{{ product.category.name }}</div>
-                    <div class="catalog-product-slug">/{{ product.slug }}/</div>
+                    <div class="catalog-product-meta-line">
+                      <span class="product-category">{{ product.category.name }}</span>
+                      <span class="catalog-product-slug" title="/{{ product.slug }}/">/{{ product.slug }}/</span>
+                    </div>
                   </div>
-                </div>
-                
-                <div class="product-details">
-                  <div class="product-price">
+
+                  <div class="catalog-product-commerce">
+                    <div class="product-price">
                     {% if product.has_discount %}
                       <span class="price-old">{{ product.price }} грн</span>
                       <span class="price-new">{{ product.final_price }} грн</span>
@@ -1744,68 +1734,70 @@
                     {% else %}
                       <span class="price-current">{{ product.price }} грн</span>
                     {% endif %}
-                  </div>
-                  
-                  <div class="product-features">
-                    {% if product.featured %}
-                      <span class="feature-badge featured">Рекомендований</span>
-                    {% endif %}
-                    {% if product.points_reward > 0 %}
-                      <span class="feature-badge points">+{{ product.points_reward }} балів</span>
-                    {% endif %}
-                  </div>
-                </div>
-                
-                <div class="product-stats">
-                  <div class="product-stat">
-                    <div class="stat-number">{{ product.color_variants.count|default:0 }}</div>
-                    <div class="stat-label">Кольорів</div>
-                  </div>
-                  <div class="product-stat">
-                    <div class="stat-number">{{ product.images.count|default:0 }}</div>
-                    <div class="stat-label">Фото</div>
-                  </div>
-                  <div class="product-stat">
-                    <div class="stat-number">{{ product.total_views|default:0 }}</div>
-                    <div class="stat-label">Всього переглядів</div>
-                  </div>
-                  <div class="product-stat">
-                    <div class="stat-number">{{ product.unique_ip_views|default:0 }}</div>
-                    <div class="stat-label">Унікальних IP</div>
+                    </div>
+                    <div class="product-features">
+                      {% if product.featured %}<span class="feature-badge featured" title="Рекомендований товар">★</span>{% endif %}
+                      {% if product.points_reward > 0 %}<span class="feature-badge points" title="{{ product.points_reward }} бонусних балів">+{{ product.points_reward }}</span>{% endif %}
+                    </div>
                   </div>
                 </div>
 
-                <div class="product-actions catalog-product-actions">
-                  <div class="status-select">
-                    <label class="visually-hidden" for="product-status-{{ product.id }}">Статус товару {{ product.title }}</label>
-                    <select id="product-status-{{ product.id }}" class="form-select form-select-sm" data-action="update-product-status" data-product-id="{{ product.id }}">
-                      {% for key, label in product_statuses.choices %}
-                        <option value="{{ key }}" {% if product.status == key %}selected{% endif %}>{{ label }}</option>
-                      {% endfor %}
-                    </select>
+                <div class="catalog-product-metrics" aria-label="Статистика товару">
+                  <div class="catalog-product-metric" aria-label="Кольорів: {{ product.color_variants.count|default:0 }}" title="Кольори">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 8h.01M16 12h.01M12 16h.01" stroke-linecap="round"/></svg>
+                    <strong>{{ product.color_variants.count|default:0 }}</strong>
                   </div>
-                  <div class="catalog-index-cluster" aria-label="Надсилання URL до пошукових API">
-                    <button type="button" class="catalog-index-button" data-action="indexnow-submit" data-target-type="product" data-target-id="{{ product.id }}" data-index-state="{{ product.indexnow_state|default:'idle' }}" title="IndexNow: {{ product.indexnow_state_label|default:'Не надсилали' }}. Це статус прийняття API, а не гарантія появи у пошуку.">
-                      <span class="catalog-index-provider" aria-hidden="true">IN</span>
-                      <span class="catalog-index-state-icon" aria-hidden="true"></span>
-                      <span class="visually-hidden">IndexNow: {{ product.indexnow_state_label|default:'Не надсилали' }}</span>
-                    </button>
-                    <button type="button" class="catalog-index-button" data-action="google-indexing-submit" data-target-type="product" data-target-id="{{ product.id }}" data-index-state="{{ product.google_index_state|default:'idle' }}" title="Google Indexing API: {{ product.google_index_state_label|default:'Не надсилали' }}. Це статус прийняття API, а не перевірка Search Console.">
-                      <span class="catalog-index-provider" aria-hidden="true">G</span>
-                      <span class="catalog-index-state-icon" aria-hidden="true"></span>
-                      <span class="visually-hidden">Google Indexing API: {{ product.google_index_state_label|default:'Не надсилали' }}</span>
-                    </button>
+                  <div class="catalog-product-metric" aria-label="Фото: {{ product.images.count|default:0 }}" title="Фотографії">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-5-5L5 19"/></svg>
+                    <strong>{{ product.images.count|default:0 }}</strong>
                   </div>
-                  <a href="{% url 'product_catalog_product_edit' product.id %}" class="catalog-icon-button catalog-icon-button-edit" aria-label="Редагувати товар {{ product.title }}" title="Редагувати товар">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                    </svg>
-                  </a>
-                  <button type="button" class="catalog-icon-button catalog-icon-button-delete" data-action="delete-product" data-id="{{ product.id }}" data-name="{{ product.title }}" data-delete-endpoint="{% url 'product_catalog_api_product_delete' %}" aria-label="Видалити товар {{ product.title }}" title="Видалити товар">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                    </svg>
-                  </button>
+                  <div class="catalog-product-metric" aria-label="Переглядів: {{ product.total_views|default:0 }}" title="Усього переглядів">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                    <strong>{{ product.total_views|default:0 }}</strong>
+                  </div>
+                  <div class="catalog-product-metric" aria-label="Унікальних відвідувачів: {{ product.unique_ip_views|default:0 }}" title="Унікальні відвідувачі">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3.4 2.3-5 5.5-5s5 1.6 5.5 5"/><path d="M15 6.5a3 3 0 0 1 0 5.5M16 14c2.6.3 4 1.9 4.5 5"/></svg>
+                    <strong>{{ product.unique_ip_views|default:0 }}</strong>
+                  </div>
+                  <div class="catalog-product-metric catalog-product-metric--sales" aria-label="Продано одиниць: {{ product.items_sold|default:0 }}" title="Продано одиниць">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 7h14l-1 13H6L5 7Z"/><path d="M9 9V5a3 3 0 0 1 6 0v4"/><path d="m9 14 2 2 4-4"/></svg>
+                    <strong>{{ product.items_sold|default:0 }}</strong>
+                  </div>
+                </div>
+
+                <div class="catalog-product-footer">
+                  <div class="catalog-product-status-row">
+                    <div class="status-select">
+                      <label class="visually-hidden" for="product-status-{{ product.id }}">Статус товару {{ product.title }}</label>
+                      <select id="product-status-{{ product.id }}" class="form-select form-select-sm" data-action="update-product-status" data-product-id="{{ product.id }}">
+                        {% for key, label in product_statuses.choices %}
+                          <option value="{{ key }}" {% if product.status == key %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  </div>
+                  <div class="catalog-product-actions">
+                    <div class="catalog-index-cluster" aria-label="Надсилання URL до пошукових API">
+                      <button type="button" class="catalog-index-button" data-action="indexnow-submit" data-target-type="product" data-target-id="{{ product.id }}" data-index-state="{{ product.indexnow_state|default:'idle' }}" title="IndexNow: {{ product.indexnow_state_label|default:'Не надсилали' }}. Це статус прийняття API, а не гарантія появи у пошуку.">
+                        <span class="catalog-index-provider" aria-hidden="true">IN</span><span class="catalog-index-state-icon" aria-hidden="true"></span><span class="visually-hidden">IndexNow: {{ product.indexnow_state_label|default:'Не надсилали' }}</span>
+                      </button>
+                      <button type="button" class="catalog-index-button" data-action="google-indexing-submit" data-target-type="product" data-target-id="{{ product.id }}" data-index-state="{{ product.google_index_state|default:'idle' }}" title="Google Indexing API: {{ product.google_index_state_label|default:'Не надсилали' }}. Це статус прийняття API, а не перевірка Search Console.">
+                        <span class="catalog-index-provider" aria-hidden="true">G</span><span class="catalog-index-state-icon" aria-hidden="true"></span><span class="visually-hidden">Google Indexing API: {{ product.google_index_state_label|default:'Не надсилали' }}</span>
+                      </button>
+                    </div>
+                    <div class="catalog-product-crud-actions">
+                      <a href="{% url 'product_catalog_product_edit' product.id %}" class="catalog-icon-button catalog-icon-button-edit" aria-label="Редагувати товар {{ product.title }}" title="Редагувати товар">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                      </svg>
+                      </a>
+                      <button type="button" class="catalog-icon-button catalog-icon-button-delete" data-action="delete-product" data-id="{{ product.id }}" data-name="{{ product.title }}" data-delete-endpoint="{% url 'product_catalog_api_product_delete' %}" aria-label="Видалити товар {{ product.title }}" title="Видалити товар">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                      </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             {% empty %}
@@ -1859,7 +1851,7 @@
               <label>Accent token<input name="accent_token" maxlength="40"></label>
               <div class="catalog-taxonomy-asset-editor" data-taxonomy-asset="icon">
                 <span class="catalog-taxonomy-asset-preview"><img data-taxonomy-preview="icon" alt="Попередній перегляд іконки" hidden><i data-taxonomy-placeholder="icon" aria-hidden="true">PNG</i></span>
-                <label class="catalog-file-field">Іконка PNG<input type="file" name="icon" accept="image/png,image/svg+xml,image/webp"><small data-taxonomy-current="icon">Не завантажено</small></label>
+                <label class="catalog-file-field">Іконка PNG/WebP<input type="file" name="icon" accept="image/png,image/webp"><small data-taxonomy-current="icon">Не завантажено</small></label>
                 <input type="hidden" name="clear_icon" value="0">
                 <button type="button" class="catalog-icon-button catalog-icon-button-delete" data-taxonomy-remove="icon" aria-label="Прибрати іконку" title="Прибрати іконку" hidden><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
               </div>
@@ -3245,7 +3237,7 @@ function filterCatalogs(searchTerm) {
     const isVisible = categoryName.includes(searchTerm);
     
     if (isVisible) {
-      card.style.display = 'block';
+      card.style.display = '';
       visibleCategories++;
     } else {
       card.style.display = 'none';
@@ -3259,7 +3251,7 @@ function filterCatalogs(searchTerm) {
     const isVisible = productName.includes(searchTerm) || categoryName.includes(searchTerm);
     
     if (isVisible) {
-      card.style.display = 'block';
+      card.style.display = '';
       visibleProducts++;
     } else {
       card.style.display = 'none';
@@ -3872,9 +3864,12 @@ document.addEventListener('click', event => {
   const csrf = document.querySelector('[name=csrfmiddlewaretoken]');
 
   selects.forEach(select => {
+    select.dataset.previousStatus = select.value;
     select.addEventListener('change', () => {
       const productId = select.dataset.productId;
       const status = select.value;
+      const previousStatus = select.dataset.previousStatus || select.value;
+      select.disabled = true;
       fetch('/admin-panel/products/update-status/', {
         method: 'POST',
         headers: {
@@ -3886,11 +3881,16 @@ document.addEventListener('click', event => {
         .then(res => res.json())
         .then(data => {
           if (!data.success) throw new Error(data.error || 'Не вдалося оновити статус');
+          select.dataset.previousStatus = status;
           showNotification('Статус оновлено', 'success');
         })
         .catch(err => {
           console.error(err);
-          showNotification('Помилка оновлення статусу', 'error');
+          select.value = previousStatus;
+          showNotification(err.message || 'Помилка оновлення статусу', 'error');
+        })
+        .finally(() => {
+          select.disabled = false;
         });
     });
   });
@@ -5754,7 +5754,47 @@ document.addEventListener('DOMContentLoaded', function() {
   const previewUrls = new Map();
   let returnFocus = null;
 
-  const treeItems = () => Array.from(list.querySelectorAll('[role="treeitem"]'));
+  const allTreeItems = () => Array.from(list.querySelectorAll('[role="treeitem"]'));
+  const treeItems = () => allTreeItems().filter(row => !row.hidden);
+  const refreshTreeVisibility = () => {
+    const itemsById = new Map(allTreeItems().map(row => [row.dataset.collectionId, row]));
+    allTreeItems().forEach(row => {
+      let parent = itemsById.get(row.dataset.parentId);
+      let hidden = false;
+      const seen = new Set();
+      while (parent && !seen.has(parent.dataset.collectionId)) {
+        seen.add(parent.dataset.collectionId);
+        if (parent.getAttribute('aria-expanded') === 'false' || parent.hidden) hidden = true;
+        parent = itemsById.get(parent.dataset.parentId);
+      }
+      row.hidden = hidden;
+    });
+    list.querySelectorAll('[data-taxonomy-children-root]').forEach(group => {
+      group.hidden = !group.querySelector('[role="treeitem"]:not([hidden])');
+    });
+  };
+  const updateBranchToggle = (item, expanded) => {
+    item.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    const toggle = item.querySelector('[data-taxonomy-action="toggle"]');
+    if (!toggle) return;
+    const name = (item.querySelector('.catalog-taxonomy-name-line strong') || {}).textContent || '';
+    toggle.setAttribute('aria-label', `${expanded ? 'Згорнути' : 'Розгорнути'} ${name}`.trim());
+    toggle.title = expanded ? 'Згорнути' : 'Розгорнути';
+  };
+  const collapseSiblingRootBranches = item => {
+    if (item.dataset.parentId) return;
+    allTreeItems().forEach(row => {
+      if (row === item || row.dataset.parentId || !row.hasAttribute('aria-expanded')) return;
+      updateBranchToggle(row, false);
+    });
+  };
+  const setBranchExpanded = (item, expanded) => {
+    if (!item || !item.hasAttribute('aria-expanded')) return;
+    if (expanded) collapseSiblingRootBranches(item);
+    updateBranchToggle(item, expanded);
+    refreshTreeVisibility();
+  };
+  refreshTreeVisibility();
   const focusTreeItem = item => {
     if (!item) return;
     treeItems().forEach(row => { row.tabIndex = row === item ? 0 : -1; });
@@ -5776,8 +5816,18 @@ document.addEventListener('DOMContentLoaded', function() {
     if (event.key === 'ArrowUp') target = items[current - 1];
     if (event.key === 'Home') target = items[0];
     if (event.key === 'End') target = items[items.length - 1];
+    if (event.key === 'ArrowRight' && item.getAttribute('aria-expanded') === 'false') {
+      event.preventDefault();
+      setBranchExpanded(item, true);
+      return;
+    }
     if (event.key === 'ArrowRight' && item.getAttribute('aria-expanded') === 'true') {
       target = items.find(row => row.dataset.parentId === item.dataset.collectionId);
+    }
+    if (event.key === 'ArrowLeft' && item.getAttribute('aria-expanded') === 'true') {
+      event.preventDefault();
+      setBranchExpanded(item, false);
+      return;
     }
     if (event.key === 'ArrowLeft' && item.dataset.parentId) {
       target = items.find(row => row.dataset.collectionId === item.dataset.parentId);
@@ -5786,6 +5836,67 @@ document.addEventListener('DOMContentLoaded', function() {
     event.preventDefault();
     focusTreeItem(target);
   });
+
+  let draggedItem = null;
+  const clearDragState = () => {
+    allTreeItems().forEach(row => {
+      row.classList.remove('is-dragging', 'is-drop-target');
+      row.setAttribute('aria-grabbed', 'false');
+    });
+    draggedItem = null;
+  };
+  list.addEventListener('dragstart', event => {
+    const item = event.target.closest('[role="treeitem"]');
+    if (!item || event.target.closest('button, input, select, textarea, a')) {
+      event.preventDefault();
+      return;
+    }
+    draggedItem = item;
+    item.classList.add('is-dragging');
+    item.setAttribute('aria-grabbed', 'true');
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', item.dataset.collectionId);
+    }
+  });
+  list.addEventListener('dragover', event => {
+    const target = event.target.closest('[role="treeitem"]');
+    if (!draggedItem || !target || target === draggedItem || target.dataset.parentId !== draggedItem.dataset.parentId) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    allTreeItems().forEach(row => row.classList.toggle('is-drop-target', row === target));
+  });
+  list.addEventListener('drop', async event => {
+    const target = event.target.closest('[role="treeitem"]');
+    if (!draggedItem || !target || target === draggedItem || target.dataset.parentId !== draggedItem.dataset.parentId) return;
+    event.preventDefault();
+    const siblings = allTreeItems().filter(row => !row.hidden && row.dataset.parentId === draggedItem.dataset.parentId);
+    const ordered = siblings.map(row => row.dataset.collectionId);
+    const draggedId = draggedItem.dataset.collectionId;
+    const targetId = target.dataset.collectionId;
+    const fromIndex = ordered.indexOf(draggedId);
+    if (fromIndex < 0) return clearDragState();
+    ordered.splice(fromIndex, 1);
+    let targetIndex = ordered.indexOf(targetId);
+    const midpoint = target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
+    if (event.clientY >= midpoint) targetIndex += 1;
+    ordered.splice(targetIndex, 0, draggedId);
+    clearDragState();
+    try {
+      const response = await fetch(reorderEndpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf, 'X-Requested-With': 'XMLHttpRequest'},
+        credentials: 'same-origin',
+        body: JSON.stringify({ids: ordered}),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok === false) throw new Error(result.error || 'Не вдалося змінити порядок');
+      window.location.reload();
+    } catch (err) {
+      if (typeof showNotification === 'function') showNotification(err.message, 'error');
+    }
+  });
+  list.addEventListener('dragend', clearDragState);
 
   const setAssetPreview = (kind, url) => {
     const preview = form.querySelector(`[data-taxonomy-preview="${kind}"]`);
@@ -5835,7 +5946,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (error) error.textContent = '';
   };
 
-  const openForm = (id, trigger) => {
+  const openForm = (id, trigger, options = {}) => {
     returnFocus = trigger || document.activeElement;
     resetForm();
     const row = id ? byId.get(String(id)) : null;
@@ -5845,6 +5956,10 @@ document.addEventListener('DOMContentLoaded', function() {
       setField('id', row.id);
       setChecked('indexable', row.indexable);
       setChecked('is_active', row.is_active);
+      if (options.restore) {
+        setChecked('is_active', true);
+        dialog.querySelector('#catalog-taxonomy-dialog-title').textContent = `Відновити: ${row.name_uk}`;
+      }
       setAssetPreview('icon', row.icon_url || '');
       setAssetPreview('cover', row.cover_url || '');
       const parent = field('parent_id');
@@ -5868,7 +5983,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const button = event.target.closest('[data-taxonomy-action]');
     if (!button) return;
     const action = button.dataset.taxonomyAction;
+    if (action === 'toggle') {
+      const item = button.closest('[role="treeitem"]');
+      setBranchExpanded(item, item.getAttribute('aria-expanded') !== 'true');
+      return;
+    }
     if (action === 'edit') return openForm(button.dataset.id, button);
+    if (action === 'restore') return openForm(button.dataset.id, button, {restore: true});
     if (action === 'add') return openForm('', button);
     if (action === 'close') return closeForm();
 

@@ -126,6 +126,14 @@ class CategoryAdminTests(TestCase):
             / "pages"
             / "admin_panel.html"
         ).read_text(encoding="utf-8")
+        taxonomy_row = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "partials"
+            / "catalog_taxonomy_row.html"
+        ).read_text(encoding="utf-8")
+        template += "\n" + taxonomy_row
 
         self.assertIn("{% url 'admin_category_new' %}", template)
         self.assertIn("data-delete-endpoint=\"{% url 'admin_category_delete' category.id %}\"", template)

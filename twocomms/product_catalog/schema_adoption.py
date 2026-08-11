@@ -16,7 +16,9 @@ import shutil
 from typing import Any, Callable, Iterable, Sequence
 
 from django.apps import AppConfig, apps
-from django.db import connections, transaction
+from django.contrib.auth import get_permission_codename
+from django.core.exceptions import FieldDoesNotExist
+from django.db import connections
 from django.db.migrations.loader import MigrationLoader
 from django.db.migrations.recorder import MigrationRecorder
 
@@ -333,6 +335,32 @@ def classify_table_state(
     return "resumable"
 
 
+def unexpected_prefixed_tables(
+    manifest: Sequence[TableManifestItem],
+    actual_tables: set[str],
+    *,
+    legacy_prefix: str,
+    current_prefix: str,
+    known_current_tables: set[str] | None = None,
+) -> dict[str, set[str]]:
+    """Identify orphan legacy/current tables outside the adoption boundary."""
+
+    expected_legacy = {item.legacy_table for item in manifest}
+    expected_current = {item.current_table for item in manifest}
+    known_current = set(known_current_tables or expected_current)
+    legacy_candidates = {
+        table for table in actual_tables if table.startswith(f"{legacy_prefix}_")
+    }
+    current_candidates = {
+        table for table in actual_tables if table.startswith(f"{current_prefix}_")
+    }
+    return {
+        "legacy": legacy_candidates - expected_legacy,
+        "unknown_current": current_candidates - expected_current - known_current,
+        "known_post_boundary": current_candidates & (known_current - expected_current),
+    }
+
+
 def classify_metadata_state(
     *,
     table_state: str,
@@ -341,15 +369,18 @@ def classify_metadata_state(
 ) -> str:
     """Classify migration/ContentType identity independently from table names."""
 
-    if has_legacy_metadata and has_current_metadata:
-        raise SchemaAdoptionError("legacy and current metadata both exist")
     if table_state == "fresh":
+        if has_legacy_metadata or has_current_metadata:
+            raise SchemaAdoptionError("metadata exists without catalog tables")
         return "fresh"
     if table_state == "legacy":
         if has_current_metadata:
             raise SchemaAdoptionError("current metadata exists while legacy tables remain")
-        return "legacy"
+        if has_legacy_metadata:
+            return "legacy"
     if table_state in {"adopted", "resumable"}:
+        if has_legacy_metadata and has_current_metadata:
+            return "resumable"
         if has_legacy_metadata:
             return "resumable"
         if has_current_metadata:
@@ -440,6 +471,11 @@ def verify_adoption_invariants(
         after_row = after.get(target_table)
         if after_row is None:
             raise SchemaAdoptionError(f"adoption invariant failed: missing table {target_table}")
+        for row in (before_row, after_row):
+            if str(row.get("engine") or "").upper() != "INNODB":
+                raise SchemaAdoptionError(
+                    f"adoption invariant failed for {target_table}: table must use InnoDB"
+                )
         for key in ("count", "engine", "collation", "auto_increment"):
             expected = before_row.get(key)
             actual = after_row.get(key)
@@ -581,6 +617,15 @@ class SchemaAdoption:
         )
         self.adoption_last_migration = last_migration
 
+    def _assert_mysql_for_write(self) -> None:
+        """Refuse destructive adoption writes on any non-MySQL connection."""
+
+        connection = getattr(self, "connection", None)
+        if connection is not None and connection.vendor != "mysql":
+            raise SchemaAdoptionError(
+                "catalog schema adoption requires MySQL; no tables were changed"
+            )
+
     def _table_names(self) -> set[str]:
         return set(self.connection.introspection.table_names())
 
@@ -717,6 +762,22 @@ class SchemaAdoption:
         current_content_types = self._content_type_rows(self.current_app_label)
         legacy_permissions = self._permission_rows(self.legacy_app_label)
         current_permissions = self._permission_rows(self.current_app_label)
+        known_current_tables = {
+            model._meta.db_table
+            for model in apps.get_app_config(self.current_app_label).get_models()
+        }
+        extra_tables = unexpected_prefixed_tables(
+            self.manifest,
+            actual,
+            legacy_prefix=self.legacy_table_prefix,
+            current_prefix=self.current_app_label,
+            known_current_tables=known_current_tables,
+        )
+        if extra_tables["legacy"] or extra_tables["unknown_current"]:
+            extras = sorted(extra_tables["legacy"] | extra_tables["unknown_current"])
+            raise SchemaAdoptionError(
+                "unexpected catalog-prefixed tables: " + ", ".join(extras)
+            )
         expected_models = {item.model_label.rsplit(".", 1)[-1].lower() for item in self.manifest}
         legacy_metadata = bool(legacy_migrations or legacy_content_types or legacy_permissions)
         current_metadata = bool(current_migrations or current_content_types or current_permissions)
@@ -726,27 +787,38 @@ class SchemaAdoption:
             has_current_metadata=current_metadata,
         )
 
+        post_boundary_migrations = {
+            row["name"] for row in current_migrations
+        } - set(expected_migrations)
+        if extra_tables["known_post_boundary"] and not (
+            state == "adopted" and post_boundary_migrations
+        ):
+            raise SchemaAdoptionError(
+                "post-boundary catalog tables exist before their migrations are recorded: "
+                + ", ".join(sorted(extra_tables["known_post_boundary"]))
+            )
+
         if metadata_state in {"legacy", "resumable"}:
-            names = {row["name"] for row in legacy_migrations}
+            combined_migrations = [*legacy_migrations, *current_migrations]
+            names = {row["name"] for row in combined_migrations}
             if names != set(expected_migrations):
                 raise SchemaAdoptionError(
                     f"legacy migration manifest mismatch: expected {expected_migrations}, got {sorted(names)}"
                 )
-            if len(legacy_content_types) != len(expected_models):
+            if len(names) != len(combined_migrations):
+                raise SchemaAdoptionError("migration recorder contains duplicate catalog rows")
+            combined_content_types = [*legacy_content_types, *current_content_types]
+            if len(combined_content_types) != len(expected_models):
                 raise SchemaAdoptionError(
-                    f"legacy ContentType manifest mismatch: expected {len(expected_models)}, got {len(legacy_content_types)}"
+                    f"catalog ContentType manifest mismatch: expected {len(expected_models)}, got {len(combined_content_types)}"
                 )
-            if {row["model"] for row in legacy_content_types} != expected_models:
-                raise SchemaAdoptionError("legacy ContentType model set does not match catalog manifest")
+            if {row["model"] for row in combined_content_types} != expected_models:
+                raise SchemaAdoptionError("ContentType model set does not match catalog manifest")
             self._validate_permission_manifest(
-                app_label=self.legacy_app_label,
-                content_types=legacy_content_types,
-                permissions=legacy_permissions,
+                app_label="catalog",
+                content_types=combined_content_types,
+                permissions=[*legacy_permissions, *current_permissions],
             )
-            if current_migrations:
-                raise SchemaAdoptionError("current migration rows already exist while legacy schema remains")
-            if current_content_types or current_permissions:
-                raise SchemaAdoptionError("current ContentTypes already exist while legacy schema remains")
         elif metadata_state == "adopted":
             names = {row["name"] for row in current_migrations}
             if not set(expected_migrations).issubset(names):
@@ -767,6 +839,13 @@ class SchemaAdoption:
             table = item.current_table if state in {"adopted", "resumable"} and item.current_table in actual else item.legacy_table
             if table in actual:
                 metadata = self._table_metadata(table)
+                if (
+                    self.connection.vendor == "mysql"
+                    and str(metadata.get("engine") or "").upper() != "INNODB"
+                ):
+                    raise SchemaAdoptionError(
+                        f"catalog table {table} must use InnoDB before adoption"
+                    )
                 table_rows.append(metadata)
                 table_metadata[table] = metadata
         identifier_renames = build_identifier_rename_plan(
@@ -791,6 +870,7 @@ class SchemaAdoption:
             "legacy_permissions": legacy_permissions,
             "current_permissions": current_permissions,
             "identifier_renames": [asdict(row) for row in identifier_renames],
+            "known_post_boundary_tables": sorted(extra_tables["known_post_boundary"]),
         }
 
     @staticmethod
@@ -839,30 +919,62 @@ class SchemaAdoption:
                 "database identifier adoption requires MySQL"
             )
         quote_name = self.connection.ops.quote_name
+        actual_tables = self._table_names()
         for raw in rows:
             row = raw if isinstance(raw, DatabaseIdentifierRename) else DatabaseIdentifierRename(**raw)
             source = row.new_name if reverse else row.old_name
             target = row.old_name if reverse else row.new_name
+            has_legacy_table = row.legacy_table in actual_tables
+            has_current_table = row.current_table in actual_tables
+            if has_legacy_table and has_current_table:
+                raise SchemaAdoptionError(
+                    f"database identifier table is ambiguous: {row.legacy_table}, "
+                    f"{row.current_table}"
+                )
+            if reverse and has_legacy_table:
+                physical_table = row.legacy_table
+            elif has_current_table:
+                physical_table = row.current_table
+            elif not reverse and has_legacy_table:
+                raise SchemaAdoptionError(
+                    "forward identifier rename requires current table: "
+                    f"{row.current_table}"
+                )
+            else:
+                raise SchemaAdoptionError(
+                    "database identifier table is missing: "
+                    f"{row.legacy_table}, {row.current_table}"
+                )
             with self.connection.cursor() as cursor:
                 constraints = self.connection.introspection.get_constraints(
                     cursor,
-                    row.current_table,
+                    physical_table,
                 )
             has_source = source in constraints
             has_target = target in constraints
             if has_source and has_target:
                 raise SchemaAdoptionError(
-                    f"both database identifiers exist on {row.current_table}: "
+                    f"both database identifiers exist on {physical_table}: "
                     f"{source}, {target}"
+                )
+            if reverse and physical_table == row.legacy_table:
+                if has_target and not has_source:
+                    report.setdefault("identifier_renames_skipped", []).append(
+                        {"table": physical_table, "name": target}
+                    )
+                    continue
+                raise SchemaAdoptionError(
+                    f"legacy table has ambiguous database identifier state on "
+                    f"{physical_table}: {source}, {target}"
                 )
             if not has_source:
                 if has_target:
                     report.setdefault("identifier_renames_skipped", []).append(
-                        {"table": row.current_table, "name": target}
+                        {"table": physical_table, "name": target}
                     )
                     continue
                 raise SchemaAdoptionError(
-                    f"database identifier is missing on {row.current_table}: {source}"
+                    f"database identifier is missing on {physical_table}: {source}"
                 )
             sql = database_identifier_rename_sql(
                 row,
@@ -874,16 +986,16 @@ class SchemaAdoption:
             with self.connection.cursor() as cursor:
                 after = self.connection.introspection.get_constraints(
                     cursor,
-                    row.current_table,
+                    physical_table,
                 )
             if source in after or target not in after:
                 raise SchemaAdoptionError(
-                    f"database identifier rename was not verified on {row.current_table}: "
+                    f"database identifier rename was not verified on {physical_table}: "
                     f"{source} -> {target}"
                 )
             report.setdefault("renamed_identifiers", []).append(
                 {
-                    "table": row.current_table,
+                    "table": physical_table,
                     "kind": row.kind,
                     "from": source,
                     "to": target,
@@ -915,11 +1027,116 @@ class SchemaAdoption:
         if old_rows:
             qs.filter(app_label=self.legacy_app_label).update(app_label=self.current_app_label)
 
-    def _iter_identity_fields(self):
-        for app_label, model_name, field_name in (*_JSON_FIELDS, *_TEXT_FIELDS):
-            model = apps.get_model(app_label, model_name)
-            field = model._meta.get_field(field_name)
+    def _build_permission_name_changes(
+        self,
+        content_types: Sequence[dict[str, Any]],
+        permissions: Sequence[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        desired_by_content_type: dict[int, dict[str, str]] = {}
+        for row in content_types:
+            try:
+                model = self.app_config.get_model(row["model"])
+            except LookupError as error:
+                raise SchemaAdoptionError(
+                    f"permission ContentType has unknown model: {row['model']}"
+                ) from error
+            opts = model._meta
+            desired = {
+                get_permission_codename(action, opts):
+                f"Can {action} {opts.verbose_name_raw}"
+                for action in opts.default_permissions
+            }
+            desired.update({codename: str(name) for codename, name in opts.permissions})
+            desired_by_content_type[row["id"]] = desired
+
+        changes: list[dict[str, Any]] = []
+        for row in permissions:
+            desired = desired_by_content_type.get(row["content_type_id"])
+            if desired is None or row["codename"] not in desired:
+                raise SchemaAdoptionError(
+                    "permission manifest contains an unexpected codename: "
+                    f"{row['content_type_id']}.{row['codename']}"
+                )
+            target_name = desired[row["codename"]]
+            if row["name"] == target_name:
+                continue
+            changes.append(
+                {
+                    "id": row["id"],
+                    "content_type_id": row["content_type_id"],
+                    "codename": row["codename"],
+                    "before": row["name"],
+                    "after": target_name,
+                }
+            )
+        return changes
+
+    def _apply_permission_name_changes(
+        self,
+        changes: Sequence[dict[str, Any]],
+        *,
+        reverse: bool = False,
+    ) -> None:
+        if not changes:
+            return
+        from django.contrib.auth.models import Permission
+
+        qs = Permission.objects.using(self.connection_alias)
+        current_by_id = {
+            row["id"]: row
+            for row in qs.filter(id__in=[item["id"] for item in changes]).values(
+                "id",
+                "content_type_id",
+                "codename",
+                "name",
+            )
+        }
+        if set(current_by_id) != {item["id"] for item in changes}:
+            raise SchemaAdoptionError("permission rows disappeared during adoption")
+
+        for item in changes:
+            current = current_by_id[item["id"]]
+            for field in ("content_type_id", "codename"):
+                if current[field] != item[field]:
+                    raise SchemaAdoptionError(
+                        f"permission identity drift for row {item['id']}.{field}"
+                    )
+            source = item["after"] if reverse else item["before"]
+            target = item["before"] if reverse else item["after"]
+            if current["name"] == target:
+                continue
+            if current["name"] != source:
+                raise SchemaAdoptionError(
+                    f"permission name drift for row {item['id']}"
+                )
+            updated = qs.filter(
+                id=item["id"],
+                content_type_id=item["content_type_id"],
+                codename=item["codename"],
+                name=source,
+            ).update(name=target)
+            if updated != 1:
+                raise SchemaAdoptionError(
+                    f"permission name update was not verified for row {item['id']}"
+                )
+
+    def _iter_supported_fields(self, definitions):
+        for app_label, model_name, field_name in definitions:
+            if app_label == self.current_app_label:
+                try:
+                    historical_model = self.app_config.get_model(model_name)
+                    historical_model._meta.get_field(field_name)
+                except (LookupError, FieldDoesNotExist):
+                    continue
+            try:
+                model = apps.get_model(app_label, model_name)
+                field = model._meta.get_field(field_name)
+            except (LookupError, FieldDoesNotExist):
+                continue
             yield model, field
+
+    def _iter_identity_fields(self):
+        yield from self._iter_supported_fields((*_JSON_FIELDS, *_TEXT_FIELDS))
 
     def _collect_data_changes(self, old: str, new: str) -> list[dict[str, Any]]:
         changes: list[dict[str, Any]] = []
@@ -981,8 +1198,8 @@ class SchemaAdoption:
 
     def _collect_media_changes(self, old: str, new: str) -> list[dict[str, Any]]:
         changes: list[dict[str, Any]] = []
-        for app_label, model_name, field_name in ADOPTION_MEDIA_FIELDS:
-            model = apps.get_model(app_label, model_name)
+        for model, field in self._iter_supported_fields(ADOPTION_MEDIA_FIELDS):
+            field_name = field.name
             for row in model._base_manager.using(self.connection_alias).values("pk", field_name):
                 value = row[field_name]
                 if not value or old not in str(value):
@@ -1009,11 +1226,10 @@ class SchemaAdoption:
             manager = model._base_manager.using(self.connection_alias)
             current = manager.filter(pk=item["pk"]).values_list(item["field"], flat=True).first()
             target = transition_saved_value(current, item, reverse=False)
-            if current == target:
-                continue
             result = copy_verified_media(self.media_root, item["before"], item["after"])
             item["copy"] = asdict(result)
-            manager.filter(pk=item["pk"]).update(**{item["field"]: target})
+            if current != target:
+                manager.filter(pk=item["pk"]).update(**{item["field"]: target})
 
     def _apply_saved_media_changes(
         self,
@@ -1036,7 +1252,12 @@ class SchemaAdoption:
         self,
         before: dict[str, Any],
         after: dict[str, Any],
+        *,
+        permission_name_changes: Sequence[dict[str, Any]] = (),
     ) -> None:
+        permission_changes_by_id = {
+            row["id"]: row for row in permission_name_changes
+        }
         for key in ("migrations", "content_types", "permissions"):
             before_rows = before.get(key, ())
             after_rows = after.get(key, ())
@@ -1049,6 +1270,17 @@ class SchemaAdoption:
             for row_id, before_row in before_by_id.items():
                 after_row = after_by_id[row_id]
                 for field in ("name", "model", "codename", "content_type_id", "applied"):
+                    if (
+                        key == "permissions"
+                        and field == "name"
+                        and row_id in permission_changes_by_id
+                    ):
+                        change = permission_changes_by_id[row_id]
+                        if (
+                            before_row.get(field) == change["before"]
+                            and after_row.get(field) == change["after"]
+                        ):
+                            continue
                     if field in before_row and before_row.get(field) != after_row.get(field):
                         raise SchemaAdoptionError(
                             f"adoption invariant failed for {key} {row_id}.{field}"
@@ -1059,45 +1291,121 @@ class SchemaAdoption:
         *,
         last_migration: str = ADOPTION_LAST_MIGRATION,
         checkpoint: Callable[[dict[str, Any]], None] | None = None,
+        initial_preflight: dict[str, Any] | None = None,
+        saved_progress: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        report = self.preflight(last_migration=last_migration)
-        if report["state"] == "fresh":
+        self._assert_mysql_for_write()
+        current_report = self.preflight(last_migration=last_migration)
+        baseline = initial_preflight or current_report
+        report = dict(saved_progress or baseline)
+        report["state"] = current_report["state"]
+        report["metadata_state"] = current_report["metadata_state"]
+        if current_report["state"] == "fresh":
+            if baseline.get("state") != "fresh":
+                raise SchemaAdoptionError(
+                    "catalog tables disappeared after the original adoption preflight"
+                )
             report["phase"] = "fresh-noop"
             return report
-        if report["state"] == "adopted" and report["metadata_state"] == "adopted":
-            report["phase"] = "already-adopted"
-            return report
 
-        report["phase"] = "preflight-complete"
-        before_tables = self._tables_by_name(report)
+        before_tables = self._tables_by_name(baseline)
         before_metadata = {
-            "migrations": report.get("legacy_migrations") or report.get("current_migrations"),
-            "content_types": report.get("legacy_content_types") or report.get("current_content_types"),
-            "permissions": report.get("legacy_permissions") or report.get("current_permissions"),
+            "migrations": baseline.get("legacy_migrations")
+            or baseline.get("current_migrations", ()),
+            "content_types": baseline.get("legacy_content_types")
+            or baseline.get("current_content_types", ()),
+            "permissions": baseline.get("legacy_permissions")
+            or baseline.get("current_permissions", ()),
         }
-        report["phase"] = "preflight-complete"
-        self._checkpoint(report, checkpoint)
+        permission_name_changes = report.get("permission_name_changes")
+        if permission_name_changes is None:
+            permission_name_changes = self._build_permission_name_changes(
+                before_metadata["content_types"],
+                before_metadata["permissions"],
+            )
+            report["permission_name_changes"] = permission_name_changes
+        manifest_state = report.get("data_media_manifest_state")
+        has_data_manifest = "data_changes" in report
+        has_media_manifest = "media_changes" in report
+        if manifest_state is None:
+            if has_data_manifest != has_media_manifest:
+                raise SchemaAdoptionError(
+                    "data/media manifest snapshot is incomplete"
+                )
+            manifest_state = "captured" if has_data_manifest else "pending"
+            report["data_media_manifest_state"] = manifest_state
+        if manifest_state not in {"pending", "captured"}:
+            raise SchemaAdoptionError(
+                f"unsupported data/media manifest state: {manifest_state!r}"
+            )
+        if manifest_state == "pending":
+            if (has_data_manifest and report["data_changes"] != []) or (
+                has_media_manifest and report["media_changes"] != []
+            ):
+                raise SchemaAdoptionError(
+                    "pending data/media manifests must be empty"
+                )
+            report["data_changes"] = []
+            report["media_changes"] = []
+            report["phase"] = "manifests-pending"
+            self._checkpoint(report, checkpoint)
+        elif not has_data_manifest or not has_media_manifest:
+            raise SchemaAdoptionError(
+                "captured data/media manifest is incomplete"
+            )
         self._rename_tables(report, checkpoint=checkpoint)
         report["phase"] = "tables-renamed"
         self._checkpoint(report, checkpoint)
+        if manifest_state == "pending":
+            data_changes = self._collect_data_changes(
+                self.legacy_app_label,
+                self.current_app_label,
+            )
+            report["data_changes"] = [
+                {
+                    **item,
+                    "before": _json_ready(item["before"]),
+                    "after": _json_ready(item["after"]),
+                }
+                for item in data_changes
+            ]
+            report["media_changes"] = self._collect_media_changes(
+                self.legacy_app_label,
+                self.current_app_label,
+            )
+            report["data_media_manifest_state"] = "captured"
+            report["phase"] = "data-manifest-captured"
+            self._checkpoint(report, checkpoint)
+        data_changes = report["data_changes"]
+        media_changes = report["media_changes"]
+        identifier_renames = report.get("identifier_renames")
+        if identifier_renames is None:
+            identifier_renames = baseline.get("identifier_renames") or current_report.get(
+                "identifier_renames", ()
+            )
+            report["identifier_renames"] = identifier_renames
         self._apply_identifier_renames(
-            report.get("identifier_renames", ()),
+            identifier_renames,
             report,
             checkpoint=checkpoint,
         )
         report["phase"] = "database-identifiers-renamed"
         self._checkpoint(report, checkpoint)
-        data_changes = self._collect_data_changes(self.legacy_app_label, self.current_app_label)
-        media_changes = self._collect_media_changes(self.legacy_app_label, self.current_app_label)
-        report["data_changes"] = [{**item, "before": _json_ready(item["before"]), "after": _json_ready(item["after"])} for item in data_changes]
-        report["media_changes"] = media_changes
-        report["phase"] = "data-manifest-captured"
+        self._adopt_recorder()
+        report["phase"] = "migration-recorder-adopted"
         self._checkpoint(report, checkpoint)
-        with transaction.atomic(using=self.connection_alias):
-            self._adopt_recorder()
-            self._adopt_content_types()
-            self._apply_data_changes(data_changes)
-            self._apply_media_changes(media_changes)
+        self._adopt_content_types()
+        report["phase"] = "content-types-adopted"
+        self._checkpoint(report, checkpoint)
+        self._apply_permission_name_changes(permission_name_changes)
+        report["phase"] = "permission-names-adopted"
+        self._checkpoint(report, checkpoint)
+        self._apply_data_changes(data_changes)
+        report["phase"] = "data-updated"
+        self._checkpoint(report, checkpoint)
+        self._apply_media_changes(media_changes)
+        report["phase"] = "media-updated"
+        self._checkpoint(report, checkpoint)
         after_report = self.preflight(last_migration=last_migration)
         after_tables = self._tables_by_name(after_report)
         table_map = {
@@ -1110,7 +1418,7 @@ class SchemaAdoption:
         })
         identifier_map = {
             (row["current_table"], row["old_name"]): row["new_name"]
-            for row in report.get("identifier_renames", ())
+            for row in identifier_renames
         }
         verify_adoption_invariants(
             before_tables,
@@ -1123,7 +1431,11 @@ class SchemaAdoption:
             "content_types": after_report.get("current_content_types", ()),
             "permissions": after_report.get("current_permissions", ()),
         }
-        self._verify_metadata_invariants(before_metadata, after_metadata)
+        self._verify_metadata_invariants(
+            before_metadata,
+            after_metadata,
+            permission_name_changes=permission_name_changes,
+        )
         report["phase"] = "complete"
         report["state_after"] = after_report["state"]
         report["metadata_state_after"] = after_report["metadata_state"]
@@ -1131,7 +1443,12 @@ class SchemaAdoption:
         self._checkpoint(report, checkpoint)
         return report
 
-    def _rename_tables_back(self, report: dict[str, Any]) -> None:
+    def _rename_tables_back(
+        self,
+        report: dict[str, Any],
+        *,
+        checkpoint: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
         actual = self._table_names()
         for item in self.manifest:
             if item.current_table not in actual:
@@ -1146,21 +1463,24 @@ class SchemaAdoption:
             report.setdefault("rolled_back_tables", []).append(
                 {"from": item.current_table, "to": item.legacy_table}
             )
+            report["phase"] = "table-rolled-back"
+            self._checkpoint(report, checkpoint)
 
     def _rollback_recorder(self, saved_rows: Sequence[dict[str, Any]]) -> None:
         recorder = MigrationRecorder(self.connection)
         qs = recorder.Migration.objects.using(self.connection_alias)
-        if qs.filter(app=self.legacy_app_label).exists():
-            raise SchemaAdoptionError("legacy migration rows already exist during rollback")
         for row in saved_rows:
-            updated = qs.filter(
-                id=row["id"],
-                app=self.current_app_label,
-                name=row["name"],
-            ).update(app=self.legacy_app_label)
-            if updated != 1:
+            current = qs.filter(id=row["id"], name=row["name"]).values("app").first()
+            if current is None or current["app"] not in {
+                self.legacy_app_label,
+                self.current_app_label,
+            }:
                 raise SchemaAdoptionError(
                     f"migration recorder drift for row {row['id']}"
+                )
+            if current["app"] == self.current_app_label:
+                qs.filter(id=row["id"], name=row["name"]).update(
+                    app=self.legacy_app_label
                 )
 
     def _assert_rollback_boundary(
@@ -1170,16 +1490,21 @@ class SchemaAdoption:
         """Refuse rollback once normal post-adoption migrations have started."""
 
         expected = set(self._expected_migration_names(last_migration))
-        current = {
-            row["name"] for row in self._migration_rows(self.current_app_label)
-        }
-        post_adoption = sorted(current - expected)
+        rows = [
+            *self._migration_rows(self.legacy_app_label),
+            *self._migration_rows(self.current_app_label),
+        ]
+        names = [row["name"] for row in rows]
+        if len(names) != len(set(names)):
+            raise SchemaAdoptionError("rollback migration boundary contains duplicates")
+        actual = set(names)
+        post_adoption = sorted(actual - expected)
         if post_adoption:
             raise SchemaAdoptionError(
                 "rollback is unsafe after post-adoption migrations: "
                 + ", ".join(post_adoption)
             )
-        missing = sorted(expected - current)
+        missing = sorted(expected - actual)
         if missing:
             raise SchemaAdoptionError(
                 "rollback migration boundary is incomplete: " + ", ".join(missing)
@@ -1189,22 +1514,26 @@ class SchemaAdoption:
         from django.contrib.contenttypes.models import ContentType
 
         qs = ContentType.objects.using(self.connection_alias)
-        if qs.filter(app_label=self.legacy_app_label).exists():
-            raise SchemaAdoptionError("legacy ContentTypes already exist during rollback")
         for row in saved_rows:
-            updated = qs.filter(
-                id=row["id"],
-                app_label=self.current_app_label,
-                model=row["model"],
-            ).update(app_label=self.legacy_app_label)
-            if updated != 1:
+            current = qs.filter(id=row["id"], model=row["model"]).values(
+                "app_label"
+            ).first()
+            if current is None or current["app_label"] not in {
+                self.legacy_app_label,
+                self.current_app_label,
+            }:
                 raise SchemaAdoptionError(
                     f"ContentType drift for row {row['id']}"
+                )
+            if current["app_label"] == self.current_app_label:
+                qs.filter(id=row["id"], model=row["model"]).update(
+                    app_label=self.legacy_app_label
                 )
 
     def _assert_saved_permissions(
         self,
         saved_rows: Sequence[dict[str, Any]],
+        permission_name_changes: Sequence[dict[str, Any]] = (),
     ) -> None:
         from django.contrib.auth.models import Permission
 
@@ -1213,55 +1542,148 @@ class SchemaAdoption:
             .filter(id__in=[row["id"] for row in saved_rows])
             .values("id", "content_type_id", "codename", "name")
         )
-        if sorted(current, key=lambda row: row["id"]) != sorted(
-            list(saved_rows), key=lambda row: row["id"]
-        ):
+        current_by_id = {row["id"]: row for row in current}
+        saved_by_id = {row["id"]: row for row in saved_rows}
+        if set(current_by_id) != set(saved_by_id):
             raise SchemaAdoptionError("permission manifest drift during rollback")
+        changes_by_id = {row["id"]: row for row in permission_name_changes}
+        for row_id, saved in saved_by_id.items():
+            actual = current_by_id[row_id]
+            for field in ("content_type_id", "codename"):
+                if actual[field] != saved[field]:
+                    raise SchemaAdoptionError(
+                        "permission manifest drift during rollback"
+                    )
+            allowed_names = {saved["name"]}
+            change = changes_by_id.get(row_id)
+            if change:
+                if change["before"] != saved["name"]:
+                    raise SchemaAdoptionError(
+                        "permission rollback manifest has an invalid source name"
+                    )
+                allowed_names.add(change["after"])
+            if actual["name"] not in allowed_names:
+                raise SchemaAdoptionError(
+                    "permission manifest drift during rollback"
+                )
 
     def rollback(
         self,
         *,
         last_migration: str = ADOPTION_LAST_MIGRATION,
         identifier_renames: Sequence[dict[str, Any]] | None = None,
+        data_media_manifest_state: str | None = None,
         data_changes: Sequence[dict[str, Any]] | None = None,
         media_changes: Sequence[dict[str, Any]] | None = None,
         migrations: Sequence[dict[str, Any]] | None = None,
         content_types: Sequence[dict[str, Any]] | None = None,
         permissions: Sequence[dict[str, Any]] | None = None,
+        checkpoint: Callable[[dict[str, Any]], None] | None = None,
+        initial_preflight: dict[str, Any] | None = None,
+        saved_progress: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        report = self.preflight(last_migration=last_migration)
-        if report["state"] != "adopted":
-            raise SchemaAdoptionError(f"rollback requires adopted state, got {report['state']}")
-        self._assert_rollback_boundary(last_migration)
+        self._assert_mysql_for_write()
+        current_report = self.preflight(last_migration=last_migration)
+        if current_report["state"] not in {"legacy", "adopted", "resumable"}:
+            raise SchemaAdoptionError(
+                f"rollback requires a catalog schema, got {current_report['state']}"
+            )
         if identifier_renames is None:
             raise SchemaAdoptionError(
                 "rollback snapshot is missing its database identifier manifest"
             )
-        if data_changes is None or media_changes is None:
+        if data_media_manifest_state not in {"pending", "captured"}:
             raise SchemaAdoptionError(
-                "rollback snapshot is missing its saved data/media manifests"
+                "rollback snapshot is missing its data/media manifest state"
+            )
+        if data_changes is None or media_changes is None:
+            message = (
+                "captured data/media manifest is incomplete"
+                if data_media_manifest_state == "captured"
+                else "pending data/media manifest is incomplete"
+            )
+            raise SchemaAdoptionError(message)
+        if data_media_manifest_state == "pending" and (
+            list(data_changes) or list(media_changes)
+        ):
+            raise SchemaAdoptionError(
+                "pending data/media manifests must be empty"
             )
         if migrations is None or content_types is None or permissions is None:
             raise SchemaAdoptionError(
                 "rollback snapshot is missing its metadata manifests"
             )
-        self._assert_saved_permissions(permissions)
-        self._apply_identifier_renames(
-            identifier_renames,
-            report,
-            reverse=True,
+        permission_name_changes = self._build_permission_name_changes(
+            content_types,
+            permissions,
         )
+        self._assert_saved_permissions(permissions, permission_name_changes)
+        self._assert_rollback_boundary(last_migration)
+        report = dict(saved_progress or current_report)
+        if not report.get("rollback_identifiers_complete"):
+            self._apply_identifier_renames(
+                identifier_renames,
+                report,
+                reverse=True,
+                checkpoint=checkpoint,
+            )
+            report["rollback_identifiers_complete"] = True
+            report["phase"] = "rollback-identifiers-complete"
+            self._checkpoint(report, checkpoint)
         report["rollback_data_changes"] = [
             _json_ready(item) for item in data_changes
         ]
         report["rollback_media_changes"] = media_changes
-        with transaction.atomic(using=self.connection_alias):
+        if not report.get("rollback_metadata_complete"):
+            self._apply_permission_name_changes(
+                permission_name_changes,
+                reverse=True,
+            )
+            self._assert_saved_permissions(permissions)
             self._rollback_recorder(migrations)
             self._rollback_content_types(content_types)
+            report["rollback_metadata_complete"] = True
+            report["phase"] = "rollback-metadata-complete"
+            self._checkpoint(report, checkpoint)
+        if not report.get("rollback_data_complete"):
             self._apply_saved_data_changes(data_changes, reverse=True)
+            report["rollback_data_complete"] = True
+            report["phase"] = "rollback-data-complete"
+            self._checkpoint(report, checkpoint)
+        if not report.get("rollback_media_complete"):
             self._apply_saved_media_changes(media_changes, reverse=True)
-        self._rename_tables_back(report)
+            report["rollback_media_complete"] = True
+            report["phase"] = "rollback-media-complete"
+            self._checkpoint(report, checkpoint)
+        self._rename_tables_back(report, checkpoint=checkpoint)
+        report["rollback_tables_complete"] = True
+        after_report = self.preflight(last_migration=last_migration)
+        if after_report["state"] != "legacy" or after_report["metadata_state"] != "legacy":
+            raise SchemaAdoptionError(
+                "rollback did not restore the legacy catalog identity"
+            )
+        baseline = initial_preflight or after_report
+        verify_adoption_invariants(
+            self._tables_by_name(baseline),
+            self._tables_by_name(after_report),
+            table_map={
+                item.legacy_table: item.legacy_table for item in self.manifest
+            },
+        )
+        self._verify_metadata_invariants(
+            {
+                "migrations": baseline.get("legacy_migrations", ()),
+                "content_types": baseline.get("legacy_content_types", ()),
+                "permissions": baseline.get("legacy_permissions", ()),
+            },
+            {
+                "migrations": after_report.get("legacy_migrations", ()),
+                "content_types": after_report.get("legacy_content_types", ()),
+                "permissions": after_report.get("legacy_permissions", ()),
+            },
+        )
         report["phase"] = "rolled-back"
+        self._checkpoint(report, checkpoint)
         return report
 
 
@@ -1281,6 +1703,14 @@ def write_snapshot(path: str | Path, payload: dict[str, Any]) -> None:
         os.chmod(temporary, 0o600)
         os.replace(temporary, target)
         os.chmod(target, 0o600)
+        directory_fd = os.open(
+            target.parent,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+        )
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
         if temporary.exists():
             temporary.unlink()

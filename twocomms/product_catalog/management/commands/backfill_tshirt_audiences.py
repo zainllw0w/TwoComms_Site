@@ -50,7 +50,6 @@ class Command(BaseCommand):
         existing_ids = set(
             ProductAudience.objects.filter(
                 product_id__in=[product.id for product in products],
-                tag=tag,
             ).values_list("product_id", flat=True)
         )
         rows = [

@@ -29,13 +29,16 @@ class AudienceTaxonomyTests(TestCase):
             status="published",
         )
         self.tags = {
-            code: AudienceTag.objects.create(
+            code: AudienceTag.objects.update_or_create(
                 code=code,
-                label_uk=label,
-                label_ru=label,
-                label_en=code.title(),
-                order=order,
-            )
+                defaults={
+                    "label_uk": label,
+                    "label_ru": label,
+                    "label_en": code.title(),
+                    "order": order,
+                    "is_active": True,
+                },
+            )[0]
             for order, (code, label) in enumerate(
                 (("unisex", "Унісекс"), ("women", "Жіночі"), ("men", "Чоловічі"))
             )
@@ -163,6 +166,13 @@ class AudienceTaxonomyTests(TestCase):
             price=1490,
             status="published",
         )
+        blank_tshirt = Product.objects.create(
+            title="Blank audience tee",
+            slug="blank-audience-tee",
+            category=self.category,
+            price=1090,
+            status="published",
+        )
         set_product_audience_codes(self.product, ["women"])
         first_output = StringIO()
         second_output = StringIO()
@@ -170,7 +180,8 @@ class AudienceTaxonomyTests(TestCase):
         call_command("backfill_tshirt_audiences", "--apply", stdout=first_output)
         call_command("backfill_tshirt_audiences", "--apply", stdout=second_output)
 
-        self.assertEqual(get_product_audience_codes(self.product), ["unisex", "women"])
+        self.assertEqual(get_product_audience_codes(self.product), ["women"])
+        self.assertEqual(get_product_audience_codes(blank_tshirt), ["unisex"])
         self.assertEqual(get_product_audience_codes(hoodie), [])
         self.assertIn("created=1", first_output.getvalue())
         self.assertIn("created=0", second_output.getvalue())

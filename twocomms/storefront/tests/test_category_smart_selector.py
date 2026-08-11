@@ -303,6 +303,8 @@ class SmartSelectorCategoryTests(TestCase):
 
     def test_base_category_uses_compact_category_name_as_visible_h1(self):
         self.create_product(category=self.tshirts, slug="compact-heading")
+        self.tshirts.seo_h1 = ""
+        self.tshirts.save(update_fields=["seo_h1"])
 
         response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
 
@@ -318,7 +320,7 @@ class SmartSelectorCategoryTests(TestCase):
 
         self.assertNotContains(response, 'class="smart-product-card__decision-meta"')
         self.assertNotContains(response, 'class="smart-product-card__color-label"')
-        self.assertContains(response, 'aria-label="Доступні кольори"')
+        self.assertContains(response, 'aria-label="Кольори товару"')
 
     def test_thermo_flame_is_nested_inside_color_swatch_dot(self):
         template = (
@@ -417,8 +419,9 @@ class SmartSelectorCategoryTests(TestCase):
         ).read_text(encoding="utf-8")
         fits = css.split(".smart-product-card__fits {", 1)[1].split("}", 1)[0]
         price = css.split(".smart-product-card__price-row {", 1)[1].split("}", 1)[0]
+        price_values = css.split(".smart-product-card__price-values {", 1)[1].split("}", 1)[0]
         self.assertIn("flex-direction: column", fits)
-        self.assertIn("white-space: nowrap", price)
+        self.assertIn("white-space: nowrap", price_values)
         self.assertNotIn("flex-wrap: wrap", price)
 
     def test_thermo_marker_is_centered_black_silhouette(self):
@@ -947,6 +950,69 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertContains(response, "Мерч для 225 ОШП — TwoComms")
         self.assertContains(response, 'content="index, follow, max-image-preview:large', html=False)
         self.assertContains(response, 'href="https://twocomms.shop/merch/225/"', html=False)
+
+    def test_merch_landing_includes_products_from_every_supported_garment_category(self):
+        taxonomy = self.create_merch_taxonomy()
+        tshirt = self.create_product(
+            category=self.tshirts,
+            title="Футболка 225",
+            slug="merch-225-tshirt",
+        )
+        hoodie = self.create_product(
+            category=self.hoodie,
+            title="Худі 225",
+            slug="merch-225-hoodie",
+        )
+        ProductMerchCollection.objects.bulk_create(
+            [
+                ProductMerchCollection(product=tshirt, collection=taxonomy["225"]),
+                ProductMerchCollection(product=hoodie, collection=taxonomy["225"]),
+            ]
+        )
+
+        response = self.client.get(
+            reverse("merch_collection", kwargs={"collection_slug": "225"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["paginator"].count, 2)
+        self.assertCountEqual(
+            [product.pk for product in response.context["products"]],
+            [tshirt.pk, hoodie.pk],
+        )
+
+    def test_merch_landing_uses_localized_seo_h1_and_includes_deep_descendants(self):
+        taxonomy = self.create_merch_taxonomy()
+        taxonomy["225"].seo_h1_uk = "Одяг та принти 225 бригади"
+        taxonomy["225"].save(update_fields=["seo_h1_uk"])
+        collaboration = MerchCollection.objects.create(
+            slug="225-deep-collaboration",
+            kind=MerchCollection.Kind.COLLAB,
+            parent=taxonomy["225"],
+            name_uk="Колаборація 225",
+            order=23,
+        )
+        product = self.create_product(
+            category=self.hoodie,
+            title="Глибокий мерч 225",
+            slug="deep-merch-225-product",
+        )
+        ProductMerchCollection.objects.create(
+            product=product,
+            collection=collaboration,
+        )
+
+        response = self.client.get(
+            reverse("merch_collection", kwargs={"collection_slug": "225"})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["paginator"].count, 1)
+        self.assertEqual(response.context["products"][0].pk, product.pk)
+        self.assertEqual(
+            response.context["merch_collection_page"]["h1"],
+            "Одяг та принти 225 бригади",
+        )
 
     def test_non_indexable_brigade_has_no_public_merch_landing(self):
         self.create_merch_taxonomy()

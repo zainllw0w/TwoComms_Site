@@ -12,6 +12,35 @@ from .models import MerchCollection, ProductMerchCollection
 LANGUAGES = ("uk", "ru", "en")
 
 
+def order_collections_tree(collections: Iterable[MerchCollection]) -> list[MerchCollection]:
+    """Return collections in stable depth-first order with parents first."""
+    rows = list(collections)
+    by_parent: dict[int | None, list[MerchCollection]] = {}
+    for row in rows:
+        by_parent.setdefault(row.parent_id, []).append(row)
+    for siblings in by_parent.values():
+        siblings.sort(key=lambda row: (row.order, row.slug))
+
+    ordered: list[MerchCollection] = []
+    visited: set[int] = set()
+
+    def visit(parent_id: int | None) -> None:
+        for row in by_parent.get(parent_id, ()):
+            if row.pk in visited:
+                continue
+            visited.add(row.pk)
+            ordered.append(row)
+            visit(row.pk)
+
+    visit(None)
+    # Preserve malformed legacy rows in the UI instead of silently dropping them.
+    for row in rows:
+        if row.pk not in visited:
+            visited.add(row.pk)
+            ordered.append(row)
+    return ordered
+
+
 def _normalized_slugs(slugs: Iterable[str] | None) -> list[str]:
     return sorted(
         {
@@ -161,6 +190,7 @@ def product_collection_context(
             {
                 "slug": collection.slug,
                 "kind": collection.kind,
+                "kind_label": collection.get_kind_display(),
                 "label": label,
                 "description": _localized(collection, "description", language),
                 "ancestors": ancestors,
@@ -182,7 +212,9 @@ def product_collection_context(
 
 def active_collection_dictionary(*, language: str = "uk") -> list[dict]:
     """Return the searchable hierarchy used by the Product Catalog picker."""
-    collections = list(MerchCollection.objects.filter(is_active=True).order_by("order", "slug"))
+    collections = order_collections_tree(
+        MerchCollection.objects.filter(is_active=True).order_by("order", "slug")
+    )
     by_id = {collection.pk: collection for collection in collections}
     rows = []
     for collection in collections:
@@ -192,6 +224,7 @@ def active_collection_dictionary(*, language: str = "uk") -> list[dict]:
             {
                 "slug": collection.slug,
                 "kind": collection.kind,
+                "kind_label": collection.get_kind_display(),
                 "label": label,
                 "label_uk": _localized(collection, "name", "uk"),
                 "label_ru": _localized(collection, "name", "ru"),
@@ -202,6 +235,7 @@ def active_collection_dictionary(*, language: str = "uk") -> list[dict]:
                 "path_label": " / ".join(
                     [ancestor["label"] for ancestor in ancestors] + [label]
                 ),
+                "depth": len(ancestors),
                 "indexable": collection.indexable,
             }
         )

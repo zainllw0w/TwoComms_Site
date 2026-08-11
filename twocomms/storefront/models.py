@@ -113,7 +113,7 @@ class Category(models.Model):
         indexes = [
             models.Index(fields=['is_active'], name='idx_category_active'),
             models.Index(fields=['is_featured'], name='idx_category_featured'),
-            models.Index(fields=['order'], name='idx_category_order'),
+            models.Index(fields=['order', 'name'], name='idx_category_order'),
         ]
 
     def __str__(self):

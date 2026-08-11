@@ -33,3 +33,36 @@ test("keyboard reorder moves one product without mutating the source list", () =
   assert.deepEqual(catalog.reorderIds(input, "225", "up"), input);
   assert.deepEqual(input, ["225", "127", "streetwear"]);
 });
+
+test("brigade children derive only brigades while military stays manual", () => {
+  const rows = [
+    { slug: "military", parent_slug: "", order: 10 },
+    { slug: "brigades", parent_slug: "", order: 20 },
+    { slug: "225", parent_slug: "brigades", order: 30 },
+    { slug: "127", parent_slug: "brigades", order: 31 },
+    { slug: "streetwear", parent_slug: "", order: 40 },
+  ];
+
+  const groups = catalog.groupCollections(rows);
+  const effective = catalog.derivedCollectionSlugs(rows, new Set(["225"]));
+
+  assert.deepEqual(groups.map((group) => group.slug), ["military", "brigades", "streetwear"]);
+  assert.deepEqual(groups[1].children.map((item) => item.slug), ["225", "127"]);
+  assert.deepEqual(Array.from(effective), ["brigades"]);
+  assert.equal(effective.has("military"), false);
+});
+
+test("selected brigade leaf removes only its redundant parent", () => {
+  const rows = [
+    { slug: "military", parent_slug: "", order: 10 },
+    { slug: "brigades", parent_slug: "", order: 20 },
+    { slug: "225", parent_slug: "brigades", order: 30 },
+  ];
+
+  const selected = catalog.canonicalCollectionSlugs(
+    rows,
+    new Set(["military", "brigades", "225"]),
+  );
+
+  assert.deepEqual(Array.from(selected), ["military", "225"]);
+});

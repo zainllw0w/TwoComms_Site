@@ -4,7 +4,7 @@
 
 Restore the useful visual-card model of the custom catalog admin while keeping the current canonical Product Catalog backend, compact actions, indexing state, taxonomy hierarchy, and drag-and-drop contracts. The result is a dark desktop operations workspace aligned with the management UI: dense enough for hundreds of products, visually calm, and immediately scannable.
 
-This is a presentation and interaction refinement. It does not replace the renamed editor, change product/category URLs, reintroduce any Fable 5 runtime identity, or alter persistence semantics.
+This is a presentation and interaction refinement. It does not replace the product editor, change product/category URLs, reintroduce any retired runtime identity, or alter persistence semantics.
 
 ## Visual Direction
 
@@ -73,4 +73,3 @@ Release requires:
 - visual review against the management workspace;
 - final variant-image live-preview and progress verification after the main catalog/editor UI is stable;
 - production MariaDB schema-adoption, migration, backup, engine, and data-backfill gates before deployment.
-

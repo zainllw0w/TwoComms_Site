@@ -171,11 +171,13 @@ class ProductDetailTests(ProductViewTestCase):
     def test_product_detail_purchase_bar_cta_does_not_stretch_to_trust_column(self):
         css_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme/static/css/product-detail.css"
         css = css_path.read_text(encoding="utf-8")
+        add_button_rule = css.split(".tc-add-btn {", 1)[1].split("}", 1)[0]
 
-        self.assertIn("grid-template-columns: minmax(112px, 0.24fr) minmax(252px, 1fr) minmax(218px, 0.54fr)", css)
+        self.assertIn("grid-template-columns: minmax(120px, 0.28fr) minmax(244px, 1fr) minmax(232px, 0.6fr)", css)
         self.assertIn("align-items: center", css)
-        self.assertIn("height: 62px", css)
-        self.assertIn("max-height: 68px", css)
+        self.assertIn("align-self: center", add_button_rule)
+        self.assertIn("height: 54px", add_button_rule)
+        self.assertIn("max-height: 60px", add_button_rule)
         self.assertIn(".tc-purchase-side .tc-purchase-trust-link span", css)
         self.assertIn('body:has(#product-reviews .tc-reviews__form-wrap[open]) .tc-sticky-mobile', css)
 
@@ -240,9 +242,9 @@ class ProductDetailTests(ProductViewTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["product_customer_has_paid_order"])
-        self.assertContains(response, "Ви увійшли як клієнт")
+        self.assertContains(response, "Підпис відгуку")
         self.assertContains(response, "Олена Клієнт")
-        self.assertContains(response, "Купівля цього товару підтверджена")
+        self.assertContains(response, "Покупка підтверджена")
         self.assertContains(response, 'value="Олена Клієнт"', html=False)
         self.assertContains(response, 'value="buyer@example.com"', html=False)
 
@@ -452,7 +454,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'id="panel-faq"', html=False)
         self.assertContains(response, "FAQ товару")
         self.assertContains(response, "Це футболка унісекс.")
-        self.assertNotContains(response, '"@type": "FAQPage"', html=False)
+        self.assertContains(response, '"@type": "FAQPage"', html=False)
         self.assertNotContains(response, "Неактивне питання")
 
 
