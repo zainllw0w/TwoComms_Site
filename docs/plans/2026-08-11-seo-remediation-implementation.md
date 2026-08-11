@@ -86,6 +86,39 @@ links and do not imply that a lower number is a higher-risk fix.
 Each numbered code slice remains independently tested, committed, pushed,
 deployed and live-verified before its checklist mark changes to `[x]`.
 
+### Active P0 slice: locale-safe variant metadata
+
+- [x] **P0.1** Remove unowned generated variant descriptions and `meta keywords`,
+  localize factual fit/size labels from the active URL locale, and accept a
+  variant SEO override only when its source belongs to the requested locale.
+  This slice covers standard storefront PDPs only; Custom Print and the DTF
+  subdomain/blog remain outside scope.
+
+#### P0.1 release evidence
+
+- Code/test commit: `837e34a56848e80753c1f1e012cacb92b9347f62`
+  (`fix(seo): localize variant metadata and remove generated claims`) was
+  pushed to `origin/main`, pulled on production, and activated with
+  `tmp/restart.txt`.
+- Local gates: the focused variant/PDP suite passed `51/51`; `manage.py check`,
+  `makemigrations --check --dry-run`, touched-file `py_compile`, and
+  `git diff --check` passed. The suite output included expected unrelated
+  Nova Poshta fallback logging under SQLite; no test failed.
+- Live UK/RU/EN fit-only proof: `/product/classic-tshirt/oversize/`,
+  `/ru/product/classic-tshirt/oversize/`, and
+  `/en/product/classic-tshirt/oversize/` returned `200`, emitted localized
+  factual titles (`оверсайз` / `oversize`), `index, follow`, and self-canonical
+  URLs. A size-bearing `/black/m/classic/` URL remained consolidated to the
+  base PDP as designed, with a self-inclusive reciprocal hreflang cluster.
+- Boundary proof: no `dtf/`, DTF blog/subdomain, Custom Print, product content,
+  or catalog data was edited in this slice. DTF wording that remains in an
+  existing standard product description is not part of the subdomain and was
+  intentionally left untouched.
+- This checkpoint claims metadata ownership, locale correctness for the
+  tested variant paths, and removal of generated unsupported claims only. It
+  makes no ranking, traffic, or conversion claim; full locale publication,
+  selected-color alt fallback, and fact-registry work remain open below.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
