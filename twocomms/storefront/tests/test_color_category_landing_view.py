@@ -116,6 +116,29 @@ class CategoryColorLandingViewTests(TestCase):
         canonical = response.context["canonical_url"]
         self.assertTrue(canonical.endswith("/catalog/tshirts/black/"))
 
+    def test_page_two_is_self_canonical_and_out_of_range_pages_are_404(self):
+        self._make_published_landing()
+        second = Product.objects.create(
+            title="Second black tee",
+            slug="second-black-tee",
+            category=self.category,
+            price=600,
+            status="published",
+        )
+        ProductColorVariant.objects.create(
+            product=second, color=self.black, is_default=True, order=0
+        )
+        url = "/catalog/tshirts/black/"
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            page_two = self.client.get(f"{url}?page=2")
+            missing_page = self.client.get(f"{url}?page=999")
+
+        self.assertEqual(page_two.status_code, 200)
+        self.assertTrue(page_two.context["canonical_url"].endswith("?page=2"))
+        self.assertContains(page_two, "content=\"index, follow")
+        self.assertEqual(missing_page.status_code, 404)
+
     def test_breadcrumb_items_in_context(self):
         self._make_published_landing()
         response = self.client.get("/catalog/tshirts/black/")

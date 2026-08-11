@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
-from django.core.paginator import Paginator, EmptyPage
+from django.core.paginator import Paginator, EmptyPage, InvalidPage
 from django.db.models import Case, Count, ExpressionWrapper, F, IntegerField, Min, Prefetch, Q, Value, When
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -36,6 +36,7 @@ from ..services.card_preview import (
     enrich_color_preview_with_slugs,
 )
 from ..services.catalog_facets import (
+    FACET_ALLOWED,
     SELLABLE_SIZE_ORDER,
     active_collection_descendant_slugs,
     filter_products_by_facets,
@@ -134,6 +135,96 @@ def _pagination_query_prefix(request):
     params.pop('page', None)
     encoded = params.urlencode()
     return f'{encoded}&' if encoded else ''
+
+
+_CATALOG_FACET_KEYS = {
+    "theme",
+    "collection",
+    "audience",
+    "availability",
+    "fit",
+    "size",
+    "color",
+    "thermo",
+}
+
+
+def _validate_catalog_facet_query(request, *, category=None):
+    """Reject facet aliases that would otherwise render an equivalent 200.
+
+    Interactive selectors still use repeated keys for distinct values and the
+    colour decorator still owns its legacy comma-separated normalization. This
+    guard only rejects empty/unknown values, repeated copies of one value, and
+    facet axes that the current route does not implement.
+    """
+    smart_category = bool(
+        category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS
+    )
+    supported = {"color"}
+    if category is None:
+        supported.update({"availability", "size"})
+    elif smart_category:
+        supported.update(
+            {"theme", "collection", "audience", "availability", "fit", "size", "thermo"}
+        )
+
+    normalized = normalize_catalog_facet_state(request.GET)
+    for facet in _CATALOG_FACET_KEYS:
+        raw_values = request.GET.getlist(facet)
+        if not raw_values:
+            continue
+        if facet not in supported:
+            raise Http404(f"Facet '{facet}' is not supported on this route.")
+        if facet == "color":
+            # ``canonical_color_filter`` owns color aliases, ordering and the
+            # historical comma-separated format. Category-level empty-result
+            # validation happens after the real product queryset is built.
+            continue
+        canonical_values = []
+        for raw_value in raw_values:
+            value = str(raw_value or "").strip()
+            if not value:
+                raise Http404(f"Facet '{facet}' contains an empty value.")
+            if facet == "fit":
+                value = SMART_SELECTOR_FIT_ALIASES.get(value.lower(), value.lower())
+            elif facet == "size":
+                value = value.upper()
+            else:
+                value = value.lower()
+            canonical_values.append(value)
+        if len(canonical_values) != len(set(canonical_values)):
+            raise Http404(f"Facet '{facet}' contains a duplicate value.")
+        accepted_values = set(normalized.get(facet, ()))
+        if facet == "theme":
+            # Keep the published built-in theme vocabulary valid even when a
+            # test/staging database has not seeded MerchCollection rows yet.
+            accepted_values.update(FACET_ALLOWED["theme"])
+        if any(value not in accepted_values for value in canonical_values):
+            raise Http404(f"Facet '{facet}' contains an unknown value.")
+
+    return normalized
+
+
+def _paginate_catalog_queryset(product_qs, request):
+    """Use strict public pagination semantics for catalog HTML routes."""
+    paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
+    raw_pages = request.GET.getlist("page")
+    if not raw_pages:
+        page_number = 1
+    elif len(raw_pages) != 1:
+        raise Http404("Duplicate page parameters are not valid.")
+    else:
+        raw_page = str(raw_pages[0] or "").strip()
+        if not raw_page or not raw_page.isdecimal():
+            raise Http404("Page number is not valid.")
+        page_number = int(raw_page)
+        if page_number < 1:
+            raise Http404("Page number is not valid.")
+    try:
+        page_obj = paginator.page(page_number)
+    except InvalidPage as exc:
+        raise Http404("Page does not exist.") from exc
+    return paginator, page_obj
 
 
 SMART_SELECTOR_CATEGORY_SLUGS = ('tshirts', 'hoodie', 'long-sleeve')
@@ -1191,6 +1282,8 @@ def catalog(request, cat_slug=None, collection_slug=None):
             )
         show_category_cards = True
 
+    _validate_catalog_facet_query(request, category=category)
+
     if category and category.slug in SMART_SELECTOR_CATEGORY_SLUGS:
         smart_selector_fit_codes = _smart_selector_fit_codes(category, base_product_qs)
         smart_selector_facet_state = _smart_selector_facet_state(
@@ -1306,12 +1399,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
         show_category_cards = False
 
     # Pagination
-    paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
-    page_number = request.GET.get('page')
-    try:
-        page_obj = paginator.get_page(page_number)
-    except EmptyPage:
-        page_obj = paginator.get_page(paginator.num_pages)
+    paginator, page_obj = _paginate_catalog_queryset(product_qs, request)
 
     products = list(page_obj.object_list)
     color_previews = build_color_preview_map(products)
@@ -1670,11 +1758,7 @@ def category_color_landing(request, cat_slug, color_slug):
         # to render the page until inventory is replenished.
         raise Http404("No products available for this colour-category combination.")
 
-    paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
-    try:
-        page_obj = paginator.get_page(request.GET.get("page"))
-    except EmptyPage:
-        page_obj = paginator.get_page(paginator.num_pages)
+    paginator, page_obj = _paginate_catalog_queryset(product_qs, request)
 
     products = list(page_obj.object_list)
     color_previews = build_color_preview_map(products)
@@ -1724,6 +1808,8 @@ def category_color_landing(request, cat_slug, color_slug):
     )
 
     canonical_path = request.path
+    if page_obj.number > 1:
+        canonical_path = f"{canonical_path}?page={page_obj.number}"
     site_base = request.build_absolute_uri("/").rstrip("/")
     canonical_url = f"{site_base}{canonical_path}"
 
@@ -1915,12 +2001,7 @@ def thematic_landing(request, theme_slug):
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
     product_qs = apply_color_filter(base_qs, selected_color_slugs)
 
-    paginator = Paginator(product_qs, PRODUCTS_PER_PAGE)
-    page_number = request.GET.get('page')
-    try:
-        page_obj = paginator.get_page(page_number)
-    except EmptyPage:
-        page_obj = paginator.get_page(paginator.num_pages)
+    paginator, page_obj = _paginate_catalog_queryset(product_qs, request)
 
     products = list(page_obj.object_list)
     color_previews = build_color_preview_map(products)

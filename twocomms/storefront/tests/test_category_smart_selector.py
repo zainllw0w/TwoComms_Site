@@ -581,8 +581,7 @@ class SmartSelectorCategoryTests(TestCase):
 
         self.assertEqual(response.context["smart_selector_selected_theme"], "military")
         self.assertEqual(response.context["smart_selector_selected_fit"], "oversize")
-        self.assertEqual(invalid.context["smart_selector_selected_theme"], "")
-        self.assertEqual(invalid.context["smart_selector_selected_fit"], "")
+        self.assertEqual(invalid.status_code, 404)
 
     def test_smart_selector_ignores_fit_unavailable_in_current_category(self):
         product = self.create_product(category=self.tshirts, slug="classic-only")

@@ -572,6 +572,73 @@ class CatalogViewTests(CatalogViewTestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_catalog_rejects_malformed_duplicate_and_out_of_range_pages(self):
+        from unittest.mock import patch
+
+        self.create_product(title="Page one", slug="page-one")
+        self.create_product(title="Page two", slug="page-two")
+        url = reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            for raw_page in ("abc", "0", "999", "2&page=2"):
+                with self.subTest(raw_page=raw_page):
+                    response = self.client.get(f"{url}?page={raw_page}")
+                    self.assertEqual(response.status_code, 404)
+
+    def test_catalog_keeps_valid_page_two_as_a_distinct_self_canonical_page(self):
+        self.create_product(title="Page one", slug="page-one")
+        self.create_product(title="Page two", slug="page-two")
+        url = reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            page_one = self.client.get(url)
+            response = self.client.get(f"{url}?page=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotEqual(
+            [product.pk for product in response.context["products"]],
+            [product.pk for product in page_one.context["products"]],
+        )
+        self.assertContains(response, 'content="index, follow')
+        self.assertContains(response, f"{url}?page=2")
+
+    def test_catalog_rejects_unknown_or_empty_facet_states(self):
+        self.create_product(title="Facet product", slug="facet-product")
+        url = reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+
+        for query in (
+            "fit=not-a-fit",
+            "size=3XL",
+            "availability=preorder",
+            "theme=not-a-theme",
+            "fit=classic&fit=classic",
+        ):
+            with self.subTest(query=query):
+                response = self.client.get(f"{url}?{query}")
+                self.assertEqual(response.status_code, 404)
+
+    def test_catalog_keeps_valid_empty_color_filter_as_a_noindex_ui_state(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        other_category = Category.objects.create(
+            name="Tshirts", slug="tshirts", is_active=True,
+        )
+        other_product = self.create_product(
+            title="Black product elsewhere",
+            slug="black-product-elsewhere",
+            category=other_category,
+        )
+        black = Color.objects.create(name="Black", primary_hex="#000000")
+        ProductColorVariant.objects.create(product=other_product, color=black)
+        self.create_product(title="No color here", slug="no-color-here")
+
+        url = reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+        response = self.client.get(f"{url}?color=black")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'content="noindex, follow')
+        self.assertEqual(response.context["products"], [])
+
 
 class SearchViewTests(CatalogViewTestCase):
     def test_search_finds_products_by_title_case_insensitively(self):
