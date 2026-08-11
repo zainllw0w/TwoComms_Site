@@ -131,6 +131,21 @@ def _read_snapshot(path: Path) -> dict:
     return payload
 
 
+def _has_pre_drop_verification(snapshot: dict) -> bool:
+    pre_drop = snapshot.get("pre_drop_verification")
+    if not isinstance(pre_drop, dict):
+        return False
+    pair_tables = {
+        str(item.get("current_table") or "")
+        for item in (snapshot.get("preflight") or {}).get("pairs") or ()
+    }
+    verified_tables = {
+        str(item.get("current_table") or "")
+        for item in pre_drop.get("pairs") or ()
+    }
+    return bool(pair_tables) and verified_tables == pair_tables
+
+
 def _validate_snapshot_identity(snapshot: dict, options: dict) -> None:
     phase = str(snapshot.get("phase") or "")
     if phase not in SNAPSHOT_PHASES:
@@ -219,6 +234,11 @@ def _validate_snapshot_identity(snapshot: dict, options: dict) -> None:
     if effective_phase in {"migration-metadata-removed", "legacy-tables-dropped"}:
         if "migration_rows_deleted" not in snapshot:
             raise CommandError("late-phase merge snapshot is missing migration metadata evidence")
+    if effective_phase == "legacy-tables-dropped":
+        if not _has_pre_drop_verification(snapshot):
+            raise CommandError(
+                "late-phase merge snapshot is missing pre-drop verification"
+            )
 
 
 def _current_sha() -> str:
@@ -279,7 +299,7 @@ class Command(BaseCommand):
         )
         if existing_snapshot is not None:
             _validate_snapshot_identity(existing_snapshot, options)
-        resume_cleanup = bool(
+        resume_cleanup_candidate = bool(
             existing_snapshot
             and existing_snapshot.get("post_merge")
             and (
@@ -290,9 +310,16 @@ class Command(BaseCommand):
                 or existing_snapshot.get("progress", {}).get("phase") == "legacy-tables-dropped"
             )
         )
+        resume_cleanup = bool(
+            resume_cleanup_candidate
+            and _has_pre_drop_verification(existing_snapshot)
+        )
+        reuse_saved_preflight = bool(
+            existing_snapshot and existing_snapshot.get("phase") != "failed"
+        )
         saved_pairs = (
             existing_snapshot["preflight"]["pairs"]
-            if resume_cleanup
+            if reuse_saved_preflight or resume_cleanup
             else None
         )
         try:
@@ -303,7 +330,7 @@ class Command(BaseCommand):
             )
             preflight = (
                 existing_snapshot["preflight"]
-                if resume_cleanup
+                if reuse_saved_preflight or resume_cleanup
                 else merger.preflight()
             )
         except SchemaMergeError as exc:
@@ -364,27 +391,44 @@ class Command(BaseCommand):
             snapshot["phase"] = progress.get("phase", "in-progress")
             _write_snapshot(snapshot_path, snapshot)
 
+        if resume_cleanup:
+            try:
+                with _advisory_lock(merger.connection), transaction.atomic(
+                    using=merger.connection_alias
+                ):
+                    dropped = merger.drop_legacy_tables(preflight, checkpoint=checkpoint)
+                    snapshot["legacy_tables_dropped"] = (
+                        int(snapshot.get("legacy_tables_dropped") or 0) + dropped
+                    )
+                    snapshot["verification"] = merger.verify_cleanup(
+                        snapshot["post_merge"]
+                    )
+                    snapshot["phase"] = "complete"
+                    _write_snapshot(snapshot_path, snapshot)
+            except Exception as exc:
+                snapshot["phase"] = "failed"
+                snapshot["error"] = str(exc)
+                _write_snapshot(snapshot_path, snapshot)
+                raise CommandError(str(exc)) from exc
+            self.stdout.write(
+                json.dumps(snapshot, ensure_ascii=False, indent=2, sort_keys=True, default=str)
+            )
+            return
+
         try:
             with _advisory_lock(merger.connection), transaction.atomic(using=merger.connection_alias):
                 if snapshot.get("phase") in {"preflight", "rows-merged"}:
                     merge_result = merger.merge_rows(preflight, checkpoint=checkpoint)
                     snapshot["merge"] = merge_result
-                    post_merge = merger.preflight()
-                    incomplete = [
-                        item["current_table"]
-                        for item in post_merge["pairs"]
-                        if item["comparison"]["missing_ids"]
-                        or item["comparison"]["update_ids"]
-                        or item["comparison"]["conflicts"]
-                    ]
-                    if incomplete:
-                        raise SchemaMergeError(
-                            "post-merge row invariants failed: " + ", ".join(incomplete)
-                        )
+                    post_merge = merger.verify_merged_rows(preflight)
                     snapshot["post_merge"] = post_merge
                     snapshot["phase"] = "rows-merged"
                     _write_snapshot(snapshot_path, snapshot)
-                if snapshot.get("phase") in {"rows-merged", "metadata-remapped"}:
+                if snapshot.get("phase") in {
+                    "rows-merged",
+                    "metadata-remapped",
+                    "migration-metadata-removed",
+                }:
                     metadata_result = merger.remap_metadata()
                     snapshot["metadata"] = metadata_result
                     snapshot["phase"] = "metadata-remapped"
@@ -402,6 +446,9 @@ class Command(BaseCommand):
                 _write_snapshot(snapshot_path, snapshot)
 
                 if snapshot.get("phase") in {"migration-metadata-removed", "legacy-tables-dropped"}:
+                    if snapshot.get("phase") == "migration-metadata-removed":
+                        snapshot["pre_drop_verification"] = merger.verify_merged_rows(preflight)
+                        _write_snapshot(snapshot_path, snapshot)
                     dropped = merger.drop_legacy_tables(preflight, checkpoint=checkpoint)
                     snapshot["legacy_tables_dropped"] = dropped
                     snapshot["verification"] = merger.verify_cleanup(snapshot["post_merge"])
