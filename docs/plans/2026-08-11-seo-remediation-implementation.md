@@ -130,6 +130,7 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 - [x] **4.3a** Remove the duplicate rendered `product_seo_block` owner from the standard PDP while retaining the existing `product_seo_landing` owner, FAQ, commerce content and interactive selectors. This is a narrow ownership fix; unsafe generated fallback claims remain open for the later 4.1-4.6 fact/content work.
 - [x] **4.3b** Disable the generated `product_seo_landing` long-form fallback when no reviewed `Product.seo_bottom_html` override exists. Preserve product query chips, category navigation and the admin override path; the fact-owned replacement remains a later 4.1-4.6 task.
 - [ ] **4.4** Deduplicate FAQ at the data/render/schema boundary; retain global policy answers once and product-specific answers only when materially different.
+- [x] **4.4a** Add deterministic intra-document exact-pair deduplication at the shared standard-PDP visible/schema boundary. Keep the first active pair by editorial `order,id`, ignore case/whitespace-only duplicates, and preserve conflicting answers for explicit fact review. Global policy/product ownership and DB cleanup remain open in 4.4.
 - [ ] **4.5** Add failing tests for the page-1 general catalog editorial block, then remove keyword/city insertion as a content objective and route every retained claim through the fact registry. Specifically verify delivery timing/exchange policy, material/weight, available cuts/sizes, wash durability, donation and location statements; do not replace the current city list with paraphrased city variants.
 - [ ] **4.6** Run fact-lint across standard PDP/catalog HTML, JSON-LD, feeds, llms and checkout copy; commit/push/deploy and mark Task 4 only after live parity proof.
 
@@ -150,6 +151,14 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 - Production deploy: the SEO code is `d3642cb8`; after a concurrent cart release (`7366ebd9`) advanced `main`, the checkpoint was merged and the final `origin/main`/server/live release is `7a63b62b`. The server pulled fast-forward and Passenger was restarted with `tmp/restart.txt`; the cart CSS/template release was not modified by this SEO slice.
 - Live UK/RU/EN proof: `/product/my-little-baby/`, `/ru/product/my-little-baby/` and `/en/product/my-little-baby/` returned `200`, retained one `data-product-seo-landing` section with tabs, and contained zero `data-general-product-seo`. The generated landing markers `Збройних Сил` and `Київ` were absent; `Новою Поштою` remained only in other factual/support UI blocks, not as generated landing copy.
 - Scope boundary: no fact registry, FAQ dedupe, locale translation, variant-owner, sitemap, feed or Custom Print content change is claimed by this checkbox. No ranking or traffic uplift is claimed.
+
+#### Task 4.4a execution evidence (checkpoint prepared)
+
+- Code/test commit: `a6ecf08c81bcd3a882c99b0d704046cdb44d1e5b` adds `_dedupe_product_faq_items()` and routes the existing `product_faq_items` context through it. Because both the visible PDP tab and `faq_schema` consume that one context list, exact-pair suppression cannot drift between HTML and JSON-LD.
+- TDD/local gates: the RED import/test proved the boundary did not exist; after implementation, the exact-pair and visible/schema tests passed `2/2`. `manage.py check`, `makemigrations --check --dry-run`, `py_compile` and `git diff --check` passed. An outdated assertion that contradicted its own test name and the restored FAQPage template contract was corrected from schema absence to schema presence.
+- Production deploy: `origin/main`, server `HEAD` and the live code release are `a6ecf08c`; the server pulled fast-forward and Passenger was restarted with `tmp/restart.txt`.
+- Live UK/RU/EN proof on `my-little-baby`: each locale returned `200` and rendered `5` visible `.tc-faq-item` entries plus `5` `FAQPage.mainEntity` entries, with `0` exact normalized duplicate pairs.
+- Scope boundary: this does not delete or rewrite production FAQ rows, classify global versus product-specific ownership, resolve conflicting answers, translate FAQ content, or complete 4.4. Custom Print was not inspected or changed. No rich-result, ranking or citation uplift is claimed.
 
 ### Task 5: Normalize facets and pagination by route family
 
