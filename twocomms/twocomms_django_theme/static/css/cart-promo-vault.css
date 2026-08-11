@@ -108,7 +108,13 @@
 }
 
 @media (max-width: 360px) {
-  .promo-vault-safe { transform: scale(.76); }
+  .promo-vault-safe { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.76); }
+  .promo-vault-card.is-error .promo-vault-safe { animation: promo-vault-shake-narrow .38s ease; }
+  @keyframes promo-vault-shake-narrow {
+    25% { transform: translate(-50%, -50%) translateX(-5px) rotate(-1deg) scale(.76); }
+    55% { transform: translate(-50%, -50%) translateX(5px) rotate(1deg) scale(.76); }
+    80% { transform: translate(-50%, -50%) translateX(-2px) scale(.76); }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

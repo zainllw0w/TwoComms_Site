@@ -20,6 +20,7 @@ from django_ratelimit.decorators import ratelimit
 from decimal import Decimal, ROUND_HALF_UP
 import logging
 import json
+import re
 
 from ..models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
@@ -78,6 +79,13 @@ LOOKUP_RATE_LIMIT = '60/m'
 
 # W1-13 (NEW-508): верхний предел количества одной позиции в корзине
 MAX_CART_ITEM_QTY = 50
+_COLOR_HEX_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+
+def _normalize_cart_color_hex(value):
+    """Return a safe, canonical HEX value for cart UI serialization."""
+    raw = str(value or '').strip()
+    return raw.upper() if _COLOR_HEX_RE.fullmatch(raw) else ''
 
 
 # ==================== CART VIEWS ====================
@@ -1849,6 +1857,9 @@ def cart_items_api(request):
             if site_line_discount < 0:
                 site_line_discount = Decimal('0.00')
             color_label = _color_label_from_variant(color_variant)
+            color = getattr(color_variant, 'color', None)
+            color_primary_hex = _normalize_cart_color_hex(getattr(color, 'primary_hex', ''))
+            color_secondary_hex = _normalize_cart_color_hex(getattr(color, 'secondary_hex', ''))
             size_value = normalize_requested_size(product, item_data.get('size'))
             fit_option_code, fit_option_label = _fit_display_from_cart_item(item_data)
             color_variant_id = color_variant.id if color_variant else None
@@ -1885,6 +1896,8 @@ def cart_items_api(request):
                 'fit_label': fit_option_label,
                 'color_variant_id': item_data.get('color_variant_id'),
                 'color_label': color_label,
+                'color_primary_hex': color_primary_hex,
+                'color_secondary_hex': color_secondary_hex,
                 'image_url': image_url,
                 'points_reward': int(getattr(product, 'points_reward', 0) or 0),
                 'offer_id': offer_id,

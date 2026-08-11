@@ -329,11 +329,39 @@
 
 /* ─── Color swatch ─── */
 .cart-item-swatch {
-  width: 10px;
-  height: 10px;
-  flex: 0 0 10px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: #3a4252;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), 0 0 0 2px rgba(255, 255, 255, 0.035);
+}
+
+/* The legacy stylesheet paints .swatch with two pseudo-elements. The cart
+   renderer uses a real diagonal gradient instead, so those layers must stay
+   disabled even when both bundles are loaded. */
+.cart-page-container .cart-item-swatch::before,
+.cart-page-container .cart-item-swatch::after {
+  content: none !important;
+  display: none !important;
+}
+
+.cart-page-container .cart-item-swatch[data-primary]:not([data-primary=""]) {
+  background: var(--primary-color, #3a4252) !important;
+}
+
+.cart-page-container .cart-item-swatch[data-primary]:not([data-primary=""])[data-secondary]:not([data-secondary=""]) {
+  background: linear-gradient(135deg, var(--primary-color, #3a4252) 0 50%, var(--secondary-color, #3a4252) 50% 100%) !important;
+}
+
+.cart-page-container .cart-item-swatch--fallback {
+  background: #3a4252 !important;
+  border-color: rgba(255, 255, 255, 0.20);
+  box-shadow: inset 0 0 0 1px rgba(10, 14, 22, 0.44), 0 0 0 2px rgba(255, 255, 255, 0.025);
 }
 
 /* ─── Price (inline, no separate row) ─── */
@@ -1120,15 +1148,6 @@
     border-radius: 7px !important;
   }
 
-  .cart-page-container .cart-item-detail--qty .cart-item-label {
-    font-size: 0 !important;
-  }
-
-  .cart-page-container .cart-item-detail--qty .cart-item-label::before {
-    content: "К-сть";
-    font-size: .6rem;
-  }
-
   .cart-page-container .cart-qty-btn {
     width: 24px !important;
     height: 24px !important;
@@ -1283,5 +1302,124 @@
   .cart-page-container .cart-item-img {
     transition: none !important;
     transform: none !important;
+  }
+}
+
+/* Header and icon alignment guard. Legacy bundles still redefine this block
+   as a centered wrapping flex column on phones, so keep the final geometry
+   page-scoped and deterministic. */
+.cart-page-container .cart-page-header {
+  display: grid !important;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-height: 58px !important;
+  margin: 0 0 14px !important;
+  padding: 8px 10px !important;
+  overflow: visible !important;
+  border: 1px solid var(--ci-border) !important;
+  border-left-color: rgba(243, 164, 61, 0.34) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, rgba(19, 24, 36, 0.94), rgba(14, 18, 28, 0.94)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025) !important;
+  text-align: left !important;
+}
+
+.cart-page-container .cart-page-header::before {
+  content: none !important;
+  display: none !important;
+}
+
+.cart-page-container .cart-page-header-icon {
+  display: grid !important;
+  place-items: center !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  margin: 0 !important;
+  border-radius: 10px !important;
+  line-height: 0 !important;
+}
+
+.cart-page-container .cart-page-header-content {
+  display: grid !important;
+  align-content: center !important;
+  align-items: center !important;
+  justify-content: stretch !important;
+  min-width: 0 !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  text-align: left !important;
+}
+
+.cart-page-container .cart-page-title {
+  margin: 0 !important;
+  font-size: 1.12rem !important;
+  line-height: 1.15 !important;
+  letter-spacing: 0 !important;
+  text-align: left !important;
+  white-space: normal !important;
+}
+
+.cart-page-container .cart-clear-btn {
+  align-self: center !important;
+  justify-self: end !important;
+  justify-content: center !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  height: 40px !important;
+  margin: 0 !important;
+  padding: 0 11px !important;
+  line-height: 1 !important;
+  transform: none !important;
+}
+
+.cart-page-container .cart-page-header-icon svg,
+.cart-page-container .cart-clear-btn svg,
+.cart-page-container .cart-item-remove-btn svg,
+.cart-page-container .cart-item-manager-link svg {
+  display: block !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+.cart-page-container .cart-item-remove-btn,
+.cart-page-container .cart-item-manager-link {
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 0 !important;
+}
+
+@media (max-width: 520px) {
+  .cart-page-container .cart-page-header {
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    gap: 8px !important;
+    min-height: 54px !important;
+    padding: 7px 8px !important;
+  }
+
+  .cart-page-container .cart-page-header-icon,
+  .cart-page-container .cart-clear-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+  }
+
+  .cart-page-container .cart-page-header-content {
+    min-height: 38px !important;
+  }
+
+  .cart-page-container .cart-page-title {
+    font-size: 1.05rem !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .cart-page-container .cart-page-title {
+    font-size: 1.22rem !important;
   }
 }

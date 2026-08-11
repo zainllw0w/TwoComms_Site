@@ -56,6 +56,38 @@ const formatUAH = (amount) => {
   return `${value.toLocaleString('uk-UA', options)} грн`;
 };
 
+// Keep color values safe and predictable before placing them in dynamic markup.
+const normalizeHexColor = (raw) => {
+  const value = String(raw ?? '').trim();
+  if (!/^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(value)) {
+    return '';
+  }
+  const hex = value.slice(1).toLowerCase();
+  return `#${hex.length === 3 ? hex.split('').map((part) => `${part}${part}`).join('') : hex}`;
+};
+
+const renderCartSwatch = (item, colorLabel) => {
+  const primary = normalizeHexColor(item.color_primary_hex);
+  // A secondary color only has meaning when the primary value is valid too.
+  const secondary = primary ? normalizeHexColor(item.color_secondary_hex) : '';
+  const classes = ['cart-item-swatch'];
+  if (!primary) {
+    classes.push('cart-item-swatch--fallback');
+  }
+
+  const dataAttrs = primary
+    ? ` data-primary="${primary}"${secondary ? ` data-secondary="${secondary}"` : ''}`
+    : '';
+  const styleVars = primary
+    ? ` style="--primary-color:${primary};${secondary ? `--secondary-color:${secondary};` : ''}"`
+    : '';
+  const label = colorLabel && colorLabel !== '—'
+    ? ` role="img" aria-label="${escapeHtml(`Колір: ${colorLabel}`)}"`
+    : ' aria-hidden="true"';
+
+  return `<span class="${classes.join(' ')}"${dataAttrs}${styleVars}${label}></span>`;
+};
+
 const toggleElement = (el, show) => {
   if (!el) {
     return;
@@ -443,6 +475,7 @@ class CartPageController {
     const points = Number(item.points_reward || 0) * qty;
     const colorLabel = item.color_label || '—';
     const hasColor = Boolean(item.color_variant_id);
+    const colorSwatch = hasColor ? renderCartSwatch(item, colorLabel) : '';
     const fitLabel = item.fit_option_label || item.fit_label || '';
     const priceHtml = hasSiteDiscount
       ? `<span class="cart-item-price-old">${formatUAH(originalUnitPrice)}</span><span class="cart-item-price-current">${formatUAH(unitPrice)}</span>`
@@ -487,7 +520,7 @@ class CartPageController {
             <div class="cart-item-detail">
               <span class="cart-item-label">Колір:</span>
               <div class="cart-item-color d-flex align-items-center gap-2">
-                <span class="cart-item-swatch swatch" data-primary="#000"></span>
+                ${colorSwatch}
                 <span class="cart-item-color-name">${escapeHtml(colorLabel)}</span>
               </div>
             </div>` : ''}

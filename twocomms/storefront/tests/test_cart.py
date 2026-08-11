@@ -498,8 +498,26 @@ class CartUtilityEndpointTests(CartViewTestCase):
         self.assertNotIn("max-height: 44px", css)
         self.assertNotIn(".cart-page-header {\n  display: flex !important;", css)
         self.assertIn("flex-wrap: wrap", css)
-        self.assertIn("grid-template-areas: \"image info\"\n    \"image actions\"", css)
+        self.assertIn('grid-template-areas:\n    "image info"\n    "image actions"', css)
         self.assertIn("@media (min-width: 768px)", css)
+
+    def test_cart_header_uses_stable_grid_and_centered_icon_controls(self):
+        css_path = settings.BASE_DIR / "twocomms_django_theme" / "static" / "css" / "cart-items-redesign.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        self.assertIn("grid-template-columns: 40px minmax(0, 1fr) auto", css)
+        self.assertIn("justify-self: end !important", css)
+        self.assertIn("line-height: 0 !important", css)
+
+    def test_mobile_cart_keeps_quantity_copy_once_and_centers_the_vault(self):
+        theme_css = settings.BASE_DIR / "twocomms_django_theme" / "static" / "css"
+        cart_css = (theme_css / "cart-items-redesign.css").read_text(encoding="utf-8")
+        vault_css = (theme_css / "cart-promo-vault.css").read_text(encoding="utf-8")
+
+        self.assertNotIn('content: "К-сть"', cart_css)
+        self.assertIn("position: absolute", vault_css)
+        self.assertIn("left: 50%", vault_css)
+        self.assertIn("translate(-50%, -50%) scale(.76)", vault_css)
 
     def test_cart_redesign_resets_legacy_alignment_and_bottom_nav_spacing(self):
         css_path = settings.BASE_DIR / "twocomms_django_theme" / "static" / "css" / "cart-items-redesign.css"
@@ -659,6 +677,38 @@ class CartUtilityEndpointTests(CartViewTestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["items"][0]["fit_option_code"], "classic")
         self.assertEqual(payload["items"][0]["fit_option_label"], "Класичний")
+
+    def test_cart_items_api_exposes_variant_color_hex_values(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        color = Color.objects.create(
+            name="Контрастний",
+            primary_hex="#101010",
+            secondary_hex="#F4F4F4",
+        )
+        variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=color,
+            is_default=True,
+        )
+        key = f"{self.product.id}:M:{variant.id}"
+        session = self.client.session
+        session["cart"] = {
+            key: {
+                "product_id": self.product.id,
+                "qty": 1,
+                "size": "M",
+                "color_variant_id": variant.id,
+            }
+        }
+        session.save()
+
+        response = self.client.get(reverse("cart_items_api"))
+
+        self.assertEqual(response.status_code, 200)
+        item = response.json()["items"][0]
+        self.assertEqual(item["color_primary_hex"], "#101010")
+        self.assertEqual(item["color_secondary_hex"], "#F4F4F4")
 
     def test_summary_and_items_api_drop_foreign_variant_rows(self):
         self.set_foreign_variant_cart()
