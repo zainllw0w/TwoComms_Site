@@ -230,22 +230,22 @@ def _load_product_color_variant_queryset(product_ids: Iterable[int]):
             ProductColorVariant.objects.select_related(
                 'product',
                 'color',
-                'color__fable5_profile',
-                'fable5_details',
+                'color__product_catalog_profile',
+                'product_catalog_details',
             )
             .prefetch_related(
                 'images',
-                'fable5_fit_rules',
-                'fable5_size_rules',
-                'fable5_faqs',
-                'fable5_details__i18n',
-                'fable5_combinations',
-                'fable5_combinations__i18n',
+                'product_catalog_fit_rules',
+                'product_catalog_size_rules',
+                'product_catalog_faqs',
+                'product_catalog_details__i18n',
+                'product_catalog_combinations',
+                'product_catalog_combinations__i18n',
                 'product__fit_options',
-                'product__fable5_fit_notes',
-                'product__fable5_option_profiles',
-                'product__fable5_option_profiles__i18n',
-                'product__fable5_axis_presentations',
+                'product__product_catalog_fit_notes',
+                'product__product_catalog_option_profiles',
+                'product__product_catalog_option_profiles__i18n',
+                'product__product_catalog_axis_presentations',
             )
             .filter(product_id__in=product_ids)
             .order_by('product_id', 'order', 'id')
@@ -270,7 +270,7 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
 
     preview_map: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
     for variant in queryset:
-        from fable5.services import variant_public_context
+        from product_catalog.services import variant_public_context
 
         color = getattr(variant, 'color', None)
         merchandising = variant_public_context(variant)
@@ -437,7 +437,7 @@ def get_detailed_color_variants(product, lang='uk') -> List[Dict[str, Any]]:
 
     variants: List[Dict[str, Any]] = []
     for variant in queryset:
-        from fable5.services import variant_public_context
+        from product_catalog.services import variant_public_context
 
         color = getattr(variant, 'color', None)
         merchandising = variant_public_context(variant, lang=language)

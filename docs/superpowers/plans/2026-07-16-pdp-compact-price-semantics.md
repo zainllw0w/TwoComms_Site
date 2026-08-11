@@ -13,8 +13,8 @@
 ### Task 1: Structured additive price breakdown
 
 **Files:**
-- Modify: `twocomms/fable5/services.py`
-- Test: `twocomms/fable5/tests/test_generic_options.py`
+- Modify: `twocomms/product_catalog/services.py`
+- Test: `twocomms/product_catalog/tests/test_generic_options.py`
 
 - [ ] **Step 1: Write failing pricing tests**
 
@@ -25,7 +25,7 @@ Add tests asserting that a color/material delta of `400` plus a `fit=oversize` p
 Run on the isolated server worktree:
 
 ```bash
-python manage.py test fable5.tests.test_generic_options --settings=test_settings --noinput
+python manage.py test product_catalog.tests.test_generic_options --settings=test_settings --noinput
 ```
 
 Expected: the additive breakdown test fails because the current sparse resolver returns only one delta.
@@ -53,7 +53,7 @@ Run the same test module and expect all tests to pass.
 ### Task 2: Public payload and fixed-axis contract
 
 **Files:**
-- Modify: `twocomms/fable5/services.py`
+- Modify: `twocomms/product_catalog/services.py`
 - Modify: `twocomms/storefront/views/product.py`
 - Test: `twocomms/storefront/tests/test_pdp_configurator.py`
 
@@ -102,13 +102,13 @@ Run the configurator test module and expect all tests to pass.
 ### Task 3A: Per-product fleece presentation setting
 
 **Files:**
-- Modify: `twocomms/fable5/models.py`
-- Create: `twocomms/fable5/migrations/0007_product_option_axis_presentation.py`
-- Modify: `twocomms/fable5/views.py`
-- Modify: `twocomms/fable5/static/fable5/editor.js`
-- Modify: `twocomms/fable5/static/fable5/editor.css`
-- Test: `twocomms/fable5/tests/test_editor_generic_options.py`
-- Test: `twocomms/fable5/tests/test_generic_options.py`
+- Modify: `twocomms/product_catalog/models.py`
+- Create: `twocomms/product_catalog/migrations/0007_product_option_axis_presentation.py`
+- Modify: `twocomms/product_catalog/views.py`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.js`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.css`
+- Test: `twocomms/product_catalog/tests/test_editor_generic_options.py`
+- Test: `twocomms/product_catalog/tests/test_generic_options.py`
 
 - [ ] **Step 1: Write failing model, save, and context tests**
 
@@ -120,7 +120,7 @@ Run the generic option and editor option test modules and expect missing model/p
 
 - [ ] **Step 3: Implement setting and editor control**
 
-Add an internal Fable5 model keyed by `(product, axis_code)` with `db_constraint=False` on Product and modes `auto`, `switch`, and `cards`. Add a segmented `Компактний switch / Картки` control for the lining axis, serialize it in bootstrap/save payloads, and resolve public fixed state from this preference with safe multi-choice fallback.
+Add an internal ProductCatalog model keyed by `(product, axis_code)` with `db_constraint=False` on Product and modes `auto`, `switch`, and `cards`. Add a segmented `Компактний switch / Картки` control for the lining axis, serialize it in bootstrap/save payloads, and resolve public fixed state from this preference with safe multi-choice fallback.
 
 - [ ] **Step 4: Run GREEN**
 
@@ -163,7 +163,7 @@ Run Node tests plus PDP render/content tests and expect all tests to pass.
 
 - [ ] **Step 1: Run regression suite**
 
-Run Fable5 generic option/content tests, storefront configurator/cart/checkout pricing tests, Node PDP tests, `manage.py check`, `makemigrations --check --dry-run`, and `git diff --check`.
+Run ProductCatalog generic option/content tests, storefront configurator/cart/checkout pricing tests, Node PDP tests, `manage.py check`, `makemigrations --check --dry-run`, and `git diff --check`.
 
 - [ ] **Step 2: Commit and push**
 

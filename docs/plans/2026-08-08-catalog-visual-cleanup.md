@@ -52,7 +52,7 @@
 ### Task 4: Verify and publish
 
 **Files:**
-- Test: focused storefront/Fable 5 suites
+- Test: focused storefront/Product Catalog suites
 
 **Steps:**
 1. Run focused Django tests, `manage.py check`, migration drift, JS syntax and `git diff --check`.

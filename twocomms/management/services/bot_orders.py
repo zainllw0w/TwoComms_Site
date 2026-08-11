@@ -923,7 +923,7 @@ def _store_requested_payment(deal, *, prepayment_decision: dict | None = None) -
 def _missing_required_option_axes(product, *, variant=None, option_values=None) -> list[str] | None:
     """Return unresolved commercial axes before a direct paylink is priced."""
     try:
-        from fable5.services import product_option_context
+        from product_catalog.services import product_option_context
 
         context = product_option_context(
             product,
@@ -1009,7 +1009,7 @@ def _resolve_paylink_color_variant(
 ):
     """Resolve one sellable variant before calculating or persisting a price."""
 
-    from fable5.services import variant_allows_purchase
+    from product_catalog.services import variant_allows_purchase
     from management.services.ig_checkout import tracked_stock_shortfall
     from productcolors.models import ProductColorVariant
 
@@ -1185,7 +1185,7 @@ def _create_deal_and_link_unlocked(
         if len(items) > 1 and negotiated_price is not None:
             return {"ok": False, "error": "price_allocation_required"}
         from storefront.models import ProductFitOption
-        from fable5.services import effective_cart_unit_price
+        from product_catalog.services import effective_cart_unit_price
         from storefront.services.size_guides import resolve_product_sizes
 
         prepared_items = []
@@ -1484,7 +1484,7 @@ def _create_deal_and_link_unlocked(
     intended_price = unit_price_override
     if product is not None and intended_price is None:
         try:
-            from fable5.services import effective_cart_unit_price
+            from product_catalog.services import effective_cart_unit_price
 
             intended_price = Decimal(str(effective_cart_unit_price(
                 product,

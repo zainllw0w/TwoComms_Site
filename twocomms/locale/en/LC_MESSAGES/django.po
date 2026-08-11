@@ -18,36 +18,36 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:5
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:5
 msgid "Посадка та розміри"
 msgstr "Fit and sizing"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:6
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:6
 msgid "Знайдіть свою посадку"
 msgstr "Find your fit"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:9
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:9
 msgid "Класичний крій починається з S. Порівняйте точні виміри або отримайте підказку за зростом і вагою."
 msgstr "Classic starts at S. Compare exact measurements or get a height and weight recommendation."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:13
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:13
 msgid "Розмірні сітки"
 msgstr "Size charts"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:25
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:25
 msgid "Точні виміри"
 msgstr "Exact measurements"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:38
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:38
 #: twocomms_django_theme/templates/pages/product_detail.html:373
 msgid "Підібрати розмір"
 msgstr "Find my size"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:39
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:39
 msgid "За зростом і вагою"
 msgstr "From height and weight"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:56
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:56
 #: management/ig_bot_models.py:823
 #: storefront/services/general_catalog_seo.py:126
 #: storefront/services/size_guides.py:112
@@ -65,104 +65,104 @@ msgstr "From height and weight"
 msgid "Розмірна сітка"
 msgstr "Size chart"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:85
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:85
 msgid "Таблиця вимірів"
 msgstr "Measurements table"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:107
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:107
 msgid "Для цієї посадки ще немає окремої таблиці вимірів. Уточніть розмір у менеджера."
 msgstr "There is no separate measurements table for this fit yet. Check the size with a manager."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:122
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:122
 msgid "Персональна підказка"
 msgstr "Personal recommendation"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:123
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:123
 msgid "Який розмір обрати?"
 msgstr "Which size should I choose?"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:125
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:125
 msgid "Рекомендація орієнтовна: крій і бажана свобода посадки також впливають на вибір."
 msgstr "This is an estimate: garment cut and your preferred ease also affect the fit."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:131
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:131
 msgid "Класична посадка: ближче до тіла, без зайвого об’єму."
 msgstr "Classic fit: closer to the body without extra volume."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:132
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:132
 msgid "Оверсайз: вільніший силует із додатковим об’ємом."
 msgstr "Oversize: a looser silhouette with extra volume."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:133
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:133
 msgid "Щільніша альтернатива:"
 msgstr "Closer-fitting alternative:"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:134
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:134
 msgid "Вільніша альтернатива:"
 msgstr "Looser alternative:"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:135
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:135
 msgid "Це крайній доступний розмір для обраної посадки."
 msgstr "This is the largest available size for the selected fit."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:136
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:136
 msgid "Вкажіть зріст від 145 до 210 см."
 msgstr "Enter a height from 145 to 210 cm."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:137
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:137
 msgid "Вкажіть вагу від 40 до 160 кг."
 msgstr "Enter a weight from 40 to 160 kg."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:138
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:138
 msgid "Оберіть бажану посадку."
 msgstr "Choose your preferred fit."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:139
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:139
 msgid "Для цієї посадки зараз немає доступного розміру. Напишіть нам, і ми допоможемо."
 msgstr "No size is currently available for this fit. Message us and we will help."
 
-#: fable5/templates/fable5/_size_grid_comparison.html:140
-#: fable5/templates/fable5/_size_grid_comparison.html:158
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:140
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:158
 msgid "см"
 msgstr "cm"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:141
-#: fable5/templates/fable5/_size_grid_comparison.html:175
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:141
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:175
 msgid "кг"
 msgstr "kg"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:145
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:145
 msgid "Зріст"
 msgstr "Height"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:162
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:162
 msgid "Вага"
 msgstr "Weight"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:181
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:181
 msgid "Бажана посадка"
 msgstr "Preferred fit"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:184
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:184
 #: storefront/custom_print_config.py:409
 msgid "Класика"
 msgstr "Classic"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:186
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:186
 #: storefront/custom_print_config.py:132 storefront/custom_print_config.py:405
 #: storefront/custom_print_config.py:519
 msgid "Оверсайз"
 msgstr "Oversize"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:192
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:192
 msgid "Отримати рекомендацію"
 msgstr "Get recommendation"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:199
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:199
 msgid "Рекомендований розмір"
 msgstr "Recommended size"
 
-#: fable5/templates/fable5/_size_grid_comparison.html:203
+#: product_catalog/templates/product_catalog/_size_grid_comparison.html:203
 msgid "Вкажіть параметри, щоб побачити рекомендацію."
 msgstr "Enter your measurements to see a recommendation."
 
@@ -15236,7 +15236,7 @@ msgid "Дії з товаром"
 msgstr "Product actions"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:258
-msgid "Редагувати товар у Fable5"
+msgid "Редагувати товар у ProductCatalog"
 msgstr ""
 
 #: twocomms_django_theme/templates/pages/product_detail.html:258

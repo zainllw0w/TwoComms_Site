@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
-from fable5.models import (
+from product_catalog.models import (
     ColorProfile,
     GarmentFlow,
     GarmentFlowCategory,

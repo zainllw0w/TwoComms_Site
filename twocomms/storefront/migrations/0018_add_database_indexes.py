@@ -1,54 +1,65 @@
-# Generated manually for performance optimization
+"""Add the legacy performance indexes on every supported SQL backend.
 
-from django.db import migrations
+The former raw SQL used ``CREATE INDEX IF NOT EXISTS``. MySQL does not
+support that clause, so a fresh production-like database could not complete
+the migration.  Django's schema editor gives us portable, introspection-based
+idempotence while retaining the historical index names.
+"""
+
+from django.db import migrations, models
+
+
+_INDEXES = (
+    ("Product", "idx_product_featured", ("featured",)),
+    ("Product", "idx_product_category", ("category_id",)),
+    ("Product", "idx_product_created", ("-id",)),
+    ("Product", "idx_product_price", ("price",)),
+    ("Category", "idx_category_order", ("order", "name")),
+    ("Category", "idx_category_active", ("is_active",)),
+    ("PromoCode", "idx_promocode_code", ("code",)),
+    ("PromoCode", "idx_promocode_active", ("is_active",)),
+    ("PromoCode", "idx_promocode_created", ("-created_at",)),
+)
+
+
+def _has_index(schema_editor, model, name):
+    with schema_editor.connection.cursor() as cursor:
+        constraints = schema_editor.connection.introspection.get_constraints(
+            cursor, model._meta.db_table
+        )
+    return name in constraints
+
+
+def _ensure_indexes(apps, schema_editor):
+    for model_name, name, fields in _INDEXES:
+        model = apps.get_model("storefront", model_name)
+        if not _has_index(schema_editor, model, name):
+            schema_editor.add_index(
+                model,
+                models.Index(fields=list(fields), name=name),
+            )
+
+
+def _remove_indexes(apps, schema_editor):
+    for model_name, name, fields in reversed(_INDEXES):
+        model = apps.get_model("storefront", model_name)
+        if _has_index(schema_editor, model, name):
+            schema_editor.remove_index(
+                model,
+                models.Index(fields=list(fields), name=name),
+            )
 
 
 class Migration(migrations.Migration):
 
+    # MySQL cannot roll back DDL; the helper is introspection-based and
+    # safe to resume one index at a time when the process is interrupted.
+    atomic = False
+
     dependencies = [
-        ('storefront', '0011_category_description_category_is_active_and_more'),
+        ("storefront", "0011_category_description_category_is_active_and_more"),
     ]
 
     operations = [
-        # Индексы для Product
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_product_featured ON storefront_product (featured);",
-            reverse_sql="DROP INDEX IF EXISTS idx_product_featured;"
-        ),
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_product_category ON storefront_product (category_id);",
-            reverse_sql="DROP INDEX IF EXISTS idx_product_category;"
-        ),
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_product_created ON storefront_product (id DESC);",
-            reverse_sql="DROP INDEX IF EXISTS idx_product_created;"
-        ),
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_product_price ON storefront_product (price);",
-            reverse_sql="DROP INDEX IF EXISTS idx_product_price;"
-        ),
-        
-        # Индексы для Category
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_category_order ON storefront_category (`order`, name);",
-            reverse_sql="DROP INDEX IF EXISTS idx_category_order;"
-        ),
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_category_active ON storefront_category (is_active);",
-            reverse_sql="DROP INDEX IF EXISTS idx_category_active;"
-        ),
-        
-        # Индексы для PromoCode
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_promocode_code ON storefront_promocode (code);",
-            reverse_sql="DROP INDEX IF EXISTS idx_promocode_code;"
-        ),
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_promocode_active ON storefront_promocode (is_active);",
-            reverse_sql="DROP INDEX IF EXISTS idx_promocode_active;"
-        ),
-        migrations.RunSQL(
-            "CREATE INDEX IF NOT EXISTS idx_promocode_created ON storefront_promocode (created_at DESC);",
-            reverse_sql="DROP INDEX IF EXISTS idx_promocode_created;"
-        ),
+        migrations.RunPython(_ensure_indexes, _remove_indexes),
     ]

@@ -203,7 +203,7 @@ class CreateOrderTests(CheckoutTestSupport):
         self.assertEqual(bulk_items[0].unit_price, self.product.final_price)
         self.assertEqual(bulk_items[0].line_total, self.product.final_price * 2)
 
-    def test_create_order_uses_fable5_color_variant_price(self):
+    def test_create_order_uses_product_catalog_color_variant_price(self):
         self._assert_cod_checkout_rejected()
         return
         from productcolors.models import Color, ProductColorVariant
@@ -252,7 +252,7 @@ class CreateOrderTests(CheckoutTestSupport):
         self.assertEqual(created_item.unit_price, Decimal("1450"))
 
     def test_create_order_rejects_variant_size_disabled_after_cart_add(self):
-        from fable5.models import VariantSizeRule
+        from product_catalog.models import VariantSizeRule
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import ProductFitOption
 

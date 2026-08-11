@@ -91,7 +91,7 @@ class WriteOffFlowTests(TestCase):
         self.assertIn(b"option", r.content)
 
     def test_write_off_page_preselects_fit_linked_blank(self):
-        from fable5.models import VariantBlankLink
+        from product_catalog.models import VariantBlankLink
 
         oversize_sub = StorageSubcategory.objects.create(
             category=self.wh_cat,

@@ -12,7 +12,7 @@
 - `management/bot_views.py:319-345` queries `InstagramBotLog` on every status poll.
 - 13 July produced thousands of status requests, consistent with an open management page polling repeatedly.
 
-The 14:41 503 overlaps the Fable mixed-deploy event in PROD-009. The later 500s are DB exhaustion from PROD-001.
+The 14:41 503 overlaps the Product Catalog mixed-deploy event in PROD-009. The later 500s are DB exhaustion from PROD-001.
 
 ## Problem
 

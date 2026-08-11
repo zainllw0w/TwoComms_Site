@@ -154,7 +154,7 @@ POST `{}`, name-only, invalid-email-only, invalid-phone-only and non-object JSON
 Use `[x] FIXED` only after local/server tests and live negative acceptance pass. Preserve the historical one cart-only row under retention rather than deleting it in this slice. Commit/push/deploy docs and add a final plan checkpoint.
 
 **Production checkpoint (2026-07-16):** Runtime commits were rebased over the
-merged PDP/Fable5 bundle and pushed through `c2945228`. Server tests passed
+merged PDP/ProductCatalog bundle and pushed through `c2945228`. Server tests passed
 56/56 + 81/81, production check/compile passed, and
 `orders_checkoutcapture` was confirmed InnoDB. The rollback canary covered
 PII-free marker creation, terminal no-op and active-to-converted-only behavior.
@@ -165,8 +165,8 @@ Order session; final production state is 4 converted and 6 active no-order
 captures. Root/product returned 200 and anonymous admin returned 302.
 
 **Documentation closeout (2026-07-16):** Audit commit `d2d3477e` was pushed
-and pulled on production. Because the intervening `d5937675` Fable5 commit also
-changed static/template assets, the server additionally passed Fable5 31/31,
+and pulled on production. Because the intervening `d5937675` ProductCatalog commit also
+changed static/template assets, the server additionally passed ProductCatalog 31/31,
 ran collectstatic (2 copied, 943 post-processed), rebuilt 4 compressor blocks
 and restarted Passenger. Final live checks: root/product 200, capture GET 405
-(POST-only), canonical anonymous Fable5 editor 403, server HEAD `d2d3477e`.
+(POST-only), canonical anonymous ProductCatalog editor 403, server HEAD `d2d3477e`.

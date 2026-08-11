@@ -73,7 +73,7 @@ The following data may authorize a candidate or proposal:
 
 - published `storefront.Product` identity, category, price, media, and canonical
   slug;
-- active `ProductFitOption`, size-grid rules, and Fable option compatibility;
+- active `ProductFitOption`, size-grid rules, and Product Catalog option compatibility;
 - `ProductColorVariant` identity and color, but not raw stock for warehouse-
   backed garments;
 - verified semantic sales profiles described in section 5;
@@ -266,7 +266,7 @@ Hard constraints eliminate candidates that contradict:
 - garment type;
 - explicit color, fit, or size;
 - verified positive or negative semantic traits;
-- Fable option compatibility.
+- Product Catalog option compatibility.
 
 Constraints are classified before ranking:
 
@@ -668,7 +668,7 @@ catalog-sized loop of database queries.
 Implementation adds new migrations after the actual current leaves in the
 affected apps. Existing migrations, especially checkout history, remain frozen.
 At this specification review, the observed leaves are `management.0127`,
-`fable5.0007`, `warehouse.0011`, and `storefront.0087`; implementation must
+`product_catalog.0007`, `warehouse.0011`, and `storefront.0087`; implementation must
 re-read the unified graph immediately before naming new migrations and declare
 all required cross-app dependencies. Historical `management.0116` is immutable.
 

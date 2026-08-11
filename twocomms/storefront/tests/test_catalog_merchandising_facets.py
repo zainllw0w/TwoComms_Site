@@ -6,7 +6,7 @@ from storefront.services.catalog_facets import (
     normalize_catalog_facet_state,
 )
 
-from fable5.models import (
+from product_catalog.models import (
     AudienceTag,
     ColorProfile,
     MerchCollection,
@@ -20,11 +20,23 @@ from productcolors.models import Color, ProductColorVariant
 class CatalogFacetContractTests(TestCase):
     def setUp(self):
         self.category = Category.objects.create(name="Футболки", slug="tshirts")
-        self.unisex = AudienceTag.objects.create(
-            code="unisex", label_uk="Унісекс", label_ru="Унисекс", label_en="Unisex", order=0
+        self.unisex, _ = AudienceTag.objects.update_or_create(
+            code="unisex",
+            defaults={
+                "label_uk": "Унісекс",
+                "label_ru": "Унисекс",
+                "label_en": "Unisex",
+                "order": 0,
+            },
         )
-        self.women = AudienceTag.objects.create(
-            code="women", label_uk="Жіночі", label_ru="Женские", label_en="Women", order=1
+        self.women, _ = AudienceTag.objects.update_or_create(
+            code="women",
+            defaults={
+                "label_uk": "Жіночі",
+                "label_ru": "Женские",
+                "label_en": "Women",
+                "order": 1,
+            },
         )
         self.both = Product.objects.create(
             title="Both audiences",
@@ -51,31 +63,37 @@ class CatalogFacetContractTests(TestCase):
         ProductAudience.objects.create(product=self.both, tag=self.women)
         ProductAudience.objects.create(product=self.only_unisex, tag=self.unisex)
 
-        self.brigades = MerchCollection.objects.create(
+        self.brigades, _ = MerchCollection.objects.update_or_create(
             slug="brigades",
-            kind=MerchCollection.Kind.THEME,
-            name_uk="Бригади",
-            name_ru="Бригады",
-            name_en="Brigades",
-            order=20,
+            defaults={
+                "kind": MerchCollection.Kind.THEME,
+                "name_uk": "Бригади",
+                "name_ru": "Бригады",
+                "name_en": "Brigades",
+                "order": 20,
+            },
         )
-        self.brigade_225 = MerchCollection.objects.create(
+        self.brigade_225, _ = MerchCollection.objects.update_or_create(
             slug="225",
-            kind=MerchCollection.Kind.BRIGADE,
-            parent=self.brigades,
-            name_uk="225 ОШП",
-            name_ru="225 ОШП",
-            name_en="225 Assault Regiment",
-            order=30,
+            defaults={
+                "kind": MerchCollection.Kind.BRIGADE,
+                "parent": self.brigades,
+                "name_uk": "225 ОШП",
+                "name_ru": "225 ОШП",
+                "name_en": "225 Assault Regiment",
+                "order": 30,
+            },
         )
-        self.brigade_127 = MerchCollection.objects.create(
+        self.brigade_127, _ = MerchCollection.objects.update_or_create(
             slug="127",
-            kind=MerchCollection.Kind.BRIGADE,
-            parent=self.brigades,
-            name_uk="127 бригада",
-            name_ru="127 бригада",
-            name_en="127 Brigade",
-            order=31,
+            defaults={
+                "kind": MerchCollection.Kind.BRIGADE,
+                "parent": self.brigades,
+                "name_uk": "127 бригада",
+                "name_ru": "127 бригада",
+                "name_en": "127 Brigade",
+                "order": 31,
+            },
         )
         ProductMerchCollection.objects.create(
             product=self.both,

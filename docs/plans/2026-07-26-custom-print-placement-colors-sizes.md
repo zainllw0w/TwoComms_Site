@@ -346,7 +346,7 @@ Assert the Custom Print page exposes classic and oversize guide blocks with cano
 
 - [ ] **Step 3: Reuse canonical guide service**
 
-In `static_pages.py`, use the existing Fable5 size-guide service to resolve the two canonical T-shirt profiles. Do not query or assign per-product grids and do not copy media. Expose a minimal serializable payload containing fit, title, image URL, alt and structured rows.
+In `static_pages.py`, use the existing ProductCatalog size-guide service to resolve the two canonical T-shirt profiles. Do not query or assign per-product grids and do not copy media. Expose a minimal serializable payload containing fit, title, image URL, alt and structured rows.
 
 - [ ] **Step 4: Replace manager size mode for T-shirts**
 
@@ -362,7 +362,7 @@ Use an unframed dialog section, restrained tab control, responsive image aspect 
 
 - [ ] **Step 7: Run full size-guide and Custom Print regression**
 
-Run shared checks plus existing Fable5 size-guide tests. Expected: guide switching is independent from purchasable fit in both PDP and Custom Print.
+Run shared checks plus existing ProductCatalog size-guide tests. Expected: guide switching is independent from purchasable fit in both PDP and Custom Print.
 
 - [ ] **Step 8: Commit, push, deploy and browser-test guides**
 
@@ -395,7 +395,7 @@ Capture the failing `/api/track-event/` request seen during read-only production
 
 - [ ] **Step 4: Run the full verification matrix**
 
-Run all shared commands, related Fable5 guide tests, form logic, pricing source, ref-stage contract and notification transport tests. Run `makemigrations --check --dry-run`; expected: no migrations.
+Run all shared commands, related ProductCatalog guide tests, form logic, pricing source, ref-stage contract and notification transport tests. Run `makemigrations --check --dry-run`; expected: no migrations.
 
 - [ ] **Step 5: Perform local browser acceptance**
 

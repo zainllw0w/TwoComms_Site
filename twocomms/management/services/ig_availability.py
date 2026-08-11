@@ -54,7 +54,7 @@ def _quantity(value) -> int:
 
 
 def _policy(product_id: int):
-    from fable5.models import ProductInventoryPolicy
+    from product_catalog.models import ProductInventoryPolicy
 
     return ProductInventoryPolicy.objects.filter(product_id=product_id).first()
 
@@ -74,7 +74,7 @@ def _variant(spec: AllocationSpec, *, lock: bool = False):
 
 
 def _resolve_catalog_variant(spec: AllocationSpec, *, lock: bool) -> AvailabilityDecision:
-    from fable5.models import VariantSizeRule
+    from product_catalog.models import VariantSizeRule
 
     variant = _variant(spec, lock=lock)
     if variant is None:
@@ -111,7 +111,7 @@ def _resolve_catalog_variant(spec: AllocationSpec, *, lock: bool) -> Availabilit
 
 
 def _resolve_warehouse(spec: AllocationSpec, *, lock: bool) -> AvailabilityDecision:
-    from fable5.models import VariantBlankLink
+    from product_catalog.models import VariantBlankLink
     from warehouse.models import StockItem
 
     variant = _variant(spec, lock=lock)

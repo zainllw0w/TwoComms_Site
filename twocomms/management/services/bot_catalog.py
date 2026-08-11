@@ -5,7 +5,7 @@
 
 Джерела:
 - storefront.Product (status=published): назва, категорія, slug.
-- productcolors.ProductColorVariant + Fable5: ціна конфігурації, кольори,
+- productcolors.ProductColorVariant + Каталог товарів: ціна конфігурації, кольори,
   фасони/опції та залишок (stock) на вітрині.
 """
 from __future__ import annotations
@@ -47,7 +47,7 @@ SITE = "https://twocomms.shop"
 def resolve_catalog_sizes(product) -> dict[str, list[str]]:
     """Resolve the published size contract for each active fit option."""
     try:
-        from fable5.size_grid_services import (
+        from product_catalog.size_grid_services import (
             normalize_size_value,
             resolve_effective_sizes,
         )

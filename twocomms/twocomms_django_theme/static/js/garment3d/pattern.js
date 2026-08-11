@@ -1,5 +1,5 @@
 // Garment pattern data - all measurements in mm
-// Source: storefront/services/size_guides.py, fable5/default_size_guides.py
+// Source: storefront/services/size_guides.py, product_catalog/default_size_guides.py
 
 export const MM = 0.001; // Convert mm to meters for Three.js
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from fable5.models import ProductAudience
-from fable5.services_collections import product_collection_context
+from product_catalog.models import ProductAudience
+from product_catalog.services_collections import product_collection_context
 
 
 LANGUAGES = {"uk", "ru", "en"}

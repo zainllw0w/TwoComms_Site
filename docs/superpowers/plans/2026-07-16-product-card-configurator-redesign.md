@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Complete the Fable5 option engine and ship a responsive PDP configurator with restock subscriptions, multi-print editing, generic option pricing, and mobile image swipes.
+**Goal:** Complete the ProductCatalog option engine and ship a responsive PDP configurator with restock subscriptions, multi-print editing, generic option pricing, and mobile image swipes.
 
-**Architecture:** Extend the deployed Fable5 `GarmentFlow` and sparse option profiles rather than adding a parallel variant system. Carry one normalized option dictionary and one authoritative resolved price through PDP, cart, orders, notifications, and payment; keep `warehouse.Print.default_products` as the print source of truth and add a focused `RestockSubscription` workflow.
+**Architecture:** Extend the deployed ProductCatalog `GarmentFlow` and sparse option profiles rather than adding a parallel variant system. Carry one normalized option dictionary and one authoritative resolved price through PDP, cart, orders, notifications, and payment; keep `warehouse.Print.default_products` as the print source of truth and add a focused `RestockSubscription` workflow.
 
 **Tech Stack:** Django 5.2, MySQL/MyISAM-compatible relations, vanilla JavaScript, Django templates, CSS, Telegram Bot webhook, Django TestCase, Node test runner, in-app Browser QA.
 
@@ -12,9 +12,9 @@
 
 ## File map
 
-- `twocomms/fable5/services.py`: generic option normalization, public option payload, availability, and authoritative price resolution.
-- `twocomms/fable5/views.py`: editor bootstrap/save for garment axes, product option profiles, and warehouse prints.
-- `twocomms/fable5/static/fable5/editor.js`: generic option and print editing controls.
+- `twocomms/product_catalog/services.py`: generic option normalization, public option payload, availability, and authoritative price resolution.
+- `twocomms/product_catalog/views.py`: editor bootstrap/save for garment axes, product option profiles, and warehouse prints.
+- `twocomms/product_catalog/static/product_catalog/editor.js`: generic option and print editing controls.
 - `twocomms/storefront/models.py`: restock request persistence.
 - `twocomms/storefront/services/restock.py`: validation, deduplication, Telegram/admin notification, and customer delivery.
 - `twocomms/storefront/views/product.py`: option and unavailable-size PDP context.
@@ -29,10 +29,10 @@
 ### Task 1: Generic option contract and authoritative pricing
 
 **Files:**
-- Modify: `twocomms/fable5/services.py`
-- Modify: `twocomms/fable5/content_resolution.py`
+- Modify: `twocomms/product_catalog/services.py`
+- Modify: `twocomms/product_catalog/content_resolution.py`
 - Modify: `twocomms/storefront/services/catalog_helpers.py`
-- Test: `twocomms/fable5/tests/test_generic_options.py`
+- Test: `twocomms/product_catalog/tests/test_generic_options.py`
 
 - [ ] **Step 1: Write failing option-resolution tests**
 
@@ -55,7 +55,7 @@ def test_option_price_uses_exact_combination_before_product_option(self):
 
 - [ ] **Step 2: Verify RED**
 
-Run: `python manage.py test fable5.tests.test_generic_options --settings=test_settings --keepdb`
+Run: `python manage.py test product_catalog.tests.test_generic_options --settings=test_settings --keepdb`
 
 Expected: import failure for `product_option_context` or assertion failure because `variant_public_context` accepts only `fit_code`.
 
@@ -65,7 +65,7 @@ Add `normalize_public_option_values(product, raw)`, `product_option_context(prod
 
 - [ ] **Step 4: Verify GREEN and compatibility**
 
-Run: `python manage.py test fable5.tests.test_generic_options fable5.tests.test_content_resolution storefront.tests.test_fable5_variant_merchandising --settings=test_settings --keepdb`
+Run: `python manage.py test product_catalog.tests.test_generic_options product_catalog.tests.test_content_resolution storefront.tests.test_product_catalog_variant_merchandising --settings=test_settings --keepdb`
 
 Expected: all tests pass and existing fit-only calls retain identical results.
 
@@ -113,7 +113,7 @@ Expected: disabled lining is accepted or `option_values` is absent.
 
 - [ ] **Step 3: Implement normalized cart selection and snapshots**
 
-Parse a JSON object with a strict size/token limit, normalize it through Fable5, reject unavailable choices, compute `_effective_item_price` from the same option values, include a stable option key in the cart key, and store `option_values` plus localized `option_labels`. Add JSON fields with `default=dict` to `OrderItem` and `DropshipperOrderItem`; keep legacy fit snapshots populated.
+Parse a JSON object with a strict size/token limit, normalize it through ProductCatalog, reject unavailable choices, compute `_effective_item_price` from the same option values, include a stable option key in the cart key, and store `option_values` plus localized `option_labels`. Add JSON fields with `default=dict` to `OrderItem` and `DropshipperOrderItem`; keep legacy fit snapshots populated.
 
 - [ ] **Step 4: Update browser payload and order displays**
 
@@ -121,7 +121,7 @@ Serialize checked `[data-product-option-axis]` controls into the `option_values`
 
 - [ ] **Step 5: Verify GREEN and payment regressions**
 
-Run: `python manage.py test storefront.tests.test_generic_option_cart storefront.tests.test_fable5_variant_merchandising orders --settings=test_settings --keepdb`
+Run: `python manage.py test storefront.tests.test_generic_option_cart storefront.tests.test_product_catalog_variant_merchandising orders --settings=test_settings --keepdb`
 
 Expected: option tests pass and checkout/payment totals remain green.
 
@@ -180,15 +180,15 @@ Run: `python manage.py test storefront.tests.test_restock_subscriptions accounts
 
 Expected: validation, ownership, idempotency, throttling, and webhook tests pass.
 
-### Task 4: Fable5 axes, surcharges, and multiple print links
+### Task 4: ProductCatalog axes, surcharges, and multiple print links
 
 **Files:**
-- Modify: `twocomms/fable5/views.py`
-- Modify: `twocomms/fable5/static/fable5/editor.js`
-- Modify: `twocomms/fable5/static/fable5/editor.css`
-- Create: `twocomms/fable5/migrations/0006_seed_hoodie_lining_profiles.py`
-- Test: `twocomms/fable5/tests/test_editor_generic_options.py`
-- Test: `twocomms/fable5/tests/test_editor_print_links.py`
+- Modify: `twocomms/product_catalog/views.py`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.js`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.css`
+- Create: `twocomms/product_catalog/migrations/0006_seed_hoodie_lining_profiles.py`
+- Test: `twocomms/product_catalog/tests/test_editor_generic_options.py`
+- Test: `twocomms/product_catalog/tests/test_editor_print_links.py`
 
 - [ ] **Step 1: Write failing editor API tests**
 
@@ -207,7 +207,7 @@ def test_product_save_updates_print_m2m_without_deleting_other_products(self):
 
 - [ ] **Step 2: Verify RED**
 
-Run: `python manage.py test fable5.tests.test_editor_generic_options fable5.tests.test_editor_print_links --settings=test_settings --keepdb`
+Run: `python manage.py test product_catalog.tests.test_editor_generic_options product_catalog.tests.test_editor_print_links --settings=test_settings --keepdb`
 
 Expected: option axes and print IDs are absent.
 
@@ -221,9 +221,9 @@ Render each axis as an option table with enabled/default toggles, price delta, r
 
 - [ ] **Step 5: Verify GREEN and migration behavior**
 
-Run: `python manage.py test fable5.tests --settings=test_settings --keepdb && python manage.py makemigrations --check --dry-run --settings=test_settings`
+Run: `python manage.py test product_catalog.tests --settings=test_settings --keepdb && python manage.py makemigrations --check --dry-run --settings=test_settings`
 
-Expected: Fable5 tests pass and only committed migrations are detected.
+Expected: ProductCatalog tests pass and only committed migrations are detected.
 
 ### Task 5: PDP configurator, material story, and restock modal
 
@@ -331,7 +331,7 @@ Expected: swipe and content order tests pass.
 Run:
 
 ```bash
-python manage.py test fable5.tests storefront.tests accounts orders --settings=test_settings --keepdb
+python manage.py test product_catalog.tests storefront.tests accounts orders --settings=test_settings --keepdb
 python manage.py check --settings=test_settings
 python manage.py makemigrations --check --dry-run --settings=test_settings
 npm test

@@ -7,7 +7,7 @@ from django.core.cache import cache, caches
 from django.test import TestCase
 from django.urls import reverse
 
-from fable5.models import (
+from product_catalog.models import (
     GarmentFlow,
     GarmentFlowCategory,
     ProductOptionProfile,
@@ -155,7 +155,7 @@ class GenericOptionCartTests(TestCase):
         self.assertEqual(item.generic_option_labels, ["Колір: Кайот"])
 
     def test_authoritative_price_accepts_generic_options(self):
-        from fable5.services import effective_cart_unit_price
+        from product_catalog.services import effective_cart_unit_price
 
         self.assertEqual(
             effective_cart_unit_price(

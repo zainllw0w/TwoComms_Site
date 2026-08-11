@@ -10,7 +10,7 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from productcolors.models import Color, ProductColorVariant
-from fable5.models import (
+from product_catalog.models import (
     AudienceTag,
     ColorProfile,
     MerchCollection,

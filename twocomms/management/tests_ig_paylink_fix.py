@@ -188,7 +188,7 @@ class AuthoritativePriceClaimTests(TestCase):
         self.assertTrue(control.get("_price_claim_invalid"))
 
     def test_item_configuration_is_authoritative_before_selection_is_persisted(self):
-        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory
 
         flow = GarmentFlow.objects.create(
             code="authoritative-price-material",
@@ -301,7 +301,7 @@ class AuthoritativePriceClaimTests(TestCase):
         self.assertTrue(control.get("_price_claim_invalid"))
 
     def test_item_variant_and_options_bind_price_claim(self):
-        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
         from productcolors.models import Color, ProductColorVariant
 
         product = _pub_product(
@@ -561,7 +561,7 @@ class CreateDealResolvesProductTests(TestCase):
 
     @patch("management.services.bot_orders.create_payment_link")
     def test_paylink_requires_explicit_multi_choice_commercial_option(self, mock_link):
-        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory
 
         product = _pub_product("Футболка з вибором матеріалу", "paylink-material-required", 1090)
         flow = GarmentFlow.objects.create(

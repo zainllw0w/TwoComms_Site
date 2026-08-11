@@ -4,9 +4,9 @@
 
 **Goal:** Ship independent classic/oversize size-guide panels with one optimized shared oversize asset, product-specific alt text, responsive image/table UX, and server-side backfill/default behavior.
 
-**Architecture:** Extend the existing Fable5 comparison payload instead of creating a parallel size system. Resolve explicit product/variant assignments first, then a canonical oversize default profile; render the comparison panel as an independent fit switch whose state does not alter the purchase fit. Store the optimized image once in the canonical `SizeGrid` media record and expose localized descriptive copy plus structured image metadata.
+**Architecture:** Extend the existing ProductCatalog comparison payload instead of creating a parallel size system. Resolve explicit product/variant assignments first, then a canonical oversize default profile; render the comparison panel as an independent fit switch whose state does not alter the purchase fit. Store the optimized image once in the canonical `SizeGrid` media record and expose localized descriptive copy plus structured image metadata.
 
-**Tech Stack:** Django, existing `SizeGrid`/Fable5 models, Pillow, Django templates, vanilla product-detail JavaScript, product-detail CSS, Django management commands, unittest/JSDOM-style JS tests already present in the repo.
+**Tech Stack:** Django, existing `SizeGrid`/ProductCatalog models, Pillow, Django templates, vanilla product-detail JavaScript, product-detail CSS, Django management commands, unittest/JSDOM-style JS tests already present in the repo.
 
 ---
 
@@ -40,10 +40,10 @@ Commit only the optimized static assets and test/helper changes.
 ### Task 2: Add canonical oversize guide resolution
 
 **Files:**
-- Modify: `twocomms/fable5/size_grid_services.py`
+- Modify: `twocomms/product_catalog/size_grid_services.py`
 - Modify: `twocomms/storefront/services/size_guides.py`
-- Create: `twocomms/fable5/management/commands/ensure_oversize_size_guides.py`
-- Test: `twocomms/fable5/tests/test_size_grid_resolution.py`
+- Create: `twocomms/product_catalog/management/commands/ensure_oversize_size_guides.py`
+- Test: `twocomms/product_catalog/tests/test_size_grid_resolution.py`
 
 **Step 1: Write failing resolver tests**
 
@@ -51,11 +51,11 @@ Cover: explicit classic and oversize assignments remain distinct; an explicit pe
 
 **Step 2: Run the focused tests to verify failure**
 
-Run the relevant Fable5 test class and capture the missing-fallback failure.
+Run the relevant ProductCatalog test class and capture the missing-fallback failure.
 
 **Step 3: Implement the fallback and payload metadata**
 
-Add a narrow helper that finds the active canonical `SizeGrid` profile for `fit=oversize` within the product catalog, while preserving explicit assignments and variant overrides. Add localized fit copy, image URL/width/height, and an image alt seed to each comparison item. Keep the resolver tolerant when the optional Fable5 app is absent.
+Add a narrow helper that finds the active canonical `SizeGrid` profile for `fit=oversize` within the product catalog, while preserving explicit assignments and variant overrides. Add localized fit copy, image URL/width/height, and an image alt seed to each comparison item. Keep the resolver tolerant when the optional ProductCatalog app is absent.
 
 **Step 4: Implement the idempotent production command**
 
@@ -63,7 +63,7 @@ The command must locate the active apparel products with `oversize` enabled, cre
 
 **Step 5: Run tests to verify pass**
 
-Run focused Fable5 tests plus `manage.py check` and migration dry-run.
+Run focused ProductCatalog tests plus `manage.py check` and migration dry-run.
 
 **Step 6: Commit**
 
@@ -72,11 +72,11 @@ Commit resolver, command, and tests.
 ### Task 3: Render independent comparison UX
 
 **Files:**
-- Modify: `twocomms/fable5/templates/fable5/_size_grid_comparison.html`
+- Modify: `twocomms/product_catalog/templates/product_catalog/_size_grid_comparison.html`
 - Modify: `twocomms/twocomms_django_theme/templates/pages/product_detail.html`
 - Modify: `twocomms/twocomms_django_theme/static/js/product-detail.js`
 - Modify: `twocomms/twocomms_django_theme/static/css/product-detail.css`
-- Test: `twocomms/fable5/tests/test_size_grid_resolution.py`
+- Test: `twocomms/product_catalog/tests/test_size_grid_resolution.py`
 - Test: existing product-detail JS tests or a new focused test module adjacent to `product-detail.js`
 
 **Step 1: Write failing template/behavior tests**
@@ -111,8 +111,8 @@ Commit template, JS, CSS, and tests.
 
 **Files:**
 - Modify: `twocomms/storefront/services/size_guides.py`
-- Modify: `twocomms/fable5/templates/fable5/_size_grid_comparison.html`
-- Test: `twocomms/fable5/tests/test_size_grid_resolution.py`
+- Modify: `twocomms/product_catalog/templates/product_catalog/_size_grid_comparison.html`
+- Test: `twocomms/product_catalog/tests/test_size_grid_resolution.py`
 
 **Step 1: Write failing copy/alt tests**
 

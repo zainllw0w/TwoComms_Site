@@ -9,7 +9,7 @@ and crawlable explanatory copy.
 
 ## Architecture
 
-The existing Fable5 `ProductOptionSizeGrid` assignments remain the source of truth
+The existing ProductCatalog `ProductOptionSizeGrid` assignments remain the source of truth
 for fit-specific grids. A single canonical oversize `SizeGrid` image is stored once
 and reused by all oversize assignments; a resolver fallback makes it the default
 for future oversize profiles without copying the file per product. Existing classic
@@ -62,7 +62,7 @@ do not rely on image pixels alone. Image alt text remains descriptive and locali
   and preservation of explicit overrides.
 - Template/JavaScript tests for independent guide switching, selected state,
   unavailable-grid behavior, and no mutation of the main fit selection.
-- Django `check`, migration dry-run, targeted Fable5/storefront tests, JS tests,
+- Django `check`, migration dry-run, targeted ProductCatalog/storefront tests, JS tests,
   image metadata inspection, `git diff --check`, and responsive browser checks.
 - Production deploy runs the management command against the real server DB, then
   collects static files, reloads Passenger, and verifies representative product

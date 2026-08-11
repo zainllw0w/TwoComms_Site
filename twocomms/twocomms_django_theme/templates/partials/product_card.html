@@ -69,7 +69,7 @@
         {% for v in p.colors_preview|slice:":3" %}
         <span class="home-color-mini-swatch{% if v.is_thermo %} is-thermo{% endif %}"
           style="--c1: {{ v.primary_hex }}; --c2: {% if v.secondary_hex %}{{ v.secondary_hex }}{% else %}{{ v.primary_hex }}{% endif %};">
-          {% if v.is_thermo %}{% include "fable5/_thermo_flame.html" %}{% endif %}
+          {% if v.is_thermo %}{% include "product_catalog/_thermo_flame.html" %}{% endif %}
         </span>
         {% endfor %}
       </span>
@@ -87,7 +87,7 @@
         data-is-thermo="{{ v.is_thermo|yesno:'1,0' }}"
         data-variant-url="{% url 'product' p.slug v.slug %}"
         aria-label="{% trans 'Колір' %} {% if v.name %}{{ v.name|translate_color }}{% else %}{{ v.primary_hex }}{% if v.secondary_hex %} {% trans 'плюс' %} {{ v.secondary_hex }}{% endif %}{% endif %}{% if v.is_thermo %} — термохромна тканина{% endif %}">
-        {% if v.is_thermo %}{% include "fable5/_thermo_flame.html" %}{% endif %}
+        {% if v.is_thermo %}{% include "product_catalog/_thermo_flame.html" %}{% endif %}
       </button>
       {% endfor %}
     </div>

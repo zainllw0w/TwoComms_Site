@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 
-from storefront.models import Category, Product
+from storefront.models import Category, IndexNowSubmission, Product
 from storefront.services.indexnow import get_core_indexnow_urls, submit_indexnow_urls
 
 
@@ -26,7 +26,8 @@ class IndexNowServiceTests(TestCase):
 
     @patch("storefront.services.indexnow.requests.post")
     def test_submit_indexnow_urls_posts_expected_payload(self, post_mock):
-        post_mock.return_value.raise_for_status.return_value = None
+        post_mock.return_value.status_code = 202
+        post_mock.return_value.text = ""
 
         submitted = submit_indexnow_urls(
             [
@@ -47,6 +48,28 @@ class IndexNowServiceTests(TestCase):
                 "urlList": ["https://twocomms.shop/product/test-product/"],
             },
         )
+        submission = IndexNowSubmission.objects.get(
+            url="https://twocomms.shop/product/test-product/"
+        )
+        self.assertEqual(submission.status, IndexNowSubmission.STATUS_SUCCESS)
+        self.assertEqual(submission.http_status, 202)
+
+    @patch("storefront.services.indexnow.requests.post")
+    def test_submit_indexnow_urls_records_failed_api_acceptance(self, post_mock):
+        post_mock.return_value.status_code = 400
+        post_mock.return_value.text = "invalid key"
+
+        submitted = submit_indexnow_urls(
+            ["https://twocomms.shop/product/rejected-product/"]
+        )
+
+        self.assertFalse(submitted)
+        submission = IndexNowSubmission.objects.get(
+            url="https://twocomms.shop/product/rejected-product/"
+        )
+        self.assertEqual(submission.status, IndexNowSubmission.STATUS_FAILED)
+        self.assertEqual(submission.http_status, 400)
+        self.assertIn("invalid key", submission.error_message)
 
     @override_settings(INDEXNOW_KEY="")
     @patch("storefront.services.indexnow.requests.post")
@@ -86,8 +109,13 @@ class IndexNowSignalTests(TestCase):
         self.addCleanup(cache.clear)
         self.category = Category.objects.create(name="Hoodies", slug="hoodie")
 
-    @patch("storefront.tasks.submit_indexnow_urls_task.delay")
-    def test_published_product_save_enqueues_indexnow_after_commit(self, indexnow_delay_mock):
+    @patch("storefront.signals.enqueue_google_indexing_urls")
+    @patch("storefront.signals.enqueue_indexnow_urls")
+    def test_published_product_save_enqueues_indexnow_after_commit(
+        self,
+        indexnow_enqueue_mock,
+        google_enqueue_mock,
+    ):
         with self.captureOnCommitCallbacks(execute=True):
             Product.objects.create(
                 title="Test Product",
@@ -97,22 +125,29 @@ class IndexNowSignalTests(TestCase):
                 status="published",
             )
 
-        indexnow_delay_mock.assert_called_once_with(["https://twocomms.shop/product/test-product/"])
+        expected_urls = ["https://twocomms.shop/product/test-product/"]
+        indexnow_enqueue_mock.assert_called_once_with(expected_urls)
+        google_enqueue_mock.assert_called_once_with(expected_urls)
 
-    @patch("storefront.tasks.submit_indexnow_urls_task.delay")
-    @patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
+    @patch("storefront.signals.enqueue_google_indexing_urls")
+    @patch("storefront.signals.enqueue_indexnow_urls")
+    @patch("storefront.signals.mark_feeds_dirty")
     def test_published_product_save_schedules_google_merchant_feed_when_lock_absent(
         self,
-        merchant_feed_mock,
-        indexnow_delay_mock,
+        mark_feeds_dirty_mock,
+        indexnow_enqueue_mock,
+        google_enqueue_mock,
     ):
-        Product.objects.create(
-            title="Merchant Feed Product",
-            slug="merchant-feed-product",
-            category=self.category,
-            price=1000,
-            status="published",
-        )
+        with self.captureOnCommitCallbacks(execute=True):
+            Product.objects.create(
+                title="Merchant Feed Product",
+                slug="merchant-feed-product",
+                category=self.category,
+                price=1000,
+                status="published",
+            )
 
-        merchant_feed_mock.assert_called_once_with(countdown=300)
-        indexnow_delay_mock.assert_not_called()
+        mark_feeds_dirty_mock.assert_called_once()
+        expected_urls = ["https://twocomms.shop/product/merchant-feed-product/"]
+        indexnow_enqueue_mock.assert_called_once_with(expected_urls)
+        google_enqueue_mock.assert_called_once_with(expected_urls)

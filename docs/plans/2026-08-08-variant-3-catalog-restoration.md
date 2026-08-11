@@ -124,7 +124,7 @@ node --check twocomms/twocomms_django_theme/static/js/catalog-smart-selector.js
 **Step 1: Run automated checks**
 
 ```bash
-python manage.py test storefront.tests.test_category_smart_selector storefront.tests.test_fable5_variant_merchandising -v 2
+python manage.py test storefront.tests.test_category_smart_selector storefront.tests.test_product_catalog_variant_merchandising -v 2
 python manage.py check
 python manage.py makemigrations --check --dry-run
 node --check twocomms/twocomms_django_theme/static/js/catalog-smart-selector.js

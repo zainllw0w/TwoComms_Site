@@ -6,18 +6,18 @@
 
 ## Observed incidents
 
-### Fable5 on 13 July
+### ProductCatalog on 13 July
 
-- Fable feature commit completed around 14:55; the follow-up model fix around 15:00.
+- Product Catalog feature commit completed around 14:55; the follow-up model fix around 15:00.
 - Settings/URL files changed while existing workers were still serving; restart marker appeared around 15:02:59.
 - Retained stderr contains 14 repeats of:
 
 ```text
-RuntimeError: Model class fable5.models.ColorProfile ... isn't in an application in INSTALLED_APPS
+RuntimeError: Model class product_catalog.models.ColorProfile ... isn't in an application in INSTALLED_APPS
 ```
 
 - `/bot/api/status/` returned 503 at 14:41:55 and a product request failed at 14:57, within the deployment window.
-- Current source does contain `fable5` in `INSTALLED_APPS` and includes its URLs. The mismatch is therefore best explained by an old worker with already-loaded settings lazily importing newly pulled URL/model files, not a persistent omission in current source.
+- Current source does contain `product_catalog` in `INSTALLED_APPS` and includes its URLs. The mismatch is therefore best explained by an old worker with already-loaded settings lazily importing newly pulled URL/model files, not a persistent omission in current source.
 
 ### Earlier management schema/code skew
 
@@ -48,7 +48,7 @@ Three retained `/cart/` errors called a removed `storefront.views.process_guest_
 ## Acceptance criteria
 
 - A synthetic request loop sees only old or new revision, never mixed failures.
-- Fable model/URL imports succeed in a fresh production-settings process before restart.
+- Product Catalog model/URL imports succeed in a fresh production-settings process before restart.
 - Migration and static/compressor readiness are gates, not post-deploy repair.
 - All workers report the same revision after deployment.
 - Rollback is documented and rehearsed without destructive Git commands.

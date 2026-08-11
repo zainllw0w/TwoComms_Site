@@ -2,7 +2,7 @@
 
 ## Goal
 
-Restore product-first clarity to Variant 3 without removing the structured merchandising capabilities added to Fable 5, catalog filtering, PDP, SEO, analytics, or URLs.
+Restore product-first clarity to Variant 3 without removing the structured merchandising capabilities added to Product Catalog, catalog filtering, PDP, SEO, analytics, or URLs.
 
 This iteration is a focused refinement of the approved Variant 3, not a replacement design. The selector keeps its composition, information architecture, site header/footer, product imagery and card proportions. Only weak or noisy surfaces adopt the restrained, warm, high-trust language of the Instagram hosted checkout: dark neutral surfaces, soft warm borders, orange/gold actions, compact typography and deliberate motion.
 
@@ -26,7 +26,7 @@ The first mobile viewport must show category context, the compact command row an
 
 ## Non-goals
 
-No taxonomy, filtering semantics, Fable 5 schema, SEO copy, product assignment, sorting, pagination, infinite loading, analytics event names or URL behavior changes.
+No taxonomy, filtering semantics, Product Catalog schema, SEO copy, product assignment, sorting, pagination, infinite loading, analytics event names or URL behavior changes.
 
 ## Verification
 

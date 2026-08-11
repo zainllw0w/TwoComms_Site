@@ -18,8 +18,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.telegram_bot import TelegramBot
-from fable5.content_resolution import normalize_option_values
-from fable5.services import (
+from product_catalog.content_resolution import normalize_option_values
+from product_catalog.services import (
     product_option_context,
     variant_allows_options,
     variant_allows_purchase,
@@ -249,7 +249,7 @@ def scan_candidate_queryset(
 def wake_unscheduled_active_subscriptions(
     *, product_id=None, variant_id=None, subscription_id=None, now=None, limit=1000
 ) -> int:
-    """Cron fallback for stock/configuration changes made outside Fable5."""
+    """Cron fallback for stock/configuration changes made outside ProductCatalog."""
 
     now = now or timezone.now()
     queryset = RestockSubscription.objects.filter(

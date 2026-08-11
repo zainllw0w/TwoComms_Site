@@ -35,7 +35,7 @@ _COLOR_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 def _active_collection_rows():
-    from fable5.models import MerchCollection
+    from product_catalog.models import MerchCollection
 
     return list(
         MerchCollection.objects.filter(is_active=True)
@@ -45,7 +45,7 @@ def _active_collection_rows():
 
 
 def _collection_facet_contract():
-    from fable5.models import MerchCollection
+    from product_catalog.models import MerchCollection
 
     rows = _active_collection_rows()
     by_id = {row.pk: row for row in rows}
@@ -151,8 +151,8 @@ def _variant_rows(product):
 
     return list(
         ProductColorVariant.objects.filter(product=product)
-        .select_related("color__fable5_profile")
-        .prefetch_related("fable5_fit_rules", "fable5_size_rules")
+        .select_related("color__product_catalog_profile")
+        .prefetch_related("product_catalog_fit_rules", "product_catalog_size_rules")
         .order_by("order", "id")
     )
 
@@ -165,7 +165,7 @@ def _rules_for(variant, relation):
 
 
 def _normal_size(value):
-    from fable5.size_grid_services import normalize_size_value
+    from product_catalog.size_grid_services import normalize_size_value
 
     return normalize_size_value(value)
 
@@ -175,7 +175,7 @@ def _rule_allows_size(variant, size, fit_code=""):
     if wanted not in SELLABLE_SIZE_ORDER:
         return False
     rules = [
-        rule for rule in _rules_for(variant, "fable5_size_rules")
+        rule for rule in _rules_for(variant, "product_catalog_size_rules")
         if _normal_size(rule.size) == wanted and str(rule.fit_code or "").strip().lower() in {"", str(fit_code or "").strip().lower()}
     ]
     if not rules:
@@ -194,7 +194,7 @@ def _rule_allows_fit(variant, fit_code=""):
     if not wanted:
         return True
     rules = [
-        rule for rule in _rules_for(variant, "fable5_fit_rules")
+        rule for rule in _rules_for(variant, "product_catalog_fit_rules")
         if str(rule.fit_code or "").strip().lower() == wanted
     ]
     return not rules or bool(rules[-1].is_enabled)
@@ -225,7 +225,7 @@ def _product_matches_inventory_facets(product, state):
     if state.get("thermo"):
         variants = [
             variant for variant in variants
-            if bool(getattr(getattr(variant.color, "fable5_profile", None), "is_thermo", False))
+            if bool(getattr(getattr(variant.color, "product_catalog_profile", None), "is_thermo", False))
         ]
         if not variants:
             return False
@@ -288,9 +288,13 @@ def _product_matches_inventory_facets(product, state):
 def filter_products_by_facets(products: QuerySet, state: Mapping[str, tuple[str, ...]]) -> QuerySet:
     """Apply strict normalized merchandising and inventory constraints."""
     result = products
-    for code in state.get("audience", ()):
+    audience_codes = tuple(state.get("audience", ()))
+    for code in audience_codes:
+        effective_codes = {code}
+        if len(audience_codes) == 1 and code in {"men", "women"}:
+            effective_codes.add("unisex")
         result = result.filter(
-            audience_assignments__tag__code=code,
+            audience_assignments__tag__code__in=effective_codes,
             audience_assignments__tag__is_active=True,
         )
     for slug in state.get("theme", ()):
@@ -311,9 +315,9 @@ def filter_products_by_facets(products: QuerySet, state: Mapping[str, tuple[str,
     candidates = list(
         result.select_related("category")
         .prefetch_related(
-            "color_variants__color__fable5_profile",
-            "color_variants__fable5_fit_rules",
-            "color_variants__fable5_size_rules",
+            "color_variants__color__product_catalog_profile",
+            "color_variants__product_catalog_fit_rules",
+            "color_variants__product_catalog_size_rules",
             "fit_options",
         )
     )

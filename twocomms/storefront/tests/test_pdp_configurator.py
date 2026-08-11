@@ -7,7 +7,7 @@ from django.apps import apps
 from django.test import TestCase
 from django.urls import reverse
 
-from fable5.models import (
+from product_catalog.models import (
     ColorProfile,
     GarmentFlow,
     GarmentFlowCategory,
@@ -223,7 +223,7 @@ class ProductConfiguratorRenderTests(TestCase):
         self.assertEqual(html.count('data-product-option-axis="lining"'), 2)
 
     def test_cards_presentation_retains_both_lining_cards(self):
-        presentation_model = apps.get_model("fable5", "ProductOptionAxisPresentation")
+        presentation_model = apps.get_model("product_catalog", "ProductOptionAxisPresentation")
         presentation_model.objects.create(
             product=self.product,
             axis_code="lining",
@@ -246,7 +246,7 @@ class ProductConfiguratorRenderTests(TestCase):
         self.assertIn("js/product-detail.js?v=20260808-merch-v1", html)
         self.assertIn("js/product-media-fit.js?v=20260808-merch-v1", html)
         self.assertIn("js/telegram-verify.js?v=20260716-pdp-v2", html)
-        self.assertNotIn("20260715-fable5-v1", html)
+        self.assertNotIn("20260715-product_catalog-v1", html)
         self.assertNotIn("20260716-configurator-v1", html)
 
     def test_non_tshirt_product_does_not_publish_tshirt_size_advisor(self):
@@ -283,7 +283,7 @@ class ProductConfiguratorRenderTests(TestCase):
 
     @patch("storefront.views.product.logger")
     @patch(
-        "fable5.services.variant_allows_purchase",
+        "product_catalog.services.variant_allows_purchase",
         side_effect=ValidationError("resolver unavailable"),
     )
     def test_configurator_error_logs_and_preserves_legacy_size_availability(
@@ -303,7 +303,7 @@ class ProductConfiguratorRenderTests(TestCase):
         self.assertIn('data-restock-size="XXL"', response.content.decode())
 
     @patch("storefront.views.product.logger")
-    @patch("fable5.services.variant_allows_options")
+    @patch("product_catalog.services.variant_allows_options")
     def test_over_cap_flow_skips_cartesian_resolvers_and_returns_safe_state(
         self,
         allows_options_mock,
@@ -429,8 +429,8 @@ class ProductConfiguratorRenderTests(TestCase):
         )
         self.assertNotContains(response, 'data-fit-selector', html=False)
 
-    def test_staff_sees_direct_fable5_edit_link_but_customer_does_not(self):
-        edit_url = reverse("fable5_product_edit", args=[self.product.pk])
+    def test_staff_sees_direct_product_catalog_edit_link_but_customer_does_not(self):
+        edit_url = reverse("product_catalog_product_edit", args=[self.product.pk])
 
         anonymous_html = self.client.get(self.url).content.decode()
         self.assertNotIn('data-admin-product-edit', anonymous_html)

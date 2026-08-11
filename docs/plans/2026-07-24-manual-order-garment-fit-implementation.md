@@ -4,7 +4,7 @@
 
 **Goal:** Preserve classic, oversize, and thermo garment routing from manual-order entry through order editing, Nova Poshta quantity description, and warehouse write-off.
 
-**Architecture:** Reuse `OrderItem.fit_option_*`, Fable5 variant rules, `ColorProfile.is_thermo`, and `VariantBlankLink`. Enrich the existing admin JSON payload and both JavaScript editors, validate posted color+fit server-side, and provide a safe management command for production warehouse-link backfill.
+**Architecture:** Reuse `OrderItem.fit_option_*`, ProductCatalog variant rules, `ColorProfile.is_thermo`, and `VariantBlankLink`. Enrich the existing admin JSON payload and both JavaScript editors, validate posted color+fit server-side, and provide a safe management command for production warehouse-link backfill.
 
 **Tech Stack:** Django 5, Django ORM, server-rendered templates with vanilla JavaScript, Django `TestCase`, MariaDB production.
 
@@ -18,7 +18,7 @@
 
 1. Add failing tests that product JSON includes active fits, fit-specific sizes, variant allowed fits, thermo flag, and fit-specific price.
 2. Run the focused tests and confirm the new assertions fail.
-3. Add payload helpers using Fable5 public services and size-grid comparison data.
+3. Add payload helpers using ProductCatalog public services and size-grid comparison data.
 4. Run the focused tests and confirm they pass.
 
 ### Task 2: Validate and Persist Fit on Create and Edit
@@ -49,8 +49,8 @@
 ### Task 4: Backfill Variant-to-Warehouse Links
 
 **Files:**
-- Create: `twocomms/fable5/management/commands/backfill_tshirt_blank_links.py`
-- Create: `twocomms/fable5/tests/test_backfill_tshirt_blank_links.py`
+- Create: `twocomms/product_catalog/management/commands/backfill_tshirt_blank_links.py`
+- Create: `twocomms/product_catalog/tests/test_backfill_tshirt_blank_links.py`
 
 1. Add failing command tests covering dry-run, classic/oversize/thermo mapping, disabled fits, existing-link preservation, and idempotency.
 2. Run the command tests and confirm the command is missing.
@@ -75,7 +75,7 @@
 - No new production files expected.
 
 1. Run `git diff --check` and `python manage.py check`.
-2. Run manual order, edit, warehouse, Fable5, Nova Poshta, and Telegram order-action regressions.
+2. Run manual order, edit, warehouse, ProductCatalog, Nova Poshta, and Telegram order-action regressions.
 3. Run `makemigrations --check --dry-run` and compilation checks.
 4. Commit and push the feature branch and `main` after rebasing on current `origin/main`.
 5. Deploy with fast-forward pull, migrations check, `collectstatic`, `compress`, `check`, and Passenger restart.

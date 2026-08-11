@@ -10,7 +10,7 @@ from django.utils import timezone
 from accounts.models import TelegramVerificationSession
 from accounts.telegram_bot import TelegramBot
 from productcolors.models import Color, ProductColorVariant
-from fable5.models import VariantSizeRule
+from product_catalog.models import VariantSizeRule
 from storefront.models import Category, Product
 
 

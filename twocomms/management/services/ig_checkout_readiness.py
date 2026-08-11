@@ -141,7 +141,7 @@ def sizes_for_fit(product, fit_code: str, *, variant=None) -> dict:
     available: list[str] = []
     disabled: list[str] = []
     try:
-        from fable5.size_grid_services import normalize_size_value, resolve_effective_sizes
+        from product_catalog.size_grid_services import normalize_size_value, resolve_effective_sizes
         from storefront.services.size_guides import resolve_product_sizes
 
         if fit_code:
@@ -176,8 +176,8 @@ def _disabled_sizes(variant, fit_code: str) -> list[str]:
     if variant is None:
         return []
     try:
-        from fable5.models import VariantSizeRule
-        from fable5.size_grid_services import normalize_size_value
+        from product_catalog.models import VariantSizeRule
+        from product_catalog.size_grid_services import normalize_size_value
 
         rules = VariantSizeRule.objects.filter(variant=variant)
         if fit_code:
@@ -208,7 +208,7 @@ def _color_rows(product, *, fit_code: str, size: str, option_values=None):
     воно давало «Выбранный вариант сейчас недоступен» на кожен товар.
     """
     try:
-        from fable5.services import variant_allows_purchase
+        from product_catalog.services import variant_allows_purchase
         from management.services.ig_catalog_pricing import resolve_product_pricing
         from productcolors.models import ProductColorVariant
 
@@ -432,7 +432,7 @@ def checkout_readiness(
         selected_color_name = colors[0]["name"]
     from management.services.ig_catalog_pricing import resolve_product_pricing
     try:
-        from fable5.services import product_option_context
+        from product_catalog.services import product_option_context
         from productcolors.models import ProductColorVariant
 
         option_variant = preselected_variant

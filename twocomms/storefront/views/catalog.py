@@ -382,7 +382,7 @@ def _build_merch_collection_page(collection):
 
 def _smart_selector_merchandising_contract(facet_state):
     """Load the active taxonomy once for filters and card presentation."""
-    from fable5.models import AudienceTag, MerchCollection
+    from product_catalog.models import AudienceTag, MerchCollection
 
     language = _smart_selector_language()
     collections = list(
@@ -846,7 +846,7 @@ def _product_cards_queryset(*, include_fit_options=False, include_merchandising=
     if include_fit_options:
         prefetches.append('fit_options')
     if include_merchandising:
-        from fable5.models import ProductAudience, ProductMerchCollection
+        from product_catalog.models import ProductAudience, ProductMerchCollection
 
         prefetches.extend(
             (
@@ -1122,7 +1122,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
     merch_collection = None
     merch_collection_page = None
     if collection_slug:
-        from fable5.models import MerchCollection
+        from product_catalog.models import MerchCollection
 
         merch_collection = get_object_or_404(
             MerchCollection,

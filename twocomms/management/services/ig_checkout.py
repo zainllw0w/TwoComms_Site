@@ -223,8 +223,8 @@ def validate_checkout_items(
     requested_payment_amount=None,
     allow_promo=False,
 ):
-    from fable5.services import effective_cart_unit_price, variant_allows_purchase
-    from fable5.size_grid_services import (
+    from product_catalog.services import effective_cart_unit_price, variant_allows_purchase
+    from product_catalog.size_grid_services import (
         normalize_size_value,
         resolve_effective_sizes,
         resolve_option_size_grid,
@@ -334,12 +334,12 @@ def validate_checkout_items(
             else:
                 item_missing.add("color")
 
-        # Fable5 option axes are commercial facts, not display defaults.  The
+        # ProductCatalog option axes are commercial facts, not display defaults.  The
         # public context intentionally chooses a first enabled option for
         # merchandising, but assisted checkout must reject a missing
         # multi-choice axis instead of silently pricing that default.
         try:
-            from fable5.services import product_option_context
+            from product_catalog.services import product_option_context
 
             option_context = product_option_context(
                 product,
@@ -821,7 +821,7 @@ def create_or_update_proposal(
         revision_source = IgCheckoutRevision.Source.BOT_UPDATE
 
     _replace_proposal_items(proposal=proposal, quote=quote)
-    from fable5.models import ProductInventoryPolicy
+    from product_catalog.models import ProductInventoryPolicy
     if ProductInventoryPolicy.objects.filter(
         product_id__in={item.product_id for item in proposal.items.all() if item.product_id},
     ).exists():

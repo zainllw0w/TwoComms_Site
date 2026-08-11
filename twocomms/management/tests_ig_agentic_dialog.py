@@ -25,7 +25,7 @@ from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from management.models import IgClient, IgFollowUpTask, InstagramBotMessage
-from fable5.models import GarmentFlow, GarmentFlowCategory
+from product_catalog.models import GarmentFlow, GarmentFlowCategory
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product, ProductFitOption, ProductStatus
 
@@ -574,7 +574,7 @@ class CheckoutReadinessNoteTests(TestCase):
         self.assertIn("option:material", state["missing"])
         self.assertFalse(state["can_issue_link"])
 
-    @patch("fable5.services.product_option_context", side_effect=RuntimeError("catalog unavailable"))
+    @patch("product_catalog.services.product_option_context", side_effect=RuntimeError("catalog unavailable"))
     def test_option_context_failure_blocks_checkout_instead_of_using_base_price(self, _context):
         from management.services.ig_checkout_readiness import checkout_readiness
 
@@ -679,7 +679,7 @@ class CheckoutReadinessNoteTests(TestCase):
         self.assertNotIn("880 грн", note)
 
     def test_unavailable_requested_size_is_told_honestly_with_a_next_step(self):
-        from fable5.models import SizeGrid, VariantSizeRule
+        from product_catalog.models import SizeGrid, VariantSizeRule
         from management.services.ig_checkout_readiness import readiness_prompt_note
 
         VariantSizeRule.objects.create(
@@ -1014,7 +1014,7 @@ class SizeGapEscalationTests(TestCase):
         self.variant = ProductColorVariant.objects.create(
             product=self.product, color=black, stock=0, slug="black",
         )
-        from fable5.models import VariantSizeRule
+        from product_catalog.models import VariantSizeRule
 
         VariantSizeRule.objects.create(
             variant=self.variant, fit_code="classic", size="M", is_enabled=False,
@@ -1072,7 +1072,7 @@ class SizeGapEscalationTests(TestCase):
     @patch("management.services.instagram_bot.notify_manager")
     def test_committed_restock_materializes_only_the_exact_variant_selection(self, _notify):
         from django.core.cache import cache
-        from fable5.models import VariantSizeRule
+        from product_catalog.models import VariantSizeRule
         from management.services import instagram_bot as bot
         from management.services.bot_followups import (
             event_followup_fact_guard,
@@ -1114,11 +1114,11 @@ class SizeGapEscalationTests(TestCase):
         self.assertTrue(allowed, reason)
 
     @patch("management.services.instagram_bot.notify_manager")
-    def test_fable5_restock_revision_allows_same_inventory_and_rejects_later_change(
+    def test_product_catalog_restock_revision_allows_same_inventory_and_rejects_later_change(
         self, _notify
     ):
         from django.core.cache import cache
-        from fable5.models import VariantSizeRule
+        from product_catalog.models import VariantSizeRule
         from management.services import instagram_bot as bot
         from management.services.bot_followups import (
             event_followup_fact_guard,
@@ -1134,7 +1134,7 @@ class SizeGapEscalationTests(TestCase):
         rule.is_enabled = True
         rule.stock = 1
         rule.save(update_fields=["is_enabled", "stock", "updated_at"])
-        source_revision = f"fable5:{variant_inventory_revision(self.variant.pk)}"
+        source_revision = f"product_catalog:{variant_inventory_revision(self.variant.pk)}"
 
         self.assertEqual(
             materialize_restock_inventory_event(

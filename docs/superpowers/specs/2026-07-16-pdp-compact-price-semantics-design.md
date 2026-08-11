@@ -2,7 +2,7 @@
 
 ## Scope
 
-Refine the existing Fable5 PDP configurator without changing the gallery, restock flow, tabs, recommendations, SEO ordering, or the overall visual language. The change covers price attribution, compact selector layout, unavailable fit cards, and the hoodie fleece state.
+Refine the existing ProductCatalog PDP configurator without changing the gallery, restock flow, tabs, recommendations, SEO ordering, or the overall visual language. The change covers price attribution, compact selector layout, unavailable fit cards, and the hoodie fleece state.
 
 ## Confirmed production state
 
@@ -62,13 +62,13 @@ If a second lining choice becomes enabled later, the fixed state automatically d
 
 ### Administrator-selectable presentation
 
-Fable5 stores a per-product presentation preference for the `lining` axis:
+ProductCatalog stores a per-product presentation preference for the `lining` axis:
 
 - `auto`: use the compact locked switch when exactly one choice is enabled; otherwise use cards.
 - `switch`: prefer the compact switch, but safely fall back to cards if more than one choice is enabled.
 - `cards`: always retain the full existing card presentation, including unavailable choices.
 
-The Fable5 `Посадки й розміри` workspace exposes `Компактний switch / Картки` as a segmented control. This setting changes presentation only; it never changes price, availability, stock, or the selected option value.
+The ProductCatalog `Посадки й розміри` workspace exposes `Компактний switch / Картки` as a segmented control. This setting changes presentation only; it never changes price, availability, stock, or the selected option value.
 
 ## Material story price
 
@@ -76,7 +76,7 @@ The story receives a compact price badge only when the material/color delta is n
 
 ## Admin behavior
 
-No new database fields are required. Existing Fable5 controls retain their meaning:
+No new database fields are required. Existing ProductCatalog controls retain their meaning:
 
 - Color-level delta edits the material/color component.
 - Option profile delta edits the option component.

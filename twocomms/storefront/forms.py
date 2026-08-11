@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 
 from django import forms
 from django.conf import settings
-from django.db.models import Max
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from dtf.utils import (
@@ -14,8 +13,6 @@ from dtf.utils import (
     normalize_phone,
     validate_uploaded_file,
 )
-from productcolors.models import ProductColorVariant, ProductColorImage
-from storefront.services.catalog import ensure_color_identity
 from storefront.custom_print_config import build_placement_specs, normalize_custom_print_snapshot
 
 from .models import (
@@ -24,7 +21,6 @@ from .models import (
     BlogPost,
     CustomPrintBusinessKind,
     Product,
-    ProductFAQ,
     ProductFitOption,
     Category,
     CustomPrintClientKind,
@@ -36,10 +32,6 @@ from .models import (
     CustomPrintServiceKind,
     CustomPrintSizeMode,
     PrintProposal,
-    Catalog,
-    CatalogOption,
-    CatalogOptionValue,
-    SizeGrid,
     PushNotificationCampaign,
 )
 
@@ -485,443 +477,6 @@ class CustomPrintLeadForm(forms.Form):
         return lead
 
 
-class ProductForm(forms.ModelForm):
-    # множественный аплоад: безопасно обрабатываем список файлов
-    extra_images = MultiFileField(
-        required=False,
-        widget=MultiFileInput(attrs={
-            "multiple": True,
-            "accept": "image/*",
-            "class": "form-control d-none",
-            "data-extra-images-input": "1"
-        })
-    )
-
-    class Meta:
-        model = Product
-        fields = [
-            # Поля которые РЕАЛЬНО отправляет шаблон admin_product_edit_unified.html
-            "title",
-            "slug",
-            "category",
-            "status",
-            "priority",
-            "price",
-            "discount_percent",
-            "featured",
-            "description",
-            "main_image",
-            "home_card_image",
-            "points_reward",
-            # Видео товара (YouTube)
-            "video_url",
-            # Дополнительные поля для других шаблонов (опциональные)
-            "catalog",
-            "size_grid",
-            "short_description",
-            "full_description",
-            "details_text",
-            "target_audience",
-            "care_instructions",
-            "main_image_alt",
-            "seo_title",
-            "seo_description",
-            "seo_keywords",
-            "drop_price",
-            "wholesale_price",
-        ]
-        widgets = {
-            "description": forms.Textarea(attrs={"rows": 6, "class": "form-control"}),
-            "short_description": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
-            "full_description": forms.Textarea(attrs={"rows": 8, "class": "form-control"}),
-            "details_text": forms.Textarea(attrs={"rows": 5, "class": "form-control"}),
-            "target_audience": forms.Textarea(attrs={"rows": 4, "class": "form-control"}),
-            "care_instructions": forms.Textarea(attrs={"rows": 4, "class": "form-control"}),
-            "title": forms.TextInput(attrs={"class": "form-control"}),
-            "slug": forms.TextInput(attrs={"class": "form-control"}),
-            "category": forms.Select(attrs={"class": "form-control"}),
-            "status": forms.Select(attrs={"class": "form-control"}),
-            "catalog": forms.Select(attrs={"class": "form-control"}),
-            "size_grid": forms.Select(attrs={"class": "form-control"}),
-            "price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-            "discount_percent": forms.NumberInput(attrs={"class": "form-control", "min": "0", "max": "100"}),
-            "priority": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-            "featured": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "main_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-main-image-input": "1"}),
-            "home_card_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-home-card-image-input": "1"}),
-            "main_image_alt": forms.TextInput(attrs={"class": "form-control"}),
-            "video_url": forms.URLInput(attrs={
-                "class": "form-control",
-                "placeholder": "https://www.youtube.com/watch?v=...",
-                "inputmode": "url",
-            }),
-            "seo_title": forms.TextInput(attrs={"class": "form-control", "maxlength": "160"}),
-            "seo_description": forms.Textarea(attrs={"rows": 3, "class": "form-control", "maxlength": "320"}),
-            "seo_keywords": forms.TextInput(attrs={"class": "form-control"}),
-            "points_reward": forms.NumberInput(attrs={"class": "form-control", "min": "0", "value": "0"}),
-            "drop_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-            "wholesale_price": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if 'slug' in self.fields:
-            self.fields['slug'].required = False
-        if not self.is_bound and not getattr(self.instance, 'pk', None) and 'priority' in self.fields:
-            self.fields['priority'].initial = self._next_priority()
-        # Позволяем создавать товары без явного указания дроп/опт цены — проставляем 0 по умолчанию
-        for price_field in ('drop_price', 'wholesale_price'):
-            if price_field in self.fields:
-                self.fields[price_field].required = False
-                self.fields[price_field].initial = self.fields[price_field].initial or 0
-
-    @staticmethod
-    def _next_priority():
-        max_priority = Product.objects.aggregate(max_priority=Max('priority')).get('max_priority') or 0
-        return max_priority + 1
-
-    def clean(self):
-        data = super().clean()
-        # Главное изображение необязательно - оно может быть взято из цветовых вариантов
-        # или добавлено позже через редактирование товара
-
-        # Валидация цены
-        price = data.get('price')
-        if price is not None:
-            try:
-                price = float(price)
-                if price < 0:
-                    self.add_error('price', "Ціна не може бути від'ємною")
-                elif price > 999999.99:
-                    self.add_error('price', "Ціна не може перевищувати 999,999.99 грн")
-            except (ValueError, TypeError):
-                self.add_error('price', "Невірний формат ціни")
-
-        # Обработка points_reward
-        points_reward = data.get('points_reward')
-        if points_reward is not None:
-            try:
-                points_reward = int(points_reward) if points_reward else 0
-                if points_reward < 0:
-                    self.add_error('points_reward', "Кількість балів не може бути від'ємною")
-                elif points_reward > 10000:
-                    self.add_error('points_reward', "Кількість балів не може перевищувати 10,000")
-                data['points_reward'] = points_reward
-            except (ValueError, TypeError):
-                data['points_reward'] = 0
-
-        # Обработка discount_percent
-        discount_percent = data.get('discount_percent')
-        if discount_percent is not None:
-            try:
-                discount_percent = int(discount_percent) if discount_percent else None
-                if discount_percent is not None:
-                    if discount_percent < 0:
-                        self.add_error('discount_percent', "Знижка не може бути від'ємною")
-                    elif discount_percent > 100:
-                        self.add_error('discount_percent', "Знижка не може перевищувати 100%")
-                data['discount_percent'] = discount_percent
-            except (ValueError, TypeError):
-                data['discount_percent'] = None
-
-        # Длина короткого описания
-        short_description = data.get('short_description') or ''
-        if short_description and len(short_description) > 300:
-            self.add_error('short_description', "Короткий опис не може містити більше 300 символів")
-
-        # Пріоритет показу
-        priority = data.get('priority')
-        if priority is not None:
-            try:
-                priority_int = int(priority)
-                if priority_int < 0:
-                    self.add_error('priority', "Пріоритет не може бути від'ємним")
-                data['priority'] = priority_int
-            except (ValueError, TypeError):
-                self.add_error('priority', "Невірне значення пріоритету")
-
-        # Синхронизация описаний
-        full_description = data.get('full_description') or ''
-        if not short_description and full_description:
-            data['short_description'] = full_description[:297].rstrip() + '...' if len(full_description) > 300 else full_description
-
-        seo_title = data.get('seo_title') or ''
-        if seo_title and len(seo_title) > 160:
-            self.add_error('seo_title', "SEO title не може бути довшим за 160 символів")
-
-        seo_description = data.get('seo_description') or ''
-        if seo_description and len(seo_description) > 320:
-            self.add_error('seo_description', "SEO description не може бути довшим за 320 символів")
-
-        # Дроп/опт цены — задаем 0 по умолчанию, валидируем на неотрицательность
-        for field_name in ('drop_price', 'wholesale_price'):
-            value = data.get(field_name)
-            if value in (None, ''):
-                data[field_name] = 0
-                continue
-            try:
-                numeric_value = int(value)
-                if numeric_value < 0:
-                    self.add_error(field_name, "Ціна не може бути від'ємною")
-                else:
-                    data[field_name] = numeric_value
-            except (ValueError, TypeError):
-                self.add_error(field_name, "Невірний формат ціни")
-
-        # Видео товара: нормализуем и валидируем YouTube-ссылку
-        video_url = (data.get('video_url') or '').strip()
-        if video_url:
-            from storefront.utils.video import extract_youtube_id, youtube_watch_url
-            video_id = extract_youtube_id(video_url)
-            if not video_id:
-                self.add_error(
-                    'video_url',
-                    "Вкажіть коректне посилання на YouTube (watch, youtu.be, embed або shorts).",
-                )
-            else:
-                # Сохраняем канонический watch-URL — стабильный формат для
-                # парсинга, schema и merchant feed.
-                data['video_url'] = youtube_watch_url(video_id)
-        else:
-            data['video_url'] = ''
-
-        return data
-        instance = super().save(commit=False)
-        if is_new and not instance.priority:
-            instance.priority = self._next_priority()
-        # Поддерживаем legacy-поле description для обратной совместимости
-        full_description = self.cleaned_data.get('full_description') or ''
-        if full_description:
-            instance.description = full_description
-        elif self.cleaned_data.get('short_description'):
-            instance.description = self.cleaned_data['short_description']
-        if commit:
-            instance.save()
-            self.save_m2m()
-        return instance
-
-
-class ProductFAQForm(forms.ModelForm):
-    class Meta:
-        model = ProductFAQ
-        fields = ["question", "answer", "order", "is_active"]
-        widgets = {
-            "question": forms.TextInput(attrs={"class": "form-control", "placeholder": "Наприклад: Це чоловіча чи жіноча футболка?"}),
-            "answer": forms.Textarea(attrs={"rows": 3, "class": "form-control", "placeholder": "Коротка відповідь для клієнта і SEO"}),
-            "order": forms.NumberInput(attrs={"class": "form-control", "min": "0"}),
-            "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-        }
-
-
-ProductFAQFormSet = inlineformset_factory(
-    Product,
-    ProductFAQ,
-    form=ProductFAQForm,
-    extra=1,
-    can_delete=True,
-)
-
-
-def build_product_faq_formset(product=None, data=None, prefix='faqs'):
-    product_instance = product or Product()
-    return ProductFAQFormSet(
-        data=data if data is not None else None,
-        instance=product_instance,
-        prefix=prefix,
-    )
-
-
-class ProductSEOForm(forms.ModelForm):
-    class Meta:
-        model = Product
-        fields = ["seo_title", "seo_description", "seo_keywords", "seo_schema"]
-        widgets = {
-            "seo_title": forms.TextInput(attrs={"maxlength": 160}),
-            "seo_description": forms.Textarea(attrs={"rows": 3, "maxlength": 320}),
-            "seo_keywords": forms.TextInput(attrs={"placeholder": "ключові слова через кому"}),
-            "seo_schema": forms.Textarea(attrs={"rows": 6, "placeholder": '{"@context": "..."}'}),
-        }
-
-    def clean_seo_title(self):
-        value = (self.cleaned_data.get("seo_title") or "").strip()
-        if len(value) > 160:
-            raise forms.ValidationError("SEO title не може бути довшим за 160 символів")
-        return value
-
-    def clean_seo_description(self):
-        value = (self.cleaned_data.get("seo_description") or "").strip()
-        if len(value) > 320:
-            raise forms.ValidationError("SEO description не може бути довшим за 320 символів")
-        return value
-
-
-class SizeGridForm(forms.ModelForm):
-    class Meta:
-        model = SizeGrid
-        fields = ["name", "image", "description", "guide_data", "is_active"]
-        widgets = {
-            "description": forms.Textarea(attrs={"rows": 4}),
-            "guide_data": forms.Textarea(attrs={"rows": 8, "placeholder": '{"profile_key": "hoodie", "rows": [...]}'})
-        }
-
-
-class CatalogOptionForm(forms.ModelForm):
-    class Meta:
-        model = CatalogOption
-        fields = [
-            "name",
-            "option_type",
-            "is_required",
-            "is_additional_cost",
-            "additional_cost",
-            "help_text",
-            "order",
-        ]
-
-
-CatalogOptionFormSet = inlineformset_factory(
-    Catalog,
-    CatalogOption,
-    form=CatalogOptionForm,
-    extra=0,
-    can_delete=True,
-)
-
-
-class CatalogOptionValueForm(forms.ModelForm):
-    class Meta:
-        model = CatalogOptionValue
-        fields = ["value", "display_name", "image", "order", "is_default", "metadata"]
-
-
-CatalogOptionValueFormSet = inlineformset_factory(
-    CatalogOption,
-    CatalogOptionValue,
-    form=CatalogOptionValueForm,
-    extra=0,
-    can_delete=True,
-)
-
-
-class ProductColorVariantForm(forms.ModelForm):
-    name = forms.CharField(
-        required=False,
-        max_length=100,
-        widget=forms.TextInput(attrs={"placeholder": "Назва кольору"}),
-    )
-    primary_hex = forms.CharField(
-        required=False,
-        max_length=7,
-        widget=forms.TextInput(attrs={"placeholder": "#RRGGBB"}),
-        help_text="Основний HEX"
-    )
-    secondary_hex = forms.CharField(
-        required=False,
-        max_length=7,
-        widget=forms.TextInput(attrs={"placeholder": "#RRGGBB"}),
-        help_text="Другий HEX (опціонально)"
-    )
-
-    class Meta:
-        model = ProductColorVariant
-        fields = [
-            "color",
-            "is_default",
-            "order",
-            "sku",
-            "barcode",
-            "stock",
-            "price_override",
-            "metadata",
-        ]
-        widgets = {
-            "order": forms.HiddenInput(),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["color"].widget = forms.HiddenInput()
-        self.fields["color"].required = False
-        if self.instance and self.instance.pk:
-            color = getattr(self.instance, "color", None)
-            if color:
-                self.fields["name"].initial = color.name
-                self.fields["primary_hex"].initial = color.primary_hex
-                self.fields["secondary_hex"].initial = color.secondary_hex or ""
-
-    def clean_primary_hex(self):
-        value = (self.cleaned_data.get("primary_hex") or "").strip()
-        if not value:
-            return ""
-        if not value.startswith("#"):
-            value = f"#{value}"
-        if len(value) != 7:
-            raise forms.ValidationError("HEX має містити 7 символів разом з #")
-        return value.upper()
-
-    def clean_secondary_hex(self):
-        value = (self.cleaned_data.get("secondary_hex") or "").strip()
-        if not value:
-            return ""
-        if not value.startswith("#"):
-            value = f"#{value}"
-        if len(value) != 7:
-            raise forms.ValidationError("HEX має містити 7 символів разом з #")
-        return value.upper()
-
-    def clean(self):
-        data = super().clean()
-        color = data.get("color")
-        primary_hex = data.get("primary_hex")
-        if not color and not primary_hex:
-            raise forms.ValidationError("Вкажіть існуючий колір або HEX значення.")
-        return data
-
-    def save(self, commit=True):
-        variant = super().save(commit=False)
-        color = self.cleaned_data.get("color")
-        primary_hex = (self.cleaned_data.get("primary_hex") or "").strip()
-        secondary_hex = (self.cleaned_data.get("secondary_hex") or "").strip() or None
-        name = (self.cleaned_data.get("name") or "").strip()
-
-        result = ensure_color_identity(
-            primary_hex=primary_hex or (color.primary_hex if color else None),
-            secondary_hex=secondary_hex,
-            name=name,
-            color=color,
-        )
-
-        variant.color = result.color
-        if commit:
-            variant.save()
-            self.save_m2m()
-        return variant
-
-
-class ProductColorImageForm(forms.ModelForm):
-    class Meta:
-        model = ProductColorImage
-        fields = ["image", "alt_text", "order"]
-
-
-ProductColorImageFormSet = inlineformset_factory(
-    ProductColorVariant,
-    ProductColorImage,
-    form=ProductColorImageForm,
-    extra=0,
-    can_delete=True,
-)
-
-
-ProductColorVariantFormSet = inlineformset_factory(
-    Product,
-    ProductColorVariant,
-    form=ProductColorVariantForm,
-    extra=1,
-    can_delete=True,
-)
-
-
 class ProductFitOptionForm(forms.ModelForm):
     class Meta:
         model = ProductFitOption
@@ -1212,72 +767,37 @@ def ensure_default_fit_options_for_tshirt(product) -> bool:
     return rows_created
 
 
-def build_color_variant_formset(
-    product=None,
-    data=None,
-    files=None,
-    prefix='color_variants'
-):
-    """
-    Строит formset вариантов цвета и подготавливает вложенные formset изображений.
-    """
-    product_instance = product or Product()
-    formset = ProductColorVariantFormSet(
-        data=data if data is not None else None,
-        files=files if files is not None else None,
-        instance=product_instance,
-        prefix=prefix,
-    )
-
-    for form in formset.forms:
-        variant_instance = form.instance
-        if not variant_instance.pk:
-            variant_instance.product = product_instance
-        form.images_formset = ProductColorImageFormSet(
-            data=data if data is not None else None,
-            files=files if files is not None else None,
-            instance=variant_instance,
-            prefix=f"{form.prefix}-images",
-        )
-    empty_variant = formset.empty_form
-    empty_variant.instance.product = product_instance
-    empty_variant.images_formset = ProductColorImageFormSet(
-        data=data if data is not None else None,
-        files=files if files is not None else None,
-        instance=empty_variant.instance,
-        prefix=f"{empty_variant.prefix}-images",
-    )
-    return formset
-
-
 class CategoryForm(forms.ModelForm):
     class Meta:
         model = Category
-        fields = ["name", "slug", "icon", "cover", "order", "description"]
+        fields = [
+            "name", "slug", "icon", "cover", "order", "description",
+            "is_active", "is_featured", "seo_title", "seo_h1",
+            "seo_description", "seo_text_title", "seo_intro_html",
+        ]
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "catalog-category-input"}),
+            "slug": forms.TextInput(attrs={"class": "catalog-category-input", "spellcheck": "false"}),
+            "icon": forms.ClearableFileInput(attrs={"class": "catalog-category-file", "accept": "image/png,image/webp,image/svg+xml"}),
+            "cover": forms.ClearableFileInput(attrs={"class": "catalog-category-file", "accept": "image/*"}),
+            "order": forms.NumberInput(attrs={"class": "catalog-category-input", "min": "0"}),
+            "description": forms.Textarea(attrs={"class": "catalog-category-input", "rows": 4}),
+            "seo_title": forms.TextInput(attrs={"class": "catalog-category-input", "maxlength": "180"}),
+            "seo_h1": forms.TextInput(attrs={"class": "catalog-category-input", "maxlength": "180"}),
+            "seo_description": forms.Textarea(attrs={"class": "catalog-category-input", "rows": 3, "maxlength": "320"}),
+            "seo_text_title": forms.TextInput(attrs={"class": "catalog-category-input", "maxlength": "200"}),
+            "seo_intro_html": forms.Textarea(attrs={"class": "catalog-category-input catalog-category-input--code", "rows": 6}),
+        }
 
     def clean_slug(self):
         slug = self.cleaned_data.get('slug')
         if slug:
-            # Проверяем уникальность slug без конфликта кодировок
-            try:
-                existing = Category.objects.filter(slug=slug)
-                if self.instance.pk:
-                    existing = existing.exclude(pk=self.instance.pk)
-                if existing.exists():
-                    raise forms.ValidationError('Категорія з таким slug вже існує.')
-            except Exception as e:
-                # Если возникает ошибка кодировки, пропускаем проверку
-                pass
+            existing = Category.objects.filter(slug=slug)
+            if self.instance.pk:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise forms.ValidationError('Категорія з таким slug вже існує.')
         return slug
-
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        # По умолчанию категория всегда активна и без рекомендации
-        instance.is_active = True
-        instance.is_featured = False
-        if commit:
-            instance.save()
-        return instance
 
 
 def _model_fields(model, names):

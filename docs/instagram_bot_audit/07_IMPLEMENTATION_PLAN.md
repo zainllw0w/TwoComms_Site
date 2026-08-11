@@ -913,7 +913,7 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   `bf4e0d80`, `674d6858`, `3678ddf4`: append-only verified product semantics,
   explicit inventory policy, запрет generic/punctuation aliases и
   unauthoritative revocation. Production: migrations `storefront.0088` и
-  `fable5.0008`, три InnoDB tables, 77 policies, UPDATE/DELETE triggers.
+  catalog migration `0008`, три InnoDB tables, 77 policies, UPDATE/DELETE triggers.
   Остаток: полноценный runtime/admin consumer и отдельный disposable MariaDB
   test gate; production БД не используется как тестовая.
 - [ ] **IMP-082 (P1) — PARTIAL, foundation и prompt parity в `main`/production `0ad694bc`.**

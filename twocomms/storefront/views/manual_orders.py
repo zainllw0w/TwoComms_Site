@@ -108,7 +108,7 @@ DEFAULT_PAYMENT_PRESET = 'cod'
 
 def _sizes_after_variant_rules(sizes, size_rules, fit_code):
     """Apply colour-level size rules when a variant has no assigned size grid."""
-    from fable5.size_grid_services import normalize_size_value
+    from product_catalog.size_grid_services import normalize_size_value
 
     wanted_fit = str(fit_code or '').strip().lower()
     general_rules = {}
@@ -226,16 +226,16 @@ def _build_products_payload():
     """
     variant_queryset = (
         ProductColorVariant.objects
-        .select_related('color', 'color__fable5_profile', 'fable5_details')
+        .select_related('color', 'color__product_catalog_profile', 'product_catalog_details')
         .prefetch_related(
             'images',
-            'fable5_details__i18n',
-            'fable5_fit_rules',
-            'fable5_size_rules',
-            'fable5_size_grid_assignments__size_grid__fable5_profile',
-            'fable5_combinations',
-            'fable5_combinations__i18n',
-            'fable5_faqs',
+            'product_catalog_details__i18n',
+            'product_catalog_fit_rules',
+            'product_catalog_size_rules',
+            'product_catalog_size_grid_assignments__size_grid__product_catalog_profile',
+            'product_catalog_combinations',
+            'product_catalog_combinations__i18n',
+            'product_catalog_faqs',
         )
     )
     products = (
@@ -243,13 +243,13 @@ def _build_products_payload():
         .select_related('category', 'catalog', 'size_grid')
         .prefetch_related(
             'catalog__options__values',
-            'catalog__size_grids__fable5_profile',
+            'catalog__size_grids__product_catalog_profile',
             'fit_options',
-            'fable5_fit_notes',
-            'fable5_size_grid_assignments__size_grid__fable5_profile',
-            'fable5_size_rules',
-            'fable5_option_profiles',
-            'fable5_option_profiles__i18n',
+            'product_catalog_fit_notes',
+            'product_catalog_size_grid_assignments__size_grid__product_catalog_profile',
+            'product_catalog_size_rules',
+            'product_catalog_option_profiles',
+            'product_catalog_option_profiles__i18n',
             Prefetch('color_variants', queryset=variant_queryset),
         )
         .order_by('category__order', 'category__name', 'title')
@@ -268,7 +268,7 @@ def _build_products_payload():
         sizes_by_fit = {option.code: list(default_sizes) for option in fit_options}
         variant_sizes_by_fit = {variant.id: {} for variant in product_variants}
         if fit_options:
-            from fable5.size_grid_services import build_size_grid_comparison
+            from product_catalog.size_grid_services import build_size_grid_comparison
 
             for comparison in build_size_grid_comparison(product, variants=product_variants):
                 option_key = str(comparison.get('option_key') or '')
@@ -300,7 +300,7 @@ def _build_products_payload():
         variants = []
         for variant in product_variants:
             color = getattr(variant, 'color', None)
-            from fable5.services import effective_cart_unit_price, variant_public_context
+            from product_catalog.services import effective_cart_unit_price, variant_public_context
 
             public_context = variant_public_context(variant)
             available_fit_codes = list(public_context.get('available_fit_codes') or [])
@@ -445,7 +445,7 @@ def _resolve_fit_payload(product, requested_code, *, variant=None, allow_unavail
         raise ValueError(f'Невірна посадка для товару «{product.title}».')
 
     if variant is not None:
-        from fable5.services import variant_allows_fit
+        from product_catalog.services import variant_allows_fit
 
         allowed_options = [
             option for option in options
@@ -558,7 +558,7 @@ def _build_order_item(
         allow_unavailable=allow_historical,
     )
     if variant is not None:
-        from fable5.services import variant_allows_purchase
+        from product_catalog.services import variant_allows_purchase
 
         if not allow_historical and not variant_allows_purchase(
             product,
