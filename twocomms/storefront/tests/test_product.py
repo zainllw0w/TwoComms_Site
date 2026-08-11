@@ -19,6 +19,7 @@ from orders.models import Order, OrderItem
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from reviews.models import Review, ReviewStatus
 from storefront.models import Category, Product, ProductFAQ, ProductFitOption, ProductImage
+from storefront.views.product import _dedupe_product_faq_items
 
 PNG_PIXEL = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -167,6 +168,28 @@ class ProductHomepageImageTests(ProductViewTestCase):
 
 
 class ProductDetailTests(ProductViewTestCase):
+    def test_product_faq_items_drop_exact_duplicate_pairs_deterministically(self):
+        ProductFAQ.objects.create(
+            product=self.product,
+            question="  Where is the print? ",
+            answer="Printed on the back.",
+            order=0,
+            is_active=True,
+        )
+        ProductFAQ.objects.create(
+            product=self.product,
+            question="where is the print?",
+            answer="Printed   on the back.",
+            order=1,
+            is_active=True,
+        )
+
+        items = _dedupe_product_faq_items(self.product)
+
+        self.assertEqual(items, [
+            {"question": "Where is the print?", "answer": "Printed on the back."},
+        ])
+
     def _configure_selected_color_hero(self, prefix):
         self.product.main_image = self._image_file(f"{prefix}-base.png")
         self.product.save(update_fields=["main_image"])
@@ -741,7 +764,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'id="panel-faq"', html=False)
         self.assertContains(response, "FAQ товару")
         self.assertContains(response, "Це футболка унісекс.")
-        self.assertNotContains(response, '"@type": "FAQPage"', html=False)
+        self.assertContains(response, '"@type": "FAQPage"', html=False)
         self.assertNotContains(response, "Неактивне питання")
 
 

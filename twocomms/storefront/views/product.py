@@ -297,6 +297,35 @@ def _build_path_variant_redirect(
     return target_path
 
 
+def _dedupe_product_faq_items(product):
+    """Return active FAQ pairs with exact normalized duplicates removed.
+
+    The first row in editorial order wins. The pair key normalizes case and
+    whitespace only, so conflicting answers to the same question remain
+    visible for later fact review instead of being silently discarded.
+    """
+    items = []
+    seen_pairs = set()
+    queryset = product.faqs.filter(is_active=True).order_by("order", "id")
+
+    for faq in queryset:
+        question = str(faq.question or "").strip()
+        answer = str(faq.answer or "").strip()
+        if not question or not answer:
+            continue
+
+        key = (
+            " ".join(question.split()).casefold(),
+            " ".join(answer.split()).casefold(),
+        )
+        if key in seen_pairs:
+            continue
+        seen_pairs.add(key)
+        items.append({"question": question, "answer": answer})
+
+    return items
+
+
 # ВАЖНО: Не кэшируем страницу товара, так как нужен предвыбор размера/цвета из URL параметров
 # @cache_page_for_anon(600)  # Отключено для поддержки ?size=M и ?color=X
 def product_detail(request, slug, v1=None, v2=None, v3=None):
@@ -655,10 +684,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             "title": _("Відео огляд: %(title)s") % {"title": product.title},
         }
 
-    product_faq_items = [
-        {"question": faq.question, "answer": faq.answer}
-        for faq in product.faqs.filter(is_active=True).order_by("order", "id")
-    ]
+    product_faq_items = _dedupe_product_faq_items(product)
 
     # Генерируем breadcrumbs для SEO
     breadcrumbs = [
