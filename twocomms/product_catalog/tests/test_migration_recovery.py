@@ -287,20 +287,30 @@ class CatalogMigrationRecoveryTests(SimpleTestCase):
             migration.ensure_image_job_indexes(app_registry, schema_editor)
 
     def test_additive_image_job_migration_repairs_lease_and_indexes(self):
-        migration = import_module("product_catalog.migrations.0014_image_optimization_job_indexes")
+        migration = import_module("product_catalog.migrations.0015_reconcile_image_job_schema")
         fields = [
             SimpleNamespace(name="lease_token", column="lease_token", db_index=False),
         ]
-        index = SimpleNamespace(
-            name="pc_job_status_upd_9f3d_idx",
-            fields=("status", "-updated_at"),
-        )
+        indexes = [
+            SimpleNamespace(
+                name="pc_job_status_upd_9f3d_idx",
+                fields=("status", "-updated_at"),
+            ),
+            SimpleNamespace(
+                name="pc_job_status_crt_9f3d_idx",
+                fields=("status", "created_at"),
+            ),
+        ]
         model = SimpleNamespace(
             _meta=SimpleNamespace(
                 db_table="product_catalog_imageoptimizationjob",
                 local_fields=fields,
-                indexes=[index],
-                get_field=lambda name: SimpleNamespace(column=name),
+                indexes=indexes,
+                get_field=lambda name: (
+                    fields[0]
+                    if name == "lease_token"
+                    else SimpleNamespace(column=name)
+                ),
             )
         )
         app_registry = Mock()
@@ -315,7 +325,10 @@ class CatalogMigrationRecoveryTests(SimpleTestCase):
         schema_editor.connection.cursor.return_value.__enter__ = Mock(return_value=Mock())
         schema_editor.connection.cursor.return_value.__exit__ = Mock(return_value=False)
 
-        migration.ensure_image_job_indexes(app_registry, schema_editor)
+        migration.ensure_image_job_runtime_schema(app_registry, schema_editor)
 
         schema_editor.add_field.assert_called_once_with(model, fields[0])
-        schema_editor.add_index.assert_called_once_with(model, index)
+        self.assertEqual(
+            schema_editor.add_index.call_args_list,
+            [call(model, index) for index in indexes],
+        )

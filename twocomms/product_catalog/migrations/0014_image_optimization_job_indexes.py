@@ -46,6 +46,11 @@ def _validate_existing_field(schema_editor, table_name, field, column):
         "PositiveBigIntegerField": {"PositiveBigIntegerField", "BigIntegerField"},
         "CharField": {"CharField"},
     }.get(expected_type, {expected_type})
+    # SQLite reports every INTEGER PRIMARY KEY as AutoField even when the
+    # migration state is BigAutoField.  Keep the strict MySQL check while
+    # allowing the equivalent local test representation.
+    if expected_type == "BigAutoField" and schema_editor.connection.vendor == "sqlite":
+        compatible.add("AutoField")
     if actual_type not in compatible:
         raise RuntimeError(
             f"{table_name}.{field.column} has type {actual_type}, expected {expected_type}"
