@@ -538,6 +538,102 @@ class SwitchRunner(FakeRunner):
         return result
 
 
+class PassengerEntrypointMutationRunner(SwitchRunner):
+    """Mirror CloudLinux rewriting the tracked Passenger loader on every start."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.passenger_entrypoint = self.config.live_checkout / "passenger_wsgi.py"
+        self.tracked_entrypoint = self.passenger_entrypoint.read_text(encoding="utf-8")
+
+    def __call__(self, argv, *, cwd=None, env=None, timeout=None):
+        command = tuple(str(part) for part in argv)
+        if command[:2] == ("cloudlinux-selector", "start"):
+            result = super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+            self.passenger_entrypoint.write_text(
+                "# generated recursively by CloudLinux\n",
+                encoding="utf-8",
+            )
+            self.tracked_status = " M passenger_wsgi.py\n"
+            return result
+        if command[:2] == ("git", "restore") and command[-1] == "passenger_wsgi.py":
+            self.calls.append(command)
+            self.passenger_entrypoint.write_text(self.tracked_entrypoint, encoding="utf-8")
+            self.tracked_status = ""
+            return deploy_release.CommandResult(0, "", "")
+        return super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+
+
+class PassengerEntrypointMutationThenFailureRunner(PassengerEntrypointMutationRunner):
+    """Fail the first start only after CloudLinux has rewritten the loader."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.start_calls = 0
+
+    def __call__(self, argv, *, cwd=None, env=None, timeout=None):
+        command = tuple(str(part) for part in argv)
+        if command[:2] == ("cloudlinux-selector", "start"):
+            self.start_calls += 1
+            result = super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+            if self.start_calls == 1:
+                raise deploy_release.CommandFailure(command, 42, "ambiguous start failure")
+            return result
+        return super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+
+
+class StartupSetMutationThenFailureRunner(PassengerEntrypointMutationRunner):
+    """Fail the first startup-file set only after CloudLinux rewrites the loader."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_calls = 0
+
+    def __call__(self, argv, *, cwd=None, env=None, timeout=None):
+        command = tuple(str(part) for part in argv)
+        if command[:2] == ("cloudlinux-selector", "set"):
+            self.set_calls += 1
+            result = super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+            if self.set_calls == 1:
+                self.passenger_entrypoint.write_text(
+                    "# generated recursively by CloudLinux\n",
+                    encoding="utf-8",
+                )
+                self.tracked_status = " M passenger_wsgi.py\n"
+                raise deploy_release.CommandFailure(command, 42, "startup set failure")
+            return result
+        return super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+
+
+class RollbackStartMutationThenFailureRunner(PassengerEntrypointMutationRunner):
+    """Fail only the rollback start after CloudLinux rewrites the loader."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.start_calls = 0
+
+    def __call__(self, argv, *, cwd=None, env=None, timeout=None):
+        command = tuple(str(part) for part in argv)
+        if command[:2] == ("cloudlinux-selector", "start"):
+            self.start_calls += 1
+            result = super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+            if self.start_calls == 2:
+                raise deploy_release.CommandFailure(command, 42, "rollback start failure")
+            return result
+        return super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+
+
+class PassengerEntrypointAndUnrelatedMutationRunner(PassengerEntrypointMutationRunner):
+    """Add unrelated tracked drift after selector start to prove fail-closed cleanup."""
+
+    def __call__(self, argv, *, cwd=None, env=None, timeout=None):
+        command = tuple(str(part) for part in argv)
+        result = super().__call__(argv, cwd=cwd, env=env, timeout=timeout)
+        if command[:2] == ("cloudlinux-selector", "start"):
+            self.tracked_status = " M passenger_wsgi.py\n M operator-edit.py\n"
+        return result
+
+
 class ReceiptMismatchRunner(SwitchRunner):
     def __call__(self, argv, *, cwd=None, env=None, timeout=None):
         command = tuple(str(part) for part in argv)
@@ -711,6 +807,10 @@ class SwitchTests(unittest.TestCase):
         self.live = root / "live"
         self.live.mkdir()
         (self.live / "manage.py").write_text("", encoding="utf-8")
+        (self.live / "passenger_wsgi.py").write_text(
+            "# tracked application loader\n",
+            encoding="utf-8",
+        )
         (self.live / "requirements.lock").write_bytes(b"locked\n")
         (self.live / "scripts").mkdir()
         (self.live / "scripts" / "verify_locked_requirements.py").write_text("", encoding="utf-8")
@@ -791,6 +891,195 @@ class SwitchTests(unittest.TestCase):
         for action in ("stop", "start"):
             command = deploy_release._cloudlinux_command(self.config, action)
             self.assertEqual(command[:3], ("cloudlinux-selector", action, "--json"))
+
+    def test_cloudlinux_startup_file_command_is_fixed_and_non_recursive(self):
+        self.assertEqual(
+            deploy_release._cloudlinux_set_startup_command(self.config),
+            (
+                "cloudlinux-selector",
+                "set",
+                "--json",
+                "--interpreter",
+                "python",
+                "--user",
+                self.config.cloudlinux_user,
+                "--app-root",
+                self.config.cloudlinux_app_root,
+                "--startup-file",
+                "twocomms/wsgi.py",
+            ),
+        )
+
+    def test_every_passenger_start_first_sets_non_recursive_startup_file(self):
+        runner = SwitchRunner(
+            self.config,
+            failures={self.config.site_health_url},
+        )
+        runner.prepared_worktree = self.worktree
+
+        with self.assertRaises(deploy_release.CommandFailure):
+            deploy_release.switch(self.config, self.prepared, run=runner)
+
+        rendered = [" ".join(call) for call in runner.calls]
+        starts = [
+            index
+            for index, call in enumerate(rendered)
+            if call.startswith("cloudlinux-selector start ")
+        ]
+        self.assertEqual(len(starts), 2)
+        for start_index in starts:
+            self.assertIn(
+                "cloudlinux-selector set --json --interpreter python",
+                rendered[start_index - 1],
+            )
+            self.assertIn("--startup-file twocomms/wsgi.py", rendered[start_index - 1])
+
+    def test_successful_start_restores_cloudlinux_generated_entrypoint(self):
+        runner = PassengerEntrypointMutationRunner(self.config)
+        runner.prepared_worktree = self.worktree
+
+        deploy_release.switch(self.config, self.prepared, run=runner)
+
+        self.assertEqual(
+            (self.live / "passenger_wsgi.py").read_text(encoding="utf-8"),
+            "# tracked application loader\n",
+        )
+        self.assertEqual(runner.tracked_status, "")
+        restore_calls = [
+            call
+            for call in runner.calls
+            if call[:2] == ("git", "restore") and call[-1] == "passenger_wsgi.py"
+        ]
+        self.assertEqual(len(restore_calls), 1)
+
+    def test_cloudlinux_generated_entrypoint_is_restored_before_health_and_rollback(self):
+        runner = PassengerEntrypointMutationRunner(
+            self.config,
+            failures={self.config.site_health_url},
+        )
+        runner.prepared_worktree = self.worktree
+
+        with self.assertRaises(deploy_release.CommandFailure):
+            deploy_release.switch(self.config, self.prepared, run=runner)
+
+        self.assertEqual(
+            (self.live / "passenger_wsgi.py").read_text(encoding="utf-8"),
+            "# tracked application loader\n",
+        )
+        restore_calls = [
+            call
+            for call in runner.calls
+            if call[:2] == ("git", "restore") and call[-1] == "passenger_wsgi.py"
+        ]
+        self.assertEqual(len(restore_calls), 2)
+        evidence = json.loads(next(self.config.evidence_root.glob("release-*.json")).read_text())
+        self.assertEqual(evidence["status"], "failed")
+        self.assertTrue(evidence["rolled_back"])
+        rendered = [" ".join(call) for call in runner.calls]
+        starts = [
+            index
+            for index, call in enumerate(rendered)
+            if call.startswith("cloudlinux-selector start ")
+        ]
+        restores = [
+            index
+            for index, call in enumerate(rendered)
+            if call.startswith("git restore ") and call.endswith(" passenger_wsgi.py")
+        ]
+        health = next(
+            index for index, call in enumerate(rendered) if self.config.site_health_url in call
+        )
+        maintenance_off = next(
+            index for index, call in enumerate(rendered) if "--maintenance-off" in call
+        )
+        self.assertEqual(len(starts), 2)
+        self.assertEqual(len(restores), 2)
+        self.assertLess(starts[0], restores[0])
+        self.assertLess(restores[0], health)
+        self.assertLess(starts[1], restores[1])
+        self.assertLess(restores[1], maintenance_off)
+
+    def test_start_failure_after_mutation_restores_entrypoint_before_rollback(self):
+        runner = PassengerEntrypointMutationThenFailureRunner(self.config)
+        runner.prepared_worktree = self.worktree
+
+        with self.assertRaises(deploy_release.CommandFailure):
+            deploy_release.switch(self.config, self.prepared, run=runner)
+
+        self.assertEqual(
+            (self.live / "passenger_wsgi.py").read_text(encoding="utf-8"),
+            "# tracked application loader\n",
+        )
+        self.assertEqual(runner.tracked_status, "")
+        restore_calls = [
+            call
+            for call in runner.calls
+            if call[:2] == ("git", "restore") and call[-1] == "passenger_wsgi.py"
+        ]
+        self.assertEqual(len(restore_calls), 2)
+
+    def test_startup_set_failure_after_mutation_restores_entrypoint_before_rollback(self):
+        runner = StartupSetMutationThenFailureRunner(self.config)
+        runner.prepared_worktree = self.worktree
+
+        with self.assertRaises(deploy_release.CommandFailure):
+            deploy_release.switch(self.config, self.prepared, run=runner)
+
+        self.assertEqual(
+            (self.live / "passenger_wsgi.py").read_text(encoding="utf-8"),
+            "# tracked application loader\n",
+        )
+        self.assertEqual(runner.tracked_status, "")
+        restore_calls = [
+            call
+            for call in runner.calls
+            if call[:2] == ("git", "restore") and call[-1] == "passenger_wsgi.py"
+        ]
+        self.assertEqual(len(restore_calls), 2)
+
+    def test_rollback_start_failure_restores_entrypoint_and_retains_maintenance(self):
+        runner = RollbackStartMutationThenFailureRunner(
+            self.config,
+            failures={self.config.site_health_url},
+        )
+        runner.prepared_worktree = self.worktree
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "rollback errors"):
+            deploy_release.switch(self.config, self.prepared, run=runner)
+
+        self.assertEqual(runner.current_sha, self.previous_sha)
+        self.assertEqual(
+            (self.live / "passenger_wsgi.py").read_text(encoding="utf-8"),
+            "# tracked application loader\n",
+        )
+        self.assertEqual(runner.tracked_status, "")
+        self.assertTrue(deploy_release.maintenance_path(self.config).is_file())
+        self.assertFalse(
+            any("--maintenance-off" in " ".join(call) for call in runner.calls)
+        )
+        evidence = json.loads(next(self.config.evidence_root.glob("release-*.json")).read_text())
+        self.assertFalse(evidence["rolled_back"])
+        self.assertTrue(evidence["maintenance_lease_retained"])
+
+    def test_unrelated_post_start_drift_is_preserved_and_retains_maintenance(self):
+        runner = PassengerEntrypointAndUnrelatedMutationRunner(self.config)
+        runner.prepared_worktree = self.worktree
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "rollback errors"):
+            deploy_release.switch(self.config, self.prepared, run=runner)
+
+        self.assertEqual(
+            (self.live / "passenger_wsgi.py").read_text(encoding="utf-8"),
+            "# generated recursively by CloudLinux\n",
+        )
+        self.assertIn("operator-edit.py", runner.tracked_status)
+        self.assertTrue(deploy_release.maintenance_path(self.config).is_file())
+        self.assertFalse(
+            any("--maintenance-off" in " ".join(call) for call in runner.calls)
+        )
+        evidence = json.loads(next(self.config.evidence_root.glob("release-*.json")).read_text())
+        self.assertFalse(evidence["rolled_back"])
+        self.assertTrue(evidence["maintenance_lease_retained"])
 
     def test_default_maintenance_marker_is_relative_to_manage_py(self):
         nested_root = Path(self.temp_dir.name) / "nested-root"
@@ -1357,7 +1646,11 @@ class RestoreCheckoutIntegrationTests(unittest.TestCase):
         self._git("config", "user.email", "release-test@example.invalid")
         self._git("config", "user.name", "Release Test")
         (self.repo / "tracked.txt").write_text("previous\n", encoding="utf-8")
-        self._git("add", "tracked.txt")
+        (self.repo / "passenger_wsgi.py").write_text(
+            "# tracked application loader\n",
+            encoding="utf-8",
+        )
+        self._git("add", "tracked.txt", "passenger_wsgi.py")
         self._git("commit", "-m", "previous")
         self.previous_sha = self._git("rev-parse", "HEAD").stdout.strip()
         (self.repo / "tracked.txt").write_text("target\n", encoding="utf-8")
@@ -1429,6 +1722,67 @@ class RestoreCheckoutIntegrationTests(unittest.TestCase):
 
         self.assertEqual(self._git("show", ":tracked.txt").stdout, "staged drift\n")
         self.assertEqual((self.repo / "tracked.txt").read_text(encoding="utf-8"), "target\n")
+
+    def test_generated_passenger_entrypoint_restore_uses_exact_live_sha(self):
+        config = deploy_release.ReleaseConfig(live_checkout=self.repo)
+        entrypoint = self.repo / "passenger_wsgi.py"
+        entrypoint.write_text("# generated recursively by CloudLinux\n", encoding="utf-8")
+
+        deploy_release._restore_cloudlinux_generated_entrypoint(
+            config,
+            self.target_sha,
+            run=deploy_release.subprocess_runner,
+        )
+
+        self.assertEqual(
+            entrypoint.read_text(encoding="utf-8"),
+            "# tracked application loader\n",
+        )
+        self.assertEqual(self._git("status", "--porcelain").stdout, "")
+
+    def test_generated_passenger_entrypoint_restore_refuses_unrelated_drift(self):
+        config = deploy_release.ReleaseConfig(live_checkout=self.repo)
+        entrypoint = self.repo / "passenger_wsgi.py"
+        entrypoint.write_text("# generated recursively by CloudLinux\n", encoding="utf-8")
+        (self.repo / "tracked.txt").write_text("operator edit\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "unexpected tracked drift"):
+            deploy_release._restore_cloudlinux_generated_entrypoint(
+                config,
+                self.target_sha,
+                run=deploy_release.subprocess_runner,
+            )
+
+        self.assertEqual(
+            entrypoint.read_text(encoding="utf-8"),
+            "# generated recursively by CloudLinux\n",
+        )
+        self.assertEqual(
+            (self.repo / "tracked.txt").read_text(encoding="utf-8"),
+            "operator edit\n",
+        )
+
+    def test_generated_passenger_entrypoint_restore_refuses_staged_drift(self):
+        config = deploy_release.ReleaseConfig(live_checkout=self.repo)
+        entrypoint = self.repo / "passenger_wsgi.py"
+        entrypoint.write_text("# staged operator edit\n", encoding="utf-8")
+        self._git("add", "passenger_wsgi.py")
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "unexpected tracked drift"):
+            deploy_release._restore_cloudlinux_generated_entrypoint(
+                config,
+                self.target_sha,
+                run=deploy_release.subprocess_runner,
+            )
+
+        self.assertEqual(
+            self._git("show", ":passenger_wsgi.py").stdout,
+            "# staged operator edit\n",
+        )
+        self.assertEqual(
+            entrypoint.read_text(encoding="utf-8"),
+            "# staged operator edit\n",
+        )
 
 
 if __name__ == "__main__":
