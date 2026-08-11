@@ -864,13 +864,43 @@ function initPromoVault() {
   vault.dataset.initialized = '1';
 
   let requestController = null;
-  let animationTimer = null;
+  let animationTimers = [];
   let gearAngle = 0;
   let previousLength = input.value.length;
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const clearStates = () => vault.classList.remove('is-loading', 'is-error', 'is-unlocking', 'is-closing', 'is-success');
+  const animationTimeline = {
+    bolt1: 1800,
+    bolt2: 2250,
+    bolt3: 2800,
+    open: 3300,
+    reveal: 4200,
+    close: 5450,
+    relock3: 6350,
+    relock2: 6550,
+    relock1: 6750,
+    wheelReset: 6900,
+    finish: 7800,
+  };
+  const animationClasses = [
+    'is-loading', 'is-error', 'is-unlocking', 'is-bolt-1', 'is-bolt-2',
+    'is-bolt-3', 'is-open', 'is-revealing', 'is-closing', 'is-relocking',
+    'is-shiver-1', 'is-shiver-2', 'is-shiver-3', 'is-success',
+  ];
+  const clearAnimationTimers = () => {
+    animationTimers.forEach((timer) => window.clearTimeout(timer));
+    animationTimers = [];
+  };
+  const scheduleAnimation = (delay, callback) => {
+    animationTimers.push(window.setTimeout(callback, delay));
+  };
+  const clearStates = () => vault.classList.remove(...animationClasses);
+  const shiver = (level) => {
+    vault.classList.remove('is-shiver-1', 'is-shiver-2', 'is-shiver-3');
+    void vault.offsetWidth;
+    vault.classList.add(`is-shiver-${level}`);
+  };
   const renderError = (message) => {
-    clearTimeout(animationTimer);
+    clearAnimationTimers();
     clearStates();
     // Force a layout read so repeated invalid attempts replay the reference's jam animation.
     void vault.offsetWidth;
@@ -892,6 +922,7 @@ function initPromoVault() {
     vault.style.setProperty('--gear-c', `${8 + (gearAngle * 1.6)}deg`);
   });
   const finishSuccess = (data, code) => {
+    clearAnimationTimers();
     clearStates();
     vault.classList.add('is-success');
     input.removeAttribute('aria-invalid');
@@ -947,7 +978,7 @@ function initPromoVault() {
       return;
     }
 
-    clearTimeout(animationTimer);
+    clearAnimationTimers();
     clearStates();
     vault.classList.add('is-loading');
     status.textContent = 'Перевіряємо код на сервері…';
@@ -984,11 +1015,49 @@ function initPromoVault() {
       if (reduceMotion) {
         finishSuccess(data, code);
       } else {
-        animationTimer = window.setTimeout(() => {
+        scheduleAnimation(animationTimeline.bolt1, () => {
+          vault.classList.add('is-bolt-1');
+          shiver(1);
+          status.textContent = 'Перший замок відкрито…';
+        });
+        scheduleAnimation(animationTimeline.bolt2, () => {
+          vault.classList.add('is-bolt-2');
+          shiver(2);
+          status.textContent = 'Другий замок відкрито…';
+        });
+        scheduleAnimation(animationTimeline.bolt3, () => {
+          vault.classList.add('is-bolt-3');
+          shiver(3);
+          status.textContent = 'Усі замки відкрито.';
+        });
+        scheduleAnimation(animationTimeline.open, () => {
+          vault.classList.add('is-open');
+          status.textContent = 'Відкриваємо двері сейфа…';
+        });
+        scheduleAnimation(animationTimeline.reveal, () => {
+          vault.classList.add('is-revealing');
+          status.textContent = 'Знижку знайдено.';
+        });
+        scheduleAnimation(animationTimeline.close, () => {
           vault.classList.add('is-closing');
           status.textContent = 'Знижку знайдено. Закриваємо сейф…';
-          animationTimer = window.setTimeout(() => finishSuccess(data, code), 720);
-        }, 1450);
+        });
+        scheduleAnimation(animationTimeline.relock3, () => {
+          vault.classList.remove('is-bolt-3');
+          shiver(1);
+        });
+        scheduleAnimation(animationTimeline.relock2, () => {
+          vault.classList.remove('is-bolt-2');
+          shiver(1);
+        });
+        scheduleAnimation(animationTimeline.relock1, () => {
+          vault.classList.remove('is-bolt-1');
+          shiver(2);
+        });
+        scheduleAnimation(animationTimeline.wheelReset, () => {
+          vault.classList.add('is-relocking');
+        });
+        scheduleAnimation(animationTimeline.finish, () => finishSuccess(data, code));
       }
     } catch (error) {
       if (error.name !== 'AbortError') {

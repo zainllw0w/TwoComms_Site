@@ -48,15 +48,37 @@
 .promo-vault-edge { position: absolute; top: 2px; right: 0; bottom: 2px; width: 17px; border-radius: 2px; background: linear-gradient(#39414c, #21262e 55%, #14181e); transform: rotateY(90deg); transform-origin: 100% 50%; }
 .promo-vault-rivet { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5d6675, #2a313b 62%, #171c22); box-shadow: 0 1px 1px rgba(0,0,0,.55), inset 0 -1px 1px rgba(0,0,0,.4); }
 .promo-vault-rivet-1 { left: 12px; top: 12px; } .promo-vault-rivet-2 { left: 12px; bottom: 12px; } .promo-vault-rivet-3 { right: 30px; top: 12px; } .promo-vault-rivet-4 { right: 30px; bottom: 12px; } .promo-vault-rivet-5 { left: 12px; top: 50%; } .promo-vault-rivet-6 { right: 30px; top: 50%; }
-.promo-vault-wheel { position: absolute; right: 34px; top: 50%; width: 96px; height: 96px; margin-top: -48px; border: 7px solid #495360; border-radius: 50%; filter: drop-shadow(0 5px 7px rgba(0,0,0,.45)); transform: rotate(var(--vault-wheel, 0deg)); transition: transform .35s cubic-bezier(.3,1.9,.45,1); }
+.promo-vault-wheel { position: absolute; right: 34px; top: 50%; width: 96px; height: 96px; margin-top: -48px; border: 7px solid #495360; border-radius: 50%; filter: drop-shadow(0 5px 7px rgba(0,0,0,.45)); transform: rotate(var(--vault-wheel, 0deg)); transition: transform 1.5s cubic-bezier(.16,.82,.2,1); }
 .promo-vault-wheel-spoke { position: absolute; left: 50%; top: 50%; width: 8px; height: 84px; margin: -42px 0 0 -4px; border-radius: 8px; background: linear-gradient(90deg, #303742, #626c78, #303742); }
 .promo-vault-wheel-spoke-2 { transform: rotate(120deg); } .promo-vault-wheel-spoke-3 { transform: rotate(240deg); }
 .promo-vault-wheel-hub { position: absolute; inset: 29px; border-radius: 50%; background: radial-gradient(circle at 38% 34%, #6a7480, #3a424d 60%, #20252d); box-shadow: inset 0 0 0 3px #171b21; }
 .promo-vault-bolts { position: absolute; right: 6px; top: 50%; width: 20px; height: 150px; margin-top: -75px; }
 .promo-vault-bolts span { position: absolute; right: 0; width: 34px; height: 10px; border-radius: 5px; background: linear-gradient(#626c7a, #3d454f 48%, #262c34); box-shadow: inset 0 1px rgba(255,255,255,.28), 0 1px 2px rgba(0,0,0,.6); transform: translateX(12px); transition: transform .24s cubic-bezier(.5,.05,.3,1.25); } .promo-vault-bolts span:nth-child(1) { top: 8px; } .promo-vault-bolts span:nth-child(2) { top: 70px; } .promo-vault-bolts span:nth-child(3) { top: 132px; }
-.promo-vault-card.is-unlocking .promo-vault-wheel { --vault-wheel: 390deg; } .promo-vault-card.is-unlocking .promo-vault-bolts span { transform: translateX(-21px); } .promo-vault-card.is-unlocking .promo-vault-door { transform: rotateY(-62deg); } .promo-vault-card.is-unlocking .promo-vault-glow { opacity: 1; } .promo-vault-card.is-unlocking .promo-vault-bars { filter: brightness(1); } .promo-vault-card.is-unlocking .promo-vault-barsweep { animation: promo-vault-sweep 1.5s .35s forwards; } .promo-vault-card.is-unlocking .promo-vault-granted { opacity: 1; transform: translateY(0); }
-.promo-vault-card.is-closing .promo-vault-door { transform: rotateY(.001deg); transition-duration: .92s; } .promo-vault-card.is-closing .promo-vault-glow { opacity: 0; } .promo-vault-card.is-closing .promo-vault-granted { opacity: 0; }
-@keyframes promo-vault-sweep { 18% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(150px); } }
+.promo-vault-card.is-unlocking .promo-vault-wheel { --vault-wheel: 390deg; }
+.promo-vault-card.is-bolt-1 .promo-vault-bolts span:nth-child(1),
+.promo-vault-card.is-bolt-2 .promo-vault-bolts span:nth-child(2),
+.promo-vault-card.is-bolt-3 .promo-vault-bolts span:nth-child(3) {
+  transform: translateX(-21px);
+  animation: promo-vault-bolt-flash .3s ease;
+}
+.promo-vault-card.is-shiver-1 .promo-vault-stage { animation: promo-vault-shiver-1 .26s ease; }
+.promo-vault-card.is-shiver-2 .promo-vault-stage { animation: promo-vault-shiver-2 .3s ease; }
+.promo-vault-card.is-shiver-3 .promo-vault-stage { animation: promo-vault-shiver-3 .44s cubic-bezier(.3,.9,.4,1.4); }
+.promo-vault-card.is-open .promo-vault-door { transform: rotateY(-62deg); }
+.promo-vault-card.is-open .promo-vault-glow { opacity: 1; }
+.promo-vault-card.is-open .promo-vault-bars { filter: brightness(1); }
+.promo-vault-card.is-revealing .promo-vault-barsweep { animation: promo-vault-sweep 1.5s cubic-bezier(.4,.1,.3,1) forwards; }
+.promo-vault-card.is-revealing .promo-vault-granted { opacity: 1; transform: translateY(0); }
+.promo-vault-card.is-closing .promo-vault-door { transform: rotateY(.001deg); transition-duration: .92s; transition-timing-function: cubic-bezier(.62,.02,.34,1); }
+.promo-vault-card.is-closing .promo-vault-glow { opacity: 0; transition: opacity .55s ease .3s; }
+.promo-vault-card.is-closing .promo-vault-bars { filter: brightness(.32); transition: filter .5s ease; }
+.promo-vault-card.is-closing .promo-vault-granted { opacity: 0; transform: translateY(8px); transition: opacity .3s ease; }
+.promo-vault-card.is-relocking .promo-vault-wheel { --vault-wheel: 0deg; transition-duration: .85s; }
+@keyframes promo-vault-bolt-flash { 30% { filter: brightness(1.9); } }
+@keyframes promo-vault-shiver-1 { 35% { transform: translateX(-1px); } 70% { transform: translateX(.6px); } }
+@keyframes promo-vault-shiver-2 { 30% { transform: translateX(-2px) rotate(-.12deg); } 62% { transform: translateX(1.2px); } }
+@keyframes promo-vault-shiver-3 { 24% { transform: translateX(-3px) rotate(-.2deg); } 48% { transform: translate(1.8px, 1.4px); } 74% { transform: translate(-.6px, 2px); } 88% { transform: translateY(1.2px); } }
+@keyframes promo-vault-sweep { 0% { opacity: 0; transform: translateX(-150px); } 18% { opacity: 1; } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(150px); } }
 
 .promo-vault-form { position: absolute; left: 26px; top: 27px; z-index: 4; width: 140px; }
 .promo-vault-label { display: block; color: #8b96a5; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }

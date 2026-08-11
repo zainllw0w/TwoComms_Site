@@ -490,6 +490,61 @@ class UpdateAndRemoveCartTests(CartViewTestCase):
         self.assertNotIn("monobank_pending_order_id", session)
 
 
+class PromoVaultAnimationAssetTests(SimpleTestCase):
+    def test_unlock_sequence_staggers_bolts_before_opening_the_door(self):
+        static_root = settings.BASE_DIR / "twocomms_django_theme" / "static"
+        css = (static_root / "css" / "cart-promo-vault.css").read_text(encoding="utf-8")
+        js = (static_root / "js" / "modules" / "cart.js").read_text(encoding="utf-8")
+
+        expected_timeline = (
+            "bolt1: 1800",
+            "bolt2: 2250",
+            "bolt3: 2800",
+            "open: 3300",
+            "reveal: 4200",
+            "close: 5450",
+            "relock3: 6350",
+            "relock2: 6550",
+            "relock1: 6750",
+            "finish: 7800",
+        )
+        for marker in expected_timeline:
+            self.assertIn(marker, js)
+
+        expected_phase_order = (
+            "vault.classList.add('is-bolt-1')",
+            "vault.classList.add('is-bolt-2')",
+            "vault.classList.add('is-bolt-3')",
+            "vault.classList.add('is-open')",
+            "vault.classList.add('is-revealing')",
+            "vault.classList.add('is-closing')",
+        )
+        offsets = [js.index(marker) for marker in expected_phase_order]
+        self.assertEqual(offsets, sorted(offsets))
+
+        self.assertIn(
+            ".promo-vault-card.is-bolt-1 .promo-vault-bolts span:nth-child(1)",
+            css,
+        )
+        self.assertIn(
+            ".promo-vault-card.is-bolt-2 .promo-vault-bolts span:nth-child(2)",
+            css,
+        )
+        self.assertIn(
+            ".promo-vault-card.is-bolt-3 .promo-vault-bolts span:nth-child(3)",
+            css,
+        )
+        self.assertIn(".promo-vault-card.is-open .promo-vault-door", css)
+        self.assertNotIn(
+            ".promo-vault-card.is-unlocking .promo-vault-bolts span {",
+            css,
+        )
+        self.assertNotIn(
+            ".promo-vault-card.is-unlocking .promo-vault-door {",
+            css,
+        )
+
+
 class CartUtilityEndpointTests(CartViewTestCase):
     def test_cart_redesign_keeps_header_and_mobile_content_visible(self):
         css_path = settings.BASE_DIR / "twocomms_django_theme" / "static" / "css" / "cart-items-redesign.css"

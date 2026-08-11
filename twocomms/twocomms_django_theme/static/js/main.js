@@ -2045,7 +2045,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   scheduleIdle(() => {
     if (document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')) {
-      import('./modules/cart.js?v=20260811-promo-vault-c')
+      import('./modules/cart.js?v=20260812-promo-vault-sequence-a')
         .then(({ initCartInteractions }) => initCartInteractions())
         .catch(() => { });
     }
