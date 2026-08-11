@@ -15,6 +15,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from orders.models import Order, OrderItem
+from product_catalog.models import ImageOptimizationJob
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from reviews.models import Review, ReviewStatus
 from storefront.models import Category, Product, ProductFAQ, ProductFitOption, ProductImage
@@ -45,12 +46,6 @@ class ProductViewTestCase(TestCase):
         )
         self.feed_task_mock = self.feed_task_patcher.start()
         self.addCleanup(self.feed_task_patcher.stop)
-        self.image_task_patcher = patch(
-            "storefront.signals.optimize_image_field_task.delay",
-            return_value=None,
-        )
-        self.optimize_image_mock = self.image_task_patcher.start()
-        self.addCleanup(self.image_task_patcher.stop)
         self.category = Category.objects.create(
             name="Test Category",
             slug="test-category",
@@ -95,12 +90,20 @@ class ProductHomepageImageTests(ProductViewTestCase):
 
         self.assertTrue(self.product.homepage_image.name.endswith("variant-home-fallback.png"))
 
-    def test_home_card_image_enqueues_optimization(self):
+    def test_home_card_image_enqueues_persisted_optimization_job(self):
         with self.settings(MEDIA_ROOT=self._media_root):
             self.product.home_card_image = self._image_file("home-card-opt.png")
             self.product.save(update_fields=["home_card_image"])
 
-        self.optimize_image_mock.assert_any_call("storefront.Product", self.product.pk, "home_card_image")
+        job = ImageOptimizationJob.objects.get(
+            model_label="storefront.product",
+            object_id=self.product.pk,
+            field_name="home_card_image",
+        )
+        self.assertTrue(job.source_name.endswith("home-card-opt.png"))
+        self.assertEqual(job.status, ImageOptimizationJob.Status.PENDING)
+        self.assertEqual(job.stage, "queued")
+        self.assertEqual(job.progress, 0)
 
 
 class ProductDetailTests(ProductViewTestCase):
