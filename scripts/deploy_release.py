@@ -37,6 +37,8 @@ REVIEWED_LOCK_SHA256 = "e7d03c919785fe20991a3b27d3228d50ffeafda6a8abbfd36419007f
 MAX_MAINTENANCE_WAIT_SECONDS = 300
 MAINTENANCE_TIMEOUT_GRACE_SECONDS = 15
 LIVE_BRANCH = "main"
+CLOUDLINUX_STARTUP_FILE = "twocomms/wsgi.py"
+CLOUDLINUX_GENERATED_ENTRYPOINT = "passenger_wsgi.py"
 FAILURE_PHASES = frozenset(
     {
         "preflight",
@@ -946,6 +948,104 @@ def _cloudlinux_command(config: ReleaseConfig, action: str) -> tuple[str, ...]:
     )
 
 
+def _cloudlinux_set_startup_command(config: ReleaseConfig) -> tuple[str, ...]:
+    return (
+        "cloudlinux-selector",
+        "set",
+        "--json",
+        "--interpreter",
+        "python",
+        "--user",
+        config.cloudlinux_user,
+        "--app-root",
+        config.cloudlinux_app_root,
+        "--startup-file",
+        CLOUDLINUX_STARTUP_FILE,
+    )
+
+
+def _restore_cloudlinux_generated_entrypoint(
+    config: ReleaseConfig,
+    expected_sha: str,
+    *,
+    run: Runner,
+) -> None:
+    expected_sha = _validate_sha(expected_sha, label="expected live SHA")
+    if _live_sha(config, run=run) != expected_sha:
+        raise ReleaseError("cannot restore Passenger entrypoint from an unexpected live SHA")
+    tracked_status = _stdout(
+        run,
+        ("git", "status", "--porcelain", "--untracked-files=no"),
+        cwd=config.live_checkout,
+        label="Passenger generated entrypoint status",
+        timeout=config.command_timeout_seconds,
+    )
+    if not tracked_status:
+        return
+    expected_status = f"M {CLOUDLINUX_GENERATED_ENTRYPOINT}"
+    if tracked_status != expected_status:
+        raise ReleaseError(
+            "Passenger entrypoint cleanup refused unexpected tracked drift"
+        )
+    _run(
+        run,
+        (
+            "git",
+            "restore",
+            "--source",
+            expected_sha,
+            "--worktree",
+            "--",
+            CLOUDLINUX_GENERATED_ENTRYPOINT,
+        ),
+        cwd=config.live_checkout,
+        label="Passenger generated entrypoint restore",
+        timeout=config.command_timeout_seconds,
+    )
+    remaining_status = _stdout(
+        run,
+        ("git", "status", "--porcelain", "--untracked-files=no"),
+        cwd=config.live_checkout,
+        label="Passenger entrypoint restore verification",
+        timeout=config.command_timeout_seconds,
+    )
+    if remaining_status:
+        raise ReleaseError("Passenger generated entrypoint restore left tracked drift")
+
+
+def _start_passenger(
+    config: ReleaseConfig,
+    expected_sha: str,
+    *,
+    run: Runner,
+    label: str,
+) -> None:
+    try:
+        _run(
+            run,
+            _cloudlinux_set_startup_command(config),
+            cwd=config.live_checkout,
+            label=f"{label} startup file",
+            timeout=config.command_timeout_seconds,
+        )
+        _run(
+            run,
+            _cloudlinux_command(config, "start"),
+            cwd=config.live_checkout,
+            label=label,
+            timeout=config.command_timeout_seconds,
+        )
+    except Exception:
+        try:
+            _restore_cloudlinux_generated_entrypoint(config, expected_sha, run=run)
+        except Exception as restore_error:
+            raise ReleaseError(
+                f"{label} failed and Passenger entrypoint cleanup failed"
+            ) from restore_error
+        raise
+    _restore_cloudlinux_generated_entrypoint(config, expected_sha, run=run)
+
+
 def _validate_release_path(config: ReleaseConfig, path: Path, *, label: str) -> Path:
     try:
         resolved = path.resolve(strict=True)
@@ -1446,14 +1546,14 @@ def switch(
         )
         failure_phase = "passenger_start"
         start_attempted = True
-        _run(
-            run,
-            _cloudlinux_command(config, "start"),
-            cwd=config.live_checkout,
+        _start_passenger(
+            config,
+            target_sha,
+            run=run,
             label="Passenger start",
-            timeout=config.command_timeout_seconds,
         )
         passenger_running = True
+        _assert_live_checkout_boundary(config, target_sha, run=run)
         failure_phase = "site_health"
         _verify_release_health(config, prepared, run=run, include_bot=False)
         failure_phase = "maintenance_release"
@@ -1521,14 +1621,14 @@ def switch(
                 can_restore_runtime = False
         if can_restore_runtime and must_restore_runtime:
             try:
-                _run(
-                    run,
-                    _cloudlinux_command(config, "start"),
-                    cwd=config.live_checkout,
+                _start_passenger(
+                    config,
+                    previous_sha,
+                    run=run,
                     label="Passenger rollback start",
-                    timeout=config.command_timeout_seconds,
                 )
                 passenger_running = True
+                _assert_live_checkout_boundary(config, previous_sha, run=run)
             except Exception as exc:
                 rollback_errors.append(exc)
                 can_restore_runtime = False
