@@ -2403,6 +2403,11 @@ def _stage_permission_message(
                 status=InstagramBotMessage.Status.DONE,
                 source=source,
                 attachments=attachments,
+                attachment_media=_attachment_media_metadata(
+                    _attachment_urls(attachments),
+                    source=source,
+                ),
+                media_capture_eligible=source == "webhook",
                 provider_created_at=provider_created_at,
                 reply_to_provider_message_id=reply_to_provider_message_id,
                 quick_reply_payload=quick_reply_payload,
@@ -6977,20 +6982,387 @@ def download_image(url: str) -> tuple[str, bytes] | None:
         return None
 
 
-def _collect_images(attachments_json: str | None, limit: int = 3) -> list[tuple[str, bytes]]:
+MEDIA_PROVENANCE_LIVE_WEBHOOK = "live_webhook"
+MEDIA_PROVENANCE_HISTORICAL = "historical_import"
+MEDIA_STATUS_PENDING = "pending"
+MEDIA_STATUS_ACQUIRING = "acquiring"
+MEDIA_STATUS_OWNED = "owned"
+MEDIA_STATUS_METADATA_ONLY = "metadata_only"
+MEDIA_STATUS_UNAVAILABLE = "unavailable"
+MEDIA_CAPTURE_CLAIM_SECONDS = 60
+
+
+def _attachment_urls(attachments_json: str | None, *, limit: int = 8) -> list[str]:
+    if not attachments_json:
+        return []
+    try:
+        raw_urls = json.loads(attachments_json)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(raw_urls, list):
+        return []
+    urls = []
+    for raw in raw_urls:
+        url = str(raw or "").strip()
+        if not url.startswith(("https://", "http://")) or url in urls:
+            continue
+        urls.append(url[:1200])
+        if len(urls) >= limit:
+            break
+    return urls
+
+
+def _attachment_media_metadata(
+    urls: list[str] | tuple[str, ...],
+    *,
+    source: str,
+    limit: int = 8,
+) -> list[dict]:
+    live = str(source or "").strip() == "webhook"
+    provenance = (
+        MEDIA_PROVENANCE_LIVE_WEBHOOK if live else MEDIA_PROVENANCE_HISTORICAL
+    )
+    status = MEDIA_STATUS_PENDING if live else MEDIA_STATUS_METADATA_ONLY
+    result = []
+    for raw in urls or []:
+        url = str(raw or "").strip()
+        if not url.startswith(("https://", "http://")):
+            continue
+        if any(item.get("url") == url for item in result):
+            continue
+        result.append({
+            "url": url[:1200],
+            "provenance": provenance,
+            "status": status,
+        })
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _media_is_historical(item: dict | None) -> bool:
+    return bool(
+        isinstance(item, dict)
+        and item.get("provenance") == MEDIA_PROVENANCE_HISTORICAL
+    )
+
+
+def _owned_media_bytes(item: dict) -> tuple[str, bytes] | None:
+    storage_name = str(item.get("storage_name") or "").strip()
+    mime = str(item.get("mime") or "").strip()
+    if not storage_name or not mime.startswith("image/"):
+        return None
+    try:
+        from django.core.files.storage import default_storage
+
+        with default_storage.open(storage_name, "rb") as handle:
+            raw = handle.read(6 * 1024 * 1024 + 1)
+        if not raw or len(raw) > 6 * 1024 * 1024:
+            return None
+        return mime, raw
+    except Exception as exc:
+        log("warning", "owned_media_read", repr(exc))
+        return None
+
+
+def _media_merge_rank(item: dict) -> int:
+    if _media_is_historical(item):
+        return 5
+    if (
+        item.get("provenance") == MEDIA_PROVENANCE_LIVE_WEBHOOK
+        and item.get("status") == MEDIA_STATUS_OWNED
+        and item.get("storage_name")
+    ):
+        return 40
+    if (
+        item.get("provenance") == MEDIA_PROVENANCE_LIVE_WEBHOOK
+        and item.get("status") == MEDIA_STATUS_ACQUIRING
+    ):
+        return 30
+    if (
+        item.get("provenance") == MEDIA_PROVENANCE_LIVE_WEBHOOK
+        and item.get("status") == MEDIA_STATUS_UNAVAILABLE
+    ):
+        return 20
+    if item.get("provenance") == MEDIA_PROVENANCE_LIVE_WEBHOOK:
+        return 10
+    return 0
+
+
+def _merge_attachment_media(existing: list[dict], incoming: list[dict]) -> list[dict]:
+    """Merge by URL without letting stale workers weaken owned/provenance state."""
+    merged = []
+    positions = {}
+    for raw in [*(existing or []), *(incoming or [])]:
+        if not isinstance(raw, dict):
+            continue
+        item = dict(raw)
+        url = str(item.get("url") or "").strip()
+        if not url.startswith(("https://", "http://")):
+            continue
+        item["url"] = url[:1200]
+        position = positions.get(item["url"])
+        if position is None:
+            positions[item["url"]] = len(merged)
+            merged.append(item)
+            continue
+        current = merged[position]
+        if _media_merge_rank(item) > _media_merge_rank(current):
+            merged[position] = item
+        elif _media_merge_rank(item) == _media_merge_rank(current):
+            merged[position] = {**current, **item}
+    return merged
+
+
+def _raw_live_media_for_row(row: InstagramBotMessage) -> list[dict]:
+    if (
+        str(getattr(row, "source", "") or "") != "webhook"
+        or not getattr(row, "media_capture_eligible", False)
+        or not getattr(row, "client_id", None)
+        or not str(getattr(row, "mid", "") or "").strip()
+    ):
+        return []
+    try:
+        from management.services.ig_payment_review import _raw_media_by_mid
+
+        raw_by_mid = _raw_media_by_mid(row.client)
+        raw_items = list(raw_by_mid.get(str(row.mid), []))
+        anchor = getattr(row, "provider_created_at", None) or getattr(row, "created_at", None)
+        text = str(getattr(row, "text", "") or "").casefold()
+        for raw in raw_by_mid.get("__unmatched__", [])[:8]:
+            event_at = None
+            try:
+                event_at = datetime.fromisoformat(
+                    str(raw.get("event_at") or "").replace("Z", "+00:00")
+                )
+            except (TypeError, ValueError):
+                pass
+            near_anchor = False
+            if anchor and event_at:
+                try:
+                    near_anchor = abs((anchor - event_at).total_seconds()) <= 300
+                except (TypeError, ValueError):
+                    near_anchor = False
+            if near_anchor:
+                raw_items.append(raw)
+    except Exception:
+        return []
+    result = []
+    for raw in raw_items[:8]:
+        if not isinstance(raw, dict) or not raw.get("url"):
+            continue
+        item = dict(raw)
+        item["provenance"] = MEDIA_PROVENANCE_LIVE_WEBHOOK
+        item["status"] = MEDIA_STATUS_PENDING
+        result.append(item)
+    return result
+
+
+def _persist_media_metadata(row: InstagramBotMessage, incoming: list[dict]) -> list[dict]:
+    if not getattr(row, "pk", None):
+        return incoming
+    with transaction.atomic():
+        locked = InstagramBotMessage.objects.select_for_update().get(pk=row.pk)
+        merged = _merge_attachment_media(locked.attachment_media or [], incoming)
+        if merged != (locked.attachment_media or []):
+            locked.attachment_media = merged
+            locked.save(update_fields=["attachment_media"])
+    row.attachment_media = merged
+    return merged
+
+
+def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict] | None:
+    with transaction.atomic():
+        locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
+        if not locked.media_capture_eligible:
+            return None
+        media = [dict(item) for item in (locked.attachment_media or [])]
+        for item in media:
+            if str(item.get("url") or "") != url:
+                continue
+            if item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK:
+                return None
+            if item.get("status") == MEDIA_STATUS_OWNED and item.get("storage_name"):
+                return None
+            attempts = max(0, int(item.get("capture_attempts") or 0))
+            if item.get("status") == MEDIA_STATUS_UNAVAILABLE and attempts >= 2:
+                return None
+            if item.get("status") == MEDIA_STATUS_ACQUIRING:
+                try:
+                    started = datetime.fromisoformat(
+                        str(item.get("capture_started_at") or "").replace("Z", "+00:00")
+                    )
+                except (TypeError, ValueError):
+                    started = None
+                if started and started > timezone.now() - timedelta(
+                    seconds=MEDIA_CAPTURE_CLAIM_SECONDS
+                ):
+                    return None
+            token = secrets.token_hex(16)
+            item.update({
+                "status": MEDIA_STATUS_ACQUIRING,
+                "capture_token": token,
+                "capture_started_at": timezone.now().isoformat(),
+                "capture_attempts": attempts + 1,
+            })
+            locked.attachment_media = media
+            locked.save(update_fields=["attachment_media"])
+            return token, dict(item)
+    return None
+
+
+def _finish_media_capture(message_id: int, url: str, token: str, updates: dict) -> list[dict]:
+    with transaction.atomic():
+        locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
+        media = [dict(item) for item in (locked.attachment_media or [])]
+        for item in media:
+            if (
+                str(item.get("url") or "") == url
+                and item.get("capture_token") == token
+            ):
+                item.update(updates)
+                item.pop("capture_token", None)
+                item.pop("capture_started_at", None)
+                break
+        locked.attachment_media = media
+        locked.save(update_fields=["attachment_media"])
+        return media
+
+
+def _capture_message_media(
+    row: InstagramBotMessage,
+    limit: int = 8,
+    *,
+    on_progress=None,
+) -> list[dict]:
+    """Own bounded live bytes once while preserving every durable metadata row."""
+    source = str(getattr(row, "source", "") or "")
+    current = [
+        dict(item)
+        for item in (getattr(row, "attachment_media", None) or [])
+        if isinstance(item, dict) and item.get("url")
+    ]
+    historical_urls = {
+        str(item.get("url") or "")
+        for item in current
+        if _media_is_historical(item)
+    }
+    capture_eligible = bool(getattr(row, "media_capture_eligible", False))
+    candidates = _attachment_media_metadata(
+        _attachment_urls(getattr(row, "attachments", ""), limit=8),
+        source=source if capture_eligible else "historical_import",
+        limit=8,
+    )
+    candidates = [
+        item for item in candidates
+        if str(item.get("url") or "") not in historical_urls
+    ]
+    if not current and not getattr(row, "attachments", ""):
+        candidates.extend(_raw_live_media_for_row(row))
+    current = _merge_attachment_media(current, candidates)
+    for item in current:
+        if _media_is_historical(item) or (
+            item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK
+        ):
+            item["provenance"] = MEDIA_PROVENANCE_HISTORICAL
+            item["status"] = MEDIA_STATUS_METADATA_ONLY
+            for key in (
+                "storage_name", "local_url", "mime", "bytes", "content_hash",
+                "capture_token", "capture_started_at", "error_kind",
+            ):
+                item.pop(key, None)
+    current = _persist_media_metadata(row, current)
+
+    attempts_used = 0
+    for snapshot in list(current):
+        if attempts_used >= max(0, int(limit or 0)):
+            break
+        if snapshot.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK:
+            continue
+        if snapshot.get("status") == MEDIA_STATUS_OWNED and snapshot.get("storage_name"):
+            continue
+        if on_progress is not None and not on_progress():
+            break
+        claimed = _claim_media_capture(row.pk, str(snapshot.get("url") or ""))
+        if not claimed:
+            continue
+        token, item = claimed
+        attempts_used += 1
+        url = str(item.get("url") or "")
+        downloaded = download_image(url)
+        if not downloaded:
+            current = _finish_media_capture(row.pk, url, token, {
+                "status": MEDIA_STATUS_UNAVAILABLE,
+                "error_kind": "download_failed",
+            })
+            continue
+        mime, raw = downloaded
+        created_storage_name = ""
+        try:
+            from django.core.files.base import ContentFile
+            from django.core.files.storage import default_storage
+
+            content_hash = hashlib.sha256(raw).hexdigest()
+            suffix = {
+                "image/jpeg": ".jpg",
+                "image/png": ".png",
+                "image/webp": ".webp",
+                "image/gif": ".gif",
+            }.get(mime, ".bin")
+            path = (
+                f"ig_message_media/{int(getattr(row, 'pk', 0) or 0)}/"
+                f"{content_hash[:32]}{suffix}"
+            )
+            storage_name = path
+            if not default_storage.exists(path):
+                saved_name = default_storage.save(path, ContentFile(raw))
+                created_storage_name = saved_name
+                if saved_name != path and default_storage.exists(path):
+                    default_storage.delete(saved_name)
+                    created_storage_name = ""
+                else:
+                    storage_name = saved_name
+            current = _finish_media_capture(row.pk, url, token, {
+                "status": MEDIA_STATUS_OWNED,
+                "storage_name": storage_name,
+                "local_url": default_storage.url(storage_name),
+                "mime": str(mime)[:64],
+                "bytes": len(raw),
+                "content_hash": content_hash,
+                "error_kind": "",
+            })
+        except Exception as exc:
+            if created_storage_name:
+                try:
+                    default_storage.delete(created_storage_name)
+                except Exception:
+                    pass
+            current = _finish_media_capture(row.pk, url, token, {
+                "status": MEDIA_STATUS_UNAVAILABLE,
+                "error_kind": "storage_failed",
+            })
+            log("warning", "message_media_store", repr(exc))
+        if on_progress is not None and not on_progress():
+            break
+    row.attachment_media = current
+    return current
+
+
+def _collect_images(
+    attachments_json: str | None,
+    limit: int = 3,
+    *,
+    provenance: str = MEDIA_PROVENANCE_LIVE_WEBHOOK,
+) -> list[tuple[str, bytes]]:
     """Завантажує вкладення повідомлення у список (mime, bytes) для vision.
 
     attachments_json — JSON-рядок зі списком URL (як зберігає InstagramBotMessage).
     Невдалі/не-image завантаження тихо пропускаються. Cap на `limit`.
     """
     images: list[tuple[str, bytes]] = []
-    if not attachments_json:
+    if provenance == MEDIA_PROVENANCE_HISTORICAL:
         return images
-    try:
-        urls = json.loads(attachments_json)
-    except Exception:
-        return images
-    for url in (urls or [])[:limit]:
+    for url in _attachment_urls(attachments_json, limit=limit):
         img = download_image(url)
         if img:
             images.append(img)
@@ -7017,13 +7389,24 @@ def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
             "mid": getattr(row, "mid", "") or "",
             "text": getattr(row, "text", "") or "",
             "attachments": getattr(row, "attachments", "") or "",
+            "attachment_media": getattr(row, "attachment_media", None) or [],
+            "source": getattr(row, "source", "") or "",
             "role": getattr(row, "role", "") or "user",
             "created_at": getattr(row, "created_at", None),
         }
         # Normalized attachment URLs are the common path. Avoid scanning up to
         # 240 raw webhook events for every message; fall back to the bounded raw
         # join only when the normalized row has no usable media.
-        normalized_media = _existing_media(str(raw.get("attachments") or ""))
+        normalized_media = [
+            dict(item)
+            for item in (raw.get("attachment_media") or [])
+            if isinstance(item, dict) and item.get("url")
+        ]
+        if not normalized_media:
+            normalized_media = _existing_media(
+                str(raw.get("attachments") or ""),
+                provenance=MEDIA_PROVENANCE_HISTORICAL,
+            )
         if normalized_media:
             augmented = [raw]
             augmented[0]["media"] = normalized_media
@@ -7060,7 +7443,7 @@ def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
 
 
 def _collect_media_images(media: list[dict] | None, limit: int = 3) -> list[tuple[str, bytes]]:
-    """Download bounded media URLs for Gemini; roles remain in ``media``."""
+    """Load owned live bytes; historical URLs never cross a network boundary."""
     images: list[tuple[str, bytes]] = []
     seen = set()
     for item in media or []:
@@ -7068,7 +7451,12 @@ def _collect_media_images(media: list[dict] | None, limit: int = 3) -> list[tupl
         if not url or url in seen:
             continue
         seen.add(url)
-        image = download_image(url)
+        if (
+            item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK
+            or item.get("status") != MEDIA_STATUS_OWNED
+        ):
+            continue
+        image = _owned_media_bytes(item)
         if image:
             images.append(image)
         if len(images) >= limit:
@@ -7517,6 +7905,34 @@ def _promote_manual_refresh_message(
         if merged_json != existing.attachments:
             existing.attachments = merged_json
             update_fields.append("attachments")
+        existing_media = [
+            dict(item)
+            for item in (existing.attachment_media or [])
+            if isinstance(item, dict) and item.get("url")
+        ]
+        if not existing_media:
+            existing_media = _attachment_media_metadata(
+                stored if isinstance(stored, list) else [],
+                source="manual_refresh",
+            )
+        known_urls = {str(item.get("url") or "") for item in existing_media}
+        incoming_media = _attachment_media_metadata(attachments, source="webhook")
+        for item in incoming_media:
+            if item["url"] in known_urls:
+                for index, existing_item in enumerate(existing_media):
+                    if (
+                        existing_item.get("url") == item["url"]
+                        and existing_item.get("provenance") == MEDIA_PROVENANCE_HISTORICAL
+                    ):
+                        existing_media[index] = item
+                        break
+                continue
+            existing_media.append(item)
+            known_urls.add(item["url"])
+        existing_media = existing_media[:8]
+        if existing_media != (existing.attachment_media or []):
+            existing.attachment_media = existing_media
+            update_fields.append("attachment_media")
     if existing.provider_created_at is None:
         existing.provider_created_at = provider_time
         update_fields.append("provider_created_at")
@@ -7544,6 +7960,7 @@ def _promote_manual_refresh_message(
         if update_fields:
             existing.save(update_fields=update_fields)
         return "observed"
+    existing.media_capture_eligible = True
     existing.source = "webhook"
     existing.status = InstagramBotMessage.Status.PENDING
     existing.provider_created_at = provider_time
@@ -7551,7 +7968,7 @@ def _promote_manual_refresh_message(
     existing.processing_started_at = None
     existing.save(update_fields=list(dict.fromkeys([
         *update_fields,
-        "source", "status", "provider_created_at", "processed_at",
+        "media_capture_eligible", "source", "status", "provider_created_at", "processed_at",
         "processing_started_at",
     ])))
     return "promoted"
@@ -7746,6 +8163,11 @@ def enqueue_inbound(
                             ),
                             source=source,
                             attachments=json.dumps(attachments) if attachments else "",
+                            attachment_media=_attachment_media_metadata(
+                                attachments,
+                                source=source,
+                            ),
+                            media_capture_eligible=source == "webhook",
                             provider_created_at=received_at,
                             reply_to_provider_message_id=reply_to_provider_message_id,
                             quick_reply_payload=quick_reply_payload,
@@ -8387,6 +8809,12 @@ def _process_one_inside_reply_boundary(
 
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
+    if row.attachments or row.source == "webhook":
+        try:
+            _capture_message_media(row)
+            row.refresh_from_db(fields=["attachment_media"])
+        except Exception as exc:
+            log("warning", "message_media_capture", repr(exc))
     if row.client_id:
         # Product corrections must become durable state before the classifier,
         # visual matcher, or Gemini can observe and reuse legacy current_* data.
@@ -8539,8 +8967,6 @@ def _process_one_inside_reply_boundary(
             media_recovery_failed = recovered_media is None
             media = recovered_media or []
             images = _collect_media_images(media)
-            if not images and not media_recovery_failed:
-                images = _collect_images(row.attachments)
             if not _renew_client_automation_lease(row, lease_token):
                 clear_typing_indicator()
                 return False
@@ -9813,6 +10239,10 @@ def _persist_polled_message(
                 "status": InstagramBotMessage.Status.DONE,
                 "source": "poll_history" if observed_only else "poll",
                 "attachments": json.dumps(attachments) if attachments else "",
+                "attachment_media": _attachment_media_metadata(
+                    attachments,
+                    source="poll_history" if observed_only else "poll",
+                ),
                 "provider_created_at": _parse_ig_time(
                     message.get("created_time", "")
                 ),
@@ -9823,6 +10253,38 @@ def _persist_polled_message(
         )
         if not created:
             update_fields = []
+            media_enriched = False
+            if attachments:
+                stored = _attachment_urls(row.attachments)
+                merged = list(dict.fromkeys([*stored, *attachments]))[:8]
+                merged_json = json.dumps(merged, ensure_ascii=False)
+                if merged_json != row.attachments:
+                    row.attachments = merged_json
+                    update_fields.append("attachments")
+                    media_enriched = True
+                media = [
+                    dict(item)
+                    for item in (row.attachment_media or [])
+                    if isinstance(item, dict) and item.get("url")
+                ]
+                if not media:
+                    media = _attachment_media_metadata(
+                        stored,
+                        source="poll_history" if observed_only else "poll",
+                    )
+                known_urls = {str(item.get("url") or "") for item in media}
+                for item in _attachment_media_metadata(
+                    attachments,
+                    source="poll_history" if observed_only else "poll",
+                ):
+                    if item["url"] not in known_urls:
+                        media.append(item)
+                        known_urls.add(item["url"])
+                media = media[:8]
+                if media != (row.attachment_media or []):
+                    row.attachment_media = media
+                    update_fields.append("attachment_media")
+                    media_enriched = True
             reply_to_provider_message_id = _reply_to_provider_message_id(message)
             quick_reply_payload = _quick_reply_payload(message)
             if (
@@ -9836,7 +10298,8 @@ def _persist_polled_message(
                 update_fields.append("quick_reply_payload")
             if update_fields:
                 row.save(update_fields=update_fields)
-            return True
+            if not media_enriched:
+                return True
         provider_created_at = row.provider_created_at
         if role == InstagramBotMessage.Role.USER:
             if provider_created_at and (

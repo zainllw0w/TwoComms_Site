@@ -171,8 +171,8 @@ class ColorSeoOverrideTests(TestCase):
         self.assertEqual(out["h2"], "Чорний переосмислений")
         # Curated paragraphs preserved.
         self.assertTrue(any("Чорний" in p for p in out["paragraphs"]))
-        # Curated queries preserved.
-        self.assertTrue(any(q["label"] == "Купити чорне худі" for q in out["queries"]))
+        # Curated query facets remain suppressed in editorial output.
+        self.assertEqual(out["queries"], [])
 
     def test_inactive_override_is_ignored(self):
         CatalogColorSeoOverride.objects.create(

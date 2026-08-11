@@ -40,7 +40,7 @@
       <p class="cart-page-subtitle">{% trans 'Ваші вибрані товари' %}</p>
     </div>
     {% if has_any_items %}
-    <button type="button" class="cart-clear-btn" onclick="cleanCart()">
+    <button type="button" class="cart-clear-btn" onclick="cleanCart()" aria-label="{% trans 'Очистити кошик' %}">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
       </svg>
@@ -235,18 +235,20 @@
                     {% endif %}
                   </div>
                   {% if ci.show_manager_contact %}
-                  <a href="https://t.me/twocomms"
+                    <a href="https://t.me/twocomms"
                      target="_blank"
                      rel="noopener noreferrer"
-                     class="cart-item-manager-link">
-                    {% trans 'Написати менеджеру' %}
+                     class="cart-item-manager-link"
+                     aria-label="{% trans 'Написати менеджеру' %}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg>
+                    <span class="cart-action-label">{% trans 'Написати менеджеру' %}</span>
                   </a>
                   {% endif %}
-                  <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}">
+                  <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}" aria-label="{% trans 'Видалити товар' %}">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
-                    {% trans 'Видалити' %}
+                    <span class="cart-action-label">{% trans 'Видалити' %}</span>
                   </button>
                 </div>
               </div>
@@ -353,11 +355,11 @@
                     <span class="cart-item-total-label">{% trans 'Разом:' %}</span>
                     <span class="cart-item-total-value">{{ it.line_total|floatformat:2 }} {% trans 'грн' %}</span>
                   </div>
-                <button type="button" class="cart-item-remove-btn" data-key="{{ it.key }}">
+                <button type="button" class="cart-item-remove-btn" data-key="{{ it.key }}" aria-label="{% trans 'Видалити товар' %}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                   </svg>
-                  {% trans 'Видалити' %}
+                  <span class="cart-action-label">{% trans 'Видалити' %}</span>
                 </button>
               </div>
             </div>
@@ -724,47 +726,82 @@
         </div>
       {% endif %}
 
-      <!-- Карточка: Промокод -->
-      <div class="cart-sidebar-card">
-        <div class="cart-sidebar-card-header">
-          <div class="cart-sidebar-card-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
-            </svg>
-          </div>
-          <h3 class="cart-sidebar-card-title">{% trans 'Промокод' %}</h3>
-          {% if applied_promo %}
-            <span class="cart-promo-badge">{% trans 'Застосовано' %}</span>
-          {% endif %}
+      <!-- Vault-промокод використовує незмінну серверну перевірку та сесійну знижку. -->
+      <section class="promo-vault-card{% if applied_promo %} is-success{% endif %}"
+               data-promo-vault
+               data-apply-url="{% url 'apply_promo_code' %}"
+               data-remove-url="{% url 'remove_promo_code' %}"
+               aria-labelledby="promo-vault-title">
+        <div class="promo-vault-heading">
+          <p class="promo-vault-eyebrow">{% trans 'Secret access' %}</p>
+          <h3 class="promo-vault-title" id="promo-vault-title">{% trans 'Відкрий сейф зі знижкою' %}</h3>
+          <p class="promo-vault-subtitle">{% trans 'Введіть промокод — ми перевіримо його на сервері та перерахуємо кошик.' %}</p>
         </div>
-        
-        {% if applied_promo %}
-          <div class="cart-promo-applied">
-            <div class="cart-promo-applied-content">
-              <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
-              <div class="cart-promo-applied-discount">{% trans 'Знижка:' %} {{ discount }} {% trans 'грн' %}</div>
+
+        <div class="promo-vault-stage">
+          <div class="promo-vault-safe">
+            <div class="promo-vault-shadow" aria-hidden="true"></div>
+            <div class="promo-vault-interior" aria-hidden="true">
+              <div class="promo-vault-room"></div>
+              <div class="promo-vault-bars">
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="promo-vault-barsweep"></div>
+              <div class="promo-vault-glow"></div>
+              <span class="promo-vault-granted">{% trans 'Знижку активовано' %}</span>
             </div>
-            <button type="button" class="cart-promo-remove-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-          </div>
-        {% else %}
-          <div class="cart-promo-input-group">
-            <div class="cart-promo-input-wrapper">
-              <input type="text" id="promo-code-input" class="cart-promo-input" placeholder="{% trans 'Введіть код промокоду' %}" maxlength="20">
-              <div class="cart-promo-input-glow"></div>
+            <div class="promo-vault-door">
+              <div class="promo-vault-face">
+                <span class="promo-vault-rivet promo-vault-rivet-1"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-2"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-3"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-4"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-5"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-6"></span>
+                <form class="promo-vault-form" data-promo-vault-form novalidate>
+                  <label class="promo-vault-label" for="promo-vault-code">{% trans 'Код сейфа' %}</label>
+                  <input class="promo-vault-input"
+                         id="promo-vault-code"
+                         name="promo_code"
+                         type="text"
+                         maxlength="20"
+                         autocomplete="off"
+                         autocapitalize="none"
+                         spellcheck="false"
+                         aria-describedby="promo-vault-status"
+                         placeholder="••••••"
+                         {% if applied_promo %}value="{{ applied_promo.code }}"{% endif %}>
+                  <span class="promo-vault-input-line" aria-hidden="true"></span>
+                  <span class="promo-vault-gears" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <button class="promo-vault-submit" type="submit">
+                    <span class="promo-vault-submit-text">{% trans 'Відкрити' %}</span>
+                    <span class="promo-vault-submit-spinner" aria-hidden="true"></span>
+                  </button>
+                </form>
+                <div class="promo-vault-wheel" aria-hidden="true">
+                  <span class="promo-vault-wheel-spoke promo-vault-wheel-spoke-1"></span>
+                  <span class="promo-vault-wheel-spoke promo-vault-wheel-spoke-2"></span>
+                  <span class="promo-vault-wheel-spoke promo-vault-wheel-spoke-3"></span>
+                  <span class="promo-vault-wheel-hub"></span>
+                </div>
+                <div class="promo-vault-bolts" aria-hidden="true"><span></span><span></span><span></span></div>
+              </div>
+              <div class="promo-vault-edge" aria-hidden="true"></div>
             </div>
-            <button type="button" class="cart-promo-apply-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-            </button>
           </div>
-          <div id="promo-message" class="cart-promo-message"></div>
-        {% endif %}
-      </div>
+        </div>
+        <div class="promo-vault-status" id="promo-vault-status" data-promo-vault-status role="status" aria-live="polite" aria-atomic="true">{% if applied_promo %}{% trans 'Промокод застосовано.' %}{% endif %}</div>
+        <div class="promo-vault-applied{% if not applied_promo %} d-none{% endif %}" data-promo-vault-applied>
+          <div class="promo-vault-applied-copy">
+            <span class="promo-vault-applied-label">{% trans 'Застосований промокод' %}</span>
+            <strong class="promo-vault-result-code" data-promo-vault-code>{% if applied_promo %}{{ applied_promo.code }}{% endif %}</strong>
+            <span class="promo-vault-applied-discount" data-promo-vault-discount>{% if applied_promo %}{% trans 'Знижка:' %} {{ discount|floatformat:2 }} {% trans 'грн' %}{% endif %}</span>
+          </div>
+          <button type="button" class="promo-vault-remove" data-promo-vault-remove aria-label="{% trans 'Видалити промокод' %}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+      </section>
 
       <!-- Карточка: Оформление заказа -->
       <div class="cart-checkout-card">
@@ -1056,6 +1093,8 @@
 {% endblock %}
 
 {% block extra_css %}
+{% get_static_prefix as static_prefix %}
+<link rel="stylesheet" href="{{ static_prefix }}css/cart-promo-vault.css?v=20260811d">
 <style>
 .cart-savings-info {
   margin-top: 18px;
@@ -1969,7 +2008,6 @@ body.contact-modal-open .cart-container::after {
   transform: scale(0.99);
 }
 
-.cart-promo-apply-btn:active,
 .cart-item-remove-btn:active,
 .cart-form-save-btn:active,
 .btn-contact-manager:active {
@@ -2277,6 +2315,7 @@ body.contact-modal-open .cart-container::after {
   font-weight: 600;
 }
 </style>
+<link rel="stylesheet" href="{% static 'css/cart-items-redesign.css' %}?v=20260812b">
 {% endblock %}
 
 {% block extra_js %}

@@ -22,6 +22,8 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from django.utils.translation import gettext_lazy as _
 
+from .seo_link_policy import filter_editorial_link_items
+
 
 def _block(block_type: str, title: str) -> SimpleNamespace:
     """Build a synthetic block compatible with the existing template.
@@ -61,9 +63,9 @@ def _item(
 
 # ---------------------------------------------------------------------------
 # Curated top queries — high-intent, brand-relevant searches that funnel
-# users into a specific category + colour combination. Kept in code (not
-# DB) so the editorial set is reviewable in version control. URLs use the
-# colour-filter syntax that the catalog view already understands.
+# users into approved clean owners. Kept in code (not DB) so the editorial
+# set is reviewable in version control. UI-only colour filters are deliberately
+# excluded by ``seo_link_policy`` and remain available in the interactive UI.
 # ---------------------------------------------------------------------------
 
 # Phase 21 (2026-05-10) — every URL in this curated list MUST be
@@ -158,11 +160,13 @@ def _build_top_filters_items(available_colors) -> List[SimpleNamespace]:
         if not slug:
             continue
         items.append(_item(label=label, url=f"/catalog/?color={slug}"))
-    return items
+    return filter_editorial_link_items(items)
 
 
 def _build_top_queries_items() -> List[SimpleNamespace]:
-    return [_item(label=q["label"], url=q["url"]) for q in _CURATED_TOP_QUERIES]
+    return filter_editorial_link_items(
+        [_item(label=q["label"], url=q["url"]) for q in _CURATED_TOP_QUERIES]
+    )
 
 
 def get_general_catalog_seo_layout(

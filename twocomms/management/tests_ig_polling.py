@@ -1413,6 +1413,32 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         )
         schedule_analysis.assert_called_once()
 
+    def test_duplicate_poll_enrichment_schedules_analysis_after_media_is_added(self):
+        message = _message("history-media-enrichment", 1)
+        self.assertTrue(
+            bot._persist_polled_message(self.settings, message, observed_only=True)
+        )
+        enriched = dict(message)
+        enriched["attachments"] = [{
+            "type": "image",
+            "payload": {"url": "https://lookaside.example/poll.jpg"},
+        }]
+
+        with patch(
+            "management.services.bot_conversation_analysis.schedule_analysis"
+        ) as schedule_analysis:
+            self.assertTrue(
+                bot._persist_polled_message(
+                    self.settings,
+                    enriched,
+                    observed_only=True,
+                )
+            )
+
+        self.assertEqual(schedule_analysis.call_count, 1)
+        row = InstagramBotMessage.objects.get(mid="history-media-enrichment")
+        self.assertEqual(row.attachment_media[0]["status"], "metadata_only")
+
     def test_page_cap_queues_validated_live_rows_without_cursor_advance(self):
         self._cache_conversations("conv-long")
         first_page = {

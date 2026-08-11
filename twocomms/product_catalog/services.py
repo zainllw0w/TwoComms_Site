@@ -202,6 +202,17 @@ def _variant_details(variant):
     return VariantDetails.objects.filter(variant=variant).first()
 
 
+def _raw_product_seo_field(product, field: str, lang: str) -> str:
+    """Read only the model-owned SEO column, without modeltranslation fallback."""
+    language = str(lang or "uk").split("-", 1)[0].lower()
+    raw = getattr(product, "__dict__", {}).get(f"{field}_{language}")
+    if raw:
+        return str(raw).strip()
+    if language == "uk":
+        return str(getattr(product, "__dict__", {}).get(field) or "").strip()
+    return ""
+
+
 def _price_breakdown(
     *,
     product,
@@ -529,6 +540,19 @@ def variant_public_context(
         options=options,
     )
 
+    seo_sources = {
+        field: merchandising["sources"].get(field, "")
+        for field in ("seo_title", "seo_description", "seo_keywords")
+    }
+    # Resolution may fall through to Product.title or prose fields. Those
+    # values are not reviewed SEO overrides and must not replace factual
+    # variant titles/descriptions on the PDP.
+    for field, source in tuple(seo_sources.items()):
+        if source.startswith("product:") and not _raw_product_seo_field(
+            product, field, lang
+        ):
+            seo_sources[field] = ""
+
     return {
         "variant_id": variant.id,
         "option_values": options,
@@ -557,6 +581,12 @@ def variant_public_context(
         "seo_title": merchandising["seo_title"],
         "seo_description": merchandising["seo_description"],
         "seo_keywords": merchandising["seo_keywords"],
+        # Keep the ownership boundary visible to the storefront.  A RU/EN
+        # request must not treat a Ukrainian fallback row as a reviewed
+        # localized variant override.
+        "seo_title_source": seo_sources["seo_title"],
+        "seo_description_source": seo_sources["seo_description"],
+        "seo_keywords_source": seo_sources["seo_keywords"],
         "faqs": [
             {
                 "question_uk": f.question_uk, "question_ru": f.question_ru, "question_en": f.question_en,

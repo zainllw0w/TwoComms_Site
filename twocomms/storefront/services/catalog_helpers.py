@@ -491,6 +491,9 @@ def get_detailed_color_variants(product, lang='uk') -> List[Dict[str, Any]]:
                 'seo_title': merchandising['seo_title'],
                 'seo_description': merchandising['seo_description'],
                 'seo_keywords': merchandising['seo_keywords'],
+                'seo_title_source': merchandising['seo_title_source'],
+                'seo_description_source': merchandising['seo_description_source'],
+                'seo_keywords_source': merchandising['seo_keywords_source'],
                 'images': image_urls,
             }
         )

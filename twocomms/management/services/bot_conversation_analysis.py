@@ -347,6 +347,11 @@ def _claim_due(now) -> tuple[IgConversationAnalysisJob, int, int, str] | None:
             attempts=candidate.attempts + 1,
             last_error="",
             skip_reason="",
+            media_phase=IgConversationAnalysisJob.MediaPhase.NOT_STARTED,
+            media_error_kind="",
+            media_started_at=None,
+            media_completed_at=None,
+            media_item_count=0,
         )
         if claimed:
             candidate.refresh_from_db()
@@ -659,10 +664,57 @@ def _skip_reason(
     )
 
 
-def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int, dict], list[dict]]:
+def _conversation(
+    client_id: int,
+    watermark: int,
+    *,
+    on_media_progress=None,
+) -> tuple[list[dict], dict[int, dict], list[dict]]:
     rows = _analysis_message_rows(client_id, watermark)
+    from management.services.instagram_bot import _capture_message_media
+
+    # Keep media acquisition bounded by the same eight-image provider budget;
+    # an old client can contain many webhook rows and must not consume the
+    # entire analysis lease before Gemini is reached.
+    capture_budget = 8
+    for row in reversed(rows):
+        if capture_budget <= 0:
+            break
+        entries = row.attachment_media or []
+        needs_capture = (
+            not entries and row.source == "webhook"
+        ) or any(
+            isinstance(item, dict)
+            and item.get("provenance") == "live_webhook"
+            and item.get("status") != "owned"
+            for item in entries
+        )
+        if not needs_capture:
+            continue
+        before_attempts = sum(
+            int(item.get("capture_attempts") or 0)
+            for item in entries
+            if isinstance(item, dict)
+        )
+        _capture_message_media(
+            row,
+            limit=capture_budget,
+            on_progress=on_media_progress,
+        )
+        row.refresh_from_db(fields=["attachment_media"])
+        after_attempts = sum(
+            int(item.get("capture_attempts") or 0)
+            for item in (row.attachment_media or [])
+            if isinstance(item, dict)
+        )
+        capture_budget -= max(0, after_attempts - before_attempts)
     total = 0
     classify_media_items = None
+    media_expected = any(
+        bool(row.attachments or row.attachment_media)
+        for row in rows
+    )
+    media_error_kind = ""
     try:
         from management.services.ig_payment_review import (
             _augment_messages_with_raw_media,
@@ -676,6 +728,8 @@ def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int,
                 "mid": row.mid or "",
                 "text": row.text or "",
                 "attachments": row.attachments or "",
+                "attachment_media": row.attachment_media or [],
+                "source": row.source or "",
                 "role": row.role,
                 "created_at": row.created_at,
             }
@@ -688,6 +742,8 @@ def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int,
         }
     except Exception:
         augmented_by_id = {}
+        if media_expected:
+            media_error_kind = "media_recovery_exception"
     rendered: list[dict] = []
     by_id: dict[int, dict] = {}
     media_sources: list[dict] = []
@@ -722,6 +778,7 @@ def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int,
                 )
             except Exception:
                 semantic_media = []
+                media_error_kind = media_error_kind or "media_classifier_exception"
             if semantic_media:
                 manager_media = role == "manager"
                 item["media"] = []
@@ -731,6 +788,12 @@ def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int,
                             "url": str(media.get("url") or "")[:1200],
                             "message_id": row.pk,
                             "media_index": media_index,
+                            "provenance": str(media.get("provenance") or "")[:32],
+                            "status": str(media.get("status") or "")[:32],
+                            "storage_name": str(media.get("storage_name") or "")[:500],
+                            "local_url": str(media.get("local_url") or "")[:1200],
+                            "mime": str(media.get("mime") or "")[:64],
+                            "error_kind": str(media.get("error_kind") or "")[:64],
                         })
                     item["media"].append({
                         "role": "manager_reference" if manager_media else str(media.get("role") or "other")[:32],
@@ -744,7 +807,10 @@ def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int,
         by_id[row.pk] = item
         total += len(text)
     rendered.reverse()
-    return rendered, by_id, media_sources[:8]
+    bounded_sources = media_sources[:8]
+    if media_error_kind:
+        bounded_sources.append({"media_error_kind": media_error_kind})
+    return rendered, by_id, bounded_sources
 
 
 def _decimal_01(value, default: str) -> Decimal:
@@ -983,6 +1049,38 @@ def _finish_failure(
         ])
 
 
+def _record_media_phase(
+    job_id: int,
+    token: str,
+    *,
+    phase: str,
+    error_kind: str = "",
+    started_at=None,
+    completed_at=None,
+    item_count: int = 0,
+) -> bool:
+    now = timezone.now()
+    updates = {
+        "media_phase": phase,
+        "media_error_kind": str(error_kind or "")[:64],
+        "media_item_count": max(0, min(int(item_count or 0), 65535)),
+        "lease_until": now + timedelta(seconds=LEASE_SECONDS),
+        "updated_at": now,
+    }
+    if started_at is not None:
+        updates["media_started_at"] = started_at
+    if completed_at is not None:
+        updates["media_completed_at"] = completed_at
+    return bool(
+        IgConversationAnalysisJob.objects.filter(
+            pk=job_id,
+            status=IgConversationAnalysisJob.Status.PROCESSING,
+            lease_token=token,
+            lease_until__gt=now,
+        ).update(**updates)
+    )
+
+
 def _process_claim(
     job: IgConversationAnalysisJob,
     watermark: int,
@@ -1008,7 +1106,38 @@ def _process_claim(
     )
     if reason:
         return _finish_skip(job.pk, token, watermark, claimed_revision, reason, now)
-    transcript, by_id, media_sources = _conversation(client.pk, watermark)
+    media_started_at = timezone.now()
+    if not _record_media_phase(
+        job.pk,
+        token,
+        phase=IgConversationAnalysisJob.MediaPhase.ACQUIRING,
+        started_at=media_started_at,
+    ):
+        return "superseded"
+    def media_heartbeat() -> bool:
+        return _record_media_phase(
+            job.pk,
+            token,
+            phase=IgConversationAnalysisJob.MediaPhase.ACQUIRING,
+            started_at=media_started_at,
+        )
+
+    try:
+        transcript, by_id, media_sources = _conversation(
+            client.pk,
+            watermark,
+            on_media_progress=media_heartbeat,
+        )
+    except Exception:
+        _record_media_phase(
+            job.pk,
+            token,
+            phase=IgConversationAnalysisJob.MediaPhase.FAILED,
+            error_kind="media_exception",
+            started_at=media_started_at,
+            completed_at=timezone.now(),
+        )
+        raise
     if not transcript:
         return _finish_skip(
             job.pk, token, watermark, claimed_revision, "empty_conversation", now
@@ -1016,16 +1145,28 @@ def _process_claim(
     initial_truth_state = _required_truth_state(client)
     media_images = []
     image_labels = []
+    media_error_kind = next((
+        str(source.get("media_error_kind") or "")[:64]
+        for source in media_sources
+        if isinstance(source, dict) and source.get("media_error_kind")
+    ), "")
+    media_sources = [
+        source for source in media_sources
+        if isinstance(source, dict) and source.get("url")
+    ]
     try:
-        from management.services.instagram_bot import download_image
+        from management.services.instagram_bot import _collect_media_images
 
         seen_urls = set()
         for source in media_sources:
+            if not media_heartbeat():
+                return "superseded"
             url = str(source.get("url") or "")
             if not url or url in seen_urls:
                 continue
             seen_urls.add(url)
-            image = download_image(url)
+            collected = _collect_media_images([source], limit=1)
+            image = collected[0] if collected else None
             if image:
                 image_labels.append({
                     "inline_image_index": len(media_images),
@@ -1033,11 +1174,32 @@ def _process_claim(
                     "media_index": source.get("media_index"),
                 })
                 media_images.append(image)
+            elif source.get("provenance") != "historical_import":
+                media_error_kind = str(
+                    source.get("error_kind") or "media_unavailable"
+                )[:64]
             if len(media_images) >= 8:
                 break
     except Exception:
         media_images = []
         image_labels = []
+        media_error_kind = "media_exception"
+    if media_error_kind:
+        media_phase = IgConversationAnalysisJob.MediaPhase.FAILED
+    elif media_sources and not media_images:
+        media_phase = IgConversationAnalysisJob.MediaPhase.METADATA_ONLY
+    else:
+        media_phase = IgConversationAnalysisJob.MediaPhase.READY
+    if not _record_media_phase(
+        job.pk,
+        token,
+        phase=media_phase,
+        error_kind=media_error_kind,
+        started_at=media_started_at,
+        completed_at=timezone.now(),
+        item_count=len(media_sources),
+    ):
+        return "superseded"
     if _customer_reply_work_waiting():
         if _defer_claim_for_customer_reply(job.pk, token, now=timezone.now()):
             return "deferred"

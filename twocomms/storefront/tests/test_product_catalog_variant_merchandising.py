@@ -179,6 +179,11 @@ class ProductCatalogVariantMerchandisingTests(TestCase):
                     payload["marketing_html"],
                     expected["full_description"],
                 )
+                self.assertEqual(payload["seo_title_source"], f"product:{language}")
+                self.assertEqual(
+                    payload["seo_description_source"],
+                    f"product:{language}",
+                )
                 self.assertNotIn(self.LEGACY_UK_MARKER, str(payload))
 
     def test_localized_pdp_and_variants_api_do_not_leak_legacy_uk_content(self):

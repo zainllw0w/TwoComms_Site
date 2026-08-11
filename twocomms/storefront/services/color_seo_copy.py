@@ -4,24 +4,24 @@ Covers three contexts (a single service so the catalog view has one
 entry point):
 
 1. ``/catalog/`` (no category, no colour) — brand-level catalogue
-   landing copy with internal links to all three category pages +
-   the most stocked colour filters.
+   landing copy with internal links to clean category owners; interactive
+   colour filters remain UI-only.
 
 2. ``/catalog/?color=<slug>`` (cross-category colour filter) — copy
-   focused on the chosen colour with internal links into every
-   category filtered by the same colour.
+   focused on the chosen colour; editorial links point only to clean
+   category owners while the selector remains UI-only.
 
 3. ``/catalog/<category>/?color=<slug>`` (category × colour) — copy
    focused on the category-colour intersection (e.g. *чорне худі*),
-   with HF / MF / LF query chips and links to the alternative
-   categories of the same colour.
+   with clean-owner links where they exist. Query facets are not
+   published as editorial chip destinations while they remain noindex.
 
 Each block returns ``{h2, paragraphs, queries}`` where ``queries`` is
 ``[{label, url, freq: 'hf'|'mf'|'lf'}]``. The template renders the
 paragraphs as ``<p>`` and the queries as a chip strip. Copy is
-written by hand — no AI generation runtime — to guarantee that the
-text is unique per (category, colour) cell and never collides with
-the per-category description (Phase 10 / 10b).
+written by hand — no AI generation runtime — and remains subject to
+the shared fact and URL-owner policy; lexical uniqueness is not an SEO
+acceptance target.
 
 The catalog view passes a ``color_seo_copy`` context variable; the
 template (``partials/catalog_color_seo.html``) renders it inside the
@@ -42,6 +42,11 @@ from typing import Any, Dict, List, Optional
 
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import get_language
+
+from .seo_link_policy import (
+    filter_editorial_link_items,
+    strip_internal_ui_state_links,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -836,19 +841,19 @@ def build_catalog_color_seo(
         # via CatalogColorSeoOverride(scope="general", color_slug="").
         override = _load_override("general", "", None)
         if override is not None:
-            return _merge_curated_with_override(
+            return _finalize_editorial_copy(_merge_curated_with_override(
                 base_h2=GENERAL_CATALOG_SEO_COPY["h2"],
                 base_paragraphs=GENERAL_CATALOG_SEO_COPY["paragraphs"],
                 base_queries=GENERAL_CATALOG_SEO_COPY["queries"],
                 override=override,
                 color_slug="",
-            )
-        return {
+            ))
+        return _finalize_editorial_copy({
             "h2": GENERAL_CATALOG_SEO_COPY["h2"],
             "paragraphs": GENERAL_CATALOG_SEO_COPY["paragraphs"],
             "queries": GENERAL_CATALOG_SEO_COPY["queries"],
             "color_slug": "",
-        }
+        })
 
     # Resolve a human-readable label for the colour, used by the
     # generic fallback. We prefer the chip label (matches what the
@@ -889,20 +894,34 @@ def build_catalog_color_seo(
     scope = "category" if category is not None else "brand"
     override = _load_override(scope, color_slug, category)
     if override is not None:
-        return _merge_curated_with_override(
+        return _finalize_editorial_copy(_merge_curated_with_override(
             base_h2=h2,
             base_paragraphs=base_paragraphs,
             base_queries=base_queries,
             override=override,
             color_slug=color_slug,
-        )
+        ))
 
-    return {
+    return _finalize_editorial_copy({
         "h2": h2,
         "paragraphs": base_paragraphs,
         "queries": base_queries,
         "color_slug": color_slug,
-    }
+    })
+
+
+def _finalize_editorial_copy(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Enforce clean-owner links for generated and administrator copy."""
+
+    finalized = dict(payload)
+    finalized["paragraphs"] = [
+        strip_internal_ui_state_links(paragraph)
+        for paragraph in (payload.get("paragraphs") or [])
+    ]
+    finalized["queries"] = filter_editorial_link_items(
+        payload.get("queries") or []
+    )
+    return finalized
 
 
 def _merge_curated_with_override(

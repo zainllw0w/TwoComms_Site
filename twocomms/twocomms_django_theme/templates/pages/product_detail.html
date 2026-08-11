@@ -56,11 +56,11 @@ namespace + the legacy og:price aliases for the older social parsers.
 {% block og_description %}{% if variant_page_description %}{{ variant_page_description }}{% else %}{% seo_description product=product %}{% endif %}{% endblock %}
 {# Phase 21 (PR-2 T7.3) — variant-aware OG/Twitter image; see seo_og_image template tag. #}
 {% block og_image %}{% seo_og_image product=product selected_variant=selected_color_variant %}{% endblock %}
-{% block og_image_alt %}{{ primary_image_alt|default:product.title }}{% endblock %}
+{% block og_image_alt %}{{ social_image_alt|default:product.title }}{% endblock %}
 {% block twitter_title %}{% if variant_page_title %}{{ variant_page_title }}{% else %}{% seo_title product=product %}{% endif %}{% endblock %}
 {% block twitter_description %}{% if variant_page_description %}{{ variant_page_description }}{% else %}{% seo_description product=product %}{% endif %}{% endblock %}
 {% block twitter_image %}{% seo_og_image product=product selected_variant=selected_color_variant %}{% endblock %}
-{% block twitter_image_alt %}{{ primary_image_alt|default:product.title }}{% endblock %}
+{% block twitter_image_alt %}{{ social_image_alt|default:product.title }}{% endblock %}
 
 {% comment %}
   Phase 18 — preload the LCP hero image (AVIF responsive). Browsers that
@@ -68,8 +68,8 @@ namespace + the legacy og:price aliases for the older social parsers.
   <picture> sources from <body>. ``sizes`` matches the <img> sizes attr.
 {% endcomment %}
 {% block preload_hints %}
-  {% if product.display_image %}
-    {% preload_image product.display_image.url "(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px" %}
+  {% if initial_hero_image_url %}
+    {% preload_image initial_hero_image_url "(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px" %}
   {% endif %}
 {% endblock %}
 
@@ -106,13 +106,10 @@ namespace + the legacy og:price aliases for the older social parsers.
   blanket FAQPage was removed in Phase 21 because it duplicated the
   /faq/, /delivery/ and /povernennya-ta-obmin/ schema across hundreds
   of pages (Search Console: «repeated structured data»). The new
-  behaviour is safe because ``product_faq_items`` is sourced from
-  ``product.faqs`` — a manually curated, per-product Q&A collection
-  with zero overlap with the global FAQ matrix. Pages that have no
-  product-specific FAQ render zero FAQPage JSON-LD. AI answer engines
-  (Perplexity, ChatGPT Search, Google AI Overviews) preferentially
-  cite product-scoped FAQPage entries for long-tail queries like
-  «чи дає {товар} усадку після прання».
+  ``product_faq_items`` is sourced from active ``product.faqs`` rows.
+  The view removes exact normalized duplicate pairs and passes the same
+  ordered list to the visible tab and JSON-LD. Pages with no retained FAQ
+  render no FAQPage; rich-result or AI-citation eligibility is not assumed.
   {% endcomment %}
   {% if product_faq_items %}
     {% faq_schema product_faq_items %}
@@ -160,8 +157,8 @@ CSS rules на mobile FCP/LCP window.
           <span></span><span></span><span></span><span></span><span></span><span></span>
           <span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
-        {% if product.display_image %}
-          {% optimized_image product.display_image.url primary_image_alt|default:product.title "tc-media-hero-img" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px' img_id='mainProductImage' %}
+        {% if initial_hero_image_url %}
+          {% optimized_image initial_hero_image_url initial_hero_image_alt|default:product.title "tc-media-hero-img" 1080 1350 loading='eager' fetchpriority='high' sizes='(max-width: 768px) 94vw, (max-width: 992px) 90vw, (max-width: 1600px) 46vw, 720px' img_id='mainProductImage' %}
         {% else %}
           {% static 'img/placeholder.jpg' as ph_url %}
           <img
@@ -854,15 +851,7 @@ CSS rules на mobile FCP/LCP window.
     </button>
   </div>
 
-  {% comment %}
-  SEO molecular-upgrade US-3 (2026-05-16) — per-product SEO block.
-  Kept after reviews, recommendations and recently viewed so useful shopping
-  content stays ahead of the long-form crawler copy. Both SEO sections remain
-  inside the full-width PDP shell.
-  {% endcomment %}
-  {% product_seo_block product %}
-
-  {# Phase 15 — per-product SEO landing block (theme + top queries + category filters). #}
+  {# Phase 15 — the single per-product SEO landing owner (theme + approved navigation). #}
   {% include 'partials/product_seo_landing.html' %}
 </div>
 
@@ -887,7 +876,7 @@ CSS rules на mobile FCP/LCP window.
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260811-gallery-v5" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260811-gallery-v6" defer></script>
 <script src="{% static 'js/product-media-fit.js' %}?v=20260808-merch-v1" defer></script>
 <script src="{% static 'js/product-variant-history.js' %}?v=20260509-phase8-v1" defer></script>
 {% endblock %}

@@ -73,14 +73,14 @@ class GetCategorySeoBlocksTests(_BasePhase10Tests):
             title="Topics", order=2,
         )
         CategorySeoBlockItem.objects.create(
-            block=active_b, label="Black", url="/catalog/hoodies/?color=black", order=0,
+            block=active_b, label="Black", url="/catalog/hoodies/", order=0,
         )
         active_a = CategorySeoBlock.objects.create(
             category=self.category, block_type="top_queries",
             title="Queries", order=1,
         )
         CategorySeoBlockItem.objects.create(
-            block=active_a, label="купити худі", url="/search/?q=hoodie",
+            block=active_a, label="купити худі", url="/delivery/",
         )
         CategorySeoBlock.objects.create(
             category=self.category, block_type="top_menu",
@@ -389,7 +389,7 @@ class CatalogIntegrationTests(_BasePhase10Tests):
             category=self.category, block_type="top_filters", title="Топ фільтри",
         )
         CategorySeoBlockItem.objects.create(
-            block=block, label="Чорні", url="/catalog/hoodies/?color=black",
+            block=block, label="Чорні", url="/catalog/hoodies/",
         )
         response = self.client.get(reverse("catalog_by_cat",
                                           kwargs={"cat_slug": self.category.slug}))

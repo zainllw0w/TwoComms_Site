@@ -368,7 +368,7 @@ class CartPageController {
       ? `<span class="cart-item-total-value">${formatUAH(parseNumber(ci.line_total))}</span>`
       : `<span class="cart-item-total-value cart-item-total-value--muted">Після погодження</span>${parseNumber(ci.final_total) > 0 ? `<div class="cart-item-total-note">Орієнтовно ${formatUAH(parseNumber(ci.final_total))}</div>` : ''}`;
     const managerLink = ci.show_manager_contact
-      ? `<a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="cart-item-manager-link">Написати менеджеру</a>`
+      ? `<a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="cart-item-manager-link" aria-label="Написати менеджеру"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg><span class="cart-action-label">Написати менеджеру</span></a>`
       : '';
 
     return `
@@ -419,11 +419,11 @@ class CartPageController {
             ${totalValue}
           </div>
           ${managerLink}
-          <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}">
+          <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}" aria-label="Видалити товар">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            Видалити
+            <span class="cart-action-label">Видалити</span>
           </button>
         </div>
       </div>
@@ -511,11 +511,11 @@ class CartPageController {
             <span class="cart-item-total-label">Разом:</span>
             <span class="cart-item-total-value">${formatUAH(lineTotal)}</span>
           </div>
-          <button type="button" class="cart-item-remove-btn" data-key="${escapeHtml(item.key)}">
+          <button type="button" class="cart-item-remove-btn" data-key="${escapeHtml(item.key)}" aria-label="Видалити товар">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            Видалити
+            <span class="cart-action-label">Видалити</span>
           </button>
         </div>
       </div>
@@ -815,75 +815,159 @@ class CartPageController {
   }
 }
 
-function showPromoMessage(msgBox, message, type) {
-  if (!msgBox) {
+function initPromoVault() {
+  const vault = document.querySelector('[data-promo-vault]');
+  const form = vault?.querySelector('[data-promo-vault-form]');
+  const input = vault?.querySelector('.promo-vault-input');
+  const submit = vault?.querySelector('.promo-vault-submit');
+  const status = vault?.querySelector('[data-promo-vault-status]');
+  const applied = vault?.querySelector('[data-promo-vault-applied]');
+  const appliedCode = vault?.querySelector('[data-promo-vault-code]');
+  const appliedDiscount = vault?.querySelector('[data-promo-vault-discount]');
+  const remove = vault?.querySelector('[data-promo-vault-remove]');
+  if (!vault || !form || !input || !submit || !status || !applied || !remove || vault.dataset.initialized === '1') {
     return;
   }
-  const typeClass = type === 'success'
-    ? 'cart-promo-message-success'
-    : type === 'error'
-      ? 'cart-promo-message-error'
-      : 'cart-promo-message-info';
-  const safeMessage = escapeHtml(message);
-  msgBox.innerHTML = `<div class="cart-promo-message ${typeClass}">${safeMessage}</div>`;
-  window.setTimeout(() => {
+  vault.dataset.initialized = '1';
+
+  let requestController = null;
+  let animationTimer = null;
+  let gearAngle = 0;
+  let previousLength = input.value.length;
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const clearStates = () => vault.classList.remove('is-loading', 'is-error', 'is-unlocking', 'is-closing', 'is-success');
+  const renderError = (message) => {
+    clearTimeout(animationTimer);
+    clearStates();
+    // Force a layout read so repeated invalid attempts replay the reference's jam animation.
+    void vault.offsetWidth;
+    vault.classList.add('is-error');
+    status.textContent = message || 'Невірний промокод. Перевірте код і спробуйте ще раз.';
+    input.setAttribute('aria-invalid', 'true');
+    input.focus({ preventScroll: true });
+  };
+
+  input.addEventListener('focus', () => vault.classList.add('is-focus'));
+  input.addEventListener('blur', () => vault.classList.remove('is-focus'));
+  input.addEventListener('input', () => {
+    const delta = Math.max(-4, Math.min(4, input.value.length - previousLength));
+    previousLength = input.value.length;
+    if (!delta) return;
+    gearAngle += delta * 45;
+    vault.style.setProperty('--gear-a', `${gearAngle}deg`);
+    vault.style.setProperty('--gear-b', `${22 - (gearAngle * 4 / 3)}deg`);
+    vault.style.setProperty('--gear-c', `${8 + (gearAngle * 1.6)}deg`);
+  });
+  const finishSuccess = (data, code) => {
+    clearStates();
+    vault.classList.add('is-success');
+    input.removeAttribute('aria-invalid');
+    status.textContent = 'Промокод застосовано.';
+    applied.classList.remove('d-none');
+    if (appliedCode) appliedCode.textContent = data.promo_code || code;
+    if (appliedDiscount) appliedDiscount.textContent = `Знижка: ${formatUAH(parseNumber(data.discount))}`;
+  };
+
+  remove.addEventListener('click', async () => {
+    if (remove.disabled) return;
+    remove.disabled = true;
+    remove.setAttribute('aria-busy', 'true');
+    status.textContent = 'Видаляємо промокод…';
     try {
-      msgBox.innerHTML = '';
-    } catch (error) {
-      console.error(error);
-    }
-  }, 5000);
-}
-
-function applyPromoCode(promoInput, msgBox) {
-  const code = (promoInput.value || '').trim().toUpperCase();
-  if (!code) {
-    showPromoMessage(msgBox, 'Введіть код промокоду', 'error');
-    return;
-  }
-
-  showPromoMessage(msgBox, 'Застосовуємо промокод...', 'info');
-  fetch('/cart/apply-promo/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      'X-CSRFToken': getCsrfToken(),
-    },
-    body: `promo_code=${encodeURIComponent(code)}`,
-  })
-    .then((r) => r.json())
-    .then((data) => {
-      if (data && data.success) {
-        showPromoMessage(msgBox, data.message || 'Застосовано', 'success');
-        window.setTimeout(() => window.location.reload(), 800);
-      } else if (data && data.auth_required) {
-        // Особлива обробка для незареєстрованих користувачів
-        const authMessage = data.message || 'Промокоди доступні тільки для зареєстрованих користувачів';
-        showPromoMessage(msgBox, authMessage, 'error');
-        // Показуємо модальне вікно з пропозицією авторизуватися
-        setTimeout(() => {
-          if (confirm(authMessage + '.\n\nПерейти до авторизації?')) {
-            window.location.href = '/login/';
-          }
-        }, 800);
-      } else {
-        showPromoMessage(msgBox, (data && (data.error || data.message)) || 'Помилка', 'error');
+      const response = await fetch(vault.dataset.removeUrl || '/cart/remove-promo/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'X-CSRFToken': getCsrfToken(),
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+      let data = {};
+      try { data = await response.json(); } catch (_error) { data = {}; }
+      if (!response.ok || !data.success) {
+        renderError(data.error || 'Не вдалося видалити промокод.');
+        return;
       }
-    })
-    .catch(() => showPromoMessage(msgBox, 'Помилка при застосуванні', 'error'));
-}
+      clearStates();
+      input.value = '';
+      applied.classList.add('d-none');
+      if (appliedCode) appliedCode.textContent = '';
+      if (appliedDiscount) appliedDiscount.textContent = '';
+      status.textContent = data.message || 'Промокод видалено.';
+      document.dispatchEvent(new CustomEvent('cartUpdated'));
+    } catch (_error) {
+      renderError('Не вдалося видалити промокод. Перевірте з’єднання та спробуйте ще раз.');
+    } finally {
+      remove.disabled = false;
+      remove.removeAttribute('aria-busy');
+    }
+  });
 
-function removePromoCode(msgBox) {
-  fetch('/cart/remove-promo/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      'X-CSRFToken': getCsrfToken(),
-    },
-  })
-    .then((r) => r.json())
-    .then(() => window.location.reload())
-    .catch(() => showPromoMessage(msgBox, 'Не вдалося видалити промокод', 'error'));
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (vault.classList.contains('is-loading') || vault.classList.contains('is-unlocking') || vault.classList.contains('is-closing')) {
+      return;
+    }
+    const code = (input.value || '').trim();
+    if (!code) {
+      renderError('Введіть промокод, щоб відкрити сейф.');
+      return;
+    }
+
+    clearTimeout(animationTimer);
+    clearStates();
+    vault.classList.add('is-loading');
+    status.textContent = 'Перевіряємо код на сервері…';
+    input.removeAttribute('aria-invalid');
+    input.disabled = true;
+    submit.disabled = true;
+    submit.setAttribute('aria-busy', 'true');
+    requestController?.abort();
+    requestController = new AbortController();
+
+    try {
+      const response = await fetch(vault.dataset.applyUrl || '/cart/apply-promo/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'X-CSRFToken': getCsrfToken(),
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: `promo_code=${encodeURIComponent(code)}`,
+        signal: requestController.signal,
+      });
+      let data = {};
+      try { data = await response.json(); } catch (_error) { data = {}; }
+      if (!response.ok || !data.success) {
+        renderError(data.error || data.message || (response.status === 429 ? 'Забагато спроб. Спробуйте через хвилину.' : 'Невірний промокод. Перевірте код і спробуйте ще раз.'));
+        return;
+      }
+
+      // Сесія вже оновлена сервером: синхронізуємо суми одразу, не чекаючи завершення декорації.
+      document.dispatchEvent(new CustomEvent('cartUpdated'));
+      clearStates();
+      vault.classList.add('is-unlocking');
+      status.textContent = 'Код прийнято. Відкриваємо сейф…';
+      if (reduceMotion) {
+        finishSuccess(data, code);
+      } else {
+        animationTimer = window.setTimeout(() => {
+          vault.classList.add('is-closing');
+          status.textContent = 'Знижку знайдено. Закриваємо сейф…';
+          animationTimer = window.setTimeout(() => finishSuccess(data, code), 720);
+        }, 1450);
+      }
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        renderError('Не вдалося перевірити промокод. Перевірте з’єднання та спробуйте ще раз.');
+      }
+    } finally {
+      requestController = null;
+      input.disabled = false;
+      submit.disabled = false;
+      submit.removeAttribute('aria-busy');
+    }
+  });
 }
 
 function setupCartValidation(form) {
@@ -1000,33 +1084,7 @@ function setupCartValidation(form) {
 }
 
 export function initCartInteractions() {
-  const promoInput = DOMCache.get('promo-code-input');
-  const applyBtn = DOMCache.query('.cart-promo-apply-btn');
-  const removeBtn = DOMCache.query('.cart-promo-remove-btn');
-  const msgBox = DOMCache.get('promo-message');
-
-  if (applyBtn && promoInput) {
-    applyBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      applyPromoCode(promoInput, msgBox);
-    });
-  }
-
-  if (removeBtn) {
-    removeBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      removePromoCode(msgBox);
-    });
-  }
-
-  if (promoInput) {
-    promoInput.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        applyPromoCode(promoInput, msgBox);
-      }
-    });
-  }
+  initPromoVault();
 
   document.addEventListener('click', (event) => {
     const btn = event.target.closest?.('.cart-item-remove-btn');

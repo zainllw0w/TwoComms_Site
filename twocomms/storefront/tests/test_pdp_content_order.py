@@ -15,7 +15,6 @@ class _PdpShellParser(HTMLParser):
         "reviews": "tc-reviews",
         "recommendations": "tc-related-panel",
         "recent": "tc-recent-panel",
-        "general_seo": "pdp-seo-block",
         "landing_seo": "product-seo-landing",
     }
 
@@ -82,7 +81,7 @@ class ProductDetailContentOrderTests(TestCase):
             status="published",
         )
 
-    def test_reviews_recommendations_and_recently_viewed_precede_both_seo_blocks(self):
+    def test_pdp_renders_one_editorial_owner_after_shopping_content(self):
         with patch(
             "storefront.views.product.ProductRecommendationEngine.get_recommendations",
             return_value=[self.recommendation],
@@ -97,13 +96,14 @@ class ProductDetailContentOrderTests(TestCase):
             'id="product-reviews"',
             'class="tc-related-panel"',
             'class="tc-recent-panel"',
-            'class="pdp-seo-block"',
             'class="product-seo-landing"',
         )
         for marker in markers:
             self.assertIn(marker, html)
         positions = [html.index(marker) for marker in markers]
         self.assertEqual(positions, sorted(positions))
+        self.assertNotIn("data-general-product-seo", html)
+        self.assertEqual(html.count("data-product-seo-landing"), 1)
 
         parser = _PdpShellParser()
         parser.feed(html)
@@ -113,7 +113,6 @@ class ProductDetailContentOrderTests(TestCase):
                 "reviews": True,
                 "recommendations": True,
                 "recent": True,
-                "general_seo": True,
                 "landing_seo": True,
             },
         )

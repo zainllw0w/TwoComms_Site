@@ -50,24 +50,13 @@ class _Base(TestCase):
 
 class LandingHtmlTests(_Base):
 
-    def test_returns_landing_html_with_h2_and_paragraphs(self):
+    def test_missing_editorial_override_has_no_generated_long_form_copy(self):
         result = build_landing(self.product)
-        self.assertEqual(result["override_html"], "")
-        html = result["landing_html"]
-        self.assertIn("<h2", html)
-        self.assertIn(self.product.title, html)
-        # City keywords paragraph.
-        self.assertIn("Київ", html)
-        self.assertIn("Новою Поштою", html)
-        # Brand closing paragraph.
-        self.assertIn("TwoComms", html)
-        self.assertIn("Збройних Сил", html)
 
-    def test_color_paragraph_links_to_product_variant_url(self):
-        html = build_landing(self.product)["landing_html"]
-        # The Phase 7 path-URL format: /product/<slug>/<color-slug>/.
-        self.assertIn(f'/product/{self.product.slug}/{self.variant_black.slug}/', html)
-        self.assertIn("Чорний", html)
+        self.assertEqual(result["landing_html"], "")
+        self.assertNotIn("Збройних Сил", result["landing_html"])
+        self.assertNotIn("Новою Поштою", result["landing_html"])
+        self.assertTrue(result["top_queries_items"])
 
     def test_admin_override_takes_priority(self):
         self.product.seo_bottom_html = "<p>Custom admin copy.</p>"
@@ -75,21 +64,6 @@ class LandingHtmlTests(_Base):
         result = build_landing(self.product)
         self.assertEqual(result["override_html"], "<p>Custom admin copy.</p>")
         self.assertEqual(result["landing_html"], "")
-
-    def test_fit_code_changes_h2_and_active_paragraph(self):
-        ProductFitOption.objects.create(
-            product=self.product, code="oversize", label="Оверсайз",
-            is_default=False, is_active=True, order=0,
-        )
-        ProductFitOption.objects.create(
-            product=self.product, code="classic", label="Класична",
-            is_default=True, is_active=True, order=1,
-        )
-        html = build_landing(self.product, fit_code="oversize")["landing_html"]
-        self.assertIn("Оверсайз", html)
-        # Path URL must include the fit segment.
-        self.assertIn(f'/product/{self.product.slug}/oversize/', html)
-
 
 class TopQueriesTests(_Base):
 
@@ -150,7 +124,7 @@ class CategoryLayoutReuseTests(_Base):
         )
         CategorySeoBlockItem.objects.create(
             block=block, label="Купити чорне худі",
-            url="/catalog/hoodie/?color=black", order=0,
+            url="/catalog/hoodie/black/", order=0,
         )
         # best_prices block — must NOT appear on product page.
         bp = CategorySeoBlock.objects.create(
@@ -179,7 +153,7 @@ class TemplateRenderTests(_Base):
             {"product_seo_landing": landing},
         )
         self.assertIn("product-seo-landing", out)
-        self.assertIn(self.product.title, out)
+        self.assertNotIn("Збройних Сил", out)
         self.assertIn('data-seo-tabs', out)
         # Top queries chip rendered as <a>.
         self.assertIn("seo-tab-link", out)

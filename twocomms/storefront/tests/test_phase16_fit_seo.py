@@ -1,14 +1,8 @@
-"""Phase 16 — fit-aware SEO.
+"""Phase 16 — factual, locale-aware SEO for path-style variants.
 
-Covers:
-1. ``build_variant_meta`` — when a 1-segment fit is active, title/desc
-   put the fit term in *front*, and ``page_keywords`` is populated.
-2. Multi-segment combos keep the legacy suffix-based meta (no fit lead).
-3. Base PDP (segments_count=0) returns empty meta + empty keywords.
-4. ``product_seo_landing.build_landing`` injects a fit-specific H3 +
-   body paragraph (different text per oversize/classic/regular) only
-   when a fit_code is supplied.
-5. Per-fit landing copy is unique between oversize and classic.
+The path can provide factual variant tokens (colour, size and fit), so the
+title may describe those tokens.  The helper must not manufacture material,
+print-method or delivery claims, and it must never emit ``meta keywords``.
 """
 from __future__ import annotations
 
@@ -23,6 +17,7 @@ from storefront.services.variant_meta import (
     VariantMetaInputs,
     build_variant_meta,
 )
+from storefront.views.product import _is_locale_owned_variant_meta
 
 
 class VariantMetaFitAwarenessTests(TestCase):
@@ -37,29 +32,31 @@ class VariantMetaFitAwarenessTests(TestCase):
         defaults.update(overrides)
         return VariantMetaInputs(**defaults)
 
-    def test_fit_lead_when_single_segment(self):
+    def test_fit_title_is_localized_and_has_no_unverified_claims(self):
         meta = build_variant_meta(self._inputs(
             current_path="/product/foo/oversize/",
             segments_count=1,
-            fit_label="Оверсайз", fit_code="oversize",
+            product_title="Oversize T-shirt",
+            fit_label="Оверсайз", fit_code="oversize", language="en",
         ))
-        # Title puts fit in front (not "Купити X — оверсайз").
-        self.assertTrue(meta["page_title"].startswith("Оверсайз Худі TwoComms"))
+        self.assertEqual(meta["page_title"], "Oversize T-shirt — oversize — TwoComms")
         self.assertIn("TwoComms", meta["page_title"])
-        # Description leads with the fit and contains brand keywords.
-        self.assertTrue(meta["page_description"].startswith("Оверсайз посадка"))
-        self.assertIn("DTF-друк", meta["page_description"])
-        self.assertIn("Новою Поштою", meta["page_description"])
+        self.assertEqual(meta["page_description"], "")
+        self.assertEqual(meta["page_keywords"], "")
 
-    def test_keywords_filled_for_fit_only(self):
+    def test_fit_title_uses_russian_fit_label(self):
         meta = build_variant_meta(self._inputs(
             current_path="/product/foo/classic/",
             segments_count=1,
-            fit_label="Класична", fit_code="classic",
+            product_title="Классическая футболка",
+            fit_label="Класична", fit_code="classic", language="ru",
         ))
-        self.assertIn("класична посадка", meta["page_keywords"])
-        self.assertIn("classic", meta["page_keywords"])
-        self.assertIn("купити", meta["page_keywords"])
+        self.assertEqual(
+            meta["page_title"],
+            "Классическая футболка — классическая — TwoComms",
+        )
+        self.assertEqual(meta["page_description"], "")
+        self.assertEqual(meta["page_keywords"], "")
 
     def test_no_fit_lead_for_multi_segment(self):
         meta = build_variant_meta(self._inputs(
@@ -68,10 +65,10 @@ class VariantMetaFitAwarenessTests(TestCase):
             color_name="Чорний", color_slug="black",
             fit_label="Оверсайз", fit_code="oversize",
         ))
-        # Multi-segment uses the legacy suffix template ("Купити X — Y").
-        self.assertTrue(meta["page_title"].startswith("Купити Худі TwoComms"))
+        # Multi-segment titles contain only the selected factual tokens.
+        self.assertTrue(meta["page_title"].startswith("Худі TwoComms —"))
         self.assertIn("оверсайз", meta["page_title"])
-        # Keywords stay empty for multi-segment to avoid keyword stuffing.
+        self.assertEqual(meta["page_description"], "")
         self.assertEqual(meta["page_keywords"], "")
 
     def test_no_keywords_for_color_or_size_only(self):
@@ -87,6 +84,23 @@ class VariantMetaFitAwarenessTests(TestCase):
         self.assertEqual(meta["page_title"], "")
         self.assertEqual(meta["page_keywords"], "")
         self.assertTrue(meta["is_self_canonical"])
+
+    def test_variant_override_requires_current_locale_ownership(self):
+        self.assertTrue(
+            _is_locale_owned_variant_meta(
+                {"seo_title_source": "product:ru"}, "seo_title", "ru"
+            )
+        )
+        self.assertFalse(
+            _is_locale_owned_variant_meta(
+                {"seo_title_source": "color:legacy"}, "seo_title", "ru"
+            )
+        )
+        self.assertTrue(
+            _is_locale_owned_variant_meta(
+                {"seo_title_source": "color:legacy"}, "seo_title", "uk"
+            )
+        )
 
 
 class LandingFitParagraphTests(TestCase):
@@ -119,25 +133,19 @@ class LandingFitParagraphTests(TestCase):
             is_default=True, is_active=True, order=1,
         )
 
-    def test_oversize_injects_unique_h3_and_body(self):
+    def test_oversize_has_no_generated_copy_without_override(self):
         html = build_landing(self.product, fit_code="oversize")["landing_html"]
-        self.assertIn("Чому оверсайз-посадка", html)
-        # A signature phrase from the oversize body (Phase 16 copy).
-        self.assertIn("плечі довші на 4–6 см", html)
+        self.assertEqual(html, "")
 
-    def test_classic_injects_different_h3_and_body(self):
+    def test_classic_has_no_generated_copy_without_override(self):
         html = build_landing(self.product, fit_code="classic")["landing_html"]
-        self.assertIn("Чому класична посадка", html)
-        self.assertIn("плечовий шов", html)
+        self.assertEqual(html, "")
 
-    def test_oversize_and_classic_copy_differ(self):
+    def test_fit_pages_do_not_publish_hash_or_template_paraphrases(self):
         oversize = build_landing(self.product, fit_code="oversize")["landing_html"]
         classic = build_landing(self.product, fit_code="classic")["landing_html"]
-        # Each fit paragraph must contain its own H3.
-        self.assertIn("Чому оверсайз", oversize)
-        self.assertNotIn("Чому класична", oversize)
-        self.assertIn("Чому класична", classic)
-        self.assertNotIn("Чому оверсайз-посадка", classic)
+        self.assertEqual(oversize, classic)
+        self.assertEqual(oversize, "")
 
     def test_no_fit_no_h3(self):
         html = build_landing(self.product)["landing_html"]

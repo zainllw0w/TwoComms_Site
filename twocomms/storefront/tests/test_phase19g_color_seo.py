@@ -10,7 +10,7 @@ A. ``services.color_seo_copy.build_catalog_color_seo``:
       still emits at least one paragraph + queries.
    5. Returns None for /catalog/<cat>/ without colour filter (lets the
       existing ``category.description`` SEO text render alone).
-   6. Curated copies carry HF / MF / LF queries (every colour).
+   6. Curated query facets stay out of editorial output while noindex.
 
 B. ``views.catalog._compute_showcase_swatches``:
    1. Replaces hard-coded swatches with live ``ProductColorVariant``
@@ -70,23 +70,23 @@ class ColorSeoCopyTests(_Base):
         self.assertIn("/catalog/tshirts/", body)
         self.assertIn("/catalog/long-sleeve/", body)
 
-    def test_curated_color_copy_has_three_frequencies(self):
+    def test_curated_color_copy_does_not_publish_noindex_query_chips(self):
         copy = build_catalog_color_seo(
             category=None, selected_color_slugs=["black"], available_colors=[],
         )
         self.assertIsNotNone(copy)
         self.assertIn("Чорний", copy["h2"])
-        freqs = {q["freq"] for q in copy["queries"]}
-        # Every curated colour must carry HF / MF / LF chips.
-        self.assertEqual(freqs, {"hf", "mf", "lf"})
+        # Curated query chips point at noindex UI state and are therefore
+        # intentionally absent from the editorial payload.
+        self.assertEqual(copy["queries"], [])
 
     def test_curated_color_copy_for_coyote(self):
         copy = build_catalog_color_seo(
             category=None, selected_color_slugs=["coyote"], available_colors=[],
         )
         self.assertIn("кайот", copy["h2"].lower())
-        urls = {q["url"] for q in copy["queries"]}
-        self.assertIn("/catalog/hoodie/?color=coyote", urls)
+        self.assertEqual(copy["queries"], [])
+        self.assertNotIn('href="/catalog/?', " ".join(copy["paragraphs"]))
 
     def test_category_x_color_copy_includes_category_link(self):
         copy = build_catalog_color_seo(
@@ -99,8 +99,8 @@ class ColorSeoCopyTests(_Base):
         # Cross-link to the same category landing page (no colour) for
         # users who want to widen the filter.
         self.assertIn(f"/catalog/{self.cat_hd.slug}/", body)
-        # Cross-link to other categories of the same colour.
-        self.assertIn("?color=black", body)
+        # Query facets are UI state, not editorial owners.
+        self.assertNotIn('href="/catalog/?', body)
 
     def test_per_category_without_color_returns_none(self):
         # /catalog/<cat>/ without colour filter — the existing
@@ -124,10 +124,9 @@ class ColorSeoCopyTests(_Base):
         self.assertIsNotNone(copy)
         # Generic copy embeds the colour label inside the prose.
         self.assertIn("темно-синій", " ".join(copy["paragraphs"]).lower())
-        # Generic copy must still produce HF queries with the colour
-        # slug embedded in the URL.
-        urls = {q["url"] for q in copy["queries"]}
-        self.assertTrue(any("color=navy" in url for url in urls))
+        # Generic copy must not publish a noindex query facet as an
+        # editorial destination.
+        self.assertEqual(copy["queries"], [])
 
 
 class ColorSeoViewIntegrationTests(_Base):
@@ -155,8 +154,11 @@ class ColorSeoViewIntegrationTests(_Base):
         resp = self.client.get(reverse("catalog") + "?color=black")
         body = resp.content.decode()
         self.assertIn("catalog-color-seo", body)
-        # Curated black copy emits the HF anchor "Купити чорне худі".
-        self.assertIn("Купити чорне худі", body)
+        color_seo = body.split('<section class="catalog-color-seo"', 1)[1].split(
+            "</section>", 1
+        )[0]
+        self.assertIn("Чорний", color_seo)
+        self.assertNotIn('href="/catalog/?', color_seo)
 
 
 class ShowcaseSwatchesTests(_Base):
