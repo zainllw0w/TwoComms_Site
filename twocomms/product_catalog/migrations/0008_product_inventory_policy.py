@@ -83,20 +83,7 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunPython(
-                    ensure_inventory_policy_table,
-                    reverse_code=migrations.RunPython.noop,
-                ),
-                migrations.RunPython(
-                    ensure_inventory_policy_innodb,
-                    reverse_code=migrations.RunPython.noop,
-                ),
-                migrations.RunPython(
-                    backfill_product_inventory_policies,
-                    reverse_code=migrations.RunPython.noop,
-                ),
-            ],
+            database_operations=[],
             state_operations=[
                 migrations.CreateModel(
                     name="ProductInventoryPolicy",
@@ -134,5 +121,17 @@ class Migration(migrations.Migration):
                     ],
                 ),
             ],
+        ),
+        migrations.RunPython(
+            ensure_inventory_policy_table,
+            reverse_code=migrations.RunPython.noop,
+        ),
+        migrations.RunPython(
+            ensure_inventory_policy_innodb,
+            reverse_code=migrations.RunPython.noop,
+        ),
+        migrations.RunPython(
+            backfill_product_inventory_policies,
+            reverse_code=migrations.RunPython.noop,
         ),
     ]

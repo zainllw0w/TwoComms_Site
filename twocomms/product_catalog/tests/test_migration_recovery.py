@@ -7,6 +7,16 @@ from django.test import SimpleTestCase
 
 
 class CatalogMigrationRecoveryTests(SimpleTestCase):
+    def test_inventory_policy_is_registered_before_recovery_operations_run(self):
+        migration = import_module("product_catalog.migrations.0008_product_inventory_policy")
+
+        self.assertIsInstance(
+            migration.Migration.operations[0],
+            migrations.SeparateDatabaseAndState,
+        )
+        self.assertEqual(migration.Migration.operations[0].database_operations, [])
+        self.assertIsInstance(migration.Migration.operations[1], migrations.RunPython)
+
     def test_inventory_policy_migration_repairs_an_existing_partial_table(self):
         migration = import_module("product_catalog.migrations.0008_product_inventory_policy")
         fields = [
