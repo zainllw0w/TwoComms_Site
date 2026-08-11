@@ -52,6 +52,40 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 5. Push the exact commit to `origin/main`; deploy production with the repository release gate; prove deployed SHA and live behavior.
 6. After the code SHA is live-verified, prepare one checklist checkpoint with the task marked `[x]`, commit/push/deploy that document, and claim completion only after production proves the checkpoint SHA. No second self-referential documentation checkpoint is required; a failed checkpoint deploy must reopen or correct the status.
 
+## Active priority queue (2026-08-11 continuation)
+
+This queue is the execution order for the current continuation. It supersedes
+the historical task numbering below; task numbers remain stable for evidence
+links and do not imply that a lower number is a higher-risk fix.
+
+1. **P0 already shipped:** remove the duplicate PDP editorial owner, suppress
+   unreviewed generated PDP fallback copy, and deduplicate exact FAQ pairs at
+   the shared visible/schema boundary. These changes have live proof recorded
+   in Task 4.3a, 4.3b and 4.4a.
+2. **P0 active:** make the shared RU/EN publication surface truthful. The
+   production baseline is 71 published products, 65 with RU and EN core
+   fields, and 836 active FAQ rows with both locale pairs. The first code slice
+   is the confirmed generated `variant_meta` defect: remove unowned generated
+   descriptions/keyword strings and stop emitting Ukrainian fit text on RU/EN
+   variant routes. The next slice is locale-safe selected-color alt fallback.
+3. **P0 blocked by an owner decision:** reconcile the shipping threshold and
+   other cross-surface facts before centralizing them. Current evidence still
+   contains both `2500` and `3000`; no code may choose a value by guesswork.
+4. **P1:** publish a real locale completeness gate for the six untranslated
+   products and synchronize sitemap/hreflang/indexability with that gate. Do
+   not silently copy Ukrainian text into a claimed RU/EN owner, and do not
+   create extra pages to compensate for missing translations.
+5. **P1/P2:** finish facet/hreflang cleanup and variant-owner decisions only
+   after the locale and fact contracts are stable. Preserve selectors and cart
+   state; approve a clean color/fit owner only with inventory, media, intent
+   and same-locale source evidence.
+6. **P2/P3:** process media completeness, individual product corrections and
+   alt backfills after the shared system is fixed. Custom Print remains a
+   no-touch boundary except for a separately reproduced RU/EN defect.
+
+Each numbered code slice remains independently tested, committed, pushed,
+deployed and live-verified before its checklist mark changes to `[x]`.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations

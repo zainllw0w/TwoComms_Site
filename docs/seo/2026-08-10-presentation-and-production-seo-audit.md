@@ -401,6 +401,24 @@
 - **Безопасное решение:** сделать заполненность обязательной на уровне publish-quality gate: title, короткое/полное описание, SEO title/description, ключевые фактические характеристики и основной alt должны иметь самостоятельные UK/RU/EN значения. Fallback оставить как аварийный UX-механизм, но не считать его готовым SEO-контентом. Не переводить названия коллекций и бренда механически, а продуктовые факты переводить редакционно и единообразно.
 - **Acceptance check:** production-отчет по `71 x 3` продуктовым локалям показывает ноль fallback для обязательных полей; выборочная проверка RU/EN HTML не обнаруживает украинские абзацы в главном контенте; тест блокирует публикацию/индексацию локали с незаполненным обязательным набором.
 
+#### FIND-012a — selected-color alt берется из одной украинской строки для всех локалей
+
+- **Вердикт:** подтверждено текущим кодом и production HTML; это системный дефект локали, а не проблема отдельной фотографии.
+- **Цепочка:** `get_detailed_color_variants()` передает `ProductColorImage.alt_text` в `build_product_image_alt()`. Helper без проверки активного языка немедленно возвращает сохраненный `alt_text`, поэтому RU/EN не используют локализованный `Product.main_image_alt` и не получают locale-safe fallback. Тот же payload используется для SSR hero, OG/Twitter alt и клиентского выбора цвета.
+- **Production evidence:** `/ru/product/lord-of-the-lending/black/` и `/en/product/bentejne-ts/coyote/` отдают украинский selected-color alt (`Чорна футболка ...`, `Футболка ... кольору кайот ...`) при русской/английской странице. Это расходится с `lang`, title/H1 и hreflang.
+- **SEO/GEO impact:** alt не является самостоятельным ranking lever, но это сигнал языка и описания изображения. Несогласованность ухудшает доступность, image-search relevance и доверие к locale cluster; она также дублируется в социальных preview metadata. Это не доказывает штраф или потерю позиций.
+- **Безопасное исправление:** для RU/EN использовать reviewed locale-owned alt, если он существует; иначе строить короткий фактический fallback из уже локализованных `product.title`, color label и номера изображения. Не переводить SKU/brand names, не добавлять keyword lists и не переписывать украинский editorial alt для UK.
+- **Acceptance:** rendered matrix сравнивает SSR `<img>`, OG и Twitter alt на representative color routes; RU/EN не содержат украинского stored alt, UK сохраняет редакторское значение, а selected asset/URL/price/cart identity не меняются.
+
+#### FIND-012b — generated variant metadata публикует украинский текст и неподтвержденные claims на RU/EN
+
+- **Вердикт:** подтверждено исходным кодом и live route examples; это общий generator defect, не задача `futbolka-posmikhnys`.
+- **Цепочка:** `services/variant_meta.py` формирует title/description для fit и color+fit URL литеральными украинскими строками (`фіт`, `щільна бавовна`, `DTF-друк`, `доставка ... за 1–3 дні`, `Український streetwear`). `product_detail()` передает туда active RU/EN product title, поэтому одна страница смешивает локализованный title с украинским generated suffix/description. `page_keywords` дополнительно строит keyword list, хотя публичный `meta keywords` уже удален.
+- **Production evidence:** `/ru/product/classic-tshirt/oversize/` title is `Футболка классическая — оверсайз фіт — TwoComms`, а description содержит украинские `щільна бавовна`, `DTF-друк` и `1–3 дні`; EN route contains the same Ukrainian suffix and description. The route is currently `index,follow` and self-canonical, so this is an indexable locale mismatch.
+- **SEO/GEO impact:** Google documents localized alternates as fully translated page versions; untranslated main content is treated as duplicate/incorrect alternate rather than a ranking advantage. The claims also conflict with the unresolved fact-owner decision for delivery and material. This can create wrong-language snippets and makes hreflang less trustworthy; no ranking loss is asserted without GSC evidence.
+- **Приоритет исправления:** first remove generated descriptions/keyword strings that have no reviewed source and make generated variant titles locale-aware; only then decide which variant URLs are approved owners. Do not replace them with paraphrases or a city/color/fit keyword matrix.
+- **Acceptance:** UK variant behavior remains covered; RU/EN variant title/description contain no generated Ukrainian literals or unowned delivery/material claims, and the page falls back to the product's reviewed locale metadata when no variant-owned localized override exists.
+
 #### FIND-013 — каждый PDP получает два длинных SEO-блока, а второй fallback содержит смешанный язык, служебный SEO-текст и фактические противоречия
 
 - **Вердикт:** подтверждено кодом и production HTML.
