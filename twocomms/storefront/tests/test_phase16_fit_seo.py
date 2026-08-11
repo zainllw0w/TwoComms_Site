@@ -1,12 +1,8 @@
-"""Phase 16 — fit-aware SEO.
+"""Phase 16 — factual, locale-aware SEO for path-style variants.
 
-Covers:
-1. ``build_variant_meta`` — when a 1-segment fit is active, title/desc
-   put the fit term in *front*, and ``page_keywords`` is populated.
-2. Multi-segment combos keep the legacy suffix-based meta (no fit lead).
-3. Base PDP (segments_count=0) returns empty meta + empty keywords.
-4. ``product_seo_landing.build_landing`` does not publish generated
-   fit-specific copy without a reviewed editorial override.
+The path can provide factual variant tokens (colour, size and fit), so the
+title may describe those tokens.  The helper must not manufacture material,
+print-method or delivery claims, and it must never emit ``meta keywords``.
 """
 from __future__ import annotations
 
@@ -21,6 +17,7 @@ from storefront.services.variant_meta import (
     VariantMetaInputs,
     build_variant_meta,
 )
+from storefront.views.product import _is_locale_owned_variant_meta
 
 
 class VariantMetaFitAwarenessTests(TestCase):
@@ -35,29 +32,31 @@ class VariantMetaFitAwarenessTests(TestCase):
         defaults.update(overrides)
         return VariantMetaInputs(**defaults)
 
-    def test_fit_lead_when_single_segment(self):
+    def test_fit_title_is_localized_and_has_no_unverified_claims(self):
         meta = build_variant_meta(self._inputs(
             current_path="/product/foo/oversize/",
             segments_count=1,
-            fit_label="Оверсайз", fit_code="oversize",
+            product_title="Oversize T-shirt",
+            fit_label="Оверсайз", fit_code="oversize", language="en",
         ))
-        # Title puts fit in front (not "Купити X — оверсайз").
-        self.assertTrue(meta["page_title"].startswith("Оверсайз Худі TwoComms"))
+        self.assertEqual(meta["page_title"], "Oversize T-shirt — oversize — TwoComms")
         self.assertIn("TwoComms", meta["page_title"])
-        # Description leads with the fit and contains brand keywords.
-        self.assertTrue(meta["page_description"].startswith("Оверсайз посадка"))
-        self.assertIn("DTF-друк", meta["page_description"])
-        self.assertIn("Новою Поштою", meta["page_description"])
+        self.assertEqual(meta["page_description"], "")
+        self.assertEqual(meta["page_keywords"], "")
 
-    def test_keywords_filled_for_fit_only(self):
+    def test_fit_title_uses_russian_fit_label(self):
         meta = build_variant_meta(self._inputs(
             current_path="/product/foo/classic/",
             segments_count=1,
-            fit_label="Класична", fit_code="classic",
+            product_title="Классическая футболка",
+            fit_label="Класична", fit_code="classic", language="ru",
         ))
-        self.assertIn("класична посадка", meta["page_keywords"])
-        self.assertIn("classic", meta["page_keywords"])
-        self.assertIn("купити", meta["page_keywords"])
+        self.assertEqual(
+            meta["page_title"],
+            "Классическая футболка — классическая — TwoComms",
+        )
+        self.assertEqual(meta["page_description"], "")
+        self.assertEqual(meta["page_keywords"], "")
 
     def test_no_fit_lead_for_multi_segment(self):
         meta = build_variant_meta(self._inputs(
@@ -66,10 +65,10 @@ class VariantMetaFitAwarenessTests(TestCase):
             color_name="Чорний", color_slug="black",
             fit_label="Оверсайз", fit_code="oversize",
         ))
-        # Multi-segment uses the legacy suffix template ("Купити X — Y").
-        self.assertTrue(meta["page_title"].startswith("Купити Худі TwoComms"))
+        # Multi-segment titles contain only the selected factual tokens.
+        self.assertTrue(meta["page_title"].startswith("Худі TwoComms —"))
         self.assertIn("оверсайз", meta["page_title"])
-        # Keywords stay empty for multi-segment to avoid keyword stuffing.
+        self.assertEqual(meta["page_description"], "")
         self.assertEqual(meta["page_keywords"], "")
 
     def test_no_keywords_for_color_or_size_only(self):
@@ -85,6 +84,23 @@ class VariantMetaFitAwarenessTests(TestCase):
         self.assertEqual(meta["page_title"], "")
         self.assertEqual(meta["page_keywords"], "")
         self.assertTrue(meta["is_self_canonical"])
+
+    def test_variant_override_requires_current_locale_ownership(self):
+        self.assertTrue(
+            _is_locale_owned_variant_meta(
+                {"seo_title_source": "product:ru"}, "seo_title", "ru"
+            )
+        )
+        self.assertFalse(
+            _is_locale_owned_variant_meta(
+                {"seo_title_source": "color:legacy"}, "seo_title", "ru"
+            )
+        )
+        self.assertTrue(
+            _is_locale_owned_variant_meta(
+                {"seo_title_source": "color:legacy"}, "seo_title", "uk"
+            )
+        )
 
 
 class LandingFitParagraphTests(TestCase):

@@ -1,4 +1,4 @@
-"""Phase 7.3 — dynamic meta + canonical for path-style product variants.
+"""Dynamic meta + canonical for path-style product variants.
 
 Given the segments a user selected via the URL path (``size`` +
 ``color`` + ``fit``), this module builds three things the product
@@ -8,12 +8,13 @@ detail view passes to the template:
   tag must point at. Self-canonical for base + single-segment pages
   (we want these indexed); collapses to the base product URL for
   multi-segment combos so Google consolidates signal on the main page.
-* ``page_title``          — Ukrainian-language title enriched with the
-  selected variant ("Купити футболку … — чорна, розмір M — TwoComms").
+* ``page_title``          — locale-aware title enriched only with the
+  selected variant ("Футболка — чорна, розмір M — TwoComms").
   Empty string when no variant segments are in play so the view falls
   back to the standard ``seo_title`` template tag.
-* ``page_description``    — matching meta description with the same
-  variant enrichment, or empty string on the base page.
+* ``page_description``    — empty unless a reviewed, locale-owned
+  variant override is supplied by the caller; the helper never invents
+  editorial claims for a URL selection.
 
 The helper is pure: no DB access, no request state. The caller
 resolves the active colour / size / fit and passes them in.
@@ -23,6 +24,31 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
+
+
+SUPPORTED_LANGUAGES = {"uk", "ru", "en"}
+SIZE_LABELS = {
+    "uk": "розмір",
+    "ru": "размер",
+    "en": "size",
+}
+FIT_LABELS = {
+    "uk": {
+        "classic": "класична",
+        "oversize": "оверсайз",
+        "relaxed": "вільна",
+    },
+    "ru": {
+        "classic": "классическая",
+        "oversize": "оверсайз",
+        "relaxed": "свободная",
+    },
+    "en": {
+        "classic": "classic",
+        "oversize": "oversize",
+        "relaxed": "relaxed",
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -39,6 +65,12 @@ class VariantMetaInputs:
     size_code: Optional[str] = None        # "M" — only set if path had size
     fit_label: Optional[str] = None        # "Оверсайз" — only set if path had fit
     fit_code: Optional[str] = None         # "oversize"
+    language: str = "uk"
+
+
+def _normalize_language(value: str | None) -> str:
+    language = str(value or "uk").lower().replace("_", "-").split("-", 1)[0]
+    return language if language in SUPPORTED_LANGUAGES else "uk"
 
 
 def _lowercase_first(value: str) -> str:
@@ -56,14 +88,24 @@ def _join_suffix_parts(parts: list[str]) -> str:
     return ", ".join(clean)
 
 
+def _fit_label(inputs: VariantMetaInputs) -> str:
+    language = _normalize_language(inputs.language)
+    code = str(inputs.fit_code or "").strip().lower()
+    localized = FIT_LABELS.get(language, {}).get(code)
+    if localized:
+        return localized
+    return _lowercase_first(inputs.fit_label or "")
+
+
 def _build_title_suffix(inputs: VariantMetaInputs) -> str:
     parts: list[str] = []
     if inputs.color_name:
         parts.append(_lowercase_first(inputs.color_name))
     if inputs.size_code:
-        parts.append(f"розмір {inputs.size_code}")
+        size_label = SIZE_LABELS[_normalize_language(inputs.language)]
+        parts.append(f"{size_label} {inputs.size_code}")
     if inputs.fit_label:
-        parts.append(_lowercase_first(inputs.fit_label))
+        parts.append(_fit_label(inputs))
     return _join_suffix_parts(parts)
 
 
@@ -128,104 +170,13 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
         canonical_path = inputs.base_path
         is_self_canonical = False
 
-    if suffix:
-        # Phase 16 — fit-aware enrichment. When the user is on a
-        # ``/product/<slug>/<fit>/`` page (1-segment fit), promote the
-        # fit term to the *front* of both title and description so it
-        # carries Google's primary keyword weight. Multi-segment combos
-        # keep the suffix order (color → size → fit).
-        fit_lead = inputs.fit_label and inputs.segments_count == 1
-        if is_color_fit_combo:
-            # SEO 2026-05-19 (VILNI deep review §12.4 — TASK I).
-            # Targeted copy for the colour + fit combo page so it
-            # ranks for combined queries like "чорна футболка
-            # оверсайз з принтом" instead of fighting the base PDP
-            # for unspecific queries. Title leads with the product
-            # name (Google rewards brand/product-first templates),
-            # bakes in colour and fit as a comma-separated qualifier,
-            # closes with «TwoComms» for brand affinity.
-            color_lc = _lowercase_first(inputs.color_name or "")
-            fit_lc = _lowercase_first(inputs.fit_label or "")
-            page_title = (
-                f"{inputs.product_title} — {color_lc}, {fit_lc} фіт — TwoComms"
-            )
-            page_description = (
-                f"{color_lc.capitalize()} {inputs.product_title.lower()} "
-                f"у {fit_lc} фіті — DTF-друк, щільна бавовна, доставка "
-                f"з Харкова Новою Поштою по всій Україні за 1–3 дні. "
-                f"Український streetwear від бренду TwoComms."
-            )
-        elif fit_lead:
-            # SEO v1.0 Phase 12 (2026-05-12) — finding (III) follow-up.
-            # The «{fit_label} {product_title} — купити в TwoComms» pattern
-            # generated three different problems at once:
-            #   1. Grammar: «Оверсайз Футболка класична — купити в TwoComms»
-            #      — the verb «купити» has no direct object, the bare «в
-            #      TwoComms» reads as «buy *in* TwoComms» rather than «купити
-            #      … у TwoComms».
-            #   2. Tautology: «Класичний Футболка класична — купити в …»
-            #      ships the fit-name «класичний» twice ({fit_label} +
-            #      {product_title}).
-            #   3. Promotes a non-canonical fit-token to the front of the
-            #      title and pushes the product name out of the first 60
-            #      characters Google previews in SERPs.
-            # Reorder to the underscore pattern used by the multi-segment
-            # branch below: «{product} — {fit-lowercase} посадка — TwoComms».
-            # That keeps the brand-trailing template Google rewards, drops
-            # the «купити в» bug, and reads naturally for users.
-            fit_lc = _lowercase_first(inputs.fit_label)
-            # NOTE: «посадка» is feminine in Ukrainian, so combining it
-            # with a masculine fit_label («Класичний посадка») produces
-            # an agreement error. The fit terms we actually use
-            # («Оверсайз», «Класичний», «Релакс») are a mix of
-            # genders/indeclinable forms, so the safest copy template
-            # is «{product} — {fit} фіт — TwoComms» — «фіт» is
-            # masculine + works for any fit label without case
-            # gymnastics, and «фіт» is the term already used in our
-            # /rozmirna-sitka/ copy.
-            page_title = (
-                f"{inputs.product_title} — {fit_lc} фіт — TwoComms"
-            )
-            page_description = (
-                f"{inputs.product_title}, {fit_lc} фіт — щільна бавовна, "
-                f"DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. "
-                f"Лаконічний стрітвеар від українського бренду TwoComms."
-            )
-        else:
-            # SEO v1.0 Phase 4 (2026-05-12) — finding (III). The earlier
-            # «Купити {product_title} — {suffix}» pattern requires the
-            # transitive verb «купити» to take ``product_title`` in the
-            # accusative case, but ``Product.title`` is stored in the
-            # nominative (e.g. «Футболка класична»). The result was
-            # «Купити Футболка класична — чорна — TwoComms», which
-            # parrots the same grammar bug we fixed in finding (A).
-            # Reorder the elements so the verb falls at the end and the
-            # nominative title sits at the start — that's grammatical
-            # AND the variant tokens stay early enough in the title to
-            # carry Google's primary keyword weight.
-            page_title = (
-                f"{inputs.product_title} — {suffix} — TwoComms"
-            )
-            page_description = (
-                f"{inputs.product_title} ({suffix}) — авторський "
-                f"streetwear від TwoComms. Якісний стріт & мілітарі "
-                f"одяг з ексклюзивним дизайном, доставка Новою Поштою."
-            )
-    else:
-        page_title = ""
-        page_description = ""
-
-    # Phase 16 — keywords meta. Only filled when *fit* is the active
-    # 1-segment variant; otherwise empty (the standard ``seo_keywords``
-    # template tag stays in charge for the base PDP).
+    # Variant metadata may safely describe only the factual URL selection.
+    # Editorial descriptions and keywords belong to reviewed, locale-owned
+    # product/variant fields; generated claims here caused wrong-language and
+    # unsupported material/delivery statements on RU/EN URLs.
+    page_title = f"{inputs.product_title} — {suffix} — TwoComms" if suffix else ""
+    page_description = ""
     page_keywords = ""
-    if inputs.fit_label and inputs.fit_code and inputs.segments_count == 1:
-        fit_lc = _lowercase_first(inputs.fit_label)
-        page_keywords = (
-            f"{fit_lc} {inputs.product_title.lower()}, "
-            f"купити {fit_lc} {inputs.product_title.lower()}, "
-            f"{fit_lc} посадка, {inputs.fit_code}"
-        )
 
     return {
         "canonical_path": canonical_path,

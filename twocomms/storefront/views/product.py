@@ -44,6 +44,22 @@ CONFIGURATOR_EXPECTED_EXCEPTIONS = (
 )
 
 
+def _is_locale_owned_variant_meta(entry, field: str, language: str) -> bool:
+    """Return whether a variant SEO override is reviewed for ``language``.
+
+    ``content_resolution`` records the language of the winning row.  RU/EN
+    must not publish a Ukrainian legacy field merely because it was available
+    as a fallback; Ukrainian may use the canonical legacy row itself.
+    """
+    language = str(language or "uk").split("-", 1)[0].lower()
+    source = str(entry.get(f"{field}_source") or "").strip().lower()
+    if not source:
+        return False
+    if language == "uk":
+        return source.endswith(":uk") or source in {"color:legacy", "product:canonical"}
+    return source.endswith(f":{language}")
+
+
 def _resolve_og_availability_flag(product) -> bool:
     """Return True when the product can be sold (Open Graph `instock`).
 
@@ -796,6 +812,9 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
                         'seo_title': resolved['seo_title'],
                         'seo_description': resolved['seo_description'],
                         'seo_keywords': resolved['seo_keywords'],
+                        'seo_title_source': resolved['seo_title_source'],
+                        'seo_description_source': resolved['seo_description_source'],
+                        'seo_keywords_source': resolved['seo_keywords_source'],
                     }
                 entry['merchandising_by_fit'] = by_fit
                 fit_merchandising = (
@@ -1109,14 +1128,28 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             size_code=path_parsed_size or None,
             fit_label=active_fit_label or None,
             fit_code=path_fit_code or None,
+            language=language,
         )
     )
     if active_variant_entry is not None:
-        if active_variant_entry.get('seo_title'):
+        if (
+            active_variant_entry.get('seo_title')
+            and _is_locale_owned_variant_meta(active_variant_entry, 'seo_title', language)
+        ):
             variant_meta['page_title'] = active_variant_entry['seo_title']
-        if active_variant_entry.get('seo_description'):
+        if (
+            active_variant_entry.get('seo_description')
+            and _is_locale_owned_variant_meta(
+                active_variant_entry, 'seo_description', language
+            )
+        ):
             variant_meta['page_description'] = active_variant_entry['seo_description']
-        if active_variant_entry.get('seo_keywords'):
+        if (
+            active_variant_entry.get('seo_keywords')
+            and _is_locale_owned_variant_meta(
+                active_variant_entry, 'seo_keywords', language
+            )
+        ):
             variant_meta['page_keywords'] = active_variant_entry['seo_keywords']
 
     # Phase 21 (2026-05-10) — review summary + approved review list for
