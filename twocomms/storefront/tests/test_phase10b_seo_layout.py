@@ -80,7 +80,7 @@ class CategorySeoLayoutServiceTests(_BasePhase10bTests):
                     order=5)
         self._block("top_queries", [{"label": "q", "url": "/catalog/hoodie/"}],
                     order=1)
-        self._block("top_filters", [{"label": "f", "url": "/catalog/hoodie/?color=black"}],
+        self._block("top_filters", [{"label": "f", "url": "/catalog/hoodie/"}],
                     order=99)
         self._block("top_menu", [{"label": "m", "url": "/catalog/hoodie/"}],
                     order=10)

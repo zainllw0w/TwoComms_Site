@@ -17,6 +17,8 @@ from urllib.parse import urlsplit, urlunsplit
 from django.db.models import Prefetch
 from django.urls import reverse
 
+from .seo_link_policy import is_internal_ui_state_url
+
 
 _MAX_PRODUCT_ID = (1 << 63) - 1
 
@@ -97,6 +99,8 @@ def _hydrate_product_items(items, products_by_id):
         else:
             item.product = None
             item.url = _normalize_custom_print_url(item.url)
+            if is_internal_ui_state_url(item.url):
+                continue
         hydrated.append(item)
     return hydrated
 

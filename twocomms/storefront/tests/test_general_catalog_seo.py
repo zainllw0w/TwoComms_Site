@@ -1,8 +1,8 @@
 """Tests for ``services.general_catalog_seo`` and bottom SEO block on /catalog/.
 
 Covers:
-1. Service builds tab_blocks (top_menu, top_filters, top_queries) with the
-   right shape and URLs.
+1. Service builds the editorial tab blocks with the right shape and URLs;
+   noindex query facets stay out of the editorial graph.
 2. Empty inputs gracefully degrade (no menu items / no colours).
 3. View wiring: GET /catalog/ produces a context with ``category_seo_layout.has_any``.
 4. Template renders bottom SEO section on /catalog/ root (was previously
@@ -76,7 +76,7 @@ class GeneralCatalogSeoServiceTests(_Base):
         )
         self.assertTrue(layout["has_any"])
         types = [entry["block"].block_type for entry in layout["tab_blocks"]]
-        self.assertEqual(types, ["top_menu", "top_filters", "top_queries"])
+        self.assertEqual(types, ["top_menu", "top_queries"])
         self.assertIsNone(layout["best_prices"])
 
     def test_top_menu_links_are_category_urls(self):
@@ -89,7 +89,7 @@ class GeneralCatalogSeoServiceTests(_Base):
         self.assertIn("/catalog/hoodie-gen/", urls)
         self.assertIn("/catalog/tshirts-gen/", urls)
 
-    def test_top_filters_links_use_colour_query(self):
+    def test_top_filters_query_facets_are_not_editorial_links(self):
         layout = get_general_catalog_seo_layout(
             categories=[],
             available_colors=[
@@ -97,9 +97,16 @@ class GeneralCatalogSeoServiceTests(_Base):
                 {"slug": "coyote", "label": "Кайот", "count": 2},
             ],
         )
-        filters = next(e for e in layout["tab_blocks"] if e["block"].block_type == "top_filters")
-        urls = {item.url for item in filters["items"]}
-        self.assertEqual(urls, {"/catalog/?color=black", "/catalog/?color=coyote"})
+        self.assertNotIn(
+            "top_filters",
+            [entry["block"].block_type for entry in layout["tab_blocks"]],
+        )
+        urls = [
+            item.url
+            for entry in layout["tab_blocks"]
+            for item in entry["items"]
+        ]
+        self.assertFalse(any("?" in url for url in urls))
 
     def test_top_queries_always_present(self):
         layout = get_general_catalog_seo_layout(
@@ -110,7 +117,7 @@ class GeneralCatalogSeoServiceTests(_Base):
         # for SEO crawlers landing on /catalog/.
         self.assertTrue(layout["has_any"])
         types = [e["block"].block_type for e in layout["tab_blocks"]]
-        self.assertEqual(types, ["top_queries"])
+        self.assertEqual(types, ["top_menu", "top_queries"])
 
     def test_block_get_block_type_display_callable(self):
         # Django templates auto-invoke callable attributes; SimpleNamespace
@@ -131,11 +138,11 @@ class GeneralCatalogViewIntegrationTests(_Base):
         self.assertIn("category_seo_layout", resp.context)
         layout = resp.context["category_seo_layout"]
         self.assertTrue(layout["has_any"])
-        # All three synthetic tabs should be present on the general
-        # /catalog/ page (top_menu / top_filters / top_queries).
+        # Editorial tabs omit UI-only color filters; the interactive color
+        # chips are asserted separately below.
         types = [e["block"].block_type for e in layout["tab_blocks"]]
         self.assertIn("top_menu", types)
-        self.assertIn("top_filters", types)
+        self.assertNotIn("top_filters", types)
         self.assertIn("top_queries", types)
 
     def test_general_catalog_html_renders_bottom_seo_block(self):
