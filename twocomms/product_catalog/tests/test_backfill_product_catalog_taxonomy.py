@@ -21,43 +21,54 @@ class BackfillProductCatalogTaxonomyTests(TestCase):
         self.hoodies = Category.objects.create(name="Худі", slug="hoodie")
         self.longsleeves = Category.objects.create(name="Лонгсліви", slug="long-sleeve")
         self.tags = {
-            code: AudienceTag.objects.create(
+            code: AudienceTag.objects.update_or_create(
                 code=code,
-                label_uk=label,
-                label_ru=label,
-                label_en=code.title(),
-                order=index,
-            )
+                defaults={
+                    "label_uk": label,
+                    "label_ru": label,
+                    "label_en": code.title(),
+                    "order": index,
+                },
+            )[0]
             for index, (code, label) in enumerate(
                 (("unisex", "Унісекс"), ("women", "Жіночі"), ("men", "Чоловічі"))
             )
         }
-        self.military = MerchCollection.objects.create(
+        self.military = MerchCollection.objects.update_or_create(
             slug="military",
-            kind=MerchCollection.Kind.THEME,
-            name_uk="Мілітарі",
-            order=10,
-        )
-        self.brigades = MerchCollection.objects.create(
+            defaults={
+                "kind": MerchCollection.Kind.THEME,
+                "name_uk": "Мілітарі",
+                "order": 10,
+            },
+        )[0]
+        self.brigades = MerchCollection.objects.update_or_create(
             slug="brigades",
-            kind=MerchCollection.Kind.THEME,
-            name_uk="Бригади",
-            order=20,
-        )
-        self.brigade_225 = MerchCollection.objects.create(
+            defaults={
+                "kind": MerchCollection.Kind.THEME,
+                "name_uk": "Бригади",
+                "order": 20,
+                "parent": None,
+            },
+        )[0]
+        self.brigade_225 = MerchCollection.objects.update_or_create(
             slug="225",
-            kind=MerchCollection.Kind.BRIGADE,
-            parent=self.brigades,
-            name_uk="225 ОШП",
-            order=30,
-        )
-        self.brigade_127 = MerchCollection.objects.create(
+            defaults={
+                "kind": MerchCollection.Kind.BRIGADE,
+                "parent": self.brigades,
+                "name_uk": "225 ОШП",
+                "order": 30,
+            },
+        )[0]
+        self.brigade_127 = MerchCollection.objects.update_or_create(
             slug="127",
-            kind=MerchCollection.Kind.BRIGADE,
-            parent=self.brigades,
-            name_uk="127 ОБрТрО",
-            order=31,
-        )
+            defaults={
+                "kind": MerchCollection.Kind.BRIGADE,
+                "parent": self.brigades,
+                "name_uk": "127 ОБрТрО",
+                "order": 31,
+            },
+        )[0]
         self.blank = Product.objects.create(
             title="Blank hoodie",
             slug="blank-hoodie",

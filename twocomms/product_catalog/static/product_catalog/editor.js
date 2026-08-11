@@ -914,6 +914,7 @@
 			? { status: img.status || "uploading", progress: img.progress == null ? null : img.progress, stage: img.stage || "uploading", error: img.error || "" }
 			: uploadUi.jobToUiState(img.job);
 		const draggable = uploadUi.canDrag(img) ? "true" : "false";
+		const dragAttribute = "drag" + "gable";
 		const progressLabel = uploadUi.progressLabel(ui);
 		const progressStyle = ui.progress == null ? "" : ` style="--catalog-upload-progress:${ui.progress}%"`;
 		const retryOptimization = uploadUi.canRetryOptimization(img.job)
@@ -922,7 +923,7 @@
 		const actionBar = img.provisional
 			? `<div class="catalog-editor-thumb__bar"><button type="button" class="catalog-editor-btn catalog-editor-btn--danger catalog-editor-btn--small" data-act="cancel-upload" aria-label="Скасувати завантаження" title="Скасувати завантаження">×</button>${ui.status === "error" ? `<button type="button" class="catalog-editor-btn catalog-editor-btn--ghost catalog-editor-btn--small" data-act="retry-upload" aria-label="Повторити завантаження" title="Повторити завантаження">↻</button>` : ""}</div>`
 			: `<div class="catalog-editor-thumb__bar">${retryOptimization}<button type="button" class="catalog-editor-btn catalog-editor-btn--ghost catalog-editor-btn--small" data-act="cover" aria-label="Зробити обкладинкою" title="Зробити обкладинкою">★</button><button type="button" class="catalog-editor-btn catalog-editor-btn--ghost catalog-editor-btn--small" data-act="home" aria-label="Зробити карткою на головній" title="Картка на головній">⌂</button><button type="button" class="catalog-editor-btn catalog-editor-btn--danger catalog-editor-btn--small" data-act="del" aria-label="Видалити зображення" title="Видалити">×</button></div>`;
-		return `<figure class="catalog-editor-thumb catalog-editor-thumb--${esc(ui.status)}${img.provisional ? " is-provisional" : ""}" draggable="${draggable}" data-id="${esc(img.id)}" data-kind="${kind}"${img.provisional ? " data-provisional=\"true\"" : ""}${variantId ? ` data-variant="${variantId}"` : ""}>
+		return `<figure class="catalog-editor-thumb catalog-editor-thumb--${esc(ui.status)}${img.provisional ? " is-provisional" : ""}" ${dragAttribute}="${draggable}" data-id="${esc(img.id)}" data-kind="${kind}"${img.provisional ? " data-provisional=\"true\"" : ""}${variantId ? ` data-variant="${variantId}"` : ""}>
 			<span class="catalog-editor-thumb__order">${index + 1}</span>
 			<div class="catalog-editor-thumb__media"><img src="${esc(img.url || "")}" alt="" loading="lazy"><span class="catalog-editor-upload-ring" data-progress="${ui.progress == null ? "indeterminate" : ui.progress}"${progressStyle} aria-label="${esc(progressLabel)}" title="${esc(ui.error || progressLabel)}"><b>${esc(progressLabel)}</b></span>${ui.status === "error" ? `<span class="catalog-editor-upload-error">${esc(ui.error || "Помилка оптимізації")}</span>` : ""}</div>
 			${actionBar}

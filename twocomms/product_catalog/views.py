@@ -80,6 +80,7 @@ from .services_collections import (
     get_product_collection_slugs,
     set_product_collection_slugs,
 )
+from .schema_merge import schema_merge_locked
 from .image_jobs import (
     cancel_image_jobs,
     image_job_payload,
@@ -124,6 +125,14 @@ def staff_api(view):
     def wrapped(request, *args, **kwargs):
         if not _is_staff(request):
             return JsonResponse({"ok": False, "error": "Доступ лише для персоналу"}, status=403)
+        if request.method not in {"GET", "HEAD", "OPTIONS"} and schema_merge_locked():
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": "Оновлення каталогу тимчасово призупинено на час обслуговування",
+                },
+                status=503,
+            )
         try:
             return view(request, *args, **kwargs)
         except Http404:
