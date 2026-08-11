@@ -427,13 +427,24 @@ class ConversationAnalysisJobTests(TestCase):
             "analysis_reconcile_after", "analysis_backfill_enabled",
         ])
 
-    def message(self, text, *, role=InstagramBotMessage.Role.USER):
+    def message(
+        self,
+        text,
+        *,
+        role=InstagramBotMessage.Role.USER,
+        source="webhook",
+        attachments="",
+        attachment_media=None,
+    ):
         return InstagramBotMessage.objects.create(
             client=self.client,
             sender_id=self.client.igsid,
             role=role,
             text=text,
             status=InstagramBotMessage.Status.DONE,
+            source=source,
+            attachments=attachments,
+            attachment_media=attachment_media or [],
         )
 
     def operational_digest(self):
@@ -581,6 +592,170 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(job.watermark_message_id, second.id)
         self.assertEqual(job.status, IgConversationAnalysisJob.Status.PENDING)
         self.assertEqual(job.due_at, now + timedelta(seconds=5 + analysis.DEBOUNCE_SECONDS))
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    @patch("management.services.instagram_bot.download_image")
+    def test_historical_media_is_metadata_only_before_provider_analysis(
+        self,
+        download,
+        generate,
+    ):
+        url = "https://lookaside.example/expired-analysis.jpg"
+        message = self.message(
+            "Що це за модель?",
+            source="manual_refresh",
+            attachments=json.dumps([url]),
+        )
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+
+        def provider_result(*_args, **_kwargs):
+            job = IgConversationAnalysisJob.objects.get(client=self.client)
+            self.assertEqual(job.media_phase, "metadata_only")
+            self.assertEqual(job.media_error_kind, "")
+            self.assertIsNotNone(job.media_started_at)
+            self.assertIsNotNone(job.media_completed_at)
+            return {
+                "parsed": {
+                    "interaction_type": "product_interest",
+                    "score_band": "exploring",
+                    "purchase_probability": 0.4,
+                    "confidence": 0.7,
+                },
+                "model": "gemini-test",
+                "meta": {},
+            }
+
+        generate.side_effect = provider_result
+
+        self.assertEqual(
+            analysis.process_due_analysis(limit=1),
+            {"done": 1, "failed": 0, "skipped": 0, "superseded": 0},
+        )
+        download.assert_not_called()
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    @patch(
+        "management.services.bot_conversation_analysis._conversation",
+        side_effect=RuntimeError("media decoding failed"),
+    )
+    def test_media_failure_is_typed_before_provider_is_called(self, _conversation, generate):
+        message = self.message("Ось фото")
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+
+        self.assertEqual(
+            analysis.process_due_analysis(limit=1),
+            {"done": 0, "failed": 1, "skipped": 0, "superseded": 0},
+        )
+
+        job = IgConversationAnalysisJob.objects.get(client=self.client)
+        self.assertEqual(job.media_phase, "failed")
+        self.assertEqual(job.media_error_kind, "media_exception")
+        self.assertIsNotNone(job.media_started_at)
+        self.assertIsNotNone(job.media_completed_at)
+        generate.assert_not_called()
+
+    def test_stale_lease_during_media_keeps_an_incomplete_acquiring_phase(self):
+        message = self.message("Ось фото")
+        now = timezone.now()
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=now - timedelta(minutes=1),
+        )
+        job, _watermark, _revision, token = analysis._claim_due(now)
+        self.assertTrue(analysis._record_media_phase(
+            job.pk,
+            token,
+            phase=IgConversationAnalysisJob.MediaPhase.ACQUIRING,
+            started_at=now,
+        ))
+        IgConversationAnalysisJob.objects.filter(pk=job.pk).update(
+            lease_until=now - timedelta(seconds=1),
+        )
+
+        self.assertEqual(analysis._reclaim_stale(now), 1)
+
+        job.refresh_from_db()
+        self.assertEqual(job.last_error, "stale_lease_recovered")
+        self.assertEqual(job.media_phase, "acquiring")
+        self.assertEqual(job.media_started_at, now)
+        self.assertIsNone(job.media_completed_at)
+
+    @patch(
+        "management.services.bot_conversation_analysis.gemini_generate_json",
+        side_effect=RuntimeError("provider timeout"),
+    )
+    def test_provider_failure_happens_after_media_phase_completed(self, generate):
+        message = self.message("Підкажіть ціну")
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+
+        self.assertEqual(
+            analysis.process_due_analysis(limit=1),
+            {"done": 0, "failed": 1, "skipped": 0, "superseded": 0},
+        )
+
+        job = IgConversationAnalysisJob.objects.get(client=self.client)
+        self.assertEqual(job.media_phase, "ready")
+        self.assertEqual(job.media_error_kind, "")
+        self.assertIsNotNone(job.media_started_at)
+        self.assertIsNotNone(job.media_completed_at)
+        self.assertIn("provider timeout", job.last_error)
+        generate.assert_called_once()
+
+    def test_media_phase_heartbeat_extends_processing_lease(self):
+        message = self.message("Ось фото")
+        now = timezone.now()
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=now - timedelta(minutes=1),
+        )
+        job, _watermark, _revision, token = analysis._claim_due(now)
+        before = job.lease_until
+
+        self.assertTrue(analysis._record_media_phase(
+            job.pk,
+            token,
+            phase=IgConversationAnalysisJob.MediaPhase.ACQUIRING,
+            started_at=now,
+        ))
+
+        job.refresh_from_db()
+        self.assertGreater(job.lease_until, before)
+
+    @patch("management.services.instagram_bot.download_image", return_value=None)
+    @patch(
+        "management.services.ig_payment_review._augment_messages_with_raw_media",
+        side_effect=RuntimeError("raw media unavailable"),
+    )
+    def test_media_recovery_error_is_exposed_before_provider_phase(self, _augment, _download):
+        message = self.message(
+            "Ось фото",
+            source="webhook",
+            attachments=json.dumps(["https://lookaside.example/error.jpg"]),
+        )
+
+        _transcript, _by_id, media_sources = analysis._conversation(
+            self.client.pk,
+            message.pk,
+        )
+
+        self.assertTrue(any(
+            item.get("media_error_kind") == "media_recovery_exception"
+            for item in media_sources
+        ))
 
     def test_duplicate_schedule_keeps_revision_due_backoff_and_processing_token(self):
         message = self.message("Підкажіть розмір")

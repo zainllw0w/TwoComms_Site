@@ -3889,6 +3889,14 @@ class InstagramBotMessage(models.Model):
     source = models.CharField(max_length=16, default="webhook")
     # JSON-список URL зображень-вкладень (для мультимодального аналізу Gemini).
     attachments = models.TextField(blank=True, default="")
+    # Structured ownership state for attachment bytes. Existing/imported URLs
+    # are migrated as metadata-only; only new live webhook rows may progress
+    # from pending to an owned storage object before any provider analysis.
+    attachment_media = models.JSONField(default=list, blank=True)
+    # Durable ingress boundary. Migration defaults existing rows to False;
+    # only a post-deploy live webhook (or its exact delayed promotion) enables
+    # network capture, including raw-only attachments absent from `attachments`.
+    media_capture_eligible = models.BooleanField(default=False)
     attempts = models.PositiveIntegerField(default=0)
     # Delivery boundary state. Once a provider request has started, an
     # ambiguous result must never be retried automatically (Meta has no

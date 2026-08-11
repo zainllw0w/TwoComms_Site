@@ -282,9 +282,14 @@ class InboxRefreshWorkerTests(TestCase):
         )
         before = self.cutoff - timedelta(minutes=1)
         after = self.cutoff + timedelta(seconds=1)
+        before_message = _message("mid-before", item.participant_igsid, before, "before")
+        before_message["attachments"] = [{
+            "type": "image",
+            "payload": {"url": "https://lookaside.example/manual-history.jpg"},
+        }]
         fetch_history.return_value = {
             "messages": [
-                _message("mid-before", item.participant_igsid, before, "before"),
+                before_message,
                 _message("mid-after", item.participant_igsid, after, "after"),
             ],
             "requests": 1,
@@ -301,6 +306,11 @@ class InboxRefreshWorkerTests(TestCase):
         self.assertEqual(row.source, "manual_refresh")
         self.assertEqual(row.role, InstagramBotMessage.Role.USER)
         self.assertEqual(row.provider_created_at, before)
+        self.assertEqual(row.attachment_media, [{
+            "url": "https://lookaside.example/manual-history.jpg",
+            "provenance": "historical_import",
+            "status": "metadata_only",
+        }])
         self.assertFalse(InstagramBotMessage.objects.filter(mid="mid-after").exists())
         enqueue_inbound.assert_not_called()
         schedule_analysis.assert_called_once()
