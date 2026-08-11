@@ -355,9 +355,10 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 ### Task 5: Normalize facets and pagination by route family
 
 - [x] **5.1** Add failing tests for page>=2 self-canonical/crawlable behavior and invalid, duplicate or nonexistent page/facet aliases returning 404. Valid `page>=2` remains a distinct `200`, indexable, self-canonical product slice. Valid filter combinations with zero inventory remain the interactive catalog's `200 + noindex, follow` empty state so Smart Selector controls do not turn into broken 404 links; only body-equivalent invalid aliases are rejected. Treat `page=1 -> clean` as a separate P3 normalization, not a ranking gate. The repository crawler utilities already resolve relative hrefs with `urljoin(source_final_url, href)`, so no crawler-code change was required.
-- [x] **5.2** Remove SEO hreflang from noindex facets and stop editorial rails from linking to noindex query states. Editorial-link half shipped in 5.2a; hreflang half in P1.2.
-- [x] **5.2a** Remove internal UI-state query links (`color`, `fit`, `size`, `sort`, `theme`, `page`, `q`, `availability`, `category`, `collection`) from generated and admin-authored editorial rails while preserving the same URLs in interactive catalog controls. Shipped as `78e28c4c` and live-verified on UK/RU/EN catalog and hoodie routes; the hreflang half of 5.2 remains open.
-- [ ] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
+- [x] **5.2** Remove SEO hreflang from noindex facets and stop editorial rails from linking to noindex query states. Editorial-link half shipped in 5.2a; catalog/search hreflang half in 5.2b; standard Product facet coverage remains recorded in P1.2.
+- [x] **5.2a** Remove internal UI-state query links (`color`, `fit`, `size`, `sort`, `theme`, `page`, `q`, `availability`, `category`, `collection`) from generated and admin-authored editorial rails while preserving the same URLs in interactive catalog controls. Shipped as `78e28c4c` and live-verified on UK/RU/EN catalog and hoodie routes; the catalog/search hreflang half is now closed separately in 5.2b.
+- [x] **5.2b** Suppress SEO hreflang on noindex catalog/search query states while preserving the language switcher, valid query controls and reciprocal alternates on clean owners and page>=2. Do not remove locale alternates from published clean color landings.
+- [x] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
 - [x] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
@@ -371,6 +372,33 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - Production: `HEAD=78e28c4cee60400410bb2bbb14f7993dbd99959d`, tracked/staged diff empty, `manage.py check` clean, `/healthz/` and `/` return `200`.
 - Live UK/RU/EN `/catalog/` and `/catalog/hoodie/` responses contain zero query-facet anchors inside editorial scopes while interactive filter controls still contain query links. `/catalog/?color=black` remains `noindex, follow` with the base canonical. `/custom-print/` returns `200` and remains a route-only non-regression check.
 - This checkpoint closes only 5.2a. It does not claim hreflang removal, strict facet validation, clean landing ownership, ranking growth or any Custom Print SEO change.
+
+#### Task 5.2b execution evidence (checkpoint prepared)
+
+- Code/test commit: `fb3b9e12` (`fix(seo): suppress hreflang on catalog facets`)
+  adds one explicit `suppress_hreflang` context contract for catalog/search
+  query states and makes the shared `language_alternates` tag honor it. The
+  language-switch helper remains separate and continues to preserve query
+  state for users.
+- TDD/local gates: the existing rendered regression reproduced RED on
+  `/ru/catalog/tshirts/?color=black`: `noindex, follow` and the clean category
+  canonical were present, but four query-bearing hreflang links leaked. After
+  the fix, the locale/catalog set passed `74/74`; `manage.py check`, touched-file
+  `py_compile` and `git diff --check` passed.
+- Production deploy: the code was pushed and pulled fast-forward at final SHA
+  `3c8e435ad7e0e9fea7c901e1b5af1b94e01a5d45`; Passenger was restarted with
+  `tmp/restart.txt`.
+- Live proof: UK `?color=black` and RU `?color=coyote` category facets returned
+  `200`, `noindex, follow`, a clean same-locale canonical and zero SEO
+  hreflang links. The UK black facet retained `29` color-control occurrences
+  plus UK/RU/EN language-switch URLs with `?color=black`. The indexable hoodie
+  `?page=2` control retained its self-canonical URL and all four reciprocal
+  hreflang entries. `/search/?q=hoodie` remained `200 + noindex, follow` with
+  zero SEO hreflang; `/healthz/` returned `200`.
+- Scope boundary: no clean landing ownership, inventory, product copy, DTF
+  subdomain/blog/module or Custom Print behavior was changed. This checkpoint
+  claims signal consistency only and makes no ranking, traffic or conversion
+  claim.
 
 #### Task 5.1 execution evidence (checkpoint prepared)
 
@@ -442,6 +470,32 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   content/configurator, product text, catalog data or variant inventory was
   inspected or changed in this slice. No ranking, traffic, rich-result or
   conversion uplift is claimed.
+
+#### Task 5.3 execution evidence (checkpoint prepared)
+
+- Production-backed triage found no remaining grey/olive indexability exception
+  to patch. The published standard color slugs are `beige`, `black`, `coyote`,
+  `menthol`, `pink`, `termo-zelena`, `white` and `white-burgundy`; published
+  `CategoryColorLanding` rows exist only for `black` and `coyote`. `grey` and
+  `olive` therefore have no approved clean owner and must not be promoted to
+  indexable SEO pages or retained as query aliases.
+- Regression hardening: `test_unowned_grey_and_olive_color_aliases_redirect_to_clean_category`
+  asserts that both unowned aliases return one `301` to the category path.
+  Existing valid color-filter coverage continues to require `200 + noindex,
+  follow` for an interactive state with no inventory. Context7 Django
+  documentation confirms `HttpResponsePermanentRedirect` is a 301 response
+  with the supplied `Location` target, matching this owner-consolidation
+  contract.
+- Live no-follow header proof at production `ba6a3567`: `GET
+  /catalog/tshirts/?color=grey` and `?color=olive` each returned `301` with
+  `Location: /catalog/tshirts/`; valid `black` and `coyote` returned `200` with
+  `noindex, follow` and the category self-canonical. No grey/olive URL emitted
+  an indexable body, non-self canonical, or hreflang cluster.
+- This slice intentionally adds no city/color landing, no keyword variant,
+  and no blanket redirect for valid colors. Smart Selector/query controls
+  remain available for actual inventory; clean landing ownership remains
+  limited to published, evidenced rows. No DTF subdomain/blog/module or
+  Custom Print content/configurator was inspected or changed.
 
 ### Task 6: Link only approved clean landings in matching locale
 
