@@ -724,7 +724,8 @@
         </div>
       {% endif %}
 
-      <!-- Карточка: Промокод -->
+      {% if applied_promo %}
+      <!-- Компактний applied-state: видалення промокоду залишається доступним без дублювання форми вводу. -->
       <div class="cart-sidebar-card">
         <div class="cart-sidebar-card-header">
           <div class="cart-sidebar-card-icon">
@@ -733,38 +734,87 @@
             </svg>
           </div>
           <h3 class="cart-sidebar-card-title">{% trans 'Промокод' %}</h3>
-          {% if applied_promo %}
-            <span class="cart-promo-badge">{% trans 'Застосовано' %}</span>
-          {% endif %}
+          <span class="cart-promo-badge">{% trans 'Застосовано' %}</span>
         </div>
-        
-        {% if applied_promo %}
-          <div class="cart-promo-applied">
-            <div class="cart-promo-applied-content">
-              <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
-              <div class="cart-promo-applied-discount">{% trans 'Знижка:' %} {{ discount }} {% trans 'грн' %}</div>
-            </div>
-            <button type="button" class="cart-promo-remove-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
+        <div class="cart-promo-applied">
+          <div class="cart-promo-applied-content">
+            <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
+            <div class="cart-promo-applied-discount">{% trans 'Знижка:' %} {{ discount }} {% trans 'грн' %}</div>
           </div>
-        {% else %}
-          <div class="cart-promo-input-group">
-            <div class="cart-promo-input-wrapper">
-              <input type="text" id="promo-code-input" class="cart-promo-input" placeholder="{% trans 'Введіть код промокоду' %}" maxlength="20">
-              <div class="cart-promo-input-glow"></div>
-            </div>
-            <button type="button" class="cart-promo-apply-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-            </button>
-          </div>
-          <div id="promo-message" class="cart-promo-message"></div>
-        {% endif %}
+          <button type="button" class="cart-promo-remove-btn" aria-label="{% trans 'Видалити промокод' %}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </div>
       </div>
+      {% endif %}
+
+      <!-- Vault-промокод використовує незмінну серверну перевірку та сесійну знижку. -->
+      <section class="promo-vault-card{% if applied_promo %} is-success{% endif %}"
+               data-promo-vault
+               data-apply-url="{% url 'apply_promo_code' %}"
+               aria-labelledby="promo-vault-title">
+        <div class="promo-vault-heading">
+          <p class="promo-vault-eyebrow">{% trans 'Secret access' %}</p>
+          <h3 class="promo-vault-title" id="promo-vault-title">{% trans 'Відкрий сейф зі знижкою' %}</h3>
+          <p class="promo-vault-subtitle">{% trans 'Введіть промокод — ми перевіримо його на сервері та перерахуємо кошик.' %}</p>
+        </div>
+
+        <div class="promo-vault-stage">
+          <div class="promo-vault-safe">
+            <div class="promo-vault-shadow" aria-hidden="true"></div>
+            <div class="promo-vault-interior" aria-hidden="true">
+              <div class="promo-vault-room"></div>
+              <div class="promo-vault-bars">
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+              <div class="promo-vault-barsweep"></div>
+              <div class="promo-vault-glow"></div>
+              <span class="promo-vault-granted">{% trans 'Знижку активовано' %}</span>
+            </div>
+            <div class="promo-vault-door">
+              <div class="promo-vault-face">
+                <span class="promo-vault-rivet promo-vault-rivet-1"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-2"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-3"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-4"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-5"></span>
+                <span class="promo-vault-rivet promo-vault-rivet-6"></span>
+                <form class="promo-vault-form" data-promo-vault-form novalidate>
+                  <label class="promo-vault-label" for="promo-vault-code">{% trans 'Код сейфа' %}</label>
+                  <input class="promo-vault-input"
+                         id="promo-vault-code"
+                         name="promo_code"
+                         type="text"
+                         maxlength="20"
+                         autocomplete="off"
+                         autocapitalize="characters"
+                         spellcheck="false"
+                         aria-describedby="promo-vault-status"
+                         placeholder="••••••"
+                         {% if applied_promo %}value="{{ applied_promo.code }}"{% endif %}>
+                  <span class="promo-vault-input-line" aria-hidden="true"></span>
+                  <span class="promo-vault-gears" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <button class="promo-vault-submit" type="submit">
+                    <span class="promo-vault-submit-text">{% trans 'Відкрити' %}</span>
+                    <span class="promo-vault-submit-spinner" aria-hidden="true"></span>
+                  </button>
+                </form>
+                <div class="promo-vault-wheel" aria-hidden="true">
+                  <span class="promo-vault-wheel-spoke promo-vault-wheel-spoke-1"></span>
+                  <span class="promo-vault-wheel-spoke promo-vault-wheel-spoke-2"></span>
+                  <span class="promo-vault-wheel-spoke promo-vault-wheel-spoke-3"></span>
+                  <span class="promo-vault-wheel-hub"></span>
+                </div>
+                <div class="promo-vault-bolts" aria-hidden="true"><span></span><span></span><span></span></div>
+              </div>
+              <div class="promo-vault-edge" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+        <div class="promo-vault-status" id="promo-vault-status" data-promo-vault-status role="status" aria-live="polite" aria-atomic="true">{% if applied_promo %}<span class="promo-vault-result-code">{{ applied_promo.code }}</span>{% trans 'Промокод застосовано. Знижка:' %} {{ discount|floatformat:2 }} {% trans 'грн' %}{% endif %}</div>
+      </section>
 
       <!-- Карточка: Оформление заказа -->
       <div class="cart-checkout-card">
@@ -1056,6 +1106,7 @@
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/cart-promo-vault.css' %}?v=20260811b">
 <style>
 .cart-savings-info {
   margin-top: 18px;
