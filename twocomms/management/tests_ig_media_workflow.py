@@ -1,13 +1,73 @@
 """Pure contracts for image-aware Instagram workflow and payment safety."""
 from contextlib import nullcontext
+from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+import json
+from unittest.mock import Mock, mock_open, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
+
+from management.models import InstagramBotMessage, InstagramBotSettings
 
 
 class MediaSemanticsTests(SimpleTestCase):
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
+    def test_payment_review_does_not_bind_stale_unmatched_media_by_print_text(
+        self, raw_media
+    ):
+        from management.services.ig_payment_review import (
+            _augment_messages_with_raw_media,
+        )
+
+        raw_media.return_value = {"__unmatched__": [{
+            "url": "https://lookaside.example/stale-payment-media.jpg",
+            "event_at": (timezone.now() - timedelta(days=30)).isoformat(),
+            "raw_event_id": 1001,
+        }]}
+        messages = [{
+            "id": 1,
+            "mid": "current-print-mid",
+            "role": "user",
+            "text": "Принт ось цей",
+            "attachments": "",
+            "attachment_media": [],
+            "source": "webhook",
+            "created_at": timezone.now().isoformat(),
+        }]
+
+        augmented = _augment_messages_with_raw_media(object(), messages)
+
+        self.assertEqual(augmented[0]["media"], [])
+        self.assertEqual(augmented[0]["attachments"], "")
+
+    def test_terminal_unavailable_media_is_not_retryable(self):
+        from management.services.ig_payment_review import _review_media_needs_owned_retry
+
+        evidence = {
+            "media": [{
+                "url": "https://cdn.example/failed-receipt.jpg",
+                "provenance": "live_webhook",
+                "status": "unavailable",
+                "capture_attempts": 2,
+                "error_kind": "download_failed",
+            }],
+        }
+
+        self.assertFalse(_review_media_needs_owned_retry(evidence))
+
+    def test_pending_live_media_is_retryable(self):
+        from management.services.ig_payment_review import _review_media_needs_owned_retry
+
+        self.assertTrue(_review_media_needs_owned_retry({
+            "media": [{
+                "url": "https://cdn.example/pending-receipt.jpg",
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        }))
+
     def test_product_question_image_is_interest_not_receipt(self):
         from management.services.ig_payment_review import classify_media_items
 
@@ -160,7 +220,7 @@ class MediaSemanticsTests(SimpleTestCase):
         self.assertTrue(result["needs_review"])
         self.assertEqual(result["media"][-1]["role"], "payment_candidate")
 
-    @patch("management.services.instagram_bot.download_image", return_value=("image/jpeg", b"image"))
+    @patch("management.services.instagram_bot._owned_media_bytes", return_value=("image/jpeg", b"image"))
     @patch("management.services.bot_vision.classify_media_roles", return_value=[{
         "source_image_index": 0,
         "role": "product",
@@ -172,6 +232,10 @@ class MediaSemanticsTests(SimpleTestCase):
 
         media = [{
             "url": "https://cdn.example/unknown.jpg",
+            "provenance": "live_webhook",
+            "status": "owned",
+            "storage_name": "ig_message_media/unknown.jpg",
+            "mime": "image/jpeg",
             "role": "payment_candidate",
             "intent": "payment_evidence_candidate",
             "payment_evidence": True,
@@ -229,7 +293,7 @@ class MediaSemanticsTests(SimpleTestCase):
         self.assertTrue(reconciled["needs_review"])
         self.assertEqual(reconciled["message_ids"], [3])
 
-    @patch("management.services.instagram_bot.download_image", return_value=("image/jpeg", b"image"))
+    @patch("management.services.instagram_bot._owned_media_bytes", return_value=("image/jpeg", b"image"))
     @patch("management.services.bot_vision.classify_media_roles", return_value=[{
         "source_image_index": 0,
         "role": "receipt",
@@ -239,11 +303,624 @@ class MediaSemanticsTests(SimpleTestCase):
     def test_low_confidence_vision_keeps_payment_candidate_unresolved(self, _classify, _download):
         from management.services.ig_payment_review import _resolve_payment_media_candidates
 
-        media = [{"url": "https://cdn.example/unknown.jpg", "role": "payment_candidate"}]
+        media = [{
+            "url": "https://cdn.example/unknown.jpg",
+            "provenance": "live_webhook",
+            "status": "owned",
+            "storage_name": "ig_message_media/unknown.jpg",
+            "mime": "image/jpeg",
+            "role": "payment_candidate",
+        }]
         resolved = _resolve_payment_media_candidates(media)
 
         self.assertEqual(resolved[0]["role"], "payment_candidate")
         self.assertTrue(resolved[0]["uncertain"])
+
+
+class HistoricalAttachmentOwnershipTests(TestCase):
+    def setUp(self):
+        from management.models import IgClient
+
+        self.client = IgClient.get_or_create_for_sender("historical-media-owner")
+
+    def message(self, *, source: str, url: str):
+        return InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось фото",
+            status=InstagramBotMessage.Status.DONE,
+            source=source,
+            attachments=json.dumps([url]),
+            media_capture_eligible=source == "webhook",
+        )
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_historical_attachment_is_metadata_only_and_never_downloaded(self, download):
+        from management.services import instagram_bot
+
+        row = self.message(
+            source="manual_refresh",
+            url="https://lookaside.example/expired-history.jpg",
+        )
+
+        media = instagram_bot._capture_message_media(row)
+
+        download.assert_not_called()
+        row.refresh_from_db()
+        self.assertEqual(media, row.attachment_media)
+        self.assertEqual(media[0]["provenance"], "historical_import")
+        self.assertEqual(media[0]["status"], "metadata_only")
+        self.assertNotIn("storage_name", media[0])
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_webhook_ingress_persists_live_provenance_without_network_io(self, download):
+        from management.services import instagram_bot
+
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.allowed_senders = ""
+        settings.save(update_fields=["is_enabled", "allowed_senders"])
+        url = "https://lookaside.example/new-webhook.jpg"
+
+        self.assertTrue(instagram_bot.enqueue_inbound(
+            settings,
+            sender_id="owned-media-webhook",
+            text="Ось фото",
+            mid="owned-media-webhook-mid",
+            source="webhook",
+            attachments=[url],
+        ))
+
+        row = InstagramBotMessage.objects.get(mid="owned-media-webhook-mid")
+        self.assertEqual(row.attachment_media, [{
+            "url": url,
+            "provenance": "live_webhook",
+            "status": "pending",
+        }])
+        download.assert_not_called()
+
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"new-live-image"),
+    )
+    @patch("django.core.files.storage.default_storage")
+    def test_history_promotion_downloads_only_the_new_live_attachment(
+        self,
+        storage,
+        download,
+    ):
+        from management.services import instagram_bot
+
+        old_url = "https://lookaside.example/expired-import.jpg"
+        live_url = "https://lookaside.example/new-live.jpg"
+        event_at = timezone.now()
+        existing = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось фото",
+            mid="promoted-owned-media-mid",
+            status=InstagramBotMessage.Status.DONE,
+            source="manual_refresh",
+            attachments=json.dumps([old_url]),
+            provider_created_at=event_at,
+            processed_at=event_at,
+        )
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.allowed_senders = ""
+        settings.reply_after = event_at - timedelta(seconds=1)
+        settings.save(update_fields=["is_enabled", "allowed_senders", "reply_after"])
+
+        self.assertTrue(instagram_bot.enqueue_inbound(
+            settings,
+            sender_id=self.client.igsid,
+            text="Ось фото",
+            mid=existing.mid,
+            source="webhook",
+            attachments=[live_url],
+            received_at=event_at,
+        ))
+        existing.refresh_from_db()
+        storage.exists.return_value = False
+        storage.save.return_value = "ig_message_media/promoted/new.jpg"
+        storage.url.return_value = "/media/ig_message_media/promoted/new.jpg"
+
+        media = instagram_bot._capture_message_media(existing)
+
+        self.assertEqual(download.call_args_list[0].args, (live_url,))
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(
+            [(item["url"], item["provenance"]) for item in media],
+            [
+                (old_url, "historical_import"),
+                (live_url, "live_webhook"),
+            ],
+        )
+
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"same-url-live-image"),
+    )
+    @patch("django.core.files.storage.default_storage")
+    def test_delayed_webhook_promotes_same_historical_url_to_live_owned(
+        self, storage, download
+    ):
+        from management.services import instagram_bot
+
+        url = "https://lookaside.example/same-delayed-url.jpg"
+        event_at = timezone.now()
+        existing = InstagramBotMessage.objects.create(
+            client=self.client, sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER, text="Ось фото",
+            mid="same-url-promotion-mid", status=InstagramBotMessage.Status.DONE,
+            source="manual_refresh", attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url, "provenance": "historical_import",
+                "status": "metadata_only",
+            }],
+            provider_created_at=event_at, processed_at=event_at,
+        )
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.allowed_senders = ""
+        settings.reply_after = event_at - timedelta(seconds=1)
+        settings.save(update_fields=["is_enabled", "allowed_senders", "reply_after"])
+
+        self.assertTrue(instagram_bot.enqueue_inbound(
+            settings, sender_id=self.client.igsid, text="Ось фото",
+            mid=existing.mid, source="webhook", attachments=[url],
+            received_at=event_at,
+        ))
+        existing.refresh_from_db()
+        storage.exists.return_value = False
+        storage.save.return_value = "ig_message_media/promoted/same.jpg"
+        storage.url.return_value = "/media/ig_message_media/promoted/same.jpg"
+
+        media = instagram_bot._capture_message_media(existing)
+
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(len(media), 1)
+        self.assertEqual(media[0]["provenance"], "live_webhook")
+        self.assertEqual(media[0]["status"], "owned")
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_stale_historical_capture_cannot_overwrite_live_owned_media(self, download):
+        from management.services import instagram_bot
+
+        url = "https://lookaside.example/stale-history.jpg"
+        existing = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось фото",
+            mid="stale-owned-mid",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "owned",
+                "storage_name": "ig_message_media/stale-owned.jpg",
+                "local_url": "/media/ig_message_media/stale-owned.jpg",
+                "mime": "image/jpeg",
+                "bytes": 5,
+            }],
+        )
+        stale = InstagramBotMessage.objects.get(pk=existing.pk)
+        stale.attachment_media = [{
+            "url": url,
+            "provenance": "historical_import",
+            "status": "metadata_only",
+        }]
+
+        instagram_bot._capture_message_media(stale)
+
+        existing.refresh_from_db()
+        self.assertEqual(existing.attachment_media[0]["status"], "owned")
+        self.assertEqual(
+            existing.attachment_media[0]["storage_name"],
+            "ig_message_media/stale-owned.jpg",
+        )
+        download.assert_not_called()
+
+    @patch("management.services.instagram_bot.download_image", return_value=None)
+    def test_migrated_historical_webhook_url_stays_metadata_only(self, download):
+        from management.services import instagram_bot
+
+        url = "https://lookaside.example/imported-webhook-history.jpg"
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось фото",
+            mid="imported-webhook-history-mid",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "historical_import",
+                "status": "metadata_only",
+            }],
+        )
+
+        media = instagram_bot._capture_message_media(row)
+
+        self.assertEqual(media[0]["provenance"], "historical_import")
+        self.assertEqual(media[0]["status"], "metadata_only")
+        download.assert_not_called()
+
+    @patch("management.services.instagram_bot.download_image", return_value=None)
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
+    def test_stale_unmatched_raw_media_is_not_bound_by_print_text(
+        self, raw_media, download
+    ):
+        from management.services import instagram_bot
+
+        event_at = timezone.now() - timedelta(days=30)
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Принт ось цей",
+            mid="stale-unmatched-mid",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            attachments="",
+            media_capture_eligible=True,
+            provider_created_at=timezone.now(),
+        )
+        raw_media.return_value = {"__unmatched__": [{
+            "url": "https://lookaside.example/old-unmatched.jpg",
+            "event_at": event_at.isoformat(),
+            "raw_event_id": 999,
+        }]}
+
+        media = instagram_bot._capture_message_media(row)
+
+        self.assertEqual(media, [])
+        download.assert_not_called()
+
+    @patch("django.core.files.storage.default_storage")
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"fresh-webhook-image"),
+    )
+    def test_live_webhook_media_is_owned_once_and_reused_without_redownload(
+        self,
+        download,
+        storage,
+    ):
+        from management.services import instagram_bot
+
+        storage.exists.return_value = False
+        storage.save.return_value = "ig_message_media/1/fresh.jpg"
+        storage.url.return_value = "/media/ig_message_media/1/fresh.jpg"
+        storage.open.return_value = mock_open(read_data=b"fresh-webhook-image").return_value
+        row = self.message(
+            source="webhook",
+            url="https://lookaside.example/fresh-webhook.jpg",
+        )
+
+        first = instagram_bot._capture_message_media(row)
+        second = instagram_bot._capture_message_media(row)
+        images = instagram_bot._collect_media_images(second)
+
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(storage.save.call_count, 1)
+        self.assertEqual(first, second)
+        self.assertEqual(second[0]["provenance"], "live_webhook")
+        self.assertEqual(second[0]["status"], "owned")
+        self.assertEqual(images, [("image/jpeg", b"fresh-webhook-image")])
+
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"raw-live-image"),
+    )
+    @patch("django.core.files.storage.default_storage")
+    def test_raw_only_live_webhook_media_is_captured_before_analysis(
+        self,
+        storage,
+        download,
+        raw_media,
+    ):
+        from management.services import instagram_bot
+
+        storage.exists.return_value = False
+        storage.save.return_value = "ig_message_media/raw/raw.jpg"
+        storage.url.return_value = "/media/ig_message_media/raw/raw.jpg"
+        raw_media.return_value = {
+            "raw-only-mid": [{
+                "url": "https://lookaside.example/raw-live.jpg",
+                "type": "ig_post",
+                "raw_event_id": 77,
+            }],
+        }
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось цей принт",
+            mid="raw-only-mid",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            attachments="",
+            media_capture_eligible=True,
+        )
+
+        media = instagram_bot._capture_message_media(row)
+
+        self.assertEqual(download.call_args.args, ("https://lookaside.example/raw-live.jpg",))
+        self.assertEqual(media[0]["provenance"], "live_webhook")
+        self.assertEqual(media[0]["status"], "owned")
+        self.assertEqual(media[0]["storage_name"], "ig_message_media/raw/raw.jpg")
+
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"expired-history"),
+    )
+    def test_legacy_raw_only_webhook_media_is_never_promoted_to_live(
+        self,
+        download,
+        raw_media,
+    ):
+        from management.services import instagram_bot
+
+        raw_media.return_value = {
+            "legacy-raw-only-mid": [{
+                "url": "https://lookaside.example/expired-raw-history.jpg",
+                "type": "ig_post",
+                "raw_event_id": 79,
+            }],
+        }
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Старий принт",
+            mid="legacy-raw-only-mid",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            attachments="",
+            provider_created_at=timezone.now() - timedelta(days=30),
+        )
+
+        media = instagram_bot._capture_message_media(row)
+
+        self.assertEqual(media, [])
+        download.assert_not_called()
+
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"unmatched-live-image"),
+    )
+    @patch("django.core.files.storage.default_storage")
+    def test_unmatched_raw_live_media_uses_timestamp_bounded_capture(
+        self, storage, download, raw_media
+    ):
+        from management.services import instagram_bot
+
+        storage.exists.return_value = False
+        storage.save.return_value = "ig_message_media/raw/unmatched.jpg"
+        storage.url.return_value = "/media/ig_message_media/raw/unmatched.jpg"
+        row = InstagramBotMessage.objects.create(
+            client=self.client, sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER, text="Принт ось цей",
+            mid="normalized-mid", status=InstagramBotMessage.Status.DONE,
+            source="webhook", attachments="", provider_created_at=timezone.now(),
+            media_capture_eligible=True,
+        )
+        raw_media.return_value = {"__unmatched__": [{
+            "url": "https://lookaside.example/unmatched-live.jpg",
+            "type": "ig_post", "event_at": row.provider_created_at.isoformat(),
+            "raw_event_id": 78,
+        }]}
+
+        media = instagram_bot._capture_message_media(row)
+
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(media[0]["provenance"], "live_webhook")
+        self.assertEqual(media[0]["status"], "owned")
+
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"one-image"),
+    )
+    @patch("django.core.files.storage.default_storage")
+    def test_capture_budget_does_not_delete_unacquired_metadata(self, storage, download):
+        from management.services import instagram_bot
+
+        storage.exists.return_value = False
+        storage.save.return_value = "ig_message_media/budget/0.jpg"
+        storage.url.return_value = "/media/ig_message_media/budget/0.jpg"
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Три фото",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            media_capture_eligible=True,
+            attachments=json.dumps([
+                "https://lookaside.example/one.jpg",
+                "https://lookaside.example/two.jpg",
+                "https://lookaside.example/three.jpg",
+            ]),
+            attachment_media=[
+                {"url": url, "provenance": "live_webhook", "status": "pending"}
+                for url in (
+                    "https://lookaside.example/one.jpg",
+                    "https://lookaside.example/two.jpg",
+                    "https://lookaside.example/three.jpg",
+                )
+            ],
+        )
+
+        media = instagram_bot._capture_message_media(row, limit=1)
+
+        self.assertEqual(len(media), 3)
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(sum(item["status"] == "owned" for item in media), 1)
+        self.assertEqual(sum(item["status"] == "pending" for item in media), 2)
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_unknown_media_provenance_never_crosses_network_boundary(self, download):
+        from management.services.instagram_bot import _collect_media_images
+        from management.services.ig_payment_review import _resolve_payment_media_candidates
+
+        unknown = {
+            "url": "https://lookaside.example/unknown.jpg",
+            "role": "payment_candidate",
+            "intent": "payment_evidence",
+        }
+
+        self.assertEqual(_collect_media_images([unknown]), [])
+        self.assertEqual(_resolve_payment_media_candidates([unknown]), [unknown])
+        download.assert_not_called()
+
+    def test_media_capture_claim_serializes_workers_and_preserves_owned_result(self):
+        from management.services import instagram_bot
+
+        url = "https://lookaside.example/race.jpg"
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось фото",
+            status=InstagramBotMessage.Status.PROCESSING,
+            source="webhook",
+            media_capture_eligible=True,
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+
+        first = instagram_bot._claim_media_capture(row.pk, url)
+        second = instagram_bot._claim_media_capture(row.pk, url)
+        self.assertIsNotNone(first)
+        self.assertIsNone(second)
+
+        token, _item = first
+        instagram_bot._finish_media_capture(row.pk, url, token, {
+            "status": "owned",
+            "storage_name": "ig_message_media/race.jpg",
+            "local_url": "/media/ig_message_media/race.jpg",
+            "mime": "image/jpeg",
+            "bytes": 4,
+            "content_hash": "abcd",
+        })
+
+        self.assertIsNone(instagram_bot._claim_media_capture(row.pk, url))
+        row.refresh_from_db()
+        self.assertEqual(row.attachment_media[0]["status"], "owned")
+
+    def test_reply_worker_captures_live_media_before_rule_classifier(self):
+        from management.services import instagram_bot
+
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.ai_enabled = False
+        settings.save(update_fields=["is_enabled", "ai_enabled"])
+        url = "https://lookaside.example/payment.jpg"
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Я оплатила, ось чек",
+            status=InstagramBotMessage.Status.PROCESSING,
+            processing_started_at=timezone.now(),
+            source="webhook",
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+        calls = []
+
+        def capture(target, *args, **kwargs):
+            calls.append("capture")
+            target.attachment_media = [{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "owned",
+                "storage_name": "ig_message_media/payment.jpg",
+                "mime": "image/jpeg",
+            }]
+            target.save(update_fields=["attachment_media"])
+            return target.attachment_media
+
+        def classify(_client, _message, *, media_context=None, **_kwargs):
+            calls.append("classify")
+            self.assertEqual(media_context[0]["status"], "owned")
+            return {"interaction_type": "reaction_only"}
+
+        with (
+            patch.object(instagram_bot, "_capture_message_media", side_effect=capture),
+            patch.object(instagram_bot, "_recover_current_message_media", side_effect=lambda target: target.attachment_media),
+            patch.object(instagram_bot, "_persist_commerce_turn", return_value=(None, None)),
+            patch(
+                "management.services.bot_sales_classifier.ensure_rule_classification",
+                side_effect=classify,
+            ),
+        ):
+            handled = instagram_bot._process_one_inside_reply_boundary(
+                settings,
+                row,
+                permission=object(),
+            )
+
+        self.assertTrue(handled)
+        self.assertEqual(calls[:2], ["capture", "classify"])
+
+    @patch("management.services.bot_vision.match_many")
+    @patch("management.services.bot_vision.classify_media_roles")
+    @patch("management.services.instagram_bot.download_image")
+    def test_historical_media_is_blocked_from_every_payment_vision_path(
+        self,
+        download,
+        classify,
+        match_many,
+    ):
+        from management.services.ig_payment_review import (
+            _catalog_matches_for_media,
+            _persist_review_media,
+            _resolve_payment_media_candidates,
+        )
+
+        media = [{
+            "url": "https://lookaside.example/expired-payment.jpg",
+            "provenance": "historical_import",
+            "status": "metadata_only",
+            "role": "payment_candidate",
+            "intent": "payment_evidence",
+            "payment_evidence": True,
+            "catalog_match_allowed": False,
+        }]
+
+        self.assertEqual(_resolve_payment_media_candidates(media), media)
+        self.assertEqual(_persist_review_media(media), media)
+        product_media = [{
+            **media[0],
+            "role": "product",
+            "intent": "purchase_candidate",
+            "actionable": True,
+            "catalog_match_allowed": True,
+        }]
+        self.assertEqual(_catalog_matches_for_media(product_media), [])
+        download.assert_not_called()
+        classify.assert_not_called()
+        match_many.assert_not_called()
 
 
 class ReplyMediaRecoveryTests(SimpleTestCase):
@@ -794,10 +1471,10 @@ class CatalogAssignmentTests(SimpleTestCase):
 
     @patch("django.core.files.storage.default_storage")
     @patch(
-        "management.services.instagram_bot.download_image",
+        "management.services.instagram_bot._owned_media_bytes",
         return_value=("image/jpeg", b"same-product"),
     )
-    def test_persist_review_media_reuses_duplicate_provider_media(self, download, storage):
+    def test_persist_review_media_reuses_duplicate_provider_media(self, owned_bytes, storage):
         from management.services.ig_payment_review import _persist_review_media
 
         storage.exists.return_value = False
@@ -805,11 +1482,17 @@ class CatalogAssignmentTests(SimpleTestCase):
         media = [
             {
                 "url": "https://lookaside.example/signed-a.jpg",
+                "provenance": "live_webhook",
+                "status": "owned",
+                "storage_name": "ig_message_media/provider-post.jpg",
                 "ig_post_media_id": "post-123",
                 "role": "product",
             },
             {
                 "url": "https://lookaside.example/signed-b.jpg",
+                "provenance": "live_webhook",
+                "status": "owned",
+                "storage_name": "ig_message_media/provider-post.jpg",
                 "ig_post_media_id": "post-123",
                 "role": "product",
             },
@@ -817,7 +1500,7 @@ class CatalogAssignmentTests(SimpleTestCase):
 
         persisted = _persist_review_media(media)
 
-        self.assertEqual(download.call_count, 1)
+        self.assertEqual(owned_bytes.call_count, 1)
         self.assertEqual(storage.save.call_count, 1)
         self.assertEqual(persisted[0]["local_url"], persisted[1]["local_url"])
         self.assertEqual(persisted[0]["content_hash"], persisted[1]["content_hash"])

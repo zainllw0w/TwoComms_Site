@@ -243,7 +243,7 @@ class ProductConfiguratorRenderTests(TestCase):
         self.assertIn("css/product-detail.css?v=20260811-gallery-v5", html)
         self.assertIn("css/product-media-fit.css?v=20260808-merch-v1", html)
         self.assertIn("css/product-seo-landing.css?v=20260716-pdp-v2", html)
-        self.assertIn("js/product-detail.js?v=20260811-gallery-v5", html)
+        self.assertIn("js/product-detail.js?v=20260811-gallery-v6", html)
         self.assertIn("js/product-media-fit.js?v=20260808-merch-v1", html)
         self.assertIn("js/telegram-verify.js?v=20260716-pdp-v2", html)
         self.assertNotIn("20260715-fable5-v1", html)

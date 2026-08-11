@@ -4,6 +4,7 @@ Regression tests for storefront product detail and product AJAX endpoints.
 
 from __future__ import annotations
 
+from html.parser import HTMLParser
 from pathlib import Path
 import shutil
 import tempfile
@@ -11,7 +12,7 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from orders.models import Order, OrderItem
@@ -24,6 +25,68 @@ PNG_PIXEL = (
     b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
     b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
 )
+
+PRODUCT_DETAIL_TEST_CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "product-detail-tests-default",
+    },
+    "fragments": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "product-detail-tests-fragments",
+    },
+    "ratelimit": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "product-detail-tests-ratelimit",
+    },
+}
+
+PDP_HERO_RENDER_TEST_SETTINGS = {
+    "CACHES": PRODUCT_DETAIL_TEST_CACHES,
+    "COMPRESS_ENABLED": False,
+    "COMPRESS_OFFLINE": False,
+    "NOVA_POSHTA_FALLBACK_ENABLED": False,
+    "STORAGES": {
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    },
+}
+
+
+class _ProductHeroParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.hero_attributes = {}
+        self.hero_avif_srcsets = []
+        self.preload_image_srcsets = []
+        self.meta_content = {}
+        self._current_picture_avif_srcsets = []
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "picture":
+            self._current_picture_avif_srcsets = []
+        if tag == "source" and attributes.get("type") == "image/avif":
+            self._current_picture_avif_srcsets.append(attributes.get("srcset", ""))
+        if tag == "img" and attributes.get("id") == "mainProductImage":
+            self.hero_attributes = attributes
+            self.hero_avif_srcsets = list(self._current_picture_avif_srcsets)
+        if (
+            tag == "link"
+            and attributes.get("rel") == "preload"
+            and attributes.get("as") == "image"
+        ):
+            self.preload_image_srcsets.append(attributes.get("imagesrcset", ""))
+        if tag == "meta":
+            key = attributes.get("property") or attributes.get("name")
+            if key in {"og:image", "og:image:alt", "twitter:image", "twitter:image:alt"}:
+                self.meta_content[key] = attributes.get("content", "")
+
+    def handle_endtag(self, tag):
+        if tag == "picture":
+            self._current_picture_avif_srcsets = []
 
 
 class ProductViewTestCase(TestCase):
@@ -104,6 +167,74 @@ class ProductHomepageImageTests(ProductViewTestCase):
 
 
 class ProductDetailTests(ProductViewTestCase):
+    def _configure_selected_color_hero(self, prefix):
+        self.product.main_image = self._image_file(f"{prefix}-base.png")
+        self.product.save(update_fields=["main_image"])
+
+        black = Color.objects.create(name="Black", primary_hex="#000000")
+        white = Color.objects.create(name="White", primary_hex="#FFFFFF")
+        ProductColorVariant.objects.create(
+            product=self.product,
+            color=black,
+            order=0,
+            is_default=True,
+        )
+        selected_variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=white,
+            order=1,
+            is_default=False,
+        )
+        selected_image_name = f"{prefix}-white.png"
+        ProductColorImage.objects.create(
+            variant=selected_variant,
+            image=self._image_file(selected_image_name),
+            alt_text="White hero",
+            order=0,
+        )
+        optimized_dir = Path(self._media_root) / "product_colors" / "optimized"
+        optimized_dir.mkdir(parents=True, exist_ok=True)
+        (optimized_dir / f"{prefix}-white_768w.avif").write_bytes(b"avif")
+        return selected_variant, f"{prefix}-base.png", selected_image_name
+
+    def _assert_selected_color_hero(
+        self,
+        response,
+        base_image_name,
+        selected_image_name,
+        expected_alt="White hero",
+    ):
+        parser = _ProductHeroParser()
+        parser.feed(response.content.decode())
+
+        self.assertTrue(parser.hero_attributes)
+        hero_src = parser.hero_attributes.get("src") or ""
+        hero_alt = parser.hero_attributes.get("alt") or ""
+        self.assertTrue(hero_src.endswith(selected_image_name))
+        self.assertNotIn(base_image_name, hero_src)
+        self.assertIn(expected_alt, hero_alt)
+        self.assertTrue(
+            any(
+                f"{Path(selected_image_name).stem}_768w.avif 768w" in srcset
+                for srcset in parser.preload_image_srcsets
+            )
+        )
+        self.assertTrue(
+            any(
+                f"{Path(selected_image_name).stem}_768w.avif 768w" in srcset
+                for srcset in parser.hero_avif_srcsets
+            )
+        )
+
+    def _assert_selected_color_social_metadata(self, response, selected_image_name):
+        parser = _ProductHeroParser()
+        parser.feed(response.content.decode())
+
+        self.assertIn(selected_image_name, parser.meta_content["og:image"])
+        self.assertEqual(parser.meta_content["og:image:alt"], "White hero")
+        self.assertIn(selected_image_name, parser.meta_content["twitter:image"])
+        self.assertEqual(parser.meta_content["twitter:image:alt"], "White hero")
+
     def test_product_detail_page_loads_published_product(self):
         response = self.client.get(reverse("product", args=[self.product.slug]))
 
@@ -128,7 +259,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'product-detail.css?v=20260811-gallery-v5', html=False)
         self.assertContains(response, 'product-media-fit.css?v=20260808-merch-v1', html=False)
         self.assertContains(response, 'product-reviews.css?v=20260511-pdp-layout-v8', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260811-gallery-v5', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260811-gallery-v6', html=False)
         self.assertContains(response, 'product-media-fit.js?v=20260808-merch-v1', html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
@@ -318,6 +449,167 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertEqual(response.redirect_chain[0][1], 301)
         self.assertEqual(response.context["preselected_color"], selected_variant.pk)
         self.assertEqual(response.context["color_variants"][0]["id"], selected_variant.pk)
+
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_product_base_path_prerenders_active_default_color_hero_and_preload(self):
+        """The base PDP SSR frame must match the default swatch used by hydration."""
+        with self.settings(MEDIA_ROOT=self._media_root):
+            self.product.main_image = self._image_file("base-url-main.png")
+            self.product.save(update_fields=["main_image"])
+
+            black = Color.objects.create(name="Black", primary_hex="#000000")
+            default_variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=black,
+                order=0,
+                is_default=True,
+            )
+            selected_image_name = "base-url-black.png"
+            ProductColorImage.objects.create(
+                variant=default_variant,
+                image=self._image_file(selected_image_name),
+                alt_text="Black hero",
+                order=0,
+            )
+            optimized_dir = Path(self._media_root) / "product_colors" / "optimized"
+            optimized_dir.mkdir(parents=True, exist_ok=True)
+            (optimized_dir / "base-url-black_768w.avif").write_bytes(b"avif")
+
+            response = self.client.get(
+                reverse("product", args=[self.product.slug]),
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self._assert_selected_color_hero(
+            response,
+            "base-url-main.png",
+            selected_image_name,
+            expected_alt="Black hero",
+        )
+
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_product_base_path_keeps_social_alt_matched_to_main_social_image(self):
+        """A default-color hero must not rewrite alt text for a main-image OG card."""
+        with self.settings(MEDIA_ROOT=self._media_root):
+            self.product.main_image = self._image_file("base-social-main.png")
+            self.product.main_image_alt = "Main social hero"
+            self.product.save(update_fields=["main_image", "main_image_alt"])
+
+            black = Color.objects.create(name="Black", primary_hex="#000000")
+            default_variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=black,
+                order=0,
+                is_default=True,
+            )
+            ProductColorImage.objects.create(
+                variant=default_variant,
+                image=self._image_file("base-social-black.png"),
+                alt_text="Black color hero",
+                order=0,
+            )
+
+            response = self.client.get(
+                reverse("product", args=[self.product.slug]),
+                secure=True,
+            )
+
+        parser = _ProductHeroParser()
+        parser.feed(response.content.decode())
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("base-social-main.png", parser.meta_content["og:image"])
+        self.assertEqual(parser.meta_content["og:image:alt"], "Main social hero")
+        self.assertIn("base-social-main.png", parser.meta_content["twitter:image"])
+        self.assertEqual(parser.meta_content["twitter:image:alt"], "Main social hero")
+
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_product_without_main_image_keeps_social_alt_with_display_color_image(self):
+        """Base social metadata must follow the first display-color image, not the default swatch."""
+        with self.settings(MEDIA_ROOT=self._media_root):
+            black = Color.objects.create(name="Black", primary_hex="#000000")
+            coyote = Color.objects.create(name="Coyote", primary_hex="#A98463")
+            display_variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=black,
+                order=0,
+                is_default=False,
+            )
+            default_variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=coyote,
+                order=1,
+                is_default=True,
+            )
+            ProductColorImage.objects.create(
+                variant=display_variant,
+                image=self._image_file("no-main-black.png"),
+                alt_text="Black social image",
+                order=0,
+            )
+            ProductColorImage.objects.create(
+                variant=default_variant,
+                image=self._image_file("no-main-coyote.png"),
+                alt_text="Coyote default hero",
+                order=0,
+            )
+
+            response = self.client.get(
+                reverse("product", args=[self.product.slug]),
+                secure=True,
+            )
+
+        parser = _ProductHeroParser()
+        parser.feed(response.content.decode())
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(parser.hero_attributes.get("src", "").endswith("no-main-coyote.png"))
+        self.assertIn("no-main-black.png", parser.meta_content["og:image"])
+        self.assertEqual(parser.meta_content["og:image:alt"], "Black social image")
+        self.assertIn("no-main-black.png", parser.meta_content["twitter:image"])
+        self.assertEqual(parser.meta_content["twitter:image:alt"], "Black social image")
+
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_product_color_path_prerenders_selected_color_hero_and_preload(self):
+        """The first server-rendered gallery frame must match a color URL."""
+        with self.settings(MEDIA_ROOT=self._media_root):
+            selected_variant, base_image_name, selected_image_name = (
+                self._configure_selected_color_hero("color-url")
+            )
+
+            response = self.client.get(
+                reverse(
+                    "product",
+                    kwargs={"slug": self.product.slug, "v1": selected_variant.slug},
+                ),
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self._assert_selected_color_hero(response, base_image_name, selected_image_name)
+        self._assert_selected_color_social_metadata(response, selected_image_name)
+
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_product_color_size_path_prerenders_selected_color_hero_and_preload(self):
+        """Non-self-canonical color plus size URLs retain their selected hero."""
+        with self.settings(MEDIA_ROOT=self._media_root):
+            selected_variant, base_image_name, selected_image_name = (
+                self._configure_selected_color_hero("color-size-url")
+            )
+
+            response = self.client.get(
+                reverse(
+                    "product",
+                    kwargs={
+                        "slug": self.product.slug,
+                        "v1": selected_variant.slug,
+                        "v2": "m",
+                    },
+                ),
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self._assert_selected_color_hero(response, base_image_name, selected_image_name)
 
     def test_product_detail_shows_fit_selector_for_tshirts(self):
         tshirt_category = Category.objects.create(

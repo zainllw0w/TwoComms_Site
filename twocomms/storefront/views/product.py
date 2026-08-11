@@ -134,6 +134,74 @@ def _resolve_fit_options(product):
 _REDIRECTABLE_VARIANT_QUERY_KEYS = ("size", "color", "fit")
 
 
+def _parse_path_variant_segments(
+    *,
+    path_segments,
+    available_sizes,
+    color_variants,
+    fit_options,
+):
+    """Resolve variant segments without mutating the selected product state."""
+    size_values = {
+        str(size).lower(): str(size).upper()
+        for size in available_sizes
+    }
+    color_values = {
+        str(variant.get("slug") or "").lower(): variant.get("id")
+        for variant in color_variants
+        if variant.get("slug")
+    }
+    fit_values = {
+        str(option.code or "").lower(): str(option.code or "")
+        for option in fit_options
+        if option.code
+    }
+
+    axis_values = {
+        "color": color_values,
+        "size": size_values,
+        "fit": fit_values,
+    }
+    resolved = {}
+    owner_segments = {}
+
+    for segment in path_segments:
+        normalized_segment = str(segment).lower()
+        matching_axes = [
+            axis
+            for axis, values in axis_values.items()
+            if normalized_segment in values
+        ]
+        if len(matching_axes) != 1:
+            raise Http404(f"Unknown or ambiguous product variant segment: {segment!r}")
+
+        axis = matching_axes[0]
+        if axis in resolved:
+            raise Http404(f"Repeated product variant axis: {axis!r}")
+
+        resolved[axis] = axis_values[axis][normalized_segment]
+        if axis == "color":
+            resolved["color_slug"] = normalized_segment
+        owner_segments[axis] = normalized_segment
+
+    canonical_segments = tuple(
+        owner_segments[axis]
+        for axis in ("color", "size", "fit")
+        if axis in owner_segments
+    )
+    return resolved, canonical_segments
+
+
+def _preserve_non_variant_query(request, target_path):
+    preserved_query = request.GET.copy()
+    for key in _REDIRECTABLE_VARIANT_QUERY_KEYS:
+        preserved_query.pop(key, None)
+    encoded_query = preserved_query.urlencode()
+    if encoded_query:
+        return f"{target_path}?{encoded_query}"
+    return target_path
+
+
 def _build_path_variant_redirect(
     *,
     request,
@@ -378,35 +446,29 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     path_parsed_color_id = None
     path_parsed_color_slug = None
     if path_segments:
-        available_sizes_upper = {str(s).upper() for s in available_sizes}
-        color_slug_to_id = {
-            (cv.get('slug') or '').lower(): cv.get('id')
-            for cv in color_variants
-            if cv.get('slug')
-        }
-        fit_codes_lower = {
-            (opt.code or '').lower()
-            for opt in get_active_fit_options(product)
-        }
+        resolved_path, owner_segments = _parse_path_variant_segments(
+            path_segments=path_segments,
+            available_sizes=available_sizes,
+            color_variants=color_variants,
+            fit_options=get_active_fit_options(product),
+        )
+        if tuple(path_segments) != owner_segments:
+            owner_kwargs = {"slug": product.slug}
+            owner_kwargs.update(
+                {
+                    f"v{index}": segment
+                    for index, segment in enumerate(owner_segments, start=1)
+                }
+            )
+            owner_path = reverse("product", kwargs=owner_kwargs)
+            return HttpResponsePermanentRedirect(
+                _preserve_non_variant_query(request, owner_path)
+            )
 
-        parsed_size = None
-        parsed_color_id = None
-        parsed_color_slug = None
-        parsed_fit = None
-        for segment in path_segments:
-            seg_upper = segment.upper()
-            seg_lower = segment.lower()
-            if parsed_size is None and seg_upper in available_sizes_upper:
-                parsed_size = seg_upper
-                continue
-            if parsed_color_id is None and seg_lower in color_slug_to_id:
-                parsed_color_id = color_slug_to_id[seg_lower]
-                parsed_color_slug = seg_lower
-                continue
-            if parsed_fit is None and seg_lower in fit_codes_lower:
-                parsed_fit = seg_lower
-                continue
-            raise Http404(f"Unknown product variant segment: {segment!r}")
+        parsed_size = resolved_path.get("size")
+        parsed_color_id = resolved_path.get("color")
+        parsed_color_slug = resolved_path.get("color_slug")
+        parsed_fit = resolved_path.get("fit")
 
         if parsed_size is not None:
             preselected_size = parsed_size
@@ -428,8 +490,8 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     else:
         # Phase 7.5 — 301 redirect from legacy query-string variant
         # form (``?size=M&color=123&fit=oversize``) to the canonical
-        # path-style URL. Only triggered on the base URL — if the
-        # request already has path segments, we honour them as-is.
+        # path-style URL. Only triggered on the base URL; normalized
+        # owner paths above set only the variant axes they represent.
         redirect_url = _build_path_variant_redirect(
             request=request,
             product=product,
@@ -560,6 +622,27 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         primary_image_alt = color_variants[0]["images"][0].get("alt") or primary_image_alt
     elif not product.main_image and extra_image_urls:
         primary_image_alt = extra_image_urls[0].get("alt") or primary_image_alt
+
+    display_image = product.display_image
+    initial_hero_image_url = display_image.url if display_image else ""
+    initial_hero_image_alt = primary_image_alt
+    if color_variants:
+        selected_images = color_variants[0].get("images") or []
+        selected_image = next(
+            (
+                image
+                for image in selected_images
+                if image.get("original_url") or image.get("url")
+            ),
+            None,
+        )
+        if selected_image is not None:
+            # The responsive-image tags must start from the source asset, not
+            # a generated width variant, so they can discover sibling srcsets.
+            initial_hero_image_url = (
+                selected_image.get("original_url") or selected_image.get("url") or ""
+            )
+            initial_hero_image_alt = selected_image.get("alt") or primary_image_alt
 
     # Видео товара (YouTube) — отдельный слайд в галерее + структурированные данные.
     product_video = None
@@ -1047,6 +1130,43 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         except Exception:
             selected_color_variant = None
 
+    social_image_alt = primary_image_alt
+    if not product.main_image:
+        # ``seo_og_image`` falls back to ``product.display_image`` on a base
+        # URL. That property follows the first color by DB order, while the
+        # visible SSR hero follows the explicit default color. Keep the
+        # social alt tied to the actual fallback asset rather than the hero.
+        social_image_alt = product.title or primary_image_alt
+        if display_image:
+            try:
+                display_image_url = display_image.url
+            except (AttributeError, ValueError):
+                display_image_url = ""
+            for variant in color_variants:
+                matching_image = next(
+                    (
+                        image
+                        for image in (variant.get("images") or [])
+                        if (
+                            image.get("original_url") or image.get("url")
+                        ) == display_image_url
+                    ),
+                    None,
+                )
+                if matching_image is not None:
+                    social_image_alt = matching_image.get("alt") or social_image_alt
+                    break
+
+    if selected_color_variant is not None:
+        try:
+            selected_social_image = selected_color_variant.images.all().first()
+        except Exception:
+            selected_social_image = None
+        # Match the ``seo_og_image`` override exactly: only a real first
+        # variant image changes the social card away from ``display_image``.
+        if selected_social_image and getattr(selected_social_image, "image", None):
+            social_image_alt = initial_hero_image_alt
+
     return render(
         request,
         'pages/product_detail.html',
@@ -1065,6 +1185,9 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'offer_id_map_data': offer_id_map,
             'extra_image_urls': extra_image_urls,
             'primary_image_alt': primary_image_alt,
+            'initial_hero_image_url': initial_hero_image_url,
+            'initial_hero_image_alt': initial_hero_image_alt,
+            'social_image_alt': social_image_alt,
             'product_video': product_video,
             'product_faq_items': product_faq_items,
             'available_sizes': available_sizes,

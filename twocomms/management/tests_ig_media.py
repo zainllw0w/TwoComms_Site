@@ -24,7 +24,7 @@ class CollectImagesTests(TestCase):
     @patch("management.services.instagram_bot.download_image")
     def test_caps_to_limit(self, mock_dl):
         mock_dl.return_value = ("image/jpeg", b"x")
-        attachments = json.dumps([f"u{i}" for i in range(10)])
+        attachments = json.dumps([f"https://cdn.example/u{i}.jpg" for i in range(10)])
         imgs = bot._collect_images(attachments, limit=3)
         self.assertEqual(len(imgs), 3)
         self.assertEqual(mock_dl.call_count, 3)

@@ -754,6 +754,10 @@ def _persist_history(item, fetched, settings_obj, *, now):
                     status=InstagramBotMessage.Status.DONE,
                     source="manual_refresh",
                     attachments=json.dumps(attachments) if attachments else "",
+                    attachment_media=bot._attachment_media_metadata(
+                        attachments,
+                        source="manual_refresh",
+                    ),
                     provider_created_at=provider_created_at,
                     processed_at=now,
                 )

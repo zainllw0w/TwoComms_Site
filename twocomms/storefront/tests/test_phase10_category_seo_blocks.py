@@ -10,11 +10,13 @@ Covers:
 """
 from __future__ import annotations
 
+import re
 from unittest.mock import patch
 
 from django.core.cache import cache, caches
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.translation import override
 
 from storefront.models import (
     Category,
@@ -107,26 +109,186 @@ class GetCategorySeoBlocksTests(_BasePhase10Tests):
         self.assertNotIn(empty_filters.id, block_ids)
         self.assertIn(empty_prices.id, block_ids)
 
-    def test_top_cards_hydrates_published_product(self):
+    def test_product_references_use_live_slug_and_drop_unavailable_items(self):
         block = CategorySeoBlock.objects.create(
             category=self.category, block_type="top_cards", title="Топ",
         )
         live = CategorySeoBlockItem.objects.create(
-            block=block, label="Promo", extra={"product_id": self.product.id},
+            block=block,
+            label="Promo",
+            url="/product/33/",
+            extra={"product_id": self.product.id},
         )
         draft_ref = CategorySeoBlockItem.objects.create(
-            block=block, label="Draft", extra={"product_id": self.draft_product.id},
+            block=block,
+            label="Draft",
+            url="/product/44/",
+            extra={"product_id": self.draft_product.id},
         )
         missing = CategorySeoBlockItem.objects.create(
-            block=block, label="Missing", extra={"product_id": 999_999},
+            block=block,
+            label="Missing",
+            url="/product/55/",
+            extra={"product_id": 999_999},
         )
         result = get_category_seo_blocks(self.category)
         items = result[0]["items"]
-        items_by_id = {item.id: item for item in items}
-        self.assertEqual(items_by_id[live.id].product, self.product)
-        # Draft products are filtered out — item.product stays None.
-        self.assertIsNone(items_by_id[draft_ref.id].product)
-        self.assertIsNone(items_by_id[missing.id].product)
+        self.assertEqual([item.id for item in items], [live.id])
+        self.assertEqual(items[0].product, self.product)
+        self.assertEqual(items[0].url, "/product/promo-hoodie/")
+
+    def test_product_id_accepts_only_positive_int_or_decimal_string(self):
+        block = CategorySeoBlock.objects.create(
+            category=self.category, block_type="top_cards", title="Strict ids",
+        )
+        valid = [
+            CategorySeoBlockItem.objects.create(
+                block=block,
+                label="Integer",
+                extra={"product_id": self.product.id},
+            ),
+            CategorySeoBlockItem.objects.create(
+                block=block,
+                label="Decimal string",
+                extra={"product_id": f"00{self.product.id}"},
+            ),
+        ]
+        invalid_values = (
+            True,
+            float(self.product.id),
+            f" {self.product.id}",
+            f"+{self.product.id}",
+            f"{self.product.id}.0",
+            0,
+            -1,
+            2**63,
+            "9" * 5000,
+            "",
+            None,
+        )
+        for index, raw_id in enumerate(invalid_values):
+            CategorySeoBlockItem.objects.create(
+                block=block,
+                label=f"Invalid {index}",
+                url=f"/product/legacy-invalid-{index}/",
+                extra={"product_id": raw_id},
+            )
+
+        result = get_category_seo_blocks(self.category)
+
+        self.assertEqual(
+            [item.id for item in result[0]["items"]],
+            [item.id for item in valid],
+        )
+
+    def test_stale_custom_print_url_is_localized_but_valid_links_are_unchanged(self):
+        block = CategorySeoBlock.objects.create(
+            category=self.category, block_type="top_filters", title="Links",
+        )
+        stale = CategorySeoBlockItem.objects.create(
+            block=block, label="Custom", url="/catalog/custom-print/",
+        )
+        valid = CategorySeoBlockItem.objects.create(
+            block=block, label="Delivery", url="/delivery/?from=seo#faq",
+        )
+
+        with override("ru"):
+            result = get_category_seo_blocks(self.category)
+
+        items_by_id = {item.id: item for item in result[0]["items"]}
+        self.assertEqual(items_by_id[stale.id].url, "/ru/custom-print/")
+        self.assertEqual(items_by_id[valid.id].url, "/delivery/?from=seo#faq")
+
+    def test_absolute_custom_print_owner_is_normalized_but_external_links_are_not(self):
+        block = CategorySeoBlock.objects.create(
+            category=self.category, block_type="top_filters", title="Links",
+        )
+        internal = CategorySeoBlockItem.objects.create(
+            block=block,
+            label="Internal custom",
+            url=(
+                "https://TWOCOMMS.SHOP:443/catalog/custom-print/"
+                "?source=seo#form"
+            ),
+        )
+        external = CategorySeoBlockItem.objects.create(
+            block=block,
+            label="External",
+            url="https://example.com/catalog/custom-print/",
+        )
+
+        result = get_category_seo_blocks(self.category)
+        items_by_id = {item.id: item for item in result[0]["items"]}
+
+        self.assertEqual(
+            items_by_id[internal.id].url,
+            "https://twocomms.shop/custom-print/?source=seo#form",
+        )
+        self.assertEqual(items_by_id[external.id].url, external.url)
+
+    def test_malformed_custom_print_candidates_remain_unchanged(self):
+        block = CategorySeoBlock.objects.create(
+            category=self.category, block_type="top_filters", title="Links",
+        )
+        malformed_urls = (
+            "https://[twocomms.shop/catalog/custom-print/",
+            "https://twocomms.shop:not-a-port/catalog/custom-print/",
+        )
+        items = [
+            CategorySeoBlockItem.objects.create(
+                block=block,
+                label=f"Malformed {index}",
+                url=url,
+            )
+            for index, url in enumerate(malformed_urls)
+        ]
+
+        result = get_category_seo_blocks(self.category)
+
+        items_by_id = {item.id: item for item in result[0]["items"]}
+        self.assertEqual(
+            [items_by_id[item.id].url for item in items],
+            list(malformed_urls),
+        )
+
+    def test_best_price_uses_current_final_price_and_slug_url(self):
+        self.product.discount_percent = 10
+        self.product.save(update_fields=["discount_percent"])
+        block = CategorySeoBlock.objects.create(
+            category=self.category, block_type="best_prices", title="Prices",
+        )
+        CategorySeoBlockItem.objects.create(
+            block=block,
+            label="Stale label",
+            url="/product/33/",
+            extra={"product_id": self.product.id, "price": 1},
+        )
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/product/promo-hoodie/"')
+        self.assertContains(response, "899 грн")
+        rendered_item = response.context["category_seo_layout"]["best_prices"]["items"][0]
+        self.assertEqual(rendered_item.url, "/product/promo-hoodie/")
+        self.assertEqual(rendered_item.product.final_price, 899)
+
+    def test_malformed_product_reference_has_no_rendered_item(self):
+        block = CategorySeoBlock.objects.create(
+            category=self.category, block_type="top_cards", title="Топ",
+        )
+        CategorySeoBlockItem.objects.create(
+            block=block,
+            label="Malformed",
+            url="/product/legacy-id/",
+            extra={"product_id": "not-a-number"},
+        )
+
+        result = get_category_seo_blocks(self.category)
+
+        self.assertEqual(result, [])
 
     def test_isolated_per_category(self):
         block_self = CategorySeoBlock.objects.create(
@@ -143,6 +305,85 @@ class GetCategorySeoBlocksTests(_BasePhase10Tests):
 
 
 class CatalogIntegrationTests(_BasePhase10Tests):
+    def test_category_seo_blocks_render_locale_aware_product_and_custom_owners(self):
+        self.product.discount_percent = 10
+        self.product.save(update_fields=["discount_percent"])
+        pricing = CategorySeoBlock.objects.create(
+            category=self.category, block_type="best_prices", title="Matrix prices",
+        )
+        CategorySeoBlockItem.objects.create(
+            block=pricing,
+            label="Matrix live price",
+            url="/product/legacy-live/",
+            extra={"product_id": self.product.id, "price": 1},
+        )
+        links = CategorySeoBlock.objects.create(
+            category=self.category, block_type="top_filters", title="Matrix links",
+        )
+        CategorySeoBlockItem.objects.create(
+            block=links,
+            label="Matrix custom",
+            url="/catalog/custom-print/",
+        )
+        unavailable = CategorySeoBlock.objects.create(
+            category=self.category, block_type="top_cards", title="Unavailable",
+        )
+        stale_urls = (
+            "/product/legacy-draft/",
+            "/product/legacy-missing/",
+            "/product/legacy-malformed/",
+        )
+        CategorySeoBlockItem.objects.create(
+            block=unavailable,
+            label="Draft reference",
+            url=stale_urls[0],
+            extra={"product_id": self.draft_product.id},
+        )
+        CategorySeoBlockItem.objects.create(
+            block=unavailable,
+            label="Missing reference",
+            url=stale_urls[1],
+            extra={"product_id": 999_999},
+        )
+        CategorySeoBlockItem.objects.create(
+            block=unavailable,
+            label="Malformed reference",
+            url=stale_urls[2],
+            extra={"product_id": "not-a-number"},
+        )
+
+        locale_matrix = {
+            "uk": ("", "/product/promo-hoodie/", "/custom-print/"),
+            "ru": ("/ru", "/ru/product/promo-hoodie/", "/ru/custom-print/"),
+            "en": ("/en", "/en/product/promo-hoodie/", "/en/custom-print/"),
+        }
+        for language, (prefix, product_url, custom_url) in locale_matrix.items():
+            with self.subTest(language=language):
+                with override(language):
+                    response = self.client.get(
+                        f"{prefix}/catalog/{self.category.slug}/"
+                    )
+                self.assertEqual(response.status_code, 200)
+                html = response.content.decode()
+                pricing_html = re.search(
+                    r'<section class="seo-pricing".*?</section>',
+                    html,
+                    flags=re.DOTALL,
+                )
+                self.assertIsNotNone(pricing_html)
+                self.assertIn(f'href="{product_url}"', pricing_html.group())
+                self.assertIn("899", pricing_html.group())
+                self.assertNotRegex(
+                    pricing_html.group(),
+                    r'class="seo-pricing__td-price">\s*1(?:\s|<)',
+                )
+                self.assertIn(
+                    f'href="{custom_url}">Matrix custom</a>',
+                    html,
+                )
+                for stale_url in stale_urls:
+                    self.assertNotIn(stale_url, html)
+
     def test_context_exposes_seo_blocks_on_category_page(self):
         block = CategorySeoBlock.objects.create(
             category=self.category, block_type="top_filters", title="Топ фільтри",

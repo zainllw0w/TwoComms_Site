@@ -177,6 +177,31 @@ def _amount_match_evidence_kind(text: str, amount_match) -> str:
     return _amount_evidence_kind(text)
 
 _PRODUCT_MEDIA_TYPES = {"ig_post", "share", "ig_reel", "reel", "story_mention", "story"}
+_HISTORICAL_MEDIA_PROVENANCE = "historical_import"
+_LIVE_MEDIA_PROVENANCE = "live_webhook"
+
+
+def _historical_media(item: dict | None) -> bool:
+    return bool(
+        isinstance(item, dict)
+        and item.get("provenance") == _HISTORICAL_MEDIA_PROVENANCE
+    )
+
+
+def _live_owned_media(item: dict | None) -> bool:
+    return bool(
+        isinstance(item, dict)
+        and item.get("provenance") == _LIVE_MEDIA_PROVENANCE
+        and item.get("status") == "owned"
+        and item.get("storage_name")
+    )
+
+
+def _safe_local_media_url(item: dict | None) -> str:
+    if not isinstance(item, dict):
+        return ""
+    value = str(item.get("local_url") or "").strip()
+    return value if value.startswith("/media/") else ""
 
 
 def _raw_media_by_mid(client) -> dict[str, list[dict]]:
@@ -223,6 +248,8 @@ def _raw_media_by_mid(client) -> dict[str, list[dict]]:
                         "title": str(payload_data.get("title") or "")[:700],
                         "ig_post_media_id": str(payload_data.get("ig_post_media_id") or "")[:80],
                         "raw_event_id": event.pk,
+                        "provenance": _HISTORICAL_MEDIA_PROVENANCE,
+                        "status": "metadata_only",
                     }
                     event_at = message.get("_event_created_at")
                     if event_at is not None:
@@ -251,7 +278,11 @@ def _raw_media_by_mid(client) -> dict[str, list[dict]]:
     return recovered
 
 
-def _existing_media(raw_attachments: str) -> list[dict]:
+def _existing_media(
+    raw_attachments: str,
+    *,
+    provenance: str | None = None,
+) -> list[dict]:
     try:
         urls = json.loads(raw_attachments or "[]")
     except (TypeError, ValueError):
@@ -260,11 +291,25 @@ def _existing_media(raw_attachments: str) -> list[dict]:
         urls = []
         for candidate in re.findall(r"https?://[^\s\"'\]]+", raw_attachments or ""):
             urls.append(candidate)
-    return [
-        {"url": str(url)[:1200], "type": "image", "title": "", "raw_event_id": None}
-        for url in urls
-        if isinstance(url, str) and url.startswith(("https://", "http://"))
-    ]
+    result = []
+    for url in urls:
+        if not isinstance(url, str) or not url.startswith(("https://", "http://")):
+            continue
+        item = {
+            "url": str(url)[:1200],
+            "type": "image",
+            "title": "",
+            "raw_event_id": None,
+        }
+        if provenance:
+            item["provenance"] = provenance
+            item["status"] = (
+                "metadata_only"
+                if provenance == _HISTORICAL_MEDIA_PROVENANCE
+                else "pending"
+            )
+        result.append(item)
+    return result
 
 
 def _media_intent(
@@ -392,9 +437,27 @@ def _augment_messages_with_raw_media(client, messages) -> list[dict]:
             continue
         item = dict(raw)
         media = list(item.get("media") or []) if isinstance(item.get("media"), list) else []
-        media.extend(_existing_media(str(item.get("attachments") or "")))
+        attachment_media = item.get("attachment_media")
+        if isinstance(attachment_media, list) and attachment_media:
+            media.extend(
+                dict(row)
+                for row in attachment_media
+                if isinstance(row, dict) and row.get("url")
+            )
+        else:
+            media.extend(_existing_media(
+                str(item.get("attachments") or ""),
+                provenance=_HISTORICAL_MEDIA_PROVENANCE,
+            ))
         mid = str(item.get("mid") or "").strip()
         for attachment in raw_by_mid.get(mid, []):
+            attachment = dict(attachment)
+            if str(item.get("source") or "") == "webhook":
+                attachment["provenance"] = _LIVE_MEDIA_PROVENANCE
+                attachment["status"] = "pending"
+            else:
+                attachment["provenance"] = _HISTORICAL_MEDIA_PROVENANCE
+                attachment["status"] = "metadata_only"
             if not any(row.get("url") == attachment.get("url") for row in media):
                 media.append(attachment)
         # Keep the old attachments contract intact for callers that only know
@@ -409,30 +472,50 @@ def _augment_messages_with_raw_media(client, messages) -> list[dict]:
     unmatched = list(raw_by_mid.get("__unmatched__") or [])
     if unmatched and result:
         # Meta may emit the attachment as a follow-up event with a different
-        # mid. Prefer an explicit "Принт …" message; otherwise use the first
-        # normalized user message created after the provider event timestamp.
+        # mid. Bind it only to the nearest customer message in a bounded time
+        # window; text or row order alone must never promote historical media.
         for attachment in unmatched:
-            target = next(
-                (
-                    row for row in result
-                    if str(row.get("role") or "").casefold() in {"user", "customer", "client"}
-                    and "принт" in str(row.get("text") or "").casefold()
-                ),
-                None,
-            )
-            event_at = str(attachment.get("event_at") or "")
-            if target is None and event_at:
-                target = next(
-                    (
-                        row for row in result
-                        if str(row.get("role") or "").casefold() in {"user", "customer", "client"}
-                        and str(row.get("created_at") or "") >= event_at
-                    ),
-                    None,
-                )
-            if target is None:
-                target = next((row for row in result if row.get("role") == "user"), None)
+            try:
+                event_at = attachment.get("event_at")
+                if not isinstance(event_at, datetime):
+                    event_at = datetime.fromisoformat(
+                        str(event_at or "").replace("Z", "+00:00")
+                    )
+                if timezone.is_naive(event_at):
+                    event_at = timezone.make_aware(
+                        event_at, timezone.get_default_timezone()
+                    )
+            except (TypeError, ValueError):
+                event_at = None
+            candidates = []
+            if event_at is not None:
+                for row in result:
+                    if str(row.get("role") or "").casefold() not in _CUSTOMER_ROLES:
+                        continue
+                    try:
+                        row_at = row.get("created_at")
+                        if not isinstance(row_at, datetime):
+                            row_at = datetime.fromisoformat(
+                                str(row_at or "").replace("Z", "+00:00")
+                            )
+                        if timezone.is_naive(row_at):
+                            row_at = timezone.make_aware(
+                                row_at, timezone.get_default_timezone()
+                            )
+                        distance = abs((row_at - event_at).total_seconds())
+                    except (TypeError, ValueError):
+                        continue
+                    if distance <= 300:
+                        candidates.append((distance, row))
+            target = min(candidates, key=lambda candidate: candidate[0])[1] if candidates else None
             if target is not None:
+                attachment = dict(attachment)
+                if str(target.get("source") or "") == "webhook":
+                    attachment["provenance"] = _LIVE_MEDIA_PROVENANCE
+                    attachment["status"] = "pending"
+                else:
+                    attachment["provenance"] = _HISTORICAL_MEDIA_PROVENANCE
+                    attachment["status"] = "metadata_only"
                 target.setdefault("media", [])
                 if not any(row.get("url") == attachment.get("url") for row in target["media"]):
                     target["media"].append(attachment)
@@ -461,6 +544,9 @@ def _persist_review_media(media: list[dict]) -> list[dict]:
     persisted_by_source = {}
     for item in media[:8]:
         row = dict(item)
+        if _historical_media(row):
+            enriched.append(row)
+            continue
         url = str(row.get("url") or "")
         if not url:
             enriched.append(row)
@@ -474,7 +560,14 @@ def _persist_review_media(media: list[dict]) -> list[dict]:
             enriched.append(row)
             continue
         try:
-            downloaded = download_image(url)
+            downloaded = None
+            if _live_owned_media(row):
+                from management.services.instagram_bot import _owned_media_bytes
+
+                downloaded = _owned_media_bytes(row)
+            elif _safe_local_media_url(row):
+                base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
+                downloaded = download_image(urljoin(base, _safe_local_media_url(row).lstrip("/")))
             if downloaded:
                 mime, raw = downloaded
                 suffix = ".jpg" if mime == "image/jpeg" else ".bin"
@@ -503,18 +596,26 @@ def _resolve_payment_media_candidates(media: list[dict]) -> list[dict]:
     result = [dict(item) for item in (media or []) if isinstance(item, dict)]
     candidate_indexes = [
         index for index, item in enumerate(result)
-        if item.get("role") == "payment_candidate" and item.get("url")
+        if (
+            item.get("role") == "payment_candidate"
+            and item.get("url")
+            and (_live_owned_media(item) or _safe_local_media_url(item))
+        )
     ]
     if not candidate_indexes:
         return result
     try:
-        from management.services.instagram_bot import download_image
+        from management.services.instagram_bot import _owned_media_bytes, download_image
         from management.services import bot_vision
 
         images = []
         source_indexes = []
         for source_index in candidate_indexes[:8]:
-            image = download_image(str(result[source_index].get("url") or ""))
+            source = result[source_index]
+            image = _owned_media_bytes(source)
+            if image is None and _safe_local_media_url(source):
+                base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
+                image = download_image(urljoin(base, _safe_local_media_url(source).lstrip("/")))
             if image:
                 images.append(image)
                 source_indexes.append(source_index)
@@ -787,6 +888,7 @@ def _catalog_order_media(media: list[dict]) -> list[dict]:
     return [
         row for row in (media or [])
         if isinstance(row, dict)
+        and not _historical_media(row)
         and row.get("url")
         and row.get("role") == "product"
         and row.get("intent") == "purchase_candidate"
@@ -815,7 +917,7 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
     if not product_media:
         return []
     try:
-        from management.services.instagram_bot import download_image
+        from management.services.instagram_bot import _owned_media_bytes, download_image
         from management.services import bot_vision
 
         images = []
@@ -829,8 +931,16 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
             if known_digest and known_digest in image_digests:
                 downloaded_source_indexes[image_digests[known_digest]].append(index)
                 continue
-            for media_url in _catalog_media_url_candidates(row):
-                image = download_image(media_url)
+            owned_image = _owned_media_bytes(row)
+            candidates = [None] if owned_image else (
+                _catalog_media_url_candidates({"local_url": _safe_local_media_url(row)})
+                if _safe_local_media_url(row)
+                else []
+            )
+            for media_url in candidates:
+                image = owned_image
+                if image is None and media_url:
+                    image = download_image(media_url)
                 if image:
                     try:
                         digest = hashlib.sha256(image[1]).hexdigest()
@@ -1838,6 +1948,45 @@ def _pending_review_has_new_receipt_evidence(review, extracted: dict) -> bool:
     return bool(incoming_sources.difference(_receipt_source_identities(review)))
 
 
+def _review_media_needs_owned_retry(evidence: dict) -> bool:
+    media = evidence.get("media") if isinstance(evidence, dict) else []
+    return any(
+        isinstance(item, dict)
+        and item.get("provenance") == _LIVE_MEDIA_PROVENANCE
+        and (
+            item.get("status") in {"pending", "acquiring"}
+            or (
+                item.get("status") == "unavailable"
+                and max(0, int(item.get("capture_attempts") or 0)) < 2
+            )
+        )
+        for item in (media or [])
+    )
+
+
+def _merge_review_media(current: list[dict], incoming: list[dict]) -> list[dict]:
+    merged = []
+    positions = {}
+    for raw in [*(current or []), *(incoming or [])]:
+        if not isinstance(raw, dict) or not raw.get("url"):
+            continue
+        item = dict(raw)
+        url = str(item.get("url") or "")
+        position = positions.get(url)
+        if position is None:
+            positions[url] = len(merged)
+            merged.append(item)
+            continue
+        stored = merged[position]
+        stored_owned = _live_owned_media(stored) or bool(_safe_local_media_url(stored))
+        incoming_owned = _live_owned_media(item) or bool(_safe_local_media_url(item))
+        if incoming_owned and not stored_owned:
+            merged[position] = {**stored, **item}
+        elif incoming_owned == stored_owned:
+            merged[position] = {**stored, **item}
+    return merged
+
+
 def _refresh_pending_review_context(review, extracted: dict, *, watermark: int) -> None:
     if review.status != review.Status.PENDING:
         return
@@ -1848,18 +1997,23 @@ def _refresh_pending_review_context(review, extracted: dict, *, watermark: int) 
     merged_delivery.update({
         key: value for key, value in (incoming_draft.get("delivery") or {}).items() if value
     })
+    incoming_media = extracted.get("media") or incoming_draft.get("media") or []
+    merged_media = _merge_review_media(
+        current.get("media", current_draft.get("media", [])),
+        incoming_media,
+    )
     merged_draft = {
         **current_draft,
         **incoming_draft,
         "delivery": merged_delivery,
-        # Keep verified media/catalog enrichment from the creator.
-        "media": current.get("media", current_draft.get("media", [])),
+        "media": merged_media,
     }
     refreshed = {
         **current,
         "messages": extracted.get("evidence", []),
         "amount_evidence": extracted.get("amount_evidence", []),
         "order_draft": merged_draft,
+        "media": merged_media,
     }
     update_fields = []
     if refreshed != current:
@@ -1899,6 +2053,8 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             "role": row.role,
             "text": row.text,
             "attachments": row.attachments,
+            "attachment_media": row.attachment_media,
+            "source": row.source,
             "created_at": row.created_at.isoformat(),
         } for row in rows]
     elif episode_floor:
@@ -1947,6 +2103,7 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
                 or (
                     current_evidence.get("media_audit_v3")
                     and not _pending_review_has_new_receipt_evidence(review, extracted)
+                    and not _review_media_needs_owned_retry(current_evidence)
                 )
             ):
                 _refresh_pending_review_context(review, extracted, watermark=watermark)

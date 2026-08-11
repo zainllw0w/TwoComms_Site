@@ -1,5 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+const productDetailSource = fs.readFileSync(require.resolve('./product-detail.js'), 'utf8');
 
 const {
   buildOptionKey,
@@ -12,6 +15,8 @@ const {
   resolveOptionSelection,
   resolvePriceBreakdown,
   resolveGalleryStep,
+  resolveGalleryAxis,
+  shouldFinishCancelledGallerySwipe,
   resolveMaterialStory,
   resolveRestockSummary,
   recommendTshirtSize,
@@ -205,6 +210,45 @@ test('gallery horizontal intent waits out a slow diagonal drift', () => {
   assert.equal(galleryHorizontalIntent({ dx: -22, dy: 18 }), true);
   assert.equal(galleryHorizontalIntent({ dx: -18, dy: 22 }), false);
   assert.equal(galleryHorizontalIntent({ dx: -48, dy: 12 }), true);
+});
+
+test('gallery touch axis locks once and ignores later cross-axis drift', () => {
+  assert.equal(resolveGalleryAxis({ axis: 'pending', dx: 4, dy: 2 }), 'pending');
+  assert.equal(resolveGalleryAxis({ axis: 'pending', dx: 4, dy: 3 }), 'horizontal');
+  assert.equal(resolveGalleryAxis({ axis: 'pending', dx: 3, dy: 4 }), 'vertical');
+  assert.equal(resolveGalleryAxis({ axis: 'pending', dx: 4, dy: 4 }), 'horizontal');
+  assert.equal(resolveGalleryAxis({ axis: 'pending', dx: -6, dy: 2 }), 'horizontal');
+  assert.equal(resolveGalleryAxis({ axis: 'horizontal', dx: -14, dy: 42 }), 'horizontal');
+  assert.equal(resolveGalleryAxis({ axis: 'pending', dx: 3, dy: -10 }), 'vertical');
+  assert.equal(resolveGalleryAxis({ axis: 'vertical', dx: 48, dy: -14 }), 'vertical');
+});
+
+test('gallery owns horizontal touchmove with a non-passive local guard', () => {
+  const listenerStart = productDetailSource.indexOf("stage.addEventListener('touchmove'");
+  assert.ok(listenerStart >= 0, 'gallery stage must register a touchmove guard');
+  const listenerSource = productDetailSource.slice(listenerStart, listenerStart + 900);
+  assert.match(listenerSource, /touchAxis === 'horizontal'/);
+  assert.match(listenerSource, /event\.preventDefault\(\)/);
+  assert.match(listenerSource, /\{ passive: false \}\)/);
+});
+
+test('gallery cancellation keeps pointer ownership after touch cleanup but preserves pinch zoom', () => {
+  assert.equal(shouldFinishCancelledGallerySwipe({
+    horizontalIntent: true,
+    pointerAxis: 'horizontal',
+    hadMultipleTouches: false,
+    touchAxis: 'pending',
+  }), true);
+  assert.equal(shouldFinishCancelledGallerySwipe({
+    horizontalIntent: true,
+    pointerAxis: 'horizontal',
+    hadMultipleTouches: true,
+  }), false);
+  assert.equal(shouldFinishCancelledGallerySwipe({
+    horizontalIntent: false,
+    pointerAxis: 'vertical',
+    hadMultipleTouches: false,
+  }), false);
 });
 
 test('gallery drag follows the finger and adds bounded resistance at an edge', () => {

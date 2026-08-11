@@ -4082,6 +4082,13 @@ class IgConversationAnalysisJob(models.Model):
         FAILED = "failed", _("Помилка аналізу")
         SKIPPED = "skipped", _("Аналіз пропущено")
 
+    class MediaPhase(models.TextChoices):
+        NOT_STARTED = "not_started", _("Медіа не розпочато")
+        ACQUIRING = "acquiring", _("Медіа обробляється")
+        READY = "ready", _("Медіа готове")
+        METADATA_ONLY = "metadata_only", _("Лише метадані")
+        FAILED = "failed", _("Помилка медіа")
+
     client = models.OneToOneField(
         "management.IgClient",
         on_delete=models.CASCADE,
@@ -4115,6 +4122,16 @@ class IgConversationAnalysisJob(models.Model):
     thoughts_tokens = models.PositiveIntegerField(default=0)
     candidates_tokens = models.PositiveIntegerField(default=0)
     analysis_latency_ms = models.PositiveIntegerField(default=0)
+    media_phase = models.CharField(
+        max_length=24,
+        choices=MediaPhase.choices,
+        default=MediaPhase.NOT_STARTED,
+        db_index=True,
+    )
+    media_error_kind = models.CharField(max_length=64, blank=True, default="")
+    media_started_at = models.DateTimeField(null=True, blank=True)
+    media_completed_at = models.DateTimeField(null=True, blank=True)
+    media_item_count = models.PositiveSmallIntegerField(default=0)
     analyzed_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

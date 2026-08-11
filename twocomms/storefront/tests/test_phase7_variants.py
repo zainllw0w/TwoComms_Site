@@ -102,9 +102,8 @@ class ProductColorVariantSlugTests(TestCase):
 class PathVariantUrlTests(TestCase):
     """Phase 7.2 — path-style variant URL routing + parser.
 
-    Segments can arrive in any order; the view dispatches them content-
-    addressably (size vs colour-slug vs fit-code), overrides query-string
-    preselections, and 404s on anything that doesn't match.
+    Valid aliases normalize to colour/size/fit order. Each path axis
+    overrides its query-string counterpart, and invalid axes return 404.
     """
 
     @classmethod
@@ -174,20 +173,105 @@ class PathVariantUrlTests(TestCase):
         self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
         self.assertEqual(response.context["preselected_size"], "M")
 
-    def test_order_insensitive_parsing(self):
-        """Phase 7.2 parser is content-addressable — segment order
-        shouldn't matter. ``/white/m/`` and ``/m/white/`` are equivalent.
-        """
-        url = reverse(
+    def test_noncanonical_permutation_and_case_redirect_to_owner(self):
+        """Equivalent path aliases consolidate to one lowercase owner."""
+        alias = reverse(
             "product",
-            kwargs={"slug": self.product.slug, "v1": "m", "v2": "white"},
+            kwargs={
+                "slug": self.product.slug,
+                "v1": "M",
+                "v2": "WHITE",
+                "v3": "OVERSIZE",
+            },
+        )
+        owner = reverse(
+            "product",
+            kwargs={
+                "slug": self.product.slug,
+                "v1": "white",
+                "v2": "m",
+                "v3": "oversize",
+            },
         )
 
-        response = self.client.get(url)
+        response = self.client.get(alias)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], owner)
+
+        final = self.client.get(response["Location"])
+        self.assertEqual(final.status_code, 200)
+        self.assertEqual(final.context["preselected_color"], self.variant_white.pk)
+        self.assertEqual(final.context["preselected_size"], "M")
+        self.assertEqual(final.context["preselected_fit_code"], "oversize")
+
+    def test_alias_redirect_preserves_tracking_but_drops_variant_query(self):
+        alias = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "M", "v2": "WHITE"},
+        )
+        owner = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "white", "v2": "m"},
+        )
+
+        response = self.client.get(
+            f"{alias}?utm_source=audit&gclid=click-1"
+            f"&color={self.variant_black.pk}&size=l&fit=classic"
+        )
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(
+            response["Location"],
+            f"{owner}?utm_source=audit&gclid=click-1",
+        )
+
+    def test_canonical_owner_path_renders_selected_state_without_redirect(self):
+        owner = reverse(
+            "product",
+            kwargs={
+                "slug": self.product.slug,
+                "v1": "white",
+                "v2": "m",
+                "v3": "oversize",
+            },
+        )
+
+        response = self.client.get(owner)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
         self.assertEqual(response.context["preselected_size"], "M")
+        self.assertEqual(response.context["preselected_fit_code"], "oversize")
+
+    def test_duplicate_or_ambiguous_segments_return_404(self):
+        ProductColorVariant.objects.create(
+            product=self.product,
+            color=Color.objects.create(name="Ambiguous", primary_hex="#222222"),
+            slug="oversize",
+            order=2,
+        )
+        invalid_paths = (
+            ("white", "black"),  # conflicting colour axis
+            ("white", "white"),  # repeated colour axis
+            ("m", "l"),  # conflicting size axis
+            ("white", "m", "m"),  # repeated size axis
+            ("classic", "classic"),  # repeated fit axis
+            ("white", "not-real"),  # unknown segment
+            ("oversize",),  # colour slug / fit code ambiguity
+        )
+
+        for segments in invalid_paths:
+            with self.subTest(segments=segments):
+                kwargs = {"slug": self.product.slug}
+                kwargs.update(
+                    {
+                        f"v{index}": value
+                        for index, value in enumerate(segments, 1)
+                    }
+                )
+                response = self.client.get(reverse("product", kwargs=kwargs))
+                self.assertEqual(response.status_code, 404)
 
     def test_fit_path_preselects_fit_code(self):
         url = reverse(
@@ -199,6 +283,29 @@ class PathVariantUrlTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["preselected_fit_code"], "oversize")
+
+    def test_lowercase_fit_owner_preserves_actual_mixed_case_fit_code(self):
+        ProductFitOption.objects.filter(
+            product=self.product,
+            code="oversize",
+        ).update(code="OverSize")
+        alias = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "OVERSIZE"},
+        )
+        owner = reverse(
+            "product",
+            kwargs={"slug": self.product.slug, "v1": "oversize"},
+        )
+
+        response = self.client.get(alias)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], owner)
+
+        final = self.client.get(owner)
+        self.assertEqual(final.status_code, 200)
+        self.assertEqual(final.context["preselected_fit_code"], "OverSize")
 
     def test_three_segment_path_preselects_everything(self):
         url = reverse(
@@ -227,16 +334,18 @@ class PathVariantUrlTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_path_overrides_query_string(self):
-        """When both a path segment and a ``?color=`` query are present,
-        the path wins — single source of truth for canonical URLs.
-        """
+    def test_partial_path_overrides_only_its_axis_and_keeps_query_selections(self):
+        """A path colour wins while query-selected size and fit remain active."""
         base = reverse("product", kwargs={"slug": self.product.slug, "v1": "white"})
 
-        response = self.client.get(f"{base}?color={self.variant_black.pk}")
+        response = self.client.get(
+            f"{base}?color={self.variant_black.pk}&size=l&fit=oversize"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["preselected_color"], self.variant_white.pk)
+        self.assertEqual(response.context["preselected_size"], "L")
+        self.assertEqual(response.context["preselected_fit_code"], "oversize")
 
 
 class VariantCanonicalAndMetaTests(TestCase):
