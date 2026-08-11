@@ -150,7 +150,7 @@ class CategoryLayoutReuseTests(_Base):
         )
         CategorySeoBlockItem.objects.create(
             block=block, label="Купити чорне худі",
-            url="/catalog/hoodie/?color=black", order=0,
+            url="/catalog/hoodie/black/", order=0,
         )
         # best_prices block — must NOT appear on product page.
         bp = CategorySeoBlock.objects.create(

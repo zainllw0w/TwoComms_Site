@@ -854,15 +854,7 @@ CSS rules на mobile FCP/LCP window.
     </button>
   </div>
 
-  {% comment %}
-  SEO molecular-upgrade US-3 (2026-05-16) — per-product SEO block.
-  Kept after reviews, recommendations and recently viewed so useful shopping
-  content stays ahead of the long-form crawler copy. Both SEO sections remain
-  inside the full-width PDP shell.
-  {% endcomment %}
-  {% product_seo_block product %}
-
-  {# Phase 15 — per-product SEO landing block (theme + top queries + category filters). #}
+  {# Phase 15 — the single per-product SEO landing owner (theme + approved navigation). #}
   {% include 'partials/product_seo_landing.html' %}
 </div>
 
