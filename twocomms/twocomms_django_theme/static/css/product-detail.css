@@ -2029,13 +2029,15 @@ html[data-route-name="product"] .breadcrumb-item.active {
   overscroll-behavior-x: contain;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 
 .tc-media-stage > picture,
 .tc-media-stage > .tc-media-hero-img {
   transform: translate3d(var(--tc-gallery-drag-x, 0), 0, 0);
-  transition: transform 260ms var(--pdp-ease), opacity 220ms ease, filter 260ms ease;
+  transition: transform 220ms var(--pdp-ease), opacity 180ms ease, filter 220ms ease;
   will-change: transform;
+  -webkit-user-drag: none;
 }
 
 .tc-media-stage.is-dragging > picture,
@@ -2058,7 +2060,7 @@ html[data-route-name="product"] .breadcrumb-item.active {
   object-position: center;
   pointer-events: none;
   transform: translate3d(var(--tc-gallery-preview-x, 0), 0, 0) scale(0.992);
-  transition: transform 260ms var(--pdp-ease), opacity 180ms ease;
+  transition: transform 220ms var(--pdp-ease), opacity 140ms ease;
   will-change: transform, opacity;
   -webkit-user-drag: none;
 }
@@ -2077,7 +2079,7 @@ html[data-route-name="product"] .breadcrumb-item.active {
 .tc-gallery-swipe-preview.is-fading,
 .tc-gallery-transition-preview.is-fading {
   opacity: 0 !important;
-  transition-duration: 130ms;
+  transition-duration: 90ms;
 }
 
 body.tc-modal-open {

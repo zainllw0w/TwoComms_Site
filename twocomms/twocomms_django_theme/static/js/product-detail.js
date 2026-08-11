@@ -139,18 +139,21 @@ function resolveSwipe({
   const distanceY = Math.abs(Number(dy) || 0);
   const viewportWidth = Math.max(0, Number(width) || 0);
   const velocity = Math.abs(Number(velocityX) || 0);
-  const distanceThreshold = Math.max(44, Math.min(78, viewportWidth ? viewportWidth * 0.16 : 52));
+  const distanceThreshold = Math.max(36, Math.min(64, viewportWidth ? viewportWidth * 0.12 : 44));
   const isHorizontal = horizontalIntent || distanceX > distanceY * 1.18;
-  const isFlick = distanceX >= 18 && velocity >= 0.38;
+  const isFlick = distanceX >= 12 && velocity >= 0.3;
+  const intentThreshold = Math.max(18, Math.min(44, viewportWidth ? viewportWidth * 0.07 : 24));
+  const isLightIntent = horizontalIntent && distanceX >= 12 && distanceX > distanceY * 1.5;
+  const isIntentSwipe = isLightIntent || (horizontalIntent && distanceX >= intentThreshold);
 
-  if (!isHorizontal || (distanceX < distanceThreshold && !isFlick)) return 0;
+  if (!isHorizontal || (distanceX < distanceThreshold && !isFlick && !isIntentSwipe)) return 0;
   return Number(dx) < 0 ? 1 : -1;
 }
 
 function galleryHorizontalIntent({ dx = 0, dy = 0 } = {}) {
   const distanceX = Math.abs(Number(dx) || 0);
   const distanceY = Math.abs(Number(dy) || 0);
-  return distanceX >= 14 && distanceX > distanceY * 1.24;
+  return distanceX >= 8 && distanceX > distanceY;
 }
 
 function galleryDragOffset({ dx = 0, width = 0, atEdge = false } = {}) {
@@ -751,8 +754,18 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     preview.style.setProperty('--tc-gallery-preview-x', '0px');
     preview.style.opacity = '1';
 
+    let committed = false;
+    let fallbackTimer = null;
     const commit = () => {
-      if (motionToken !== state.galleryMotionToken) return;
+      if (committed) return;
+      if (motionToken !== state.galleryMotionToken) {
+        clearGallerySwipeVisuals(state);
+        state.gallerySettling = false;
+        return;
+      }
+      committed = true;
+      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
+      preview.removeEventListener('transitionend', onTransitionEnd);
       state.galleryIndex = nextIndex;
       hideVideo(state);
       setMainImage(state, images[nextIndex], { immediate: true, preserveSettling: true });
@@ -762,20 +775,23 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
       stage.classList.add('is-gallery-committing');
       stage.style.setProperty('--tc-gallery-drag-x', '0px');
-      const ready = waitForMainImage(state.mainImage);
-      Promise.race([ready, new Promise((resolve) => window.setTimeout(resolve, 180))]).then(() => {
+      preview.classList.add('is-fading');
+      window.setTimeout(() => {
         if (motionToken !== state.galleryMotionToken) return;
-        preview.classList.add('is-fading');
-        window.setTimeout(() => {
-          if (motionToken !== state.galleryMotionToken) return;
-          clearGallerySwipeVisuals(state);
-          state.gallerySettling = false;
-        }, 140);
-      });
+        clearGallerySwipeVisuals(state);
+        state.gallerySettling = false;
+      }, 80);
+    };
+
+    const onTransitionEnd = (event) => {
+      if (event.target === preview && event.propertyName === 'transform') commit();
     };
 
     if (prefersReducedMotion) commit();
-    else window.setTimeout(commit, 260);
+    else {
+      preview.addEventListener('transitionend', onTransitionEnd);
+      fallbackTimer = window.setTimeout(commit, 230);
+    }
   }
 
   function returnGallerySwipe(state, preview, direction, width) {
@@ -794,7 +810,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       if (motionToken !== state.galleryMotionToken) return;
       clearGallerySwipeVisuals(state);
       state.gallerySettling = false;
-    }, prefersReducedMotion ? 0 : 220);
+    }, prefersReducedMotion ? 0 : 180);
   }
 
   function initGallerySwipe(state) {
@@ -803,14 +819,46 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     let pointerId = null;
     let startX = 0;
     let startY = 0;
+    let startTime = 0;
     let currentX = 0;
     let currentY = 0;
     let horizontalIntent = false;
     let preview = null;
     let previewDirection = 0;
+    let renderFrame = 0;
+    let pendingRender = null;
     let samples = [];
 
+    const paintDrag = () => {
+      renderFrame = 0;
+      if (!pendingRender) return;
+      const frame = pendingRender;
+      pendingRender = null;
+      stage.style.setProperty('--tc-gallery-drag-x', frame.visualOffset + 'px');
+      if (!frame.preview) return;
+      const progress = Math.min(1, Math.abs(frame.visualOffset) / Math.max(1, frame.width * 0.26));
+      frame.preview.style.setProperty(
+        '--tc-gallery-preview-x',
+        (frame.direction * frame.width + frame.visualOffset) + 'px'
+      );
+      frame.preview.style.opacity = String(0.64 + progress * 0.36);
+    };
+
+    const scheduleDragPaint = (visualOffset, width, direction) => {
+      pendingRender = { visualOffset, width, direction, preview };
+      if (!renderFrame) renderFrame = window.requestAnimationFrame(paintDrag);
+    };
+
+    const flushDragPaint = () => {
+      if (renderFrame) window.cancelAnimationFrame(renderFrame);
+      renderFrame = 0;
+      paintDrag();
+    };
+
     const resetTracking = () => {
+      if (renderFrame) window.cancelAnimationFrame(renderFrame);
+      renderFrame = 0;
+      pendingRender = null;
       pointerId = null;
       horizontalIntent = false;
       preview = null;
@@ -831,7 +879,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       pointerId = event.pointerId;
       startX = currentX = event.clientX;
       startY = currentY = event.clientY;
-      samples = [{ x: currentX, time: event.timeStamp }];
+      startTime = event.timeStamp;
+      samples = [];
+      if (typeof stage.setPointerCapture === 'function') {
+        try { stage.setPointerCapture(pointerId); } catch (_) { }
+      }
     }, { passive: true });
     stage.addEventListener('pointermove', (event) => {
       if (event.pointerId !== pointerId) return;
@@ -841,16 +893,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const dy = currentY - startY;
       const distanceX = Math.abs(dx);
       const distanceY = Math.abs(dy);
-      if (!horizontalIntent && distanceY > 10 && distanceY > distanceX * 1.18) {
+      if (!horizontalIntent && distanceY >= 8 && distanceY > distanceX) {
+        releaseGalleryPointer(stage, pointerId);
         resetTracking();
         return;
       }
       if (!horizontalIntent && galleryHorizontalIntent({ dx, dy })) {
         horizontalIntent = true;
         stage.classList.add('is-dragging');
-        if (typeof stage.setPointerCapture === 'function') {
-          try { stage.setPointerCapture(pointerId); } catch (_) { }
-        }
       }
       if (horizontalIntent) {
         const images = imagesForCurrentSelection(state);
@@ -870,30 +920,44 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
           previewDirection = 0;
         }
 
-        stage.style.setProperty('--tc-gallery-drag-x', `${visualOffset}px`);
-        if (preview) {
-          const progress = Math.min(1, Math.abs(visualOffset) / Math.max(1, width * 0.26));
-          preview.style.setProperty('--tc-gallery-preview-x', `${direction * width + visualOffset}px`);
-          preview.style.opacity = String(0.64 + progress * 0.36);
-        }
+        scheduleDragPaint(visualOffset, width, direction);
         samples.push({ x: currentX, time: event.timeStamp });
         samples = samples.filter((sample) => event.timeStamp - sample.time <= 120);
       }
-    }, { passive: false });
+    }, { passive: true });
     const finish = (event) => {
       if (event.pointerId !== pointerId) return;
+      currentX = event.clientX;
+      currentY = event.clientY;
       const capturedPointer = pointerId;
       const dx = currentX - startX;
       const dy = currentY - startY;
       const width = Math.max(1, stage.clientWidth);
+      const horizontalAtRelease = horizontalIntent || galleryHorizontalIntent({ dx, dy });
+      if (!horizontalIntent && horizontalAtRelease) {
+        horizontalIntent = true;
+        stage.classList.add('is-dragging');
+        const releaseDirection = dx < 0 ? 1 : -1;
+        const releaseImages = imagesForCurrentSelection(state);
+        const releaseIndex = state.galleryIndex + releaseDirection;
+        if (releaseIndex >= 0 && releaseIndex < releaseImages.length) {
+          preview = createGalleryPreview(state, releaseImages[releaseIndex], 'tc-gallery-swipe-preview');
+          previewDirection = preview ? releaseDirection : 0;
+        }
+      }
       if (!horizontalIntent) {
         releaseGalleryPointer(stage, capturedPointer);
         resetTracking();
         return;
       }
-      const recent = samples.length > 1 ? samples : [{ x: startX, time: event.timeStamp - 1 }, { x: currentX, time: event.timeStamp }];
-      const first = recent[0];
-      const last = recent[recent.length - 1];
+      flushDragPaint();
+      const lastSample = samples[samples.length - 1];
+      const first = samples.length > 1
+        ? samples[samples.length - 2]
+        : { x: startX, time: startTime };
+      const last = lastSample && lastSample.x === currentX
+        ? lastSample
+        : { x: currentX, time: event.timeStamp };
       const elapsed = Math.max(1, last.time - first.time);
       const velocityX = (last.x - first.x) / elapsed;
       const direction = resolveSwipe({ dx, dy, width, velocityX, horizontalIntent });

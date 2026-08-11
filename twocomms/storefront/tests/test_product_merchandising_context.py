@@ -220,12 +220,12 @@ class ProductMerchandisingContextTests(TestCase):
 
         self.assertContains(
             response,
-            "css/product-detail.css?v=20260808-merch-v1",
+            "css/product-detail.css?v=20260811-gallery-v5",
             html=False,
         )
         self.assertContains(
             response,
-            "js/product-detail.js?v=20260808-merch-v1",
+            "js/product-detail.js?v=20260811-gallery-v5",
             html=False,
         )
 

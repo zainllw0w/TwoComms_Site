@@ -52,6 +52,8 @@ export const PerformanceOptimizer = {
 };
 
 export const MobileOptimizer = {
+  touchEventsOptimized: false,
+
   isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
            window.innerWidth <= 768;
@@ -84,11 +86,17 @@ export const MobileOptimizer = {
   },
 
   optimizeTouchEvents() {
+    if (this.touchEventsOptimized) return;
+    this.touchEventsOptimized = true;
+
     let touchStartTime = 0;
     let touchStartX = 0;
     let touchStartY = 0;
     let touchMoved = false;
+    let suppressClickTarget = null;
+    let suppressClickUntil = 0;
     const movementThreshold = 8;
+    const interactiveSelector = 'a, button, input, label, textarea, select, [role="button"], [data-bs-toggle]';
 
     document.addEventListener('touchstart', (event) => {
       const touch = event.touches[0];
@@ -123,13 +131,41 @@ export const MobileOptimizer = {
         return;
       }
 
-      const interactiveElement = eventTarget.closest('a, button, input, label, textarea, select, [role="button"], [data-bs-toggle]');
+      const interactiveElement = eventTarget.closest(interactiveSelector);
       if (interactiveElement) {
         return;
       }
 
-      event.preventDefault();
-    }, { passive: false });
+      suppressClickTarget = eventTarget;
+      suppressClickUntil = Date.now() + 400;
+    }, { passive: true });
+
+    document.addEventListener('touchcancel', () => {
+      touchMoved = false;
+    }, { passive: true });
+
+    document.addEventListener('click', (event) => {
+      if (!suppressClickTarget || Date.now() > suppressClickUntil) {
+        suppressClickTarget = null;
+        return;
+      }
+
+      const eventTarget = event.target;
+      const swipeTarget = suppressClickTarget;
+      suppressClickTarget = null;
+      if (!(eventTarget instanceof Element) || eventTarget.closest(interactiveSelector)) {
+        return;
+      }
+
+      const sameTarget = eventTarget === swipeTarget ||
+        eventTarget.contains(swipeTarget) ||
+        swipeTarget.contains(eventTarget);
+      if (!sameTarget) return;
+
+      if (event.cancelable) event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }, true);
   },
 
   // disableBackdropFilters / reduceAnimationFrequency переведены в статический CSS

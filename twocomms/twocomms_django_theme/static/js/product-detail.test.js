@@ -190,15 +190,20 @@ test('horizontal swipe advances while vertical intent does not', () => {
   assert.equal(resolveSwipe({ dx: 70, dy: 12, width: 390 }), -1);
   assert.equal(resolveSwipe({ dx: -35, dy: 80 }), 0);
   assert.equal(resolveSwipe({ dx: -30, dy: 4 }), 0);
+  assert.equal(resolveSwipe({ dx: -15, dy: 3, width: 390, velocityX: -0.45 }), 1);
+  assert.equal(resolveSwipe({ dx: -15, dy: 2, width: 390, velocityX: -0.12, horizontalIntent: true }), 1);
+  assert.equal(resolveSwipe({ dx: -14, dy: 10, width: 390, velocityX: -0.12, horizontalIntent: true }), 0);
   assert.equal(resolveSwipe({ dx: -24, dy: 7, width: 430, velocityX: -0.62 }), 1);
   assert.equal(resolveSwipe({ dx: 22, dy: 31, width: 430, velocityX: 0.72 }), 0);
   assert.equal(resolveSwipe({ dx: 74, dy: 92, width: 430, horizontalIntent: true }), -1);
 });
 
 test('gallery horizontal intent waits out a slow diagonal drift', () => {
-  assert.equal(galleryHorizontalIntent({ dx: 10, dy: 3 }), false);
+  assert.equal(galleryHorizontalIntent({ dx: 6, dy: 2 }), false);
+  assert.equal(galleryHorizontalIntent({ dx: 10, dy: 3 }), true);
   assert.equal(galleryHorizontalIntent({ dx: 14, dy: 6 }), true);
-  assert.equal(galleryHorizontalIntent({ dx: -22, dy: 18 }), false);
+  assert.equal(galleryHorizontalIntent({ dx: -22, dy: 18 }), true);
+  assert.equal(galleryHorizontalIntent({ dx: -18, dy: 22 }), false);
   assert.equal(galleryHorizontalIntent({ dx: -48, dy: 12 }), true);
 });
 

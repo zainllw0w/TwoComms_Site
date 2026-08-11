@@ -44,10 +44,10 @@
               </a>
             </td>
             <td class="seo-pricing__td-price">
-              {% if item.extra.price %}
-                {{ item.extra.price }} {% trans 'грн' %}
-              {% elif item.product and item.product.final_price %}
+              {% if item.product %}
                 {{ item.product.final_price }} {% trans 'грн' %}
+              {% elif item.extra.price %}
+                {{ item.extra.price }} {% trans 'грн' %}
               {% else %}
                 —
               {% endif %}
