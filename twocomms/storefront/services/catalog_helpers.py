@@ -52,6 +52,25 @@ _COLOR_LABELS_BY_NAME = {
     "khaki": "Хакі",
 }
 
+_ALT_FALLBACK_COPY = {
+    "uk": {"photo": "фото", "main": "головне фото товару", "title": "Товар"},
+    "ru": {"photo": "фото", "main": "главное фото товара", "title": "Товар"},
+    "en": {"photo": "product photo", "main": "main product photo", "title": "Product"},
+}
+
+
+def _normalize_alt_language(value: str | None) -> str:
+    language = str(value or "uk").lower().replace("_", "-").split("-", 1)[0]
+    return language if language in _ALT_FALLBACK_COPY else "uk"
+
+
+def _localized_product_title(product, language: str) -> str:
+    """Read a title owned by the requested locale without model fallback."""
+    raw = getattr(product, "__dict__", {})
+    if language == "uk":
+        return str(raw.get("title_uk") or raw.get("title") or "").strip()
+    return str(raw.get(f"title_{language}") or "").strip()
+
 
 def _color_label(raw: str | None) -> str:
     """Translate a raw UA color label to the active locale.
@@ -88,25 +107,36 @@ def _display_color_name(color) -> str:
     return ''
 
 
-def build_product_image_alt(product, stored_alt: str | None = None, *, color_name: str = '', index: int | None = None, main: bool = False) -> str:
+def build_product_image_alt(
+    product,
+    stored_alt: str | None = None,
+    *,
+    color_name: str = '',
+    index: int | None = None,
+    main: bool = False,
+    language: str = 'uk',
+) -> str:
     """
-    Return stored ALT text or a localized fallback for product images.
+    Return stored ALT text for UK or a locale-owned fallback for RU/EN.
+
+    ``ProductColorImage.alt_text`` is a single legacy column without locale
+    ownership. Publishing that value on RU/EN pages can leak Ukrainian copy,
+    so only the default locale trusts it until translated media fields exist.
     """
+    language = _normalize_alt_language(language)
     value = (stored_alt or '').strip()
-    if value:
+    if value and language == 'uk':
         return value
 
-    title = (getattr(product, 'title', '') or _('Товар TwoComms')).strip()
+    title = _localized_product_title(product, language) or _ALT_FALLBACK_COPY[language]['title']
     color = (color_name or '').strip()
     number = f' {index}' if index else ''
 
     if main:
-        return _('%(title)s — головне фото товару TwoComms') % {'title': title}
+        return f"{title} — {_ALT_FALLBACK_COPY[language]['main']} TwoComms"
     if color:
-        return _('%(title)s — %(color)s — фото%(number)s TwoComms') % {
-            'title': title, 'color': color, 'number': number,
-        }
-    return _('%(title)s — фото%(number)s TwoComms') % {'title': title, 'number': number}
+        return f"{title} — {color} — {_ALT_FALLBACK_COPY[language]['photo']}{number} TwoComms"
+    return f"{title} — {_ALT_FALLBACK_COPY[language]['photo']}{number} TwoComms"
 
 
 def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):
@@ -464,6 +494,7 @@ def get_detailed_color_variants(product, lang='uk') -> List[Dict[str, Any]]:
                 getattr(image, "alt_text", ""),
                 color_name=color_name,
                 index=index,
+                language=language,
             )
             image_urls.append(payload)
 

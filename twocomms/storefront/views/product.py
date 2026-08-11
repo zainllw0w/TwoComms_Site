@@ -659,10 +659,14 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         if not getattr(image, 'image', None):
             continue
         payload = build_optimized_image_payload(image.image)
-        payload["alt"] = build_product_image_alt(product, image.alt_text, index=index)
+        payload["alt"] = build_product_image_alt(
+            product, image.alt_text, index=index, language=language
+        )
         extra_image_urls.append(payload)
 
-    primary_image_alt = build_product_image_alt(product, product.main_image_alt, main=True)
+    primary_image_alt = build_product_image_alt(
+        product, product.main_image_alt, main=True, language=language
+    )
     if not product.main_image and color_variants and color_variants[0].get("images"):
         primary_image_alt = color_variants[0]["images"][0].get("alt") or primary_image_alt
     elif not product.main_image and extra_image_urls:
@@ -1316,6 +1320,7 @@ def get_product_images(request, product_id):
     try:
         product = Product.objects.prefetch_related('images').get(id=product_id, status='published')
         images = product.images.all()
+        language = (getattr(request, 'LANGUAGE_CODE', None) or 'uk').split('-', 1)[0].lower()
 
         image_urls = []
 
@@ -1324,7 +1329,9 @@ def get_product_images(request, product_id):
             image_urls.append({
                 'url': product.main_image.url,
                 'is_main': True,
-                'alt': build_product_image_alt(product, product.main_image_alt, main=True),
+                'alt': build_product_image_alt(
+                    product, product.main_image_alt, main=True, language=language
+                ),
             })
 
         # Дополнительные изображения
@@ -1332,7 +1339,9 @@ def get_product_images(request, product_id):
             image_urls.append({
                 'url': img.image.url,
                 'is_main': False,
-                'alt': build_product_image_alt(product, img.alt_text, index=index),
+                'alt': build_product_image_alt(
+                    product, img.alt_text, index=index, language=language
+                ),
             })
 
         return JsonResponse({

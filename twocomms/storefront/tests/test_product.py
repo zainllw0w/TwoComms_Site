@@ -14,6 +14,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import translation
 
 from orders.models import Order, OrderItem
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
@@ -257,6 +258,52 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertEqual(parser.meta_content["og:image:alt"], "White hero")
         self.assertIn(selected_image_name, parser.meta_content["twitter:image"])
         self.assertEqual(parser.meta_content["twitter:image:alt"], "White hero")
+
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_ru_and_en_selected_color_media_alt_use_locale_owned_fallback(self):
+        """A single legacy color-image alt must not leak into RU/EN PDPs."""
+        with self.settings(MEDIA_ROOT=self._media_root):
+            self.product.title_uk = "Тестова футболка"
+            self.product.title_ru = "Тестовая футболка"
+            self.product.title_en = "Test T-shirt"
+            self.product.save(update_fields=["title", "title_uk", "title_ru", "title_en"])
+
+            black = Color.objects.create(
+                name="Чорний", primary_hex="#000000"
+            )
+            variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=black,
+                order=0,
+                is_default=True,
+            )
+            ProductColorImage.objects.create(
+                variant=variant,
+                image=self._image_file("localized-alt-black.png"),
+                alt_text="Чорна футболка — український alt",
+                order=0,
+            )
+
+            for language, expected_title, expected_color in (
+                ("ru", "Тестовая футболка", "Чёрный"),
+                ("en", "Test T-shirt", "Black"),
+            ):
+                with self.subTest(language=language), translation.override(language):
+                    response = self.client.get(
+                        f"/{language}/product/{self.product.slug}/"
+                    )
+
+                self.assertEqual(response.status_code, 200)
+                alt = response.context["color_variants"][0]["images"][0]["alt"]
+                self.assertIn(expected_title, alt)
+                self.assertIn(expected_color, alt)
+                self.assertNotIn("український alt", alt)
+
+                parser = _ProductHeroParser()
+                parser.feed(response.content.decode())
+                self.assertEqual(parser.hero_attributes.get("alt"), alt)
+                self.assertEqual(parser.meta_content["og:image:alt"], alt)
+                self.assertEqual(parser.meta_content["twitter:image:alt"], alt)
 
     def test_product_detail_page_loads_published_product(self):
         response = self.client.get(reverse("product", args=[self.product.slug]))
