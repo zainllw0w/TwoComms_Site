@@ -1525,15 +1525,16 @@ class StructuredDataGenerator:
 
         SEO v1.1 (2026-05-16) — Phase 17v. Previously hardcoded ``uk-UA``
         on every locale, which made Google flag /ru/ and /en/ pages as
-        schema-language mismatch. Now derived from ``get_language()``:
-            uk → uk-UA   ru → ru-UA   en → en-US
+        schema-language mismatch. Now derived from ``get_language()`` and
+        aligned with the site's HTML ``lang`` and hreflang market targeting:
+            uk → uk-UA   ru → ru-UA   en → en-UA
         Defaults to uk-UA if no locale is active (e.g. background tasks).
         """
         lang = (get_language() or "uk").split("-", 1)[0].lower()
         return {
             "uk": "uk-UA",
             "ru": "ru-UA",
-            "en": "en-US",
+            "en": "en-UA",
         }.get(lang, "uk-UA")
 
     @staticmethod

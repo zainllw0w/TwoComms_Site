@@ -3,7 +3,9 @@
 from types import SimpleNamespace
 
 from django.test import RequestFactory, SimpleTestCase
+from django.utils.translation import override
 
+from storefront.seo_utils import StructuredDataGenerator
 from storefront.services.locale_publication import (
     indexable_locales,
     locale_is_indexable,
@@ -37,6 +39,13 @@ def _product(**overrides):
 
 
 class LocalePublicationTests(SimpleTestCase):
+    def test_product_schema_language_matches_english_ukraine_owner(self):
+        with override("en"):
+            self.assertEqual(
+                StructuredDataGenerator._resolve_inlanguage_code(),
+                "en-UA",
+            )
+
     def test_ineligible_pdp_has_no_indexable_hreflang_cluster(self):
         request = RequestFactory().get("/en/product/untranslated-tee/")
 
@@ -65,6 +74,26 @@ class LocalePublicationTests(SimpleTestCase):
 
         self.assertEqual(indexable_locales(product), ("uk",))
         self.assertFalse(publication_context(product, "en")["indexable"])
+
+    def test_partial_translation_exposes_only_owned_locale_cluster(self):
+        product = _product(
+            title_en="",
+            seo_title_en="",
+            seo_description_en="",
+            full_description_en="",
+        )
+        request = RequestFactory().get("/ru/product/partial-tee/")
+
+        self.assertEqual(indexable_locales(product), ("uk", "ru"))
+        self.assertEqual(
+            language_alternates(
+                {
+                    "request": request,
+                    "locale_publication": publication_context(product, "ru"),
+                }
+            ).keys(),
+            {"uk", "ru", "x_default"},
+        )
 
     def test_partially_translated_active_faq_blocks_locale_owner(self):
         faq = SimpleNamespace(

@@ -126,6 +126,70 @@ class MultilingualRobotsTests(TestCase):
         self.assertNotIn('hreflang="en-UA"', body)
         self.assertNotIn('hreflang="x-default"', body)
 
+    def test_untranslated_product_uk_owner_keeps_only_uk_and_x_default(self):
+        Product.objects.create(
+            title="Тестова футболка без перекладу",
+            slug="untranslated-uk-owner",
+            category=self.category,
+            price=600,
+            status="published",
+        )
+
+        response = self.client.get("/product/untranslated-uk-owner/")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertContains(response, "index, follow")
+        self.assertIn('hreflang="uk-UA"', body)
+        self.assertIn('hreflang="x-default"', body)
+        self.assertNotIn('hreflang="ru-UA"', body)
+        self.assertNotIn('hreflang="en-UA"', body)
+
+    def test_untranslated_product_ru_render_is_noindex_without_hreflang(self):
+        Product.objects.create(
+            title="Тестова футболка без перекладу",
+            slug="untranslated-ru-render",
+            category=self.category,
+            price=600,
+            status="published",
+        )
+
+        response = self.client.get("/ru/product/untranslated-ru-render/")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertContains(response, "noindex, follow")
+        self.assertNotIn('hreflang="uk-UA"', body)
+        self.assertNotIn('hreflang="ru-UA"', body)
+        self.assertNotIn('hreflang="en-UA"', body)
+        self.assertNotIn('hreflang="x-default"', body)
+
+    def test_partial_translation_forms_only_owned_uk_ru_hreflang_cluster(self):
+        Product.objects.create(
+            title="Частично переведена футболка",
+            slug="partial-ru-tee",
+            category=self.category,
+            price=600,
+            status="published",
+            title_ru="Футболка с переводом",
+            seo_title_ru="Футболка с переводом — TwoComms",
+            seo_description_ru="Футболка TwoComms с русским описанием.",
+            full_description_ru="Русское описание футболки TwoComms.",
+        )
+
+        uk_body = self.client.get("/product/partial-ru-tee/").content.decode("utf-8")
+        ru_body = self.client.get("/ru/product/partial-ru-tee/").content.decode("utf-8")
+        en_response = self.client.get("/en/product/partial-ru-tee/")
+        en_body = en_response.content.decode("utf-8")
+
+        for body in (uk_body, ru_body):
+            self.assertIn('hreflang="uk-UA"', body)
+            self.assertIn('hreflang="ru-UA"', body)
+            self.assertIn('hreflang="x-default"', body)
+            self.assertNotIn('hreflang="en-UA"', body)
+        self.assertContains(en_response, "noindex, follow")
+        self.assertNotIn('rel="alternate" hreflang=', en_body)
+
     # ---- Facet pages stay noindex on every locale ----
 
     def test_color_filter_stays_noindex_on_ru(self):
@@ -142,6 +206,12 @@ class MultilingualRobotsTests(TestCase):
         response = self.client.get("/ru/product/black-tee/?color=black")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "noindex, follow")
+
+    def test_pdp_facet_query_suppresses_hreflang_cluster(self):
+        response = self.client.get("/ru/product/black-tee/?color=black")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "noindex, follow")
+        self.assertNotIn('rel="alternate" hreflang=', response.content.decode("utf-8"))
 
     # ---- hreflang reciprocity ----
 

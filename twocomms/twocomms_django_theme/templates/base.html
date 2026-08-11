@@ -133,25 +133,14 @@
   {% block seo_meta %}
   <title>{% block title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг' %}{% endblock %}</title>
   {% comment %}
-  SEO v1.0 Phase 1 (2026-05-12) — multilingual root-cause fix (Path A):
-  RU/EN copies share the same URL path with UK content but the underlying
-  Product.title/description/etc. translation matrices are unpopulated.
-  Indexing them creates duplicate-content footprint + 258 hreflang
-  reciprocity errors (confirmed via Ahrefs CSV 2026-05-11). Until the
-  RU/EN content is fully translated, force ``noindex,follow`` on every
-  non-uk render so Google/Bing drop the duplicates from the index but
-  still follow links to discover/refresh the canonical UA pages.
-
-  SEO v1.1 Phase 2 (2026-05-15) — multilingual REOPEN. Per request from
-  ownership: restore index, follow on RU/EN renders so /ru/ and /en/
-  variants accumulate organic traffic from Russian- and English-speaking
-  Ukrainian users (and any DE/PL/CZ visitors who fall through). Risk
-  control: emit reciprocal hreflang (uk-UA / ru-UA / en-UA / x-default)
-  on every indexable page so Google clusters the variants instead of
-  flagging them as duplicates. Where modeltranslation has no translated
-  copy, the active language renders the UA fallback — Google tolerates
-  partial translation, but bumping ``Product.title_ru`` /
-  ``description_en`` etc. is the long-term fix.
+  SEO v1.2 (2026-08-11) — locale ownership is decided per standard Product
+  from raw translation columns, not modeltranslation fallback values. UK is
+  always the base owner; RU/EN become indexable only when their required
+  metadata/editorial fields and active FAQ pairs are complete. An incomplete
+  locale stays crawlable with ``noindex, follow`` and emits no hreflang
+  cluster; an eligible page emits only the reciprocal locales it actually
+  owns. Query-string Product facets are UX state and are likewise excluded
+  from hreflang by the Product view.
   {% endcomment %}
   <meta name="robots"
     content="{% block robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}">

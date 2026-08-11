@@ -409,6 +409,13 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     # Варианты цветов с изображениями (если есть приложение и данные)
     language = (getattr(request, 'LANGUAGE_CODE', None) or 'uk').split('-', 1)[0].lower()
     locale_publication = publication_context(product, language)
+    # Query-string variant selectors are UX state, not indexable Product
+    # owners. Keep the page crawlable for its links, but suppress the
+    # alternate cluster whenever the same response is rendered with a facet
+    # query; path-owned colour/fit URLs are handled by the separate variant
+    # ownership policy below.
+    if any(request.GET.get(key) for key in ('color', 'fit', 'size')):
+        locale_publication = {**locale_publication, 'indexable': False}
     color_variants = get_detailed_color_variants(product, lang=language)
 
     # ProductCatalog size grids can differ by fit and by colour. Build the complete
