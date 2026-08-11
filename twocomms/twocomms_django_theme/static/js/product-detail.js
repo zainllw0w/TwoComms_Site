@@ -156,6 +156,22 @@ function galleryHorizontalIntent({ dx = 0, dy = 0 } = {}) {
   return distanceX >= 8 && distanceX > distanceY;
 }
 
+function resolveGalleryAxis({ axis = 'pending', dx = 0, dy = 0 } = {}) {
+  if (axis === 'horizontal' || axis === 'vertical') return axis;
+  const distanceX = Math.abs(Number(dx) || 0);
+  const distanceY = Math.abs(Number(dy) || 0);
+  if (distanceX * distanceX + distanceY * distanceY < 25) return 'pending';
+  return distanceX >= distanceY ? 'horizontal' : 'vertical';
+}
+
+function shouldFinishCancelledGallerySwipe({
+  horizontalIntent = false,
+  pointerAxis = 'pending',
+  hadMultipleTouches = false,
+} = {}) {
+  return Boolean(horizontalIntent) && pointerAxis === 'horizontal' && !hadMultipleTouches;
+}
+
 function galleryDragOffset({ dx = 0, width = 0, atEdge = false } = {}) {
   const distance = Number(dx) || 0;
   const viewportWidth = Math.max(1, Number(width) || 1);
@@ -343,6 +359,8 @@ if (typeof module !== 'undefined' && module.exports) {
     galleryStatus,
     MODAL_FOCUSABLE_SELECTOR,
     resolveGalleryStep,
+    resolveGalleryAxis,
+    shouldFinishCancelledGallerySwipe,
     resolveMaterialStory,
     resolveOptionSelection,
     resolvePriceBreakdown,
@@ -828,6 +846,21 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     let renderFrame = 0;
     let pendingRender = null;
     let samples = [];
+    let pointerAxis = 'pending';
+    let activeTouchId = null;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchAxis = 'pending';
+    let hadMultipleTouches = false;
+
+    const resetTouchTracking = () => {
+      activeTouchId = null;
+      touchAxis = 'pending';
+    };
+
+    const activeTouch = (touches) => Array.from(touches || []).find((touch) => (
+      touch.identifier === activeTouchId
+    ));
 
     const paintDrag = () => {
       renderFrame = 0;
@@ -864,8 +897,54 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       preview = null;
       previewDirection = 0;
       samples = [];
+      pointerAxis = 'pending';
+      hadMultipleTouches = false;
       stage.classList.remove('is-dragging');
     };
+    stage.addEventListener('touchstart', (event) => {
+      const images = imagesForCurrentSelection(state);
+      if (
+        state.gallerySettling ||
+        images.length <= 1 ||
+        event.touches.length !== 1 ||
+        !(event.target instanceof Element) ||
+        event.target.closest('button, a, iframe')
+      ) {
+        if (event.touches.length > 1) hadMultipleTouches = true;
+        resetTouchTracking();
+        return;
+      }
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      activeTouchId = touch.identifier;
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      touchAxis = 'pending';
+      hadMultipleTouches = false;
+    }, { passive: true });
+    stage.addEventListener('touchmove', (event) => {
+      if (event.touches.length !== 1) {
+        if (event.touches.length > 1) hadMultipleTouches = true;
+        resetTouchTracking();
+        return;
+      }
+      if (activeTouchId === null) return;
+      const touch = activeTouch(event.touches);
+      if (!touch) return;
+      touchAxis = resolveGalleryAxis({
+        axis: touchAxis,
+        dx: touch.clientX - touchStartX,
+        dy: touch.clientY - touchStartY,
+      });
+      if (touchAxis === 'horizontal' && event.cancelable) event.preventDefault();
+    }, { passive: false });
+    const endTouchTracking = (event) => {
+      if (activeTouchId === null) return;
+      if (!activeTouch(event.changedTouches) && event.touches.length) return;
+      resetTouchTracking();
+    };
+    stage.addEventListener('touchend', endTouchTracking, { passive: true });
+    stage.addEventListener('touchcancel', endTouchTracking, { passive: true });
     stage.addEventListener('pointerdown', (event) => {
       const images = imagesForCurrentSelection(state);
       if (
@@ -881,6 +960,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       startY = currentY = event.clientY;
       startTime = event.timeStamp;
       samples = [];
+      pointerAxis = 'pending';
+      hadMultipleTouches = false;
       if (typeof stage.setPointerCapture === 'function') {
         try { stage.setPointerCapture(pointerId); } catch (_) { }
       }
@@ -892,13 +973,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const dx = currentX - startX;
       const dy = currentY - startY;
       const distanceX = Math.abs(dx);
-      const distanceY = Math.abs(dy);
-      if (!horizontalIntent && distanceY >= 8 && distanceY > distanceX) {
+      pointerAxis = resolveGalleryAxis({ axis: pointerAxis, dx, dy });
+      if (!horizontalIntent && pointerAxis === 'vertical') {
         releaseGalleryPointer(stage, pointerId);
         resetTracking();
         return;
       }
-      if (!horizontalIntent && galleryHorizontalIntent({ dx, dy })) {
+      if (!horizontalIntent && pointerAxis === 'horizontal' && distanceX >= 8) {
         horizontalIntent = true;
         stage.classList.add('is-dragging');
       }
@@ -925,10 +1006,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         samples = samples.filter((sample) => event.timeStamp - sample.time <= 120);
       }
     }, { passive: true });
-    const finish = (event) => {
+    const finish = (event, { updateCoordinates = true } = {}) => {
       if (event.pointerId !== pointerId) return;
-      currentX = event.clientX;
-      currentY = event.clientY;
+      if (updateCoordinates) {
+        currentX = event.clientX;
+        currentY = event.clientY;
+      }
       const capturedPointer = pointerId;
       const dx = currentX - startX;
       const dy = currentY - startY;
@@ -980,6 +1063,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     stage.addEventListener('pointerup', finish, { passive: true });
     const cancelGesture = (event) => {
       if (event.pointerId !== pointerId) return;
+      if (shouldFinishCancelledGallerySwipe({
+        horizontalIntent,
+        pointerAxis,
+        hadMultipleTouches,
+      })) {
+        finish(event, { updateCoordinates: false });
+        return;
+      }
       const capturedPointer = pointerId;
       const returningPreview = preview;
       const returningDirection = previewDirection || 1;
