@@ -127,11 +127,20 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 - [ ] **4.1** Add failing tests for exactly one rendered PDP editorial owner, deduplicated FAQ questions, and no service-only keyword sentence or hash-selected paraphrase used solely to change n-gram overlap.
 - [ ] **4.2** Create a versioned fact registry contract (owner, source field/URL, locale, effective date) for material, weight, print method, wash durability, fit, care, delivery threshold, founding date, donation and location.
 - [ ] **4.3** Remove/merge the second generated block across both `services/product_seo_landing.py` and `services/product_seo_block.py`; keep only useful product-specific facts. Do not manufacture lexical variants for uniqueness and keep Custom Print out of the content rewrite.
+- [x] **4.3a** Remove the duplicate rendered `product_seo_block` owner from the standard PDP while retaining the existing `product_seo_landing` owner, FAQ, commerce content and interactive selectors. This is a narrow ownership fix; unsafe generated fallback claims remain open for the later 4.1-4.6 fact/content work.
 - [ ] **4.4** Deduplicate FAQ at the data/render/schema boundary; retain global policy answers once and product-specific answers only when materially different.
 - [ ] **4.5** Add failing tests for the page-1 general catalog editorial block, then remove keyword/city insertion as a content objective and route every retained claim through the fact registry. Specifically verify delivery timing/exchange policy, material/weight, available cuts/sizes, wash durability, donation and location statements; do not replace the current city list with paraphrased city variants.
 - [ ] **4.6** Run fact-lint across standard PDP/catalog HTML, JSON-LD, feeds, llms and checkout copy; commit/push/deploy and mark Task 4 only after live parity proof.
 
 **Files:** `twocomms/storefront/views/product.py`; `seo_utils.py`; `services/product_seo_landing.py`; `services/product_seo_block.py`; `twocomms_django_theme/templates/pages/catalog.html`; PDP templates; FAQ models/services/tests; fact-registry docs/tests.
+
+#### Task 4.3a execution evidence (checkpoint prepared)
+
+- Code/test commit: `b2e79884c7f0f092b1b76ec6246c7611988278b0` removes only the `{% product_seo_block product %}` render from the standard PDP and updates the content-order regression to require one editorial owner. The service, helper and tag remain available for the later fact-registry/fallback work because `product_search_keywords.py` still imports shared topic helpers.
+- Local gates: focused SEO/PDP suite passed `48/48`; `manage.py check` passed; `makemigrations --check --dry-run` reported no changes; touched Python files compiled; `git diff --check` passed. The unrelated `.serena/project.yml` change was not staged.
+- Production deploy: `origin/main`, server `HEAD` and live release are `b2e79884`; the server pulled fast-forward and Passenger was restarted with `tmp/restart.txt`.
+- Live UK/RU/EN PDP proof: `/product/my-little-baby/`, `/ru/product/my-little-baby/` and `/en/product/my-little-baby/` all returned `200`, each contained exactly one `data-product-seo-landing`, zero `data-general-product-seo`, and retained `FAQPage` markup. `/custom-print/` and `/healthz/` returned `200` as route/non-regression checks only.
+- Scope boundary: this checkpoint does not claim that generated fallback copy is factual, that FAQ questions are globally deduplicated, that variant ownership or locale publication is complete, or that rankings improved. The fallback content risk remains open for the next content/fact task.
 
 ### Task 5: Normalize facets and pagination by route family
 
