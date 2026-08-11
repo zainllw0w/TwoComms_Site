@@ -358,7 +358,7 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [x] **5.2** Remove SEO hreflang from noindex facets and stop editorial rails from linking to noindex query states. Editorial-link half shipped in 5.2a; hreflang half in P1.2.
 - [x] **5.2a** Remove internal UI-state query links (`color`, `fit`, `size`, `sort`, `theme`, `page`, `q`, `availability`, `category`, `collection`) from generated and admin-authored editorial rails while preserving the same URLs in interactive catalog controls. Shipped as `78e28c4c` and live-verified on UK/RU/EN catalog and hoodie routes; the hreflang half of 5.2 remains open.
 - [ ] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
-- [ ] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement.
+- [x] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
@@ -408,6 +408,40 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   product wording, catalog data or variant inventory was changed. This
   checkpoint claims crawl-alias removal and pagination owner consistency only;
   it makes no ranking, traffic, rich-result or conversion promise.
+
+#### Task 5.4 execution evidence (checkpoint prepared)
+
+- Code/test commit: `8aa28228` (`fix(seo): suppress duplicate catalog editorial pagination copy`)
+  adds the page-2 regression and gates all category/thematic/color editorial
+  sections behind page 1 in both the redesigned catalog and Smart Selector
+  template branches. H1, product cards, filters, cart controls and pagination
+  remain rendered on page 2.
+- TDD/local gates: the new test reproduced RED when the Smart Selector partial
+  still rendered the stored category intro on page 2, then passed GREEN after
+  the shared partial was corrected. The regression covers both Smart Selector
+  and legacy branches. The adjacent catalog/general-selector/color suite
+  passed `111/111`; the full Phase 10b module is `9/12` because three
+  pre-existing synthetic `top_menu` expectations still fail independently of
+  this diff. `manage.py check`, touched-file `py_compile` and `git diff --check`
+  passed. Context7 Django 5.2 documentation confirms nested `{% if %}` block
+  evaluation and the `page_obj` pagination contract used by the templates.
+- Production deploy: code was pushed to `origin/main` and pulled fast-forward
+  on production at final SHA `53ec5f4a0bec` (including the concurrent
+  `5f251ed6` catalog migration commit); Passenger was restarted with
+  `tmp/restart.txt`.
+- Live UK page proof at `https://twocomms.shop/catalog/hoodie/` and
+  `?page=2`: both returned `200`. Page 1 emitted one each of
+  `catalog-category-intro`, `catalog-category-seo-blocks` and
+  `catalog-category-description`; page 2 emitted zero of all three and a
+  distinct product-link slice. Page 2 title was
+  `Худі TwoComms — теплі моделі зі стрітвеар-принтами — сторінка 2`,
+  `robots=index, follow`, canonical was the exact `?page=2` URL, and the
+  response exposed a `prev` link; page 1 exposed `next`. `/healthz/` returned
+  `200`.
+- Scope boundary: no DTF subdomain/blog/module, DTF route, Custom Print
+  content/configurator, product text, catalog data or variant inventory was
+  inspected or changed in this slice. No ranking, traffic, rich-result or
+  conversion uplift is claimed.
 
 ### Task 6: Link only approved clean landings in matching locale
 
