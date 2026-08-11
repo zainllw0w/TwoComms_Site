@@ -640,9 +640,13 @@ def build_landing(product, *, fit_code: Optional[str] = None) -> Dict[str, Any]:
             "fit_code":          fit_code or "",
         }
 
+    # Do not publish generated long-form copy without a reviewed editorial
+    # owner. The former fallback mixed repeated city text with unverified
+    # product, delivery, print and donation claims. Navigation chips remain
+    # available, while fact-owned copy is added by the later content task.
     return {
         "override_html":     "",
-        "landing_html":      _build_landing_html(product, fit_code=fit_code),
+        "landing_html":      "",
         "top_queries_items": chips,
         "category_layout":   _category_layout_for_product(product),
         "fit_code":          fit_code or "",
@@ -651,4 +655,3 @@ def build_landing(product, *, fit_code: Optional[str] = None) -> Dict[str, Any]:
 
 # ----------------------------------------------------- legacy (will be removed)
 _legacy_top_queries = _top_queries_for_product
-

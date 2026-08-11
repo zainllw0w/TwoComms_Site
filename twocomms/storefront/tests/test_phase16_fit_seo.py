@@ -5,10 +5,8 @@ Covers:
    put the fit term in *front*, and ``page_keywords`` is populated.
 2. Multi-segment combos keep the legacy suffix-based meta (no fit lead).
 3. Base PDP (segments_count=0) returns empty meta + empty keywords.
-4. ``product_seo_landing.build_landing`` injects a fit-specific H3 +
-   body paragraph (different text per oversize/classic/regular) only
-   when a fit_code is supplied.
-5. Per-fit landing copy is unique between oversize and classic.
+4. ``product_seo_landing.build_landing`` does not publish generated
+   fit-specific copy without a reviewed editorial override.
 """
 from __future__ import annotations
 
@@ -119,25 +117,19 @@ class LandingFitParagraphTests(TestCase):
             is_default=True, is_active=True, order=1,
         )
 
-    def test_oversize_injects_unique_h3_and_body(self):
+    def test_oversize_has_no_generated_copy_without_override(self):
         html = build_landing(self.product, fit_code="oversize")["landing_html"]
-        self.assertIn("Чому оверсайз-посадка", html)
-        # A signature phrase from the oversize body (Phase 16 copy).
-        self.assertIn("плечі довші на 4–6 см", html)
+        self.assertEqual(html, "")
 
-    def test_classic_injects_different_h3_and_body(self):
+    def test_classic_has_no_generated_copy_without_override(self):
         html = build_landing(self.product, fit_code="classic")["landing_html"]
-        self.assertIn("Чому класична посадка", html)
-        self.assertIn("плечовий шов", html)
+        self.assertEqual(html, "")
 
-    def test_oversize_and_classic_copy_differ(self):
+    def test_fit_pages_do_not_publish_hash_or_template_paraphrases(self):
         oversize = build_landing(self.product, fit_code="oversize")["landing_html"]
         classic = build_landing(self.product, fit_code="classic")["landing_html"]
-        # Each fit paragraph must contain its own H3.
-        self.assertIn("Чому оверсайз", oversize)
-        self.assertNotIn("Чому класична", oversize)
-        self.assertIn("Чому класична", classic)
-        self.assertNotIn("Чому оверсайз-посадка", classic)
+        self.assertEqual(oversize, classic)
+        self.assertEqual(oversize, "")
 
     def test_no_fit_no_h3(self):
         html = build_landing(self.product)["landing_html"]

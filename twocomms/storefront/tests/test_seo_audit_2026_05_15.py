@@ -23,7 +23,6 @@ from storefront.services.product_seo_landing import (
     _design_family_siblings,
     _design_family_stem,
     _siblings_paragraph,
-    build_landing,
 )
 
 
@@ -135,12 +134,6 @@ class SiblingDesignCrossLinksTests(_SeoAuditBase):
         )
         product = Product.objects.get(slug="lonely-one")
         self.assertEqual(_siblings_paragraph(product), "")
-
-    def test_landing_html_includes_sibling_paragraph(self):
-        html = build_landing(self.product_ts)["landing_html"]
-        self.assertIn(f'/product/{self.product_hd.slug}/', html)
-        self.assertIn(f'/product/{self.product_ls.slug}/', html)
-
 
 class CityParagraphTests(_SeoAuditBase):
     """Audit Part 6 §30.3 — city paragraph cleanup."""
