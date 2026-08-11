@@ -137,12 +137,21 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 
 - [ ] **5.1** Add failing tests for page>=2 self-canonical/crawlable behavior and invalid, duplicate, empty-result or nonexistent combinations returning 404. Treat `page=1 -> clean` as a separate P3 normalization, not a ranking gate. Correct the crawler fixture/utility to resolve relative hrefs against the source final URL before trusting route-level inlink counts.
 - [ ] **5.2** Remove SEO hreflang from noindex facets and stop editorial rails from linking to noindex query states.
+- [x] **5.2a** Remove internal UI-state query links (`color`, `fit`, `size`, `sort`, `theme`, `page`, `q`, `availability`, `category`, `collection`) from generated and admin-authored editorial rails while preserving the same URLs in interactive catalog controls. Shipped as `78e28c4c` and live-verified on UK/RU/EN catalog and hoodie routes; the hreflang half of 5.2 remains open.
 - [ ] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
 - [ ] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
 **Files:** catalog views/templates, pagination/canonical helpers, `general_catalog_seo.py`, `color_seo_copy.py`, robots/hreflang helpers and tests.
+
+#### Task 5.2a execution evidence (checkpoint prepared)
+
+- `74abf09d` implemented the shared `seo_link_policy` boundary and regression coverage; after the concurrent cart release landed, the rebased production SHA is `78e28c4c`.
+- Focused local gate: 50 tests passed, including policy, generated/admin copy, category blocks, catalog UI-filter preservation and clean-owner rendering. The broader 67-test slice retains six pre-existing failures outside this change: three synthetic top-menu expectations and three legacy swatch-shape expectations.
+- Production: `HEAD=78e28c4cee60400410bb2bbb14f7993dbd99959d`, tracked/staged diff empty, `manage.py check` clean, `/healthz/` and `/` return `200`.
+- Live UK/RU/EN `/catalog/` and `/catalog/hoodie/` responses contain zero query-facet anchors inside editorial scopes while interactive filter controls still contain query links. `/catalog/?color=black` remains `noindex, follow` with the base canonical. `/custom-print/` returns `200` and remains a route-only non-regression check.
+- This checkpoint closes only 5.2a. It does not claim hreflang removal, strict facet validation, clean landing ownership, ranking growth or any Custom Print SEO change.
 
 ### Task 6: Link only approved clean landings in matching locale
 
