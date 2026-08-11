@@ -363,6 +363,8 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [x] **5.4a.1** Restore the documented OR contract within the color facet while keeping different inventory axes intersected on the same eligible color variant. This release gate was triggered by production-backed selector evidence, not by a keyword or ranking hypothesis.
 - [ ] **5.4a.2** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, align page and fragment invalidation versions, and remeasure default/fragments cardinality without flushing production caches.
+- [x] **5.4a.2a** Align page and catalog-fragment invalidation versions so product/category changes cannot leave a stale catalog grid after a page-cache miss. Cardinality and alias normalization remain open in 5.4a.2b.
+- [ ] **5.4a.2b** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, and remeasure default/fragments cardinality without flushing production caches.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
 **Files:** catalog views/templates, pagination/canonical helpers, `general_catalog_seo.py`, `color_seo_copy.py`, robots/hreflang helpers and tests.
@@ -501,6 +503,43 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   indexable facet URL, SEO copy, landing, canonical, hreflang, product data,
   DTF/subdomain/blog behavior or Custom Print behavior, and makes no ranking
   or traffic claim.
+
+#### Task 5.4a.2a execution evidence (checkpoint prepared)
+
+- Root cause: the anonymous page-cache prefix read product/category versions
+  from the default cache alias, while catalog/home/search/thematic contexts and
+  the outer catalog grid fragment read the same version names from the
+  `fragments` alias. Signals and admin reorder invalidated only the default
+  alias; product saves that omitted `updated_at` and variant edits also exposed
+  an insufficient inner product-card key. A warmed catalog could therefore
+  reuse stale cards after a valid page-cache miss.
+- Code/test commit: `e56b6637` (`fix(cache): align catalog fragment
+  invalidation`) makes the default alias the single version source and adds
+  shared product/category versions to the inner catalog card fragment key.
+- TDD/local gates: the warm-catalog title-change regression reproduced RED
+  before the fix and passed GREEN after it. Seven focused cache/version tests,
+  the catalog/color/merchandising/selector suite (`117/117`), template
+  compilation, Django check, touched-file compilation and `git diff --check`
+  passed. The full `test_public_product_ordering` module remains `10/11` only
+  because of an unrelated existing admin taxonomy expectation for
+  `.catalog-taxonomy-row`; that test was not changed in this slice.
+- Production release: code was pulled at `e56b6637`; `collectstatic --noinput`
+  completed with `0` copied and `1039` post-processed files, followed by
+  `compress --force`, `check --deploy`, and the Passenger restart marker.
+  `check --deploy` reported only the pre-existing `security.W008` and
+  `security.W009` warnings and exited `0`.
+- Live proof at the deployed SHA: `/healthz/` returned `200`; clean
+  `/catalog/`, valid `/catalog/?color=black`, and `/catalog/?page=2` each
+  returned `200`. The clean catalog remained `index, follow` with a self
+  canonical, the valid facet remained `noindex, follow` with the clean owner
+  canonical, and page 2 remained a distinct `index, follow` self-canonical
+  slice with `prev`/`next` pagination. No selector, cart or language-switcher
+  behavior was changed.
+- Scope boundary: this checkpoint changes cache invalidation only. It does not
+  inspect or modify the DTF subdomain/blog/module, DTF route, Custom Print
+  content/configurator, product copy, catalog data, variant inventory or SEO
+  ownership policy. It makes no ranking, traffic, rich-result or conversion
+  claim. Cache-key cardinality/alias normalization remains open in 5.4a.2b.
 
 #### Task 5.3 execution evidence (checkpoint prepared)
 
