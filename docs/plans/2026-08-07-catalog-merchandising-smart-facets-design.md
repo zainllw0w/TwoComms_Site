@@ -21,7 +21,7 @@ Use a hybrid of Variant 3 Smart Selector and curated collection landing pages:
 - high-frequency themes are visible as a single horizontally scrollable row on mobile and a compact row on desktop;
 - every other facet lives in a mobile bottom sheet or a sticky desktop rail;
 - collection and brigade pages reuse the same product grid and filters but add a small collection identity block;
-- audience and collection assignments made in Fable 5 continue into both the catalog card and the upper PDP decision zone from the same normalized source;
+- audience and collection assignments made in Product Catalog continue into both the catalog card and the upper PDP decision zone from the same normalized source;
 - category, collection, and product URLs remain real links and work without JavaScript;
 - the server renders the initial product set and pagination fallback; JavaScript adds progressive loading and visual transitions only.
 
@@ -46,9 +46,9 @@ Canonical query encoding uses repeated keys in stable order, for example:
 
 Unknown values are ignored server-side. The resulting state is deterministic and safe to cache.
 
-### Fable 5 product data
+### Product Catalog product data
 
-Add a product-level audience taxonomy to Fable 5 rather than storing comma-separated text in `Product.target_audience`:
+Add a product-level audience taxonomy to Product Catalog rather than storing comma-separated text in `Product.target_audience`:
 
 - `AudienceTag`: stable code (`unisex`, `women`, `men`), translated labels, sort order, active flag;
 - `ProductAudience`: unique product/tag assignment with an optional editorial note for staff;
@@ -61,15 +61,15 @@ Add a normalized collection taxonomy for future growth:
 - `MerchCollection`: slug, kind (`theme`, `city`, `brigade`, `collab`), parent, localized name/title/description, SEO title/description, cover image, accent token, indexable flag, order, and active flag;
 - `ProductMerchCollection`: product-to-collection assignment with ordering and optional display label;
 - `MerchCollection` may be nested without hard-coded template branches. In the first catalog tree, `military`, `brigades`, `streetwear`, and `kharkiv` are sibling themes under the T-shirt category, while `225` and `127` are brigade children of `brigades`;
-- thermochromic remains authoritative on `ProductColorVariant.is_thermo`/Fable 5 color details and is never duplicated in free text.
+- thermochromic remains authoritative on `ProductColorVariant.is_thermo`/Product Catalog color details and is never duplicated in free text.
 
-Fits, size grids, price, and stock continue to use the existing `ProductFitOption`, `variant_public_context()`, Fable 5 size-grid services, and inventory rules. The selector must never infer sellability from a size guide row alone.
+Fits, size grids, price, and stock continue to use the existing `ProductFitOption`, `variant_public_context()`, Product Catalog size-grid services, and inventory rules. The selector must never infer sellability from a size guide row alone.
 
 The hierarchy is editorial, not duplicate product data. Staff may assign the most specific fact such as `225`; the public resolver derives membership in the `brigades` parent for counts and filtering. A parent with children is a disclosure group with an explicit "all brigades" choice, while `225` and `127` remain independently selectable child values. Selecting several brigade children applies strict AND. Selecting a parent together with one of its children is canonicalized to the child because the parent is already implied. Catalog cards and the compact PDP rail show the most specific assigned label and do not repeat `Бригади / 225 ОШП` as two badges.
 
 ### PDP merchandising continuity
 
-Fable 5 assignments are not complete until they are visible and truthful on the public product page. A single server-side resolver accepts the product, active language, selected color variant, and selected fit, then returns a presentation-safe context for both initial HTML and variant JavaScript. It combines only authoritative sources:
+Product Catalog assignments are not complete until they are visible and truthful on the public product page. A single server-side resolver accepts the product, active language, selected color variant, and selected fit, then returns a presentation-safe context for both initial HTML and variant JavaScript. It combines only authoritative sources:
 
 - audience labels from active `ProductAudience` assignments;
 - theme, city, brigade, and collaboration markers from active `ProductMerchCollection` assignments in their stored order;
@@ -201,7 +201,7 @@ Every visible surface has one job and one measurable reason to exist:
 | Mobile filter sheet | Full-height dialog with sticky header/footer, accordion groups, Apply/Reset, focus trap | Allows deep filtering without shrinking product cards | A nested modal inside the sheet |
 | Desktop rail | Sticky, compact, grouped by intent, counts and disabled states | Makes comparison efficient on large screens | Oversized card-like panels around every group |
 | Product card | Stable image, truthful price range, fit, audience, availability, thermo marker, favorite, real detail link | Answers purchase questions before the PDP | Invented badges, fake scarcity, or price inferred from legacy text |
-| PDP merchandising rail | Same normalized audience/collection assignments as Fable 5 and catalog; selected-variant thermo state; real curated links | Preserves context from campaign/category to product without delaying purchase decisions | A badge wall, dead links, free-text inference, or a second hero |
+| PDP merchandising rail | Same normalized audience/collection assignments as Product Catalog and catalog; selected-variant thermo state; real curated links | Preserves context from campaign/category to product without delaying purchase decisions | A badge wall, dead links, free-text inference, or a second hero |
 | Empty state | Explain which constraints conflict, offer one-tap chip removal and a category reset | Recovers conversion instead of ending the session | A dead-end “nothing found” message |
 | Progressive status | Quiet status text and stable sentinel; pagination stays available | Gives feedback without page-jump or crawler loss | Skeletons that replace server-rendered cards |
 | Collection identity | Small collection mark, one-line context, optional cover, then products | Makes a brigade/collab landing page feel specific without a hero takeover | Military imagery or claims not supplied by content owners |
@@ -256,4 +256,4 @@ The following must remain true at every supported width and language:
 
 ## Acceptance
 
-The slice is accepted when the focused Django/JavaScript tests pass, the Fable 5 editor can save and reload multi-select audience and collection assignments, those assignments appear consistently on catalog cards and the upper PDP context, selected-color thermo state remains synchronized, all three category routes and `/merch/225/` work in Ukrainian/Russian/English, mobile and desktop browser checks pass at 320/375/430/768/1024/1440 widths, LCP/CLS and accessibility budgets are measured, and live SEO output contains only truthful canonical/schema/indexation states.
+The slice is accepted when the focused Django/JavaScript tests pass, the Product Catalog editor can save and reload multi-select audience and collection assignments, those assignments appear consistently on catalog cards and the upper PDP context, selected-color thermo state remains synchronized, all three category routes and `/merch/225/` work in Ukrainian/Russian/English, mobile and desktop browser checks pass at 320/375/430/768/1024/1440 widths, LCP/CLS and accessibility budgets are measured, and live SEO output contains only truthful canonical/schema/indexation states.

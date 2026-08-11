@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
-from fable5.models import ProductInventoryPolicy, VariantBlankLink
+from product_catalog.models import ProductInventoryPolicy, VariantBlankLink
 from management.models import IgClient, IgCheckoutInventoryReservation
 from management.services.ig_checkout import CheckoutConfigurationError, create_or_update_proposal
 from orders.models import Order

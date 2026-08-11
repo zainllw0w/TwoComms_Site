@@ -330,7 +330,7 @@ def calculate_cart_total(cart):
     from decimal import Decimal
     from ..models import Product
     from productcolors.models import ProductColorVariant
-    from fable5.services import effective_cart_unit_price
+    from product_catalog.services import effective_cart_unit_price
 
     cart, _ = normalize_cart_session(cart)
     if not cart:

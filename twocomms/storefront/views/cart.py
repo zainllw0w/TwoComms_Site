@@ -136,7 +136,7 @@ def _resolve_product_fit_payload(product, requested_code):
 def _effective_item_price(product, item_data, color_variant=None):
     """Resolve a line price from trusted DB state, never from the session."""
 
-    from fable5.services import effective_cart_unit_price
+    from product_catalog.services import effective_cart_unit_price
 
     if color_variant is None:
         raw_variant_id = item_data.get('color_variant_id') if item_data else None
@@ -162,7 +162,7 @@ def _effective_item_price(product, item_data, color_variant=None):
 
 
 def _parse_product_option_values(raw_value):
-    from fable5.content_resolution import normalize_option_values
+    from product_catalog.content_resolution import normalize_option_values
 
     if raw_value in (None, '', {}):
         return {}
@@ -174,7 +174,7 @@ def _parse_product_option_values(raw_value):
 
 
 def _resolve_option_selection(product, color_variant, requested):
-    from fable5.services import product_option_context, variant_allows_options
+    from product_catalog.services import product_option_context, variant_allows_options
 
     if color_variant is not None and requested:
         if not variant_allows_options(color_variant, requested):
@@ -905,7 +905,7 @@ def add_to_cart(request):
         }, status=400)
     requested_fit = option_values.get('fit', requested_fit)
     if color_variant and requested_fit:
-        from fable5.services import variant_allows_fit
+        from product_catalog.services import variant_allows_fit
         if not variant_allows_fit(color_variant, requested_fit):
             return JsonResponse({
                 'ok': False,
@@ -914,7 +914,7 @@ def add_to_cart(request):
 
     fit_option_code, fit_option_label = _resolve_product_fit_payload(product, requested_fit)
     if color_variant and fit_option_code:
-        from fable5.services import variant_allows_fit, variant_public_context
+        from product_catalog.services import variant_allows_fit, variant_public_context
         if not variant_allows_fit(color_variant, fit_option_code):
             context = variant_public_context(color_variant)
             available_codes = context.get('available_fit_codes') or []
@@ -922,15 +922,15 @@ def add_to_cart(request):
                 fit_option_code, fit_option_label = _resolve_product_fit_payload(product, available_codes[0])
 
     if color_variant:
-        from fable5.services import variant_allows_size
+        from product_catalog.services import variant_allows_size
         if fit_option_code:
-            from fable5.size_grid_services import (
+            from product_catalog.size_grid_services import (
                 resolve_effective_sizes,
                 resolve_option_size_grid,
             )
             option_key = f"fit={fit_option_code}"
             if resolve_option_size_grid(product, option_key, variant=color_variant):
-                from fable5.size_grid_services import normalize_size_value
+                from product_catalog.size_grid_services import normalize_size_value
                 grid_sizes = {
                     str(row.get('size') or '').strip().upper()
                     for row in resolve_effective_sizes(

@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from fable5.models import ProductInventoryPolicy, VariantBlankLink, VariantSizeRule
+from product_catalog.models import ProductInventoryPolicy, VariantBlankLink, VariantSizeRule
 from management.services.ig_availability import (
     AllocationSpec,
     AvailabilityStatus,

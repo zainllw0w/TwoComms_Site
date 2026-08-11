@@ -104,12 +104,12 @@ def _resolve_fit_options(product):
 
     is_tshirt = _is_tshirt_product(product)
     if not is_tshirt:
-        # Generic Fable5 garment flows explicitly opt a category into the
+        # Generic ProductCatalog garment flows explicitly opt a category into the
         # configurator. ProductFitOption rows then extend that flow with the
         # fit axis, including for garments such as hoodies. Legacy rows on
         # unrelated categories remain hidden until an active flow is linked.
         try:
-            from fable5.models import GarmentFlow
+            from product_catalog.models import GarmentFlow
 
             has_configurable_flow = GarmentFlow.objects.filter(
                 categories__id=getattr(product, 'category_id', None),
@@ -409,13 +409,13 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     language = (getattr(request, 'LANGUAGE_CODE', None) or 'uk').split('-', 1)[0].lower()
     color_variants = get_detailed_color_variants(product, lang=language)
 
-    # Fable5 size grids can differ by fit and by colour. Build the complete
+    # ProductCatalog size grids can differ by fit and by colour. Build the complete
     # matrix before parsing variant URLs so a size that exists only in a
     # colour override is still a valid path segment and receives an offer ID.
-    has_fable_size_matrix = False
+    has_catalog_size_matrix = False
     grid_variants = []
     try:
-        from fable5.size_grid_services import build_size_grid_comparison
+        from product_catalog.size_grid_services import build_size_grid_comparison
         from productcolors.models import ProductColorVariant as _GridVariant
 
         grid_variants = list(
@@ -424,21 +424,21 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             .select_related(
                 'product',
                 'color',
-                'color__fable5_profile',
-                'fable5_details',
+                'color__product_catalog_profile',
+                'product_catalog_details',
             )
             .prefetch_related(
-                'fable5_details__i18n',
-                'fable5_fit_rules',
-                'fable5_size_rules',
-                'fable5_faqs',
-                'fable5_combinations',
-                'fable5_combinations__i18n',
+                'product_catalog_details__i18n',
+                'product_catalog_fit_rules',
+                'product_catalog_size_rules',
+                'product_catalog_faqs',
+                'product_catalog_combinations',
+                'product_catalog_combinations__i18n',
                 'product__fit_options',
-                'product__fable5_fit_notes',
-                'product__fable5_option_profiles',
-                'product__fable5_option_profiles__i18n',
-                'product__fable5_axis_presentations',
+                'product__product_catalog_fit_notes',
+                'product__product_catalog_option_profiles',
+                'product__product_catalog_option_profiles__i18n',
+                'product__product_catalog_axis_presentations',
             )
             .order_by('order', 'id')
         )
@@ -451,7 +451,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         color_entries_by_id = {
             entry.get('id'): entry for entry in color_variants
         }
-        fable_size_order = []
+        catalog_size_order = []
         for grid_item in size_grid_comparison:
             fit_code = grid_item.get('fit_code', '')
             for variant_item in grid_item.get('variants', []):
@@ -465,15 +465,15 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
                         variant_item.get('guide') or grid_item.get('guide') or {}
                     )
                 for size in sizes:
-                    if size not in fable_size_order:
-                        fable_size_order.append(size)
+                    if size not in catalog_size_order:
+                        catalog_size_order.append(size)
         for variant in color_variants:
             variant['available_sizes_by_fit'] = variant_size_matrix.get(
                 variant.get('id'), {}
             )
-        if fable_size_order:
-            has_fable_size_matrix = True
-            available_sizes = fable_size_order
+        if catalog_size_order:
+            has_catalog_size_matrix = True
+            available_sizes = catalog_size_order
             if preselected_size not in available_sizes:
                 preselected_size = available_sizes[0]
     except Exception:
@@ -517,10 +517,10 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
         if parsed_size is not None:
             preselected_size = parsed_size
-            # Fable grids are authoritative when present. Passing a size that
+            # Catalog grids are authoritative when present. Passing a size that
             # exists only in a color/fit override through the legacy resolver
             # would silently replace it with a different default size.
-            if not has_fable_size_matrix:
+            if not has_catalog_size_matrix:
                 size_context = resolve_product_size_context(product, parsed_size)
                 preselected_size = size_context["selected_size"]
         if parsed_color_id is not None:
@@ -745,7 +745,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     public_product_order_version = get_public_product_order_version()
     fit_options = _resolve_fit_options(product)
 
-    # Fable5 is colour-first: the first entry is the active colour after the
+    # ProductCatalog is colour-first: the first entry is the active colour after the
     # preselection/default reordering above.  Price, thermo messaging and fit
     # availability must therefore all be derived from that same entry.
     selected_variant_merchandising = color_variants[0] if color_variants else {}
@@ -787,7 +787,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     # keeps PDP display, cart snapshots and SEO on the same inheritance layer.
     if preselected_fit_code and color_variants:
         try:
-            from fable5.services import variant_public_context
+            from product_catalog.services import variant_public_context
 
             variants_by_id = {variant.id: variant for variant in grid_variants}
             for entry in color_variants:
@@ -834,7 +834,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     selected_variant_merchandising = color_variants[0] if color_variants else {}
     selected_variant_price = selected_variant_merchandising.get('final_price') or product.final_price
 
-    # Generic Fable5 configurator snapshot. Every public surface and the cart
+    # Generic ProductCatalog configurator snapshot. Every public surface and the cart
     # resolve the same normalized option dictionary, price, and availability.
     product_option_payload = {"axes": [], "selected_values": {}}
     product_size_options = []
@@ -843,8 +843,8 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     variants_by_id = {variant.id: variant for variant in grid_variants}
     if color_variants and grid_variants:
         try:
-            from fable5.content_resolution import build_combination_key
-            from fable5.services import (
+            from product_catalog.content_resolution import build_combination_key
+            from product_catalog.services import (
                 product_option_context,
                 variant_allows_options,
                 variant_allows_purchase,
@@ -1032,7 +1032,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
     if not product_option_payload.get("axes") and not configurator_failed:
         try:
-            from fable5.services import product_option_context
+            from product_catalog.services import product_option_context
 
             product_option_payload = product_option_context(
                 product,

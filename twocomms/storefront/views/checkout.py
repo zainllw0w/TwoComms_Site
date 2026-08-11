@@ -254,7 +254,7 @@ def create_order(request):
         if item.get('color_variant_id')
     ]
     variants_map = ProductColorVariant.objects.in_bulk(variant_ids)
-    from fable5.services import variant_allows_purchase
+    from product_catalog.services import variant_allows_purchase
     for item in cart.values():
         product = products_map.get(int(item['product_id']))
         raw_variant_id = item.get('color_variant_id')
@@ -329,7 +329,7 @@ def create_order(request):
             total_sum = Decimal('0')
 
             order_items = []
-            from fable5.services import effective_cart_unit_price
+            from product_catalog.services import effective_cart_unit_price
             for item in cart.values():
                 product = products_map.get(int(item['product_id']))
                 if not product:

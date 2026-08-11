@@ -1190,6 +1190,15 @@ def build_cart_widget(filters: AnalyticsFilters) -> dict[str, Any]:
 def build_product_admin_metrics(product_ids: list[int]) -> dict[int, dict[str, int]]:
     if not product_ids:
         return {}
+    metrics = {
+        product_id: {
+            "total_views": 0,
+            "unique_ip_views": 0,
+            "purchase_orders": 0,
+            "items_sold": 0,
+        }
+        for product_id in product_ids
+    }
     product_views = UserAction.objects.filter(
         action_type="product_view",
         product_id__in=product_ids,
@@ -1207,13 +1216,27 @@ def build_product_admin_metrics(product_ids: list[int]) -> dict[int, dict[str, i
             unique_ip_views=Count("site_session__ip_address", distinct=True),
         )
     )
-    return {
-        row["product_id"]: {
-            "total_views": row["total_views"],
-            "unique_ip_views": row["unique_ip_views"],
-        }
-        for row in totals
-    }
+    for row in totals:
+        metrics[row["product_id"]].update(
+            total_views=row["total_views"],
+            unique_ip_views=row["unique_ip_views"],
+        )
+
+    paid_items = (
+        OrderItem.objects
+        .filter(product_id__in=product_ids, order__payment_status="paid")
+        .values("product_id")
+        .annotate(
+            purchase_orders=Count("order_id", distinct=True),
+            items_sold=Sum("qty"),
+        )
+    )
+    for row in paid_items:
+        metrics[row["product_id"]].update(
+            purchase_orders=row["purchase_orders"],
+            items_sold=row["items_sold"] or 0,
+        )
+    return metrics
 
 
 def _products_data(filters: AnalyticsFilters) -> dict[str, Any]:

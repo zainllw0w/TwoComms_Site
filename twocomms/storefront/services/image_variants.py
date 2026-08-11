@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from django.conf import settings
+from PIL import Image
+
+from image_optimizer import avif_encoding_available
 
 
 DEFAULT_DISPLAY_WIDTH = 640
@@ -158,22 +161,43 @@ def build_optimized_image_payload(
 
 def optimized_variants_are_current(image_path: Path) -> bool:
     """
-    True, если базовые WebP и AVIF существуют и не старее исходника.
+    True, если все ожидаемые WebP и поддерживаемые runtime AVIF актуальны.
     """
     try:
         source_mtime = image_path.stat().st_mtime
+        with Image.open(image_path) as source:
+            source_width, source_height = source.size
     except OSError:
+        return False
+    except Exception:
         return False
 
     optimized_dir = image_path.parent / "optimized"
-    required = (
-        optimized_dir / f"{image_path.stem}.webp",
-        optimized_dir / f"{image_path.stem}.avif",
-    )
+    required_extensions = ["webp"]
+    if avif_encoding_available():
+        required_extensions.append("avif")
+    required = [
+        optimized_dir / f"{image_path.stem}.{extension}"
+        for extension in required_extensions
+    ]
+    responsive_widths = set()
+    for target_width in (320, 480, 640, 768, 960, 1024, 1280, 1440):
+        scale = min(target_width / source_width, 2000 / source_height, 1)
+        responsive_widths.add(max(1, round(source_width * scale)))
+    for width in sorted(responsive_widths):
+        required.extend(
+            optimized_dir / f"{image_path.stem}_{width}w.{extension}"
+            for extension in required_extensions
+        )
     for candidate in required:
         try:
-            if candidate.stat().st_mtime < source_mtime:
+            stat = candidate.stat()
+            if stat.st_size <= 0 or stat.st_mtime < source_mtime:
                 return False
+            with Image.open(candidate) as derivative:
+                derivative.verify()
         except OSError:
+            return False
+        except Exception:
             return False
     return True

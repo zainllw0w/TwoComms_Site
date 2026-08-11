@@ -3,8 +3,8 @@ Storefront views package.
 
 Рефакторинг views.py на модульную структуру.
 
-Этот файл обеспечивает обратную совместимость, импортируя все views
-из соответствующих модулей и из старого views.py.
+Этот файл собирает активные views из модульных файлов и временно загружает
+неперенесённые административные функции из монолитного views.py.
 
 Структура:
 - utils.py - Утилиты и helper функции
@@ -245,14 +245,14 @@ from .monobank import (
 from .admin import (
     admin_panel,
     admin_dashboard,
-    manage_products,
-    add_product,
     admin_reorder_products,
     admin_update_product_status,
+    admin_category_new,
+    admin_category_edit,
+    admin_category_delete,
     admin_custom_print_lead_status,
     admin_custom_print_lead_moderation,
     admin_toggle_manager,
-    add_category,
     add_print,
     manage_print_proposals,
     manage_promo_codes,
@@ -295,17 +295,6 @@ _LEGACY_VIEW_NAMES = (
     'admin_update_payment_status',
     'admin_approve_payment',
     'admin_order_delete',
-    'admin_category_new',
-    'admin_category_edit',
-    'admin_category_delete',
-    'admin_product_new',
-    'admin_product_edit',
-    'admin_product_edit_simple',
-    'admin_product_edit_unified',
-    'admin_product_delete',
-    'admin_product_colors',
-    'admin_product_color_delete',
-    'admin_product_image_delete',
     # Wholesale & static
     'pricelist_redirect',
     'pricelist_page',
@@ -329,7 +318,8 @@ _LEGACY_VIEW_NAMES = (
 def _load_legacy_views(force: bool = False):
     """
     Ленивая загрузка функций из старого views.py (views.py.backup).
-    Нужна для обратной совместимости маршрутов /admin-panel/product/new/ и др.
+    Нужна для маршрутов офлайн-магазинов и оптовых операций, которые ещё
+    загружаются из исторического модуля.
     """
     global _LEGACY_MODULE_LOADED
     if _LEGACY_MODULE_LOADED and not force:
@@ -447,7 +437,8 @@ __all__ = [
     'product_availability', 'get_related_products', 'newsletter_subscribe', 'contact_form',
 
     # Admin
-    'admin_panel', 'admin_dashboard', 'manage_products', 'add_product', 'add_category', 'add_print',
+    'admin_panel', 'admin_dashboard', 'admin_category_new',
+    'admin_category_edit', 'admin_category_delete', 'add_print',
     'manage_print_proposals', 'manage_promo_codes', 'generate_seo_content',
     'generate_alt_texts', 'manage_orders', 'sales_statistics', 'inventory_management',
     'admin_reorder_products', 'admin_update_product_status',

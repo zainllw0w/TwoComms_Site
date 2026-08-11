@@ -39,6 +39,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
+from django.views.decorators.http import require_POST
 
 import json
 import os
@@ -66,6 +67,8 @@ from ..models import (
     CustomPrintModerationStatus,
     CustomPrintProductType,
     Catalog,
+    GoogleIndexingSubmission,
+    IndexNowSubmission,
     PushNotificationCampaign,
     PushNotificationDelivery,
     SizeGrid,
@@ -73,17 +76,9 @@ from ..models import (
     WebPushDeviceSubscription,
 )
 from ..forms import (
-    ProductForm,
-    ProductSEOForm,
     CategoryForm,
     PushNotificationCampaignForm,
     PrintProposalForm,
-    SizeGridForm,
-    CatalogOptionFormSet,
-    build_color_variant_formset,
-    build_product_fit_option_formset,
-    ProductFitToggleForm,
-    ensure_default_fit_options_for_tshirt,
 )
 from .utils import unique_slugify
 from accounts.models import FavoriteProduct, UserPoints, UserProfile
@@ -103,16 +98,12 @@ from storefront.analytics_exclusions import (
     pageview_exclusion_q,
     session_exclusion_q,
 )
-from storefront.services.catalog import (
-    append_product_gallery,
-    formset_to_variant_payloads,
-    sync_variant_images,
-)
 from storefront.services.admin_analytics import (
     build_admin_analytics_context,
     build_product_admin_metrics,
 )
 from storefront.services.catalog_helpers import bump_public_product_order_version
+from product_catalog.services_audience import validate_published_apparel_audience
 from storefront.services.web_push import (
     WebPushConfigurationError,
     get_default_notification_icon_url,
@@ -827,7 +818,10 @@ def admin_order_payment_snapshots(request):
 
 def _build_catalogs_context():
     """Контекст для управления каталогами."""
-    categories = (
+    from product_catalog.models import MerchCollection
+    from product_catalog.services_collections import order_collections_tree
+
+    categories = list(
         Category.objects.filter(is_active=True)
         .prefetch_related('products')
         .order_by('order', 'name')
@@ -843,21 +837,169 @@ def _build_catalogs_context():
 
     product_list = list(products)
     product_metrics = build_product_admin_metrics([product.id for product in product_list])
+
+    product_urls = {
+        product.id: get_product_public_url(product)
+        for product in product_list
+    }
+    category_urls = {
+        category.id: get_category_public_url(category)
+        for category in categories
+    }
+    public_urls = [
+        url
+        for url in [*product_urls.values(), *category_urls.values()]
+        if url
+    ]
+
+    def latest_by_url(queryset):
+        latest = {}
+        for submission in queryset.filter(url__in=public_urls).order_by("url", "-submitted_at"):
+            latest.setdefault(submission.url, submission)
+        return latest
+
+    google_submissions = latest_by_url(GoogleIndexingSubmission.objects)
+    indexnow_submissions = latest_by_url(IndexNowSubmission.objects)
+
+    def apply_index_state(target, prefix, public_url, submission, success_status):
+        if not public_url:
+            state, label = "idle", "Немає публічного URL"
+        elif submission is None:
+            state, label = "idle", "Не надсилали"
+        elif submission.status == success_status:
+            state, label = "accepted", "Прийнято API"
+        else:
+            state, label = "error", "Помилка"
+        setattr(target, f"{prefix}_state", state)
+        setattr(target, f"{prefix}_state_label", label)
+
     for product in product_list:
         metrics = product_metrics.get(product.id, {})
         product.total_views = metrics.get('total_views', 0)
         product.unique_ip_views = metrics.get('unique_ip_views', 0)
+        product.items_sold = metrics.get('items_sold', 0)
+        public_url = product_urls.get(product.id)
+        apply_index_state(
+            product,
+            "google_index",
+            public_url,
+            google_submissions.get(public_url),
+            GoogleIndexingSubmission.STATUS_SUCCESS,
+        )
+        apply_index_state(
+            product,
+            "indexnow",
+            public_url,
+            indexnow_submissions.get(public_url),
+            IndexNowSubmission.STATUS_SUCCESS,
+        )
+
+    for category in categories:
+        public_url = category_urls.get(category.id)
+        apply_index_state(
+            category,
+            "google_index",
+            public_url,
+            google_submissions.get(public_url),
+            GoogleIndexingSubmission.STATUS_SUCCESS,
+        )
+        apply_index_state(
+            category,
+            "indexnow",
+            public_url,
+            indexnow_submissions.get(public_url),
+            IndexNowSubmission.STATUS_SUCCESS,
+        )
+
+    collections = order_collections_tree(
+        MerchCollection.objects.all()
+        .select_related("parent")
+        .prefetch_related("children", "product_assignments")
+        .order_by("order", "slug")
+    )
+    collection_rows = []
+    collection_lookup = {collection.pk: collection for collection in collections}
+    for collection in collections:
+        ancestors = []
+        current = collection.parent
+        while current is not None:
+            ancestors.append(current.name_uk or current.slug)
+            current = collection_lookup.get(current.parent_id)
+        collection_rows.append({
+            "id": collection.pk,
+            "slug": collection.slug,
+            "kind": collection.kind,
+            "kind_label": collection.get_kind_display(),
+            "parent_id": collection.parent_id,
+            "parent_slug": collection.parent.slug if collection.parent else "",
+            "depth": len(ancestors),
+            "path_label": " / ".join([*reversed(ancestors), collection.name_uk or collection.slug]),
+            "name_uk": collection.name_uk,
+            "name_ru": collection.name_ru,
+            "name_en": collection.name_en,
+            "description_uk": collection.description_uk,
+            "description_ru": collection.description_ru,
+            "description_en": collection.description_en,
+            "seo_title_uk": collection.seo_title_uk,
+            "seo_title_ru": collection.seo_title_ru,
+            "seo_title_en": collection.seo_title_en,
+            "seo_h1_uk": collection.seo_h1_uk,
+            "seo_h1_ru": collection.seo_h1_ru,
+            "seo_h1_en": collection.seo_h1_en,
+            "seo_description_uk": collection.seo_description_uk,
+            "seo_description_ru": collection.seo_description_ru,
+            "seo_description_en": collection.seo_description_en,
+            "seo_keywords_uk": collection.seo_keywords_uk,
+            "seo_keywords_ru": collection.seo_keywords_ru,
+            "seo_keywords_en": collection.seo_keywords_en,
+            "accent_token": collection.accent_token,
+            "indexable": collection.indexable,
+            "is_active": collection.is_active,
+            "order": collection.order,
+            "children_count": sum(1 for row in collections if row.parent_id == collection.pk),
+            "product_count": collection.product_assignments.count(),
+            "icon_url": collection.icon.url if collection.icon else "",
+            "cover_url": collection.cover_image.url if collection.cover_image else "",
+        })
+
+    rows_by_id = {row["id"]: row for row in collection_rows}
+    collection_groups = []
+    groups_by_root_id = {}
+
+    def resolve_root_id(row):
+        current = row
+        seen = set()
+        while current.get("parent_id") in rows_by_id:
+            if current["id"] in seen:
+                break
+            seen.add(current["id"])
+            current = rows_by_id[current["parent_id"]]
+        return current["id"]
+
+    for row in collection_rows:
+        root_id = resolve_root_id(row)
+        group = groups_by_root_id.get(root_id)
+        if group is None:
+            group = {"root": rows_by_id[root_id], "descendants": []}
+            groups_by_root_id[root_id] = group
+            collection_groups.append(group)
+        if row["id"] != root_id:
+            group["descendants"].append(row)
 
     return {
         'categories': categories,
         'products': product_list,
         'catalogs': catalogs,
         'product_statuses': ProductStatus,
+        'merch_collections': collection_rows,
+        'merch_collection_groups': collection_groups,
+        'merch_collections_payload': collection_rows,
+        'taxonomy_languages': (("uk", "UK"), ("ru", "RU"), ("en", "EN")),
     }
 
 
 def _build_size_grids_context():
-    """Minimal, JSON-safe bootstrap for the Fable size-grid workspace."""
+    """Minimal, JSON-safe bootstrap for the product catalog size-grid workspace."""
     catalogs = list(
         Catalog.objects.filter(is_active=True)
         .order_by('order', 'name')
@@ -867,11 +1009,11 @@ def _build_size_grids_context():
         'size_grid_bootstrap': {
             'catalogs': catalogs,
             'urls': {
-                'list': reverse('fable5_api_size_grids'),
-                'save': reverse('fable5_api_size_grid_save'),
-                'duplicate': reverse('fable5_api_size_grid_duplicate'),
-                'archive': reverse('fable5_api_size_grid_archive'),
-                'preview': reverse('fable5_api_size_grid_preview'),
+                'list': reverse('product_catalog_api_size_grids'),
+                'save': reverse('product_catalog_api_size_grid_save'),
+                'duplicate': reverse('product_catalog_api_size_grid_duplicate'),
+                'archive': reverse('product_catalog_api_size_grid_archive'),
+                'preview': reverse('product_catalog_api_size_grid_preview'),
             },
         },
     }
@@ -1461,11 +1603,23 @@ def admin_update_product_status(request):
         return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
 
     with transaction.atomic():
-        updated = Product.objects.filter(id=product_id).update(status=status_value)
-        if updated:
-            transaction.on_commit(bump_public_product_order_version)
-    if not updated:
-        return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+        product = (
+            Product.objects.select_for_update()
+            .select_related('category')
+            .filter(id=product_id)
+            .first()
+        )
+        if product is None:
+            return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+
+        product.status = status_value
+        try:
+            validate_published_apparel_audience(product)
+        except ValueError as exc:
+            return JsonResponse({'success': False, 'error': str(exc)}, status=400)
+
+        Product.objects.filter(id=product_id).update(status=status_value)
+        transaction.on_commit(bump_public_product_order_version)
 
     return JsonResponse({'success': True})
 
@@ -1577,521 +1731,36 @@ def admin_custom_print_lead_moderation(request, lead_id: int):
 
 
 @staff_member_required
-def manage_products(request):
-    """
-    Список всех товаров с возможностью фильтрации.
-
-    Query params:
-        category: ID категории для фильтрации
-        featured: Показать только featured
-        search: Поиск по названию
-    """
-    products = Product.objects.select_related('category').order_by('-priority', '-id')
-
-    # Фильтры
-    category_id = request.GET.get('category')
-    if category_id:
-        products = products.filter(category_id=category_id)
-
-    if request.GET.get('featured'):
-        products = products.filter(featured=True)
-
-    search = request.GET.get('search')
-    if search:
-        products = products.filter(title__icontains=search)
-
-    categories = Category.objects.all()
-
-    return render(
-        request,
-        'admin/manage_products.html',
-        {
-            'products': products,
-            'categories': categories
-        }
-    )
-
-
-@transaction.atomic
-def add_product(request):
-    """
-    Добавление нового товара через унифицированный интерфейс.
-
-    Supports:
-    - AJAX форма (JSON response)
-    - Обычная форма (HTML redirect)
-    - Добавление цветовых вариантов
-    - Загрузка изображений
-    """
-    # TODO: Полная реализация добавления товара
-    # Временно импортируем из старого views.py
-    from storefront import views as old_views
-    if hasattr(old_views, 'add_product'):
-        return old_views.add_product(request)
-
-    if request.method == 'POST':
-        form = ProductForm(request.POST, request.FILES)
-        if form.is_valid():
-            product = form.save(commit=False)
-            if not getattr(product, 'slug', None):
-                base = slugify(product.title or '')
-                product.slug = unique_slugify(Product, base)
-            product.save()
-            return redirect('product', slug=product.slug)
-    else:
-        form = ProductForm()
-
-    return render(
-        request,
-        'pages/add_product_new.html',
-        {
-            'form': form,
-            'product': None,
-            'is_new': True
-        }
-    )
+def admin_category_new(request):
+    form = CategoryForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect(f"{reverse('admin_panel')}?section=catalogs")
+    return render(request, "pages/admin_category_form.html", {"form": form, "mode": "new"})
 
 
 @staff_member_required
-def admin_product_builder(request, product_id=None):
-    """
-    Новый конструктор товара.
+def admin_category_edit(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    form = CategoryForm(request.POST or None, request.FILES or None, instance=category)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect(f"{reverse('admin_panel')}?section=catalogs")
+    return render(request, "pages/admin_category_form.html", {"form": form, "mode": "edit", "obj": category})
 
-    Поддерживает создание и редактирование товара с цветовыми вариантами.
-    """
-    is_new = product_id is None
 
-    if product_id is not None:
-        product = get_object_or_404(
-            Product.objects.select_related('catalog', 'category'),
-            pk=product_id
+@staff_member_required
+@require_POST
+def admin_category_delete(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    product_count = category.products.count()
+    if product_count:
+        return JsonResponse(
+            {"ok": False, "error": f"Категорія містить {product_count} товар(и). Спочатку перенесіть їх."},
+            status=409,
         )
-    else:
-        product = Product(status=ProductStatus.DRAFT)
-    original_slug = product.slug
-
-    # Базовые формы
-    if request.method == 'POST':
-        product_form = ProductForm(
-            data=request.POST,
-            files=request.FILES,
-            prefix='product',
-            instance=product,
-        )
-        seo_form = ProductSEOForm(
-            data=request.POST,
-            prefix='seo',
-            instance=product,
-        )
-    else:
-        product_form = ProductForm(prefix='product', instance=product)
-        seo_form = ProductSEOForm(prefix='seo', instance=product)
-
-    # Определяем выбранный каталог
-    catalog_instance = None
-    product_form_valid = None
-    seo_form_valid = None
-
-    if request.method == 'POST':
-        product_form_valid = product_form.is_valid()
-        if product_form_valid:
-            catalog_instance = product_form.cleaned_data.get('catalog')
-        else:
-            catalog_id = product_form.data.get('product-catalog')
-            if catalog_id:
-                catalog_instance = Catalog.objects.filter(pk=catalog_id).first()
-    else:
-        catalog_id = request.GET.get('catalog')
-        if product.catalog_id:
-            catalog_instance = product.catalog
-        elif catalog_id:
-            catalog_instance = Catalog.objects.filter(pk=catalog_id).first()
-
-    # Сетка размеров
-    size_grid_instance = None
-    if getattr(product, 'size_grid_id', None):
-        size_grid_instance = product.size_grid
-    elif catalog_instance:
-        size_grid_instance = catalog_instance.size_grids.filter(is_active=True).order_by('order', 'name').first()
-
-    if request.method == 'POST':
-        size_grid_base_instance = size_grid_instance
-        if size_grid_base_instance is None and catalog_instance:
-            size_grid_base_instance = SizeGrid(catalog=catalog_instance)
-        size_grid_form = SizeGridForm(
-            data=request.POST,
-            files=request.FILES,
-            prefix='size_grid',
-            instance=size_grid_base_instance
-        )
-        size_grid_bound_values = [
-            (request.POST.get(f'size_grid-{field_name}') or '').strip()
-            for field_name in ('name', 'description', 'guide_data')
-        ]
-        size_grid_form_used = any(size_grid_bound_values) or bool(request.FILES.get('size_grid-image'))
-        size_grid_form_valid = True
-        if size_grid_form_used:
-            size_grid_form_valid = size_grid_form.is_valid()
-            size_grid_requires_catalog = (
-                size_grid_form_valid
-                and not getattr(size_grid_form.instance, 'catalog_id', None)
-                and catalog_instance is None
-            )
-            if size_grid_requires_catalog:
-                size_grid_form.add_error(None, 'Оберіть каталог перед збереженням сітки розмірів.')
-                size_grid_form_valid = False
-    else:
-        size_grid_form = SizeGridForm(prefix='size_grid', instance=size_grid_instance)
-        size_grid_form_used = False
-        size_grid_form_valid = True
-
-    # Цвета и изображения
-    color_formset = build_color_variant_formset(
-        product=product,
-        data=request.POST if request.method == 'POST' else None,
-        files=request.FILES if request.method == 'POST' else None,
-        prefix='color_variants'
-    )
-    fit_formset = build_product_fit_option_formset(
-        product=product,
-        data=request.POST if request.method == 'POST' else None,
-        prefix='fit_options',
-    )
-    # Phase 17 — simple toggle UI (classic/oversize). Coexists with the
-    # legacy formset; the formset stays for advanced edits (custom fit
-    # codes) but is hidden from the default product builder UI.
-    fit_toggle_form = ProductFitToggleForm(
-        data=request.POST if request.method == 'POST' else None,
-        product=product if getattr(product, 'pk', None) else None,
-        prefix='fit_toggle',
-    )
-
-    option_formset = None
-    option_formset_valid = True
-    option_formset_has_changes = False
-    if catalog_instance:
-        if request.method == 'POST':
-            option_formset = CatalogOptionFormSet(
-                data=request.POST,
-                prefix='catalog-options',
-                instance=catalog_instance
-            )
-            option_formset_valid = option_formset.is_valid()
-            option_formset_has_changes = any(form.has_changed() for form in option_formset.forms) or bool(option_formset.deleted_forms)
-        else:
-            option_formset = CatalogOptionFormSet(
-                prefix='catalog-options',
-                instance=catalog_instance
-            )
-
-    catalogs = Catalog.objects.filter(is_active=True).order_by('order', 'name')
-
-    if request.method == 'POST':
-        if product_form_valid is None:
-            product_form_valid = product_form.is_valid()
-
-        seo_form_valid = seo_form.is_valid()
-        color_formset_valid = color_formset.is_valid()
-        fit_formset_valid = fit_formset.is_valid()
-
-        images_valid = True
-        for variant_form in color_formset.forms:
-            images_formset = getattr(variant_form, 'images_formset', None)
-            if images_formset is not None:
-                if not images_formset.is_valid():
-                    images_valid = False
-
-        if product_form_valid and seo_form_valid and color_formset_valid and fit_formset_valid and images_valid and size_grid_form_valid and option_formset_valid:
-            with transaction.atomic():
-                product_obj = product_form.save(commit=False)
-                # Генерация slug, если не задан або змінено
-                desired_slug = product_obj.slug or slugify(product_obj.title or '')
-                if product_obj.pk:
-                    if original_slug and desired_slug == original_slug:
-                        product_obj.slug = original_slug
-                    else:
-                        product_obj.slug = unique_slugify(Product, desired_slug)
-                else:
-                    product_obj.slug = unique_slugify(Product, desired_slug)
-                product_obj.status = product_obj.status or ProductStatus.DRAFT
-
-                # Обработка size grid
-                size_grid_obj = product_form.cleaned_data.get('size_grid')
-                if size_grid_form_used and size_grid_form_valid:
-                    temp_grid = size_grid_form.save(commit=False)
-                    grid_catalog = temp_grid.catalog or catalog_instance or product_form.cleaned_data.get('catalog')
-                    if grid_catalog:
-                        temp_grid.catalog = grid_catalog
-                        temp_grid.save()
-                        size_grid_obj = temp_grid
-                elif size_grid_obj and not size_grid_obj.catalog_id and catalog_instance:
-                    size_grid_obj.catalog = catalog_instance
-                    size_grid_obj.save(update_fields=['catalog'])
-
-                product_obj.size_grid = size_grid_obj
-                product_obj.save()
-                product_form.save_m2m()
-
-                # SEO поля
-                seo_form.instance = product_obj
-                seo_form.save()
-
-                # Работа с цветовыми вариантами
-                saved_variants = []
-                default_assigned = False
-                main_image_uploaded = bool(product_form.cleaned_data.get('main_image'))
-                primary_image_candidate = None
-                images_updated_any = False
-                default_switched = False
-
-                for variant_form in color_formset.forms:
-                    if not hasattr(variant_form, 'cleaned_data'):
-                        continue
-
-                    if variant_form.cleaned_data.get('DELETE'):
-                        if variant_form.instance.pk:
-                            variant_form.instance.delete()
-                        continue
-
-                    images_formset = getattr(variant_form, 'images_formset', None)
-                    images_changed = images_formset.has_changed() if images_formset is not None else False
-
-                    if (
-                        not variant_form.cleaned_data
-                        or (
-                            not variant_form.has_changed()
-                            and not images_changed
-                            and not variant_form.instance.pk
-                        )
-                    ):
-                        continue
-
-                    variant = variant_form.save(commit=False)
-                    variant.product = product_obj
-
-                    if variant.is_default:
-                        if default_assigned:
-                            variant.is_default = False
-                        else:
-                            default_assigned = True
-
-                    if variant.order is None:
-                        variant.order = 0
-
-                    if 'is_default' in getattr(variant_form, 'changed_data', []):
-                        default_switched = True
-
-                    variant.save()
-                    saved_variants.append(variant)
-
-                    if images_formset is not None:
-                        images_formset.instance = variant
-                        payloads = formset_to_variant_payloads(images_formset)
-                        if payloads:
-                            synced_images = sync_variant_images(variant, payloads)
-                            images_updated_any = images_updated_any or images_changed
-                            if (
-                                not primary_image_candidate
-                                and variant.is_default
-                                and synced_images
-                            ):
-                                primary_image_candidate = synced_images[0].image
-
-                # Если нет варианта по умолчанию — назначаем первый
-                if not default_assigned and saved_variants:
-                    primary_variant = saved_variants[0]
-                    if not primary_variant.is_default:
-                        primary_variant.is_default = True
-                        primary_variant.save(update_fields=['is_default'])
-                    if not primary_image_candidate:
-                        first_img = primary_variant.images.order_by('order', 'id').first()
-                        if first_img:
-                            primary_image_candidate = first_img.image
-                    default_switched = True
-
-                # Ставим главное фото из default-варіанта, если его не загрузили вручную
-                if not primary_image_candidate:
-                    default_variant_obj = (
-                        product_obj.color_variants.filter(is_default=True)
-                        .order_by('order', 'id')
-                        .first()
-                    ) or product_obj.color_variants.order_by('order', 'id').first()
-                    if default_variant_obj:
-                        first_img = default_variant_obj.images.order_by('order', 'id').first()
-                        if first_img:
-                            primary_image_candidate = first_img.image
-
-                if (
-                    primary_image_candidate
-                    and not main_image_uploaded
-                    and (images_updated_any or default_switched or not product_obj.main_image)
-                ):
-                    if product_obj.main_image != primary_image_candidate:
-                        product_obj.main_image = primary_image_candidate
-                        product_obj.save(update_fields=['main_image'])
-
-                # Дополнительные изображения товара
-                extra_images = product_form.cleaned_data.get('extra_images') or []
-                append_product_gallery(product_obj, extra_images)
-
-                # Порядок существующих изображений товара (product images)
-                gallery_order_raw = request.POST.get('product_gallery_order') or ''
-                if gallery_order_raw:
-                    try:
-                        ids = [int(x) for x in gallery_order_raw.split(',') if x.strip()]
-                        base = len(ids)
-                        for index, image_id in enumerate(ids):
-                            ProductImage.objects.filter(pk=image_id, product=product_obj).update(order=index)
-                        # Остальным выставим порядок после указанных
-                        remainder = product_obj.images.exclude(pk__in=ids).order_by('order', 'id')
-                        offset = base
-                        for extra_img in remainder:
-                            if extra_img.order != offset:
-                                extra_img.order = offset
-                                extra_img.save(update_fields=['order'])
-                            offset += 1
-                    except Exception:
-                        pass
-
-                # Сохранение опций каталога
-                if option_formset is not None and option_formset.is_bound and option_formset_valid and option_formset_has_changes:
-                    option_formset.save()
-
-                # Сохранение вариантов посадки.
-                # Phase 17: legacy formset still runs (for non-classic/oversize
-                # custom rows), then the simple toggle form normalises the
-                # canonical pair (classic + oversize) and the default flag.
-                fit_formset.instance = product_obj
-                fit_formset.save()
-                # Apply the new toggle UI ONLY when its prefix is present in
-                # the POST. Otherwise (legacy admin scripts / API calls that
-                # only post the formset) we don't want the empty toggle form
-                # to silently disable freshly-saved rows.
-                _toggle_present = any(
-                    key.startswith('fit_toggle-') for key in request.POST.keys()
-                )
-                if _toggle_present and fit_toggle_form.is_valid():
-                    fit_toggle_form.save(product_obj)
-                # Auto-bootstrap: legacy tshirt products with zero fit_options
-                # (admin never opened the new UI) get a sane default pair so
-                # the storefront selector stops being silently empty.
-                ensure_default_fit_options_for_tshirt(product_obj)
-                active_fit_options = list(product_obj.fit_options.filter(is_active=True).order_by('order', 'id'))
-                default_options = [option for option in active_fit_options if option.is_default]
-                if default_options:
-                    default = default_options[0]
-                    product_obj.fit_options.filter(is_default=True).exclude(pk=default.pk).update(is_default=False)
-                elif active_fit_options:
-                    default = active_fit_options[0]
-                    if not default.is_default:
-                        default.is_default = True
-                        default.save(update_fields=['is_default'])
-
-                messages.success(request, 'Товар успішно збережено.')
-                return redirect('admin_product_builder_edit', product_id=product_obj.pk)
-        else:
-            messages.error(request, 'Перевірте форму — знайдені помилки.')
-
-    def _extract_value(form, field_name, valid_flag):
-        if not form:
-            return None
-        if form.is_bound:
-            if valid_flag is False:
-                return None
-            if valid_flag is True and hasattr(form, 'cleaned_data'):
-                return form.cleaned_data.get(field_name)
-            return form.data.get(f'{form.prefix}-{field_name}')
-        if form.instance is not None and hasattr(form.instance, field_name):
-            return getattr(form.instance, field_name)
-        return None
-
-    def _colors_complete():
-        if color_formset.is_bound:
-            for form in color_formset.forms:
-                if getattr(form, 'cleaned_data', None) and form.cleaned_data.get('DELETE'):
-                    continue
-                if form.has_changed() or getattr(form.instance, 'pk', None):
-                    return True
-            return False
-        if product.pk:
-            return product.color_variants.exists()
-        return False
-
-    basic_complete = all(
-        bool(_extract_value(product_form, field, product_form_valid))
-        for field in ('title', 'category', 'price')
-    )
-    catalog_complete = bool(_extract_value(product_form, 'catalog', product_form_valid))
-    colors_complete = _colors_complete()
-    seo_complete = any(
-        bool(_extract_value(seo_form, field, seo_form_valid))
-        for field in ('seo_title', 'seo_description', 'seo_keywords')
-    )
-    status_value = _extract_value(product_form, 'status', product_form_valid)
-    preview_complete = bool(
-        status_value and status_value != ProductStatus.DRAFT
-    )
-
-    progress_steps = {
-        'basic': basic_complete,
-        'catalog': catalog_complete,
-        'colors': colors_complete,
-        'seo': seo_complete,
-        'preview': preview_complete,
-    }
-    total_steps = len(progress_steps)
-    completed_steps = sum(1 for completed in progress_steps.values() if completed)
-    progress_percent = int(round((completed_steps / total_steps) * 100)) if total_steps else 0
-
-    builder_progress = {
-        'steps': progress_steps,
-        'completed': completed_steps,
-        'total': total_steps,
-        'percent': progress_percent,
-    }
-    # Для нового товара product.pk == None, но нам нужен объект в шаблоне,
-    # чтобы выражения вида product.price не падали.
-    product_for_view = product_form.instance if product_form is not None else product
-
-    gallery_images = list(product.images.all()) if getattr(product, "pk", None) else []
-
-    context = {
-        'product': product_for_view,
-        'product_form': product_form,
-        'seo_form': seo_form,
-        'size_grid_form': size_grid_form,
-        'color_formset': color_formset,
-        'fit_formset': fit_formset,
-        'fit_toggle_form': fit_toggle_form,
-        'option_formset': option_formset,
-        'catalogs': catalogs,
-        'selected_catalog': catalog_instance,
-        'is_new': is_new,
-        'builder_progress': builder_progress,
-        'gallery_images': gallery_images,
-    }
-
-    return render(request, 'pages/product_builder.html', context)
-
-
-@login_required
-def add_category(request):
-    """
-    Добавление новой категории.
-    """
-    if request.method == 'POST':
-        form = CategoryForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return redirect('catalog')
-    else:
-        form = CategoryForm()
-
-    return render(
-        request,
-        'pages/add_category.html',
-        {'form': form}
-    )
+    category.delete()
+    return JsonResponse({"ok": True, "deleted": pk})
 
 
 def add_print(request):
@@ -2389,7 +2058,7 @@ def admin_indexnow_submit(request):
             status=400,
         )
 
-    ok = submit_indexnow_urls(urls)
+    ok = submit_indexnow_urls(urls, source="admin")
     return JsonResponse(
         {
             'success': bool(ok),

@@ -91,6 +91,6 @@
 **Steps:**
 1. Run focused tests, full checkout/orders tests, `makemigrations --check`, `manage.py check`, and compile checks.
 2. Inspect production records `TWC17072026N01` and `TWC17072026N02` read-only; preserve audit history and mark any historical duplicate consistently without deleting evidence.
-3. Review staged diff and ensure unrelated Fable5 artifacts remain untracked.
+3. Review staged diff and ensure unrelated ProductCatalog artifacts remain untracked.
 4. Commit relevant changes on `main`, push `origin/main`, pull on the server with the requested SSH command, run migrations/check/static/restart as needed.
 5. Verify production endpoints, admin attempts view, order counts, and live webhook/return behavior using safe read-only checks.

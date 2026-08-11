@@ -155,7 +155,7 @@ class ProductSizeGuideResolverTests(TestCase):
 
         self.assertEqual([block["guide_key"] for block in populated_blocks["blocks"]], ["hoodie", "basic_tshirt"])
 
-    def test_legacy_context_shape_is_unchanged_without_fable_assignment(self):
+    def test_legacy_context_shape_is_unchanged_without_catalog_assignment(self):
         product = Product.objects.create(
             title="Legacy guide product",
             slug="legacy-guide-product",
@@ -178,12 +178,12 @@ class ProductSizeGuideResolverTests(TestCase):
             },
         )
 
-    def test_fable_assignments_add_both_fit_grids_to_context(self):
-        from fable5.models import ProductOptionSizeGrid, SizeGridProfile
+    def test_catalog_assignments_add_both_fit_grids_to_context(self):
+        from product_catalog.models import ProductOptionSizeGrid, SizeGridProfile
 
         product = Product.objects.create(
-            title="Fable comparison product",
-            slug="fable-comparison-product",
+            title="Catalog comparison product",
+            slug="catalog-comparison-product",
             category=self.tshirt_category,
             catalog=self.tshirt_catalog,
             price=1200,
@@ -213,7 +213,7 @@ class ProductSizeGuideResolverTests(TestCase):
 
         context = resolve_product_size_context(product, requested_size="M")
 
-        self.assertTrue(context["fable5_size_grids"])
+        self.assertTrue(context["product_catalog_size_grids"])
         self.assertEqual(context["selected_size"], "M")
         self.assertEqual(
             [item["fit_code"] for item in context["size_grid_comparison"]],

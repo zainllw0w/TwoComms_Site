@@ -1,0 +1,94 @@
+/*
+ * Product Catalog — кружечки кольорів з індикатором термохромної тканини.
+ * Підключається на публічних сторінках (головна, картка товару):
+ *   <link rel="stylesheet" href="{% static 'product_catalog/thermo-dot.css' %}">
+ * Розмітку дає тег {% product_catalog_color_dot variant %} (templates/product_catalog/_color_dot.html).
+ */
+
+.catalog-editor-dot {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	border-radius: 50%;
+	border: 1px solid rgba(0, 0, 0, 0.25);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+	vertical-align: middle;
+	overflow: hidden;
+}
+
+.catalog-editor-dot--thermo {
+	box-shadow:
+		inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+		0 0 0 2px rgba(255, 159, 46, 0.4);
+}
+
+.catalog-editor-dot__flame {
+	width: 64%;
+	height: 64%;
+	filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.45));
+	animation: catalog-editor-flame-flicker 1.6s ease-in-out infinite;
+	transform-origin: 50% 85%;
+}
+
+@keyframes catalog-editor-flame-flicker {
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	40% {
+		transform: scale(0.92) rotate(-2deg);
+		opacity: 0.92;
+	}
+	70% {
+		transform: scale(1.05) rotate(2deg);
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.catalog-editor-dot__flame {
+		animation: none;
+	}
+}
+
+/* Shared public flame: readable at 14–28 px and independent of emoji fonts. */
+.tc-thermo-flame {
+	display: block;
+	width: 1em;
+	height: 1em;
+	color: #ff7824;
+	filter:
+		drop-shadow(0 1px 1px rgba(20, 6, 0, 0.72))
+		drop-shadow(0 0 4px rgba(255, 111, 24, 0.82));
+	transform-origin: 50% 84%;
+	animation: tc-thermo-flame-live 1.8s cubic-bezier(.2, .8, .2, 1) infinite;
+	pointer-events: none;
+}
+
+.tc-thermo-flame__outer {
+	color: #ff7824;
+}
+
+.tc-thermo-flame__core {
+	color: #ffd166;
+}
+
+@keyframes tc-thermo-flame-live {
+	0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+	36% { transform: translateY(-1px) scale(.93, 1.06) rotate(-2deg); }
+	68% { transform: translateY(0) scale(1.06, .96) rotate(2deg); }
+}
+
+html[data-device-class="low"] .tc-thermo-flame,
+html.perf-lite .tc-thermo-flame {
+	animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tc-thermo-flame {
+		animation: none;
+	}
+}

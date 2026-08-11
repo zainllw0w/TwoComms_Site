@@ -4,19 +4,19 @@
 
 **Goal:** Ship exact classic T-shirt measurements, compact guide navigation, and a localized height/weight size advisor on every eligible T-shirt product page.
 
-**Architecture:** Extend the existing Fable5 fit-specific guide payload and PDP tab system. Keep canonical guide data separate from product sellability, calculate recommendations in a pure tested JavaScript function using the live availability matrix, and expose machine-readable tool metadata from the server-rendered template.
+**Architecture:** Extend the existing ProductCatalog fit-specific guide payload and PDP tab system. Keep canonical guide data separate from product sellability, calculate recommendations in a pure tested JavaScript function using the live availability matrix, and expose machine-readable tool metadata from the server-rendered template.
 
-**Tech Stack:** Django, Fable5 `SizeGrid`, Django templates/i18n, vanilla JavaScript, Node test runner, CSS, Pillow, Playwright.
+**Tech Stack:** Django, ProductCatalog `SizeGrid`, Django templates/i18n, vanilla JavaScript, Node test runner, CSS, Pillow, Playwright.
 
 ---
 
 ### Task 1: Canonical classic guide and production-safe backfill
 
 **Files:**
-- Modify: `twocomms/fable5/default_size_guides.py`
-- Modify: `twocomms/fable5/size_grid_services.py`
-- Create: `twocomms/fable5/management/commands/ensure_tshirt_size_guides.py`
-- Modify: `twocomms/fable5/tests/test_size_grid_resolution.py`
+- Modify: `twocomms/product_catalog/default_size_guides.py`
+- Modify: `twocomms/product_catalog/size_grid_services.py`
+- Create: `twocomms/product_catalog/management/commands/ensure_tshirt_size_guides.py`
+- Modify: `twocomms/product_catalog/tests/test_size_grid_resolution.py`
 - Create: `twocomms/twocomms_django_theme/static/img/size-guides/classic-tshirt.webp`
 
 1. Add failing tests for all FS-101 rows, `S-3XL` guide display, classic image metadata, preservation of explicit overrides, and idempotent production updates.
@@ -39,11 +39,11 @@
 ### Task 3: Compact three-mode PDP interface
 
 **Files:**
-- Modify: `twocomms/fable5/templates/fable5/_size_grid_comparison.html`
+- Modify: `twocomms/product_catalog/templates/product_catalog/_size_grid_comparison.html`
 - Modify: `twocomms/twocomms_django_theme/templates/pages/product_detail.html`
 - Modify: `twocomms/twocomms_django_theme/static/js/product-detail.js`
 - Modify: `twocomms/twocomms_django_theme/static/css/product-detail.css`
-- Modify: `twocomms/fable5/tests/test_size_grid_resolution.py`
+- Modify: `twocomms/product_catalog/tests/test_size_grid_resolution.py`
 
 1. Add failing template/source tests for two thin size-header actions, absence of the large compare block, three mutually exclusive modes, labeled numeric inputs, live result, and focus/scroll targets.
 2. Confirm RED in Django and Node.
@@ -59,7 +59,7 @@
 - Regenerate: `twocomms/locale/ru/LC_MESSAGES/django.mo`
 - Regenerate: `twocomms/locale/en/LC_MESSAGES/django.mo`
 - Modify: `twocomms/twocomms_django_theme/templates/pages/product_detail.html`
-- Modify: `twocomms/fable5/tests/test_size_grid_resolution.py`
+- Modify: `twocomms/product_catalog/tests/test_size_grid_resolution.py`
 
 1. Add failing tests that render Ukrainian, Russian, and English UI plus valid `WebApplication`/`HowTo` JSON-LD.
 2. Add concise translations and server-rendered JSON-LD with no dynamic-result claims.

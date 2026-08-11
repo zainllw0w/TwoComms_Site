@@ -48,7 +48,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('installation_id', models.CharField(blank=True, db_index=True, max_length=64, verbose_name='ID браузерної інсталяції')),
-                ('endpoint', models.URLField(max_length=1000, unique=True, verbose_name='Push endpoint')),
+                ('endpoint', models.URLField(max_length=768, unique=True, verbose_name='Push endpoint')),
                 ('auth_key', models.CharField(max_length=255, verbose_name='Ключ auth')),
                 ('p256dh_key', models.CharField(max_length=255, verbose_name='Ключ p256dh')),
                 ('language', models.CharField(blank=True, max_length=16, verbose_name='Мова браузера')),

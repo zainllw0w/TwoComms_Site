@@ -10,7 +10,7 @@ from accounts.models import UserProfile
 from orders.models import CheckoutCapture, Order, PaymentAttempt
 from orders.nova_poshta_documents import normalize_checkout_phone, normalize_phone, normalize_phone_for_np
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
-from fable5.models import ProductOptionProfile, VariantDetails
+from product_catalog.models import ProductOptionProfile, VariantDetails
 from productcolors.models import Color, ProductColorVariant
 from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
 from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product, ProductFitOption

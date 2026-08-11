@@ -34,11 +34,6 @@ from .serializers import (
     NewsletterSubscribeSerializer,
     ContactFormSerializer
 )
-from .services.product_builder import (
-    get_product_builder_payload,
-    serialize_catalog,
-    list_catalog_payloads,
-)
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -325,79 +320,6 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             'suggestions': serializer.data,
             'count': len(serializer.data)
         })
-
-
-@extend_schema(responses=OpenApiTypes.OBJECT)
-class AdminProductBuilderViewSet(viewsets.ViewSet):
-    """
-    Admin endpoints that power the product builder UI.
-
-    Provides read-only payloads for now; write operations
-    are handled via the HTML form and will be exposed in later phases.
-    """
-
-    permission_classes = [IsAuthenticated, IsAdminUser]
-
-    @extend_schema(operation_id="admin_product_builder_list")
-    def list(self, request):
-        """Return base payload with active catalogs and their options."""
-        payload = {"catalogs": list_catalog_payloads(active_only=True)}
-        return Response(payload)
-
-    @extend_schema(
-        operation_id="admin_product_builder_retrieve",
-        parameters=[OpenApiParameter("id", OpenApiTypes.INT, OpenApiParameter.PATH)],
-    )
-    def retrieve(self, request, pk=None):
-        """Return product-centric payload for the builder."""
-        product = get_object_or_404(
-            Product.objects.select_related("catalog", "size_grid", "category"),
-            pk=pk,
-        )
-        payload = get_product_builder_payload(product=product)
-        return Response(payload)
-
-    @extend_schema(operation_id="admin_product_builder_catalogs")
-    @action(detail=False, methods=['get'], url_path='catalogs')
-    def catalogs(self, request):
-        """Explicit endpoint for fetching catalogs (supports ?active=false)."""
-        active = request.query_params.get("active")
-        active_only = True if active is None else active.lower() != "false"
-        return Response({"catalogs": list_catalog_payloads(active_only=active_only)})
-
-    @extend_schema(
-        operation_id="admin_product_builder_catalog_detail",
-        parameters=[OpenApiParameter("catalog_id", OpenApiTypes.INT, OpenApiParameter.PATH)],
-    )
-    @action(detail=False, methods=['get'], url_path='catalogs/(?P<catalog_id>\\d+)')
-    def catalog_detail(self, request, catalog_id=None):
-        """Fetch a single catalog with its options and size grids."""
-        catalog = get_object_or_404(
-            Catalog.objects.prefetch_related(
-                "options__values",
-                "size_grids",
-            ),
-            pk=catalog_id,
-        )
-        return Response({"catalog": serialize_catalog(catalog)})
-
-    @extend_schema(operation_id="admin_product_builder_new_product")
-    @action(detail=False, methods=['get'], url_path='product/new')
-    def new_product(self, request):
-        """
-        Provide initial payload for a new product.
-
-        Supports ?catalog=<id> to pre-select catalog options.
-        """
-        catalog_id = request.query_params.get("catalog")
-        catalog = None
-        if catalog_id:
-            catalog = get_object_or_404(
-                Catalog.objects.prefetch_related("options__values", "size_grids"),
-                pk=catalog_id,
-            )
-        payload = get_product_builder_payload(catalog=catalog)
-        return Response(payload)
 
 
 @extend_schema(responses=OpenApiTypes.OBJECT)

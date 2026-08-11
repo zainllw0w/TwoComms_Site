@@ -163,7 +163,7 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
-    'fable5',
+    'product_catalog',
     # Phase 17c — django-modeltranslation MUST come BEFORE django.contrib.admin
     # so its admin patcher can extend ModelAdmin classes with translation fields.
     "modeltranslation",

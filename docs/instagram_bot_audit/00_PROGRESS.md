@@ -331,7 +331,7 @@ terminal chronology и очищает stale `current_commercial_episode`.
 `bf4e0d80`, `674d6858`, `3678ddf4` находятся в `main` и production. Закрыты
 F-CAT-005 (пустые/generic/punctuation aliases) и F-CAT-006 (revocation без
 authoritative actor/reason). На MariaDB применены `storefront.0088` и
-`fable5.0008`; три таблицы InnoDB, 77 inventory policies (`29 warehouse`,
+`product_catalog.0008`; три таблицы InnoDB, 77 inventory policies (`29 warehouse`,
 `48 untracked`), append-only revision table защищена UPDATE/DELETE triggers.
 `IMP-081` остаётся `[ ] PARTIAL`: semantic/policy foundation ещё не имеет
 полного runtime/admin consumer и отдельного disposable MariaDB test gate.

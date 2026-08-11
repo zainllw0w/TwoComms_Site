@@ -6,7 +6,7 @@ import re
 from collections import defaultdict
 from urllib.parse import unquote, urlsplit
 
-from fable5.size_grid_services import normalize_size_value
+from product_catalog.size_grid_services import normalize_size_value
 from storefront.models import Product, ProductStatus
 
 from .ig_commerce_types import ProductReference, ReferenceSource

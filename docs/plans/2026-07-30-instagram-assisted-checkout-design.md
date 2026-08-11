@@ -83,7 +83,7 @@ Order domain events
   delivery transition, email/Telegram payment behavior.
 - `storefront`: public proposal views/routes, form boundary, page templates,
   static assets, analytics/browser success state.
-- `fable5`, `productcolors`, and storefront product services: sellable product,
+- `product_catalog`, `productcolors`, and storefront product services: sellable product,
   fit, size, option, color, stock, and effective catalog price validation.
 
 ## 4. Data model

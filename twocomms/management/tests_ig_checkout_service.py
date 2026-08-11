@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from fable5.models import ProductInventoryPolicy
+from product_catalog.models import ProductInventoryPolicy
 from management.models import (
     IgCheckoutInventoryReservation,
     IgCheckoutProposal,
@@ -89,7 +89,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
         self.assertEqual(ctx.exception.missing_fields, {"size", "fit", "color"})
 
     def test_generic_option_axis_is_required_before_pricing(self):
-        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory
         from management.services.ig_checkout import (
             CheckoutConfigurationError,
             validate_checkout_items,
@@ -120,7 +120,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
         self.assertIn("option:material", ctx.exception.missing_fields)
 
     def test_selected_generic_option_reaches_authoritative_unit_price(self):
-        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
         from management.services.ig_checkout import validate_checkout_items
 
         flow = GarmentFlow.objects.create(
@@ -153,7 +153,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
         self.assertEqual(quote.items[0].option_labels["material"], "Термохром")
         self.assertEqual(quote.items[0].catalog_unit_price, Decimal("1310.00"))
 
-    @patch("fable5.services.product_option_context", side_effect=RuntimeError("catalog unavailable"))
+    @patch("product_catalog.services.product_option_context", side_effect=RuntimeError("catalog unavailable"))
     def test_option_context_failure_never_prices_base_configuration(self, _context):
         from management.services.ig_checkout import (
             CheckoutConfigurationError,
@@ -170,7 +170,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
         self.assertEqual(ctx.exception.code, "configuration_unavailable")
 
     def test_generic_option_surcharge_applies_without_a_color_variant(self):
-        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
         from management.services.ig_checkout import validate_checkout_items
 
         plain = Product.objects.create(
@@ -215,7 +215,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
         self.assertEqual(quote.items[0].catalog_unit_price, Decimal("1450.00"))
 
     def test_unknown_generic_option_cannot_fall_back_to_base_price_without_variant(self):
-        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory
         from management.services.ig_checkout import CheckoutConfigurationError, validate_checkout_items
 
         plain = Product.objects.create(
@@ -260,7 +260,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
         трактування нуля як «немає» — саме воно давало клієнту «Выбранный
         вариант сейчас недоступен» на кожен товар.
         """
-        from fable5.models import VariantSizeRule
+        from product_catalog.models import VariantSizeRule
         from management.services.ig_checkout import validate_checkout_items
 
         VariantSizeRule.objects.create(
@@ -324,7 +324,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
 
     def test_no_sellable_color_variant_fails_closed_without_prompting(self):
         """Якщо жоден варіант не продається за правилами — відмова, не вгадування."""
-        from fable5.models import VariantSizeRule
+        from product_catalog.models import VariantSizeRule
         from management.services.ig_checkout import (
             CheckoutConfigurationError,
             validate_checkout_items,
@@ -358,13 +358,13 @@ class InstagramCheckoutConfigurationTests(TestCase):
             "storefront.services.size_guides.resolve_product_sizes",
             return_value=["S", "M", "L"],
         ), patch(
-            "fable5.size_grid_services.resolve_option_size_grid",
+            "product_catalog.size_grid_services.resolve_option_size_grid",
             return_value=object(),
         ), patch(
-            "fable5.size_grid_services.resolve_effective_sizes",
+            "product_catalog.size_grid_services.resolve_effective_sizes",
             return_value=[{"size": "XS", "is_enabled": True}],
         ), patch(
-            "fable5.services.variant_allows_purchase",
+            "product_catalog.services.variant_allows_purchase",
             return_value=True,
         ):
             quote = validate_checkout_items(
@@ -898,7 +898,7 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
 
     @patch("storefront.views.monobank._monobank_api_request")
     def test_bot_deal_path_blocks_missing_generic_option(self, provider):
-        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory
         from management.services import bot_orders
 
         flow = GarmentFlow.objects.create(
@@ -929,7 +929,7 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
 
     @patch("storefront.views.monobank._monobank_api_request")
     def test_bot_deal_path_preserves_generic_option_and_price(self, provider):
-        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
         from management.services import bot_orders
 
         flow = GarmentFlow.objects.create(
@@ -975,7 +975,7 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
 
     @patch("storefront.views.monobank._monobank_api_request")
     def test_bot_deal_path_prices_a_single_paid_option_instead_of_dropping_the_delta(self, provider):
-        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
         from management.services import bot_orders
 
         flow = GarmentFlow.objects.create(

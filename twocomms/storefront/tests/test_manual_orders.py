@@ -15,7 +15,7 @@ from django.urls import reverse
 
 from orders.models import Order, OrderItem
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
-from fable5.models import (
+from product_catalog.models import (
     ColorProfile,
     ProductOptionSizeGrid,
     VariantFitRule,
@@ -761,9 +761,9 @@ class ManualOrderCreateTests(TestCase):
         )
 
         with mock.patch(
-            'fable5.size_grid_services.build_size_grid_comparison',
+            'product_catalog.size_grid_services.build_size_grid_comparison',
             wraps=__import__(
-                'fable5.size_grid_services',
+                'product_catalog.size_grid_services',
                 fromlist=['build_size_grid_comparison'],
             ).build_size_grid_comparison,
         ) as build_comparison:

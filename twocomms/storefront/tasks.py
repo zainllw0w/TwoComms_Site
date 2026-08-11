@@ -133,7 +133,12 @@ def _resolve_image_path(instance, field_name: str) -> Path | None:
 
 
 @shared_task
-def optimize_image_field_task(model_label: str, object_id: int, field_name: str) -> bool:
+def optimize_image_field_task(
+    model_label: str,
+    object_id: int,
+    field_name: str,
+    progress_callback=None,
+) -> bool:
     """Generate optimized (WebP/AVIF + responsive) variants for one image field.
 
     Previously decorated with ``@shared_task(bind=True, ...)``; the ``bind``
@@ -173,12 +178,18 @@ def optimize_image_field_task(model_label: str, object_id: int, field_name: str)
 
     optimized_dir = image_path.parent / "optimized"
     optimizer = ImageOptimizer()
-    optimized_variants = optimizer.optimize_product_image(str(image_path))
+    optimized_variants = optimizer.optimize_product_image(
+        str(image_path), progress_callback=progress_callback
+    )
     if not optimized_variants:
         logger.info("Nothing to optimize for %s", image_path.name)
         return False
 
+    if progress_callback:
+        progress_callback("saving", 90)
     optimizer.save_optimized_images(optimized_variants, optimized_dir)
+    if progress_callback:
+        progress_callback("verifying", 96)
     logger.info(
         "Generated optimized variants for %s (%s)", image_path.name, optimized_dir.relative_to(settings.MEDIA_ROOT)
     )

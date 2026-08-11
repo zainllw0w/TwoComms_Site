@@ -37,6 +37,7 @@ from ..services.card_preview import (
 )
 from ..services.catalog_facets import (
     SELLABLE_SIZE_ORDER,
+    active_collection_descendant_slugs,
     filter_products_by_facets,
     normalize_catalog_facet_state,
 )
@@ -371,7 +372,7 @@ def _build_merch_collection_page(collection):
         "slug": collection.slug,
         "kind": collection.kind,
         "label": label,
-        "h1": fallback_title,
+        "h1": _localized_collection_value(collection, "seo_h1", language) or fallback_title,
         "title": _localized_collection_value(collection, "seo_title", language) or fallback_title,
         "description": _localized_collection_value(collection, "seo_description", language) or description or fallback_description,
         "intro": description or fallback_description,
@@ -382,7 +383,7 @@ def _build_merch_collection_page(collection):
 
 def _smart_selector_merchandising_contract(facet_state):
     """Load the active taxonomy once for filters and card presentation."""
-    from fable5.models import AudienceTag, MerchCollection
+    from product_catalog.models import AudienceTag, MerchCollection
 
     language = _smart_selector_language()
     collections = list(
@@ -846,7 +847,7 @@ def _product_cards_queryset(*, include_fit_options=False, include_merchandising=
     if include_fit_options:
         prefetches.append('fit_options')
     if include_merchandising:
-        from fable5.models import ProductAudience, ProductMerchCollection
+        from product_catalog.models import ProductAudience, ProductMerchCollection
 
         prefetches.extend(
             (
@@ -1121,8 +1122,9 @@ def catalog(request, cat_slug=None, collection_slug=None):
     """
     merch_collection = None
     merch_collection_page = None
+    merch_category_slugs = ()
     if collection_slug:
-        from fable5.models import MerchCollection
+        from product_catalog.models import MerchCollection
 
         merch_collection = get_object_or_404(
             MerchCollection,
@@ -1130,19 +1132,20 @@ def catalog(request, cat_slug=None, collection_slug=None):
             is_active=True,
             indexable=True,
         )
+        descendant_slugs = active_collection_descendant_slugs(merch_collection.slug)
         assigned_category_slugs = set(
             Product.objects.filter(
                 status='published',
-                merch_collection_assignments__collection=merch_collection,
+                category__is_active=True,
+                merch_collection_assignments__collection__slug__in=descendant_slugs,
+                merch_collection_assignments__collection__is_active=True,
             ).values_list('category__slug', flat=True)
         )
-        cat_slug = next(
-            (
-                slug for slug in SMART_SELECTOR_CATEGORY_SLUGS
-                if slug in assigned_category_slugs
-            ),
-            'tshirts',
+        merch_category_slugs = tuple(
+            slug for slug in SMART_SELECTOR_CATEGORY_SLUGS
+            if slug in assigned_category_slugs
         )
+        cat_slug = merch_category_slugs[0] if merch_category_slugs else 'tshirts'
         merch_collection_page = _build_merch_collection_page(merch_collection)
 
     fragment_cache = get_fragment_cache()
@@ -1164,14 +1167,15 @@ def catalog(request, cat_slug=None, collection_slug=None):
     if cat_slug:
         category = get_object_or_404(Category, slug=cat_slug, is_active=True)
         is_smart_selector_category = category.slug in SMART_SELECTOR_CATEGORY_SLUGS
+        product_scope = {
+            'category__slug__in': merch_category_slugs,
+            'category__is_active': True,
+        } if merch_category_slugs else {'category': category}
         base_product_qs = apply_public_product_order(
             _product_cards_queryset(
                 include_fit_options=is_smart_selector_category,
                 include_merchandising=is_smart_selector_category,
-            ).filter(
-                category=category,
-                status='published',
-            )
+            ).filter(status='published', **product_scope)
         )
         show_category_cards = False
     else:

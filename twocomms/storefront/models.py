@@ -113,7 +113,7 @@ class Category(models.Model):
         indexes = [
             models.Index(fields=['is_active'], name='idx_category_active'),
             models.Index(fields=['is_featured'], name='idx_category_featured'),
-            models.Index(fields=['order'], name='idx_category_order'),
+            models.Index(fields=['order', 'name'], name='idx_category_order'),
         ]
 
     def __str__(self):
@@ -2647,7 +2647,8 @@ class WebPushDeviceSubscription(models.Model):
         verbose_name="ID браузерної інсталяції",
     )
     endpoint = models.URLField(
-        max_length=1000,
+        # 768 utf8mb4 characters fit MySQL's 3072-byte unique-key limit.
+        max_length=768,
         unique=True,
         verbose_name="Push endpoint",
     )
@@ -3409,6 +3410,36 @@ class GoogleIndexingSubmission(models.Model):
             now = timezone.now()
             self.submission_date = now.date()
         super().save(*args, **kwargs)
+
+
+class IndexNowSubmission(models.Model):
+    """Per-URL audit trail for IndexNow API acceptance attempts."""
+
+    STATUS_SUCCESS = "success"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_SUCCESS, _("Прийнято")),
+        (STATUS_FAILED, _("Помилка")),
+    ]
+
+    url = models.CharField(max_length=512, verbose_name="URL")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES)
+    http_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    source = models.CharField(max_length=32, blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "IndexNow submission"
+        verbose_name_plural = "IndexNow submissions"
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["url", "-submitted_at"], name="idx_in_url_submitted"),
+            models.Index(fields=["status", "-submitted_at"], name="idx_in_status_time"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - representation only
+        return f"{self.status} {self.url}"
 
 
 class QrDeviceGrant(models.Model):

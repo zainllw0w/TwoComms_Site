@@ -224,7 +224,7 @@ Task 6 active-conversation regression follow-up (2026-07-26):
 
 - [x] Explicit `PRODUCT`/`ITEM` IDs are authoritative; missing or unpublished IDs fail closed.
 - [x] Malformed or conflicting control tags reject the complete PAYLINK payload.
-- [x] Multi-item payloads validate quantity, item count, duplicate identity, fit, size, variant ownership, stock, and effective Fable5 price.
+- [x] Multi-item payloads validate quantity, item count, duplicate identity, fit, size, variant ownership, stock, and effective ProductCatalog price.
 - [x] Negotiated prices require seller/customer acceptance evidence and message IDs; ambiguous multi-item allocation fails closed.
 - [x] Deal line totals are persisted and order materialization verifies that line totals equal the declared deal total.
 - [x] Manager-only receipt confirmation creates an unpaid preparation order and never a provider Purchase event.

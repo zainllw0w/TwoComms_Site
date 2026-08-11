@@ -5,7 +5,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
-from fable5.models import (
+from product_catalog.models import (
     ProductOptionSizeGrid,
     ProductSizeRule,
     SizeGridProfile,

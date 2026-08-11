@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.test import SimpleTestCase
 from django.urls import reverse
 
-from fable5.models import (
+from product_catalog.models import (
     AudienceTag,
     ColorProfile,
     MerchCollection,

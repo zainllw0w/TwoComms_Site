@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from django.core.exceptions import ValidationError
 
-from fable5.size_grid_services import (
+from product_catalog.size_grid_services import (
     normalize_size_grid_payload,
     normalize_size_value,
 )
@@ -21,7 +21,7 @@ def _usable_grid(grid):
     if grid is None or not grid.is_active:
         return None
     try:
-        profile = grid.fable5_profile
+        profile = grid.product_catalog_profile
     except Exception:
         profile = None
     return grid if profile is None or profile.is_active else None
@@ -86,7 +86,7 @@ def _fallback_grid(product, option_key):
     neutral = []
     for grid in grids:
         try:
-            profile_key = str(grid.fable5_profile.option_key or "")
+            profile_key = str(grid.product_catalog_profile.option_key or "")
         except Exception:
             profile_key = ""
         if profile_key == option_key:
@@ -107,11 +107,11 @@ def resolve_configuration_size_contract(
     fit_code = str(row.get("fit_code") or "")
     product_assignments = {
         assignment.option_key: assignment
-        for assignment in _prefetched(product, "fable5_size_grid_assignments")
+        for assignment in _prefetched(product, "product_catalog_size_grid_assignments")
     }
     variant_assignments = {
         assignment.option_key: assignment
-        for assignment in _prefetched(variant, "fable5_size_grid_assignments")
+        for assignment in _prefetched(variant, "product_catalog_size_grid_assignments")
     }
     variant_assignment = variant_assignments.get(option_key)
     product_assignment = product_assignments.get(option_key)
@@ -140,11 +140,11 @@ def resolve_configuration_size_contract(
 
     product_rules = {
         (rule.option_key, normalize_size_value(rule.size)): rule
-        for rule in _prefetched(product, "fable5_size_rules")
+        for rule in _prefetched(product, "product_catalog_size_rules")
     }
     variant_rules = {
         (rule.fit_code, normalize_size_value(rule.size)): rule
-        for rule in _prefetched(variant, "fable5_size_rules")
+        for rule in _prefetched(variant, "product_catalog_size_rules")
     }
     has_contract = bool(
         has_declared_grid

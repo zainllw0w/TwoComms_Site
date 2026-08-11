@@ -368,7 +368,7 @@ class CartPageController {
       ? `<span class="cart-item-total-value">${formatUAH(parseNumber(ci.line_total))}</span>`
       : `<span class="cart-item-total-value cart-item-total-value--muted">Після погодження</span>${parseNumber(ci.final_total) > 0 ? `<div class="cart-item-total-note">Орієнтовно ${formatUAH(parseNumber(ci.final_total))}</div>` : ''}`;
     const managerLink = ci.show_manager_contact
-      ? `<a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="cart-item-manager-link">Написати менеджеру</a>`
+      ? `<a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="cart-item-manager-link" aria-label="Написати менеджеру"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg><span class="cart-action-label">Написати менеджеру</span></a>`
       : '';
 
     return `
@@ -419,11 +419,11 @@ class CartPageController {
             ${totalValue}
           </div>
           ${managerLink}
-          <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}">
+          <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}" aria-label="Видалити товар">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            Видалити
+            <span class="cart-action-label">Видалити</span>
           </button>
         </div>
       </div>
@@ -511,11 +511,11 @@ class CartPageController {
             <span class="cart-item-total-label">Разом:</span>
             <span class="cart-item-total-value">${formatUAH(lineTotal)}</span>
           </div>
-          <button type="button" class="cart-item-remove-btn" data-key="${escapeHtml(item.key)}">
+          <button type="button" class="cart-item-remove-btn" data-key="${escapeHtml(item.key)}" aria-label="Видалити товар">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            Видалити
+            <span class="cart-action-label">Видалити</span>
           </button>
         </div>
       </div>

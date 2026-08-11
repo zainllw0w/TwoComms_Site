@@ -12,7 +12,7 @@ from django.test import RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
-from fable5.models import (
+from product_catalog.models import (
     ProductOptionSizeGrid,
     ProductSizeRule,
     SizeGridProfile,
@@ -616,7 +616,7 @@ class RestockVariantSaveAndAdminTests(TestCase):
 
         with self.captureOnCommitCallbacks(execute=False) as callbacks:
             response = self.client.post(
-                reverse("fable5_api_variant_save"),
+                reverse("product_catalog_api_variant_save"),
                 data=json.dumps(self._payload(sizes=[{
                     "fit_code": "",
                     "size": "M",
@@ -650,7 +650,7 @@ class RestockVariantSaveAndAdminTests(TestCase):
 
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
-                reverse("fable5_api_variant_save"),
+                reverse("product_catalog_api_variant_save"),
                 data=json.dumps(self._payload(sizes=[{
                     "fit_code": "classic",
                     "size": "M",
@@ -681,7 +681,7 @@ class RestockVariantSaveAndAdminTests(TestCase):
 
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
-                reverse("fable5_api_variant_save"),
+                reverse("product_catalog_api_variant_save"),
                 data=json.dumps(self._payload(sizes=[{
                     "fit_code": "classic",
                     "size": "M",
@@ -697,7 +697,7 @@ class RestockVariantSaveAndAdminTests(TestCase):
 
         self.assertEqual(
             materialize.call_args.kwargs["source_revision"],
-            f"fable5:{variant_inventory_revision(self.variant.pk)}",
+            f"product_catalog:{variant_inventory_revision(self.variant.pk)}",
         )
 
     @patch("storefront.services.restock.schedule_restock_scan")
@@ -707,7 +707,7 @@ class RestockVariantSaveAndAdminTests(TestCase):
 
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
-                reverse("fable5_api_variant_save"),
+                reverse("product_catalog_api_variant_save"),
                 data=json.dumps(self._payload(sku="UNCHANGED-STOCK")),
                 content_type="application/json",
             )
@@ -715,14 +715,14 @@ class RestockVariantSaveAndAdminTests(TestCase):
         schedule.assert_not_called()
 
     @patch("storefront.services.restock.schedule_restock_scan")
-    @patch("fable5.views._variant_payload", side_effect=RuntimeError("serialize failed"))
+    @patch("product_catalog.views._variant_payload", side_effect=RuntimeError("serialize failed"))
     def test_rolled_back_variant_size_save_does_not_schedule(self, _payload, schedule):
         import json
         from django.urls import reverse
 
         with self.captureOnCommitCallbacks(execute=True) as callbacks:
             response = self.client.post(
-                reverse("fable5_api_variant_save"),
+                reverse("product_catalog_api_variant_save"),
                 data=json.dumps(self._payload(sizes=[{
                     "fit_code": "",
                     "size": "M",

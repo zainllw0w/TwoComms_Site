@@ -44,7 +44,7 @@ class CatalogProductIdTests(TestCase):
 
 class CatalogVariantPriceTests(TestCase):
     def test_catalog_sizes_are_scoped_to_the_exact_variant_and_fit(self):
-        from fable5.models import ProductOptionSizeGrid, VariantSizeRule
+        from product_catalog.models import ProductOptionSizeGrid, VariantSizeRule
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import (
             Catalog,
@@ -120,7 +120,7 @@ class CatalogVariantPriceTests(TestCase):
         self.assertNotIn("oversize: XS/S/M/L/XL/XXL", text)
 
     def test_catalog_does_not_restore_generic_sizes_when_variant_blocks_all(self):
-        from fable5.models import ProductOptionSizeGrid, VariantSizeRule
+        from product_catalog.models import ProductOptionSizeGrid, VariantSizeRule
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import (
             Catalog,
@@ -217,7 +217,7 @@ class CatalogVariantPriceTests(TestCase):
         )
 
     def test_catalog_never_falls_back_to_base_price_for_unresolved_variant_matrix(self):
-        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from product_catalog.models import GarmentFlow, GarmentFlowCategory
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import Category, Product, ProductStatus
 
@@ -266,7 +266,7 @@ class CatalogVariantPriceTests(TestCase):
         self.assertNotIn("Конфігурований товар — 1090 грн", text)
 
     def test_catalog_exposes_authoritative_price_for_each_adjusted_variant(self):
-        from fable5.models import ColorProfile, VariantDetails, VariantFitRule
+        from product_catalog.models import ColorProfile, VariantDetails, VariantFitRule
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import Category, Product, ProductFitOption, ProductStatus
 
@@ -325,7 +325,7 @@ class CatalogVariantPriceTests(TestCase):
         self.assertIn("фасони: oversize", text)
 
     def test_catalog_exposes_fit_specific_prices_for_the_same_variant(self):
-        from fable5.models import ProductOptionProfile
+        from product_catalog.models import ProductOptionProfile
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import Category, Product, ProductFitOption, ProductStatus
 

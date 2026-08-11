@@ -4,12 +4,22 @@
 
 import os
 import logging
+import tempfile
 from PIL import Image
 from django.conf import settings
 import io
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+def avif_encoding_available():
+    """Return whether the installed Pillow runtime can write AVIF files."""
+    try:
+        Image.init()
+        return "AVIF" in Image.SAVE
+    except Exception:
+        return False
 
 
 class ImageOptimizer:
@@ -144,7 +154,7 @@ class ImageOptimizer:
             logger.error(f"Ошибка оптимизации изображения {image_path}: {e}")
             return 0, None
 
-    def create_responsive_images(self, image_path, base_name):
+    def create_responsive_images(self, image_path, base_name, progress_callback=None):
         """
         Создает адаптивные версии изображения
 
@@ -157,7 +167,8 @@ class ImageOptimizer:
         seen_webp_widths = set()
         seen_avif_widths = set()
 
-        for width in self.RESPONSIVE_WIDTHS:
+        total_widths = max(1, len(self.RESPONSIVE_WIDTHS))
+        for index, width in enumerate(self.RESPONSIVE_WIDTHS):
             # Создаем WebP версию
             actual_width, webp_data = self.optimize_image_to_width(image_path, 'WEBP', target_width=width)
             if webp_data and actual_width and actual_width not in seen_webp_widths:
@@ -165,20 +176,30 @@ class ImageOptimizer:
                 webp_name = f"{base_name}_{actual_width}w.webp"
                 responsive_images[webp_name] = webp_data
 
-            # Создаем AVIF версию (если поддерживается)
-            try:
+            # Создаем AVIF версию только когда Pillow зарегистрировал encoder.
+            if avif_encoding_available():
                 actual_width, avif_data = self.optimize_image_to_width(image_path, 'AVIF', target_width=width)
                 if avif_data and actual_width and actual_width not in seen_avif_widths:
                     seen_avif_widths.add(actual_width)
                     avif_name = f"{base_name}_{actual_width}w.avif"
                     responsive_images[avif_name] = avif_data
-            except Exception:
-                # AVIF может не поддерживаться
-                pass
+
+            responsive_progress = 60 + round(((index + 1) / total_widths) * 25)
+            self._report_progress(progress_callback, "responsive", responsive_progress)
 
         return responsive_images
 
-    def optimize_product_image(self, product_image_path):
+    @staticmethod
+    def _report_progress(progress_callback, stage, value):
+        if not progress_callback:
+            return
+        try:
+            progress_callback(stage, value)
+        except Exception:
+            # Progress reporting must never turn a valid derivative into a failed job.
+            logger.debug("Image progress callback failed", exc_info=True)
+
+    def optimize_product_image(self, product_image_path, progress_callback=None):
         """
         Оптимизирует изображение товара
 
@@ -194,6 +215,8 @@ class ImageOptimizer:
         max_product_size = (1600, 2000)
 
         optimized_images = {}
+
+        self._report_progress(progress_callback, "webp", 25)
 
         # Создаем оптимизированную версию в оригинальном формате
         if file_ext in ['.jpg', '.jpeg']:
@@ -216,8 +239,9 @@ class ImageOptimizer:
         if webp_data:
             optimized_images[f"{file_name}.webp"] = webp_data
 
-        # Создаем AVIF версию
-        try:
+        # Создаем AVIF версию только когда Pillow зарегистрировал encoder.
+        if avif_encoding_available():
+            self._report_progress(progress_callback, "avif", 50)
             avif_data = self.optimize_image(
                 product_image_path,
                 'AVIF',
@@ -226,11 +250,13 @@ class ImageOptimizer:
             )
             if avif_data:
                 optimized_images[f"{file_name}.avif"] = avif_data
-        except Exception:
-            pass
 
         # Создаем адаптивные версии
-        responsive_images = self.create_responsive_images(product_image_path, file_name)
+        responsive_images = self.create_responsive_images(
+            product_image_path,
+            file_name,
+            progress_callback=progress_callback,
+        )
         optimized_images.update(responsive_images)
 
         return optimized_images
@@ -335,14 +361,35 @@ class ImageOptimizer:
         os.makedirs(output_dir, exist_ok=True)
 
         saved_files = []
+        failed_files = []
         for filename, image_data in optimized_images.items():
-            output_path = os.path.join(output_dir, filename)
+            output_path = Path(output_dir) / filename
+            temporary_path = None
             try:
-                with open(output_path, 'wb') as f:
+                fd, temporary_path = tempfile.mkstemp(
+                    prefix=f".{output_path.name}.", suffix=".tmp", dir=output_path.parent
+                )
+                with os.fdopen(fd, 'wb') as f:
                     f.write(image_data)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(temporary_path, output_path)
+                temporary_path = None
                 saved_files.append(output_path)
                 logger.info(f"Сохранено оптимизированное изображение: {output_path}")
             except Exception as e:
                 logger.error(f"Ошибка сохранения {output_path}: {e}")
+                failed_files.append((output_path, e))
+            finally:
+                if temporary_path:
+                    try:
+                        os.unlink(temporary_path)
+                    except FileNotFoundError:
+                        pass
 
+        if failed_files:
+            failed_names = ", ".join(path.name for path, _error in failed_files)
+            raise RuntimeError(
+                f"Не вдалося опублікувати всі оптимізовані зображення: {failed_names}"
+            ) from failed_files[0][1]
         return saved_files

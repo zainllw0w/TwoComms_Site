@@ -248,7 +248,7 @@ CSS rules на mobile FCP/LCP window.
       data-product-title-base="{{ product.title|escapejs }}">
       <div class="tc-product-panel-actions" aria-label="{% trans 'Дії з товаром' %}">
         {% if request.user.is_staff %}
-        <a class="tc-panel-icon-btn tc-admin-edit-btn" href="{% url 'fable5_product_edit' product.id %}" data-admin-product-edit aria-label="{% trans 'Редагувати товар у Fable5' %}" title="{% trans 'Редагувати товар' %}">
+        <a class="tc-panel-icon-btn tc-admin-edit-btn" href="{% url 'product_catalog_product_edit' product.id %}" data-admin-product-edit aria-label="{% trans 'Редагувати товар у редакторі каталогу' %}" title="{% trans 'Редагувати товар' %}">
           <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5 4 16.5Zm10-10L17.5 10M3.2 20.8l3-3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
         {% endif %}
@@ -358,7 +358,7 @@ CSS rules на mobile FCP/LCP window.
       <aside class="tc-variant-story{% if story.kind == 'thermo' %} is-thermo{% endif %}{% if not story %} is-hidden{% endif %}" data-pdp-variant-story data-pdp-material-story data-material-story-kind="{{ story.kind|default:'' }}">
         <span class="tc-variant-story__icon" data-pdp-variant-story-icon data-story-icon="{{ story.icon|default:'' }}">
           {% if story.icon == 'thermo' %}
-            {% include 'fable5/_thermo_flame.html' with class_suffix=' tc-thermo-flame--story' %}
+            {% include 'product_catalog/_thermo_flame.html' with class_suffix=' tc-thermo-flame--story' %}
           {% elif story.icon == 'fleece' %}
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5 12 3l5 2.5v13L12 21l-5-2.5v-13Zm5-2.5v18M7 7.5l5 2.5 5-2.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
           {% elif story.icon == 'cotton' %}
@@ -474,7 +474,7 @@ CSS rules на mobile FCP/LCP window.
                     style="--primary-color: {{ v.primary_hex }}; --secondary-color: {{ v.secondary_hex|default:v.primary_hex }};"
                     aria-label="{% trans 'Колір' %} {{ v.name|translate_color|default:forloop.counter }}">
                     <span class="tc-color-dot"></span>
-                    {% if v.is_thermo %}<span class="tc-thermo-flame-badge">{% include 'fable5/_thermo_flame.html' with class_suffix=' tc-thermo-flame--swatch' %}</span>{% endif %}
+                    {% if v.is_thermo %}<span class="tc-thermo-flame-badge">{% include 'product_catalog/_thermo_flame.html' with class_suffix=' tc-thermo-flame--swatch' %}</span>{% endif %}
                   </button>
                   <span>{{ v.name|translate_color|default:_('Колір') }}</span>
                 </span>
@@ -594,7 +594,7 @@ CSS rules на mobile FCP/LCP window.
 
         <div class="tc-tab-panel" id="panel-size" role="tabpanel" aria-labelledby="tab-size" data-pdp-panel="size" hidden>
           {% if size_grid_comparison %}
-            {% include 'fable5/_size_grid_comparison.html' %}
+            {% include 'product_catalog/_size_grid_comparison.html' %}
           {% elif resolved_size_guide %}
             <div class="tc-size-guide-card">
               <div>

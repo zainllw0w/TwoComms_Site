@@ -8,13 +8,14 @@ Production-хост не располагает Celery-брокером, поэ�
 import logging
 from django.conf import settings
 from django.db import transaction
-from django.db.models.signals import post_delete, post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from .tasks import generate_google_merchant_feed_task, optimize_image_field_task  # noqa: F401 — kept for backward-compat with tests that patch signals.generate_google_merchant_feed_task
 
 from .models import Category, CategoryColorLanding, Product, ProductImage
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
+from product_catalog.models import FeedOnlyImage
 from .services.feeds_queue import mark_feeds_dirty
 from .services.indexnow import enqueue_indexnow_urls, get_product_public_url
 from .services.google_indexing import enqueue_google_indexing_urls
@@ -105,37 +106,20 @@ def submit_product_to_indexnow_on_delete(sender, instance, **kwargs):
 
 
 def _enqueue_image_optimization(instance, field_name: str):
-    """Run image optimization inline after commit.
-
-    Production runs without Celery, so attempting ``.delay()`` only adds a
-    failed-RPC round-trip before falling back to sync. We schedule the work
-    via ``transaction.on_commit`` so request latency is preserved: control
-    returns to the user immediately and optimization runs in the same
-    worker after the response is flushed but before the transaction is
-    recycled.
-    """
-    image_field = getattr(instance, field_name, None)
-    if not image_field:
-        return
-    if not getattr(instance, 'pk', None):
-        return
-
-    label = instance._meta.label
-    pk = instance.pk
-
-    def _run():
-        try:
-            optimize_image_field_task(label, pk, field_name)
-        except Exception as inner:  # pragma: no cover - defensive branch
-            logger.error(
-                "Inline image optimization failed for %s.%s (id=%s): %s",
-                label, field_name, pk, inner, exc_info=True,
-            )
-
+    """Persist one durable job and let the catalog job runner do the work."""
     try:
-        transaction.on_commit(_run)
-    except Exception:  # pragma: no cover - no active transaction
-        _run()
+        from product_catalog.image_jobs import enqueue_image_optimization
+
+        enqueue_image_optimization(instance, field_name)
+    except Exception as exc:  # pragma: no cover - defensive branch
+        logger.error(
+            "Could not enqueue image optimization for %s.%s (id=%s): %s",
+            instance._meta.label,
+            field_name,
+            getattr(instance, "pk", None),
+            exc,
+            exc_info=True,
+        )
 
 
 # ===== Image Optimization Signals =====
@@ -150,6 +134,7 @@ IMAGE_OPTIMIZATION_FIELDS = {
     CatalogOptionValue: ("image",),
     SizeGrid: ("image",),
     PrintProposal: ("image",),
+    FeedOnlyImage: ("image",),
 }
 
 
@@ -241,6 +226,32 @@ def optimize_size_grid_image(sender, instance, created=False, update_fields=None
 def optimize_print_proposal_image(sender, instance, created=False, update_fields=None, **kwargs):
     if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
         _enqueue_image_optimization(instance, 'image')
+
+
+@receiver(post_save, sender=FeedOnlyImage)
+def optimize_feed_only_image(sender, instance, created=False, update_fields=None, **kwargs):
+    if _should_enqueue_image_optimization(instance, "image", created=created, update_fields=update_fields):
+        _enqueue_image_optimization(instance, "image")
+
+
+@receiver(pre_delete)
+def cancel_deleted_image_optimization(sender, instance, **kwargs):
+    field_names = IMAGE_OPTIMIZATION_FIELDS.get(sender)
+    if not field_names:
+        return
+    try:
+        from product_catalog.image_jobs import cancel_image_jobs
+
+        for field_name in field_names:
+            cancel_image_jobs(instance, field_name)
+    except Exception as exc:  # pragma: no cover - deletion must remain available
+        logger.error(
+            "Could not cancel image optimization for %s (id=%s): %s",
+            instance._meta.label,
+            getattr(instance, "pk", None),
+            exc,
+            exc_info=True,
+        )
 
 
 # ===== Auto-resize + WebP intake hook (B22 root) =====

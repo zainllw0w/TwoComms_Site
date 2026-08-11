@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Extend the Variant 3 Smart Selector and Fable 5 with truthful multi-dimensional merchandising that continues through catalog cards and the upper PDP decision zone, reliable mobile filters, curated brigade/collection SEO pages, and measurable mobile-first conversion UX.
+**Goal:** Extend the Variant 3 Smart Selector and Product Catalog with truthful multi-dimensional merchandising that continues through catalog cards and the upper PDP decision zone, reliable mobile filters, curated brigade/collection SEO pages, and measurable mobile-first conversion UX.
 
-**Architecture:** Keep the existing Django category branch, PDP purchase flow, and production header/footer. Add normalized Fable 5 audience and collection data, services that resolve validated catalog facets and PDP merchandising from real inventory/variant sources, server-rendered category/collection/PDP context, and scoped vanilla JavaScript enhancement. Keep arbitrary filters crawl-safe and make only curated collection URLs indexable.
+**Architecture:** Keep the existing Django category branch, PDP purchase flow, and production header/footer. Add normalized Product Catalog audience and collection data, services that resolve validated catalog facets and PDP merchandising from real inventory/variant sources, server-rendered category/collection/PDP context, and scoped vanilla JavaScript enhancement. Keep arbitrary filters crawl-safe and make only curated collection URLs indexable.
 
-**Tech Stack:** Django models/migrations, existing Fable 5 APIs and size-grid services, Django templates, scoped CSS, vanilla JavaScript, existing dataLayer/Meta adapters, Django TestCase, Node syntax checks, Playwright/agent-browser, Chrome DevTools Lighthouse and performance traces.
+**Tech Stack:** Django models/migrations, existing Product Catalog APIs and size-grid services, Django templates, scoped CSS, vanilla JavaScript, existing dataLayer/Meta adapters, Django TestCase, Node syntax checks, Playwright/agent-browser, Chrome DevTools Lighthouse and performance traces.
 
 ---
 
@@ -14,7 +14,7 @@
 
 **Files:**
 - Create: `twocomms/storefront/tests/test_catalog_merchandising_facets.py`
-- Create: `twocomms/fable5/tests/test_audience_taxonomy.py`
+- Create: `twocomms/product_catalog/tests/test_audience_taxonomy.py`
 - Modify: `twocomms/storefront/tests/test_category_smart_selector.py`
 - Reference: `docs/plans/2026-08-07-catalog-merchandising-smart-facets-design.md`
 
@@ -53,17 +53,17 @@ Run the new tests and confirm they fail for missing models/services/markup rathe
 
 ---
 
-## Task 2: Add Fable 5 audience taxonomy
+## Task 2: Add Product Catalog audience taxonomy
 
 **Files:**
-- Modify: `twocomms/fable5/models.py`
-- Create: `twocomms/fable5/migrations/0009_audience_taxonomy.py`
-- Create: `twocomms/fable5/services_audience.py`
-- Modify: `twocomms/fable5/views.py`
-- Modify: `twocomms/fable5/templates/fable5/editor.html`
-- Modify: `twocomms/fable5/static/fable5/editor.js`
-- Modify: `twocomms/fable5/static/fable5/editor.css` if needed
-- Test: `twocomms/fable5/tests/test_audience_taxonomy.py`
+- Modify: `twocomms/product_catalog/models.py`
+- Create: `twocomms/product_catalog/migrations/0009_audience_taxonomy.py`
+- Create: `twocomms/product_catalog/services_audience.py`
+- Modify: `twocomms/product_catalog/views.py`
+- Modify: `twocomms/product_catalog/templates/product_catalog/editor.html`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.js`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.css` if needed
+- Test: `twocomms/product_catalog/tests/test_audience_taxonomy.py`
 
 **Step 1: Implement the minimal normalized model**
 
@@ -75,7 +75,7 @@ Implement `get_product_audience_codes(product)`, `set_product_audience_codes(pro
 
 **Step 3: Extend editor payload and save flow**
 
-Expose `audience_codes` and `audience_labels` in the editor payload. Add a labelled three-control fieldset in the content/SEO panel. Save the list through the existing Fable 5 JSON endpoint and return validation errors inline. Make keyboard focus and mobile stacking match the current editor design.
+Expose `audience_codes` and `audience_labels` in the editor payload. Add a labelled three-control fieldset in the content/SEO panel. Save the list through the existing Product Catalog JSON endpoint and return validation errors inline. Make keyboard focus and mobile stacking match the current editor design.
 
 **Step 4: Backfill T-shirts safely**
 
@@ -83,21 +83,21 @@ Add an idempotent management command or data migration that assigns `unisex` to 
 
 **Step 5: Verify**
 
-Run the focused Fable 5 tests, editor payload tests, migration check, and Django check. Confirm repeated backfill runs are no-ops.
+Run the focused Product Catalog tests, editor payload tests, migration check, and Django check. Confirm repeated backfill runs are no-ops.
 
 ---
 
 ## Task 3: Add collections and brigade taxonomy
 
 **Files:**
-- Modify: `twocomms/fable5/models.py`
-- Create: `twocomms/fable5/migrations/0010_merch_collections.py`
-- Create: `twocomms/fable5/services_collections.py`
-- Modify: `twocomms/fable5/views.py`
-- Modify: `twocomms/fable5/templates/fable5/editor.html`
-- Modify: `twocomms/fable5/static/fable5/editor.js`
-- Modify: `twocomms/fable5/static/fable5/editor.css` if needed
-- Test: `twocomms/fable5/tests/test_merch_collections.py`
+- Modify: `twocomms/product_catalog/models.py`
+- Create: `twocomms/product_catalog/migrations/0010_merch_collections.py`
+- Create: `twocomms/product_catalog/services_collections.py`
+- Modify: `twocomms/product_catalog/views.py`
+- Modify: `twocomms/product_catalog/templates/product_catalog/editor.html`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.js`
+- Modify: `twocomms/product_catalog/static/product_catalog/editor.css` if needed
+- Test: `twocomms/product_catalog/tests/test_merch_collections.py`
 
 **Step 1: Implement normalized collection models**
 
@@ -105,7 +105,7 @@ Add `MerchCollection` with `kind`, optional parent, localized display and SEO co
 
 **Step 2: Seed the existing taxonomy**
 
-Create sibling root records for military, brigades, streetwear, and Kharkiv. Seed brigade children `225` and `127` beneath brigades. Only `225` starts indexable; keep `127` non-indexable until products and localized editorial content are reviewed. Seed only labels and safe fallback copy; do not fabricate military claims or brigade descriptions. Record which products are assigned by the existing theme resolver so staff can review them in Fable 5.
+Create sibling root records for military, brigades, streetwear, and Kharkiv. Seed brigade children `225` and `127` beneath brigades. Only `225` starts indexable; keep `127` non-indexable until products and localized editorial content are reviewed. Seed only labels and safe fallback copy; do not fabricate military claims or brigade descriptions. Record which products are assigned by the existing theme resolver so staff can review them in Product Catalog.
 
 **Step 3: Add editor controls**
 
@@ -122,8 +122,8 @@ Test nested collection resolution, inactive/indexable rules, duplicate assignmen
 **Files:**
 - Create: `twocomms/storefront/services/catalog_facets.py`
 - Modify: `twocomms/storefront/views/catalog.py`
-- Reference: `twocomms/fable5/services.py`
-- Reference: `twocomms/fable5/size_grid_services.py`
+- Reference: `twocomms/product_catalog/services.py`
+- Reference: `twocomms/product_catalog/size_grid_services.py`
 - Reference: `twocomms/storefront/services/size_guides.py`
 - Test: `twocomms/storefront/tests/test_catalog_merchandising_facets.py`
 
@@ -153,7 +153,7 @@ Run service tests with representative classic, oversize-only, thermo, out-of-sto
 
 **Files:**
 - Modify: `twocomms/storefront/urls.py`
-- Modify: `twocomms/fable5/urls.py` only if the existing public app boundary requires it
+- Modify: `twocomms/product_catalog/urls.py` only if the existing public app boundary requires it
 - Modify: `twocomms/storefront/views/catalog.py`
 - Create or modify: `twocomms/storefront/views/merch.py`
 - Modify: `twocomms/twocomms_django_theme/templates/pages/catalog.html`
@@ -354,7 +354,7 @@ Confirm recognition-before-choice, progressive disclosure, immediate state feedb
 ## Task 11: Production-like data verification and rollout gates
 
 **Files:**
-- Create: `twocomms/fable5/management/commands/backfill_tshirt_audience.py` if a command is preferred over a data migration
+- Create: `twocomms/product_catalog/management/commands/backfill_tshirt_audience.py` if a command is preferred over a data migration
 - Create: `docs/plans/2026-08-07-catalog-merchandising-smart-facets-rollout.md` only after QA findings are known
 
 **Step 1: Verify real data**
@@ -371,7 +371,7 @@ After code and migration checks, collect static assets, invalidate only affected
 
 **Step 4: Live verification**
 
-Check all language/category/collection URLs, filter URLs, representative tagged and untagged PDPs, selected-color PDP states, product links, schema, robots/canonical, and browser interactions. Confirm Fable 5 assignments match catalog-card and PDP output, then record deployed SHA and persisted data evidence.
+Check all language/category/collection URLs, filter URLs, representative tagged and untagged PDPs, selected-color PDP states, product links, schema, robots/canonical, and browser interactions. Confirm Product Catalog assignments match catalog-card and PDP output, then record deployed SHA and persisted data evidence.
 
 **Step 5: Integration gate**
 
@@ -385,8 +385,8 @@ Commit only task-scoped files. Push/deploy only after the user explicitly reques
 cd /Users/zainllw0w/TwoComms/site
 DJANGO_SETTINGS_MODULE=test_settings SECRET_KEY=test_local_secret \
   .venv/bin/python manage.py test \
-  fable5.tests.test_audience_taxonomy \
-  fable5.tests.test_merch_collections \
+  product_catalog.tests.test_audience_taxonomy \
+  product_catalog.tests.test_merch_collections \
   storefront.tests.test_catalog_merchandising_facets \
   storefront.tests.test_product_merchandising \
   storefront.tests.test_category_smart_selector --noinput

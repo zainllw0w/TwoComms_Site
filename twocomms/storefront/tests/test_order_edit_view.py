@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from fable5.models import VariantFitRule, VariantSizeRule
+from product_catalog.models import VariantFitRule, VariantSizeRule
 from orders.models import Order, OrderItem
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import (

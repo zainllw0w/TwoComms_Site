@@ -1,16 +1,106 @@
-{% extends 'base.html' %}{% load static %}{% block title %}{% if mode == 'edit' %}Редагувати категорію{% else %}Нова категорія{% endif %} — TwoComms{% endblock %}{% block content %}
-<div class="row justify-content-center">
-  <div class="col-12 col-md-8 col-lg-6">
-    <div class="card glass p-3 p-md-4">
-      <h1 class="h5 fw-bold mb-3">{% if mode == 'edit' %}Редагувати категорію{% else %}Нова категорія{% endif %}</h1>
-      <form method="post" enctype="multipart/form-data" class="vstack gap-3">{% csrf_token %}
-        {{ form.as_p }}
-        <div class="d-flex gap-2">
-          <a href="/admin-panel/?section=catalogs" class="btn btn-outline-light">Назад</a>
-          <button class="btn btn-cta">Зберегти</button>
-        </div>
-      </form>
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if mode == 'edit' %}Редагувати категорію{% else %}Додати категорію{% endif %} - TwoComms{% endblock %}
+
+{% block content %}
+<main class="catalog-category-editor">
+  <header class="catalog-category-editor__header">
+    <div>
+      <a class="catalog-category-editor__back" href="/admin-panel/?section=catalogs">
+        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+        Керування каталогом
+      </a>
+      <h1>{% if mode == 'edit' %}Редагувати категорію{% else %}Додати категорію{% endif %}</h1>
+      <p>Категорія формує основну навігацію товарів і окрему SEO-сторінку каталогу.</p>
     </div>
-  </div>
-</div>
+    {% if obj %}<span class="catalog-category-editor__id">ID {{ obj.pk }}</span>{% endif %}
+  </header>
+
+  <form method="post" enctype="multipart/form-data" class="catalog-category-editor__form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+      <div class="catalog-category-editor__alert" role="alert">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <section class="catalog-category-editor__section" data-category-section="main" aria-labelledby="category-main-title">
+      <div class="catalog-category-editor__section-head">
+        <span class="catalog-category-editor__step">01</span>
+        <div><h2 id="category-main-title">Основне</h2><p>Назва, адреса сторінки та порядок у каталозі.</p></div>
+      </div>
+      <div class="catalog-category-editor__grid catalog-category-editor__grid--three">
+        <label class="catalog-category-field"><span>Назва *</span>{{ form.name }}{{ form.name.errors }}</label>
+        <label class="catalog-category-field"><span>Slug *</span>{{ form.slug }}{{ form.slug.errors }}<small>Наприклад: tshirts, hoodies, longsleeves</small></label>
+        <label class="catalog-category-field"><span>Порядок</span>{{ form.order }}{{ form.order.errors }}</label>
+      </div>
+      <label class="catalog-category-field"><span>Опис категорії</span>{{ form.description }}{{ form.description.errors }}</label>
+      <div class="catalog-category-editor__toggles">
+        <label class="catalog-category-toggle">{{ form.is_active }}<span><strong>Активна</strong><small>Доступна у каталозі та фільтрах</small></span></label>
+        <label class="catalog-category-toggle">{{ form.is_featured }}<span><strong>Рекомендована</strong><small>Може використовуватися у пріоритетних добірках</small></span></label>
+      </div>
+    </section>
+
+    <section class="catalog-category-editor__section" data-category-section="media" aria-labelledby="category-media-title">
+      <div class="catalog-category-editor__section-head">
+        <span class="catalog-category-editor__step">02</span>
+        <div><h2 id="category-media-title">Зображення</h2><p>Іконка для навігації та обкладинка сторінки категорії.</p></div>
+      </div>
+      <div class="catalog-category-editor__media-grid">
+        <label class="catalog-category-media">
+          <span class="catalog-category-media__preview" data-category-media-preview="icon">
+            {% if obj.icon %}<img src="{{ obj.icon.url }}" alt="Поточна іконка {{ obj.name }}">{% else %}<i class="fas fa-icons" aria-hidden="true"></i>{% endif %}
+          </span>
+          <span><strong>Іконка</strong><small>PNG, WEBP або SVG. Квадратний формат.</small></span>
+          {{ form.icon }}{{ form.icon.errors }}
+        </label>
+        <label class="catalog-category-media catalog-category-media--cover">
+          <span class="catalog-category-media__preview" data-category-media-preview="cover">
+            {% if obj.cover %}<img src="{{ obj.cover.url }}" alt="Поточна обкладинка {{ obj.name }}">{% else %}<i class="fas fa-image" aria-hidden="true"></i>{% endif %}
+          </span>
+          <span><strong>Обкладинка</strong><small>Горизонтальне зображення для сторінки і плиток.</small></span>
+          {{ form.cover }}{{ form.cover.errors }}
+        </label>
+      </div>
+    </section>
+
+    <section class="catalog-category-editor__section" data-category-section="seo" aria-labelledby="category-seo-title">
+      <div class="catalog-category-editor__section-head">
+        <span class="catalog-category-editor__step">03</span>
+        <div><h2 id="category-seo-title">SEO, GEO та AEO</h2><p>Унікальні сигнали для сторінки категорії. Порожні поля використовують системні fallback-значення.</p></div>
+      </div>
+      <div class="catalog-category-editor__grid">
+        <label class="catalog-category-field"><span>SEO Title</span>{{ form.seo_title }}{{ form.seo_title.errors }}</label>
+        <label class="catalog-category-field"><span>H1 сторінки</span>{{ form.seo_h1 }}{{ form.seo_h1.errors }}</label>
+      </div>
+      <label class="catalog-category-field"><span>Meta description</span>{{ form.seo_description }}{{ form.seo_description.errors }}<small>До 320 символів. Коротко поясніть склад категорії та цінність сторінки.</small></label>
+      <label class="catalog-category-field"><span>Заголовок розгорнутого SEO-блоку</span>{{ form.seo_text_title }}{{ form.seo_text_title.errors }}</label>
+      <label class="catalog-category-field"><span>SEO-вступ над товарами</span>{{ form.seo_intro_html }}{{ form.seo_intro_html.errors }}<small>Підтримується контрольований HTML для структурованого вступу та блоку details.</small></label>
+    </section>
+
+    <footer class="catalog-category-editor__actions">
+      <a href="/admin-panel/?section=catalogs" class="catalog-category-editor__button catalog-category-editor__button--secondary">Скасувати</a>
+      <button type="submit" class="catalog-category-editor__button catalog-category-editor__button--primary">
+        <i class="fas fa-save" aria-hidden="true"></i>
+        {% if mode == 'edit' %}Зберегти категорію{% else %}Створити категорію{% endif %}
+      </button>
+    </footer>
+  </form>
+</main>
+
+<script>
+document.querySelectorAll('.catalog-category-file').forEach(input => {
+  input.addEventListener('change', () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const kind = input.name === 'icon' ? 'icon' : 'cover';
+    const preview = document.querySelector(`[data-category-media-preview="${kind}"]`);
+    if (!preview) return;
+    const image = document.createElement('img');
+    image.alt = kind === 'icon' ? 'Нова іконка категорії' : 'Нова обкладинка категорії';
+    image.src = URL.createObjectURL(file);
+    image.addEventListener('load', () => URL.revokeObjectURL(image.src), {once: true});
+    preview.replaceChildren(image);
+  });
+});
+</script>
 {% endblock %}

@@ -1,6 +1,6 @@
 """Authoritative catalog pricing for Instagram prompt readers.
 
-Orders already use ``fable5.services.effective_cart_unit_price``. This module
+Orders already use ``product_catalog.services.effective_cart_unit_price``. This module
 exposes the same variant/option truth to the model before it quotes a price.
 """
 from __future__ import annotations
@@ -19,24 +19,24 @@ MAX_OPTION_COMBINATIONS = 128
 
 PRODUCT_PRICING_LOOKUPS = (
     "catalog__options__values",
-    "catalog__size_grids__fable5_profile",
-    "category__fable5_flows",
+    "catalog__size_grids__product_catalog_profile",
+    "category__product_catalog_flows",
     "fit_options",
-    "fable5_fit_notes",
-    "fable5_option_profiles__i18n",
-    "fable5_axis_presentations",
-    "fable5_size_grid_assignments__size_grid__fable5_profile",
-    "fable5_size_rules",
-    "size_grid__fable5_profile",
+    "product_catalog_fit_notes",
+    "product_catalog_option_profiles__i18n",
+    "product_catalog_axis_presentations",
+    "product_catalog_size_grid_assignments__size_grid__product_catalog_profile",
+    "product_catalog_size_rules",
+    "size_grid__product_catalog_profile",
 )
 VARIANT_PRICING_LOOKUPS = (
-    "color__fable5_profile",
-    "fable5_details__i18n",
-    "fable5_fit_rules",
-    "fable5_size_rules",
-    "fable5_faqs",
-    "fable5_combinations__i18n",
-    "fable5_size_grid_assignments__size_grid__fable5_profile",
+    "color__product_catalog_profile",
+    "product_catalog_details__i18n",
+    "product_catalog_fit_rules",
+    "product_catalog_size_rules",
+    "product_catalog_faqs",
+    "product_catalog_combinations__i18n",
+    "product_catalog_size_grid_assignments__size_grid__product_catalog_profile",
 )
 
 
@@ -66,7 +66,7 @@ def _variant_rows(product, variants=None):
 
 
 def prepare_pricing_context(products, variants) -> None:
-    """Batch-load the graph used by Fable5 pricing and content resolution."""
+    """Batch-load the graph used by ProductCatalog pricing and content resolution."""
 
     product_rows = list(products)
     variant_rows = list(variants)
@@ -82,8 +82,8 @@ def prepare_pricing_context(products, variants) -> None:
 
 
 def _variant_configurations(product, variant) -> list[dict]:
-    from fable5.content_resolution import build_combination_key
-    from fable5.services import (
+    from product_catalog.content_resolution import build_combination_key
+    from product_catalog.services import (
         product_option_context,
         variant_public_context,
     )
@@ -110,7 +110,7 @@ def _variant_configurations(product, variant) -> list[dict]:
     rows = []
     combination_rows = {
         row.combination_key: row
-        for row in variant.fable5_combinations.all()
+        for row in variant.product_catalog_combinations.all()
     }
     for choices in choices_iter:
         values = {
@@ -158,8 +158,8 @@ def _product_configurations_without_variants(product) -> list[dict]:
     """Build option pricing rows for products that have no colour variants."""
     from itertools import product as option_product
 
-    from fable5.content_resolution import build_combination_key
-    from fable5.services import effective_cart_unit_price, product_option_context
+    from product_catalog.content_resolution import build_combination_key
+    from product_catalog.services import effective_cart_unit_price, product_option_context
 
     option_context = product_option_context(product, variant=None)
     axes = option_context.get("axes") or []

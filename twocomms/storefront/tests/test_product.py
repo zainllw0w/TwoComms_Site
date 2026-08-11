@@ -17,6 +17,7 @@ from django.urls import reverse
 from django.utils import translation
 
 from orders.models import Order, OrderItem
+from product_catalog.models import ImageOptimizationJob
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from reviews.models import Review, ReviewStatus
 from storefront.models import Category, Product, ProductFAQ, ProductFitOption, ProductImage
@@ -165,7 +166,15 @@ class ProductHomepageImageTests(ProductViewTestCase):
             self.product.home_card_image = self._image_file("home-card-opt.png")
             self.product.save(update_fields=["home_card_image"])
 
-        self.optimize_image_mock.assert_any_call("storefront.Product", self.product.pk, "home_card_image")
+        job = ImageOptimizationJob.objects.get(
+            model_label="storefront.product",
+            object_id=self.product.pk,
+            field_name="home_card_image",
+        )
+        self.assertTrue(job.source_name.endswith("home-card-opt.png"))
+        self.assertEqual(job.status, ImageOptimizationJob.Status.PENDING)
+        self.assertEqual(job.stage, "queued")
+        self.assertEqual(job.progress, 0)
 
 
 class ProductDetailTests(ProductViewTestCase):
@@ -370,10 +379,12 @@ class ProductDetailTests(ProductViewTestCase):
         css_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme/static/css/product-detail.css"
         css = css_path.read_text(encoding="utf-8")
 
-        self.assertIn("grid-template-columns: minmax(112px, 0.24fr) minmax(252px, 1fr) minmax(218px, 0.54fr)", css)
+        add_button_rule = css.split(".tc-add-btn {", 1)[1].split("}", 1)[0]
+        self.assertIn("grid-template-columns: minmax(120px, 0.28fr) minmax(244px, 1fr) minmax(232px, 0.6fr)", css)
         self.assertIn("align-items: center", css)
-        self.assertIn("height: 62px", css)
-        self.assertIn("max-height: 68px", css)
+        self.assertIn("align-self: center", add_button_rule)
+        self.assertIn("height: 54px", add_button_rule)
+        self.assertIn("max-height: 60px", add_button_rule)
         self.assertIn(".tc-purchase-side .tc-purchase-trust-link span", css)
         self.assertIn('body:has(#product-reviews .tc-reviews__form-wrap[open]) .tc-sticky-mobile', css)
 
@@ -438,9 +449,9 @@ class ProductDetailTests(ProductViewTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["product_customer_has_paid_order"])
-        self.assertContains(response, "Ви увійшли як клієнт")
+        self.assertContains(response, "Підпис відгуку")
         self.assertContains(response, "Олена Клієнт")
-        self.assertContains(response, "Купівля цього товару підтверджена")
+        self.assertContains(response, "Покупка підтверджена")
         self.assertContains(response, 'value="Олена Клієнт"', html=False)
         self.assertContains(response, 'value="buyer@example.com"', html=False)
 
@@ -961,105 +972,3 @@ class QuickViewTests(ProductViewTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.json()["success"])
-
-
-class AdminProductUnifiedTests(ProductViewTestCase):
-    def setUp(self):
-        super().setUp()
-        self.staff_user = get_user_model().objects.create_user(
-            username="product-admin",
-            password="secret123",
-            is_staff=True,
-        )
-        self.client.force_login(self.staff_user)
-
-    def test_legacy_product_new_page_renders_manual_seo_and_content_fields(self):
-        response = self.client.get(reverse("admin_product_new"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "SEO Title")
-        self.assertContains(response, "Meta description")
-        self.assertContains(response, "Деталі")
-        self.assertContains(response, "Кому підійде")
-        self.assertContains(response, "ALT головного зображення")
-
-    def test_legacy_product_new_ajax_saves_without_ai_and_places_product_first(self):
-        response = self.client.post(
-            reverse("admin_product_new"),
-            {
-                "form_type": "product",
-                "title": "Legacy New Product",
-                "slug": "legacy-new-product",
-                "category": str(self.category.pk),
-                "status": "published",
-                "priority": "0",
-                "price": "1200",
-                "discount_percent": "",
-                "points_reward": "0",
-                "short_description": "Short legacy create.",
-                "full_description": "Full legacy create.",
-                "details_text": "Тип: футболка",
-                "target_audience": "Для streetwear образу.",
-                "care_instructions": "Прати навиворіт.",
-                "seo_title": "Legacy SEO Title",
-                "seo_description": "Legacy SEO Description",
-                "seo_keywords": "legacy, twocomms",
-                "drop_price": "0",
-                "wholesale_price": "0",
-            },
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["success"])
-        product = Product.objects.get(title="Legacy New Product")
-        self.assertEqual(product.priority, 1)
-        self.assertEqual(product.seo_title, "Legacy SEO Title")
-        self.assertEqual(product.details_text, "Тип: футболка")
-
-    def test_unified_edit_saves_manual_seo_content_blocks_and_faq(self):
-        response = self.client.post(
-            reverse("admin_product_edit_unified", args=[self.product.pk]),
-            {
-                "form_type": "product",
-                "title": "Чорна футболка унісекс TwoComms",
-                "slug": self.product.slug,
-                "category": str(self.category.pk),
-                "status": "published",
-                "priority": "10",
-                "price": "1000",
-                "discount_percent": "",
-                "points_reward": "0",
-                "short_description": "Короткий опис для карточки.",
-                "full_description": "Довгий опис товару.",
-                "details_text": "Тип: футболка унісекс\nКолір: чорний",
-                "target_audience": "Підійде тим, хто шукає streetwear з сенсом.",
-                "care_instructions": "Прати навиворіт у делікатному режимі.",
-                "main_image_alt": "Чорна футболка TwoComms",
-                "seo_title": "Футболка унісекс | TwoComms",
-                "seo_description": "Чорна футболка унісекс TwoComms з авторським принтом.",
-                "seo_keywords": "футболка унісекс, TwoComms",
-                "drop_price": "0",
-                "wholesale_price": "0",
-                "faqs-TOTAL_FORMS": "1",
-                "faqs-INITIAL_FORMS": "0",
-                "faqs-MIN_NUM_FORMS": "0",
-                "faqs-MAX_NUM_FORMS": "1000",
-                "faqs-0-question": "Де розміщений принт?",
-                "faqs-0-answer": "Основний принт розміщений на спині.",
-                "faqs-0-order": "0",
-                "faqs-0-is_active": "on",
-            },
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["success"])
-
-        self.product.refresh_from_db()
-        self.assertEqual(self.product.seo_title, "Футболка унісекс | TwoComms")
-        self.assertEqual(self.product.details_text, "Тип: футболка унісекс\nКолір: чорний")
-        self.assertEqual(self.product.care_instructions, "Прати навиворіт у делікатному режимі.")
-        faq = ProductFAQ.objects.get(product=self.product)
-        self.assertEqual(faq.question, "Де розміщений принт?")
-        self.assertTrue(faq.is_active)

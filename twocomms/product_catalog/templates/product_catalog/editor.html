@@ -1,0 +1,192 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{% if product %}Редагування: {{ product.title }}{% else %}Новий товар{% endif %} · Редактор товару</title>
+<link rel="stylesheet" href="{% static 'product_catalog/editor.css' %}?v=20260811-catalog-editor-v8">
+<link rel="stylesheet" href="{% static 'product_catalog/thermo-dot.css' %}">
+</head>
+<body>
+{% csrf_token %}
+
+<svg class="catalog-editor-icon-sprite" aria-hidden="true">
+  <symbol id="catalog-editor-i-arrow" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6M9 12h11"/></symbol>
+  <symbol id="catalog-editor-i-core" viewBox="0 0 24 24"><path d="M4 7h16M7 3v4m10-4v4M6 11h12v9H6z"/></symbol>
+  <symbol id="catalog-editor-i-variants" viewBox="0 0 24 24"><circle cx="8" cy="8" r="4"/><circle cx="16" cy="16" r="4"/><path d="M11 10.5 13 13"/></symbol>
+  <symbol id="catalog-editor-i-media" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m4 17 5-5 4 4 2-2 5 5"/></symbol>
+  <symbol id="catalog-editor-i-fit" viewBox="0 0 24 24"><path d="m8 4 4 2 4-2 4 4-3 3v9H7v-9L4 8z"/></symbol>
+  <symbol id="catalog-editor-i-seo" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M8 9h5M8 12h3"/></symbol>
+  <symbol id="catalog-editor-i-faq" viewBox="0 0 24 24"><path d="M5 4h14v13H9l-4 3z"/><path d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.7.3-.7.8-.7 1.6m0 2h.01"/></symbol>
+  <symbol id="catalog-editor-i-feed" viewBox="0 0 24 24"><circle cx="6" cy="18" r="1.5"/><path d="M5 11a8 8 0 0 1 8 8M5 5a14 14 0 0 1 14 14"/></symbol>
+  <symbol id="catalog-editor-i-save" viewBox="0 0 24 24"><path d="M5 3h12l2 2v16H5zM8 3v6h8V3M8 21v-8h8v8"/></symbol>
+  <symbol id="catalog-editor-i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="catalog-editor-i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="catalog-editor-i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 15v5h14v-5"/></symbol>
+  <symbol id="catalog-editor-i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="catalog-editor-i-warning" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19zM12 9v5m0 3h.01"/></symbol>
+  <symbol id="catalog-editor-i-catalog" viewBox="0 0 24 24"><path d="M4 5h6v6H4zM14 5h6v6h-6zM4 15h6v4H4zM14 15h6v4h-6z"/></symbol>
+</svg>
+
+<header class="catalog-editor-topbar">
+  <div class="catalog-editor-topbar__brand">
+    <a class="catalog-editor-back" href="/admin-panel/?section=catalogs" aria-label="Повернутися до каталогу">
+      <svg class="catalog-editor-icon"><use href="#catalog-editor-i-arrow"/></svg>
+    </a>
+    <span class="catalog-editor-logo" aria-hidden="true"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-catalog"/></svg></span>
+    <div class="catalog-editor-title-stack">
+      <div class="catalog-editor-topbar__eyebrow">Студія товару</div>
+      <div class="catalog-editor-topbar__title" id="catalog-editor-header-title">Новий товар</div>
+    </div>
+  </div>
+  <div class="catalog-editor-topbar__actions">
+    <span class="catalog-editor-badge" id="catalog-editor-mode-badge">новий</span>
+    <span class="catalog-editor-save-state" id="catalog-editor-dirty" hidden><span class="catalog-editor-status-dot"></span>Незбережені зміни</span>
+    <select id="catalog-editor-status" class="catalog-editor-input catalog-editor-input--status" aria-label="Статус публікації"></select>
+    <a id="catalog-editor-view-link" class="catalog-editor-btn catalog-editor-btn--ghost" target="_blank" rel="noopener" hidden>
+      <svg class="catalog-editor-icon"><use href="#catalog-editor-i-eye"/></svg><span>На сайті</span>
+    </a>
+    <button id="catalog-editor-save" class="catalog-editor-btn catalog-editor-btn--primary" type="button">
+      <svg class="catalog-editor-icon catalog-editor-save-icon"><use href="#catalog-editor-i-save"/></svg>
+      <span id="catalog-editor-save-label">Зберегти</span><span class="catalog-editor-kbd">Ctrl+S</span>
+    </button>
+  </div>
+</header>
+
+<div class="catalog-editor-shell">
+  <nav class="catalog-editor-tabs" id="catalog-editor-tabs" role="tablist" aria-label="Розділи редактора товару">
+    <div class="catalog-editor-nav-head">
+      <span>Редагування</span>
+      <small id="catalog-editor-nav-progress">0% готово</small>
+    </div>
+    <button id="catalog-editor-tab-main" class="catalog-editor-tab is-active" data-tab="main" role="tab" tabindex="0" aria-selected="true" aria-controls="catalog-editor-panel-main"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-core"/></svg><span>Основне</span><i class="catalog-editor-tab__state"></i></button>
+    <button id="catalog-editor-tab-colors" class="catalog-editor-tab" data-tab="colors" role="tab" tabindex="-1" aria-selected="false" aria-controls="catalog-editor-panel-colors"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-variants"/></svg><span>Варіанти</span><b id="catalog-editor-variant-count">0</b><i class="catalog-editor-tab__state"></i></button>
+    <button id="catalog-editor-tab-media" class="catalog-editor-tab" data-tab="media" role="tab" tabindex="-1" aria-selected="false" aria-controls="catalog-editor-panel-media"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-media"/></svg><span>Медіа та обкладинка</span><i class="catalog-editor-tab__state"></i></button>
+    <button id="catalog-editor-tab-fits" class="catalog-editor-tab" data-tab="fits" role="tab" tabindex="-1" aria-selected="false" aria-controls="catalog-editor-panel-fits"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-fit"/></svg><span>Посадки й розміри</span><i class="catalog-editor-tab__state"></i></button>
+    <button id="catalog-editor-tab-seo" class="catalog-editor-tab" data-tab="seo" role="tab" tabindex="-1" aria-selected="false" aria-controls="catalog-editor-panel-seo"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-seo"/></svg><span>Контент і SEO</span><i class="catalog-editor-tab__state"></i></button>
+    <button id="catalog-editor-tab-faq" class="catalog-editor-tab" data-tab="faq" role="tab" tabindex="-1" aria-selected="false" aria-controls="catalog-editor-panel-faq"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-faq"/></svg><span>FAQ</span><i class="catalog-editor-tab__state"></i></button>
+    <button id="catalog-editor-tab-feeds" class="catalog-editor-tab" data-tab="feeds" role="tab" tabindex="-1" aria-selected="false" aria-controls="catalog-editor-panel-feeds"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-feed"/></svg><span>Канали продажу</span><i class="catalog-editor-tab__state"></i></button>
+
+    <aside class="catalog-editor-readiness" aria-labelledby="catalog-editor-readiness-title">
+      <div class="catalog-editor-readiness__head"><span id="catalog-editor-readiness-title">Готовність</span><strong id="catalog-editor-readiness-score">0%</strong></div>
+      <div class="catalog-editor-progress" aria-hidden="true"><i id="catalog-editor-readiness-bar"></i></div>
+      <div id="catalog-editor-readiness-issues" class="catalog-editor-readiness__issues"></div>
+    </aside>
+  </nav>
+
+  <main class="catalog-editor-main">
+    <section class="catalog-editor-panel is-active" data-panel="main" id="catalog-editor-panel-main" role="tabpanel" aria-labelledby="catalog-editor-tab-main">
+      <header class="catalog-editor-section-head"><div><span class="catalog-editor-section-kicker">Основне</span><h1>Товар і класифікація</h1><p>Спільні дані товару; кольори та їх фото — у «Варіантах».</p></div></header>
+      <div class="catalog-editor-grid catalog-editor-essentials-board">
+        <section class="catalog-editor-card catalog-editor-card--identity">
+          <h2 class="catalog-editor-card__title">Назва та адреса</h2>
+          <label class="catalog-editor-field"><span>Загальна назва товару *</span><input id="f-title" class="catalog-editor-input" placeholder="Напр.: Футболка «Бойова квіточка»"><small>Без кольору й посадки — вони підставляються з варіанта.</small></label>
+          <label class="catalog-editor-field"><span>Slug</span><div class="catalog-editor-slug-row"><input id="f-slug" class="catalog-editor-input" placeholder="генерується з назви"><button type="button" class="catalog-editor-btn catalog-editor-btn--ghost" id="f-slug-auto" title="Згенерувати slug з назви">Авто</button></div><small class="catalog-editor-hint" id="f-slug-hint"></small></label>
+          <div class="catalog-editor-row catalog-editor-row--catalog-meta"><label class="catalog-editor-field"><span>Категорія *</span><select id="f-category" class="catalog-editor-input"></select></label><label class="catalog-editor-field"><span>Каталог</span><select id="f-catalog" class="catalog-editor-input"></select></label><label class="catalog-editor-field"><span>Спільна сітка</span><select id="f-size-grid" class="catalog-editor-input"></select></label><small class="catalog-editor-hint catalog-editor-row-note">Fallback, якщо для посадки або кольору не задано окрему.</small></div>
+        </section>
+        <section class="catalog-editor-card catalog-editor-card--commerce">
+          <h2 class="catalog-editor-card__title">Комерція та публікація</h2>
+          <div class="catalog-editor-price-fields"><label class="catalog-editor-field"><span>Базова ціна, грн *</span><input id="f-price" type="number" min="0" class="catalog-editor-input catalog-editor-input--price"></label><label class="catalog-editor-field"><span>Знижка, %</span><input id="f-discount" type="number" min="0" max="95" class="catalog-editor-input"></label><label class="catalog-editor-field"><span>Бали</span><input id="f-points" type="number" min="0" class="catalog-editor-input"></label></div>
+          <div class="catalog-editor-row"><label class="catalog-editor-check catalog-editor-check--tile"><input type="checkbox" id="f-featured"><span><strong>Добірки головної</strong><small>Показувати товар у промоблоках</small></span></label><label class="catalog-editor-field"><span>Пріоритет</span><input id="f-priority" type="number" class="catalog-editor-input"></label></div>
+          <label class="catalog-editor-field"><span>Спільне YouTube-відео</span><input id="f-video" class="catalog-editor-input" placeholder="Порожньо — без відео; колір може мати власне"></label>
+        </section>
+      </div>
+      <div class="catalog-editor-taxonomy-grid">
+        <section class="catalog-editor-card catalog-editor-audience-card">
+          <div class="catalog-editor-card-head">
+            <div><h2 class="catalog-editor-card__title">Аудиторія</h2><p>Унісекс автоматично охоплює чоловічий і жіночий каталоги.</p></div>
+            <span class="catalog-editor-source-badge" id="f-audience-summary" aria-live="polite">Не вибрано</span>
+          </div>
+          <fieldset class="catalog-editor-audience-fieldset">
+            <legend class="catalog-editor-visually-hidden">Аудиторія товару</legend>
+            <div class="catalog-editor-audience-grid" id="f-audience-options"></div>
+          </fieldset>
+          <p class="catalog-editor-hint">Явні чоловічий або жіночий вибори залишаються ручними.</p>
+        </section>
+        <section class="catalog-editor-card catalog-editor-collection-card" aria-labelledby="f-collection-title">
+          <div class="catalog-editor-card-head">
+            <div><h2 class="catalog-editor-card__title" id="f-collection-title">Теми та підкатегорії</h2><p>225 і 127 автоматично входять до «Бригад»; «Мілітарі» обирається вручну.</p></div>
+            <span class="catalog-editor-source-badge" id="f-collection-summary" aria-live="polite">Не вибрано</span>
+          </div>
+          <div class="catalog-editor-collection-assigned" id="f-collection-assigned" aria-live="polite" aria-label="Призначені колекції"></div>
+          <details class="catalog-editor-collection-library">
+            <summary><span>Змінити теми та підкатегорії</span><small>Пошук і дерево</small></summary>
+            <div class="catalog-editor-collection-library__body">
+              <div class="catalog-editor-collection-controls">
+                <label class="catalog-editor-field catalog-editor-collection-search-field" for="f-collection-search"><span>Пошук колекції</span><input id="f-collection-search" class="catalog-editor-input" type="search" placeholder="Назва або шлях" autocomplete="off"></label>
+              </div>
+              <fieldset class="catalog-editor-collection-fieldset">
+                <legend class="catalog-editor-visually-hidden">Колекції товару</legend>
+                <div class="catalog-editor-collection-options" id="f-collection-options" role="group" aria-label="Доступні колекції"></div>
+              </fieldset>
+              <p class="catalog-editor-hint">Автоматичні батьківські пункти позначені й заблоковані.</p>
+            </div>
+          </details>
+        </section>
+      </div>
+      <section class="catalog-editor-card catalog-editor-card--wide">
+        <div class="catalog-editor-card-head"><div><h2 class="catalog-editor-card__title">Принти зі storage</h2><p>Оберіть один або кілька принтів. Зв'язок одразу буде видимий і в редакторі принта на storage.</p></div><span class="catalog-editor-source-badge" id="f-print-count">0 вибрано</span></div>
+        <div class="catalog-editor-print-toolbar"><label class="catalog-editor-field"><span>Пошук принта</span><input id="f-print-search" class="catalog-editor-input" type="search" placeholder="Назва або категорія" autocomplete="off"></label></div>
+        <div id="f-product-prints" class="catalog-editor-print-picker" aria-live="polite"></div>
+      </section>
+    </section>
+
+    <section class="catalog-editor-panel" data-panel="colors" id="catalog-editor-panel-colors" role="tabpanel" aria-labelledby="catalog-editor-tab-colors" hidden>
+      <header class="catalog-editor-section-head catalog-editor-section-head--variants"><div><span class="catalog-editor-section-kicker">Головний робочий простір</span><h1>Кольори як окремі пропозиції</h1><p>Оберіть колір у стрічці: одразу побачите його ціну, термо-стан, контент, SEO, фото, посадки та розміри.</p></div><button class="catalog-editor-btn catalog-editor-btn--primary" type="button" id="f-add-variant"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-plus"/></svg>Додати колір</button></header>
+      <div class="catalog-editor-variant-studio">
+        <div class="catalog-editor-variant-rail-wrap"><div class="catalog-editor-variant-rail-label"><span>Варіанти на вітрині</span><small>перетягування порядку — після збереження</small></div><div id="f-variant-rail" class="catalog-editor-variant-rail" role="tablist" aria-label="Кольорові варіанти"></div></div>
+        <div id="f-variants" class="catalog-editor-variant-workspace"></div>
+      </div>
+    </section>
+
+    <section class="catalog-editor-panel" data-panel="media" id="catalog-editor-panel-media" role="tabpanel" aria-labelledby="catalog-editor-tab-media" hidden>
+      <header class="catalog-editor-section-head"><div><span class="catalog-editor-section-kicker">Візуальна ієрархія</span><h1>Медіа та обкладинка</h1><p>Дві ролі замість двох однакових полів: головна обкладинка працює всюди, картка головної — лише як необов’язковий override.</p></div></header>
+      <section class="catalog-editor-cover-studio">
+        <article class="catalog-editor-cover catalog-editor-cover--primary">
+          <div class="catalog-editor-cover__head"><div><span class="catalog-editor-cover__label">Обкладинка товару</span><strong>PDP · каталог · фіди</strong></div><span class="catalog-editor-source-badge" id="f-main-image-source">Джерело: окремий файл</span></div>
+          <div class="catalog-editor-cover__visual" id="f-main-cover-visual"><img id="f-main-image" alt=""><span class="catalog-editor-cover__placeholder"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-media"/></svg>Оберіть сильний кадр товару</span><span id="f-main-image-progress" class="catalog-editor-upload-ring" hidden aria-live="polite"><b>Оптимізація</b></span><button id="f-main-image-retry" class="catalog-editor-cover__retry catalog-editor-btn catalog-editor-btn--danger catalog-editor-btn--small" type="button" hidden aria-label="Повторити оптимізацію" title="Повторити оптимізацію">↻</button></div>
+          <p>Показується першою у картці товару, каталозі та фідах.</p>
+          <div class="catalog-editor-cover__actions"><button class="catalog-editor-btn catalog-editor-btn--ghost" type="button" data-act="show-variant-photos">Обрати з фото варіанта</button><input type="file" id="f-main-image-file" accept="image/*" hidden><button class="catalog-editor-btn" type="button" id="f-main-image-btn"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-upload"/></svg>Завантажити окремо</button></div>
+        </article>
+        <article class="catalog-editor-cover catalog-editor-cover--secondary">
+          <div class="catalog-editor-cover__head"><div><span class="catalog-editor-cover__label">Картка на головній</span><strong>Необов’язковий override</strong></div><span class="catalog-editor-source-badge" id="f-home-image-source">Fallback: обкладинка</span></div>
+          <div class="catalog-editor-cover__visual" id="f-home-cover-visual"><img id="f-home-image" alt=""><span class="catalog-editor-cover__placeholder"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-media"/></svg>Зараз використовується обкладинка</span><span id="f-home-image-progress" class="catalog-editor-upload-ring" hidden aria-live="polite"><b>Оптимізація</b></span><button id="f-home-image-retry" class="catalog-editor-cover__retry catalog-editor-btn catalog-editor-btn--danger catalog-editor-btn--small" type="button" hidden aria-label="Повторити оптимізацію" title="Повторити оптимізацію">↻</button></div>
+          <p>Потрібна лише якщо для головної сторінки потрібне інше кадрування.</p>
+          <div class="catalog-editor-cover__actions"><input type="file" id="f-home-image-file" accept="image/*" hidden><button class="catalog-editor-btn" type="button" id="f-home-image-btn"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-upload"/></svg>Завантажити override</button><button id="f-home-image-reset" class="catalog-editor-btn catalog-editor-btn--ghost" type="button" title="Прибрати override і використовувати основну обкладинку">Скинути до обкладинки</button></div>
+        </article>
+      </section>
+      <label class="catalog-editor-field catalog-editor-cover-alt"><span>Alt обкладинки</span><input id="f-main-alt" class="catalog-editor-input" placeholder="Опишіть товар і колір для пошуку та скринрідера"></label>
+      <section class="catalog-editor-card catalog-editor-card--wide"><div class="catalog-editor-card-head"><div><h2 class="catalog-editor-card__title">Спільна галерея товару</h2><p>Фото додаються в кінець. Потягніть за мініатюру, щоб змінити порядок; зірка визначає обкладинку.</p></div></div><div class="catalog-editor-dropzone" id="f-product-dropzone"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-upload"/></svg><span><strong>Перетягніть фото сюди</strong><small>або оберіть з папки · JPG, PNG, WEBP до 15 МБ</small></span><button type="button" class="catalog-editor-btn catalog-editor-btn--ghost" id="f-product-upload-btn">Обрати файли</button><input type="file" id="f-product-upload" accept="image/*" multiple hidden></div><div class="catalog-editor-gallery" id="f-product-gallery"></div></section>
+    </section>
+
+    <section class="catalog-editor-panel" data-panel="fits" id="catalog-editor-panel-fits" role="tabpanel" aria-labelledby="catalog-editor-tab-fits" hidden>
+      <header class="catalog-editor-section-head"><div><span class="catalog-editor-section-kicker">Спільні правила</span><h1>Посадки й розміри</h1><p>Налаштуйте defaults товару. Відмінності конкретного кольору змінюються в його workspace.</p></div></header>
+      <section class="catalog-editor-card catalog-editor-card--wide"><div class="catalog-editor-card-head"><div><h2 class="catalog-editor-card__title">Опції та націнки</h2><p>Посадка, утеплення та майбутні параметри беруться з типу одягу. Недоступні варіанти залишаються видимими покупцю.</p></div><span class="catalog-editor-source-badge">Товар → колір × опція</span></div><div id="f-option-profiles"></div></section>
+      <section class="catalog-editor-card catalog-editor-card--wide"><div class="catalog-editor-card-head"><div><h2 class="catalog-editor-card__title">Посадки моделі</h2><p>Вимкнена посадка автоматично стає недоступною для вибору; причина пояснює це покупцю.</p></div><label class="catalog-editor-check catalog-editor-check--tile"><input type="checkbox" id="f-fit-selector"><span><strong>Перемикач на PDP</strong><small>Показувати, коли доступно кілька посадок</small></span></label></div><div id="f-fits"></div></section>
+      <section class="catalog-editor-card catalog-editor-card--wide"><div class="catalog-editor-card-head"><div><h2 class="catalog-editor-card__title">Доступність за кольорами</h2><p>Тактильні чипи: яскравий — доступний, сірий із рискою — вимкнений. Порожній залишок означає необмежений облік.</p></div></div><div id="f-stock"></div></section>
+    </section>
+
+    <section class="catalog-editor-panel" data-panel="seo" id="catalog-editor-panel-seo" role="tabpanel" aria-labelledby="catalog-editor-tab-seo" hidden>
+      <header class="catalog-editor-section-head"><div><span class="catalog-editor-section-kicker">Fallback-контент</span><h1>Контент і SEO товару</h1><p>Основна робота з SEO відбувається всередині кожного кольору. Тут зберігається лише спільний контент і fallback.</p></div></header>
+      <section class="catalog-editor-card catalog-editor-card--wide"><h2 class="catalog-editor-card__title">Спільні описи</h2><label class="catalog-editor-field"><span>Короткий опис</span><textarea id="f-short-desc" class="catalog-editor-input" rows="2"></textarea></label><label class="catalog-editor-field"><span>Повний опис</span><textarea id="f-full-desc" class="catalog-editor-input" rows="6"></textarea></label><div class="catalog-editor-row"><label class="catalog-editor-field"><span>Деталі тканини</span><textarea id="f-details" class="catalog-editor-input" rows="3"></textarea></label><label class="catalog-editor-field"><span>Для кого</span><textarea id="f-audience" class="catalog-editor-input" rows="3"></textarea></label><label class="catalog-editor-field"><span>Догляд</span><textarea id="f-care" class="catalog-editor-input" rows="3"></textarea></label></div></section>
+      <details class="catalog-editor-advanced"><summary><span><strong>SEO за замовчуванням для основної сторінки</strong><small>Для базової URL товару та як fallback, якщо в кольорі поле порожнє</small></span><span class="catalog-editor-source-badge">Рівень: товар</span></summary><div class="catalog-editor-advanced__body"><label class="catalog-editor-field"><span>SEO Title <small class="catalog-editor-hint" id="f-seo-title-count"></small></span><input id="f-seo-title" class="catalog-editor-input" maxlength="160"></label><label class="catalog-editor-field"><span>SEO Description <small class="catalog-editor-hint" id="f-seo-desc-count"></small></span><textarea id="f-seo-desc" class="catalog-editor-input" rows="3" maxlength="320"></textarea></label><label class="catalog-editor-field"><span>SEO Keywords</span><input id="f-seo-keywords" class="catalog-editor-input" maxlength="300"></label><div class="catalog-editor-google-preview"><span>twocomms.shop › product › <b id="f-google-slug">slug</b></span><strong id="f-google-title">Назва товару — TwoComms</strong><p id="f-google-description">Опис основної сторінки товару буде показано тут.</p></div></div></details>
+    </section>
+
+    <section class="catalog-editor-panel" data-panel="faq" id="catalog-editor-panel-faq" role="tabpanel" aria-labelledby="catalog-editor-tab-faq" hidden><header class="catalog-editor-section-head"><div><span class="catalog-editor-section-kicker">Питання покупців</span><h1>FAQ товару</h1><p>Спільні питання. FAQ конкретного кольору редагується всередині цього варіанта.</p></div><button class="catalog-editor-btn catalog-editor-btn--primary" type="button" id="f-add-faq"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-plus"/></svg>Додати питання</button></header><section class="catalog-editor-card catalog-editor-card--wide"><div id="f-faqs"></div></section></section>
+
+    <section class="catalog-editor-panel" data-panel="feeds" id="catalog-editor-panel-feeds" role="tabpanel" aria-labelledby="catalog-editor-tab-feeds" hidden><header class="catalog-editor-section-head"><div><span class="catalog-editor-section-kicker">Дистрибуція</span><h1>Канали продажу</h1><p>Керуйте участю товару та окремим набором зображень для Google Merchant, Meta й інших фідів.</p></div><button class="catalog-editor-btn catalog-editor-btn--primary" type="button" id="f-add-feed"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-plus"/></svg>Створити фід</button></header><section class="catalog-editor-card catalog-editor-card--wide"><div id="f-feeds"></div></section></section>
+  </main>
+</div>
+
+<div class="catalog-editor-mobile-save" aria-label="Мобільне збереження"><span id="catalog-editor-mobile-state">Зміни збережено</span><button id="catalog-editor-mobile-save" class="catalog-editor-btn catalog-editor-btn--primary" type="button"><svg class="catalog-editor-icon"><use href="#catalog-editor-i-save"/></svg>Зберегти</button></div>
+<div class="catalog-editor-toast" id="catalog-editor-toast" role="status" aria-live="polite" hidden></div>
+
+{{ bootstrap|json_script:"catalog-editor-bootstrap" }}
+<script src="{% static 'product_catalog/editor-inventory.js' %}?v=20260716-inventory-v3"></script>
+<script src="{% static 'product_catalog/editor-audience.js' %}?v=20260810-audience-v1"></script>
+<script src="{% static 'product_catalog/editor-catalog.js' %}?v=20260810-catalog-v1"></script>
+<script src="{% static 'product_catalog/editor-upload.js' %}?v=20260811-upload-v4"></script>
+<script src="{% static 'product_catalog/editor.js' %}?v=20260811-catalog-editor-v6"></script>
+</body>
+</html>

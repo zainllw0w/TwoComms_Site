@@ -837,7 +837,7 @@ class StructuredDataGenerator:
         variant_merchandising = None
         if selected_variant is not None:
             try:
-                from fable5.services import variant_public_context
+                from product_catalog.services import variant_public_context
                 language = (get_language() or "uk").split("-", 1)[0].lower()
                 variant_merchandising = variant_public_context(
                     selected_variant,
@@ -1062,7 +1062,7 @@ class StructuredDataGenerator:
                 if review_blocks:
                     schema["review"] = review_blocks
 
-        # Merchant-level properties use explicit Fable 5 assignments only.
+        # Merchant-level properties use explicit Product Catalog assignments only.
         age_group = "adult"
         audience_rows = merchandising_context.get("audiences") or []
         audience_codes = [row.get("code") for row in audience_rows if row.get("code")]
@@ -1426,7 +1426,7 @@ class StructuredDataGenerator:
             slug = (getattr(variant, "slug", "") or "").strip()
             variant_url = _build_absolute_url(f"{prefix}product/{product.slug}/{slug}/")
             try:
-                from fable5.services import variant_public_context
+                from product_catalog.services import variant_public_context
                 language = (get_language() or "uk").split("-", 1)[0].lower()
                 variant_context = variant_public_context(variant, lang=language)
             except Exception:

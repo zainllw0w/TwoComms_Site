@@ -964,7 +964,7 @@ def _normalized_restock_options(values) -> dict[str, str]:
 
 def variant_inventory_revision(variant_id: int) -> str:
     """Hash the committed variant-size rules used as the restock event source."""
-    from fable5.models import VariantSizeRule
+    from product_catalog.models import VariantSizeRule
 
     rows = list(
         VariantSizeRule.objects.filter(variant_id=int(variant_id or 0))
@@ -1277,7 +1277,7 @@ def event_followup_fact_guard(
         ):
             return False, "restock_selection_changed"
         try:
-            from fable5.services import variant_allows_purchase
+            from product_catalog.services import variant_allows_purchase
             from productcolors.models import ProductColorVariant
             from storefront.models import Product, ProductStatus
 
@@ -1299,8 +1299,8 @@ def event_followup_fact_guard(
             ):
                 return False, "restock_unavailable"
             source_revision = str(payload.get("source_revision") or "").strip()
-            if source_revision.startswith("fable5:"):
-                expected_revision = f"fable5:{variant_inventory_revision(variant_id)}"
+            if source_revision.startswith("product_catalog:"):
+                expected_revision = f"product_catalog:{variant_inventory_revision(variant_id)}"
                 if source_revision != expected_revision:
                     return False, "restock_revision_changed"
         except Exception:

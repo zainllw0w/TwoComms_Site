@@ -705,7 +705,7 @@ def _create_payment_attempt_invoice(request):
         return JsonResponse({'success': False, 'error': 'Деякі товари більше недоступні. Оновіть кошик.'}, status=400)
 
     from productcolors.models import ProductColorVariant
-    from fable5.services import effective_cart_unit_price, variant_allows_purchase
+    from product_catalog.services import effective_cart_unit_price, variant_allows_purchase
     variant_ids = [item.get('color_variant_id') for item in cart.values() if item.get('color_variant_id')]
     variants = ProductColorVariant.objects.in_bulk(variant_ids)
     snapshot_items = []
@@ -1225,7 +1225,7 @@ def monobank_create_invoice(request):
                 })
 
             from productcolors.models import ProductColorVariant
-            from fable5.services import effective_cart_unit_price
+            from product_catalog.services import effective_cart_unit_price
 
             variant_ids = [
                 item.get('color_variant_id')
@@ -1244,7 +1244,7 @@ def monobank_create_invoice(request):
                     return None
                 return variant
 
-            from fable5.services import variant_allows_purchase
+            from product_catalog.services import variant_allows_purchase
             for item in cart.values():
                 product = prods.get(item['product_id'])
                 raw_variant_id = item.get('color_variant_id')

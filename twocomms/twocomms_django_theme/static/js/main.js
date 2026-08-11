@@ -2028,7 +2028,7 @@ document.addEventListener('click', function (e) {
 // doesn't share Lighthouse's home/PDP critical chain.
 document.addEventListener('DOMContentLoaded', () => {
   if (document.querySelector('.product-card-wrap') || document.getElementById('productCarousel')) {
-    import('./modules/product-media.js?v=20260715-fable5-v1')
+    import('./modules/product-media.js?v=20260715-product_catalog-v1')
       .then(({ initProductMedia }) => initProductMedia())
       .catch(() => { });
   }

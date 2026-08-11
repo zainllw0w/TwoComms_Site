@@ -93,8 +93,8 @@ class MatchingTests(TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].size, "L")
 
-    def test_fable5_color_fit_blank_link_is_preferred(self):
-        from fable5.models import VariantBlankLink
+    def test_product_catalog_color_fit_blank_link_is_preferred(self):
+        from product_catalog.models import VariantBlankLink
 
         VariantBlankLink.objects.create(
             variant=self.variant,
@@ -113,7 +113,7 @@ class MatchingTests(TestCase):
         self.assertEqual(results[0].color_id, self.color.id)
 
     def test_linked_classic_and_thermo_routes_use_exact_blank_families(self):
-        from fable5.models import VariantBlankLink
+        from product_catalog.models import VariantBlankLink
 
         sub_thermo = StorageSubcategory.objects.create(
             category=self.wh_cat,

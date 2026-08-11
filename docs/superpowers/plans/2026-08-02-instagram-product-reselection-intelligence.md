@@ -12,7 +12,7 @@
 
 **Architecture:** A typed catalog graph and deterministic URL resolver turn verified catalog facts into candidates. A durable session reducer owns pre-proposal selection while a separate availability/allocation layer owns warehouse truth and reservation transitions. Gemini extracts bounded constraints and natural wording; deterministic services authorize product identity, availability, stock effects, and proposal creation.
 
-**Tech Stack:** Django, MariaDB/MySQL, Python dataclasses, existing Gemini wrapper, storefront/Fable5/warehouse models, Django transactions and row locks, Django TestCase/TransactionTestCase, migration executor tests.
+**Tech Stack:** Django, MariaDB/MySQL, Python dataclasses, existing Gemini wrapper, storefront/ProductCatalog/warehouse models, Django transactions and row locks, Django TestCase/TransactionTestCase, migration executor tests.
 
 ---
 
@@ -37,13 +37,13 @@ New focused modules:
 Existing files changed together with their owning behavior:
 
 - `twocomms/storefront/models.py`, `admin.py`, migration `0088`: semantic profile identity/revisions.
-- `twocomms/fable5/models.py`, `services.py`, `size_grid_services.py`, migration `0008`: explicit inventory policy and warehouse-aware compatibility mode.
+- `twocomms/product_catalog/models.py`, `services.py`, `size_grid_services.py`, migration `0008`: explicit inventory policy and warehouse-aware compatibility mode.
 - `twocomms/management/ig_bot_models.py`, `models.py`, migrations `0128`-`0130`: sessions, transitions, turn decisions, manager reviews, proposal digest, allocation fields/states.
 - `twocomms/management/services/ig_checkout.py`, `ig_inventory.py`, `bot_orders.py`, `instagram_bot.py`: final validation and integration.
 - `twocomms/warehouse/services/inventory.py`, `views/write_off.py`: exact allocation fulfillment/reversal and negative-adjustment guards.
 - `twocomms/management/bot_views.py`, `templates/management/bot.html`: operational manager-review visibility.
 
-The observed migration leaves before implementation are `management.0127`, `storefront.0087`, `fable5.0007`, and `warehouse.0011`. Re-run leaf discovery before generating migrations. Never edit historical `management.0116`.
+The observed migration leaves before implementation are `management.0127`, `storefront.0087`, `product_catalog.0007`, and `warehouse.0011`. Re-run leaf discovery before generating migrations. Never edit historical `management.0116`.
 
 ### Task 1: Establish a Clean Baseline and Freeze Contracts
 
@@ -73,10 +73,10 @@ Expected: branch `codex/instagram-assisted-checkout`; only the known UI files ar
 - [ ] **Step 2: Verify migration leaves**
 
 ```bash
-find twocomms/management/migrations twocomms/storefront/migrations twocomms/fable5/migrations twocomms/warehouse/migrations -maxdepth 1 -name '[0-9]*.py' -print
+find twocomms/management/migrations twocomms/storefront/migrations twocomms/product_catalog/migrations twocomms/warehouse/migrations -maxdepth 1 -name '[0-9]*.py' -print
 ```
 
-Expected: the highest current files match or supersede `management.0127`, `storefront.0087`, `fable5.0007`, and `warehouse.0011`. Update only new migration dependencies if the leaves moved.
+Expected: the highest current files match or supersede `management.0127`, `storefront.0087`, `product_catalog.0007`, and `warehouse.0011`. Update only new migration dependencies if the leaves moved.
 
 - [ ] **Step 3: Run the focused baseline**
 
@@ -102,9 +102,9 @@ full runtime/admin consumer and a separate disposable MariaDB test gate.
 - Create: `twocomms/storefront/services/product_sales_semantics.py`
 - Create: `twocomms/storefront/tests/test_product_sales_semantics.py`
 - Create: `twocomms/storefront/migrations/0088_product_sales_semantic_profiles.py`
-- Modify: `twocomms/fable5/models.py`
-- Create: `twocomms/fable5/tests/test_product_inventory_policy.py`
-- Create: `twocomms/fable5/migrations/0008_product_inventory_policy.py`
+- Modify: `twocomms/product_catalog/models.py`
+- Create: `twocomms/product_catalog/tests/test_product_inventory_policy.py`
+- Create: `twocomms/product_catalog/migrations/0008_product_inventory_policy.py`
 
 - [ ] **Step 1: Write failing semantic revision tests**
 
@@ -178,7 +178,7 @@ class ProductInventoryPolicyTests(TestCase):
 - [ ] **Step 3: Run tests to verify RED**
 
 ```bash
-python manage.py test --settings=test_settings storefront.tests.test_product_sales_semantics fable5.tests.test_product_inventory_policy
+python manage.py test --settings=test_settings storefront.tests.test_product_sales_semantics product_catalog.tests.test_product_inventory_policy
 ```
 
 Expected: import/model failures because the new contracts do not exist.
@@ -235,7 +235,7 @@ class ProductInventoryPolicy(models.Model):
         CATALOG_VARIANT = "catalog_variant"
         UNTRACKED = "untracked"
 
-    product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name="fable5_inventory_policy", db_constraint=False)
+    product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name="product_catalog_inventory_policy", db_constraint=False)
     source = models.CharField(max_length=24, choices=Source.choices)
     updated_at = models.DateTimeField(auto_now=True)
 ```
@@ -256,7 +256,7 @@ policies before they authorize checkout.
 - [ ] **Step 5: Generate and inspect migrations**
 
 ```bash
-python manage.py makemigrations storefront fable5
+python manage.py makemigrations storefront product_catalog
 python manage.py makemigrations --check --dry-run
 ```
 
@@ -270,8 +270,8 @@ tests run again under `test_settings_mariadb` before deployment.
 - [ ] **Step 6: Run GREEN and commit**
 
 ```bash
-python manage.py test --settings=test_settings storefront.tests.test_product_sales_semantics fable5.tests.test_product_inventory_policy fable5.tests.test_variant_resources
-git add twocomms/storefront/models.py twocomms/storefront/admin.py twocomms/storefront/services/product_sales_semantics.py twocomms/storefront/tests/test_product_sales_semantics.py twocomms/storefront/migrations/0088_product_sales_semantic_profiles.py twocomms/fable5/models.py twocomms/fable5/tests/test_product_inventory_policy.py twocomms/fable5/migrations/0008_product_inventory_policy.py
+python manage.py test --settings=test_settings storefront.tests.test_product_sales_semantics product_catalog.tests.test_product_inventory_policy product_catalog.tests.test_variant_resources
+git add twocomms/storefront/models.py twocomms/storefront/admin.py twocomms/storefront/services/product_sales_semantics.py twocomms/storefront/tests/test_product_sales_semantics.py twocomms/storefront/migrations/0088_product_sales_semantic_profiles.py twocomms/product_catalog/models.py twocomms/product_catalog/tests/test_product_inventory_policy.py twocomms/product_catalog/migrations/0008_product_inventory_policy.py
 git commit -m "feat(catalog): add verified sales semantics"
 ```
 
@@ -521,8 +521,8 @@ Typed availability реализована в feature-ветке. Aggregate quant
 **Files:**
 - Create: `twocomms/management/services/ig_availability.py`
 - Create: `twocomms/management/tests_ig_availability.py`
-- Modify: `twocomms/fable5/services.py`
-- Modify: `twocomms/fable5/size_grid_services.py`
+- Modify: `twocomms/product_catalog/services.py`
+- Modify: `twocomms/product_catalog/size_grid_services.py`
 - Modify: `twocomms/management/services/ig_checkout.py`
 - Modify: `twocomms/management/services/bot_orders.py`
 - Modify: `twocomms/management/services/instagram_bot.py`
@@ -588,7 +588,7 @@ def resolve_allocation(spec, *, lock=False) -> AvailabilityDecision:
     return AvailabilityDecision.unknown("inventory_untracked")
 ```
 
-Add `inventory_source` or equivalent parameter to Fable compatibility helpers so warehouse checkout respects `is_enabled`, fit/options, and size-grid membership but ignores numeric legacy stock fields.
+Add `inventory_source` or equivalent parameter to Product Catalog compatibility helpers so warehouse checkout respects `is_enabled`, fit/options, and size-grid membership but ignores numeric legacy stock fields.
 
 Group requested lines by exact allocation identity before authorizing any one
 of them. Sum quantity per `stock_item_id` or catalog variant so two lines cannot
@@ -607,8 +607,8 @@ customer out-of-stock statement.
 - [ ] **Step 4: Run GREEN and commit**
 
 ```bash
-python manage.py test --settings=test_settings management.tests_ig_availability management.tests_ig_checkout_service management.tests_bot_catalog fable5.tests.test_variant_resources
-git add twocomms/management/services/ig_availability.py twocomms/management/tests_ig_availability.py twocomms/fable5/services.py twocomms/fable5/size_grid_services.py twocomms/management/services/ig_checkout.py twocomms/management/services/bot_orders.py twocomms/management/services/instagram_bot.py twocomms/management/services/bot_catalog.py
+python manage.py test --settings=test_settings management.tests_ig_availability management.tests_ig_checkout_service management.tests_bot_catalog product_catalog.tests.test_variant_resources
+git add twocomms/management/services/ig_availability.py twocomms/management/tests_ig_availability.py twocomms/product_catalog/services.py twocomms/product_catalog/size_grid_services.py twocomms/management/services/ig_checkout.py twocomms/management/services/bot_orders.py twocomms/management/services/instagram_bot.py twocomms/management/services/bot_catalog.py
 git commit -m "feat(ig): resolve authoritative garment availability"
 ```
 
@@ -1214,7 +1214,7 @@ Expected: all new and checkout-focused tests pass.
 - [ ] **Step 2: Run related regression suites**
 
 ```bash
-python manage.py test --settings=test_settings management.tests_bot_catalog management.tests_bot_orders management.tests_bot_payments management.tests_ig_sales_automation management.tests_ig_bot_resilience fable5.tests warehouse.tests
+python manage.py test --settings=test_settings management.tests_bot_catalog management.tests_bot_orders management.tests_bot_payments management.tests_ig_sales_automation management.tests_ig_bot_resilience product_catalog.tests warehouse.tests
 ```
 
 Expected: no new failures. Report baseline-only failures separately with reproduction on `origin/main`.
@@ -1224,7 +1224,7 @@ Expected: no new failures. Report baseline-only failures separately with reprodu
 ```bash
 python manage.py check
 python manage.py makemigrations --check --dry-run
-python -m compileall management storefront fable5 warehouse
+python -m compileall management storefront product_catalog warehouse
 git diff --check
 ```
 

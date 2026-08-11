@@ -1,0 +1,29 @@
+<div class="catalog-taxonomy-row{% if collection.depth %} is-child{% endif %}{% if not collection.is_active %} is-archived{% endif %}" role="treeitem" tabindex="{% if taxonomy_first %}0{% else %}-1{% endif %}" draggable="true" aria-grabbed="false" aria-level="{{ collection.depth|add:'1' }}"{% if collection.children_count %} aria-expanded="false"{% endif %} aria-label="{{ collection.name_uk }}{% if collection.depth %}, підкатегорія{% endif %}" data-collection-id="{{ collection.id }}" data-taxonomy-depth="{{ collection.depth }}" data-parent-id="{{ collection.parent_id|default:'' }}" data-collection-name="{{ collection.name_uk|lower }}" style="--taxonomy-depth: {{ collection.depth }}">
+  <div class="catalog-taxonomy-asset">
+    {% if collection.icon_url %}<img src="{{ collection.icon_url }}" alt="" loading="lazy">{% elif collection.cover_url %}<img src="{{ collection.cover_url }}" alt="" loading="lazy">{% else %}<span class="catalog-taxonomy-asset-placeholder" aria-hidden="true">{{ collection.name_uk|slice:':1' }}</span>{% endif %}
+  </div>
+  <div class="catalog-taxonomy-main">
+    <div class="catalog-taxonomy-name-line">
+      {% if collection.children_count %}<button type="button" class="catalog-taxonomy-toggle" data-taxonomy-action="toggle" aria-label="Розгорнути {{ collection.name_uk }}" title="Розгорнути"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7.41 8.59 4.59 4.58 4.59-4.58L18 10l-6 6-6-6z"/></svg><span aria-hidden="true">{{ collection.children_count }}</span></button>{% endif %}
+      {% if collection.parent_id %}<span class="catalog-taxonomy-branch" aria-hidden="true">↳</span>{% endif %}
+      <strong title="{{ collection.name_uk }}">{{ collection.name_uk }}</strong>
+      <span class="catalog-taxonomy-kind">{{ collection.kind_label }}</span>
+      {% if not collection.is_active %}<span class="catalog-taxonomy-status catalog-taxonomy-status-archived">Архів</span>{% endif %}
+    </div>
+    <div class="catalog-taxonomy-path">{{ collection.path_label }} <span aria-hidden="true">·</span> {{ collection.slug }}</div>
+  </div>
+  <div class="catalog-taxonomy-metrics">
+    <span>{{ collection.product_count }} товарів</span>
+    {% if collection.children_count %}<span>{{ collection.children_count }} підкатег.</span>{% endif %}
+  </div>
+  <div class="catalog-taxonomy-seo">
+    {% if collection.indexable %}<span class="catalog-taxonomy-status catalog-taxonomy-status-indexable" title="Сторінка дозволена до індексації">SEO</span>{% else %}<span class="catalog-taxonomy-status" title="Сторінка не надсилається як indexable">NOINDEX</span>{% endif %}
+    {% if collection.seo_title_uk and collection.seo_description_uk %}<span class="catalog-taxonomy-status catalog-taxonomy-status-complete" title="Заповнено title та description">Meta</span>{% else %}<span class="catalog-taxonomy-status catalog-taxonomy-status-warning" title="SEO-поля потребують уваги">Meta</span>{% endif %}
+  </div>
+  <div class="catalog-taxonomy-actions">
+    <button type="button" class="catalog-icon-button" data-taxonomy-action="move" data-direction="up" data-id="{{ collection.id }}" aria-label="Підняти {{ collection.name_uk }}" title="Підняти"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7.41 15.41 4.59-4.58 4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
+    <button type="button" class="catalog-icon-button" data-taxonomy-action="move" data-direction="down" data-id="{{ collection.id }}" aria-label="Опустити {{ collection.name_uk }}" title="Опустити"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m7.41 8.59 4.59 4.58 4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
+    <button type="button" class="catalog-icon-button catalog-icon-button-edit" data-taxonomy-action="edit" data-id="{{ collection.id }}" aria-label="Редагувати {{ collection.name_uk }}" title="Редагувати"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+    {% if collection.is_active %}<button type="button" class="catalog-icon-button catalog-icon-button-delete" data-taxonomy-action="archive" data-id="{{ collection.id }}" data-name="{{ collection.name_uk }}" aria-label="Архівувати {{ collection.name_uk }}" title="Архівувати"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.54 5.23 19.15 3.5A1.99 1.99 0 0 0 17.59 3H6.41c-.61 0-1.18.28-1.56.75L3.46 5.23A.99.99 0 0 0 3 6v2c0 .55.45 1 1 1h1v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V9h1c.55 0 1-.45 1-1V6c0-.28-.1-.55-.46-.77zM6.24 5h11.52l.8 1H5.44l.8-1zM17 19H7V9h10v10z"/></svg></button>{% else %}<button type="button" class="catalog-icon-button catalog-icon-button-restore" data-taxonomy-action="restore" data-restore-intent="1" data-id="{{ collection.id }}" aria-label="Відновити {{ collection.name_uk }}" title="Відновити"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/></svg></button>{% endif %}
+  </div>
+</div>

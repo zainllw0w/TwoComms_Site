@@ -84,7 +84,7 @@ Client `59` retains separate canonical and superseded timelines with no current
 terminal pointer.
 
 The `IMP-081` semantic/inventory foundation is also confirmed in production:
-`storefront.0088` and `fable5.0008` are applied, all three tables use InnoDB,
+`storefront.0088` and catalog migration `0008` are applied, all three tables use InnoDB,
 there are 77 explicit policies (`29 warehouse`, `48 untracked`), and revision
 UPDATE/DELETE triggers exist. It remains PARTIAL because runtime/admin consumers
 and a disposable MariaDB test gate are still missing.

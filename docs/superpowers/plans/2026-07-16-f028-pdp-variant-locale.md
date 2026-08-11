@@ -2,19 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stop Fable5 colour merchandising from leaking Ukrainian names and SEO text into RU/EN product pages, variant APIs, quick view, and structured data without changing the existing per-locale commercial values of print designs.
+**Goal:** Stop ProductCatalog colour merchandising from leaking Ukrainian names and SEO text into RU/EN product pages, variant APIs, quick view, and structured data without changing the existing per-locale commercial values of print designs.
 
 **Architecture:** Normalize the active locale at each request/schema boundary and pass it explicitly into `variant_public_context()`. Make the product-instance detailed-variant memo language-keyed so one Product object cannot reuse Ukrainian results for RU/EN. Keep the cross-locale naming-policy question separate: the curated source currently encodes different UK/RU/EN identities, which remain untouched, while the cross-locale slug-family policy awaits owner approval.
 
-**Tech Stack:** Django 5.2, modeltranslation, Django `TestCase`, Fable5 merchandising services, JSON-LD, production MariaDB/live HTTP verification.
+**Tech Stack:** Django 5.2, modeltranslation, Django `TestCase`, ProductCatalog merchandising services, JSON-LD, production MariaDB/live HTTP verification.
 
 ---
 
 ### Task 1: Add locale-propagation regressions
 
 **Files:**
-- Modify: `twocomms/storefront/tests/test_fable5_variant_merchandising.py`
-- Test: `twocomms/storefront/tests/test_fable5_variant_merchandising.py`
+- Modify: `twocomms/storefront/tests/test_product_catalog_variant_merchandising.py`
+- Test: `twocomms/storefront/tests/test_product_catalog_variant_merchandising.py`
 
 - [x] **Step 1: Add a no-fit product fixture with localized product fields and legacy UK variant content**
 
@@ -30,7 +30,7 @@ Request `/ru/product/<slug>/`, `/en/product/<slug>/`, and localized `get_product
 
 - [x] **Step 4: Run the focused module to verify RED**
 
-Run: `cd twocomms && python manage.py test storefront.tests.test_fable5_variant_merchandising --settings=test_settings -v 2`
+Run: `cd twocomms && python manage.py test storefront.tests.test_product_catalog_variant_merchandising --settings=test_settings -v 2`
 
 Expected: FAIL because `get_detailed_color_variants()` has no `lang` parameter and its callers/default variant resolver use Ukrainian.
 
@@ -41,7 +41,7 @@ Expected: FAIL because `get_detailed_color_variants()` has no `lang` parameter a
 - Modify: `twocomms/storefront/views/product.py`
 - Modify: `twocomms/storefront/seo_utils.py`
 - Modify: `twocomms/storefront/urls.py`
-- Test: `twocomms/storefront/tests/test_fable5_variant_merchandising.py`
+- Test: `twocomms/storefront/tests/test_product_catalog_variant_merchandising.py`
 
 - [x] **Step 1: Add a normalized language argument and per-language memo**
 
@@ -61,7 +61,7 @@ At both `variant_public_context()` calls in `storefront/seo_utils.py`, use the e
 
 - [x] **Step 5: Run GREEN and adjacent regressions**
 
-Run: `cd twocomms && python manage.py test storefront.tests.test_fable5_variant_merchandising storefront.tests.test_product --settings=test_settings -v 2`
+Run: `cd twocomms && python manage.py test storefront.tests.test_product_catalog_variant_merchandising storefront.tests.test_product --settings=test_settings -v 2`
 
 Run: `cd twocomms && python manage.py check --settings=test_settings`
 

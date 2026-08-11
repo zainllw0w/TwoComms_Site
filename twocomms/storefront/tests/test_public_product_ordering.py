@@ -7,7 +7,8 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
-from storefront.forms import ProductForm
+from product_catalog.models import AudienceTag
+from product_catalog.services_audience import set_product_audience_codes
 from storefront.models import Category, Product
 from storefront.services.catalog_helpers import (
     get_public_category_version,
@@ -173,29 +174,6 @@ class PublicProductOrderingTests(TestCase):
 
         self.assertGreater(get_public_product_order_version(), initial_version)
 
-    def test_product_form_assigns_new_products_next_highest_priority_by_default(self):
-        form = ProductForm(
-            data={
-                "title": "Newest Product Default Priority",
-                "slug": "newest-product-default-priority",
-                "category": str(self.category.pk),
-                "status": "published",
-                "priority": "0",
-                "price": "1500",
-                "discount_percent": "",
-                "points_reward": "0",
-                "short_description": "Short",
-                "full_description": "Full",
-                "drop_price": "0",
-                "wholesale_price": "0",
-            }
-        )
-
-        self.assertTrue(form.is_valid(), form.errors)
-        product = form.save()
-
-        self.assertEqual(product.priority, self.high_priority.priority + 1)
-
     def test_color_variant_changes_bump_public_product_version(self):
         initial_version = get_public_product_order_version()
         color = Color.objects.create(name="Black", primary_hex="#000000")
@@ -249,6 +227,71 @@ class PublicProductOrderingTests(TestCase):
         self.high_priority.refresh_from_db()
         self.assertEqual(self.high_priority.status, "draft")
 
+    def test_admin_status_update_rejects_published_apparel_without_audience(self):
+        apparel_category = Category.objects.create(
+            name="Футболки",
+            slug="tshirts-status-validation",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="Draft tee without audience",
+            slug="draft-tee-without-audience",
+            category=apparel_category,
+            price=1090,
+            status="draft",
+        )
+        self.staff_client.force_login(self.staff_user)
+        initial_version = get_public_product_order_version()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.staff_client.post(
+                reverse("admin_update_product_status"),
+                data=json.dumps({"product_id": product.pk, "status": "published"}),
+                content_type="application/json",
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["success"])
+        self.assertIn("аудитор", response.json()["error"].lower())
+        product.refresh_from_db()
+        self.assertEqual(product.status, "draft")
+        self.assertEqual(get_public_product_order_version(), initial_version)
+
+    def test_admin_status_update_publishes_apparel_with_unisex_audience(self):
+        apparel_category = Category.objects.create(
+            name="Футболки",
+            slug="tshirts-status-with-audience",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="Draft unisex tee",
+            slug="draft-unisex-tee",
+            category=apparel_category,
+            price=1090,
+            status="draft",
+        )
+        unisex = AudienceTag.objects.create(
+            code="unisex",
+            label_uk="Унісекс",
+            label_ru="Унисекс",
+            label_en="Unisex",
+        )
+        set_product_audience_codes(product, [unisex.code])
+        self.staff_client.force_login(self.staff_user)
+
+        response = self.staff_client.post(
+            reverse("admin_update_product_status"),
+            data=json.dumps({"product_id": product.pk, "status": "published"}),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        product.refresh_from_db()
+        self.assertEqual(product.status, "published")
+
     def test_admin_catalogs_section_renders_drag_controls(self):
         self.staff_client.force_login(self.staff_user)
 
@@ -256,9 +299,10 @@ class PublicProductOrderingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-drag-handle", html=False)
-        self.assertContains(response, "Порядок зберігається після відпускання", html=False)
+        self.assertContains(response, "Порядок товарів синхронізується", html=False)
         self.assertContains(response, "placeholder.className = 'product-card-placeholder';", html=False)
         self.assertContains(response, "window.addEventListener('pointermove', onGlobalPointerMove, { passive: false });", html=False)
         self.assertContains(response, "document.body.classList.add('is-product-sorting');", html=False)
+        self.assertContains(response, "grid.addEventListener('keydown', onHandleKeyDown);", html=False)
         self.assertNotContains(response, 'draggable="true"', html=False)
         self.assertNotContains(response, "Додати товар (new)")

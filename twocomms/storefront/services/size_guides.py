@@ -455,12 +455,12 @@ def normalize_requested_size(product, requested_size):
 
 
 def resolve_product_size_context(product, requested_size=None):
-    fable_assignments = getattr(product, "fable5_size_grid_assignments", None)
-    if fable_assignments is not None and fable_assignments.exists():
-        # Import lazily: storefront remains usable when the optional Fable app
-        # is not part of a deployment, and legacy products keep their exact
+    catalog_assignments = getattr(product, "product_catalog_size_grid_assignments", None)
+    if catalog_assignments is not None and catalog_assignments.exists():
+        # Import lazily so storefront remains usable when catalog grids are absent
+        # from a deployment, and legacy products keep their exact
         # resolver path below.
-        from fable5.size_grid_services import build_size_grid_comparison
+        from product_catalog.size_grid_services import build_size_grid_comparison
 
         comparisons = build_size_grid_comparison(product)
         if comparisons:
@@ -503,7 +503,7 @@ def resolve_product_size_context(product, requested_size=None):
                 },
                 "size_help_cta": deepcopy(guide.get("cta") or _default_cta()),
                 "size_grid_comparison": comparisons,
-                "fable5_size_grids": True,
+                "product_catalog_size_grids": True,
             }
 
     guide = resolve_product_size_guide(product)

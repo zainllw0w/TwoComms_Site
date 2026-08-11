@@ -2,11 +2,11 @@
 
 **Date:** 2026-07-16
 **Status:** Approved by delegated design authority
-**Scope:** TwoComms public product detail page, Fable5 editor, generic option pricing, restock requests, print links, and mobile gallery gestures.
+**Scope:** TwoComms public product detail page, ProductCatalog editor, generic option pricing, restock requests, print links, and mobile gallery gestures.
 
 ## 1. Context and constraints
 
-The production MySQL database is the source of truth. The local SQLite database is suitable only for fixture-based tests. Production currently contains 76 products, 25 hoodies, 32 products with fit options, 21 warehouse prints, and 108 existing print-to-product links. The current Fable5 data model already supports product option profiles and exact color-by-option combinations, but the public PDP and editor expose mostly fit-specific behavior.
+The production MySQL database is the source of truth. The local SQLite database is suitable only for fixture-based tests. Production currently contains 76 products, 25 hoodies, 32 products with fit options, 21 warehouse prints, and 108 existing print-to-product links. The current ProductCatalog data model already supports product option profiles and exact color-by-option combinations, but the public PDP and editor expose mostly fit-specific behavior.
 
 The work must preserve canonical product URLs, current color variants, cart/checkout price parity, legacy admin discoverability, existing warehouse print links, multilingual SEO, and the dirty local worktree. It must finish with tests, responsive visual QA, a scoped commit/push, production migrations, static rebuild, Passenger restart, and live verification.
 
@@ -16,7 +16,7 @@ The work must preserve canonical product URLs, current color variants, cart/chec
 
 This would repair the flame position, selector spacing, block order, and mobile swipe quickly. It would not solve generic option pricing, hoodie lining, unavailable choices, stock requests, or editor/storage synchronization. It would also leave different price calculations in the PDP, cart, checkout, and payment paths. Rejected because the result would look better while remaining structurally incomplete.
 
-### B. Complete the existing Fable5 option engine
+### B. Complete the existing ProductCatalog option engine
 
 Use `GarmentFlow.axes`, `ProductOptionProfile`, and `VariantCombinationProfile` as the shared option model. Expose the same normalized selection to the editor, PDP, cart, checkout, orders, payment, and feeds. Add a focused restock subscription subsystem and use the existing warehouse `Print.default_products` M2M as the print source of truth. This is the selected approach because it extends the architecture already deployed without replacing stable product/color data.
 
@@ -71,7 +71,7 @@ The sales/admin Telegram chat receives a structured alert immediately. Telegram 
 
 ## 6. Print synchronization
 
-`warehouse.Print.default_products` is the canonical many-to-many relation because production already contains 108 links and the warehouse editor writes this relation. The Fable5 product editor receives the print dictionary and selected print IDs, renders a searchable multi-select with thumbnail/name/category, and updates the M2M relation transactionally during product save.
+`warehouse.Print.default_products` is the canonical many-to-many relation because production already contains 108 links and the warehouse editor writes this relation. The ProductCatalog product editor receives the print dictionary and selected print IDs, renders a searchable multi-select with thumbnail/name/category, and updates the M2M relation transactionally during product save.
 
 The warehouse print editor sees the same relation automatically through Django's reverse M2M. The unused one-to-one `ProductPrintLink` is not promoted to a second source of truth. This avoids destructive migration and supports multiple prints per product immediately.
 
@@ -94,7 +94,7 @@ Swiping updates the active thumbnail, accessible status text, and compact positi
 
 ## 9. Error handling and compatibility
 
-Every new model lookup has neutral fallbacks so products without Fable5 data still render and remain purchasable. Disabled option combinations cannot be added to cart even if a request is forged. The server recalculates the final price from product, color, and normalized options; client-supplied prices are never trusted.
+Every new model lookup has neutral fallbacks so products without ProductCatalog data still render and remain purchasable. Disabled option combinations cannot be added to cart even if a request is forged. The server recalculates the final price from product, color, and normalized options; client-supplied prices are never trusted.
 
 Restock notification failures do not lose the request. They set an error state for retry and are visible in admin. Telegram webhook handling verifies session ownership/token state and accepts only contact data belonging to the Telegram sender. Public error responses do not expose credentials, chat IDs, or internal exception text.
 
@@ -117,7 +117,7 @@ Rendered QA uses the production-like product `futbolka-boiova-kvitochka` plus a 
 
 1. Add regression tests and generic option/restock data contracts.
 2. Implement server resolution and persistence.
-3. Complete Fable5 editor axes, price controls, and print multi-select.
+3. Complete ProductCatalog editor axes, price controls, and print multi-select.
 4. Redesign the PDP configurator, restock modal, content order, and swipe gallery.
 5. Run targeted and broad tests, Django checks, migration checks, and responsive browser QA.
 6. Commit scoped files, push the current main branch, deploy with migrations/static compression/restart, and live-verify real MySQL-backed products.

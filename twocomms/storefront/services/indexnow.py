@@ -126,6 +126,7 @@ def submit_indexnow_urls(
     *,
     batch_size: int | None = None,
     retries: int | None = None,
+    source: str = "runtime",
 ) -> bool:
     """POST batches of URLs to IndexNow, retrying transient failures.
 
@@ -164,6 +165,8 @@ def submit_indexnow_urls(
     for batch in _chunked(normalized_urls, effective_batch):
         payload = {**base_payload, "urlList": batch}
         last_exc: Exception | None = None
+        last_http_status: int | None = None
+        last_error_message = ""
         for attempt in range(effective_retries + 1):
             try:
                 response = requests.post(
@@ -172,31 +175,58 @@ def submit_indexnow_urls(
                     headers={"Content-Type": "application/json; charset=utf-8"},
                     timeout=timeout,
                 )
+                last_http_status = int(response.status_code)
                 # IndexNow returns 200/202 on success; treat 4xx as fatal (not retryable).
                 if response.status_code in (200, 202):
                     accepted += len(batch)
                     last_exc = None
+                    last_error_message = ""
                     break
                 if 500 <= response.status_code < 600:
                     last_exc = RuntimeError(f"IndexNow {response.status_code}: {response.text[:200]}")
+                    last_error_message = str(last_exc)
                     logger.warning("IndexNow %s on attempt %s/%s: %s",
                                    response.status_code, attempt + 1, effective_retries + 1, last_exc)
                     continue
                 # 4xx — not retryable
                 logger.error("IndexNow rejected batch (%s): %s", response.status_code, response.text[:200])
                 last_exc = RuntimeError(f"IndexNow rejected ({response.status_code})")
+                last_error_message = f"IndexNow rejected ({response.status_code}): {response.text[:500]}"
                 break
             except (requests.Timeout, requests.ConnectionError) as exc:
                 last_exc = exc
+                last_error_message = str(exc)[:500]
                 logger.warning("IndexNow transient error on attempt %s/%s: %s",
                                attempt + 1, effective_retries + 1, exc)
                 continue
             except Exception as exc:  # pragma: no cover - defensive
                 last_exc = exc
+                last_error_message = str(exc)[:500]
                 logger.error("IndexNow unexpected error: %s", exc, exc_info=True)
                 break
         if last_exc is not None:
             failed_batches += 1
+
+        try:
+            from storefront.models import IndexNowSubmission
+
+            status = (
+                IndexNowSubmission.STATUS_FAILED
+                if last_exc is not None
+                else IndexNowSubmission.STATUS_SUCCESS
+            )
+            IndexNowSubmission.objects.bulk_create([
+                IndexNowSubmission(
+                    url=url,
+                    status=status,
+                    http_status=last_http_status,
+                    error_message=last_error_message,
+                    source=str(source or "")[:32],
+                )
+                for url in batch
+            ])
+        except Exception:
+            logger.exception("Could not persist IndexNow submission audit rows")
 
     if accepted:
         logger.info("IndexNow accepted %s/%s URL(s) in %s batches",

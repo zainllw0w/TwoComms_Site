@@ -4,7 +4,7 @@
 
 Restore the approved Variant 3 as the visual base of the complete category catalog instead of iterating on the heavier production treatment. The original HTML prototype and supplied screenshots are the reference for the mobile first viewport, selector sheets, desktop rail, compact command shelf, product grid, card proportions, favorite-button weight and overall visual density.
 
-The work is a presentation and interaction correction, not a new design. Existing Fable 5 taxonomy, AND multi-select URL semantics, audience, availability, size, thermochromic, brigade children, analytics, pagination, SEO and product pricing remain authoritative and are fitted into the Variant 3 composition.
+The work is a presentation and interaction correction, not a new design. Existing Product Catalog taxonomy, AND multi-select URL semantics, audience, availability, size, thermochromic, brigade children, analytics, pagination, SEO and product pricing remain authoritative and are fitted into the Variant 3 composition.
 
 ## Product-first hierarchy
 

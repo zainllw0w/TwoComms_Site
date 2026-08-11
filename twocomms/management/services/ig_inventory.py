@@ -70,7 +70,7 @@ def _lock_allocation(allocation):
 @transaction.atomic
 def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=False):
     from management.models import IgCheckoutInventoryReservation
-    from fable5.models import ProductInventoryPolicy
+    from product_catalog.models import ProductInventoryPolicy
     from warehouse.models import StockItem
     from productcolors.models import ProductColorVariant
 
