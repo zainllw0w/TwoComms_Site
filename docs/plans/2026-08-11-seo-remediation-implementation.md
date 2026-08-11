@@ -128,6 +128,7 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 - [ ] **4.2** Create a versioned fact registry contract (owner, source field/URL, locale, effective date) for material, weight, print method, wash durability, fit, care, delivery threshold, founding date, donation and location.
 - [ ] **4.3** Remove/merge the second generated block across both `services/product_seo_landing.py` and `services/product_seo_block.py`; keep only useful product-specific facts. Do not manufacture lexical variants for uniqueness and keep Custom Print out of the content rewrite.
 - [x] **4.3a** Remove the duplicate rendered `product_seo_block` owner from the standard PDP while retaining the existing `product_seo_landing` owner, FAQ, commerce content and interactive selectors. This is a narrow ownership fix; unsafe generated fallback claims remain open for the later 4.1-4.6 fact/content work.
+- [x] **4.3b** Disable the generated `product_seo_landing` long-form fallback when no reviewed `Product.seo_bottom_html` override exists. Preserve product query chips, category navigation and the admin override path; the fact-owned replacement remains a later 4.1-4.6 task.
 - [ ] **4.4** Deduplicate FAQ at the data/render/schema boundary; retain global policy answers once and product-specific answers only when materially different.
 - [ ] **4.5** Add failing tests for the page-1 general catalog editorial block, then remove keyword/city insertion as a content objective and route every retained claim through the fact registry. Specifically verify delivery timing/exchange policy, material/weight, available cuts/sizes, wash durability, donation and location statements; do not replace the current city list with paraphrased city variants.
 - [ ] **4.6** Run fact-lint across standard PDP/catalog HTML, JSON-LD, feeds, llms and checkout copy; commit/push/deploy and mark Task 4 only after live parity proof.
@@ -141,6 +142,14 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 - Production deploy: `origin/main`, server `HEAD` and live release are `b2e79884`; the server pulled fast-forward and Passenger was restarted with `tmp/restart.txt`.
 - Live UK/RU/EN PDP proof: `/product/my-little-baby/`, `/ru/product/my-little-baby/` and `/en/product/my-little-baby/` all returned `200`, each contained exactly one `data-product-seo-landing`, zero `data-general-product-seo`, and retained `FAQPage` markup. `/custom-print/` and `/healthz/` returned `200` as route/non-regression checks only.
 - Scope boundary: this checkpoint does not claim that generated fallback copy is factual, that FAQ questions are globally deduplicated, that variant ownership or locale publication is complete, or that rankings improved. The fallback content risk remains open for the next content/fact task.
+
+#### Task 4.3b execution evidence (checkpoint prepared)
+
+- Code/test commit: `d3642cb81e6fe69267192e9e762531d95eaf4b33` changes only the no-override branch of `build_landing()` to return empty `landing_html`; the top-query/category navigation and `seo_bottom_html` override branch are retained. Tests now fail if generated city, donation, delivery or fit-template copy is published without an editorial owner.
+- TDD/local gates: the new RED assertion reproduced the previous 1,886-character generated fallback. After the fix, targeted Phase 15/fit/PDP tests passed `19/19`; `manage.py check`, `makemigrations --check --dry-run`, `py_compile` and `git diff --check` passed. The broader 42-test audit slice retained only the known unrelated baseline failures (two old variant-meta title expectations and one robots color rule fixture).
+- Production deploy: `origin/main`, server `HEAD` and the live release are `d3642cb8`; the server pulled fast-forward and Passenger was restarted with `tmp/restart.txt`.
+- Live UK/RU/EN proof: `/product/my-little-baby/`, `/ru/product/my-little-baby/` and `/en/product/my-little-baby/` returned `200`, retained one `data-product-seo-landing` section with tabs, and contained zero `data-general-product-seo`. The generated landing markers `Збройних Сил` and `Київ` were absent; `Новою Поштою` remained only in other factual/support UI blocks, not as generated landing copy.
+- Scope boundary: no fact registry, FAQ dedupe, locale translation, variant-owner, sitemap, feed or Custom Print content change is claimed by this checkbox. No ranking or traffic uplift is claimed.
 
 ### Task 5: Normalize facets and pagination by route family
 
