@@ -106,13 +106,10 @@ namespace + the legacy og:price aliases for the older social parsers.
   blanket FAQPage was removed in Phase 21 because it duplicated the
   /faq/, /delivery/ and /povernennya-ta-obmin/ schema across hundreds
   of pages (Search Console: «repeated structured data»). The new
-  behaviour is safe because ``product_faq_items`` is sourced from
-  ``product.faqs`` — a manually curated, per-product Q&A collection
-  with zero overlap with the global FAQ matrix. Pages that have no
-  product-specific FAQ render zero FAQPage JSON-LD. AI answer engines
-  (Perplexity, ChatGPT Search, Google AI Overviews) preferentially
-  cite product-scoped FAQPage entries for long-tail queries like
-  «чи дає {товар} усадку після прання».
+  ``product_faq_items`` is sourced from active ``product.faqs`` rows.
+  The view removes exact normalized duplicate pairs and passes the same
+  ordered list to the visible tab and JSON-LD. Pages with no retained FAQ
+  render no FAQPage; rich-result or AI-citation eligibility is not assumed.
   {% endcomment %}
   {% if product_faq_items %}
     {% faq_schema product_faq_items %}

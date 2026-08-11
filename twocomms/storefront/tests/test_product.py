@@ -750,21 +750,33 @@ class ProductDetailTests(ProductViewTestCase):
         )
         ProductFAQ.objects.create(
             product=self.product,
+            question="  це чоловіча чи жіноча футболка? ",
+            answer="Це   футболка унісекс.",
+            order=1,
+            is_active=True,
+        )
+        ProductFAQ.objects.create(
+            product=self.product,
             question="Неактивне питання",
             answer="Не має показуватись.",
-            order=1,
+            order=2,
             is_active=False,
         )
 
         response = self.client.get(reverse("product", args=[self.product.slug]))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["product_faq_items"]), 1)
         self.assertEqual(response.context["product_faq_items"][0]["question"], "Це чоловіча чи жіноча футболка?")
         self.assertContains(response, 'data-pdp-tab="faq"', html=False)
         self.assertContains(response, 'id="panel-faq"', html=False)
         self.assertContains(response, "FAQ товару")
         self.assertContains(response, "Це футболка унісекс.")
         self.assertContains(response, '"@type": "FAQPage"', html=False)
+        self.assertEqual(
+            response.content.decode().count("Це чоловіча чи жіноча футболка?"),
+            2,
+        )
         self.assertNotContains(response, "Неактивне питання")
 
 
