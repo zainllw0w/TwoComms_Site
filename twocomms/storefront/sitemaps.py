@@ -8,6 +8,7 @@ from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 from django.utils import timezone
 from .models import BlogCategory, BlogPost, Product, Category
+from .services.locale_publication import PRODUCT_SITEMAP_FIELDS, indexable_locales
 
 
 # Static routes that should appear in sitemap.
@@ -98,8 +99,9 @@ class ProductSitemap(Sitemap):
     ×3 duplication drops the live ``sitemap-products.xml`` payload from
     195 ``<loc>`` rows back to 65 (one per published product).
 
-    SEO v1.1 Phase 2 (2026-05-15) — RESTORED i18n alternates so RU/EN
-    PDPs are discoverable and properly clustered with their UA twin.
+    Locale publication is per product: only raw-content owners receive a
+    language URL and alternate cluster. Untranslated RU/EN products remain
+    crawlable through the site but are excluded from this sitemap.
     """
     changefreq = 'weekly'
     priority = 0.9
@@ -113,9 +115,13 @@ class ProductSitemap(Sitemap):
             Product.objects
             .filter(status='published')
             .exclude(slug='')
-            .only('slug', 'updated_at', 'published_at')
+            .only(*PRODUCT_SITEMAP_FIELDS)
+            .prefetch_related('faqs')
             .order_by('id')
         )
+
+    def get_languages_for_item(self, item):
+        return indexable_locales(item)
 
     def lastmod(self, obj):
         # Prefer updated_at (auto_now), fall back to published_at

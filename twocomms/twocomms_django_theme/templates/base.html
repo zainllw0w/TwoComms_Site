@@ -172,18 +172,16 @@
   {% block pagination_links %}{% endblock %}
   {% language_alternates as lang_alts %}
   {% comment %}
-  SEO v1.1 Phase 2 (2026-05-15) — reciprocal hreflang for every locale.
-  Each indexable page lists itself + every sibling locale + ``x-default``
-  (which mirrors the UA URL because UA is our primary market). Google
-  uses these triples to cluster the variants and serve the right
-  language per user — without this, RU/EN renders would compete with
-  UA in the same SERP and trigger duplicate-content warnings.
+  Reciprocal hreflang is emitted for each real locale owner. Standard PDPs
+  provide a publication context that removes untranslated siblings and
+  suppresses the entire cluster on their own noindex RU/EN render. Other
+  routes retain the established three-language behavior.
   {% endcomment %}
   <link rel="alternate" type="application/rss+xml" title="TwoComms Blog RSS" href="{% url 'blog_rss' %}">
-  <link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
-  <link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
-  <link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
-  <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">
+  {% if lang_alts.uk %}<link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">{% endif %}
+  {% if lang_alts.ru %}<link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">{% endif %}
+  {% if lang_alts.en %}<link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">{% endif %}
+  {% if lang_alts.x_default %}<link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">{% endif %}
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">

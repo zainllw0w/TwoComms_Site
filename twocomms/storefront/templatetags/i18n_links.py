@@ -120,21 +120,27 @@ def _path_for_language(request, lang_code: str) -> str:
 def language_alternates(context) -> Dict[str, str]:
     """Return canonical-language alternates for the current request.
 
-    SEO v1.0 Phase 1 (2026-05-12) — under Path A (RU/EN un-translated and
-    marked ``noindex``) the storefront effectively behaves as a
-    single-language UA site. We still expose all three URLs so the
-    footer language switcher keeps working, but ``x_default`` mirrors
-    the UA URL (a single-language site treats UA as the universal
-    fallback). ``base.html`` only emits ``hreflang="uk"`` +
-    ``hreflang="x-default"`` while on the UA render — RU/EN renders are
-    ``noindex`` so hreflang from those pages would be ignored anyway.
+    Standard Product pages may provide ``locale_publication``. In that case
+    only locale owners with independent raw content are emitted, and an
+    ineligible ``noindex`` page emits no hreflang cluster at all. Other
+    routes retain the established three-language behavior.
     """
 
     request = context.get("request")
+    publication = context.get("locale_publication")
+    if publication is not None:
+        if not publication.get("indexable"):
+            return {}
+        eligible = set(publication.get("eligible_locales") or ())
+    else:
+        eligible = set(_SUPPORTED)
     out: Dict[str, str] = {}
     for code in _SUPPORTED:
+        if code not in eligible:
+            continue
         out[code] = _absolute(_path_for_language(request, code))
-    out["x_default"] = out[_DEFAULT_LANG]
+    if _DEFAULT_LANG in out:
+        out["x_default"] = out[_DEFAULT_LANG]
     return out
 
 

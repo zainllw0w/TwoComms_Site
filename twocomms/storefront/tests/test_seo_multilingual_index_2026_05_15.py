@@ -1,10 +1,9 @@
 """SEO v1.1 Phase 2 (2026-05-15) — multilingual indexing reopened.
 
 Verifies that:
-    * /, /catalog/, /product/<slug>/ render ``index, follow`` on UK, RU
-      and EN locales.
-    * Each page emits reciprocal ``hreflang`` entries for ``uk-UA``,
-      ``ru-UA``, ``en-UA`` and ``x-default``.
+    * eligible /, /catalog/ and PDP locale owners render ``index, follow``.
+    * eligible pages emit reciprocal ``hreflang`` entries for their owned
+      locales; an untranslated Product locale is crawlable but noindex.
     * Facet pages (search, color filter) stay ``noindex, follow`` on
       every locale — those are duplicates by definition.
     * Sitemap classes carry ``i18n = True`` + ``alternates = True``
@@ -38,6 +37,14 @@ class MultilingualRobotsTests(TestCase):
             category=cls.category,
             price=600,
             status="published",
+            title_ru="Чёрная футболка",
+            title_en="Black T-shirt",
+            seo_title_ru="Чёрная футболка — TwoComms",
+            seo_title_en="Black T-shirt — TwoComms",
+            seo_description_ru="Чёрная футболка TwoComms с авторским принтом.",
+            seo_description_en="Black TwoComms T-shirt with an original print.",
+            full_description_ru="Чёрная футболка TwoComms для повседневного гардероба.",
+            full_description_en="A black TwoComms T-shirt for everyday wear.",
         )
         cls.black = Color.objects.create(name="Чорний", primary_hex="#000000")
         ProductColorVariant.objects.create(
@@ -100,6 +107,24 @@ class MultilingualRobotsTests(TestCase):
         response = self.client.get("/en/product/black-tee/")
         self.assertEqual(response.status_code, 200)
         self._assert_indexable(response)
+
+    def test_untranslated_product_locale_is_not_indexable_or_hreflang_owner(self):
+        Product.objects.create(
+            title="Тестова футболка без перекладу",
+            slug="untranslated-tee",
+            category=self.category,
+            price=600,
+            status="published",
+        )
+
+        response = self.client.get("/en/product/untranslated-tee/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "noindex, follow")
+        body = response.content.decode("utf-8")
+        self.assertNotIn('hreflang="ru-UA"', body)
+        self.assertNotIn('hreflang="en-UA"', body)
+        self.assertNotIn('hreflang="x-default"', body)
 
     # ---- Facet pages stay noindex on every locale ----
 
@@ -213,6 +238,14 @@ class SitemapXmlAlternatesTests(TestCase):
             category=cls.category,
             price=600,
             status="published",
+            title_ru="Чёрная футболка",
+            title_en="Black T-shirt",
+            seo_title_ru="Чёрная футболка — TwoComms",
+            seo_title_en="Black T-shirt — TwoComms",
+            seo_description_ru="Чёрная футболка TwoComms с авторским принтом.",
+            seo_description_en="Black TwoComms T-shirt with an original print.",
+            full_description_ru="Чёрная футболка TwoComms для повседневного гардероба.",
+            full_description_en="A black TwoComms T-shirt for everyday wear.",
         )
 
     def setUp(self):
@@ -251,6 +284,23 @@ class SitemapXmlAlternatesTests(TestCase):
         self.assertIn("/en/product/black-tee/", body)
         self.assertIn('xhtml:link', body)
 
+    def test_products_sitemap_excludes_untranslated_locale_rows(self):
+        Product.objects.create(
+            title="Товар без перекладу",
+            slug="untranslated-sitemap-tee",
+            category=self.category,
+            price=600,
+            status="published",
+        )
+
+        response = self.client.get("/sitemap-products.xml")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn("/product/untranslated-sitemap-tee/", body)
+        self.assertNotIn("/ru/product/untranslated-sitemap-tee/", body)
+        self.assertNotIn("/en/product/untranslated-sitemap-tee/", body)
+
     def test_products_sitemap_uses_each_products_own_updated_at(self):
         second = Product.objects.create(
             title="White tee",
@@ -258,6 +308,14 @@ class SitemapXmlAlternatesTests(TestCase):
             category=self.category,
             price=700,
             status="published",
+            title_ru="Белая футболка",
+            title_en="White T-shirt",
+            seo_title_ru="Белая футболка — TwoComms",
+            seo_title_en="White T-shirt — TwoComms",
+            seo_description_ru="Белая футболка TwoComms с авторским принтом.",
+            seo_description_en="White TwoComms T-shirt with an original print.",
+            full_description_ru="Белая футболка TwoComms для повседневного гардероба.",
+            full_description_en="A white TwoComms T-shirt for everyday wear.",
         )
         Product.objects.filter(pk=self.product.pk).update(
             updated_at=datetime(2026, 1, 2, 12, 0, tzinfo=timezone.utc)

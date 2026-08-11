@@ -30,6 +30,7 @@ from ..services.catalog_helpers import (
 from ..services.image_variants import build_optimized_image_payload
 from ..services.size_guides import resolve_product_size_context
 from ..services.variant_meta import VariantMetaInputs, build_variant_meta
+from ..services.locale_publication import publication_context
 from ..recommendations import ProductRecommendationEngine
 from ..utm_tracking import record_product_view
 
@@ -407,6 +408,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
     # Варианты цветов с изображениями (если есть приложение и данные)
     language = (getattr(request, 'LANGUAGE_CODE', None) or 'uk').split('-', 1)[0].lower()
+    locale_publication = publication_context(product, language)
     color_variants = get_detailed_color_variants(product, lang=language)
 
     # ProductCatalog size grids can differ by fit and by colour. Build the complete
@@ -1235,6 +1237,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         'pages/product_detail.html',
         {
             'product': product,
+            'locale_publication': locale_publication,
             'images': images,
             'color_variants': color_variants,
             'auto_select_first_color': auto_select_first_color,
