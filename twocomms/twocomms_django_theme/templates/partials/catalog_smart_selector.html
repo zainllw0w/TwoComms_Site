@@ -34,10 +34,12 @@
     <header class="smart-selector__intro" aria-labelledby="smart-selector-title">
       <div>
         <h1 id="smart-selector-title">{% if merch_collection_page %}{{ merch_collection_page.h1 }}{% else %}{{ category.seo_h1|default:category.name }}{% endif %}</h1>
-        {% if merch_collection_page.intro %}
-        <p>{{ merch_collection_page.intro|striptags|truncatewords:24 }}</p>
-        {% elif category.description %}
-        <p>{{ category.description|striptags|truncatewords:24 }}</p>
+        {% if not page_obj or page_obj.number == 1 %}
+          {% if merch_collection_page.intro %}
+          <p>{{ merch_collection_page.intro|striptags|truncatewords:24 }}</p>
+          {% elif category.description %}
+          <p>{{ category.description|striptags|truncatewords:24 }}</p>
+          {% endif %}
         {% endif %}
       </div>
       <span class="smart-selector__result-count" data-smart-result-count aria-live="polite">
@@ -572,42 +574,50 @@
     </section>
   </div>
 
-  {% if category.seo_intro_html %}
-  <section class="catalog-category-intro smart-selector__seo-intro smart-selector__seo-band" aria-label="{% trans 'Опис категорії' %}">
-    <div class="catalog-redesign-container">
-      <div class="catalog-intro-panel">
-        {{ category.seo_intro_html|safe }}
+  {% if not page_obj or page_obj.number == 1 %}
+    {% if category.seo_intro_html %}
+    <section class="catalog-category-intro smart-selector__seo-intro smart-selector__seo-band" aria-label="{% trans 'Опис категорії' %}">
+      <div class="catalog-redesign-container">
+        <div class="catalog-intro-panel">
+          {{ category.seo_intro_html|safe }}
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+    {% endif %}
   {% endif %}
 
-  {% if category_seo_layout.has_any %}
-  <section class="catalog-category-seo-blocks smart-selector__seo-band" aria-label="{% trans 'Додаткові розділи каталогу' %}">
-    <div class="catalog-redesign-container">
-      {% include "partials/category_seo_blocks.html" %}
-    </div>
-  </section>
+  {% if not page_obj or page_obj.number == 1 %}
+    {% if category_seo_layout.has_any %}
+    <section class="catalog-category-seo-blocks smart-selector__seo-band" aria-label="{% trans 'Додаткові розділи каталогу' %}">
+      <div class="catalog-redesign-container">
+        {% include "partials/category_seo_blocks.html" %}
+      </div>
+    </section>
+    {% endif %}
   {% endif %}
 
-  {% if category.description %}
-  <section class="catalog-category-description smart-selector__seo-band">
-    <div class="catalog-redesign-container">
-      <div class="catalog-description-panel">
-        <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
-        <div>{{ category.description|safe }}</div>
+  {% if not page_obj or page_obj.number == 1 %}
+    {% if category.description %}
+    <section class="catalog-category-description smart-selector__seo-band">
+      <div class="catalog-redesign-container">
+        <div class="catalog-description-panel">
+          <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
+          <div>{{ category.description|safe }}</div>
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+    {% endif %}
   {% endif %}
 
-  {% if color_seo_copy %}
-  <section class="catalog-category-description catalog-category-description--color-aware smart-selector__seo-band">
-    <div class="catalog-redesign-container">
-      <div class="catalog-description-panel">
-        {% include "partials/catalog_color_seo.html" %}
+  {% if not page_obj or page_obj.number == 1 %}
+    {% if color_seo_copy %}
+    <section class="catalog-category-description catalog-category-description--color-aware smart-selector__seo-band">
+      <div class="catalog-redesign-container">
+        <div class="catalog-description-panel">
+          {% include "partials/catalog_color_seo.html" %}
+        </div>
       </div>
-    </div>
-  </section>
+    </section>
+    {% endif %}
   {% endif %}
 </div>

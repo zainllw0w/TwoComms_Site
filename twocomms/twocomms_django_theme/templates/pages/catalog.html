@@ -512,6 +512,7 @@ point at themselves.
   </section>
 
   {% if thematic_landing %}
+  {% if not page_obj or page_obj.number == 1 %}
   {# SEO molecular-upgrade US-5 (2026-05-16) — thematic landing intro. #}
   <section class="catalog-category-intro" aria-label="{% trans 'Опис тематичного розділу' %}">
     <div class="catalog-redesign-container">
@@ -521,8 +522,10 @@ point at themselves.
     </div>
   </section>
   {% endif %}
+  {% endif %}
 
   {% if category and category.seo_intro_html %}
+  {% if not page_obj or page_obj.number == 1 %}
   {# Phase 10b — short intro under H1 with optional collapsible (mirrors AAC pattern). #}
   <section class="catalog-category-intro" aria-label="{% trans 'Опис категорії' %}">
     <div class="catalog-redesign-container">
@@ -531,6 +534,7 @@ point at themselves.
       </div>
     </div>
   </section>
+  {% endif %}
   {% endif %}
 
   {% if not show_category_cards %}
@@ -631,14 +635,17 @@ point at themselves.
   on every catalog screen.
   {% endcomment %}
   {% if category_seo_layout.has_any %}
+  {% if not page_obj or page_obj.number == 1 %}
   <section class="catalog-category-seo-blocks" aria-label="{% trans 'Додаткові розділи каталогу' %}">
     <div class="catalog-redesign-container">
       {% include "partials/category_seo_blocks.html" %}
     </div>
   </section>
   {% endif %}
+  {% endif %}
 
   {% if category and category.description %}
+  {% if not page_obj or page_obj.number == 1 %}
   <section class="catalog-category-description">
     <div class="catalog-redesign-container">
       <div class="catalog-description-panel">
@@ -647,6 +654,7 @@ point at themselves.
       </div>
     </div>
   </section>
+  {% endif %}
   {% endif %}
 
   {% comment %}
@@ -659,6 +667,7 @@ point at themselves.
     those scenarios).
   {% endcomment %}
   {% if not category and not has_active_color_filter %}
+  {% if not page_obj or page_obj.number == 1 %}
   <section class="catalog-category-description catalog-category-description--general">
     <div class="catalog-redesign-container">
       <div class="catalog-description-panel">
@@ -676,9 +685,11 @@ point at themselves.
     </div>
   </section>
   {% endif %}
+  {% endif %}
 
   {# Phase 19g (2026-05-10): colour-aware SEO copy. Renders on /catalog/ root and on any catalog screen with ?color=<slug>. Skipped for /catalog/<cat>/ without a colour filter (existing category.description block above already covers SEO). #}
   {% if color_seo_copy %}
+  {% if not page_obj or page_obj.number == 1 %}
   <section class="catalog-category-description catalog-category-description--color-aware">
     <div class="catalog-redesign-container">
       <div class="catalog-description-panel">
@@ -686,6 +697,7 @@ point at themselves.
       </div>
     </div>
   </section>
+  {% endif %}
   {% endif %}
 </div>
 {% endif %}

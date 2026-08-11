@@ -145,6 +145,64 @@ class CatalogIntegrationLayoutTests(_BasePhase10bTests):
                                            kwargs={"cat_slug": self.category.slug}))
         self.assertNotContains(response, "catalog-category-intro")
 
+    def test_page_two_keeps_products_but_omits_page_one_editorial_sections(self):
+        self.category.seo_intro_html = "PAGE_ONE_INTRO_ONLY"
+        self.category.description = "PAGE_ONE_DESCRIPTION_ONLY"
+        self.category.save(update_fields=["seo_intro_html", "description"])
+        block = CategorySeoBlock.objects.create(
+            category=self.category,
+            block_type="top_queries",
+            title="PAGE_ONE_SEO_TABS_ONLY",
+            is_active=True,
+        )
+        CategorySeoBlockItem.objects.create(
+            block=block,
+            label="PAGE_ONE_SEO_LINK_ONLY",
+            url="/catalog/hoodie/",
+        )
+        Product.objects.create(
+            title="Second hoodie",
+            slug="second-hoodie",
+            category=self.category,
+            price=1500,
+            status="published",
+        )
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            page_one = self.client.get(
+                reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+            )
+            page_two = self.client.get(
+                reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+                + "?page=2"
+            )
+
+        self.assertContains(page_one, "PAGE_ONE_INTRO_ONLY")
+        self.assertContains(page_one, "PAGE_ONE_DESCRIPTION_ONLY")
+        self.assertContains(page_one, "PAGE_ONE_SEO_TABS_ONLY")
+        self.assertContains(page_one, "PAGE_ONE_SEO_LINK_ONLY")
+        self.assertEqual(page_two.status_code, 200)
+        self.assertContains(page_two, "Second hoodie")
+        self.assertContains(page_two, "?page=2")
+        self.assertNotContains(page_two, "PAGE_ONE_INTRO_ONLY")
+        self.assertNotContains(page_two, "PAGE_ONE_DESCRIPTION_ONLY")
+        self.assertNotContains(page_two, "PAGE_ONE_SEO_TABS_ONLY")
+        self.assertNotContains(page_two, "PAGE_ONE_SEO_LINK_ONLY")
+
+        # The legacy catalog branch must obey the same page-1 editorial rule.
+        with patch("storefront.views.catalog.SMART_SELECTOR_CATEGORY_SLUGS", ()):
+            non_smart_page_two = self.client.get(
+                reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+                + "?page=2"
+            )
+        self.assertEqual(non_smart_page_two.status_code, 200)
+        self.assertContains(non_smart_page_two, "Second hoodie")
+        self.assertContains(non_smart_page_two, "?page=2")
+        self.assertNotContains(non_smart_page_two, "PAGE_ONE_INTRO_ONLY")
+        self.assertNotContains(non_smart_page_two, "PAGE_ONE_DESCRIPTION_ONLY")
+        self.assertNotContains(non_smart_page_two, "PAGE_ONE_SEO_TABS_ONLY")
+        self.assertNotContains(non_smart_page_two, "PAGE_ONE_SEO_LINK_ONLY")
+
     def test_tabs_component_renders_with_canonical_buttons(self):
         for btype, label in (
             ("top_filters", "Чорний худі"),
