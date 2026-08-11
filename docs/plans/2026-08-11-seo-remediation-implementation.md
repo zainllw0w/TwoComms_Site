@@ -354,7 +354,7 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 
 ### Task 5: Normalize facets and pagination by route family
 
-- [ ] **5.1** Add failing tests for page>=2 self-canonical/crawlable behavior and invalid, duplicate, empty-result or nonexistent combinations returning 404. Treat `page=1 -> clean` as a separate P3 normalization, not a ranking gate. Correct the crawler fixture/utility to resolve relative hrefs against the source final URL before trusting route-level inlink counts.
+- [x] **5.1** Add failing tests for page>=2 self-canonical/crawlable behavior and invalid, duplicate or nonexistent page/facet aliases returning 404. Valid `page>=2` remains a distinct `200`, indexable, self-canonical product slice. Valid filter combinations with zero inventory remain the interactive catalog's `200 + noindex, follow` empty state so Smart Selector controls do not turn into broken 404 links; only body-equivalent invalid aliases are rejected. Treat `page=1 -> clean` as a separate P3 normalization, not a ranking gate. The repository crawler utilities already resolve relative hrefs with `urljoin(source_final_url, href)`, so no crawler-code change was required.
 - [x] **5.2** Remove SEO hreflang from noindex facets and stop editorial rails from linking to noindex query states. Editorial-link half shipped in 5.2a; hreflang half in P1.2.
 - [x] **5.2a** Remove internal UI-state query links (`color`, `fit`, `size`, `sort`, `theme`, `page`, `q`, `availability`, `category`, `collection`) from generated and admin-authored editorial rails while preserving the same URLs in interactive catalog controls. Shipped as `78e28c4c` and live-verified on UK/RU/EN catalog and hoodie routes; the hreflang half of 5.2 remains open.
 - [ ] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
@@ -371,6 +371,43 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - Production: `HEAD=78e28c4cee60400410bb2bbb14f7993dbd99959d`, tracked/staged diff empty, `manage.py check` clean, `/healthz/` and `/` return `200`.
 - Live UK/RU/EN `/catalog/` and `/catalog/hoodie/` responses contain zero query-facet anchors inside editorial scopes while interactive filter controls still contain query links. `/catalog/?color=black` remains `noindex, follow` with the base canonical. `/custom-print/` returns `200` and remains a route-only non-regression check.
 - This checkpoint closes only 5.2a. It does not claim hreflang removal, strict facet validation, clean landing ownership, ranking growth or any Custom Print SEO change.
+
+#### Task 5.1 execution evidence (checkpoint prepared)
+
+- Code/test commit: `6239a64896c82890cfcfc079d6739096abdf8e25`
+  (`fix(seo): reject invalid catalog pagination aliases`) was pushed to
+  `origin/main`, pulled on production, and activated with `tmp/restart.txt`.
+- The implementation introduces one strict paginator for public catalog,
+  thematic and category-colour HTML routes. It uses Django's strict
+  `Paginator.page()` contract: missing `page` means page 1; malformed,
+  duplicate, non-positive and out-of-range values raise `404`; valid page 2+
+  keeps its own product slice and canonical URL. The category-colour landing
+  canonical now includes `?page=N` for N>1 instead of pointing at page 1.
+- Facet validation rejects unsupported route axes, empty values, unknown
+  values and duplicate copies of one value before rendering. Existing color
+  comma/repeated-key normalization and valid multi-select values remain
+  unchanged. A valid filter that simply has no matching inventory remains a
+  crawlable UI state with `200 + noindex, follow`; changing that state to 404
+  would break the working selector/empty-state workflow and is intentionally
+  outside this slice.
+- Local gates: the focused catalog/color/facet/selector/editorial suite passed
+  `134/134`; `manage.py check`, touched-file `py_compile` and `git diff --check`
+  passed. Context7 Django 5.2 documentation confirms that `get_page()` clamps
+  invalid input while `page()` raises `InvalidPage`; the release uses the
+  latter only on public HTML catalog routes. Existing crawler scripts already
+  call `urljoin(page_url, href)` for relative links, so no fixture change was
+  necessary.
+- Live proof at production SHA `6239a648`: `/healthz/` returned `200`;
+  `/catalog/tshirts/?page=2` returned `200`, `index, follow`, self-canonical
+  `?page=2`, and a different product slice; `/catalog/tshirts/?page=abc`,
+  `?page=999999`, `?fit=not-a-fit`, `?size=3XL` and duplicate `fit` returned
+  `404`; `/catalog/tshirts/black/?page=2` returned `200` with a self-canonical
+  page-2 URL, while its `?page=999999` returned `404`. A valid color filter
+  remains `200 + noindex, follow` with its existing UI behavior.
+- Boundary proof: no DTF subdomain/blog/module, Custom Print flow/content,
+  product wording, catalog data or variant inventory was changed. This
+  checkpoint claims crawl-alias removal and pagination owner consistency only;
+  it makes no ranking, traffic, rich-result or conversion promise.
 
 ### Task 6: Link only approved clean landings in matching locale
 
