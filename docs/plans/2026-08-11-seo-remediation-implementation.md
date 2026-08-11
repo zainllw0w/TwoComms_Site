@@ -8,7 +8,40 @@
 
 **Tech Stack:** Django 5 storefront, Python 3.14 production virtualenv, Django templates, JSON-LD/schema.org, XML sitemaps/merchant feeds, existing test suite and Playwright/crawl scripts.
 
-**Baseline:** Focused category SEO tests on `c6d82593` run 2026-08-11: 21 tests, 3 pre-existing failures in synthetic top-menu expectations (`test_phase10b_seo_layout.py`), 18 passing. These failures are recorded and must not be silently attributed to SEO remediation.
+**Baseline:** Fresh focused run after fast-forward to `4f1b0136` (2026-08-11): 28 tests, 25 passing and 3 pre-existing failures in synthetic top-menu expectations (`test_phase10b_seo_layout.py`). All Task 1 slug/price/stale-link assertions pass. The suite is explicitly not claimed green.
+
+## Scope and decision gates
+
+- **Custom Print is a no-touch boundary.** Exclude it from content, variant, schema, metadata, canonical and broad crawl audits. Do not change its configurator, state, pricing, media, cart, checkout, analytics, submission or notification behavior. The completed stale-link normalization changed an external category link, not Custom Print. Only a specifically reproduced RU/EN localization defect may receive the smallest locale-only patch; a wrong-locale canonical/hreflang is eligible only as part of that reproduced locale defect, with UK content and the working flow unchanged.
+- **No ranking promise.** A task may claim only the directly verified result: fewer contradictory crawl/index signals, correct locale, truthful facts, correct selected variant state, or cleaner internal ownership. Position, traffic and revenue effects require post-release GSC/analytics observation.
+- **Four verdicts control implementation.** `Confirmed` means a current defect with a deterministic acceptance test and may enter TDD. `Conditional` means a potentially useful strategy that waits for GSC/demand/inventory evidence and an explicit owner decision. `Rejected` means the proposed requirement is not supported by Google guidance. `Do not implement` means it creates material overoptimization, URL-bloat or migration risk.
+- **Anti-overoptimization gate.** Do not generate pages, headings, FAQs, city lists or paraphrases to hit keyword density, n-gram uniqueness or text-length targets. A shorter shared policy statement is preferable when the fact is global. Variant-specific copy exists only for real differences useful to a buyer.
+- **Source hierarchy.** Context7 is used for current Django implementation contracts and as a searchable mirror of official documentation. Google Search Central remains the primary SEO policy source; GSC, server logs, production DB and rendered HTML determine whether a recommendation applies to this site.
+
+### Decision ledger before implementation
+
+This ledger prevents a useful hypothesis from becoming an automatic SEO change. `Confirmed` items may enter TDD because the defect and a deterministic non-ranking acceptance check exist. `Conditional` items require demand/owner evidence first. `Rejected` and `Do not implement` items never enter the code queue without new primary evidence.
+
+| Verdict | Exact item | Directly supportable positive result | Ranking/overoptimization boundary |
+|---|---|---|---|
+| Confirmed | Linked internal 404 destinations from catalog SEO rows | Removes dead navigation and crawler destinations; already deployed and live-crawled at zero linked 404 | No promise of recovered rankings or link equity; no blanket redirects without exact successor history |
+| Confirmed | RU/EN standard catalog/PDP pages with Ukrainian H1, navigation, editorial or JSON-LD content | Makes visible language, URL and structured data agree and removes wrong-locale user journeys | Translate facts and UI, not keywords; do not create extra pages merely for language volume |
+| Confirmed | Nine `futbolka-posmikhnys` variant URLs sharing a 160-character comma-list Ukrainian title across UK/RU/EN | Removes an explicit keyword-stuffed, wrong-locale title and restores concise owner/locale metadata | Fix the source field once; do not impose arbitrary character counts across unrelated titles |
+| Confirmed | Generated PDP/catalog claims without an owned source, including guessed material, wash, shrinkage, delivery, exchange, packaging and donation statements | Removes factual contradictions across visible copy, schema, feeds and llms surfaces | One truthful shared policy is better than mechanically unique paraphrases; no keyword-density target |
+| Confirmed | Editorial rails that link to noindex query facets or wrong-locale UK paths | Stops the site from repeatedly promoting non-owner/wrong-locale URLs and gives approved owners consistent links | Preserve useful UI filters; do not infer a penalty or block every query URL in robots.txt immediately |
+| Confirmed | Variant URL, selected state, image, price, availability, cart identity, schema or feed disagreement | Makes buyer-visible and machine-readable variant identity consistent | Correct identity is required; long unique copy for every variant is not |
+| Confirmed | Equivalent variant paths differing only by segment order or case are all `200` self-canonical | Consolidates duplicate path aliases into one deterministic owner without changing product state | Only exact equivalents receive one-hop `301`; invalid/ambiguous segments return `404` |
+| Confirmed | Invalid facet/page values returning body-equivalent `200`, and page 2 canonical/body disagreement | Removes crawl aliases and contradictory owner signals while preserving valid pagination | `page=1` normalization is P3 hygiene, not a ranking gate; do not canonicalize distinct page 2 inventory to page 1 |
+| Confirmed | Unsupported MemberProgram type and conflicting entity facts/counts | Makes structured data truthful and internally consistent | Validator correctness can affect eligibility, not guarantee rich results or rankings |
+| Confirmed | Mobile clean-catalog filter badge showing an active filter | Fixes a reproduced UX/state bug | Treat as CRO/UX until field data proves a search effect |
+| Conditional | Separate indexable color, fit or color x fit URLs | Can serve real preselected long-tail intent when inventory, media and demand exist | Google permits separate variant URLs but does not require them; duplicate counts alone cannot approve or remove an owner |
+| Conditional | New clean color/fit/thematic landing | Can improve discovery of an evidenced intent with useful assortment and locale content | Requires a decision record with sellable inventory continuity, distinct user/query intent, matching media, factual localized content and internal source link; no uniqueness percentage |
+| Conditional | City/local landing | Can support a real city-specific service or pickup intent | No city-name substitution; require actual local terms, proof and demand |
+| Conditional | Numeric legacy redirect | Can preserve navigation and external signals when an exact successor exists | Exact mapping and history first; otherwise honest 404/410, never mass-301 to category/base |
+| Conditional | Facet `robots.txt` restrictions | Can reduce crawl of non-indexable spaces after cleanup | First remove editorial links and let known URLs expose their current index policy; verify GSC/log effects before expansion |
+| Rejected | `meta keywords`, fixed keyword density, mandatory title/description length or text-volume thresholds | None demonstrated | These are not implementation acceptance criteria |
+| Do not implement | Hash-selected paraphrases, city lists, FAQ multiplication or near-duplicate blocks created only to appear unique | None; increases factual and scaled-content risk | Reuse one owned fact/policy when the underlying information is global |
+| Do not implement | Index every selector combination or generate a city x color x fit x size matrix | None without independent intent and product value | Prevent Cartesian URL/content growth; selectors may remain UI-only |
 
 **Per-task release protocol:**
 
@@ -17,58 +50,76 @@
 3. Run `manage.py check`, `git diff --check`, and the task's static/browser/crawl gate.
 4. Commit the code/test slice with the task still marked `[ ]` for deployment.
 5. Push the exact commit to `origin/main`; deploy production with the repository release gate; prove deployed SHA and live behavior.
-6. Mark the task `[x]` with commit/SHA/evidence links, commit that checklist update, push and deploy the documentation checkpoint, then continue.
+6. After the code SHA is live-verified, prepare one checklist checkpoint with the task marked `[x]`, commit/push/deploy that document, and claim completion only after production proves the checkpoint SHA. No second self-referential documentation checkpoint is required; a failed checkpoint deploy must reopen or correct the status.
 
 ## Priority and dependency checklist
 
-### Task 1: Eliminate linked 404 destinations without touching Custom Print behavior
+### Task 1: Eliminate linked 404 destinations
 
-- [ ] **1.1** Verify the 24 numeric IDs and `/catalog/custom-print/` against the current production DB and backlink/history data; classify each as exact published successor, stale removable row, or unresolved (unresolved stays open). Confirm `/custom-print/`, `/ru/custom-print/` and `/en/custom-print/` owners before changing links.
-- [ ] **1.2** Add failing service/template tests proving published `extra.product_id` rows render a locale-aware current slug URL and authoritative live price, missing/draft references render no link, and `/catalog/custom-print/` normalizes to the matching-locale custom-print owner.
-- [ ] **1.3** Implement URL and price resolution in `twocomms/storefront/services/category_seo_blocks.py` plus the category SEO partial; do not change the Custom Print configurator view/template/state or create blanket numeric redirects.
-- [ ] **1.4** Run `storefront.tests.test_phase10_category_seo_blocks`, `storefront.tests.test_phase10b_seo_layout`, and a rendered category-link assertion for UK/RU/EN.
-- [ ] **1.5** Commit, push, deploy and live-crawl. Record the deployed SHA, 0 linked 404, `/custom-print/` 200 self-canonical, and no change to the configurator browser smoke.
-- [ ] **1.6** Commit/push/deploy this checklist evidence and only then mark **Task 1 complete**.
+- [x] **1.1** Verify current production-backed category rows and URL owners: a published `extra.product_id` resolves to its current slug, missing/draft/malformed references do not render, and the stale `/catalog/custom-print/` destination resolves to the existing same-locale owner.
+- [ ] **1.1a** Before adding any legacy numeric redirect, inspect external backlink/GSC/analytics history for the 24 old numeric URLs and map only an exact successor. This does not block removal of internal dead links; it intentionally blocks blanket redirects.
+- [x] **1.2** Add service/template regression tests proving published `extra.product_id` rows render a locale-aware current slug URL and authoritative live price, missing/draft references render no link, and `/catalog/custom-print/` normalizes to the matching-locale custom-print owner.
+- [x] **1.3** Implement URL and price resolution in `twocomms/storefront/services/category_seo_blocks.py`; do not change the Custom Print configurator view/template/state or create blanket numeric redirects.
+- [x] **1.4** Run `storefront.tests.test_phase10_category_seo_blocks`, `storefront.tests.test_phase10b_seo_layout`, and rendered UK/RU/EN assertions. All new assertions pass; retain the three pre-existing synthetic top-menu failures as an explicit baseline, not a green-suite claim.
+- [x] **1.5** Commit, push, deploy and live-crawl. Record the deployed SHA, 0 linked 404 and the existing Custom Print locale owners as a link non-regression only; do not use this as authority to inspect or change the configurator.
+- [x] **1.6** Prepare this single Task 1 checklist checkpoint with completed code/live evidence, then commit/push/deploy it. Task 1 is considered complete only after production proves this checkpoint SHA; no second docs-only loop is required.
 
 **Files:** `twocomms/storefront/services/category_seo_blocks.py`; `twocomms/storefront/tests/test_phase10_category_seo_blocks.py`; add a focused regression module only if the existing test boundary cannot express URL normalization. No data migration until DB mapping proves it is required.
 
-### Task 2: Establish and enforce the approved variant URL allowlist
+#### Task 1 execution evidence (checkpoint prepared)
 
-- [ ] **2.1** Produce a versioned inventory of 210 variant URLs with product, color, fit, size, stock, media, locale, demand placeholder and proposed owner.
-- [ ] **2.2** Add failing tests for approved versus UI-only combinations, stable segment order, invalid/empty combinations and no Cartesian-product sitemap emission.
-- [ ] **2.3** Implement one shared resolver used by `views/product.py`, `services/variant_meta.py`, variant sitemap and internal-link helpers. Preserve Custom Print and existing checkout selection behavior.
-- [ ] **2.4** Define redirect/canonical behavior for removed variants only after owner mapping; do not mass-301 to a category or base product.
-- [ ] **2.5** Run sitemap, canonical, hreflang and Playwright preselection checks for representative color-only, fit-only, color×fit and size URLs.
-- [ ] **2.6** Commit, push, deploy, live-verify and then mark Task 2 `[x]` in a docs checkpoint commit.
+- SEO implementation: `e20ec3932715d05537757dbb9909adae463f4c4b` (`fix(seo): resolve category block product owners`). The slice resolves published product references to the current locale-aware slug and live final price, removes unresolved/draft product references from rendered rails, and normalizes only the known stale Custom Print route to the existing locale owner. It does not modify the Custom Print view, template, state, checkout, analytics or submission contracts.
+- Release-gate hardening required to deploy the SEO slice: `ca0437c2` and `157e95d42a231d5e2fd76aba30e26993deb266f6`. The second commit covers the real nested-checkout status path (`twocomms/passenger_wsgi.py`) while preserving fail-closed behavior for staged or unrelated tracked drift.
+- Live crawl after `e20ec393`: `output/seo-remediation-2026-08-11/task1-live-e20ec393-20260811T005452Z/crawl/`. It fetched 1,354 URLs, all with final status `200`; linked `404` count is zero, and sitemap/canonical/hreflang crawl assertions passed.
+- Independent production proof on 2026-08-11 after deploying `157e95d4`: live branch `main`, `HEAD == origin/main == 157e95d4`, tracked status empty, active venv/static release targets match `157e95d4`, maintenance is absent, and `/healthz/` plus `/` return `200`.
+- Canonical deploy evidence: `/home/qlknpodo/TWC/TwoComms_Site/releases/evidence/release-157e95d42a231d5e2fd76aba30e26993deb266f6-1786415906-609b78107e5b4a1d8060fb4f300d1236.json`. It records `status=activated`, previous SHA `e20ec393`, `rolled_back=false`, `rollback_needed=false`, `maintenance_lease_retained=false` and `rollback_status=not_needed`.
+- A one-time no-submit link non-regression run covered UK/RU/EN on desktop/mobile and passed 6/6. It is not a Custom Print SEO audit, is not a prerequisite for later catalog work and must not be expanded. An earlier invalid run that emitted tracking POSTs is excluded from evidence.
+- External backlink/history mapping for the 24 numeric URLs was not performed. Therefore no redirect conclusion is claimed; 1.1a remains open and independent from the completed internal-link fix.
+- The `[x]` state in 1.6 is the checkpoint being prepared by this document. It becomes final only after this exact documentation commit is pushed, deployed and proven on production.
+
+### Task 2: Inventory variant owners, then choose single-page or multi-page policy
+
+- [ ] **2.0a** Add failing route/canonical tests proving lowercase canonical segment order and one-hop normalization for exact permutations/case variants; duplicate, conflicting and ambiguous segments must return `404` without partially changing the selected state.
+- [ ] **2.0b** Implement only the shared path normalizer, run representative color/fit/size selected-state browser checks, commit/push/deploy, prove one final URL and then mark this independent slice complete. Do not change sitemap membership or variant ownership in this slice.
+- [ ] **2.1** Commit a versioned inventory of the full locale surface, not only the 210 UK sitemap entries. Current evidence baseline: 630 indexable locale variant URLs; 196/210 semantic paths (588/630 locale URLs) are current UI/base states; 14 UK color paths (42 locales) are candidates only. Record URL, locale, product, axes, stock policy, media, selected price/availability/cart identity, canonical/hreflang/sitemap/internal links, demand placeholder and proposed owner.
+- [ ] **2.2** Obtain GSC/query/landing-page/backlink evidence and decide the contract per axis: a single-page ProductGroup owner, a useful self-canonical multi-page variant, or a non-owner UI state. An allowlist is a site strategy, not a Google requirement; do not approve or remove URLs solely from duplicate-title counts.
+- [ ] **2.3** After the decision, add failing tests for approved owners versus UI states, invalid/empty combinations and no unintended Cartesian sitemap emission.
+- [ ] **2.4** Implement one shared resolver used by `views/product.py`, `services/variant_meta.py`, schema, chosen sitemap representation and internal-link helpers. Preserve existing selection/cart identity and keep Custom Print out of the diff.
+- [ ] **2.5** Define redirect/canonical behavior for changed URLs only after exact owner mapping: exact successor -> one-hop 301; duplicate UI state -> consistent canonical policy; no successor -> 404/410. Do not mass-301 to a category/base and do not combine `noindex` with canonical as a blanket rule.
+- [ ] **2.6** Run canonical, hreflang, sitemap and browser preselection checks for representative color-only, fit-only, color×fit and size URLs, plus an explicit regression matrix for the seven confirmed wrong-SSR-hero candidates: `bentejne-ts/coyote`, `death-gbs-ass-ts/coyote`, `kharkiv-district-ts/coyote`, `lord-of-the-lending/black`, `my-little-baby/black`, `pojuy-ts/black`, `where-mi-present-ts/black`. Each URL must either be consolidated to its proven owner or show the right SSR/hydrated image, price, availability and cart identity; unique long copy is not required.
+- [ ] **2.7** Commit, push, deploy, live-verify and then mark Task 2 `[x]` in a docs checkpoint commit.
 
 **Files:** `twocomms/storefront/views/product.py`; `twocomms/storefront/services/variant_meta.py`; sitemap modules; product templates/tests; production inventory evidence under `output/seo-audit-2026-08-10/`.
 
 ### Task 3: Make RU/EN publication and structured data genuinely localized
 
-- [ ] **3.1** Add a rendered locale matrix test that fails on Ukrainian fallback in RU/EN visible H1/body/meta/alt/aria/JSON-LD, except approved proper nouns.
+- [ ] **3.1** Add a rendered locale matrix test for standard catalog/PDP pages that fails when RU/EN title, H1, main editorial content, critical commerce UI, FAQ or JSON-LD remains Ukrainian, except approved brand names, SKUs and proper nouns. Exclude Custom Print from this matrix; do not fail on every isolated borrowed word or decorative asset.
 - [ ] **3.2** Fix locale-aware URL builders and fallback policy for categories, color landings, PDPs, pro-brand OfferCatalog and FAQ.
+- [ ] **3.2a** Add a failing regression for the nine `futbolka-posmikhnys/beige[/classic|oversize]/` locale URLs, then replace the shared 160-character comma-list Ukrainian title at its source with concise descriptive metadata for each actual locale/approved owner. Do not apply a sitewide character-count rewrite.
 - [ ] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners.
 - [ ] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
-- [ ] **3.5** Run locale HTML/schema/sitemap checks and browser language-switch checks, then commit/push/deploy and record evidence before checking Task 3.
+- [ ] **3.5** Do not run a general Custom Print SEO audit. Run only a focused RU/EN localization check. If a specific wrong-language visible-text or related wrong-locale canonical/hreflang defect is reproduced, add one focused failing test and the smallest locale-only fix; otherwise record `N/A`. Prove UK content, configurator state, cart, analytics and submission contracts unchanged without submitting a live request.
+- [ ] **3.6** Run standard catalog/PDP locale HTML/schema/sitemap and browser language-switch checks. If 3.5 is triggered, add only its focused RU/EN regression and minimal UK no-submit non-regression. Commit/push/deploy and record evidence before checking Task 3.
 
 **Files:** locale helpers/base template; `catalog.html`, color landing and product templates; `seo_utils.py`; localized tests and sitemap tests.
 
-### Task 4: Replace contradictory PDP boilerplate with one fact-owned editorial block
+### Task 4: Replace unsafe generated editorial claims with fact-owned content
 
-- [ ] **4.1** Add failing tests for exactly one rendered PDP SEO editorial block, deduplicated FAQ questions, and no service-only keyword sentence in visible content.
+- [ ] **4.1** Add failing tests for exactly one rendered PDP editorial owner, deduplicated FAQ questions, and no service-only keyword sentence or hash-selected paraphrase used solely to change n-gram overlap.
 - [ ] **4.2** Create a versioned fact registry contract (owner, source field/URL, locale, effective date) for material, weight, print method, wash durability, fit, care, delivery threshold, founding date, donation and location.
-- [ ] **4.3** Remove/merge the second generated block; keep product-specific facts and preserve Custom Print links/flow unchanged.
+- [ ] **4.3** Remove/merge the second generated block across both `services/product_seo_landing.py` and `services/product_seo_block.py`; keep only useful product-specific facts. Do not manufacture lexical variants for uniqueness and keep Custom Print out of the content rewrite.
 - [ ] **4.4** Deduplicate FAQ at the data/render/schema boundary; retain global policy answers once and product-specific answers only when materially different.
-- [ ] **4.5** Run fact-lint across PDP HTML, JSON-LD, feeds, llms and checkout copy; commit/push/deploy and mark Task 4 only after live parity proof.
+- [ ] **4.5** Add failing tests for the page-1 general catalog editorial block, then remove keyword/city insertion as a content objective and route every retained claim through the fact registry. Specifically verify delivery timing/exchange policy, material/weight, available cuts/sizes, wash durability, donation and location statements; do not replace the current city list with paraphrased city variants.
+- [ ] **4.6** Run fact-lint across standard PDP/catalog HTML, JSON-LD, feeds, llms and checkout copy; commit/push/deploy and mark Task 4 only after live parity proof.
 
-**Files:** `twocomms/storefront/views/product.py`; `seo_utils.py`; `services/product_seo_landing.py`; PDP templates; FAQ models/services/tests; fact-registry docs/tests.
+**Files:** `twocomms/storefront/views/product.py`; `seo_utils.py`; `services/product_seo_landing.py`; `services/product_seo_block.py`; `twocomms_django_theme/templates/pages/catalog.html`; PDP templates; FAQ models/services/tests; fact-registry docs/tests.
 
 ### Task 5: Normalize facets and pagination by route family
 
-- [ ] **5.1** Add failing tests for `page=1` one-hop redirects on home/category/locale routes, page>=2 self-canonical, and invalid/empty combinations returning 404. Correct the crawler fixture/utility to resolve relative hrefs against the source final URL before trusting route-level inlink counts.
+- [ ] **5.1** Add failing tests for page>=2 self-canonical/crawlable behavior and invalid, duplicate, empty-result or nonexistent combinations returning 404. Treat `page=1 -> clean` as a separate P3 normalization, not a ranking gate. Correct the crawler fixture/utility to resolve relative hrefs against the source final URL before trusting route-level inlink counts.
 - [ ] **5.2** Remove SEO hreflang from noindex facets and stop editorial rails from linking to noindex query states.
-- [ ] **5.3** Make grey/olive filter exceptions intentional: either approved clean landing owners or UI-only noindex/follow; do not leave index/follow plus non-self canonical.
-- [ ] **5.4** Ensure page>=2 does not render the full page-1 SEO boilerplate; preserve distinct product lists and pagination discoverability.
+- [ ] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
+- [ ] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
@@ -78,14 +129,14 @@
 
 - [ ] **6.1** Add failing tests for same-locale category → color/fit landing links and absence of editorial links to UI-only query facets.
 - [ ] **6.2** Implement locale-aware landing URL builders and an allowlist-backed internal-link helper; keep Smart Selector/query state operational.
-- [ ] **6.3** Verify every approved landing has inventory, unique copy, media, schema/feed support and at least one same-locale category link before sitemap inclusion.
+- [ ] **6.3** For every proposed landing, write a decision record covering sellable inventory continuity, distinct user/query intent, matching media, factual locale content, schema support and at least one same-locale source link before inclusion in the chosen discovery graph. These are evidence categories, not Google-defined numeric thresholds; do not create copy merely to pass a uniqueness percentage.
 - [ ] **6.4** Commit/push/deploy and mark Task 6 after crawl/browser proof.
 
 **Files:** `services/color_seo_copy.py`, `services/general_catalog_seo.py`, Smart Selector helpers, category/color landing templates/tests.
 
 ### Task 7: Complete variant media, alt text and fit data
 
-- [ ] **7.1** Add data-quality tests that fail when an indexable variant lacks matching media, localized alt, sellable rows or measurements.
+- [ ] **7.1** Add data-quality tests that fail when an approved multi-page variant lacks matching media, accurate informative-image alt where needed, sellable rows or applicable measurements. Decorative images may keep empty alt; do not keyword-stuff alt.
 - [ ] **7.2** Backfill only verified production assets/measurements; do not invent classic/oversize photos or claim a color image that does not exist.
 - [ ] **7.3** Hide or consolidate unsupported fit states while retaining the working selector for valid UI states.
 - [ ] **7.4** Run representative mobile/desktop browser checks and schema/media audits; commit/push/deploy and check Task 7.
@@ -123,10 +174,11 @@
 
 ## Final release gate
 
-- [ ] Full sitemap + one-hop crawl has 0 linked 404 and no unintended SEO redirect chains.
-- [ ] All sitemap URLs are approved owners with 200, indexability and self-canonical.
-- [ ] RU/EN visible content and JSON-LD are locale-correct; hreflang is reciprocal and self-inclusive.
+- [ ] Remediation-owned standard catalog/PDP sitemap + one-hop crawl has 0 linked 404 and no unintended SEO redirect chains. Custom Print is route/link non-regression only.
+- [ ] All remediation-owned standard catalog/PDP sitemap URLs are approved owners with 200, indexability and self-canonical.
+- [ ] Standard catalog/PDP RU/EN visible content and JSON-LD are locale-correct; hreflang is reciprocal and self-inclusive. Custom Print is governed only by the focused 3.5 exception.
 - [ ] Variant selected state, media, metadata, schema and feed agree.
 - [ ] Facts are single-source and no duplicate/contradictory PDP blocks remain.
-- [ ] Mobile purchase path, cart, analytics and Custom Print browser smoke pass.
+- [ ] Mobile purchase path, cart and analytics pass for remediation-owned catalog/PDP changes. Custom Print remains outside remediation; only run the smallest no-submit shared-dependency regression when a shared dependency changed or 3.5 was triggered.
+- [ ] No task created URLs/text for keyword density, n-gram uniqueness, city substitution or exhaustive color×fit×size coverage; every new owner has documented user value and evidence.
 - [ ] GSC/CrUX/RUM limitations and residual risks are recorded; no ranking-growth claim is made without measurement.
