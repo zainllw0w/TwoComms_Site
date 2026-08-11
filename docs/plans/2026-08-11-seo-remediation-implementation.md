@@ -119,6 +119,49 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   makes no ranking, traffic, or conversion claim; full locale publication,
   selected-color alt fallback, and fact-registry work remain open below.
 
+- [x] **P0.2** Keep standard storefront image alt metadata locale-safe when a
+  legacy `ProductColorImage.alt_text` value has no RU/EN ownership. UK may
+  continue to use the reviewed stored alt; RU/EN use the active locale title
+  and localized color with a concise factual fallback. The same resolver feeds
+  the SSR hero/gallery, `og:image:alt`, `twitter:image:alt`, and the image AJAX
+  response. Custom Print and the DTF subdomain/blog remain outside scope.
+
+#### P0.2 release evidence
+
+- Code/test commit: `3b0b4e5a272162856b8ddc2eca60efa33cb53de1`
+  (`fix(seo): keep standard PDP image alts locale-safe`) was pushed to
+  `origin/main`. The later catalog-editor recovery merge did not alter this
+  SEO diff; it only restored the missing `product_catalog` tables required by
+  the storefront runtime.
+- TDD/local gates: the new regression reproduced RED against the Ukrainian
+  stored alt, then passed GREEN after the locale-owned fallback was added. The
+  focused pre-merge SEO/PDP set passed `30/30`; `manage.py check`, touched-file
+  compilation, and `git diff --check` passed. A broader post-merge test run is
+  blocked by the unrelated catalog-editor migration/test-database baseline;
+  that blocker is not part of this SEO diff.
+- Production recovery prerequisite: after the catalog release was repaired
+  at `e886a8e2592db3b1b3469b97328e7df382afce3d`, `/catalog/` and standard PDP
+  routes returned to HTTP 200. The guarded preflight correctly refused a
+  duplicate legacy/current table state; no schema-adoption write was performed
+  by this SEO checkpoint.
+- Live UK/RU/EN proof at production SHA `e886a8e2`: `/ru/product/lord-of-the-
+  lending/black/`, `/en/product/bentejne-ts/coyote/`,
+  `/ru/product/classic-tshirt/black/`, `/en/product/classic-tshirt/black/`,
+  and the UK `/product/classic-tshirt/black/` all returned `200`. Each sampled
+  page emitted a locale-consistent selected-color/hero alt in the visible
+  image, `og:image:alt`, and `twitter:image:alt`; RU/EN no longer exposed the
+  Ukrainian stored alt. Each page emitted `index, follow`, a self-canonical
+  URL, and a reciprocal UK/RU/EN/`x-default` hreflang cluster. UK retained its
+  stored/manual alt behavior.
+- Boundary proof: no `dtf/`, DTF subdomain/blog, Custom Print, configurator,
+  product content, or catalog data was edited in this slice. Existing DTF
+  wording inside an ordinary standard-product description was intentionally
+  left unchanged.
+- This checkpoint claims only locale-safe image metadata and verified runtime
+  parity. It makes no ranking, traffic, rich-result, or conversion promise.
+  Reviewed locale-owned media fields, publication gating, and broader locale
+  content parity remain open under Task 3/7.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
