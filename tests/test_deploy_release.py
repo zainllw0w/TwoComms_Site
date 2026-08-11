@@ -1740,6 +1740,44 @@ class RestoreCheckoutIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(self._git("status", "--porcelain").stdout, "")
 
+    def test_generated_passenger_entrypoint_restore_handles_nested_live_checkout(self):
+        root = Path(self.temp_dir.name) / "nested-repo"
+        live = root / "twocomms"
+        live.mkdir(parents=True)
+
+        def git(*args):
+            return subprocess.run(
+                ("git", *args),
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+        git("init", "-b", "main")
+        git("config", "user.email", "release-test@example.invalid")
+        git("config", "user.name", "Release Test")
+        entrypoint = live / "passenger_wsgi.py"
+        entrypoint.write_text("# tracked application loader\n", encoding="utf-8")
+        git("add", "twocomms/passenger_wsgi.py")
+        git("commit", "-m", "previous")
+        previous_sha = git("rev-parse", "HEAD").stdout.strip()
+        entrypoint.write_text("# generated recursively by CloudLinux\n", encoding="utf-8")
+
+        config = deploy_release.ReleaseConfig(live_checkout=live)
+
+        deploy_release._restore_cloudlinux_generated_entrypoint(
+            config,
+            previous_sha,
+            run=deploy_release.subprocess_runner,
+        )
+
+        self.assertEqual(
+            entrypoint.read_text(encoding="utf-8"),
+            "# tracked application loader\n",
+        )
+        self.assertEqual(git("status", "--porcelain").stdout, "")
+
     def test_generated_passenger_entrypoint_restore_refuses_unrelated_drift(self):
         config = deploy_release.ReleaseConfig(live_checkout=self.repo)
         entrypoint = self.repo / "passenger_wsgi.py"

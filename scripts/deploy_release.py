@@ -982,8 +982,17 @@ def _restore_cloudlinux_generated_entrypoint(
     )
     if not tracked_status:
         return
-    expected_status = f"M {CLOUDLINUX_GENERATED_ENTRYPOINT}"
-    if tracked_status != expected_status:
+    status_prefix = _stdout(
+        run,
+        ("git", "rev-parse", "--show-prefix"),
+        cwd=config.live_checkout,
+        label="Passenger generated entrypoint status prefix",
+        timeout=config.command_timeout_seconds,
+    ).strip("/")
+    expected_statuses = {f"M {CLOUDLINUX_GENERATED_ENTRYPOINT}"}
+    if status_prefix:
+        expected_statuses.add(f"M {status_prefix}/{CLOUDLINUX_GENERATED_ENTRYPOINT}")
+    if tracked_status not in expected_statuses:
         raise ReleaseError(
             "Passenger entrypoint cleanup refused unexpected tracked drift"
         )
