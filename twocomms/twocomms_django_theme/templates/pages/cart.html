@@ -1091,7 +1091,8 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/cart-promo-vault.css' %}?v=20260811c">
+{% get_static_prefix as static_prefix %}
+<link rel="stylesheet" href="{{ static_prefix }}css/cart-promo-vault.css?v=20260811d">
 <style>
 .cart-savings-info {
   margin-top: 18px;
