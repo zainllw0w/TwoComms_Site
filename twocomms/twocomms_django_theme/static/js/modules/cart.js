@@ -815,71 +815,17 @@ class CartPageController {
   }
 }
 
-function showPromoMessage(msgBox, message, type) {
-  if (!msgBox) {
-    return;
-  }
-  const typeClass = type === 'success'
-    ? 'cart-promo-message-success'
-    : type === 'error'
-      ? 'cart-promo-message-error'
-      : 'cart-promo-message-info';
-  const safeMessage = escapeHtml(message);
-  msgBox.innerHTML = `<div class="cart-promo-message ${typeClass}">${safeMessage}</div>`;
-  window.setTimeout(() => {
-    try {
-      msgBox.innerHTML = '';
-    } catch (error) {
-      console.error(error);
-    }
-  }, 5000);
-}
-
-function applyPromoCode(promoInput, msgBox) {
-  const code = (promoInput.value || '').trim().toUpperCase();
-  if (!code) {
-    showPromoMessage(msgBox, 'Введіть код промокоду', 'error');
-    return;
-  }
-
-  showPromoMessage(msgBox, 'Застосовуємо промокод...', 'info');
-  fetch('/cart/apply-promo/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      'X-CSRFToken': getCsrfToken(),
-    },
-    body: `promo_code=${encodeURIComponent(code)}`,
-  })
-    .then((r) => r.json())
-    .then((data) => {
-      if (data && data.success) {
-        showPromoMessage(msgBox, data.message || 'Застосовано', 'success');
-        window.setTimeout(() => window.location.reload(), 800);
-      } else if (data && data.auth_required) {
-        // Особлива обробка для незареєстрованих користувачів
-        const authMessage = data.message || 'Промокоди доступні тільки для зареєстрованих користувачів';
-        showPromoMessage(msgBox, authMessage, 'error');
-        // Показуємо модальне вікно з пропозицією авторизуватися
-        setTimeout(() => {
-          if (confirm(authMessage + '.\n\nПерейти до авторизації?')) {
-            window.location.href = '/login/';
-          }
-        }, 800);
-      } else {
-        showPromoMessage(msgBox, (data && (data.error || data.message)) || 'Помилка', 'error');
-      }
-    })
-    .catch(() => showPromoMessage(msgBox, 'Помилка при застосуванні', 'error'));
-}
-
 function initPromoVault() {
   const vault = document.querySelector('[data-promo-vault]');
   const form = vault?.querySelector('[data-promo-vault-form]');
   const input = vault?.querySelector('.promo-vault-input');
   const submit = vault?.querySelector('.promo-vault-submit');
   const status = vault?.querySelector('[data-promo-vault-status]');
-  if (!vault || !form || !input || !submit || !status || vault.dataset.initialized === '1') {
+  const applied = vault?.querySelector('[data-promo-vault-applied]');
+  const appliedCode = vault?.querySelector('[data-promo-vault-code]');
+  const appliedDiscount = vault?.querySelector('[data-promo-vault-discount]');
+  const remove = vault?.querySelector('[data-promo-vault-remove]');
+  if (!vault || !form || !input || !submit || !status || !applied || !remove || vault.dataset.initialized === '1') {
     return;
   }
   vault.dataset.initialized = '1';
@@ -916,20 +862,53 @@ function initPromoVault() {
     clearStates();
     vault.classList.add('is-success');
     input.removeAttribute('aria-invalid');
-    status.replaceChildren();
-    const resultCode = document.createElement('span');
-    resultCode.className = 'promo-vault-result-code';
-    resultCode.textContent = data.promo_code || code;
-    status.append(resultCode, document.createTextNode(`Промокод застосовано. Знижка: ${formatUAH(parseNumber(data.discount))}`));
+    status.textContent = 'Промокод застосовано.';
+    applied.classList.remove('d-none');
+    if (appliedCode) appliedCode.textContent = data.promo_code || code;
+    if (appliedDiscount) appliedDiscount.textContent = `Знижка: ${formatUAH(parseNumber(data.discount))}`;
   };
+
+  remove.addEventListener('click', async () => {
+    if (remove.disabled) return;
+    remove.disabled = true;
+    remove.setAttribute('aria-busy', 'true');
+    status.textContent = 'Видаляємо промокод…';
+    try {
+      const response = await fetch(vault.dataset.removeUrl || '/cart/remove-promo/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'X-CSRFToken': getCsrfToken(),
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      });
+      let data = {};
+      try { data = await response.json(); } catch (_error) { data = {}; }
+      if (!response.ok || !data.success) {
+        renderError(data.error || 'Не вдалося видалити промокод.');
+        return;
+      }
+      clearStates();
+      input.value = '';
+      applied.classList.add('d-none');
+      if (appliedCode) appliedCode.textContent = '';
+      if (appliedDiscount) appliedDiscount.textContent = '';
+      status.textContent = data.message || 'Промокод видалено.';
+      document.dispatchEvent(new CustomEvent('cartUpdated'));
+    } catch (_error) {
+      renderError('Не вдалося видалити промокод. Перевірте з’єднання та спробуйте ще раз.');
+    } finally {
+      remove.disabled = false;
+      remove.removeAttribute('aria-busy');
+    }
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (vault.classList.contains('is-loading') || vault.classList.contains('is-unlocking') || vault.classList.contains('is-closing')) {
       return;
     }
-    const code = (input.value || '').trim().toUpperCase();
-    input.value = code;
+    const code = (input.value || '').trim();
     if (!code) {
       renderError('Введіть промокод, щоб відкрити сейф.');
       return;
@@ -989,19 +968,6 @@ function initPromoVault() {
       submit.removeAttribute('aria-busy');
     }
   });
-}
-
-function removePromoCode(msgBox) {
-  fetch('/cart/remove-promo/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-      'X-CSRFToken': getCsrfToken(),
-    },
-  })
-    .then((r) => r.json())
-    .then(() => window.location.reload())
-    .catch(() => showPromoMessage(msgBox, 'Не вдалося видалити промокод', 'error'));
 }
 
 function setupCartValidation(form) {
@@ -1119,33 +1085,6 @@ function setupCartValidation(form) {
 
 export function initCartInteractions() {
   initPromoVault();
-  const promoInput = DOMCache.get('promo-code-input');
-  const applyBtn = DOMCache.query('.cart-promo-apply-btn');
-  const removeBtn = DOMCache.query('.cart-promo-remove-btn');
-  const msgBox = DOMCache.get('promo-message');
-
-  if (applyBtn && promoInput) {
-    applyBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      applyPromoCode(promoInput, msgBox);
-    });
-  }
-
-  if (removeBtn) {
-    removeBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      removePromoCode(msgBox);
-    });
-  }
-
-  if (promoInput) {
-    promoInput.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        applyPromoCode(promoInput, msgBox);
-      }
-    });
-  }
 
   document.addEventListener('click', (event) => {
     const btn = event.target.closest?.('.cart-item-remove-btn');

@@ -60,7 +60,7 @@
 
 .promo-vault-form { position: absolute; left: 26px; top: 27px; z-index: 4; width: 140px; }
 .promo-vault-label { display: block; color: #8b96a5; font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-.promo-vault-input { display: block; width: 100%; margin-top: 7px; padding: 4px 2px 7px; border: 0; outline: 0; background: transparent; color: #e6ebf2; caret-color: var(--vault-gold); font: 700 17px/1.2 inherit; letter-spacing: .12em; text-transform: uppercase; }
+.promo-vault-input { display: block; width: 100%; margin-top: 7px; padding: 4px 2px 7px; border: 0; outline: 0; background: transparent; color: #e6ebf2; caret-color: var(--vault-gold); font: 700 17px/1.2 inherit; letter-spacing: .06em; text-transform: none; }
 .promo-vault-input::placeholder { color: rgba(230,235,242,.32); font-weight: 500; letter-spacing: .18em; }
 .promo-vault-input-line { display: block; position: relative; height: 2px; overflow: hidden; border-radius: 1px; background: rgba(210,226,246,.14); }
 .promo-vault-input-line::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--vault-gold); box-shadow: 0 0 8px rgba(232,163,61,.55); transform: scaleX(0); transition: transform .45s cubic-bezier(.2,.7,.2,1); }
@@ -87,6 +87,16 @@
 .promo-vault-card.is-success .promo-vault-status { border-color: rgba(244,201,93,.38); background: rgba(113,74,13,.2); color: #ffefb7; }
 .promo-vault-result-code { display: block; margin-bottom: 2px; color: #fff3c9; font-size: 16px; font-weight: 900; letter-spacing: .1em; }
 
+.promo-vault-applied { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 11px 12px; border: 1px solid rgba(244,201,93,.38); border-radius: 11px; background: rgba(113,74,13,.2); }
+.promo-vault-applied-copy { min-width: 0; display: grid; gap: 2px; text-align: left; }
+.promo-vault-applied-label { color: #c8b98b; font-size: 11px; font-weight: 700; }
+.promo-vault-applied .promo-vault-result-code { overflow-wrap: anywhere; margin: 0; letter-spacing: .04em; text-transform: none; }
+.promo-vault-applied-discount { color: #ffefb7; font-size: 12px; }
+.promo-vault-remove { flex: 0 0 auto; display: inline-grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(255,239,183,.32); border-radius: 9px; background: rgba(0,0,0,.2); color: #ffefb7; cursor: pointer; }
+.promo-vault-remove:hover:not(:disabled) { border-color: rgba(255,239,183,.62); background: rgba(0,0,0,.34); }
+.promo-vault-remove:focus-visible { outline: 2px solid var(--vault-gold); outline-offset: 2px; }
+.promo-vault-remove:disabled { cursor: wait; opacity: .55; }
+
 @media (max-width: 560px) {
   .promo-vault-card { min-height: 438px; padding: 18px 12px; border-radius: 17px; }
   .promo-vault-heading { margin-bottom: 8px; }
@@ -94,6 +104,7 @@
   .promo-vault-stage { min-height: 196px; }
   .promo-vault-safe { max-width: none; transform: scale(.82); }
   .promo-vault-status { min-height: 58px; margin-top: 3px; }
+  .promo-vault-applied { margin-inline: 4px; }
 }
 
 @media (max-width: 360px) {

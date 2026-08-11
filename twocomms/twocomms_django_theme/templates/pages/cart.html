@@ -724,36 +724,11 @@
         </div>
       {% endif %}
 
-      {% if applied_promo %}
-      <!-- Компактний applied-state: видалення промокоду залишається доступним без дублювання форми вводу. -->
-      <div class="cart-sidebar-card">
-        <div class="cart-sidebar-card-header">
-          <div class="cart-sidebar-card-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/>
-            </svg>
-          </div>
-          <h3 class="cart-sidebar-card-title">{% trans 'Промокод' %}</h3>
-          <span class="cart-promo-badge">{% trans 'Застосовано' %}</span>
-        </div>
-        <div class="cart-promo-applied">
-          <div class="cart-promo-applied-content">
-            <div class="cart-promo-applied-code">{{ applied_promo.code }}</div>
-            <div class="cart-promo-applied-discount">{% trans 'Знижка:' %} {{ discount }} {% trans 'грн' %}</div>
-          </div>
-          <button type="button" class="cart-promo-remove-btn" aria-label="{% trans 'Видалити промокод' %}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      {% endif %}
-
       <!-- Vault-промокод використовує незмінну серверну перевірку та сесійну знижку. -->
       <section class="promo-vault-card{% if applied_promo %} is-success{% endif %}"
                data-promo-vault
                data-apply-url="{% url 'apply_promo_code' %}"
+               data-remove-url="{% url 'remove_promo_code' %}"
                aria-labelledby="promo-vault-title">
         <div class="promo-vault-heading">
           <p class="promo-vault-eyebrow">{% trans 'Secret access' %}</p>
@@ -789,7 +764,7 @@
                          type="text"
                          maxlength="20"
                          autocomplete="off"
-                         autocapitalize="characters"
+                         autocapitalize="none"
                          spellcheck="false"
                          aria-describedby="promo-vault-status"
                          placeholder="••••••"
@@ -813,7 +788,17 @@
             </div>
           </div>
         </div>
-        <div class="promo-vault-status" id="promo-vault-status" data-promo-vault-status role="status" aria-live="polite" aria-atomic="true">{% if applied_promo %}<span class="promo-vault-result-code">{{ applied_promo.code }}</span>{% trans 'Промокод застосовано. Знижка:' %} {{ discount|floatformat:2 }} {% trans 'грн' %}{% endif %}</div>
+        <div class="promo-vault-status" id="promo-vault-status" data-promo-vault-status role="status" aria-live="polite" aria-atomic="true">{% if applied_promo %}{% trans 'Промокод застосовано.' %}{% endif %}</div>
+        <div class="promo-vault-applied{% if not applied_promo %} d-none{% endif %}" data-promo-vault-applied>
+          <div class="promo-vault-applied-copy">
+            <span class="promo-vault-applied-label">{% trans 'Застосований промокод' %}</span>
+            <strong class="promo-vault-result-code" data-promo-vault-code>{% if applied_promo %}{{ applied_promo.code }}{% endif %}</strong>
+            <span class="promo-vault-applied-discount" data-promo-vault-discount>{% if applied_promo %}{% trans 'Знижка:' %} {{ discount|floatformat:2 }} {% trans 'грн' %}{% endif %}</span>
+          </div>
+          <button type="button" class="promo-vault-remove" data-promo-vault-remove aria-label="{% trans 'Видалити промокод' %}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
       </section>
 
       <!-- Карточка: Оформление заказа -->
@@ -1106,7 +1091,7 @@
 {% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/cart-promo-vault.css' %}?v=20260811b">
+<link rel="stylesheet" href="{% static 'css/cart-promo-vault.css' %}?v=20260811c">
 <style>
 .cart-savings-info {
   margin-top: 18px;
@@ -2020,7 +2005,6 @@ body.contact-modal-open .cart-container::after {
   transform: scale(0.99);
 }
 
-.cart-promo-apply-btn:active,
 .cart-item-remove-btn:active,
 .cart-form-save-btn:active,
 .btn-contact-manager:active {

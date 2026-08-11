@@ -1330,7 +1330,7 @@ def apply_promo_code(request):
             'error': _('Забагато спроб. Спробуйте через хвилину.'),
         }, status=429)
     try:
-        code = request.POST.get('promo_code', '').strip().upper()
+        code = request.POST.get('promo_code', '').strip()
 
         if not code:
             return JsonResponse({
@@ -1338,14 +1338,24 @@ def apply_promo_code(request):
                 'error': _('Введіть промокод')
             }, status=400)
 
-        # Ищем промокод
-        try:
-            promo_code = PromoCode.objects.get(code=code)
-        except PromoCode.DoesNotExist:
+        # Match without changing the stored or user-entered casing. Fetch at most
+        # two rows so legacy databases with case-insensitive duplicates fail
+        # closed instead of selecting an arbitrary discount/usage record.
+        promo_matches = list(
+            PromoCode.objects.filter(code__iexact=code).order_by('pk')[:2]
+        )
+        if not promo_matches:
             return JsonResponse({
                 'success': False,
                 'error': _('Промокод не знайдено')
             }, status=404)
+        if len(promo_matches) > 1:
+            cart_logger.error('ambiguous_promocode_casefold: submitted_length=%s', len(code))
+            return JsonResponse({
+                'success': False,
+                'error': _('Не вдалося однозначно визначити промокод. Зверніться до підтримки.')
+            }, status=409)
+        promo_code = promo_matches[0]
 
         # НОВАЯ ЛОГИКА: Проверяем авторизацию и права пользователя
         if not request.user.is_authenticated:

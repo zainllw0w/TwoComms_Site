@@ -663,6 +663,49 @@ class PromoCodeTests(CartViewTestCase):
         self.assertEqual(payload["total"], 180.0)
         self.assertEqual(self.client.session["promo_code_id"], promo.id)
 
+    def test_apply_mixed_case_promo_without_mutating_stored_code(self):
+        self.set_cart(qty=2)
+        user = self.create_user()
+        self.client.force_login(user)
+        promo = PromoCode.objects.create(
+            code="MiXeD-save10",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            is_active=True,
+        )
+
+        response = self.client.post(reverse("apply_promo_code"), {"promo_code": "mixed-SAVE10"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["promo_code"], "MiXeD-save10")
+        promo.refresh_from_db()
+        self.assertEqual(promo.code, "MiXeD-save10")
+        self.assertEqual(self.client.session["promo_code_id"], promo.id)
+
+    def test_apply_rejects_ambiguous_case_insensitive_duplicate(self):
+        self.set_cart(qty=2)
+        user = self.create_user()
+        self.client.force_login(user)
+        PromoCode.objects.create(
+            code="CaseTwin",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            is_active=True,
+        )
+        PromoCode.objects.create(
+            code="casetwin",
+            discount_type="fixed",
+            discount_value=Decimal("50.00"),
+            is_active=True,
+        )
+
+        response = self.client.post(reverse("apply_promo_code"), {"promo_code": "CASETWIN"})
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(response.json()["success"])
+        self.assertNotIn("promo_code_id", self.client.session)
+        self.assertNotIn("promo_code_data", self.client.session)
+
     def test_remove_promo_code_clears_session_and_restores_total(self):
         self.set_cart(qty=2)
         session = self.client.session

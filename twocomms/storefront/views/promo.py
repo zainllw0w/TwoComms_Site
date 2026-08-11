@@ -101,10 +101,10 @@ class PromoCodeForm(forms.ModelForm):
             return ''
 
         # Если код указан, проверяем его уникальность
-        if PromoCode.objects.filter(code=code).exists():
+        if PromoCode.objects.filter(code__iexact=code).exists():
             if self.instance and self.instance.pk:
                 # При редактировании исключаем текущий промокод
-                if not PromoCode.objects.filter(code=code).exclude(pk=self.instance.pk).exists():
+                if not PromoCode.objects.filter(code__iexact=code).exclude(pk=self.instance.pk).exists():
                     return code
             raise forms.ValidationError("Промокод з таким кодом вже існує")
 
