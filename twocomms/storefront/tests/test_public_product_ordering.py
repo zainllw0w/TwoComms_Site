@@ -271,11 +271,13 @@ class PublicProductOrderingTests(TestCase):
             price=1090,
             status="draft",
         )
-        unisex = AudienceTag.objects.create(
+        unisex, _ = AudienceTag.objects.get_or_create(
             code="unisex",
-            label_uk="Унісекс",
-            label_ru="Унисекс",
-            label_en="Unisex",
+            defaults={
+                "label_uk": "Унісекс",
+                "label_ru": "Унисекс",
+                "label_en": "Unisex",
+            },
         )
         set_product_audience_codes(product, [unisex.code])
         self.staff_client.force_login(self.staff_user)
@@ -292,6 +294,43 @@ class PublicProductOrderingTests(TestCase):
         product.refresh_from_db()
         self.assertEqual(product.status, "published")
 
+    def test_admin_status_update_publishes_archived_apparel_and_sets_publish_date(self):
+        apparel_category = Category.objects.create(
+            name="Футболки",
+            slug="tshirts-status-archived",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="Archived unisex tee",
+            slug="archived-unisex-tee",
+            category=apparel_category,
+            price=1090,
+            status="archived",
+        )
+        unisex, _ = AudienceTag.objects.get_or_create(
+            code="unisex",
+            defaults={
+                "label_uk": "Унісекс",
+                "label_ru": "Унисекс",
+                "label_en": "Unisex",
+            },
+        )
+        set_product_audience_codes(product, [unisex.code])
+        self.staff_client.force_login(self.staff_user)
+
+        response = self.staff_client.post(
+            reverse("admin_update_product_status"),
+            data=json.dumps({"product_id": product.pk, "status": "published"}),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        product.refresh_from_db()
+        self.assertEqual(product.status, "published")
+        self.assertIsNotNone(product.published_at)
+
     def test_admin_catalogs_section_renders_drag_controls(self):
         self.staff_client.force_login(self.staff_user)
 
@@ -304,5 +343,10 @@ class PublicProductOrderingTests(TestCase):
         self.assertContains(response, "window.addEventListener('pointermove', onGlobalPointerMove, { passive: false });", html=False)
         self.assertContains(response, "document.body.classList.add('is-product-sorting');", html=False)
         self.assertContains(response, "grid.addEventListener('keydown', onHandleKeyDown);", html=False)
-        self.assertNotContains(response, 'draggable="true"', html=False)
+        self.assertContains(response, 'class="catalog-taxonomy-row', html=False)
+        self.assertContains(response, 'draggable="true"', html=False)
+        self.assertNotRegex(
+            response.content.decode("utf-8"),
+            r'class="product-card[^"]*"[^>]*\sdraggable="true"',
+        )
         self.assertNotContains(response, "Додати товар (new)")

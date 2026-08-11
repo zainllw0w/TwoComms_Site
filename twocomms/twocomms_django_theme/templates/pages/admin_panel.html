@@ -3881,7 +3881,15 @@ document.addEventListener('click', event => {
         .then(res => res.json())
         .then(data => {
           if (!data.success) throw new Error(data.error || 'Не вдалося оновити статус');
-          select.dataset.previousStatus = status;
+          const canonicalStatus = data.status || status;
+          select.value = canonicalStatus;
+          select.dataset.previousStatus = canonicalStatus;
+          const card = select.closest('.product-card');
+          const badge = card && card.querySelector('.catalog-product-state');
+          if (badge) {
+            badge.className = `catalog-product-state catalog-product-state--${canonicalStatus}`;
+            badge.textContent = select.options[select.selectedIndex]?.textContent || canonicalStatus;
+          }
           showNotification('Статус оновлено', 'success');
         })
         .catch(err => {

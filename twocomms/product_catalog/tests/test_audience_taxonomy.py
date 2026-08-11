@@ -77,7 +77,8 @@ class AudienceTaxonomyTests(TestCase):
         set_product_audience_codes(self.product, ["unisex", "women"])
 
         response = self.client.get(
-            reverse("product_catalog_product_edit", args=[self.product.pk])
+            reverse("product_catalog_product_edit", args=[self.product.pk]),
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -110,6 +111,7 @@ class AudienceTaxonomyTests(TestCase):
                     }
                 )
             },
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -131,6 +133,7 @@ class AudienceTaxonomyTests(TestCase):
                     }
                 )
             },
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 400)
@@ -150,6 +153,7 @@ class AudienceTaxonomyTests(TestCase):
                     }
                 )
             },
+            secure=True,
         )
 
         self.assertEqual(response.status_code, 400)
@@ -185,6 +189,46 @@ class AudienceTaxonomyTests(TestCase):
         self.assertEqual(get_product_audience_codes(hoodie), [])
         self.assertIn("created=1", first_output.getvalue())
         self.assertIn("created=0", second_output.getvalue())
+
+    def test_apparel_backfill_includes_archived_and_preserves_explicit_audiences(self):
+        hoodie_category = Category.objects.create(name="Худі", slug="hoodie")
+        longsleeve_category = Category.objects.create(name="Лонгсліви", slug="longsleeves")
+        archived_hoodie = Product.objects.create(
+            title="Archived hoodie",
+            slug="archived-hoodie-audience",
+            category=hoodie_category,
+            price=1490,
+            status="archived",
+        )
+        blank_longsleeve = Product.objects.create(
+            title="Blank longsleeve",
+            slug="blank-longsleeve-audience",
+            category=longsleeve_category,
+            price=1290,
+            status="published",
+        )
+        set_product_audience_codes(self.product, ["women"])
+        first_output = StringIO()
+        second_output = StringIO()
+
+        call_command("backfill_apparel_audiences", "--apply", stdout=first_output)
+        call_command("backfill_apparel_audiences", "--apply", stdout=second_output)
+
+        self.assertEqual(get_product_audience_codes(self.product), ["women"])
+        self.assertEqual(get_product_audience_codes(archived_hoodie), ["unisex"])
+        self.assertEqual(get_product_audience_codes(blank_longsleeve), ["unisex"])
+        self.assertIn("created=2", first_output.getvalue())
+        self.assertIn("created=0", second_output.getvalue())
+
+        publish_response = self.client.post(
+            reverse("admin_update_product_status"),
+            data=json.dumps({"product_id": archived_hoodie.pk, "status": "published"}),
+            content_type="application/json",
+            secure=True,
+        )
+        self.assertEqual(publish_response.status_code, 200)
+        archived_hoodie.refresh_from_db()
+        self.assertEqual(archived_hoodie.status, "published")
 
     def test_editor_assets_define_touch_sized_audience_controls(self):
         root = Path(__file__).resolve().parents[1]

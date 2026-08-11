@@ -103,6 +103,7 @@ from storefront.services.admin_analytics import (
     build_product_admin_metrics,
 )
 from storefront.services.catalog_helpers import bump_public_product_order_version
+from product_catalog.schema_merge import schema_merge_locked
 from product_catalog.services_audience import validate_published_apparel_audience
 from storefront.services.web_push import (
     WebPushConfigurationError,
@@ -1553,6 +1554,14 @@ def admin_reorder_products(request):
     """
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    if schema_merge_locked():
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Оновлення каталогу тимчасово призупинено на час обслуговування',
+            },
+            status=503,
+        )
     try:
         payload = json.loads(request.body.decode('utf-8'))
         ids = payload.get('order') or []
@@ -1592,6 +1601,14 @@ def admin_update_product_status(request):
     """Обновление статуса товара из админ-панели."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+    if schema_merge_locked():
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Оновлення каталогу тимчасово призупинено на час обслуговування',
+            },
+            status=503,
+        )
     try:
         payload = json.loads(request.body.decode('utf-8'))
         product_id = int(payload.get('product_id'))
@@ -1618,10 +1635,18 @@ def admin_update_product_status(request):
         except ValueError as exc:
             return JsonResponse({'success': False, 'error': str(exc)}, status=400)
 
-        Product.objects.filter(id=product_id).update(status=status_value)
+        update_fields = ["status"]
+        if status_value == ProductStatus.PUBLISHED and not product.published_at:
+            product.published_at = timezone.now()
+            update_fields.append("published_at")
+        product.save(update_fields=update_fields)
         transaction.on_commit(bump_public_product_order_version)
 
-    return JsonResponse({'success': True})
+    return JsonResponse({
+        'success': True,
+        'status': product.status,
+        'published_at': product.published_at.isoformat() if product.published_at else None,
+    })
 
 
 @staff_member_required
