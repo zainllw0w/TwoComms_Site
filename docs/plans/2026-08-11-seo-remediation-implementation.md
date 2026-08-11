@@ -158,6 +158,7 @@ This ledger prevents a useful hypothesis from becoming an automatic SEO change. 
 - TDD/local gates: the RED import/test proved the boundary did not exist; after implementation, the exact-pair and visible/schema tests passed `2/2`. `manage.py check`, `makemigrations --check --dry-run`, `py_compile` and `git diff --check` passed. An outdated assertion that contradicted its own test name and the restored FAQPage template contract was corrected from schema absence to schema presence.
 - Production deploy: `origin/main`, server `HEAD` and the live code release are `a6ecf08c`; the server pulled fast-forward and Passenger was restarted with `tmp/restart.txt`.
 - Live UK/RU/EN proof on `my-little-baby`: each locale returned `200` and rendered `5` visible `.tc-faq-item` entries plus `5` `FAQPage.mainEntity` entries, with `0` exact normalized duplicate pairs.
+- Regression hardening: `b575f53d` adds a route-level duplicate-row assertion for one visible FAQ and one matching JSON-LD Question, and corrects the template comment to describe the actual evidence boundary without citation promises. The deployed `where-mi-present-hd` control returned `visible=5`, `schema=5`, `exact_duplicates=0`.
 - Scope boundary: this does not delete or rewrite production FAQ rows, classify global versus product-specific ownership, resolve conflicting answers, translate FAQ content, or complete 4.4. Custom Print was not inspected or changed. No rich-result, ranking or citation uplift is claimed.
 
 ### Task 5: Normalize facets and pagination by route family
