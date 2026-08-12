@@ -285,6 +285,20 @@ class StagedReleaseTests(unittest.TestCase):
 
         self.assertFalse(any(call[:2] == ("git", "worktree") for call in self.runner.calls))
 
+    def test_wheelhouse_manifest_symlink_is_rejected_before_staging(self):
+        self._manifest()
+        target = self.config.wheelhouse_root / self.target_sha
+        manifest = target / "manifest.sha256"
+        external = self.release_root.parent / "external-manifest.json"
+        external.write_bytes(manifest.read_bytes())
+        manifest.unlink()
+        manifest.symlink_to(external)
+
+        with self.assertRaisesRegex(deploy_release.ReleaseError, "manifest"):
+            deploy_release.prepare(self.config, self.target_sha, run=self.runner)
+
+        self.assertFalse(any(call[:2] == ("git", "worktree") for call in self.runner.calls))
+
     def test_wheelhouse_root_symlink_is_rejected_before_staging(self):
         actual_root = self.release_root.parent / "actual-wheelhouse"
         actual_root.mkdir(parents=True)

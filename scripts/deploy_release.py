@@ -237,8 +237,8 @@ def _manifest_and_wheelhouse(config: ReleaseConfig, target_sha: str) -> Path:
     except ValueError as exc:
         raise ReleaseError("immutable wheelhouse target escapes wheelhouse root") from exc
     manifest_path = wheelhouse / "manifest.sha256"
-    if not manifest_path.is_file():
-        raise ReleaseError("immutable wheelhouse manifest is missing")
+    if manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ReleaseError("immutable wheelhouse manifest must be a regular file")
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
