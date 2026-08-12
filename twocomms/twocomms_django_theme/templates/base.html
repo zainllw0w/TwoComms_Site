@@ -945,6 +945,7 @@
 
   {% block extra_css %}{% endblock %}
   <link rel="stylesheet" href="{% static 'css/mobile-shell.css' %}?v=20260810-mobile-panels-v2">
+  <link rel="stylesheet" href="{% static 'css/mini-cart.css' %}?v=20260812-responsive-mini-cart-v1">
   <style>{% inline_static "product_catalog/thermo-dot.css" %}</style>
 
   <link rel="stylesheet" href="{% static 'css/telegram-verify.css' %}"
@@ -1266,19 +1267,9 @@
   </div>
 
   <!-- Мобильные мини-панели (только для мобильной версии) -->
-  <div id="mini-cart-panel-mobile" class="cart-panel mobile-mini-cart d-none d-lg-none" aria-hidden="true" inert>
-    <!-- Анимация искр для корзины -->
-    <div class="cart-sparks-container">
-      <div class="cart-spark cart-spark-1"></div>
-      <div class="cart-spark cart-spark-2"></div>
-      <div class="cart-spark cart-spark-3"></div>
-      <div class="cart-spark cart-spark-4"></div>
-      <div class="cart-spark cart-spark-5"></div>
-      <div class="cart-spark cart-spark-6"></div>
-    </div>
-
+  <div id="mini-cart-panel-mobile" class="cart-panel mobile-mini-cart mini-cart-shell d-none d-lg-none" aria-hidden="true" inert>
     <!-- Заголовок корзины -->
-    <div class="cart-header mobile-mini-cart__header">
+    <div class="cart-header mobile-mini-cart__header mini-cart-shell__header">
       <div class="cart-header-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path
@@ -1295,42 +1286,13 @@
     </div>
 
     <!-- Содержимое корзины -->
-    <div id="mini-cart-content-mobile" class="cart-content mobile-mini-cart__content">
+    <div id="mini-cart-content-mobile" class="cart-content mobile-mini-cart__content mini-cart-shell__content" aria-live="polite">
       <div class="cart-loading">
         <div class="loading-spinner"></div>
         <div class="loading-text">{% trans 'Завантаження…' %}</div>
       </div>
     </div>
 
-    <!-- Меню действий корзины -->
-    <div class="cart-menu mobile-mini-cart__menu">
-      <a href="{% url 'delivery' %}" class="cart-menu-item">
-        <div class="cart-menu-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path
-              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
-          </svg>
-        </div>
-        <span>{% trans 'Умови доставки і оплати' %}</span>
-        <div class="cart-menu-arrow">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
-          </svg>
-        </div>
-      </a>
-    </div>
-
-    <!-- Информационная панель -->
-    <div class="cart-info mobile-mini-cart__info">
-      <div class="cart-info-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-        </svg>
-      </div>
-      <div class="cart-info-text">
-        {% trans 'Залишайте заявку на сайті або оплачуйте миттєво через mono checkout' %}
-      </div>
-    </div>
   </div>
 
   <div id="user-panel-mobile" class="user-panel mpx d-none d-lg-none" aria-hidden="true" inert>

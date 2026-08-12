@@ -378,6 +378,74 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertIn("background: #f15a0b !important;", shell_css)
         self.assertIn("font-variant-numeric: tabular-nums;", shell_css)
 
+    def test_mini_cart_uses_one_stable_responsive_visual_contract(self):
+        theme_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme"
+        template_root = theme_root / "templates"
+        base_template = (template_root / "base.html").read_text(encoding="utf-8")
+        header_template = (template_root / "partials" / "header.html").read_text(
+            encoding="utf-8"
+        )
+        mini_cart_template = (template_root / "partials" / "mini_cart.html").read_text(
+            encoding="utf-8"
+        )
+        mini_cart_css_path = theme_root / "static" / "css" / "mini-cart.css"
+
+        self.assertTrue(
+            mini_cart_css_path.is_file(),
+            "Dedicated css/mini-cart.css must own the responsive mini-cart contract",
+        )
+        mini_cart_css = mini_cart_css_path.read_text(encoding="utf-8")
+
+        self.assertIn("css/mobile-shell.css", base_template)
+        self.assertIn("css/mini-cart.css", base_template)
+        self.assertLess(
+            base_template.index("css/mobile-shell.css"),
+            base_template.index("css/mini-cart.css"),
+        )
+
+        for panel_template in (header_template, base_template):
+            for class_name in (
+                "mini-cart-shell",
+                "mini-cart-shell__header",
+                "mini-cart-shell__content",
+            ):
+                self.assertIn(class_name, panel_template)
+            self.assertNotIn("cart-sparks-container", panel_template)
+            self.assertNotIn("cart-menu", panel_template)
+            self.assertNotIn("cart-info", panel_template)
+
+        for class_name in (
+            "mini-cart-view",
+            "mini-cart-list",
+            "mini-cart-footer",
+            "mini-cart-row__image",
+            "mini-cart-secondary-action",
+            "mini-cart-empty",
+        ):
+            self.assertIn(class_name, mini_cart_template)
+        self.assertIn('width="56" height="56"', mini_cart_template)
+        self.assertIn("data-mini-cart-continue", mini_cart_template)
+        self.assertNotIn("w-100 h-100", mini_cart_template)
+        self.assertNotIn('data-mono-checkout-trigger="mini"', mini_cart_template)
+        self.assertNotIn("mini-cart-primary-cta__shine", mini_cart_template)
+        self.assertNotIn("mini-cart-action-tile__icon-pulse", mini_cart_template)
+
+        for contract in (
+            "grid-template-columns: 56px minmax(0, 1fr) auto;",
+            "grid-template-rows: minmax(0, 1fr) auto;",
+            "width: 56px;",
+            "height: 56px;",
+            "overflow-y: auto;",
+            "overscroll-behavior: contain;",
+            "width: 420px;",
+            "100dvh",
+            "--mobile-shell-header-height",
+            "--mobile-shell-dock-height",
+            "@media (max-height: 680px)",
+            "@media (prefers-reduced-motion: reduce)",
+        ):
+            self.assertIn(contract, mini_cart_css)
+
     def test_catalog_root_shows_published_products_and_category_cards(self):
         self.create_product(title="Root Product", slug="root-product")
         self.create_product(
