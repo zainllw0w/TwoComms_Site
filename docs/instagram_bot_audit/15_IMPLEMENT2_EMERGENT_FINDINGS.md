@@ -21,6 +21,14 @@ triggers. This is retained as an infrastructure follow-up; the Wave 3 proof
 uses a clean native MariaDB schema, direct race/smoke assertions, and explicit
 cleanup instead of weakening production triggers.
 
+Post-deploy review found one additional fail-closed gap in the direct durable
+delivery API: a transport result claiming `state='sent'` with no receipt list
+was classified `PARTIAL`, even though no provider acceptance ID existed. A
+focused RED reproduced it. The follow-up classifies zero validated provider
+IDs as `UNKNOWN`/review and retains `PARTIAL` only for a genuine multi-part
+subset backed by at least one valid receipt ID. This is critical Wave 3
+hardening and is deployed before the documentation closeout.
+
 ## F-DEPLOY-001 (P1, OPEN): wheelhouse install lock must contain built-wheel hashes
 
 **Discovered:** 2026-08-07 during independent Wave 0 Task 3/Task 4 gate review.

@@ -960,7 +960,7 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   может потребить active/чужой paid reserve, exact order исключает только свой
   `PAID_COMMITTED`. Остаток: disposable MariaDB
   concurrency/constraint proof и full manager-review UI.
-- [ ] **IMP-087 (P0/P1) — PARTIAL, durable state и state-first worker в `main`/production `bc4ec2d5`.**
+- [ ] **IMP-087 (P0/P1) — PARTIAL, durable state and bounded informational delivery in `main`/production `7ad632de`/`ade00668`.**
   `33d63d40` добавил `IgCommerceSelectionSession`, append-only transition,
   unique inbound decision/outbox и manager-review model; `bc4ec2d5` подключил
   reducer до classifier/Gemini и сделал отказ от активного товара durable, без
@@ -969,10 +969,14 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   materializes explicit repeat purchase только при CRM-confirmed purchase и
   атомарно закрывает старую selection session, открывая пустую session для
   нового episode; exchange/return не создают sale episode и сохраняются в
-  post-sale workflow. Остаток: candidate reply anchoring с real provider
-  receipts, burst reduction, delivery reconciliation и operational
-  manager-review consumer; blind resend через неоднозначную boundary запрещён
-  моделью, но worker ещё не использует этот outbox для customer delivery.
+  post-sale workflow. `7ad632de`/`ade00668` close the bounded `IMP-087.A` informational
+  slice: reply payload is durable before send, malformed/ambiguous receipts
+  become `UNKNOWN`/review, and mid-less ingress uses a unique synthetic key
+  (`0154`). Production proof is recorded in `08`/`09`; no price, stock,
+  payment or manager promise is emitted by this slice. Остаток: candidate
+  reply anchoring с real provider receipts, burst reduction, delivery
+  reconciliation и operational manager-review consumer; blind resend через
+  неоднозначную boundary запрещён моделью.
   Последняя read-only production сверка на `42b41c7f` подтверждает, что
   `98bb160e` уже в deployed graph и terminal historical analysis jobs не
   создают customer sends; это не закрывает перечисленный delivery-остаток.
@@ -1186,7 +1190,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-CORE-003 | FIXED/VERIFIED (`18ddc636`) | IMP-098 subtask |
 | [ ] | F-CORE-004 | OPEN | IMP-098 |
 | [ ] | F-CORE-005 | OPEN | IMP-098 |
-| [ ] | F-CORE-006 | OPEN | IMP-098 |
+| [x] | F-CORE-006 | FIXED/VERIFIED (`7ad632de`; migration `0154`; disposable MariaDB race and production SHA/health proof) | IMP-087.A / IMP-098 |
 | [x] | F-CORE-007 | FIXED/VERIFIED | IMP-073 |
 | [x] | F-CORE-009 | FIXED/VERIFIED | IMP-001 |
 | [x] | F-CORE-010 | FIXED/VERIFIED | IMP-004 |

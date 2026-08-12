@@ -10,15 +10,15 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **Implement2 W1.7 полностью задеплоен и проверен; следующий независимый блок — W2.0/W2.1 reliability gates** |
-| Дата старта / обновления | 2026-08-12 (W1.7 historical attachment ownership and media-phase hardening) |
+| Текущая фаза | **Implement2 Wave 3 (`IMP-087.A`) полностью задеплоен и проверен; следующий независимый блок — оставшиеся W2 reliability gates и полный `IMP-087/088`** |
+| Дата старта / обновления | 2026-08-13 (Wave 3 bounded durable informational delivery) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | Current runtime/code checkpoint — W1.7 follow-up commit в `origin/main` и production; migrations `management.0152`/`0153` применены. Предыдущие Implement2 W1.6 code commits `05d2cef4`/`ec6febcc`/`0c536e0a`/`796028ba` являются его предками, а не альтернативными ветками. |
+| База внедрения | Current runtime/code checkpoint — Wave 3 commits `7ad632de`/`ade00668` в `origin/main` и production; migrations `management.0152`/`0153`/`0154` применены. |
 | **Статус 105 IMP-задач** | **81 закрыта, 14 открыты, 10 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; главный источник реальных переписок/товаров/сделок/оплат. Discovery — read-only; concurrency/destructive tests — только disposable MariaDB |
 | Локальная SQLite | **не источник business/data истины и не MariaDB acceptance**; только быстрый unit/regression слой, не проверяет locks, concurrent constraints, triggers и `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **187 уникальных `F-*` идентификатора: 142 закрыты, 33 OPEN, 1 BLOCKED, 11 PARTIAL**; W1.6 закрыл `F-AI-010`, `F-AI-011`, `F-CTX-003`; `F-DATA-004` BLOCKED, `F-AI-018` и release-gates `F-DEPLOY-001…004` открыты |
+| Реестр находок | **187 уникальных `F-*` идентификатора: 143 закрыты, 32 OPEN, 1 BLOCKED, 11 PARTIAL**; Wave 3 закрыл `F-CORE-006` для новой ingress-границы, `F-AI-018` и release-gates `F-DEPLOY-001…004` остаются открыты |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **105** в W0–W12, включая W4B/W4C/W4D и IMP-062…105 |
@@ -53,7 +53,7 @@
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
-| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`; `IMP-087` создаёт durable selection/transition/decision state и reducer запускается до classifier/Gemini на production `bc4ec2d5`. `98bb160e` добавляет payment-gated repeat episode и чистую следующую commerce session; exchange/return остаются post-sale flow. Открыты candidate reply anchoring, burst reduction, relaxed alternatives, полный topology, manager review UI и отдельный disposable MariaDB race/constraint gate |
+| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`; `IMP-087` создаёт durable selection/transition/decision state и reducer запускается до classifier/Gemini на production `bc4ec2d5`. `7ad632de`/`ade00668` также задеплоили narrow `IMP-087.A` receipt-backed informational delivery и `0154` synthetic inbound dedupe; exchange/return остаются post-sale flow. Открыты candidate anchoring, burst coalescing, payable/price delivery, manager review UI и полный topology |
 | Частично, W9 | `IMP-088` (digest/proposal workspace foundation есть; freshness, review UI, audit/backfill, MariaDB/deploy proof остаются) |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; `IMP-090`, `IMP-096` и baseline `IMP-093` не зависят от завершения полного commerce chain. F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
@@ -140,7 +140,8 @@ notification/analysis = 0. Dependency step снова не собрал wheel `c
 dependency-drift risk остаётся открытым evidence `F-TEST-002` / `IMP-094`.
 
 Два незавершённых code-WIP также сохранены локально и не считаются shipment:
-`ig-commerce-durable-state` содержит narrow `IMP-087.A`, а
+`ig-commerce-durable-state` был selectively интегрирован в `7ad632de`; narrow
+`IMP-087.A` теперь задеплоен, а
 `codex-management-bot-statistics-visuals` содержит volatile tracked diff в
 `bot_views.py`, `ig_funnel_analytics.py`, `bot.html` и тестах плюс новые plan/test
 files для `IMP-093`; снять свежий `git diff --stat` перед recovery. Оба требуют
@@ -177,8 +178,8 @@ current-main review/rebase; второй нельзя описывать как 
   `instagram_login`, свежий heartbeat, `last_error=''`, pending user rows = 0.
   Проверка не создавала commerce session и не отправляла сообщения клиентам.
 
-`IMP-087` остаётся `[ ] PARTIAL`: candidate prompts/replies с provider receipts,
-burst reduction, safe delivery reconciliation и operational manager-review
+`IMP-087` остаётся `[ ] PARTIAL`: candidate anchoring, burst reduction,
+safe delivery reconciliation, payable replies и operational manager-review
 consumer ещё не подключены. `IMP-088` теперь `[ ] PARTIAL`: digest и proposal
 workspace foundation уже есть; payable lifecycle, freshness/audit, review UI и
 disposable MariaDB race/constraint suite требуют отдельной реализации и evidence.

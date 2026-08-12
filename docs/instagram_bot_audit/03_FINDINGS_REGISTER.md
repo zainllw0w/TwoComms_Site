@@ -49,7 +49,7 @@
 | F-CORE-003 | `AUTOMATION_LEASE_TTL` (3 мин) < `STALE_PROCESSING_SECONDS` (5 мин) → окно двойной автоматизации | P1 | FIXED / VERIFIED | high | `18ddc636`, production `fbe33a68` |
 | F-CORE-004 | Блокирующий `flock` без таймаута в web-потоке webhook'а | P1 | CONFIRMED | high | `instagram_bot.py:785`, `4361` |
 | F-CORE-005 | Разрыв многочанкового ответа при смене epoch: клиент получает обрубок | P1 | CONFIRMED | high | `instagram_bot.py:3336-3338` |
-| F-CORE-006 | Сообщения без `mid` не защищены unique-индексом → возможен двойной ответ | P1 | CONFIRMED | high | `instagram_bot.py:4426`, `models.py:3743` |
+| F-CORE-006 | Сообщения без `mid` не защищены unique-индексом → возможен двойной ответ | P1 → P2 | FIXED/VERIFIED (bounded ingress, `ade00668`, migration `0154`) | high | `instagram_bot.py:4426`, `models.py:3743` |
 | F-AI-001 | System prompt молча деградирует: каталог/знания/playbook под `except Exception: pass` | P0 | CONFIRMED | high | `instagram_bot.py:3641,3649,3661` |
 | F-AI-002 | Потеря `pin_product` при `[PRODUCT:id]` глотается → оплата может уйти на другой товар | P1 | CONFIRMED | high | `instagram_bot.py:5117-5121` |
 | F-DEBT-001 | `InstagramBotProcessedMessage` объявлена как дедуп, но не пишется никогда | P2 | CONFIRMED | high | `models.py:3723-3730` |
@@ -227,7 +227,7 @@
 
 ## F-CORE-006: сообщения без `mid` не защищены от дублирования
 
-- **Статус:** CONFIRMED · **Тип:** bug / idempotency · **Severity:** P1 · **Confidence:** high
+- **Статус:** FIXED/VERIFIED (bounded ingress slice, `7ad632de`, migration `0154`) · **Тип:** bug / idempotency · **Severity:** P1 → P2 · **Confidence:** high
 - **Компоненты:** `instagram_bot.py:4348-4349` (`mid = (mid or "").strip()`),
   `:4426` (`mid=mid or None`), `models.py:3743` (`mid = CharField(..., null=True, unique=True)`)
 - **Механика:** в SQL `NULL` не конфликтует с `NULL`, поэтому unique-индекс не защищает
@@ -248,6 +248,16 @@
 - **Тест:** два attempts одного provider event дают одну processing path; тот же
   normalized text с другим provider timestamp либо attachment identity создаёт
   новое inbound и может получить отдельный ответ.
+
+**Resolution (2026-08-13):** inbound events without Meta `mid` now receive a
+deterministic SHA-256 `synthetic_event_key` built from sender, provider
+timestamp, normalized text and stable attachment identity. The nullable field
+has a MariaDB unique index; missing provider timestamp fails closed, opt-out
+staging uses the same key, and a concurrent disposable MariaDB ingress race
+created exactly one inbound row. Production migration `0154` is applied and
+the historical read-only baseline (one mid-less user row, no duplicate) is
+retained as data evidence. Full commerce delivery remains outside this finding
+and under `IMP-087 PARTIAL`.
 
 ## F-AI-001: system prompt молча деградирует до «бота без каталога»
 
@@ -359,7 +369,9 @@
   или только пишутся. Пользователь считает, что «просто есть».
 - Кейс скоринга: довольный клиент после обмена получает низкую конверсию/удовлетворённость.
   Нужны реальные примеры с прода (обезличенно) + разбор формулы.
-- Дубли строк без `mid` — есть ли фактические дубли в проде (см. F-CORE-006).
+- Исторический baseline строк без `mid` сохранён в F-CORE-006; новая ingress-граница
+  и MariaDB race proof закрыты, повторная data-проверка не требуется для этого
+  bounded slice.
 - Backend кэша на проде (для оценки серьёзности `:236`).
 - Локализация сообщений об оплате/ТТН/post-purchase: фактические тексты и выбор языка.
 
@@ -861,7 +873,7 @@ protocol и hard-stage guard через `assemble_system_instruction()`. Fresh g
 
 ## Обновлённые открытые вопросы (после волны 2)
 
-1. Сколько строк `InstagramBotMessage` с `mid IS NULL, role='user'` и есть ли дубли (F-CORE-006).
+1. Исторический baseline `InstagramBotMessage` с `mid IS NULL` уже снят для F-CORE-006; новая ingress-граница проверена disposable MariaDB race proof.
 2. `SELECT DISTINCT score_band FROM ...snapshot WHERE analysis_model<>'rules'` —
    подтвердить, что `paid` недостижим (F-SCORE-003).
 3. Есть ли в проде клиенты с `purchases_count>0` и `primary_objection` в
@@ -896,7 +908,7 @@ protocol и hard-stage guard через `assemble_system_instruction()`. Fresh g
 | F-DATA-010 | 30 из 31 коммерческих эпизодов без сделки и без заказа | P1 | CONFIRMED | high |
 | F-DATA-011 | `image_download` 97 warning'ов: почти каждое фото клиента не скачивается | P1 | CONFIRMED | high |
 | F-DATA-012 | 3 из 6 Gemini-ключей залипли в `429:minute` со `day_date` двухдневной давности | P2 | CONFIRMED | high |
-| F-CORE-006 | *(код закрывает новую ingress-границу; историческая data-проверка сохранена)* строк без `mid` всего 1, фактических дублей нет | ~~P1~~ **P2** | FIXED IN CODE / DEPLOYMENT PENDING | high |
+| F-CORE-006 | *(synthetic key + unique MariaDB index; historical baseline retained)* строк без `mid` всего 1, фактических дублей нет | ~~P1~~ **P2** | FIXED/VERIFIED (`7ad632de`, production migration `0154`) | high |
 
 ---
 
@@ -1233,7 +1245,7 @@ protocol и hard-stage guard через `assemble_system_instruction()`. Fresh g
 
 | № | Вопрос | Ответ |
 |---|---|---|
-| 1 | Дубли строк без `mid` | **Нет.** Строк без `mid` всего 1, дублей 0 → F-CORE-006 понижен до P2 |
+| 1 | Дубли строк без `mid` | **Нет.** Исторически строк без `mid` всего 1, дублей 0; новая synthetic-key ingress-граница и production migration `0154` verified → F-CORE-006 fixed/P2 |
 | 2 | Достижим ли `score_band='paid'` | **Нет.** 0 из 1792 снапшотов → F-SCORE-003 подтверждён данными |
 | 3 | Покупатели с возражением | Вопрос снят иначе: покупателей по `purchases_count` **вообще нет** → F-DATA-005 |
 | 4 | Слепая зона поллинга | 1 сделка: `awaiting_payment` + `payment_truth='cancelled'` + есть invoice. Она будет опрашиваться вечно, хотя truth уже терминальный → подтверждает F-PAY-004 |

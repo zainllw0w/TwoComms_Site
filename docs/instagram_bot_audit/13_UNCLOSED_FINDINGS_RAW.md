@@ -20,11 +20,10 @@
 
 ## Снимок, по которому сделана сверка
 
-- Current runtime/code snapshot: W1.7 follow-up release in `origin/main` and
-  production; `214ae4b9` is reachable through merge `b9bab236` and migration
-  `management.0153` is applied.
-- Fresh production check 2026-08-12: `manage.py check` без ошибок, migrations
-  through `management.0153` applied, daemon `running/alive`, dangerous backlog
+- Current runtime/code snapshot: Wave 3 releases `7ad632de`/`ade00668` in `origin/main` and
+  production; migrations through `management.0154` are applied.
+- Fresh production check 2026-08-13: `manage.py check` без ошибок, migrations
+  through `management.0154` applied, daemon `running/alive`, dangerous backlog
   and pending reply/notification/analysis queues = 0. Runtime prompt/parser/
   authority probes W1.6 прошли без записи synthetic/customer/provider events.
 - Read-only production status показывает 18 terminal failed analysis jobs:
@@ -43,7 +42,7 @@
 | Источник | Точное содержимое | Как продолжать |
 |---|---|---|
 | root worktree | modified `twocomms/management/tests_ig_commerce_state.py` с двумя receipt/reclaim regressions | Не включать автоматически в docs-коммит. Перед переносом сравнить с WIP `IMP-087` и определить владельца каждого теста. |
-| `/Users/zainllw0w/.config/superpowers/worktrees/site/ig-commerce-durable-state` | modified `services/ig_commerce_state.py`, `services/instagram_bot.py`, `tests_ig_commerce_state.py`; new `services/ig_commerce_replies.py`, `tests_ig_commerce_delivery.py` | Сохранённый narrow `IMP-087.A`: deterministic text-only receipt-backed reply. HEAD = baseline `19f5ef70`, но local branch 14 ahead / 1 behind своего remote ref. Fresh local evidence: 101 tests, Django check, migration drift, compileall and diff check. Всё ещё uncommitted/unpushed/undeployed; общий `IMP-087` остаётся PARTIAL. |
+| `/Users/zainllw0w/.config/superpowers/worktrees/site/ig-commerce-durable-state` | modified `services/ig_commerce_state.py`, `services/instagram_bot.py`, `tests_ig_commerce_state.py`; new `services/ig_commerce_replies.py`, `tests_ig_commerce_delivery.py` | Narrow `IMP-087.A` selectively ported/reviewed into `main` as `7ad632de` plus follow-up `ade00668`; production migration `0154` and runtime proof are in `08/09`. Preserve any remaining root-worktree WIP separately; full `IMP-087` remains PARTIAL. |
 | `docs/plans/2026-08-06-ig-commerce-durable-reply-delivery.md` | safety boundary и пошаговый release plan для narrow reply slice | Следовать плану, но заново проверить diff на current `origin/main`, provider receipt semantics и отсутствие price/stock/payment promises. |
 | `codex/ig-bot-w4-completion` | old dirty paginator | SUPERSEDED текущим W7; не cherry-pick. |
 | `codex/ig-followup-policies` | old-base policy/event WIP | Requirements already reimplemented as `IMP-102/103`; не переносить старую migration/code wholesale. |
@@ -99,7 +98,7 @@
 | [ ] | IMP-084 — PARTIAL | Подключить readiness/alternative consumer к exact availability и доказать locks/constraints. (Нельзя обещать товар, если точный color/fit/size не подтверждён.) | Product policy foundation есть; MariaDB contract gate обязателен. |
 | [ ] | IMP-085 — PARTIAL | Довести parser до burst ordering, candidate anchoring и полного selection/reply consumer. (Факты из сообщения уже извлекаются, но ещё не полностью управляют безопасным ответом.) | Trusted URL и reducer не должны регрессировать. |
 | [ ] | IMP-086 — PARTIAL | Закрыть concurrent MariaDB proof и full manager-review UI для reservation/allocation lifecycle. (Оплаченная последняя единица защищена, но операторский и DB acceptance контур неполны.) | После exact availability; не считать SQLite достаточным. |
-| [ ] | IMP-087 — PARTIAL | Подключить candidate reply anchoring с provider receipts, burst reduction, delivery reconciliation и operational manager-review consumer. (Состояние выбора durable, но worker ещё не использует outbox как доказуемую customer delivery boundary.) | Narrow 087.A ждёт targeted F-CORE-004/006, receipt/PII/T48 gates, но не full Wave 2; price-bearing delivery ждёт 088.B. Никогда не blind-resend. |
+| [ ] | IMP-087 — PARTIAL | Подключить candidate reply anchoring с provider receipts, burst reduction, delivery reconciliation и operational manager-review consumer. (Состояние выбора durable; bounded informational 087.A уже использует durable receipt/review boundary.) | Full candidate/payable delivery ждёт remaining F-CORE-004/005 и `088.B`; never blind-resend. |
 | [ ] | IMP-088 — PARTIAL | Current main уже имеет deterministic quote/proposal digest и proposal workspace/preview/action API. Остаток: 088.A catalog freshness/read-only audit можно делать рано; 088.B authoritative payable digest обязателен до price/availability/payment reply; затем review UI/backfill/unified MariaDB proof. | Не создавать цикл с IMP-087: full price-bearing 087 delivery зависит от 088.B, а 088.A не ждёт full commerce chain. |
 | [ ] | IMP-090 — OPEN | Model-authored proactive follow-up под deterministic policy/opt-out/factual guards и локальным fallback. (Сообщение может стать персональным, но не должно отправляться против правил или исчезать при AI outage.) | Event/claim layer закрыт; после relevant IMP-044 timeout/reliability gate, но независимо от full commerce. Не отправлять без truthful facts. |
 | [ ] | IMP-091 — OPEN, decision-gated | Retention: reactivation, two-step review/UGC, loyalty, preorder. (Это затрагивает клиентов и скидки, поэтому без policy нельзя запускать массовые отправки.) | Нужны решения по discounts, preorder и segments. |
@@ -129,10 +128,12 @@
   останавливать send между chunks. (Иначе клиент получает оборванный ответ без
   понятного recovery, а агент самовольно меняет смысл паузы.) Evidence:
   03:196-218.
-- [ ] F-CORE-006 — OPEN: обязательный synthetic dedupe key для inbound без
+- [x] F-CORE-006 — FIXED/VERIFIED in bounded Wave 3 slice (`7ad632de`, migration
+  `0154`, disposable MariaDB race and production proof): обязательный synthetic
+  dedupe key для inbound без
   Meta mid из sender, provider timestamp, normalized text и stable attachment
   identity. Повтор одного event дедуплицируется, но тот же текст позже остаётся
-  новым сообщением. Evidence: 03:220-239.
+  новым сообщением. Full `IMP-087` delivery remains PARTIAL. Evidence: 03:220-239.
 
 ### AI, prompt и Gemini
 
@@ -420,8 +421,8 @@ rollout and modernization. Перед реализацией любого ном
   `11_FINAL_VALIDATION_REPORT.md`, не в current `07`. Current authority:
   105 = 81 DONE + 14 OPEN + 10 PARTIAL; `IMP-088` reclassified PARTIAL because
   current main already has digest/proposal workspace foundations.
-- [x] DOC-002: после добавления `F-AI-018` и `F-DEPLOY-001…004` current matrix содержит 187 finding:
-  139 checked + 35 OPEN + 1 BLOCKED + 12 PARTIAL. Исторические counts в `11` не являются
+- [x] DOC-002: после Wave 3 current matrix содержит 187 finding:
+  143 checked + 32 OPEN + 1 BLOCKED + 11 PARTIAL. Исторические counts в `11` не являются
   текущим статусом.
 - [x] DOC-003: fresh live check 2026-08-07 подтвердил local/origin/production
   SHA `19f5ef70`; equality больше не выводится из старой записи.
@@ -436,7 +437,8 @@ rollout and modernization. Перед реализацией любого ном
 - [x] DOC-007: `F-CAT-004` и `F-DATA-002/003` классифицированы PARTIAL:
   foundations/writers есть, полного production consumer evidence нет. Handoff
   также переклассифицировал `F-PAY-002/003/006` в PARTIAL по current-main
-  foundation evidence. Итог: 35 OPEN + 1 BLOCKED + 12 PARTIAL.
+  foundation evidence. Текущий итог после дальнейших закрытий: 32 OPEN +
+  1 BLOCKED + 11 PARTIAL.
 - [x] DOC-008: `10_OPEN_QUESTIONS_AND_BLOCKERS.md` больше не называет
   `IMP-087` OPEN; narrow receipt-backed WIP и оставшийся полный scope записаны
   как PARTIAL.
@@ -444,9 +446,9 @@ rollout and modernization. Перед реализацией любого ном
 ## Контроль полноты
 
 - Covered implementation carriers: 24 open/partial IMP tasks.
-- Covered canonical findings: 48 unchecked F-* rows after `F-AI-018` and
+- Covered canonical findings: 44 unchecked F-* rows after Wave 3 and
   `F-DEPLOY-001…004`. Canonical 07 and this handoff use
-  35 OPEN + 1 BLOCKED + 12 PARTIAL.
+  32 OPEN + 1 BLOCKED + 11 PARTIAL.
 - Covered improvements: 34 unchecked IMPR-* rows (including one REFRAMED
   duplicate) plus two non-ID gaps: `GAP-UX-001` and
   `GAP-CHECKOUT-UX-001`.

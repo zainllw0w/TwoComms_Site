@@ -4,6 +4,39 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 Wave 3 bounded `IMP-087.A` release (2026-08-13)
+
+Commit `7ad632dec2808e8fbe036c75da848d68c41987d2` was pushed to `main` and
+pulled on production with `git pull --ff-only origin main`. Server `HEAD` and
+`origin/main` are exactly this SHA; tracked status is clean apart from
+pre-existing untracked operational files. Migration
+`management.0154_synthetic_inbound_event_key` is applied. `manage.py check`
+reported no issues and `makemigrations --check --dry-run` returned
+`No changes detected`.
+
+Read-only production verification returned one live daemon with fresh DB and
+daemon heartbeat, `last_error=''`, `pending=0`, `notification_pending=0`,
+`analysis_pending=0`, and `analysis_failed=18` historical terminal rows.
+`/bot/health/` and `/healthz/` returned HTTP 200. No production customer,
+provider, payment or synthetic test event was created. The production
+database was used only for migration/runtime/read-only evidence; the race and
+receipt smoke ran against disposable native MariaDB 11.4, as recorded in
+`14_IMPLEMENT2.md`.
+
+Post-deploy review follow-up `ade00668c41df8a8b8b9d2bd03012a2aba1efcc9`
+was pushed after rebasing on the latest `main`, including the independent
+storefront migration-sequence repair. It changes only the durable delivery
+state reducer and its regression: a provider result claiming `sent` with zero
+validated receipt IDs now becomes `UNKNOWN`/review, not `PARTIAL`. Fresh gate:
+`143/143`; Django check, migration drift, compileall and diff check are clean.
+Production fast-forwarded to exact `ade00668` and then the independent
+`0e6555a6`/`ad6fc927` SEO follow-ups; `migrate` had no pending work,
+`management.0154` and storefront `0093`/`0094` are applied, static collection
+and compression completed, and `run_instagram_bot --ensure` spawned the
+singleton. Final read-only status: `running=True`, `alive=True`, fresh 0.8s
+heartbeat, `last_error=''`, reply/notification/analysis pending `0/0/0`, both
+health endpoints HTTP 200. No synthetic production event was created.
+
 ## Implement2 W2.0 bounded manifest-provenance slice (2026-08-13)
 
 Commit `c72ecf11` was pushed to `main` and pulled with the required SSH

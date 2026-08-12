@@ -51,7 +51,7 @@
 | Реестр | Verified state |
 |---|---|
 | Implementation | 105 total: 81 DONE, 14 OPEN, 10 PARTIAL; 24 unchecked |
-| Finding matrix / handoff | 187 total: 139 checked, 35 OPEN, 1 BLOCKED, 12 PARTIAL; 48 unchecked |
+| Finding matrix / handoff | 187 total: 143 checked, 32 OPEN, 1 BLOCKED, 11 PARTIAL; 44 unchecked after Wave 3 |
 | Improvements | 51 total: 17 DONE, 12 OPEN, 21 PARTIAL, 1 REFRAMED; 34 unchecked |
 | Acceptance | 51 total: 40 GREEN, 11 PARTIAL (including SQLite-only `T41`); `T51` is GREEN regression guard |
 | Documentation conflicts | `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` reconciled by the 2026-08-07 handoff |
@@ -223,16 +223,17 @@ the files are uncommitted/unpushed/undeployed. Worktree HEAD equals the
 `19f5ef70` handoff baseline, but must still be compared with fresh `origin/main`
 at execution time.
 
-- [ ] Compare patch against current `origin/main`; do not copy by file overwrite.
-- [ ] Reconcile the two relevant root-worktree tests with the WIP tests.
-- [ ] Preserve the safety boundary from
+- [x] Compare patch against current `origin/main`; do not copy by file overwrite.
+- [x] Reconcile the two relevant root-worktree tests with the WIP tests.
+- [x] Preserve the safety boundary from
   `docs/plans/2026-08-06-ig-commerce-durable-reply-delivery.md`: one short
   deterministic text, no price/stock/payment/manager promise.
-- [ ] Run an independent code review before integration.
-- [ ] Local branch is 14 ahead / 1 behind `origin/codex/ig-commerce-durable-state`;
+- [x] Run an independent code review before integration.
+- [x] Local branch is 14 ahead / 1 behind `origin/codex/ig-commerce-durable-state`;
   preserve both histories and rebase/cherry-pick patch-unique work deliberately.
-- [ ] Re-run focused and adjacent tests on current base, then release through
-  Wave 3 below. General `IMP-087` remains PARTIAL.
+- [x] Re-run focused and adjacent tests on current base, then release through
+  Wave 3 below. General `IMP-087` remains PARTIAL; its bounded `IMP-087.A`
+  slice is now deployed.
 
 ### Other preserved sources
 
@@ -546,12 +547,18 @@ These findings were discovered while implementing Wave 0 and are owned here;
 
 ### W2.3 Synthetic inbound idempotency — `F-CORE-006`, `IMP-098.C`
 
-- [ ] Mandatory deterministic dedupe identity when Meta `mid` is absent uses
+- [x] Mandatory deterministic dedupe identity when Meta `mid` is absent uses
   sender, provider timestamp, normalized text and stable attachment identity.
-- [ ] MariaDB race test: two equal inbound attempts create one processing path
+- [x] MariaDB race test: two equal inbound attempts create one processing path
   and at most one customer reply.
-- [ ] Regression: identical normalized text sent later, or with different
+- [x] Regression: identical normalized text sent later, or with different
   attachment identity, is a new inbound rather than a false duplicate.
+
+**Wave 3 evidence:** implemented and deployed in `7ad632de` with migration
+`0154_synthetic_inbound_event_key`; the disposable native MariaDB 11.4 race
+produced exactly one inbound row (`outcomes=[False, True]`), and production
+SHA/migration/health proof is recorded below. This bounded closure does not
+close the unrelated Gemini/lease items in Wave 2.
 
 ### W2.4 Gemini key/lease reliability — `IMP-044`
 
@@ -590,15 +597,15 @@ contract and GREEN `T48` send-boundary regressions. This narrow slice does
 **not** wait for unrelated `IMP-044`, `G-EPOCH`, all remaining Wave 2 work or
 full commerce completion because it emits no price/stock/payment promise.
 
-- [ ] Port/rebase the five WIP files through review, not file overwrite. **Pre-deploy evidence (2026-08-13):** selectively integrated on current `origin/main` `909b66f6`; scoped diff only, with no SEO or unrelated WIP files. Fresh focused gate `142/142 OK`; `makemigrations --check --dry-run` reports `No changes detected`; `compileall` and `git diff --check` are clean. Independent review found and closed receipt-ID validation and mid-less ingress fail-closed gaps before release.
-- [ ] Pure builder may emit only one short text for accepted trusted product
+- [x] Port/rebase the WIP files through review, not file overwrite. **Release evidence (2026-08-13):** selectively integrated on current `origin/main` as `7ad632de`, with follow-up `ade00668`; scoped diff only, with no SEO or unrelated WIP files. Fresh focused gate `143/143 OK`; `makemigrations --check --dry-run` reports `No changes detected`; `compileall` and `git diff --check` are clean. Independent review found and closed receipt-ID validation, zero-receipt ambiguity and mid-less ingress fail-closed gaps before release.
+- [x] Pure builder may emit only one short text for accepted trusted product
   reference, explicit clarification or stale numeric candidate rejection.
-- [ ] No price, availability, payment URL, discount, reservation or manager
+- [x] No price, availability, payment URL, discount, reservation or manager
   promise may be generated by this slice.
-- [ ] Persist reply before send. Require nonblank provider message ID for
+- [x] Persist reply before send. Require nonblank provider message ID for
   `SENT`; any ambiguous/partial/exception outcome becomes `UNKNOWN`/review.
-- [ ] Replay and stale reclaim make zero duplicate provider sends.
-- [ ] Confirmed delivery writes exactly one local MODEL row and bypasses the
+- [x] Replay and stale reclaim make zero duplicate provider sends.
+- [x] Confirmed delivery writes exactly one local MODEL row and bypasses the
   generic Gemini path; non-handled turns continue existing behavior.
 
 **MariaDB 11.4 pre-deploy proof (disposable only, 2026-08-13):** native
@@ -613,6 +620,27 @@ and no replay (`calls=[1]`). Django `TestCase` on MariaDB is intentionally not
 used as acceptance because existing append-only triggers reject generic flush;
 the standalone proof uses a clean disposable schema and never targets
 production.
+
+**Wave 3 production closeout (2026-08-13):** commits `7ad632de` and
+follow-up `ade00668` were pushed to
+`main` and pulled with `git pull --ff-only origin main`. Production
+`HEAD == origin/main == 7ad632dec2808e8fbe036c75da848d68c41987d2`; migration
+`management.0154_synthetic_inbound_event_key` is applied, `manage.py check` is
+clean and migration drift reports `No changes detected`. Read-only
+`status_snapshot()` reports one live daemon with a fresh DB/daemon heartbeat,
+`last_error=''`, `pending=0`, `notification_pending=0`, `analysis_pending=0`
+and `analysis_failed=18` historical terminal rows. `/bot/health/` and
+`/healthz/` both returned HTTP 200. No production customer, provider,
+payment or synthetic test event was created. This closes only `IMP-087.A`;
+candidate anchoring, burst coalescing, reconciliation consumer and manager UI
+remain open under full `IMP-087 PARTIAL`.
+
+**Post-deploy review follow-up:** the direct durable API still classified a
+transport claim of `state='sent'` with no receipt list as `PARTIAL`. A focused
+RED reproduced that exact ambiguity; the follow-up now makes zero validated
+provider IDs `UNKNOWN`/review while preserving `PARTIAL` only for a genuine
+multi-part subset with at least one validated receipt. The expanded gate is
+`143/143 OK`; follow-up `ade00668` is deployed and recorded in `08/09`.
 
 **Focused command:**
 
@@ -933,7 +961,7 @@ browser matrix, accessibility/reduced-motion check and deployed SHA.
 |---|---|
 | Preflight/gates | `BLOCKER-INFRA-001`, `BLOCKER-DATA-001`, `BLOCKER-POLICY-001`, `BLOCKER-POLICY-002`; `RULE-BRANCH-001`, `RULE-DATA-001`, `RULE-SEND-001`; resolved `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` |
 | Wave 1 | unresolved `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`; `IMP-061`, `IMP-098`, `IMP-101`; resolved W1.6 `F-AI-010/011`, `F-CTX-003`, `IMP-028.A` and W1.7 `IMP-060` |
-| Wave 2 | `F-CORE-006`, `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`, `F-DEPLOY-001/002/003/004`; `IMP-044`, `IMP-094`; `T40`, `T41` |
+| Wave 2 | `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`, `F-DEPLOY-001/002/003/004`; `IMP-044`, `IMP-094`; `T40`, `T41` |
 | Wave 3 | narrow `IMP-087.A`; full `IMP-087` remains PARTIAL |
 | Wave 4 | `F-CAT-004`, `F-DATA-001`, `F-DATA-010.A`, `F-PAY-002`, `F-PAY-003`, `F-PAY-006`; `IMP-046.A`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`; `IMPR-CAT-002`, `IMPR-CAT-004`, `IMPR-CAT-006`, `IMPR-FEAT-001`, `IMPR-FEAT-002`, `IMPR-FEAT-003`, `IMPR-FEAT-004`, `IMPR-FEAT-005`, `IMPR-FEAT-014`, `IMPR-FEAT-015`, `IMPR-INV-001`; `T04`, `T38`, `T44`, `T45`, `T47`; GREEN guard `T51` |
 | Wave 5 | `F-AI-009`, `F-AI-012`, `F-CTX-001`, `F-DATA-016`; `IMP-028.B`, `IMP-090`, `IMP-095`; `IMPR-SALES-001`, `IMPR-SALES-002`, `IMPR-SALES-003`, `IMPR-SALES-004`, `IMPR-SALES-005`, `IMPR-SALES-006`, `IMPR-SALES-007`, `IMPR-SALES-008`, `IMPR-SALES-009`, `IMPR-SALES-010`, `IMPR-SALES-011`, `IMPR-TXT-006`, `IMPR-FUP-013` |

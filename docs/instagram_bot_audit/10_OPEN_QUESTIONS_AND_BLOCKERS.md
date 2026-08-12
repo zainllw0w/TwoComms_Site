@@ -26,9 +26,9 @@
   `1849441d`; paid commitment capacity guard F-CAT-011 — through `a7857ada`.
   Durable commerce session, candidate anchoring, stale binding,
   relaxed alternatives, full topology, manager-review UI and disposable MariaDB
-  concurrency/constraint proof remain open. `IMP-087` дополнительно имеет
-  uncommitted narrow receipt-backed WIP в `ig-commerce-durable-state`; это не
-  shipment. `IMP-088` имеет digest/proposal API foundation, но freshness,
+  concurrency/constraint proof remain open. `7ad632de`/`ade00668` deployed the bounded
+  `IMP-087.A` receipt-backed informational slice and migration `0154`; this is
+  not closure of full `IMP-087`. `IMP-088` имеет digest/proposal API foundation, но freshness,
   отдельный review UI, audit/backfill и unified MariaDB/deploy proof открыты.
 - Payment findings are not greenfield: `F-PAY-002/003/006` are PARTIAL because
   reservation/TTL/access/share-token foundation and `ig-deal:{deal.pk}`
