@@ -6,7 +6,7 @@ Production host: `195.191.25.63`, path
 
 ## Implement2 W1.7 historical attachment hardening (2026-08-12)
 
-Current production `HEAD=origin/main=a27bdc2b2e6870bbf82e485c47fe1d4ce55a4312`;
+Current production `HEAD=origin/main=d8b61973653f0da94fde3090674810cb9c19fd46`;
 the W1.7 implementation commit `214ae4b9` is reachable through merge
 `b9bab236`. Follow-up code adds the historical-provenance guard in
 `_resolve_payment_media_candidates` and regressions for stale local media and
@@ -23,12 +23,13 @@ contract is not claimed from a synthetic production event; `F-AI-018` remains
 open under `IMP-044`.
 
 The normal SSH `git pull` path fast-forwarded production through `61486616`
-and the subsequent SEO commits `f062a3b1`/`a27bdc2b`; the W1.7 commit remains
+and the subsequent SEO commits `f062a3b1`/`a27bdc2b`/`ce1ca965`/`d8b61973`;
+the W1.7 commit remains
 in the deployed ancestry. The immutable release contract was exercised for
 the exact latest SHA: wheelhouse manifest validation passed after removing
 macOS-only `._*` transfer metadata, and the release switch correctly no-op'd
 with `target SHA must differ from the live SHA` because production was already
-at `a27bdc2b`. No rollback or runtime mutation was needed after that guard.
+at `d8b61973`. No rollback or runtime mutation was needed after that guard.
 
 ## Implement2 W1.6 structured control safety (2026-08-10)
 
