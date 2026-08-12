@@ -249,6 +249,39 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   claims only consistent crawl/index signals and schema locale metadata; it
   makes no ranking, traffic, rich-result or conversion promise.
 
+- [x] **P0.3** Remove unowned organization foundation/postal claims from
+  standard storefront JSON-LD, centralize the checkout-owned free-shipping
+  threshold for `llms.txt`, and invalidate cached homepage HTML when this
+  public-fact contract changes. This is a fail-closed factuality slice; it
+  does not choose a founding date, exact address, city landing, keyword
+  variant, DTF-subdomain fact or Custom Print claim without an owner source.
+
+#### P0.3 release evidence
+
+- Code commits: `039eb0c3` (`fix(seo): centralize verified public commerce
+  facts`) and `51055922` (`fix(seo): invalidate cached homepage fact claims`),
+  merged with the independent `f654e098` schema cleanup as release SHA
+  `03b3510a`.
+- RED/GREEN: the new registry tests first failed on the missing registry,
+  hard-coded `3000` in `llms.txt`, and emitted `foundingDate`/postal address;
+  the focused registry/member-program suite passed `4/4` after the minimal
+  changes. The broader legacy SEO module retains unrelated baseline failures.
+- Production: server `git pull` reached `03b3510a`; production
+  `manage.py check --settings=twocomms.production_settings` returned no
+  errors; Passenger was restarted through `tmp/restart.txt`.
+- Live proof: `/llms.txt` returned `200` and its `3000 UAH` threshold matches
+  the current checkout default; homepage Organization JSON-LD has no
+  `foundingDate`, `foundingLocation` or `address`; the homepage cache key now
+  includes `seo-facts-v2-20260813`, preventing stale structured data from
+  being served after this change. The legacy `2500` strings remain only in the
+  now-unrendered generated service and are tracked for the later fact-lint
+  sweep; this checkpoint does not claim that all dormant source strings have
+  been removed.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, product data, inventory, or variant
+  ownership was changed. No ranking, traffic, citation or conversion uplift
+  is claimed.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
