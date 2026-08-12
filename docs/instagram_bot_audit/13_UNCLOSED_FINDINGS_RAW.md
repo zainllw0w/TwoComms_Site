@@ -20,11 +20,11 @@
 
 ## Снимок, по которому сделана сверка
 
-- Current runtime/code snapshot: `origin/main` и production совпадают на
-  `130cd920b8d06ce0edc3b04ed5bf51dc88ed6cd4`; локальный feature worktree
-  содержит тот же code commit и последующий docs diff.
-- Fresh production check 2026-08-10: `manage.py check` без ошибок, migrations
-  through `management.0152` applied, daemon `running/alive`, dangerous backlog
+- Current runtime/code snapshot: W1.7 follow-up release in `origin/main` and
+  production; `214ae4b9` is reachable through merge `b9bab236` and migration
+  `management.0153` is applied.
+- Fresh production check 2026-08-12: `manage.py check` без ошибок, migrations
+  through `management.0153` applied, daemon `running/alive`, dangerous backlog
   and pending reply/notification/analysis queues = 0. Runtime prompt/parser/
   authority probes W1.6 прошли без записи synthetic/customer/provider events.
 - Read-only production status показывает 18 terminal failed analysis jobs:
@@ -92,7 +92,6 @@
 | [ ] | IMP-044 — OPEN, P1 | Включить atomic lease Gemini key в runtime, jitter retry, derived key status и единый allowlist модели; закрыть fresh F-AI-018 typed telemetry/timing failure. | Current lease 180s, management deadline 75s; MariaDB concurrency/reclaim, provider/daemon telemetry, data migration и deployment proof. |
 | [ ] | IMP-045 — OPEN | Классифицировать примерно 60 except Exception: pass по доменам. (Настоящие бизнес-сбои не должны исчезать без следа.) | pass допустим только для подписанной telemetry; менять малыми domain commits. |
 | [ ] | IMP-046 — OPEN | **046.A рано:** заново проверить current checkout call graph/production rows и выбрать BUILD или migration-backed REMOVE для `F-DATA-001`. **046.B поздно:** после решения удалить только доказанный dead code/UI/data residue. (Current main уже имеет proposal/reservation/TTL/token foundation, поэтому старое «пять пустых таблиц» не является достаточной архитектурной истиной.) | Не удалять IgLifecycleEvent; assignments/live status активны; `log_items`, CSS и entry points удалять только после current call-site/browser proof. |
-| [ ] | IMP-060 — OPEN | Не скачивать URL вложений исторического импорта; сохранять байты только при live webhook и телеметрировать media phase до AI. (Не выполнять бессмысленные внешние загрузки и отличать media stall от F-AI-018 provider hang.) | F-DATA-011 отмечена fixed по старой 404-причине; independent hardening открыт и не ждёт commerce. |
 | [ ] | IMP-061 — OPEN | Убрать только наши diagnostic requests с hub.verify_token из query, маскировать параметр в web-server log где возможно, затем ротировать token. (Meta GET verification protocol остаётся совместимым, но secret не должен оставаться в долгоживущих логах и backup.) | Safe diagnostics без token в URL, log-redaction/rotation proof. |
 | [ ] | IMP-081 — PARTIAL | Довести product semantic/inventory foundation до runtime и admin consumer. (Таблицы, policy и triggers есть, но ещё не весь продуктовый путь.) | Нужен isolated disposable MariaDB gate; не тестировать locks на production. |
 | [ ] | IMP-082 — PARTIAL | Завершить print/blank/media/canonical-link topology и сделать typed graph источником durable commerce session. (Цена и prompt parity уже безопаснее, но topology неполна.) | После/вместе с IMP-081; не возвращать old W9 branch. |
@@ -419,16 +418,16 @@ rollout and modernization. Перед реализацией любого ном
 
 - [x] DOC-001: stale implementation count находится в историческом
   `11_FINAL_VALIDATION_REPORT.md`, не в current `07`. Current authority:
-  105 = 80 DONE + 15 OPEN + 10 PARTIAL; `IMP-088` reclassified PARTIAL because
+  105 = 81 DONE + 14 OPEN + 10 PARTIAL; `IMP-088` reclassified PARTIAL because
   current main already has digest/proposal workspace foundations.
 - [x] DOC-002: после добавления `F-AI-018` и `F-DEPLOY-001…004` current matrix содержит 187 finding:
   139 checked + 35 OPEN + 1 BLOCKED + 12 PARTIAL. Исторические counts в `11` не являются
   текущим статусом.
 - [x] DOC-003: fresh live check 2026-08-07 подтвердил local/origin/production
   SHA `19f5ef70`; equality больше не выводится из старой записи.
-- [x] DOC-004: IMP-060 остаётся unchecked, хотя F-DATA-011 fixed.
-  Сохранить открытый остаток как new-import hardening, не реанимировать
-  закрытый 404 incident.
+- [x] DOC-004: исторический F-DATA-011 404 incident не реанимирован.
+  Его independent new-import hardening `IMP-060` закрыт в W1.7; broader
+  `F-AI-018` provider/process/lease telemetry остаётся отдельным `IMP-044`.
 - [x] DOC-005: 2877/2897 сохранены только как historical run evidence. До новой
   команды не использовать ни одно число как definitive gate evidence.
 - [x] DOC-006: часть заголовков `06_FUNNEL_CLOSING_DESIGN.md` историческая.
@@ -444,7 +443,7 @@ rollout and modernization. Перед реализацией любого ном
 
 ## Контроль полноты
 
-- Covered implementation carriers: 25 open/partial IMP tasks.
+- Covered implementation carriers: 24 open/partial IMP tasks.
 - Covered canonical findings: 48 unchecked F-* rows after `F-AI-018` and
   `F-DEPLOY-001…004`. Canonical 07 and this handoff use
   35 OPEN + 1 BLOCKED + 12 PARTIAL.

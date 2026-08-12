@@ -8,7 +8,10 @@
 - W4B: закрыта; `IMP-058` и `IMP-089` имеют code, tests и production evidence.
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
-- W8: `IMP-044`–`046`, `060`–`061`, `094`, `096`, `100`, `101`; partial `043`.
+- W8: `IMP-044`–`046`, `061`, `094`, `096`, `100`, `101`; partial `043`.
+  `IMP-060` W1.7 historical attachment hardening is closed on 2026-08-12;
+  production has no post-migration live media job, so its telemetry is locally
+  regression-tested while `F-AI-018` remains open under `IMP-044`.
   `IMP-044` теперь также несёт `F-AI-018`: fresh manager-message analysis job
   исчерпал stale leases без typed provider/process telemetry.
   F-TEST-004 внутри IMP-094 закрыта на `dd93f9f3`, но disposable MariaDB gate

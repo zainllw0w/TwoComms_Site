@@ -4,6 +4,24 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W1.7 historical attachment hardening (2026-08-12)
+
+Current production `HEAD=origin/main=1bfc4372d0f33cdf9ec5d43ebe1c91928aea4911`;
+the W1.7 implementation commit `214ae4b9` is reachable through merge
+`b9bab236`. Follow-up code adds the historical-provenance guard in
+`_resolve_payment_media_candidates` and regressions for stale local media and
+live `download_failed` ordering, and explicit `media_capture_eligible` propagation
+for raw webhook joins. Fresh focused gate: `162/162` tests passed.
+
+Read-only production MariaDB proof: migration
+`management.0153_owned_ig_message_media` is applied; 2,522 Instagram messages
+(337 webhook), 29 structured attachment rows, all persisted media
+`historical_import`/`metadata_only`, no `live_webhook`/`owned` media, and zero
+`media_capture_eligible` rows. Daemon heartbeat is healthy and current schema
+queries succeed. No post-migration live analysis job exists, so the telemetry
+contract is not claimed from a synthetic production event; `F-AI-018` remains
+open under `IMP-044`.
+
 ## Implement2 W1.6 structured control safety (2026-08-10)
 
 `130cd920b8d06ce0edc3b04ed5bf51dc88ed6cd4` was fast-forwarded from

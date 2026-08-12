@@ -832,9 +832,17 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   счётчик в admin UI и не менять полный rotating file log. Нужны migration,
   MariaDB concurrency/retention тест и deploy. Это `IMPR-OPS-002`; не является
   условием уже закрытой сохранности incident evidence.
-- [ ] **IMP-060 (P2) — открыта.** Вложения (F-DATA-011): не качать URL импортированных
-  сообщений, сохранять байты при приёме живого webhook; записывать typed media
-  phase/error до AI, чтобы F-AI-018 не смешивал media stall с provider hang.
+- [x] **IMP-060 (P2) — закрыта 2026-08-12.** Вложения исторического импорта
+  остаются metadata-only и не пересекают network/vision boundary; live webhook
+  bytes проходят owned-media path с claim/reuse. `IgConversationAnalysisJob`
+  записывает typed `media_phase`/`media_error_kind` до provider call.
+  `214ae4b9` reachable from current production through `b9bab236`; follow-up
+  historical-provenance regression и live `download_failed` ordering test дают
+  fresh `160/160` gate. Production MariaDB migration `0153` applied; 2,522
+  messages / 337 webhook rows, all existing attachment media
+  `historical_import` + `metadata_only`, no live/owned rows. No post-migration
+  live analysis was available, so `F-AI-018` broader provider/process/lease
+  telemetry remains open under `IMP-044`.
 - [ ] **IMP-061 (P2) — открыта.** `hub.verify_token` в access-логе (F-SEC-010):
   диагностику подписки без токена в query, затем ротация токена.
 - [ ] **IMP-044 (P1) — открыта.** Atomic lease Gemini-ключей + jitter (F-AI-003/004);

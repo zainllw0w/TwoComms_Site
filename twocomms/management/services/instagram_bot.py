@@ -7391,6 +7391,7 @@ def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
             "attachments": getattr(row, "attachments", "") or "",
             "attachment_media": getattr(row, "attachment_media", None) or [],
             "source": getattr(row, "source", "") or "",
+            "media_capture_eligible": bool(getattr(row, "media_capture_eligible", False)),
             "role": getattr(row, "role", "") or "user",
             "created_at": getattr(row, "created_at", None),
         }

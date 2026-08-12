@@ -14,6 +14,56 @@ from management.models import InstagramBotMessage, InstagramBotSettings
 
 class MediaSemanticsTests(SimpleTestCase):
     @patch("management.services.ig_payment_review._raw_media_by_mid")
+    def test_historical_webhook_raw_media_stays_metadata_only_and_not_retryable(
+        self, raw_media
+    ):
+        from management.services.ig_payment_review import (
+            _augment_messages_with_raw_media,
+            _review_media_needs_owned_retry,
+        )
+
+        raw_media.return_value = {
+            "historical-webhook-mid": [{
+                "url": "https://lookaside.example/historical-webhook.jpg",
+                "type": "ig_post",
+            }],
+        }
+        augmented = _augment_messages_with_raw_media(object(), [{
+            "id": 1,
+            "mid": "historical-webhook-mid",
+            "role": "user",
+            "source": "webhook",
+            "media_capture_eligible": False,
+        }])
+
+        media = augmented[0]["media"]
+        self.assertEqual(media[0]["provenance"], "historical_import")
+        self.assertEqual(media[0]["status"], "metadata_only")
+        self.assertFalse(_review_media_needs_owned_retry({"media": media}))
+
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
+    def test_eligible_webhook_raw_media_is_pending_for_capture(self, raw_media):
+        from management.services.ig_payment_review import _augment_messages_with_raw_media
+
+        raw_media.return_value = {
+            "eligible-webhook-mid": [{
+                "url": "https://lookaside.example/live-webhook.jpg",
+                "type": "ig_post",
+            }],
+        }
+        augmented = _augment_messages_with_raw_media(object(), [{
+            "id": 2,
+            "mid": "eligible-webhook-mid",
+            "role": "user",
+            "source": "webhook",
+            "media_capture_eligible": True,
+        }])
+
+        media = augmented[0]["media"]
+        self.assertEqual(media[0]["provenance"], "live_webhook")
+        self.assertEqual(media[0]["status"], "pending")
+
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
     def test_payment_review_does_not_bind_stale_unmatched_media_by_print_text(
         self, raw_media
     ):
@@ -921,6 +971,32 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         download.assert_not_called()
         classify.assert_not_called()
         match_many.assert_not_called()
+
+    @patch("management.services.bot_vision.classify_media_roles")
+    @patch("management.services.instagram_bot.download_image")
+    def test_historical_local_media_url_never_reenters_payment_vision_network(
+        self,
+        download,
+        classify,
+    ):
+        from management.services.ig_payment_review import _resolve_payment_media_candidates
+
+        media = [{
+            "url": "https://lookaside.example/expired-payment.jpg",
+            "local_url": "/media/ig_payment_reviews/expired-payment.jpg",
+            "provenance": "historical_import",
+            "status": "metadata_only",
+            "role": "payment_candidate",
+            "intent": "payment_evidence",
+            "payment_evidence": True,
+            "catalog_match_allowed": False,
+        }]
+
+        resolved = _resolve_payment_media_candidates(media)
+
+        self.assertEqual(resolved, media)
+        download.assert_not_called()
+        classify.assert_not_called()
 
 
 class ReplyMediaRecoveryTests(SimpleTestCase):

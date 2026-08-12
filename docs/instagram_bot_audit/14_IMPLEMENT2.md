@@ -50,7 +50,7 @@
 
 | Реестр | Verified state |
 |---|---|
-| Implementation | 105 total: 80 DONE, 15 OPEN, 10 PARTIAL; 25 unchecked |
+| Implementation | 105 total: 81 DONE, 14 OPEN, 10 PARTIAL; 24 unchecked |
 | Finding matrix / handoff | 187 total: 139 checked, 35 OPEN, 1 BLOCKED, 12 PARTIAL; 48 unchecked |
 | Improvements | 51 total: 17 DONE, 12 OPEN, 21 PARTIAL, 1 REFRAMED; 34 unchecked |
 | Acceptance | 51 total: 40 GREEN, 11 PARTIAL (including SQLite-only `T41`); `T51` is GREEN regression guard |
@@ -438,12 +438,26 @@ all read-only parser/authority probes passed without customer/provider events.
 
 ### W1.7 Historical attachment hardening — `IMP-060`
 
-- [ ] Historical/imported attachment URLs are metadata only and are never
+- [x] Historical/imported attachment URLs are metadata only and are never
   re-downloaded; live webhook bytes continue through the owned media path.
-- [ ] Add typed media phase/error telemetry before provider analysis so
+- [x] Add typed media phase/error telemetry before provider analysis so
   `F-AI-018` can distinguish a media stall from Gemini/provider timeout.
-- [ ] This independent hardening does not reopen the fixed historical
+- [x] This independent hardening does not reopen the fixed historical
   `F-DATA-011` incident and does not wait for commerce completion.
+
+  **Closed 2026-08-12:** code from `214ae4b9` is reachable from current
+  `origin/main`/production through merge `b9bab236`; follow-up
+  `codex/ig-implement2-w17-followup` adds the historical-provenance guard in
+  payment vision plus regressions. Fresh W1.7 gate: `162/162` focused tests;
+  `manage.py check`, migration drift, compile and diff checks are required at
+  release. Production MariaDB read-only proof shows migration `0153` applied,
+  2,522 messages / 337 webhook rows, 29 structured attachment rows, all
+  persisted attachment media `historical_import` + `metadata_only`, no
+  `live_webhook`/`owned` rows, and zero `media_capture_eligible` rows. This
+  dataset has no post-migration live analysis, so telemetry behavior is proven
+  by the focused failure/ordering regressions but not by a synthetic live
+  production event. `F-AI-018` remains open under `IMP-044` for the broader
+  provider/process/lease attempt telemetry contract.
 
 ## 9. Wave 2 — deterministic evidence and DB-dependent reliability
 
@@ -878,7 +892,7 @@ browser matrix, accessibility/reduced-motion check and deployed SHA.
 | Plan area | Required unresolved IDs |
 |---|---|
 | Preflight/gates | `BLOCKER-INFRA-001`, `BLOCKER-DATA-001`, `BLOCKER-POLICY-001`, `BLOCKER-POLICY-002`; `RULE-BRANCH-001`, `RULE-DATA-001`, `RULE-SEND-001`; resolved `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` |
-| Wave 1 | unresolved `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`; `IMP-060`, `IMP-061`, `IMP-098`, `IMP-101`; resolved W1.6 `F-AI-010/011`, `F-CTX-003`, `IMP-028.A` |
+| Wave 1 | unresolved `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`; `IMP-061`, `IMP-098`, `IMP-101`; resolved W1.6 `F-AI-010/011`, `F-CTX-003`, `IMP-028.A` and W1.7 `IMP-060` |
 | Wave 2 | `F-CORE-006`, `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`, `F-DEPLOY-001/002/003/004`; `IMP-044`, `IMP-094`; `T40`, `T41` |
 | Wave 3 | narrow `IMP-087.A`; full `IMP-087` remains PARTIAL |
 | Wave 4 | `F-CAT-004`, `F-DATA-001`, `F-DATA-010.A`, `F-PAY-002`, `F-PAY-003`, `F-PAY-006`; `IMP-046.A`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`; `IMPR-CAT-002`, `IMPR-CAT-004`, `IMPR-CAT-006`, `IMPR-FEAT-001`, `IMPR-FEAT-002`, `IMPR-FEAT-003`, `IMPR-FEAT-004`, `IMPR-FEAT-005`, `IMPR-FEAT-014`, `IMPR-FEAT-015`, `IMPR-INV-001`; `T04`, `T38`, `T44`, `T45`, `T47`; GREEN guard `T51` |

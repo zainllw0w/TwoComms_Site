@@ -10,11 +10,11 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **Implement2 W1.6 полностью задеплоен и проверен; следующий открытый блок — W1.7 historical attachment hardening** |
-| Дата старта / обновления | 2026-08-10 (W1.6 structured controls, injection authority и duplicate protocol closed on production) |
+| Текущая фаза | **Implement2 W1.7 полностью задеплоен и проверен; следующий независимый блок — W2.0/W2.1 reliability gates** |
+| Дата старта / обновления | 2026-08-12 (W1.7 historical attachment ownership and media-phase hardening) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | Current runtime/code checkpoint — `130cd920` в `origin/main` и production; migration `management.0152` применена. Предыдущие Implement2 W1.6 code commits `05d2cef4`/`ec6febcc`/`0c536e0a`/`796028ba` являются его предками, а не альтернативными ветками. |
-| **Статус 105 IMP-задач** | **80 закрыты, 15 открыты, 10 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`)** |
+| База внедрения | Current runtime/code checkpoint — W1.7 follow-up commit в `origin/main` и production; migrations `management.0152`/`0153` применены. Предыдущие Implement2 W1.6 code commits `05d2cef4`/`ec6febcc`/`0c536e0a`/`796028ba` являются его предками, а не альтернативными ветками. |
+| **Статус 105 IMP-задач** | **81 закрыта, 14 открыты, 10 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; главный источник реальных переписок/товаров/сделок/оплат. Discovery — read-only; concurrency/destructive tests — только disposable MariaDB |
 | Локальная SQLite | **не источник business/data истины и не MariaDB acceptance**; только быстрый unit/regression слой, не проверяет locks, concurrent constraints, triggers и `varchar(max_length)`, см. F-TEST-003 |
@@ -51,12 +51,26 @@
 |---|---|
 | Открыто, W4B | — |
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
-| Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
+| Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
 | Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation; `IMP-082`/`IMP-083` имеют production graph/ranker и точный prompt price/size parity на `0ad694bc`; `IMP-084` имеет exact warehouse/catalog availability и proposal reservation wiring; `IMP-085` имеет bounded parser/runtime; `IMP-086` дополнительно защищает paid commitments и warehouse write-off в `a7857ada`; `IMP-087` создаёт durable selection/transition/decision state и reducer запускается до classifier/Gemini на production `bc4ec2d5`. `98bb160e` добавляет payment-gated repeat episode и чистую следующую commerce session; exchange/return остаются post-sale flow. Открыты candidate reply anchoring, burst reduction, relaxed alternatives, полный topology, manager review UI и отдельный disposable MariaDB race/constraint gate |
 | Частично, W9 | `IMP-088` (digest/proposal workspace foundation есть; freshness, review UI, audit/backfill, MariaDB/deploy proof остаются) |
-| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; `IMP-060`, `IMP-090`, `IMP-096` и baseline `IMP-093` не зависят от завершения полного commerce chain. F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
+| Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; `IMP-090`, `IMP-096` и baseline `IMP-093` не зависят от завершения полного commerce chain. F-PAY-010 внутри IMP-098 закрыта на `7440bb98`, F-CORE-003 — на `18ddc636`, остальные orphan-находки остаются открыты |
 | Открыто, W12 | — |
+
+## Implement2 W1.7 historical attachment hardening (2026-08-12)
+
+`214ae4b9` уже был reachable from current `origin/main` through merge
+`b9bab236`; follow-up W1.7 commit adds the missing historical-provenance guard
+in payment vision and a live download-failure telemetry regression. The focused
+gate is `162/162`; production migration `0153` is applied on MariaDB.
+
+Production read-only reconciliation: 2,522 Instagram messages (337 webhook),
+29 structured attachment rows, every persisted attachment is
+`historical_import`/`metadata_only`, no `live_webhook`/`owned` media and no
+`media_capture_eligible` rows. No post-migration live analysis exists, so the
+media telemetry contract is verified locally and the absence of live telemetry
+is retained as a limitation. `F-AI-018` remains under `IMP-044`.
 
 ## Implement2 W1.6 structured control closure (2026-08-10)
 

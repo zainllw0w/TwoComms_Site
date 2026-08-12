@@ -181,6 +181,11 @@ _HISTORICAL_MEDIA_PROVENANCE = "historical_import"
 _LIVE_MEDIA_PROVENANCE = "live_webhook"
 
 
+def _row_allows_live_media(item: dict | None) -> bool:
+    """Only explicit post-migration eligibility can promote raw bytes to live media."""
+    return bool(isinstance(item, dict) and item.get("media_capture_eligible") is True)
+
+
 def _historical_media(item: dict | None) -> bool:
     return bool(
         isinstance(item, dict)
@@ -452,7 +457,7 @@ def _augment_messages_with_raw_media(client, messages) -> list[dict]:
         mid = str(item.get("mid") or "").strip()
         for attachment in raw_by_mid.get(mid, []):
             attachment = dict(attachment)
-            if str(item.get("source") or "") == "webhook":
+            if _row_allows_live_media(item):
                 attachment["provenance"] = _LIVE_MEDIA_PROVENANCE
                 attachment["status"] = "pending"
             else:
@@ -510,7 +515,7 @@ def _augment_messages_with_raw_media(client, messages) -> list[dict]:
             target = min(candidates, key=lambda candidate: candidate[0])[1] if candidates else None
             if target is not None:
                 attachment = dict(attachment)
-                if str(target.get("source") or "") == "webhook":
+                if _row_allows_live_media(target):
                     attachment["provenance"] = _LIVE_MEDIA_PROVENANCE
                     attachment["status"] = "pending"
                 else:
@@ -599,6 +604,7 @@ def _resolve_payment_media_candidates(media: list[dict]) -> list[dict]:
         if (
             item.get("role") == "payment_candidate"
             and item.get("url")
+            and not _historical_media(item)
             and (_live_owned_media(item) or _safe_local_media_url(item))
         )
     ]
@@ -2055,6 +2061,7 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             "attachments": row.attachments,
             "attachment_media": row.attachment_media,
             "source": row.source,
+            "media_capture_eligible": bool(row.media_capture_eligible),
             "created_at": row.created_at.isoformat(),
         } for row in rows]
     elif episode_floor:

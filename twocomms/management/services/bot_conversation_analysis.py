@@ -730,6 +730,7 @@ def _conversation(
                 "attachments": row.attachments or "",
                 "attachment_media": row.attachment_media or [],
                 "source": row.source or "",
+                "media_capture_eligible": bool(row.media_capture_eligible),
                 "role": row.role,
                 "created_at": row.created_at,
             }

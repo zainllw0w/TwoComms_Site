@@ -757,6 +757,59 @@ class ConversationAnalysisJobTests(TestCase):
             for item in media_sources
         ))
 
+    @patch("management.services.instagram_bot.download_image", return_value=None)
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_live_media_download_failure_is_typed_before_provider(
+        self,
+        generate,
+        download,
+    ):
+        url = "https://lookaside.example/live-failed.jpg"
+        message = self.message(
+            "Ось фото",
+            source="webhook",
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+        message.media_capture_eligible = True
+        message.save(update_fields=["media_capture_eligible"])
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+
+        def provider_result(*_args, **_kwargs):
+            job = IgConversationAnalysisJob.objects.get(client=self.client)
+            self.assertEqual(job.media_phase, "failed")
+            self.assertEqual(job.media_error_kind, "download_failed")
+            self.assertEqual(job.media_item_count, 1)
+            self.assertIsNotNone(job.media_started_at)
+            self.assertIsNotNone(job.media_completed_at)
+            return {
+                "parsed": {
+                    "interaction_type": "product_interest",
+                    "score_band": "exploring",
+                    "purchase_probability": 0.4,
+                    "confidence": 0.7,
+                },
+                "model": "gemini-test",
+                "meta": {},
+            }
+
+        generate.side_effect = provider_result
+
+        self.assertEqual(
+            analysis.process_due_analysis(limit=1),
+            {"done": 1, "failed": 0, "skipped": 0, "superseded": 0},
+        )
+        download.assert_called_once_with(url)
+        generate.assert_called_once()
+
     def test_duplicate_schedule_keeps_revision_due_backoff_and_processing_token(self):
         message = self.message("Підкажіть розмір")
         now = timezone.now()
