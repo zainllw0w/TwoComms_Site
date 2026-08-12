@@ -369,6 +369,13 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 
 - [ ] **4.1** Add failing tests for exactly one rendered PDP editorial owner, deduplicated FAQ questions, and no service-only keyword sentence or hash-selected paraphrase used solely to change n-gram overlap.
 - [ ] **4.2** Create a versioned fact registry contract (owner, source field/URL, locale, effective date) for material, weight, print method, wash durability, fit, care, delivery threshold, founding date, donation and location.
+- [x] **4.2a** Remove unsupported standard-Product JSON-LD claims that had no
+  authoritative Product/variant owner: heuristic `material`, the duplicate
+  material `PropertyValue`, and unconditional `Offer.deliveryLeadTime`.
+  Preserve policy-owned return data, weight-based `shippingDetails`, price,
+  availability and all buyer-visible merchandising UI. This is intentionally
+  not a replacement material/weight/delivery claim and does not touch Custom
+  Print, DTF routes/blogs, product copy, feeds or inventory.
 - [ ] **4.3** Remove/merge the second generated block across both `services/product_seo_landing.py` and `services/product_seo_block.py`; keep only useful product-specific facts. Do not manufacture lexical variants for uniqueness and keep Custom Print out of the content rewrite.
 - [x] **4.3a** Remove the duplicate rendered `product_seo_block` owner from the standard PDP while retaining the existing `product_seo_landing` owner, FAQ, commerce content and interactive selectors. This is a narrow ownership fix; unsafe generated fallback claims remain open for the later 4.1-4.6 fact/content work.
 - [x] **4.3b** Disable the generated `product_seo_landing` long-form fallback when no reviewed `Product.seo_bottom_html` override exists. Preserve product query chips, category navigation and the admin override path; the fact-owned replacement remains a later 4.1-4.6 task.
@@ -384,6 +391,31 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 **Files:** `twocomms/storefront/views/product.py`; `seo_utils.py`; `services/product_seo_landing.py`; `services/product_seo_block.py`; `twocomms_django_theme/templates/pages/catalog.html`; PDP templates; FAQ models/services/tests; fact-registry docs/tests.
 
 #### Task 4.5 execution evidence (checkpoint prepared)
+
+#### Task 4.2a execution evidence (checkpoint prepared)
+
+- Code/test commit: `f654e0985e67bf442e26c785ce0a8e83b7f0f6ac`
+  (`fix(seo): omit unowned product schema claims`) removes only the schema
+  fields that were inferred without a Product/variant source. The existing
+  `services/fact_registry.py` remains the owner for the verified shipping
+  threshold; this slice does not select a new threshold or rewrite policy
+  text.
+- TDD/local proof: the new regression reproduced the old schema (`material`
+  derived from category/slug and `deliveryLeadTime=3–5`) and passed after the
+  fields were removed. The focused schema/variant suite passed `13/13`;
+  `manage.py check`, touched-file compilation and `git diff --check` passed.
+- Production proof: `f654e098` was pushed to `origin/main`, pulled on the
+  server and activated with `tmp/restart.txt`; production `manage.py check`
+  passed. UK/RU/EN standard PDP JSON-LD returned `200` and contained no
+  Product `material`, no material `additionalProperty`, and no Offer
+  `deliveryLeadTime`; policy-owned `hasMerchantReturnPolicy` and
+  `shippingDetails` remained present. The visible merchandising material
+  panel is a separate buyer-facing component and was intentionally unchanged.
+- Boundary and residual risk: no Custom Print or DTF subdomain/blog route,
+  product data, editorial copy, feed, cart or inventory was changed. The
+  broader fact registry and remaining persisted/generated unsupported copy
+  are still open under 4.2/4.6; no ranking, traffic or conversion uplift is
+  claimed.
 
 - Code/test commit: `bbf349a4` removes the unsupported `Жіноча футболка з принтом` curated query from the general catalog SEO rail. Product/category data has no owned gender/audience field, so the anchor was removed instead of creating a keyword-only promise. The `/custom-print/` route and its existing links were unchanged.
 - Cache correctness commit: `54f1f859` bumps the anonymous catalog cache namespace to `catalog-seo-v4-20260813`, preventing previously cached page-1 HTML from re-publishing the removed anchor after deploy.
