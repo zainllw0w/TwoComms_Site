@@ -896,7 +896,7 @@ protocol и hard-stage guard через `assemble_system_instruction()`. Fresh g
 | F-DATA-010 | 30 из 31 коммерческих эпизодов без сделки и без заказа | P1 | CONFIRMED | high |
 | F-DATA-011 | `image_download` 97 warning'ов: почти каждое фото клиента не скачивается | P1 | CONFIRMED | high |
 | F-DATA-012 | 3 из 6 Gemini-ключей залипли в `429:minute` со `day_date` двухдневной давности | P2 | CONFIRMED | high |
-| F-CORE-006 | *(понижено)* строк без `mid` всего 1, фактических дублей нет | ~~P1~~ **P2** | CONFIRMED | high |
+| F-CORE-006 | *(код закрывает новую ingress-границу; историческая data-проверка сохранена)* строк без `mid` всего 1, фактических дублей нет | ~~P1~~ **P2** | FIXED IN CODE / DEPLOYMENT PENDING | high |
 
 ---
 

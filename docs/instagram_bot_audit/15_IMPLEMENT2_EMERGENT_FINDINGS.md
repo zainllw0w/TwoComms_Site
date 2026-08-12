@@ -4,6 +4,23 @@
 > `14_IMPLEMENT2.md` / W2.0. This file retains discovery evidence only and must
 > not be used as a competing implementation queue.
 
+## W3 pre-deploy delivery findings (2026-08-13)
+
+The independent Wave 3 review found and the scoped slice now covers three
+fail-closed boundaries: mid-less ingress without a provider timestamp is
+rejected before permission/CRM side effects; opt-out staging uses the same
+synthetic key; and a `SENT` receipt must contain unique, nonblank string IDs no
+longer than the 255-character database contract. Indexed receipts without an
+ID are `UNKNOWN`/review rather than `PARTIAL`. These are release evidence for
+`IMP-087.A`, not closure of the remaining full `IMP-087` candidate/payment
+work.
+
+The MariaDB disposable run also exposed an existing test-harness limitation:
+generic Django `TestCase` flush conflicts with append-only durable commerce
+triggers. This is retained as an infrastructure follow-up; the Wave 3 proof
+uses a clean native MariaDB schema, direct race/smoke assertions, and explicit
+cleanup instead of weakening production triggers.
+
 ## F-DEPLOY-001 (P1, OPEN): wheelhouse install lock must contain built-wheel hashes
 
 **Discovered:** 2026-08-07 during independent Wave 0 Task 3/Task 4 gate review.

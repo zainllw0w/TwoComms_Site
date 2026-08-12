@@ -3869,6 +3869,9 @@ class InstagramBotMessage(models.Model):
     text = models.TextField(blank=True, default="")
     # mid унікальний лише для вхідних; вихідні (model) мають null.
     mid = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    synthetic_event_key = models.CharField(
+        max_length=64, null=True, blank=True, unique=True, db_index=True
+    )
     # `message_id`, який Meta повернула на наш Send API. Потрібен, щоб пізніше
     # впізнати власне echo: у медіа-echo тексту немає, і відпечаток по тексту
     # (`_bot_sent_key`) там не працює в принципі. Саме через це 02.08.2026

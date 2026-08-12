@@ -326,6 +326,7 @@ def apply_turn(
     *,
     expected_revision: int | None = None,
     reply_payload: dict | None = None,
+    reply_builder: Callable[..., dict] | None = None,
     effects_payload: dict | None = None,
     candidate_prompt: dict | None = None,
 ) -> IgCommerceTurnDecision:
@@ -511,6 +512,14 @@ def apply_turn(
 
     after["revision"] = current_revision + 1
     after["last_provider_message_id"] = event_id
+    if reply_payload is None and reply_builder is not None:
+        reply_payload = reply_builder(
+            request,
+            action=action,
+            reasons=tuple(reasons),
+            before=before,
+            after=after,
+        )
     transition = IgCommerceSelectionTransition.objects.create(
         session=session,
         source_message=source,
@@ -583,9 +592,20 @@ def _provider_ids(payload: dict) -> list[str]:
         for receipt in payload.get(key) or []:
             if isinstance(receipt, dict):
                 value = receipt.get("provider_message_id") or receipt.get("id")
-                if value:
-                    ids.append(str(value))
+                normalized = _normalize_provider_message_id(value)
+                if normalized:
+                    ids.append(normalized)
     return ids
+
+
+def _normalize_provider_message_id(value) -> str:
+    """Accept only a bounded, nonblank provider receipt identifier."""
+    if not isinstance(value, str):
+        return ""
+    normalized = value.strip()
+    if not normalized or len(normalized) > 255:
+        return ""
+    return normalized
 
 
 def _expected_parts(reply_payload: dict, key: str) -> int:
@@ -611,11 +631,33 @@ def _receipts_complete(decision: IgCommerceTurnDecision, result: dict) -> bool:
             for receipt in receipts
             if isinstance(receipt, dict)
             and str(receipt.get("index", "")).isdigit()
-            and (receipt.get("provider_message_id") or receipt.get("id"))
+            and _normalize_provider_message_id(
+                receipt.get("provider_message_id") or receipt.get("id")
+            )
         }
         if not set(range(count)).issubset(covered):
             return False
     return True
+
+
+def _receipts_have_invalid_ids(decision: IgCommerceTurnDecision, result: dict) -> bool:
+    expected = {
+        "text_receipts": _expected_parts(decision.reply_payload or {}, "text"),
+        "media_receipts": _expected_parts(decision.reply_payload or {}, "media"),
+    }
+    for key, count in expected.items():
+        if count == 0:
+            continue
+        for receipt in result.get(key) or []:
+            if not isinstance(receipt, dict):
+                continue
+            index = receipt.get("index")
+            if not str(index if index is not None else "").isdigit() or int(index) not in range(count):
+                continue
+            raw_id = receipt.get("provider_message_id") or receipt.get("id")
+            if not _normalize_provider_message_id(raw_id):
+                return True
+    return False
 
 
 def resume_turn_delivery(
@@ -635,6 +677,23 @@ def resume_turn_delivery(
         raise ValueError("resume_turn_delivery requires an injected transport")
     claimed = claim_decision_delivery(decision)
     if not getattr(claimed, "_delivery_claimed", False):
+        if claimed.delivery_required and claimed.delivery_state in {
+            IgCommerceTurnDecision.DeliveryState.SENDING,
+            IgCommerceTurnDecision.DeliveryState.UNKNOWN,
+            IgCommerceTurnDecision.DeliveryState.PARTIAL,
+        }:
+            with transaction.atomic():
+                locked = (
+                    IgCommerceTurnDecision.objects.select_for_update()
+                    .select_related("session")
+                    .get(pk=claimed.pk)
+                )
+                locked.reconciliation_status = (
+                    IgCommerceTurnDecision.ReconciliationStatus.REQUIRED
+                )
+                locked.save(update_fields=["reconciliation_status", "updated_at"])
+                _ensure_review(locked, f"delivery_{locked.delivery_state}")
+                return locked
         return claimed
     try:
         result = transport(claimed) or {}
@@ -654,24 +713,48 @@ def resume_turn_delivery(
             )
             _ensure_review(locked, "delivery_unknown")
             return locked
-    state = str(result.get("state") or "sent").lower()
+    if not isinstance(result, Mapping):
+        result = {
+            "state": IgCommerceTurnDecision.DeliveryState.UNKNOWN,
+            "error": "invalid_transport_result",
+        }
+    state = str(result.get("state") or "").strip().lower()
     if state not in {
         IgCommerceTurnDecision.DeliveryState.SENT,
         IgCommerceTurnDecision.DeliveryState.PARTIAL,
         IgCommerceTurnDecision.DeliveryState.UNKNOWN,
     }:
-        state = IgCommerceTurnDecision.DeliveryState.SENT
+        state = IgCommerceTurnDecision.DeliveryState.UNKNOWN
+        result = dict(result)
+        result.setdefault("error", "invalid_delivery_state")
     if (
         state == IgCommerceTurnDecision.DeliveryState.SENT
         and not _receipts_complete(claimed, result)
     ):
-        state = IgCommerceTurnDecision.DeliveryState.PARTIAL
+        state = (
+            IgCommerceTurnDecision.DeliveryState.UNKNOWN
+            if _receipts_have_invalid_ids(claimed, result)
+            else IgCommerceTurnDecision.DeliveryState.PARTIAL
+        )
+    if state == IgCommerceTurnDecision.DeliveryState.SENT:
+        expected_receipts = _expected_parts(claimed.reply_payload or {}, "text") + _expected_parts(
+            claimed.reply_payload or {}, "media"
+        )
+        provider_ids = _provider_ids(result)
+        if (
+            len(provider_ids) != expected_receipts
+            or len(set(provider_ids)) != expected_receipts
+        ):
+            state = IgCommerceTurnDecision.DeliveryState.UNKNOWN
+            result = dict(result)
+            result.setdefault("error", "invalid_provider_message_id")
     with transaction.atomic():
         locked = IgCommerceTurnDecision.objects.select_for_update().get(pk=claimed.pk)
         locked.delivery_state = state
         locked.text_receipts = result.get("text_receipts") or []
         locked.media_receipts = result.get("media_receipts") or []
         locked.provider_message_ids = _provider_ids(result)
+        locked.delivery_error = str(result.get("error") or "")[:1000]
         locked.delivered_at = (
             timezone.now()
             if state == IgCommerceTurnDecision.DeliveryState.SENT
@@ -688,6 +771,7 @@ def resume_turn_delivery(
                 "text_receipts",
                 "media_receipts",
                 "provider_message_ids",
+                "delivery_error",
                 "delivered_at",
                 "reconciliation_status",
                 "updated_at",

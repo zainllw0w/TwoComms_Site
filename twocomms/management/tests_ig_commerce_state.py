@@ -44,7 +44,7 @@ class CommerceStateFixture:
         super().setUp()
         self.category = Category.objects.create(
             name="Commerce state",
-            slug=f"commerce-state-{self._testMethodName}",
+            slug=f"igco-state-{self._testMethodName}"[:45],
         )
         self.classic = self.product("Classic", "classic")
         self.reality = self.product("Reality Bends", "reality")
@@ -56,7 +56,7 @@ class CommerceStateFixture:
     def product(self, title, suffix):
         return Product.objects.create(
             title=title,
-            slug=f"{suffix}-{self._testMethodName}"[:255],
+            slug=f"{suffix}-{self._testMethodName}"[:45],
             category=self.category,
             price=790,
             status=ProductStatus.PUBLISHED,
@@ -314,15 +314,7 @@ class CommerceWorkerIntegrationTests(CommerceStateFixture, TestCase):
             status=InstagramBotMessage.Status.PROCESSING,
             processing_started_at=timezone.now(),
         )
-        seen = {}
-
-        def generate_reply(*_args, **_kwargs):
-            session = authoritative_session_for(self.client)
-            seen["product_id"] = session.lines[0]["product_id"]
-            seen["decision_count"] = IgCommerceTurnDecision.objects.filter(
-                source_message=row
-            ).count()
-            return "Підкажу деталі."
+        from management.services.instagram_bot import ProviderDeliveryReceipt
 
         with patch(
             "management.services.bot_sales_classifier.ensure_rule_classification",
@@ -333,16 +325,19 @@ class CommerceWorkerIntegrationTests(CommerceStateFixture, TestCase):
             "management.services.instagram_bot._repeated_question", return_value=0
         ), patch("management.services.instagram_bot.send_sender_action"), patch(
             "management.services.instagram_bot.gemini_generate",
-            side_effect=generate_reply,
+            side_effect=AssertionError("durable commerce reply must skip Gemini"),
         ), patch(
             "management.services.instagram_bot.send_text",
-            return_value=(True, "", "provider-commerce-exact"),
+            return_value=ProviderDeliveryReceipt(
+                True, "", "", "provider-commerce-exact"
+            ),
         ):
             self.assertTrue(instagram_bot._process_one(settings, row))
 
         decision = IgCommerceTurnDecision.objects.get(source_message=row)
         self.assertTrue(decision.accepted)
-        self.assertEqual(seen, {"product_id": self.classic.pk, "decision_count": 1})
+        self.assertEqual(decision.delivery_state, IgCommerceTurnDecision.DeliveryState.SENT)
+        self.assertEqual(decision.session.lines[0]["product_id"], self.classic.pk)
         self.client.refresh_from_db()
         self.assertEqual(self.client.current_product_id, self.classic.pk)
 

@@ -2382,16 +2382,22 @@ def _stage_permission_message(
     source: str,
     attachments: str = "",
     provider_created_at=None,
+    synthetic_event_key: str = "",
     reply_to_provider_message_id: str = "",
     quick_reply_payload: str = "",
 ) -> tuple[InstagramBotMessage | None, bool]:
     """Persist a permission-changing message without locking its client FK."""
+    existing = None
     if mid:
         existing = InstagramBotMessage.objects.filter(mid=mid).first()
-        if existing is not None:
-            if existing.sender_id != sender_id or existing.role != role:
-                return None, False
-            return existing, False
+    elif synthetic_event_key:
+        existing = InstagramBotMessage.objects.filter(
+            synthetic_event_key=synthetic_event_key
+        ).first()
+    if existing is not None:
+        if existing.sender_id != sender_id or existing.role != role:
+            return None, False
+        return existing, False
     try:
         with transaction.atomic():
             return InstagramBotMessage.objects.create(
@@ -2400,6 +2406,7 @@ def _stage_permission_message(
                 role=role,
                 text=text,
                 mid=mid or None,
+                synthetic_event_key=synthetic_event_key or None,
                 status=InstagramBotMessage.Status.DONE,
                 source=source,
                 attachments=attachments,
@@ -2414,7 +2421,15 @@ def _stage_permission_message(
                 processed_at=timezone.now(),
             ), True
     except IntegrityError:
-        existing = InstagramBotMessage.objects.filter(mid=mid).first() if mid else None
+        existing = (
+            InstagramBotMessage.objects.filter(mid=mid).first()
+            if mid
+            else InstagramBotMessage.objects.filter(
+                synthetic_event_key=synthetic_event_key
+            ).first()
+            if synthetic_event_key
+            else None
+        )
         if (
             existing is None
             or existing.sender_id != sender_id
@@ -6663,10 +6678,206 @@ def _persist_commerce_turn(row: InstagramBotMessage, *, media_evidence=None):
     if not row.client_id:
         return None, None
     from management.services.ig_commerce_state import apply_turn
+    from management.services.ig_commerce_replies import build_durable_reply_payload
     from management.services.ig_commerce_turns import understand_turn
 
     request = understand_turn(row.text, media_evidence=media_evidence)
-    return request, apply_turn(row.client, row, request)
+    return request, apply_turn(
+        row.client,
+        row,
+        request,
+        reply_builder=build_durable_reply_payload,
+    )
+
+
+def _durable_commerce_text(decision) -> str:
+    """Return the only customer-safe text shape supported by this bridge."""
+    payload = dict(decision.reply_payload or {})
+    texts = payload.get("text")
+    if (
+        not isinstance(texts, list)
+        or len(texts) != 1
+        or payload.get("media")
+        or not isinstance(texts[0], str)
+    ):
+        return ""
+    return texts[0].strip()
+
+
+def _mark_durable_commerce_unknown(row: InstagramBotMessage, decision) -> bool:
+    """Close this inbound turn after a non-replayable commerce boundary."""
+    processed_at = timezone.now()
+    if _own_processing_claim(row).update(
+        status=InstagramBotMessage.Status.FAILED,
+        send_state="unknown",
+        processed_at=processed_at,
+    ):
+        row.status = InstagramBotMessage.Status.FAILED
+        row.send_state = "unknown"
+        row.processed_at = processed_at
+        log(
+            "error",
+            "commerce_delivery_unknown",
+            f"{row.sender_id}: decision={decision.pk}; automatic retry disabled",
+        )
+    return False
+
+
+def _finalize_durable_commerce_delivery(
+    s: InstagramBotSettings,
+    row: InstagramBotMessage,
+    decision,
+) -> bool:
+    """Persist one confirmed history row without running generic reply effects."""
+    text = _durable_commerce_text(decision)
+    provider_message_id = str((decision.provider_message_ids or [""])[0] or "")
+    if not text or not provider_message_id:
+        return _mark_durable_commerce_unknown(row, decision)
+
+    processed_at = timezone.now()
+    with transaction.atomic():
+        locked_client = None
+        if row.client_id:
+            locked_client = IgClient.objects.select_for_update().get(pk=row.client_id)
+        source = InstagramBotMessage.objects.select_for_update().get(pk=row.pk)
+        reply_message = (
+            InstagramBotMessage.objects.select_for_update()
+            .filter(
+                sender_id=source.sender_id,
+                client_id=source.client_id,
+                role=InstagramBotMessage.Role.MODEL,
+                provider_message_id=provider_message_id,
+            )
+            .first()
+        )
+        created = reply_message is None
+        if created:
+            reply_message = InstagramBotMessage.objects.create(
+                sender_id=source.sender_id,
+                client_id=source.client_id,
+                role=InstagramBotMessage.Role.MODEL,
+                text=text,
+                status=InstagramBotMessage.Status.DONE,
+                source=source.source,
+                provider_message_id=provider_message_id[:255],
+                processed_at=processed_at,
+            )
+        if (
+            source.status != InstagramBotMessage.Status.DONE
+            or source.send_state != "sent"
+            or not source.send_completed_at
+        ):
+            source.status = InstagramBotMessage.Status.DONE
+            source.send_state = "sent"
+            source.send_completed_at = processed_at
+            source.processed_at = processed_at
+            source.save(
+                update_fields=[
+                    "status",
+                    "send_state",
+                    "send_completed_at",
+                    "processed_at",
+                ]
+            )
+        if created and locked_client is not None:
+            locked_client.last_bot_reply_at = processed_at
+            locked_client.save(update_fields=["last_bot_reply_at", "updated_at"])
+        if created:
+            InstagramBotSettings.objects.filter(pk=s.pk).update(
+                replies_count=F("replies_count") + 1,
+                last_reply_at=processed_at,
+            )
+
+    row.status = InstagramBotMessage.Status.DONE
+    row.send_state = "sent"
+    row.send_completed_at = processed_at
+    row.processed_at = processed_at
+    log("success", "commerce_reply_sent", f"{row.sender_id}: decision={decision.pk}")
+    return True
+
+
+def _deliver_durable_commerce_reply(
+    s: InstagramBotSettings,
+    row: InstagramBotMessage,
+    decision,
+    *,
+    lease_token: str,
+    permission,
+) -> bool:
+    """Send the stored one-part commerce outbox before the Gemini path.
+
+    This intentionally accepts a loss of automatic retry after any ambiguous
+    transport result. The immutable decision and manager review are the recovery
+    mechanism; a second customer message is never an automatic remedy.
+    """
+    from management.services.ig_commerce_state import resume_turn_delivery
+    from management.services.ig_reply_boundary import customer_send_boundary
+
+    def transport(stored_decision):
+        text = _durable_commerce_text(stored_decision)
+        if not text:
+            return {
+                "state": "unknown",
+                "error": "unsupported_durable_commerce_payload",
+            }
+        if not _renew_client_automation_lease(row, lease_token):
+            return {
+                "state": "unknown",
+                "error": "automation_lease_lost_before_commerce_send",
+            }
+        send_started_at = timezone.now()
+        if not _own_processing_claim(row).update(
+            send_state="sending",
+            send_started_at=send_started_at,
+            send_completed_at=None,
+        ):
+            return {
+                "state": "unknown",
+                "error": "inbound_claim_lost_before_commerce_send",
+            }
+        row.send_state = "sending"
+        row.send_started_at = send_started_at
+        row.send_completed_at = None
+        receipt = send_text(
+            s,
+            row.sender_id,
+            text,
+            permission_boundary_factory=lambda: customer_send_boundary(
+                s.pk,
+                row.client_id,
+                permission,
+            ),
+            return_receipt=True,
+        )
+        (
+            ok,
+            _kind,
+            hint,
+            provider_message_id,
+            receipt_present,
+            provider_message_ids,
+        ) = _delivery_receipt(receipt)
+        provider_message_id = str(provider_message_id or "").strip()
+        if not provider_message_id and len(provider_message_ids) == 1:
+            provider_message_id = str(provider_message_ids[0] or "").strip()
+        if ok and receipt_present and provider_message_id:
+            return {
+                "state": "sent",
+                "text_receipts": [
+                    {"index": 0, "provider_message_id": provider_message_id}
+                ],
+            }
+        error = hint or (
+            "provider_message_id_missing" if ok else "commerce_delivery_not_confirmed"
+        )
+        return {"state": "unknown", "error": error}
+
+    delivered = resume_turn_delivery(row, transport=transport)
+    if delivered is None:
+        return False
+    if delivered.delivery_state == delivered.DeliveryState.SENT:
+        return _finalize_durable_commerce_delivery(s, row, delivered)
+    return _mark_durable_commerce_unknown(row, delivered)
 
 
 def _commerce_request_blocks_media_pin(request) -> bool:
@@ -7038,6 +7249,25 @@ def _attachment_media_metadata(
         if len(result) >= limit:
             break
     return result
+
+
+def _synthetic_inbound_event_key(
+    *, sender_id: str, text: str, attachments: list[str], received_at
+) -> str:
+    """Build a stable identity only for provider events that lack Meta ``mid``."""
+    if not received_at:
+        return ""
+    timestamp = received_at.isoformat()
+    normalized_text = " ".join(str(text or "").split()).casefold()
+    stable_attachments = tuple(
+        sorted({url for url in _attachment_urls(json.dumps(attachments or []))})
+    )
+    if not normalized_text and not stable_attachments:
+        return ""
+    material = "\x1f".join(
+        (str(sender_id or "").strip(), timestamp, normalized_text, *stable_attachments)
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def _media_is_historical(item: dict | None) -> bool:
@@ -8000,6 +8230,15 @@ def enqueue_inbound(
         return False
     if not text and not attachments:
         return False  # ні тексту, ні зображення
+    synthetic_event_key = _synthetic_inbound_event_key(
+        sender_id=sender_id,
+        text=text,
+        attachments=attachments,
+        received_at=received_at,
+    ) if not mid else ""
+    if not mid and not synthetic_event_key:
+        log("warning", "missing_inbound_identity", f"[{source}] provider timestamp required")
+        return False
     if sender_id == s.ig_user_id:
         return False
     if not _is_allowed(s, sender_id):
@@ -8035,7 +8274,9 @@ def enqueue_inbound(
     existing_source = (
         InstagramBotMessage.objects.filter(mid=mid).first()
         if mid
-        else None
+        else InstagramBotMessage.objects.filter(
+            synthetic_event_key=synthetic_event_key
+        ).first()
     )
     provider_event_at = received_at or (
         existing_source.provider_created_at if existing_source is not None else None
@@ -8058,6 +8299,7 @@ def enqueue_inbound(
             source=source,
             attachments=json.dumps(attachments) if attachments else "",
             provider_created_at=received_at,
+            synthetic_event_key=synthetic_event_key,
             reply_to_provider_message_id=reply_to_provider_message_id,
             quick_reply_payload=quick_reply_payload,
         )
@@ -8157,6 +8399,7 @@ def enqueue_inbound(
                             role=InstagramBotMessage.Role.USER,
                             text=text or "(зображення)",
                             mid=mid or None,
+                            synthetic_event_key=synthetic_event_key or None,
                             status=(
                                 InstagramBotMessage.Status.PENDING
                                 if reply_eligible
@@ -8178,7 +8421,9 @@ def enqueue_inbound(
                     existing = (
                         InstagramBotMessage.objects.select_for_update().filter(mid=mid).first()
                         if mid
-                        else None
+                        else InstagramBotMessage.objects.select_for_update().filter(
+                            synthetic_event_key=synthetic_event_key
+                        ).first()
                     )
                     if existing is None:
                         raise
@@ -8493,7 +8738,9 @@ def reclaim_stale_processing(max_age_seconds: int = STALE_PROCESSING_SECONDS) ->
         ).order_by("id")[:50]
     )
     requeued = 0
+    bot_settings = None
     for row in stale:
+        confirmed_commerce_decision_id = None
         # Короткі locks тільки для рішення. Gemini/Meta I/O тут немає.
         # Порядок lock-ів збігається з Hide та lease: спершу клієнт, потім row.
         with transaction.atomic():
@@ -8510,7 +8757,48 @@ def reclaim_stale_processing(max_age_seconds: int = STALE_PROCESSING_SECONDS) ->
             ).first()
             if not locked:
                 continue
-            if locked.send_state in {"sending", "sent", "unknown"}:
+            from management.ig_bot_models import IgCommerceTurnDecision
+
+            confirmed_commerce_decision = (
+                IgCommerceTurnDecision.objects.select_for_update()
+                .filter(
+                    source_message_id=locked.pk,
+                    delivery_required=True,
+                    delivery_state=IgCommerceTurnDecision.DeliveryState.SENT,
+                )
+                .first()
+            )
+            if confirmed_commerce_decision is not None:
+                # Meta receipt is durable truth. Leave the row non-claimable and
+                # finish local acknowledgement outside this short lock scope.
+                locked.send_state = "sent"
+                locked.send_completed_at = (
+                    confirmed_commerce_decision.delivered_at or timezone.now()
+                )
+                locked.save(update_fields=["send_state", "send_completed_at"])
+                confirmed_commerce_decision_id = confirmed_commerce_decision.pk
+            elif locked.send_state in {"sending", "sent", "unknown"}:
+                ambiguous_commerce_decision = (
+                    IgCommerceTurnDecision.objects.select_for_update()
+                    .filter(
+                        source_message_id=locked.pk,
+                        delivery_required=True,
+                    )
+                    .first()
+                )
+                if ambiguous_commerce_decision is not None:
+                    ambiguous_commerce_decision.reconciliation_status = (
+                        IgCommerceTurnDecision.ReconciliationStatus.REQUIRED
+                    )
+                    ambiguous_commerce_decision.save(
+                        update_fields=["reconciliation_status", "updated_at"]
+                    )
+                    from management.services.ig_commerce_state import _ensure_review
+
+                    _ensure_review(
+                        ambiguous_commerce_decision,
+                        f"delivery_{ambiguous_commerce_decision.delivery_state}",
+                    )
                 locked.status = InstagramBotMessage.Status.FAILED
                 locked.send_state = "unknown"
                 locked.processed_at = timezone.now()
@@ -8521,17 +8809,37 @@ def reclaim_stale_processing(max_age_seconds: int = STALE_PROCESSING_SECONDS) ->
                     f"{locked.sender_id}: stale row crossed Meta send boundary; automatic retry disabled",
                 )
                 continue
-            if locked.attempts >= MAX_ATTEMPTS:
-                locked.status = InstagramBotMessage.Status.FAILED
-                locked.processed_at = timezone.now()
-                locked.save(update_fields=["status", "processed_at"])
-                log("error", "stale_failed", f"{locked.sender_id}: завис у processing, спроби вичерпано")
-            else:
-                locked.status = InstagramBotMessage.Status.PENDING
-                locked.processing_started_at = None
-                locked.save(update_fields=["status", "processing_started_at"])
-                log("warning", "stale_requeue", f"{locked.sender_id}: завис у processing → повертаю в чергу")
-                requeued += 1
+            if confirmed_commerce_decision_id is None:
+                if locked.attempts >= MAX_ATTEMPTS:
+                    locked.status = InstagramBotMessage.Status.FAILED
+                    locked.processed_at = timezone.now()
+                    locked.save(update_fields=["status", "processed_at"])
+                    log("error", "stale_failed", f"{locked.sender_id}: завис у processing, спроби вичерпано")
+                else:
+                    locked.status = InstagramBotMessage.Status.PENDING
+                    locked.processing_started_at = None
+                    locked.save(update_fields=["status", "processing_started_at"])
+                    log("warning", "stale_requeue", f"{locked.sender_id}: завис у processing → повертаю в чергу")
+                    requeued += 1
+        if confirmed_commerce_decision_id is not None:
+            try:
+                if bot_settings is None:
+                    bot_settings = InstagramBotSettings.load()
+                confirmed_row = InstagramBotMessage.objects.select_related("client").get(
+                    pk=row.pk
+                )
+                confirmed_decision = IgCommerceTurnDecision.objects.get(
+                    pk=confirmed_commerce_decision_id
+                )
+                _finalize_durable_commerce_delivery(
+                    bot_settings,
+                    confirmed_row,
+                    confirmed_decision,
+                )
+            except Exception as exc:
+                # Keep PROCESSING + sent so the next stale-reclaim pass retries
+                # local acknowledgement without crossing Meta again.
+                log("error", "commerce_delivery_finalize_recovery", repr(exc))
     return requeued
 
 
@@ -8831,6 +9139,17 @@ def _process_one_inside_reply_boundary(
                 raise
             except Exception as exc:
                 log("warning", "commerce_turn_reduce", repr(exc))
+        if commerce_decision is not None and commerce_decision.delivery_required:
+            # The reducer has already persisted this exact reply payload. Deliver it
+            # before classification or follow-up scheduling can create side effects
+            # for the same safe informational turn.
+            return _deliver_durable_commerce_reply(
+                s,
+                row,
+                commerce_decision,
+                lease_token=lease_token,
+                permission=permission,
+            )
         try:
             from management.services import bot_followups, bot_sales_classifier
 

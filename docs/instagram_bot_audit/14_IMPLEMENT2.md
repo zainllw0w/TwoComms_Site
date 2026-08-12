@@ -590,7 +590,7 @@ contract and GREEN `T48` send-boundary regressions. This narrow slice does
 **not** wait for unrelated `IMP-044`, `G-EPOCH`, all remaining Wave 2 work or
 full commerce completion because it emits no price/stock/payment promise.
 
-- [ ] Port/rebase the five WIP files through review, not file overwrite.
+- [ ] Port/rebase the five WIP files through review, not file overwrite. **Pre-deploy evidence (2026-08-13):** selectively integrated on current `origin/main` `909b66f6`; scoped diff only, with no SEO or unrelated WIP files. Fresh focused gate `142/142 OK`; `makemigrations --check --dry-run` reports `No changes detected`; `compileall` and `git diff --check` are clean. Independent review found and closed receipt-ID validation and mid-less ingress fail-closed gaps before release.
 - [ ] Pure builder may emit only one short text for accepted trusted product
   reference, explicit clarification or stale numeric candidate rejection.
 - [ ] No price, availability, payment URL, discount, reservation or manager
@@ -600,6 +600,19 @@ full commerce completion because it emits no price/stock/payment promise.
 - [ ] Replay and stale reclaim make zero duplicate provider sends.
 - [ ] Confirmed delivery writes exactly one local MODEL row and bypasses the
   generic Gemini path; non-handled turns continue existing behavior.
+
+**MariaDB 11.4 pre-deploy proof (disposable only, 2026-08-13):** native
+`11.4.12-MariaDB` ran on loopback port `33329` with schema
+`test_twocomms_ig_w3` and a dedicated non-production user. The full migration
+graph applied through `management.0154_synthetic_inbound_event_key`; the new
+`synthetic_event_key` unique column and existing durable/append-only triggers
+were confirmed by `SHOW CREATE TABLE`/`SHOW TRIGGERS`. A two-connection ingress
+race produced exactly one inbound row (`outcomes=[False, True]`, one SHA-256
+key). A malformed receipt smoke produced `UNKNOWN`, one reconciliation review,
+and no replay (`calls=[1]`). Django `TestCase` on MariaDB is intentionally not
+used as acceptance because existing append-only triggers reject generic flush;
+the standalone proof uses a clean disposable schema and never targets
+production.
 
 **Focused command:**
 
