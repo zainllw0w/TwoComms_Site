@@ -852,11 +852,11 @@
   #mini-cart-panel-mobile .mini-cart-shell__header .cart-title { gap: 3px; }
   #mini-cart-panel-mobile .mini-cart-shell__header .cart-title strong { font-size: 17px; line-height: 1.05; }
   #mini-cart-panel-mobile .mini-cart-shell__header .cart-title small { font-size: 10px; line-height: 1.08; }
-  #mini-cart-panel-mobile .mini-cart-shell__header .close-btn { width: 28px; height: 28px; min-width: 28px; min-height: 28px; justify-self: end; border-width: 1px !important; border-radius: 7px !important; }
-  #mini-cart-panel-mobile .mini-cart-shell__header .close-btn svg { width: 15px; height: 15px; }
+  #mini-cart-panel-mobile .mini-cart-shell__header .close-btn { width: 28px; height: 28px; min-width: 28px; min-height: 28px; justify-self: end; border-width: 1px !important; border-radius: 7px !important; padding: 0; line-height: 0; }
+  #mini-cart-panel-mobile .mini-cart-shell__header .close-btn svg { display: block; width: 15px; height: 15px; margin: 0; }
   #mini-cart-panel-mobile .mini-cart-list { padding: 0 10px 5px; }
   #mini-cart-panel-mobile .mini-cart-shipping,
-  #mini-cart-panel-mobile .mini-cart-shipping:has(.mini-cart-shipping__success) { min-height: 98px !important; height: 98px; margin-bottom: 8px; padding: 6px 10px 7px; grid-template-columns: 34px minmax(0,1fr) auto; grid-template-rows: minmax(0,1fr) 9px; column-gap: 8px; border-radius: 13px; }
+  #mini-cart-panel-mobile .mini-cart-shipping:has(.mini-cart-shipping__success) { min-height: 98px !important; height: 98px; margin-bottom: 8px; padding: 7px 10px 7px; grid-template-columns: 34px minmax(0,1fr) auto; grid-template-rows: auto 9px; align-content: start; row-gap: 7px; column-gap: 8px; border-radius: 13px; }
   #mini-cart-panel-mobile .mini-cart-shipping__icon { align-self: center; padding-top: 0; }
   #mini-cart-panel-mobile .mini-cart-shipping__icon svg { display: block; width: 30px; height: 23px; margin: auto; }
   #mini-cart-panel-mobile .mini-cart-shipping__copy { grid-column: 2; grid-row: 1; gap: 2px; }
