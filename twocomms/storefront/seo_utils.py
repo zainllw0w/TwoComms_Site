@@ -1088,17 +1088,21 @@ class StructuredDataGenerator:
 
         if len(audience_codes) == 1:
             gender_by_code = {
-                "men": ("male", "https://schema.org/Male"),
-                "women": ("female", "https://schema.org/Female"),
-                "unisex": ("unisex", "https://schema.org/Unisex"),
+                # Google Merchant's PeopleAudience contract accepts the
+                # enum labels themselves. Schema.org URLs are valid links in
+                # some contexts, but Search Console rejects them here as an
+                # invalid suggestedGender enum value.
+                "men": "Male",
+                "women": "Female",
+                "unisex": "Unisex",
             }
-            gender = gender_by_code.get(audience_codes[0])
-            if gender:
-                schema["audience"]["suggestedGender"] = gender[1]
+            suggested_gender = gender_by_code.get(audience_codes[0])
+            if suggested_gender:
+                schema["audience"]["suggestedGender"] = suggested_gender
                 schema["additionalProperty"].append({
                     "@type": "PropertyValue",
                     "name": "gender",
-                    "value": gender[0],
+                    "value": suggested_gender.lower(),
                 })
 
         if collection_labels:
@@ -1116,7 +1120,20 @@ class StructuredDataGenerator:
 
         # Добавляем категорию
         if product.category:
-            schema["category"] = product.category.name
+            # Keep the localized label for Schema.org consumers and add the
+            # stable Google taxonomy code so parsers never have to infer a
+            # category from translated text.
+            schema["category"] = [
+                product.category.name,
+                {
+                    "@type": "CategoryCode",
+                    "inCodeSet": (
+                        "https://www.google.com/basepages/producttype/"
+                        "taxonomy-with-ids.en-US.txt"
+                    ),
+                    "codeValue": "1604",
+                },
+            ]
             schema["additionalProperty"].append({
                 "@type": "PropertyValue",
                 "name": "google_product_category",
@@ -1164,18 +1181,11 @@ class StructuredDataGenerator:
                 "value": ", ".join(resolved_sizes)
             })
 
-        # Добавляем скидку если есть
-        if product.has_discount:
-            schema["offers"]["priceSpecification"] = {
-                "@type": "CompoundPriceSpecification",
-                "price": str(product.final_price),
-                "priceCurrency": "UAH",
-                "referenceQuantity": {
-                    "@type": "QuantitativeValue",
-                    "value": 1,
-                    "unitCode": "C62"
-                }
-            }
+        # Do not emit a nested sale-price specification without a persisted
+        # sale period. Product currently stores only discount_percent, so
+        # there is no truthful validFrom/validThrough value to publish. The
+        # current Offer price and priceValidUntil remain sufficient for the
+        # standard Product rich result.
 
         # SEO molecular-upgrade US-8 finishing (2026-05-16) — variant
         # URLs declare ``isVariantOf`` ref on the base product node so

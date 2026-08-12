@@ -299,6 +299,23 @@ class ProductPageSeoRegressionTests(TestCase):
         schema_json = get_product_schema(self.product)
         self.assertNotIn("MadeToOrder", schema_json)
 
+    def test_discounted_offer_does_not_emit_undated_sale_price_specification(self):
+        """A discount without a persisted sale-start date must not claim one.
+
+        Google treats ``priceSpecification`` as a sale-price period when it
+        is present and then expects ``validFrom``. Product only stores the
+        discount percentage, so omitting that optional nested specification
+        is more truthful than deriving a date from an unrelated timestamp.
+        """
+        self.product.discount_percent = 20
+        self.product.save(update_fields=["discount_percent"])
+
+        schema = json.loads(get_product_schema(self.product))
+
+        self.assertNotIn("priceSpecification", schema["offers"])
+        self.assertNotIn("validFrom", schema["offers"])
+        self.assertIn("priceValidUntil", schema["offers"])
+
 
 class ProductGroupSchemaTests(TestCase):
     """SEO 2026-06-04 (GSC ProductGroup) — the ProductGroup node must carry

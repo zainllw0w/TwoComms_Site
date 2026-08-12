@@ -173,6 +173,26 @@ class ProductMerchandisingContextTests(TestCase):
         self.assertEqual(properties["Аудиторія"], "Унісекс, Жіночий")
         self.assertNotIn("suggestedGender", schema.get("audience", {}))
 
+    def test_product_schema_uses_google_people_audience_enum_and_category_code(self):
+        ProductAudience.objects.filter(product=self.product, tag=self.women).delete()
+
+        schema = StructuredDataGenerator.generate_product_schema(self.product)
+
+        self.assertEqual(schema["audience"]["suggestedGender"], "Unisex")
+        self.assertNotIn("https://schema.org/", schema["audience"]["suggestedGender"])
+        self.assertIsInstance(schema["category"], list)
+        self.assertIn("Футболки", schema["category"])
+        category_codes = [
+            value for value in schema["category"]
+            if isinstance(value, dict) and value.get("@type") == "CategoryCode"
+        ]
+        self.assertEqual(len(category_codes), 1)
+        self.assertEqual(category_codes[0]["codeValue"], "1604")
+        self.assertEqual(
+            category_codes[0]["inCodeSet"],
+            "https://www.google.com/basepages/producttype/taxonomy-with-ids.en-US.txt",
+        )
+
     def test_pdp_renders_context_after_price_and_exposes_analytics_codes(self):
         color = Color.objects.create(name="thermo black", primary_hex="#111111")
         variant = ProductColorVariant.objects.create(
