@@ -306,6 +306,34 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   or checkout behavior was changed. No ranking, traffic, citation or
   conversion uplift is claimed.
 
+- [x] **P0.5** Align the dormant legacy `product_seo_block` generator with
+  the checkout-owned free-shipping fact. The standard PDP does not render this
+  block, but template-tag and audit tooling can still invoke it; leaving the
+  old `2500` threshold in that path would reintroduce a stale public claim if
+  the owner is ever re-enabled. The fix replaces only that legacy block's
+  shipping paragraphs/FAQ values and adds a regression for the absence of the
+  stale value. No generated copy is re-enabled and no product facts are
+  invented.
+
+#### P0.5 release evidence
+
+- Code/test commit: `8a7a8091` (`fix(seo): align dormant product block
+  shipping fact`) updates `services/product_seo_block.py` to use
+  `fact_registry.free_shipping_threshold()` and adds the focused regression in
+  `tests/test_fact_registry_seo.py`. The unrelated user change in
+  `storefront/seo_utils.py` was intentionally excluded.
+- Local gates: `storefront.tests.test_fact_registry_seo` passed `6/6`;
+  touched-file `py_compile` and `git diff --check` passed.
+- Production: `origin/main`, server `HEAD` and the deployed restart checkpoint
+  are `8a7a8091`. A server-side invocation of the dormant builder for
+  `classic-tshirt` returned `2500=False` and `3000=True`. The live standard PDP
+  returned `200` and contained no legacy SEO block; the only remaining `2500`
+  strings in its HTML were JavaScript timer values, not shipping copy.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, product data, inventory, or standard PDP
+  rendering was changed. No ranking, traffic, citation or conversion uplift
+  is claimed.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
