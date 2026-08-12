@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import translation
 
@@ -21,7 +21,7 @@ from product_catalog.models import ImageOptimizationJob
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from reviews.models import Review, ReviewStatus
 from storefront.models import Category, Product, ProductFAQ, ProductFitOption, ProductImage
-from storefront.views.product import _dedupe_product_faq_items
+from storefront.views.product import _dedupe_product_faq_items, get_product_variants
 
 PNG_PIXEL = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -300,6 +300,50 @@ class ProductDetailTests(ProductViewTestCase):
                 with self.subTest(language=language), translation.override(language):
                     response = self.client.get(
                         f"/{language}/product/{self.product.slug}/"
+                    )
+
+                self.assertEqual(response.status_code, 200)
+                alt = response.context["color_variants"][0]["images"][0]["alt"]
+                self.assertIn(expected_title, alt)
+                self.assertIn(expected_color, alt)
+                self.assertNotIn("український alt", alt)
+
+                parser = _ProductHeroParser()
+                parser.feed(response.content.decode())
+                self.assertEqual(parser.hero_attributes.get("alt"), alt)
+                self.assertEqual(parser.meta_content["og:image:alt"], alt)
+                self.assertEqual(parser.meta_content["twitter:image:alt"], alt)
+
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_ru_and_en_explicit_color_paths_keep_media_alt_locale_safe(self):
+        """Explicit color-owner PDPs use the same locale-safe alt resolver."""
+        with self.settings(MEDIA_ROOT=self._media_root):
+            self.product.title_uk = "Тестова футболка"
+            self.product.title_ru = "Тестовая футболка"
+            self.product.title_en = "Test T-shirt"
+            self.product.save(update_fields=["title", "title_uk", "title_ru", "title_en"])
+
+            black = Color.objects.create(name="Чорний", primary_hex="#000000")
+            variant = ProductColorVariant.objects.create(
+                product=self.product,
+                color=black,
+                order=0,
+                is_default=True,
+            )
+            ProductColorImage.objects.create(
+                variant=variant,
+                image=self._image_file("localized-path-alt-black.png"),
+                alt_text="Чорна футболка — український alt",
+                order=0,
+            )
+
+            for language, expected_title, expected_color in (
+                ("ru", "Тестовая футболка", "Чёрный"),
+                ("en", "Test T-shirt", "Black"),
+            ):
+                with self.subTest(language=language), translation.override(language):
+                    response = self.client.get(
+                        f"/{language}/product/{self.product.slug}/{variant.slug}/"
                     )
 
                 self.assertEqual(response.status_code, 200)
@@ -870,6 +914,42 @@ class GetProductImagesTests(ProductViewTestCase):
 
 
 class GetProductVariantsTests(ProductViewTestCase):
+    def test_ru_and_en_variants_ajax_uses_locale_owned_media_alt_fallback(self):
+        self.product.title_uk = "Тестова футболка"
+        self.product.title_ru = "Тестовая футболка"
+        self.product.title_en = "Test T-shirt"
+        self.product.save(update_fields=["title", "title_uk", "title_ru", "title_en"])
+        black = Color.objects.create(name="Чорний", primary_hex="#000000")
+        variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=black,
+            order=0,
+            is_default=True,
+        )
+        ProductColorImage.objects.create(
+            variant=variant,
+            image=SimpleUploadedFile("localized-ajax-alt-black.png", PNG_PIXEL, content_type="image/png"),
+            alt_text="Чорна футболка — український alt",
+            order=0,
+        )
+
+        for language, expected_title, expected_color in (
+            ("ru", "Тестовая футболка", "Чёрный"),
+            ("en", "Test T-shirt", "Black"),
+        ):
+            with self.subTest(language=language):
+                request = RequestFactory().get(
+                    reverse("get_product_variants", args=[self.product.pk])
+                )
+                request.LANGUAGE_CODE = language
+                response = get_product_variants(request, self.product.pk)
+
+            self.assertEqual(response.status_code, 200)
+            image = response.json()["variants"][0]["images"][0]
+            self.assertIn(expected_title, image["alt"])
+            self.assertIn(expected_color, image["alt"])
+            self.assertNotIn("український alt", image["alt"])
+
     def test_get_product_variants_returns_current_contract(self):
         with self.settings(MEDIA_ROOT=self._media_root):
             default_color = Color.objects.create(name="Black", primary_hex="#000000")

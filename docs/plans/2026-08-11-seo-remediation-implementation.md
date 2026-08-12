@@ -162,6 +162,12 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   Reviewed locale-owned media fields, publication gating, and broader locale
   content parity remain open under Task 3/7.
 
+- Regression-hardening follow-up: `test_product.py` now covers explicit
+  color-owner SSR plus the `/product/<id>/variants/` AJAX response for RU/EN.
+  Both paths prove that the shared locale-safe resolver removes a stored
+  Ukrainian alt while preserving the localized product title and color label;
+  production code and media data were unchanged in this follow-up.
+
 ### Active P1 slice: standard Product locale publication gate
 
 - [x] **P1.1** Publish RU/EN standard Product pages only when raw locale-owned
