@@ -368,6 +368,32 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [x] **5.4a.2c** Decide and implement a low-query semantic identity for redundant parent-theme plus child-collection facets (for example, `theme=brigades&collection=225`) only after measuring the current collection contract; do not add a database query to every cache hit.
 - [x] **5.4a.2d** Make pagination query serialization deterministic for equivalent facet permutations while preserving the deliberate tracking-parameter propagation policy; add a cached-response regression before changing link output.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
+- [x] **5.5a** Collapse equivalent catalog color + pagination aliases into one pre-cache 301 while preserving tracking, cache bypass and valid page ownership.
+
+#### Task 5.5a execution evidence
+
+- Read-only production crawl confirmed `/catalog/tshirts/?color=black&page=02`
+  previously required three sequential 301 responses before the valid page-2
+  state. The root cause was independent color and page normalizers running in
+  alternating decorator order.
+- Code/test commit `7f3d845e` composes color, page, default-sort and taxonomy
+  alias normalization at the catalog cache-policy boundary. It runs the color
+  resolver only when a color query is present, so clean/page requests retain
+  the existing hot-cache path. A regression asserts the exact one-hop chain;
+  a second regression asserts no color resolver call for a clean catalog.
+- Local gate: the focused catalog/color/selector suite passed `152/152`;
+  `manage.py check`, touched-file compilation and `git diff --check` passed.
+- Production `origin/main`, server HEAD and live code are `7f3d845e`. The live
+  URL now returns exactly `301 -> /catalog/tshirts/?page=2&color=black -> 200`;
+  the final page remains `noindex, follow` with its existing canonical policy.
+  `/catalog/tshirts/` and `/healthz/` returned `200`. No DTF, Custom Print,
+  product copy, media or inventory was changed.
+- This checkpoint claims only redirect-chain and cache-boundary correctness;
+  it makes no ranking, traffic or conversion claim.
+
+- [ ] **5.5b** Apply a strict, route-specific query contract to thematic and published color-category landings; normalize page aliases in one hop, reject unsupported/unknown query states, suppress hreflang on query/noindex states, and publish only truthful locale owners.
+- [ ] **5.5c** Remove persisted editorial links to unsupported `sort=discount` targets at the data/render boundary; prove UK/RU/EN catalog rails contain no links to 404 or UI-only query states.
+- [ ] **5.5d** Remove internal pagination links that point to redirecting `page=1`, decide tracking-parameter alternate/robots policy from post-release evidence, and complete the Task 5 crawl/Search Console checkpoint.
 
 **Files:** catalog views/templates, pagination/canonical helpers, `general_catalog_seo.py`, `color_seo_copy.py`, robots/hreflang helpers and tests.
 
