@@ -14,6 +14,7 @@ from django.utils.text import slugify
 
 from storefront.models import Category, Product
 from storefront.services.catalog_helpers import apply_public_product_order
+from storefront.services.public_products import public_products_queryset
 from storefront.services.size_guides import resolve_product_sizes
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, get_item_group_id, get_offer_id
 
@@ -731,7 +732,7 @@ def _collect_variant_images(variant, base_url: str) -> list[str]:
 
 def published_products_queryset():
     return apply_public_product_order(
-        Product.objects.filter(status="published")
+        public_products_queryset()
         .select_related("category", "catalog", "size_grid")
         .prefetch_related(
             "catalog__options__values",

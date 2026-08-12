@@ -14,6 +14,7 @@ from django.utils.translation import gettext as _
 from django.utils.translation import get_language
 from .models import Product, Category
 from .services.size_guides import resolve_product_sizes
+from .services.public_products import public_products_queryset
 from .services.policy import (
     APPLICABLE_COUNTRY,
     CURRENCY,
@@ -167,7 +168,7 @@ def _homepage_price_aggregate() -> Dict[str, object]:
     schema helper. Returns an empty dict on any DB failure.
     """
     try:
-        active_qs = Product.objects.filter(price__isnull=False).only(
+        active_qs = public_products_queryset().only(
             "price", "discount_percent"
         )
         prices: List[int] = []

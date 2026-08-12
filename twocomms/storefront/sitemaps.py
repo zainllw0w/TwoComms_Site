@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from .models import BlogCategory, BlogPost, Product, Category
 from .services.locale_publication import PRODUCT_SITEMAP_FIELDS, indexable_locales
+from .services.public_products import public_products_queryset
 
 
 # Static routes that should appear in sitemap.
@@ -112,9 +113,7 @@ class ProductSitemap(Sitemap):
 
     def items(self):
         return (
-            Product.objects
-            .filter(status='published')
-            .exclude(slug='')
+            public_products_queryset()
             .only(*PRODUCT_SITEMAP_FIELDS)
             .prefetch_related('faqs')
             .order_by('id')
@@ -161,9 +160,7 @@ class ProductVariantSitemap(Sitemap):
 
     def items(self):
         products = (
-            Product.objects
-            .filter(status='published')
-            .exclude(slug='')
+            public_products_queryset()
             .prefetch_related('color_variants', 'fit_options')
             .only('id', 'slug', 'title', 'updated_at', 'published_at',
                   'size_grid', 'catalog', 'category')
