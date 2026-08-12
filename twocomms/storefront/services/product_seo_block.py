@@ -41,6 +41,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from django.utils.translation import get_language
 from django.utils.translation import gettext as _
+from .fact_registry import free_shipping_threshold
 
 # ---------------------------------------------------------------------------
 # Topic detection — maps title/slug tokens to a narrative archetype.
@@ -897,9 +898,17 @@ def build_product_seo_block(
             }
         )
 
-    return {
+    block = {
         "topic": topic,
         "language": language,
         "sections": sections,
         "faq": faq,
     }
+    # This legacy block is not rendered by the standard PDP today, but keep
+    # its dormant shipping FAQ aligned with checkout if an owner re-enables it.
+    threshold = f"{free_shipping_threshold():g}"
+    for section in block["sections"]:
+        section["paragraphs"] = [paragraph.replace("2500", threshold) for paragraph in section["paragraphs"]]
+    for item in block["faq"]:
+        item["answer"] = item["answer"].replace("2500", threshold)
+    return block

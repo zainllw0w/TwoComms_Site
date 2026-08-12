@@ -45,3 +45,18 @@ class PublicFactRegistrySeoTests(TestCase):
         self.assertNotIn('"geo":', body)
         self.assertNotIn('"openingHoursSpecification":', body)
         self.assertNotIn('"postalCode":', body)
+
+    def test_legacy_product_seo_block_uses_checkout_owned_shipping_threshold(self):
+        from storefront.services.product_seo_block import build_product_seo_block
+
+        product = type("ProductStub", (), {
+            "title": "Registry test product",
+            "slug": "registry-test-product",
+            "category": type("CategoryStub", (), {"name": "Футболки"})(),
+            "material": "",
+        })()
+        block = build_product_seo_block(product, language_code="uk")
+        delivery = next(section for section in block["sections"] if section["id"] == "delivery")
+        text = " ".join(delivery["paragraphs"])
+        faq_text = " ".join(item["answer"] for item in block["faq"])
+        self.assertNotIn("2500", text + faq_text)
