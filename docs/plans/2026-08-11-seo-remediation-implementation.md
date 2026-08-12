@@ -336,10 +336,18 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [x] **4.3b** Disable the generated `product_seo_landing` long-form fallback when no reviewed `Product.seo_bottom_html` override exists. Preserve product query chips, category navigation and the admin override path; the fact-owned replacement remains a later 4.1-4.6 task.
 - [ ] **4.4** Deduplicate FAQ at the data/render/schema boundary; retain global policy answers once and product-specific answers only when materially different.
 - [x] **4.4a** Add deterministic intra-document exact-pair deduplication at the shared standard-PDP visible/schema boundary. Keep the first active pair by editorial `order,id`, ignore case/whitespace-only duplicates, and preserve conflicting answers for explicit fact review. Global policy/product ownership and DB cleanup remain open in 4.4.
-- [ ] **4.5** Add failing tests for the page-1 general catalog editorial block, then remove keyword/city insertion as a content objective and route every retained claim through the fact registry. Specifically verify delivery timing/exchange policy, material/weight, available cuts/sizes, wash durability, donation and location statements; do not replace the current city list with paraphrased city variants.
+- [x] **4.5** Add failing tests for the page-1 general catalog editorial block, then remove keyword/city insertion as a content objective and route every retained claim through the fact registry. Specifically verify delivery timing/exchange policy, material/weight, available cuts/sizes, wash durability, donation and location statements; do not replace the current city list with paraphrased city variants.
 - [ ] **4.6** Run fact-lint across standard PDP/catalog HTML, JSON-LD, feeds, llms and checkout copy; commit/push/deploy and mark Task 4 only after live parity proof.
 
 **Files:** `twocomms/storefront/views/product.py`; `seo_utils.py`; `services/product_seo_landing.py`; `services/product_seo_block.py`; `twocomms_django_theme/templates/pages/catalog.html`; PDP templates; FAQ models/services/tests; fact-registry docs/tests.
+
+#### Task 4.5 execution evidence (checkpoint prepared)
+
+- Code/test commit: `bbf349a4` removes the unsupported `Жіноча футболка з принтом` curated query from the general catalog SEO rail. Product/category data has no owned gender/audience field, so the anchor was removed instead of creating a keyword-only promise. The `/custom-print/` route and its existing links were unchanged.
+- Cache correctness commit: `54f1f859` bumps the anonymous catalog cache namespace to `catalog-seo-v4-20260813`, preventing previously cached page-1 HTML from re-publishing the removed anchor after deploy.
+- Local gates: the targeted general-catalog suite passed `13/13`; the cache-bust regression passed `1/1`; `manage.py check` and `git diff --check` passed. The cache regression was first run against the old namespace and failed as expected, then passed after the version bump.
+- Production proof: `origin/main`, server `HEAD` and live release were verified at `54f1f8596ef0167d679fc8917dfe072468894d01`. UK/RU/EN `/catalog/` returned `200`; the removed anchor count was `0` in each rendered response, while `/custom-print/` links remained present (`10` on the UK sample). This checkpoint removes one unsupported editorial claim only; it does not claim that the broader catalog facts, city/delivery/material copy or fact registry are complete.
+- Scope boundary: no DTF subdomain/blog, Custom Print configurator/content, product data, inventory, locale copy, sitemap, feed or variant ownership was changed.
 
 #### Task 4.3a execution evidence (checkpoint prepared)
 
