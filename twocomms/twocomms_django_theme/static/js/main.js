@@ -767,6 +767,8 @@ function setMobileCartExpanded(expanded) {
   if (window.innerWidth >= 992) return;
   const cartToggleMobile = DOMCache.get('cart-toggle-mobile');
   if (cartToggleMobile) cartToggleMobile.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  document.documentElement.classList.toggle('mini-cart-open', expanded);
+  document.body.classList.toggle('mini-cart-open', expanded);
 }
 function openMiniCart(opts = {}) {
   const { skipRefresh = false } = opts;
@@ -881,6 +883,7 @@ function bindMiniCartHandle() {
   };
   handle.addEventListener('pointerdown', (event) => {
     if (window.innerWidth >= 992 || !panel.classList.contains('show') || event.isPrimary === false) return;
+    event.preventDefault();
     pointerId = event.pointerId;
     startX = event.clientX;
     startY = event.clientY;
@@ -890,6 +893,7 @@ function bindMiniCartHandle() {
   });
   handle.addEventListener('pointermove', (event) => {
     if (pointerId === null || event.pointerId !== pointerId) return;
+    event.preventDefault();
     const dy = Math.max(0, Math.min(panel.offsetHeight || window.innerHeight, event.clientY - startY));
     panel.style.setProperty('--mini-cart-drag-offset', `${dy}px`);
   });
