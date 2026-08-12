@@ -362,10 +362,10 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [x] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [x] **5.4a.1** Restore the documented OR contract within the color facet while keeping different inventory axes intersected on the same eligible color variant. This release gate was triggered by production-backed selector evidence, not by a keyword or ranking hypothesis.
-- [ ] **5.4a.2** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, align page and fragment invalidation versions, and remeasure default/fragments cardinality without flushing production caches.
+- [x] **5.4a.2** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, align page and fragment invalidation versions, and remeasure default/fragments cardinality without flushing production caches.
 - [x] **5.4a.2a** Align page and catalog-fragment invalidation versions so product/category changes cannot leave a stale catalog grid after a page-cache miss. Semantic identity and pagination serialization remain open in 5.4a.2c/2d.
 - [x] **5.4a.2b** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, and remeasure default/fragments cardinality without flushing production caches.
-- [ ] **5.4a.2c** Decide and implement a low-query semantic identity for redundant parent-theme plus child-collection facets (for example, `theme=brigades&collection=225`) only after measuring the current collection contract; do not add a database query to every cache hit.
+- [x] **5.4a.2c** Decide and implement a low-query semantic identity for redundant parent-theme plus child-collection facets (for example, `theme=brigades&collection=225`) only after measuring the current collection contract; do not add a database query to every cache hit.
 - [x] **5.4a.2d** Make pagination query serialization deterministic for equivalent facet permutations while preserving the deliberate tracking-parameter propagation policy; add a cached-response regression before changing link output.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
@@ -625,6 +625,60 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - This checkpoint makes no ranking, traffic, rich-result or conversion claim.
   Semantic parent-theme/child-collection identity (`5.4a.2c`) and parameter
   crawl/Search Console sampling (`5.5`) remain open for separate evidence.
+
+#### Task 5.4a.2c execution evidence (checkpoint prepared)
+
+- Production taxonomy measurement before implementation found six active
+  nodes: four root `theme`/`city` nodes and the `225`/`127` brigade children of
+  `brigades`. The semantic duplicate was therefore the selected active root
+  theme already implied by an active descendant collection; unrelated roots
+  remain an intentional intersection. Production `127` is active but
+  `indexable=False`, so it was not misreported as an inactive validation case.
+- Code/test commit: `fc0a7197` (`fix(catalog): redirect redundant taxonomy
+  facets`) returns a one-hop `301` from the redundant URL to the collection-only
+  URL before page/fragment cache lookup. It preserves page, sort, tracking and
+  unrelated facets, and removes only a selected active root `THEME`/`CITY`
+  ancestor. A nested non-root value such as `theme=225` is not hidden by the
+  redirect and remains invalid.
+- The active taxonomy contract is stored as a cache-backed primitive snapshot
+  for 300 seconds. The first combined lookup performs exactly one taxonomy SQL
+  query; repeated lookups and requests carrying only one taxonomy axis perform
+  zero. `MerchCollection` save/delete invalidates the snapshot and bumps the
+  category version only in `transaction.on_commit`; assignment save/delete
+  bumps the product-listing version. Existing bulk backfill and full reorder
+  paths now perform explicit version bumps because Django model signals do not
+  cover bulk writes.
+- Context7 Django documentation confirms that `transaction.on_commit()` runs
+  callbacks only after a successful commit and discards them on rollback. The
+  rollback regression, cold/hot query counts, direct and nested ancestry,
+  unrelated/multiple roots, unknown/inactive collections, cache-write bypass,
+  taxonomy/assignment version changes, full reorder and bulk backfill are all
+  covered. The focused module passed `23/23`; the expanded catalog, taxonomy,
+  pagination, selector, color and cache suite passed `257/257`; the final
+  task-scoped gate passed `48/48`. Django check, migration drift check, touched
+  Python compilation, actual catalog-template loading and `git diff --check`
+  passed.
+- Production release: `origin/main`, server `HEAD` and live code are
+  `fc0a71977a9027c6b28df635e2b71be28ab218c1`; server `manage.py check` passed
+  and Passenger was restarted. UK, RU and EN redundant URLs each returned
+  `301` to their locale-preserving `?collection=225` destination. Following the
+  UK URL produced exactly one redirect and final `200`. Page/sort/UTM values
+  were preserved; unrelated `theme=streetwear&collection=225` stayed `200`;
+  invalid theme and unknown collection stayed `404`; `/healthz/` returned
+  `200`. All three destination pages retained the existing `noindex, follow`
+  policy and clean category canonical.
+- Cache occupancy was measured without a flush: default file cache
+  `6967 -> 6974 / 8000`, fragments `11328 -> 11355 / 12000`. The bounded
+  increase came from valid destination/unrelated pages in the smoke matrix;
+  redundant aliases redirect before page/fragment writes. Remaining
+  nonblocking engineering risks are duplicate single cold queries during a
+  cache stampede and the requirement that any future taxonomy/assignment
+  `bulk_*` or `QuerySet.update()` path explicitly invalidates the relevant
+  version. No ranking, traffic, rich-result or conversion uplift is claimed.
+- Scope boundary: no DTF subdomain/blog/module or route, Custom Print content
+  or configurator, product copy, catalog data, media or inventory was changed
+  or inspected in this slice. Parameter crawl/Search Console sampling remains
+  open in `5.5`.
 
 #### Task 5.3 execution evidence (checkpoint prepared)
 
