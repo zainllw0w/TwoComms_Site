@@ -1357,11 +1357,14 @@ def _product_cards_queryset(*, include_fit_options=False, include_merchandising=
 
 
 HOME_SURVEY_VISIBILITY_CACHE_VERSION = "survey-visible-20260530"
+# Bump whenever homepage Organization/llms-owned facts change so cached HTML
+# cannot continue publishing retired structured-data claims after deploy.
+HOME_SEO_FACTS_CACHE_VERSION = "seo-facts-v2-20260813"
 
 
 def homepage_cache_prefix(request, view_func):
     base_prefix = public_product_listing_cache_prefix(request, view_func)
-    return f"{base_prefix}:{HOME_SURVEY_VISIBILITY_CACHE_VERSION}"
+    return f"{base_prefix}:{HOME_SURVEY_VISIBILITY_CACHE_VERSION}:{HOME_SEO_FACTS_CACHE_VERSION}"
 
 
 # W3-3: @ensure_csrf_cookie снят — Set-Cookie на каждом анонимном GET

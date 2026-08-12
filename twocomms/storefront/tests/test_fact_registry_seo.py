@@ -4,6 +4,11 @@ from django.test import Client, TestCase, override_settings
 
 
 class PublicFactRegistrySeoTests(TestCase):
+    def test_homepage_cache_version_changes_when_public_fact_contract_changes(self):
+        from storefront.views.catalog import HOME_SEO_FACTS_CACHE_VERSION
+
+        self.assertEqual(HOME_SEO_FACTS_CACHE_VERSION, "seo-facts-v2-20260813")
+
     def test_organization_schema_does_not_publish_unverified_foundation_or_postal_address(self):
         from storefront.seo_utils import StructuredDataGenerator
 
