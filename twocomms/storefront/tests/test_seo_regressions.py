@@ -570,6 +570,16 @@ class GeneralCatalogSeoColorlessQueriesTests(SimpleTestCase):
             with self.subTest(label=entry["label"]):
                 self.assertNotIn("?color=", entry["url"])
 
+    def test_curated_queries_do_not_claim_unowned_gendered_assortment(self):
+        from storefront.services.general_catalog_seo import _CURATED_TOP_QUERIES
+
+        labels = {str(entry["label"]) for entry in _CURATED_TOP_QUERIES}
+
+        # Product/category data has no gender or audience ownership field;
+        # the general catalog must not promise a women's assortment solely
+        # to create another keyword anchor.
+        self.assertNotIn("Жіноча футболка з принтом", labels)
+
 
 class OrderSuccessSeoRegressionTests(TestCase):
     def setUp(self):

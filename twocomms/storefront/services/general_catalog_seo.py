@@ -86,7 +86,6 @@ _CURATED_TOP_QUERIES: List[Dict[str, Any]] = [
     {"label": _("Чорний лонгслів"), "url": "/catalog/long-sleeve/"},
     {"label": _("Власний принт на футболці"), "url": "/custom-print/"},
     {"label": _("Подарунок захиснику"), "url": "/catalog/"},
-    {"label": _("Жіноча футболка з принтом"), "url": "/catalog/tshirts/"},
     {"label": _("Худі для пари"), "url": "/catalog/hoodie/"},
     {"label": _("Український стрітвір"), "url": "/catalog/"},
     {"label": _("Donate to ZSU merch"), "url": "/catalog/"},
