@@ -504,6 +504,33 @@ class CatalogViewTests(CatalogViewTestCase):
         open_rule = mini_cart_css.partition(responsive_open_rule)[2].partition("}")[0]
         self.assertIn("display: grid !important;", open_rule)
 
+    def test_mini_cart_desktop_surface_has_compact_reference_contract(self):
+        mini_cart_css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "mini-cart.css"
+        ).read_text(encoding="utf-8")
+
+        for contract in (
+            "@media (min-width: 992px) {\n  #mini-cart-panel.mini-cart-shell",
+            "width: min(480px, calc(100vw - 32px)) !important;",
+            "grid-template-rows: auto minmax(0, 1fr);",
+            "min-height: 86px !important;",
+            "min-height: 114px !important;",
+            "height: 86px;",
+            "color: #fff !important;",
+            "background: linear-gradient(180deg, #ff7117 0%, #e84a05 50%, #ff6412 100%) !important;",
+        ):
+            self.assertIn(contract, mini_cart_css)
+
+        desktop_layer = mini_cart_css[mini_cart_css.rfind("@media (min-width: 992px)"):]
+        self.assertIn("#mini-cart-panel .mini-cart-shipping", desktop_layer)
+        self.assertIn("#mini-cart-panel .mini-cart-row", desktop_layer)
+        self.assertIn("#mini-cart-panel .mini-cart-primary-cta", desktop_layer)
+        self.assertNotIn("#mini-cart-panel-mobile", desktop_layer)
+
     def test_mini_cart_checkout_action_uses_accessible_dark_ink(self):
         mini_cart_css = (
             Path(__file__).resolve().parents[2]
