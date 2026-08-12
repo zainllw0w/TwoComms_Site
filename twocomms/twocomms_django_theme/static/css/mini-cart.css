@@ -839,7 +839,7 @@
   #mini-cart-panel-mobile .mini-cart-primary-cta__hint { text-shadow: 0 1px 1px rgba(90,23,0,.3); }
   #mini-cart-panel-mobile .mini-cart-primary-cta__arrow { background: transparent !important; border: 0 !important; }
   #mini-cart-panel-mobile .mini-cart-primary-cta__arrow svg { stroke: currentColor !important; }
-  #mini-cart-panel-mobile .mini-cart-shipping { background: #090a0a !important; border-color: rgba(255, 101, 12, .68) !important; box-shadow: 0 0 0 1px rgba(255, 101, 12, .16), 0 5px 18px rgba(255, 101, 12, .08), inset 0 1px 0 rgba(255, 143, 44, .22) !important; }
+  #mini-cart-panel-mobile .mini-cart-shipping { background: #090a0a !important; border: 1px solid rgba(174, 69, 11, .78) !important; box-shadow: 0 0 0 1px rgba(255, 101, 12, .08), 0 4px 14px rgba(255, 101, 12, .06), inset 0 1px 0 rgba(255, 143, 44, .14), inset 0 -1px 0 rgba(110, 35, 6, .3) !important; }
   #mini-cart-panel-mobile .mini-cart-shipping__icon svg { fill: none; stroke-width: 2.15; }
   #mini-cart-panel-mobile .mini-cart-shell__handle { width: 42px; height: 4px; margin: 8px auto 0; opacity: .72; touch-action: none; user-select: none; -webkit-user-select: none; }
   #mini-cart-panel-mobile .mini-cart-shell__header { min-height: 54px; padding: 6px 14px 8px !important; grid-template-columns: 34px minmax(0,1fr) 34px; gap: 7px !important; }
@@ -852,7 +852,7 @@
   #mini-cart-panel-mobile .mini-cart-shell__header .close-btn svg { width: 15px; height: 15px; }
   #mini-cart-panel-mobile .mini-cart-list { padding: 0 10px 5px; }
   #mini-cart-panel-mobile .mini-cart-shipping,
-  #mini-cart-panel-mobile .mini-cart-shipping:has(.mini-cart-shipping__success) { min-height: 104px !important; height: 104px; margin-bottom: 8px; padding: 10px 10px 8px; grid-template-columns: 34px minmax(0,1fr) auto; grid-template-rows: minmax(0,1fr) 9px; column-gap: 8px; border-radius: 13px; }
+  #mini-cart-panel-mobile .mini-cart-shipping:has(.mini-cart-shipping__success) { min-height: 98px !important; height: 98px; margin-bottom: 8px; padding: 8px 10px 7px; grid-template-columns: 34px minmax(0,1fr) auto; grid-template-rows: minmax(0,1fr) 9px; column-gap: 8px; border-radius: 13px; }
   #mini-cart-panel-mobile .mini-cart-shipping__icon { align-self: center; padding-top: 0; }
   #mini-cart-panel-mobile .mini-cart-shipping__icon svg { display: block; width: 30px; height: 23px; margin: auto; }
   #mini-cart-panel-mobile .mini-cart-shipping__copy { grid-column: 2; grid-row: 1; gap: 2px; }
