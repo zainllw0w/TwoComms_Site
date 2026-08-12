@@ -11,7 +11,10 @@ from django.urls import reverse
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
 from storefront.services.color_filter import parse_color_filter
-from storefront.views.catalog import _build_catalog_cache_query
+from storefront.views.catalog import (
+    _build_catalog_cache_query,
+    _build_catalog_pagination_query_prefix,
+)
 from storefront.views.utils import _build_anon_cache_key
 
 
@@ -164,6 +167,26 @@ class ColorFilterCanonicalServiceTests(TestCase):
         self.assertEqual(
             _build_catalog_cache_query(alias),
             _build_catalog_cache_query(canonical),
+        )
+
+    def test_catalog_pagination_prefix_uses_normalized_cacheable_identity(self):
+        request = self.factory.get(
+            "/catalog/?size=M&size=L&fit=oversize&fit=classic&page=2"
+        )
+
+        self.assertEqual(
+            _build_catalog_pagination_query_prefix(request),
+            "fit=classic&fit=oversize&size=L&size=M&",
+        )
+
+    def test_catalog_pagination_prefix_preserves_tracking_parameters(self):
+        request = self.factory.get(
+            "/catalog/?utm_source=ad&size=M&page=2"
+        )
+
+        self.assertEqual(
+            _build_catalog_pagination_query_prefix(request),
+            "utm_source=ad&size=M&",
         )
 
 

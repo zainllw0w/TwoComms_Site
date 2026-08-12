@@ -178,6 +178,18 @@ _CATALOG_ROOT_SORT_VALUES = frozenset(
 _CATALOG_SMART_SORT_VALUES = frozenset(
     {"recommended", "price-asc", "price-desc"}
 )
+_CATALOG_PAGINATION_KEY_ORDER = (
+    "category",
+    "sort",
+    "theme",
+    "collection",
+    "audience",
+    "availability",
+    "fit",
+    "size",
+    "color",
+    "thermo",
+)
 
 
 def _catalog_route_scope(kwargs):
@@ -304,10 +316,24 @@ def _catalog_query_alias_redirect(request):
     return HttpResponsePermanentRedirect(target)
 
 
-def _build_catalog_cache_query(request):
+def _build_catalog_cache_query(
+    request,
+    *,
+    exclude_keys=frozenset(),
+    key_order=None,
+):
     parts = []
-    for key, values in sorted(request.GET.lists()):
-        if key in _CATALOG_TRACKING_QUERY_KEYS:
+    query_items = request.GET.lists()
+    if key_order is None:
+        query_items = sorted(query_items)
+    else:
+        order = {key: index for index, key in enumerate(key_order)}
+        query_items = sorted(
+            query_items,
+            key=lambda item: (order.get(item[0], len(order)), item[0]),
+        )
+    for key, values in query_items:
+        if key in exclude_keys or key in _CATALOG_TRACKING_QUERY_KEYS:
             continue
         if key == "color":
             values = [",".join(normalise_color_slugs(values))]
@@ -319,6 +345,18 @@ def _build_catalog_cache_query(request):
                 values = sorted(values)
         parts.extend((key, value) for value in values)
     return urlencode(parts, doseq=True)
+
+
+def _build_catalog_pagination_query_prefix(request):
+    """Build stable pagination links without changing tracking propagation."""
+    if _catalog_cacheable_request(request):
+        query = _build_catalog_cache_query(
+            request,
+            exclude_keys={"page"},
+            key_order=_CATALOG_PAGINATION_KEY_ORDER,
+        )
+        return f"{query}&" if query else ""
+    return _pagination_query_prefix(request)
 
 
 def _catalog_cacheable_request(request):
@@ -335,6 +373,9 @@ def _catalog_cache_policy(view_func):
             return redirect
         request._catalog_cache_query = _build_catalog_cache_query(request)
         request._catalog_fragment_identity = request._catalog_cache_query
+        request._catalog_pagination_query_prefix = (
+            _build_catalog_pagination_query_prefix(request)
+        )
         return view_func(request, *args, **kwargs)
 
     return _wrapped_view
@@ -1694,7 +1735,11 @@ def catalog(request, cat_slug=None, collection_slug=None):
                     'size', 'color', 'thermo', 'sort',
                 )
             ),
-            'pagination_query_prefix': _pagination_query_prefix(request),
+            'pagination_query_prefix': getattr(
+                request,
+                '_catalog_pagination_query_prefix',
+                _pagination_query_prefix(request),
+            ),
             # Phase 10 — structured SEO blocks shown after the products grid.
             'category_seo_blocks': get_category_seo_blocks(category) if category else [],
             # Phase 10b — split layout: tabs (top_menu/top_filters/top_queries/
