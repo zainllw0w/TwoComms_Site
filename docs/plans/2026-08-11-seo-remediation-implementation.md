@@ -282,6 +282,30 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   ownership was changed. No ranking, traffic, citation or conversion uplift
   is claimed.
 
+- [x] **P0.4** Remove unverified physical-store coordinates, support hours and
+  exact postal address from the `/contacts/` `ClothingStore` entity. Preserve
+  the online-only entity, phone, email, area served and payment facts until the
+  owner supplies a current source-backed local-business record.
+
+#### P0.4 release evidence
+
+- Code commit: `b0bdfa08` (`fix(seo): remove unverified contact entity
+  coordinates`) was pushed to `origin/main`, pulled on production and
+  activated with `tmp/restart.txt`.
+- RED/GREEN: the contacts registry regression failed against the old
+  `geo`/hours/postal payload and passed after the fields were removed. The
+  contacts-specific SEO regression passed `1/1`; registry suite passed `5/5`;
+  touched-file compilation and `git diff --check` passed. The broader support
+  module still contains unrelated stale Organization assertions and is not
+  claimed green.
+- Live proof at production SHA `b0bdfa08`: `/contacts/` returned `200`; its
+  `ContactPage.mainEntity` remains `ClothingStore`, keeps the canonical phone,
+  and emits no `geo`, `openingHoursSpecification` or `address` property.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, product data, inventory, catalog landing,
+  or checkout behavior was changed. No ranking, traffic, citation or
+  conversion uplift is claimed.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
