@@ -366,7 +366,7 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [x] **5.4a.2a** Align page and catalog-fragment invalidation versions so product/category changes cannot leave a stale catalog grid after a page-cache miss. Semantic identity and pagination serialization remain open in 5.4a.2c/2d.
 - [x] **5.4a.2b** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, and remeasure default/fragments cardinality without flushing production caches.
 - [ ] **5.4a.2c** Decide and implement a low-query semantic identity for redundant parent-theme plus child-collection facets (for example, `theme=brigades&collection=225`) only after measuring the current collection contract; do not add a database query to every cache hit.
-- [ ] **5.4a.2d** Make pagination query serialization deterministic for equivalent facet permutations while preserving the deliberate tracking-parameter propagation policy; add a cached-response regression before changing link output.
+- [x] **5.4a.2d** Make pagination query serialization deterministic for equivalent facet permutations while preserving the deliberate tracking-parameter propagation policy; add a cached-response regression before changing link output.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
 **Files:** catalog views/templates, pagination/canonical helpers, `general_catalog_seo.py`, `color_seo_copy.py`, robots/hreflang helpers and tests.
@@ -588,12 +588,43 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   clean valid identities exercised by the matrix; tracking and invalid aliases
   did not create page-cache writes. No ranking, traffic, rich-result or
   conversion uplift is claimed.
-- Residual P2 decisions are explicitly left open in 5.4a.2c/2d: semantic
-  parent-theme/child-collection redundancy currently needs a low-query design,
-  and equivalent facet permutations can still preserve the first warmed raw
-  parameter order in pagination links. No DTF subdomain/blog/module, DTF route,
-  Custom Print content/configurator, product copy, catalog data or inventory
-  was changed or inspected in this slice.
+- Residual P2 decisions are explicitly left open in 5.4a.2c: semantic
+  parent-theme/child-collection redundancy currently needs a low-query design.
+  No DTF subdomain/blog/module, DTF route, Custom Print content/configurator,
+  product copy, catalog data or inventory was changed or inspected in this
+  slice.
+
+#### Task 5.4a.2d execution evidence (checkpoint prepared)
+
+- Code/test commit: `b82c501d` made cacheable catalog pagination links use the
+  same normalized facet identity as the catalog cache (`theme -> collection ->
+  audience -> availability -> fit -> size -> color -> thermo`) while leaving
+  tracking-parameter requests on the existing raw propagation path. Hotfix
+  `36bb1358` added the catalog-only cache version
+  `catalog-pagination-v2-20260812`, so already-warmed full-page responses cannot
+  continue serving the pre-release parameter order. The fragment identity and
+  product/category data contracts were not changed.
+- Regression coverage includes pure serializer tests, a cache-version assertion,
+  and a two-request cached-response test with 17 published smart-selector
+  products and both `classic`/`oversize` fit options. The combined catalog,
+  merchandising, selector, cache-hygiene, pagination, color-filter and variant
+  suite passed `178/178`; `manage.py check`, touched-file `py_compile` and
+  `git diff --check` passed. Context7 Django 5.2 documentation confirms that
+  repeated query parameters are preserved by query-string serialization and
+  that cache keys must vary by the effective URL identity; this release keeps
+  that identity deterministic without caching tracking requests.
+- Production release: `origin/main`, server `HEAD` and the live code are
+  `36bb13581c02ad9b5a1df1a92f552646fb87344a`. The server pulled the commit and
+  Passenger was reloaded with `tmp/restart.txt` after the first pull-only smoke
+  showed an old cached HTML response. `/healthz/` returned `200`. Two sequential
+  requests to `/catalog/tshirts/?size=M&size=L&fit=oversize&fit=classic&page=2`
+  both returned `200` and emitted the deterministic previous-page URL
+  `?fit=classic&fit=oversize&size=L&size=M&page=1`; no raw `size -> fit` order
+  remained after reload. No DTF subdomain/blog/module, DTF route, Custom Print
+  content/configurator, product copy, catalog data or inventory was changed.
+- This checkpoint makes no ranking, traffic, rich-result or conversion claim.
+  Semantic parent-theme/child-collection identity (`5.4a.2c`) and parameter
+  crawl/Search Console sampling (`5.5`) remain open for separate evidence.
 
 #### Task 5.3 execution evidence (checkpoint prepared)
 
