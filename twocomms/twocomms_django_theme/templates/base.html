@@ -180,10 +180,18 @@
   UA in the same SERP and trigger duplicate-content warnings.
   {% endcomment %}
   <link rel="alternate" type="application/rss+xml" title="TwoComms Blog RSS" href="{% url 'blog_rss' %}">
+  {% if lang_alts.uk %}
   <link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
+  {% endif %}
+  {% if lang_alts.ru %}
   <link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
+  {% endif %}
+  {% if lang_alts.en %}
   <link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
+  {% endif %}
+  {% if lang_alts.x_default %}
   <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">
+  {% endif %}
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
