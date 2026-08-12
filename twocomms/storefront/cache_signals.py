@@ -7,6 +7,7 @@ from django.dispatch import receiver
 
 from cache_utils import get_fragment_cache
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
+from product_catalog.models import MerchCollection, ProductMerchCollection
 
 from .analytics_exclusions import invalidate_snapshot as invalidate_analytics_exclusions
 from .models import AnalyticsExclusion, Category, Product
@@ -14,6 +15,7 @@ from .services.catalog_helpers import (
     bump_public_category_version,
     bump_public_product_order_version,
 )
+from .services.catalog_facets import invalidate_collection_facet_contract
 from .services.indexnow import enqueue_indexnow_urls, get_category_public_url
 from .services.google_indexing import enqueue_google_indexing_urls
 
@@ -53,6 +55,23 @@ def invalidate_public_product_listing_cache_for_color_data(sender, **kwargs):
     """
     Colour-only edits change public cards but do not save Product itself.
     """
+    transaction.on_commit(bump_public_product_order_version)
+
+
+@receiver([post_save, post_delete], sender=MerchCollection)
+def invalidate_public_catalog_for_collection_taxonomy(sender, **kwargs):
+    """Refresh normalized facet ancestry and public catalog responses."""
+
+    def _on_commit():
+        invalidate_collection_facet_contract()
+        bump_public_category_version()
+
+    transaction.on_commit(_on_commit)
+
+
+@receiver([post_save, post_delete], sender=ProductMerchCollection)
+def invalidate_public_catalog_for_collection_assignment(sender, **kwargs):
+    """Product taxonomy assignments change the rendered catalog result set."""
     transaction.on_commit(bump_public_product_order_version)
 
 

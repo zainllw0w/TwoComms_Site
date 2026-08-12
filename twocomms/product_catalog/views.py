@@ -36,6 +36,7 @@ from storefront.models import (
     ProductImage,
     SizeGrid,
 )
+from storefront.services.catalog_helpers import bump_public_category_version
 
 try:  # статуси публікації (draft/review/scheduled/published/archived)
     from storefront.models import ProductStatus
@@ -1055,6 +1056,7 @@ def api_collection_reorder(request):
         raise forms.ValidationError("Некоректний порядок колекцій")
     for position, collection_id in enumerate(ordered, start=1):
         MerchCollection.objects.filter(pk=collection_id).update(order=position * 10)
+    transaction.on_commit(bump_public_category_version)
     return JsonResponse({"ok": True, "ids": ordered})
 
 

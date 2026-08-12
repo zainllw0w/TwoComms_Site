@@ -14,6 +14,7 @@ from product_catalog.models import (
     ProductMerchCollection,
 )
 from storefront.models import Product, ProductStatus
+from storefront.services.catalog_helpers import bump_public_product_order_version
 
 
 BRIGADE_225_PATTERN = re.compile(r"(?<!\d)225(?!\d)")
@@ -139,6 +140,8 @@ class Command(BaseCommand):
                 if redundant_ids:
                     ProductMerchCollection.objects.filter(pk__in=redundant_ids).delete()
                     redundant_brigades_removed = len(redundant_ids)
+                if brigade_candidates or redundant_ids:
+                    transaction.on_commit(bump_public_product_order_version)
             else:
                 transaction.set_rollback(True)
 

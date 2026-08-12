@@ -13,6 +13,7 @@ from product_catalog.models import (
 )
 from product_catalog.services_audience import get_product_audience_codes
 from product_catalog.services_collections import get_product_collection_slugs
+from storefront.services.catalog_helpers import get_public_product_order_version
 
 
 class BackfillProductCatalogTaxonomyTests(TestCase):
@@ -133,6 +134,14 @@ class BackfillProductCatalogTaxonomyTests(TestCase):
         self.assertIn("brigade_225_created=2", first_output.getvalue())
         self.assertIn("audiences_created=0", second_output.getvalue())
         self.assertIn("brigade_225_created=0", second_output.getvalue())
+
+    def test_apply_bumps_public_product_listing_version_after_bulk_assignment(self):
+        initial_version = get_public_product_order_version()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("backfill_product_catalog_taxonomy", "--apply")
+
+        self.assertGreater(get_public_product_order_version(), initial_version)
 
     def test_command_refuses_inconsistent_brigade_parent(self):
         self.brigade_225.parent = self.military

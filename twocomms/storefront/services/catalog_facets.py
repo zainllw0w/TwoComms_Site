@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 import re
 
+from django.core.cache import cache
 from django.db.models import Case, IntegerField, QuerySet, Value, When
 
 
@@ -32,6 +33,8 @@ FIT_ALIASES = {
     "стандартний": "standard",
 }
 _COLOR_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_COLLECTION_FACET_CONTRACT_CACHE_KEY = "catalog:facet-taxonomy-contract:v1"
+_COLLECTION_FACET_CONTRACT_CACHE_TIMEOUT = 300
 
 
 def _active_collection_rows():
@@ -47,6 +50,11 @@ def _active_collection_rows():
 def _collection_facet_contract():
     from product_catalog.models import MerchCollection
 
+    cached = cache.get(_COLLECTION_FACET_CONTRACT_CACHE_KEY)
+    if cached is not None:
+        themes, collections, parent_by_child = cached
+        return set(themes), set(collections), dict(parent_by_child)
+
     rows = _active_collection_rows()
     by_id = {row.pk: row for row in rows}
     themes = {
@@ -61,7 +69,38 @@ def _collection_facet_contract():
         for row in rows
         if row.parent_id in by_id
     }
+    cache.set(
+        _COLLECTION_FACET_CONTRACT_CACHE_KEY,
+        (tuple(sorted(themes)), tuple(sorted(collections)), parent_by_child),
+        _COLLECTION_FACET_CONTRACT_CACHE_TIMEOUT,
+    )
     return themes, collections, parent_by_child
+
+
+def invalidate_collection_facet_contract():
+    cache.delete(_COLLECTION_FACET_CONTRACT_CACHE_KEY)
+
+
+def redundant_parent_theme_slugs(query) -> set[str]:
+    """Return selected themes already implied by selected leaf collections."""
+    selected_themes = {value.lower() for value in _values(query, "theme")}
+    selected_collections = {value.lower() for value in _values(query, "collection")}
+    if not selected_themes or not selected_collections:
+        return set()
+
+    themes, collections, parent_by_child = _collection_facet_contract()
+    redundant = set()
+    for child_slug in selected_collections:
+        if child_slug not in collections:
+            continue
+        seen = {child_slug}
+        parent_slug = parent_by_child.get(child_slug)
+        while parent_slug and parent_slug not in seen:
+            seen.add(parent_slug)
+            if parent_slug in themes and parent_slug in selected_themes:
+                redundant.add(parent_slug)
+            parent_slug = parent_by_child.get(parent_slug)
+    return redundant
 
 
 def _values(query, key: str) -> list[str]:

@@ -43,6 +43,7 @@ from ..services.catalog_facets import (
     active_collection_descendant_slugs,
     filter_products_by_facets,
     normalize_catalog_facet_state,
+    redundant_parent_theme_slugs,
 )
 from ..services.catalog_helpers import (
     apply_public_product_order,
@@ -308,6 +309,19 @@ def _catalog_query_alias_redirect(request):
     raw_sorts = request.GET.getlist("sort")
     if raw_sorts and _catalog_query_value(raw_sorts[0], "sort") == "recommended":
         params.pop("sort", None)
+        changed = True
+
+    redundant_themes = redundant_parent_theme_slugs(request.GET)
+    if redundant_themes:
+        remaining_themes = [
+            value
+            for value in params.getlist("theme")
+            if _catalog_query_value(value, "theme") not in redundant_themes
+        ]
+        if remaining_themes:
+            params.setlist("theme", remaining_themes)
+        else:
+            params.pop("theme", None)
         changed = True
 
     if not changed:

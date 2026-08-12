@@ -10,6 +10,7 @@ from django.urls import reverse
 from PIL import Image
 
 from product_catalog.models import MerchCollection
+from storefront.services.catalog_helpers import get_public_category_version
 
 
 TEST_CACHES = {
@@ -328,16 +329,19 @@ class TaxonomyAdminApiTests(TestCase):
         )
         self.client.force_login(self.staff)
 
-        response = self.client.post(
-            reverse("product_catalog_api_collection_reorder"),
-            data=json.dumps({"ids": [second.pk, self.parent.pk]}),
-            content_type="application/json",
-        )
+        initial_version = get_public_category_version()
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("product_catalog_api_collection_reorder"),
+                data=json.dumps({"ids": [second.pk, self.parent.pk]}),
+                content_type="application/json",
+            )
 
         self.assertEqual(response.status_code, 200)
         self.parent.refresh_from_db()
         second.refresh_from_db()
         self.assertLess(second.order, self.parent.order)
+        self.assertGreater(get_public_category_version(), initial_version)
 
     def test_catalog_category_rows_use_the_scoped_desktop_operations_style(self):
         template = (
