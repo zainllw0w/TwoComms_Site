@@ -733,7 +733,10 @@ def resume_turn_delivery(
     ):
         state = (
             IgCommerceTurnDecision.DeliveryState.UNKNOWN
-            if _receipts_have_invalid_ids(claimed, result)
+            if (
+                not _provider_ids(result)
+                or _receipts_have_invalid_ids(claimed, result)
+            )
             else IgCommerceTurnDecision.DeliveryState.PARTIAL
         )
     if state == IgCommerceTurnDecision.DeliveryState.SENT:

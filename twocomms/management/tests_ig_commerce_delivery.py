@@ -330,6 +330,35 @@ class CommerceReplyOutboxTests(TestCase):
             IgCommerceTurnDecision.ReconciliationStatus.REQUIRED,
         )
 
+    def test_sent_without_any_receipt_is_unknown_not_partial(self):
+        source = self._source("missing-receipt-list")
+        decision = apply_turn(
+            self.client,
+            source,
+            CommerceTurnRequest(exact_product_id=self.product.pk),
+            reply_payload={"text": ["one"]},
+        )
+
+        delivered = resume_turn_delivery(
+            source,
+            transport=lambda _decision: {"state": "sent"},
+        )
+
+        self.assertEqual(
+            delivered.delivery_state,
+            IgCommerceTurnDecision.DeliveryState.UNKNOWN,
+        )
+        self.assertEqual(
+            delivered.reconciliation_status,
+            IgCommerceTurnDecision.ReconciliationStatus.REQUIRED,
+        )
+        self.assertTrue(
+            IgCommerceManagerReview.objects.filter(
+                decision=decision,
+                reason="delivery_unknown",
+            ).exists()
+        )
+
 
 class CommerceWorkerDeliveryTests(TestCase):
     def setUp(self):
