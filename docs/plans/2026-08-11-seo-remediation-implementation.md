@@ -363,8 +363,10 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [x] **5.4a.1** Restore the documented OR contract within the color facet while keeping different inventory axes intersected on the same eligible color variant. This release gate was triggered by production-backed selector evidence, not by a keyword or ranking hypothesis.
 - [ ] **5.4a.2** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, align page and fragment invalidation versions, and remeasure default/fragments cardinality without flushing production caches.
-- [x] **5.4a.2a** Align page and catalog-fragment invalidation versions so product/category changes cannot leave a stale catalog grid after a page-cache miss. Cardinality and alias normalization remain open in 5.4a.2b.
-- [ ] **5.4a.2b** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, and remeasure default/fragments cardinality without flushing production caches.
+- [x] **5.4a.2a** Align page and catalog-fragment invalidation versions so product/category changes cannot leave a stale catalog grid after a page-cache miss. Semantic identity and pagination serialization remain open in 5.4a.2c/2d.
+- [x] **5.4a.2b** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, and remeasure default/fragments cardinality without flushing production caches.
+- [ ] **5.4a.2c** Decide and implement a low-query semantic identity for redundant parent-theme plus child-collection facets (for example, `theme=brigades&collection=225`) only after measuring the current collection contract; do not add a database query to every cache hit.
+- [ ] **5.4a.2d** Make pagination query serialization deterministic for equivalent facet permutations while preserving the deliberate tracking-parameter propagation policy; add a cached-response regression before changing link output.
 - [ ] **5.5** Run parameter crawl and Search Console sampling, commit/push/deploy, and check Task 5 after live evidence.
 
 **Files:** catalog views/templates, pagination/canonical helpers, `general_catalog_seo.py`, `color_seo_copy.py`, robots/hreflang helpers and tests.
@@ -539,7 +541,59 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   inspect or modify the DTF subdomain/blog/module, DTF route, Custom Print
   content/configurator, product copy, catalog data, variant inventory or SEO
   ownership policy. It makes no ranking, traffic, rich-result or conversion
-  claim. Cache-key cardinality/alias normalization remains open in 5.4a.2b.
+  claim. Semantic facet identity and pagination serialization remain open in
+  5.4a.2c/2d.
+
+#### Task 5.4a.2b execution evidence (checkpoint prepared)
+
+- Code/test commit: `0cec998539ca92afcf7281779b0c17c3c8673b5d`
+  (`fix(cache): normalize catalog request identities`) keeps catalog-specific
+  identity normalization in `_build_catalog_cache_query()` and restores the
+  generic helper's original color-only behavior. It adds cache callbacks for
+  the catalog, a resolved-locale identity with `Accept-Language` fallback,
+  tracking-parameter page-cache bypass, strict invalid-query rejection,
+  page/default-sort redirects, fit-alias normalization and the v6 outer
+  fragment identity. The homepage regression proves a warmed `/?page=01`
+  cannot suppress the existing `/?page=1` `301`.
+- TDD/local gates: the new regressions were RED before the fixes and GREEN
+  afterward. The catalog/cache/selector suite passed `131/131`; adjacent
+  color/pagination/cache suites passed `42/42`; `manage.py check`, catalog
+  template loading, touched-file `py_compile` and `git diff --check` passed.
+  The separate `test_public_product_ordering` baseline remains `10/11` only
+  because of its unrelated existing `.catalog-taxonomy-row` expectation.
+  Context7 Django 5.2 documentation confirms that fragment keys vary by the
+  `{% cache %}` arguments and can be reproduced with
+  `make_template_fragment_key`; this supports one normalized catalog identity
+  for the page and outer grid fragment without flushing production caches.
+- Production release: `origin/main`, server `HEAD` and the live release are
+  `0cec998539ca92afcf7281779b0c17c3c8673b5d`. `collectstatic --noinput`,
+  `compress --force`, `check --deploy` and the Passenger restart completed;
+  only the pre-existing `security.W008` and `security.W009` warnings remain.
+- Live route proof: `/healthz/`, clean catalog, valid color facet, page 2,
+  RU catalog and EN catalog returned `200`; clean/page-2 responses remained
+  `index, follow` with self-canonicals, while the color facet remained
+  `noindex, follow` with the clean canonical. `page=01` and `page=02`
+  redirected one hop to clean/page-2 URLs; `sort=recommended` was removed
+  without dropping the category. Invalid sort/category/unknown-key,
+  duplicate-category, nonexistent-page, invalid-fit/size and a 5000-digit
+  page all returned `404`. The homepage warm-alias proof remained
+  `/?page=01 -> 200` followed by `/?page=1 -> 301 /`.
+- Tracking proof: `utm_*`, `wbraid`, `gbraid`, `msclkid`, `yclid`, `ref` and
+  `ref_` catalog requests returned normal `200` responses and did not write
+  anonymous page-cache entries. Equivalent category permutations and
+  `regular`/`standard` fit aliases produced identical live response bodies.
+- Cache occupancy was measured before and after the live matrix without any
+  flush: default file cache `6903 -> 6913 / 8000` (86.4%), fragments
+  `10986 -> 11006 / 12000` (91.7%). The small bounded increase is from the
+  clean valid identities exercised by the matrix; tracking and invalid aliases
+  did not create page-cache writes. No ranking, traffic, rich-result or
+  conversion uplift is claimed.
+- Residual P2 decisions are explicitly left open in 5.4a.2c/2d: semantic
+  parent-theme/child-collection redundancy currently needs a low-query design,
+  and equivalent facet permutations can still preserve the first warmed raw
+  parameter order in pagination links. No DTF subdomain/blog/module, DTF route,
+  Custom Print content/configurator, product copy, catalog data or inventory
+  was changed or inspected in this slice.
 
 #### Task 5.3 execution evidence (checkpoint prepared)
 
