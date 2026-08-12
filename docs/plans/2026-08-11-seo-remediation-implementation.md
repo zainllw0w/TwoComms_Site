@@ -811,11 +811,20 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 
 - [x] **8.1** Add failing tests that compare homepage `offerCount`, sitemap, feed and eligible public products from one queryset/snapshot.
 - [ ] **8.2** Implement the shared public eligibility predicate and variant resolver across every remaining public surface, including the separately audited `llms.txt` fact range; the offer-count slice covers homepage schema, product/variant sitemaps, merchant feed and IndexNow only.
-- [ ] **8.3** Replace unsupported `MemberProgramTierBenefit` with documented truthful enumeration plus `membershipPointsEarned`, or remove MemberProgram until the business rule is verified.
+- [x] **8.3** Replace unsupported `MemberProgramTierBenefit` with documented truthful enumeration plus `membershipPointsEarned`, or remove MemberProgram until the business rule is verified.
 - [ ] **8.4** Make selected variant schema/feed URLs, images, price and availability agree with the rendered page and canonical policy.
 - [ ] **8.5** Run Rich Results/Schema Validator checks and feed parsers, then commit/push/deploy and mark Task 8.
 
 **Files:** `twocomms/storefront/seo_utils.py`; ProductGroup/Offer schema builders; merchant feed modules; llms generator; tests and validator evidence.
+
+#### Task 8.3 execution evidence
+
+- Code/test commit: `3680cc92acc1474a55b3ec2be9807b9d4f930b03` (`fix(seo): remove unsupported member program schema`) was pushed to `origin/main`, pulled on production and activated.
+- TDD: the new regression failed against the live-shaped organization schema because it emitted `MemberProgramTierBenefit`; it passed after removing the unverified `hasMemberProgram` graph. The existing organization test was updated to protect that absence until a single owner-approved points policy exists.
+- Context7/Schema.org check: documented examples permit `MemberProgramTier` only with a supported `TierBenefitEnumeration` such as `TierBenefitLoyaltyPoints` and a truthful `membershipPointsEarned` value. The backend currently awards points from per-product `points_reward` and does not expose one verified public coefficient/tier policy, so inventing one would be false structured data.
+- Local gates: focused MemberProgram test passed `1/1`; `manage.py check`, touched-file `py_compile` and `git diff --check` passed. Production `DEBUG=1 python manage.py check` passed.
+- Live proof at production SHA `3680cc92`: homepage returned `200` and contained zero `hasMemberProgram` and zero `MemberProgramTierBenefit` tokens.
+- Scope boundary: loyalty earning/spending code, visible account UI, DTF routes/subdomain/blog, Custom Print, products and other entity facts were not changed. No ranking, rich-result or conversion uplift is claimed. A future policy-backed schema may reopen Task 8.3.
 
 #### Task 8.1/8.2 execution evidence
 
