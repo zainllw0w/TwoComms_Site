@@ -99,7 +99,6 @@
   function create({ root, config, getState }) {
     const previewNodes = Array.from(root.querySelectorAll("[data-png-preview]"));
     const warmedAssets = new Set();
-    const scheduledWarmups = new Set();
     const renderMeta = new WeakMap();
 
     function appendPreload(url) {
@@ -111,41 +110,6 @@
       preload.type = "image/avif";
       preload.href = url;
       document.head.appendChild(preload);
-    }
-
-    function canDeferBackWarmup() {
-      const connection = global.navigator?.connection;
-      const saveData = !!connection?.saveData;
-      const renderPlan = global.CustomPrintRenderPlan;
-      if (typeof renderPlan?.canDeferBackWarmup === "function") {
-        return renderPlan.canDeferBackWarmup(connection, saveData);
-      }
-      const effectiveType = connection?.effectiveType || "4g";
-      return !saveData && effectiveType !== "slow-2g" && effectiveType !== "2g";
-    }
-
-    function scheduleBackWarmup(url) {
-      if (!url || warmedAssets.has(url) || scheduledWarmups.has(url) || !canDeferBackWarmup()) return;
-      scheduledWarmups.add(url);
-      const warm = () => {
-        scheduledWarmups.delete(url);
-        if (!canDeferBackWarmup()) return;
-        // A user may change garment/color before the idle window.  Do not
-        // spend bandwidth warming an asset that is no longer relevant.
-        const latestState = getState();
-        const latestRender = resolveGarmentRender(
-          config.custom_ref_preview_assets || {},
-          profileKey(latestState),
-          latestState.product.color,
-        );
-        if (latestRender?.sources?.back?.avif !== url) return;
-        appendPreload(url);
-      };
-      if (typeof global.requestIdleCallback === "function") {
-        global.requestIdleCallback(warm, { timeout: 2500 });
-      } else if (typeof global.setTimeout === "function") {
-        global.setTimeout(warm, 1500);
-      }
     }
 
     function warmCurrentProfile(state) {
@@ -164,11 +128,6 @@
         if (side === view) {
           // The source currently visible must be available immediately.
           appendPreload(sources.avif);
-        } else if (side === "back") {
-          // Back is only speculative work while the front is visible.  On
-          // constrained connections it is intentionally left for an
-          // explicit back-view action.
-          scheduleBackWarmup(sources.avif);
         }
       });
     }

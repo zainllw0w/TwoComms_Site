@@ -101,7 +101,6 @@ test("preview render is a no-op when sources and overlays are unchanged", () => 
   const previousDocument = globalThis.document;
   const previousNavigator = globalThis.navigator;
   const previousSetTimeout = globalThis.setTimeout;
-  const previousIdle = globalThis.requestIdleCallback;
   const previousRaf = globalThis.requestAnimationFrame;
   const preloads = [];
   const rafs = [];
@@ -152,7 +151,6 @@ test("preview render is a no-op when sources and overlays are unchanged", () => 
     value: { connection: { effectiveType: "2g", saveData: false } },
   });
   globalThis.requestAnimationFrame = (callback) => rafs.push(callback);
-  globalThis.requestIdleCallback = undefined;
   globalThis.setTimeout = () => 0;
 
   const state = {
@@ -189,7 +187,7 @@ test("preview render is a no-op when sources and overlays are unchanged", () => 
     });
     controller.render();
     controller.render();
-    assert.equal(preloads.length, 1, "front is warmed immediately; back is skipped on 2G");
+    assert.equal(preloads.length, 1, "front is warmed immediately; hidden back stays lazy");
     assert.equal(preloads[0], "front.avif");
     assert.equal(rafs.length, 1, "asset transition is scheduled only on the first render");
     assert.equal(zones.children.length, 0);
@@ -197,7 +195,6 @@ test("preview render is a no-op when sources and overlays are unchanged", () => 
     globalThis.document = previousDocument;
     Object.defineProperty(globalThis, "navigator", { configurable: true, value: previousNavigator });
     globalThis.requestAnimationFrame = previousRaf;
-    globalThis.requestIdleCallback = previousIdle;
     globalThis.setTimeout = previousSetTimeout;
   }
 });

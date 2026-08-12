@@ -74,13 +74,13 @@ class CustomPrintReferenceStageContractTests(unittest.TestCase):
         self.assertIn('preload.type = "image/avif"', source)
         self.assertIn('warmCurrentProfile(state)', source)
 
-    def test_preview_preloads_current_side_and_defers_back_side(self):
+    def test_preview_preloads_current_side_and_keeps_hidden_back_lazy(self):
         source = PREVIEW_JS.read_text(encoding="utf-8")
         self.assertIn("const render = resolveGarmentRender(profiles, profileKey(state), state.product.color);", source)
         self.assertIn("const variant = render?.sources;", source)
         self.assertIn('["front", "back"].forEach((side)', source)
         self.assertIn("if (side === view)", source)
-        self.assertIn("scheduleBackWarmup(sources.avif)", source)
+        self.assertNotIn("scheduleBackWarmup", source)
         self.assertNotIn('Object.values(profile).forEach((variant)', source)
 
     def test_desktop_stage_hides_duplicate_preview_action(self):

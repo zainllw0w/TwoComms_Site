@@ -29,13 +29,6 @@ test("render signatures are key-order independent and dirty only affected domain
   assert.deepEqual([...plan.dirtyDomains(first, changed)].sort(), ["content", "navigation"]);
 });
 
-test("back warmup is disabled for save-data and constrained connections", () => {
-  assert.equal(plan.canDeferBackWarmup({ effectiveType: "4g" }, false), true);
-  assert.equal(plan.canDeferBackWarmup({ effectiveType: "3g" }, false), true);
-  assert.equal(plan.canDeferBackWarmup({ effectiveType: "2g" }, false), false);
-  assert.equal(plan.canDeferBackWarmup({ effectiveType: "4g" }, true), false);
-});
-
 test("memoized pricing reuses the exact result until its canonical key changes", () => {
   let calls = 0;
   const pricing = plan.memoize((key) => {

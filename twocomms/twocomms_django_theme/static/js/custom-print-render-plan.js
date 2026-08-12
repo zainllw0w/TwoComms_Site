@@ -25,12 +25,6 @@
     return new Set(DOMAIN_KEYS.filter((key) => previous[key] !== next[key]));
   }
 
-  function canDeferBackWarmup(connection, saveData) {
-    if (saveData) return false;
-    const effectiveType = connection?.effectiveType || "4g";
-    return effectiveType !== "slow-2g" && effectiveType !== "2g";
-  }
-
   function memoize(compute) {
     let key = null;
     let value;
@@ -58,5 +52,5 @@
     };
   }
 
-  global.CustomPrintRenderPlan = { canDeferBackWarmup, createRefreshGate, dirtyDomains, memoize, signature, stable };
+  global.CustomPrintRenderPlan = { createRefreshGate, dirtyDomains, memoize, signature, stable };
 })(globalThis);
