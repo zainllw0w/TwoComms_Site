@@ -249,15 +249,14 @@ def build_color_landing_urls(languages: Iterable[str]) -> list[str]:
         .select_related("category")
         .values_list("category__slug", "color_slug")
     )
+    requested = {str(lang).split("-", 1)[0].lower() for lang in languages}
+    if get_default_language() not in requested:
+        return []
     out: list[str] = []
-    for lang in languages:
-        prefix = build_lang_prefix(lang)
-        for cat_slug, color_slug in pairs:
-            if not (cat_slug and color_slug):
-                continue
-            out.append(
-                build_absolute_url(f"{prefix}/catalog/{cat_slug}/{color_slug}/")
-            )
+    for cat_slug, color_slug in pairs:
+        if not (cat_slug and color_slug):
+            continue
+        out.append(build_absolute_url(f"/catalog/{cat_slug}/{color_slug}/"))
     return _dedupe(out)
 
 

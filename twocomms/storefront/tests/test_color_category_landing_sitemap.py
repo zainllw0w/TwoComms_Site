@@ -91,7 +91,7 @@ class CategoryColorLandingSitemapTests(TestCase):
         self.assertIn("/catalog/tshirts/black/", body)
         self.assertNotIn("/catalog/tshirts/white/", body)
 
-    def test_sitemap_emits_unique_locale_urls_and_reciprocal_alternates(self):
+    def test_sitemap_emits_only_the_owned_uk_locale_until_translations_exist(self):
         CategoryColorLanding.objects.create(
             category=self.category,
             color=self.black,
@@ -114,10 +114,8 @@ class CategoryColorLandingSitemapTests(TestCase):
         }
         expected_locations = {
             "https://twocomms.shop/catalog/tshirts/black/",
-            "https://twocomms.shop/ru/catalog/tshirts/black/",
-            "https://twocomms.shop/en/catalog/tshirts/black/",
         }
-        self.assertEqual(len(urls), 3)
+        self.assertEqual(len(urls), 1)
         self.assertEqual(locations, expected_locations)
 
         for url in urls:
@@ -129,8 +127,6 @@ class CategoryColorLandingSitemapTests(TestCase):
                 alternates,
                 {
                     ("uk", "https://twocomms.shop/catalog/tshirts/black/"),
-                    ("ru", "https://twocomms.shop/ru/catalog/tshirts/black/"),
-                    ("en", "https://twocomms.shop/en/catalog/tshirts/black/"),
                     ("x-default", "https://twocomms.shop/catalog/tshirts/black/"),
                 },
             )

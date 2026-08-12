@@ -117,3 +117,10 @@ def publication_context(product, locale: str) -> dict[str, object]:
         "eligible_locales": eligible,
         "indexable": locale in eligible,
     }
+
+
+def uk_only_publication_context(locale: str) -> dict[str, object]:
+    """Publication signals for landing models with UK-only source copy."""
+
+    code = (locale or "uk").split("-", 1)[0].lower()
+    return {"eligible_locales": ("uk",), "indexable": code == "uk"}

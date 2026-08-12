@@ -2236,6 +2236,7 @@ def category_color_landing(request, cat_slug, color_slug):
         canonical_path = f"{canonical_path}?page={page_obj.number}"
     site_base = request.build_absolute_uri("/").rstrip("/")
     canonical_url = f"{site_base}{canonical_path}"
+    from ..services.locale_publication import uk_only_publication_context
 
     return render(
         request,
@@ -2250,6 +2251,9 @@ def category_color_landing(request, cat_slug, color_slug):
             "breadcrumb_items": breadcrumb_items,
             "canonical_url": canonical_url,
             "canonical_path": canonical_path,
+            "locale_publication": uk_only_publication_context(
+                getattr(request, "LANGUAGE_CODE", "uk")
+            ),
             "faq_items": landing.faq_items or [],
             "sibling_landings": sibling_landings,
             "cross_category_landings": cross_category_landings,
@@ -2467,6 +2471,7 @@ def thematic_landing(request, theme_slug):
         .split('?', 1)[0]
         .rstrip('/') + '/'
     )
+    from ..services.locale_publication import uk_only_publication_context
 
     return render(
         request,
@@ -2516,6 +2521,9 @@ def thematic_landing(request, theme_slug):
             'color_seo_copy': None,
             'thematic_canonical_url': canonical_url,
             'thematic_canonical_path': canonical_path,
+            'locale_publication': uk_only_publication_context(
+                getattr(request, "LANGUAGE_CODE", "uk")
+            ),
             'breadcrumb_items': [
                 {'name': 'Головна', 'url': '/'},
                 {'name': 'Каталог', 'url': '/catalog/'},

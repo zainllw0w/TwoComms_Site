@@ -350,6 +350,9 @@ class CategoryColorLandingSitemap(Sitemap):
             .select_related('category', 'color')
         )
 
+    def get_languages_for_item(self, item):
+        return ('uk',)
+
     def lastmod(self, obj):
         return getattr(obj, 'updated_at', None)
 

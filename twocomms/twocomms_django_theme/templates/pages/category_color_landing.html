@@ -9,7 +9,7 @@
 {% block canonical %}{{ canonical_url }}{% endblock %}
 {% block og_url %}{{ canonical_url }}{% endblock %}
 
-{% block robots %}{% if suppress_hreflang %}noindex, follow{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block robots %}{% if suppress_hreflang or not locale_publication.indexable %}noindex, follow{% else %}{{ block.super }}{% endif %}{% endblock %}
 
 {% block og_type %}website{% endblock %}
 {% block og_title %}{{ landing.seo_title }}{% endblock %}
@@ -19,9 +19,6 @@
 {% block twitter_url %}{{ canonical_url }}{% endblock %}
 {% block twitter_title %}{{ landing.seo_title }}{% endblock %}
 {% block twitter_description %}{{ landing.seo_description }}{% endblock %}
-
-{% block hreflang_uk %}{{ canonical_url }}{% endblock %}
-{% block hreflang_x_default %}{{ canonical_url }}{% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
