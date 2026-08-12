@@ -140,6 +140,8 @@ CATALOG_SHOWCASE_CARD_CONFIG = (
 def _pagination_query_prefix(request):
     params = request.GET.copy()
     params.pop('page', None)
+    for key in _CATALOG_TRACKING_QUERY_KEYS:
+        params.pop(key, None)
     encoded = params.urlencode()
     return f'{encoded}&' if encoded else ''
 

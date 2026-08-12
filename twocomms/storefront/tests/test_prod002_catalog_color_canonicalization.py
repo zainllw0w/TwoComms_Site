@@ -421,6 +421,15 @@ class CatalogColorCanonicalRedirectTests(TestCase):
             body,
         )
 
+    def test_google_click_id_is_not_propagated_to_internal_pagination_links(self):
+        response = self.client.get(
+            reverse("catalog") + "?srsltid=google-free-listing-click"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertNotIn("srsltid=google-free-listing-click&amp;page=", body)
+
     def test_google_auto_tagging_survives_catalog_alias_normalization(self):
         response = self.client.get(
             reverse("catalog") + "?page=01&srsltid=google-free-listing-click"

@@ -146,6 +146,18 @@ class ColorFilterServiceTests(_BaseColorFilterTests):
         self.assertNotIn("color=", url)
         self.assertIn("utm_source=ig", url)
 
+    def test_build_color_chip_url_drops_platform_click_ids(self):
+        request = self._request(
+            "/catalog/",
+            "color=black&srsltid=free-listing-click&utm_source=merchant",
+        )
+        chips = build_available_colors(
+            Product.objects.filter(status="published"), request, ["black"]
+        )
+        coyote_url = next(item["url"] for item in chips if item["slug"] == "coyote")
+        self.assertNotIn("srsltid=", coyote_url)
+        self.assertIn("utm_source=merchant", coyote_url)
+
     def test_build_home_color_chips_links_to_target_path(self):
         chips = build_home_color_chips(
             Product.objects.filter(status="published"), "/catalog/"

@@ -27,6 +27,8 @@ from django.db.models import QuerySet
 from django.http import HttpResponsePermanentRedirect
 from django.utils.translation import gettext_lazy as _
 
+from storefront.utm_utils import PLATFORM_QUERY_PARAMS
+
 
 # 2026-05-16 — Phase 17v. The Color model is shared with admin tools and
 # does not use ``django-modeltranslation`` (Color rows store a single
@@ -205,7 +207,7 @@ def _build_chip_url(request, slugs: List[str]) -> str:
     """Build a URL on the same path with ``color=`` rewritten to ``slugs``."""
     params: List[tuple[str, str]] = []
     for key, values in request.GET.lists():
-        if key == "color" or key == "page":
+        if key == "color" or key == "page" or key in PLATFORM_QUERY_PARAMS:
             continue
         for value in values:
             params.append((key, value))
