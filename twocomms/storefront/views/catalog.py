@@ -511,6 +511,12 @@ def _build_catalog_pagination_query_prefix(request):
     return _pagination_query_prefix(request)
 
 
+def _build_catalog_page_one_url(request):
+    """Return the clean first-page URL while preserving non-page state."""
+    prefix = _build_catalog_pagination_query_prefix(request).rstrip("&")
+    return request.path + (f"?{prefix}" if prefix else "")
+
+
 def _catalog_cacheable_request(request):
     return not any(key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS)
 
@@ -1900,6 +1906,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
                 '_catalog_pagination_query_prefix',
                 _pagination_query_prefix(request),
             ),
+            'pagination_page_one_url': _build_catalog_page_one_url(request),
             # Phase 10 — structured SEO blocks shown after the products grid.
             'category_seo_blocks': get_category_seo_blocks(category) if category else [],
             # Phase 10b — split layout: tabs (top_menu/top_filters/top_queries/
@@ -2096,6 +2103,7 @@ def search(request):
                 'color_filter_reset_url': color_filter_reset_url,
                 'suppress_hreflang': True,
                 'pagination_query_prefix': _pagination_query_prefix(request),
+                'pagination_page_one_url': _build_catalog_page_one_url(request),
             }
         )
     except Exception as e:
@@ -2268,6 +2276,7 @@ def category_color_landing(request, cat_slug, color_slug):
                 "_catalog_pagination_query_prefix",
                 _pagination_query_prefix(request),
             ),
+            "pagination_page_one_url": _build_catalog_page_one_url(request),
             "catalog_fragment_identity": getattr(
                 request,
                 "_catalog_fragment_identity",
@@ -2516,6 +2525,7 @@ def thematic_landing(request, theme_slug):
                 '_catalog_pagination_query_prefix',
                 _pagination_query_prefix(request),
             ),
+            'pagination_page_one_url': _build_catalog_page_one_url(request),
             'category_seo_blocks': [],
             'category_seo_layout': None,
             'color_seo_copy': None,

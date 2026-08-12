@@ -344,13 +344,13 @@
           {% if page_obj.has_other_pages %}
           <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
-            <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ page_obj.previous_page_number }}" rel="prev">‹</a></li>
+            <li class="page-item"><a class="page-link" href="{% if page_obj.previous_page_number == 1 %}{{ pagination_page_one_url }}{% else %}?{{ pagination_query_prefix }}page={{ page_obj.previous_page_number }}{% endif %}" rel="prev">‹</a></li>
             {% endif %}
             {% for i in paginator.page_range %}
               {% if page_obj.number == i %}
               <li class="page-item active"><span class="page-link">{{ i }}</span></li>
               {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
-              <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ i }}">{{ i }}</a></li>
+              <li class="page-item"><a class="page-link" href="{% if i == 1 %}{{ pagination_page_one_url }}{% else %}?{{ pagination_query_prefix }}page={{ i }}{% endif %}">{{ i }}</a></li>
               {% endif %}
             {% endfor %}
             {% if page_obj.has_next %}

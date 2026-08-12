@@ -137,6 +137,7 @@ class CategoryColorLandingViewTests(TestCase):
         self.assertEqual(page_two.status_code, 200)
         self.assertTrue(page_two.context["canonical_url"].endswith("?page=2"))
         self.assertContains(page_two, "content=\"index, follow")
+        self.assertNotContains(page_two, "page=1")
         self.assertEqual(missing_page.status_code, 404)
 
     def test_page_aliases_redirect_once_without_losing_locale_or_tracking(self):

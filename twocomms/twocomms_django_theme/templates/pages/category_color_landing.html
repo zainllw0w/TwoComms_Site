@@ -125,11 +125,11 @@
     <nav class="mt-4" aria-label="{% trans 'Сторінки' %}">
       <ul class="pagination justify-content-center">
         {% if page_obj.has_previous %}
-          <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ page_obj.previous_page_number }}">«</a></li>
+          <li class="page-item"><a class="page-link" href="{% if page_obj.previous_page_number == 1 %}{{ pagination_page_one_url }}{% else %}?{{ pagination_query_prefix }}page={{ page_obj.previous_page_number }}{% endif %}">«</a></li>
         {% endif %}
         {% for num in paginator.page_range %}
           <li class="page-item {% if num == page_obj.number %}active{% endif %}">
-            <a class="page-link" href="?{{ pagination_query_prefix }}page={{ num }}">{{ num }}</a>
+            <a class="page-link" href="{% if num == 1 %}{{ pagination_page_one_url }}{% else %}?{{ pagination_query_prefix }}page={{ num }}{% endif %}">{{ num }}</a>
           </li>
         {% endfor %}
         {% if page_obj.has_next %}

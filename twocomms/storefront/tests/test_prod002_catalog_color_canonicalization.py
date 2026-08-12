@@ -13,6 +13,7 @@ from storefront.models import Category, Product, ProductFitOption
 from storefront.services.color_filter import parse_color_filter
 from storefront.views.catalog import (
     _build_catalog_cache_query,
+    _build_catalog_page_one_url,
     _build_catalog_pagination_query_prefix,
     _catalog_cache_prefix,
 )
@@ -188,6 +189,16 @@ class ColorFilterCanonicalServiceTests(TestCase):
         self.assertEqual(
             _build_catalog_pagination_query_prefix(request),
             "utm_source=ad&size=M&",
+        )
+
+    def test_catalog_page_one_url_removes_page_without_dropping_state(self):
+        request = self.factory.get(
+            "/ru/catalog/tshirts/?fit=oversize&page=2&utm_source=ad"
+        )
+
+        self.assertEqual(
+            _build_catalog_page_one_url(request),
+            "/ru/catalog/tshirts/?fit=oversize&utm_source=ad",
         )
 
     def test_catalog_cache_version_busts_pre_serialization_responses(self):
@@ -511,7 +522,7 @@ class CatalogColorCanonicalRedirectTests(TestCase):
         first = self.client.get(path)
         second = self.client.get(path)
 
-        expected = "?fit=classic&amp;fit=oversize&amp;color=black&amp;page=1"
+        expected = "?fit=classic&amp;fit=oversize&amp;color=black"
         self.assertEqual(
             first.status_code,
             200,

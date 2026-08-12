@@ -783,6 +783,22 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertIn(in_category.title, product_titles)
         self.assertNotIn("Other Category Product", product_titles)
 
+    def test_page_two_pagination_does_not_link_to_redirecting_page_one(self):
+        for index in range(17):
+            self.create_product(
+                title=f"Paginated Product {index}",
+                slug=f"paginated-product-{index}",
+            )
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": self.category.slug})
+            + "?page=2"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "page=1")
+        self.assertContains(response, "page=2")
+
     def test_catalog_category_uses_home_product_card_layout(self):
         product = self.create_product(title="Styled Product", slug="styled-product")
         product_url = reverse("product", kwargs={"slug": product.slug})
