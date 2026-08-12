@@ -11,6 +11,7 @@ Cart views - Корзина покупок.
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.cache import never_cache
@@ -1673,6 +1674,17 @@ def cart_mini(request):
     custom_items_qty = custom_cart_state['custom_items_qty']
 
     combined_total = (Decimal(total) + custom_items_total).quantize(Decimal('0.01'))
+    # Pending/draft custom-print prices are provisional and cannot be paid
+    # yet, so they must not unlock the free-shipping promise.
+    shipping_total = (Decimal(total) + custom_cart_state['approved_custom_total']).quantize(Decimal('0.01'))
+    shipping_threshold = Decimal(str(getattr(settings, 'FREE_SHIPPING_THRESHOLD', '3000')))
+    shipping_remaining = max(shipping_threshold - shipping_total, Decimal('0'))
+    shipping_progress = min(
+        100,
+        int((shipping_total / shipping_threshold * 100).quantize(Decimal('1')))
+        if shipping_threshold > 0 else 100,
+    )
+    cart_count = sum(int(item.get('qty') or 0) for item in cart_sess.values()) + int(custom_items_qty or 0)
 
     return render(request, 'partials/mini_cart.html', {
         'items': items,
@@ -1682,7 +1694,13 @@ def cart_mini(request):
         'custom_items_total': custom_items_total,
         'custom_items_qty': custom_items_qty,
         'combined_total': combined_total,
+        'shipping_total': shipping_total,
         'has_any_items': bool(items) or bool(custom_items),
+        'cart_count': cart_count,
+        'shipping_threshold': shipping_threshold,
+        'shipping_remaining': shipping_remaining,
+        'shipping_progress': shipping_progress,
+        'shipping_free': shipping_total >= shipping_threshold,
     })
 
 

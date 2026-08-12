@@ -541,6 +541,33 @@ class CatalogViewTests(CatalogViewTestCase):
         for orange in ("#f15a0b", "#ff681b"):
             self.assertGreaterEqual(contrast_ratio(dark_ink, orange), 4.5)
 
+    def test_reference_mini_cart_exposes_shipping_and_quantity_contract(self):
+        theme_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme"
+        template = (theme_root / "templates" / "partials" / "mini_cart.html").read_text(
+            encoding="utf-8"
+        )
+        css = (theme_root / "static" / "css" / "mini-cart.css").read_text(encoding="utf-8")
+        for marker in (
+            "mini-cart-shipping",
+            "mini-cart-shipping__progress",
+            "mini-cart-benefits",
+            "mini-cart-quantity",
+            "mini-cart-quantity__decrease",
+            "mini-cart-quantity__increase",
+            "mini-cart-summary__icon",
+            "aria-label=\"{{ it.color_label|default:_('Колір') }}\"",
+        ):
+            self.assertIn(marker, template)
+        self.assertNotIn("translate_color", template)
+        for marker in (
+            "border-radius: 28px 28px 0 0",
+            "env(safe-area-inset-bottom",
+            "transform: translateY(105%)",
+            "mini-cart-shipping__bar",
+            "mini-cart-benefits",
+        ):
+            self.assertIn(marker, css)
+
     def test_catalog_root_shows_published_products_and_category_cards(self):
         self.create_product(title="Root Product", slug="root-product")
         self.create_product(

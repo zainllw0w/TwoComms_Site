@@ -10,6 +10,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase
+from django.test import override_settings
 from django.urls import reverse
 from django.utils.translation import override
 
@@ -187,8 +188,58 @@ class ViewCartTests(CartViewTestCase):
         response = self.client.get(reverse("cart"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.client.session["cart"], {})
         self.assertEqual(response.context["items"], [])
+        self.assertEqual(self.client.session["cart"], {})
+
+
+class MiniCartViewTests(CartViewTestCase):
+    def test_mini_cart_exposes_shipping_progress_below_threshold(self):
+        self.set_cart(qty=2)
+
+        response = self.client.get(reverse("cart_mini"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["combined_total"], Decimal("200.00"))
+        self.assertEqual(response.context["shipping_threshold"], Decimal("3000"))
+        self.assertEqual(response.context["shipping_remaining"], Decimal("2800"))
+        self.assertEqual(response.context["shipping_progress"], 7)
+        self.assertFalse(response.context["shipping_free"])
+        self.assertEqual(response.context["cart_count"], 2)
+
+    def test_pending_custom_print_does_not_unlock_free_shipping(self):
+        session = self.client.session
+        session[SESSION_CUSTOM_CART_KEY] = {
+            "custom:pending": {
+                "quantity": 1,
+                "final_total": "5000",
+                "unit_total": "5000",
+                "moderation_status": "draft",
+                "label": "Pending print",
+            }
+        }
+        session.save()
+
+        response = self.client.get(reverse("cart_mini"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["combined_total"], Decimal("5000.00"))
+        self.assertEqual(response.context["shipping_total"], Decimal("0.00"))
+        self.assertEqual(response.context["shipping_remaining"], Decimal("3000.00"))
+        self.assertFalse(response.context["shipping_free"])
+
+    @override_settings(FREE_SHIPPING_THRESHOLD="250")
+    def test_mini_cart_marks_free_shipping_at_dynamic_threshold(self):
+        self.set_cart(qty=3)
+
+        response = self.client.get(reverse("cart_mini"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["combined_total"], Decimal("300.00"))
+        self.assertEqual(response.context["shipping_threshold"], Decimal("250"))
+        self.assertEqual(response.context["shipping_remaining"], Decimal("0"))
+        self.assertEqual(response.context["shipping_progress"], 100)
+        self.assertTrue(response.context["shipping_free"])
+        self.assertContains(response, "Ви молодець!")
 
 
 class AddToCartTests(CartViewTestCase):

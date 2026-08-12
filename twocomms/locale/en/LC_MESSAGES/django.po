@@ -16733,6 +16733,50 @@ msgstr ""
 msgid "Якщо бот не відкрився — скопіюйте посилання:"
 msgstr ""
 
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Товари в кошику не бронюються"
+msgstr "Items in your cart are not reserved"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Безкоштовна доставка"
+msgstr "Free shipping"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "До безкоштовної доставки залишилось"
+msgstr "Remaining for free shipping"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Поріг безкоштовної доставки"
+msgstr "Free-shipping threshold"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Безкоштовна доставка доступна"
+msgstr "Free shipping is available"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Ви молодець!"
+msgstr "You did it!"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Швидке оформлення за 1 хвилину"
+msgstr "Checkout in one minute"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "1–3 дні по Україні"
+msgstr "1-3 days across Ukraine"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Оригінальна продукція"
+msgstr "Original products"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Гарантія якості"
+msgstr "Quality guarantee"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Легкий обмін та повернення"
+msgstr "Easy exchanges and returns"
+
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:79
 msgid "Спробуйте ще раз — нова сесія діятиме 5 хвилин."
 msgstr ""

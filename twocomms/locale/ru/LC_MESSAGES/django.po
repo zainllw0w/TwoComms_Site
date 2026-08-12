@@ -4597,6 +4597,50 @@ msgstr ""
 msgid "Термохромна тканина"
 msgstr "Термохромная ткань"
 
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Товари в кошику не бронюються"
+msgstr "Товары в корзине не бронируются"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Безкоштовна доставка"
+msgstr "Бесплатная доставка"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "До безкоштовної доставки залишилось"
+msgstr "До бесплатной доставки осталось"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Поріг безкоштовної доставки"
+msgstr "Порог бесплатной доставки"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Безкоштовна доставка доступна"
+msgstr "Бесплатная доставка доступна"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Ви молодець!"
+msgstr "Вы молодец!"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Швидке оформлення за 1 хвилину"
+msgstr "Быстрое оформление за 1 минуту"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "1–3 дні по Україні"
+msgstr "1–3 дня по Украине"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Оригінальна продукція"
+msgstr "Оригинальная продукция"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Гарантія якості"
+msgstr "Гарантия качества"
+
+#: twocomms_django_theme/templates/partials/mini_cart.html
+msgid "Легкий обмін та повернення"
+msgstr "Легкий обмен и возврат"
+
 #: storefront/custom_print_config.py:69 storefront/custom_print_config.py:70
 #: twocomms_django_theme/templates/pages/custom_print.html:678
 #: twocomms_django_theme/templates/pages/custom_print.html:729

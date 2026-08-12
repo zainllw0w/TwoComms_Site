@@ -2,154 +2,65 @@
 {% load responsive_images %}
 {% load i18n %}
 {% load color_filters %}
-<div class="mini-cart-view">
+<div class="mini-cart-view" data-mini-cart-view data-cart-count="{{ cart_count|default:0 }}">
   {% if has_any_items %}
     <div class="mini-cart-list" role="list">
+      <section class="mini-cart-shipping" aria-label="{% trans 'Безкоштовна доставка' %}">
+        <div class="mini-cart-shipping__icon" aria-hidden="true">
+          <svg viewBox="0 0 48 32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h26v16H2zM28 14h9l7 7v3H28z"/><path d="M36 14v7h8M10 28a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM36 28a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M14 24h18"/></svg>
+        </div>
+        <div class="mini-cart-shipping__copy">
+          <strong>{% trans 'До безкоштовної доставки залишилось' %} {{ shipping_remaining|floatformat:0 }} {% trans 'грн' %}</strong>
+          <span>{% trans 'Поріг безкоштовної доставки' %} — <b>{{ shipping_threshold|floatformat:0 }} {% trans 'грн' %}</b></span>
+        </div>
+        {% if shipping_free %}<span class="mini-cart-shipping__success" aria-label="{% trans 'Безкоштовна доставка доступна' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>{% trans 'Ви молодець!' %}</span>{% endif %}
+        <div class="mini-cart-shipping__track mini-cart-shipping__progress" aria-hidden="true"><span class="mini-cart-shipping__bar" style="width: {{ shipping_progress }}%;"></span></div>
+        <span class="mini-cart-shipping__threshold">{{ shipping_threshold|floatformat:0 }} {% trans 'грн' %}</span>
+      </section>
+
       {% if custom_items %}
         {% for ci in custom_items %}
-          <div class="mini-cart-row mini-cart-row--custom mini-cart-custom-row"
-               role="listitem"
-               data-custom-key="{{ ci.key }}"
-               data-lead-id="{{ ci.lead_id }}">
-            <div class="mini-cart-row__media mini-cart-row__media--custom" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/>
-                <path d="M9 14h6"/>
-              </svg>
-            </div>
-            <div class="mini-cart-row__copy">
-              <div class="mini-cart-row__title mini-cart-row__title--custom">
-                {% trans 'Кастомний друк' %}{% if ci.lead_number %} · №{{ ci.lead_number }}{% endif %}
-              </div>
-              <div class="mini-cart-row__meta" title="{{ ci.label }}">
-                {{ ci.label }} · ×{{ ci.quantity }}{% if ci.moderation_status_label %} · {{ ci.moderation_status_label }}{% endif %}
-              </div>
-            </div>
-            <div class="mini-cart-row__actions">
-              <div class="mini-cart-row__price">{{ ci.line_total }} {% trans 'грн' %}</div>
-              <button type="button"
-                      class="mini-cart-row__remove"
-                      data-custom-remove
-                      data-key="{{ ci.key }}"
-                      data-lead-id="{{ ci.lead_id }}"
-                      onclick="if (window.CustomCartRemove) { window.CustomCartRemove(this); } return false;"
-                      aria-label="{% trans 'Видалити кастомну позицію' %}">×</button>
-            </div>
-          </div>
+          <article class="mini-cart-row mini-cart-row--custom mini-cart-custom-row" role="listitem" data-custom-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}">
+            <div class="mini-cart-row__media mini-cart-row__media--custom" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 4.86 5.37.78-3.88 3.78.91 5.35L12 14.9l-4.8 2.52.91-5.35L4.23 8.3l5.37-.78L12 2z"/><path d="M9 14h6"/></svg></div>
+            <div class="mini-cart-row__copy"><div class="mini-cart-row__title mini-cart-row__title--custom">{% trans 'Кастомний друк' %}{% if ci.lead_number %} · №{{ ci.lead_number }}{% endif %}</div><div class="mini-cart-row__meta" title="{{ ci.label }}">{{ ci.label }} · ×{{ ci.quantity }}{% if ci.moderation_status_label %} · {{ ci.moderation_status_label }}{% endif %}</div></div>
+            <div class="mini-cart-row__actions"><div class="mini-cart-row__price">{{ ci.line_total }} {% trans 'грн' %}</div><button type="button" class="mini-cart-row__remove" data-custom-remove data-key="{{ ci.key }}" data-lead-id="{{ ci.lead_id }}" onclick="if (window.CustomCartRemove) { window.CustomCartRemove(this); } return false;" aria-label="{% trans 'Видалити кастомну позицію' %}"><span aria-hidden="true">×</span></button></div>
+          </article>
         {% endfor %}
       {% endif %}
 
       {% for it in items %}
-        <div class="mini-cart-row" role="listitem" data-cart-row data-key="{{ it.key }}" data-offer-id="{{ it.offer_id }}">
+        <article class="mini-cart-row" role="listitem" data-cart-row data-key="{{ it.key }}" data-offer-id="{{ it.offer_id }}" data-qty="{{ it.qty }}">
           <div class="mini-cart-row__media">
-            {% if it.color_variant and it.color_variant.images.exists %}
-              <img src="{{ it.color_variant.images.first.image.url }}"
-                   class="mini-cart-row__image"
-                   alt="{{ it.product.title }}"
-                   width="56" height="56"
-                   decoding="async">
-            {% elif it.product.main_image %}
-              <img src="{{ it.product.main_image.url }}"
-                   class="mini-cart-row__image"
-                   alt="{{ it.product.title }}"
-                   width="56" height="56"
-                   decoding="async">
-            {% else %}
-              {% static 'img/placeholder.jpg' as ph_url %}
-              <img src="{{ ph_url }}"
-                   class="mini-cart-row__image"
-                   alt="{{ it.product.title }}"
-                   width="56" height="56"
-                   decoding="async">
-            {% endif %}
+            {% if it.color_variant and it.color_variant.images.exists %}<img src="{{ it.color_variant.images.first.image.url }}" class="mini-cart-row__image" alt="{{ it.product.title }}" width="56" height="56" decoding="async">
+            {% elif it.product.main_image %}<img src="{{ it.product.main_image.url }}" class="mini-cart-row__image" alt="{{ it.product.title }}" width="56" height="56" decoding="async">
+            {% else %}{% static 'img/placeholder.jpg' as ph_url %}<img src="{{ ph_url }}" class="mini-cart-row__image" alt="{{ it.product.title }}" width="56" height="56" decoding="async">{% endif %}
           </div>
           <div class="mini-cart-row__copy">
             <div class="mini-cart-row__title">{{ it.product.title }}</div>
             <div class="mini-cart-row__meta">
-              <span>{% trans 'Розмір' %}: {{ it.size }} · ×{{ it.qty }}</span>
-              {% if it.fit_label %}
-                <span>{% trans 'Посадка' %}: {{ it.fit_label }}</span>
-              {% endif %}
-              {% if it.color_variant %}
-                <span class="mini-cart-row__color">
-                  {% with p=it.color_variant.color.primary_hex s=it.color_variant.color.secondary_hex %}
-                    <span class="swatch" style="width: 12px; height: 12px;"
-                          data-primary="{{ p }}"
-                          data-secondary="{{ s|default:'' }}"></span>
-                  {% endwith %}
-                  <span>{{ it.color_label|translate_color|default:_('Колір') }}</span>
-                </span>
-              {% endif %}
+              <span>{% trans 'Розмір' %}: {{ it.size }}</span><span aria-hidden="true">•</span>
+              {% if it.fit_label %}<span>{% trans 'Посадка' %}: {{ it.fit_label }}</span><span aria-hidden="true">•</span>{% endif %}
+              {% if it.color_variant %}{% with p=it.color_variant.color.primary_hex s=it.color_variant.color.secondary_hex %}<span class="mini-cart-row__color" role="img" aria-label="{{ it.color_label|default:_('Колір') }}"><span class="swatch" data-primary="{{ p }}" data-secondary="{{ s|default:'' }}" aria-hidden="true"></span></span>{% endwith %}{% endif %}
             </div>
+            <div class="mini-cart-quantity" role="group" aria-label="{% trans 'Кількість' %}"><button type="button" class="mini-cart-quantity__button mini-cart-quantity__decrease" data-mini-cart-qty="decrease" aria-label="{% trans 'Зменшити кількість' %}">−</button><output class="mini-cart-quantity__value" data-mini-cart-qty-value>{{ it.qty }}</output><button type="button" class="mini-cart-quantity__button mini-cart-quantity__increase" data-mini-cart-qty="increase" aria-label="{% trans 'Збільшити кількість' %}">+</button></div>
           </div>
-          <div class="mini-cart-row__actions">
-            <div class="mini-cart-row__price">{{ it.line_total }} {% trans 'грн' %}</div>
-            <button type="button"
-                    class="mini-cart-row__remove"
-                    onclick="CartRemoveKey('{{ it.key }}', this); return false;"
-                    aria-label="{% trans 'Видалити' %}">×</button>
-          </div>
-        </div>
+          <div class="mini-cart-row__actions"><div class="mini-cart-row__price">{{ it.line_total }} {% trans 'грн' %}</div><button type="button" class="mini-cart-row__remove" onclick="CartRemoveKey('{{ it.key }}', this); return false;" aria-label="{% trans 'Видалити' %}"><span aria-hidden="true">×</span></button></div>
+        </article>
       {% endfor %}
     </div>
 
     <div class="mini-cart-footer">
-      <div class="mini-cart-summary">
-        <div class="mini-cart-summary__label">{% trans 'Разом' %}</div>
-        <div class="mini-cart-summary__amount">
-          <span class="mini-cart-summary__value">{{ combined_total|default:total }}</span>
-          <span class="mini-cart-summary__currency">{% trans 'грн' %}</span>
-        </div>
+      <div class="mini-cart-summary"><span class="mini-cart-summary__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m20 13-7 7-9-9V4h7l9 9Z"/><circle cx="8" cy="8" r="1.5"/></svg></span><span class="mini-cart-summary__label">{% trans 'Разом' %}</span><div class="mini-cart-summary__amount"><span class="mini-cart-summary__value">{{ combined_total|default:total }}</span><span class="mini-cart-summary__currency">{% trans 'грн' %}</span></div></div>
+      {% if custom_items %}<div class="mini-cart-custom-note">{% trans 'Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику.' %}</div>{% endif %}
+      <a href="{% url 'cart' %}" class="mini-cart-primary-cta"><span class="mini-cart-primary-cta__body"><span class="mini-cart-primary-cta__label">{% trans 'Оформити замовлення' %}</span><span class="mini-cart-primary-cta__hint">{% trans 'Швидке оформлення за 1 хвилину' %}</span></span><span class="mini-cart-primary-cta__arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></span></a>
+      <button type="button" class="mini-cart-secondary-action" data-mini-cart-continue><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg><span>{% trans 'Продовжити покупки' %}</span></button>
+      <div class="mini-cart-benefits">
+        <div><span class="mini-cart-benefits__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 6h11v9H3zM14 9h4l3 3v3h-7zM7 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg></span><b>{% trans 'Швидка доставка' %}</b><small>{% trans '1–3 дні по Україні' %}</small></div>
+        <div><span class="mini-cart-benefits__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.1 4.3 4.8.7-3.5 3.4.8 4.8-4.2-2.3-4.2 2.3.8-4.8-3.5-3.4 4.8-.7L12 3Z"/></svg></span><b>{% trans 'Оригінальна продукція' %}</b><small>{% trans 'Гарантія якості' %}</small></div>
+        <div><span class="mini-cart-benefits__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7v5h5M4.8 12A7.5 7.5 0 1 0 7 6.5"/></svg></span><b>{% trans '14 днів на повернення' %}</b><small>{% trans 'Легкий обмін та повернення' %}</small></div>
       </div>
-      {% if custom_items %}
-        <div class="mini-cart-custom-note">
-          {% trans 'Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику.' %}
-        </div>
-      {% endif %}
-      <a href="{% url 'cart' %}" class="mini-cart-primary-cta">
-        <span class="mini-cart-primary-cta__icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 6h2l2.4 12.06A2 2 0 0 0 9.36 20h7.28a2 2 0 0 0 1.96-1.94L19 8H6"/>
-            <circle cx="9" cy="22" r="1.5"/>
-            <circle cx="17" cy="22" r="1.5"/>
-          </svg>
-        </span>
-        <span class="mini-cart-primary-cta__body">
-          <span class="mini-cart-primary-cta__label">{% trans 'Оформити замовлення' %}</span>
-          <span class="mini-cart-primary-cta__hint">{% trans 'Перейти до оплати та доставки' %}</span>
-        </span>
-        <span class="mini-cart-primary-cta__arrow" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14"/>
-            <path d="m12 5 7 7-7 7"/>
-          </svg>
-        </span>
-      </a>
-      <button type="button" class="mini-cart-secondary-action" data-mini-cart-continue>
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5"/>
-          <path d="m12 19-7-7 7-7"/>
-        </svg>
-        <span>{% trans 'Продовжити покупки' %}</span>
-      </button>
     </div>
   {% else %}
-    <div class="mini-cart-empty">
-      <span class="mini-cart-empty__icon" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="9" cy="20" r="1"/>
-          <circle cx="18" cy="20" r="1"/>
-          <path d="M3 3h2l2.4 11.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.7L20.5 7H6"/>
-        </svg>
-      </span>
-      <div class="mini-cart-empty__title">{% trans 'Кошик порожній.' %}</div>
-      <button type="button" class="mini-cart-empty__action" data-mini-cart-continue>
-        <span>{% trans 'Перейти до покупок' %}</span>
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14"/>
-          <path d="m12 5 7 7-7 7"/>
-        </svg>
-      </button>
-    </div>
+    <div class="mini-cart-empty"><span class="mini-cart-empty__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 3h2l2.4 11.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 2-1.7L20.5 7H6"/></svg></span><div class="mini-cart-empty__title">{% trans 'Кошик порожній.' %}</div><button type="button" class="mini-cart-empty__action" data-mini-cart-continue><span>{% trans 'Перейти до покупок' %}</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></svg></button></div>
   {% endif %}
 </div>

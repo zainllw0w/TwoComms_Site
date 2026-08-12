@@ -915,6 +915,14 @@ function refreshMiniCart() {
       if (currentSeq !== miniCartFetchSeq) return;
       content.innerHTML = html;
       try { applySwatchColors(content); } catch (_) { }
+      try {
+        const view = content.querySelector('[data-mini-cart-view]');
+        const count = view ? (view.getAttribute('data-cart-count') || '0') : '0';
+        document.querySelectorAll('[data-mini-cart-title-count]').forEach((el) => {
+          el.textContent = count ? ` (${count})` : '';
+        });
+        bindMiniCartQuantity(content);
+      } catch (_) { }
       try { bindMonoCheckout(content); } catch (_) { }
     })
     .catch(err => {
@@ -928,6 +936,36 @@ function refreshMiniCart() {
       }
     });
 }
+
+function bindMiniCartQuantity(root) {
+  const scope = root || document;
+  scope.querySelectorAll('[data-mini-cart-qty]').forEach((button) => {
+    if (button.dataset.miniCartQtyBound === '1') return;
+    button.dataset.miniCartQtyBound = '1';
+    button.addEventListener('click', () => {
+      const row = button.closest('[data-cart-row]');
+      if (!row || row.dataset.miniCartQtyBusy === '1') return;
+      const value = row.querySelector('[data-mini-cart-qty-value]');
+      const current = Math.max(1, parseInt(value && value.textContent, 10) || 1);
+      const next = button.dataset.miniCartQty === 'increase' ? current + 1 : current - 1;
+      if (next < 1) return;
+      row.dataset.miniCartQtyBusy = '1';
+      const csrf = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/)?.[1] || '';
+      fetch('/cart/update/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-CSRFToken': decodeURIComponent(csrf), 'X-Requested-With': 'XMLHttpRequest' },
+        body: new URLSearchParams({ cart_key: row.dataset.key || '', qty: String(next) })
+      }).then((response) => { if (!response.ok) throw new Error('cart update failed'); return response.json(); })
+        .then((data) => {
+          if (!data || !data.ok) throw new Error('cart update rejected');
+          return Promise.all([refreshMiniCart(), refreshCartSummary()]);
+        })
+        .catch(() => {})
+        .finally(() => { delete row.dataset.miniCartQtyBusy; });
+    });
+  });
+}
+window.bindMiniCartQuantity = bindMiniCartQuantity;
 window.refreshMiniCart = refreshMiniCart;
 window.openMiniCart = openMiniCart;
 window.closeMiniCart = closeMiniCart;
