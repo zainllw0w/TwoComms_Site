@@ -834,7 +834,6 @@ class StructuredDataGenerator:
             or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms",
             320,
         )
-        material = _guess_product_material(product)
         variant_merchandising = None
         if selected_variant is not None:
             try:
@@ -912,21 +911,11 @@ class StructuredDataGenerator:
             "mpn": f"TC-{product.id}",  # Manufacturer Part Number
             "url": product_canonical_url,
             "image": images[0] if len(images) == 1 else images,
-            "material": StructuredDataGenerator._localized_attr(
-                product, "material", fallback=str(material or "")
-            ),
             "countryOfOrigin": {
                 "@type": "Country",
                 "name": _("Україна"),
             },
             "additionalProperty": [
-                {
-                    "@type": "PropertyValue",
-                    "name": _("Матеріал"),
-                    "value": StructuredDataGenerator._localized_attr(
-                        product, "material", fallback=str(material or "")
-                    ),
-                },
                 {
                     "@type": "PropertyValue",
                     "name": _("Країна виробництва"),
@@ -947,18 +936,6 @@ class StructuredDataGenerator:
                 "itemCondition": "https://schema.org/NewCondition",
                 "url": product_canonical_url,
                 "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),
-                # SEO 2026-05-19 (VILNI deep review §4.5, §13.12) — explicit
-                # production/handling window for made-to-order DTF print so
-                # Google Shopping and AI Search can compare apples-to-apples
-                # against in-stock competitors. 3–5 days mirrors the value
-                # already exposed in ``OfferShippingDetails.deliveryTime``
-                # and the /delivery/ page copy.
-                "deliveryLeadTime": {
-                    "@type": "QuantitativeValue",
-                    "minValue": 3,
-                    "maxValue": 5,
-                    "unitCode": "DAY",
-                },
                 "hasMerchantReturnPolicy": {
                     "@type": "MerchantReturnPolicy",
                     "returnPolicyCategory": RETURN_POLICY["category"],

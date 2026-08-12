@@ -948,6 +948,36 @@ class StructuredDataPhase5Tests(TestCase):
         )
         self.assertEqual(RETURN_POLICY["days"], 14)
 
+    def test_product_schema_omits_unowned_material_and_lead_time_claims(self):
+        """Product schema must not publish facts absent from Product data."""
+        from storefront.seo_utils import StructuredDataGenerator
+
+        category = Category.objects.create(
+            name="SEO Schema Category",
+            slug="seo-schema-category",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="SEO Schema Hoodie",
+            slug="seo-schema-hoodie",
+            category=category,
+            price=1000,
+            status="published",
+        )
+
+        schema = StructuredDataGenerator.generate_product_schema(product)
+
+        self.assertNotIn("material", schema)
+        self.assertFalse(
+            any(
+                str(item.get("name", "")).casefold() == "матеріал"
+                for item in schema.get("additionalProperty", [])
+            )
+        )
+        self.assertNotIn("deliveryLeadTime", schema["offers"])
+        self.assertIn("shippingDetails", schema["offers"])
+        self.assertIn("hasMerchantReturnPolicy", schema["offers"])
+
 
 class HeaderCtaSeoRegressionTests(TestCase):
     def setUp(self):
