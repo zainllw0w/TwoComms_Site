@@ -192,7 +192,7 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
-_CATALOG_CACHE_VERSION = "catalog-pagination-v2-20260812"
+_CATALOG_CACHE_VERSION = "catalog-pagination-v3-20260812"
 
 
 def _catalog_landing_query_policy(*, allow_color=False):
