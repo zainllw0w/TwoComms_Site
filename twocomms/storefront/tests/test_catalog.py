@@ -513,6 +513,15 @@ class CatalogViewTests(CatalogViewTestCase):
             rule = mini_cart_css.partition(selector)[2].partition("}")[0]
             self.assertIn(f"color: {dark_ink};", rule)
 
+        scoped_hint_selectors = (
+            "#mini-cart-panel .mini-cart-primary-cta__hint,\n"
+            "#mini-cart-panel-mobile .mini-cart-primary-cta__hint {",
+        )
+        for selector in scoped_hint_selectors:
+            self.assertIn(selector, mini_cart_css)
+            rule = mini_cart_css.partition(selector)[2].partition("}")[0]
+            self.assertIn(f"color: {dark_ink};", rule)
+
         def relative_luminance(hex_color: str) -> float:
             channels = [int(hex_color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
             linear = [

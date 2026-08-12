@@ -463,6 +463,11 @@
   white-space: nowrap;
 }
 
+#mini-cart-panel .mini-cart-primary-cta__hint,
+#mini-cart-panel-mobile .mini-cart-primary-cta__hint {
+  color: #17110b;
+}
+
 .mini-cart-secondary-action,
 .mini-cart-empty__action {
   display: inline-flex;
