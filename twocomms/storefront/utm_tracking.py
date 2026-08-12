@@ -19,6 +19,7 @@ from django.db import models, transaction
 from .analytics_exclusions import is_request_excluded
 from .models import UTMSession, SiteSession, UserAction
 from .utm_utils import (
+    CLICK_ID_PARAMS,
     calculate_action_points,
     normalize_utm_attribution,
     parse_fbc,
@@ -661,7 +662,7 @@ def _rebuild_utm_session_from_attribution(request, order, utm_data, platform_dat
     utm_data = dict(utm_data or {})
     platform_data = dict(platform_data or {})
     utm_fields = ('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term')
-    click_fields = ('fbclid', 'gclid', 'ttclid')
+    click_fields = CLICK_ID_PARAMS
 
     clean_utm = {}
     for field in utm_fields:
@@ -891,6 +892,15 @@ def build_order_tracking_context(request, order, utm_session=None):
     )
     if ttclid:
         tracking['ttclid'] = ttclid
+
+    for field in ('srsltid', 'gbraid', 'wbraid', 'msclkid', 'yclid'):
+        value = (
+            (request.GET.get(field) if hasattr(request, 'GET') else None)
+            or first_touch.get(field)
+            or (getattr(utm_session, field, None) if utm_session is not None else None)
+        )
+        if value:
+            tracking[field] = value
 
     gclid = (
         (request.GET.get('gclid') if hasattr(request, 'GET') else None)

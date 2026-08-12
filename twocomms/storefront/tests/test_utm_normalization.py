@@ -77,6 +77,7 @@ class NormalizeUtmSourceTests(TestCase):
             'fbclid': ('facebook', 'paid_social'),
             'gclid': ('google', 'cpc'),
             'ttclid': ('tiktok', 'paid_social'),
+            'srsltid': ('google', 'organic'),
         }
         for click_field, expected in cases.items():
             with self.subTest(click_field=click_field):
@@ -151,6 +152,7 @@ class MiddlewareIntegrationTests(TestCase):
             'fbclid': ('facebook', 'paid_social'),
             'gclid': ('google', 'cpc'),
             'ttclid': ('tiktok', 'paid_social'),
+            'srsltid': ('google', 'organic'),
         }
 
         for index, (click_field, expected) in enumerate(cases.items(), start=1):
@@ -177,6 +179,19 @@ class MiddlewareIntegrationTests(TestCase):
                     ),
                     expected,
                 )
+
+    def test_google_free_listing_click_is_visible_in_first_touch_and_utm_session(self):
+        client = Client(HTTP_USER_AGENT='Mozilla/5.0 (X11; Linux x86_64)')
+
+        response = client.get('/catalog/?srsltid=free-listing-token')
+
+        self.assertEqual(response.status_code, 200)
+        utm_session = UTMSession.objects.get(srsltid='free-listing-token')
+        self.assertEqual(utm_session.utm_source, 'google')
+        self.assertEqual(utm_session.utm_medium, 'organic')
+        site_session = SiteSession.objects.get(session_key=utm_session.session_key)
+        self.assertEqual(site_session.first_touch_data['srsltid'], 'free-listing-token')
+        self.assertEqual(site_session.first_touch_data['landing_path'], '/catalog/')
 
     def test_explicit_utm_wins_over_click_id_inference(self):
         client = Client(HTTP_USER_AGENT='Mozilla/5.0 (X11; Linux x86_64)')

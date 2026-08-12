@@ -261,6 +261,12 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                     'is_converted': session.is_converted,
                     'conversion_type': session.conversion_type,
                     'converted_at': session.converted_at.isoformat() if session.converted_at else None,
+                    'srsltid': session.srsltid,
+                    'gbraid': session.gbraid,
+                    'wbraid': session.wbraid,
+                    'msclkid': session.msclkid,
+                    'yclid': session.yclid,
+                    'google_free_listings': bool(session.srsltid),
                 })
             return Response(sessions_payload)
         except Exception as e:
@@ -311,6 +317,12 @@ class UTMAnalyticsViewSet(viewsets.ViewSet):
                     'converted_at': session.converted_at.isoformat() if session.converted_at else None,
                     'landing_page': session.landing_page,
                     'referrer': session.referrer,
+                    'srsltid': session.srsltid,
+                    'gbraid': session.gbraid,
+                    'wbraid': session.wbraid,
+                    'msclkid': session.msclkid,
+                    'yclid': session.yclid,
+                    'google_free_listings': bool(session.srsltid),
                 },
                 'actions': [
                     {

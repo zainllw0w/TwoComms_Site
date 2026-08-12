@@ -15,6 +15,7 @@ from .analytics_exclusions import is_request_excluded
 from .analytics_noise import is_analytics_noise_path
 from .models import UTMSession, SiteSession
 from .utm_utils import (
+    PLATFORM_QUERY_PARAMS,
     get_client_ip,
     get_geolocation,
     parse_user_agent,
@@ -47,7 +48,7 @@ class UTMTrackingMiddleware(MiddlewareMixin):
     """
 
     UTM_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
-    PLATFORM_PARAMS = ['fbclid', 'gclid', 'ttclid']
+    PLATFORM_PARAMS = list(PLATFORM_QUERY_PARAMS)
     def process_request(self, request):
         """Захватывает UTM-параметры из URL и сохраняет в сессию"""
         try:
@@ -214,6 +215,11 @@ class UTMTrackingMiddleware(MiddlewareMixin):
                         'fbclid': platform_data.get('fbclid'),
                         'gclid': platform_data.get('gclid'),
                         'ttclid': platform_data.get('ttclid'),
+                        'srsltid': platform_data.get('srsltid'),
+                        'gbraid': platform_data.get('gbraid'),
+                        'wbraid': platform_data.get('wbraid'),
+                        'msclkid': platform_data.get('msclkid'),
+                        'yclid': platform_data.get('yclid'),
                         'fbc': platform_data.get('fbc'),
                         'fbp': platform_data.get('fbp'),
 
@@ -253,6 +259,11 @@ class UTMTrackingMiddleware(MiddlewareMixin):
                     if ip_address and utm_session.ip_address != ip_address:
                         utm_session.ip_address = ip_address
                         updated_fields.append('ip_address')
+                    for field in self.PLATFORM_PARAMS:
+                        value = platform_data.get(field)
+                        if value and not getattr(utm_session, field, None):
+                            setattr(utm_session, field, value)
+                            updated_fields.append(field)
                     if first_touch_data and utm_session.landing_page != (first_touch_data.get('landing_path') or utm_session.landing_page):
                         # keep the original landing_page when it already exists
                         if not utm_session.landing_page:

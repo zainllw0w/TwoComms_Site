@@ -2376,6 +2376,11 @@ class UTMSession(models.Model):
     fbclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Facebook Click ID')
     gclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Google Click ID')
     ttclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='TikTok Click ID')
+    srsltid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Google Free Listings Click ID')
+    gbraid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Google App Click ID (GBRAID)')
+    wbraid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Google Web-to-App Click ID (WBRAID)')
+    msclkid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Microsoft Click ID')
+    yclid = models.CharField(max_length=255, db_index=True, blank=True, null=True, verbose_name='Yandex Click ID')
     fbc = models.CharField(max_length=255, blank=True, null=True, verbose_name='Facebook Click Cookie')
     fbp = models.CharField(max_length=255, blank=True, null=True, verbose_name='Facebook Browser Cookie')
 

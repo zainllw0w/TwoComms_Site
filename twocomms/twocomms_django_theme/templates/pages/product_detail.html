@@ -26,7 +26,7 @@ locale without an owned title, SEO metadata, editorial field or complete
 FAQ set stays crawlable but ``noindex, follow``. Facet
 ``?color=``/``?fit=``/``?size=`` remains noindex on every locale.
 {% endcomment %}
-{% block robots %}{% if request.GET.color or request.GET.fit or request.GET.size or not locale_publication.indexable %}noindex, follow, max-image-preview:large{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% block robots %}{% if product_query_noindex or request.GET.color or request.GET.fit or request.GET.size or not locale_publication.indexable %}noindex, follow, max-image-preview:large{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 {% block og_type %}product{% endblock %}
 {% comment %}
 SEO v1.0 Phase 11 (2026-05-12) — finding (UU). The product detail page

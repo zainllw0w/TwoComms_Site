@@ -13,6 +13,8 @@ from .analytics_exclusions import is_request_excluded
 from .analytics_noise import is_analytics_noise_path
 from .models import PageView, SiteSession
 from .utm_utils import (
+    ATTRIBUTION_QUERY_PARAMS,
+    CLICK_ID_PARAMS,
     get_client_ip,
     normalize_first_touch_attribution,
     sanitize_utm_param,
@@ -88,17 +90,11 @@ def _build_first_touch_snapshot(request) -> dict:
         'referrer': referrer,
         'created_at': timezone.now().isoformat(),
     }
-    for key in ('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'):
+    for key in ATTRIBUTION_QUERY_PARAMS:
         value = sanitize_utm_param((request.GET.get(key) or '').strip())
         if value:
             snapshot[key] = value
 
-    if request.GET.get('gclid'):
-        snapshot['gclid'] = (request.GET.get('gclid') or '')[:255]
-    if request.GET.get('fbclid'):
-        snapshot['fbclid'] = (request.GET.get('fbclid') or '')[:255]
-    if request.GET.get('ttclid'):
-        snapshot['ttclid'] = (request.GET.get('ttclid') or '')[:255]
     return normalize_first_touch_attribution(snapshot)
 
 
@@ -140,7 +136,7 @@ class AnalyticsIdentityMiddleware(MiddlewareMixin):
             request._analytics_set_first_touch_cookie = True
 
         has_utm = any((request.GET.get(key) or '').strip() for key in ('utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'))
-        has_click_id = any((request.GET.get(key) or '').strip() for key in ('gclid', 'fbclid', 'ttclid'))
+        has_click_id = any((request.GET.get(key) or '').strip() for key in CLICK_ID_PARAMS)
         external_referrer = bool(request.META.get('HTTP_REFERER')) and not _is_internal_referrer(request, request.META.get('HTTP_REFERER'))
         if not first_touch and (has_utm or has_click_id or external_referrer):
             first_touch = _build_first_touch_snapshot(request)

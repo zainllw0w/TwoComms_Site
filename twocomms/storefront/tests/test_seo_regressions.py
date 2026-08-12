@@ -1148,7 +1148,7 @@ class RobotsTxtAiSearchRegressionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
 
-        for pattern in ("/*?utm_*", "/*?gclid=", "/*?fbclid=", "/*?sort="):
+        for pattern in ("/*?utm_*", "/*?gclid=", "/*?fbclid=", "/*?srsltid=", "/*?gbraid=", "/*?wbraid=", "/*?sort="):
             with self.subTest(pattern=pattern):
                 self.assertIn(f"Disallow: {pattern}", body)
 

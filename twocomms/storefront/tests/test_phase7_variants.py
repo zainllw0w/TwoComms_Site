@@ -466,6 +466,20 @@ class VariantCanonicalAndMetaTests(TestCase):
             html=False,
         )
 
+    def test_google_free_listing_parameter_keeps_product_200_and_clean_seo(self):
+        url = reverse("product", kwargs={"slug": self.product.slug, "v1": "black"})
+
+        response = self.client.get(f"{url}?srsltid=free-listing-click")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn(
+            f'<link rel="canonical"\n    href="https://twocomms.shop{url}"',
+            html,
+        )
+        self.assertNotIn("srsltid=free-listing-click", html)
+        self.assertIn('content="noindex, follow', html)
+
 
 class ProductVariantSitemapTests(TestCase):
     """Phase 7.4 — ``sitemap-product-variants.xml`` emits only the

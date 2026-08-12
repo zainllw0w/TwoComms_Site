@@ -11,6 +11,22 @@ from typing import Dict, NamedTuple, Optional
 logger = logging.getLogger(__name__)
 
 
+# Keep the inbound attribution contract in one place. These values are
+# accepted on public landing pages, captured before any redirect, and omitted
+# from canonical/cache/feed identities.
+UTM_QUERY_PARAMS = (
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+)
+PLATFORM_QUERY_PARAMS = (
+    'fbclid', 'gclid', 'ttclid', 'srsltid', 'gbraid', 'wbraid', 'msclkid',
+    'yclid',
+)
+REFERRAL_QUERY_PARAMS = ('ref', 'ref_')
+CLICK_ID_PARAMS = ('fbclid', 'gclid', 'ttclid', 'srsltid', 'gbraid', 'wbraid', 'msclkid', 'yclid')
+ATTRIBUTION_QUERY_PARAMS = UTM_QUERY_PARAMS + PLATFORM_QUERY_PARAMS
+TRACKING_QUERY_PARAMS = ATTRIBUTION_QUERY_PARAMS + REFERRAL_QUERY_PARAMS
+
+
 class ParsedFbc(NamedTuple):
     created_at_ms: int
     click_id: str
@@ -457,6 +473,11 @@ CLICK_ID_ATTRIBUTION = (
     ('fbclid', 'facebook', 'paid_social'),
     ('gclid', 'google', 'cpc'),
     ('ttclid', 'tiktok', 'paid_social'),
+    ('srsltid', 'google', 'organic'),
+    ('gbraid', 'google', 'cpc'),
+    ('wbraid', 'google', 'cpc'),
+    ('msclkid', 'bing', 'cpc'),
+    ('yclid', 'yandex', 'cpc'),
 )
 
 

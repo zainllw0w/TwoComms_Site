@@ -399,7 +399,7 @@ def classify_session_source(session: SiteSession) -> tuple[str, dict[str, Any]]:
         token in browser_source for token in ("gclid", "fbclid", "ttclid")
     ):
         source_class = "paid"
-    elif utm_medium.lower() == "organic" or _is_search_referrer(referrer) or utm_source.lower() in {
+    elif utm_medium.lower() == "organic" or getattr(utm, "srsltid", None) or _is_search_referrer(referrer) or utm_source.lower() in {
         "google",
         "bing",
         "duckduckgo",
@@ -433,6 +433,7 @@ def classify_session_source(session: SiteSession) -> tuple[str, dict[str, Any]]:
             or str(first_touch.get("landing_path") or "")
             or str(getattr(session, "first_human_path", "") or "")
         ).strip() or session.last_path,
+        "google_free_listings": bool(getattr(utm, "srsltid", None) or first_touch.get("srsltid")),
         "is_returning": bool(getattr(utm, "is_returning_visitor", False)),
     }
 
@@ -917,6 +918,9 @@ def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
     os_counter = Counter()
     device_counter = Counter()
     search_term_counter = Counter()
+    google_free_listing_session_ids = set()
+    google_free_listing_session_keys = set()
+    google_free_listing_landing_counter = Counter()
     new_vs_returning = Counter({"new": 0, "returning": 0})
 
     for session in sessions:
@@ -947,6 +951,11 @@ def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
             device_counter[meta["device_type"]] += 1
         if meta["search_query"]:
             search_term_counter[meta["search_query"]] += 1
+        if meta["google_free_listings"]:
+            google_free_listing_session_ids.add(session.id)
+            google_free_listing_session_keys.add(session.session_key)
+            if meta["landing_page"]:
+                google_free_listing_landing_counter[meta["landing_page"]] += 1
         if meta["is_returning"]:
             new_vs_returning["returning"] += 1
         else:
@@ -959,6 +968,35 @@ def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
         .annotate(total=Count("id"))
         .order_by("-total")[:20]
     )
+    google_free_listing_products = []
+    if google_free_listing_session_ids:
+        rows = (
+            actions_qs.filter(
+                action_type="product_view",
+                site_session_id__in=google_free_listing_session_ids,
+            )
+            .values("product_id", "product_name")
+            .annotate(
+                views=Count("id"),
+                sessions=Count("site_session_id", distinct=True),
+            )
+            .order_by("-sessions", "-views", "product_name")[:20]
+        )
+        google_free_listing_products = [
+            {
+                "product_id": row["product_id"],
+                "label": row["product_name"] or f"Product #{row['product_id']}",
+                "views": row["views"],
+                "sessions": row["sessions"],
+            }
+            for row in rows
+        ]
+
+    google_free_listing_sessions = len(google_free_listing_session_ids)
+    google_free_listing_converted_sessions = scope.utm_qs.filter(
+        session_key__in=google_free_listing_session_keys,
+        srsltid__isnull=False,
+    ).exclude(srsltid="").filter(is_converted=True).count()
 
     ga4_snapshot = None
     if filters.start_at and filters.end_at:
@@ -997,6 +1035,21 @@ def _acquisition_data(filters: AnalyticsFilters) -> dict[str, Any]:
             for row in internal_searches
             if row["metadata__query"]
         ],
+        "google_free_listings": {
+            "sessions": google_free_listing_sessions,
+            "converted_sessions": google_free_listing_converted_sessions,
+            "conversion_rate": round(
+                google_free_listing_converted_sessions
+                / google_free_listing_sessions
+                * 100,
+                2,
+            ) if google_free_listing_sessions else 0.0,
+            "landing_pages": [
+                {"label": label, "sessions": count}
+                for label, count in google_free_listing_landing_counter.most_common(15)
+            ],
+            "products": google_free_listing_products,
+        },
         "ga4_snapshot": ga4_snapshot,
     }
 

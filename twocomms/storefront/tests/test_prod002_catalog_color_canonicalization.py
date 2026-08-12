@@ -358,12 +358,11 @@ class CatalogColorCanonicalRedirectTests(TestCase):
         ]
         self.assertEqual(page_cache_writes, [])
 
-    def test_invalid_root_aliases_return_404_without_page_cache_writes(self):
+    def test_invalid_catalog_owned_aliases_return_404_without_page_cache_writes(self):
         for query in (
             "sort=bogus",
             "category=unknown",
             "category=tshirts&category=tshirts",
-            "unexpected=value",
         ):
             with self.subTest(query=query), patch("storefront.views.utils.cache.set") as cache_set:
                 response = self.client.get(reverse("catalog") + "?" + query)
@@ -391,7 +390,7 @@ class CatalogColorCanonicalRedirectTests(TestCase):
         self.assertEqual(page_cache_writes, [])
 
     def test_paid_click_and_referral_params_bypass_page_cache_without_404(self):
-        for key in ("wbraid", "gbraid", "msclkid", "yclid", "ref", "ref_"):
+        for key in ("srsltid", "wbraid", "gbraid", "msclkid", "yclid", "ref", "ref_"):
             with self.subTest(key=key), patch("storefront.views.utils.cache.set") as cache_set:
                 response = self.client.get(
                     reverse("catalog"),
@@ -405,6 +404,57 @@ class CatalogColorCanonicalRedirectTests(TestCase):
                 if call.args and str(call.args[0]).startswith("anon-page:")
             ]
             self.assertEqual(page_cache_writes, [])
+
+    def test_google_auto_tagging_renders_query_free_canonical(self):
+        response = self.client.get(
+            reverse("catalog") + "?srsltid=google-free-listing-click"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn(
+            '<link rel="canonical"\n    href="https://twocomms.shop/catalog/">',
+            body,
+        )
+        self.assertNotIn(
+            "https://twocomms.shop/catalog/?srsltid=google-free-listing-click",
+            body,
+        )
+
+    def test_google_auto_tagging_survives_catalog_alias_normalization(self):
+        response = self.client.get(
+            reverse("catalog") + "?page=01&srsltid=google-free-listing-click"
+        )
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(
+            response["Location"],
+            "/catalog/?srsltid=google-free-listing-click",
+        )
+
+    def test_arbitrary_external_parameter_does_not_break_catalog_landing(self):
+        with (
+            patch("storefront.views.utils.cache.get", wraps=cache.get) as cache_get,
+            patch("storefront.views.utils.cache.set", wraps=cache.set) as cache_set,
+        ):
+            response = self.client.get(
+                reverse("catalog") + "?merchant_future_token=value"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertIn(
+            '<link rel="canonical"\n    href="https://twocomms.shop/catalog/">',
+            body,
+        )
+        self.assertContains(response, 'content="noindex, follow', html=False)
+        self.assertNotIn('rel="alternate" hreflang=', body)
+        page_cache_calls = [
+            call
+            for call in (*cache_get.call_args_list, *cache_set.call_args_list)
+            if call.args and str(call.args[0]).startswith("anon-page:")
+        ]
+        self.assertEqual(page_cache_calls, [])
 
     def test_pathological_page_number_returns_404(self):
         self.client.raise_request_exception = False
@@ -423,6 +473,17 @@ class CatalogColorCanonicalRedirectTests(TestCase):
         self.assertEqual(warm.status_code, 200)
         self.assertEqual(canonical.status_code, 301)
         self.assertEqual(canonical["Location"], reverse("home"))
+
+    def test_home_page_one_redirect_preserves_google_auto_tagging(self):
+        response = self.client.get(
+            reverse("home") + "?page=1&srsltid=google-free-listing-click"
+        )
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(
+            response["Location"],
+            "/?srsltid=google-free-listing-click",
+        )
 
     def test_page_one_alias_redirects_to_clean_catalog(self):
         response = self.client.get(reverse("catalog") + "?page=01")

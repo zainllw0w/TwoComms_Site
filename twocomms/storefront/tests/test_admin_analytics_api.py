@@ -6,7 +6,7 @@ from django.core.cache import cache
 from django.test import Client, TestCase
 
 from orders.models import Order, OrderItem
-from storefront.models import Category, PageView, Product, SiteSession, UserAction
+from storefront.models import Category, PageView, Product, SiteSession, UserAction, UTMSession
 from storefront.services.admin_analytics import (
     build_integration_status_widget,
     build_product_admin_metrics,
@@ -68,6 +68,68 @@ class AdminAnalyticsApiTests(TestCase):
         payload = response.json()
         self.assertIn("data", payload)
         self.assertEqual(payload.get("source"), "internal")
+
+    def test_acquisition_widget_breaks_out_google_free_listing_products(self):
+        merchant_session = SiteSession.objects.create(
+            session_key="merchant-session",
+            pageviews=2,
+            last_path="/product/merchant-shirt/",
+            first_touch_data={
+                "srsltid": "merchant-click",
+                "landing_path": "/catalog/tshirts/",
+                "utm_source": "google",
+                "utm_medium": "organic",
+            },
+        )
+        UTMSession.objects.create(
+            session_key=merchant_session.session_key,
+            utm_source="google",
+            utm_medium="organic",
+            srsltid="merchant-click",
+            landing_page="/catalog/tshirts/",
+            is_converted=True,
+        )
+        PageView.objects.create(
+            session=merchant_session,
+            path="/product/merchant-shirt/",
+            is_bot=False,
+        )
+        UserAction.objects.create(
+            site_session=merchant_session,
+            action_type="product_view",
+            product_id=321,
+            product_name="Merchant shirt",
+        )
+        SiteSession.objects.create(
+            session_key="plain-google-session",
+            pageviews=1,
+            last_path="/catalog/",
+            first_touch_data={
+                "landing_path": "/catalog/",
+                "utm_source": "google",
+                "utm_medium": "organic",
+            },
+        )
+
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            "/api/admin/analytics/acquisition/?period=all_time",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        merchant = response.json()["data"]["google_free_listings"]
+        self.assertEqual(merchant["sessions"], 1)
+        self.assertEqual(merchant["converted_sessions"], 1)
+        self.assertEqual(merchant["conversion_rate"], 100.0)
+        self.assertEqual(
+            merchant["landing_pages"],
+            [{"label": "/catalog/tshirts/", "sessions": 1}],
+        )
+        self.assertEqual(
+            merchant["products"],
+            [{"product_id": 321, "label": "Merchant shirt", "views": 1, "sessions": 1}],
+        )
 
     def test_product_metrics_count_only_trusted_human_page_views(self):
         trusted = SiteSession.objects.create(

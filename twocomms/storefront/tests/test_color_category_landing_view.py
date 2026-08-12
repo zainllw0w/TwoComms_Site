@@ -174,10 +174,9 @@ class CategoryColorLandingViewTests(TestCase):
             [("/ru/catalog/tshirts/black/?page=2&utm_source=audit", 301)],
         )
 
-    def test_rejects_unknown_unsupported_and_invalid_page_queries(self):
+    def test_rejects_unsupported_catalog_and_invalid_page_queries(self):
         self._make_published_landing()
         invalid_queries = (
-            "unknown=1",
             "sort=price-asc",
             "color=black",
             "theme=streetwear",
@@ -193,6 +192,17 @@ class CategoryColorLandingViewTests(TestCase):
             with self.subTest(query=query):
                 response = self.client.get(f"/catalog/tshirts/black/?{query}")
                 self.assertEqual(response.status_code, 404)
+
+    def test_accepts_arbitrary_external_query_without_indexing_it(self):
+        self._make_published_landing()
+
+        response = self.client.get(
+            "/catalog/tshirts/black/?merchant_future_token=value"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'content="noindex, follow')
+        self.assertTrue(response.context["suppress_hreflang"])
 
     def test_tracking_state_bypasses_page_cache_and_suppresses_hreflang(self):
         self._make_published_landing()

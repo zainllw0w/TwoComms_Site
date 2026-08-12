@@ -19,11 +19,14 @@ Tags
 from __future__ import annotations
 
 from typing import Dict, Iterable
+from urllib.parse import parse_qsl, urlencode
 
 from django import template
 from django.conf import settings
 from django.urls import translate_url
 from django.utils.translation import gettext_lazy as _
+
+from storefront.utm_utils import TRACKING_QUERY_PARAMS
 
 register = template.Library()
 
@@ -109,6 +112,16 @@ def _path_for_language(request, lang_code: str) -> str:
     except Exception:
         full = "/"
     path_only, qs = _split_path_qs(full)
+    if qs:
+        query = urlencode(
+            [
+                (key, value)
+                for key, value in parse_qsl(qs[1:], keep_blank_values=True)
+                if key not in TRACKING_QUERY_PARAMS
+            ],
+            doseq=True,
+        )
+        qs = f"?{query}" if query else ""
     try:
         translated_path = translate_url(path_only, lang_code)
     except Exception:

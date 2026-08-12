@@ -158,7 +158,7 @@
   }
 
   function renderTraffic(widget) {
-    if (renderErrorIfNeeded(widget, ["analyticsTrafficSources", "analyticsTrafficLanding", "analyticsTrafficBreakdowns", "analyticsGa4Summary"])) {
+    if (renderErrorIfNeeded(widget, ["analyticsTrafficSources", "analyticsTrafficLanding", "analyticsTrafficBreakdowns", "analyticsGa4Summary", "analyticsMerchantSummary", "analyticsMerchantProducts"])) {
       return;
     }
     const data = widget.data || {};
@@ -217,6 +217,26 @@
       value: `${formatInt(item.sessions)} сесій`,
     }));
     renderList(document.getElementById("analyticsTrafficBreakdowns"), breakdownItems);
+
+    const merchant = data.google_free_listings || {};
+    renderList(document.getElementById("analyticsMerchantSummary"), [
+      { title: "Сесії", value: formatInt(merchant.sessions) },
+      { title: "Конверсії", value: formatInt(merchant.converted_sessions) },
+      { title: "Conversion rate", value: formatPercent(merchant.conversion_rate, true) },
+      ...(merchant.landing_pages || []).slice(0, 6).map((item) => ({
+        title: item.label,
+        value: `${formatInt(item.sessions)} сесій`,
+      })),
+    ]);
+    renderTable(
+      document.getElementById("analyticsMerchantProducts"),
+      [
+        { key: "label", label: "Товар" },
+        { key: "sessions", label: "Сесії", formatter: formatInt },
+        { key: "views", label: "Перегляди", formatter: formatInt },
+      ],
+      merchant.products || []
+    );
 
     const ga4Summary = document.getElementById("analyticsGa4Summary");
     if (data.ga4_snapshot?.error) {

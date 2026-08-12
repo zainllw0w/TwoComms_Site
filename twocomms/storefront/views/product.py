@@ -401,6 +401,12 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     preselected_size = request.GET.get('size', '').upper()
     preselected_color_id = request.GET.get('color', '')  # ID цветового варианта
     preselected_fit_from_query = str(request.GET.get('fit', '') or '').strip().lower()
+    # Product selectors are owned by the PDP UX. Every other query key is
+    # inbound attribution or an opaque external parameter and must not create
+    # an indexable duplicate of the clean product URL.
+    product_query_noindex = bool(
+        set(request.GET) - {'size', 'color', 'fit'}
+    )
 
     size_context = resolve_product_size_context(product, preselected_size)
     available_sizes = size_context["sizes"]
@@ -1245,6 +1251,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         {
             'product': product,
             'locale_publication': locale_publication,
+            'product_query_noindex': product_query_noindex,
             'images': images,
             'color_variants': color_variants,
             'auto_select_first_color': auto_select_first_color,

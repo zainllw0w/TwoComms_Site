@@ -317,6 +317,9 @@
       <div><strong>Тривалість</strong>${formatDuration(s.duration_seconds)}</div>
       <div><strong>Pageviews</strong>${s.pageviews}</div>
       <div><strong>UTM</strong>${escapeHtml(sourceLabel)}</div>
+      <div><strong>Google free listings</strong>${utm.google_free_listings ? "yes" : "—"}</div>
+      <div><strong>Google organic click</strong><code>${escapeHtml((utm.srsltid || "—").slice(0, 48))}</code></div>
+      <div><strong>Google Ads click</strong><code>${escapeHtml((utm.gclid || utm.gbraid || utm.wbraid || "—").slice(0, 48))}</code></div>
       <div><strong>Гео</strong>${escapeHtml(utm.country || "—")} / ${escapeHtml(utm.city || "—")}</div>
       <div><strong>Пристрій</strong>${escapeHtml(utm.device_type || "—")} · ${escapeHtml(utm.browser_name || "")} · ${escapeHtml(utm.os_name || "")}</div>
       <div><strong>Реферер</strong><code>${escapeHtml((utm.referrer || "—").slice(0, 60))}</code></div>

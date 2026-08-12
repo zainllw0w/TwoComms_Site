@@ -71,6 +71,7 @@ from ..services.color_filter import (
 )
 from ..services.survey_engine import load_survey_definition
 from ..utm_tracking import record_search
+from ..utm_utils import TRACKING_QUERY_PARAMS
 from cache_utils import get_fragment_cache
 from .utils import (
     _build_query_string,
@@ -155,24 +156,7 @@ _CATALOG_FACET_KEYS = {
 }
 
 _CATALOG_QUERY_KEYS = _CATALOG_FACET_KEYS | {"page", "sort", "category"}
-_CATALOG_TRACKING_QUERY_KEYS = frozenset(
-    {
-        "utm_source",
-        "utm_medium",
-        "utm_campaign",
-        "utm_content",
-        "utm_term",
-        "fbclid",
-        "gbraid",
-        "gclid",
-        "msclkid",
-        "ref",
-        "ref_",
-        "ttclid",
-        "wbraid",
-        "yclid",
-    }
-)
+_CATALOG_TRACKING_QUERY_KEYS = frozenset(TRACKING_QUERY_PARAMS)
 _CATALOG_ROOT_CATEGORY_SLUGS = frozenset({"tshirts", "hoodie", "long-sleeve"})
 _CATALOG_ROOT_SORT_VALUES = frozenset(
     {"recommended", "newest", "price-asc", "price-desc"}
@@ -195,6 +179,11 @@ _CATALOG_PAGINATION_KEY_ORDER = (
 _CATALOG_CACHE_VERSION = "catalog-seo-v4-20260813"
 
 
+def _catalog_external_query_keys(request):
+    """Return opaque parameters that do not control catalog content."""
+    return set(request.GET) - _CATALOG_QUERY_KEYS
+
+
 def _catalog_landing_query_policy(*, allow_color=False):
     """Apply the narrow query contract for indexable catalog landings.
 
@@ -202,15 +191,17 @@ def _catalog_landing_query_policy(*, allow_color=False):
     valid pagination (and the thematic colour UI) usable, but reject every
     ignored query before it can create a body-equivalent cache entry or URL.
     """
-    allowed = {"page"} | _CATALOG_TRACKING_QUERY_KEYS
+    allowed_catalog_keys = {"page"}
     if allow_color:
-        allowed.add("color")
+        allowed_catalog_keys.add("color")
 
     def _decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            unknown = set(request.GET) - allowed
-            if unknown:
+            unsupported = (
+                set(request.GET) & _CATALOG_QUERY_KEYS
+            ) - allowed_catalog_keys
+            if unsupported:
                 raise Http404("Query parameter is not supported on this landing.")
 
             raw_pages = request.GET.getlist("page")
@@ -287,8 +278,8 @@ def _catalog_landing_query_policy(*, allow_color=False):
             request._catalog_pagination_query_prefix = (
                 _build_catalog_pagination_query_prefix(request)
             )
-            request._catalog_landing_has_tracking = any(
-                key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS
+            request._catalog_landing_has_tracking = bool(
+                _catalog_external_query_keys(request)
             )
             return view_func(request, *args, **kwargs)
 
@@ -320,10 +311,6 @@ def _catalog_query_value(value, key):
 
 def _validate_catalog_query_shape(request, *, scope):
     """Reject query aliases before page-cache lookup can serve an old 200."""
-    unknown = set(request.GET) - _CATALOG_QUERY_KEYS - _CATALOG_TRACKING_QUERY_KEYS
-    if unknown:
-        raise Http404("Unknown catalog query parameter.")
-
     supported = {
         "page",
         "color",
@@ -346,8 +333,8 @@ def _validate_catalog_query_shape(request, *, scope):
 
     unsupported = {
         key
-        for key in set(request.GET)
-        if key not in supported and key not in _CATALOG_TRACKING_QUERY_KEYS
+        for key in set(request.GET) & _CATALOG_QUERY_KEYS
+        if key not in supported
     }
     if unsupported:
         raise Http404("Catalog query parameter is not supported on this route.")
@@ -485,7 +472,7 @@ def _build_catalog_cache_query(
             key=lambda item: (order.get(item[0], len(order)), item[0]),
         )
     for key, values in query_items:
-        if key in exclude_keys or key in _CATALOG_TRACKING_QUERY_KEYS:
+        if key in exclude_keys or key not in _CATALOG_QUERY_KEYS:
             continue
         if key == "color":
             values = [",".join(normalise_color_slugs(values))]
@@ -518,7 +505,7 @@ def _build_catalog_page_one_url(request):
 
 
 def _catalog_cacheable_request(request):
-    return not any(key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS)
+    return not _catalog_external_query_keys(request)
 
 
 def _catalog_cache_prefix(request, view_func):
@@ -1397,7 +1384,11 @@ def home(request):
     # consolidates signal on "/". Only ``page=1`` is redirected; ``page>=2``
     # are legitimate paginator states that stay 200.
     if request.GET.get('page') == '1':
-        return HttpResponsePermanentRedirect(reverse('home'))
+        params = request.GET.copy()
+        params.pop('page', None)
+        query = params.urlencode()
+        target = reverse('home') + (f'?{query}' if query else '')
+        return HttpResponsePermanentRedirect(target)
 
     # Оптимизированные запросы с select_related и prefetch_related
     featured = apply_public_product_order(
@@ -1790,9 +1781,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
         product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
     has_active_color_filter = bool(selected_color_slugs)
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
-    catalog_landing_has_tracking = any(
-        key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS
-    )
+    catalog_landing_has_tracking = bool(_catalog_external_query_keys(request))
     suppress_hreflang = bool(
         has_active_color_filter
         or root_catalog_filter_active_count

@@ -359,3 +359,26 @@ class UTMOrderAttributionTests(CheckoutTestSupport):
         self.assertTrue(str(tracking.get('fbc', '')).endswith('TEST_FBCLID_123'))
         self.assertTrue(tracking.get('external_id'))
         self.assertTrue(tracking.get('client_ip_address') or tracking.get('client_user_agent'))
+
+    def test_google_free_listing_click_survives_into_order_tracking_context(self):
+        from django.test import RequestFactory
+        from storefront.utm_tracking import build_order_tracking_context
+
+        request = RequestFactory().get('/product/example/?srsltid=FREE_LISTING_CLICK')
+        request.analytics_first_touch_data = {
+            'srsltid': 'FREE_LISTING_CLICK',
+            'utm_source': 'google',
+            'utm_medium': 'organic',
+        }
+        request.session = type('Session', (), {'session_key': 'tracking-session'})()
+        order = self._unattributed_order()
+        utm_session = UTMSession.objects.create(
+            session_key='tracking-session',
+            utm_source='google',
+            utm_medium='organic',
+            srsltid='FREE_LISTING_CLICK',
+        )
+
+        tracking = build_order_tracking_context(request, order, utm_session)
+
+        self.assertEqual(tracking['srsltid'], 'FREE_LISTING_CLICK')

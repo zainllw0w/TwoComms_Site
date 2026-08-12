@@ -110,9 +110,8 @@ class ThematicLandingViewTests(TestCase):
             )],
         )
 
-    def test_rejects_unknown_unsupported_and_invalid_page_queries(self):
+    def test_rejects_unsupported_catalog_and_invalid_page_queries(self):
         invalid_queries = (
-            "unknown=1",
             "sort=price-asc",
             "theme=streetwear",
             "collection=225",
@@ -134,6 +133,19 @@ class ThematicLandingViewTests(TestCase):
                     f"/catalog/theme/streetwear/?{query}"
                 )
                 self.assertEqual(response.status_code, 404)
+
+    def test_accepts_arbitrary_external_query_without_indexing_it(self):
+        response = self.client.get(
+            "/catalog/theme/streetwear/?merchant_future_token=value"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'content="noindex, follow')
+        self.assertContains(
+            response,
+            'href="https://twocomms.shop/catalog/theme/streetwear/"',
+        )
+        self.assertTrue(response.context["suppress_hreflang"])
 
     def test_rejects_empty_unknown_malformed_and_duplicate_colors(self):
         invalid_queries = (
