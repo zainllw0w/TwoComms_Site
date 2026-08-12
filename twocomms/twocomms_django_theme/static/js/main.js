@@ -1313,11 +1313,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let hidden = false;
     let hintShown = sessionStorage.getItem('bottom-nav-hint') === '1';
-    let lastScrollY = PerformanceOptimizer.getScrollY();
+    let lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     let downAccum = 0;
     let upAccum = 0;
     let touchStartY = null;
     let touchStartX = null;
+    let inputFocused = false;
+    let scrollFrame = null;
+    let scrollListening = false;
 
     const setHidden = (value) => {
       if (hidden === value) return;
@@ -1349,6 +1352,10 @@ document.addEventListener('DOMContentLoaded', () => {
       lastScrollY = currentY;
       const scrollDelta = Math.abs(dy);
       if (scrollDelta < MICRO_NOISE_PX) return;
+
+      // The virtual keyboard owns the lower viewport while typing. Do not
+      // reveal the dock from a viewport resize or a browser scroll adjustment.
+      if (inputFocused) return;
 
       // Hard overrides — these always win against momentum.
       if (currentY <= SHOW_AT_TOP_PX) {
@@ -1382,25 +1389,36 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const attachScrollListener = () => {
-      // PerformanceOptimizer.onScrollChange is already rAF-throttled inside
-      // initScrollOptimization() and shared with other features, so we plug
-      // into it instead of adding a second scroll listener.
-      PerformanceOptimizer.onScrollChange = (currentY) => handleScroll(currentY);
-      PerformanceOptimizer.initScrollOptimization();
+      if (scrollListening) return;
+      scrollListening = true;
+      window.addEventListener('scroll', onWindowScroll, { passive: true });
     };
 
     const detachScrollListener = () => {
-      // No formal teardown API in the optimizer; setting a no-op is enough
-      // because no other feature shares this exact callback at the moment.
-      PerformanceOptimizer.onScrollChange = () => {};
+      if (scrollListening) {
+        window.removeEventListener('scroll', onWindowScroll);
+        scrollListening = false;
+      }
+      if (scrollFrame !== null) {
+        cancelAnimationFrame(scrollFrame);
+        scrollFrame = null;
+      }
       setHidden(false);
       resetAccumulators();
+    };
+
+    const onWindowScroll = () => {
+      if (scrollFrame !== null) return;
+      scrollFrame = requestAnimationFrame(() => {
+        scrollFrame = null;
+        handleScroll(window.scrollY || document.documentElement.scrollTop || 0);
+      });
     };
 
     const syncMode = () => {
       if (mq.matches) {
         bottomNav.dataset.scrollMode = 'adaptive';
-        lastScrollY = PerformanceOptimizer.getScrollY();
+        lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
         resetAccumulators();
         setHidden(false);
         attachScrollListener();
@@ -1426,15 +1444,17 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     document.addEventListener('focusin', (e) => {
       if (isTextField(e.target)) {
+        inputFocused = true;
         resetAccumulators();
-        lastScrollY = PerformanceOptimizer.getScrollY();
+        lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
         setHidden(true);
       }
     });
     document.addEventListener('focusout', (e) => {
       if (isTextField(e.target)) {
+        inputFocused = false;
         resetAccumulators();
-        lastScrollY = PerformanceOptimizer.getScrollY();
+        lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
         setHidden(false);
         if (mq.matches) showHint();
       }
@@ -1457,7 +1477,7 @@ document.addEventListener('DOMContentLoaded', () => {
       touchStartY = touchStartX = null;
       if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 2) {
         resetAccumulators();
-        lastScrollY = PerformanceOptimizer.getScrollY();
+        lastScrollY = window.scrollY || document.documentElement.scrollTop || 0;
         setHidden(dy > 0);
         if (dy < 0) showHint();
       }

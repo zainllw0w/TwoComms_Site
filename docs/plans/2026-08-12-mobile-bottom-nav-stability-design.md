@@ -8,7 +8,7 @@ Make the storefront mobile bottom navigation stable during short scrolls and swi
 
 - Keep the dock height fixed and reserve `safe-area-inset-bottom` in its padding; do not use dynamic viewport units for the dock geometry.
 - Use one composited dock transition (`translate3d` plus opacity) with no scale or layout animation on descendants.
-- Replace low-delta scroll flicker with direction accumulators, a hide threshold, a larger reveal threshold, and hard overrides at the top and footer.
+- Use a dock-owned rAF-throttled scroll listener with direction accumulators, a hide threshold, a larger reveal threshold, and hard overrides at the top and footer.
 - Keep deliberate dock swipes, focus hiding, reduced-motion behavior, and desktop media-query teardown intact.
 - While the dock is transitioning, interaction is disabled only in the hidden state; the visible dock remains keyboard and screen-reader reachable.
 
