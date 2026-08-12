@@ -882,7 +882,11 @@ class StructuredDataPhase5Tests(TestCase):
             schema["hasMerchantReturnPolicy"]["refundType"],
             "https://schema.org/FullRefund",
         )
-        self.assertTrue(schema["hasMemberProgram"]["hasTiers"])
+        # Loyalty mechanics currently vary by product.points_reward and the
+        # public FAQ claims a conflicting fixed conversion. Do not publish a
+        # MemberProgram until one owner-approved policy can be represented by
+        # Schema.org's documented TierBenefitEnumeration contract.
+        self.assertNotIn("hasMemberProgram", schema)
 
     def test_product_schema_uses_policy_module_constants(self):
         """Phase 5 contract: SHIPPING_OPTIONS / RETURN_POLICY come from

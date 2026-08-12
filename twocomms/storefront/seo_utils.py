@@ -1680,33 +1680,6 @@ class StructuredDataGenerator:
                     StructuredDataGenerator._get_return_shipping_amount()
                 ),
             },
-            # SEO 2026-05-19 (VILNI deep review §13.3) — declare the
-            # «TWOCOMMS Бали» loyalty program with schema.org/MemberProgram
-            # so Google can surface it in merchant knowledge panels and AI
-            # answer engines (Perplexity, ChatGPT Search) when users ask
-            # about loyalty / discount benefits.
-            "hasMemberProgram": {
-                "@type": "MemberProgram",
-                "name": "TWOCOMMS Бали",
-                "description": _(
-                    "Бали за покупки та промокоди для постійних клієнтів TwoComms; "
-                    "можна обміняти на знижки або донати на ЗСУ."
-                ),
-                "url": f"{base_url}faq/",
-                "hostingOrganization": {"@id": f"{base_url}#organization"},
-                "hasTiers": [
-                    {
-                        "@type": "MemberProgramTier",
-                        "name": _("Базовий рівень"),
-                        "hasTierBenefit": [
-                            {
-                                "@type": "MemberProgramTierBenefit",
-                                "name": _("Бали за покупки та промокоди"),
-                            }
-                        ],
-                    }
-                ],
-            },
         }
 
     @staticmethod
