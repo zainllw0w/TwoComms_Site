@@ -419,6 +419,15 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - Live UK/RU/EN proof at SHA `ce1ca96542599de57a1d333f9e4a35df476f0269`: `/catalog/{hoodie,tshirts,long-sleeve}/`, `/ru/catalog/{hoodie,tshirts,long-sleeve}/` and `/en/catalog/{hoodie,tshirts,long-sleeve}/` each returned `200` and contained zero `sort=discount` occurrences. The migration removes only exact first-party category discount links, preserves anchor text/other HTML, leaves external links and other sort/filter links untouched, and is idempotent.
 - Boundary proof: no DTF subdomain/blog/module, Custom Print flow, product content, variant data or media was changed. This checkpoint claims only removal of confirmed dead/UI-only editorial destinations and makes no ranking, traffic or conversion claim.
 - [ ] **5.5d** Remove internal pagination links that point to redirecting `page=1`, decide tracking-parameter alternate/robots policy from post-release evidence, and complete the Task 5 crawl/Search Console checkpoint.
+- [x] **5.5d.2** Mark ordinary catalog tracking requests `noindex, follow` and suppress SEO hreflang while preserving tracking parameters in user pagination links and attribution.
+
+#### Task 5.5d.2 production evidence
+
+- Code/test commit: `a4b5efd6d93a87c323d806fe2b67d60a287aab06` (`fix(seo): suppress tracking catalog alternates`) was pushed to `origin/main`, pulled on production, activated with `tmp/restart.txt`, and followed by production `manage.py check` with no system-check errors.
+- Local TDD/release gates: the new tracking regression passed `1/1`; general catalog/SEO plus canonical tests passed `46/46`; catalog and Smart Selector tests passed `99/99`; multilingual/locale tests passed `36/36`; compilation and `git diff --check` passed.
+- Live UK/RU/EN matrix at SHA `a4b5efd6d93a87c323d806fe2b67d60a287aab06`: ordinary `/catalog/tshirts/` requests with `utm_source`, `gclid`, `fbclid` and `wbraid` returned `200`, emitted zero SEO hreflang links, and retained the tracking parameter in the next-page pagination URL. The same behavior was verified for `/ru/` and `/en/` prefixes. No attribution query was removed or rewritten.
+- Scope: only normal catalog context now shares the existing tracking-state policy already used by thematic/color landings. DTF subdomain/blog/module, Custom Print, product content, variant inventory and analytics persistence were not changed.
+- Remaining policy evidence: `robots.txt` still disallows these query families, and no GSC or web access-log export is available here. The parent `5.5d`/Task 5 crawl-and-Search-Console checkpoint therefore remains unchecked; this slice makes no claim about crawl-budget reduction, rankings or traffic.
 - [x] **5.5d.1** Remove internal catalog/category-color pagination links that point to redirecting `page=1`; preserve locale, facet and tracking state in the clean first-page URL while keeping valid `page>=2` indexability and self-canonical behavior.
 
 #### Task 5.5d.1 production evidence
