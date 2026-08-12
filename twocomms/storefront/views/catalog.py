@@ -65,6 +65,7 @@ from ..services.color_filter import (
     build_home_color_chips,
     build_reset_url,
     canonical_color_filter,
+    get_allowed_color_slugs,
     normalise_color_slugs,
     parse_color_filter,
 )
@@ -296,12 +297,34 @@ def _catalog_query_alias_redirect(request):
     raw_pages = request.GET.getlist("page")
     params = request.GET.copy()
     changed = False
+
+    # Canonicalize color, pagination and catalog aliases together before the
+    # color-only decorator runs. Otherwise a request such as
+    # ``?color=black&page=02`` bounces between two independent normalizers.
+    allowed_color_slugs = (
+        get_allowed_color_slugs() if "color" in request.GET else None
+    )
+    if allowed_color_slugs is not None:
+        canonical_color = ",".join(
+            parse_color_filter(request, allowed_slugs=allowed_color_slugs)
+        )
+        color_identity_changed = request.GET.getlist("color") != [canonical_color]
+        if canonical_color:
+            params.setlist("color", [canonical_color])
+        else:
+            params.pop("color", None)
+        if color_identity_changed:
+            # A changed color selection owns a different result set, so keep
+            # the established contract of returning to its first page.
+            params.pop("page", None)
+        changed = color_identity_changed
+
     if raw_pages:
         raw_page = str(raw_pages[0] or "").strip()
         canonical_page = str(int(raw_page))
-        if canonical_page == "1":
+        if canonical_page == "1" or changed:
             params.pop("page", None)
-            changed = True
+            changed = changed or canonical_page == "1"
         elif raw_page != canonical_page:
             params.setlist("page", [canonical_page])
             changed = True
@@ -326,7 +349,16 @@ def _catalog_query_alias_redirect(request):
 
     if not changed:
         return None
-    query = _build_query_string(params)
+    # Keep color last, matching ``canonical_color_filter`` and all existing
+    # public catalog color URLs, while sorting the remaining aliases.
+    query_parts = []
+    color_values = params.getlist("color")
+    for key, values in sorted(params.lists()):
+        if key != "color":
+            query_parts.extend((key, value) for value in values)
+    if color_values:
+        query_parts.append(("color", color_values[0]))
+    query = urlencode(query_parts, doseq=True)
     target = request.path + (f"?{query}" if query else "")
     return HttpResponsePermanentRedirect(target)
 
@@ -1452,8 +1484,8 @@ def load_more_products(request):
 
 
 # W3-3: @ensure_csrf_cookie снят (см. комментарий у home)
-@canonical_color_filter
 @_catalog_cache_policy
+@canonical_color_filter
 @cache_page_for_anon(
     600,
     key_prefix=_catalog_cache_prefix,

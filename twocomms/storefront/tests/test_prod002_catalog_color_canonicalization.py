@@ -278,6 +278,45 @@ class CatalogColorCanonicalRedirectTests(TestCase):
             "/catalog/?page=2&color=black",
         )
 
+    def test_smart_color_and_zero_padded_page_normalize_in_one_redirect(self):
+        smart_category = Category.objects.create(
+            name="Smart canonical colours",
+            slug="tshirts",
+            is_active=True,
+        )
+        for index in range(2):
+            product = Product.objects.create(
+                title=f"Smart canonical tee {index}",
+                slug=f"smart-canonical-tee-{index}",
+                category=smart_category,
+                price=500,
+                status="published",
+            )
+            ProductColorVariant.objects.create(
+                product=product,
+                color=Color.objects.get(name="black"),
+                is_default=True,
+            )
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            response = self.client.get(
+                "/catalog/tshirts/?color=black&page=02",
+                follow=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.redirect_chain,
+            [("/catalog/tshirts/?page=2&color=black", 301)],
+        )
+
+    @patch("storefront.views.catalog.get_allowed_color_slugs")
+    def test_clean_catalog_does_not_resolve_color_aliases(self, get_allowed_slugs):
+        response = self.client.get(reverse("catalog"))
+
+        self.assertEqual(response.status_code, 200)
+        get_allowed_slugs.assert_not_called()
+
     def test_canonical_color_url_renders_without_redirect(self):
         response = self.client.get(
             reverse("catalog") + "?color=black%2Ccoyote"
