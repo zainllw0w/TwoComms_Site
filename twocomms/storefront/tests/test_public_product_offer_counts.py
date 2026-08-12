@@ -6,6 +6,7 @@ from storefront.models import Category, Product, ProductStatus
 from storefront.sitemaps import ProductSitemap, ProductVariantSitemap
 from storefront.services.marketplace_feeds import iter_feed_offers
 from storefront.services.public_products import public_products_queryset
+from storefront.services.index_targets import build_product_urls, build_product_variant_urls
 from storefront.seo_utils import _homepage_price_aggregate
 from productcolors.models import Color, ProductColorVariant
 
@@ -135,3 +136,43 @@ class PublicProductOfferCountTests(TestCase):
 
         self.assertIn("/product/published-offer-count-shirt/offer-count-black/", urls)
         self.assertNotIn("/product/published-zero-price-variant-shirt/zero-price-black/", urls)
+
+    def test_index_targets_mirror_public_product_eligibility(self):
+        zero_price = Product.objects.create(
+            title="Published zero-price target shirt",
+            slug="published-zero-price-target-shirt",
+            category=self.category,
+            price=0,
+            status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(
+            name="Offer target black",
+            primary_hex="#111111",
+        )
+        ProductColorVariant.objects.create(
+            product=self.product,
+            color=color,
+            slug="offer-target-black",
+        )
+        ProductColorVariant.objects.create(
+            product=zero_price,
+            color=color,
+            slug="zero-price-target-black",
+        )
+
+        product_urls = build_product_urls(["uk"])
+        variant_urls = build_product_variant_urls(["uk"])
+
+        self.assertIn("https://twocomms.shop/product/published-offer-count-shirt/", product_urls)
+        self.assertIn(
+            "https://twocomms.shop/product/published-offer-count-shirt/offer-target-black/",
+            variant_urls,
+        )
+        self.assertNotIn(
+            "https://twocomms.shop/product/published-zero-price-target-shirt/",
+            product_urls,
+        )
+        self.assertNotIn(
+            "https://twocomms.shop/product/published-zero-price-target-shirt/zero-price-target-black/",
+            variant_urls,
+        )

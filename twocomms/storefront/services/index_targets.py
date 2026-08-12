@@ -36,6 +36,7 @@ from django.utils import translation
 from django.utils import timezone
 
 from .indexnow import build_absolute_url, get_site_base_url
+from .public_products import public_products_queryset
 
 
 GROUP_STATIC = "static"
@@ -157,9 +158,7 @@ def build_product_urls(languages: Iterable[str]) -> list[str]:
     from ..models import Product
 
     slugs = list(
-        Product.objects
-        .filter(status="published")
-        .exclude(slug="")
+        public_products_queryset()
         .values_list("slug", flat=True)
     )
     out: list[str] = []
@@ -207,9 +206,7 @@ def build_product_variant_urls(languages: Iterable[str]) -> list[str]:
     from ..models import Product
 
     products = (
-        Product.objects
-        .filter(status="published")
-        .exclude(slug="")
+        public_products_queryset()
         .prefetch_related("color_variants", "fit_options")
         .only("id", "slug")
     )
