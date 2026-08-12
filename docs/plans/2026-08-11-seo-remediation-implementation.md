@@ -334,6 +334,34 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   rendering was changed. No ranking, traffic, citation or conversion uplift
   is claimed.
 
+- [x] **P0.6** Remove the standard PDP's unowned description fallback claims
+  (`95% cotton/5% elastane`, `190 g/m2`, blanket print-wash durability and
+  blanket Ukraine-origin language). The fallback was rendered whenever both
+  `details_text` and the reviewed description were empty, so it could publish
+  unsupported specifications for otherwise valid products. The fix leaves
+  reviewed `full_description`, `description`, `details_text`, care copy, FAQ,
+  commerce UI, selectors and Custom Print links untouched; an empty field now
+  stays empty instead of inventing product facts.
+
+#### P0.6 release evidence
+
+- Code/test commit: `f24eb7c5` (`fix(seo): remove unowned PDP fallback
+  claims`) removes only the fallback bullet list from
+  `twocomms_django_theme/templates/pages/product_detail.html` and adds the
+  regression `test_product_detail_does_not_publish_unowned_fallback_product_claims`.
+- TDD/local gates: the new regression reproduced RED against the old
+  `95%/190 g/m2` fallback, then passed GREEN; the full
+  `ProductDetailTests` suite passed `25/25`, touched-file compilation and
+  `git diff --check` passed.
+- Production: `origin/main`, server `HEAD` and the restart checkpoint are
+  `f24eb7c5`. Live `/product/classic-tshirt/` returned `200`; all four
+  unowned fallback markers were absent, while the reviewed SEO landing marker
+  remained present and five `/custom-print/` links remained in the page.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, product data, inventory, FAQ or
+  `full_description` was changed. No ranking, traffic, citation or conversion
+  uplift is claimed.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
