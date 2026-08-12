@@ -17,6 +17,10 @@ const cargoPartial = fs.readFileSync(
   path.join(root, 'twocomms', 'twocomms_django_theme', 'templates', 'partials', 'add_to_cart_cargo_scene.html'),
   'utf8'
 );
+const cargoStyles = fs.readFileSync(
+  path.join(root, 'twocomms', 'twocomms_django_theme', 'static', 'css', 'product-detail.css'),
+  'utf8'
+);
 
 test('live product triggers expose cargo scenes without replacing their existing labels', () => {
   assert.match(pdpTemplate, /class="tc-add-btn"[\s\S]*data-add-to-cart=/);
@@ -51,6 +55,17 @@ test('cargo phases keep the reference timing and delay cart entry until packing'
     fs.readFileSync(path.join(root, 'twocomms', 'twocomms_django_theme', 'static', 'css', 'product-detail.css'), 'utf8'),
     /transition: transform 500ms cubic-bezier\(0\.22, 1\.3, 0\.36, 1\) 300ms/
   );
+});
+
+test('cargo geometry pins safe responsive dimensions for both CTA shells', () => {
+  assert.match(cargoStyles, /\.tc-add-btn\s*\{[\s\S]*?height:\s*60px;[\s\S]*?min-height:\s*58px;/);
+  assert.match(cargoStyles, /\.tc-sticky-add-btn\s*\{[\s\S]*?min-height:\s*50px;/);
+  assert.match(
+    cargoStyles,
+    /\.tc-sticky-add-btn\s*\{[\s\S]*?--tc-cargo-cart-w:\s*28px;[\s\S]*?--tc-cargo-cart-h:\s*27px;/
+  );
+  assert.match(cargoStyles, /\.tc-cargo-cart\s*\{[\s\S]*?bottom:\s*3px;/);
+  assert.match(cargoStyles, /\.tc-cargo-badge\s*\{[\s\S]*?bottom:\s*calc\(100% \+ 2px\);/);
 });
 
 test('desktop and mobile cart triggers share the attention pulse hook', () => {

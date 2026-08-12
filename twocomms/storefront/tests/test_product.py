@@ -383,7 +383,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertIn("grid-template-columns: minmax(120px, 0.28fr) minmax(244px, 1fr) minmax(232px, 0.6fr)", css)
         self.assertIn("align-items: center", css)
         self.assertIn("align-self: center", add_button_rule)
-        self.assertIn("height: 54px", add_button_rule)
+        self.assertIn("height: 60px", add_button_rule)
         self.assertIn("max-height: 60px", add_button_rule)
         self.assertIn(".tc-purchase-side .tc-purchase-trust-link span", css)
         self.assertIn('body:has(#product-reviews .tc-reviews__form-wrap[open]) .tc-sticky-mobile', css)
