@@ -64,6 +64,18 @@ class _Base(TestCase):
             order=0, is_default=True,
         )
 
+    def test_tracking_catalog_request_is_noindex_and_has_no_seo_hreflang(self):
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "hoodie-gen"})
+            + "?utm_source=audit"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertContains(response, 'content="noindex, follow', html=False)
+        self.assertNotIn('rel="alternate" hreflang=', body)
+        self.assertContains(response, "utm_source=audit", html=False)
+
 
 class GeneralCatalogSeoServiceTests(_Base):
     def test_layout_has_three_tabs(self):

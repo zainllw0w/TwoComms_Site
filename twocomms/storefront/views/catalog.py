@@ -1790,9 +1790,13 @@ def catalog(request, cat_slug=None, collection_slug=None):
         product_qs = apply_color_filter(base_product_qs, selected_color_slugs)
     has_active_color_filter = bool(selected_color_slugs)
     color_filter_reset_url = build_reset_url(request) if has_active_color_filter else ''
+    catalog_landing_has_tracking = any(
+        key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS
+    )
     suppress_hreflang = bool(
         has_active_color_filter
         or root_catalog_filter_active_count
+        or catalog_landing_has_tracking
         or any(
             request.GET.get(key)
             for key in (
@@ -1881,6 +1885,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
             'root_catalog_filter_active_count': root_catalog_filter_active_count,
             'root_catalog_filters_active': bool(root_catalog_filter_active_count),
             'suppress_hreflang': suppress_hreflang,
+            'catalog_landing_has_tracking': catalog_landing_has_tracking,
             'root_catalog_size_options': SELLABLE_SIZE_ORDER,
             'root_catalog_category_options': [
                 {
