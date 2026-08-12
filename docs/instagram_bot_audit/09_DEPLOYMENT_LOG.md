@@ -37,6 +37,15 @@ singleton. Final read-only status: `running=True`, `alive=True`, fresh 0.8s
 heartbeat, `last_error=''`, reply/notification/analysis pending `0/0/0`, both
 health endpoints HTTP 200. No synthetic production event was created.
 
+The documentation closeout itself was then fast-forwarded as docs-only commit
+`577e711b8f2045ad0c78e944c565f7d96de43468`. The first combined deploy attempt
+returned exit 137 during `migrate` under a transient server process/load spike;
+no migration was pending and the code/database remained intact. The standard
+`run_instagram_bot --ensure` recovery restored the singleton, after which the
+exact production SHA, migration state, fresh heartbeat and both health endpoints
+were rechecked successfully. This operational nuance remains separate from
+the Wave 3 code proof.
+
 ## Implement2 W2.0 bounded manifest-provenance slice (2026-08-13)
 
 Commit `c72ecf11` was pushed to `main` and pulled with the required SSH
