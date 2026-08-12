@@ -94,6 +94,18 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertNotContains(about_response, 'points-modal-template', html=False)
         self.assertNotContains(about_response, 'js/ui-fallback.js', html=False)
 
+    def test_about_schema_does_not_claim_request_time_freshness(self):
+        """Evergreen brand copy has no reviewed revision timestamp.
+
+        A request-time ``dateModified`` would make unchanged content appear
+        freshly edited on every crawl, so the page must omit that claim until
+        an editorial revision source is wired in.
+        """
+        response = self.client.get(reverse("about"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, '"dateModified"', html=False)
+
         delivery_response = self.client.get(reverse("delivery"), secure=True)
         self.assertEqual(delivery_response.status_code, 200)
         self.assertContains(delivery_response, 'class="support-shell', html=False)
