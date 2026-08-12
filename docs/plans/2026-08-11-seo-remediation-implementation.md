@@ -817,6 +817,30 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [ ] **10.1** Add a fact/entity registry test covering founding date, delivery threshold, address/hours, donation and price range across visible text, schema, feeds and llms.
 - [ ] **10.2** Remove unverified ClothingStore coordinates/hours and conflicting founding/entity claims unless the business owner supplies current evidence.
 - [ ] **10.3** Replace request-time `dateModified=now()` with source `updated_at` and localize pro-brand OfferCatalog URLs.
+- [x] **10.3a** Remove the unverified request-time `dateModified` from the
+  evergreen standard `/pro-brand/` AboutPage. No replacement date is emitted
+  until an editorial revision source exists; the separate `/novyny/` content
+  contract and its process-start timestamp are unchanged. This slice does not
+  alter founding claims, OfferCatalog URLs, products, Custom Print or DTF.
+
+#### Task 10.3a release evidence
+
+- Code/test commit: `45c00b99130f2d2f84c7f200c4e11a0318851324`
+  (`fix(seo): remove unverified brand freshness date`) was pushed to
+  `origin/main` and pulled on production.
+- TDD/local gates: the new AboutPage regression failed against the previous
+  `{% now 'Y-m-d' %}` JSON-LD field, then passed after the field was removed.
+  `manage.py check`, `py_compile`, and `git diff --check` passed. The broader
+  legacy organization/home schema group retains unrelated baseline failures.
+- Live proof: production `HEAD=45c00b99`; `/pro-brand/` returned `200` and
+  contained zero `"dateModified"` fields. The server-side `manage.py check`
+  reported no errors.
+- Boundary proof: only `pro_brand.html` and its regression test changed;
+  `/novyny/`, standard product/PDP content, Custom Print and all DTF routes,
+  subdomain and blogs were not edited.
+- This checkpoint claims removal of a false freshness signal only. It makes no
+  ranking, traffic, citation or conversion claim. Task `10.3` remains open for
+  a reviewed source-backed revision field and same-locale OfferCatalog URLs.
 - [ ] **10.4** Create a monthly UK/RU/EN query/citation ledger with date, country, device, model/search engine, cited URL and factuality result; no promise of citation boost.
 - [ ] **10.5** Commit/push/deploy and mark Task 10 only after the monitoring baseline is reproducible.
 
