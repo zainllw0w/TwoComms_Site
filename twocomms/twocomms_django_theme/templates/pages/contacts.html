@@ -31,12 +31,8 @@
    `paymentAccepted` so AI surfaces (SGE/Perplexity) can answer
    «where does TwoComms ship / what does it cost» with grounded data.
 
-   SEO 2026-05-16 (P1-3 / P1-7) — added ``parentOrganization`` link to
-   the canonical Organization node so AI knowledge graphs treat the
-   ClothingStore as a sub-entity of the same brand instead of a
-   separate company. ``address.addressLocality`` updated to «Харків»
-   and ``address.addressRegion`` to ``UA-63`` so NAP is consistent
-   with the rest of the brand surface.
+   The contact entity intentionally stays online-only until the owner
+   supplies a current physical address, coordinates and support hours.
    {% endcomment %}
 <script type="application/ld+json">
 {
@@ -58,13 +54,6 @@
     "description": "{% trans 'TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк.' %}",
     "telephone": "+380966543212",
     "email": "info@twocomms.shop",
-    "address": {
-      "@type": "PostalAddress",
-      "addressCountry": "UA",
-      "addressRegion": "UA-63",
-      "addressLocality": "{% trans 'Харків' %}",
-      "postalCode": "61061"
-    },
     "areaServed": [
       {"@type": "Country", "name": "{% trans 'Україна' %}", "identifier": "UA"},
       {"@type": "City", "name": "{% trans 'Харків' %}"}
@@ -72,29 +61,6 @@
     "currenciesAccepted": "UAH",
     "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay, Bank transfer",
     "priceRange": "{{ price_range|default:'660-2550 UAH' }}",
-    {% comment %}
-    SEO 2026-05-19 (VILNI deep review §4.3). Add ``geo`` coordinates
-    of the Kharkiv operations centre (no physical street address —
-    online-only store) plus ``openingHoursSpecification`` describing
-    the Telegram / phone support window. This lights up the
-    ClothingStore as a typed local entity for AI knowledge graphs
-    and Google's Knowledge Panel without violating guidelines on
-    fake street addresses. ``streetAddress`` deliberately omitted.
-    {% endcomment %}
-    "geo": {
-      "@type": "GeoCoordinates",
-      "latitude": 50.0040,
-      "longitude": 36.2308,
-      "name": "{% trans 'Харків — центр обслуговування TwoComms' %}"
-    },
-    "openingHoursSpecification": [
-      {
-        "@type": "OpeningHoursSpecification",
-        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-        "opens": "10:00",
-        "closes": "22:00"
-      }
-    ],
     "contactPoint": [
       {
         "@type": "ContactPoint",

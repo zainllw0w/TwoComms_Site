@@ -36,3 +36,12 @@ class PublicFactRegistrySeoTests(TestCase):
         self.assertEqual(shipping.locale, "all")
         self.assertTrue(shipping.source)
         self.assertTrue(shipping.effective_date)
+
+    def test_contacts_schema_does_not_publish_unverified_store_coordinates_or_hours(self):
+        response = Client().get("/contacts/")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertNotIn('"geo":', body)
+        self.assertNotIn('"openingHoursSpecification":', body)
+        self.assertNotIn('"postalCode":', body)
