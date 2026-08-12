@@ -772,6 +772,10 @@ function openMiniCart(opts = {}) {
   const { skipRefresh = false } = opts;
   const id = nextEvt();
   const panel = miniCartPanel(); if (!panel) return;
+  if (!panel._returnFocus || !panel._returnFocus.isConnected) {
+    const trigger = window.innerWidth < 992 ? document.getElementById('cart-toggle-mobile') : document.getElementById('cart-toggle');
+    panel._returnFocus = trigger || (document.activeElement && document.activeElement !== document.body ? document.activeElement : null);
+  }
   // Оп‑токен: любое новое действие отменяет старые таймауты/слушатели
   panel._opId = (panel._opId || 0) + 1; const opId = panel._opId;
   if (panel._hideTimeout) { clearTimeout(panel._hideTimeout); panel._hideTimeout = null; }
@@ -830,6 +834,10 @@ function closeMiniCart(reason) {
   panel._opId = (panel._opId || 0) + 1; const opId = panel._opId;
   panel.classList.remove('show');
   panel.classList.add('hiding');
+  const returnFocus = panel._returnFocus;
+  if (returnFocus && typeof returnFocus.focus === 'function' && returnFocus.isConnected) {
+    try { returnFocus.focus({ preventScroll: true }); } catch (_) { try { returnFocus.focus(); } catch (__) {} }
+  }
   panel.setAttribute('aria-hidden', 'true');
   panel.setAttribute('inert', '');
   setMobileCartExpanded(false);
@@ -853,6 +861,52 @@ function toggleMiniCart() {
   const panel = miniCartPanel(); if (!panel) return;
   if (panel.classList.contains('d-none') || !panel.classList.contains('show')) openMiniCart(); else closeMiniCart();
 }
+
+// The mobile grab handle is a deliberately small interaction surface. It only
+// owns a downward gesture; scrolling and cart actions remain untouched.
+function bindMiniCartHandle() {
+  const handle = document.querySelector('#mini-cart-panel-mobile .mini-cart-shell__handle');
+  const panel = document.getElementById('mini-cart-panel-mobile');
+  if (!handle || !panel || handle.dataset.miniCartHandleBound === '1') return;
+  handle.dataset.miniCartHandleBound = '1';
+  let startX = 0;
+  let startY = 0;
+  let pointerId = null;
+  let startedAt = 0;
+  const clearDrag = () => {
+    pointerId = null;
+    startedAt = 0;
+    panel.classList.remove('mini-cart-shell--dragging');
+    panel.style.removeProperty('--mini-cart-drag-offset');
+  };
+  handle.addEventListener('pointerdown', (event) => {
+    if (window.innerWidth >= 992 || !panel.classList.contains('show') || event.isPrimary === false) return;
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startY = event.clientY;
+    startedAt = event.timeStamp || performance.now();
+    panel.classList.add('mini-cart-shell--dragging');
+    try { handle.setPointerCapture(pointerId); } catch (_) {}
+  });
+  handle.addEventListener('pointermove', (event) => {
+    if (pointerId === null || event.pointerId !== pointerId) return;
+    const dy = Math.max(0, Math.min(panel.offsetHeight || window.innerHeight, event.clientY - startY));
+    panel.style.setProperty('--mini-cart-drag-offset', `${dy}px`);
+  });
+  handle.addEventListener('pointerup', (event) => {
+    if (pointerId === null || event.pointerId !== pointerId) return;
+    const dy = event.clientY - startY;
+    const dx = event.clientX - startX;
+    const elapsed = Math.max(1, (event.timeStamp || performance.now()) - startedAt);
+    const velocity = dy / elapsed;
+    clearDrag();
+    if (dy > 0 && dy > Math.abs(dx) * 1.2 && (dy >= 56 || (dy >= 24 && velocity >= .5))) closeMiniCart('handleSwipe');
+  });
+  handle.addEventListener('pointercancel', clearDrag);
+  handle.addEventListener('lostpointercapture', clearDrag);
+  window.addEventListener('resize', () => { if (window.innerWidth >= 992 && pointerId !== null) clearDrag(); }, { passive: true });
+}
+window.bindMiniCartHandle = bindMiniCartHandle;
 
 // Mono/Monobank checkout — extracted to modules/checkout-mono.js (Phase 2.1).
 // The module is loaded lazily on first detection of a mono/monobank trigger.
@@ -891,7 +945,17 @@ let miniCartFetchSeq = 0;
 function refreshMiniCart() {
   const panel = miniCartPanel(); if (!panel) return Promise.resolve();
   const content = panel.querySelector('#mini-cart-content') || panel.querySelector('#mini-cart-content-mobile') || panel;
-  content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
+  const existingList = content.querySelector('.mini-cart-list');
+  const preservedScrollTop = existingList ? existingList.scrollTop : 0;
+  const previousRemainingNode = existingList && existingList.querySelector('.mini-cart-shipping__remaining-value');
+  const previousRemaining = previousRemainingNode ? parseInt(previousRemainingNode.textContent || '0', 10) : null;
+  const active = document.activeElement;
+  const activeRow = active && active.closest ? active.closest('[data-cart-row]') : null;
+  const preservedKey = activeRow && activeRow.dataset ? activeRow.dataset.key : '';
+  const preservedAction = active && active.dataset ? active.dataset.miniCartQty : '';
+  const hadRenderedCart = Boolean(content.querySelector('[data-mini-cart-view]'));
+  content.setAttribute('aria-busy', 'true');
+  if (!hadRenderedCart) content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
 
   if (typeof AbortController !== 'undefined') {
     if (miniCartFetchController) {
@@ -915,15 +979,49 @@ function refreshMiniCart() {
       if (currentSeq !== miniCartFetchSeq) return;
       content.innerHTML = html;
       try { applySwatchColors(content); } catch (_) { }
+      const nextBar = content.querySelector('.mini-cart-shipping__bar');
+      if (nextBar) {
+        const targetWidth = nextBar.style.width || '0%';
+        const priorBar = existingList && existingList.querySelector('.mini-cart-shipping__bar');
+        nextBar.style.width = priorBar ? (priorBar.style.width || '0%') : '0%';
+        requestAnimationFrame(() => { nextBar.style.width = targetWidth; });
+      }
+      const remainingNode = content.querySelector('.mini-cart-shipping__remaining-value');
+      if (remainingNode && previousRemaining !== null) {
+        const target = parseInt(remainingNode.textContent || '0', 10) || 0;
+        const start = previousRemaining;
+        if (start !== target && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+          const started = performance.now();
+          const duration = 360;
+          const tick = (now) => {
+            const progress = Math.min(1, (now - started) / duration);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            remainingNode.textContent = String(Math.round(start + (target - start) * eased));
+            if (progress < 1) requestAnimationFrame(tick);
+          };
+          remainingNode.textContent = String(start);
+          requestAnimationFrame(tick);
+        }
+      }
       try {
         const view = content.querySelector('[data-mini-cart-view]');
-        const count = view ? (view.getAttribute('data-cart-count') || '0') : '0';
+        const numericCount = view ? parseInt(view.getAttribute('data-cart-count') || '0', 10) : 0;
+        const count = Number.isFinite(numericCount) && numericCount > 0 ? numericCount : 0;
         document.querySelectorAll('[data-mini-cart-title-count]').forEach((el) => {
           el.textContent = count ? ` (${count})` : '';
         });
         bindMiniCartQuantity(content);
       } catch (_) { }
       try { bindMonoCheckout(content); } catch (_) { }
+      requestAnimationFrame(() => {
+        const nextList = content.querySelector('.mini-cart-list');
+        if (nextList) nextList.scrollTop = preservedScrollTop;
+        if (preservedKey) {
+          const nextRow = Array.from(content.querySelectorAll('[data-cart-row]')).find((candidate) => candidate.dataset.key === preservedKey);
+          const nextFocus = nextRow && (nextRow.querySelector(`[data-mini-cart-qty="${preservedAction}"]`) || nextRow.querySelector('[data-mini-cart-qty]'));
+          if (nextFocus) nextFocus.focus({ preventScroll: true });
+        }
+      });
     })
     .catch(err => {
       if (controller && err && err.name === 'AbortError') return;
@@ -931,6 +1029,7 @@ function refreshMiniCart() {
       content.innerHTML = "<div class='text-danger small'>Не вдалося завантажити кошик</div>";
     })
     .finally(() => {
+      content.setAttribute('aria-busy', 'false');
       if (controller && miniCartFetchController === controller) {
         miniCartFetchController = null;
       }
@@ -1259,6 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cMobile) { cMobile.addEventListener('click', (e) => { e.preventDefault(); closeMiniCart(); }); }
   };
   hookClose();
+  try { bindMiniCartHandle(); } catch (_) { }
 
   // Закрытие по клику снаружи
   document.addEventListener('pointerdown', (e) => {

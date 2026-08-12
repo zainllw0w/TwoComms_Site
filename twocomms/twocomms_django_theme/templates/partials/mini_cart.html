@@ -5,12 +5,12 @@
 <div class="mini-cart-view" data-mini-cart-view data-cart-count="{{ cart_count|default:0 }}">
   {% if has_any_items %}
     <div class="mini-cart-list" role="list">
-      <section class="mini-cart-shipping" aria-label="{% trans 'Безкоштовна доставка' %}">
+      <section class="mini-cart-shipping{% if shipping_free %} mini-cart-shipping--complete{% endif %}" aria-label="{% trans 'Безкоштовна доставка' %}">
         <div class="mini-cart-shipping__icon" aria-hidden="true">
-          <svg viewBox="0 0 48 32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h26v16H2zM28 14h9l7 7v3H28z"/><path d="M36 14v7h8M10 28a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM36 28a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M14 24h18"/></svg>
+          <svg viewBox="0 0 48 32" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9h8M1 14h5M3 19h5"/><path d="M12 7h19v17H12zM31 13h7l7 7v4H31z"/><path d="M38 13v7h7M18 28a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM38 28a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg>
         </div>
         <div class="mini-cart-shipping__copy">
-          <strong>{% trans 'До безкоштовної доставки залишилось' %} {{ shipping_remaining|floatformat:0 }} {% trans 'грн' %}</strong>
+          <strong data-shipping-remaining="{{ shipping_remaining|floatformat:0 }}">{% trans 'До безкоштовної доставки залишилось' %} <span class="mini-cart-shipping__remaining-value">{{ shipping_remaining|floatformat:0 }}</span> {% trans 'грн' %}</strong>
           <span>{% trans 'Поріг безкоштовної доставки' %} — <b>{{ shipping_threshold|floatformat:0 }} {% trans 'грн' %}</b></span>
         </div>
         {% if shipping_free %}<span class="mini-cart-shipping__success" aria-label="{% trans 'Безкоштовна доставка доступна' %}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>{% trans 'Ви молодець!' %}</span>{% endif %}
@@ -56,7 +56,7 @@
       <button type="button" class="mini-cart-secondary-action" data-mini-cart-continue><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></svg><span>{% trans 'Продовжити покупки' %}</span></button>
       <div class="mini-cart-benefits">
         <div><span class="mini-cart-benefits__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 6h11v9H3zM14 9h4l3 3v3h-7zM7 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg></span><b>{% trans 'Швидка доставка' %}</b><small>{% trans '1–3 дні по Україні' %}</small></div>
-        <div><span class="mini-cart-benefits__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 2.1 4.3 4.8.7-3.5 3.4.8 4.8-4.2-2.3-4.2 2.3.8-4.8-3.5-3.4 4.8-.7L12 3Z"/></svg></span><b>{% trans 'Оригінальна продукція' %}</b><small>{% trans 'Гарантія якості' %}</small></div>
+        <div><span class="mini-cart-benefits__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 20 6v5c0 4.5-3.1 8.2-8 10-4.9-1.8-8-5.5-8-10V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span><b>{% trans 'Оригінальна продукція' %}</b><small>{% trans 'Гарантія якості' %}</small></div>
         <div><span class="mini-cart-benefits__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7v5h5M4.8 12A7.5 7.5 0 1 0 7 6.5"/></svg></span><b>{% trans '14 днів на повернення' %}</b><small>{% trans 'Легкий обмін та повернення' %}</small></div>
       </div>
     </div>

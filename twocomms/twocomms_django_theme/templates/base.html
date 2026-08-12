@@ -1280,7 +1280,7 @@
   </div>
 
   <!-- Мобильные мини-панели (только для мобильной версии) -->
-  <div id="mini-cart-panel-mobile" class="cart-panel mobile-mini-cart mini-cart-shell d-none d-lg-none" aria-hidden="true" inert>
+  <div id="mini-cart-panel-mobile" class="cart-panel mobile-mini-cart mini-cart-shell d-none d-lg-none" role="dialog" aria-modal="true" aria-labelledby="mini-cart-mobile-title" aria-hidden="true" inert>
     <span class="mini-cart-shell__handle" aria-hidden="true"></span>
 
     <!-- Заголовок корзины -->
@@ -1291,7 +1291,7 @@
             d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
         </svg>
       </div>
-      <div class="cart-title"><strong>{% trans 'Кошик' %} <span data-mini-cart-title-count></span></strong><small>{% trans 'Товари в кошику не бронюються' %}</small></div>
+      <div class="cart-title"><strong id="mini-cart-mobile-title">{% trans 'Кошик' %} <span data-mini-cart-title-count></span></strong><small>{% trans 'Товари в кошику не бронюються' %}</small></div>
       <button type="button" class="close-btn" data-cart-close-mobile aria-label="{% trans 'Закрити' %}">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path
