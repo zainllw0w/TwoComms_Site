@@ -133,14 +133,25 @@
   {% block seo_meta %}
   <title>{% block title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг' %}{% endblock %}</title>
   {% comment %}
-  SEO v1.2 (2026-08-11) — locale ownership is decided per standard Product
-  from raw translation columns, not modeltranslation fallback values. UK is
-  always the base owner; RU/EN become indexable only when their required
-  metadata/editorial fields and active FAQ pairs are complete. An incomplete
-  locale stays crawlable with ``noindex, follow`` and emits no hreflang
-  cluster; an eligible page emits only the reciprocal locales it actually
-  owns. Query-string Product facets are UX state and are likewise excluded
-  from hreflang by the Product view.
+  SEO v1.0 Phase 1 (2026-05-12) — multilingual root-cause fix (Path A):
+  RU/EN copies share the same URL path with UK content but the underlying
+  Product.title/description/etc. translation matrices are unpopulated.
+  Indexing them creates duplicate-content footprint + 258 hreflang
+  reciprocity errors (confirmed via Ahrefs CSV 2026-05-11). Until the
+  RU/EN content is fully translated, force ``noindex,follow`` on every
+  non-uk render so Google/Bing drop the duplicates from the index but
+  still follow links to discover/refresh the canonical UA pages.
+
+  SEO v1.1 Phase 2 (2026-05-15) — multilingual REOPEN. Per request from
+  ownership: restore index, follow on RU/EN renders so /ru/ and /en/
+  variants accumulate organic traffic from Russian- and English-speaking
+  Ukrainian users (and any DE/PL/CZ visitors who fall through). Risk
+  control: emit reciprocal hreflang (uk-UA / ru-UA / en-UA / x-default)
+  on every indexable page so Google clusters the variants instead of
+  flagging them as duplicates. Where modeltranslation has no translated
+  copy, the active language renders the UA fallback — Google tolerates
+  partial translation, but bumping ``Product.title_ru`` /
+  ``description_en`` etc. is the long-term fix.
   {% endcomment %}
   <meta name="robots"
     content="{% block robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}">
@@ -161,16 +172,18 @@
   {% block pagination_links %}{% endblock %}
   {% language_alternates as lang_alts %}
   {% comment %}
-  Reciprocal hreflang is emitted for each real locale owner. Standard PDPs
-  provide a publication context that removes untranslated siblings and
-  suppresses the entire cluster on their own noindex RU/EN render. Other
-  routes retain the established three-language behavior.
+  SEO v1.1 Phase 2 (2026-05-15) — reciprocal hreflang for every locale.
+  Each indexable page lists itself + every sibling locale + ``x-default``
+  (which mirrors the UA URL because UA is our primary market). Google
+  uses these triples to cluster the variants and serve the right
+  language per user — without this, RU/EN renders would compete with
+  UA in the same SERP and trigger duplicate-content warnings.
   {% endcomment %}
   <link rel="alternate" type="application/rss+xml" title="TwoComms Blog RSS" href="{% url 'blog_rss' %}">
-  {% if lang_alts.uk %}<link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">{% endif %}
-  {% if lang_alts.ru %}<link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">{% endif %}
-  {% if lang_alts.en %}<link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">{% endif %}
-  {% if lang_alts.x_default %}<link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">{% endif %}
+  <link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
+  <link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
+  <link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
+  <link rel="alternate" hreflang="x-default" href="{% block hreflang_x_default %}{{ lang_alts.x_default }}{% endblock %}">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="{% block og_type %}website{% endblock %}">
@@ -944,9 +957,9 @@
   {% endcomment %}
 
   {% block extra_css %}{% endblock %}
-  <link rel="stylesheet" href="{% static 'css/mobile-shell.css' %}?v=20260810-mobile-panels-v2">
-  <link rel="stylesheet" href="{% static 'css/mini-cart.css' %}?v=20260812-reference-mini-cart-v2">
-  <style>{% inline_static "product_catalog/thermo-dot.css" %}</style>
+  <link rel="stylesheet" href="{% static 'css/mobile-shell.css' %}?v=20260812-mobile-bottom-nav-v1">
+  <link rel="stylesheet" href="{% static 'css/mini-cart.css' %}?v=20260812-reference-mini-cart-v3">
+  <style>{% inline_static "fable5/thermo-dot.css" %}</style>
 
   <link rel="stylesheet" href="{% static 'css/telegram-verify.css' %}"
         media="print" onload="this.media='all'">
@@ -1269,6 +1282,7 @@
   <!-- Мобильные мини-панели (только для мобильной версии) -->
   <div id="mini-cart-panel-mobile" class="cart-panel mobile-mini-cart mini-cart-shell d-none d-lg-none" aria-hidden="true" inert>
     <span class="mini-cart-shell__handle" aria-hidden="true"></span>
+
     <!-- Заголовок корзины -->
     <div class="cart-header mobile-mini-cart__header mini-cart-shell__header">
       <div class="cart-header-icon">
@@ -1294,6 +1308,36 @@
       </div>
     </div>
 
+    {% comment %}
+    {% comment %}<div class="legacy-menu mobile-mini-cart__menu">
+      <a href="{% url 'delivery' %}" class="legacy-menu-item">
+        <div class="legacy-menu-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+          </svg>
+        </div>
+        <span>{% trans 'Умови доставки і оплати' %}</span>
+        <div class="legacy-menu-arrow">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+          </svg>
+        </div>
+      </a>
+    </div>
+
+    <!-- Информационная панель -->
+    <div class="legacy-info mobile-mini-cart__info">
+      <div class="legacy-info-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+        </svg>
+      </div>
+      <div class="legacy-info-text">
+        {% trans 'Залишайте заявку на сайті або оплачуйте миттєво через mono checkout' %}
+      </div>
+    </div>
+    {% endcomment %}
   </div>
 
   <div id="user-panel-mobile" class="user-panel mpx d-none d-lg-none" aria-hidden="true" inert>
@@ -1327,12 +1371,12 @@
   <link rel="modulepreload" href="{% static 'js/modules/shared.js' %}" crossorigin="anonymous">
   <link rel="modulepreload" href="{% static 'js/modules/optimizers.js' %}" crossorigin="anonymous">
   {% if request.resolver_match.url_name == 'home' %}
-  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}?v=20260715-product_catalog-v1" crossorigin="anonymous">
+  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}?v=20260715-fable5-v1" crossorigin="anonymous">
   <link rel="modulepreload" href="{% static 'js/modules/homepage.js' %}?v=20260718-home-perf" crossorigin="anonymous">
   {% elif request.resolver_match.url_name == 'product_detail' %}
-  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}?v=20260715-product_catalog-v1" crossorigin="anonymous">
+  <link rel="modulepreload" href="{% static 'js/modules/product-media.js' %}?v=20260715-fable5-v1" crossorigin="anonymous">
   {% endif %}
-  <script type="module" src="{% static 'js/main.js' %}?v=20260812-reference-mini-cart-v2" onload="this.classList.add('script-loaded')"
+  <script type="module" src="{% static 'js/main.js' %}?v=20260812-reference-mini-cart-v3" onload="this.classList.add('script-loaded')"
     onerror="this.classList.add('script-error')" crossorigin="anonymous"></script>
   <script defer src="{% static 'js/mobile-shell.js' %}?v=20260809-shell-stability"></script>
 
