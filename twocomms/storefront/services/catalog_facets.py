@@ -95,6 +95,8 @@ def normalize_catalog_facet_state(
         normalized = []
         for value in values:
             candidate = value.lower() if facet != "size" else value.upper()
+            if facet == "fit":
+                candidate = FIT_ALIASES.get(candidate, candidate)
             is_dynamic_collection_facet = facet in {"theme", "collection"}
             if facet == "color" and not _COLOR_SLUG_RE.fullmatch(candidate):
                 continue

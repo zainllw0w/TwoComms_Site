@@ -11,6 +11,8 @@ Catalog views - Каталог товаров и категорий.
 
 from collections import defaultdict
 from decimal import Decimal
+from functools import wraps
+from urllib.parse import urlencode
 
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
@@ -62,12 +64,14 @@ from ..services.color_filter import (
     build_home_color_chips,
     build_reset_url,
     canonical_color_filter,
+    normalise_color_slugs,
     parse_color_filter,
 )
 from ..services.survey_engine import load_survey_definition
 from ..utm_tracking import record_search
 from cache_utils import get_fragment_cache
 from .utils import (
+    _build_query_string,
     cache_page_for_anon,
     HOME_PRODUCTS_PER_PAGE,
     PRODUCTS_PER_PAGE,
@@ -147,6 +151,193 @@ _CATALOG_FACET_KEYS = {
     "color",
     "thermo",
 }
+
+_CATALOG_QUERY_KEYS = _CATALOG_FACET_KEYS | {"page", "sort", "category"}
+_CATALOG_TRACKING_QUERY_KEYS = frozenset(
+    {
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "fbclid",
+        "gbraid",
+        "gclid",
+        "msclkid",
+        "ref",
+        "ref_",
+        "ttclid",
+        "wbraid",
+        "yclid",
+    }
+)
+_CATALOG_ROOT_CATEGORY_SLUGS = frozenset({"tshirts", "hoodie", "long-sleeve"})
+_CATALOG_ROOT_SORT_VALUES = frozenset(
+    {"recommended", "newest", "price-asc", "price-desc"}
+)
+_CATALOG_SMART_SORT_VALUES = frozenset(
+    {"recommended", "price-asc", "price-desc"}
+)
+
+
+def _catalog_route_scope(kwargs):
+    cat_slug = str(kwargs.get("cat_slug") or "").strip().lower()
+    if cat_slug:
+        return "smart" if cat_slug in SMART_SELECTOR_CATEGORY_SLUGS else "category"
+    if kwargs.get("collection_slug"):
+        return "smart"
+    return "root"
+
+
+def _catalog_query_value(value, key):
+    value = str(value or "").strip()
+    if key == "size":
+        return value.upper()
+    if key == "page" and value.isdecimal():
+        return str(int(value))
+    if key == "fit":
+        value = value.lower()
+        return SMART_SELECTOR_FIT_ALIASES.get(value, value)
+    return value.lower()
+
+
+def _validate_catalog_query_shape(request, *, scope):
+    """Reject query aliases before page-cache lookup can serve an old 200."""
+    unknown = set(request.GET) - _CATALOG_QUERY_KEYS - _CATALOG_TRACKING_QUERY_KEYS
+    if unknown:
+        raise Http404("Unknown catalog query parameter.")
+
+    supported = {
+        "page",
+        "color",
+    }
+    if scope == "root":
+        supported.update({"sort", "category", "availability", "size"})
+    elif scope == "smart":
+        supported.update(
+            {
+                "sort",
+                "theme",
+                "collection",
+                "audience",
+                "availability",
+                "fit",
+                "size",
+                "thermo",
+            }
+        )
+
+    unsupported = {
+        key
+        for key in set(request.GET)
+        if key not in supported and key not in _CATALOG_TRACKING_QUERY_KEYS
+    }
+    if unsupported:
+        raise Http404("Catalog query parameter is not supported on this route.")
+
+    for key in ("page", "sort"):
+        values = request.GET.getlist(key)
+        if len(values) > 1:
+            raise Http404(f"Duplicate {key} parameters are not valid.")
+
+    raw_pages = request.GET.getlist("page")
+    if raw_pages:
+        raw_page = str(raw_pages[0] or "").strip()
+        if (
+            not raw_page.isdecimal()
+            or len(raw_page) > 10
+            or int(raw_page) < 1
+        ):
+            raise Http404("Page number is not valid.")
+
+    raw_sorts = request.GET.getlist("sort")
+    if raw_sorts:
+        value = _catalog_query_value(raw_sorts[0], "sort")
+        allowed = _CATALOG_ROOT_SORT_VALUES if scope == "root" else _CATALOG_SMART_SORT_VALUES
+        if value not in allowed:
+            raise Http404("Sort value is not valid.")
+
+    raw_categories = request.GET.getlist("category")
+    if raw_categories:
+        if scope != "root":
+            raise Http404("Category facet is not supported on this route.")
+        values = [_catalog_query_value(value, "category") for value in raw_categories]
+        if any(not value or value not in _CATALOG_ROOT_CATEGORY_SLUGS for value in values):
+            raise Http404("Category value is not valid.")
+        if len(values) != len(set(values)):
+            raise Http404("Duplicate category values are not valid.")
+
+    for key in _CATALOG_FACET_KEYS - {"color"}:
+        values = request.GET.getlist(key)
+        if not values:
+            continue
+        canonical_values = [_catalog_query_value(value, key) for value in values]
+        if any(not value for value in canonical_values):
+            raise Http404(f"Facet '{key}' contains an empty value.")
+        if len(canonical_values) != len(set(canonical_values)):
+            raise Http404(f"Facet '{key}' contains a duplicate value.")
+
+
+def _catalog_query_alias_redirect(request):
+    raw_pages = request.GET.getlist("page")
+    params = request.GET.copy()
+    changed = False
+    if raw_pages:
+        raw_page = str(raw_pages[0] or "").strip()
+        canonical_page = str(int(raw_page))
+        if canonical_page == "1":
+            params.pop("page", None)
+            changed = True
+        elif raw_page != canonical_page:
+            params.setlist("page", [canonical_page])
+            changed = True
+
+    raw_sorts = request.GET.getlist("sort")
+    if raw_sorts and _catalog_query_value(raw_sorts[0], "sort") == "recommended":
+        params.pop("sort", None)
+        changed = True
+
+    if not changed:
+        return None
+    query = _build_query_string(params)
+    target = request.path + (f"?{query}" if query else "")
+    return HttpResponsePermanentRedirect(target)
+
+
+def _build_catalog_cache_query(request):
+    parts = []
+    for key, values in sorted(request.GET.lists()):
+        if key in _CATALOG_TRACKING_QUERY_KEYS:
+            continue
+        if key == "color":
+            values = [",".join(normalise_color_slugs(values))]
+            if not values[0]:
+                continue
+        else:
+            values = [_catalog_query_value(value, key) for value in values]
+            if key in _CATALOG_FACET_KEYS | {"category"}:
+                values = sorted(values)
+        parts.extend((key, value) for value in values)
+    return urlencode(parts, doseq=True)
+
+
+def _catalog_cacheable_request(request):
+    return not any(key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS)
+
+
+def _catalog_cache_policy(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        scope = _catalog_route_scope(kwargs)
+        _validate_catalog_query_shape(request, scope=scope)
+        redirect = _catalog_query_alias_redirect(request)
+        if redirect is not None:
+            return redirect
+        request._catalog_cache_query = _build_catalog_cache_query(request)
+        request._catalog_fragment_identity = request._catalog_cache_query
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
 
 
 def _validate_catalog_facet_query(request, *, category=None):
@@ -1198,7 +1389,13 @@ def load_more_products(request):
 
 # W3-3: @ensure_csrf_cookie снят (см. комментарий у home)
 @canonical_color_filter
-@cache_page_for_anon(600, key_prefix=public_product_listing_cache_prefix)  # Кэшируем каталог на 10 минут только для анонимов
+@_catalog_cache_policy
+@cache_page_for_anon(
+    600,
+    key_prefix=public_product_listing_cache_prefix,
+    cache_identity=_build_catalog_cache_query,
+    cache_condition=_catalog_cacheable_request,
+)  # Кэшируем каталог на 10 минут только для анонимов
 def catalog(request, cat_slug=None, collection_slug=None):
     """
     Страница каталога товаров.
@@ -1459,6 +1656,11 @@ def catalog(request, cat_slug=None, collection_slug=None):
             'paginator': paginator,
             'public_product_order_version': public_product_order_version,
             'public_category_version': public_category_version,
+            'catalog_fragment_identity': getattr(
+                request,
+                '_catalog_fragment_identity',
+                request.get_full_path(),
+            ),
             'available_colors': available_colors,
             'selected_color_slugs': selected_color_slugs,
             'has_active_color_filter': has_active_color_filter,
@@ -1682,6 +1884,7 @@ def search(request):
                 'paginator': paginator,
                 'public_product_order_version': public_product_order_version,
                 'public_category_version': public_category_version,
+                'catalog_fragment_identity': request.get_full_path(),
                 'available_colors': available_colors,
                 'selected_color_slugs': selected_color_slugs,
                 'has_active_color_filter': has_active_color_filter,
@@ -1721,6 +1924,7 @@ def search(request):
                 'error': 'Произошла ошибка при поиске. Попробуйте еще раз.',
                 'public_product_order_version': public_product_order_version,
                 'public_category_version': public_category_version,
+                'catalog_fragment_identity': request.get_full_path(),
                 'suppress_hreflang': True,
             }
         )
@@ -2055,6 +2259,7 @@ def thematic_landing(request, theme_slug):
             'paginator': paginator,
             'public_product_order_version': public_product_order_version,
             'public_category_version': public_category_version,
+            'catalog_fragment_identity': request.get_full_path(),
             'available_colors': available_colors,
             'selected_color_slugs': selected_color_slugs,
             'has_active_color_filter': has_active_color_filter,

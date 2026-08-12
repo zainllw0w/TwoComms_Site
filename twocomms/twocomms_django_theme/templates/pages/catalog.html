@@ -547,7 +547,7 @@ point at themselves.
       </div>
       {% endif %}
 
-      {% cache 600 catalog_products_home_cards_v5_webp_swap LANGUAGE_CODE request.get_full_path public_product_order_version public_category_version using="fragments" %}
+      {% cache 600 catalog_products_home_cards_v6_cache_identity LANGUAGE_CODE request.path catalog_fragment_identity public_product_order_version public_category_version using="fragments" %}
       <div class="row g-3 g-md-4 row-cols-2 row-cols-md-3 row-cols-lg-4 home-products-grid catalog-products-grid" data-stagger-grid data-mobile-stagger="true">
         {% for p in products %}
         <div class="col product-card-wrap">

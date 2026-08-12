@@ -119,6 +119,13 @@ class CatalogFacetContractTests(TestCase):
         self.assertEqual(state["size"], ("M", "XL"))
         self.assertNotIn("unknown", state)
 
+    def test_supported_fit_aliases_normalize_to_public_fit_codes(self):
+        state = normalize_catalog_facet_state(
+            {"fit": ["regular", "класичний"]}
+        )
+
+        self.assertEqual(state["fit"], ("classic", "standard"))
+
     def test_audience_multi_select_is_strict_and(self):
         state = normalize_catalog_facet_state({"audience": ["unisex", "women"]})
 

@@ -29,11 +29,13 @@ def _build_query_string(querydict):
     return urlencode(parts, doseq=True)
 
 
-def _build_anon_cache_key(request, view_func, key_prefix=None):
+def _build_anon_cache_key(request, view_func, key_prefix=None, query_string=None):
     path = iri_to_uri(request.path)
-    query = _build_query_string(request.GET)
-    accept_lang = request.META.get('HTTP_ACCEPT_LANGUAGE', '')
-    language = getattr(request, 'LANGUAGE_CODE', '')
+    query = _build_query_string(request.GET) if query_string is None else query_string
+    language = str(getattr(request, 'LANGUAGE_CODE', '') or '').strip().lower()
+    locale_identity = language or str(
+        request.META.get('HTTP_ACCEPT_LANGUAGE', '') or ''
+    ).strip().lower()
     scheme = getattr(request, 'scheme', '') or 'http'
     try:
         host = request.get_host().lower()
@@ -43,12 +45,12 @@ def _build_anon_cache_key(request, view_func, key_prefix=None):
         prefix = key_prefix(request, view_func)
     else:
         prefix = key_prefix or f"{view_func.__module__}.{view_func.__name__}"
-    fingerprint = f"{scheme}://{host}{path}?{query}|{language}|{accept_lang}"
+    fingerprint = f"{scheme}://{host}{path}?{query}|{locale_identity}"
     digest = hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()
     return f"anon-page:{prefix}:{digest}"
 
 
-def cache_page_for_anon(timeout, key_prefix=None):
+def cache_page_for_anon(timeout, key_prefix=None, *, cache_identity=None, cache_condition=None):
     """
     Кэширует страницу только для анонимных пользователей.
 
@@ -78,7 +80,16 @@ def cache_page_for_anon(timeout, key_prefix=None):
             if request.method not in ('GET', 'HEAD') or request.user.is_authenticated:
                 return view_func(request, *args, **kwargs)
 
-            cache_key = _build_anon_cache_key(request, view_func, key_prefix)
+            if cache_condition is not None and not cache_condition(request):
+                return view_func(request, *args, **kwargs)
+
+            query_string = cache_identity(request) if cache_identity is not None else None
+            cache_key = _build_anon_cache_key(
+                request,
+                view_func,
+                key_prefix,
+                query_string=query_string,
+            )
             cached_response = cache.get(cache_key)
             if cached_response is not None:
                 # W3-3/W3-4: раньше здесь принудительно вызывался get_token()
@@ -119,7 +130,7 @@ def public_product_listing_cache_prefix(request, view_func):
     return (
         f"{view_func.__module__}.{view_func.__name__}"
         f":product-order-v{product_version}:category-v{category_version}"
-        ":card-v20260808-direct-swatches"
+        ":card-v20260812-catalog-cache-identity"
     )
 
 
