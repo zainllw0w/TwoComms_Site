@@ -9,11 +9,12 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from productcolors.models import Color, ProductColorVariant
-from storefront.models import Category, Product
+from storefront.models import Category, Product, ProductFitOption
 from storefront.services.color_filter import parse_color_filter
 from storefront.views.catalog import (
     _build_catalog_cache_query,
     _build_catalog_pagination_query_prefix,
+    _catalog_cache_prefix,
 )
 from storefront.views.utils import _build_anon_cache_key
 
@@ -187,6 +188,14 @@ class ColorFilterCanonicalServiceTests(TestCase):
         self.assertEqual(
             _build_catalog_pagination_query_prefix(request),
             "utm_source=ad&size=M&",
+        )
+
+    def test_catalog_cache_version_busts_pre_serialization_responses(self):
+        request = self.factory.get("/catalog/")
+
+        self.assertIn(
+            "catalog-pagination-v2-20260812",
+            _catalog_cache_prefix(request, lambda request: None),
         )
 
 
@@ -419,6 +428,59 @@ class CatalogColorCanonicalRedirectTests(TestCase):
         self.assertEqual(len(page_writes), 1)
         self.assertEqual(len(outer_fragment_writes), 1)
         self.assertEqual(len(equivalent_queries), 0)
+
+    def test_cached_catalog_response_keeps_deterministic_pagination_links(self):
+        smart_category = Category.objects.create(
+            name="T-shirts",
+            slug="tshirts",
+            is_active=True,
+        )
+        black = Color.objects.get(name="black")
+        for index in range(17):
+            product = Product.objects.create(
+                title=f"Canonical tee {index}",
+                slug=f"canonical-tee-{index}",
+                category=smart_category,
+                price=500,
+                status="published",
+            )
+            ProductColorVariant.objects.create(
+                product=product,
+                color=black,
+                is_default=True,
+            )
+            ProductFitOption.objects.bulk_create([
+                ProductFitOption(
+                    product=product,
+                    code="classic",
+                    label="Classic",
+                    order=0,
+                    is_default=True,
+                ),
+                ProductFitOption(
+                    product=product,
+                    code="oversize",
+                    label="Oversize",
+                    order=1,
+                ),
+            ])
+
+        path = (
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"})
+            + "?fit=oversize&fit=classic&page=2&color=black"
+        )
+        first = self.client.get(path)
+        second = self.client.get(path)
+
+        expected = "?fit=classic&amp;fit=oversize&amp;color=black&amp;page=1"
+        self.assertEqual(
+            first.status_code,
+            200,
+            first.get("Location") or first.content[:500],
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertContains(first, expected)
+        self.assertContains(second, expected)
 
     def test_category_catalog_uses_the_same_canonical_filter_contract(self):
         response = self.client.get(

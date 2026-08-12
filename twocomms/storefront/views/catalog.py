@@ -190,6 +190,7 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
+_CATALOG_CACHE_VERSION = "catalog-pagination-v2-20260812"
 
 
 def _catalog_route_scope(kwargs):
@@ -361,6 +362,14 @@ def _build_catalog_pagination_query_prefix(request):
 
 def _catalog_cacheable_request(request):
     return not any(key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS)
+
+
+def _catalog_cache_prefix(request, view_func):
+    """Bust old full-page catalog responses after pagination serialization changes."""
+    return (
+        f"{public_product_listing_cache_prefix(request, view_func)}:"
+        f"{_CATALOG_CACHE_VERSION}"
+    )
 
 
 def _catalog_cache_policy(view_func):
@@ -1433,7 +1442,7 @@ def load_more_products(request):
 @_catalog_cache_policy
 @cache_page_for_anon(
     600,
-    key_prefix=public_product_listing_cache_prefix,
+    key_prefix=_catalog_cache_prefix,
     cache_identity=_build_catalog_cache_query,
     cache_condition=_catalog_cacheable_request,
 )  # Кэшируем каталог на 10 минут только для анонимов
