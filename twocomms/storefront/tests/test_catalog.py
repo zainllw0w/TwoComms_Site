@@ -446,6 +446,20 @@ class CatalogViewTests(CatalogViewTestCase):
         ):
             self.assertIn(contract, mini_cart_css)
 
+        remove_selector = (
+            "#mini-cart-panel .mini-cart-row__remove,\n"
+            "#mini-cart-panel-mobile .mini-cart-row__remove {"
+        )
+        self.assertIn(remove_selector, mini_cart_css)
+        remove_rule = mini_cart_css.partition(remove_selector)[2].partition("}")[0]
+        for touch_target_contract in (
+            "width: 44px;",
+            "height: 44px;",
+            "min-width: 44px;",
+            "min-height: 44px;",
+        ):
+            self.assertIn(touch_target_contract, remove_rule)
+
     def test_catalog_root_shows_published_products_and_category_cards(self):
         self.create_product(title="Root Product", slug="root-product")
         self.create_product(

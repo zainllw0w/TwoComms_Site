@@ -281,10 +281,10 @@
 #mini-cart-panel .mini-cart-row__remove,
 #mini-cart-panel-mobile .mini-cart-row__remove {
   display: grid;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   margin: 0;
   padding: 0;
   place-items: center;
