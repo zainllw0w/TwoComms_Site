@@ -1306,9 +1306,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                       // language switcher (so the dock
                                       // disappears the moment the user
                                       // starts to see the footer signature).
-    const HIDE_AFTER_DOWN_PX  = 24;   // Cumulative scroll-down delta to hide.
-    const SHOW_AFTER_UP_PX    = 12;   // Cumulative scroll-up delta to reveal.
-    const MICRO_NOISE_PX      = 1;    // Sub-pixel jitter is ignored.
+    const HIDE_AFTER_DOWN_PX  = 36;   // Require a meaningful downward intent.
+    const SHOW_AFTER_UP_PX    = 20;   // Reveal only after a clear upward intent.
+    const MICRO_NOISE_PX      = 1.5;  // Ignore fractional scroll jitter.
     const HINT_WIGGLE_DELAY   = 1200; // First-load nudge after LCP settles.
 
     let hidden = false;
@@ -1329,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const showHint = () => {
-      if (hintShown || prefersReducedMotion || PERF_LITE) {
+      if (hidden || hintShown || prefersReducedMotion || PERF_LITE) {
         hintShown = true;
         return;
       }
@@ -1347,7 +1347,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleScroll = (currentY) => {
       const dy = currentY - lastScrollY;
       lastScrollY = currentY;
-      if (Math.abs(dy) < MICRO_NOISE_PX) return;
+      const scrollDelta = Math.abs(dy);
+      if (scrollDelta < MICRO_NOISE_PX) return;
 
       // Hard overrides — these always win against momentum.
       if (currentY <= SHOW_AT_TOP_PX) {
@@ -1399,6 +1400,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const syncMode = () => {
       if (mq.matches) {
         bottomNav.dataset.scrollMode = 'adaptive';
+        lastScrollY = PerformanceOptimizer.getScrollY();
+        resetAccumulators();
+        setHidden(false);
         attachScrollListener();
         setTimeout(showHint, HINT_WIGGLE_DELAY);
       } else {
@@ -1421,10 +1425,16 @@ document.addEventListener('DOMContentLoaded', () => {
       el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
     );
     document.addEventListener('focusin', (e) => {
-      if (isTextField(e.target)) setHidden(true);
+      if (isTextField(e.target)) {
+        resetAccumulators();
+        lastScrollY = PerformanceOptimizer.getScrollY();
+        setHidden(true);
+      }
     });
     document.addEventListener('focusout', (e) => {
       if (isTextField(e.target)) {
+        resetAccumulators();
+        lastScrollY = PerformanceOptimizer.getScrollY();
         setHidden(false);
         if (mq.matches) showHint();
       }
@@ -1446,8 +1456,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const dx = (t.clientX - touchStartX) || 0;
       touchStartY = touchStartX = null;
       if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 2) {
+        resetAccumulators();
+        lastScrollY = PerformanceOptimizer.getScrollY();
         setHidden(dy > 0);
-        showHint();
+        if (dy < 0) showHint();
       }
     };
     bottomNav.addEventListener('touchstart', onTouchStart, { passive: true });

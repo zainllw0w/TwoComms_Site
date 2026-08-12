@@ -281,6 +281,23 @@ class CatalogViewTests(CatalogViewTestCase):
         self.assertIn("cartToggleMobile.setAttribute('aria-expanded'", main_js)
         self.assertIn('aria-hidden="true" inert', base_template)
 
+    def test_mobile_bottom_nav_uses_stable_full_state_transitions(self):
+        static_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "static"
+        shell_css = (static_root / "css" / "mobile-shell.css").read_text(encoding="utf-8")
+        main_js = (static_root / "js" / "main.js").read_text(encoding="utf-8")
+
+        self.assertIn("transition: transform 260ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease, visibility 0s linear 260ms;", shell_css)
+        self.assertIn("will-change: transform, opacity;", shell_css)
+        self.assertIn("padding: 5px max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));", shell_css)
+        self.assertIn("HIDE_AFTER_DOWN_PX  = 36", main_js)
+        self.assertIn("SHOW_AFTER_UP_PX    = 20", main_js)
+        self.assertIn("const scrollDelta = Math.abs(dy);", main_js)
+        self.assertIn("lastScrollY = PerformanceOptimizer.getScrollY();", main_js)
+        self.assertIn("resetAccumulators();\n        setHidden(false);\n        attachScrollListener();", main_js)
+        self.assertIn("if (dy < 0) showHint();", main_js)
+        self.assertIn("bottomNav.classList.toggle('bottom-nav--hidden', hidden);", main_js)
+        self.assertNotIn("transform: scale", shell_css[shell_css.index(".bottom-nav {"):shell_css.index(".bottom-nav {") + 1800])
+
     def test_global_mobile_shell_uses_catalog_link_outside_catalog(self):
         response = self.client.get(reverse("home"))
 
