@@ -6,7 +6,7 @@ Production host: `195.191.25.63`, path
 
 ## Implement2 W1.7 historical attachment hardening (2026-08-12)
 
-Current production `HEAD=origin/main=ac50e74f93e92229980e7043eeb256ac5ef24913`;
+Production runtime verification completed at `ac50e74f93e92229980e7043eeb256ac5ef24913`;
 the W1.7 implementation commit `214ae4b9` is reachable through merge
 `b9bab236`. Follow-up code adds the historical-provenance guard in
 `_resolve_payment_media_candidates` and regressions for stale local media and
@@ -24,13 +24,14 @@ open under `IMP-044`.
 
 The normal SSH `git pull` path fast-forwarded production through `61486616`
 and the subsequent SEO commits `f062a3b1`/`a27bdc2b`/`ce1ca965`/`d8b61973`/
-`ac50e74f`;
+`ac50e74f`; the final docs-only closeout is `35f305bf`.
 the W1.7 commit remains
 in the deployed ancestry. The immutable release contract was exercised for
 the exact latest SHA: wheelhouse manifest validation passed after removing
 macOS-only `._*` transfer metadata, and the release switch correctly no-op'd
 with `target SHA must differ from the live SHA` because production was already
-at `ac50e74f`. No rollback or runtime mutation was needed after that guard.
+at `ac50e74f`. The subsequent `35f305bf` commit changes only this deployment
+log; no rollback or runtime mutation was needed after that guard.
 
 ## Implement2 W1.6 structured control safety (2026-08-10)
 
