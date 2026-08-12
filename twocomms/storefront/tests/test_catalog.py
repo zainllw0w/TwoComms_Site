@@ -460,6 +460,78 @@ class CatalogViewTests(CatalogViewTestCase):
         ):
             self.assertIn(touch_target_contract, remove_rule)
 
+    def test_mini_cart_mobile_open_state_preserves_grid_against_inline_rule(self):
+        theme_root = Path(__file__).resolve().parents[2] / "twocomms_django_theme"
+        base_template = (theme_root / "templates" / "base.html").read_text(
+            encoding="utf-8"
+        )
+        mini_cart_css = (theme_root / "static" / "css" / "mini-cart.css").read_text(
+            encoding="utf-8"
+        )
+
+        inline_open_rule = (
+            "#mini-cart-panel-mobile.show,\n"
+            "    #user-panel-mobile.show {\n"
+            "      display: block !important;"
+        )
+        self.assertIn(inline_open_rule, base_template)
+        self.assertLess(
+            base_template.index(inline_open_rule),
+            base_template.index("css/mini-cart.css"),
+        )
+
+        responsive_open_rule = "#mini-cart-panel-mobile.show {"
+        self.assertIn(responsive_open_rule, mini_cart_css)
+        open_rule = mini_cart_css.partition(responsive_open_rule)[2].partition("}")[0]
+        self.assertIn("display: grid !important;", open_rule)
+
+    def test_mini_cart_checkout_action_uses_accessible_dark_ink(self):
+        mini_cart_css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "mini-cart.css"
+        ).read_text(encoding="utf-8")
+        dark_ink = "#17110b"
+
+        selectors = (
+            (
+                "#mini-cart-panel .mini-cart-primary-cta,\n"
+                "#mini-cart-panel-mobile .mini-cart-primary-cta {"
+            ),
+            (
+                "#mini-cart-panel .mini-cart-primary-cta:hover,\n"
+                "#mini-cart-panel-mobile .mini-cart-primary-cta:hover {"
+            ),
+            ".mini-cart-primary-cta__icon,\n.mini-cart-primary-cta__arrow {",
+            ".mini-cart-primary-cta__label {",
+            ".mini-cart-primary-cta__hint {",
+        )
+        for selector in selectors:
+            self.assertIn(selector, mini_cart_css)
+            rule = mini_cart_css.partition(selector)[2].partition("}")[0]
+            self.assertIn(f"color: {dark_ink};", rule)
+
+        def relative_luminance(hex_color: str) -> float:
+            channels = [int(hex_color[index : index + 2], 16) / 255 for index in (1, 3, 5)]
+            linear = [
+                channel / 12.92
+                if channel <= 0.04045
+                else ((channel + 0.055) / 1.055) ** 2.4
+                for channel in channels
+            ]
+            return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+        def contrast_ratio(first: str, second: str) -> float:
+            light, dark = sorted(
+                (relative_luminance(first), relative_luminance(second)), reverse=True
+            )
+            return (light + 0.05) / (dark + 0.05)
+
+        for orange in ("#f15a0b", "#ff681b"):
+            self.assertGreaterEqual(contrast_ratio(dark_ink, orange), 4.5)
+
     def test_catalog_root_shows_published_products_and_category_cards(self):
         self.create_product(title="Root Product", slug="root-product")
         self.create_product(
