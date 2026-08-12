@@ -386,6 +386,15 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'product-detail.js?v=20260812-cargo-drop-v1', html=False)
         self.assertContains(response, 'product-media-fit.js?v=20260808-merch-v1', html=False)
 
+    def test_product_detail_does_not_publish_unowned_fallback_product_claims(self):
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "95% бавовна, 5% еластан", html=False)
+        self.assertNotContains(response, "190 г/м²", html=False)
+        self.assertNotContains(response, "Принт витримує багато прань", html=False)
+        self.assertNotContains(response, "Зроблено в Україні з любов'ю", html=False)
+
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
             [

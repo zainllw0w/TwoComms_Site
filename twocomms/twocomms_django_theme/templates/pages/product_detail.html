@@ -547,14 +547,6 @@ CSS rules на mobile FCP/LCP window.
                       <h2>{% trans 'Деталі' %}</h2>
                       <div class="tc-rich-copy tc-rich-copy--compact">{{ product.details_text|linebreaksbr }}</div>
                     </div>
-                  {% else %}
-                    <div class="tc-check-list tc-desc-checks tc-desc-bullets">
-                      <div>{% trans 'Матеріал: 95% бавовна, 5% еластан — преміум якість, щільність 190 г/м²' %}</div>
-                      <div>{% trans "М'який та приємний до тіла, дихає і не сковує рухів" %}</div>
-                      <div>{% trans 'Підсилені шви та еластичні манжети для довговічності' %}</div>
-                      <div>{% trans 'Принт витримує багато прань — не тріскається та не вигорає' %}</div>
-                      <div>{% trans "Зроблено в Україні з любов'ю та увагою до деталей" %}</div>
-                    </div>
                   {% endif %}
                   {% if product.target_audience %}
                     <div class="tc-desc-section">
