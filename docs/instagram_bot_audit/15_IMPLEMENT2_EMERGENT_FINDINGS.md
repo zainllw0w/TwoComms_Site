@@ -42,6 +42,12 @@ maintenance and do not make `pywebpush` optional while Web Push is configured.
 manylinux evidence keep IMP-094/Wave 0 open until the CI wheelhouse gate is
 green.
 
+**Follow-up 2026-08-13:** `c72ecf11` closes the remaining orchestrator
+manifest-symlink boundary for this bounded subtask. The finding itself remains
+OPEN because the current production SHA has no target-bound wheelhouse and no
+complete current release evidence; the production fail-closed probe confirmed
+that absence without mutating the live release.
+
 ## F-DEPLOY-002 (P1, OPEN): CloudLinux selector diagnostics can expose production secrets
 
 **Discovered:** 2026-08-07 during the read-only Task 4 server inventory.

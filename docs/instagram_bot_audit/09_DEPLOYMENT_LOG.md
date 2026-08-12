@@ -4,6 +4,27 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W2.0 bounded manifest-provenance slice (2026-08-13)
+
+Commit `c72ecf11` was pushed to `main` and pulled with the required SSH
+`git pull --ff-only origin main`. Server SHA is exact
+`c72ecf1160e48ba6a4d3c97c802e6f0d3c9d22dd`; tracked status is clean apart from
+pre-existing untracked operational files. The focused immutable-release gate
+passed `105/105` locally, including the RED/GREEN regression that rejects a
+symlinked `manifest.sha256`; compileall and `git diff --check` are clean.
+
+The production command was run only as a fail-closed boundary probe:
+`../deploy.sh --target-sha c72ecf11...` exited `1` with
+`ReleaseError: immutable wheelhouse target must be a real directory`, before
+maintenance or checkout mutation. No source build, pip overlay, or manual
+release activation was attempted. Production `manage.py check --deploy`
+reported only the existing `security.W008`/`security.W009` warnings,
+`makemigrations --check --dry-run` returned `No changes detected`, and
+`/bot/health/` returned `200` with bot `running`, fresh heartbeat and zero
+dangerous/pending/recovery queues. Current active venv/static paths remain
+bound to the older `157e95d4` release; current target wheelhouse and complete
+release evidence are still required by `F-DEPLOY-001`/`003`.
+
 ## Implement2 W1.7 historical attachment hardening (2026-08-12)
 
 Production runtime verification completed at `ac50e74f93e92229980e7043eeb256ac5ef24913`;

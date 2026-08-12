@@ -461,6 +461,33 @@ all read-only parser/authority probes passed without customer/provider events.
 
 ## 9. Wave 2 — deterministic evidence and DB-dependent reliability
 
+### W2.0 bounded release-boundary slice — `F-DEPLOY-001` manifest provenance
+
+**Shipped 2026-08-13:** `c72ecf11` adds a fail-closed regular-file check for
+`releases/wheelhouse/<target>/manifest.sha256`. A manifest symlink could
+otherwise point outside the immutable target while its external JSON and
+listed artifact hashes still passed validation. The builder already rejected
+such symlinks; the production orchestrator now enforces the same boundary.
+
+Fresh local release gate: `python -m unittest tests.test_deploy_release
+tests.test_release_wheelhouse tests.test_release_workflow
+tests.test_deploy_entrypoint_contract` returned `105/105`; compileall and
+`git diff --check` passed. The RED regression first accepted a valid external
+manifest through a symlink, then passed after the guard and proves no staged
+worktree is created.
+
+The commit is on `origin/main` and production after the required SSH
+`git pull --ff-only`; server SHA is
+`c72ecf1160e48ba6a4d3c97c802e6f0d3c9d22dd`. Production MariaDB is MariaDB
+`11.4.12-MariaDB-cll-lve`; migrations through `management.0153` are applied,
+migration drift is clean, and bot health is `200/ok` with fresh heartbeat and
+zero dangerous/pending/recovery queues.
+The immutable deploy was intentionally not bypassed: target-bound wheelhouse
+for `c72ecf11` is absent, so `../deploy.sh --target-sha c72ecf11...` fails
+before maintenance/switch with `immutable wheelhouse target must be a real
+directory`. Active venv/static paths still point to an older release, so
+`F-DEPLOY-001` and current-SHA `F-DEPLOY-003` remain OPEN.
+
 **Primary tests/services:**
 
 - `twocomms/management/tests_ig_conversation_analysis_jobs.py`
