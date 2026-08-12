@@ -9,6 +9,8 @@
 {% block canonical %}{{ canonical_url }}{% endblock %}
 {% block og_url %}{{ canonical_url }}{% endblock %}
 
+{% block robots %}{% if suppress_hreflang %}noindex, follow{% else %}{{ block.super }}{% endif %}{% endblock %}
+
 {% block og_type %}website{% endblock %}
 {% block og_title %}{{ landing.seo_title }}{% endblock %}
 {% block og_description %}{{ landing.seo_description }}{% endblock %}
@@ -126,15 +128,15 @@
     <nav class="mt-4" aria-label="{% trans 'Сторінки' %}">
       <ul class="pagination justify-content-center">
         {% if page_obj.has_previous %}
-          <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">«</a></li>
+          <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ page_obj.previous_page_number }}">«</a></li>
         {% endif %}
         {% for num in paginator.page_range %}
           <li class="page-item {% if num == page_obj.number %}active{% endif %}">
-            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            <a class="page-link" href="?{{ pagination_query_prefix }}page={{ num }}">{{ num }}</a>
           </li>
         {% endfor %}
         {% if page_obj.has_next %}
-          <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">»</a></li>
+          <li class="page-item"><a class="page-link" href="?{{ pagination_query_prefix }}page={{ page_obj.next_page_number }}">»</a></li>
         {% endif %}
       </ul>
     </nav>

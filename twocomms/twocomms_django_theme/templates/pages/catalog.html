@@ -49,11 +49,11 @@ Treat them like any other facet: noindex, follow + canonical → base catalog.
 {# ItemList) — NOT by hiding pagination from the index, which would block discovery of products only #}
 {# reachable via the paginator. Sort/colour-filter facets keep noindex,follow because they re-order #}
 {# the same dataset on the same canonical URL. #}
-{% block robots %}{% if smart_selector_enabled and smart_selector_request_has_facets %}noindex, follow{% elif selected_color_slugs|length > 1 %}noindex, nofollow{% elif is_search_page or root_catalog_filters_active or has_active_color_filter or request.GET.sort or request.GET.theme or request.GET.fit %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
+{% block robots %}{% if catalog_landing_has_tracking %}noindex, follow{% elif smart_selector_enabled and smart_selector_request_has_facets %}noindex, follow{% elif selected_color_slugs|length > 1 %}noindex, nofollow{% elif is_search_page or root_catalog_filters_active or has_active_color_filter or request.GET.sort or request.GET.theme or request.GET.fit %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
 {# SEO 2026-05-16 — self-canonical on every paginator state (Google explicitly recommends "do not designate the first page as the canonical for paginator pages — give each its own canonical URL"; #}
 {# https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading). #}
-{% block canonical %}{% if thematic_landing %}{{ site_base_url }}{{ thematic_canonical_path }}{% if page_obj and page_obj.number > 1 %}?page={{ page_obj.number }}{% endif %}{% elif is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block canonical %}{% if thematic_landing %}{{ site_base_url }}{{ thematic_canonical_path }}{% if page_obj and page_obj.number > 1 and not has_active_color_filter %}?page={{ page_obj.number }}{% endif %}{% elif is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
 {% comment %}
 SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
 via language_alternates. Don't override hreflang_uk / hreflang_x_default

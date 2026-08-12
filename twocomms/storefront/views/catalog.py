@@ -195,6 +195,108 @@ _CATALOG_PAGINATION_KEY_ORDER = (
 _CATALOG_CACHE_VERSION = "catalog-pagination-v2-20260812"
 
 
+def _catalog_landing_query_policy(*, allow_color=False):
+    """Apply the narrow query contract for indexable catalog landings.
+
+    These routes are organic entry points, not general facet endpoints.  Keep
+    valid pagination (and the thematic colour UI) usable, but reject every
+    ignored query before it can create a body-equivalent cache entry or URL.
+    """
+    allowed = {"page"} | _CATALOG_TRACKING_QUERY_KEYS
+    if allow_color:
+        allowed.add("color")
+
+    def _decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            unknown = set(request.GET) - allowed
+            if unknown:
+                raise Http404("Query parameter is not supported on this landing.")
+
+            raw_pages = request.GET.getlist("page")
+            if len(raw_pages) > 1:
+                raise Http404("Duplicate page parameters are not valid.")
+            if raw_pages:
+                raw_page = str(raw_pages[0] or "")
+                if (
+                    not raw_page.isascii()
+                    or not raw_page.isdecimal()
+                    or len(raw_page) > 10
+                    or int(raw_page) < 1
+                ):
+                    raise Http404("Page number is not valid.")
+
+            if allow_color and "color" in request.GET:
+                allowed_slugs = get_allowed_color_slugs()
+                if allowed_slugs is None:
+                    raise Http404("Color values cannot be validated.")
+                allowed_set = set(allowed_slugs)
+                raw_pieces = [
+                    piece
+                    for raw_value in request.GET.getlist("color")
+                    for piece in str(raw_value or "").split(",")
+                ]
+                normalized_pieces = [
+                    _catalog_query_value(piece, "color")
+                    for piece in raw_pieces
+                ]
+                canonical_color = parse_color_filter(
+                    request,
+                    allowed_slugs=allowed_slugs,
+                )
+                if (
+                    not raw_pieces
+                    or any(
+                        not piece
+                        or piece != piece.strip()
+                        or not normalized
+                        or normalized not in allowed_set
+                        for piece, normalized in zip(
+                            raw_pieces, normalized_pieces
+                        )
+                    )
+                    or len(normalized_pieces) != len(set(normalized_pieces))
+                    or len(canonical_color) != len(normalized_pieces)
+                ):
+                    raise Http404("Color value is not valid on this landing.")
+
+            redirect = (
+                _catalog_query_alias_redirect(
+                    request,
+                    reset_page_on_color_change=False,
+                )
+                if allow_color
+                else None
+            )
+            if redirect is None and raw_pages:
+                raw_page = str(raw_pages[0])
+                canonical_page = str(int(raw_page))
+                if canonical_page == "1" or raw_page != canonical_page:
+                    params = request.GET.copy()
+                    if canonical_page == "1":
+                        params.pop("page", None)
+                    else:
+                        params.setlist("page", [canonical_page])
+                    query = params.urlencode()
+                    target = request.path + (f"?{query}" if query else "")
+                    redirect = HttpResponsePermanentRedirect(target)
+            if redirect is not None:
+                return redirect
+
+            request._catalog_fragment_identity = _build_catalog_cache_query(request)
+            request._catalog_pagination_query_prefix = (
+                _build_catalog_pagination_query_prefix(request)
+            )
+            request._catalog_landing_has_tracking = any(
+                key in request.GET for key in _CATALOG_TRACKING_QUERY_KEYS
+            )
+            return view_func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    return _decorator
+
+
 def _catalog_route_scope(kwargs):
     cat_slug = str(kwargs.get("cat_slug") or "").strip().lower()
     if cat_slug:
@@ -293,10 +395,11 @@ def _validate_catalog_query_shape(request, *, scope):
             raise Http404(f"Facet '{key}' contains a duplicate value.")
 
 
-def _catalog_query_alias_redirect(request):
+def _catalog_query_alias_redirect(request, *, reset_page_on_color_change=True):
     raw_pages = request.GET.getlist("page")
     params = request.GET.copy()
     changed = False
+    color_identity_changed = False
 
     # Canonicalize color, pagination and catalog aliases together before the
     # color-only decorator runs. Otherwise a request such as
@@ -313,7 +416,7 @@ def _catalog_query_alias_redirect(request):
             params.setlist("color", [canonical_color])
         else:
             params.pop("color", None)
-        if color_identity_changed:
+        if color_identity_changed and reset_page_on_color_change:
             # A changed color selection owns a different result set, so keep
             # the established contract of returning to its first page.
             params.pop("page", None)
@@ -322,7 +425,9 @@ def _catalog_query_alias_redirect(request):
     if raw_pages:
         raw_page = str(raw_pages[0] or "").strip()
         canonical_page = str(int(raw_page))
-        if canonical_page == "1" or changed:
+        if canonical_page == "1" or (
+            changed and color_identity_changed and reset_page_on_color_change
+        ):
             params.pop("page", None)
             changed = changed or canonical_page == "1"
         elif raw_page != canonical_page:
@@ -2033,6 +2138,7 @@ def search(request):
 
 # ==================== COLOR × CATEGORY LANDING ====================
 
+@_catalog_landing_query_policy()
 def category_color_landing(request, cat_slug, color_slug):
     """Render an indexable colour×category SEO landing page.
 
@@ -2147,6 +2253,22 @@ def category_color_landing(request, cat_slug, color_slug):
             "faq_items": landing.faq_items or [],
             "sibling_landings": sibling_landings,
             "cross_category_landings": cross_category_landings,
+            "suppress_hreflang": bool(
+                getattr(request, "_catalog_landing_has_tracking", False)
+            ),
+            "catalog_landing_has_tracking": bool(
+                getattr(request, "_catalog_landing_has_tracking", False)
+            ),
+            "pagination_query_prefix": getattr(
+                request,
+                "_catalog_pagination_query_prefix",
+                _pagination_query_prefix(request),
+            ),
+            "catalog_fragment_identity": getattr(
+                request,
+                "_catalog_fragment_identity",
+                _build_catalog_cache_query(request),
+            ),
         },
     )
 
@@ -2273,8 +2395,17 @@ THEMATIC_LANDINGS_CONFIG = {
 }
 
 
+@_catalog_landing_query_policy(allow_color=True)
 @canonical_color_filter
-@cache_page_for_anon(600, key_prefix=public_product_listing_cache_prefix)
+@cache_page_for_anon(
+    600,
+    key_prefix=_catalog_cache_prefix,
+    cache_identity=_build_catalog_cache_query,
+    cache_condition=lambda request: (
+        _catalog_cacheable_request(request)
+        and "page" not in request.GET
+    ),
+)
 def thematic_landing(request, theme_slug):
     """Render an indexable thematic SEO landing.
 
@@ -2359,11 +2490,27 @@ def thematic_landing(request, theme_slug):
             'paginator': paginator,
             'public_product_order_version': public_product_order_version,
             'public_category_version': public_category_version,
-            'catalog_fragment_identity': request.get_full_path(),
+            'catalog_fragment_identity': getattr(
+                request,
+                '_catalog_fragment_identity',
+                _build_catalog_cache_query(request),
+            ),
             'available_colors': available_colors,
             'selected_color_slugs': selected_color_slugs,
             'has_active_color_filter': has_active_color_filter,
             'color_filter_reset_url': color_filter_reset_url,
+            'suppress_hreflang': bool(
+                has_active_color_filter
+                or getattr(request, '_catalog_landing_has_tracking', False)
+            ),
+            'catalog_landing_has_tracking': bool(
+                getattr(request, '_catalog_landing_has_tracking', False)
+            ),
+            'pagination_query_prefix': getattr(
+                request,
+                '_catalog_pagination_query_prefix',
+                _pagination_query_prefix(request),
+            ),
             'category_seo_blocks': [],
             'category_seo_layout': None,
             'color_seo_copy': None,

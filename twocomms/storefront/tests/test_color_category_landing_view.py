@@ -139,6 +139,88 @@ class CategoryColorLandingViewTests(TestCase):
         self.assertContains(page_two, "content=\"index, follow")
         self.assertEqual(missing_page.status_code, 404)
 
+    def test_page_aliases_redirect_once_without_losing_locale_or_tracking(self):
+        self._make_published_landing()
+        second = Product.objects.create(
+            title="Second black tee for aliases",
+            slug="second-black-tee-for-aliases",
+            category=self.category,
+            price=600,
+            status="published",
+        )
+        ProductColorVariant.objects.create(
+            product=second, color=self.black, is_default=True, order=0
+        )
+
+        clean_alias = self.client.get(
+            "/ru/catalog/tshirts/black/?page=01&utm_source=audit",
+            follow=True,
+        )
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            page_two_alias = self.client.get(
+                "/ru/catalog/tshirts/black/?page=02&utm_source=audit",
+                follow=True,
+            )
+
+        self.assertEqual(clean_alias.status_code, 200)
+        self.assertEqual(
+            clean_alias.redirect_chain,
+            [("/ru/catalog/tshirts/black/?utm_source=audit", 301)],
+        )
+        self.assertEqual(page_two_alias.status_code, 200)
+        self.assertEqual(
+            page_two_alias.redirect_chain,
+            [("/ru/catalog/tshirts/black/?page=2&utm_source=audit", 301)],
+        )
+
+    def test_rejects_unknown_unsupported_and_invalid_page_queries(self):
+        self._make_published_landing()
+        invalid_queries = (
+            "unknown=1",
+            "sort=price-asc",
+            "color=black",
+            "theme=streetwear",
+            "page=",
+            "page=abc",
+            "page=0",
+            "page=١",
+            "page=12345678901",
+            "page=1&page=2",
+        )
+
+        for query in invalid_queries:
+            with self.subTest(query=query):
+                response = self.client.get(f"/catalog/tshirts/black/?{query}")
+                self.assertEqual(response.status_code, 404)
+
+    def test_tracking_state_bypasses_page_cache_and_suppresses_hreflang(self):
+        self._make_published_landing()
+
+        with (
+            patch("storefront.views.utils.cache.get", wraps=cache.get) as cache_get,
+            patch("storefront.views.utils.cache.set", wraps=cache.set) as cache_set,
+        ):
+            response = self.client.get(
+                "/catalog/tshirts/black/?utm_source=audit"
+            )
+
+        page_reads = [
+            call.args[0]
+            for call in cache_get.call_args_list
+            if call.args and str(call.args[0]).startswith("anon-page:")
+        ]
+        page_writes = [
+            call.args[0]
+            for call in cache_set.call_args_list
+            if call.args and str(call.args[0]).startswith("anon-page:")
+        ]
+        body = response.content.decode("utf-8")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["suppress_hreflang"])
+        self.assertNotIn('rel="alternate" hreflang=', body)
+        self.assertEqual(page_reads, [])
+        self.assertEqual(page_writes, [])
+
     def test_breadcrumb_items_in_context(self):
         self._make_published_landing()
         response = self.client.get("/catalog/tshirts/black/")
