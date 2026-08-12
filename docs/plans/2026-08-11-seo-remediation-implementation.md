@@ -804,7 +804,7 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 ### Task 8: Align ProductGroup, MemberProgram, Offer counts and merchant feeds
 
 - [x] **8.1** Add failing tests that compare homepage `offerCount`, sitemap, feed and eligible public products from one queryset/snapshot.
-- [x] **8.2** Implement the shared public eligibility predicate and variant resolver in schema, feeds and llms generation.
+- [ ] **8.2** Implement the shared public eligibility predicate and variant resolver across every remaining public surface, including the separately audited `llms.txt` fact range; the offer-count slice covers homepage schema, product/variant sitemaps, merchant feed and IndexNow only.
 - [ ] **8.3** Replace unsupported `MemberProgramTierBenefit` with documented truthful enumeration plus `membershipPointsEarned`, or remove MemberProgram until the business rule is verified.
 - [ ] **8.4** Make selected variant schema/feed URLs, images, price and availability agree with the rendered page and canonical policy.
 - [ ] **8.5** Run Rich Results/Schema Validator checks and feed parsers, then commit/push/deploy and mark Task 8.
@@ -815,10 +815,10 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 
 - Code/test commit: `2c8bdf5ab83b5fe364c7b9e7abd4c3b06eaba0cc` (`fix(seo): align public product offer eligibility`) was pushed to `origin/main`, pulled on production and activated with `tmp/restart.txt`.
 - TDD: the new offer-count suite was run RED after temporarily removing the new helper (`ModuleNotFoundError` from the new `seo_utils` import), then GREEN after implementation. Focused public-product/feed tests passed `17/17`; the existing marketplace-feed module passed `12/12`.
-- Shared policy: `public_products_queryset()` now requires `status=published`, a non-empty slug and `price > 0`. Homepage AggregateOffer, ProductSitemap, ProductVariantSitemap and the default merchant-feed product queryset consume it. Feed variant expansion remains intact and is not collapsed into product count.
+- Shared policy: `public_products_queryset()` now requires `status=published`, a non-empty slug and `price > 0`. Homepage AggregateOffer, ProductSitemap, ProductVariantSitemap, IndexNow product targets and the default merchant-feed product queryset consume it. Feed variant expansion remains intact and is not collapsed into product count.
 - Local gates: `manage.py check`, `makemigrations --check --dry-run`, touched-file `py_compile` and `git diff --check` passed.
 - Live proof at production SHA `2c8bdf5a`: the production database reports `73` eligible products, `73` ProductSitemap base items, homepage aggregate `offerCount=73`, and `424` merchant-feed variant rows across `73` distinct products. The sitemap count is a base-product count; its multilingual XML row count and feed variant row count are intentionally not compared directly to `offerCount`.
-- Scope boundary: no DTF route/subdomain/blog, Custom Print, product editorial text, locale ownership or `llms.txt` hardcoded price-range fact was changed. No ranking, traffic, rich-result or conversion uplift is claimed.
+- Scope boundary: no DTF route/subdomain/blog, Custom Print, product editorial text, locale ownership or `llms.txt` hardcoded price-range fact was changed. Task 8.2 remains open for that separate fact-registry reconciliation. No ranking, traffic, rich-result or conversion uplift is claimed.
 
 ### Task 9: Correct mobile filter state and performance bottlenecks
 
