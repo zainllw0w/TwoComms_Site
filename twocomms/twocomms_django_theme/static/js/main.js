@@ -1702,6 +1702,128 @@ function trackAddToCartAnalytics(serverData, triggerButton, fallbackQty) {
 }
 window.__twcTrackAddToCart = trackAddToCartAnalytics;
 
+const CARGO_DROP_CLASSES = [
+  'is-cargo-playing', 'is-cargo-enter', 'is-cargo-scan', 'is-cargo-fold',
+  'is-cargo-ship', 'is-cargo-done', 'is-cargo-reduced', 'is-cargo-belt-running'
+];
+
+function isCargoReducedMotion() {
+  let cargoReducedMotion = Boolean(prefersReducedMotion || PERF_LITE);
+  try {
+    cargoReducedMotion = cargoReducedMotion || Boolean(
+      window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  } catch (_) { }
+  return cargoReducedMotion;
+}
+
+function clearCargoDropAnimation(button) {
+  if (!button) return;
+  const timers = button._cargoTimers || [];
+  timers.forEach((timer) => window.clearTimeout(timer));
+  button._cargoTimers = [];
+  CARGO_DROP_CLASSES.forEach((className) => button.classList.remove(className));
+  const live = button.querySelector('[data-cargo-live]');
+  if (live) live.textContent = '';
+}
+
+function cargoDelay(button, callback, delay) {
+  const timer = window.setTimeout(() => {
+    if (button && button._cargoTimers) {
+      button._cargoTimers = button._cargoTimers.filter((entry) => entry !== timer);
+    }
+    callback();
+  }, delay);
+  if (button) {
+    button._cargoTimers = button._cargoTimers || [];
+    button._cargoTimers.push(timer);
+  }
+  return timer;
+}
+
+function cargoWait(button, delay) {
+  return new Promise((resolve) => cargoDelay(button, resolve, delay));
+}
+
+function pulseHeaderCartAttention() {
+  const triggers = document.querySelectorAll('[data-cart-attention]');
+  triggers.forEach((trigger) => {
+    if (trigger._cartAttentionTimer) window.clearTimeout(trigger._cartAttentionTimer);
+    trigger.classList.remove('is-cart-attention');
+    // Force a new animation when the user adds consecutive products.
+    void trigger.offsetWidth;
+    trigger.classList.add('is-cart-attention');
+    trigger._cartAttentionTimer = window.setTimeout(() => {
+      trigger.classList.remove('is-cart-attention');
+      trigger._cartAttentionTimer = null;
+    }, isCargoReducedMotion() ? 950 : 1200);
+  });
+}
+
+function runCargoDropAnimation(button) {
+  clearCargoDropAnimation(button);
+  const scene = button && button.querySelector('[data-cargo-scene]');
+  const reduced = isCargoReducedMotion();
+  const startedAt = Date.now();
+  const successMessage = button?.dataset?.cargoSuccessMessage || 'Added to cart';
+
+  if (!button || !scene) {
+    return {
+      cancel: () => {},
+      finish: async (onImpact) => {
+        if (typeof onImpact === 'function') onImpact();
+        pulseHeaderCartAttention();
+      }
+    };
+  }
+
+  if (reduced) {
+    button.classList.add('is-cargo-playing', 'is-cargo-reduced');
+    return {
+      cancel: () => clearCargoDropAnimation(button),
+      finish: async (onImpact) => {
+        if (typeof onImpact === 'function') onImpact();
+        pulseHeaderCartAttention();
+        button.classList.add('is-cargo-done');
+        const live = button.querySelector('[data-cargo-live]');
+        if (live) live.textContent = successMessage;
+        await cargoWait(button, 520);
+      }
+    };
+  }
+
+  button.classList.add('is-cargo-playing', 'is-cargo-enter', 'is-cargo-belt-running');
+  // Keep the reference beats: the carton reaches the scanner first, then
+  // stays visible while it is inspected and sealed before the cart arrives.
+  cargoDelay(button, () => button.classList.remove('is-cargo-belt-running'), 1250);
+  cargoDelay(button, () => button.classList.add('is-cargo-scan'), 1280);
+  cargoDelay(button, () => button.classList.add('is-cargo-fold'), 2000);
+
+  return {
+    cancel: () => clearCargoDropAnimation(button),
+    finish: async (onImpact) => {
+      const elapsed = Date.now() - startedAt;
+      // Never let a fast response skip the packing story. If the server is
+      // slower than the reference beat, the parcel ships as soon as it is
+      // safe to do so after the response arrives.
+      await cargoWait(button, Math.max(0, 3080 - elapsed));
+      button.classList.add('is-cargo-ship', 'is-cargo-belt-running');
+      await cargoWait(button, 660);
+      button.classList.remove('is-cargo-belt-running');
+      if (typeof onImpact === 'function') onImpact();
+      pulseHeaderCartAttention();
+      await cargoWait(button, 560);
+      button.classList.add('is-cargo-done');
+      const live = button.querySelector('[data-cargo-live]');
+      if (live) live.textContent = successMessage;
+      await cargoWait(button, 750);
+    }
+  };
+}
+
+window.__twcRunCargoDropAnimation = runCargoDropAnimation;
+window.__twcPulseHeaderCartAttention = pulseHeaderCartAttention;
+
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-add-to-cart]');
   if (!btn) return;
@@ -1745,8 +1867,14 @@ document.addEventListener('click', (e) => {
     body.append('option_values', JSON.stringify(optionValues));
   }
 
-  // Открываем мини-корзину сразу, чтобы пользователь видел текущее состояние
-  try { openMiniCart({ skipRefresh: true }); } catch (_) { }
+  // Start the visual story immediately, but hold the ship beat until the
+  // server confirms the item. An already-open panel is closed so it cannot
+  // compete with the in-button scene or expose stale cart contents.
+  const cargoAnimation = runCargoDropAnimation(btn);
+  try {
+    const panel = miniCartPanel();
+    if (panel && panel.classList.contains('show')) closeMiniCart('cargo-start');
+  } catch (_) { }
 
   // Add с одноразовым self-heal при CSRF 403 (застарілий host-only cookie).
   const addToCartRequest = (isRetry) => fetch('/cart/add/', {
@@ -1768,36 +1896,29 @@ document.addEventListener('click', (e) => {
   });
 
   const handleAddFailure = () => {
-    // Ніколи не лишаємо міні-кошик у стані нескінченного завантаження:
-    // оновлюємо його реальним станом (refreshMiniCart прибере спінер).
-    try {
-      const p = refreshMiniCart();
-      if (p && p.then) { p.then(() => { try { openMiniCart({ skipRefresh: true }); } catch (_) { } }).catch(() => { }); }
-    } catch (_) { }
+    cargoAnimation.cancel();
     btn.classList.add('btn-danger');
     setTimeout(() => btn.classList.remove('btn-danger'), 600);
   };
 
   addToCartRequest(false)
-    .then(d => {
+    .then(async d => {
       if (d && d.ok) {
-        if (typeof d.count === 'number') { updateCartBadge(d.count); }
-        const miniUpdate = refreshMiniCart();
-        miniUpdate
-          .then(() => { openMiniCart({ skipRefresh: true }); })
-          .catch(() => { openMiniCart({ skipRefresh: true }); })
-          .finally(() => { refreshCartSummary(); });
+        const miniUpdate = Promise.resolve(refreshMiniCart()).catch(() => null);
 
         // Отправляем событие обновления корзины для страницы корзины
         try {
           document.dispatchEvent(new CustomEvent('cartUpdated', { detail: { action: 'add', productId: productId } }));
         } catch (_) { }
 
-        // Небольшой визуальный отклик
-        btn.classList.add('btn-success');
-        setTimeout(() => btn.classList.remove('btn-success'), 400);
-
         trackAddToCartAnalytics(d, btn, qty);
+
+        await cargoAnimation.finish(() => {
+          if (typeof d.count === 'number') updateCartBadge(d.count);
+        });
+        await miniUpdate;
+        openMiniCart({ skipRefresh: true });
+        refreshCartSummary();
       } else {
         handleAddFailure();
       }
@@ -1810,6 +1931,7 @@ document.addEventListener('click', (e) => {
       btn.removeAttribute('aria-busy');
       if ('disabled' in btn) { btn.disabled = false; }
       btn.classList.remove('is-loading');
+      clearCargoDropAnimation(btn);
     });
 });
 

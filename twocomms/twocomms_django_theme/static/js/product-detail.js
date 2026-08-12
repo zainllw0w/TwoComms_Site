@@ -2842,10 +2842,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const mainButton = root.querySelector('.tc-add-btn[data-add-to-cart]');
     if (!stickyButton || !mainButton) return;
 
-    stickyButton.addEventListener('click', () => {
-      mainButton.click();
-    });
-
     if (!stickyBar) return;
 
     const mediaPanel = root.querySelector('.tc-gallery-card') || root.querySelector('.tc-media-stage');

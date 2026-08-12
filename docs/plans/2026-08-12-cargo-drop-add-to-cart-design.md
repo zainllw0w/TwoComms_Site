@@ -40,4 +40,3 @@ The product detail page has a primary `.tc-add-btn[data-add-to-cart]` and a mobi
 - Node/source-contract tests for phase hooks, trigger coverage, open timing, and reduced-motion branch.
 - Django/template checks and focused storefront tests for the existing add/cart contract.
 - Browser QA on desktop and mobile: click primary and sticky buttons, capture the cargo phases, verify both header cart triggers pulse, verify no early panel, verify refreshed item is visible on open, test failure and reduced-motion paths, and confirm no console errors.
-

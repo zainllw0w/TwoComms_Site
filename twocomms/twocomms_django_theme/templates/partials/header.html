@@ -63,7 +63,7 @@
           <!-- Корзина -->
           <div class="cart-container position-relative d-none d-lg-block">
             {# Phase 21 (T20 a11y) — see favorites-btn comment above; same pattern keeps accessible name == aria-label. #}
-            <button id="cart-toggle" type="button" class="cart-btn" aria-label="{% trans 'Відкрити міні-корзину' %}">
+            <button id="cart-toggle" type="button" class="cart-btn" data-cart-attention aria-label="{% trans 'Відкрити міні-корзину' %}">
               <div class="cart-icon-wrapper" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="cart-icon">
                   <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
@@ -192,7 +192,7 @@
       <button class="mobile-site-shell__icon" type="button" data-mobile-search-toggle aria-expanded="false" aria-controls="mobile-shell-search-input" aria-label="{% trans 'Відкрити пошук' %}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
       </button>
-      <button id="cart-toggle-mobile" class="mobile-site-shell__icon mobile-site-shell__cart" type="button" aria-controls="mini-cart-panel-mobile" aria-expanded="false" aria-label="{% trans 'Відкрити міні-корзину' %}">
+      <button id="cart-toggle-mobile" class="mobile-site-shell__icon mobile-site-shell__cart" type="button" data-cart-attention aria-controls="mini-cart-panel-mobile" aria-expanded="false" aria-label="{% trans 'Відкрити міні-корзину' %}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8Z"></path><path d="M9 9V6a3 3 0 0 1 6 0v3"></path></svg>
         <span id="cart-count-mobile" class="mobile-site-shell__badge" aria-live="polite">0</span>
       </button>

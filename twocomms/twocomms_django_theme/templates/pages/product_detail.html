@@ -121,7 +121,7 @@ namespace + the legacy og:price aliases for the older social parsers.
 {% block extra_css %}
 {% comment %}Above-fold (hero/gallery/buybox/fit-selector) — render-blocking is OK,
    нужен сразу для корректного LCP/CLS.{% endcomment %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260811-gallery-v5">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260812-cargo-drop-v1">
 <link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260808-merch-v1">
 {% comment %}
 Phase 19c (2026-05-10) — below-fold CSS lazy-load.
@@ -746,9 +746,13 @@ CSS rules на mobile FCP/LCP window.
           data-add-to-cart="{{ product.id }}"
           data-product-name="{{ product.title|escapejs }}"
           data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
-          data-product-price="{{ selected_variant_price|default:product.final_price }}">
-          <span>{% trans 'ДОДАТИ В КОШИК' %}</span>
-          <svg class="tc-add-cart-icon" width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 18.4a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Zm9.8 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM2 3h2.75l2.7 10.08A2.6 2.6 0 0 0 10 15h7.45a2.6 2.6 0 0 0 2.48-1.82L22 6.5H7.07L6.55 4.55A2.1 2.1 0 0 0 4.52 3H2Zm5.6 5.5h11.7l-1.28 4.05a.6.6 0 0 1-.57.45H10a.6.6 0 0 1-.58-.45L7.6 8.5Z" fill="currentColor"/></svg>
+          data-product-price="{{ selected_variant_price|default:product.final_price }}"
+          data-cargo-success-message="{% trans 'Додано в кошик' %}">
+          <span class="tc-cargo-idle" data-cargo-idle>
+            <span>{% trans 'ДОДАТИ В КОШИК' %}</span>
+            <svg class="tc-add-cart-icon" width="19" height="19" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 18.4a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6Zm9.8 0a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6ZM2 3h2.75l2.7 10.08A2.6 2.6 0 0 0 10 15h7.45a2.6 2.6 0 0 0 2.48-1.82L22 6.5H7.07L6.55 4.55A2.1 2.1 0 0 0 4.52 3H2Zm5.6 5.5h11.7l-1.28 4.05a.6.6 0 0 1-.57.45H10a.6.6 0 0 1-.58-.45L7.6 8.5Z" fill="currentColor"/></svg>
+          </span>
+          {% include 'partials/add_to_cart_cargo_scene.html' %}
         </button>
         {% comment %}
         Phase 21 (PR-7 T19.2 + PR-5 T13.1) — trust badges become deep
@@ -844,8 +848,17 @@ CSS rules на mobile FCP/LCP window.
       <span data-pdp-sticky-price>{{ selected_variant_price|default:product.final_price }} грн</span>
       {% if product.has_discount %}<small>{{ product.price }} грн</small>{% endif %}
     </div>
-    <button type="button" class="tc-sticky-add-btn" data-pdp-sticky-add>
-      <span>{% trans 'ДОДАТИ В КОШИК' %}</span>
+    <button
+      type="button"
+      class="tc-sticky-add-btn"
+      data-pdp-sticky-add
+      data-add-to-cart="{{ product.id }}"
+      data-product-name="{{ product.title|escapejs }}"
+      data-product-category="{{ product.category.name|default_if_none:''|escapejs }}"
+      data-product-price="{{ selected_variant_price|default:product.final_price }}"
+      data-cargo-success-message="{% trans 'Додано в кошик' %}">
+      <span class="tc-cargo-idle" data-cargo-idle><span>{% trans 'ДОДАТИ В КОШИК' %}</span></span>
+      {% include 'partials/add_to_cart_cargo_scene.html' %}
     </button>
   </div>
 
@@ -874,7 +887,7 @@ CSS rules на mobile FCP/LCP window.
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260811-gallery-v6" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260812-cargo-drop-v1" defer></script>
 <script src="{% static 'js/product-media-fit.js' %}?v=20260808-merch-v1" defer></script>
 <script src="{% static 'js/product-variant-history.js' %}?v=20260509-phase8-v1" defer></script>
 {% endblock %}

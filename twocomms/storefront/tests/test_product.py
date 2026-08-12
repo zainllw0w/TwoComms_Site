@@ -335,10 +335,10 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
-        self.assertContains(response, 'product-detail.css?v=20260811-gallery-v5', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260812-cargo-drop-v1', html=False)
         self.assertContains(response, 'product-media-fit.css?v=20260808-merch-v1', html=False)
         self.assertContains(response, 'product-reviews.css?v=20260511-pdp-layout-v8', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260811-gallery-v6', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260812-cargo-drop-v1', html=False)
         self.assertContains(response, 'product-media-fit.js?v=20260808-merch-v1', html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
