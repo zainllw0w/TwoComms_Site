@@ -66,6 +66,7 @@ from storefront.services.marketplace_feeds import (
 )
 from storefront.services.feed_registry import get_system_feed
 from storefront.services.size_guides import build_public_size_guide_blocks
+from storefront.services.fact_registry import free_shipping_threshold
 from storefront.support_content import (
     FOOTER_CONTENT,
     PRO_BRAND_FAQ_ITEMS,
@@ -607,7 +608,7 @@ def llms_txt(request):
         "- Payment methods: Cash on delivery, Bank card, Apple Pay, Google Pay, Bank transfer.",
         "- Shipping carrier: Nova Poshta (Нова Пошта), Ukraine-wide.",
         "- Standard shipping window: 1–3 business days within Ukraine.",
-        "- Free shipping threshold: orders of 3000 UAH and above ship for free.",
+        f"- Free shipping threshold: orders of {free_shipping_threshold():g} UAH and above ship for free.",
         "- Production / handling time: 1–2 business days for in-stock items.",
         "- Custom DTF print lead time: 3–5 business days from artwork approval to dispatch.",
         "- Return policy: 14-day return window for ready-made apparel; custom prints are non-refundable per Ukrainian consumer law on personalised goods.",

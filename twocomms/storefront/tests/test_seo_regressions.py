@@ -904,7 +904,11 @@ class StructuredDataPhase5Tests(TestCase):
         self.assertTrue(schema["logo"].startswith("https://"))
         self.assertEqual(schema["contactPoint"]["@type"], "ContactPoint")
         self.assertIn("telephone", schema["contactPoint"])
-        self.assertEqual(schema["address"]["postalCode"], "61061")
+        # Exact founding date and postal address are intentionally omitted
+        # until an owner supplies a current source-backed NAP record.
+        self.assertNotIn("foundingDate", schema)
+        self.assertNotIn("foundingLocation", schema)
+        self.assertNotIn("address", schema)
         self.assertEqual(
             schema["hasMerchantReturnPolicy"]["refundType"],
             "https://schema.org/FullRefund",

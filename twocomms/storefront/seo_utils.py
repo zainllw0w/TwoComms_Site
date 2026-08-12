@@ -1613,25 +1613,6 @@ class StructuredDataGenerator:
                 "одягу з Харкова, створений навколо ідеї продовження після "
                 "критичної точки: не крапка, а продовження."
             ),
-            "foundingDate": "2022",
-            "foundingLocation": {
-                "@type": "Place",
-                "name": _("Харків, Україна"),
-                "address": {
-                    "@type": "PostalAddress",
-                    "addressCountry": "UA",
-                    "addressRegion": "UA-63",
-                    "addressLocality": _("Харків"),
-                    "postalCode": "61061",
-                },
-            },
-            "address": {
-                "@type": "PostalAddress",
-                "addressCountry": "UA",
-                "addressRegion": "UA-63",
-                "addressLocality": _("Харків"),
-                "postalCode": "61061",
-            },
             "areaServed": {
                 "@type": "Country",
                 "name": "Ukraine",
