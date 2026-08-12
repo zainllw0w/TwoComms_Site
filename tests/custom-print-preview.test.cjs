@@ -96,3 +96,179 @@ test("production regular tshirt fallback reports the black base it actually rend
     sources: assets["tshirt:regular"].black,
   });
 });
+
+test("preview render is a no-op when sources and overlays are unchanged", () => {
+  const previousDocument = globalThis.document;
+  const previousNavigator = globalThis.navigator;
+  const previousSetTimeout = globalThis.setTimeout;
+  const previousIdle = globalThis.requestIdleCallback;
+  const previousRaf = globalThis.requestAnimationFrame;
+  const preloads = [];
+  const rafs = [];
+
+  function makeNode(attributes = {}) {
+    return {
+      attributes: { ...attributes },
+      children: [],
+      classList: {
+        remove() {},
+        add() {},
+      },
+      hidden: true,
+      style: { setProperty() {}, removeProperty() {} },
+      querySelector(selector) {
+        const key = selector.match(/\[([^\]]+)\]/)?.[1];
+        return this.children.find((child) => child.attributes?.[key] !== undefined) || null;
+      },
+      replaceChildren(...children) {
+        this.children = children;
+      },
+      getAttribute(key) {
+        return this.attributes[key] ?? null;
+      },
+      setAttribute(key, value) {
+        this.attributes[key] = String(value);
+      },
+      addEventListener() {},
+    };
+  }
+
+  const preview = makeNode({ "data-png-preview": "" });
+  const garment = makeNode({ "data-preview-garment": "" });
+  const avif = makeNode({ "data-preview-avif": "" });
+  const webp = makeNode({ "data-preview-webp": "" });
+  const lacing = makeNode({ "data-preview-lacing": "" });
+  const zones = makeNode({ "data-preview-zones": "" });
+  lacing.hidden = true;
+  preview.children = [garment, avif, webp, lacing, zones];
+
+  globalThis.document = {
+    documentElement: { lang: "uk-UA" },
+    createElement: () => makeNode(),
+    head: { appendChild: (node) => preloads.push(node.href) },
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { connection: { effectiveType: "2g", saveData: false } },
+  });
+  globalThis.requestAnimationFrame = (callback) => rafs.push(callback);
+  globalThis.requestIdleCallback = undefined;
+  globalThis.setTimeout = () => 0;
+
+  const state = {
+    product: { type: "tshirt", fit: "regular", color: "black" },
+    ui: { stage_view: "front" },
+    print: { zones: [], zone_options: {} },
+  };
+  const config = {
+    custom_ref_preview_assets: {
+      "tshirt:regular": {
+        black: {
+          front: { avif: "front.avif", webp: "front.webp" },
+          back: { avif: "back.avif", webp: "back.webp" },
+        },
+      },
+    },
+    preview_assets: { "tshirt:regular": {} },
+    preview_calibration: {
+      "tshirt:regular": {
+        garment_width_mm: 600,
+        canvas: { width: 1200, height: 1400 },
+        zones: { body: { width: 50 }, front: { x: 50, y: 30 }, back: { x: 50, y: 30 } },
+      },
+    },
+    format_dimensions: { A4: { width_mm: 210, height_mm: 297 } },
+    products: { tshirt: { label: "T-shirt", colors: [] } },
+  };
+
+  try {
+    const controller = globalThis.CustomPrintPreview.create({
+      root: { querySelectorAll: () => [preview] },
+      config,
+      getState: () => state,
+    });
+    controller.render();
+    controller.render();
+    assert.equal(preloads.length, 1, "front is warmed immediately; back is skipped on 2G");
+    assert.equal(preloads[0], "front.avif");
+    assert.equal(rafs.length, 1, "asset transition is scheduled only on the first render");
+    assert.equal(zones.children.length, 0);
+  } finally {
+    globalThis.document = previousDocument;
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: previousNavigator });
+    globalThis.requestAnimationFrame = previousRaf;
+    globalThis.requestIdleCallback = previousIdle;
+    globalThis.setTimeout = previousSetTimeout;
+  }
+});
+
+test("explicit back view warms the back source immediately", () => {
+  const previousDocument = globalThis.document;
+  const previousNavigator = globalThis.navigator;
+  const previousRaf = globalThis.requestAnimationFrame;
+  const preloads = [];
+
+  function makeNode(attributes = {}) {
+    return {
+      attributes: { ...attributes },
+      children: [],
+      classList: { remove() {}, add() {} },
+      hidden: true,
+      style: { setProperty() {}, removeProperty() {} },
+      querySelector() { return null; },
+      replaceChildren() {},
+      getAttribute(key) { return this.attributes[key] ?? null; },
+      addEventListener() {},
+    };
+  }
+
+  globalThis.document = {
+    documentElement: { lang: "uk-UA" },
+    createElement: () => makeNode(),
+    head: { appendChild: (node) => preloads.push(node.href) },
+  };
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { connection: { effectiveType: "2g", saveData: false } },
+  });
+  globalThis.requestAnimationFrame = () => {};
+  const state = {
+    product: { type: "tshirt", fit: "regular", color: "black" },
+    ui: { stage_view: "back" },
+    print: { zones: [], zone_options: {} },
+  };
+  const config = {
+    custom_ref_preview_assets: {
+      "tshirt:regular": {
+        black: {
+          front: { avif: "front.avif", webp: "front.webp" },
+          back: { avif: "back.avif", webp: "back.webp" },
+        },
+      },
+    },
+    preview_assets: { "tshirt:regular": {} },
+    preview_calibration: {
+      "tshirt:regular": {
+        garment_width_mm: 600,
+        canvas: { width: 1200, height: 1400 },
+        zones: { body: { width: 50 }, front: { x: 50, y: 30 }, back: { x: 50, y: 30 } },
+      },
+    },
+    format_dimensions: {},
+    products: { tshirt: { label: "T-shirt", colors: [] } },
+  };
+
+  try {
+    const controller = globalThis.CustomPrintPreview.create({
+      root: { querySelectorAll: () => [makeNode({ "data-png-preview": "" })] },
+      config,
+      getState: () => state,
+    });
+    controller.render();
+    assert.deepEqual(preloads, ["back.avif"]);
+  } finally {
+    globalThis.document = previousDocument;
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: previousNavigator });
+    globalThis.requestAnimationFrame = previousRaf;
+  }
+});

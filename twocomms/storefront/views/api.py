@@ -343,8 +343,16 @@ def rum_beacon(request):
         if not isinstance(metrics, dict):
             metrics = {}
         # Огрубляем и не логируем ничего, кроме ожидаемых полей — защита от мусора
-        allowed = {'LCP', 'CLS', 'INP', 'FCP', 'TTFB', 'FID'}
+        allowed = {
+            'LCP', 'CLS', 'INP', 'FCP', 'TTFB', 'FID',
+            'INP_inputDelay', 'INP_processingDuration', 'INP_presentationDelay',
+            'INP_interactionTarget', 'INP_interactionType',
+        }
         safe_metrics = {k: metrics[k] for k in allowed if k in metrics}
+        if 'INP_interactionTarget' in safe_metrics:
+            safe_metrics['INP_interactionTarget'] = str(safe_metrics['INP_interactionTarget'])[:120]
+        if 'INP_interactionType' in safe_metrics:
+            safe_metrics['INP_interactionType'] = str(safe_metrics['INP_interactionType'])[:32]
 
         logger.info(
             'rum url=%s nav=%s dc=%s conn=%s mobile=%s metrics=%s',

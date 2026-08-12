@@ -45,6 +45,21 @@
     var sessionEntries = [];
     // Макс. длительность INP
     var inpValue = 0;
+    var inpAttribution = null;
+
+    function targetLabel(target) {
+      if (!target) return '';
+      try {
+        var tag = String(target.tagName || target.nodeName || '').toLowerCase();
+        var id = target.id ? '#' + String(target.id).slice(0, 64) : '';
+        var cls = target.classList && target.classList.length
+          ? '.' + Array.prototype.slice.call(target.classList, 0, 2).map(function (name) {
+            return String(name).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+          }).filter(Boolean).join('.')
+          : '';
+        return (tag || 'unknown') + id + cls;
+      } catch (_) { return ''; }
+    }
 
     // --- LCP ---
     try {
@@ -96,6 +111,18 @@
           // INP = longest interaction duration
           if (entry.duration && entry.duration > inpValue) {
             inpValue = Math.round(entry.duration);
+            var inputDelay = Number.isFinite(entry.processingStart) ? entry.processingStart - entry.startTime : 0;
+            var processingDuration = Number.isFinite(entry.processingEnd) && Number.isFinite(entry.processingStart)
+              ? entry.processingEnd - entry.processingStart
+              : 0;
+            var presentationDelay = Math.max(0, entry.duration - inputDelay - processingDuration);
+            inpAttribution = {
+              inputDelay: Math.max(0, Math.round(inputDelay)),
+              processingDuration: Math.max(0, Math.round(processingDuration)),
+              presentationDelay: Math.max(0, Math.round(presentationDelay)),
+              interactionTarget: targetLabel(entry.target),
+              interactionType: String(entry.name || '').slice(0, 32),
+            };
           }
           // FID = first input delay (до первого кадра)
           if (entry.entryType === 'first-input' && metrics.FID == null) {
@@ -103,6 +130,13 @@
           }
         });
         metrics.INP = inpValue;
+        if (inpAttribution) {
+          metrics.INP_inputDelay = inpAttribution.inputDelay;
+          metrics.INP_processingDuration = inpAttribution.processingDuration;
+          metrics.INP_presentationDelay = inpAttribution.presentationDelay;
+          metrics.INP_interactionTarget = inpAttribution.interactionTarget;
+          metrics.INP_interactionType = inpAttribution.interactionType;
+        }
       }).observe({ type: 'event', buffered: true, durationThreshold: 16 });
     } catch (_) { }
     // First-input отдельным observer (если браузер не поддерживает 'event')

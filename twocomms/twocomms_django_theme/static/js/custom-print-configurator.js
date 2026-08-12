@@ -45,6 +45,22 @@
   const STAGE_PROFILES = CONFIG.stage_profiles || {};
   const UI_STRINGS = CONFIG.ui_strings || {};
   const submissionPolicy = globalThis.CustomPrintSubmissionPolicy || null;
+  const renderPlanTools = globalThis.CustomPrintRenderPlan || {
+    stable: (value) => JSON.stringify(value),
+    signature: (snapshot) => snapshot,
+    dirtyDomains: (previous, next) => new Set(previous ? Object.keys(next).filter((key) => previous[key] !== next[key]) : Object.keys(next)),
+    memoize: (compute) => {
+      let previousKey;
+      let previousValue;
+      return (key) => {
+        if (key !== previousKey) {
+          previousKey = key;
+          previousValue = compute(key);
+        }
+        return previousValue;
+      };
+    },
+  };
   const mobileProgressQuery = globalThis.matchMedia ? globalThis.matchMedia("(max-width: 720px)") : null;
   const studioShellQuery = globalThis.matchMedia ? globalThis.matchMedia("(max-width: 1100px)") : null;
 
@@ -59,6 +75,13 @@
   let leadSubmitInFlight = false;
   let cartSubmitInFlight = false;
   let studioManuallyExited = false;
+  let lastRenderSignature = null;
+  let persistTimer = null;
+  let persistRaf = null;
+  let analyticsTimer = null;
+  let analyticsRaf = null;
+  const analyticsQueue = [];
+  const memoizedPricing = renderPlanTools.memoize(() => computePricingUncached());
 
   function ui(key, fallback) {
     return UI_STRINGS[key] || fallback;
@@ -303,6 +326,11 @@
       event_type: eventType,
       metadata,
     });
+    analyticsQueue.push(body);
+    scheduleAnalyticsFlush();
+  }
+
+  function transmitAnalyticsBody(body) {
     try {
       if (navigator.sendBeacon) {
         const blob = new Blob([body], { type: "application/json" });
@@ -322,6 +350,31 @@
       keepalive: true,
       body,
     }).catch(() => {});
+  }
+
+  function scheduleAnalyticsFlush() {
+    if (analyticsRaf || analyticsTimer) return;
+    const afterPaint = () => {
+      analyticsRaf = null;
+      analyticsTimer = window.setTimeout(() => {
+        analyticsTimer = null;
+        flushAnalyticsQueue();
+      }, 0);
+    };
+    if (typeof window.requestAnimationFrame === "function") analyticsRaf = window.requestAnimationFrame(afterPaint);
+    else analyticsTimer = window.setTimeout(flushAnalyticsQueue, 0);
+  }
+
+  function flushAnalyticsQueue() {
+    if (analyticsRaf) {
+      window.cancelAnimationFrame?.(analyticsRaf);
+      analyticsRaf = null;
+    }
+    if (analyticsTimer) {
+      window.clearTimeout?.(analyticsTimer);
+      analyticsTimer = null;
+    }
+    while (analyticsQueue.length) transmitAnalyticsBody(analyticsQueue.shift());
   }
 
   function ensureFlowStarted(trigger) {
@@ -385,8 +438,11 @@
     bindManagerQuickContact();
     bindStudioBoundary();
     setupDraftResume();
+    window.addEventListener("pagehide", () => {
+      flushPersistDraft();
+      flushAnalyticsQueue();
+    }, { capture: true });
     setActiveStep(STATE.ui.current_step || "mode", { silent: true });
-    refreshAll();
   }
 
   function enterStudio(trigger = "start_button") {
@@ -399,7 +455,7 @@
 
   function exitStudio() {
     studioManuallyExited = true;
-    persistDraft();
+    flushPersistDraft();
     mobileShell?.setActive(false);
     // Removing app mode restores the global nav and changes the page height.
     // Wait for that reflow before returning to the page entry point; otherwise
@@ -417,7 +473,7 @@
   }
 
   function openManagerDialog(event) {
-    persistDraft();
+    flushPersistDraft();
     sendAnalyticsEvent("manager_open", buildAnalyticsMetadata({ studio_step: stateTools?.fromInternal(STATE.ui.current_step) }));
     dialogFlow?.openManagerDialog({
       trigger: event?.currentTarget || event?.target,
@@ -1150,8 +1206,7 @@
         updateBrandFieldsVisibility();
         if (STATE.mode === "brand") {
           setActiveStep("mode", { silent: true });
-          refreshAll();
-          persistDraft();
+          schedulePersistDraft();
           return;
         }
         afterChoice("mode");
@@ -3206,8 +3261,7 @@
         trackStepComplete(STATE.ui.current_step, { transition_to: btn.dataset.stepSkip, skipped: true });
         markStepDone(STATE.ui.current_step);
         setActiveStep(btn.dataset.stepSkip, { fromStep: STATE.ui.current_step });
-        refreshAll();
-        persistDraft();
+        schedulePersistDraft();
       });
     });
   }
@@ -3246,7 +3300,7 @@
       const target = document.getElementById(`cp-step-${key}`);
       scrollToStudioTarget(target);
     }
-    if (analyticsState.flowStarted) persistDraft();
+    if (analyticsState.flowStarted) schedulePersistDraft();
   }
 
   function markStepDone(key) {
@@ -3267,10 +3321,10 @@
     const next = nextStepAfter(stepKey);
     trackStepComplete(stepKey, { transition_to: next });
     markStepDone(stepKey);
-    refreshAll();
     // Determine next step
     if (next) setActiveStep(next, { fromStep: stepKey });
-    persistDraft();
+    else refreshAll();
+    schedulePersistDraft();
   }
 
   function nextStepAfter(stepKey) {
@@ -3452,29 +3506,93 @@
   }
 
   // ── Refresh: stage card + receipt + summaries + side states ─
+  function buildRenderSnapshot() {
+    const files = Array.from(filesByPlacement.entries())
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([placement, list]) => [placement, list.map((file) => ({
+        name: file?.name || "",
+        size: file?.size || 0,
+        type: file?.type || "",
+        lastModified: file?.lastModified || 0,
+      }))]);
+    return renderPlanTools.signature({
+      navigation: {
+        current_step: STATE.ui.current_step,
+        done_steps: Array.from(STATE.ui.done_steps || []).sort(),
+        mode: STATE.mode,
+      },
+      content: {
+        product: STATE.product,
+        print: STATE.print,
+        artwork: STATE.artwork,
+        notes: STATE.notes,
+        contact: STATE.contact,
+        files,
+      },
+      pricing: {
+        mode: STATE.mode,
+        product: STATE.product,
+        print: STATE.print,
+        artwork: STATE.artwork.service_kind,
+        order: STATE.order,
+      },
+      preview: {
+        product: STATE.product,
+        stage_view: STATE.ui.stage_view,
+        zones: STATE.print.zones,
+        zone_options: STATE.print.zone_options,
+      },
+    });
+  }
+
+  function pricingSignature() {
+    return renderPlanTools.stable({
+      mode: STATE.mode,
+      product: STATE.product,
+      print: STATE.print,
+      artwork: STATE.artwork.service_kind,
+      order: STATE.order,
+    });
+  }
+
   function refreshAll() {
     normalizeClientState();
-    syncPreviewRender();
+    const nextSignature = buildRenderSnapshot();
+    const dirty = renderPlanTools.dirtyDomains(lastRenderSignature, nextSignature);
+    if (!lastRenderSignature) dirty.add("navigation");
+    const previewDirty = !lastRenderSignature || nextSignature.preview !== lastRenderSignature.preview;
+    const pricingDirty = !lastRenderSignature || nextSignature.pricing !== lastRenderSignature.pricing;
+    const contentDirty = !lastRenderSignature || nextSignature.content !== lastRenderSignature.content;
+    const navigationDirty = !lastRenderSignature || nextSignature.navigation !== lastRenderSignature.navigation;
+    lastRenderSignature = nextSignature;
+    if (!dirty.size) return;
+    if (previewDirty) syncPreviewRender();
     if (dom.statusBox?.classList.contains("is-warning") && canAdvance(STATE.ui.current_step)) {
       resetStatus();
     }
     updateFlowPhase();
     syncProgressShellPlacement();
-    updateStageVisibility();
-    updateStageMeta();
-    renderProductDetailNote();
-    applyStageView(STATE.ui.stage_view || "front");
-    renderModeChipsActive();
-    renderProductCardsActive();
-    updateBrandFieldsVisibility();
-    updateSummaries();
-    renderProgressStrip();
-    updateB2bMeta();
-    renderReceipt();
-    updateFinalActionsAvailability();
-    updateGiftContinueLabel();
-    renderMobileBottomBar();
-    previewController?.render();
+    if (previewDirty || contentDirty || navigationDirty) {
+      updateStageVisibility();
+      updateStageMeta();
+      renderProductDetailNote();
+      applyStageView(STATE.ui.stage_view || "front");
+      renderModeChipsActive();
+      renderProductCardsActive();
+      updateBrandFieldsVisibility();
+    }
+    if (contentDirty || navigationDirty) {
+      updateSummaries();
+      renderProgressStrip();
+      updateB2bMeta();
+      updateGiftContinueLabel();
+    }
+    if (pricingDirty || contentDirty || navigationDirty) {
+      renderReceipt();
+      updateFinalActionsAvailability();
+      renderMobileBottomBar();
+    }
+    if (previewDirty) previewController?.render();
     const studioIndex = stateTools?.progressIndex(STATE.ui.current_step) || 0;
     mobileShell?.update(studioIndex, STUDIO_STEPS.length || 8);
   }
@@ -3784,7 +3902,7 @@
   }
 
   // ── Pricing ─────────────────────────────────────────────────
-  function computePricing() {
+  function computePricingUncached() {
     const cfg = getProductConfig();
     if (!cfg || !cfg.pricing) {
       return {
@@ -3893,6 +4011,10 @@
       estimate_reason: "",
       breakdown,
     };
+  }
+
+  function computePricing() {
+    return memoizedPricing(pricingSignature());
   }
 
   function renderReceipt() {
@@ -4337,6 +4459,7 @@
 
   async function handleSubmitLead() {
     if (leadSubmitInFlight) return;
+    flushPersistDraft();
     const actionPolicy = buildActionPolicy();
     if (!actionPolicy.leadReady) {
       showStatus(actionPolicy.leadHint || "Перевірте форму перед відправкою.", "error");
@@ -4400,6 +4523,7 @@
 
   async function handleAddToCart() {
     if (cartSubmitInFlight) return;
+    flushPersistDraft();
     const actionPolicy = buildActionPolicy();
     if (!actionPolicy.cartReady) {
       showStatus(actionPolicy.cartHint || "Перевірте форму перед додаванням у кошик.", actionPolicy.leadReady ? "warning" : "error");
@@ -4491,6 +4615,7 @@
   }
 
   async function handleSafeExit() {
+    flushPersistDraft();
     const url = CONFIG.safe_exit_url;
     if (!url) {
       window.open(CONFIG.telegram_manager_url || "https://t.me/twocomms", "_blank");
@@ -4602,7 +4727,9 @@
   }
 
   // ── Draft ───────────────────────────────────────────────────
-  function persistDraft() {
+  function writeDraft() {
+    persistTimer = null;
+    persistRaf = null;
     if (!analyticsState.flowStarted && !STATE.mode && !STATE.product.type) return;
     try {
       const draft = {
@@ -4626,6 +4753,35 @@
     } catch (err) {
       // ignore quota
     }
+  }
+
+  function schedulePersistDraft() {
+    if (persistRaf || persistTimer) return;
+    const afterPaint = () => {
+      persistRaf = null;
+      persistTimer = window.setTimeout(() => {
+        persistTimer = null;
+        writeDraft();
+      }, 0);
+    };
+    if (typeof window.requestAnimationFrame === "function") persistRaf = window.requestAnimationFrame(afterPaint);
+    else persistTimer = window.setTimeout(writeDraft, 0);
+  }
+
+  function persistDraft() {
+    schedulePersistDraft();
+  }
+
+  function flushPersistDraft() {
+    if (persistRaf) {
+      window.cancelAnimationFrame?.(persistRaf);
+      persistRaf = null;
+    }
+    if (persistTimer) {
+      window.clearTimeout?.(persistTimer);
+      persistTimer = null;
+    }
+    writeDraft();
   }
 
   function readDraft() {
@@ -4720,7 +4876,6 @@
       renderSizing();
       renderDropzones();
       setActiveStep(STATE.ui.current_step || "mode", { silent: true });
-      refreshAll();
     } catch (err) {
       console.warn("[custom-print v2] draft load failed", err);
     }

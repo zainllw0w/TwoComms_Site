@@ -82,24 +82,94 @@
     return { width, height, dimensions };
   }
 
+  // Render state is deliberately kept outside the DOM.  The configurator can
+  // request a refresh for unrelated controls, so the preview should only
+  // touch the nodes whose source or overlay actually changed.
+  function stableSignature(value) {
+    const renderPlan = global.CustomPrintRenderPlan;
+    if (typeof renderPlan?.stable === "function") return renderPlan.stable(value);
+    if (value == null) return "";
+    if (Array.isArray(value)) return `[${value.map(stableSignature).join(",")}]`;
+    if (typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSignature(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  }
+
   function create({ root, config, getState }) {
     const previewNodes = Array.from(root.querySelectorAll("[data-png-preview]"));
     const warmedAssets = new Set();
+    const scheduledWarmups = new Set();
+    const renderMeta = new WeakMap();
+
+    function appendPreload(url) {
+      if (!url || warmedAssets.has(url)) return;
+      warmedAssets.add(url);
+      const preload = document.createElement("link");
+      preload.rel = "preload";
+      preload.as = "image";
+      preload.type = "image/avif";
+      preload.href = url;
+      document.head.appendChild(preload);
+    }
+
+    function canDeferBackWarmup() {
+      const connection = global.navigator?.connection;
+      const saveData = !!connection?.saveData;
+      const renderPlan = global.CustomPrintRenderPlan;
+      if (typeof renderPlan?.canDeferBackWarmup === "function") {
+        return renderPlan.canDeferBackWarmup(connection, saveData);
+      }
+      const effectiveType = connection?.effectiveType || "4g";
+      return !saveData && effectiveType !== "slow-2g" && effectiveType !== "2g";
+    }
+
+    function scheduleBackWarmup(url) {
+      if (!url || warmedAssets.has(url) || scheduledWarmups.has(url) || !canDeferBackWarmup()) return;
+      scheduledWarmups.add(url);
+      const warm = () => {
+        scheduledWarmups.delete(url);
+        if (!canDeferBackWarmup()) return;
+        // A user may change garment/color before the idle window.  Do not
+        // spend bandwidth warming an asset that is no longer relevant.
+        const latestState = getState();
+        const latestRender = resolveGarmentRender(
+          config.custom_ref_preview_assets || {},
+          profileKey(latestState),
+          latestState.product.color,
+        );
+        if (latestRender?.sources?.back?.avif !== url) return;
+        appendPreload(url);
+      };
+      if (typeof global.requestIdleCallback === "function") {
+        global.requestIdleCallback(warm, { timeout: 2500 });
+      } else if (typeof global.setTimeout === "function") {
+        global.setTimeout(warm, 1500);
+      }
+    }
 
     function warmCurrentProfile(state) {
       const profiles = config.custom_ref_preview_assets || {};
       const render = resolveGarmentRender(profiles, profileKey(state), state.product.color);
       const variant = render?.sources;
+      const view = state.ui.stage_view === "back" ? "back" : "front";
+      // Warm the source that resolveAsset will actually display.  This also
+      // covers a declared front fallback when an incomplete profile lacks a
+      // back file.
+      const currentAsset = resolveAsset(config, state);
+      appendPreload(currentAsset?.avif);
       ["front", "back"].forEach((side) => {
         const sources = variant?.[side];
-        if (!sources?.avif || warmedAssets.has(sources.avif)) return;
-        warmedAssets.add(sources.avif);
-        const preload = document.createElement("link");
-        preload.rel = "preload";
-        preload.as = "image";
-        preload.type = "image/avif";
-        preload.href = sources.avif;
-        document.head.appendChild(preload);
+        if (!sources?.avif) return;
+        if (side === view) {
+          // The source currently visible must be available immediately.
+          appendPreload(sources.avif);
+        } else if (side === "back") {
+          // Back is only speculative work while the front is visible.  On
+          // constrained connections it is intentionally left for an
+          // explicit back-view action.
+          scheduleBackWarmup(sources.avif);
+        }
       });
     }
 
@@ -193,13 +263,31 @@
       const calibration = config.preview_calibration?.[key] || config.preview_calibration?.["hoodie:regular"];
       const asset = resolveAsset(config, state);
       if (!assets || !calibration || !asset) return;
-      warmCurrentProfile(state);
       const view = state.ui.stage_view === "back" ? "back" : "front";
+      warmCurrentProfile(state);
       const productConfig = config.products?.[state.product.type] || {};
       const selectedFabric = (productConfig.fabrics?.[state.product.fit] || []).find((item) => item.value === state.product.fabric);
       const palette = selectedFabric?.colors || productConfig.fit_colors?.[state.product.fit] || productConfig.colors || [];
       const colorLabel = palette.find((item) => item.value === state.product.color)?.label || asset.color;
       const placements = expandedPlacements(state);
+      const alt = state.product.type ? `${productConfig.label || state.product.type} · ${colorLabel} · ${view}` : "";
+      const assetSignature = stableSignature({
+        avif: asset.avif || "",
+        webp: asset.webp || "",
+        profile: asset.profile,
+        view: asset.view,
+        color: asset.color,
+        selectedColor: asset.selectedColor,
+        alt,
+      });
+      const assetSourceSignature = stableSignature({ avif: asset.avif || "", webp: asset.webp || "" });
+      const overlaySignature = stableSignature({
+        view,
+        profile: asset.profile,
+        placements,
+        calibration,
+        formatDimensions: config.format_dimensions || {},
+      });
       state.ui.preview_render = {
         selected_color: asset.selectedColor,
         preview_color: asset.color,
@@ -208,30 +296,39 @@
       };
 
       previewNodes.forEach((preview) => {
-        preview.classList.remove("is-refreshing");
-        requestAnimationFrame(() => preview.classList.add("is-refreshing"));
         const garment = preview.querySelector("[data-preview-garment]");
         const avif = preview.querySelector("[data-preview-avif]");
         const webp = preview.querySelector("[data-preview-webp]");
         const lacing = preview.querySelector("[data-preview-lacing]");
         const zones = preview.querySelector("[data-preview-zones]");
-        if (garment) {
-          garment.src = asset.webp;
-          garment.alt = state.product.type ? `${productConfig.label || state.product.type} · ${colorLabel} · ${view}` : "";
+        const previous = renderMeta.get(preview);
+        const assetChanged = !previous || previous.assetSourceSignature !== assetSourceSignature;
+        const assetDetailsChanged = !previous || previous.assetSignature !== assetSignature;
+        const overlayChanged = !previous || previous.overlaySignature !== overlaySignature;
+
+        if (assetChanged) {
+          preview.classList.remove("is-refreshing");
+          const scheduleFrame = global.requestAnimationFrame || ((callback) => global.setTimeout?.(callback, 0));
+          scheduleFrame?.(() => preview.classList.add("is-refreshing"));
         }
-        if (avif) {
-          avif.srcset = asset.avif;
+        if (assetDetailsChanged && garment) {
+          if (garment.getAttribute("src") !== (asset.webp || "")) garment.src = asset.webp || "";
+          if (garment.alt !== alt) garment.alt = alt;
         }
-        if (webp) {
-          webp.srcset = asset.webp;
+        if (assetDetailsChanged && avif && avif.getAttribute("srcset") !== (asset.avif || "")) {
+          avif.srcset = asset.avif || "";
         }
-        if (lacing) {
+        if (assetDetailsChanged && webp && webp.getAttribute("srcset") !== (asset.webp || "")) {
+          webp.srcset = asset.webp || "";
+        }
+        if (lacing && !lacing.hidden) {
           lacing.hidden = true;
         }
-        if (zones) {
+        if (overlayChanged && zones) {
           zones.replaceChildren();
           placements.forEach((placement) => appendZone(zones, placement, calibration, view));
         }
+        renderMeta.set(preview, { assetSignature, assetSourceSignature, overlaySignature });
       });
     }
 
