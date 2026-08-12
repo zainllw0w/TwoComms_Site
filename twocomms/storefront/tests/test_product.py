@@ -5,6 +5,7 @@ Regression tests for storefront product detail and product AJAX endpoints.
 from __future__ import annotations
 
 from html.parser import HTMLParser
+import json
 from pathlib import Path
 import shutil
 import tempfile
@@ -938,14 +939,15 @@ class GetProductVariantsTests(ProductViewTestCase):
             ("en", "Test T-shirt", "Black"),
         ):
             with self.subTest(language=language):
-                request = RequestFactory().get(
-                    reverse("get_product_variants", args=[self.product.pk])
-                )
-                request.LANGUAGE_CODE = language
-                response = get_product_variants(request, self.product.pk)
+                with translation.override(language):
+                    request = RequestFactory().get(
+                        reverse("get_product_variants", args=[self.product.pk])
+                    )
+                    request.LANGUAGE_CODE = language
+                    response = get_product_variants(request, self.product.pk)
 
             self.assertEqual(response.status_code, 200)
-            image = response.json()["variants"][0]["images"][0]
+            image = json.loads(response.content)["variants"][0]["images"][0]
             self.assertIn(expected_title, image["alt"])
             self.assertIn(expected_color, image["alt"])
             self.assertNotIn("український alt", image["alt"])
