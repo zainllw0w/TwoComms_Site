@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('storefront', '0092_repair_lord_lending_uk_seo'),
+        ('storefront', '0093_repair_posmikhnys_variant_seo'),
     ]
 
     operations = [
