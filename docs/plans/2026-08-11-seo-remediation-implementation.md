@@ -598,6 +598,46 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   hardcoded general-catalog claim block; it does not close the remaining
   fact-lint work across PDP/support/llms/feed surfaces.
 
+- Code/test commit: `d79fabf61` (`fix(seo): fail closed for unowned llms claims`)
+  removes unowned founder/founding, city/origin, price-range, payment,
+  delivery-window, handling-time, return, loyalty/donation and durability
+  statements from `/llms.txt` and `/llms-full.txt`. The full endpoint no longer
+  mirrors the mixed support FAQ arrays, which contained conflicting delivery,
+  production and care claims. Canonical product/category/blog links, the
+  Custom Print route and the checkout-owned free-shipping threshold remain.
+- TDD/local proof: the new compact/full factuality regression plus the existing
+  llms route/alias suite passed `12/12`; touched-file compilation and
+  `git diff --check` passed. The test asserts omission of every removed marker,
+  preservation of `custom-print/`, and registry-driven threshold output.
+- Production proof: `d79fabf61` was pushed to `origin/main`, pulled on the
+  production host, activated with `touch tmp/restart.txt`, and production
+  `manage.py check --settings=twocomms.settings` passed. Live UK endpoints
+  `/llms.txt?seo_fact_probe=d79fabf61` and
+  `/llms-full.txt?seo_fact_probe=d79fabf61` returned `200`; all removed markers
+  were absent, `3000` remained as the free-shipping registry value and the
+  `custom-print/` canonical route remained present.
+- Scope boundary: this does not rewrite ordinary `/faq/`, delivery, care,
+  product descriptions, Custom Print content or DTF subdomain/blog content.
+  Those surfaces still require a separate owner-backed fact review before any
+  claim is changed or copied into machine-readable output.
+
+- Code/test commit: `e0ccc50b4` (`fix(seo): align llms products with public
+  eligibility`) switches the `/llms-full.txt` product list to the shared
+  `public_products_queryset()` used by sitemap/feed surfaces. Published
+  zero-price or slugless records therefore cannot become AI-facing product
+  URLs, while normal positive-price published products remain discoverable.
+- TDD/local proof: `storefront.tests.test_fact_registry_seo` passed `9/9`,
+  including a zero-price exclusion and positive-price inclusion regression;
+  touched-file compilation and `git diff --check` passed.
+- Production proof: `e0ccc50b4` was pushed to `origin/main`, pulled on the
+  production host, activated with `touch tmp/restart.txt`, and production
+  `manage.py check --settings=twocomms.settings` passed. Live
+  `/llms.txt?seo_fact_probe=e0ccc50b4` and
+  `/llms-full.txt?seo_fact_probe=e0ccc50b4` returned `200`; both retained the
+  `custom-print/` route and `3000` threshold, and neither exposed the test
+  zero-price marker. Dynamic blog links remain discovery-only; no blog or DTF
+  subdomain content was edited.
+
 #### Task 4.2a execution evidence (checkpoint prepared)
 
 - Code/test commit: `f654e0985e67bf442e26c785ce0a8e83b7f0f6ac`
