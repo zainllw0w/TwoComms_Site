@@ -419,6 +419,30 @@
 - **Приоритет исправления:** first remove generated descriptions/keyword strings that have no reviewed source and make generated variant titles locale-aware; only then decide which variant URLs are approved owners. Do not replace them with paraphrases or a city/color/fit keyword matrix.
 - **Acceptance:** UK variant behavior remains covered; RU/EN variant title/description contain no generated Ukrainian literals or unowned delivery/material claims, and the page falls back to the product's reviewed locale metadata when no variant-owned localized override exists.
 
+#### FIND-012c — locale-safe size-grid comparison requires bounded code ownership
+
+- **Вердикт:** standard PDP size-grid comparison had a confirmed RU/EN locale
+  defect: active `classic` / `oversize` rows and color labels were read from
+  Ukrainian storage and propagated into tabs, H3, image alt/figcaption and
+  hidden table caption. This was fixed only for the two stable standard fit
+  codes and known color vocabulary in `bde21af63`, production-proven in the
+  subsequent `cf5108780` checkpoint.
+- **Граница исправления:** `ProductFitOption` currently has only one
+  editor-owned `label` and no persisted `label_ru` / `label_en` contract.
+  Therefore an arbitrary custom fit must not be translated by guessing or by
+  keyword substitutions. Unknown fit/color labels deliberately pass through
+  until a real locale-owned editorial field and admin workflow exist.
+- **Открытый связанный defect:** `_guide_copy()` still describes every guide
+  as a T-shirt. For a non-T-shirt product with an active comparison this can
+  make image alt/caption/note factually wrong even when language is correct.
+  This is a separate garment-factuality task: first inventory active
+  non-T-shirt grids and their garment owner, then add product-specific wording
+  from an owned field. Do not mass-replace text with generic keyword copy.
+- **SEO/GEO impact:** the shipped correction aligns existing localized page
+  semantics and accessibility metadata; it does not create new index targets
+  and is not a ranking guarantee. The open custom-fit/non-T-shirt items remain
+  relevant only where those data configurations are published.
+
 #### FIND-013 — каждый PDP получает два длинных SEO-блока, а второй fallback содержит смешанный язык, служебный SEO-текст и фактические противоречия
 
 - **Вердикт:** подтверждено кодом и production HTML.

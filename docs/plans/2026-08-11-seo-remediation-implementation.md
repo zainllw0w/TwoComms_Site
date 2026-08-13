@@ -595,6 +595,49 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   conversion claim. Remaining PDP gallery aria-label and editorial-rail
   locale/factuality work is intentionally separate.
 
+- [x] **P0.13a** Localize the standard PDP size-grid comparison, including
+  its visible fit/color labels, image alt, image caption and hidden table
+  caption. The code-owned `classic` / `oversize` fallbacks apply only where
+  production has no locale-owned fit field; unknown custom fits and unknown
+  colors pass through unchanged. This does not change product rows, selected
+  fit/color, sizes, price, cart identity, canonical/hreflang, Custom Print or
+  the DTF subdomain/blog.
+
+#### P0.13a release evidence
+
+- Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`
+  (`fix(i18n): localize standard size grid labels`) adds explicit RU/EN
+  fallbacks for only the stable standard codes and reuses
+  `translate_color_name()` for the already-shared color vocabulary. The
+  fallback lookup runs even if historical data lacks a fit-option row. It does
+  not introduce a migration or invent a translation for an editor-defined fit.
+- TDD/local gates: four new regressions failed RED on the old Ukrainian
+  standard label output, then passed GREEN. `product_catalog` size-grid tests
+  passed `33/33`; the related product/title/fit/variant suites passed `80/80`.
+  `manage.py check --settings=test_settings`, touched-file `py_compile` and
+  `git diff --check` also passed. The `COMPRESS_OFFLINE` manifest warning in
+  test settings is pre-existing and was resolved by the release compression
+  step, not suppressed by this task.
+- Independent review confirmed locale propagation from `product_detail()` into
+  the comparison and no import cycle. It also identified two intentionally
+  open contracts recorded in the audit: custom fits have no persisted RU/EN
+  owner, and non-T-shirt grids need garment-specific guide wording. Neither
+  is hidden behind a generic fallback in this release.
+- Production: `bde21af63` was pushed to `main`; the subsequent production
+  checkpoint `cf51087806f12f9ce8397ed5fe34b6d003074ffe` contains it. Server
+  fast-forward, `collectstatic --noinput`, `compress --force`,
+  `manage.py check` and Passenger restart completed successfully at that SHA.
+- Live no-submit browser proof at mobile `390x844`: opening Size chart on
+  `/ru/product/classic-tshirt/black/` showed `Классическая`, `Оверсайз`,
+  `Чёрный`, correct Russian image alt/caption and hidden table caption. The
+  EN counterpart showed `Classic`, `Oversize`, `Black` with English image
+  alt/caption/table caption; selecting the oversize guide changed only the
+  guide panel, and the page had no horizontal overflow. UK remains stored
+  Ukrainian output. No cart, checkout or analytics action was triggered.
+- Boundary: this is a locale/accessibility/factual-display correction for
+  existing content. It neither creates keyword/city/variant pages nor makes a
+  ranking, traffic or conversion claim.
+
 #### P0.10 release evidence
 
 - Code/test commit: `f11d0abdd` (`fix(seo): use checkout shipping threshold in
