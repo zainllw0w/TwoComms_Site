@@ -16506,7 +16506,101 @@ msgstr "плюс"
 
 #: twocomms_django_theme/templates/partials/product_card.html:102
 msgid "Від"
-msgstr ""
+msgstr "От"
+
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Відкрити меню"
+msgstr "Открыть меню"
+
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Відкрити пошук"
+msgstr "Открыть поиск"
+
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Нижня навігація"
+msgstr "Нижняя панель навигации"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Відкрити фільтри каталогу"
+msgstr "Открыть фильтры каталога"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Фільтри"
+msgstr "Фильтры"
+
+#: twocomms_django_theme/templates/partials/header.html
+msgid "Про нас"
+msgstr "О нас"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Новинки сезону"
+msgstr "Новинки сезона"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Новинка"
+msgstr "Новинка"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Хіт"
+msgstr "Хит"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Комфорт. Якість. Сенс."
+msgstr "Комфорт. Качество. Смысл."
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Одяг, що говорить замість тебе."
+msgstr "Одежда, которая говорит за тебя."
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "В наявності"
+msgstr "В наличии"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Скоро в наявності"
+msgstr "Скоро в наличии"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Створи свій принт"
+msgstr "Создай свой принт"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Твій дизайн. Твій сенс."
+msgstr "Твой дизайн. Твой смысл."
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Наше виробництво."
+msgstr "Наше производство."
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Створити принт"
+msgstr "Создать принт"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Якість і матеріали преміум класу"
+msgstr "Качество и материалы премиум-класса"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Друк, що витримує час і виклики"
+msgstr "Принт, который выдерживает время и вызовы"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Швидка доставка по Україні"
+msgstr "Быстрая доставка по Украине"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Чорне худі TwoComms, вид зі спини"
+msgstr "Чёрное худи TwoComms, вид сзади"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Приклад футболки для власного принта"
+msgstr "Пример футболки для собственного принта"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Тризуб України"
+msgstr "Тризуб Украины"
 
 #: twocomms_django_theme/templates/partials/product_card.html:108
 msgid "Чому ціна відрізняється"

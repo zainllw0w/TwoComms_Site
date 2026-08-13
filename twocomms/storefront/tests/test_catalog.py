@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.core.cache import cache, caches
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import translation
 
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
@@ -759,6 +760,119 @@ class CatalogViewTests(CatalogViewTestCase):
         html = response.content.decode("utf-8")
         self.assertLess(html.index('href="/catalog/tshirts/"'), html.index('href="/catalog/hoodie/"'))
         self.assertLess(html.index('href="/catalog/hoodie/"'), html.index('href="/catalog/long-sleeve/"'))
+
+    def test_catalog_root_mobile_showcase_and_shared_chrome_are_localized(self):
+        tshirts = Category.objects.create(
+            name="Футболки",
+            name_ru="Футболки",
+            name_en="T-shirts",
+            slug="tshirts",
+            is_active=True,
+        )
+        Category.objects.create(
+            name="Худі",
+            name_ru="Худи",
+            name_en="Hoodies",
+            slug="hoodie",
+            is_active=True,
+        )
+        Category.objects.create(
+            name="Лонгсліви",
+            name_ru="Лонгсливы",
+            name_en="Long sleeves",
+            slug="long-sleeve",
+            is_active=True,
+        )
+        self.create_product(
+            title="Локалізована футболка",
+            slug="localized-root-tee",
+            category=tshirts,
+            price=790,
+        )
+
+        matrix = {
+            "/ru/catalog/": {
+                "required": (
+                    "Открыть меню",
+                    "Открыть поиск",
+                    "Нижняя панель навигации",
+                    "Открыть фильтры каталога",
+                    "Фильтры",
+                    "О нас",
+                    "Новинки сезона",
+                    "Новинка",
+                    "Хит",
+                    "Комфорт. Качество. Смысл.",
+                    "Одежда, которая говорит за тебя.",
+                    "От 790 ₴",
+                    "В наличии",
+                    "Создай свой принт",
+                    "Твой дизайн. Твой смысл.",
+                    "Наше производство.",
+                    "Создать принт",
+                    "Качество и материалы премиум-класса",
+                    "Принт, который выдерживает время и вызовы",
+                    "Быстрая доставка по Украине",
+                ),
+            },
+            "/en/catalog/": {
+                "required": (
+                    "Open menu",
+                    "Open search",
+                    "Bottom navigation",
+                    "Open catalog filters",
+                    "Filters",
+                    "About us",
+                    "New this season",
+                    "New",
+                    "Popular",
+                    "Comfort. Quality. Meaning.",
+                    "Clothing that speaks for you.",
+                    "From 790 ₴",
+                    "In stock",
+                    "Create your print",
+                    "Your design. Your meaning.",
+                    "Our production.",
+                    "Create a print",
+                    "Premium-quality materials",
+                    "Prints made to last",
+                    "Fast delivery across Ukraine",
+                ),
+            },
+        }
+        forbidden = (
+            "Відкрити меню",
+            "Відкрити пошук",
+            "Нижня навігація",
+            "Відкрити фільтри каталогу",
+            "Фільтри",
+            "Новинки сезону",
+            "Хіт",
+            "Комфорт. Якість. Сенс.",
+            "Одяг, що говорить замість тебе.",
+            "Від 790 ₴",
+            "В наявності",
+            "Створи свій принт",
+            "Твій дизайн. Твій сенс.",
+            "Наше виробництво.",
+            "Створити принт",
+            "Якість і матеріали преміум класу",
+            "Друк, що витримує час і виклики",
+            "Швидка доставка по Україні",
+        )
+
+        for path, expectations in matrix.items():
+            locale = path.split("/")[1]
+            with self.subTest(path=path), translation.override(locale):
+                response = self.client.get(path)
+                body = response.content.decode("utf-8")
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'content="index, follow', html=False)
+                for value in expectations["required"]:
+                    self.assertIn(value, body)
+                for value in forbidden:
+                    self.assertNotIn(value, body)
 
     def test_catalog_category_does_not_render_root_mobile_reference_section(self):
         self.create_product(title="Category Product", slug="category-product")
