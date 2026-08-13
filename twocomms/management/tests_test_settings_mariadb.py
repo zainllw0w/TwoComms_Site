@@ -88,6 +88,28 @@ class MariaDbTestSettingsContractTests(SimpleTestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("matches a configured production database host", result.stderr)
 
+    def test_rejects_non_loopback_host_without_explicit_remote_opt_in(self):
+        result = self._import_profile(TEST_MARIADB_HOST="mariadb.example.test")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "TEST_MARIADB_REMOTE_ALLOWED=1",
+            result.stderr,
+        )
+
+    def test_rejects_a_test_user_matching_configured_production_users(self):
+        result = self._import_profile(
+            DB_USER="test_user",
+            DB_NAME="qlknpodo_MySQL_DB",
+            DB_HOST="production.database.example",
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "matches a configured production database user",
+            result.stderr,
+        )
+
     def test_profile_uses_only_the_disposable_migrated_database(self):
         result = subprocess.run(
             [

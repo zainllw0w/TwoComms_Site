@@ -491,10 +491,10 @@ The commit is on `origin/main` and production after the required SSH
 `11.4.12-MariaDB-cll-lve`; migrations through `management.0153` are applied,
 migration drift is clean, and bot health is `200/ok` with fresh heartbeat and
 zero dangerous/pending/recovery queues.
-The immutable deploy was intentionally not bypassed: target-bound wheelhouse
-for `c72ecf11` is absent, so `../deploy.sh --target-sha c72ecf11...` fails
-before maintenance/switch with `immutable wheelhouse target must be a real
-directory`. Active venv/static paths still point to an older release, so
+The immutable deploy was intentionally not bypassed: the target-bound
+wheelhouse for `c72ecf11` was absent, so the retired release wrapper rejected
+the target before maintenance/switch with `immutable wheelhouse target must be
+a real directory`. Active venv/static paths still point to an older release, so
 `F-DEPLOY-001` and current-SHA `F-DEPLOY-003` remain OPEN.
 
 **Primary tests/services:**
@@ -558,6 +558,111 @@ These findings were discovered while implementing Wave 0 and are owned here;
   only the fixture boundary; the full immutable deploy/rollback gate remains
   under `IMP-094` and `F-DEPLOY-001/003`.
 - [ ] Keep `T41` as SQLite-fast evidence only; do not call it production parity.
+
+**Task 6A implementation checkpoint (2026-08-14, CI acceptance pending):** the
+disposable gate is now implemented as a cwd-independent runner in
+`scripts/run_mariadb_gate.py`. It validates the real Django entrypoint at
+`twocomms/manage.py`, accepts only the implemented `lifecycle` suite, generates
+an isolated `test_twocomms_ig_<token>` schema and `twc_ig_<token>` user, checks
+`MariaDB 11.4`, sanitizes both Django and native-server child environments,
+forces native binaries to ignore system/user option files with a first
+`--no-defaults` argument, rejects configured production hosts/users, proves the
+generated namespace is absent before claiming cleanup ownership, and verifies
+user/schema cleanup before emitting success evidence. Cleanup failures are
+retained together with the primary failure; namespace collisions are never
+dropped, and an invalid MariaDB identity is propagated unchanged.
+
+The GitHub Actions service is pinned to
+`mariadb:11.4.12@sha256:67873d30a17f6a9c331f06363b2fa15f38abca415529966d67c84f87f82439fe`
+with `healthcheck.sh --connect --innodb_initialized`, Python 3.14, a 30-minute
+job timeout, push/PR path filters and an always-uploaded sanitized evidence
+artifact. The workflow runs the runner/workflow contracts and then
+`python scripts/run_mariadb_gate.py --server-mode external --suite lifecycle`.
+
+Fresh local evidence on current `origin/main` (`04b8b241`) is **23/23
+runner/workflow contract tests OK**, including the all-host collision check,
+gate-owned-user cleanup guard and native startup/cleanup failure boundary;
+`compileall` and `git diff --check` are clean. The settings contract could not
+run in the host Python because Django is not installed; this is an environment
+limitation, not MariaDB acceptance.
+The actual disposable MariaDB migration/schema/cleanup proof is intentionally
+deferred to the pinned CI service. Until that CI job succeeds, `T41`,
+`G-INFRA`, `F-TEST-002` and `IMP-094` remain open; suites for future Tasks 6B–6F
+are not advertised or claimed.
+
+### W2.1A Next queued release — intelligent Instagram follow-state and lifecycle CTA — `IMP-106`
+
+**Status:** QUEUED after Task 6A. Do not begin before the pinned MariaDB gate
+has CI evidence and the Meta capability audit below is complete. This is a
+commercial follow-up policy, not a background message campaign: it must never
+turn a missing or failed provider lookup into `not_following`, and it must not
+create a perpetual cron that scans all customers.
+
+- [ ] **Capability contract first.** Reconcile the live Graph API version,
+  token type, Instagram account ID, app subscription, scopes and available
+  endpoint against current official Meta documentation. In particular, do not
+  assume that an aggregate follower count proves a per-user relationship or
+  that an `is_user_following` endpoint is available to this app/token. Record
+  the supported signal, rate limit and failure semantics. If no authorized
+  per-user signal exists, retain `unknown` and do not substitute customer text,
+  profile guesses or model inference.
+- [ ] **Durable, auditable state.** Add a single owned follow-state record or
+  fields linked to the Instagram client: `following`, `not_following`, or
+  `unknown`; source/capability version; checked-at; expiry; error code; and
+  `first_observed_following_at` only when an observation becomes positive.
+  It is not a claim of the actual historical follow date. Preserve opt-out,
+  blocked and Meta-window boundaries; restrict manager views to minimum
+  necessary status metadata.
+- [ ] **Demand-driven refresh and decision policy.** Resolve/refresh only at
+  inbound or commercial decision points, with cache TTL, retry backoff and
+  per-client cooldown: accepted paid order, authoritative delivery/collection,
+  an explicit qualified hesitation, or a model turn that needs the fact. A
+  transport/API failure remains `unknown`; it must suppress follow CTA rather
+  than treating the customer as unfollowed. No periodic all-client polling and
+  no lookup for unrelated factual replies.
+- [ ] **Authoritative commerce lifecycle.** Trace the production source of
+  truth from `Order`/payment through a persisted tracking number and authoritative
+  Nova Poshta delivery or collection status into an owned
+  `IgOrderShipment`/`IgLifecycleEvent`-style idempotent event. A label-created,
+  estimated or stale tracking status is not proof that the order was received.
+  Tie the CTA eligibility and duplicate suppression to that durable event,
+  never a free-form agent claim.
+- [ ] **Non-spam, episode-aware CTA selection.** Persist decision evidence and
+  enforce at most one follow ask for a commercial episode/cooldown. Never ask
+  uninterested, opted-out, blocked, negative, already-following or `unknown`
+  customers. Prefer a short optional sentence embedded in an existing truthful
+  order/delivery thank-you over a second message. For genuinely interested
+  price/hesitation contexts, permit one delayed, relevant invitation only when
+  evidence supports it; a promise to follow without observed state is not a
+  reason to repeatedly ask.
+- [ ] **Generated voice behind server-owned guardrails.** The model may choose
+  warm Ukrainian phrasing, variation and restrained emoji from structured
+  customer context; it receives the follow state, stage, consent and allowed
+  offer facts, but never decides eligibility. Validate output for one CTA,
+  no fabricated follow status, discount, delivery, urgency or manager promise.
+  Provide deterministic safe fallback/omit behavior, record the decision and
+  prevent same-copy repetition without falsely impersonating a human.
+- [ ] **Offer/coupon policy before any 10% promise.** Do not promise or invent
+  a discount until a separate server-owned 10% policy defines eligibility,
+  stacking, expiry, use limit, order/customer binding, fraud controls,
+  idempotent generation and delivery receipt. Only a confirmed collected-order
+  event may unlock an approved coupon; replay or duplicate delivery events
+  must reuse the same entitlement and must not create another code.
+- [ ] **Minimal manager UX.** Add a compact accessible status dot/badge in the
+  conversation header or customer identity area: following / not following /
+  unknown with non-sensitive source and last-checked time in a tooltip/detail.
+  It must not add a large control, distract from message work, or imply that
+  `unknown` is negative. Include loading/error/stale state and preserve the
+  existing responsive/accessibility contract.
+- [ ] **Proof before release.** Add focused RED/green tests for API capability
+  denial, timeout-to-unknown, TTL/cooldown, no-provider-call for unrelated
+  turns, episode dedupe, opt-out/Meta window, paid/shipped/collected lifecycle
+  truth, coupon idempotency, copy guardrails and badge rendering. Run the
+  required disposable MariaDB race/migration tests, a manager browser matrix,
+  a mocked Meta contract test without live customer events, independent review,
+  then commit, push, SSH-only `git pull`, and record deployed SHA plus
+  read-only production evidence. No live follow/discount probing that alters
+  customer or advertising data merely to close this checkbox.
 
 ### W2.2 Disposable MariaDB — `IMP-094` second half
 
@@ -982,7 +1087,7 @@ browser matrix, accessibility/reduced-motion check and deployed SHA.
 |---|---|
 | Preflight/gates | `BLOCKER-INFRA-001`, `BLOCKER-DATA-001`, `BLOCKER-POLICY-001`, `BLOCKER-POLICY-002`; `RULE-BRANCH-001`, `RULE-DATA-001`, `RULE-SEND-001`; resolved `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` |
 | Wave 1 | unresolved `F-CORE-004/005`, `F-SEC-001/004/009/010`, `F-SCORE-010`; `IMP-061`, `IMP-098`, `IMP-101`; resolved W1.6 `F-AI-010/011`, `F-CTX-003`, `IMP-028.A` and W1.7 `IMP-060` |
-| Wave 2 | `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`, `F-DEPLOY-001/002/003/004`; `IMP-044`, `IMP-094`; `T40`, `T41` |
+| Wave 2 | `F-AI-003/004/013/018`, `F-DATA-012`, `F-TEST-002`, `F-DEBT-006/007`, `F-DEPLOY-001/002/003/004`; `IMP-044`, `IMP-094`, `IMP-106`; `T40`, `T41` |
 | Wave 3 | narrow `IMP-087.A`; full `IMP-087` remains PARTIAL |
 | Wave 4 | `F-CAT-004`, `F-DATA-001`, `F-DATA-010.A`, `F-PAY-002`, `F-PAY-003`, `F-PAY-006`; `IMP-046.A`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`; `IMPR-CAT-002`, `IMPR-CAT-004`, `IMPR-CAT-006`, `IMPR-FEAT-001`, `IMPR-FEAT-002`, `IMPR-FEAT-003`, `IMPR-FEAT-004`, `IMPR-FEAT-005`, `IMPR-FEAT-014`, `IMPR-FEAT-015`, `IMPR-INV-001`; `T04`, `T38`, `T44`, `T45`, `T47`; GREEN guard `T51` |
 | Wave 5 | `F-AI-009`, `F-AI-012`, `F-CTX-001`, `F-DATA-016`; `IMP-028.B`, `IMP-090`, `IMP-095`; `IMPR-SALES-001`, `IMPR-SALES-002`, `IMPR-SALES-003`, `IMPR-SALES-004`, `IMPR-SALES-005`, `IMPR-SALES-006`, `IMPR-SALES-007`, `IMPR-SALES-008`, `IMPR-SALES-009`, `IMPR-SALES-010`, `IMPR-SALES-011`, `IMPR-TXT-006`, `IMPR-FUP-013` |
@@ -1016,25 +1121,22 @@ For each checkbox:
 - Venv:
   `/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate`
 - Branch: `main`; pull must be fast-forward compatible.
-- `deploy.sh` lives in the Git root, not the Django app directory.
+- Deployment is SSH-only: do not invoke `deploy.sh`, `scripts/deploy_release.py`,
+  SCP installation or another release wrapper for this project.
 
-Command shape after a pushed, reviewed slice (credentials stay outside docs and
-shell history where possible):
+Command shape after a scoped commit has been pushed to GitHub `main` (the
+password stays in the caller environment and never enters docs or shell
+history):
 
 ```bash
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
-cd /home/qlknpodo/TWC/TwoComms_Site
-git pull --ff-only origin main
-./deploy.sh
-cd twocomms
-python manage.py check
-python manage.py showmigrations management
-python manage.py run_instagram_bot --ensure
+SSHPASS="$TWOCOMMS_DEPLOY_PASSWORD" sshpass -e ssh \\
+  -o StrictHostKeyChecking=no qlknpodo@195.191.25.63 \\
+  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull'"
 ```
 
-Then run only the slice-specific read-only production reconciliation and record
-the exact deployed SHA. Never write SSH/DB/API secrets into audit files, commit
-messages, test output or Telegram diagnostics.
+Then use separate SSH read-only checks, when required by the slice, to record
+the exact deployed SHA and runtime evidence. Never write SSH/DB/API secrets into
+audit files, commit messages, test output or Telegram diagnostics.
 
 ## 17. Definition of completion
 

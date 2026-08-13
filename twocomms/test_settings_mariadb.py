@@ -66,6 +66,13 @@ def _test_database_configuration() -> tuple[str, str, str, str, str]:
     if not 1 <= port_number <= 65535:
         raise RuntimeError("TEST_MARIADB_PORT must be an integer from 1 to 65535.")
 
+    if test_host := _canonical_host(host):
+        if test_host != "loopback" and os.environ.get("TEST_MARIADB_REMOTE_ALLOWED") != "1":
+            raise RuntimeError(
+                "TEST_MARIADB_HOST is remote; set TEST_MARIADB_REMOTE_ALLOWED=1 "
+                "explicitly for a disposable MariaDB service."
+            )
+
     production_names = {
         value.strip().lower()
         for value in (os.environ.get("DB_NAME"), os.environ.get("DB_NAME_DTF"))
@@ -75,6 +82,17 @@ def _test_database_configuration() -> tuple[str, str, str, str, str]:
         raise RuntimeError(
             "Refusing MariaDB tests: TEST_MARIADB_NAME matches a configured "
             "production database."
+        )
+
+    production_users = {
+        value.strip().lower()
+        for value in (os.environ.get("DB_USER"), os.environ.get("DB_USER_DTF"))
+        if (value or "").strip()
+    }
+    if user.lower() in production_users:
+        raise RuntimeError(
+            "Refusing MariaDB tests: TEST_MARIADB_USER matches a configured "
+            "production database user."
         )
 
     test_host = _canonical_host(host)
