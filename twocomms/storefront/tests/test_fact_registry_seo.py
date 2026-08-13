@@ -46,6 +46,16 @@ class PublicFactRegistrySeoTests(TestCase):
         self.assertNotIn('"openingHoursSpecification":', body)
         self.assertNotIn('"postalCode":', body)
 
+    def test_standard_pages_do_not_publish_unverified_exact_geo_coordinates(self):
+        response = Client().get("/")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertNotIn('name="geo.position"', body)
+        self.assertNotIn('name="ICBM"', body)
+        self.assertIn('name="geo.region"', body)
+        self.assertIn('name="geo.placename"', body)
+
     def test_legacy_product_seo_block_uses_checkout_owned_shipping_threshold(self):
         from storefront.services.product_seo_block import build_product_seo_block
 

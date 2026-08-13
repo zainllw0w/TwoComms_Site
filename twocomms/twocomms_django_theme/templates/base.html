@@ -260,17 +260,14 @@
     Core / "geo tag" attributes. Yandex and some specialised crawlers
     pick them up. They are zero-cost insurance against bad regional
     targeting.
-  • ``geo.position`` (lat;lng of Kharkiv — the brand's home city) is
-    harmless when present and helps a handful of map-aware crawlers.
-    SEO 2026-05-16 (P0-3) — switched from Kyiv coordinates to Kharkiv
-    so NAP signals are consistent with the rest of the brand surface
-    (Organization.address, contacts page, brand narrative).
+  • Exact ``geo.position`` / ``ICBM`` coordinates are intentionally omitted:
+    the public entity contract does not verify a physical storefront or
+    service point at those coordinates. A country/placename hint is retained
+    without asserting a precise address.
   {% endcomment %}
   <meta http-equiv="content-language" content="{{ html_lang_attr }}">
   <meta name="geo.region" content="UA-63">
   <meta name="geo.placename" content="Kharkiv, Ukraine">
-  <meta name="geo.position" content="49.9935;36.2304">
-  <meta name="ICBM" content="49.9935, 36.2304">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
