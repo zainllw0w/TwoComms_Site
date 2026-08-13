@@ -395,6 +395,13 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertNotContains(response, "Принт витримує багато прань", html=False)
         self.assertNotContains(response, "Зроблено в Україні з любов'ю", html=False)
 
+    def test_product_detail_fallback_delivery_copy_does_not_guess_a_numeric_window(self):
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "1–2 дні по Україні після підтвердження замовлення", html=False)
+        self.assertContains(response, "/delivery/", html=False)
+
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
             [
