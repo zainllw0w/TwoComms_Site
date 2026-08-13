@@ -81,6 +81,10 @@ _TEST_RESULT_RE = re.compile(
 _EXCEPTION_RE = re.compile(
     r"^((?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):(?:\s.*)?$"
 )
+_DATABASE_ERRNO_RE = re.compile(
+    r"^((?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):\s*"
+    r"\(([1-9]\d{0,4}),"
+)
 
 
 class GateError(RuntimeError):
@@ -120,8 +124,14 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
     ]
     for raw_line in (completed.stderr or "").splitlines():
         candidate = _ANSI_ESCAPE_RE.sub("", raw_line.strip())
+        database_errno_match = _DATABASE_ERRNO_RE.match(candidate)
         exception_match = _EXCEPTION_RE.fullmatch(candidate)
-        if exception_match:
+        if database_errno_match:
+            lines.append(
+                f"{database_errno_match.group(1)}: "
+                f"errno={database_errno_match.group(2)}"
+            )
+        elif exception_match:
             lines.append(f"{exception_match.group(1)}:")
         elif _TEST_RESULT_RE.fullmatch(candidate):
             lines.append(_sanitize_failure_line(candidate))

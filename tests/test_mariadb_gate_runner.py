@@ -191,6 +191,8 @@ class MariaDbGateRunnerTests(unittest.TestCase):
                 '  File "/workspace/management/tests.py", line 10, in test_checkout\n'
                 "RuntimeError: buyer@example.com +380501112233 "
                 f"token={secret} Private customer note\n"
+                "pymysql.err.OperationalError: (1213, 'buyer@example.com "
+                f"token={secret} private database detail')\n"
                 "Ran 1 test in 2.345s\n"
                 "FAILED (errors=1)\n"
                 + "ignored diagnostic noise\n" * 1000
@@ -215,6 +217,7 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         )
         self.assertIn("ERROR: test_checkout", summary)
         self.assertIn("RuntimeError:", summary)
+        self.assertIn("pymysql.err.OperationalError: errno=1213", summary)
         self.assertIn("Ran 1 test in 2.345s", summary)
         self.assertIn("FAILED (errors=1)", summary)
         self.assertNotIn("Traceback", summary)
