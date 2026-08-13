@@ -362,6 +362,34 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   `full_description` was changed. No ranking, traffic, citation or conversion
   uplift is claimed.
 
+- [x] **P0.7** Remove exact `geo.position`/`ICBM` coordinates from the shared
+  storefront shell. `/contacts/` had already removed the unverified physical
+  store entity fields, but `base.html` still asserted precise Kharkiv
+  coordinates on every URL. The public shell now retains only the broad
+  Ukrainian market hints (`content-language`, `geo.region`, `geo.placename`)
+  and does not claim a precise storefront/service point.
+
+#### P0.7 release evidence
+
+- Code/test commit: `9b60a062` (`fix(seo): remove unverified exact geo
+  coordinates`) removes the two exact-coordinate meta tags and adds a
+  homepage regression while preserving the broad market hints.
+- TDD/local gates: the focused registry suite passed `7/7`; touched-file
+  compilation and `git diff --check` passed. The initial RED run correctly
+  exposed stale cached HTML after source removal, leading to the required
+  cache invalidation follow-up rather than accepting a false live result.
+- Cache/runtime follow-up: `6aa74c88` (`fix(seo): invalidate cached geo
+  metadata`) advanced `HOME_SEO_FACTS_CACHE_VERSION` to
+  `seo-facts-v3-20260813-geo`; its focused cache-version/geo tests passed
+  `2/2` before release. Production `origin/main`, server `HEAD` and restart
+  checkpoint are `6aa74c88`.
+- Live proof: a cache-busting homepage request returned `200`, contained zero
+  `geo.position` and zero `ICBM` tags, and retained one `geo.region` tag.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, product data, inventory, entity address
+  or contact phone was changed. No ranking, traffic, citation or conversion
+  uplift is claimed.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
