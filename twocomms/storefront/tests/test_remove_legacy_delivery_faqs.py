@@ -34,7 +34,7 @@ class RemoveLegacyDeliveryFaqsTests(TestCase):
             status="published",
         )
 
-    def _legacy_faq(self, *, answer_suffix="", order=2):
+    def _legacy_faq(self, *, answer_suffix="", order=2, is_active=True):
         return ProductFAQ.objects.create(
             product=self.product,
             question="Як швидко доставимо футболку?",
@@ -66,7 +66,7 @@ class RemoveLegacyDeliveryFaqsTests(TestCase):
                 + answer_suffix
             ),
             order=order,
-            is_active=True,
+            is_active=is_active,
         )
 
     def _scoped_product(self, *, category_slug, status="published", slug=None):
@@ -169,15 +169,45 @@ class RemoveLegacyDeliveryFaqsTests(TestCase):
             self.assertFalse(backup.exists())
             self.assertTrue(ProductFAQ.objects.filter(pk=row.pk).exists())
 
+    def test_apply_aborts_when_a_new_scoped_row_is_added_after_scan(self):
+        row = self._legacy_faq()
+        command_module = __import__(
+            "storefront.management.commands.remove_legacy_delivery_faqs",
+            fromlist=["_scan_rows"],
+        )
+        real_scan = command_module._scan_rows
+        calls = 0
+
+        def stale_scan(rows):
+            nonlocal calls
+            if calls == 1:
+                added = self._legacy_faq(answer_suffix=" added after dry-run")
+                rows.append(added)
+            calls += 1
+            return real_scan(rows)
+
+        with TemporaryDirectory() as tmp:
+            backup = Path(tmp) / "should-not-exist.json"
+            with patch.object(command_module, "_scan_rows", side_effect=stale_scan):
+                with self.assertRaises(CommandError):
+                    call_command(
+                        "remove_legacy_delivery_faqs",
+                        "--apply",
+                        "--confirm",
+                        "--backup-path",
+                        str(backup),
+                    )
+            self.assertFalse(backup.exists())
+            self.assertTrue(ProductFAQ.objects.filter(pk=row.pk).exists())
+            self.assertEqual(ProductFAQ.objects.filter(is_active=True).count(), 1)
+
     def test_only_published_standard_order_two_rows_are_candidates(self):
         draft = self._scoped_product(category_slug="tshirts-draft", status="draft")
         other_category = self._scoped_product(category_slug="other-service")
         draft_row = self._legacy_faq_for_product(draft)
         other_row = self._legacy_faq_for_product(other_category)
         wrong_order = self._legacy_faq(order=1)
-        inactive = self._legacy_faq()
-        inactive.is_active = False
-        inactive.save(update_fields=["is_active"])
+        inactive = self._legacy_faq(is_active=False)
         custom_faq = ProductFAQ.objects.create(
             product=self.product,
             question="Можно ли заказать индивидуальный дизайн?",
