@@ -441,6 +441,46 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   authored editorial copy was changed. No ranking, traffic, feed approval or
   conversion uplift is claimed.
 
+#### P0.9b marketplace factuality completion (2026-08-13)
+
+- [x] **P0.9b** Remove generated country-of-origin, season, generic return,
+  blanket adult-age and blanket gender claims from every marketplace feed
+  builder. Preserve source-authored product titles/descriptions and factual
+  offer identity. Emit `gender` only when exactly one active, explicit product
+  audience owner exists; omit it for missing or conflicting assignments.
+- Code/test commit: `c8c8c9b01` (`fix(seo): remove unsupported marketplace
+  feed claims`) adds the conflict-safe owner resolver, resolves it once per
+  product rather than per size offer, removes unowned generated claims from
+  Rozetka, Kasta, BuyMe, Google Merchant, Meta/Instagram and Prom/UAProm, and
+  keeps color, size, image, URL, price, availability, stock, GTIN and offer
+  IDs unchanged. Source titles may still include words such as `унісекс`;
+  this is product-authored copy, not an inferred feed field, and was not
+  rewritten.
+- Context7 evidence: Google Merchant accepts `male`, `female`, `unisex` for
+  apparel `gender`; omitting an optional/unsupported value is safer than
+  asserting a universal value without an owner. The implementation therefore
+  emits the tag only from one structured `ProductAudience` assignment and
+  fails closed for five known conflicting products.
+- Local gates: RED proved the prior per-offer lookup (`5` calls for five
+  sizes); GREEN resolves exactly once per product. Focused marketplace/admin
+  suite passed `54/54` under `test_settings`; touched-file compilation and
+  `git diff --check` passed.
+- Production: pushed to `main`, server `HEAD=c8c8c9b01`, Passenger restarted.
+  The forced snapshot refresh rebuilt Google v2/v3, Rozetka, Kasta, BuyMe,
+  Prom and Instagram from the new builder. XML parsing confirmed every
+  canonical dynamic feed and each available snapshot is well formed; generated
+  country, season and `age_group` markers are zero. Google/Meta and YML gender
+  values are solely explicit `unisex` owners, not a blanket fallback.
+- Route correction: the canonical UAProm endpoint is `/products_feed.xml`;
+  `/uaprom-products-feed.xml` is not registered. The canonical Instagram
+  integration endpoint is the file-backed `/media/instagram-feed.xml`;
+  `/instagram-feed.xml` is not registered. No 404 alias is presented as a
+  live feed in the operational registry.
+- Boundary: no DTF subdomain/blog/module, Custom Print, source product copy,
+  customer checkout policy, stock policy or data ownership was changed. This
+  is factuality and feed-validity work, not a promised ranking or approval
+  result.
+
 - [x] **P0.10** Replace the delivery FAQ's stale hardcoded free-shipping
   threshold with the checkout-owned public fact registry. This keeps the
   visible support page and commerce threshold synchronized without choosing
