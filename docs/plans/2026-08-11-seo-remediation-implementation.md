@@ -635,6 +635,38 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   changed. This is a factuality and future-content-creation correction, not a
   ranking, traffic, rich-result or conversion claim.
 
+- [x] **P1.4** Remove only the exact legacy delivery FAQ rows confirmed in
+  production after P1.3. The cleanup scope is `published` standard products
+  in `tshirts`, `hoodie` and `long-sleeve`, active FAQ `order=2`, and an exact
+  match across all base/UK/RU/EN question and answer fields. DTF, Custom Print,
+  drafts, inactive rows, different orders and manually edited/localized rows
+  remain untouched.
+
+#### P1.4 release evidence
+
+- Code/test commit: `8ba6ceb58f101d293b46f1b0ca6130b7381f1ddc`
+  (`fix(seo): narrow legacy delivery faq cleanup`) hardens
+  `remove_legacy_delivery_faqs` with the published standard-category/order
+  scope and fingerprints `id`, product, order, active state and all eight
+  localized fields before deletion. Apply requires `--apply --confirm
+  --backup-path`; any stale-row mismatch aborts before writing.
+- TDD/local gates: the focused cleanup suite passed `6/6`; the prior generator,
+  refresh-command and FAQ ownership suites passed `33/33` in the same release
+  sequence. `manage.py check`, touched-file compilation and `git diff --check`
+  passed.
+- Production preflight at server SHA `8ba6ceb5`: exact-scope dry-run reported
+  `64` candidates and a single-product smoke run reported `1`; no write was
+  performed before the full apply.
+- Guarded production apply: deleted exactly `64` rows in one transaction and
+  wrote backup `/home/qlknpodo/TWC/TwoComms_Site/releases/evidence/legacy-delivery-faq-backup-8ba6ceb58.json`
+  (`91,700` bytes). Immediate repeat dry-run returned `0`; read-only DB check
+  returned `legacy_count=0` for all three retired question signatures.
+- Live proof after apply: `/delivery/` remained `200` with the current
+  checkout-owned `3000 грн` threshold, and the standard PDP remained `200`
+  with its existing localized title. No cart, checkout, analytics, DTF or
+  Custom Print flow was invoked. No ranking, traffic, rich-result or
+  conversion uplift is claimed.
+
 #### P0.13a release evidence
 
 - Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`
