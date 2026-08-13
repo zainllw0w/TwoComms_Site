@@ -390,6 +390,57 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   or contact phone was changed. No ranking, traffic, citation or conversion
   uplift is claimed.
 
+- [x] **P0.8** Remove the standard PDP's unsupported numeric delivery-window
+  promise and link buyers to the canonical delivery policy until one
+  source-backed preparation/carrier contract is established. This is a
+  factuality correction only; it does not rewrite reviewed product copy,
+  checkout policy or Custom Print.
+
+#### P0.8 release evidence
+
+- Code/test commit: `c09c4ab97` (`fix(seo): avoid guessing PDP delivery
+  window`) replaced the unowned `1–2 дні` PDP promise with a neutral
+  preparation/carrier statement and a canonical `/delivery/` link.
+- TDD/local gates: the old marker reproduced RED, the new regression passed
+  GREEN, `ProductDetailTests` passed `26/26`, and the standard check,
+  touched-file compilation and `git diff --check` gates passed.
+- Production proof: live canonical `/product/classic-tshirt/` and a
+  cache-busting query request both returned `200` and rendered the neutral
+  statement with `/delivery/`; the old `1–2 дні` shipping sentence was absent.
+  No mass cache purge was performed because the current canonical response
+  was already fresh and no cache-control/purge contract was proven safe.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, product data, inventory, FAQ or reviewed
+  editorial description was changed. No ranking, traffic, citation or
+  conversion uplift is claimed.
+
+- [x] **P0.9** Stop marketplace feed generation from inferring material
+  composition from a product title/category when Product and variant models
+  have no reviewed material owner. Omit material attributes and generated
+  material fragments until a source-backed owner exists; preserve manually
+  authored product descriptions and all non-material feed fields.
+
+#### P0.9 release evidence
+
+- Code/test commit: `7ff9a5d71` (`fix(seo): omit guessed material from
+  marketplace feeds`) makes `_material_pair()` fail closed and removes the
+  generated material from Rozetka, Kasta, BuyMe, Google Merchant, Meta,
+  Prom and UAProm/YML surfaces. A regression covers all six builders.
+- TDD/local gates: the new regression reproduced the old category guess and
+  passed after the change; `storefront.tests.test_marketplace_feeds` passed
+  `13/13`, `manage.py check --settings=test_settings`, touched-file
+  compilation and `git diff --check` passed.
+- Production: `origin/main`, server `HEAD` and the restart checkpoint are
+  `7ff9a5d71`. Server `manage.py check` passed. Live Google Merchant output
+  contains zero `<g:material>` elements and zero generated `Матеріал:` /
+  `Материал:` fragments. The live endpoint still contains some composition
+  text from reviewed product `full_description` fields; those are source
+  content and were intentionally not mass-edited.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, product data, inventory, checkout or
+  authored editorial copy was changed. No ranking, traffic, feed approval or
+  conversion uplift is claimed.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
