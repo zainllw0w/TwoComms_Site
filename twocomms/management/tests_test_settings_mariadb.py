@@ -3,16 +3,15 @@
 import os
 import subprocess
 import sys
+import unittest
 from pathlib import Path
-
-from django.test import SimpleTestCase
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _IMPORT_PROFILE = "import test_settings_mariadb"
 
 
-class MariaDbTestSettingsContractTests(SimpleTestCase):
+class MariaDbTestSettingsContractTests(unittest.TestCase):
     def _environment(self, **overrides):
         environment = os.environ.copy()
         environment.update({
