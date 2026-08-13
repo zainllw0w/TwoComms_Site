@@ -4,6 +4,27 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W2.1 bounded local reliability release (2026-08-13)
+
+Commit `a8bf03bd99bbc12445dbd64cc49683a5ca5eadbf` was pushed to `main` and
+pulled on production with `git pull --ff-only origin main`. The server is at
+the exact SHA; tracked status is clean apart from pre-existing untracked
+operational files. `migrate --noinput` reported no pending migrations through
+`management.0154_synthetic_inbound_event_key`; `manage.py check` and
+`makemigrations --check --dry-run` were clean apart from the known MariaDB
+conditional-unique/max-length warnings. Static collection and compression
+completed, Passenger restart was requested, `run_instagram_bot --ensure`
+confirmed the singleton alive, and `run_instagram_bot --once` returned
+`ok=True, enqueued=0, skipped=True, handled=0`.
+
+Read-only reconciliation: `/bot/health/` returned HTTP 200 with
+`bot_state=running`, `dangerous_backlog=0`, `inbound_pending=0`,
+`reply_pending=0`, `notification_unresolved=0`, `analysis_pending=0`, and
+`analysis_failed=18` historical terminal rows. The host's `/healthz/` path is
+not configured (HTTP 404), so no healthz claim is made. The immutable target-
+SHA deploy wrapper was not bypassed; current-SHA wheelhouse/release provenance
+remains open under `F-DEPLOY-001`/`F-DEPLOY-003`.
+
 ## Implement2 Wave 3 bounded `IMP-087.A` release (2026-08-13)
 
 Commit `7ad632dec2808e8fbe036c75da848d68c41987d2` was pushed to `main` and

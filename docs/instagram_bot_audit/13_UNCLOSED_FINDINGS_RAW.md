@@ -216,10 +216,10 @@
   ensure_instagram_subscription. (Dead entry points создают ложную архитектуру.)
 - [ ] F-DEBT-004 — OPEN: убрать silent swallowing кроме documented telemetry.
   (Операционные ошибки должны классифицироваться и наблюдаться.)
-- [x] F-DEBT-006 — FIXED/VERIFIED (W2.1 local slice): manager-echo queue
-  failure no longer leaves partial state; cwd-independent no-network gate is
-  207/207 with 0 failures/errors/skips on three documented CWDs. Full
-  management and disposable-MariaDB/release parity remain separate.
+- [ ] F-DEBT-006 — PARTIAL (W2.1 local slice): manager-echo queue failure no
+  longer leaves partial state; cwd-independent no-network gate is 207/207 with
+  0 failures/errors/skips on three documented CWDs. Full management baseline,
+  disposable-MariaDB and release parity remain separate.
   (Следующий агент должен отличать свой regression от старого failure.)
 - [ ] F-DEBT-007 — OPEN: root-cause flaky telephony test и минимум три
   повторяемых full runs. (Один зелёный прогон не доказательство.)

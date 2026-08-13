@@ -1225,7 +1225,7 @@ continuation остаётся отдельным свежим срезом.
 | [ ] | F-DEBT-003 | OPEN | IMP-046 |
 | [ ] | F-DEBT-004 | OPEN | IMP-045 |
 | [x] | F-DEBT-005 | FIXED/VERIFIED | IMP-004 |
-| [x] | F-DEBT-006 | FIXED/VERIFIED (W2.1 local baseline) | IMP-094 |
+| [ ] | F-DEBT-006 | PARTIAL (W2.1 mandatory subset stable; full historical baseline remains) | IMP-094 |
 | [ ] | F-DEBT-007 | OPEN | IMP-094 |
 | [ ] | F-DEPLOY-001 | OPEN | IMP-094 / Implement2 Task 7 |
 | [ ] | F-DEPLOY-002 | OPEN | IMP-094 / Implement2 Task 4 |
