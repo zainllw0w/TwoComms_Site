@@ -15370,20 +15370,20 @@ msgstr "Как выбрать размер?"
 #: twocomms_django_theme/templates/pages/product_detail.html:397
 #, python-format
 msgid "Повідомити, коли розмір %(size)s з'явиться"
-msgstr ""
+msgstr "Сообщить, когда размер %(size)s появится"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:405
 msgid "Наразі всі розміри розібрано"
-msgstr ""
+msgstr "Сейчас все размеры распроданы"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:405
 msgid "Оберіть потрібний розмір у заявці, і ми повідомимо про його появу."
-msgstr ""
+msgstr "Выберите нужный размер в заявке, и мы сообщим, когда он появится."
 
 #: twocomms_django_theme/templates/pages/product_detail.html:406
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:10
 msgid "Повідомити про наявність"
-msgstr ""
+msgstr "Уведомить о наличии"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:409
 msgid "Розміри уточнюються менеджером після замовлення."
@@ -15391,11 +15391,11 @@ msgstr "Размеры уточняются менеджером после за
 
 #: twocomms_django_theme/templates/pages/product_detail.html:418
 msgid "Варіанти тимчасово недоступні"
-msgstr ""
+msgstr "Варианты временно недоступны"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:419
 msgid "Оновіть сторінку трохи пізніше або напишіть нам для підбору."
-msgstr ""
+msgstr "Обновите страницу немного позже или напишите нам, и мы поможем с выбором."
 
 #: twocomms_django_theme/templates/pages/product_detail.html:450
 msgid "Для цього товару доступний один колір."
@@ -15403,7 +15403,7 @@ msgstr "Для этого товара доступен один цвет."
 
 #: twocomms_django_theme/templates/pages/product_detail.html:481
 msgid "Незабаром"
-msgstr ""
+msgstr "Скоро"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:491
 msgid "Інформація про товар"
@@ -16655,27 +16655,27 @@ msgstr "Возможна оплата картой онлайн, наложен�
 
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:10
 msgid "Оберіть зручний канал. Ми напишемо лише один раз, коли потрібна конфігурація з'явиться."
-msgstr ""
+msgstr "Выберите удобный канал. Мы напишем только один раз, когда нужная конфигурация появится."
 
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:16
 msgid "Опції"
-msgstr ""
+msgstr "Опции"
 
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:20
 msgid "Канал сповіщення"
-msgstr ""
+msgstr "Канал уведомления"
 
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:26
 msgid "Як до вас звертатися"
-msgstr ""
+msgstr "Как к вам обращаться"
 
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:29
 msgid "Telegram прив'яжеться через бота з підтвердженням номера."
-msgstr ""
+msgstr "Telegram подключится через бота после подтверждения номера."
 
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:31
 msgid "Повідомити мене"
-msgstr ""
+msgstr "Уведомить меня"
 
 #: twocomms_django_theme/templates/partials/product_reviews.html:20
 msgid "Досвід клієнтів"

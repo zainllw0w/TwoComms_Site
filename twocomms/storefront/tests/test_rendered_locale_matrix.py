@@ -229,6 +229,71 @@ class RenderedLocaleMatrixTests(TestCase):
                 for marker in ukrainian_markers:
                     self.assertNotIn(marker, body)
 
+    def test_standard_pdp_restock_and_status_ui_is_locale_owned(self):
+        matrix = {
+            "ru": {
+                "path": "/ru/product/locale-matrix-tee/",
+                "required": (
+                    "Сообщить, когда размер S появится",
+                    "Сейчас все размеры распроданы",
+                    "Выберите нужный размер в заявке, и мы сообщим, когда он появится.",
+                    "Уведомить о наличии",
+                    "Варианты временно недоступны",
+                    "Обновите страницу немного позже или напишите нам, и мы поможем с выбором.",
+                    "Выберите удобный канал. Мы напишем только один раз, когда нужная конфигурация появится.",
+                    "Товар",
+                    "Опции",
+                    "Канал уведомления",
+                    "Звонок",
+                    "Как к вам обращаться",
+                    "Telegram подключится через бота после подтверждения номера.",
+                    "Уведомить меня",
+                ),
+            },
+            "en": {
+                "path": "/en/product/locale-matrix-tee/",
+                "required": (
+                    "Notify me when size S is available",
+                    "All sizes are currently sold out",
+                    "Choose the size you need in the request, and we will let you know when it is available.",
+                    "Notify me when available",
+                    "Options are temporarily unavailable",
+                    "Refresh the page a little later or message us for help choosing.",
+                    "Choose a convenient channel. We will contact you only once when the selected configuration is available.",
+                    "Product",
+                    "Options",
+                    "Notification channel",
+                    "Call",
+                    "How should we address you?",
+                    "Telegram will be connected through the bot after phone number verification.",
+                    "Notify me",
+                ),
+            },
+        }
+        ukrainian_markers = (
+            "Повідомити, коли розмір S з'явиться",
+            "Наразі всі розміри розібрано",
+            "Оберіть потрібний розмір у заявці, і ми повідомимо про його появу.",
+            "Повідомити про наявність",
+            "Варіанти тимчасово недоступні",
+            "Оновіть сторінку трохи пізніше або напишіть нам для підбору.",
+            "Оберіть зручний канал. Ми напишемо лише один раз, коли потрібна конфігурація з'явиться.",
+            "Канал сповіщення",
+            "Як до вас звертатися",
+            "Telegram прив'яжеться через бота з підтвердженням номера.",
+            "Повідомити мене",
+        )
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode("utf-8")
+                for value in expected["required"]:
+                    self.assertIn(value, body)
+                for marker in ukrainian_markers:
+                    self.assertNotIn(marker, body)
+
     def test_standard_pdp_editorial_links_use_locale_owned_labels_and_urls(self):
         matrix = {
             "ru": {
