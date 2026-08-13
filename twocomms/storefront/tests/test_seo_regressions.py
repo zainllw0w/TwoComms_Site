@@ -1,12 +1,14 @@
 from unittest.mock import patch
 
 import json
+import re
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.sites.models import Site
 from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from django.utils.translation import override
 
 from orders.models import Order
 from productcolors.models import Color, ProductColorVariant
@@ -744,6 +746,29 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
 
 
 class ContactsSeoSignalRegressionTests(TestCase):
+    def test_contacts_omit_unverified_support_hours_in_every_locale(self):
+        for locale in ("uk", "ru", "en"):
+            with self.subTest(locale=locale), override(locale):
+                response = self.client.get(reverse("contacts"), follow=True)
+
+                self.assertEqual(response.status_code, 200)
+                payloads = re.findall(
+                    r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>',
+                    response.content.decode("utf-8"),
+                    flags=re.DOTALL,
+                )
+                schemas = [json.loads(payload) for payload in payloads]
+                contact_page = next(
+                    schema for schema in schemas if schema.get("@type") == "ContactPage"
+                )
+                store = contact_page["mainEntity"]
+
+                self.assertEqual(store["@type"], "ClothingStore")
+                self.assertEqual(store["telephone"], "+380966543212")
+                self.assertNotIn("hoursAvailable", store["contactPoint"][0])
+                self.assertNotContains(response, "10:00", html=False)
+                self.assertNotContains(response, "22:00", html=False)
+
     def test_contacts_use_real_catalog_price_range_without_placeholder_addresses(self):
         category = Category.objects.create(
             name="Contacts SEO products",
