@@ -8,6 +8,7 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from productcolors.models import Color, ProductColorVariant
+from product_catalog.models import AudienceTag, ProductAudience
 from storefront.models import Category, Product, ProductStatus
 
 
@@ -91,15 +92,17 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertIn("Чорний", first.findtext("name_ua"))
         self.assertIn("Черная футболка унисекс TwoComms", first.findtext("name"))
         self.assertNotIn("Чорна", first.findtext("name"))
-        self.assertIn("Эксклюзивный дизайн", first.findtext("description"))
+        self.assertIn("товар категории", first.findtext("description"))
         self.assertIn("Черная футболка унисекс TwoComms", first.findtext("description"))
+        self.assertNotIn("дизайн", first.findtext("description").lower())
         self.assertNotIn("Довіряй", first.findtext("description"))
         self.assertNotIn("Український опис", first.findtext("description"))
 
         params = {(param.attrib["name"], param.text) for param in first.findall("param")}
         self.assertIn(("Розмір", first.findtext("param")), params)
         self.assertIn(("Колір", "Чорний"), params)
-        self.assertIn(("Країна-виробник товару", "Україна"), params)
+        self.assertNotIn(("Країна-виробник товару", "Україна"), params)
+        self.assertNotIn(("Сезон", "Демісезон"), params)
 
     def test_google_feed_uses_current_merchant_attributes_and_valid_identifiers(self):
         from storefront.services.marketplace_feeds import build_google_merchant_feed_xml
@@ -131,8 +134,10 @@ class MarketplaceFeedServiceTests(TestCase):
             first.findtext("g:video_link", namespaces=G_NS),
             "https://twocomms.shop/media/products/test-shirt.mp4",
         )
-        self.assertGreaterEqual(len(first.findall("g:product_detail", namespaces=G_NS)), 5)
-        self.assertGreaterEqual(len(first.findall("g:product_highlight", namespaces=G_NS)), 4)
+        self.assertEqual(len(first.findall("g:product_detail", namespaces=G_NS)), 3)
+        self.assertEqual(len(first.findall("g:product_highlight", namespaces=G_NS)), 1)
+        self.assertIsNone(first.find("g:gender", namespaces=G_NS))
+        self.assertIsNone(first.find("g:age_group", namespaces=G_NS))
 
     def test_feeds_do_not_guess_material_when_product_has_no_owned_material(self):
         from storefront.services.marketplace_feeds import (
@@ -353,7 +358,8 @@ class MarketplaceFeedServiceTests(TestCase):
         params = {(param.attrib["name"], param.text) for param in first.findall("param")}
         self.assertIn(("Колір", "Чорний"), params)
         self.assertIn(("Розмір", "S"), params)
-        self.assertIn(("Країна виробництва", "Україна"), params)
+        self.assertNotIn(("Країна виробництва", "Україна"), params)
+        self.assertNotIn(("Сезон", "Демісезон"), params)
         self.assertTrue(all(name and value for name, value in params))
 
     def test_buyme_feed_groups_variants_uses_drop_discount_and_removes_brands(self):
@@ -417,7 +423,7 @@ class MarketplaceFeedServiceTests(TestCase):
             self.assertEqual(len(grouped_colors), 1, group_id)
             self.assertEqual(grouped_sizes, {"S", "M", "L", "XL", "XXL"}, group_id)
         self.assertEqual(len(offer_ids), 10)
-        self.assertEqual(names, {"Брендова футболка унісекс «Довіряй своїй божевільній ідеї»"})
+        self.assertEqual(names, {"Брендова футболка «Довіряй своїй божевільній ідеї»"})
 
         first = offers[0]
         self.assertEqual(first.attrib["available"], "true")
@@ -438,7 +444,41 @@ class MarketplaceFeedServiceTests(TestCase):
         params = {(param.attrib["name"], param.text) for param in first.findall("param")}
         self.assertIn(("Колір", "Чорний"), params)
         self.assertIn(("Розмір", "S"), params)
-        self.assertIn(("Країна виробництва", "Україна"), params)
+        self.assertNotIn(("Країна виробництва", "Україна"), params)
+        self.assertNotIn(("Сезон", "Демісезон"), params)
+
+    def test_gender_is_emitted_only_for_one_explicit_audience_owner(self):
+        from storefront.services.marketplace_feeds import build_google_merchant_feed_xml
+
+        tag = AudienceTag.objects.create(
+            code="women", label_uk="Жінки", label_ru="Женщины", label_en="Women", order=2
+        )
+        ProductAudience.objects.create(product=self.product, tag=tag)
+        root = ET.fromstring(build_google_merchant_feed_xml(base_url="https://twocomms.shop"))
+        first = root.find("./channel/item")
+        self.assertEqual(first.findtext("g:gender", namespaces=G_NS), "female")
+
+        men = AudienceTag.objects.create(
+            code="men", label_uk="Чоловіки", label_ru="Мужчины", label_en="Men", order=1
+        )
+        ProductAudience.objects.create(product=self.product, tag=men)
+        root = ET.fromstring(build_google_merchant_feed_xml(base_url="https://twocomms.shop"))
+        first = root.find("./channel/item")
+        self.assertIsNone(first.find("g:gender", namespaces=G_NS))
+
+    def test_gender_owner_is_resolved_once_per_product_not_once_per_offer(self):
+        from storefront.services.marketplace_feeds import (
+            _feed_gender,
+            build_google_merchant_feed_xml,
+        )
+
+        with patch(
+            "storefront.services.marketplace_feeds._feed_gender",
+            wraps=_feed_gender,
+        ) as resolver:
+            build_google_merchant_feed_xml(base_url="https://twocomms.shop")
+
+        self.assertEqual(resolver.call_count, 1)
 
     def test_management_commands_write_distinct_marketplace_files(self):
         with TemporaryDirectory() as tmp_dir:

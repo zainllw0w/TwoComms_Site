@@ -709,5 +709,5 @@ class CanonicalFeedProfileTests(TestCase):
         )
         payload = build_feed_xml("meta", base_url="https://twocomms.shop", feed=feed)
         self.assertIn("Черная Худи Canonical".encode(), payload)
-        self.assertIn("Производство: Украина".encode(), payload)
+        self.assertNotIn("Производство: Украина".encode(), payload)
         self.assertNotIn("Чорна Худі Canonical".encode(), payload)

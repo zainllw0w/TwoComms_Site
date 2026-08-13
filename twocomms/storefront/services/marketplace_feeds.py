@@ -17,6 +17,7 @@ from storefront.services.catalog_helpers import apply_public_product_order
 from storefront.services.public_products import public_products_queryset
 from storefront.services.size_guides import resolve_product_sizes
 from storefront.utils.analytics_helpers import FEED_DEFAULT_COLOR, get_item_group_id, get_offer_id
+from product_catalog.services_audience import get_product_audience_codes
 
 
 GOOGLE_NS = "http://base.google.com/ns/1.0"
@@ -237,6 +238,7 @@ class FeedOffer:
     base_price: int
     price: int
     old_price: int | None
+    gender: str
     material_ua: str
     material_ru: str
     description_ua: str
@@ -435,7 +437,18 @@ def _buyme_base_name(product: Product) -> str:
     kind = _product_kind(product)
     label = BUYME_KIND_LABELS.get(kind, BUYME_KIND_LABELS["apparel"])
     design = _buyme_design_phrase(product)
-    return _truncate(_sanitize_buyme_text(f"{label} унісекс {design}"), 255)
+    return _truncate(_sanitize_buyme_text(f"{label} {design}"), 255)
+
+
+def _feed_gender(product: Product) -> str:
+    """Return a gender only for one explicit, non-conflicting owner tag."""
+    try:
+        codes = tuple(get_product_audience_codes(product))
+    except Exception:
+        return ""
+    if len(codes) != 1:
+        return ""
+    return {"men": "male", "women": "female", "unisex": "unisex"}.get(codes[0], "")
 
 
 def _buyme_offer_id(product_id: int, variant_id: int | None, size: str, color_ua: str) -> str:
@@ -505,12 +518,7 @@ def _buyme_description(product: Product, offer: FeedOffer) -> str:
     name = _buyme_base_name(product)
     kind = _product_kind(product)
     item_label = BUYME_KIND_LABELS.get(kind, BUYME_KIND_LABELS["apparel"]).lower()
-    text = (
-        f"{name}. {item_label.capitalize()} з авторським принтом для щоденного образу, "
-        "streetwear-стилю та продажу у форматі дропшипінгу. "
-        f"Колір: {offer.color_ua}. Розмір: {offer.size}. "
-        "Сезон: демісезон. Стать: унісекс. Стан: новий. Країна виробництва: Україна."
-    )
+    text = f"{name}. {item_label.capitalize()}. Колір: {offer.color_ua}. Розмір: {offer.size}."
     return _truncate(_sanitize_buyme_text(text), 3000)
 
 
@@ -610,16 +618,11 @@ def _description_html_ru(product: Product, offer_context: dict) -> str:
     size = offer_context["size"]
     title = _uk_text_to_ru(title)
     category = _uk_text_to_ru(category)
-    lead = f"{title} от TwoComms — качественная вещь категории {category.lower()} с эксклюзивным дизайном."
+    lead = f"{title} от TwoComms — товар категории {category.lower()}."
     return "".join(
         [
             f"<p>{_clean_xml_text(lead)}</p>",
-            (
-                "<p>Эксклюзивный дизайн TwoComms подходит для повседневного образа, "
-                "стритвир-стиля, подарка или мерча команды. Изделие рассчитано на "
-                "комфортную посадку и регулярную носку.</p>"
-            ),
-            f"<p>Цвет: {color}. Размер: {size}. Сезон: демисезон. Производство: Украина.</p>",
+            f"<p>Цвет: {color}. Размер: {size}.</p>",
         ]
     )
 
@@ -630,16 +633,11 @@ def _description_html_ua(product: Product, offer_context: dict) -> str:
     color = offer_context["color_ua"]
     size = offer_context["size"]
     raw = _source_description(product)
-    lead = raw if raw else f"{title} від TwoComms — якісна річ категорії {category.lower()} з ексклюзивним дизайном."
+    lead = raw if raw else f"{title} від TwoComms — товар категорії {category.lower()}."
     return "".join(
         [
             f"<p>{_clean_xml_text(lead)}</p>",
-            (
-                "<p>Ексклюзивний дизайн TwoComms підходить для щоденного образу, "
-                "streetwear-стилю, подарунка або мерчу команди. Виріб розрахований "
-                "на комфортну посадку та регулярне носіння.</p>"
-            ),
-            f"<p>Колір: {color}. Розмір: {size}. Сезон: демісезон. Виробництво: Україна.</p>",
+            f"<p>Колір: {color}. Розмір: {size}.</p>",
         ]
     )
 
@@ -746,6 +744,7 @@ def iter_feed_offers(base_url: str | None = None, products=None) -> list[FeedOff
     offers: list[FeedOffer] = []
 
     for product in products:
+        gender = _feed_gender(product)
         material_ua, material_ru = _material_pair(product)
         base_images = _collect_base_images(product, base_url)
         category_ua = _clean_xml_text(getattr(getattr(product, "category", None), "name", "")) or "Одяг"
@@ -797,6 +796,7 @@ def iter_feed_offers(base_url: str | None = None, products=None) -> list[FeedOff
                         base_price=base_price,
                         price=price,
                         old_price=old_price,
+                        gender=gender,
                         material_ua=material_ua,
                         material_ru=material_ru,
                         description_ua=_description_html_ua(product, context),
@@ -859,6 +859,7 @@ def iter_feed_offers(base_url: str | None = None, products=None) -> list[FeedOff
                         base_price=base_price,
                         price=price,
                         old_price=old_price,
+                        gender=gender,
                         material_ua=material_ua,
                         material_ru=material_ru,
                         description_ua=_description_html_ua(product, context),
@@ -1135,15 +1136,9 @@ def build_rozetka_feed_xml(base_url: str | None = None, feed=None) -> bytes:
         _append_cdata(offer_el, "description_ua", offer.description_ua)
         ET.SubElement(offer_el, "state").text = "new"
 
-        params = [
-            ("Розмір", offer.size),
-            ("Колір", offer.color_ua),
-            ("Сезон", "Демісезон"),
-            ("Стать", "Унісекс"),
-            ("Вікова група", "Дорослі"),
-            ("Принт", "Є"),
-            ("Країна-виробник товару", "Україна"),
-        ]
+        params = [("Розмір", offer.size), ("Колір", offer.color_ua), ("Принт", "Є")]
+        if offer.gender:
+            params.append(("Стать", offer.gender))
         for name, value in params:
             clean_value = _truncate(value, 500)
             if clean_value:
@@ -1202,16 +1197,9 @@ def build_kasta_feed_xml(base_url: str | None = None, feed=None) -> bytes:
         _append_cdata(offer_el, "description_ua", _kasta_description(offer.description_ua))
         ET.SubElement(offer_el, "state").text = "new"
 
-        params = [
-            ("Колір", offer.color_ua),
-            ("Розмір", offer.size),
-            ("Сезон", "Демісезон"),
-            ("Стать", "Унісекс"),
-            ("Вікова група", "Дорослі"),
-            ("Принт", "Є"),
-            ("Країна виробництва", "Україна"),
-            ("Повернення", "Підлягає поверненню"),
-        ]
+        params = [("Колір", offer.color_ua), ("Розмір", offer.size), ("Принт", "Є")]
+        if offer.gender:
+            params.append(("Стать", offer.gender))
         for name, value in params:
             clean_value = _truncate(value, 500)
             if clean_value:
@@ -1265,21 +1253,14 @@ def build_buyme_feed_xml(base_url: str | None = None, feed=None) -> bytes:
 
         ET.SubElement(offer_el, "vendorCode").text = offer_id
         ET.SubElement(offer_el, "quantity_in_stock").text = str(quantity)
-        ET.SubElement(offer_el, "country_of_origin").text = "Україна"
         ET.SubElement(offer_el, "pickup").text = "false"
         ET.SubElement(offer_el, "delivery").text = "true"
         _append_cdata(offer_el, "description", _buyme_description(product, offer))
         _append_cdata(offer_el, "description_ua", _buyme_description(product, offer))
 
-        params = [
-            ("Колір", offer.color_ua),
-            ("Розмір", offer.size),
-            ("Сезон", "Демісезон"),
-            ("Стать", "Унісекс"),
-            ("Вікова група", "Дорослі"),
-            ("Принт", "Є"),
-            ("Країна виробництва", "Україна"),
-        ]
+        params = [("Колір", offer.color_ua), ("Розмір", offer.size), ("Принт", "Є")]
+        if offer.gender:
+            params.append(("Стать", offer.gender))
         for name, value in params[:50]:
             clean_value = _truncate(_sanitize_buyme_text(value), 500)
             if clean_value:
@@ -1360,9 +1341,9 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
     )
     ET.SubElement(channel, "link").text = base_url
     ET.SubElement(channel, "description").text = (
-        "Магазин стрит- и милитари-одежды с эксклюзивным дизайном"
+        "Магазин стрит- и милитари-одежды TwoComms"
         if is_russian
-        else "Магазин стріт та мілітарі одягу з ексклюзивним дизайном"
+        else "Магазин стріт та мілітарі одягу TwoComms"
     )
 
     for offer in offers:
@@ -1402,8 +1383,8 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
             ET.SubElement(item, f"{G}gtin").text = offer.barcode
         ET.SubElement(item, f"{G}product_type").text = _truncate(category, 750)
         ET.SubElement(item, f"{G}google_product_category").text = DEFAULT_GOOGLE_PRODUCT_CATEGORY
-        ET.SubElement(item, f"{G}age_group").text = "adult"
-        ET.SubElement(item, f"{G}gender").text = "unisex"
+        if offer.gender:
+            ET.SubElement(item, f"{G}gender").text = offer.gender
         ET.SubElement(item, f"{G}size").text = _truncate(offer.size, 100)
         ET.SubElement(item, f"{G}size_system").text = "EU"
         ET.SubElement(item, f"{G}color").text = _truncate(color, 100)
@@ -1426,21 +1407,11 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
                 continue
             ET.SubElement(item, f"{G}custom_label_{idx}").text = _truncate(label, 100)
 
-        highlights = (
-            [
-                "Эксклюзивный дизайн TwoComms",
-                "Производство: Украина",
-                "Подходит для повседневной носки",
-                f"Цвет: {color}; размер: {offer.size}",
-            ]
+        highlights = [
+            f"Цвет: {color}; размер: {offer.size}"
             if is_russian
-            else [
-                "Ексклюзивний дизайн TwoComms",
-                "Виробництво: Україна",
-                "Підходить для щоденного носіння",
-                f"Колір: {color}; розмір: {offer.size}",
-            ]
-        )
+            else f"Колір: {color}; розмір: {offer.size}",
+        ]
         for highlight in highlights:
             ET.SubElement(item, f"{G}product_highlight").text = _truncate(highlight, 150)
 
@@ -1449,16 +1420,12 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
                 ("Характеристики", "Бренд", SHOP_NAME),
                 ("Характеристики", "Цвет", color),
                 ("Характеристики", "Размер", offer.size),
-                ("Характеристики", "Страна производства", "Украина"),
-                ("Характеристики", "Сезон", "Демисезон"),
             ]
             if is_russian
             else [
                 ("Характеристики", "Бренд", SHOP_NAME),
                 ("Характеристики", "Колір", color),
                 ("Характеристики", "Розмір", offer.size),
-                ("Характеристики", "Країна виробництва", "Україна"),
-                ("Характеристики", "Сезон", "Демісезон"),
             ]
         )
         for section, name, value in details:
@@ -1527,8 +1494,8 @@ def build_meta_catalog_feed_xml(base_url: str | None = None, feed=None) -> bytes
         ET.SubElement(item, "color").text = _truncate(color, 100)
         ET.SubElement(item, f"{G}product_type").text = _truncate(category, 750)
         ET.SubElement(item, f"{G}google_product_category").text = DEFAULT_GOOGLE_PRODUCT_CATEGORY
-        ET.SubElement(item, f"{G}age_group").text = "adult"
-        ET.SubElement(item, f"{G}gender").text = "unisex"
+        if offer.gender:
+            ET.SubElement(item, f"{G}gender").text = offer.gender
         # Material is omitted until a reviewed product/variant owner exists.
         if _product_kind(product) == "hoodie":
             ET.SubElement(item, "internal_label").text = "['hoodie']"
@@ -1581,15 +1548,12 @@ def _build_yml_feed_xml(*, base_url: str | None, bezzet_mode: bool = False, feed
         ET.SubElement(offer_el, "stock_quantity").text = str(stock_quantity)
         if bezzet_mode:
             ET.SubElement(offer_el, "quantity_in_stock").text = str(stock_quantity)
-        ET.SubElement(offer_el, "country_of_origin").text = "Україна"
         _append_cdata(offer_el, "description", offer.description_ua)
         _append_cdata(offer_el, "description_ua", offer.description_ua)
-        for name, value in [
-            ("Розмір", offer.size),
-            ("Колір", offer.color_ua),
-            ("Сезон", "Демісезон"),
-            ("Країна-виробник товару", "Україна"),
-        ]:
+        params = [("Розмір", offer.size), ("Колір", offer.color_ua)]
+        if offer.gender:
+            params.append(("Стать", offer.gender))
+        for name, value in params:
             ET.SubElement(offer_el, "param", {"name": name}).text = value
 
     return _finalize_xml(catalog)
