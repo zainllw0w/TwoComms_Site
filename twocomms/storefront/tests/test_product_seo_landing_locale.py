@@ -143,7 +143,7 @@ class ProductSeoLandingLocaleTests(TestCase):
         )
         self.assertEqual(
             labels_by_url["/delivery/"],
-            "Доставка Новою Поштою 1–3 дні",
+            "Доставка та оплата",
         )
         self.assertEqual(
             labels_by_url["/rozmirna-sitka/"],

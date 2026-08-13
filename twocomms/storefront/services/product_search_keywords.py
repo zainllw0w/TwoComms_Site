@@ -436,7 +436,7 @@ def _generate_support_chips(product, *, language: str) -> List[Dict[str, Any]]:
             )
             return [
                 {
-                    "label": "Доставка Новою Поштою 1–3 дні",
+                    "label": "Доставка та оплата",
                     "url": reverse("delivery"),
                     "kind": "support",
                     "weight": 50,

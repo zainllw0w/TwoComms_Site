@@ -544,7 +544,7 @@ def _top_queries_for_product(product, fit_code: Optional[str] = None) -> List[Di
     # carries unique content (covered by FAQPage schema there) so we
     # get topical relevance without thin city-page duplication.
     items.append({
-        "label": "Доставка Новою Поштою 1-3 дні",
+        "label": "Доставка та оплата",
         "url":   "/delivery/",
     })
     items.append({
