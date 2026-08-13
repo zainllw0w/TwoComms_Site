@@ -593,27 +593,17 @@ def llms_txt(request):
         "## Brand facts",
         "- Brand: TwoComms",
         "- Country: Ukraine",
-        "- Origin city: Kharkiv",
-        "- Founded: 2022",
         "- Main language on site: Ukrainian",
         "- Additional locales: Russian (/ru/), English (/en/)",
         "- Custom print available: yes",
         "- Wholesale available: yes",
-        "- Mission: Ukrainian streetwear brand from Kharkiv built around the idea «not a full stop, a continuation» — modern street & military-inspired apparel that supports the Armed Forces of Ukraine.",
+        "- Mission: Ukrainian streetwear brand built around the idea «not a full stop, a continuation».",
         "- Signature line: streetwear and military-adjacent T-shirts, hoodies and longsleeves with exclusive DTF prints.",
         "",
         "## Commerce facts",
         "- Currency: UAH (Ukrainian Hryvnia)",
-        "- Catalogue price range: approximately 660–2550 UAH (ready-made apparel).",
-        "- Payment methods: Cash on delivery, Bank card, Apple Pay, Google Pay, Bank transfer.",
         "- Shipping carrier: Nova Poshta (Нова Пошта), Ukraine-wide.",
-        "- Standard shipping window: 1–3 business days within Ukraine.",
         f"- Free shipping threshold: orders of {free_shipping_threshold():g} UAH and above ship for free.",
-        "- Production / handling time: 1–2 business days for in-stock items.",
-        "- Custom DTF print lead time: 3–5 business days from artwork approval to dispatch.",
-        "- Return policy: 14-day return window for ready-made apparel; custom prints are non-refundable per Ukrainian consumer law on personalised goods.",
-        "- Return method: return by Nova Poshta mail; customer pays return shipping for standard items, free return for defective items.",
-        "- Loyalty program: «TWOCOMMS Бали» — points earned per purchase, redeemable for discounts or donations to the Armed Forces of Ukraine.",
         "",
         "## Reviews and ratings",
         "- AggregateRating is surfaced on a product page only after at least one approved customer review exists for that product.",
@@ -654,15 +644,15 @@ def llms_full_txt(request):
         ("Співпраця", reverse("cooperation"),
          "Дропшипінг, бренд-партнерства, контентні колаборації."),
         ("Про бренд", reverse("about"),
-         "Канонічна історія бренду, позиціювання, founder narrative."),
+         "Канонічна історія бренду та позиціювання."),
         ("Новини та блог", reverse("blog"),
          "Канонічний editorial hub: новини бренда, огляди продукції та корисні знання."),
         ("Доставка та оплата", reverse("delivery"),
-         "Нова Пошта, передоплата Monobank, накладений платіж."),
+         "Актуальні умови доставки та оплати."),
         ("Повернення та обмін", reverse("returns"),
-         "14-денне повернення готового одягу. Кастомний друк не повертається."),
+         "Актуальні умови повернення та обміну."),
         ("Контакти", reverse("contacts"),
-         "Телефон, Telegram, Instagram, офіційні магазини."),
+         "Офіційні контактні канали."),
         ("FAQ", reverse("faq"), "Зведений каталог відповідей на типові питання."),
         ("Розмірна сітка", reverse("size_guide"),
          "Підтверджені виміри по категоріях, поради по посадці."),
@@ -737,26 +727,17 @@ def llms_full_txt(request):
     lines: list[str] = [
         "# TwoComms — Full Brand Context for LLMs",
         "",
-        "> Український streetwear / military-adjacent бренд одягу з Харкова.",
+        "> Український streetwear / military-adjacent бренд одягу.",
         "> Канонічний домен: https://twocomms.shop. Основна мова сайту — українська (uk-UA),",
         "> також доступні /ru/ та /en/ версії на тій самій структурі URL.",
         "",
         "## Brand facts",
         "- Brand: TwoComms",
         "- Country: Ukraine",
-        "- City: Харків",
         "- Segment: streetwear / military-adjacent apparel + custom DTF print",
-        "- Founder: Артем Синіло (Artem Synilo) — ветеран, засновник бренду з Харкова.",
-        "- Founder story (external source): пресреліз Міністерства у справах ветеранів "
-        "України «Це не крапка, це продовження» — "
-        "https://mva.gov.ua/prescenter/category/86-novini/tse-ne-krapka-tse-prodovzhennya-istoriya-artema-sinila-ta-harkivskogo-brendu-twocomms",
         "- Brand code: «дві коми» — знак продовження, а не крапки.",
         "- Languages on site: uk-UA (primary), ru-UA, en-UA",
         "- Canonical domain: https://twocomms.shop",
-        "- Telegram: https://t.me/twocomms",
-        "- Instagram: https://instagram.com/twocomms",
-        "- Phone: +380966543212",
-        "- Email: info@twocomms.shop",
         "",
         "## Що ми продаємо",
         "- Готові футболки (з принтами, базові, лімітовані дропи).",
@@ -769,23 +750,16 @@ def llms_full_txt(request):
         "- Військові та цивільні з мілітарним естетичним кодом.",
         "- B2B: бренди, команди, події, корпоративний мерч.",
         "",
-        "## Ключові переваги",
-        "- Виробництво в Україні (Made in UA).",
-        "- DTF-друк, що витримує тривалу експлуатацію.",
-        "- Авторські принти, не масмаркет.",
-        "- Частина прибутку йде на потреби ЗСУ.",
+        "## Ключові характеристики",
+        "- Авторські принти та готові моделі в каталозі.",
         "",
         "## Доставка та оплата",
-        "- Нова Пошта по всій Україні (1–3 робочі дні).",
-        "- Передплата (Monobank invoice) або накладений платіж.",
+        "- Нова Пошта по всій Україні; актуальні умови вказані на сторінці доставки.",
+        f"- Поріг безкоштовної доставки: {free_shipping_threshold():g} грн.",
         "- Деталі та винятки: " + url("/delivery/"),
         "",
         "## Повернення",
-        "- Готовий одяг можна повернути або обміняти протягом 14 днів за умови",
-        "  збереження товарного вигляду та супутніх умов.",
-        "- Кастомний DTF-одяг, виготовлений за індивідуальним макетом, не підлягає",
-        "  поверненню чи обміну, окрім випадків виробничого браку.",
-        "- Повний регламент: " + url("/povernennya-ta-obmin/"),
+        "- Актуальні умови: " + url("/povernennya-ta-obmin/"),
         "",
         "## Канонічні точки входу",
     ]
@@ -807,37 +781,9 @@ def llms_full_txt(request):
         lines.append("## Новини та блог")
         lines.extend(blog_lines)
 
-    # FAQ canonical matrix — stitched from the same content modules
-    # used to render /faq/, /delivery/, /povernennya-ta-obmin/, etc.
-    faq_sources = [
-        (_("Покупки та сервіс"), "HELP_FAQ_ITEMS"),
-        (_("Доставка та оплата"), "DELIVERY_FAQ_ITEMS"),
-        (_("Повернення"), "RETURNS_FAQ_ITEMS"),
-        (_("Допомога"), "HELP_CENTER_FAQ_ITEMS"),
-    ]
-    try:
-        from storefront import support_content as _sc
-
-        faq_blocks: list[str] = []
-        for heading, attr_name in faq_sources:
-            items = getattr(_sc, attr_name, None)
-            if not items:
-                continue
-            faq_blocks.append("")
-            faq_blocks.append(f"### {heading}")
-            for item in items:
-                question = str(item.get("question", "")).strip()
-                answer = str(item.get("answer", "")).strip()
-                if not question or not answer:
-                    continue
-                faq_blocks.append(f"- Q: {question}")
-                faq_blocks.append(f"  A: {answer}")
-        if faq_blocks:
-            lines.append("")
-            lines.append("## FAQ (зведений каталог)")
-            lines.extend(faq_blocks)
-    except Exception:
-        pass
+    # The support modules currently mix owner-confirmed policies with legacy
+    # delivery, durability, production and donation claims. Do not mirror that
+    # mixed matrix into an AI-facing file until each fact has one registry owner.
 
     lines.extend([
         "",

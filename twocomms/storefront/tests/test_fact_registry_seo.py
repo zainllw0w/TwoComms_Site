@@ -27,6 +27,36 @@ class PublicFactRegistrySeoTests(TestCase):
         self.assertIn("orders of 2750 UAH and above ship for free", body)
         self.assertNotIn("orders of 3000 UAH and above ship for free", body)
 
+    def test_llms_files_omit_unowned_brand_and_delivery_claims(self):
+        client = Client()
+        for path in ("/llms.txt", "/llms-full.txt"):
+            with self.subTest(path=path):
+                response = client.get(path)
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode("utf-8")
+                for marker in (
+                    "Origin city: Kharkiv",
+                    "Founded: 2022",
+                    "Founder: Артем Синіло",
+                    "Founder story (external source)",
+                    "Catalogue price range: approximately",
+                    "Payment methods:",
+                    "Production / handling time: 1–2 business days",
+                    "Standard shipping window: 1–3 business days",
+                    "DTF print lead time: 3–5 business days",
+                    "Return policy: 14-day return window",
+                    "Return method: return by Nova Poshta",
+                    "Loyalty program:",
+                    "City: Харків",
+                    "Виробництво в Україні (Made in UA).",
+                    "Частина прибутку йде на потреби ЗСУ.",
+                    "DTF-друк, що витримує тривалу експлуатацію.",
+                    "Нова Пошта по всій Україні (1–3 робочі дні).",
+                    "## FAQ (зведений каталог)",
+                ):
+                    self.assertNotIn(marker, body)
+                self.assertIn("custom-print/", body)
+
     def test_fact_registry_records_owner_source_locale_and_effective_date(self):
         from storefront.services.fact_registry import PUBLIC_FACTS_VERSION, PUBLIC_FACTS
 
