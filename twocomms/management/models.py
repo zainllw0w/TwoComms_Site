@@ -3654,7 +3654,7 @@ class InstagramBotSettings(models.Model):
     # AI-режим (Gemini). Якщо увімкнено — бот веде вільну розмову; інакше
     # працює простий тригер trigger_text -> reply_text.
     ai_enabled = models.BooleanField(default=True)
-    gemini_model = models.CharField(max_length=80, default="gemini-3.6-flash")
+    gemini_model = models.CharField(max_length=80, default="gemini-3.7-flash")
     system_prompt = models.TextField(blank=True, default=DEFAULT_BOT_SYSTEM_PROMPT)
     # Додаткова база знань (правила доставки, оплати, повернень, графік тощо).
     # Підставляється в контекст Gemini поряд з каталогом. Редагується в UI.
@@ -3914,6 +3914,9 @@ class InstagramBotMessage(models.Model):
     delivery_delivered_chunk_count = models.PositiveSmallIntegerField(default=0)
     delivery_provider_message_ids = models.JSONField(default=list, blank=True)
     delivery_failure_boundary = models.CharField(max_length=64, blank=True, default="")
+    # Exact provider model used for this AI-authored message. Historical and
+    # deterministic rows intentionally remain blank.
+    gemini_model = models.CharField(max_length=80, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     # Provider timestamp is separate from the local immutable ingest time.
     # Backfill/recovery may persist old messages today, but the chat must show

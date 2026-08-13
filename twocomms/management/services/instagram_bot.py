@@ -6108,8 +6108,11 @@ def gemini_generate(
             failure_context["kind"] = "empty_response"
         log("warning", "gemini_empty", f"порожня відповідь ({_time.monotonic() - _t0:.1f}с)")
         return None
+    provider_model = str(out.get("model") or effective_model).strip()[:80]
+    if failure_context is not None:
+        failure_context["model"] = provider_model
     try:
-        s.last_gemini_model = str(out.get("model") or effective_model)[:80]
+        s.last_gemini_model = provider_model
         meta = out.get("meta") or {}
         usage = out.get("usage") or {}
         s.last_gemini_key = str(meta.get("key") or "")[:80]
@@ -6134,6 +6137,33 @@ def gemini_generate(
     log("info", "gemini_ok",
         f"{out.get('model')} / {(out.get('meta') or {}).get('key')} за {_time.monotonic() - _t0:.1f}с")
     return text
+
+
+def _persist_generated_reply_message(
+    source_message: InstagramBotMessage,
+    text: str,
+    *,
+    provider_message_id: str = "",
+    provider_model: str = "",
+    processed_at=None,
+    status: str | None = None,
+    source: str | None = None,
+    send_state: str = "",
+) -> InstagramBotMessage:
+    """Persist an AI-authored transcript row with bounded model provenance."""
+    processed_at = processed_at or timezone.now()
+    return InstagramBotMessage.objects.create(
+        sender_id=source_message.sender_id,
+        client=source_message.client,
+        role=InstagramBotMessage.Role.MODEL,
+        text=text,
+        status=status or InstagramBotMessage.Status.DONE,
+        source=source or source_message.source,
+        provider_message_id=str(provider_message_id or "")[:255],
+        processed_at=processed_at,
+        send_state=send_state,
+        gemini_model=str(provider_model or "").strip()[:80],
+    )
 
 
 def _prompt_section(source: str, loader) -> str:
@@ -9948,14 +9978,11 @@ def _process_one_inside_reply_boundary(
     row.processed_at = processed_at
     recovery_activation_error = ""
     with transaction.atomic():
-        reply_message = InstagramBotMessage.objects.create(
-            sender_id=row.sender_id,
-            client=row.client,
-            role=InstagramBotMessage.Role.MODEL,
-            text=reply,
-            status=InstagramBotMessage.Status.DONE,
-            source=row.source,
-            provider_message_id=provider_message_id[:255],
+        reply_message = _persist_generated_reply_message(
+            row,
+            reply,
+            provider_message_id=provider_message_id,
+            provider_model=gemini_failure.get("model", ""),
             processed_at=processed_at,
         )
         if row.client_id:

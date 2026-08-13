@@ -15,7 +15,7 @@
 
 Аудіо локально НЕ зберігається — лише структурований розбор та метрики.
 Ключ Gemini — з ENV GEMINI_API (той самий, що використовує Instagram-бот),
-модель для Instagram-чату за замовчуванням gemini-3.6-flash, із керованим
+модель для Instagram-чату за замовчуванням gemini-3.7-flash, із керованим
 fallback для інших ролей. Бібліотека google.generativeai НЕ
 потрібна — прямий REST-виклик (як у services/instagram_bot.py).
 """

@@ -40,7 +40,7 @@ class GeminiChatAuthorityTests(TestCase):
             model_override="gemini-2.5-flash",
         )
 
-        self.assertEqual(call_once.call_args.args[0], "gemini-3.6-flash")
+        self.assertEqual(call_once.call_args.args[0], "gemini-3.7-flash")
 
 
 class GeminiSettingsAllowlistTests(TestCase):

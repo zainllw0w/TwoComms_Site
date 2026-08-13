@@ -609,7 +609,11 @@ def _release_for_retry(
     return job
 
 
-def _generate_recovery_draft(job: IgAiReplyRecoveryJob) -> str:
+def _generate_recovery_draft(
+    job: IgAiReplyRecoveryJob,
+    *,
+    model_context: dict | None = None,
+) -> str:
     """Generate a safe, substantive response for the original current turn."""
     settings_obj = InstagramBotSettings.load()
     history = _build_recovery_history(job)
@@ -625,6 +629,7 @@ def _generate_recovery_draft(job: IgAiReplyRecoveryJob) -> str:
             "керуючих тегів, посилань на оплату, створення замовлення або інші "
             "незворотні дії. Відповідай мовою останнього повідомлення клієнта."
         ),
+        failure_context=model_context,
     )
     if isinstance(draft, ValidatedResponse):
         # Recovery may compose customer text but never executes model controls.
@@ -640,6 +645,8 @@ def _persist_draft(
     job_id: int,
     token: str,
     draft: str,
+    *,
+    provider_model: str = "",
 ) -> tuple[IgAiReplyRecoveryJob, str]:
     """Persist the exact draft and history row before any Meta I/O."""
     with transaction.atomic():
@@ -660,11 +667,12 @@ def _persist_draft(
         # permits.  Replace it with the already-normalized value before I/O.
         job.draft_text = draft
         if not job.reply_message_id:
-            reply_message = InstagramBotMessage.objects.create(
-                sender_id=job.source_message.sender_id,
-                client_id=job.client_id,
-                role=InstagramBotMessage.Role.MODEL,
-                text=job.draft_text,
+            from management.services.instagram_bot import _persist_generated_reply_message
+
+            reply_message = _persist_generated_reply_message(
+                job.source_message,
+                job.draft_text,
+                provider_model=provider_model,
                 status=InstagramBotMessage.Status.PROCESSING,
                 source="ai_recovery",
                 send_state="",
@@ -838,14 +846,20 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
                 consume_attempt=False,
             )
 
+        recovery_model_context: dict = {}
         draft = (
             _ensure_recovery_apology(job.draft_text, job.source_message.text)
             if job.draft_text
-            else _generate_recovery_draft(job)
+            else _generate_recovery_draft(job, model_context=recovery_model_context)
         )
         if not draft:
             return _release_for_retry(job.pk, token, "recovery_generation_failed")
-        job, reason = _persist_draft(job.pk, token, draft)
+        job, reason = _persist_draft(
+            job.pk,
+            token,
+            draft,
+            provider_model=recovery_model_context.get("model", ""),
+        )
         if reason:
             if reason in {
                 "claim_lost", "terminalized_existing_delivery",

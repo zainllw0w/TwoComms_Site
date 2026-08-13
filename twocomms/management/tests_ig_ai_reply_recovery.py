@@ -358,6 +358,31 @@ class IgAIReplyRecoveryTests(TestCase):
         self.client.refresh_from_db()
         self.assertIsNotNone(self.client.last_bot_reply_at)
 
+    def test_recovery_persists_actual_fallback_model_on_reply_message(self):
+        job = self.recovery.schedule_recovery(self.source)
+
+        def generate_with_fallback(*_args, failure_context=None, **_kwargs):
+            failure_context["model"] = "gemini-3.6-flash"
+            return "Підкажу по наявності."
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            side_effect=generate_with_fallback,
+        ), patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(
+                True, "", "", "meta-recovery-fallback-model-1"
+            ),
+        ):
+            result = self.recovery.process_recovery_job(job.pk)
+
+        result.refresh_from_db()
+        result.reply_message.refresh_from_db()
+        self.assertEqual(result.status, result.Status.SENT)
+        self.assertEqual(result.reply_message.gemini_model, "gemini-3.6-flash")
+
     def test_persisted_recovery_draft_is_normalized_before_its_first_meta_send(self):
         job = self.recovery.schedule_recovery(self.source)
         job.draft_text = "Вітаю! Чим можу допомогти?"

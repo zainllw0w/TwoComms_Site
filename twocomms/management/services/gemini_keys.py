@@ -48,12 +48,12 @@ DEFAULT_ROLE_KEY_POOLS = {
 # Платні моделі (pro-preview тощо) свідомо НЕ включаємо: на free-tier ключах вони
 # завжди дають 429-платно → марна трата запиту й часу (вимога продукту: біллінгові
 # моделі одразу пропускати). Якщо пріоритетна модель недоступна — плавно
-# спускаємось до меншої безкоштовної (3.6-flash → 3.5-flash → 3.1-flash-lite →
+# спускаємось до меншої безкоштовної (3.7-flash → 3.6-flash → 3.5-flash →
 # 2.5-flash-lite). Ротація КЛЮЧІВ (API3→API4→…) — через model-major перебір в
 # iter_attempts: пріоритетна модель пробується на ВСІХ ключах перш ніж спуститись.
 DEFAULT_ROLE_MODEL_CHAINS = {
-    "chat": ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
-    "management": ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    "chat": ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
+    "management": ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
     # Grounding (Google Search) безкоштовний ЛИШЕ на 2.5-flash / 2.5-flash-lite.
     "checker": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
 }
@@ -78,6 +78,7 @@ def max_rounds(role: str) -> int:
 # проекту → кулдаун усього КЛЮЧА. 429 на інших (pro-preview тощо) = модель платна
 # → це model-level skip, ключ НЕ чіпаємо.
 FREE_QUOTA_MODELS = {
+    "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
@@ -88,11 +89,12 @@ FREE_QUOTA_MODELS = {
 }
 
 CHAT_MODEL_ALLOWLIST = frozenset({
+    "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
 })
-DEFAULT_CHAT_MODEL = "gemini-3.6-flash"
+DEFAULT_CHAT_MODEL = "gemini-3.7-flash"
 
 # Безкоштовний Google Search grounding доступний лише на цих моделях.
 FREE_GROUNDING_MODELS = {"gemini-2.5-flash", "gemini-2.5-flash-lite"}
@@ -243,14 +245,30 @@ def role_model_chains() -> dict:
         for role, models in configured.items():
             if isinstance(models, (list, tuple)):
                 result[str(role)] = list(models)
-    # The live-chat pool must never resurrect retired preview names through a
-    # settings override. Other roles keep their explicitly configured models.
+    # Live chat and management work must always get the new primary first. A
+    # stale deployment override may still list 3.6 first, but it must not
+    # silently prevent the 3.7 migration. The remainder of an explicit chain
+    # is preserved as the operator's fallback order.
     chat_models = [
         str(model).strip()
         for model in result.get("chat", [])
         if is_allowed_chat_model(str(model).strip())
     ]
-    result["chat"] = chat_models or list(DEFAULT_ROLE_MODEL_CHAINS["chat"])
+    if not chat_models:
+        chat_models = list(DEFAULT_ROLE_MODEL_CHAINS["chat"])
+    result["chat"] = [DEFAULT_CHAT_MODEL] + [
+        model for model in chat_models if model != DEFAULT_CHAT_MODEL
+    ]
+    management_models = [
+        str(model).strip()
+        for model in result.get("management", [])
+        if str(model).strip() in FREE_QUOTA_MODELS
+    ]
+    if not management_models:
+        management_models = list(DEFAULT_ROLE_MODEL_CHAINS["management"])
+    result["management"] = [DEFAULT_CHAT_MODEL] + [
+        model for model in management_models if model != DEFAULT_CHAT_MODEL
+    ]
     return result
 
 
@@ -758,10 +776,10 @@ def iter_attempts(role: str, model_chain_override: list[str] | None = None):
     """Генерує (key_name, key_value, model) у порядку пріоритету.
 
     MODEL-MAJOR: зовнішній цикл — МОДЕЛІ цепочки, внутрішній — КЛЮЧІ. Тобто
-    пріоритетну модель (gemini-3.6-flash) пробуємо на ВСІХ ключах (own→borrow,
+    пріоритетну модель (gemini-3.7-flash) пробуємо на ВСІХ ключах (own→borrow,
     sticky-впорядкованих) перш ніж спуститися на нижчу модель. Вимога продукту:
-    «усе, що нижче 3.6 — лише крайній випадок», тож 3.6 має вичерпатись на всьому
-    пулі ключів до того, як ми торкнемось 3.1-pro/3.1-flash-lite.
+    3.7 має вичерпатись на всьому пулі ключів до переходу на 3.6 та нижчі
+    резервні моделі.
 
     Усередині кожного тиру (own / borrow) — sticky-сортування (останній успішний
     ключ першим), щоб триматись робочого ключа.

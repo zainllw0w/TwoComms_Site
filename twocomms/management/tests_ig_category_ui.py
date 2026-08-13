@@ -51,11 +51,11 @@ class InteractionCategoryUiContractTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "{% if status.gemini_effective_model == 'gemini-3.6-flash' %}",
+            "{% if status.gemini_effective_model == 'gemini-3.7-flash' %}",
             template,
         )
         self.assertNotIn(
-            "{% if settings.gemini_model == 'gemini-3.6-flash' %}",
+            "{% if settings.gemini_model == 'gemini-3.7-flash' %}",
             template,
         )
 

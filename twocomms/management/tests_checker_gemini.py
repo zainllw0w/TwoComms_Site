@@ -142,8 +142,8 @@ class GeminiTextPoolTests(TestCase):
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(caa, "_gemini_call_once", side_effect=fake):
             caa.gemini_generate_text(payload, role="chat")
-        # перший ключ chat-пулу = GEMINI_API, перша модель = gemini-3.6-flash
-        self.assertEqual(seen[0], ("key-val-1", "gemini-3.6-flash"))
+        # перший ключ chat-пулу = GEMINI_API, перша модель = gemini-3.7-flash
+        self.assertEqual(seen[0], ("key-val-1", "gemini-3.7-flash"))
 
     def test_chat_manual_key_first(self):
         seen = []
@@ -158,9 +158,9 @@ class GeminiTextPoolTests(TestCase):
             caa.gemini_generate_text(payload, role="chat", manual_key="bot-custom")
         self.assertEqual(seen[0], "bot-custom")
 
-    def test_chat_borrows_reserve_on_36_when_own_exhausted(self):
+    def test_chat_borrows_reserve_on_37_when_own_exhausted(self):
         """Коли own-ключі чату (API, API2) у денному кулдауні — чат бере резерв
-        усіх доступних ключів (починаючи з API3) на тій самій моделі 3.6-flash. Це пріоритет спілкування."""
+        усіх доступних ключів (починаючи з API3) на тій самій моделі 3.7-flash. Це пріоритет спілкування."""
         from django.utils import timezone
         now = timezone.now()
         gk.mark_429("GEMINI_API", "day", 0, now=now)
@@ -177,7 +177,7 @@ class GeminiTextPoolTests(TestCase):
             out = caa.gemini_generate_text(payload, role="chat")
         self.assertEqual(out["parsed"], "ok-text")
         # перший доступний — позичений management-ключ, модель найновіша gen-3
-        self.assertEqual(seen[0], ("key-val-3", "gemini-3.6-flash"))
+        self.assertEqual(seen[0], ("key-val-3", "gemini-3.7-flash"))
 
 
 class GeminiEmptyResponseTests(TestCase):
@@ -349,7 +349,7 @@ class AdaptiveChatPlannerTests(TestCase):
         adaptive.assert_called_once()
         legacy.assert_not_called()
 
-    def test_fast_auth_failures_rotate_all_six_aliases_on_36(self):
+    def test_fast_auth_failures_rotate_all_six_aliases_on_37(self):
         seen = []
         aliases = {value: name for name, value in ENV6.items()}
 
@@ -363,7 +363,7 @@ class AdaptiveChatPlannerTests(TestCase):
             with self.assertRaises(caa.CallAIAnalysisError):
                 self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-        primary = [alias for alias, model in seen if model == "gemini-3.6-flash"]
+        primary = [alias for alias, model in seen if model == "gemini-3.7-flash"]
         self.assertEqual(primary, list(ENV6))
         sleep.assert_not_called()
 
@@ -372,7 +372,7 @@ class AdaptiveChatPlannerTests(TestCase):
 
         def fake(model, payload, key, *, parse=True, timeout=None):
             seen.append(model)
-            if model == "gemini-3.6-flash":
+            if model == "gemini-3.7-flash":
                 raise caa._GeminiTransient("timeout/transport/HTTP 503")
             return ("fallback", {})
 
@@ -381,9 +381,9 @@ class AdaptiveChatPlannerTests(TestCase):
              patch.object(caa.time, "sleep") as sleep:
             out = self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-        first_fallback = seen.index("gemini-3.5-flash")
+        first_fallback = seen.index("gemini-3.6-flash")
         self.assertEqual(out["parsed"], "fallback")
-        self.assertLessEqual(seen[:first_fallback].count("gemini-3.6-flash"), 2)
+        self.assertLessEqual(seen[:first_fallback].count("gemini-3.7-flash"), 2)
         sleep.assert_not_called()
 
 

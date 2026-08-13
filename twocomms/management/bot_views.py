@@ -4329,6 +4329,7 @@ def bot_client_detail_api(request, client_id):
             "id": m.id,
             "role": m.role,
             "text": m.text,
+            "gemini_model": m.gemini_model,
             "attachments": m.attachments or "",
             "media": _message_media_rows(m, media_evidence),
             "time": (m.provider_created_at or m.created_at).isoformat()

@@ -287,7 +287,7 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
 
         def fake_once(model, payload, key, *, parse=True, timeout=None):
             calls.append((clock["now"], model, aliases[key], timeout))
-            if model == "gemini-3.6-flash":
+            if model == "gemini-3.7-flash":
                 # ``requests`` may spend the connect timeout and then the read
                 # timeout. Model that worst case so the planner cannot protect
                 # the fallback reserve by clipping only one tuple component.
@@ -296,7 +296,7 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
             if aliases[key] != "GEMINI_API4":
                 raise ai._GeminiFatal("HTTP 401: API_KEY_INVALID")
             clock["now"] += 1.0
-            return ("3.5/API4 recovered", {})
+            return ("3.6/API4 recovered", {})
 
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(ai.time, "monotonic", side_effect=lambda: clock["now"]), \
@@ -304,9 +304,9 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
              patch.object(ai, "_gemini_call_once", side_effect=fake_once):
             out = runner({"contents": []}, reasoning_task=reasoning_task)
 
-        primary = [call for call in calls if call[1] == "gemini-3.6-flash"]
-        self.assertEqual(out["parsed"], "3.5/API4 recovered")
-        self.assertEqual((calls[-1][1], calls[-1][2]), ("gemini-3.5-flash", "GEMINI_API4"))
+        primary = [call for call in calls if call[1] == "gemini-3.7-flash"]
+        self.assertEqual(out["parsed"], "3.6/API4 recovered")
+        self.assertEqual((calls[-1][1], calls[-1][2]), ("gemini-3.6-flash", "GEMINI_API4"))
         self.assertEqual(len(primary), 2)
         self.assertLess(sum(primary[1][3]), sum(primary[0][3]))
         self.assertLessEqual(clock["now"], budget)
@@ -316,7 +316,7 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
             self.assertGreater(timeout[0], 0)
             self.assertGreater(timeout[1], 0)
             self.assertLessEqual(sum(timeout), remaining)
-            if model == "gemini-3.6-flash":
+            if model == "gemini-3.7-flash":
                 self.assertLessEqual(sum(timeout), remaining - 2.0)
         fallback_started_at = calls[-1][0]
         self.assertGreaterEqual(budget - fallback_started_at, 2.0)

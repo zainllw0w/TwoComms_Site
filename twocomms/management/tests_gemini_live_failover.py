@@ -63,8 +63,8 @@ class LiveGeminiFailoverContractsTests(TestCase):
 
         self.assertEqual(result["parsed"], "recovered")
         self.assertEqual(calls[:2], [
-            ("gemini-3.6-flash", "GEMINI_API"),
-            ("gemini-3.6-flash", "GEMINI_API3"),
+            ("gemini-3.7-flash", "GEMINI_API"),
+            ("gemini-3.7-flash", "GEMINI_API3"),
         ])
 
     @override_settings(GEMINI_KEY_PROJECT_GROUPS={
@@ -101,7 +101,7 @@ class LiveGeminiFailoverContractsTests(TestCase):
         self.assertFalse(gemini_keys.is_available("GEMINI_API2"))
 
     def test_open_durable_model_circuit_skips_primary_for_live_chat(self):
-        gemini_keys.open_model_circuit("gemini-3.6-flash", reason="transport")
+        gemini_keys.open_model_circuit("gemini-3.7-flash", reason="transport")
         seen_models = []
 
         def fake_once(model, payload, key, *, parse=True, timeout=None):
@@ -113,15 +113,15 @@ class LiveGeminiFailoverContractsTests(TestCase):
         ):
             result = ai.gemini_generate_text({"contents": []}, role="chat")
 
-        self.assertEqual(result["model"], "gemini-3.5-flash")
-        self.assertEqual(seen_models, ["gemini-3.5-flash"])
+        self.assertEqual(result["model"], "gemini-3.6-flash")
+        self.assertEqual(seen_models, ["gemini-3.6-flash"])
 
     def test_404_opens_circuit_and_does_not_try_the_same_model_on_next_key(self):
         calls = []
 
         def fake_once(model, payload, key, *, parse=True, timeout=None):
             calls.append((model, key))
-            if model == "gemini-3.6-flash":
+            if model == "gemini-3.7-flash":
                 raise ai._GeminiModelUnavailable("HTTP 404: NOT_FOUND")
             return "fallback", {}
 
@@ -130,9 +130,9 @@ class LiveGeminiFailoverContractsTests(TestCase):
         ):
             result = ai.gemini_generate_text({"contents": []}, role="chat")
 
-        self.assertEqual(result["model"], "gemini-3.5-flash")
+        self.assertEqual(result["model"], "gemini-3.6-flash")
         self.assertEqual(
-            [model for model, _key in calls].count("gemini-3.6-flash"),
+            [model for model, _key in calls].count("gemini-3.7-flash"),
             1,
         )
 
