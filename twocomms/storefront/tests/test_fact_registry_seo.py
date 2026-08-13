@@ -57,6 +57,28 @@ class PublicFactRegistrySeoTests(TestCase):
                     self.assertNotIn(marker, body)
                 self.assertIn("custom-print/", body)
 
+    def test_llms_full_uses_public_product_eligibility(self):
+        from storefront.models import Category, Product
+
+        category = Category.objects.create(
+            name="LLMS eligibility", slug="llms-eligibility", is_active=True
+        )
+        Product.objects.create(
+            title="Zero price draft", slug="zero-price-llms", category=category,
+            price=0, status="published",
+        )
+        Product.objects.create(
+            title="Public price item", slug="public-price-llms", category=category,
+            price=100, status="published",
+        )
+
+        response = Client().get("/llms-full.txt")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8")
+        self.assertNotIn("zero-price-llms", body)
+        self.assertIn("public-price-llms", body)
+
     def test_fact_registry_records_owner_source_locale_and_effective_date(self):
         from storefront.services.fact_registry import PUBLIC_FACTS_VERSION, PUBLIC_FACTS
 

@@ -67,6 +67,7 @@ from storefront.services.marketplace_feeds import (
 from storefront.services.feed_registry import get_system_feed
 from storefront.services.size_guides import build_public_size_guide_blocks
 from storefront.services.fact_registry import free_shipping_threshold
+from storefront.services.public_products import public_products_queryset
 from storefront.support_content import (
     FOOTER_CONTENT,
     PRO_BRAND_FAQ_ITEMS,
@@ -692,7 +693,7 @@ def llms_full_txt(request):
     try:
         product_lines = []
         for product in (
-            Product.objects.filter(status="published")
+            public_products_queryset()
             .only("title", "slug")
             .order_by("-id")[:12]
         ):
