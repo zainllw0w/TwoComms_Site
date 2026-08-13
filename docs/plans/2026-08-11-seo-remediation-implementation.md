@@ -681,6 +681,29 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - Production proof: `b9fb9e977` is live, `manage.py check` passed, and the
   guarded command dry-run remains `0` candidates after the prior exact cleanup.
 
+- [x] **P1.5** Remove unsupported delivery-window claims from standard PDP
+  support anchors. The `/delivery/` destination remains linked, but its
+  label is now the factual neutral `Доставка та оплата`; no delivery time or
+  tariff is manufactured in a repeated product anchor. Custom Print links and
+  product purchase behavior remain unchanged.
+
+#### P1.5 release evidence
+
+- Code/test commits: `65aceab1a` (`fix(seo): remove unsupported delivery
+  window anchors`) and `5a2ee244c` (`test(seo): remove duplicate delivery
+  anchor regression`) were pushed to `origin/main` and deployed.
+- TDD/local gates: the focused product SEO landing and locale suite passed
+  `19/19`; `manage.py check`, touched-file compilation and `git diff --check`
+  passed. The duplicate test definition was removed without reducing behavior
+  coverage.
+- Live proof at `5a2ee244c`: UK, RU and EN `/product/classic-tshirt/` pages
+  contain the neutral delivery label and no old `Доставка Новою Поштою 1–3`
+  anchor; `/custom-print/` remains present as an ordinary PDP support link.
+- Boundary: no DTF route, subdomain, module or blog was inspected or changed;
+  Custom Print configurator, pricing, cart, analytics and submission behavior
+  were not changed. This removes an unsupported repeated claim only; it makes
+  no ranking, traffic, rich-result or conversion promise.
+
 #### P0.13a release evidence
 
 - Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`

@@ -488,6 +488,11 @@
   защиту: перед потенциальным удалением блокируется и сверяется весь узкий
   standard `published/order=2` scope, а не только первоначальные ID. Live
   `manage.py check` и повторный dry-run дали `0`; новых данных не удалялось.
+- **Статус 2026-08-13, P1.5:** standard PDP support anchors больше не обещают
+  неподтвержденное окно доставки `1–3` дней и тарифы. `/delivery/` остается
+  ссылкой, но label нейтрален (`Доставка та оплата`). Live UK/RU/EN PDP proof
+  на `5a2ee244c` подтвердил отсутствие старого anchor и сохранение ссылки на
+  Custom Print. Это factuality cleanup, не обещание ranking uplift.
 
 #### FIND-030 — общий каталог прямо оптимизирован под вставку keywords/cities и публикует неowned claims
 
