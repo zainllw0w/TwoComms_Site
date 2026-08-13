@@ -112,6 +112,14 @@ failures and rollback state.
 9. `IMP-045` exception policy applies to every touched domain now; do not add a
    new silent catch while waiting for the final cleanup wave.
 10. Old W9/follow-up/Meta worktrees are requirement sources, not merge bases.
+11. **Project deployment protocol:** publish the scoped commit to GitHub
+    `main`, then deploy only with the documented SSH `git pull` against
+    `/home/qlknpodo/TWC/TwoComms_Site/twocomms` using the Python 3.14 virtualenv.
+    Do not invoke `deploy.sh`, `scripts/deploy_release.py`, SCP package
+    installation, source builds, or another release wrapper unless the user
+    explicitly authorizes it. Keep the SSH password out of files and logs;
+    provide it through the caller environment. Verify the exact server SHA and
+    runtime over SSH after the pull.
 
 ## 4. Dependency graph
 
