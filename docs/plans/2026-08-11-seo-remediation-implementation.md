@@ -603,6 +603,38 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   fit/color, sizes, price, cart identity, canonical/hreflang, Custom Print or
   the DTF subdomain/blog.
 
+- [x] **P1.3** Stop both standard-Product FAQ generators from creating a
+  delivery timing/tariff/same-day claim. Delivery policy remains owned by
+  `/delivery/`; existing legacy database rows are preserved for the next,
+  separately guarded exact-signature cleanup with a dry-run and backup. This
+  does not alter Custom Print, DTF routes/subdomain/blog, cart, checkout,
+  delivery operations or any existing ProductFAQ row.
+
+#### P1.3 release evidence
+
+- Code/test commit: `b6fc9960cb6bee0afce0b0112fb0bbe3639ef222`
+  (`fix(seo): stop generating stale product delivery faqs`) removes the
+  `1–3`-day, `85/180 UAH` and before-`14:00` delivery FAQ templates from both
+  standard Product generators. The autofill/recraft reports now count the
+  actual four product-context questions. `recraft_product_seo` no longer
+  replaces any existing FAQ rows, and `refresh_product_faqs` resolves legacy
+  FAQ by topic rather than position so it skips the retired delivery topic
+  without shifting return/custom answers into the wrong FAQ.
+- TDD/local gates: regressions first failed against the two live generators
+  and the positional refresh behavior. After the narrow change, the related
+  generator and command suite passed `29/29`; `manage.py check --settings=test_settings`,
+  touched-file `py_compile` and `git diff --check` passed.
+- Production: `origin/main` and server `HEAD` were verified at `b6fc9960`.
+  Server `collectstatic --noinput`, `compress --force`, `manage.py check` and
+  Passenger restart completed successfully. Read-only production data proof
+  found exactly `64` old rows matching the three retired question signatures;
+  they were not changed by this code release. Live `/delivery/` remained `200`
+  and exposed the checkout-owned `3000 грн` threshold.
+- Boundary: no existing FAQ data was deleted or rewritten; no DTF
+  subdomain/blog/module, Custom Print behavior or ordinary product copy was
+  changed. This is a factuality and future-content-creation correction, not a
+  ranking, traffic, rich-result or conversion claim.
+
 #### P0.13a release evidence
 
 - Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`
