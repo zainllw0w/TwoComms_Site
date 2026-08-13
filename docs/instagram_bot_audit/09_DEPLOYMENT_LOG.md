@@ -17,8 +17,10 @@ completed, Passenger restart was requested, `run_instagram_bot --ensure`
 confirmed the singleton alive, and `run_instagram_bot --once` returned
 `ok=True, enqueued=0, skipped=True, handled=0`.
 
-Read-only reconciliation: `/bot/health/` returned HTTP 200 with
-`bot_state=running`, `dangerous_backlog=0`, `inbound_pending=0`,
+Read-only reconciliation: `/bot/health/` returned HTTP **503** because the
+health contract treats the 18 historical terminal `analysis_failed` rows as
+degraded, while its JSON state still reports `bot_state=running`,
+`dangerous_backlog=0`, `inbound_pending=0`,
 `reply_pending=0`, `notification_unresolved=0`, `analysis_pending=0`, and
 `analysis_failed=18` historical terminal rows. The host's `/healthz/` path is
 not configured (HTTP 404), so no healthz claim is made. The immutable target-
