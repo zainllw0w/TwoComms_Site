@@ -553,6 +553,48 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   analytics were not changed. This proves locale parity for the listed mobile
   catalog surface only; it makes no ranking, traffic or conversion claim.
 
+- [x] **P0.13** Localize the standard storefront PDP fit axis for RU and EN.
+  The resolver translates only the owned `fit` axis and the stable `classic` /
+  `oversize` codes; custom option labels, option codes, availability, pricing,
+  cart identity, URL ownership and Custom Print remain unchanged.
+
+#### P0.13 release evidence
+
+- Code/test commit: `0ca1c2cb9fa572c7f4758c2cb61c062604859674`
+  (`fix(i18n): localize standard PDP fit labels`) adds locale-aware display
+  labels in `product_catalog.services.product_option_context()` and leaves
+  machine values (`classic`, `oversize`) intact. It uses existing Django
+  translation messages and does not change ProductFitOption rows or catalog
+  data.
+- TDD/local gates: the new service regression reproduced RED for RU/EN
+  Ukrainian labels, then passed GREEN. The focused generic-option, cart,
+  PDP and variant-pricing suite passed `50/50`; the rendered RU/EN PDP test
+  and Django `manage.py check`, touched-file compilation and `git diff --check`
+  also passed. Existing staticfiles warning in the test settings is unrelated
+  to this server-rendered text change.
+- Production preflight: the live DB contains only standard fit codes
+  `classic` and `oversize` (with two historical Ukrainian labels for
+  `classic`); active garment flows expose no additional standard fit code.
+  The resolver is therefore code-owned rather than text-owned and does not
+  overwrite either stored label.
+- Production: `origin/main`, server `HEAD` and the restart checkpoint are
+  `0ca1c2cb9fa572c7f4758c2cb61c062604859674`; `manage.py check`, static
+  collection and compression completed successfully. Live HTML for
+  `/ru/product/classic-tshirt/black/` contains `Посадка`, `Классическая`,
+  `Оверсайз`, and the unchanged `value="classic"` / `value="oversize"`;
+  `/en/product/classic-tshirt/black/` contains `Fit`, `Classic`, `Oversize`
+  with the same machine values.
+- Live browser proof in an isolated mobile context found the RU and EN fit
+  blocks at `390x844`-class mobile sizing with no horizontal overflow in the
+  option block; the selected control and its two stable values remained
+  functional. No cart submission or analytics event was triggered.
+- Boundary: no DTF subdomain/blog/module, ordinary product copy, Custom Print
+  configurator, variant data, prices, availability, cart, URL ownership,
+  schema, feeds or analytics were changed. This proves locale consistency for
+  the standard PDP fit selector only; it makes no ranking, traffic or
+  conversion claim. Remaining PDP gallery aria-label and editorial-rail
+  locale/factuality work is intentionally separate.
+
 #### P0.10 release evidence
 
 - Code/test commit: `f11d0abdd` (`fix(seo): use checkout shipping threshold in
