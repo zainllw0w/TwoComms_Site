@@ -104,7 +104,7 @@
 | [ ] | IMP-091 — OPEN, decision-gated | Retention: reactivation, two-step review/UGC, loyalty, preorder. (Это затрагивает клиентов и скидки, поэтому без policy нельзя запускать массовые отправки.) | Нужны решения по discounts, preorder и segments. |
 | [ ] | IMP-092 — OPEN | Fact-based manager lead priority и честный after-hours mode. (Менеджер должен видеть, кому ответить сначала, а клиент — правду о режиме.) | Сохранить Meta 24-hour window и opt-out. |
 | [ ] | IMP-093 — OPEN | Episode sparkline, единый timeline message/payment/TTN/FSM и KPI grouping. Сохранён незакоммиченный code WIP с пятью modified и двумя untracked files; diff volatile, нужен свежий stat и review/rebase. (Админка должна объяснять воронку, деньги и сервис без выдуманных метрик.) | Period metrics считать из immutable/event-time facts, не mutable current `stage`/`lost_reason`; baseline может идти независимо от commerce completion. |
-| [ ] | IMP-094 — OPEN | Deterministic deploy gate: cwd-independent suite, clean global state, MariaDB locks/constraints/max-length и rollback fixture proof. (SQLite-green и случайно проходящий тест не являются доказательством безопасности деплоя.) | 094.A stable no-network baseline — Wave 0; 094.B isolated MariaDB provision идёт параллельно. Production — read-only evidence, не test target. |
+| [ ] | IMP-094 — OPEN | Deterministic deploy gate: cwd-independent suite, clean global state, MariaDB locks/constraints/max-length и immutable release/rollback proof. (SQLite-green и случайно проходящий тест не являются доказательством безопасности деплоя.) | 094.A stable no-network baseline — Wave 0; T40 fixture boundary is GREEN on production MariaDB, while 094.B disposable MariaDB and release provenance remain open. Production is not a concurrent test target. |
 | [ ] | IMP-095 — OPEN | Создать реальный белый ProductColorVariant для товара 110, 1090 грн, с фото и fit/size/default rules. (Не выдавать thermo image или выдуманную белую конфигурацию за товар.) | BLOCKED только на authoritative white assets/rules; не зависит от завершения всей commerce chain. Затем отдельный PDP/bot catalog/checkout QA 1090–1450. |
 | [ ] | IMP-096 — OPEN | Provenance ролей imported conversation, read-only report и evidence-only dry-run backfill. (Старые bot replies не должны считаться сообщениями менеджера.) | Никогда не менять role по textual similarity. |
 | [ ] | IMP-098 — OPEN | Закрыть orphan F-CORE-004/005/006, F-SCORE-010 и остатки F-SEC-004/009. (Это независимые availability, idempotency и PII границы, которым раньше не дали отдельных задач.) | Отдельный regression + production-like proof + deployed SHA на каждый ID. |
@@ -357,7 +357,7 @@
 - [ ] T21 — promo for tag: сохранить manual evidence/staff gate; не
   автоматизировать ради зелёной галочки.
 - [ ] T38 — multiple open orders: partial до complete durable commerce session.
-- [ ] T40 — rollback drill: partial до deterministic deploy/rollback gate IMP-094.
+- [x] T40 — rollback fixture boundary GREEN on production MariaDB (`c09c4ab97`); full immutable deploy/rollback gate remains IMP-094.
 - [ ] T41 — SQLite green недостаточен: disposable MariaDB test database обязателен.
 - [ ] T44 — sales semantic/inventory policy: partial до IMP-081 runtime/admin consumer.
 - [ ] T45 — price graph/candidates: partial до durable binding и stale protection.

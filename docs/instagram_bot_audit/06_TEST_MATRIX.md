@@ -44,7 +44,7 @@
 | T37 | Out-of-order webhook | GREEN | idempotent event keys + event-time ordering; IMP-058 regression tests |
 | T38 | Multiple open orders | PARTIAL | model support; durable commerce session IMP-087 |
 | T39 | Forwarded payment link | GREEN | paylink product/intent tests |
-| T40 | Rollback drill | PARTIAL | superseded-invoice recovery IMP-089 is GREEN; full deterministic deploy/rollback gate remains IMP-094 |
+| T40 | Rollback drill | GREEN (fixture boundary) | Production MariaDB `verify_ig_production_contract --rollback-fixtures` on `c09c4ab97`: rollback `proven`, no residue/AUTO_INCREMENT drift, mocked transport only; immutable deploy/rollback gate remains IMP-094 |
 | T41 | Full management suite | PARTIAL (SQLite GREEN) | Historical SQLite full runs passed; disposable MariaDB parity and deterministic current command remain IMP-094 |
 | T42 | Terminal Telegram outcome and lifecycle alert isolation | GREEN | 75 focused notification/lifecycle/send regressions: no retry for UNKNOWN/DEAD_LETTER, redacted bounded summary, distinct lifecycle keys and one failed-paylink alert; IMP-077 |
 | T43 | Superseded payment review не объединяет коммерческие episodes | GREEN | 134 local commercial/payment tests; production MySQL reconcile x3 = zero remainder; client 59 separate terminal episodes, daemon running/alive on `93ae8684` |

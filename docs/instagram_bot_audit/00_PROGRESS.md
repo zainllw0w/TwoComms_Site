@@ -401,9 +401,9 @@ Fresh evidence: the mandatory package ran **207 tests, 0 failures, 0 errors,
 0 skipped** three times from the repository root, `twocomms/`, and `/tmp`;
 telephony ran **62/62 OK**; runner contract tests **7/7 OK**. `F-DEBT-007`
 remains open because isolated telephony success does not prove the historical
-order/global-state flake is eliminated. `IMP-094`, `F-TEST-002`, `T40` and
-`T41` remain open for disposable MariaDB, rollback-fixture and full release
-provenance evidence.
+order/global-state flake is eliminated. `IMP-094`, `F-TEST-002` and `T41`
+remain open for disposable MariaDB parity and full release provenance evidence;
+the T40 rollback-fixture boundary is recorded below.
 
 В рабочей ветке `codex/ig-bot-imp028-prompt` устранены три источника
 ложных падений/гонок в SQLite-gate: ночные тесты с плавающим «сегодня» переведены

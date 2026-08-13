@@ -4,6 +4,23 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W2.1 T40 production rollback-fixture boundary (2026-08-13)
+
+Production was verified at exact SHA `c09c4ab974d2dc8ff9e969b62cf36d3b117c31ce`,
+with MariaDB database `qlknpodo_MySQL_DB`, vendor `mysql`, matching selected
+database, and zero visible `test_*` schemas. Under the owned maintenance lease
+`t40-w22-20260813`, `verify_ig_production_contract --rollback-fixtures`
+returned sent/unknown/dead-letter transitions, `mid_fixture_failure_rollback=proven`,
+payment-review `callback_race=proven`, `false_media_review=suppressed`,
+`provider_truth=untouched`, and `transport=mocked_no_network`.
+
+The command found no fixture rows and no `AUTO_INCREMENT` change after rollback.
+The lease was released by its owner and `run_instagram_bot --ensure` restored the
+singleton. No customer, payment, Meta, Telegram or other provider event was sent.
+This is GREEN evidence for the T40 fixture boundary only; IMP-094, T41/disposable
+MariaDB parity, and immutable current-SHA release provenance F-DEPLOY-001/003
+remain open.
+
 ## Implement2 W2.1 bounded local reliability release (2026-08-13)
 
 Commit `a8bf03bd99bbc12445dbd64cc49683a5ca5eadbf` was pushed to `main` and

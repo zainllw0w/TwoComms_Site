@@ -532,7 +532,7 @@ These findings were discovered while implementing Wave 0 and are owned here;
 
 ### W2.1 Close residual local reliability debt after preflight — `IMP-094.A`
 
-- [ ] P0.5 bounded local slice is complete: it now has a cwd-independent/no-network baseline runner. The manager-
+- [x] P0.5 bounded local slice is complete: it now has a cwd-independent/no-network baseline runner. The manager-
   echo scheduling failure was root-caused: `_apply_claimed_job` swallowed the
   analysis-queue exception after applying takeover state, while `_handle_echo`
   staged its message/job outside one transaction. The fix propagates the
@@ -543,7 +543,12 @@ These findings were discovered while implementing Wave 0 and are owned here;
   skipped**, repeated from the repository root, `twocomms/`, and `/tmp`.
   Telephony is separately **62/62 OK**; `F-DEBT-007` is therefore retained as
   an unresolved order/global-state investigation rather than changed blindly.
-- [ ] `T40`: deterministic rollback fixture with proof of no residue.
+- [x] `T40`: production MariaDB rollback-fixture contract passed on `c09c4ab97`
+  under the owned maintenance lease. It proved delivery transitions, mid-fixture
+  rollback, payment-review callback race and false-media suppression with mocked
+  transport; no fixture residue or `AUTO_INCREMENT` drift remained. This closes
+  only the fixture boundary; the full immutable deploy/rollback gate remains
+  under `IMP-094` and `F-DEPLOY-001/003`.
 - [ ] Keep `T41` as SQLite-fast evidence only; do not call it production parity.
 
 ### W2.2 Disposable MariaDB — `IMP-094` second half

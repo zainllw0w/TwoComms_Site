@@ -22,6 +22,9 @@
   и остальные reliability acceptance criteria остаются открыты.
   `F-DEPLOY-001` adds the reproducibly built `http-ece` wheel hash gate;
   `F-DEPLOY-002` bans CloudLinux selector environment JSON from evidence.
+  T40 rollback-fixture boundary is now GREEN on production MariaDB with mocked
+  transport and no residue; the full immutable deploy/rollback gate remains
+  open under IMP-094/F-DEPLOY-001/003.
 - W9: partial `IMP-081`–`088`. `IMP-081` foundation is
   production; `IMP-082/083` graph/ranker foundation and prompt parity are
   production `0ad694bc`; `IMP-084` exact availability and proposal reservation

@@ -2841,6 +2841,15 @@ module also passed 62/62 in isolation. This does not close F-DEBT-007: the
 historical order/global-state flake still lacks repeated full-suite proof, so
 no production telephony code was changed.
 
+### T40 fixture boundary (2026-08-13)
+
+The production MariaDB rollback contract passed on `c09c4ab97` under an owned
+maintenance lease. It proved delivery-state transitions, mid-fixture exception
+rollback, payment-review callback race and false-media suppression with mocked
+transport, and rejected both leaked rows and `AUTO_INCREMENT` drift. This is not
+a concurrent disposable-database run and does not close F-DEBT-007 or the
+remaining IMP-094 release gates.
+
 ---
 
 # IMP-062 (НОВАЯ ЗАДАЧА): ТТН обмена привязывается к тому же заказу
