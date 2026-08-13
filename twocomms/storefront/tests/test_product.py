@@ -402,6 +402,15 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertNotContains(response, "1–2 дні по Україні після підтвердження замовлення", html=False)
         self.assertContains(response, "/delivery/", html=False)
 
+    def test_product_detail_shell_does_not_guess_numeric_delivery_windows(self):
+        response = self.client.get(reverse("product", args=[self.product.slug]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "1–3 робочі дні по Україні", html=False)
+        self.assertNotContains(response, "1-3 дні Новою Поштою", html=False)
+        self.assertContains(response, "Доставка та оплата", html=False)
+        self.assertContains(response, reverse("delivery"), html=False)
+
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
             [
