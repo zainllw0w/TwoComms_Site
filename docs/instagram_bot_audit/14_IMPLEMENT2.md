@@ -559,7 +559,7 @@ These findings were discovered while implementing Wave 0 and are owned here;
   under `IMP-094` and `F-DEPLOY-001/003`.
 - [ ] Keep `T41` as SQLite-fast evidence only; do not call it production parity.
 
-**Task 6A implementation checkpoint (2026-08-14, CI acceptance pending):** the
+**Task 6A closeout (2026-08-14):** the
 disposable gate is now implemented as a cwd-independent runner in
 `scripts/run_mariadb_gate.py`. It validates the real Django entrypoint at
 `twocomms/manage.py`, accepts only the implemented `lifecycle` suite, generates
@@ -584,11 +584,27 @@ runner/workflow contract tests OK**, including the all-host collision check,
 gate-owned-user cleanup guard and native startup/cleanup failure boundary;
 `compileall` and `git diff --check` are clean. The settings contract could not
 run in the host Python because Django is not installed; this is an environment
-limitation, not MariaDB acceptance.
-The actual disposable MariaDB migration/schema/cleanup proof is intentionally
-deferred to the pinned CI service. Until that CI job succeeds, `T41`,
-`G-INFRA`, `F-TEST-002` and `IMP-094` remain open; suites for future Tasks 6B–6F
-are not advertised or claimed.
+limitation, not MariaDB acceptance. The first CI run exposed a real runner
+boundary: the subprocess-only settings contract inherited Django
+`SimpleTestCase` but was intentionally invoked with bare `unittest`, so Django
+required an unrelated global settings module before its first assertion. Commit
+`a7f3a11b2` switches only that contract to `unittest.TestCase`; it does not
+connect it to production or alter the disposable DB profile.
+
+GitHub Actions run `31749311564` on `a7f3a11b2` is GREEN: the pinned service
+reported `11.4.12-MariaDB-ubu2404`, runner/workflow contracts were **23/23**,
+the disposable settings contracts were **9/9**, and the lifecycle gate applied
+the MariaDB test profile to a generated schema/user and emitted
+`cleanup=verified`. Its sanitized evidence artifact is retained by CI. The
+scoped commits `d054edf0e` and `a7f3a11b2` were pushed to `main` and pulled on
+production exclusively through the project SSH `git pull` path; server
+`HEAD == origin/main == a7f3a11b25c6821c46b3cf13052a458dc40f7de2`.
+Production `manage.py check` is clean and the read-only bot snapshot reports
+`state=running`, `daemon_online=True`, `pending=0`, and an empty `last_error`.
+
+This closes **Task 6A only**. `T41`, `G-INFRA`, `F-TEST-002` and `IMP-094`
+remain open until their separate MariaDB suites and acceptance evidence exist;
+future Tasks 6B–6F are not advertised or claimed.
 
 ### W2.1A Next queued release — intelligent Instagram follow-state and lifecycle CTA — `IMP-106`
 
