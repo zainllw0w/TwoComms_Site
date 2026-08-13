@@ -576,6 +576,28 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 
 #### Task 4.5 execution evidence (checkpoint prepared)
 
+- Code/test commit: `9d2000215` (`fix(seo): remove unowned general catalog claims`)
+  deletes only the hardcoded page-1 `/catalog/` SEO band whose delivery,
+  material/weight, gendered assortment, DTF durability, production and
+  donation statements had no verified shared owner. DB-backed category
+  descriptions, the generated category navigation rail, interactive color
+  controls, product grid, pagination and the existing Custom Print link were
+  intentionally retained. No DTF subdomain/blog route was touched.
+- TDD/local proof: `storefront.tests.test_general_catalog_seo` passed `12/12`;
+  `manage.py check --settings=test_settings`, touched-file compilation and
+  `git diff --check` passed. The wider `storefront.tests.test_seo_regressions`
+  run remains separately red in four pre-existing Organization-schema tests;
+  those failures are outside this template slice and were not used as release
+  evidence for it.
+- Production proof: commit `9d2000215` was pushed to `origin/main`, pulled on
+  the production host, activated with `touch tmp/restart.txt`, and the live
+  `/catalog/?seo_fact_probe=9d2000215` response returned `200`. The exact
+  markers `200–320 г/м²`, `Доставка Новою Поштою 1–2 дні` and `Частину
+  прибутку від кожного замовлення направляємо` were absent, while
+  `Додаткові розділи каталогу` remained present. This closes only the
+  hardcoded general-catalog claim block; it does not close the remaining
+  fact-lint work across PDP/support/llms/feed surfaces.
+
 #### Task 4.2a execution evidence (checkpoint prepared)
 
 - Code/test commit: `f654e0985e67bf442e26c785ce0a8e83b7f0f6ac`
