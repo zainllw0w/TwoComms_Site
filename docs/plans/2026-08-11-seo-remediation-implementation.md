@@ -704,6 +704,13 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   were not changed. This removes an unsupported repeated claim only; it makes
   no ranking, traffic, rich-result or conversion promise.
 
+#### P1.5 follow-up note
+
+- The canonical `/delivery/` page still contains its own `1–3 дні` policy
+  wording. That surface is intentionally outside this anchor-only release and
+  remains an owner-verification item; no global delivery-time claim is marked
+  factual until the policy source is confirmed.
+
 #### P0.13a release evidence
 
 - Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`

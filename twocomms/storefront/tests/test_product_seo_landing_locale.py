@@ -145,6 +145,7 @@ class ProductSeoLandingLocaleTests(TestCase):
             labels_by_url["/delivery/"],
             "Доставка та оплата",
         )
+        self.assertNotIn("1–3", labels_by_url["/delivery/"])
         self.assertEqual(
             labels_by_url["/rozmirna-sitka/"],
             "Розмірна сітка locale-rail-tees",
