@@ -13,6 +13,8 @@ from django.db.models import Q
 from django.templatetags.static import static
 from django.utils.html import strip_tags
 
+from productcolors.color_i18n import translate_color_name
+
 from .content_resolution import build_combination_key, normalize_option_values
 from .models import (
     ProductOptionSizeGrid,
@@ -39,6 +41,10 @@ DEFAULT_OVERSIZE_STATIC_PATH = "img/size-guides/oversize-tshirt.webp"
 DEFAULT_OVERSIZE_AVIF_PATH = "img/size-guides/oversize-tshirt.avif"
 DEFAULT_CLASSIC_STATIC_PATH = "img/size-guides/classic-tshirt.webp"
 LEGACY_SELLABLE_SIZES = ("XS", "S", "M", "L", "XL", "XXL")
+FIT_LABEL_FALLBACKS = {
+    "classic": {"ru": "Классическая", "en": "Classic"},
+    "oversize": {"ru": "Оверсайз", "en": "Oversize"},
+}
 
 GUIDE_LOCALIZATION = {
     "ru": {
@@ -334,6 +340,15 @@ def _fit_label(product, fit_code: str, lang: str) -> str:
         (item for item in product.fit_options.all() if item.code == fit_code),
         None,
     )
+    standard_fallback = FIT_LABEL_FALLBACKS.get(fit_code, {}).get(lang, "")
+    if standard_fallback:
+        localized = getattr(option, f"label_{lang}", "") if option is not None else ""
+        # ProductFitOption currently stores one editor label. Keep an
+        # optional locale-field hook for future localized model contracts,
+        # but never require a schema field that production does not have.
+        if _plain_text(localized):
+            return _plain_text(localized)
+        return standard_fallback
     if option is None:
         return fit_code.replace("-", " ").title()
     localized = getattr(option, f"label_{lang}", "")
@@ -344,9 +359,13 @@ def _guide_copy(product, fit_code: str, lang: str) -> dict[str, str]:
     title = _plain_text(getattr(product, "title", ""))
     label = _fit_label(product, fit_code, lang)
     if lang == "ru":
+        garment = {
+            "classic": "классической футболки",
+            "oversize": "оверсайз-футболки",
+        }.get(fit_code, f"футболки с посадкой «{label}»")
         return {
-            "alt": f"Таблица размеров {label.lower()} футболки «{title}»",
-            "caption": f"Размерная сетка {label.lower()} для {title}",
+            "alt": f"Таблица размеров {garment} «{title}»",
+            "caption": f"Размерная сетка {garment} «{title}»",
             "note": (
                 "Снимайте мерки с разложенной футболки и сравнивайте их с таблицей. "
                 "Классическая таблица охватывает S–3XL, оверсайз — XS–2XL."
@@ -657,7 +676,10 @@ def build_size_grid_comparison(product, variants=None, lang: str = "uk") -> list
             variant_payloads.append({
                 "variant_id": variant.id,
                 "color_id": variant.color_id,
-                "color_name": getattr(getattr(variant, "color", None), "name", ""),
+                "color_name": translate_color_name(
+                    getattr(getattr(variant, "color", None), "name", ""),
+                    language,
+                ),
                 "grid_id": variant_grid.id if variant_grid is not None else None,
                 "guide": variant_guide,
                 "sizes": effective_rows(

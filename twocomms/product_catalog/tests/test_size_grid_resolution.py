@@ -9,6 +9,7 @@ import json
 import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import (
@@ -552,6 +553,157 @@ class EffectiveSizeGridTests(TestCase):
         self.assertEqual(comparison[0]["label"], "Класика")
         self.assertEqual(comparison[1]["label"], "Оверсайз")
         self.assertEqual(comparison[0]["variants"][0]["variant_id"], self.variant.id)
+
+    def test_comparison_localizes_standard_fit_and_color_labels(self):
+        from product_catalog.size_grid_services import build_size_grid_comparison
+
+        self.variant.color.name = "Чорний"
+        self.variant.color.save(update_fields=["name"])
+
+        ru_comparison = build_size_grid_comparison(
+            self.product,
+            variants=[self.variant],
+            lang="ru",
+        )
+        en_comparison = build_size_grid_comparison(
+            self.product,
+            variants=[self.variant],
+            lang="en",
+        )
+        uk_comparison = build_size_grid_comparison(
+            self.product,
+            variants=[self.variant],
+            lang="uk",
+        )
+
+        self.assertEqual(
+            [item["label"] for item in ru_comparison],
+            ["Классическая", "Оверсайз"],
+        )
+        self.assertEqual(
+            [item["label"] for item in en_comparison],
+            ["Classic", "Oversize"],
+        )
+        self.assertEqual(
+            [item["label"] for item in uk_comparison],
+            ["Класика", "Оверсайз"],
+        )
+        self.assertEqual(ru_comparison[0]["variants"][0]["color_name"], "Чёрный")
+        self.assertEqual(en_comparison[0]["variants"][0]["color_name"], "Black")
+        self.assertEqual(uk_comparison[0]["variants"][0]["color_name"], "Чорний")
+
+    def test_fit_label_prefers_explicit_locale_and_preserves_custom_label(self):
+        from product_catalog.size_grid_services import _fit_label
+
+        class FitOptions:
+            def __init__(self, rows):
+                self.rows = rows
+
+            def all(self):
+                return self.rows
+
+        explicit = SimpleNamespace(
+            code="classic",
+            label="Класика",
+            label_ru="Редакторская посадка",
+            label_en="Editor fit",
+        )
+        custom = SimpleNamespace(code="relaxed", label="Relaxed авторська")
+
+        self.assertEqual(
+            _fit_label(SimpleNamespace(fit_options=FitOptions([explicit])), "classic", "ru"),
+            "Редакторская посадка",
+        )
+        self.assertEqual(
+            _fit_label(SimpleNamespace(fit_options=FitOptions([explicit])), "classic", "en"),
+            "Editor fit",
+        )
+        for language in ("uk", "ru", "en"):
+            with self.subTest(language=language):
+                self.assertEqual(
+                    _fit_label(SimpleNamespace(fit_options=FitOptions([custom])), "relaxed", language),
+                    "Relaxed авторська",
+                )
+
+    def test_standard_fit_fallback_does_not_require_fit_option_row(self):
+        from product_catalog.size_grid_services import _fit_label
+
+        class EmptyFitOptions:
+            def all(self):
+                return []
+
+        product = SimpleNamespace(fit_options=EmptyFitOptions())
+        self.assertEqual(_fit_label(product, "classic", "ru"), "Классическая")
+        self.assertEqual(_fit_label(product, "classic", "en"), "Classic")
+        self.assertEqual(_fit_label(product, "oversize", "ru"), "Оверсайз")
+
+    def test_comparison_template_renders_locale_safe_fit_and_color_semantics(self):
+        from product_catalog.size_grid_services import build_size_grid_comparison
+
+        self.variant.color.name = "Чорний"
+        self.variant.color.save(update_fields=["name"])
+
+        expected = {
+            "ru": {
+                "fit": "Классическая",
+                "color": "Чёрный",
+                "alt": "Таблица размеров классической футболки",
+                "caption": "Размерная сетка классической футболки",
+            },
+            "en": {
+                "fit": "Classic",
+                "color": "Black",
+                "alt": "Classic T-shirt size chart",
+                "caption": "Classic size guide",
+            },
+        }
+        for language, labels in expected.items():
+            comparison = build_size_grid_comparison(
+                self.product,
+                variants=[self.variant],
+                lang=language,
+            )
+            for item in comparison:
+                item["display_guide"] = item["guide"]
+                item["selected_color_name"] = item["variants"][0]["color_name"]
+            with translation.override(language):
+                html = render_to_string(
+                    "product_catalog/_size_grid_comparison.html",
+                    {
+                        "product": self.product,
+                        "size_grid_comparison": comparison,
+                        "preselected_fit_code": "classic",
+                        "size_advisor_enabled": True,
+                    },
+                )
+
+            self.assertIn(f"<span>{labels['fit']}</span>", html)
+            self.assertIn(f"<h3>{labels['fit']}</h3>", html)
+            self.assertIn(f'data-size-guide-color>{labels["color"]}</small>', html)
+            self.assertIn(labels["alt"], html)
+            self.assertIn(labels["caption"], html)
+            self.assertIn(
+                f'<caption class="visually-hidden">{labels["fit"]} — {self.product.title}</caption>',
+                html,
+            )
+
+    def test_unknown_color_label_passes_through_unchanged(self):
+        from product_catalog.size_grid_services import build_size_grid_comparison
+
+        self.variant.color.name = "Moon dust"
+        self.variant.color.save(update_fields=["name"])
+
+        for language in ("uk", "ru", "en"):
+            with self.subTest(language=language):
+                comparison = build_size_grid_comparison(
+                    self.product,
+                    variants=[self.variant],
+                    lang=language,
+                )
+                self.assertEqual(
+                    comparison[0]["variants"][0]["color_name"],
+                    "Moon dust",
+                )
 
     def test_comparison_localizes_measurement_content_for_ru_and_en(self):
         from product_catalog.default_size_guides import CLASSIC_GUIDE_DATA
