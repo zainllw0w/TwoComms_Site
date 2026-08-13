@@ -82,13 +82,17 @@ class FakeAdmin:
 
 
 class FakeCommandRunner:
-    def __init__(self, *, returncode=0):
+    def __init__(self, *, returncode=0, stdout="", stderr="migration failed"):
         self.calls = []
         self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
 
     def __call__(self, args, **kwargs):
         self.calls.append((list(args), kwargs))
-        return subprocess.CompletedProcess(args, self.returncode, "", "migration failed")
+        return subprocess.CompletedProcess(
+            args, self.returncode, self.stdout, self.stderr
+        )
 
 
 class MariaDbGateRunnerTests(unittest.TestCase):
@@ -172,6 +176,55 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             [call[0] for call in admin.calls][-4:],
             ["drop_user", "drop_database", "verify_cleanup", "close"],
         )
+
+    def test_failure_emits_bounded_sanitized_django_test_summary(self):
+        admin = FakeAdmin()
+        evidence = io.StringIO()
+        secret = "super-secret-token"
+        command = FakeCommandRunner(
+            returncode=1,
+            stdout="customer payload must stay hidden\n",
+            stderr=(
+                "Creating test database for alias 'default'...\n"
+                "ERROR: test_checkout (management.tests.CheckoutTests.test_checkout)\n"
+                "Traceback (most recent call last):\n"
+                '  File "/workspace/management/tests.py", line 10, in test_checkout\n'
+                "RuntimeError: buyer@example.com +380501112233 "
+                f"token={secret} Private customer note\n"
+                "Ran 1 test in 2.345s\n"
+                "FAILED (errors=1)\n"
+                + "ignored diagnostic noise\n" * 1000
+            ),
+        )
+
+        with self.assertRaises(self.runner.GateError):
+            self.runner.run_gate(
+                server_mode="external",
+                suite="checkout-concurrency",
+                admin=admin,
+                command_runner=command,
+                project_root=PROJECT_ROOT,
+                environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+                output=evidence,
+            )
+
+        summary = evidence.getvalue()
+        self.assertIn(
+            "MariaDB gate child failed: suite=checkout-concurrency exit=1",
+            summary,
+        )
+        self.assertIn("ERROR: test_checkout", summary)
+        self.assertIn("RuntimeError:", summary)
+        self.assertIn("Ran 1 test in 2.345s", summary)
+        self.assertIn("FAILED (errors=1)", summary)
+        self.assertNotIn("Traceback", summary)
+        self.assertNotIn("/workspace/management/tests.py", summary)
+        self.assertNotIn("customer payload", summary)
+        self.assertNotIn("buyer@example.com", summary)
+        self.assertNotIn("+380501112233", summary)
+        self.assertNotIn(secret, summary)
+        self.assertNotIn("Private customer note", summary)
+        self.assertLessEqual(len(summary), self.runner.MAX_FAILURE_SUMMARY_CHARS)
 
     def test_cleanup_failure_is_red_without_hiding_primary_error(self):
         admin = FakeAdmin(fail_cleanup=True)
