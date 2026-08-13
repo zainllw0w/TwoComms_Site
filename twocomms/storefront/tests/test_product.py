@@ -403,13 +403,44 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, "/delivery/", html=False)
 
     def test_product_detail_shell_does_not_guess_numeric_delivery_windows(self):
-        response = self.client.get(reverse("product", args=[self.product.slug]))
+        matrix = {
+            "uk": {
+                "path": f"/product/{self.product.slug}/",
+                "old": (
+                    "1–3 робочі дні по Україні",
+                    "1-3 дні Новою Поштою",
+                ),
+                "label": "Доставка та оплата",
+                "delivery_path": "/delivery/",
+            },
+            "ru": {
+                "path": f"/ru/product/{self.product.slug}/",
+                "old": (
+                    "1–3 рабочих дня по Украине",
+                    "1-3 дня Новой Почтой",
+                ),
+                "label": "Доставка и оплата",
+                "delivery_path": "/ru/delivery/",
+            },
+            "en": {
+                "path": f"/en/product/{self.product.slug}/",
+                "old": (
+                    "1–3 business days across Ukraine",
+                    "1-3 days via Nova Poshta",
+                ),
+                "label": "Delivery &amp; payment",
+                "delivery_path": "/en/delivery/",
+            },
+        }
 
-        self.assertEqual(response.status_code, 200)
-        self.assertNotContains(response, "1–3 робочі дні по Україні", html=False)
-        self.assertNotContains(response, "1-3 дні Новою Поштою", html=False)
-        self.assertContains(response, "Доставка та оплата", html=False)
-        self.assertContains(response, reverse("delivery"), html=False)
+        for language, expected in matrix.items():
+            with self.subTest(language=language), translation.override(language):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                for marker in expected["old"]:
+                    self.assertNotContains(response, marker, html=False)
+                self.assertContains(response, expected["label"], html=False)
+                self.assertContains(response, expected["delivery_path"], html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
