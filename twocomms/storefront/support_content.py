@@ -9,6 +9,10 @@ dict itself is module-level constant).
 from datetime import date
 
 from django.utils.translation import gettext_lazy as _
+from django.utils.functional import lazy
+from django.utils.text import format_lazy
+
+from storefront.services.fact_registry import free_shipping_threshold
 
 
 # SEO v1.0 Phase 12 (2026-05-12) — finding (BBB).
@@ -22,6 +26,13 @@ from django.utils.translation import gettext_lazy as _
 # during a long-running request, and keeps the JSON deterministic for
 # template-fragment caches.
 _TODAY_ISO = date.today().isoformat()
+
+
+def _free_shipping_threshold_text() -> str:
+    return f"{free_shipping_threshold():g}"
+
+
+_FREE_SHIPPING_THRESHOLD_TEXT = lazy(_free_shipping_threshold_text, str)()
 
 
 HELP_FAQ_ITEMS = [
@@ -168,7 +179,15 @@ DELIVERY_FAQ_ITEMS = [
     },
     {
         "question": _("Скільки коштує доставка?"),
-        "answer": _("За тарифами Нової Пошти / Укрпошти: відділення — 60-110 грн, поштомат — 65-90 грн, адресна — від 90 грн. Безкоштовна доставка при замовленні від 2 500 грн на основні відділення Нової Пошти / Укрпошти."),
+        "answer": format_lazy(
+            _(
+                "За тарифами Нової Пошти / Укрпошти: відділення — 60-110 грн, "
+                "поштомат — 65-90 грн, адресна — від 90 грн. Безкоштовна доставка "
+                "при замовленні від {threshold} грн на основні відділення "
+                "Нової Пошти / Укрпошти."
+            ),
+            threshold=_FREE_SHIPPING_THRESHOLD_TEXT,
+        ),
     },
     {
         "question": _("Чи можна оплатити товар при отриманні?"),

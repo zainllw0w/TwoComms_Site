@@ -125,6 +125,14 @@ class SupportStaticPagesTests(SimpleTestCase):
             self.assertContains(response, item["question"])
         self.assertNotContains(response, "Чи є таблиця розмірів?")
 
+    @override_settings(FREE_SHIPPING_THRESHOLD="2750")
+    def test_delivery_faq_uses_checkout_owned_free_shipping_threshold(self):
+        response = self.client.get("/delivery/?fact_registry_probe=2750", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Безкоштовна доставка при замовленні від 2750 грн")
+        self.assertNotContains(response, "від 2 500 грн")
+
     def test_returns_page_explains_ready_goods_window_and_custom_exception(self):
         response = self.client.get(reverse("returns"), secure=True)
 
