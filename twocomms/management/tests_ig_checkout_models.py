@@ -672,7 +672,22 @@ class IgCheckoutProposalConcurrencyTests(TransactionTestCase):
         proposal.status = IgCheckoutProposal.Status.CANCELLED
         proposal.invoice_cancelled_at = timezone.now()
         proposal.payment_attempt = attempt
+        from management.ig_bot_models import provider_evidence_signature
         from management.models import IgPaymentEvent, IgPaymentProjection
+
+        payload_digest = hashlib.sha256(b"payload:concurrency").hexdigest()
+        evidence = {
+            "status": "cancelled",
+            "signature": provider_evidence_signature(
+                deal_id=self.deal.pk,
+                client_id=self.client.pk,
+                provider="monobank",
+                source="provider_pull",
+                invoice_id=attempt.monobank_invoice_id,
+                provider_status="cancelled",
+                payload_digest=payload_digest,
+            ),
+        }
 
         event = IgPaymentEvent.objects.create(
             event_key=hashlib.sha256(b"terminal:concurrency").hexdigest(),
@@ -682,8 +697,8 @@ class IgCheckoutProposalConcurrencyTests(TransactionTestCase):
             source="provider_pull",
             invoice_id=attempt.monobank_invoice_id,
             provider_status="cancelled",
-            evidence={"status": "cancelled"},
-            payload_digest=hashlib.sha256(b"payload:concurrency").hexdigest(),
+            evidence=evidence,
+            payload_digest=payload_digest,
         )
         IgPaymentProjection.objects.create(
             deal=self.deal,

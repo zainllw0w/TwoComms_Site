@@ -22,6 +22,7 @@ class MariaDbWorkflowContractTests(unittest.TestCase):
 
     def test_runs_external_gate_without_production_database_variables(self):
         self.assertIn("--server-mode external --suite lifecycle", self.source)
+        self.assertIn("--server-mode external --suite checkout-concurrency", self.source)
         self.assertIn("MARIADB_ADMIN_PASSWORD: gate-root-password", self.source)
         self.assertNotRegex(self.source, r"(?m)^\s+DB_PASSWORD:")
         self.assertNotIn("qlknpodo_MySQL_DB", self.source)
