@@ -2833,6 +2833,14 @@ DR-002 исполнено буквально: семантика метрики 
 отношения не имеет; фиксирую, чтобы следующий агент не принял его за свою
 регрессию.
 
+### W2.1 follow-up (2026-08-13)
+
+The mandatory no-network gate is now stable for the selected package: 207
+tests passed with zero failures/errors/skips from three CWDs. The telephony
+module also passed 62/62 in isolation. This does not close F-DEBT-007: the
+historical order/global-state flake still lacks repeated full-suite proof, so
+no production telephony code was changed.
+
 ---
 
 # IMP-062 (НОВАЯ ЗАДАЧА): ТТН обмена привязывается к тому же заказу

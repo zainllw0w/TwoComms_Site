@@ -535,7 +535,11 @@ def _apply_claimed_job(
 
                         schedule_analysis(client, source, trigger="manager_message")
                     except Exception:
-                        pass
+                        # Queue durability is part of the manager takeover
+                        # boundary. Let the caller roll back the staged echo
+                        # and return a provider retry instead of applying a
+                        # partial takeover.
+                        raise
                 if takeover_started:
                     try:
                         from management.models import IgFunnelStepEvent

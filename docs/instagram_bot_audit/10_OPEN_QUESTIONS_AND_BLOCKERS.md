@@ -14,6 +14,9 @@
   regression-tested while `F-AI-018` remains open under `IMP-044`.
   `IMP-044` теперь также несёт `F-AI-018`: fresh manager-message analysis job
   исчерпал stale leases без typed provider/process telemetry.
+  F-DEBT-006 local W2.1 baseline slice закрыт: manager-echo queue failures now
+  roll back staged state and the required 207-test no-network gate is stable
+  from three CWDs. F-DEBT-007 remains open pending full-order flake evidence.
   F-TEST-004 внутри IMP-094 закрыта на `dd93f9f3`, но disposable MariaDB gate
   и остальные reliability acceptance criteria остаются открыты.
   `F-DEPLOY-001` adds the reproducibly built `http-ece` wheel hash gate;

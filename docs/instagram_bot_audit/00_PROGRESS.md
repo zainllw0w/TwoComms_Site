@@ -386,6 +386,25 @@ paylink. Monitor не повторяет terminal provider outcome, а созд�
 
 ## IMP-094: reliability checkpoint (2026-08-04, deployed; still OPEN)
 
+### W2.1 bounded local baseline slice (2026-08-13)
+
+The no-network baseline is now executable from any CWD via
+`scripts/run_ig_baseline.py`. It creates a sanitized `0600` evidence JSON,
+uses SQLite plus `test_settings_no_network`, denies external TCP/UDP/DNS,
+fails fast, and parses Django summaries from either stdout or stderr. The
+manager-echo queue failure was fixed at its transaction boundary: exceptions
+from `schedule_analysis` are no longer swallowed and `_handle_echo` rolls back
+the staged message, transition job and takeover state before the webhook
+returns `503`.
+
+Fresh evidence: the mandatory package ran **207 tests, 0 failures, 0 errors,
+0 skipped** three times from the repository root, `twocomms/`, and `/tmp`;
+telephony ran **62/62 OK**; runner contract tests **7/7 OK**. `F-DEBT-007`
+remains open because isolated telephony success does not prove the historical
+order/global-state flake is eliminated. `IMP-094`, `F-TEST-002`, `T40` and
+`T41` remain open for disposable MariaDB, rollback-fixture and full release
+provenance evidence.
+
 В рабочей ветке `codex/ig-bot-imp028-prompt` устранены три источника
 ложных падений/гонок в SQLite-gate: ночные тесты с плавающим «сегодня» переведены
 на фиксированное локальное время, регистрационный notifier и post-commit

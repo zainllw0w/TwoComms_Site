@@ -1225,7 +1225,7 @@ continuation остаётся отдельным свежим срезом.
 | [ ] | F-DEBT-003 | OPEN | IMP-046 |
 | [ ] | F-DEBT-004 | OPEN | IMP-045 |
 | [x] | F-DEBT-005 | FIXED/VERIFIED | IMP-004 |
-| [ ] | F-DEBT-006 | OPEN | IMP-094 |
+| [x] | F-DEBT-006 | FIXED/VERIFIED (W2.1 local baseline) | IMP-094 |
 | [ ] | F-DEBT-007 | OPEN | IMP-094 |
 | [ ] | F-DEPLOY-001 | OPEN | IMP-094 / Implement2 Task 7 |
 | [ ] | F-DEPLOY-002 | OPEN | IMP-094 / Implement2 Task 4 |
@@ -1323,7 +1323,7 @@ continuation остаётся отдельным свежим срезом.
 | [x] | F-STATE-010 | FIXED/VERIFIED | IMP-079 |
 | [x] | F-STATE-011 | FIXED/VERIFIED (`fbe33a68`) | IMP-105 |
 | [x] | F-TEST-001 | FIXED/VERIFIED | IMP-022 |
-| [ ] | F-TEST-002 | OPEN | IMP-094 |
+| [ ] | F-TEST-002 | OPEN (W2.1 SQLite baseline only; MariaDB/release gate pending) | IMP-094 |
 | [x] | F-TEST-003 | FIXED/VERIFIED | IMP-055 |
 | [x] | F-TEST-004 | FIXED/VERIFIED (`dd93f9f3`) | IMP-094 |
 | [x] | F-TXT-001 | FIXED/VERIFIED | IMP-022 |

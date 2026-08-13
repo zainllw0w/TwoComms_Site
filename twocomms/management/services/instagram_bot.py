@@ -2439,6 +2439,7 @@ def _stage_permission_message(
         return existing, False
 
 
+@transaction.atomic
 def _handle_echo(
     recipient_igsid: str,
     text: str,

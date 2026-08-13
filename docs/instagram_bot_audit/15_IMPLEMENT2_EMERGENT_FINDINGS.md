@@ -4,6 +4,20 @@
 > `14_IMPLEMENT2.md` / W2.0. This file retains discovery evidence only and must
 > not be used as a competing implementation queue.
 
+## W2.1 local baseline evidence (2026-08-13)
+
+The mandatory no-network package is now cwd-independent through
+`scripts/run_ig_baseline.py`. The reproducible RED was a manager echo whose
+`schedule_analysis` failure was swallowed after takeover state was applied;
+the green fix propagates that exception and makes `_handle_echo` transactional,
+so HTTP retries receive `503` without a staged message, transition job or
+partial takeover. Fresh runs from the repository root, `twocomms/`, and `/tmp`
+each passed **207 tests, 0 failures, 0 errors, 0 skipped**. The separate
+telephony module passed **62/62**, while the historical full-order/global-state
+flake remains open as `F-DEBT-007`. This is SQLite/no-network evidence only;
+`T40`, disposable MariaDB parity, and full `IMP-094` release acceptance remain
+open.
+
 ## W3 pre-deploy delivery findings (2026-08-13)
 
 The independent Wave 3 review found and the scoped slice now covers three

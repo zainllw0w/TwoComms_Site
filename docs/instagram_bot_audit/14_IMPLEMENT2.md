@@ -532,9 +532,17 @@ These findings were discovered while implementing Wave 0 and are owned here;
 
 ### W2.1 Close residual local reliability debt after preflight — `IMP-094.A`
 
-- [ ] P0.5 already makes cwd-independent/no-network baseline mandatory. Here,
-  close its known residual `F-TEST-002`, `F-DEBT-006`, `F-DEBT-007`: root-cause
-  the telephony flake and run the stable gate three times from documented CWDs.
+- [ ] P0.5 bounded local slice is complete: it now has a cwd-independent/no-network baseline runner. The manager-
+  echo scheduling failure was root-caused: `_apply_claimed_job` swallowed the
+  analysis-queue exception after applying takeover state, while `_handle_echo`
+  staged its message/job outside one transaction. The fix propagates the
+  failure and wraps `_handle_echo` in `transaction.atomic`, so the webhook
+  returns `503` and rolls back message/job/client side effects. Focused
+  regression `WebhookEndpointSecurityTests.test_signed_manager_echo_returns_retry_without_partial_message_when_scheduling_fails`
+  is green; the mandatory gate is **207 tests, 0 failures, 0 errors, 0
+  skipped**, repeated from the repository root, `twocomms/`, and `/tmp`.
+  Telephony is separately **62/62 OK**; `F-DEBT-007` is therefore retained as
+  an unresolved order/global-state investigation rather than changed blindly.
 - [ ] `T40`: deterministic rollback fixture with proof of no residue.
 - [ ] Keep `T41` as SQLite-fast evidence only; do not call it production parity.
 
