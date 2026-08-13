@@ -667,6 +667,20 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   Custom Print flow was invoked. No ranking, traffic, rich-result or
   conversion uplift is claimed.
 
+#### P1.4 follow-up hardening
+
+- Code/test commit: `b9fb9e977b3ba35821522819edc6cacfaec640aa`
+  (`fix(seo): recheck full faq cleanup scope`) removes the initial-ID filter
+  from the locked second scan. The apply phase now locks and fingerprints the
+  complete published standard `order=2` scope before deletion, so an added,
+  reactivated, reprioritized or otherwise changed row aborts the transaction.
+- TDD/local gates: the focused guarded-cleanup suite passed `7/7`, including
+  the added-row stale-plan regression; `manage.py check`, compilation and
+  `git diff --check` passed. The broader related run remained `59/60` because
+  of the pre-existing independent GPTBot `?color=` robots-policy assertion.
+- Production proof: `b9fb9e977` is live, `manage.py check` passed, and the
+  guarded command dry-run remains `0` candidates after the prior exact cleanup.
+
 #### P0.13a release evidence
 
 - Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`
