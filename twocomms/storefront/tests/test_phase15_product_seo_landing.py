@@ -104,13 +104,6 @@ class TopQueriesTests(_Base):
         self.assertNotIn("1-3", delivery["label"])
         self.assertNotIn("1–3", delivery["label"])
 
-    def test_shipping_chip_does_not_claim_unowned_delivery_window(self):
-        items = _top_queries_for_product(self.product)
-        delivery = next(item for item in items if item["url"] == "/delivery/")
-        self.assertEqual(delivery["label"], "Доставка та оплата")
-        self.assertNotIn("1-3", delivery["label"])
-        self.assertNotIn("1–3", delivery["label"])
-
     def test_includes_custom_print_chips(self):
         items = _top_queries_for_product(self.product)
         urls = [i["url"] for i in items]
