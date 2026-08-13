@@ -441,6 +441,31 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   authored editorial copy was changed. No ranking, traffic, feed approval or
   conversion uplift is claimed.
 
+- [x] **P0.10** Replace the delivery FAQ's stale hardcoded free-shipping
+  threshold with the checkout-owned public fact registry. This keeps the
+  visible support page and commerce threshold synchronized without choosing
+  an unverified delivery-time, handling-time or carrier promise.
+
+#### P0.10 release evidence
+
+- Code/test commit: `f11d0abdd` (`fix(seo): use checkout shipping threshold in
+  delivery faq`) resolves the FAQ value through `free_shipping_threshold()`;
+  the rendered regression overrides the checkout setting to `2750` and fails
+  if `2500` is emitted.
+- TDD/local gates: the targeted rendered test passed, touched-file
+  compilation and `git diff --check` passed. The broader static support module
+  retains two unrelated historical failures (organization-schema expectation
+  and a database access warning in a `SimpleTestCase`) and is not claimed
+  green by this slice.
+- Production: `origin/main`, server `HEAD` and restart checkpoint are
+  `f11d0abdd`; server `manage.py check` passed. Live `/delivery/` with a
+  cache-busting query returned `200`, contained `Безкоштовна доставка при
+  замовленні від 3000 грн`, and contained no `від 2 500 грн` marker.
+- Boundary: no DTF subdomain/blog/module, ordinary product DTF wording,
+  Custom Print configurator/content, delivery timing, handling, carrier,
+  product data, inventory or checkout behavior was changed. No ranking,
+  traffic, citation or conversion uplift is claimed.
+
 ## Priority and dependency checklist
 
 ### Task 1: Eliminate linked 404 destinations
