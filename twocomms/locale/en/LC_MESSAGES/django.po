@@ -15233,15 +15233,15 @@ msgstr "14 days for exchange"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:231
 msgid "Хочеш цей принт інакше?"
-msgstr ""
+msgstr "Want this print in a different version?"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:232
 msgid "Зроби схожий варіант на іншому кольорі, основі або додай свій знак у кастомному DTF-друці."
-msgstr ""
+msgstr "Make a similar version on another color or base, or add your own mark with custom DTF printing."
 
 #: twocomms_django_theme/templates/pages/product_detail.html:236
 msgid "Створити свій варіант"
-msgstr ""
+msgstr "Create your own version"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:256
 msgid "Дії з товаром"
@@ -16818,6 +16818,10 @@ msgstr "Details & fit guide"
 #: twocomms_django_theme/templates/partials/product_seo_landing.html:33
 msgid "Розділи товару"
 msgstr "Product sections"
+
+#: twocomms_django_theme/templates/pages/product_detail.html:321
+msgid "Контекст моделі"
+msgstr "Model context"
 
 #: twocomms_django_theme/templates/partials/product_seo_landing.html:43
 msgid "Топ запити для цієї моделі"

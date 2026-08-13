@@ -183,6 +183,52 @@ class RenderedLocaleMatrixTests(TestCase):
                 )
                 self.assertNotIn('aria-label="Позиція у галереї"', body)
 
+    def test_standard_pdp_shared_merchandising_shell_is_locale_owned(self):
+        matrix = {
+            "ru": {
+                "path": "/ru/product/locale-matrix-tee/",
+                "context": "Контекст модели",
+                "custom_title": "Хочешь этот принт иначе?",
+                "custom_copy": (
+                    "Сделай похожий вариант на другом цвете, основе или добавь "
+                    "свой знак в кастомной DTF-печати."
+                ),
+                "custom_action": "Создать свой вариант",
+            },
+            "en": {
+                "path": "/en/product/locale-matrix-tee/",
+                "context": "Model context",
+                "custom_title": "Want this print in a different version?",
+                "custom_copy": (
+                    "Make a similar version on another color or base, or add "
+                    "your own mark with custom DTF printing."
+                ),
+                "custom_action": "Create your own version",
+            },
+        }
+
+        ukrainian_markers = (
+            "Контекст моделі",
+            "Хочеш цей принт інакше?",
+            "Зроби схожий варіант на іншому кольорі, основі або додай свій знак у кастомному DTF-друці.",
+            "Створити свій варіант",
+        )
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode("utf-8")
+                for value in (
+                    expected["context"],
+                    expected["custom_title"],
+                    expected["custom_copy"],
+                    expected["custom_action"],
+                ):
+                    self.assertIn(value, body)
+                for marker in ukrainian_markers:
+                    self.assertNotIn(marker, body)
+
     def test_standard_pdp_editorial_links_use_locale_owned_labels_and_urls(self):
         matrix = {
             "ru": {
