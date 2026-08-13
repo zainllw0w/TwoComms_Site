@@ -775,6 +775,33 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     behavior; no product data or runtime schema code changed. This checkpoint
     claims only RU/EN entity-language parity and makes no ranking, citation,
     rich-result or conversion uplift claim.
+- [x] **3.2e** Localize hydrated standard-PDP gallery accessibility labels and
+  live status for RU/EN. Server-owned gettext templates now drive thumbnail
+  labels, gallery dots and the live region; the pre-hydration status is also
+  translated. Thumbnail positions use the actual image index (not a clamped
+  total), and the UK source behavior remains unchanged. This is a focused
+  accessibility/locale slice and does not close the full 3.1 matrix.
+
+  - Code/test commit: `5c564f9e083aea9208ee906676d0dcdfacb3e892` (`fix(seo):
+    localize standard PDP gallery labels`) was pushed to `origin/main`, pulled
+    on production, statically collected/compressed and activated with
+    `tmp/restart.txt`.
+  - TDD/local gates: Node product-detail plus add-to-cart tests passed `29/29`;
+    the focused rendered locale/product/configurator/merchandising suite passed
+    `57/57`; `manage.py check`, `node --check`, `msgfmt --check` and staged
+    `git diff --check` passed. The server lacks GNU `msgfmt`, so the committed
+    RU/EN `.mo` files were used as shipped and read successfully; server
+    `collectstatic`, `compress --force` and `manage.py check` passed.
+  - Live browser proof at deployed SHA `5c564f9e0`: RU and EN standard PDPs
+    render localized templates (`Фото {position} из {total}` / `Photo
+    {position} of {total}` and matching thumbnail labels). A production
+    five-image hoodie gallery showed distinct labels `1…5`, dots `1…5`, and
+    the live status updated to `3`/`4` after thumbnail selection. No
+    `product-detail.js` errors, cart request or purchase event was emitted.
+  - Boundary: no DTF route, subdomain, module or blog; no Custom Print view,
+    template, content, configurator, pricing, cart, analytics or submission
+    behavior; no product data or variant ownership changed. Existing unrelated
+    analytics/CSP/autocomplete console notices remain outside this slice.
 - [x] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners. See P1.2 evidence above.
 - [ ] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
 - [ ] **3.5** Do not run a general Custom Print SEO audit. Run only a focused RU/EN localization check. If a specific wrong-language visible-text or related wrong-locale canonical/hreflang defect is reproduced, add one focused failing test and the smallest locale-only fix; otherwise record `N/A`. Prove UK content, configurator state, cart, analytics and submission contracts unchanged without submitting a live request.

@@ -515,6 +515,13 @@ WebSite, color landing и отключенный MemberProgram/fact parity) ос
 отдельными открытыми задачами; этот срез не объявляет GEO-002 полностью
 закрытым.
 
+**Статус 2026-08-13, gallery locale slice:** стандартная RU/EN PDP gallery
+теперь получает accessibility/status templates из активной локали. Исправлены
+SSR fallback, thumbnail/dot labels и live-region text; production browser proof
+на пяти изображениях подтвердил позиции `1…5` и обновление статуса после выбора.
+Коммит `5c564f9e0`; полный locale matrix, остальные mixed-language PDP strings
+и общий fact/content audit остаются открытыми.
+
 #### GEO-003 — ClothingStore с координатами не подтверждён видимой физической точкой
 
 Contacts page одновременно описывает online-only магазин с отправкой из Харькова и публикует ClothingStore, координаты 50.0040, 36.2308, postalCode 61061 и часы 10:00–22:00 без streetAddress. Это риск ложного Local Pack/Maps ожидания, но не доказанный ranking loss. Если staffed location и часы реальны, те же NAP должны быть видимы и подтверждены GBP; если нет, оставить ContactPage/Organization/OnlineStore и описать Харьков как операционный origin без LocalBusiness coordinates.
