@@ -1601,7 +1601,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/my_orders.html:351
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:70
 msgid "Готово"
-msgstr ""
+msgstr "Готово"
 
 #: management/models.py:617
 msgid "Сильний день"
@@ -5560,7 +5560,7 @@ msgstr ""
 
 #: storefront/seo_utils.py:1573
 msgid "Не крапка, а продовження. Український streetwear із Харкова."
-msgstr ""
+msgstr "Не точка, а продолжение. Украинский streetwear из Харькова."
 
 #: storefront/seo_utils.py:1576
 msgid "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження."
@@ -10853,7 +10853,7 @@ msgstr "Войти через Google"
 #: twocomms_django_theme/templates/pages/auth_login.html:21
 #: twocomms_django_theme/templates/partials/mini_profile.html:136
 msgid "Увійти через Telegram"
-msgstr ""
+msgstr "Войти через Telegram"
 
 #: twocomms_django_theme/templates/pages/auth_login.html:23
 msgid "Продовжуючи, ви погоджуєтесь з умовами використання"
@@ -13700,7 +13700,7 @@ msgstr "Когда нужно быстро подтвердить макет, д
 #: twocomms_django_theme/templates/pages/custom_print.html:1071
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:17
 msgid "Підтвердження Telegram"
-msgstr ""
+msgstr "Подтверждение Telegram"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1072
 msgid "Це гарантує, що менеджер зможе зв’язатися з вами по правильному номеру."
@@ -13709,12 +13709,12 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1076
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:24
 msgid "Натисніть «Відкрити бота TwoComms» — ми перенесемо вас у Telegram."
-msgstr ""
+msgstr "Нажмите «Открыть бота TwoComms» — мы перенаправим вас в Telegram."
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1077
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:25
 msgid "У боті натисніть «📱 Поділитися номером» (це кнопка під полем введення)."
-msgstr ""
+msgstr "В боте нажмите «📱 Поделиться номером» (это кнопка под полем ввода)."
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1078
 msgid "Поверніться сюди — ми автоматично заповнимо контакт і збережемо номер."
@@ -13723,7 +13723,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1086
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:34
 msgid "Відкрити бота TwoComms"
-msgstr ""
+msgstr "Открыть бота TwoComms"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1089
 msgid "Ввести @username вручну"
@@ -13736,17 +13736,17 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1101
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:47
 msgid "Очікуємо ваш контакт у боті…"
-msgstr ""
+msgstr "Ожидаем ваш контакт в боте…"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1103
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:48
 msgid "У відкритому Telegram-боті натисніть кнопку «📱 Поділитися номером»."
-msgstr ""
+msgstr "В открытом Telegram-боте нажмите кнопку «📱 Поделиться номером»."
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1109
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:52
 msgid "Відкрити бота ще раз"
-msgstr ""
+msgstr "Открыть бота ещё раз"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1116
 msgid "Якщо бот не відкрився — натисніть «Відкрити бота ще раз» або скопіюйте посилання."
@@ -13761,7 +13761,7 @@ msgstr "Скопировать ссылку"
 #: twocomms_django_theme/templates/pages/custom_print.html:1123
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:66
 msgid "Telegram підтверджено!"
-msgstr ""
+msgstr "Telegram подтверждён!"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1127
 msgid "Продовжити оформлення"
@@ -13770,7 +13770,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1134
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:77
 msgid "Сесія завершилась"
-msgstr ""
+msgstr "Сессия завершилась"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1136
 msgid "Ми не отримали ваш контакт за 5 хвилин. Спробуйте знову або введіть @username вручну."
@@ -13779,7 +13779,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1140
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:83
 msgid "Спробувати ще раз"
-msgstr ""
+msgstr "Попробовать ещё раз"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1143
 msgid "Ввести вручну"
@@ -16486,7 +16486,7 @@ msgstr ""
 
 #: twocomms_django_theme/templates/partials/mini_profile.html:139
 msgid "Авторизуйтесь, щоб накопичувати бали та не вводити дані щоразу"
-msgstr ""
+msgstr "Авторизуйтесь, чтобы накапливать баллы и не вводить данные каждый раз"
 
 #: twocomms_django_theme/templates/partials/product_card.html:18
 #, python-format
@@ -16887,20 +16887,68 @@ msgstr "Топ-запросы для этой модели"
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:19
 msgid "Натисніть «Відкрити бота TwoComms» і поділіться номером — далі ми все зробимо самі."
-msgstr ""
+msgstr "Нажмите «Открыть бота TwoComms» и поделитесь номером — дальше мы всё сделаем сами."
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:26
 msgid "Поверніться сюди — ми завершимо все автоматично."
-msgstr ""
+msgstr "Вернитесь сюда — мы всё завершим автоматически."
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:41
 msgid "Ми збережемо ваш номер тільки для звʼязку. Без розсилок і третіх осіб."
-msgstr ""
+msgstr "Мы сохраним ваш номер только для связи. Без рассылок и передачи третьим лицам."
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:59
 msgid "Якщо бот не відкрився — скопіюйте посилання:"
-msgstr ""
+msgstr "Если бот не открылся — скопируйте ссылку:"
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:79
 msgid "Спробуйте ще раз — нова сесія діятиме 5 хвилин."
-msgstr ""
+msgstr "Попробуйте ещё раз — новая сессия будет действовать 5 минут."
+
+#: twocomms_django_theme/templates/pages/catalog.html:181
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:377
+msgid "Закрити фільтри"
+msgstr "Закрыть фильтры"
+
+#: twocomms_django_theme/templates/pages/catalog.html:189
+msgid "Одяг"
+msgstr "Одежда"
+
+#: twocomms_django_theme/templates/pages/catalog.html:210
+msgid "Кольори зʼявляться разом із доступними моделями."
+msgstr "Цвета появятся вместе с доступными моделями."
+
+#: twocomms_django_theme/templates/pages/catalog.html:228
+msgid "Наявність і сортування"
+msgstr "Наличие и сортировка"
+
+#: twocomms_django_theme/templates/pages/catalog.html:231
+msgid "Тільки в наявності"
+msgstr "Только в наличии"
+
+#: twocomms_django_theme/templates/pages/catalog.html:233
+msgid "Порядок товарів"
+msgstr "Порядок товаров"
+
+#: twocomms_django_theme/templates/pages/catalog.html:235
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:232
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:238
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:386
+msgid "Рекомендовані"
+msgstr "Рекомендуемые"
+
+#: twocomms_django_theme/templates/pages/catalog.html:236
+msgid "Спочатку новинки"
+msgstr "Сначала новые"
+
+#: twocomms_django_theme/templates/pages/catalog.html:237
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:239
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:387
+msgid "Від дешевих"
+msgstr "Сначала дешевле"
+
+#: twocomms_django_theme/templates/pages/catalog.html:238
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:240
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:388
+msgid "Від дорогих"
+msgstr "Сначала дороже"

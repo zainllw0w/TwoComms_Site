@@ -98,10 +98,160 @@ class RenderedLocaleMatrixTests(TestCase):
             for candidate in candidates:
                 if (
                     isinstance(candidate, dict)
-                    and candidate.get("@type") == schema_type
+                    and (
+                        candidate.get("@type") == schema_type
+                        or schema_type in (candidate.get("@type") or [])
+                    )
                 ):
                     return candidate
         self.fail(f"No {schema_type} JSON-LD node found")
+
+    def test_standard_catalog_and_pdp_shared_shell_is_locale_owned(self):
+        matrix = {
+            "ru": {
+                "paths": (
+                    "/ru/catalog/",
+                    "/ru/product/locale-matrix-tee/",
+                ),
+                "content_language": "ru",
+                "required": (
+                    "Войти через Telegram",
+                    "Авторизуйтесь, чтобы накапливать баллы и не вводить данные каждый раз",
+                    "Подтверждение Telegram",
+                    "Нажмите «Открыть бота TwoComms» и поделитесь номером — дальше мы всё сделаем сами.",
+                    "Нажмите «Открыть бота TwoComms» — мы перенаправим вас в Telegram.",
+                    "В боте нажмите «📱 Поделиться номером» (это кнопка под полем ввода).",
+                    "Вернитесь сюда — мы всё завершим автоматически.",
+                    "Открыть бота TwoComms",
+                    "Мы сохраним ваш номер только для связи. Без рассылок и передачи третьим лицам.",
+                    "Ожидаем ваш контакт в боте…",
+                    "В открытом Telegram-боте нажмите кнопку «📱 Поделиться номером».",
+                    "Открыть бота ещё раз",
+                    "Если бот не открылся — скопируйте ссылку:",
+                    "Скопировать ссылку",
+                    "Telegram подтверждён!",
+                    "Готово",
+                    "Сессия завершилась",
+                    "Попробуйте ещё раз — новая сессия будет действовать 5 минут.",
+                    "Попробовать ещё раз",
+                ),
+            },
+            "en": {
+                "paths": (
+                    "/en/catalog/",
+                    "/en/product/locale-matrix-tee/",
+                ),
+                "content_language": "en",
+                "required": (
+                    "Sign in with Telegram",
+                    "Sign in to collect points and avoid entering your details each time",
+                    "Telegram verification",
+                    "Open the TwoComms bot and share your phone number — we will handle the rest.",
+                    "Open the TwoComms bot — we will redirect you to Telegram.",
+                    "In the bot, tap “📱 Share phone number” (the button below the message field).",
+                    "Return here — we will finish everything automatically.",
+                    "Open the TwoComms bot",
+                    "We will save your number only to contact you. No marketing messages or third-party sharing.",
+                    "Waiting for your contact in the bot…",
+                    "In the Telegram bot, tap “📱 Share phone number”.",
+                    "Open the bot again",
+                    "If the bot did not open, copy the link:",
+                    "Copy link",
+                    "Telegram verified!",
+                    "Done",
+                    "Session expired",
+                    "Try again — the new session will remain active for 5 minutes.",
+                    "Try again",
+                ),
+            },
+        }
+        ukrainian_markers = (
+            "Увійти через Telegram",
+            "Авторизуйтесь, щоб накопичувати бали та не вводити дані щоразу",
+            "Підтвердження Telegram",
+            "Натисніть «Відкрити бота TwoComms» і поділіться номером — далі ми все зробимо самі.",
+            "Очікуємо ваш контакт у боті…",
+            "Telegram підтверджено!",
+            "Сесія завершилась",
+        )
+
+        for locale, expected in matrix.items():
+            for path in expected["paths"]:
+                with self.subTest(locale=locale, path=path):
+                    response = self.client.get(path)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(
+                        response.headers.get("Content-Language"),
+                        expected["content_language"],
+                    )
+                    body = response.content.decode("utf-8")
+                    for value in expected["required"]:
+                        self.assertIn(value, body)
+                    for marker in ukrainian_markers:
+                        self.assertNotIn(marker, body)
+
+    def test_standard_root_catalog_filters_and_organization_slogan_are_locale_owned(self):
+        matrix = {
+            "ru": {
+                "path": "/ru/catalog/",
+                "filters": (
+                    "Наличие и сортировка",
+                    "Только в наличии",
+                    "Порядок товаров",
+                    "Рекомендуемые",
+                    "Сначала дешевле",
+                    "Сначала дороже",
+                    "Закрыть фильтры",
+                ),
+                "slogan": (
+                    "Не точка, а продолжение. Украинский streetwear из Харькова."
+                ),
+            },
+            "en": {
+                "path": "/en/catalog/",
+                "filters": (
+                    "Availability and sorting",
+                    "In stock only",
+                    "Product order",
+                    "Recommended",
+                    "Price: low to high",
+                    "Price: high to low",
+                    "Close filters",
+                ),
+                "slogan": (
+                    "Not a full stop, but a continuation. Ukrainian streetwear from Kharkiv."
+                ),
+            },
+        }
+        ukrainian_filters = (
+            "Наявність і сортування",
+            "Тільки в наявності",
+            "Порядок товарів",
+            "Рекомендовані",
+            "Від дешевих",
+            "Від дорогих",
+            "Закрити фільтри",
+        )
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "index, follow")
+                body = response.content.decode("utf-8")
+                for value in expected["filters"]:
+                    self.assertIn(value, body)
+                for marker in ukrainian_filters:
+                    self.assertNotIn(marker, body)
+
+                schema = self._json_ld_node(body, "Organization")
+                self.assertEqual(
+                    schema["@id"],
+                    "https://twocomms.shop/#organization",
+                )
+                self.assertEqual(schema["name"], "TwoComms")
+                self.assertEqual(schema["slogan"], expected["slogan"])
+                self.assertNotIn("Не крапка, а продовження", schema["slogan"])
 
     def test_standard_pdp_founder_schema_is_locale_owned(self):
         matrix = {

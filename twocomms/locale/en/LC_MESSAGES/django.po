@@ -1601,7 +1601,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/my_orders.html:351
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:70
 msgid "Готово"
-msgstr ""
+msgstr "Done"
 
 #: management/models.py:617
 msgid "Сильний день"
@@ -5516,7 +5516,7 @@ msgstr ""
 
 #: storefront/seo_utils.py:1573
 msgid "Не крапка, а продовження. Український streetwear із Харкова."
-msgstr ""
+msgstr "Not a full stop, but a continuation. Ukrainian streetwear from Kharkiv."
 
 #: storefront/seo_utils.py:1576
 msgid "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження."
@@ -10809,7 +10809,7 @@ msgstr "Sign in with Google"
 #: twocomms_django_theme/templates/pages/auth_login.html:21
 #: twocomms_django_theme/templates/partials/mini_profile.html:136
 msgid "Увійти через Telegram"
-msgstr ""
+msgstr "Sign in with Telegram"
 
 #: twocomms_django_theme/templates/pages/auth_login.html:23
 msgid "Продовжуючи, ви погоджуєтесь з умовами використання"
@@ -13650,7 +13650,7 @@ msgstr "When you need to confirm a layout, deadline or print specifics quickly w
 #: twocomms_django_theme/templates/pages/custom_print.html:1071
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:17
 msgid "Підтвердження Telegram"
-msgstr ""
+msgstr "Telegram verification"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1072
 msgid "Це гарантує, що менеджер зможе зв’язатися з вами по правильному номеру."
@@ -13659,12 +13659,12 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1076
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:24
 msgid "Натисніть «Відкрити бота TwoComms» — ми перенесемо вас у Telegram."
-msgstr ""
+msgstr "Open the TwoComms bot — we will redirect you to Telegram."
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1077
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:25
 msgid "У боті натисніть «📱 Поділитися номером» (це кнопка під полем введення)."
-msgstr ""
+msgstr "In the bot, tap “📱 Share phone number” (the button below the message field)."
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1078
 msgid "Поверніться сюди — ми автоматично заповнимо контакт і збережемо номер."
@@ -13673,7 +13673,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1086
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:34
 msgid "Відкрити бота TwoComms"
-msgstr ""
+msgstr "Open the TwoComms bot"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1089
 msgid "Ввести @username вручну"
@@ -13686,17 +13686,17 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1101
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:47
 msgid "Очікуємо ваш контакт у боті…"
-msgstr ""
+msgstr "Waiting for your contact in the bot…"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1103
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:48
 msgid "У відкритому Telegram-боті натисніть кнопку «📱 Поділитися номером»."
-msgstr ""
+msgstr "In the Telegram bot, tap “📱 Share phone number”."
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1109
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:52
 msgid "Відкрити бота ще раз"
-msgstr ""
+msgstr "Open the bot again"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1116
 msgid "Якщо бот не відкрився — натисніть «Відкрити бота ще раз» або скопіюйте посилання."
@@ -13711,7 +13711,7 @@ msgstr "Copy link"
 #: twocomms_django_theme/templates/pages/custom_print.html:1123
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:66
 msgid "Telegram підтверджено!"
-msgstr ""
+msgstr "Telegram verified!"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1127
 msgid "Продовжити оформлення"
@@ -13720,7 +13720,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1134
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:77
 msgid "Сесія завершилась"
-msgstr ""
+msgstr "Session expired"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1136
 msgid "Ми не отримали ваш контакт за 5 хвилин. Спробуйте знову або введіть @username вручну."
@@ -13729,7 +13729,7 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/custom_print.html:1140
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:83
 msgid "Спробувати ще раз"
-msgstr ""
+msgstr "Try again"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:1143
 msgid "Ввести вручну"
@@ -16432,7 +16432,7 @@ msgstr ""
 
 #: twocomms_django_theme/templates/partials/mini_profile.html:139
 msgid "Авторизуйтесь, щоб накопичувати бали та не вводити дані щоразу"
-msgstr ""
+msgstr "Sign in to collect points and avoid entering your details each time"
 
 #: twocomms_django_theme/templates/partials/product_card.html:18
 #, python-format
@@ -16829,19 +16829,19 @@ msgstr "Top queries for this model"
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:19
 msgid "Натисніть «Відкрити бота TwoComms» і поділіться номером — далі ми все зробимо самі."
-msgstr ""
+msgstr "Open the TwoComms bot and share your phone number — we will handle the rest."
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:26
 msgid "Поверніться сюди — ми завершимо все автоматично."
-msgstr ""
+msgstr "Return here — we will finish everything automatically."
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:41
 msgid "Ми збережемо ваш номер тільки для звʼязку. Без розсилок і третіх осіб."
-msgstr ""
+msgstr "We will save your number only to contact you. No marketing messages or third-party sharing."
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:59
 msgid "Якщо бот не відкрився — скопіюйте посилання:"
-msgstr ""
+msgstr "If the bot did not open, copy the link:"
 
 #: twocomms_django_theme/templates/partials/header.html
 msgid "Товари в кошику не бронюються"
@@ -16889,4 +16889,52 @@ msgstr "Easy exchanges and returns"
 
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:79
 msgid "Спробуйте ще раз — нова сесія діятиме 5 хвилин."
-msgstr ""
+msgstr "Try again — the new session will remain active for 5 minutes."
+
+#: twocomms_django_theme/templates/pages/catalog.html:181
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:377
+msgid "Закрити фільтри"
+msgstr "Close filters"
+
+#: twocomms_django_theme/templates/pages/catalog.html:189
+msgid "Одяг"
+msgstr "Clothing"
+
+#: twocomms_django_theme/templates/pages/catalog.html:210
+msgid "Кольори зʼявляться разом із доступними моделями."
+msgstr "Colours will appear with available models."
+
+#: twocomms_django_theme/templates/pages/catalog.html:228
+msgid "Наявність і сортування"
+msgstr "Availability and sorting"
+
+#: twocomms_django_theme/templates/pages/catalog.html:231
+msgid "Тільки в наявності"
+msgstr "In stock only"
+
+#: twocomms_django_theme/templates/pages/catalog.html:233
+msgid "Порядок товарів"
+msgstr "Product order"
+
+#: twocomms_django_theme/templates/pages/catalog.html:235
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:232
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:238
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:386
+msgid "Рекомендовані"
+msgstr "Recommended"
+
+#: twocomms_django_theme/templates/pages/catalog.html:236
+msgid "Спочатку новинки"
+msgstr "Newest first"
+
+#: twocomms_django_theme/templates/pages/catalog.html:237
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:239
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:387
+msgid "Від дешевих"
+msgstr "Price: low to high"
+
+#: twocomms_django_theme/templates/pages/catalog.html:238
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:240
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:388
+msgid "Від дорогих"
+msgstr "Price: high to low"
