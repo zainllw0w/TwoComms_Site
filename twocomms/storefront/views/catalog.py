@@ -1359,7 +1359,7 @@ def _product_cards_queryset(*, include_fit_options=False, include_merchandising=
 HOME_SURVEY_VISIBILITY_CACHE_VERSION = "survey-visible-20260530"
 # Bump whenever homepage Organization/llms-owned facts change so cached HTML
 # cannot continue publishing retired structured-data claims after deploy.
-HOME_SEO_FACTS_CACHE_VERSION = "seo-facts-v2-20260813"
+HOME_SEO_FACTS_CACHE_VERSION = "seo-facts-v3-20260813-geo"
 
 
 def homepage_cache_prefix(request, view_func):
