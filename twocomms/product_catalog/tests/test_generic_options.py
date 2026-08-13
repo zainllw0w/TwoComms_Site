@@ -108,6 +108,44 @@ class GenericProductOptionTests(TestCase):
         self.assertEqual(choices[0]["reason"], "Фліс закінчився")
         self.assertEqual(payload["axes"][0]["selected_value"], "")
 
+    def test_standard_fit_labels_follow_requested_locale_without_changing_codes(self):
+        from product_catalog.services import product_option_context
+
+        self.flow.axes = [
+            {
+                "code": "fit",
+                "label": "Посадка",
+                "options": [
+                    {"code": "classic", "label": "Класична", "default": True},
+                    {"code": "oversize", "label": "Оверсайз"},
+                    {"code": "drop-shoulder", "label": "Спущене плече"},
+                ],
+            }
+        ]
+        self.flow.save(update_fields=["axes"])
+
+        expected = {
+            "ru": ("Посадка", ["Классическая", "Оверсайз", "Спущене плече"]),
+            "en": ("Fit", ["Classic", "Oversize", "Спущене плече"]),
+        }
+        for language, (axis_label, choice_labels) in expected.items():
+            with self.subTest(language=language):
+                axis = product_option_context(
+                    self.product,
+                    variant=self.variant,
+                    lang=language,
+                )["axes"][0]
+
+                self.assertEqual(axis["label"], axis_label)
+                self.assertEqual(
+                    [choice["code"] for choice in axis["choices"]],
+                    ["classic", "oversize", "drop-shoulder"],
+                )
+                self.assertEqual(
+                    [choice["label"] for choice in axis["choices"]],
+                    choice_labels,
+                )
+
     def test_option_price_uses_exact_combination_before_product_option(self):
         from product_catalog.services import variant_public_context
 

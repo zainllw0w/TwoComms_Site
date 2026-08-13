@@ -7,6 +7,8 @@ Product Catalog — сервісні хелпери для ПУБЛІЧНОЇ ч
 """
 from decimal import Decimal, InvalidOperation
 
+from django.utils.translation import gettext, gettext_noop, override
+
 from .models import (
     ColorProfile,
     FeedImageRule,
@@ -44,6 +46,31 @@ DEFAULT_THERMO_DESCRIPTION = (
     "виглядає по-різному залежно від температури."
 )
 DEFAULT_THERMO_PRICE_REASON = "Термохромна тканина"
+
+_STANDARD_FIT_LABELS = {
+    "classic": gettext_noop("Класична"),
+    "oversize": gettext_noop("Оверсайз"),
+}
+
+
+def _public_option_label(*, axis_code, choice_code, raw_label, lang):
+    """Localize only owned standard option labels, preserving custom DB copy."""
+
+    language = str(lang or "uk").lower().replace("_", "-").split("-", 1)[0]
+    if language not in {"ru", "en"}:
+        return str(raw_label or choice_code)
+    if axis_code != "fit" or choice_code not in _STANDARD_FIT_LABELS:
+        return str(raw_label or choice_code)
+    with override(language):
+        return gettext(_STANDARD_FIT_LABELS[choice_code])
+
+
+def _public_axis_label(*, axis_code, raw_label, lang):
+    language = str(lang or "uk").lower().replace("_", "-").split("-", 1)[0]
+    if axis_code != "fit" or language not in {"ru", "en"}:
+        return str(raw_label or axis_code)
+    with override(language):
+        return gettext("Посадка")
 
 
 def _material_story(*, profile, is_thermo, merchandising, options):
@@ -380,7 +407,12 @@ def product_option_context(
                 )
             choices.append({
                 "code": choice_code,
-                "label": str(raw_choice.get("label") or choice_code),
+                "label": _public_option_label(
+                    axis_code=axis_code,
+                    choice_code=choice_code,
+                    raw_label=raw_choice.get("label"),
+                    lang=lang,
+                ),
                 "description": str(raw_choice.get("description") or ""),
                 "icon": str(raw_choice.get("icon") or axis_code),
                 "is_enabled": enabled,
@@ -424,7 +456,11 @@ def product_option_context(
         )
         axes.append({
             "code": axis_code,
-            "label": str(raw_axis.get("label") or axis_code),
+            "label": _public_axis_label(
+                axis_code=axis_code,
+                raw_label=raw_axis.get("label"),
+                lang=lang,
+            ),
             "choices": choices,
             "selected_value": requested,
             "is_fixed": fixed_choice is not None,

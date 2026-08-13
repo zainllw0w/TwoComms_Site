@@ -790,6 +790,56 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, "Класичний")
         self.assertContains(response, "Оверсайз")
 
+    def test_product_detail_localizes_standard_fit_selector_for_ru_and_en(self):
+        tshirt_category = Category.objects.create(
+            name="Футболки",
+            slug="localized-tshirt-fit",
+            is_active=True,
+        )
+        product = Product.objects.create(
+            title="Локалізована футболка",
+            title_ru="Локализованная футболка",
+            title_en="Localized T-shirt",
+            slug="localized-tshirt-fit",
+            category=tshirt_category,
+            price=1000,
+            description="Перевірка локалізації посадки.",
+            status="published",
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="classic",
+            label="Класична",
+            is_default=True,
+            order=0,
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="oversize",
+            label="Оверсайз",
+            order=1,
+        )
+
+        matrix = {
+            "ru": ("Посадка", "Классическая", "Оверсайз"),
+            "en": ("Fit", "Classic", "Oversize"),
+        }
+        for language, expected in matrix.items():
+            with self.subTest(language=language), translation.override(language):
+                response = self.client.get(
+                    f"/{language}/product/{product.slug}/",
+                )
+                html = response.content.decode("utf-8")
+
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(
+                    f'<div class="tc-selector-head"><span>{expected[0]}</span></div>',
+                    html,
+                )
+                self.assertIn(f"<strong>{expected[1]}</strong>", html)
+                self.assertIn(f"<strong>{expected[2]}</strong>", html)
+                self.assertNotIn("<strong>Класична</strong>", html)
+
     def test_product_detail_preselects_fit_from_url_for_tshirts(self):
         tshirt_category = Category.objects.create(
             name="Футболки",
