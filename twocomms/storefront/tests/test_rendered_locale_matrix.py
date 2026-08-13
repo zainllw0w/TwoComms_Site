@@ -7,6 +7,7 @@ shared brand name or proper noun as a translation defect.
 
 from __future__ import annotations
 
+import json
 import re
 from unittest.mock import patch
 
@@ -85,6 +86,56 @@ class RenderedLocaleMatrixTests(TestCase):
         )
         self.assertIsNotNone(match)
         return match.group(0)
+
+    def _json_ld_node(self, body: str, schema_type: str) -> dict:
+        for payload in re.findall(
+            r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>',
+            body,
+            flags=re.DOTALL,
+        ):
+            data = json.loads(payload)
+            candidates = data if isinstance(data, list) else [data]
+            for candidate in candidates:
+                if (
+                    isinstance(candidate, dict)
+                    and candidate.get("@type") == schema_type
+                ):
+                    return candidate
+        self.fail(f"No {schema_type} JSON-LD node found")
+
+    def test_standard_pdp_founder_schema_is_locale_owned(self):
+        matrix = {
+            "ru": {
+                "path": "/ru/product/locale-matrix-tee/",
+                "job_title": "Основатель TwoComms",
+                "description": (
+                    "Основатель украинского streetwear-бренда TwoComms из "
+                    "Харькова, боевой ветеран."
+                ),
+            },
+            "en": {
+                "path": "/en/product/locale-matrix-tee/",
+                "job_title": "Founder of TwoComms",
+                "description": (
+                    "Founder of the Ukrainian streetwear brand TwoComms from "
+                    "Kharkiv; a combat veteran."
+                ),
+            },
+        }
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "index, follow")
+                schema = self._json_ld_node(
+                    response.content.decode("utf-8"),
+                    "Person",
+                )
+
+                self.assertEqual(schema["jobTitle"], expected["job_title"])
+                self.assertEqual(schema["description"], expected["description"])
+                self.assertNotIn("Засновник українського", schema["description"])
 
     def test_standard_pdp_editorial_links_use_locale_owned_labels_and_urls(self):
         matrix = {

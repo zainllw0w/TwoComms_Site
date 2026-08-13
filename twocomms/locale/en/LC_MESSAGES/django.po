@@ -5566,7 +5566,7 @@ msgstr "Founder of TwoComms"
 
 #: storefront/seo_utils.py:1708
 msgid "Засновник українського streetwear-бренду TwoComms із Харкова, бойовий ветеран."
-msgstr ""
+msgstr "Founder of the Ukrainian streetwear brand TwoComms from Kharkiv; a combat veteran."
 
 #: storefront/seo_utils.py:1729
 msgid "Магазин стріт & мілітарі одягу з ексклюзивним дизайном"
