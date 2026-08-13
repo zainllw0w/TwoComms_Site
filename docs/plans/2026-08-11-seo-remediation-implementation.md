@@ -1043,7 +1043,12 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     Telegram/profile shell and full catalog/PDP matrix stay open under Tasks
     `3.1` and `3.6`.
 - [x] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners. See P1.2 evidence above.
-- [ ] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
+- [x] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
+
+  - Production DB audit at checkpoint SHA `da75ddc3724289a61b5616895923ff7eed878e81` found `73` published Products and exactly six without raw RU/EN title, SEO title and SEO description owners: `futbolka-bez-zhodnykh-sumniviv`, `futbolka-boiova-kvitochka`, `futbolka-kharkiv-forever`, `futbolka-kharkiv-vokzalna`, `futbolka-posmikhnys` and `futbolka-pravyl-nemaie`. The published count increased from the earlier `71` baseline, but the incomplete locale set did not change.
+  - The existing publication gate was reverified instead of filling fields with guessed or machine-generated SEO copy. All twelve RU/EN URLs returned `200 + noindex, follow`, emitted no SEO hreflang cluster and were absent from `sitemap-products.xml`; the clean UK owners remain available. The focused locale publication, multilingual sitemap, title-alignment and rendered-locale suite passed `49/49`.
+  - This is an evidence-only closure of the requested verification and fail-closed policy. It does not claim that RU/EN translations now exist, and it does not auto-copy Ukrainian fields, create keyword variants or mark fallback content indexable. Separate RU/EN publication requires reviewed editorial data from its owner.
+  - Boundary: no Product/FAQ/media/inventory data, DTF route/subdomain/blog/module, Custom Print flow or code was changed. No ranking, traffic, citation or conversion uplift is claimed.
 - [ ] **3.5** Do not run a general Custom Print SEO audit. Run only a focused RU/EN localization check. If a specific wrong-language visible-text or related wrong-locale canonical/hreflang defect is reproduced, add one focused failing test and the smallest locale-only fix; otherwise record `N/A`. Prove UK content, configurator state, cart, analytics and submission contracts unchanged without submitting a live request.
 - [ ] **3.6** Run standard catalog/PDP locale HTML/schema/sitemap and browser language-switch checks. If 3.5 is triggered, add only its focused RU/EN regression and minimal UK no-submit non-regression. Commit/push/deploy and record evidence before checking Task 3.
 
