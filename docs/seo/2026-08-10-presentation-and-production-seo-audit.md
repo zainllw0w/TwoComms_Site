@@ -522,6 +522,13 @@ SSR fallback, thumbnail/dot labels и live-region text; production browser proof
 Коммит `5c564f9e0`; полный locale matrix, остальные mixed-language PDP strings
 и общий fact/content audit остаются открытыми.
 
+**Статус 2026-08-13, shared PDP shell locale slice:** устранены RU/EN
+украинские fallback-строки в стандартном model-context label и существующей
+PDP promotion card. Production browser proof на RU/EN подтвердил локальный
+текст и отсутствие украинских markers; commit `830f99f60`. Это не аудит и не
+изменение Custom Print route/configurator, а только локализация родительской
+standard PDP.
+
 #### GEO-003 — ClothingStore с координатами не подтверждён видимой физической точкой
 
 Contacts page одновременно описывает online-only магазин с отправкой из Харькова и публикует ClothingStore, координаты 50.0040, 36.2308, postalCode 61061 и часы 10:00–22:00 без streetAddress. Это риск ложного Local Pack/Maps ожидания, но не доказанный ranking loss. Если staffed location и часы реальны, те же NAP должны быть видимы и подтверждены GBP; если нет, оставить ContactPage/Organization/OnlineStore и описать Харьков как операционный origin без LocalBusiness coordinates.

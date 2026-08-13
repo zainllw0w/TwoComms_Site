@@ -802,6 +802,31 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     template, content, configurator, pricing, cart, analytics or submission
     behavior; no product data or variant ownership changed. Existing unrelated
     analytics/CSP/autocomplete console notices remain outside this slice.
+- [x] **3.2f** Localize the remaining shared standard-PDP merchandising shell
+  for RU and EN. Added locale-owned translations for the model-context label
+  and the existing standard-PDP Custom Print promotion copy/action. This does
+  not audit or alter the Custom Print route/configurator; it only prevents the
+  parent standard PDP from publishing Ukrainian fallback UI.
+
+  - Code/test commit: `830f99f60f6036509ca45e1da7f05cca49116dfc` (`fix(i18n):
+    localize standard PDP merchandising shell`) was pushed to `origin/main`,
+    pulled on production, statically collected/compressed and activated with
+    `tmp/restart.txt`.
+  - TDD/local gates: the new rendered RU/EN regression first failed for both
+    locales on the Ukrainian fallback, then passed after the four gettext
+    translations were added. The focused standard locale/product/configurator
+    suite passed `58/58`; `manage.py check`, `node --check`, `msgfmt --check`
+    and `git diff --check` passed (only existing PO header warnings remain).
+  - Live browser proof at deployed SHA `830f99f60`: RU rendered `Контекст
+    модели`, `Хочешь этот принт иначе?`, the Russian explanatory CTA and
+    `Создать свой вариант`; EN rendered `Model context`, the English CTA,
+    explanatory copy and `Create your own version`. The former Ukrainian
+    markers were absent on both pages and no new JS errors or cart request was
+    observed.
+  - Boundary: no Custom Print view, route, configurator state, product data,
+    pricing, inventory, cart, analytics, DTF subdomain/blog/module or UK
+    translation was changed. The allowed DTF wording inside the standard PDP
+    promotion remains semantically unchanged, only translated for RU/EN.
 - [x] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners. See P1.2 evidence above.
 - [ ] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
 - [ ] **3.5** Do not run a general Custom Print SEO audit. Run only a focused RU/EN localization check. If a specific wrong-language visible-text or related wrong-locale canonical/hreflang defect is reproduced, add one focused failing test and the smallest locale-only fix; otherwise record `N/A`. Prove UK content, configurator state, cart, analytics and submission contracts unchanged without submitting a live request.
