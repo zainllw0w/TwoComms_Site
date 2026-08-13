@@ -1771,6 +1771,36 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - This checkpoint claims removal of a false freshness signal only. It makes no
   ranking, traffic, citation or conversion claim. Task `10.3` remains open for
   a reviewed source-backed revision field and same-locale OfferCatalog URLs.
+- [x] **10.3b** Make the standard `/pro-brand/` OfferCatalog JSON-LD URLs
+  locale-aware. The root catalog plus T-shirts, hoodies and long-sleeves use
+  the active Django locale URL on UK/RU/EN brand pages. This does not alter
+  category routes, canonical/hreflang ownership, the Organization identity,
+  descriptions, Custom Print or any DTF subdomain/blog surface.
+
+#### Task 10.3b release evidence
+
+- Code/test commit: `136f045dea7681f9194d2c003734540d59ba7da1`
+  (`fix(seo): localize pro brand catalog schema`) was pushed to `origin/main`,
+  fast-forwarded on production, and activated with `tmp/restart.txt`.
+- TDD/local gates: the regression first failed on RU/EN because OfferCatalog
+  published the four UK URLs. After resolving the four catalog owners with
+  active-locale Django `reverse()`, the focused `OfferCatalogLocaleRegressionTests`
+  passed for UK, RU and EN. `manage.py check`, migration drift check,
+  touched-file `py_compile` and `git diff --check` passed. The test environment
+  reported its existing missing offline-compressor manifest warning but rendered
+  all tested pages successfully.
+- Live proof: production `HEAD=136f045d`; `/pro-brand/`, `/ru/pro-brand/` and
+  `/en/pro-brand/` each returned `200` and eight JSON-LD scripts parsed with
+  `json.loads`. Their OfferCatalog root and children respectively use
+  `/catalog/...`, `/ru/catalog/...` and `/en/catalog/...`. All twelve resulting
+  category URLs returned `200`, self-canonicalized, and retained the reciprocal
+  `uk-UA`, `ru-UA`, `en-UA`, `x-default` hreflang cluster.
+- Boundary proof: only the pro-brand view/template and its regression test
+  changed. Category content/routes, product data, Custom Print and every DTF
+  route, subdomain, module and blog remain untouched. This checkpoint claims
+  locale/schema consistency only, not a ranking, traffic, rich-result,
+  citation or conversion increase. Task `10.3` remains open for a reviewed
+  source-backed revision field.
 - [ ] **10.4** Create a monthly UK/RU/EN query/citation ledger with date, country, device, model/search engine, cited URL and factuality result; no promise of citation boost.
 - [ ] **10.5** Commit/push/deploy and mark Task 10 only after the monitoring baseline is reproducible.
 
