@@ -150,7 +150,6 @@ class Command(BaseCommand):
                     order=STANDARD_FAQ_ORDER,
                     product__status=STANDARD_PRODUCT_STATUS,
                     product__category__slug__in=STANDARD_CATEGORY_SLUGS,
-                    pk__in=report["fingerprints"],
                 )
                 .select_related("product", "product__category")
                 .order_by("id")
