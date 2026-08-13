@@ -508,7 +508,7 @@ def _buyme_description(product: Product, offer: FeedOffer) -> str:
     text = (
         f"{name}. {item_label.capitalize()} з авторським принтом для щоденного образу, "
         "streetwear-стилю та продажу у форматі дропшипінгу. "
-        f"Матеріал: {offer.material_ua}. Колір: {offer.color_ua}. Розмір: {offer.size}. "
+        f"Колір: {offer.color_ua}. Розмір: {offer.size}. "
         "Сезон: демісезон. Стать: унісекс. Стан: новий. Країна виробництва: Україна."
     )
     return _truncate(_sanitize_buyme_text(text), 3000)
@@ -557,12 +557,10 @@ def _product_kind(product: Product) -> str:
 
 
 def _material_pair(product: Product) -> tuple[str, str]:
-    kind = _product_kind(product)
-    if kind == "hoodie":
-        return "90% бавовна, 10% поліестер", "90% хлопок, 10% полиэстер"
-    if kind == "longsleeve":
-        return "95% бамбук, 5% еластан", "95% бамбук, 5% эластан"
-    return "95% бавовна, 5% еластан", "95% хлопок, 5% эластан"
+    # Product and variant models do not currently expose an owner-backed
+    # composition field. Do not infer a material from a category or title:
+    # an omitted feed attribute is safer than publishing a false specification.
+    return "", ""
 
 
 def _sale_price(product: Product, base_price: int) -> int:
@@ -610,7 +608,6 @@ def _description_html_ru(product: Product, offer_context: dict) -> str:
     category = offer_context["category_ru"]
     color = offer_context["color_ru"]
     size = offer_context["size"]
-    material = offer_context["material_ru"]
     title = _uk_text_to_ru(title)
     category = _uk_text_to_ru(category)
     lead = f"{title} от TwoComms — качественная вещь категории {category.lower()} с эксклюзивным дизайном."
@@ -622,7 +619,7 @@ def _description_html_ru(product: Product, offer_context: dict) -> str:
                 "стритвир-стиля, подарка или мерча команды. Изделие рассчитано на "
                 "комфортную посадку и регулярную носку.</p>"
             ),
-            f"<p>Материал: {material}. Цвет: {color}. Размер: {size}. Сезон: демисезон. Производство: Украина.</p>",
+            f"<p>Цвет: {color}. Размер: {size}. Сезон: демисезон. Производство: Украина.</p>",
         ]
     )
 
@@ -632,7 +629,6 @@ def _description_html_ua(product: Product, offer_context: dict) -> str:
     category = offer_context["category_ua"]
     color = offer_context["color_ua"]
     size = offer_context["size"]
-    material = offer_context["material_ua"]
     raw = _source_description(product)
     lead = raw if raw else f"{title} від TwoComms — якісна річ категорії {category.lower()} з ексклюзивним дизайном."
     return "".join(
@@ -643,7 +639,7 @@ def _description_html_ua(product: Product, offer_context: dict) -> str:
                 "streetwear-стилю, подарунка або мерчу команди. Виріб розрахований "
                 "на комфортну посадку та регулярне носіння.</p>"
             ),
-            f"<p>Матеріал: {material}. Колір: {color}. Розмір: {size}. Сезон: демісезон. Виробництво: Україна.</p>",
+            f"<p>Колір: {color}. Розмір: {size}. Сезон: демісезон. Виробництво: Україна.</p>",
         ]
     )
 
@@ -1142,8 +1138,6 @@ def build_rozetka_feed_xml(base_url: str | None = None, feed=None) -> bytes:
         params = [
             ("Розмір", offer.size),
             ("Колір", offer.color_ua),
-            ("Склад", offer.material_ua),
-            ("Матеріал", offer.material_ua),
             ("Сезон", "Демісезон"),
             ("Стать", "Унісекс"),
             ("Вікова група", "Дорослі"),
@@ -1211,8 +1205,6 @@ def build_kasta_feed_xml(base_url: str | None = None, feed=None) -> bytes:
         params = [
             ("Колір", offer.color_ua),
             ("Розмір", offer.size),
-            ("Склад", offer.material_ua),
-            ("Матеріал", offer.material_ua),
             ("Сезон", "Демісезон"),
             ("Стать", "Унісекс"),
             ("Вікова група", "Дорослі"),
@@ -1282,7 +1274,6 @@ def build_buyme_feed_xml(base_url: str | None = None, feed=None) -> bytes:
         params = [
             ("Колір", offer.color_ua),
             ("Розмір", offer.size),
-            ("Матеріал", offer.material_ua),
             ("Сезон", "Демісезон"),
             ("Стать", "Унісекс"),
             ("Вікова група", "Дорослі"),
@@ -1379,7 +1370,6 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
         title = _localized_product_text(product, "title", language)
         category = _localized_product_text(product.category, "name", language) or ("Одежда" if is_russian else "Одяг")
         color = offer.color_ru if is_russian else offer.color_ua
-        material = offer.material_ru if is_russian else offer.material_ua
         description = (
             _truncate(_collapse_plain_text(offer.description_ru), 5000)
             if is_russian
@@ -1417,7 +1407,6 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
         ET.SubElement(item, f"{G}size").text = _truncate(offer.size, 100)
         ET.SubElement(item, f"{G}size_system").text = "EU"
         ET.SubElement(item, f"{G}color").text = _truncate(color, 100)
-        ET.SubElement(item, f"{G}material").text = _truncate(material, 200)
 
         if offer.video_link:
             ET.SubElement(item, f"{G}video_link").text = offer.video_link
@@ -1440,7 +1429,6 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
         highlights = (
             [
                 "Эксклюзивный дизайн TwoComms",
-                f"Материал: {material}",
                 "Производство: Украина",
                 "Подходит для повседневной носки",
                 f"Цвет: {color}; размер: {offer.size}",
@@ -1448,7 +1436,6 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
             if is_russian
             else [
                 "Ексклюзивний дизайн TwoComms",
-                f"Матеріал: {material}",
                 "Виробництво: Україна",
                 "Підходить для щоденного носіння",
                 f"Колір: {color}; розмір: {offer.size}",
@@ -1460,7 +1447,6 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
         details = (
             [
                 ("Характеристики", "Бренд", SHOP_NAME),
-                ("Характеристики", "Материал", material),
                 ("Характеристики", "Цвет", color),
                 ("Характеристики", "Размер", offer.size),
                 ("Характеристики", "Страна производства", "Украина"),
@@ -1469,7 +1455,6 @@ def build_google_merchant_feed_xml(base_url: str | None = None, feed=None) -> by
             if is_russian
             else [
                 ("Характеристики", "Бренд", SHOP_NAME),
-                ("Характеристики", "Матеріал", material),
                 ("Характеристики", "Колір", color),
                 ("Характеристики", "Розмір", offer.size),
                 ("Характеристики", "Країна виробництва", "Україна"),
@@ -1508,7 +1493,6 @@ def build_meta_catalog_feed_xml(base_url: str | None = None, feed=None) -> bytes
         title = _localized_product_text(product, "title", language)
         category = _localized_product_text(product.category, "name", language) or ("Одежда" if is_russian else "Одяг")
         color = offer.color_ru if is_russian else offer.color_ua
-        material = offer.material_ru if is_russian else offer.material_ua
         rich_description = offer.description_ru if is_russian else offer.description_ua
         description = (
             _truncate(_collapse_plain_text(rich_description), 5000)
@@ -1545,7 +1529,7 @@ def build_meta_catalog_feed_xml(base_url: str | None = None, feed=None) -> bytes
         ET.SubElement(item, f"{G}google_product_category").text = DEFAULT_GOOGLE_PRODUCT_CATEGORY
         ET.SubElement(item, f"{G}age_group").text = "adult"
         ET.SubElement(item, f"{G}gender").text = "unisex"
-        ET.SubElement(item, f"{G}material").text = _truncate(material, 200)
+        # Material is omitted until a reviewed product/variant owner exists.
         if _product_kind(product) == "hoodie":
             ET.SubElement(item, "internal_label").text = "['hoodie']"
 
@@ -1603,7 +1587,6 @@ def _build_yml_feed_xml(*, base_url: str | None, bezzet_mode: bool = False, feed
         for name, value in [
             ("Розмір", offer.size),
             ("Колір", offer.color_ua),
-            ("Матеріал", offer.material_ua),
             ("Сезон", "Демісезон"),
             ("Країна-виробник товару", "Україна"),
         ]:

@@ -117,6 +117,7 @@ class MarketplaceFeedServiceTests(TestCase):
         self.assertEqual(first.findtext("g:availability", namespaces=G_NS), "in_stock")
         self.assertEqual(first.findtext("g:price", namespaces=G_NS), "1500.00 UAH")
         self.assertEqual(first.findtext("g:sale_price", namespaces=G_NS), "1200.00 UAH")
+
         self.assertEqual(first.findtext("g:brand", namespaces=G_NS), "TwoComms")
         self.assertEqual(first.findtext("g:gtin", namespaces=G_NS), "4006381333931")
         self.assertEqual(first.findtext("g:mpn", namespaces=G_NS), f"TWC-TEST-BLACK-{self.product.id}")
@@ -132,6 +133,36 @@ class MarketplaceFeedServiceTests(TestCase):
         )
         self.assertGreaterEqual(len(first.findall("g:product_detail", namespaces=G_NS)), 5)
         self.assertGreaterEqual(len(first.findall("g:product_highlight", namespaces=G_NS)), 4)
+
+    def test_feeds_do_not_guess_material_when_product_has_no_owned_material(self):
+        from storefront.services.marketplace_feeds import (
+            build_buyme_feed_xml,
+            build_google_merchant_feed_xml,
+            build_kasta_feed_xml,
+            build_prom_feed_xml,
+            build_rozetka_feed_xml,
+            build_uaprom_products_feed_xml,
+        )
+
+        guessed_materials = (
+            "95% бавовна",
+            "95% хлопок",
+            "90% бавовна",
+            "90% хлопок",
+            "95% бамбук",
+        )
+        for label, builder in (
+            ("rozetka", build_rozetka_feed_xml),
+            ("kasta", build_kasta_feed_xml),
+            ("buyme", build_buyme_feed_xml),
+            ("google", build_google_merchant_feed_xml),
+            ("prom", build_prom_feed_xml),
+            ("uaprom", build_uaprom_products_feed_xml),
+        ):
+            with self.subTest(feed=label):
+                payload = builder(base_url="https://twocomms.shop").decode("utf-8")
+                for marker in guessed_materials:
+                    self.assertNotIn(marker, payload)
 
     def test_feed_routes_return_dynamic_xml(self):
         response = self.client.get("/rozetka-feed.xml", secure=True)
