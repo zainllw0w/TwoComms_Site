@@ -486,6 +486,29 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   visible support page and commerce threshold synchronized without choosing
   an unverified delivery-time, handling-time or carrier promise.
 
+- [x] **P0.11** Version the anonymous catalog full-page cache after the
+  localized single-H1 template release, so a clean canonical catalog URL
+  cannot continue serving the old two-H1 HTML until TTL expiry. This is cache
+  correctness only; no catalog content, product data, selector or Custom Print
+  behavior changes.
+
+#### P0.11 release evidence
+
+- Code/test commit: `2b57bec04` (`fix(cache): bust catalog HTML after H1
+  release`) advances the catalog-only anonymous cache namespace to
+  `catalog-seo-v5-20260813-h1`. The regression was RED against the former
+  `v4` key, then GREEN with the new namespace; it runs alongside the rendered
+  RU/EN H1 localization assertions (`3/3` under `test_settings`).
+- Production: `2b57bec04` was pushed to `main`, pulled on the server,
+  Passenger restarted, and `manage.py check` passed. Clean, no-query UK, RU
+  and EN `/catalog/` responses each contain exactly one `<h1>`; the mobile
+  showcase remains a localized `role="heading" aria-level="2"`, not a second
+  H1. This verifies the canonical cached path rather than a cache-busting
+  probe URL.
+- Boundary: no DTF subdomain/blog/module, Custom Print, product text, catalog
+  inventory, filters, pagination or locale-ownership policy changed. This is
+  not a ranking/traffic claim.
+
 #### P0.10 release evidence
 
 - Code/test commit: `f11d0abdd` (`fix(seo): use checkout shipping threshold in
