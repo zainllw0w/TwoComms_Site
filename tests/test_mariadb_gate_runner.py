@@ -403,9 +403,16 @@ class MariaDbGateRunnerTests(unittest.TestCase):
                 self.assertIn("MariaDB 11.4", str(raised.exception))
                 self.assertFalse(any(call[0].startswith("create_") for call in admin.calls))
 
-    def test_task_6a_advertises_only_the_lifecycle_suite(self):
+    def test_task_6b_advertises_the_narrow_checkout_concurrency_suite(self):
         self.assertEqual(self.runner.DEFAULT_SUITE, "lifecycle")
-        self.assertEqual(set(self.runner.SUITES), {"lifecycle"})
+        self.assertEqual(
+            self.runner.SUITES["checkout-concurrency"],
+            (
+                "management.tests_ig_checkout_models."
+                "IgCheckoutProposalConcurrencyTests."
+                "test_concurrent_replacement_creation_serializes_on_deal",
+            ),
+        )
         with self.assertRaises(self.runner.GateError):
             self.runner._validate_suite("full")
 

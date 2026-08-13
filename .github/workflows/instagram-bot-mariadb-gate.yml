@@ -78,11 +78,22 @@ jobs:
         run: |
           set -o pipefail
           python scripts/run_mariadb_gate.py --server-mode external --suite lifecycle 2>&1 | tee mariadb-gate-evidence.txt
+      - name: Run disposable MariaDB checkout concurrency gate
+        env:
+          MARIADB_HOST: 127.0.0.1
+          MARIADB_PORT: "3306"
+          MARIADB_ADMIN_USER: root
+          MARIADB_ADMIN_PASSWORD: gate-root-password
+        run: |
+          set -o pipefail
+          python scripts/run_mariadb_gate.py --server-mode external --suite checkout-concurrency 2>&1 | tee mariadb-checkout-concurrency-evidence.txt
       - name: Upload sanitized MariaDB gate evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: mariadb-gate-evidence
-          path: mariadb-gate-evidence.txt
+          path: |
+            mariadb-gate-evidence.txt
+            mariadb-checkout-concurrency-evidence.txt
           if-no-files-found: warn
           retention-days: 7

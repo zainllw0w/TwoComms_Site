@@ -25,7 +25,14 @@ from typing import Callable, Mapping, TextIO
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUITE = "lifecycle"
-SUITES = {"lifecycle": ("management.tests_ig_mariadb_lifecycle",)}
+SUITES = {
+    "lifecycle": ("management.tests_ig_mariadb_lifecycle",),
+    "checkout-concurrency": (
+        "management.tests_ig_checkout_models."
+        "IgCheckoutProposalConcurrencyTests."
+        "test_concurrent_replacement_creation_serializes_on_deal",
+    ),
+}
 SAFE_ENV_NAMES = {
     "PATH",
     "HOME",
