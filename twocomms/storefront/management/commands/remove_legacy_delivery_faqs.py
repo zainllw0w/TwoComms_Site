@@ -11,6 +11,10 @@ from django.db import transaction
 from storefront.models import ProductFAQ
 
 
+STANDARD_CATEGORY_SLUGS = ("tshirts", "hoodie", "long-sleeve")
+STANDARD_PRODUCT_STATUS = "published"
+STANDARD_FAQ_ORDER = 2
+
 LOCALE_FIELDS = (
     "question",
     "answer",
@@ -59,7 +63,10 @@ LEGACY_SIGNATURES = (
 
 
 def _fingerprint(row):
-    return tuple(getattr(row, field, None) for field in ("id", "product_id", *LOCALE_FIELDS))
+    return tuple(
+        getattr(row, field, None)
+        for field in ("id", "product_id", "order", "is_active", *LOCALE_FIELDS)
+    )
 
 
 def _row_payload(row):
@@ -80,7 +87,16 @@ def _scan_rows(rows):
         tuple(signature[field] for field in LOCALE_FIELDS): signature
         for signature in LEGACY_SIGNATURES
     }
-    candidates = [row for row in rows if _signature_key(row) in signatures]
+    candidates = [
+        row for row in rows
+        if (
+            row.product.status == STANDARD_PRODUCT_STATUS
+            and row.product.category.slug in STANDARD_CATEGORY_SLUGS
+            and row.order == STANDARD_FAQ_ORDER
+            and row.is_active
+            and _signature_key(row) in signatures
+        )
+    ]
     return {
         "candidate_ids": sorted(row.id for row in candidates),
         "fingerprints": {row.id: _fingerprint(row) for row in rows},
@@ -105,7 +121,16 @@ class Command(BaseCommand):
         if options["apply"] and not options["backup_path"]:
             raise CommandError("--apply requires --backup-path")
 
-        queryset = ProductFAQ.objects.filter(is_active=True).order_by("id")
+        queryset = (
+            ProductFAQ.objects.filter(
+                is_active=True,
+                order=STANDARD_FAQ_ORDER,
+                product__status=STANDARD_PRODUCT_STATUS,
+                product__category__slug__in=STANDARD_CATEGORY_SLUGS,
+            )
+            .select_related("product", "product__category")
+            .order_by("id")
+        )
         if options["slug"]:
             queryset = queryset.filter(product__slug=options["slug"])
         rows = list(queryset)
@@ -120,7 +145,14 @@ class Command(BaseCommand):
         with transaction.atomic():
             locked = list(
                 ProductFAQ.objects.select_for_update()
-                .filter(is_active=True, pk__in=report["fingerprints"])
+                .filter(
+                    is_active=True,
+                    order=STANDARD_FAQ_ORDER,
+                    product__status=STANDARD_PRODUCT_STATUS,
+                    product__category__slug__in=STANDARD_CATEGORY_SLUGS,
+                    pk__in=report["fingerprints"],
+                )
+                .select_related("product", "product__category")
                 .order_by("id")
             )
             current = _scan_rows(locked)

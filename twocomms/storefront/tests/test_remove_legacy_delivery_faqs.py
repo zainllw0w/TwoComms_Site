@@ -34,7 +34,7 @@ class RemoveLegacyDeliveryFaqsTests(TestCase):
             status="published",
         )
 
-    def _legacy_faq(self, *, answer_suffix=""):
+    def _legacy_faq(self, *, answer_suffix="", order=2):
         return ProductFAQ.objects.create(
             product=self.product,
             question="Як швидко доставимо футболку?",
@@ -65,9 +65,31 @@ class RemoveLegacyDeliveryFaqsTests(TestCase):
                 "Orders placed before 2 PM ship the same day."
                 + answer_suffix
             ),
-            order=2,
+            order=order,
             is_active=True,
         )
+
+    def _scoped_product(self, *, category_slug, status="published", slug=None):
+        category = Category.objects.create(
+            name=category_slug,
+            slug=category_slug,
+            is_active=True,
+        )
+        return Product.objects.create(
+            title=f"{category_slug} test",
+            slug=slug or f"{category_slug}-test",
+            category=category,
+            price=1000,
+            status=status,
+        )
+
+    def _legacy_faq_for_product(self, product, *, order=2, is_active=True):
+        row = self._legacy_faq(order=order)
+        row.product = product
+        row.order = order
+        row.is_active = is_active
+        row.save(update_fields=["product", "order", "is_active"])
+        return row
 
     def test_default_mode_reports_only_exact_legacy_rows_without_writing(self):
         exact = self._legacy_faq()
@@ -146,3 +168,47 @@ class RemoveLegacyDeliveryFaqsTests(TestCase):
                     )
             self.assertFalse(backup.exists())
             self.assertTrue(ProductFAQ.objects.filter(pk=row.pk).exists())
+
+    def test_only_published_standard_order_two_rows_are_candidates(self):
+        draft = self._scoped_product(category_slug="tshirts-draft", status="draft")
+        other_category = self._scoped_product(category_slug="other-service")
+        draft_row = self._legacy_faq_for_product(draft)
+        other_row = self._legacy_faq_for_product(other_category)
+        wrong_order = self._legacy_faq(order=1)
+        inactive = self._legacy_faq()
+        inactive.is_active = False
+        inactive.save(update_fields=["is_active"])
+        custom_faq = ProductFAQ.objects.create(
+            product=self.product,
+            question="Можно ли заказать индивидуальный дизайн?",
+            answer="Да, через Custom Print.",
+            question_uk="Можно ли заказать индивидуальный дизайн?",
+            answer_uk="Да, через Custom Print.",
+            order=2,
+            is_active=True,
+        )
+
+        output = StringIO()
+        call_command("remove_legacy_delivery_faqs", stdout=output)
+
+        self.assertIn("candidate rows: 0", output.getvalue())
+        self.assertTrue(ProductFAQ.objects.filter(pk=draft_row.pk).exists())
+        self.assertTrue(ProductFAQ.objects.filter(pk=other_row.pk).exists())
+        self.assertTrue(ProductFAQ.objects.filter(pk=wrong_order.pk).exists())
+        self.assertTrue(ProductFAQ.objects.filter(pk=inactive.pk).exists())
+        self.assertTrue(ProductFAQ.objects.filter(pk=custom_faq.pk).exists())
+
+    def test_dtf_and_custom_print_category_rows_are_never_candidates(self):
+        dtf_product = self._scoped_product(category_slug="dtf")
+        custom_product = self._scoped_product(
+            category_slug="custom-print", slug="custom-print"
+        )
+        dtf_row = self._legacy_faq_for_product(dtf_product)
+        custom_row = self._legacy_faq_for_product(custom_product)
+
+        output = StringIO()
+        call_command("remove_legacy_delivery_faqs", stdout=output)
+
+        self.assertIn("candidate rows: 0", output.getvalue())
+        self.assertTrue(ProductFAQ.objects.filter(pk=dtf_row.pk).exists())
+        self.assertTrue(ProductFAQ.objects.filter(pk=custom_row.pk).exists())
