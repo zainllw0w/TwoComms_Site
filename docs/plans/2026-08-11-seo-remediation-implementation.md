@@ -696,6 +696,51 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   - TDD/local proof: the selected-color RU/EN regression reproduced the Ukrainian legacy alt before the resolver and passed after the change. `test_ru_and_en_selected_color_media_alt_use_locale_owned_fallback`, `test_ru_and_en_explicit_color_paths_keep_media_alt_locale_safe` and the variants AJAX regression are present in `storefront.tests.test_product`; the release's focused pre-merge SEO/PDP set passed `30/30` (recorded with the code commit). No product/media data was mass-translated.
   - Live proof at the deployed `origin/main` release: `/ru/product/lord-of-the-lending/black/` emitted `og:image:alt` and `twitter:image:alt` as `Футболка «Это Моя Посадка» — Чёрный — фото 1 TwoComms`; `/en/product/bentejne-ts/coyote/` emitted `T-shirt «Life Is Restless» — Кайот — product photo 1 TwoComms`. The visible selected hero uses the same locale-safe alt on both pages, and the former Ukrainian legacy alt is absent. Both responses remain `200` standard PDPs with their existing canonical/indexability policy.
   - Boundary proof: no DTF subdomain/blog/module, Custom Print flow/content, product title/description, inventory, media rows or variant ownership was changed in this checkpoint. This closes only the selected-color media-alt localization defect; the broader rendered locale matrix (3.1), translated-field audit (3.4) and ranking/traffic outcomes remain open and unclaimed.
+- [x] **3.2c** Make the standard PDP editorial rail locale-owned. RU/EN use
+  same-locale reversed URLs and reviewed gettext/category/product labels;
+  locale-less `Product.search_keywords`, `CategorySeoBlock`, thematic/color
+  owners and Custom Print promotion remain UK-only. Peer PDP links require
+  the target's raw locale publication gate, query-facet fallbacks are not
+  editorial links, and `seo_bottom_html` is rendered only from the requested
+  locale's raw field. This is one standard-PDP slice of 3.1/3.2; the broader
+  catalog, pro-brand, FAQ and language-switch matrix remains open.
+
+  - Code/test commit: `7e29f2523320689e3a4365d195e1fdc2c060c3e1`
+    (`fix(seo): keep PDP editorial rails locale-owned`) was pushed to
+    `origin/main`, pulled on production, checked with `manage.py check` and
+    activated with `tmp/restart.txt`. Server `HEAD` and `origin/main` were
+    both proven at the exact code SHA.
+  - TDD/local proof: the focused rail/render regressions passed `9/9`; the
+    expanded standard PDP, locale, category SEO, fit, variant-merchandising
+    and editorial-link suite passed `108/108`. `manage.py check`, touched-file
+    `py_compile` and `git diff --check` passed. The isolated historical
+    `test_phase10b_seo_layout` module retains three stale expectations that
+    require an empty layout even though the synthetic menu has existed since
+    commit `45eff6b3a7`; those same failures reproduce outside this slice.
+    The rendered locale test restores Django's active language during cleanup
+    so module order cannot leak RU/EN state into later tests.
+  - Implementation contract: Django 5.2 documentation retrieved through
+    Context7 confirms `translation.override()` as the scoped active-language
+    mechanism. URL reversal therefore runs under the requested locale instead
+    of assembling `/ru/` and `/en/` prefixes by string concatenation. RU/EN
+    peer scans are capped at `24` candidates and prefetch only active FAQ
+    locale columns, keeping the publication check bounded and avoiding an N+1
+    query per candidate.
+  - Live proof: clean `/product/classic-tshirt/`,
+    `/ru/product/classic-tshirt/` and `/en/product/classic-tshirt/` returned
+    `200`, `index, follow`, self-canonical URLs and reciprocal
+    `uk-UA`/`ru-UA`/`en-UA`/`x-default` hreflang. RU/EN rails linked only to
+    same-locale eligible peer/support/category owners and contained no
+    `?color=` URL, UK thematic/color owner, Ukrainian editorial label or
+    Custom Print link. UK retained its published color landing, standard
+    support/peer/category links and existing `/custom-print/` support chip.
+  - Boundary: no DTF route, subdomain, module or blog; no Custom Print view,
+    template, content, configurator, pricing, cart, analytics or submission
+    behavior; and no ordinary product wording was edited. The only Custom
+    Print-related effect is the explicit preservation of its existing UK
+    support chip while RU/EN omit the locale-less promotion. This checkpoint
+    claims truthful locale ownership and cleaner internal crawl targets only,
+    not ranking, traffic or conversion uplift.
 - [x] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners. See P1.2 evidence above.
 - [ ] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
 - [ ] **3.5** Do not run a general Custom Print SEO audit. Run only a focused RU/EN localization check. If a specific wrong-language visible-text or related wrong-locale canonical/hreflang defect is reproduced, add one focused failing test and the smallest locale-only fix; otherwise record `N/A`. Prove UK content, configurator state, cart, analytics and submission contracts unchanged without submitting a live request.
