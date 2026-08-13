@@ -7,7 +7,7 @@ Strategy:
     fallbacks).
   * Per-category templates pick natural Ukrainian phrasing matching
     the brand tone (мілітарний streetwear / patriotic / ЗСУ DNA).
-  * Generates 5 standard FAQs per product when the product has none.
+  * Generates product-context FAQs per product when the product has none.
 
 The service is invoked by the ``autofill_product_seo`` management
 command. It can also be called directly from views or signals when
@@ -240,12 +240,8 @@ def _build_full_description(product) -> str:
 # Standard FAQ template per category. Each entry: (question, answer).
 # Most answers are universal — only the {nom}/{title} variables differ.
 #
-# SEO Audit 2026-05-15 (Part 6) — Q1/Q2/Q3 anchor on the product title
-# so the universal answers no longer collapse into 65 identical FAQ
-# rich-result candidates. The size-, washing- and shipping-question
-# bodies remain universal because the underlying policy is universal,
-# but Google's question-clustering uses the question string for dedup,
-# so we get distinct questions per PDP.
+# Product FAQ must stay product-specific. Delivery timing and carrier policy
+# are global facts owned by /delivery/, where they can be corrected once.
 
 UNIVERSAL_FAQS = [
     (
@@ -262,12 +258,6 @@ UNIVERSAL_FAQS = [
         "відбілювачів. Сушити рекомендуємо природним способом, без "
         "сушильної машини. DTF-принт витримує 50+ циклів прання за "
         "умов правильного догляду.",
-    ),
-    (
-        "Скільки триватиме доставка {nom_acc} «{title}»?",
-        "По Україні — 1–3 робочі дні Новою Поштою після відправлення. "
-        "Адресна доставка доступна у більшості міст. Деталі — на "
-        "сторінці <a href=\"/delivery/\">доставки та оплати</a>.",
     ),
     (
         "Як повернути або обміняти {nom_acc} «{title}»?",
@@ -287,7 +277,7 @@ UNIVERSAL_FAQS = [
 
 
 def _build_faqs(product) -> list[tuple[str, str]]:
-    """Generate 5 standard FAQ Q/A pairs for a product."""
+    """Generate the standard product-specific FAQ Q/A pairs for a product."""
     nom, gen, acc = _labels(getattr(product.category, "slug", None))
     title = (product.title or "").strip()
     out = []
@@ -367,7 +357,7 @@ def autofill_product(product, *, faq_model, dry_run: bool = False,
                     order=idx, is_active=True,
                 )
         report.faqs_created += len(faqs)
-        update_fields.append("faqs:+5")
+        update_fields.append(f"faqs:+{len(faqs)}")
 
     if update_fields:
         report.products_changed += 1

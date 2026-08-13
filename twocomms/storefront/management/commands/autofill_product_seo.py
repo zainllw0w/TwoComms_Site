@@ -18,7 +18,7 @@ from storefront.services.product_seo_autofill import autofill_queryset
 class Command(BaseCommand):
     help = (
         "Fill empty SEO/content fields on Product rows (idempotent: "
-        "never overwrites populated values). Creates 5 standard FAQs "
+        "never overwrites populated values). Creates product-context FAQs "
         "for products that have none."
     )
 

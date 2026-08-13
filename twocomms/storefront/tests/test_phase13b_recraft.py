@@ -74,8 +74,11 @@ class CopyBuilderTests(_Base):
         copy = build_copy(p)
         first_q = copy["faqs"][0][0]
         self.assertIn("Харківська Область", first_q)
-        # Remaining FAQs are category-universal (size/care/delivery/custom).
-        self.assertEqual(len(copy["faqs"]), 5)
+        # Delivery policy belongs to the canonical /delivery/ page. The
+        # product generator keeps only theme, size, care and custom-print
+        # questions whose answers are useful in the product context.
+        self.assertEqual(len(copy["faqs"]), 4)
+        self.assertFalse(any("достав" in q.lower() for q, _ in copy["faqs"]))
 
     def test_fallback_for_unmapped_product(self):
         p = self._product(pk=99999, category=self.cat_t,
@@ -85,7 +88,24 @@ class CopyBuilderTests(_Base):
         # Fallback copy still produces all fields.
         self.assertTrue(copy["seo_title"])
         self.assertTrue(copy["full_description"])
-        self.assertEqual(len(copy["faqs"]), 5)
+        self.assertEqual(len(copy["faqs"]), 4)
+
+    def test_delivery_policy_is_not_generated_for_standard_garments(self):
+        products = (
+            self._product(pk=99101, category=self.cat_t, title="Test T-shirt"),
+            self._product(pk=99102, category=self.cat_h, title="Test Hoodie"),
+            self._product(pk=99103, category=self.cat_l, title="Test Longsleeve"),
+        )
+
+        for product in products:
+            rendered = " ".join(
+                text for pair in build_copy(product)["faqs"] for text in pair
+            )
+            with self.subTest(category=product.category.slug):
+                self.assertNotIn("1–3 робоч", rendered)
+                self.assertNotIn("від 85", rendered)
+                self.assertNotIn("від 180", rendered)
+                self.assertNotIn("до 14:00", rendered)
 
     def test_category_labels_used(self):
         p_h = self._product(pk=32, category=self.cat_h,
@@ -133,7 +153,7 @@ class SignatureDetectorTests(_Base):
 
 class RecraftCommandTests(_Base):
 
-    def test_recraft_overwrites_phase13_but_keeps_custom(self):
+    def test_recraft_preserves_existing_faqs_while_updating_owned_fields(self):
         # Product in kharkiv_district theme.
         p = self._product(pk=19, category=self.cat_t,
                           title='Футболка "Харківська Область"',
@@ -148,7 +168,8 @@ class RecraftCommandTests(_Base):
         ProductFAQ.objects.create(product=p, question="Custom editorial FAQ kept intact?",
                                   answer="yes", order=1, is_active=True)
 
-        call_command("recraft_product_seo", "--slug", "p-19", stdout=StringIO())
+        out = StringIO()
+        call_command("recraft_product_seo", "--slug", "p-19", stdout=out)
 
         p.refresh_from_db()
         # phase13 care overwritten with the v2 plain-text; custom short_description kept.
@@ -156,12 +177,22 @@ class RecraftCommandTests(_Base):
         self.assertNotIn("у режимі для бавовни, без агресивних", p.care_instructions)
         self.assertEqual(p.short_description, "Custom editorial text — must be preserved!")
 
-        # phase13 FAQ replaced; custom FAQ kept.
+        # Existing FAQ data is intentionally left for the guarded cleanup.
         qs = list(ProductFAQ.objects.filter(product=p).order_by("order"))
         questions = [f.question for f in qs]
         self.assertIn("Custom editorial FAQ kept intact?", questions)
-        # Theme-specific FAQ added.
-        self.assertTrue(any("Харківська Область" in q for q in questions))
+        self.assertIn("Як обрати розмір футболки?", questions)
+        self.assertEqual(len(qs), 2)
+        self.assertIn("FAQs created: 0 (kept 2 existing)", out.getvalue())
+
+    def test_recraft_creates_four_current_faqs_only_for_products_without_faqs(self):
+        product = self._product(pk=102, category=self.cat_h, title="No FAQ product")
+
+        call_command("recraft_product_seo", "--slug", product.slug, stdout=StringIO())
+
+        faqs = list(ProductFAQ.objects.filter(product=product).order_by("order", "id"))
+        self.assertEqual(len(faqs), 4)
+        self.assertFalse(any("достав" in faq.question.lower() for faq in faqs))
 
     def test_dry_run(self):
         p = self._product(pk=19, category=self.cat_t,

@@ -92,23 +92,24 @@ class AutofillCoreTests(_Base):
         self.assertTrue(p.main_image_alt)
         self.assertTrue(p.care_instructions)
 
-    def test_creates_5_faqs_when_none_exist(self):
+    def test_creates_product_context_faqs_when_none_exist(self):
         p = self._product()
         autofill_product(p, faq_model=ProductFAQ)
         faqs = list(ProductFAQ.objects.filter(product=p).order_by("order"))
-        self.assertEqual(len(faqs), 5)
+        self.assertEqual(len(faqs), 4)
         # Standard FAQ shape: question + answer + order + is_active.
         self.assertEqual(faqs[0].order, 0)
         self.assertTrue(faqs[0].is_active)
         # Category-specific phrasing.
         questions = " ".join(f.question for f in faqs)
         self.assertIn("худі", questions.lower())
+        self.assertNotIn("доставк", questions.lower())
 
     def test_does_not_duplicate_faqs_on_second_run(self):
         p = self._product()
         autofill_product(p, faq_model=ProductFAQ)
         autofill_product(p, faq_model=ProductFAQ)
-        self.assertEqual(ProductFAQ.objects.filter(product=p).count(), 5)
+        self.assertEqual(ProductFAQ.objects.filter(product=p).count(), 4)
 
     def test_category_specific_phrasing_for_tshirts(self):
         p = self._product(title="TC Tryzub Black Print",
@@ -132,7 +133,7 @@ class AutofillCoreTests(_Base):
         self.assertFalse(p.seo_title)
         self.assertFalse(p.seo_description)
         self.assertEqual(ProductFAQ.objects.filter(product=p).count(), 0)
-        self.assertEqual(report.faqs_created, 5)
+        self.assertEqual(report.faqs_created, 4)
 
     def test_queryset_runner_aggregates_report(self):
         for i in range(3):
@@ -141,7 +142,7 @@ class AutofillCoreTests(_Base):
         report = autofill_queryset(qs, faq_model=ProductFAQ)
         self.assertEqual(report.products_seen, 3)
         self.assertEqual(report.products_changed, 3)
-        self.assertEqual(report.faqs_created, 15)
+        self.assertEqual(report.faqs_created, 12)
         self.assertEqual(report.fields_filled["seo_title"], 3)
 
 

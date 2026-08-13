@@ -4,8 +4,9 @@ crafted plain-text, theme-aware copy (from ``services.product_copy_v2``).
 Safe-overwrite rules:
   * For SEO/content fields: overwrite only when blank OR when the value
     matches the Phase 13 generator signature.
-  * For FAQs: replace only the 5 Phase-13 universal FAQs. Any FAQ whose
-    question doesn't start with a Phase-13 signature prefix is kept.
+  * For FAQs: create the current product-context set only when no ProductFAQ
+    rows exist. Existing FAQ data, including legacy delivery policy, is left
+    for its separate guarded cleanup command.
 
 Flags:
     --dry-run         preview
@@ -21,7 +22,6 @@ from storefront.models import Product, ProductFAQ
 from storefront.services.product_copy_v2 import (
     build_copy,
     looks_like_phase13_autofill,
-    looks_like_phase13_faq,
 )
 
 
@@ -56,7 +56,7 @@ class Command(BaseCommand):
 
         changed = 0
         field_changes: dict[str, int] = {}
-        faqs_replaced = 0
+        faqs_created = 0
         faqs_kept = 0
         unmapped = []
 
@@ -80,36 +80,22 @@ class Command(BaseCommand):
             if update_fields and not opts["dry_run"]:
                 p.save(update_fields=update_fields)
 
-            # FAQs — replace only phase13-signature ones; keep custom ones.
+            # Existing FAQ data has a separate, exact-signature cleanup path.
+            # Recraft only supplies the current generator output to a product
+            # that has no FAQ rows at all.
             existing = list(ProductFAQ.objects.filter(product=p).order_by("order", "id"))
-            phase13_existing = [f for f in existing if looks_like_phase13_faq(f.question)]
-            custom_existing = [f for f in existing if not looks_like_phase13_faq(f.question)]
-
-            if opts["force"] or phase13_existing or not existing:
-                # Re-create the 5 theme-aware FAQs. Keep custom_existing intact.
+            if not existing:
                 if not opts["dry_run"]:
-                    # Delete phase13 FAQs (or all if --force).
-                    to_delete = existing if opts["force"] else phase13_existing
-                    deleted_ids = [f.id for f in to_delete]
-                    if deleted_ids:
-                        ProductFAQ.objects.filter(id__in=deleted_ids).delete()
-
-                    # Reorder custom faqs first (keep their order), then append new.
-                    base_order = 0
-                    for f in custom_existing if not opts["force"] else []:
-                        if f.order != base_order:
-                            f.order = base_order
-                            f.save(update_fields=["order"])
-                        base_order += 1
                     for idx, (q, a) in enumerate(copy["faqs"]):
                         ProductFAQ.objects.create(
                             product=p, question=q, answer=a,
-                            order=base_order + idx, is_active=True,
+                            order=idx, is_active=True,
                         )
-                faqs_replaced += 5
-                faqs_kept += len(custom_existing) if not opts["force"] else 0
+                faqs_created += len(copy["faqs"])
+            else:
+                faqs_kept += len(existing)
 
-            if update_fields or phase13_existing or opts["force"]:
+            if update_fields or not existing:
                 changed += 1
 
             # Track products without a theme mapping (they used fallback copy).
@@ -119,7 +105,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"\nProcessed: {total}\nChanged:   {changed}\n"
-            f"FAQs replaced: {faqs_replaced} (kept {faqs_kept} custom)"
+            f"FAQs created: {faqs_created} (kept {faqs_kept} existing)"
         ))
         if field_changes:
             self.stdout.write("\nField overwrite counts:")

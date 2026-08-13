@@ -8,9 +8,10 @@ FAQ rich-result candidates by question string and surfaces a rich
 result for at most one URL per cluster, so 65 PDPs effectively
 competed for one rich-result slot.
 
-The new ``UNIVERSAL_FAQS`` template anchors every question on the
-product title, e.g. «Скільки триватиме доставка худі "My Little
-Baby"?», so each PDP has a distinct question cluster.
+The current ``UNIVERSAL_FAQS`` template keeps only product-context
+questions. Delivery policy remains untouched here because its canonical
+owner is the dedicated delivery page and legacy rows require a separate,
+guarded cleanup.
 
 This command finds auto-generated FAQs that still match the old
 universal phrasing and rewrites them in place. It deliberately
@@ -41,12 +42,40 @@ LEGACY_QUESTION_PREFIXES = (
     "Чи можна замовити з власним принтом",
 )
 
+RETIRED_DELIVERY_QUESTION_PREFIX = "Скільки триває доставка"
+
 
 def _is_legacy_question(text: str) -> bool:
     if not text:
         return False
     text = text.strip()
     return any(text.startswith(prefix) for prefix in LEGACY_QUESTION_PREFIXES)
+
+
+def _topic_for_legacy_question(text: str) -> str | None:
+    """Classify the legacy question without relying on its stored position."""
+    text = (text or "").strip()
+    if text.startswith("Як обрати розмір "):
+        return "size"
+    if text.startswith("Чи можна прати "):
+        return "care"
+    if text.startswith(RETIRED_DELIVERY_QUESTION_PREFIX):
+        return "delivery"
+    if text.startswith("Як повернути або обміняти товар"):
+        return "returns"
+    if text.startswith("Чи можна замовити з власним принтом"):
+        return "custom"
+    return None
+
+
+def _generated_faqs_by_topic(product) -> dict[str, tuple[str, str]]:
+    size, care, returns, custom = _build_faqs(product)
+    return {
+        "size": size,
+        "care": care,
+        "returns": returns,
+        "custom": custom,
+    }
 
 
 class Command(BaseCommand):
@@ -90,15 +119,14 @@ class Command(BaseCommand):
         faqs_rewritten = 0
 
         for product in qs:
-            new_faqs = _build_faqs(product)  # ordered list of (q, a)
+            new_faqs_by_topic = _generated_faqs_by_topic(product)
             existing = list(product.faqs.all().order_by("order", "id"))
 
-            for idx, faq in enumerate(existing):
-                if idx >= len(new_faqs):
-                    break
-                if not _is_legacy_question(faq.question):
+            for faq in existing:
+                topic = _topic_for_legacy_question(faq.question)
+                if topic in (None, "delivery"):
                     continue
-                new_q, new_a = new_faqs[idx]
+                new_q, new_a = new_faqs_by_topic[topic]
                 if faq.question == new_q and faq.answer == new_a:
                     continue
                 if not dry:

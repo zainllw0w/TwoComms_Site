@@ -152,7 +152,7 @@ class CityParagraphTests(_SeoAuditBase):
     def test_paragraph_includes_fit_specific_clause(self):
         text_classic = _city_paragraph(self.product_ts, "tshirts", fit_code="classic")
         text_oversize = _city_paragraph(self.product_ts, "tshirts", fit_code="oversize")
-        # Fit-specific clauses must differ — driving uniqueness across PDPs.
+        # Fit-specific clauses must reflect the selected garment state.
         self.assertNotEqual(text_classic, text_oversize)
 
 
@@ -184,28 +184,20 @@ class TargetAudienceTests(_SeoAuditBase):
         self.assertNotEqual(text_ts, text_ls)
 
 
-class FaqQuestionAnchoringTests(_SeoAuditBase):
-    """Audit Part 6 §31.3 — FAQ questions anchored on product title."""
+class ProductFaqOwnershipTests(_SeoAuditBase):
+    """Product FAQ generators must not duplicate global delivery policy."""
 
-    def test_universal_faqs_template_includes_title_placeholder(self):
-        # Q1..Q4 must mention the product title; Q5 ("Чи можна замовити
-        # з власним принтом?") is a category-level intent question and
-        # is intentionally generic — guarding 4/5 still defeats the
-        # original audit finding (FAQ #3-#5 byte-identical across PDPs)
-        # because Q3 + Q4 now carry the title.
-        title_anchored = [q for q, _ in UNIVERSAL_FAQS if "{title}" in q]
-        self.assertGreaterEqual(
-            len(title_anchored), 4,
-            "At least four FAQ questions must anchor on the product title "
-            "to prevent rich-result clustering across PDPs.",
-        )
+    def test_universal_faqs_template_omits_delivery_policy(self):
+        rendered = " ".join(text for pair in UNIVERSAL_FAQS for text in pair)
+        self.assertNotIn("1–3 робочі дні", rendered)
+        self.assertNotIn("/delivery/", rendered)
 
-    def test_built_faqs_include_product_title_in_majority_of_questions(self):
+    def test_built_faqs_leave_delivery_to_canonical_policy_page(self):
         faqs = _build_faqs(self.product_ts)
-        questions = [q for q, _ in faqs]
-        anchored = [q for q in questions if self.product_ts.title in q]
-        # Same threshold (≥4 of 5) as the template-level guard.
-        self.assertGreaterEqual(len(anchored), 4)
+        rendered = " ".join(text for pair in faqs for text in pair)
+        self.assertEqual(len(faqs), 4)
+        self.assertNotIn("1–3 робочі дні", rendered)
+        self.assertNotIn("/delivery/", rendered)
 
     def test_built_faqs_differ_between_products_in_same_category(self):
         ts2 = Product.objects.create(
