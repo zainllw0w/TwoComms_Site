@@ -827,6 +827,39 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     pricing, inventory, cart, analytics, DTF subdomain/blog/module or UK
     translation was changed. The allowed DTF wording inside the standard PDP
     promotion remains semantically unchanged, only translated for RU/EN.
+- [x] **3.2g** Localize standard-PDP restock, unavailable-option and notification
+  modal UI for RU and EN. This covers the rendered empty-size state, size
+  restock aria labels, temporary configurator errors, notification-channel
+  labels and Telegram verification note. It uses existing gettext message IDs
+  only; no product facts, URL ownership, schema, pricing, inventory, cart or
+  analytics behavior changes.
+
+  - Code/test commit: `ebaf35c869d06824a39e95c8dc69a8ff38a50704`
+    (`fix(i18n): localize standard PDP restock states`) was pushed to
+    `origin/main`, pulled on production and activated with `tmp/restart.txt`.
+  - TDD/local proof: the rendered RU/EN regression first failed for both
+    locales on the Ukrainian restock/status fallback. After adding only the
+    RU/EN `.po` translations and compiled `.mo` files, the focused test passed
+    `1` test with `2` locale subtests; the standard rendered locale, PDP,
+    configurator and product suite passed `62/62`. `msgfmt --check`,
+    `py_compile`, `manage.py check` and `git diff --check` passed. Existing
+    gettext header warnings and the test-settings offline-compression warning
+    are unrelated and do not indicate a message-format failure.
+  - Production proof: server `HEAD=ebaf35c869d06824a39e95c8dc69a8ff38a50704`,
+    `manage.py check` passed, the RU/EN `.mo` catalogs were read back through
+    `GNUTranslations`, and Passenger was restarted. Cache-busted live standard
+    PDP probes `/ru/product/my-little-baby/`,
+    `/en/product/my-little-baby/`, `/ru/product/classic-tshirt/black/` and
+    `/en/product/classic-tshirt/black/` returned the localized size labels,
+    sold-out state and unavailable-option messages, with zero corresponding
+    Ukrainian fallback markers.
+  - Boundary: no DTF route, subdomain, module or blog; no Custom Print view,
+    route, configurator, pricing, cart, analytics or submission behavior; no
+    product data, inventory, schema, canonical or hreflang contract changed.
+    This checkpoint claims only rendered RU/EN commerce-language consistency,
+    not ranking, traffic, citation or conversion uplift. The remaining global
+    Telegram/profile shell and full catalog/PDP matrix stay open under Tasks
+    `3.1` and `3.6`.
 - [x] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners. See P1.2 evidence above.
 - [ ] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
 - [ ] **3.5** Do not run a general Custom Print SEO audit. Run only a focused RU/EN localization check. If a specific wrong-language visible-text or related wrong-locale canonical/hreflang defect is reproduced, add one focused failing test and the smallest locale-only fix; otherwise record `N/A`. Prove UK content, configurator state, cart, analytics and submission contracts unchanged without submitting a live request.
