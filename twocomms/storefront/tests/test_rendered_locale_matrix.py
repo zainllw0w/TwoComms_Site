@@ -137,6 +137,52 @@ class RenderedLocaleMatrixTests(TestCase):
                 self.assertEqual(schema["description"], expected["description"])
                 self.assertNotIn("Засновник українського", schema["description"])
 
+    def test_standard_pdp_gallery_exposes_locale_owned_js_labels(self):
+        matrix = {
+            "ru": {
+                "path": "/ru/product/locale-matrix-tee/",
+                "region": "Позиция в галерее",
+                "status": "Фото {position} из {total}",
+                "thumbnail": "Фото товара {position}",
+                "initial_status": "Фото 1 из 1",
+            },
+            "en": {
+                "path": "/en/product/locale-matrix-tee/",
+                "region": "Gallery position",
+                "status": "Photo {position} of {total}",
+                "thumbnail": "Product photo {position}",
+                "initial_status": "Photo 1 of 1",
+            },
+        }
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode("utf-8")
+                self.assertIn(
+                    f'aria-label="{expected["region"]}"',
+                    body,
+                )
+                self.assertIn(
+                    f'data-gallery-status-template="{expected["status"]}"',
+                    body,
+                )
+                self.assertIn(
+                    f'data-gallery-thumbnail-template="{expected["thumbnail"]}"',
+                    body,
+                )
+                self.assertIn(
+                    'product-detail.js?v=20260813-gallery-i18n-v1',
+                    body,
+                )
+                self.assertIn(
+                    f'data-gallery-status role="status" aria-live="polite" '
+                    f'aria-atomic="true">{expected["initial_status"]}</span>',
+                    body,
+                )
+                self.assertNotIn('aria-label="Позиція у галереї"', body)
+
     def test_standard_pdp_editorial_links_use_locale_owned_labels_and_urls(self):
         matrix = {
             "ru": {

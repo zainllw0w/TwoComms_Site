@@ -245,7 +245,7 @@ class ProductMerchandisingContextTests(TestCase):
         )
         self.assertContains(
             response,
-            "js/product-detail.js?v=20260812-cargo-drop-v1",
+            "js/product-detail.js?v=20260813-gallery-i18n-v1",
             html=False,
         )
 

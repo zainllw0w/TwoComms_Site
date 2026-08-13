@@ -15220,11 +15220,17 @@ msgstr "Увеличить фото"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:191
 msgid "Позиція у галереї"
-msgstr ""
+msgstr "Позиция в галерее"
+
+msgid "Фото {position} з {total}"
+msgstr "Фото {position} из {total}"
+
+msgid "Фото товару {position}"
+msgstr "Фото товара {position}"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:192
 msgid "Фото 1 з 1"
-msgstr ""
+msgstr "Фото 1 из 1"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:194
 msgid "Переглянути відео товару"

@@ -15170,11 +15170,17 @@ msgstr "Zoom photo"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:191
 msgid "Позиція у галереї"
-msgstr ""
+msgstr "Gallery position"
+
+msgid "Фото {position} з {total}"
+msgstr "Photo {position} of {total}"
+
+msgid "Фото товару {position}"
+msgstr "Product photo {position}"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:192
 msgid "Фото 1 з 1"
-msgstr ""
+msgstr "Photo 1 of 1"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:194
 msgid "Переглянути відео товару"

@@ -143,7 +143,9 @@ CSS rules на mobile FCP/LCP window.
 {% endblock %}
 
 {% block content %}
-<div class="tc-pdp-shell" data-pdp>
+<div class="tc-pdp-shell" data-pdp
+     data-gallery-status-template="{% trans 'Фото {position} з {total}' %}"
+     data-gallery-thumbnail-template="{% trans 'Фото товару {position}' %}">
   <div class="tc-pdp-bg" aria-hidden="true"></div>
 
   <div class="tc-pdp-grid">
@@ -879,7 +881,7 @@ CSS rules на mobile FCP/LCP window.
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260812-cargo-drop-v1" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260813-gallery-i18n-v1" defer></script>
 <script src="{% static 'js/product-media-fit.js' %}?v=20260808-merch-v1" defer></script>
 <script src="{% static 'js/product-variant-history.js' %}?v=20260509-phase8-v1" defer></script>
 {% endblock %}

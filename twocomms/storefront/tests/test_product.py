@@ -383,7 +383,7 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'product-detail.css?v=20260812-cargo-drop-v1', html=False)
         self.assertContains(response, 'product-media-fit.css?v=20260808-merch-v1', html=False)
         self.assertContains(response, 'product-reviews.css?v=20260511-pdp-layout-v8', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260812-cargo-drop-v1', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260813-gallery-i18n-v1', html=False)
         self.assertContains(response, 'product-media-fit.js?v=20260808-merch-v1', html=False)
 
     def test_product_detail_does_not_publish_unowned_fallback_product_claims(self):

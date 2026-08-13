@@ -232,10 +232,21 @@ function resolveGalleryStep({ currentIndex = 0, total = 0, direction = 0 } = {})
   return Math.max(0, Math.min(count - 1, current + step));
 }
 
-function galleryStatus(index, total) {
+function formatGalleryLabel(template, index, total) {
   const count = Math.max(1, Number(total) || 1);
   const position = Math.max(0, Math.min(count - 1, Number(index) || 0));
-  return `Фото ${position + 1} з ${count}`;
+  return String(template || '')
+    .replace(/\{position\}/g, String(position + 1))
+    .replace(/\{total\}/g, String(count));
+}
+
+function galleryStatus(index, total, template = 'Фото {position} з {total}') {
+  return formatGalleryLabel(template, index, total);
+}
+
+function galleryThumbnailLabel(index, template = 'Фото товару {position}') {
+  const position = Math.max(0, Number(index) || 0) + 1;
+  return String(template || '').replace(/\{position\}/g, String(position));
 }
 
 function focusTrapIndex({ currentIndex = -1, total = 0, shiftKey = false } = {}) {
@@ -357,6 +368,7 @@ if (typeof module !== 'undefined' && module.exports) {
     galleryDragOffset,
     galleryHorizontalIntent,
     galleryStatus,
+    galleryThumbnailLabel,
     MODAL_FOCUSABLE_SELECTOR,
     resolveGalleryStep,
     resolveGalleryAxis,
@@ -396,6 +408,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       thumbs: document.getElementById('productThumbnails'),
       galleryDots: root.querySelector('[data-gallery-dots]'),
       galleryStatus: root.querySelector('[data-gallery-status]'),
+      galleryStatusTemplate: root.dataset.galleryStatusTemplate || 'Фото {position} з {total}',
+      galleryThumbnailTemplate: root.dataset.galleryThumbnailTemplate || 'Фото товару {position}',
       video: readJsonScript('product-video', null),
       videoStage: document.getElementById('productVideoStage'),
       videoActive: false,
@@ -560,7 +574,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = `tc-thumbnail${index === 0 ? ' active' : ''}`;
-      button.setAttribute('aria-label', `Фото товару ${index + 1}`);
+      button.setAttribute(
+        'aria-label',
+        galleryThumbnailLabel(index, state.galleryThumbnailTemplate)
+      );
       button.dataset.image = image.url;
       button.dataset.galleryIndex = String(index);
 
@@ -589,7 +606,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       dot.type = 'button';
       dot.className = 'tc-gallery-dot';
       dot.dataset.galleryDot = String(index);
-      dot.setAttribute('aria-label', galleryStatus(index, images.length));
+      dot.setAttribute(
+        'aria-label',
+        galleryStatus(index, images.length, state.galleryStatusTemplate)
+      );
       dot.addEventListener('click', () => showGalleryIndex(state, index));
       return dot;
     }));
@@ -615,7 +635,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       });
     }
     if (state.galleryStatus) {
-      state.galleryStatus.textContent = galleryStatus(state.galleryIndex, currentImages.length);
+      state.galleryStatus.textContent = galleryStatus(
+        state.galleryIndex,
+        currentImages.length,
+        state.galleryStatusTemplate
+      );
     }
     const previous = state.root.querySelector('[data-thumb-prev]');
     const next = state.root.querySelector('[data-thumb-next]');

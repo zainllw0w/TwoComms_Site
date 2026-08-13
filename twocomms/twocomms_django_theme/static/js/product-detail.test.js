@@ -11,6 +11,7 @@ const {
   galleryDragOffset,
   galleryHorizontalIntent,
   galleryStatus,
+  galleryThumbnailLabel,
   MODAL_FOCUSABLE_SELECTOR,
   resolveOptionSelection,
   resolvePriceBreakdown,
@@ -277,9 +278,32 @@ test('material story accepts contextual payload and rejects generic fallbacks', 
   assert.equal(resolveMaterialStory?.({ marketing_html: 'Загальний опис товару' }), null);
 });
 
-test('gallery status and modal focus trap wrap in both directions', () => {
+test('gallery labels format server-owned locale templates', () => {
   assert.equal(galleryStatus?.(0, 4), 'Фото 1 з 4');
   assert.equal(galleryStatus?.(3, 4), 'Фото 4 з 4');
+  assert.equal(
+    galleryStatus?.(0, 4, 'Photo {position} of {total}'),
+    'Photo 1 of 4'
+  );
+  assert.equal(
+    galleryStatus?.(3, 4, 'Фото {position} из {total}'),
+    'Фото 4 из 4'
+  );
+  assert.equal(
+    galleryThumbnailLabel?.(0, 'Product photo {position}'),
+    'Product photo 1'
+  );
+  assert.equal(
+    galleryThumbnailLabel?.(1, 'Product photo {position}'),
+    'Product photo 2'
+  );
+  assert.equal(
+    galleryThumbnailLabel?.(2, 'Фото товара {position}'),
+    'Фото товара 3'
+  );
+});
+
+test('modal focus trap wraps in both directions', () => {
   assert.equal(focusTrapIndex?.({ currentIndex: 3, total: 4, shiftKey: false }), 0);
   assert.equal(focusTrapIndex?.({ currentIndex: 0, total: 4, shiftKey: true }), 3);
   assert.equal(focusTrapIndex?.({ currentIndex: 1, total: 4, shiftKey: false }), 2);
