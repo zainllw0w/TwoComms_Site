@@ -257,7 +257,7 @@ point at themselves.
     <div class="catalog-mobile-reference__hero" aria-labelledby="catalog-mobile-reference-title">
       <div class="catalog-mobile-reference__hero-copy">
         <p class="catalog-mobile-reference__eyebrow">{% trans 'Новинки сезону' %}</p>
-        <h1 id="catalog-mobile-reference-title">{% trans 'Нова колекція' %}<br>{% trans 'вже тут' %}</h1>
+        <div id="catalog-mobile-reference-title" class="catalog-mobile-reference__title" role="heading" aria-level="2">{% trans 'Нова колекція' %}<br>{% trans 'вже тут' %}</div>
         <p class="catalog-mobile-reference__lede">{% trans 'Комфорт. Якість. Сенс.' %}<br>{% trans 'Одяг, що говорить замість тебе.' %}</p>
       </div>
       <img class="catalog-mobile-reference__hero-image" src="{% static 'img/configurator/custom-ref/hoodie-black-b.webp' %}" width="1200" height="1400" alt="{% trans 'Чорне худі TwoComms, вид зі спини' %}" loading="eager" decoding="async" fetchpriority="high">

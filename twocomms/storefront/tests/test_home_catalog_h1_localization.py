@@ -31,11 +31,17 @@ class HomeCatalogH1LocalizationTests(TestCase):
         )
 
     def test_catalog_h1_is_localized_for_russian_and_english(self):
-        self.assertEqual(
-            self._h1_text("/ru/catalog/"),
-            "Каталог одежды TwoComms",
-        )
-        self.assertEqual(
-            self._h1_text("/en/catalog/"),
-            "TwoComms clothing catalog",
-        )
+        for path, expected in (
+            ("/ru/catalog/", "Каталог одежды TwoComms"),
+            ("/en/catalog/", "TwoComms clothing catalog"),
+        ):
+            with self.subTest(path=path):
+                response = self.client.get(
+                    path, secure=True, HTTP_HOST="twocomms.shop"
+                )
+                self.assertEqual(response.status_code, 200)
+                html = response.content.decode("utf-8")
+                self.assertEqual(len(re.findall(r"<h1\b", html)), 1)
+                self.assertEqual(self._h1_text(path), expected)
+                self.assertNotIn("Нова колекція", html)
+                self.assertNotIn("вже тут", html)

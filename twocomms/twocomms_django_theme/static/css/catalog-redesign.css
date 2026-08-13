@@ -1431,6 +1431,7 @@ html.perf-lite .catalog-print-panel {
   }
 
   .catalog-mobile-reference__hero h1,
+  .catalog-mobile-reference__title,
   .catalog-mobile-reference__head h2,
   .catalog-mobile-reference__category-title,
   .catalog-mobile-reference__custom-title {
@@ -1440,7 +1441,8 @@ html.perf-lite .catalog-print-panel {
     text-transform: uppercase;
   }
 
-  .catalog-mobile-reference__hero h1 {
+  .catalog-mobile-reference__hero h1,
+  .catalog-mobile-reference__title {
     margin: 0;
     font-size: 27px;
     line-height: 0.98;

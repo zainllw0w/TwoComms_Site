@@ -12162,6 +12162,12 @@ msgstr "Search the catalog"
 msgid "Каталог одягу TwoComms"
 msgstr "TwoComms clothing catalog"
 
+msgid "Нова колекція"
+msgstr "New collection"
+
+msgid "вже тут"
+msgstr "is here"
+
 #: twocomms_django_theme/templates/pages/catalog.html:218
 #, python-format
 msgid "Результати за запитом «%(q)s» у каталозі TwoComms."
