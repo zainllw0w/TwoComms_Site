@@ -741,6 +741,40 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     support chip while RU/EN omit the locale-less promotion. This checkpoint
     claims truthful locale ownership and cleaner internal crawl targets only,
     not ranking, traffic or conversion uplift.
+- [x] **3.2d** Localize the shared standard-site founder `Person` JSON-LD
+  description for RU and EN. Keep the verified proper name, role, `@id`,
+  `worksFor`, nationality and all UK/default behavior unchanged; do not add
+  facts, keyword variants or product-specific copy. This is a narrow entity
+  language-parity slice and does not close the broader 3.1 JSON-LD matrix or
+  the remaining Organization/WebSite fact-registry work.
+
+  - Code/test commit: `78b75c072035784e76e7727b6dc1a07d3f23a785` (`fix(seo):
+    localize founder schema descriptions`) was pushed to `origin/main`, pulled
+    on production and activated with Passenger restart.
+  - TDD/local proof: the new rendered locale regression first failed for both
+    RU and EN because `Person.description` emitted the Ukrainian source string;
+    after adding only the existing RU/EN gettext translations, the focused
+    founder test passed `2/2`. The complete rendered locale/publication/
+    multilingual sitemap subset passed `46/46`; `manage.py check` and
+    `git diff --check` passed. Two older Organization tests still retain the
+    documented baseline mismatch between their string `@type` expectation and
+    the current `['Organization', 'OnlineStore']` contract; this release did
+    not alter that schema.
+  - Context7/Django 5.2 contract: the existing `gettext`/active-language path
+    remains the source of the localized schema string; no request-time manual
+    locale switching or duplicated schema builder was introduced.
+  - Live proof at production SHA `78b75c0720`: RU and EN standard PDP and
+    catalog URLs returned `200`, `index, follow`, self-canonical URLs and four
+    hreflang links. RU emitted `Основатель украинского streetwear-бренда
+    TwoComms из Харькова, боевой ветеран.`, EN emitted `Founder of the
+    Ukrainian streetwear brand TwoComms from Kharkiv; a combat veteran.`; the
+    Ukrainian source fallback was absent on all four pages. The PDPs retained
+    their add-to-cart contract.
+  - Boundary: no DTF route, subdomain, module or blog; no Custom Print view,
+    template, content, configurator, pricing, cart, analytics or submission
+    behavior; no product data or runtime schema code changed. This checkpoint
+    claims only RU/EN entity-language parity and makes no ranking, citation,
+    rich-result or conversion uplift claim.
 - [x] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners. See P1.2 evidence above.
 - [ ] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
 - [ ] **3.5** Do not run a general Custom Print SEO audit. Run only a focused RU/EN localization check. If a specific wrong-language visible-text or related wrong-locale canonical/hreflang defect is reproduced, add one focused failing test and the smallest locale-only fix; otherwise record `N/A`. Prove UK content, configurator state, cart, analytics and submission contracts unchanged without submitting a live request.

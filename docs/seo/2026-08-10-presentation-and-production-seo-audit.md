@@ -508,6 +508,13 @@
 
 Сохранённые EN/RU home, PDP и color HTML содержат украинские slogan, description, founder description и MemberProgram text при заявленных RU/EN hreflang. Это не санкция, но смешивает языковой сигнал, ухудшает intent matching и цитируемость. Schema должна строиться из того же locale-aware источника, что и видимый текст; в acceptance matrix нужно запретить украинские fallback strings в RU/EN, кроме утверждённых proper nouns. Evidence: output/seo-audit-2026-08-10/performance/home.html, pdp.html и color-landings-live/*.html.
 
+**Статус 2026-08-13:** founder `Person.description` исправлен для RU/EN через
+существующие gettext-переводы и live-проверен на стандартных PDP/catalog
+страницах в commit `78b75c0720`. Остальные GEO-002 поверхности (Organization,
+WebSite, color landing и отключенный MemberProgram/fact parity) остаются
+отдельными открытыми задачами; этот срез не объявляет GEO-002 полностью
+закрытым.
+
 #### GEO-003 — ClothingStore с координатами не подтверждён видимой физической точкой
 
 Contacts page одновременно описывает online-only магазин с отправкой из Харькова и публикует ClothingStore, координаты 50.0040, 36.2308, postalCode 61061 и часы 10:00–22:00 без streetAddress. Это риск ложного Local Pack/Maps ожидания, но не доказанный ranking loss. Если staffed location и часы реальны, те же NAP должны быть видимы и подтверждены GBP; если нет, оставить ContactPage/Organization/OnlineStore и описать Харьков как операционный origin без LocalBusiness coordinates.
