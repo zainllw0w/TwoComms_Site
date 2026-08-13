@@ -165,6 +165,14 @@ class GeneralCatalogViewIntegrationTests(_Base):
         # Curated query label should appear inside the rendered tabs.
         self.assertIn("Купити худі ЗСУ", body)
 
+    def test_general_catalog_does_not_render_unowned_generated_claim_block(self):
+        response = self.client.get(reverse("catalog") + "?fact_probe=general-catalog")
+        body = response.content.decode()
+
+        self.assertNotIn("200–320 г/м²", body)
+        self.assertNotIn("Доставка Новою Поштою 1–2 дні", body)
+        self.assertNotIn("Частину прибутку від кожного замовлення направляємо", body)
+
     def test_general_catalog_html_renders_color_chips(self):
         resp = self.client.get(reverse("catalog"))
         body = resp.content.decode()
