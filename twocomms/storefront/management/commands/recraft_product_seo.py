@@ -1,49 +1,49 @@
-"""Phase 13.5 — replace broken Phase 13 HTML autofill with manually-
-crafted plain-text, theme-aware copy (from ``services.product_copy_v2``).
+"""Retired Phase 13.5 recraft entry point for standard Products.
 
 Safe-overwrite rules:
   * For SEO/content fields: overwrite only when blank OR when the value
     matches the Phase 13 generator signature.
-  * For FAQs: create the current product-context set only when no ProductFAQ
-    rows exist. Existing FAQ data, including legacy delivery policy, is left
-    for its separate guarded cleanup command.
+  * Generated editorial fields and FAQs are fail-closed; only owner-safe
+    title/image identifiers remain available.
 
 Flags:
     --dry-run         preview
-    --include-drafts  process drafts/archived too
+    --include-drafts  process draft/archived standard products too
     --slug            limit to specific slug(s) (repeatable)
-    --force           overwrite EVERY field (use with care)
+    --force           replace only detected legacy-generated identifiers
 """
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand
 
-from storefront.models import Product, ProductFAQ
+from storefront.models import Product
 from storefront.services.product_copy_v2 import (
+    STANDARD_CATEGORY_SLUGS,
     build_copy,
     looks_like_phase13_autofill,
 )
 
 
-FIELDS = (
-    "seo_title", "seo_description", "seo_keywords", "main_image_alt",
-    "short_description", "full_description", "care_instructions",
-    "target_audience",
-)
+FIELDS = ("seo_title", "main_image_alt")
 
 
 class Command(BaseCommand):
-    help = "Recraft product SEO copy (plain text) — overwrite Phase 13 autofill."
+    help = "Recraft only owner-safe Product identifiers; editorial generation is retired."
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true")
         parser.add_argument("--include-drafts", action="store_true")
         parser.add_argument("--slug", action="append", default=[])
         parser.add_argument("--force", action="store_true",
-                            help="Overwrite EVERY targeted field regardless of signature.")
+                            help=(
+                                "Replace detected legacy-generated identifiers; "
+                                "manual fields remain protected."
+                            ))
 
     def handle(self, *args, **opts):
-        qs = Product.objects.all().order_by("id")
+        qs = Product.objects.filter(
+            category__slug__in=STANDARD_CATEGORY_SLUGS,
+        ).order_by("id")
         if not opts["include_drafts"]:
             qs = qs.filter(status="published")
         if opts["slug"]:
@@ -56,56 +56,39 @@ class Command(BaseCommand):
 
         changed = 0
         field_changes: dict[str, int] = {}
-        faqs_created = 0
-        faqs_kept = 0
         unmapped = []
 
         for p in qs.select_related("category"):
             copy = build_copy(p)
             update_fields = []
             for f in FIELDS:
-                current = getattr(p, f, None) or ""
+                raw_field = f"{f}_uk"
+                current = getattr(p, raw_field, None) or ""
                 new_val = copy.get(f) or ""
                 if not new_val:
                     continue
-                if current and not (opts["force"] or
-                                    looks_like_phase13_autofill(f, current)):
+                if current and not looks_like_phase13_autofill(f, current):
                     continue  # keep manually edited / non-phase13 content
                 if current == new_val:
                     continue
-                setattr(p, f, new_val)
-                update_fields.append(f)
-                field_changes[f] = field_changes.get(f, 0) + 1
+                setattr(p, raw_field, new_val)
+                update_fields.append(raw_field)
+                field_changes[raw_field] = field_changes.get(raw_field, 0) + 1
 
             if update_fields and not opts["dry_run"]:
                 p.save(update_fields=update_fields)
 
-            # Existing FAQ data has a separate, exact-signature cleanup path.
-            # Recraft only supplies the current generator output to a product
-            # that has no FAQ rows at all.
-            existing = list(ProductFAQ.objects.filter(product=p).order_by("order", "id"))
-            if not existing:
-                if not opts["dry_run"]:
-                    for idx, (q, a) in enumerate(copy["faqs"]):
-                        ProductFAQ.objects.create(
-                            product=p, question=q, answer=a,
-                            order=idx, is_active=True,
-                        )
-                faqs_created += len(copy["faqs"])
-            else:
-                faqs_kept += len(existing)
-
-            if update_fields or not existing:
+            if update_fields:
                 changed += 1
 
-            # Track products without a theme mapping (they used fallback copy).
+            # Keep reporting unmapped standard products for editorial review.
             from storefront.services.product_copy_v2 import get_theme_for_product
             if get_theme_for_product(p) is None:
                 unmapped.append((p.id, p.slug, p.title))
 
         self.stdout.write(self.style.SUCCESS(
             f"\nProcessed: {total}\nChanged:   {changed}\n"
-            f"FAQs created: {faqs_created} (kept {faqs_kept} existing)"
+            "FAQs changed: 0 (existing rows untouched)"
         ))
         if field_changes:
             self.stdout.write("\nField overwrite counts:")
@@ -113,7 +96,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"  {f:22s} {n}")
         if unmapped:
             self.stdout.write(self.style.WARNING(
-                f"\n{len(unmapped)} product(s) without theme mapping (fallback copy used):"
+                f"\n{len(unmapped)} product(s) without theme mapping:"
             ))
             for pid, slug, title in unmapped[:20]:
                 self.stdout.write(f"  #{pid:3} {slug:40s} {title[:40]}")

@@ -47,15 +47,11 @@ class CopyBuilderTests(_Base):
         p = self._product(pk=102, category=self.cat_h,
                           title='Худі TWOCOMMS "Reality Bends"')
         copy = build_copy(p)
-        self.assertIn("Reality Bends", copy["full_description"])
-        self.assertIn("cyberpunk", copy["full_description"].lower())
-        self.assertIn("Future 2026", copy["full_description"])
-        # Plain text — no HTML tags.
+        self.assertTrue(copy["seo_title"])
+        self.assertIn("Reality Bends", copy["main_image_alt"])
         for f in ("full_description", "care_instructions", "target_audience", "short_description"):
-            self.assertNotIn("<p>", copy[f])
-            self.assertNotIn("<h3>", copy[f])
-            self.assertNotIn("<ul>", copy[f])
-            self.assertNotIn("<li>", copy[f])
+            self.assertEqual(copy[f], "")
+        self.assertEqual(copy["faqs"], [])
 
     def test_kharkiv_theme_different_from_kha_edition(self):
         p1 = self._product(pk=19, category=self.cat_t,
@@ -64,31 +60,26 @@ class CopyBuilderTests(_Base):
                            title='Футболка "Харків Edition"')
         c1 = build_copy(p1)
         c2 = build_copy(p2)
-        self.assertNotEqual(c1["full_description"], c2["full_description"])
-        self.assertIn("Харківська Область", c1["full_description"])
-        self.assertIn("Харків Edition", c2["full_description"])
+        self.assertEqual(c1["full_description"], "")
+        self.assertEqual(c2["full_description"], "")
+        self.assertIn("Харківська Область", c1["main_image_alt"])
+        self.assertIn("Харків Edition", c2["main_image_alt"])
 
     def test_faqs_first_is_theme_specific(self):
         p = self._product(pk=19, category=self.cat_t,
                           title='Футболка "Харківська Область"')
         copy = build_copy(p)
-        first_q = copy["faqs"][0][0]
-        self.assertIn("Харківська Область", first_q)
-        # Delivery policy belongs to the canonical /delivery/ page. The
-        # product generator keeps only theme, size, care and custom-print
-        # questions whose answers are useful in the product context.
-        self.assertEqual(len(copy["faqs"]), 4)
-        self.assertFalse(any("достав" in q.lower() for q, _ in copy["faqs"]))
+        self.assertEqual(copy["faqs"], [])
 
     def test_fallback_for_unmapped_product(self):
         p = self._product(pk=99999, category=self.cat_t,
                           title="Unknown Theme Product")
         self.assertIsNone(get_theme_for_product(p))
         copy = build_copy(p)
-        # Fallback copy still produces all fields.
+        # Fallback copy is retired rather than synthesizing unowned facts.
         self.assertTrue(copy["seo_title"])
-        self.assertTrue(copy["full_description"])
-        self.assertEqual(len(copy["faqs"]), 4)
+        self.assertEqual(copy["full_description"], "")
+        self.assertEqual(copy["faqs"], [])
 
     def test_delivery_policy_is_not_generated_for_standard_garments(self):
         products = (
@@ -114,9 +105,9 @@ class CopyBuilderTests(_Base):
                             title='Футболка "Lord Of The Lending"')
         p_l = self._product(pk=33, category=self.cat_l,
                             title='Лонгслів "Lord Of The Lending"')
-        self.assertIn("худі", build_copy(p_h)["faqs"][1][0].lower())
-        self.assertIn("футболк", build_copy(p_t)["faqs"][1][0].lower())
-        self.assertIn("лонгслів", build_copy(p_l)["faqs"][1][0].lower())
+        self.assertIn("худі", build_copy(p_h)["main_image_alt"].lower())
+        self.assertIn("футболк", build_copy(p_t)["main_image_alt"].lower())
+        self.assertIn("лонгслів", build_copy(p_l)["main_image_alt"].lower())
 
     def test_seo_lengths_respected(self):
         p = self._product(pk=102, category=self.cat_h,
@@ -172,9 +163,8 @@ class RecraftCommandTests(_Base):
         call_command("recraft_product_seo", "--slug", "p-19", stdout=out)
 
         p.refresh_from_db()
-        # phase13 care overwritten with the v2 plain-text; custom short_description kept.
-        self.assertTrue(p.care_instructions.startswith("Прати при 30"))
-        self.assertNotIn("у режимі для бавовни, без агресивних", p.care_instructions)
+        # Retired generator does not overwrite or synthesize editorial fields.
+        self.assertTrue(p.care_instructions.startswith("Прання при 30"))
         self.assertEqual(p.short_description, "Custom editorial text — must be preserved!")
 
         # Existing FAQ data is intentionally left for the guarded cleanup.
@@ -183,16 +173,15 @@ class RecraftCommandTests(_Base):
         self.assertIn("Custom editorial FAQ kept intact?", questions)
         self.assertIn("Як обрати розмір футболки?", questions)
         self.assertEqual(len(qs), 2)
-        self.assertIn("FAQs created: 0 (kept 2 existing)", out.getvalue())
+        self.assertIn("FAQs changed: 0 (existing rows untouched)", out.getvalue())
 
-    def test_recraft_creates_four_current_faqs_only_for_products_without_faqs(self):
+    def test_recraft_does_not_create_faqs_without_reviewed_owner(self):
         product = self._product(pk=102, category=self.cat_h, title="No FAQ product")
 
         call_command("recraft_product_seo", "--slug", product.slug, stdout=StringIO())
 
         faqs = list(ProductFAQ.objects.filter(product=product).order_by("order", "id"))
-        self.assertEqual(len(faqs), 4)
-        self.assertFalse(any("достав" in faq.question.lower() for faq in faqs))
+        self.assertEqual(len(faqs), 0)
 
     def test_dry_run(self):
         p = self._product(pk=19, category=self.cat_t,

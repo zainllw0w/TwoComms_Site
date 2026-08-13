@@ -47,7 +47,7 @@ class _Base(TestCase):
 
 class AutofillCoreTests(_Base):
 
-    def test_fills_all_empty_seo_fields(self):
+    def test_fills_only_owner_safe_identifier_fields(self):
         p = self._product()
         report = autofill_product(p, faq_model=ProductFAQ)
         p.refresh_from_db()
@@ -56,25 +56,16 @@ class AutofillCoreTests(_Base):
         self.assertIn("TwoComms", p.seo_title)
         self.assertLessEqual(len(p.seo_title), 160)
 
-        self.assertTrue(p.seo_description)
-        self.assertLessEqual(len(p.seo_description), 320)
-
-        self.assertTrue(p.seo_keywords)
-        self.assertLessEqual(len(p.seo_keywords), 300)
-        self.assertIn("худі", p.seo_keywords)
-        self.assertIn("ЗСУ", p.seo_keywords)
+        self.assertFalse(p.seo_description)
+        self.assertFalse(p.seo_keywords)
 
         self.assertTrue(p.main_image_alt)
         self.assertLessEqual(len(p.main_image_alt), 200)
 
-        self.assertTrue(p.short_description)
-        self.assertLessEqual(len(p.short_description), 300)
-
-        self.assertTrue(p.care_instructions)
-        self.assertTrue(p.target_audience)
-        self.assertTrue(p.full_description)
-        self.assertIn("<p>", p.full_description)
-        self.assertIn("DTF", p.full_description)
+        self.assertFalse(p.short_description)
+        self.assertFalse(p.care_instructions)
+        self.assertFalse(p.target_audience)
+        self.assertFalse(p.full_description)
 
         self.assertEqual(report.products_seen, 1)
         self.assertEqual(report.products_changed, 1)
@@ -88,28 +79,21 @@ class AutofillCoreTests(_Base):
         self.assertEqual(p.seo_title, "MANUALLY SET TITLE")
         self.assertEqual(p.seo_description, "MANUAL DESC")
         self.assertEqual(p.short_description, "manual short")
-        # But other empty fields ARE filled.
+        # Only identifier-safe fields are filled; editorial claims stay blank.
         self.assertTrue(p.main_image_alt)
-        self.assertTrue(p.care_instructions)
+        self.assertFalse(p.care_instructions)
 
-    def test_creates_product_context_faqs_when_none_exist(self):
+    def test_does_not_create_product_context_faqs_without_reviewed_owner(self):
         p = self._product()
         autofill_product(p, faq_model=ProductFAQ)
         faqs = list(ProductFAQ.objects.filter(product=p).order_by("order"))
-        self.assertEqual(len(faqs), 4)
-        # Standard FAQ shape: question + answer + order + is_active.
-        self.assertEqual(faqs[0].order, 0)
-        self.assertTrue(faqs[0].is_active)
-        # Category-specific phrasing.
-        questions = " ".join(f.question for f in faqs)
-        self.assertIn("худі", questions.lower())
-        self.assertNotIn("доставк", questions.lower())
+        self.assertEqual(len(faqs), 0)
 
     def test_does_not_duplicate_faqs_on_second_run(self):
         p = self._product()
         autofill_product(p, faq_model=ProductFAQ)
         autofill_product(p, faq_model=ProductFAQ)
-        self.assertEqual(ProductFAQ.objects.filter(product=p).count(), 4)
+        self.assertEqual(ProductFAQ.objects.filter(product=p).count(), 0)
 
     def test_category_specific_phrasing_for_tshirts(self):
         p = self._product(title="TC Tryzub Black Print",
@@ -117,11 +101,8 @@ class AutofillCoreTests(_Base):
                           category=self.cat_t)
         autofill_product(p, faq_model=ProductFAQ)
         p.refresh_from_db()
-        self.assertIn("футболка", p.seo_keywords.lower())
-        questions = " ".join(
-            f.question for f in ProductFAQ.objects.filter(product=p)
-        )
-        self.assertIn("футболк", questions.lower())  # футболку / футболки
+        self.assertFalse(p.seo_keywords)
+        self.assertEqual(ProductFAQ.objects.filter(product=p).count(), 0)
 
     def test_dry_run_does_not_write(self):
         p = self._product()
@@ -133,7 +114,7 @@ class AutofillCoreTests(_Base):
         self.assertFalse(p.seo_title)
         self.assertFalse(p.seo_description)
         self.assertEqual(ProductFAQ.objects.filter(product=p).count(), 0)
-        self.assertEqual(report.faqs_created, 4)
+        self.assertEqual(report.faqs_created, 0)
 
     def test_queryset_runner_aggregates_report(self):
         for i in range(3):
@@ -142,8 +123,8 @@ class AutofillCoreTests(_Base):
         report = autofill_queryset(qs, faq_model=ProductFAQ)
         self.assertEqual(report.products_seen, 3)
         self.assertEqual(report.products_changed, 3)
-        self.assertEqual(report.faqs_created, 12)
-        self.assertEqual(report.fields_filled["seo_title"], 3)
+        self.assertEqual(report.faqs_created, 0)
+        self.assertEqual(report.fields_filled["seo_title_uk"], 3)
 
 
 class AutofillCommandTests(_Base):
@@ -160,12 +141,18 @@ class AutofillCommandTests(_Base):
         draft = Product.objects.get(slug="draft-1")
         self.assertFalse(draft.seo_title)
 
-    def test_command_include_drafts_processes_all(self):
+    def test_command_include_drafts_processes_standard_draft_safely(self):
         self._product(slug="published-1")
         self._product(slug="draft-1", status="draft")
         out = StringIO()
         call_command("autofill_product_seo", "--include-drafts", stdout=out)
         self.assertIn("Processed: 2", out.getvalue())
+        draft = Product.objects.get(slug="draft-1")
+        self.assertTrue(draft.seo_title)
+        self.assertTrue(draft.main_image_alt)
+        self.assertFalse(draft.seo_description)
+        self.assertFalse(draft.full_description)
+        self.assertEqual(ProductFAQ.objects.filter(product=draft).count(), 0)
 
     def test_command_dry_run_does_not_write(self):
         self._product(slug="p")

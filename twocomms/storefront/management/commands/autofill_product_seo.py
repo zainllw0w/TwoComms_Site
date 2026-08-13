@@ -1,7 +1,7 @@
-"""Phase 13 — fill empty SEO/content fields on products.
+"""Fill blank owner-safe identifiers on standard products.
 
 Usage:
-    python manage.py autofill_product_seo               # all published, with FAQs
+    python manage.py autofill_product_seo               # published standard products
     python manage.py autofill_product_seo --dry-run     # preview
     python manage.py autofill_product_seo --include-drafts
     python manage.py autofill_product_seo --slug HD-twocomms-...
@@ -12,28 +12,30 @@ from __future__ import annotations
 from django.core.management.base import BaseCommand
 
 from storefront.models import Product, ProductFAQ
+from storefront.services.product_copy_v2 import STANDARD_CATEGORY_SLUGS
 from storefront.services.product_seo_autofill import autofill_queryset
 
 
 class Command(BaseCommand):
     help = (
-        "Fill empty SEO/content fields on Product rows (idempotent: "
-        "never overwrites populated values). Creates product-context FAQs "
-        "for products that have none."
+        "Fill blank title/image identifiers on standard Product rows "
+        "without generating editorial claims or FAQs."
     )
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true",
                             help="Preview changes without writing.")
         parser.add_argument("--include-drafts", action="store_true",
-                            help="Process drafts and archived products too.")
+                            help="Process draft and archived standard products too.")
         parser.add_argument("--slug", action="append", default=[],
                             help="Limit to specific slug(s). Can be repeated.")
         parser.add_argument("--limit", type=int, default=0,
                             help="Optional maximum number of products to process.")
 
     def handle(self, *args, **opts):
-        qs = Product.objects.all().order_by("id")
+        qs = Product.objects.filter(
+            category__slug__in=STANDARD_CATEGORY_SLUGS,
+        ).order_by("id")
         if not opts["include_drafts"]:
             qs = qs.filter(status="published")
         if opts["slug"]:

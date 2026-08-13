@@ -161,15 +161,13 @@ class CareInstructionsTests(_SeoAuditBase):
 
     def test_hoodie_text_mentions_threading_specifics(self):
         text = _build_care_instructions(self.product_hd)
-        self.assertIn("трикотаж", text.lower())
-        # Hoodie text describes hood handling — not present in the
-        # tshirts/longsleeve copy.
-        self.assertIn("капюшон", text.lower())
+        self.assertEqual(text, "")
 
     def test_longsleeve_text_differs_from_tshirts(self):
         text_ts = _build_care_instructions(self.product_ts)
         text_ls = _build_care_instructions(self.product_ls)
-        self.assertNotEqual(text_ts, text_ls)
+        self.assertEqual(text_ts, "")
+        self.assertEqual(text_ls, "")
 
 
 class TargetAudienceTests(_SeoAuditBase):
@@ -179,9 +177,9 @@ class TargetAudienceTests(_SeoAuditBase):
         text_ts = _build_target_audience(self.product_ts)
         text_hd = _build_target_audience(self.product_hd)
         text_ls = _build_target_audience(self.product_ls)
-        self.assertNotEqual(text_ts, text_hd)
-        self.assertNotEqual(text_hd, text_ls)
-        self.assertNotEqual(text_ts, text_ls)
+        self.assertEqual(text_ts, "")
+        self.assertEqual(text_hd, "")
+        self.assertEqual(text_ls, "")
 
 
 class ProductFaqOwnershipTests(_SeoAuditBase):
@@ -189,13 +187,14 @@ class ProductFaqOwnershipTests(_SeoAuditBase):
 
     def test_universal_faqs_template_omits_delivery_policy(self):
         rendered = " ".join(text for pair in UNIVERSAL_FAQS for text in pair)
+        self.assertEqual(UNIVERSAL_FAQS, [])
         self.assertNotIn("1–3 робочі дні", rendered)
         self.assertNotIn("/delivery/", rendered)
 
     def test_built_faqs_leave_delivery_to_canonical_policy_page(self):
         faqs = _build_faqs(self.product_ts)
         rendered = " ".join(text for pair in faqs for text in pair)
-        self.assertEqual(len(faqs), 4)
+        self.assertEqual(len(faqs), 0)
         self.assertNotIn("1–3 робочі дні", rendered)
         self.assertNotIn("/delivery/", rendered)
 
@@ -206,7 +205,8 @@ class ProductFaqOwnershipTests(_SeoAuditBase):
         )
         q_ts = [q for q, _ in _build_faqs(self.product_ts)]
         q_ts2 = [q for q, _ in _build_faqs(ts2)]
-        self.assertNotEqual(q_ts, q_ts2)
+        self.assertEqual(q_ts, [])
+        self.assertEqual(q_ts2, [])
 
 
 class HomepageTitleTests(TestCase):

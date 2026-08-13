@@ -1,25 +1,21 @@
-"""Phase 13.5 — manually-crafted, theme-aware product copy (plain text).
+"""Legacy Phase 13 product-copy compatibility helpers.
 
-Replaces broken Phase 13 HTML output. Each garment gets theme-tailored
-intro + theme-FAQ, with shared per-category material/style/care text.
-All plain-text (template uses |linebreaksbr which would escape HTML).
+Long-form generated copy and FAQs are retired. ``build_copy`` now fails
+closed for those fields and returns only owner-safe title/image metadata for
+the standard product categories. Historical constants and detectors remain
+available for compatibility and guarded cleanup.
 
 Public API:
   * ``build_copy(product)`` → dict of fields ready to assign.
   * ``looks_like_phase13_autofill(field, value)`` → True if value
     matches the Phase 13 generator signature (safe to overwrite).
 
-Phase 17v (2026-05-16) — DATA-LEVEL TRANSLATION. The static UA copy in
-``THEMES`` (sibling module) and ``CATEGORY_COMMON`` is wrapped with
-``gettext_lazy``; translations live in the standard ``django.po``
-files for ``ru`` and ``en``. ``_fmt`` casts every value to ``str`` so
-the lazy proxies resolve at request time using the active locale.
+The retained title and category labels are always generated from the
+Ukrainian source under an explicit Ukrainian translation context.
 """
 from __future__ import annotations
 
-from typing import Iterable
-
-from django.utils.translation import gettext_lazy as _, pgettext_lazy
+from django.utils.translation import gettext_lazy as _, pgettext_lazy, override
 
 
 # --- per-category labels & base copy ---------------------------------------
@@ -204,6 +200,13 @@ CATEGORY_COMMON = {
 from ._product_themes import THEMES
 
 
+# Generated long-form/claim copy is retired until each fact has an explicit
+# owner. Keep this scope aligned with the public standard-product routes;
+# Custom Print and DTF products must never pass through these builders.
+STANDARD_CATEGORY_SLUGS = frozenset(("tshirts", "hoodie", "long-sleeve"))
+PRODUCT_COPY_RETIREMENT_VERSION = "2026-08-13"
+
+
 # --- Phase 13 detector signatures -----------------------------------------
 
 _PHASE13_SIGNATURES = {
@@ -301,128 +304,90 @@ def _kw_list(theme: dict, common: dict, cat: str) -> list[str]:
 
 
 def build_copy(product) -> dict:
-    """Assemble ``dict`` of fields + FAQ list for ``product``."""
+    """Return only owner-safe generated metadata for a standard Product.
+
+    Historical versions generated material, weight, durability, shrinkage,
+    origin, donation and service boilerplate here. Those values have no
+    shared fact owner, so the generator is deliberately fail-closed until
+    reviewed editorial fields are supplied. ``seo_title`` and the image alt
+    remain descriptive identifiers and do not assert product facts.
+    """
+    if not getattr(getattr(product, "category", None), "slug", None) in STANDARD_CATEGORY_SLUGS:
+        return {
+            "seo_title": "",
+            "seo_description": "",
+            "seo_keywords": "",
+            "main_image_alt": "",
+            "short_description": "",
+            "full_description": "",
+            "care_instructions": "",
+            "target_audience": "",
+            "faqs": [],
+        }
+
     cat = product.category.slug
-    common = CATEGORY_COMMON.get(cat) or CATEGORY_COMMON["tshirts"]
-    theme = get_theme_for_product(product)
+    t = getattr(product, "title_uk", "")
+    t = t.strip() if isinstance(t, str) else ""
+    if not t:
+        return {
+            "seo_title": "",
+            "seo_description": "",
+            "seo_keywords": "",
+            "main_image_alt": "",
+            "short_description": "",
+            "full_description": "",
+            "care_instructions": "",
+            "target_audience": "",
+            "faqs": [],
+        }
 
-    if theme:
-        intro_short = _fmt(theme["intro_short"], cat)
-        intro_long = _fmt(theme["intro_long"], cat)
-        audience_extra = _fmt(theme["audience"], cat)
-        kw_list = _kw_list(theme, common, cat)
-        theme_faq_q = _fmt(theme["faq"][0], cat)
-        theme_faq_a = _fmt(theme["faq"][1], cat)
-        alt_short = theme["alt_short"]
-    else:
-        # Fallback (products not yet mapped in THEMES).
-        intro_short = _(
-            "{nom_cap} TwoComms: {title} — авторський "
-            "streetwear з мілітарним ДНК, DTF-друк, бавовна."
-        ).format(nom_cap=_nom_cap(cat), title=product.title)
-        intro_long = _(
-            "{title} — {nom} TwoComms у мілітарно-"
-            "streetwear ДНК. Виготовлена в Україні, з авторським "
-            "принтом і якісним DTF-друком."
-        ).format(nom=_nom(cat), title=product.title)
-        audience_extra = str(_("Гарний вибір для щоденного носіння у місті."))
-        kw_list = [product.title] + [str(k) for k in common["kw_base"]]
-        theme_faq_q = str(_("Що особливого в цій моделі?"))
-        theme_faq_a = str(_(
-            "Це авторська модель TwoComms з мілітарно-streetwear ДНК. "
-            "DTF-друк, щільна бавовна, пошиття в Україні. Частина "
-            "прибутку йде на підтримку ЗСУ."
-        ))
-        alt_short = str(_("авторський принт"))
-
-    # SEO title: «{product.title} — купити {acc} TwoComms»
+    # SEO title: «{product.title_uk} — купити {acc} TwoComms».
+    # The legacy generator always emits the Ukrainian source value. This
+    # prevents an active RU/EN locale from selecting a fallback title and
+    # accidentally writing it into the wrong translation column.
     #
-    # SEO v1.0 Phase 2 (2026-05-12) — finding (A) in the master audit.
-    # Ukrainian grammar requires the accusative case after the transitive
-    # verb «купити» («buy»). The Phase 13.5 implementation hardcoded the
-    # nominative (`_nom`) and produced ungrammatical artefacts like
-    # «купити футболка» / «купити лонгслів TwoComms». Google's 2024
-    # scaled-content-abuse spam policy treats systematic grammar errors
-    # as a strong machine-generated-content signal — the longer this
-    # bug persisted the higher the algorithmic suppression risk. Switch
-    # to `_acc` so the template renders «купити футболку TwoComms».
-    # The 60-char truncate ceiling (was 160) closes finding (B); we
-    # also tightened it from the historical phase-13 limit because the
-    # full SERP title display cap on Google mobile in 2026 is ~60 chars.
-    t = product.title.strip()
-    # 17v: «купити» suffix is locale-aware. The {acc} placeholder is filled
-    # via the per-locale ``LABEL_ACC`` (gettext_lazy) so RU shows «купить»,
-    # EN shows «buy», and the article surfaces in the correct grammar.
-    seo_title_template = _("{title} — купити {acc} TwoComms")
-    seo_title = str(seo_title_template).format(title=t, acc=_acc(cat))
+    # Use the accusative category form after the Ukrainian transitive verb
+    # «купити» so the generated identifier is grammatical. Keep the existing
+    # 60-character project limit while preserving the locale-aware suffix.
+    # The explicit Ukrainian context prevents active RU/EN pages from
+    # selecting a fallback translation while this legacy generator writes
+    # the raw ``*_uk`` fields.
+    with override("uk"):
+        seo_title_template = _("{title} — купити {acc} TwoComms")
+        seo_title = str(seo_title_template).format(title=t, acc=_acc(cat))
     SEO_TITLE_MAX = 60
     if len(seo_title) > SEO_TITLE_MAX:
-        # Trim the product title (preserving the suffix) and avoid
-        # cutting inside a word so the truncated string still reads.
-        suffix = " — TwoComms"
-        budget = SEO_TITLE_MAX - len(suffix)
+        # Trim only the product-title side and preserve the active-locale
+        # commercial suffix. Never replace it with a hard-coded Ukrainian
+        # suffix when rendering an explicitly translated value.
+        separator = " — "
+        # Product titles may contain their own em dash. The final separator
+        # is the generator-owned boundary before the commercial suffix.
+        _title_part, suffix_separator, suffix = seo_title.rpartition(separator)
+        if not suffix_separator:
+            suffix = ""
+        suffix_with_separator = f"{separator}{suffix}" if suffix else ""
+        budget = SEO_TITLE_MAX - len(suffix_with_separator)
         if budget > 0 and len(t) > budget:
             head = t[:budget].rsplit(" ", 1)[0]
         else:
             head = t[:budget] if budget > 0 else t
-        seo_title = head + suffix
+        seo_title = head + suffix_with_separator
 
-    # SEO description (≤320): intro_short + short call-to-action.
-    seo_description = (
-        f"{intro_short} "
-        + str(_("Шиємо в Україні, DTF-друк, бавовна. "
-                "Доставка Новою Поштою. Підтримуємо ЗСУ."))
-    )
-    if len(seo_description) > 320:
-        seo_description = seo_description[:317].rstrip() + "…"
-
-    # SEO keywords (≤300): joined comma list.
-    kw_line, size = "", 300
-    for k in kw_list:
-        k_str = str(k)
-        tentative = (kw_line + ", " + k_str) if kw_line else k_str
-        if len(tentative) > size:
-            break
-        kw_line = tentative
-
-    # Alt (≤200)
-    alt = f"{t} — {alt_short}, {_nom(cat)} TwoComms"
+    # Keep image accessibility descriptive without asserting material,
+    # print method, durability or origin.
+    with override("uk"):
+        alt = f"{t} — {_nom(cat)} TwoComms"
     alt = alt[:200]
-
-    # Short description (≤300)
-    short = str(intro_short)
-    if len(short) > 300:
-        short = short[:297].rstrip() + "…"
-
-    # Full description: plain-text paragraphs separated by blank line.
-    full_parts = [
-        str(intro_long),
-        str(common["para_material"]),
-        str(common["para_style"]),
-        str(audience_extra) + " " + str(common["audience_base"]),
-    ]
-    full = "\n\n".join(p.strip() for p in full_parts if p and p.strip())
-
-    # Target audience: theme-specific + base.
-    target = (str(audience_extra) + " " + str(common["audience_base"])).strip()
-
-    care = str(common["care"])
-
-    faqs = [
-        (str(theme_faq_q), str(theme_faq_a)),
-        (str(common["faq_size"][0]), str(common["faq_size"][1])),
-        (str(common["faq_care"][0]), str(common["faq_care"][1])),
-        (str(common["faq_custom"][0]), str(common["faq_custom"][1])),
-    ]
 
     return {
         "seo_title":          seo_title,
-        "seo_description":    seo_description,
-        "seo_keywords":       kw_line,
+        "seo_description":    "",
+        "seo_keywords":       "",
         "main_image_alt":     alt,
-        "short_description":  short,
-        "full_description":   full,
-        "care_instructions":  care,
-        "target_audience":    target,
-        "faqs":               faqs,
+        "short_description":  "",
+        "full_description":   "",
+        "care_instructions":  "",
+        "target_audience":    "",
+        "faqs":               [],
     }
