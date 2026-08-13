@@ -1718,6 +1718,34 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 
 - [ ] **10.1** Add a fact/entity registry test covering founding date, delivery threshold, address/hours, donation and price range across visible text, schema, feeds and llms.
 - [ ] **10.2** Remove unverified ClothingStore coordinates/hours and conflicting founding/entity claims unless the business owner supplies current evidence.
+- [x] **10.2a** Remove the remaining unverified `10:00-22:00` support-hours
+  claim from both `ContactPoint.hoursAvailable` and the visible UK/RU/EN
+  contacts page. Preserve the online-only `ClothingStore`, canonical phone,
+  locale routes, operational origin and adjacent delivery content. Task `10.2`
+  remains open for the separately owned founding/entity fact decision.
+
+#### Task 10.2a release evidence
+
+- Code/test commit: `7a12772f7e41de354e656f6b1b8407fd94f45c70`
+  (`fix(seo): remove unverified contact hours`) was pushed to `origin/main`,
+  fast-forwarded on production and verified as the production `HEAD`.
+- TDD/local gates: the locale regression first failed on all three renders
+  because `hoursAvailable` and visible `10:00`/`22:00` were present. After the
+  scoped template change, the contacts suite passed `2/2`; every JSON-LD block
+  was decoded with `json.loads`, `manage.py check`, `compileall` and
+  `git diff --check` passed. A broader service-page run retained one unrelated
+  baseline failure in the legacy `/pro-brand/` Organization expectation.
+- Live proof: `/contacts/`, `/ru/contacts/` and `/en/contacts/` returned `200`
+  with zero `hoursAvailable`, `OpeningHoursSpecification`, `10:00` and `22:00`
+  tokens while preserving `ClothingStore` and `+380966543212`. The production
+  Django system check reported no errors.
+- Browser proof: the UK contacts page rendered the origin and delivery cards
+  without overlap; the origin card retained `Харків, Україна`, and neither the
+  visible page nor parsed `ContactPage.mainEntity.contactPoint` exposed hours.
+- Boundary proof: only the contacts template and its regression test changed.
+  Products, catalog/PDP copy, Custom Print and every DTF route, subdomain,
+  module and blog remained untouched. This checkpoint claims factual
+  consistency only, not a ranking, traffic, rich-result or citation increase.
 - [ ] **10.3** Replace request-time `dateModified=now()` with source `updated_at` and localize pro-brand OfferCatalog URLs.
 - [x] **10.3a** Remove the unverified request-time `dateModified` from the
   evergreen standard `/pro-brand/` AboutPage. No replacement date is emitted
