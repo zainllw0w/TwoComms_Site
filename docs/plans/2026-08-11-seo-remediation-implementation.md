@@ -509,6 +509,50 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   inventory, filters, pagination or locale-ownership policy changed. This is
   not a ranking/traffic claim.
 
+- [x] **P0.12** Localize the ordinary mobile catalog chrome and root-catalog
+  showcase for RU and EN: shared header/search/navigation/filter controls,
+  mobile category cards, benefits, prices and availability labels. This uses
+  existing Django translation messages only and versions the catalog full-page
+  cache so a clean locale URL cannot keep serving the Ukrainian response. It
+  does not create keyword copy, change any catalog data or alter the Custom
+  Print route, configurator, submission, pricing or analytics behavior.
+
+#### P0.12 release evidence
+
+- Code/test commit: `1feb3625ead1f1e0d6a64f7f4314835dcb8d4f36`
+  (`fix(i18n): localize catalog mobile chrome`) adds RU/EN translations only
+  for existing `{% translate %}` message IDs and advances
+  `_CATALOG_CACHE_VERSION` to `catalog-seo-v6-20260813-locale-chrome`.
+- TDD/local gates: the new rendered root-catalog regression initially failed
+  for the Ukrainian shared chrome, then passed after the message catalogs were
+  completed. `storefront.tests.test_catalog` plus
+  `storefront.tests.test_home_catalog_h1_localization` passed `48/48` under
+  `test_settings`; `compilemessages -l ru -l en`, `manage.py check`,
+  `makemigrations --check --dry-run` and `git diff --check` passed. A first
+  combined test command named a nonexistent `test_catalog_h1` module; its
+  actual `46` catalog tests had passed, and the corrected fresh command is the
+  recorded `48/48` gate.
+- Production: the code commit was pushed directly to `main`; server
+  `git pull --ff-only` reached the same SHA, bundled `django.mo` files were
+  read back with `gettext.GNUTranslations` (`Open menu` and `Открыть меню`),
+  then `collectstatic --noinput`, `compress --force`, `manage.py check` and a
+  Passenger restart completed. The host has no `msgfmt`, so production could
+  not recompile PO files; this is an operational gap, not a substituted test:
+  the versioned, locally compiled MO assets shipped in the commit and were
+  verified readable on the host.
+- Live browser proof at `390x844`: `/ru/catalog/` and `/en/catalog/` each
+  returned `200` with matching `Content-Language`; menu/search/filter controls,
+  bottom navigation, catalog cards, price prefix, availability labels, root
+  showcase and benefits appeared in the active locale. A representative
+  standard RU/EN PDP retained the same localized shared header. The browser
+  also exposed separate remaining PDP-only Ukrainian UI/editorial strings;
+  they are deliberately left for the next isolated locale-parity slice rather
+  than mixed into this catalog release.
+- Boundary: DTF subdomain/blog/module, Custom Print behavior and configurator,
+  product content, inventory, URL ownership, canonical/hreflang, cart and
+  analytics were not changed. This proves locale parity for the listed mobile
+  catalog surface only; it makes no ranking, traffic or conversion claim.
+
 #### P0.10 release evidence
 
 - Code/test commit: `f11d0abdd` (`fix(seo): use checkout shipping threshold in
