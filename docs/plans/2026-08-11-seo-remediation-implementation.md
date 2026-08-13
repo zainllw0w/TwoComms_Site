@@ -635,6 +635,43 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   changed. This is a factuality and future-content-creation correction, not a
   ranking, traffic, rich-result or conversion claim.
 
+- [x] **P1.3a** Retire the remaining legacy standard-Product copy generators
+  until every generated field has a reviewed fact owner. ``tshirts``,
+  ``hoodie`` and ``long-sleeve`` are the only eligible categories. The
+  compatibility builders now fail closed for descriptions, keywords, care,
+  audience copy and FAQs; they may fill only concise ``seo_title_uk`` and
+  ``main_image_alt_uk`` from raw ``title_uk``. RU/EN fields, manual values,
+  existing FAQ rows, Custom Print and the DTF subdomain/blog remain outside
+  the write scope. This is a generation-boundary correction; it does not
+  delete historical database claims or promise ranking/traffic uplift.
+
+#### P1.3a release evidence
+
+- Code/test commit: ``b13edaf6f6a312731a5c3a8d8839f397ec096ec9``
+  (``fix(seo): retire unowned standard product copy generators``) was
+  rebased onto the then-current ``origin/main``, pushed to ``main`` and
+  pulled on production. The scoped retirement/autofill/recraft suite passed
+  ``40/40`` under ``test_settings_no_network``; ``manage.py check``, touched
+  file compilation and ``git diff --check`` passed.
+- Locale/scope proof: the service reads raw ``title_uk`` and writes only
+  ``seo_title_uk``/``main_image_alt_uk`` under an explicit Ukrainian locale
+  context. Missing ``title_uk`` fails closed; RU/EN columns are preserved.
+  Commands filter the three standard categories and published products by
+  default. ``recraft --force`` cannot bypass the manual-field guard, and the
+  FAQ refresh command is scan-only.
+- Production proof: server ``HEAD`` is
+  ``b13edaf6f6a312731a5c3a8d8839f397ec096ec9``; ``manage.py check`` passed,
+  ``tmp/restart.txt`` was touched, and ``/healthz/`` returned HTTP ``200``.
+  Read-only dry-runs scanned ``73`` products: autofill/recraft reported only
+  two UK identifier fills and ``0`` FAQ changes, while FAQ refresh reported
+  ``0`` rewrites. No production data was written by the dry-runs.
+- Boundary and residual risk: no Custom Print, DTF route/subdomain/blog,
+  product/catalog data or historical FAQ rows were changed. The known
+  independent GPTBot ``robots.txt`` assertion remains outside this slice.
+  A manual value that exactly collides with the retired Phase-13 signature
+  remains a non-blocking detector risk and requires a future provenance-aware
+  cleanup; no ranking, traffic or conversion uplift is claimed.
+
 - [x] **P1.4** Remove only the exact legacy delivery FAQ rows confirmed in
   production after P1.3. The cleanup scope is `published` standard products
   in `tshirts`, `hoodie` and `long-sleeve`, active FAQ `order=2`, and an exact
