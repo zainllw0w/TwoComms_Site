@@ -16,7 +16,10 @@ from urllib.parse import urlsplit, urlunsplit
 
 from django.db.models import Prefetch
 from django.urls import reverse
+from django.utils import translation
+from django.utils.translation import gettext as _
 
+from .locale_publication import _raw_value
 from .seo_link_policy import is_internal_ui_state_url
 
 
@@ -176,6 +179,71 @@ TAB_BLOCK_TYPES: tuple[str, ...] = (
 )
 
 
+def _normalize_language(language: str | None) -> str:
+    code = str(language or "uk").lower().replace("_", "-").split("-", 1)[0]
+    return code if code in {"uk", "ru", "en"} else "uk"
+
+
+def _localized_category_name(category, language: str) -> str:
+    return _raw_value(category, "name", language)
+
+
+def _locale_safe_top_menu(current_category, language: str) -> Dict[str, Any] | None:
+    """Build a RU/EN-owned PDP menu without locale-less SEO-block data.
+
+    ``CategorySeoBlock`` and its items do not have translated fields.  On a
+    non-default PDP we therefore expose only category names with their own
+    translations plus support pages whose Django gettext entries are reviewed.
+    UK keeps the established DB-driven layout below.
+    """
+    try:
+        from .general_catalog_seo import _block, _item
+        from ..models import Category
+    except Exception:
+        return None
+
+    with translation.override(language):
+        items = []
+        for category in Category.objects.filter(is_active=True).order_by("order", "id"):
+            if category.pk == getattr(current_category, "pk", None):
+                continue
+            label = _localized_category_name(category, language)
+            if not label or not category.slug:
+                continue
+            items.append(_item(
+                label=label,
+                url=reverse("catalog_by_cat", kwargs={"cat_slug": category.slug}),
+            ))
+
+        for label, route in (
+            (_("Доставка і оплата"), "delivery"),
+            (_("Розмірна сітка"), "size_guide"),
+            (_("Догляд за одягом"), "care_guide"),
+            (_("Повернення та обмін"), "returns"),
+            (_("Про бренд TwoComms"), "about"),
+        ):
+            items.append(_item(label=label, url=reverse(route)))
+
+        title = _("Розділи каталогу")
+        return {"block": _block("top_menu", title), "items": items}
+
+
+def get_locale_safe_product_seo_layout(category, *, language: str) -> Dict[str, Any]:
+    """Return the only safe category rail for an RU/EN standard PDP."""
+    language = _normalize_language(language)
+    if category is None:
+        return {"tab_blocks": [], "best_prices": None, "has_any": False}
+    if language == "uk":
+        return get_category_seo_layout(category)
+    menu = _locale_safe_top_menu(category, language)
+    tab_blocks = [menu] if menu and menu.get("items") else []
+    return {
+        "tab_blocks": tab_blocks,
+        "best_prices": None,
+        "has_any": bool(tab_blocks),
+    }
+
+
 def get_category_seo_layout(category) -> Dict[str, Any]:
     """Phase 10b — split SEO blocks into tabbed link rails + pricing table.
 
@@ -259,5 +327,5 @@ def _synthesize_top_menu(current_category) -> Dict[str, Any] | None:
     if current_url:
         items = [it for it in items if getattr(it, "url", "") != current_url]
 
-    block = _block("top_menu", str("Розділи каталогу"))
+    block = _block("top_menu", _("Розділи каталогу"))
     return {"block": block, "items": items}

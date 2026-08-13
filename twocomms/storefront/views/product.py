@@ -1133,7 +1133,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     # non-duplicate copy and ``/classic/`` retains its unique content.
     from ..services.product_seo_landing import build_landing as _build_product_landing
     product_seo_landing = _build_product_landing(
-        product, fit_code=path_fit_code or None
+        product, fit_code=path_fit_code or None, language=language
     )
 
     variant_meta = build_variant_meta(

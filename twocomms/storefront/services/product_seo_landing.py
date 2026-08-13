@@ -32,6 +32,7 @@ from urllib.parse import urlencode
 
 from django.utils.html import escape
 
+from .locale_publication import _raw_value
 from .product_copy_v2 import (
     CATEGORY_COMMON,
     LABEL_NOM,
@@ -590,7 +591,9 @@ def _top_queries_for_product(product, fit_code: Optional[str] = None) -> List[Di
 
 # ----------------------------------------------------- category layout reuse
 
-def _category_layout_for_product(product) -> Dict[str, Any]:
+def _category_layout_for_product(
+    product, *, language: str | None = None
+) -> Dict[str, Any]:
     """Re-use ``top_filters`` and ``top_menu`` from the parent category.
 
     Skips ``top_cards`` and ``best_prices`` (catalog-specific).
@@ -598,8 +601,10 @@ def _category_layout_for_product(product) -> Dict[str, Any]:
     if not product.category:
         return {"tab_blocks": [], "best_prices": None, "has_any": False}
 
-    from .category_seo_blocks import get_category_seo_layout
-    layout = get_category_seo_layout(product.category)
+    from .category_seo_blocks import get_locale_safe_product_seo_layout
+    layout = get_locale_safe_product_seo_layout(
+        product.category, language=language or "uk"
+    )
     # Filter to only the link-only blocks; product page has its own
     # top_queries + per-product cards (recommended + landing copy).
     keep_types = {"top_filters", "top_menu"}
@@ -615,7 +620,12 @@ def _category_layout_for_product(product) -> Dict[str, Any]:
 
 # ----------------------------------------------------- public API
 
-def build_landing(product, *, fit_code: Optional[str] = None) -> Dict[str, Any]:
+def build_landing(
+    product,
+    *,
+    fit_code: Optional[str] = None,
+    language: str | None = None,
+) -> Dict[str, Any]:
     """Public entry point. Returns dict suitable for template context.
 
     SEO molecular-upgrade US-6 finishing (2026-05-17) — top_queries_items
@@ -628,15 +638,21 @@ def build_landing(product, *, fit_code: Optional[str] = None) -> Dict[str, Any]:
     """
     from .product_search_keywords import build_product_search_keywords
 
-    chips = build_product_search_keywords(product)
+    language = (language or "uk").split("-", 1)[0].lower()
+    chips = build_product_search_keywords(product, language=language)
 
-    override = (getattr(product, "seo_bottom_html", "") or "").strip()
+    # ``seo_bottom_html`` is modeltranslation-backed.  Its regular property
+    # falls back to Ukrainian, which must never make a RU/EN URL claim an
+    # unowned editorial block.
+    override = _raw_value(product, "seo_bottom_html", language)
     if override:
         return {
             "override_html":     override,
             "landing_html":      "",
             "top_queries_items": chips,
-            "category_layout":   _category_layout_for_product(product),
+            "category_layout":   _category_layout_for_product(
+                product, language=language
+            ),
             "fit_code":          fit_code or "",
         }
 
@@ -648,7 +664,9 @@ def build_landing(product, *, fit_code: Optional[str] = None) -> Dict[str, Any]:
         "override_html":     "",
         "landing_html":      "",
         "top_queries_items": chips,
-        "category_layout":   _category_layout_for_product(product),
+        "category_layout":   _category_layout_for_product(
+            product, language=language
+        ),
         "fit_code":          fit_code or "",
     }
 

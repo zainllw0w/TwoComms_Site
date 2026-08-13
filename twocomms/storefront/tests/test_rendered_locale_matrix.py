@@ -1,0 +1,155 @@
+"""Rendered locale contracts for indexable standard catalog and PDP pages.
+
+The matrix grows one verified surface at a time.  It deliberately checks
+named buyer-visible values and link ownership rather than treating every
+shared brand name or proper noun as a translation defect.
+"""
+
+from __future__ import annotations
+
+import re
+from unittest.mock import patch
+
+from django.core.cache import cache, caches
+from django.test import TestCase
+from django.utils import translation
+
+from productcolors.models import Color, ProductColorVariant
+from storefront.models import Category, Product, ProductFAQ
+
+
+class RenderedLocaleMatrixTests(TestCase):
+    """Prevent indexable RU/EN standard pages from publishing UK fallbacks."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(
+            name="Футболки",
+            name_ru="Футболки",
+            name_en="T-shirts",
+            slug="locale-matrix-tees",
+            is_active=True,
+        )
+        cls.product = Product.objects.create(
+            title="Українська футболка",
+            title_ru="Русская футболка",
+            title_en="English T-shirt",
+            slug="locale-matrix-tee",
+            category=cls.category,
+            price=900,
+            status="published",
+            seo_title_ru="Русская футболка TwoComms",
+            seo_title_en="English T-shirt TwoComms",
+            seo_description_ru="Русское описание футболки TwoComms.",
+            seo_description_en="English TwoComms T-shirt description.",
+            full_description_ru="Русское описание товара для повседневной носки.",
+            full_description_en="English product description for everyday wear.",
+        )
+        ProductFAQ.objects.create(
+            product=cls.product,
+            question="Як підібрати розмір?",
+            answer="Скористайтеся розмірною сіткою.",
+            question_ru="Как выбрать размер?",
+            answer_ru="Воспользуйтесь размерной сеткой.",
+            question_en="How do I choose a size?",
+            answer_en="Use the size chart.",
+            is_active=True,
+        )
+        color = Color.objects.create(name="Чорний", primary_hex="#000000")
+        ProductColorVariant.objects.create(
+            product=cls.product,
+            color=color,
+            is_default=True,
+            order=0,
+        )
+
+    def setUp(self):
+        super().setUp()
+        previous_language = translation.get_language() or "uk"
+        self.addCleanup(translation.activate, previous_language)
+        cache.clear()
+        caches["fragments"].clear()
+        for target in (
+            "storefront.signals.generate_google_merchant_feed_task.apply_async",
+            "storefront.signals.enqueue_indexnow_urls",
+        ):
+            patcher = patch(target)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _product_seo_landing(self, body: str) -> str:
+        match = re.search(
+            r'<section class="product-seo-landing".*?</section>',
+            body,
+            flags=re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        return match.group(0)
+
+    def test_standard_pdp_editorial_links_use_locale_owned_labels_and_urls(self):
+        matrix = {
+            "ru": {
+                "path": "/ru/product/locale-matrix-tee/",
+                "prefix": "/ru",
+                "required": (
+                    "Топ-запросы для этой модели",
+                    "Разделы каталога",
+                    "Доставка и оплата",
+                    "Размерная сетка",
+                    "Уход за одеждой",
+                    "Возврат и обмен",
+                    "О бренде TwoComms",
+                ),
+            },
+            "en": {
+                "path": "/en/product/locale-matrix-tee/",
+                "prefix": "/en",
+                "required": (
+                    "Top queries for this model",
+                    "Catalog sections",
+                    "Delivery &amp; payment",
+                    "Size chart",
+                    "Garment care",
+                    "Returns &amp; exchanges",
+                    "About TwoComms brand",
+                ),
+            },
+        }
+
+        for locale, expectations in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expectations["path"])
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "index, follow")
+                rail = self._product_seo_landing(
+                    response.content.decode("utf-8")
+                )
+
+                for value in expectations["required"]:
+                    self.assertIn(value, rail)
+                for route in (
+                    "delivery",
+                    "rozmirna-sitka",
+                    "doglyad-za-odyagom",
+                    "povernennya-ta-obmin",
+                    "pro-brand",
+                ):
+                    self.assertIn(
+                        f'href="{expectations["prefix"]}/{route}/"',
+                        rail,
+                    )
+
+                for ukrainian in (
+                    "Розділи каталогу",
+                    "Доставка Новою Поштою",
+                    "Розмірна сітка та посадка",
+                    "Повернення за 14 днів",
+                    "Замовити кастомний DTF-друк",
+                ):
+                    self.assertNotIn(ukrainian, rail)
+
+                self.assertNotIn("?color=", rail)
+                self.assertNotIn(
+                    f'{expectations["prefix"]}/catalog/theme/',
+                    rail,
+                )

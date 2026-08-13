@@ -43,23 +43,31 @@ False today).
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
+from django.db.models import Prefetch
+from django.urls import reverse
+from django.utils import translation
+from django.utils.translation import get_language
 from django.utils.translation import gettext as _
+
+from productcolors.color_i18n import translate_color_name
+
+from .locale_publication import _raw_value, locale_is_indexable
+from .seo_link_policy import is_internal_ui_state_url
 
 
 MAX_CHIPS = 12
+MAX_LOCALE_CANDIDATES = 24
+_SUPPORTED_LOCALES = frozenset(("uk", "ru", "en"))
 
 # Reuse topic detection from product_seo_block (US-3) so chip themes
 # stay in sync with the dynamic SEO block above the strip.
 try:
-    from .product_seo_block import _detect_topic, _category_phrase
+    from .product_seo_block import _detect_topic
 except Exception:  # pragma: no cover - service shouldn't crash if peer missing
     def _detect_topic(product) -> str:
         return "generic"
-
-    def _category_phrase(language: str, name: str) -> str:
-        return (name or "").lower() or "одяг"
 
 
 # Map topic_key (from product_seo_block) → thematic landing slug.
@@ -87,33 +95,78 @@ _CATEGORY_PHRASE_PLURAL: Dict[str, str] = {
     "long-sleeve": "лонгсліви",
 }
 
-
 # ----------------------------------------------------- helpers
 
 
-def _category_url(cat_slug: str) -> str:
-    return f"/catalog/{cat_slug}/" if cat_slug else "/catalog/"
+def _normalize_language(language: str | None) -> str:
+    code = str(language or get_language() or "uk").lower().replace("_", "-")
+    code = code.split("-", 1)[0]
+    return code if code in _SUPPORTED_LOCALES else "uk"
 
 
-def _color_landing_url(cat_slug: str, color_slug: str) -> str:
-    return f"/catalog/{cat_slug}/{color_slug}/"
+def _localized_reverse(route_name: str, language: str, *, kwargs=None) -> str:
+    """Resolve an i18n-pattern route under the requested locale."""
+    with translation.override(language):
+        return reverse(route_name, kwargs=kwargs)
 
 
-def _theme_url(theme_slug: str) -> str:
-    return f"/catalog/theme/{theme_slug}/"
+def _locale_owned_text(instance, field: str, language: str) -> str:
+    """Read a modeltranslation value without allowing a Ukrainian fallback."""
+    return _raw_value(instance, field, language)
 
 
-def _product_url(product) -> str:
+def _category_phrase_plural(slug: str) -> str:
+    return _CATEGORY_PHRASE_PLURAL.get(slug, slug or "одяг")
+
+
+def _locale_candidate_window(queryset, *, language: str, result_limit: int = 3):
+    """Keep peer selection bounded and avoid per-product FAQ queries.
+
+    RU/EN ownership checks inspect FAQ translations.  Loading that relation
+    once for a small, fixed candidate window makes the rail's database cost
+    independent of the category size while still allowing us to skip a few
+    incomplete translations before finding up to three valid targets.
+    """
+    if language in {"ru", "en"}:
+        try:
+            from storefront.models import ProductFAQ
+        except Exception:
+            return queryset[:MAX_LOCALE_CANDIDATES]
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "faqs",
+                queryset=ProductFAQ.objects.filter(is_active=True).only(
+                    "id",
+                    "product_id",
+                    "is_active",
+                    f"question_{language}",
+                    f"answer_{language}",
+                ),
+            )
+        )
+        return queryset[:MAX_LOCALE_CANDIDATES]
+    return queryset[:result_limit]
+
+
+def _color_landing_url(cat_slug: str, color_slug: str, language: str) -> str:
+    return _localized_reverse(
+        "catalog_by_cat_color",
+        language,
+        kwargs={"cat_slug": cat_slug, "color_slug": color_slug},
+    )
+
+
+def _theme_url(theme_slug: str, language: str) -> str:
+    return _localized_reverse(
+        "catalog_theme_landing", language, kwargs={"theme_slug": theme_slug}
+    )
+
+
+def _product_url(product, language: str) -> str:
     slug = getattr(product, "slug", None)
-    return f"/product/{slug}/" if slug else "/catalog/"
-
-
-def _safe_attr(obj, name: str, default=""):
-    try:
-        v = getattr(obj, name, default)
-        return v if v is not None else default
-    except Exception:
-        return default
+    if not slug:
+        return _localized_reverse("catalog", language)
+    return _localized_reverse("product", language, kwargs={"slug": slug})
 
 
 def _normalize_manual_item(raw: Any) -> Optional[Dict[str, Any]]:
@@ -124,6 +177,8 @@ def _normalize_manual_item(raw: Any) -> Optional[Dict[str, Any]]:
     if not label or not url:
         return None
     if not (url.startswith("/") or url.startswith("http://") or url.startswith("https://")):
+        return None
+    if is_internal_ui_state_url(url):
         return None
     weight = raw.get("weight")
     try:
@@ -139,7 +194,13 @@ def _normalize_manual_item(raw: Any) -> Optional[Dict[str, Any]]:
     }
 
 
-def _published_color_landing_url(category, color, *, cache: Dict) -> Optional[str]:
+def _published_color_landing_url(
+    category,
+    color,
+    *,
+    cache: Dict,
+    language: str,
+) -> Optional[str]:
     """Resolve the colour landing URL if a published row exists.
 
     Cache pattern keeps lookups within one ``build`` call cheap.
@@ -164,7 +225,7 @@ def _published_color_landing_url(category, color, *, cache: Dict) -> Optional[st
     except Exception:
         landing = None
     url = (
-        _color_landing_url(category.slug, landing.color_slug)
+        _color_landing_url(category.slug, landing.color_slug, language)
         if landing and category.slug and landing.color_slug
         else None
     )
@@ -172,34 +233,27 @@ def _published_color_landing_url(category, color, *, cache: Dict) -> Optional[st
     return url
 
 
-def _color_filter_url(cat_slug: str, color_slug: str) -> str:
-    """Fallback to ``?color=…`` filter when no landing exists."""
-    base = _category_url(cat_slug)
-    return f"{base}?color={color_slug}"
-
-
-def _color_label(color) -> str:
+def _color_label(color, language: str) -> str:
     name = (getattr(color, "name", "") or "").strip()
-    return name or "колір"
-
-
-def _category_phrase_plural(slug: str) -> str:
-    return _CATEGORY_PHRASE_PLURAL.get(slug, slug or "одяг")
+    return translate_color_name(name, language) if name else ""
 
 
 # ----------------------------------------------------- generators
 
 
-def _generate_color_landing_chips(product) -> List[Dict[str, Any]]:
-    """One chip per colour variant, pointing to a colour landing or
-    ``?color=`` fallback. NEVER points back at the same product.
-    """
+def _generate_color_landing_chips(product, *, language: str) -> List[Dict[str, Any]]:
+    """Link only to published, indexable Ukrainian colour landing owners."""
     out: List[Dict[str, Any]] = []
+    # CategoryColorLanding rows have Ukrainian-only editorial copy and must
+    # never be promoted from an indexable RU/EN product page.
+    if language != "uk":
+        return out
     cat = getattr(product, "category", None)
     if cat is None:
         return out
-    cat_slug = getattr(cat, "slug", "") or ""
-    cat_phrase = _category_phrase_plural(cat_slug)
+    cat_phrase = _locale_owned_text(cat, "name", language).lower()
+    if not cat_phrase:
+        return out
 
     landing_cache: Dict = {}
     seen_targets: Set[str] = set()
@@ -211,11 +265,13 @@ def _generate_color_landing_chips(product) -> List[Dict[str, Any]]:
         color = getattr(v, "color", None)
         if color is None:
             continue
-        color_name = _color_label(color).lower()
+        color_name = _color_label(color, language).lower()
         if not color_name:
             continue
 
-        landing_url = _published_color_landing_url(cat, color, cache=landing_cache)
+        landing_url = _published_color_landing_url(
+            cat, color, cache=landing_cache, language=language
+        )
         if landing_url and landing_url in seen_targets:
             continue
         if landing_url:
@@ -229,26 +285,12 @@ def _generate_color_landing_chips(product) -> List[Dict[str, Any]]:
             })
             continue
 
-        # Fallback: ?color= filter on the category root. Less SEO-strong
-        # than a landing but still leaves the current product.
-        color_slug = (getattr(v, "slug", "") or "").strip()
-        if not color_slug:
-            continue
-        url = _color_filter_url(cat_slug, color_slug)
-        if url in seen_targets:
-            continue
-        seen_targets.add(url)
-        out.append({
-            "label": f"{color_name.capitalize()} {cat_phrase}",
-            "url": url,
-            "kind": "color_filter",
-            "weight": 70,
-            "sponsored": False,
-        })
     return out
 
 
-def _generate_theme_chip(product) -> Optional[Dict[str, Any]]:
+def _generate_theme_chip(product, *, language: str) -> Optional[Dict[str, Any]]:
+    if language != "uk":
+        return None
     topic = _detect_topic(product)
     theme = _TOPIC_TO_THEME.get(topic)
     if not theme:
@@ -256,7 +298,7 @@ def _generate_theme_chip(product) -> Optional[Dict[str, Any]]:
     label = _THEME_LABELS.get(theme, theme.capitalize())
     return {
         "label": label,
-        "url": _theme_url(theme),
+        "url": _theme_url(theme, language),
         "kind": "theme",
         "weight": 80,
         "sponsored": False,
@@ -282,7 +324,12 @@ def _design_stem(slug: str) -> str:
     return s
 
 
-def _generate_sibling_chips(product) -> List[Dict[str, Any]]:
+def _generate_sibling_chips(
+    product,
+    *,
+    language: str,
+    selected_ids: Optional[Set[int]] = None,
+) -> List[Dict[str, Any]]:
     """Find products with the same design stem but different category."""
     out: List[Dict[str, Any]] = []
     slug = getattr(product, "slug", "") or ""
@@ -296,36 +343,50 @@ def _generate_sibling_chips(product) -> List[Dict[str, Any]]:
     except Exception:
         return out
     try:
-        siblings = list(
+        siblings = list(_locale_candidate_window(
             Product.objects
             .filter(slug__startswith=stem, status="published")
             .exclude(pk=product.pk)
             .select_related("category")
-            .order_by("category__order", "id")[:3]
-        )
+            .order_by("category__order", "id"),
+            language=language,
+        ))
     except Exception:
         siblings = []
 
     for sibling in siblings:
-        cat = getattr(sibling, "category", None)
-        cat_phrase = _category_phrase_plural(getattr(cat, "slug", ""))
-        title = (getattr(sibling, "title", "") or "").strip()
+        if not locale_is_indexable(sibling, language):
+            continue
+        title = _locale_owned_text(sibling, "title", language)
+        if not title:
+            continue
+        if selected_ids is not None:
+            selected_ids.add(sibling.pk)
+        category = getattr(sibling, "category", None)
+        label = (
+            f"Цей принт на {_category_phrase_plural(getattr(category, 'slug', ''))}"
+            if language == "uk"
+            else title
+        )
         out.append({
-            "label": f"Цей принт на {cat_phrase}",
-            "url": _product_url(sibling),
+            "label": label,
+            "url": _product_url(sibling, language),
             "kind": "sibling",
             "weight": 75,
             "sponsored": False,
         })
-        if title:
-            # Add an alt-anchor for the same target so the link's
-            # accessible name varies — Google uses the first link of a
-            # cluster as canonical.
-            pass  # one chip per sibling is enough; no duplicate link
+        if len(out) >= 3:
+            break
     return out
 
 
-def _generate_category_peer_chips(product, *, exclude_ids: Set[int], limit: int = 3) -> List[Dict[str, Any]]:
+def _generate_category_peer_chips(
+    product,
+    *,
+    exclude_ids: Set[int],
+    language: str,
+    limit: int = 3,
+) -> List[Dict[str, Any]]:
     """Pick up to ``limit`` other products from the same category that
     share the dominant colour, surfacing them as cross-sell chips.
     Skips products already linked from sibling/colour landing chips.
@@ -338,82 +399,132 @@ def _generate_category_peer_chips(product, *, exclude_ids: Set[int], limit: int 
         from storefront.models import Product
     except Exception:
         return out
-    qs = (
+    qs = _locale_candidate_window(
         Product.objects
         .filter(category=cat, status="published")
         .exclude(pk=product.pk)
         .exclude(pk__in=exclude_ids)
-        .order_by("-priority", "-id")[:limit]
+        .order_by("-priority", "-id"),
+        language=language,
+        result_limit=limit,
     )
     for peer in qs:
-        title = (getattr(peer, "title", "") or "").strip()
-        cat_phrase = _category_phrase_plural(getattr(cat, "slug", ""))
+        if not locale_is_indexable(peer, language):
+            continue
+        title = _locale_owned_text(peer, "title", language)
         if not title:
             continue
         out.append({
-            "label": f"{title}",
-            "url": _product_url(peer),
+            "label": title,
+            "url": _product_url(peer, language),
             "kind": "category_peer",
             "weight": 60,
             "sponsored": False,
         })
+        if len(out) >= limit:
+            break
     return out
 
 
-def _generate_support_chips(product) -> List[Dict[str, Any]]:
-    """Chips to support pages — keyword-rich anchors, no duplicates."""
-    cat = getattr(product, "category", None)
-    cat_phrase = _category_phrase_plural(getattr(cat, "slug", "") or "")
-    return [
-        {
-            "label": "Доставка Новою Поштою 1–3 дні",
-            "url": "/delivery/",
-            "kind": "support",
-            "weight": 50,
-            "sponsored": False,
-        },
-        {
-            "label": f"Розмірна сітка {cat_phrase}",
-            "url": "/rozmirna-sitka/",
-            "kind": "support",
-            "weight": 48,
-            "sponsored": False,
-        },
-        {
-            "label": f"Догляд за {cat_phrase}",
-            "url": "/doglyad-za-odyagom/",
-            "kind": "support",
-            "weight": 46,
-            "sponsored": False,
-        },
-        {
-            "label": "Повернення за 14 днів",
-            "url": "/povernennya-ta-obmin/",
-            "kind": "support",
-            "weight": 45,
-            "sponsored": False,
-        },
-        {
-            "label": "Замовити кастомний DTF-друк",
-            "url": "/custom-print/",
-            "kind": "support",
-            "weight": 55,  # cross-sell intent → higher than care/returns
-            "sponsored": False,
-        },
-        {
-            "label": "Про бренд TwoComms",
-            "url": "/pro-brand/",
-            "kind": "support",
-            "weight": 40,
-            "sponsored": False,
-        },
-    ]
+def _generate_support_chips(product, *, language: str) -> List[Dict[str, Any]]:
+    """Return factual support owners rendered in the requested locale."""
+    with translation.override(language):
+        if language == "uk":
+            category = getattr(product, "category", None)
+            category_phrase = _category_phrase_plural(
+                getattr(category, "slug", "") or ""
+            )
+            return [
+                {
+                    "label": "Доставка Новою Поштою 1–3 дні",
+                    "url": reverse("delivery"),
+                    "kind": "support",
+                    "weight": 50,
+                    "sponsored": False,
+                },
+                {
+                    "label": f"Розмірна сітка {category_phrase}",
+                    "url": reverse("size_guide"),
+                    "kind": "support",
+                    "weight": 48,
+                    "sponsored": False,
+                },
+                {
+                    "label": f"Догляд за {category_phrase}",
+                    "url": reverse("care_guide"),
+                    "kind": "support",
+                    "weight": 46,
+                    "sponsored": False,
+                },
+                {
+                    "label": "Повернення за 14 днів",
+                    "url": reverse("returns"),
+                    "kind": "support",
+                    "weight": 45,
+                    "sponsored": False,
+                },
+                {
+                    "label": "Замовити кастомний DTF-друк",
+                    "url": reverse("custom_print"),
+                    "kind": "support",
+                    "weight": 55,
+                    "sponsored": False,
+                },
+                {
+                    "label": "Про бренд TwoComms",
+                    "url": reverse("about"),
+                    "kind": "support",
+                    "weight": 40,
+                    "sponsored": False,
+                },
+            ]
+
+        chips = [
+            {
+                "label": _("Доставка і оплата"),
+                "url": reverse("delivery"),
+                "kind": "support",
+                "weight": 50,
+                "sponsored": False,
+            },
+            {
+                "label": _("Розмірна сітка"),
+                "url": reverse("size_guide"),
+                "kind": "support",
+                "weight": 48,
+                "sponsored": False,
+            },
+            {
+                "label": _("Догляд за одягом"),
+                "url": reverse("care_guide"),
+                "kind": "support",
+                "weight": 46,
+                "sponsored": False,
+            },
+            {
+                "label": _("Повернення та обмін"),
+                "url": reverse("returns"),
+                "kind": "support",
+                "weight": 45,
+                "sponsored": False,
+            },
+            {
+                "label": _("Про бренд TwoComms"),
+                "url": reverse("about"),
+                "kind": "support",
+                "weight": 40,
+                "sponsored": False,
+            },
+        ]
+    return chips
 
 
 # ----------------------------------------------------- public API
 
 
-def build_product_search_keywords(product) -> List[Dict[str, Any]]:
+def build_product_search_keywords(
+    product, *, language: str | None = None
+) -> List[Dict[str, Any]]:
     """Compose the per-PDP «Часті пошуки» chip strip.
 
     See module docstring for the routing strategy. Returns a list of
@@ -423,7 +534,7 @@ def build_product_search_keywords(product) -> List[Dict[str, Any]]:
     Order:
       1. Manual overrides (``Product.search_keywords``)
       2. Theme landing
-      3. Colour landings / colour filter chips
+      3. Published colour landings (Ukrainian owner only)
       4. Design-triplet siblings
       5. Category peers (other published products in same category)
       6. Support pages
@@ -431,53 +542,42 @@ def build_product_search_keywords(product) -> List[Dict[str, Any]]:
     Within each generator the natural order is preserved; manual chips
     keep their relative order so admins can hand-sort.
     """
+    language = _normalize_language(language)
     chips: List[Dict[str, Any]] = []
 
-    # 1. Manual overrides — admin's curated list. Keep insertion order
-    # so admins control the strip explicitly when they want.
-    raw_manual = getattr(product, "search_keywords", None) or []
-    manual_chips: List[Dict[str, Any]] = []
-    if isinstance(raw_manual, (list, tuple)):
-        for raw in raw_manual:
-            item = _normalize_manual_item(raw)
-            if item:
-                manual_chips.append(item)
-    # Admin items keep their listed order, but we still respect explicit
-    # weights for tie-breaks across the rest of the list.
-    chips.extend(manual_chips)
+    with translation.override(language):
+        # ``Product.search_keywords`` is a legacy locale-less JSON field.
+        # It can be editorially valid only for the canonical Ukrainian owner.
+        if language == "uk":
+            raw_manual = getattr(product, "search_keywords", None) or []
+            if isinstance(raw_manual, (list, tuple)):
+                chips.extend(
+                    item for raw in raw_manual
+                    if (item := _normalize_manual_item(raw))
+                )
 
-    # 2. Theme landing.
-    theme_chip = _generate_theme_chip(product)
-    if theme_chip is not None:
-        chips.append(theme_chip)
+        # Thematic and color landing content has a Ukrainian owner only.
+        if language == "uk":
+            theme_chip = _generate_theme_chip(product, language=language)
+            if theme_chip is not None:
+                chips.append(theme_chip)
+            chips.extend(_generate_color_landing_chips(product, language=language))
 
-    # 3. Colour landings.
-    chips.extend(_generate_color_landing_chips(product))
+        sibling_pks: Set[int] = set()
+        sibling_chips = _generate_sibling_chips(
+            product,
+            language=language,
+            selected_ids=sibling_pks,
+        )
+        chips.extend(sibling_chips)
 
-    # 4. Design-triplet siblings.
-    sibling_chips = _generate_sibling_chips(product)
-    sibling_pks: Set[int] = set()
-    for chip in sibling_chips:
-        url = chip.get("url", "")
-        # extract product slug from /product/<slug>/
-        if url.startswith("/product/"):
-            slug = url[len("/product/"):].strip("/").split("/")[0]
-            try:
-                from storefront.models import Product as _P
-                obj = _P.objects.filter(slug=slug).only("id").first()
-                if obj:
-                    sibling_pks.add(obj.id)
-            except Exception:
-                pass
-    chips.extend(sibling_chips)
-
-    # 5. Category peers (cross-sell intra-category).
-    chips.extend(_generate_category_peer_chips(
-        product, exclude_ids=sibling_pks, limit=3,
-    ))
-
-    # 6. Support pages.
-    chips.extend(_generate_support_chips(product))
+        chips.extend(_generate_category_peer_chips(
+            product,
+            exclude_ids=sibling_pks,
+            language=language,
+            limit=3,
+        ))
+        chips.extend(_generate_support_chips(product, language=language))
 
     # Dedupe by URL while preserving order. Manual chips win over
     # auto-generated ones with the same URL.
