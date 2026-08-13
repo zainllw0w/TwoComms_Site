@@ -81,7 +81,7 @@ appear in the public catalog navigation.
   "@type": "OfferCatalog",
   "@id": "https://twocomms.shop/#offer-catalog",
   "name": "{% trans 'Каталог TwoComms' %}",
-  "url": "https://twocomms.shop/catalog/",
+  "url": "{{ offer_catalog_urls.root }}",
   "provider": {
     "@id": "https://twocomms.shop/#organization"
   },
@@ -89,19 +89,19 @@ appear in the public catalog navigation.
     {
       "@type": "OfferCatalog",
       "name": "{% trans 'Футболки TwoComms' %}",
-      "url": "https://twocomms.shop/catalog/tshirts/",
+      "url": "{{ offer_catalog_urls.tshirts }}",
       "description": "{% trans 'Авторські футболки з DTF-друком і мілітарними принтами.' %}"
     },
     {
       "@type": "OfferCatalog",
       "name": "{% trans 'Худі TwoComms' %}",
-      "url": "https://twocomms.shop/catalog/hoodie/",
+      "url": "{{ offer_catalog_urls.hoodie }}",
       "description": "{% trans 'Худі зі стрітвеар-принтами, утеплене начосом, бавовна.' %}"
     },
     {
       "@type": "OfferCatalog",
       "name": "{% trans 'Лонгсліви TwoComms' %}",
-      "url": "https://twocomms.shop/catalog/long-sleeve/",
+      "url": "{{ offer_catalog_urls.long_sleeve }}",
       "description": "{% trans 'Лонгсліви з авторськими принтами, базовий і оверсайз-крій.' %}"
     }
   ]

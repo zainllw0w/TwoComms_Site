@@ -745,6 +745,40 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
                 self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
 
 
+class OfferCatalogLocaleRegressionTests(TestCase):
+    def test_about_offer_catalog_urls_follow_the_active_locale(self):
+        category_slugs = ("tshirts", "hoodie", "long-sleeve")
+
+        for locale in ("uk", "ru", "en"):
+            with self.subTest(locale=locale), override(locale):
+                response = self.client.get(reverse("about"), secure=True, follow=True)
+
+                self.assertEqual(response.status_code, 200)
+                payloads = re.findall(
+                    r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>',
+                    response.content.decode("utf-8"),
+                    flags=re.DOTALL,
+                )
+                schemas = [json.loads(payload) for payload in payloads]
+                offer_catalog = next(
+                    schema for schema in schemas if schema.get("@type") == "OfferCatalog"
+                )
+                expected_urls = [
+                    f"{settings.SITE_BASE_URL}{reverse('catalog')}",
+                    *(
+                        f"{settings.SITE_BASE_URL}"
+                        f"{reverse('catalog_by_cat', kwargs={'cat_slug': slug})}"
+                        for slug in category_slugs
+                    ),
+                ]
+                actual_urls = [
+                    offer_catalog["url"],
+                    *(item["url"] for item in offer_catalog["itemListElement"]),
+                ]
+
+                self.assertEqual(actual_urls, expected_urls)
+
+
 class ContactsSeoSignalRegressionTests(TestCase):
     def test_contacts_omit_unverified_support_hours_in_every_locale(self):
         for locale in ("uk", "ru", "en"):

@@ -1385,6 +1385,18 @@ def about(request):
     Brand story page with dedicated layout and structured content.
     """
     brand_page_url = f"{settings.SITE_BASE_URL}{reverse('about')}"
+    offer_catalog_urls = {
+        "root": _absolute_site_url(reverse("catalog")),
+        "tshirts": _absolute_site_url(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"})
+        ),
+        "hoodie": _absolute_site_url(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "hoodie"})
+        ),
+        "long_sleeve": _absolute_site_url(
+            reverse("catalog_by_cat", kwargs={"cat_slug": "long-sleeve"})
+        ),
+    }
     breadcrumb_items = [
         {"name": _("Головна"), "url": reverse("home")},
         {"name": _("Про бренд"), "url": brand_page_url},
@@ -1396,6 +1408,7 @@ def about(request):
         {
             "page_title": _("Про бренд"),
             "brand_page_url": brand_page_url,
+            "offer_catalog_urls": offer_catalog_urls,
             "faq_items": deepcopy(PRO_BRAND_FAQ_ITEMS),
             "breadcrumb_items": breadcrumb_items,
             "footer_content": deepcopy(FOOTER_CONTENT),
