@@ -493,6 +493,16 @@
   ссылкой, но label нейтрален (`Доставка та оплата`). Live UK/RU/EN PDP proof
   на `5a2ee244c` подтвердил отсутствие старого anchor и сохранение ссылки на
   Custom Print. Это factuality cleanup, не обещание ranking uplift.
+- **Статус 2026-08-13, P1.5 locale hardening:** commit `8c3ac0a09` расширил
+  regression на полную UK/RU/EN матрицу standard PDP и запрещает шесть старых
+  локализованных обещаний срока доставки. Свежий локальный gate прошел `39/39`;
+  production был обновлен до полного SHA
+  `8c3ac0a09079e182b4cfa539c40399e72ecc46c` и Passenger перезапущен через
+  `tmp/restart.txt`. No-cache live requests к `/healthz/` и трем locale URL
+  `classic-tshirt` вернули `200`: старые claims отсутствуют, нейтральные
+  localized labels и `/delivery/`, `/ru/delivery/`, `/en/delivery/`
+  присутствуют. DTF и Custom Print не изменялись; это подтвержденная
+  factuality/locale consistency, а не обещание роста позиций.
 
 #### FIND-030 — общий каталог прямо оптимизирован под вставку keywords/cities и публикует неowned claims
 

@@ -711,6 +711,31 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   remains an owner-verification item; no global delivery-time claim is marked
   factual until the policy source is confirmed.
 
+#### P1.5 localized regression hardening and production evidence (2026-08-13)
+
+- [x] Expand the P1.5 regression from Ukrainian-only coverage to the complete
+  standard-PDP locale matrix. UK, RU and EN now each forbid both legacy
+  numeric delivery claims while requiring the locale-owned neutral delivery
+  label and delivery-policy URL.
+- Code/test commit: `8c3ac0a09079e182b4cfa539c40399e72ecc46c`
+  (`test(seo): cover localized PDP delivery claims`) was pushed to
+  `origin/main` after a fresh `39/39` `storefront.tests.test_product` run
+  under `test_settings`; Django reported no system-check issues.
+- Mutation proof from the same test slice temporarily restored the old strings
+  and produced the expected failures for all three locales, then the corrected
+  template was restored and the full slice returned `39/39`.
+- Production was pulled to SHA `8c3ac0a09079e182b4cfa539c40399e72ecc46c` and
+  Passenger was explicitly reloaded with `touch tmp/restart.txt` because the
+  project uses Django cached template loaders. Live no-cache requests returned
+  `200` for `/healthz/` and UK/RU/EN `/product/classic-tshirt/`; all six old
+  localized claims were absent, while `Доставка та оплата` +
+  `/delivery/`, `Доставка и оплата` + `/ru/delivery/`, and
+  `Delivery &amp; payment` + `/en/delivery/` were present.
+- Boundary: no DTF subdomain, route, module or blog was changed; Custom Print
+  content, configurator, pricing and purchase behavior were not changed.
+  This is a factuality and locale-consistency correction, not a ranking or
+  traffic guarantee.
+
 #### P0.13a release evidence
 
 - Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`
