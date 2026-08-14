@@ -249,6 +249,47 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   claims only consistent crawl/index signals and schema locale metadata; it
   makes no ranking, traffic, rich-result or conversion promise.
 
+- [x] **P1.2a** Align standard root/category `CollectionPage` `ItemList`
+  JSON-LD with the existing per-Product locale-publication contract. RU/EN
+  catalog cards remain navigable when their PDP falls back to Ukrainian, but
+  their `ItemList` must not advertise that same localized PDP as an indexable
+  owner while it returns `noindex, follow`. UK retains the exact visible-card
+  list. This does not change Product publication, catalog cards, product
+  copy, sitemap membership, variant ownership, Custom Print, or the DTF
+  subdomain/blog.
+
+#### P1.2a release evidence
+
+- Code/test commit: `9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`
+  (`fix(seo): align catalog schema with locale owners`) adds a separate
+  `catalog_schema_products` projection. It filters only RU/EN JSON-LD through
+  the same `locale_is_indexable()` predicate used by locale publication; the
+  rendered product cards continue to use the unfiltered current page. UK and
+  thematic catalog landing pages keep their original visible product list.
+- Performance/data-contract proof: the projection fetches only
+  `PRODUCT_SITEMAP_FIELDS` and active-locale FAQ fields in one batch, using
+  `Prefetch(..., to_attr=...)`. The Context7 Django documentation confirms
+  that `to_attr` stores a list, including an empty list, so the locale checker
+  does not re-query an empty FAQ relation. This avoids an N+1 query while
+  preserving the fail-closed locale predicate.
+- Fresh isolated regression gates on the production virtualenv with
+  `test_settings` (in-memory SQLite, no production MariaDB writes) passed:
+  `CatalogLocaleSchemaTests` `4/4`, covering RU/EN owner filtering, UK
+  identity, empty-prefetch behavior and query count; plus the thematic schema
+  preservation and catalog cache-version regressions `2/2`. The unrelated
+  stale offline-compressor warning is recorded as a separate performance task,
+  not a schema-test failure.
+- Live proof at production SHA `9ed640b06`: root `CollectionPage.ItemList`
+  contains `16` UK items and `10` items in each RU/EN locale. All `20` RU/EN
+  ItemList URLs returned `200` without `noindex, follow`; an
+  untranslated PDP remains visible as a shopper-facing card but is absent from
+  RU/EN structured-data lists. `numberOfItems`, item count and positions
+  agree.
+- Boundary: the change removes one contradictory machine-readable ownership
+  signal only. It does not promise ranking, traffic, rich results or
+  conversion uplift, and it does not authorize the separate unsafe legacy
+  wash/durability cleanup on MyISAM tables.
+
 - [x] **P0.3** Remove unowned organization foundation/postal claims from
   standard storefront JSON-LD, centralize the checkout-owned free-shipping
   threshold for `llms.txt`, and invalidate cached homepage HTML when this

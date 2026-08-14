@@ -721,6 +721,31 @@ pro_brand.html генерирует /catalog/tshirts/, /catalog/hoodie/ и /cata
 - [x] **Regression boundary:** 24 focused Django tests pass for root/no-override, active/inactive/empty/query-only general overrides, coloured catalog rendering, clean editorial links, and cache identity. `manage.py check`, `py_compile`, `makemigrations --check --dry-run`, and `git diff --check` passed before commit. The broader historical catalog/SEO batch still has pre-existing unrelated failures in tracking-pagination expectations, swatch test expectations, and home/product schema cache fixtures; none are caused by this release and they remain separate work.
 - [x] **Production proof:** server checkout is `6ce8466bf960b02606c1a54600e8062c46994e41`; an authoritative MariaDB query returned `0` active `general` override rows. Fresh HTTP HTML checks confirmed `section=0`, `legacy=0` on `/catalog/`, `/ru/catalog/`, `/en/catalog/`; and `section=1`, `noindex=1` on the matching `?color=black` URLs. Custom Print, the DTF subdomain, blog, variant ownership, canonical, hreflang, and colour-filter policy were not changed in this release.
 
+### 7.2. Release log: locale-owned catalog ItemList schema
+
+- [x] **P1-Catalog-locale-schema (2026-08-14):** `9ed640b06` removes a
+  contradiction between the established locale-publication gate and root/category
+  `CollectionPage` JSON-LD. A RU/EN card can remain useful to a shopper while
+  its fallback-language PDP correctly responds `noindex, follow`; that PDP is
+  no longer emitted as an `ItemList` owner. UK keeps the exact visible-card
+  list, and thematic catalog landings explicitly keep their visible product
+  list too.
+- [x] **Implementation and test boundary:** only `catalog_schema_products`
+  differs from the rendered card queryset. The locale projection reuses
+  `locale_is_indexable()` with a bounded product/FAQ prefetch, so it does not
+  introduce per-card database queries. Fresh isolated regressions on the
+  production virtualenv passed `4/4` for locale schema, empty prefetched FAQ
+  and query count, plus `2/2` for thematic-schema preservation and cache
+  namespace invalidation. Context7's Django `Prefetch(..., to_attr=...)`
+  contract was used to make an empty prefetched FAQ list remain query-free.
+- [x] **Production proof:** at SHA `9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`,
+  live root ItemLists contain `16` UK and `10` RU/EN items. Every inspected
+  RU/EN ItemList URL is a `200` indexable PDP; a visible fallback card is not
+  silently removed, only omitted from the conflicting schema list. This is
+  crawl/locale-signal hygiene, not a claim of ranking, traffic or rich-result
+  growth. No Custom Print, DTF subdomain/module/blog, catalog text, product
+  data, variant ownership or canonical policy changed.
+
 ## 8. Матрица проверки после будущих исправлений
 
 | Контур | Что проверять | Проходной критерий | Evidence |
