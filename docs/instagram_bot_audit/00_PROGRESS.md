@@ -138,7 +138,7 @@ under `IMP-094` remain open.
 
 The lifecycle/delivery release is now in production at exact SHA
 `8d8c5d05c647c2cfcc9fb4f70d7ee206f8f0359e`. The prescribed SSH `git pull` was
-followed by the explicitly authorized targeted application of
+followed by the targeted application of
 `management.0156_ig_order_event_delivery_receipts`. MariaDB `11.4.12` proves
 `provider_message_id=varchar(255)` and
 `delivery_provider_message_ids=LONGTEXT` with the exact `JSON_VALID`
@@ -146,8 +146,10 @@ constraint; the management app has no migration drift.
 
 Post-deploy runtime proof: bot `running=True`, `daemon_online=True`,
 `provider_transport=instagram_login`, `last_error=''`, dangerous backlog `0`,
-all pending/unknown/failed/dead-letter queues `0`, and both health endpoints
-HTTP `200`. The no-send baseline is unchanged: canonical lifecycle
+all pending/unknown/failed/dead-letter queues `0`; storefront
+`https://twocomms.shop/healthz/` and management
+`https://management.twocomms.shop/bot/health/` both returned HTTP `200`.
+The no-send baseline is unchanged: canonical lifecycle
 messages/send markers/provider receipts `0`, legacy order-customer events `5`,
 and one historical delivered fact. No customer, provider, payment, order or
 synthetic event was created. The full unscoped production migration check still

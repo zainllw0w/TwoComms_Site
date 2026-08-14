@@ -743,9 +743,9 @@ failures; production check remains mandatory after the approved SSH pull.
 
 - [x] Release acceptance (2026-08-14): commits `51db3058` and `8d8c5d05` are
   reachable from `main`; the exact-SHA disposable MariaDB lifecycle gate and
-  runner contracts are green (`29/29`, GitHub Actions `31813850156` and
-  `31814617538`). Production was fast-forwarded only through the approved SSH
-  `git pull`; the explicitly authorized targeted command then applied
+  runner contracts are green (`29/29`, GitHub Actions `31813850156`,
+  `31814617538` and `31814711866`). Production was fast-forwarded only through
+  the approved SSH `git pull`; the targeted command then applied
   `management.0156_ig_order_event_delivery_receipts`.
 
   Post-deploy production proof: `HEAD=8d8c5d05c647c2cfcc9fb4f70d7ee206f8f0359e`,
@@ -756,8 +756,9 @@ failures; production check remains mandatory after the approved SSH pull.
   migration drift check reports `No changes detected`. The bot is
   `state=running`, `running=True`, `daemon_online=True`,
   `provider_transport=instagram_login`, `last_error=''`, with dangerous
-  backlog and all pending/unknown/dead-letter queues at `0`; both
-  `/healthz/` and `/bot/health/` return HTTP `200`.
+  backlog and all pending/unknown/dead-letter queues at `0`;
+  `https://twocomms.shop/healthz/` and
+  `https://management.twocomms.shop/bot/health/` return HTTP `200`.
 
   No-send reconciliation is unchanged from the pre-pull baseline: canonical
   lifecycle events/messages/send markers/provider receipts remain `0`, legacy

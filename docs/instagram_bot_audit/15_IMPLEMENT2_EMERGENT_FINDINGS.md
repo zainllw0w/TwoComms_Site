@@ -97,10 +97,12 @@ and policy release; no follow lookup, CTA, coupon, live Meta send or synthetic
 production row is part of this slice.
 
 Post-deploy proof on 2026-08-14 is complete: the approved SSH pull reached
-`8d8c5d05`, the explicitly authorized `management.0156` migration applied on
+`8d8c5d05`, the targeted `management.0156` migration applied on
 MariaDB `11.4.12`, and the exact receipt schema (`varchar(255)` plus
-`LONGTEXT`/`JSON_VALID`) was verified read-only. Bot health, both HTTP health
-endpoints and the zero-dangerous-backlog queue contract are green. Canonical
+`LONGTEXT`/`JSON_VALID`) was verified read-only. Bot health, storefront
+`https://twocomms.shop/healthz/` and management
+`https://management.twocomms.shop/bot/health/`, plus the
+zero-dangerous-backlog queue contract are green. Canonical
 lifecycle messages/send markers/receipts remained `0`; legacy order events
 remained `5` and the single historical delivered fact remained `1`.
 

@@ -9,7 +9,7 @@ Production host: `195.191.25.63`, path
 The release candidate was published in `main` at exact SHA
 `8d8c5d05c647c2cfcc9fb4f70d7ee206f8f0359e`. The prescribed SSH `git pull`
 fast-forwarded production from `f81195895e5e7477c893ea87f6dfb277b4c82eeb`;
-the separately authorized targeted command
+the targeted command
 `python manage.py migrate management 0156 --noinput` then applied
 `management.0156_ig_order_event_delivery_receipts` successfully. No restart,
 compress, source build, overlay, fixture or provider command was run.
@@ -38,6 +38,10 @@ model drift (`0095` would alter `h2`, `body_html` and `queries_json`); the
 management app is clean and no unrelated migration was generated. The existing
 stale compression manifest warning and 18 terminal historical analysis
 failures remain bounded open evidence under `IMP-094`/`F-DEPLOY-003`.
+
+The documentation-only closeout commit `b96d7874fba36c202ec428bb314fd8d5cfb0d286`
+was subsequently fast-forwarded through the same SSH `git pull`; post-pull
+`manage.py check`, migration `0156` and both health endpoints remained green.
 
 ## Implement2 W2.2 T41 disposable checkout-concurrency gate (2026-08-14)
 
