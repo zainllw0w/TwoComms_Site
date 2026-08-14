@@ -191,7 +191,36 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] GREEN: run `management.tests_ig_follow_lifecycle management.tests_ig_lifecycle management.tests_ig_payment_delivery` or the current equivalent suites.
 - [ ] Commit with `git commit -am "feat(ig): add nonblocking payment follow opportunity"`.
 
-### Task 8: Make UGC Promo Usable and Create Durable Delivery
+### Task 8: Add Multimodal UGC Assessment and Lifetime Eligibility
+
+**Files:**
+- Modify: `twocomms/management/ig_bot_models.py`
+- Modify: `twocomms/management/migrations/0157_ig_follow_intelligence.py`
+- Create: `twocomms/management/services/ig_ugc_assessment.py`
+- Modify: `twocomms/management/services/instagram_bot.py`
+- Modify: `twocomms/management/services/bot_vision.py`
+- Modify: `twocomms/management/services/ig_response_control.py`
+- Create: `twocomms/management/tests_ig_ugc_assessment.py`
+- Modify: `twocomms/management/tests_ig_message_media.py`
+
+- [ ] RED: only provider-owned inbound story mention/repost/message evidence can schedule automatic assessment; no global media scan is introduced.
+- [ ] RED: duplicate webhook/message/media fingerprint coalesces to one assessment.
+- [ ] RED: assessment records exact brand-tag provenance, owned media IDs, stable catalog product candidates, confidence, policy version, and safe reason codes without raw model reasoning.
+- [ ] RED: clear story mention with verified `@twocomms` tag, visible apparel, strong catalog match, and no abuse flags becomes `qualified_auto`.
+- [ ] RED: medium confidence, obscured/multiple ambiguous products, manager URL, or incomplete provider metadata becomes `needs_manager_review`.
+- [ ] RED: ad/referral-only content, catalog screenshot, unrelated repost, no brand tag, no apparel, spam, duplicate/stolen evidence, and malformed model output becomes `rejected`.
+- [ ] RED: two people/two shirts may produce multiple product candidates but reward ownership remains the posting Instagram client.
+- [ ] RED: recognized UGC changes reply intent: natural acknowledgment is allowed; product discovery, “розповісти про продукт”, paylink, and follow CTA are prohibited in the same turn.
+- [ ] RED: assessment lease/generation and new inbound/manager decisions are revalidated before publication.
+- [ ] Confirm RED.
+- [ ] Implement `IgUgcEvidenceAssessment` as an InnoDB, lease-backed, generation-safe model.
+- [ ] Reuse locally owned media and catalog-grounded vision; do not store raw provider bodies or image copies beyond existing owned media.
+- [ ] Add a bounded structured `ugc_evidence_assessment` reasoning contract. The model recommends evidence facts; deterministic policy chooses auto/review/reject.
+- [ ] Feed assessment state into the existing Gemini call so the reply acknowledges UGC and does not restart sales discovery.
+- [ ] GREEN: run `management.tests_ig_ugc_assessment management.tests_ig_message_media management.tests_ig_agentic_dialog`.
+- [ ] Commit with `git commit -am "feat(ig): assess branded UGC intelligently"`.
+
+### Task 9: Generalize UGC Reward and Enforce One Lifetime Reward
 
 **Files:**
 - Modify: `twocomms/management/ig_bot_models.py`
@@ -201,27 +230,58 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - Modify: `twocomms/management/bot_views.py`
 - Modify: `twocomms/management/tests_ig_w4_ugc_reward.py`
 - Modify: `twocomms/management/tests_ig_order_fulfillment.py`
-- Modify: `twocomms/storefront/tests/test_ig_checkout_view.py`
+- Create: `twocomms/management/tests_ig_ugc_external_reward.py`
 
 - [ ] RED: Direct evidence older than `tracking_terminal_at` is rejected.
 - [ ] RED: stale assignment/version is rejected under lock.
-- [ ] RED: reward promo is 10%, 90 days, `max_uses=1`, `one_time_per_user=False`, and has no account-scoped group.
-- [ ] RED: anonymous assisted checkout can reserve the promo exactly once.
+- [ ] RED: order-linked eligibility still requires current assignment, authoritative TTN collection, no cancellation/refund/return, and evidence after collection.
+- [ ] RED: `external_ugc` eligibility requires a current `qualified_auto` or manager-approved assessment but requires no fabricated order/assignment/TTN.
+- [ ] RED: one Instagram client cannot receive a second UGC 10% reward through another order, another assessment, another evidence type, or a concurrent worker.
+- [ ] RED: another person visible in the photo receives no reward unless their own Instagram identity supplies independent qualifying evidence.
+- [ ] RED: manager review can approve/reject but cannot override duplicate evidence, lifetime reward, client ownership, or malformed media provenance.
 - [ ] RED: reward and `ugc_reward_issued` event are created atomically; forced event failure rolls back promo/reward.
 - [ ] RED: API returns `reward_eligible` and returns the same reward/event on idempotent replay.
 - [ ] RED: worker sends the exact existing code, records receipt, and never creates another code.
 - [ ] RED: ambiguous promo delivery is not retried automatically.
 - [ ] RED: canonical lifecycle handoff does not cancel UGC reward events.
-- [ ] RED: fulfillment matcher cancels when assignment, delivered truth, reward, or promo validity is stale.
+- [ ] RED: order-linked matcher cancels when assignment, delivered truth, reward, or promo validity is stale; external matcher uses assessment generation/client/lifetime slot without requiring an order.
 - [ ] Confirm RED.
-- [ ] Add `UGC_REWARD_ISSUED` kind and localized immutable promo message snapshot.
+- [ ] Make reward order/assignment optional only for `external_ugc`; add eligibility path, assessment link, and database-enforced lifetime client slot.
+- [ ] Preflight production for duplicate reward clients before applying the unique lifetime constraint; stop migration on unresolved duplicates rather than choosing silently.
+- [ ] Add `UGC_REWARD_ISSUED` kind and localized immutable promo message snapshot that states 10%, one use, and exact 90-day expiry.
 - [ ] Create reward and event in the same transaction, then let the existing reconciler send after commit.
 - [ ] Extend current-fulfillment checks and cancellation rules only for the new kind.
-- [ ] GREEN: run all three focused suites.
+- [ ] GREEN: run `management.tests_ig_w4_ugc_reward management.tests_ig_ugc_external_reward management.tests_ig_order_fulfillment`.
 - [ ] Inspect production for unused existing UGC reward promos before deciding whether a targeted data migration/backfill is justified; do not rewrite used/expired codes.
-- [ ] Commit with `git commit -am "fix(ig): deliver usable verified UGC rewards"`.
+- [ ] Commit with `git commit -am "feat(ig): reward qualifying UGC across channels"`.
 
-### Task 9: Add Follow State to Manager API without N+1
+### Task 10: Make the Private UGC Promo Guest-redeemable and Exact-once
+
+**Files:**
+- Modify: `twocomms/storefront/models.py`
+- Create: `twocomms/storefront/migrations/0095_promocode_guest_redeemable.py` or the next migration after final rebase
+- Modify: `twocomms/storefront/views/cart.py`
+- Modify: `twocomms/storefront/views/checkout.py`
+- Modify: `twocomms/storefront/views/ig_checkout.py`
+- Modify: `twocomms/orders/promo_reservations.py`
+- Modify: `twocomms/storefront/tests/test_checkout.py`
+- Modify: `twocomms/storefront/tests/test_ig_checkout_view.py`
+- Create: `twocomms/storefront/tests/test_ugc_guest_promo.py`
+
+- [ ] RED: ordinary promos remain unavailable anonymously.
+- [ ] RED: only explicit `guest_redeemable=True`, non-account-scoped, active, one-use UGC promo can be applied by an anonymous cart/assisted checkout.
+- [ ] RED: reward promo is 10%, 90 days, `max_uses=1`, `one_time_per_user=False`, no account-scoped group, and cryptographically random.
+- [ ] RED: public cart and assisted checkout reserve the same code atomically; concurrent attempts yield one reservation/invoice.
+- [ ] RED: a promo cannot stack with another session/order promo.
+- [ ] RED: expired, consumed, leaked second use, grouped, account-scoped, or non-UGC guest promo fails closed.
+- [ ] Confirm RED.
+- [ ] Add the explicit capability field; do not infer guest safety from `one_time_per_user=False` alone.
+- [ ] Route all redemptions through `reserve_promo_for_checkout()` so `max_uses=1` is serialized.
+- [ ] Keep the private code tied to the `IgUgcReward.client` audit record while truthfully treating checkout redemption as bearer-based, not identity verification.
+- [ ] GREEN: run storefront promo/checkout focused suites.
+- [ ] Commit with `git commit -am "fix(promo): redeem private UGC rewards as guest"`.
+
+### Task 11: Add Follow State to Manager API without N+1
 
 **Files:**
 - Modify: `twocomms/management/bot_views.py`
@@ -255,7 +315,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] GREEN: run `management.tests_ig_clients_ui management.tests_ig_follow_state`.
 - [ ] Commit with `git commit -am "feat(ig): expose follow state to managers"`.
 
-### Task 10: Build Compact Accessible Follow Indicator
+### Task 12: Build Compact Accessible Follow Indicator
 
 **Files:**
 - Modify: `twocomms/management/templates/management/bot.html`
@@ -273,7 +333,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] GREEN: run UI contract and clients UI tests.
 - [ ] Commit with `git commit -am "feat(ig): show compact follow status"`.
 
-### Task 11: Privacy, Reset, and Operational Reconciliation
+### Task 13: Privacy, Reset, and Operational Reconciliation
 
 **Files:**
 - Modify: `twocomms/management/services/ig_data_deletion.py`
@@ -282,7 +342,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - Create: `twocomms/management/management/commands/reconcile_ig_follow_intelligence.py`
 - Create: `twocomms/management/tests_ig_follow_operations.py`
 
-- [ ] RED: data deletion removes/anonymizes follow state, observations, refresh jobs, and CTA decisions according to current retention behavior.
+- [ ] RED: data deletion removes/anonymizes follow state, observations, refresh jobs, CTA decisions, UGC assessments, and private reward delivery metadata according to current retention behavior.
 - [ ] RED: funnel reset cancels prepared/unreserved current-episode decisions and cannot revive prior episode slots.
 - [ ] RED: reconciliation only processes pending/due jobs and decisions; it never scans clients to create follow checks.
 - [ ] RED: daemon work is bounded, lease-aware, and safe when reply processing is disabled where appropriate.
@@ -292,7 +352,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] GREEN: run focused operations tests plus existing data-deletion/reset suites.
 - [ ] Commit with `git commit -am "feat(ig): reconcile follow intelligence safely"`.
 
-### Task 12: Focused and Adjacent Verification
+### Task 14: Focused and Adjacent Verification
 
 - [ ] Run all new focused suites with `--settings=twocomms.test_settings_no_network`.
 - [ ] Run adjacent suites:
@@ -305,7 +365,10 @@ python manage.py test \
   management.tests_ig_commercial_episodes \
   management.tests_ig_lifecycle \
   management.tests_ig_order_fulfillment \
+  management.tests_ig_ugc_assessment \
+  management.tests_ig_ugc_external_reward \
   management.tests_ig_w4_ugc_reward \
+  storefront.tests.test_ugc_guest_promo \
   storefront.tests.test_ig_checkout_view \
   --settings=twocomms.test_settings_no_network -v 2
 ```
@@ -317,7 +380,7 @@ python manage.py test \
 - [ ] Parse the inline JavaScript using the repository's existing Node/template extraction check or an equivalent `node --check` temporary extraction.
 - [ ] Record exact counts and failures in this plan before moving on.
 
-### Task 13: Disposable MariaDB Migration and Race Gates
+### Task 15: Disposable MariaDB Migration and Race Gates
 
 - [ ] Load the configured MariaDB test credentials without printing secrets.
 - [ ] Create a disposable database with an explicit task-specific name.
@@ -326,9 +389,11 @@ python manage.py test \
 - [ ] Run concurrent reservation tests: payment versus hesitation on one episode yields one slot.
 - [ ] Run concurrent reservation tests: two episodes for one client still enforce global cooldown.
 - [ ] Run stale lease/publication tests against real row locks.
+- [ ] Run concurrent external/order-linked UGC issuance for one client and prove one lifetime reward/promo/event.
+- [ ] Run concurrent guest promo reservations and prove exactly one capacity consumer.
 - [ ] Drop only the validated disposable database after recording results.
 
-### Task 14: Browser and Accessibility QA
+### Task 16: Browser and Accessibility QA
 
 - [ ] Start the local development server on an unused port.
 - [ ] Use a manager fixture or authenticated test session with following, non-following, unknown, and stale/error conversations.
@@ -338,16 +403,16 @@ python manage.py test \
 - [ ] Confirm incremental polling changes indicator state without layout shift.
 - [ ] Store only temporary QA screenshots outside tracked product paths unless an audit artifact explicitly needs one.
 
-### Task 15: Independent Review
+### Task 17: Independent Review
 
 - [ ] Request a read-only code review covering the full feature diff against base `51db3058a`.
-- [ ] Ask specifically for policy bypasses, race conditions, ambiguous delivery, PII retention, query growth, prompt injection, and UI accessibility.
+- [ ] Ask specifically for policy bypasses, UGC fraud/reused media, cross-channel eligibility, lifetime reward races, guest promo leakage, ambiguous delivery, PII retention, query growth, prompt injection, and UI accessibility.
 - [ ] Reproduce every Critical/Important finding against current code before changing it.
 - [ ] Add a failing regression test for each validated finding.
 - [ ] Fix and rerun focused/adjacent verification.
 - [ ] Record rejected findings with evidence.
 
-### Task 16: Rebase, Audit Reconciliation, and Main Integration
+### Task 18: Rebase, Audit Reconciliation, and Main Integration
 
 - [ ] Fetch `origin/main` and inspect all commits added since `f81195895`.
 - [ ] Rebase `codex/ig-follow-intelligence` onto current `origin/main` while preserving prerequisite `51db3058a` behavior.
@@ -359,7 +424,7 @@ python manage.py test \
 - [ ] Verify `git rev-list --left-right --count main...origin/main` before push.
 - [ ] Push `main` and record the exact remote SHA.
 
-### Task 17: Production Deploy
+### Task 19: Production Deploy
 
 - [ ] Preflight SSH and server Git status without printing the password/token.
 - [ ] Refuse to pull over unexpected server modifications; inspect and preserve them.
@@ -382,7 +447,7 @@ python manage.py reconcile_ig_follow_intelligence --limit 50 --dry-run
 
 - [ ] Never paste the SSH password into a tracked file, process listing, or final response.
 
-### Task 18: Production Verification
+### Task 20: Production Verification
 
 - [ ] Confirm server `HEAD` equals pushed `origin/main` SHA.
 - [ ] Confirm the new migration is applied.
@@ -390,6 +455,8 @@ python manage.py reconcile_ig_follow_intelligence --limit 50 --dry-run
 - [ ] Confirm daemon heartbeat and reply transport remain healthy with `provider_transport='instagram_login'` and polling disabled unless intentionally configured.
 - [ ] Confirm follow capability state, job counts, state distribution, decision distribution, and duplicate episode slot count through read-only queries.
 - [ ] Confirm UGC reward event queue has no duplicate reward/order keys and no blind retry of ambiguous sends.
+- [ ] Confirm lifetime reward uniqueness per Instagram client, assessment decision distribution, and zero duplicate evidence fingerprints.
+- [ ] Confirm guest-redeemable promo rows are only the intended private UGC class and all are `max_uses=1`.
 - [ ] Run one read-only Graph follow contract probe for an existing consented production client; verify HTTP 200 and exact boolean without persisting raw response or sending a message.
 - [ ] Verify `/`, `/healthz/`, manager login redirect/auth boundary, and the bot page static bundle.
 - [ ] Confirm no synthetic customer messages or ad events were created during deployment verification.
@@ -398,4 +465,3 @@ python manage.py reconcile_ig_follow_intelligence --limit 50 --dry-run
 ## Completion Gate
 
 The task is complete only when every applicable checkbox above is evidence-backed, focused and adjacent suites are green, MariaDB races are proven, browser QA passes, independent review findings are resolved, `main` is pushed, the server runs the same SHA, migrations and daemon are healthy, and no verification step has sent a synthetic customer message.
-

@@ -34,6 +34,9 @@ The design therefore treats follow outreach as an optional, fail-closed fragment
 - Keep mandatory payment, TTN, delivered-review, and promo messages independent and prompt.
 - Surface a compact accessible follow indicator next to the conversation identity.
 - Issue a usable one-use 10% UGC promo only after manager-verified evidence and deliver it through the existing receipt-backed durable outbox.
+- Recognize qualifying story mentions/reposts even when the purchase came from the public site, a physical shop, a friend, or another unlinked channel.
+- Automatically award only high-confidence provider-owned UGC; route uncertain evidence to a manager and reject spam/ads/unrelated content without a discount.
+- Enforce one lifetime 10% UGC reward per Instagram identity, regardless of how many orders or mentions exist.
 - Preserve exact delivery evidence and never blindly retry an ambiguous send.
 - Provide tests and production verification that do not send synthetic customer messages.
 
@@ -162,6 +165,30 @@ Durable decision, generation, reservation, and outcome record.
 
 Reservation and final authorization are separate. A prepared decision does not consume cooldown until the provider boundary starts.
 
+### 6.6 `IgUgcEvidenceAssessment`
+
+Durable, lease-backed multimodal assessment for one inbound story mention/repost or manager-supplied evidence.
+
+- client and unique provider/source evidence fingerprint
+- source message, owned media IDs, provider story/repost/mention metadata
+- assessment generation, conversation watermark, lease and retry fields
+- `brand_tag_verified`, `brand_apparel_visible`, `customer_content`, `suspected_abuse`
+- catalog product candidates with stable IDs, confidence, and bounded evidence labels
+- normalized decision: `qualified_auto`, `needs_manager_review`, `rejected`
+- typed reason codes and safe model/prompt/version metadata
+- optional manager decision/audit fields
+
+The assessment stores no raw image bytes or hidden model reasoning. It references locally owned message media and safe structured evidence. A model recommendation never creates a promo by itself; the deterministic reward policy consumes only a validated assessment.
+
+### 6.7 Generalized `IgUgcReward`
+
+The existing reward is extended from an order-only record to two eligibility paths:
+
+- `delivered_order`: current assignment and authoritative TTN collection remain mandatory.
+- `external_ugc`: no linked order is required, but provider-owned mention evidence and a high-confidence apparel assessment are mandatory.
+
+The reward keeps an optional order/assignment, requires one assessment or reviewed evidence, and adds a database-enforced lifetime identity slot so one `IgClient` cannot receive the 10% UGC reward twice. Existing production rows must be checked for duplicate clients before the constraint is applied.
+
 ## 7. Demand-driven Follow Observation
 
 ### 7.1 Allowed lookup triggers
@@ -286,21 +313,63 @@ The immutable `IgLifecycleEvent.payload` is not modified. `IgFollowCtaDecision` 
 
 TTN, payment recovery, exchange shipment, delivered-review, and UGC promo delivery never wait for or require follow preparation.
 
-## 12. UGC Reward and Promo Delivery
+## 12. Intelligent UGC Reward and Promo Delivery
 
-The existing semantics remain correct: delivery/collection invites the customer to earn 10%; the code is issued only after a manager verifies a qualifying story/review.
+### 12.1 Two valid purchase paths
 
-Corrections:
+The order-linked rule remains strict. If the evidence is evaluated against an Instagram-assigned order, the order must still be current, not cancelled/refunded/returned, and authoritatively collected through its TTN. Direct evidence must belong to the client and occur at or after `tracking_terminal_at`.
 
-- Direct evidence must belong to the current client and have occurred at or after authoritative `tracking_terminal_at`.
-- Revalidate current assignment/version and delivered order under locks.
-- Create promo with `max_uses=1`, `one_time_per_user=False`, no one-per-account group, 90-day validity.
-- In the same transaction, create `IgUgcReward` and an `IgOrderCustomerEvent` of kind `ugc_reward_issued` containing the immutable promo message snapshot.
-- Do not send inside the manager request transaction.
-- Extend fulfillment matching so the event remains valid only for the current assignment, delivered order, same reward, and active unused promo.
+An unlinked purchase is also valid. Customers may have bought through the public site, a physical shop, a friend, or an earlier channel that cannot be joined safely to the Instagram identity. For this path, no order or TTN is fabricated. Eligibility comes from the inbound Meta evidence itself.
+
+### 12.2 Multimodal evidence policy
+
+Candidate creation is event-driven from provider-owned inbound data, never from a global media scan. The assessment combines:
+
+- authoritative Meta story mention/repost/message ownership;
+- an explicit tag/mention of the configured `@twocomms` account;
+- locally owned image media attached to that inbound event;
+- multimodal classification that apparel is genuinely visible;
+- catalog-grounded product candidates with stable IDs and confidence;
+- conversation context proving the user is sharing/marking content rather than sending an ad, catalog screenshot, meme, or unrelated spam;
+- evidence-fingerprint and lifetime-reward dedupe.
+
+Examples with two people or two TwoComms shirts may list multiple product candidates. The reward belongs only to the Instagram identity that sent the qualifying mention. The second person must independently provide a qualifying mention to receive their own lifetime reward.
+
+### 12.3 Decision tiers
+
+`qualified_auto` requires all deterministic gates plus high multimodal confidence. It is reserved for provider-authentic story mentions/reposts with owned media, a verified brand tag, visible apparel, at least one strong catalog match, no abuse flags, and no prior lifetime reward.
+
+`needs_manager_review` covers plausible brand apparel with incomplete metadata, medium confidence, partially obscured garments, multiple ambiguous products, an expiring story that needs a screenshot, or a manager-supplied URL. The manager sees the exact reason codes, media, candidate products, and confidence.
+
+`rejected` covers missing brand tag, no TwoComms apparel, product-only advertising, unrelated reposts, duplicate/stolen evidence, repeated webhook, spam, unsafe content, or a client that already received the lifetime reward.
+
+No fixed threshold may be changed silently. Thresholds and prompt versions are named, tested policy constants and exposed in safe telemetry.
+
+### 12.4 Conversation behavior
+
+Recognized UGC changes the conversational intent. The bot acknowledges the photo/story and the visible TwoComms items naturally; it must not restart discovery with “розповісти про продукт”, ask what the customer wants to buy, or treat worn products as an unknown catalog inquiry.
+
+While evidence is under review, the bot may thank the customer and say the mark is being checked, without promising that a code already exists. A qualified reward is delivered by the durable promo event, not improvised inside a normal Gemini reply.
+
+### 12.5 Lifetime reward and guest-safe promo
+
+- One Instagram client may receive this 10% UGC reward once for life.
+- Promo is a cryptographically random private bearer code tied to the client in `IgUgcReward`.
+- Promo is 10%, `max_uses=1`, valid for 90 days, non-stackable, and not account-scoped.
+- Add an explicit `guest_redeemable` promo capability. Anonymous cart/assisted checkout may accept only this bounded non-account-scoped class; ordinary promos remain login-protected.
+- Checkout reserves capacity atomically, so a leaked/reused code can be consumed only once.
+- The bot never claims the code is identity-verified at checkout; ownership is represented by private delivery and the reward audit link.
+
+### 12.6 Exact-once issuance and delivery
+
+- Revalidate the assessment, client lifetime slot, current order truth when applicable, and promo policy under locks.
+- Create `IgUgcReward`, the promo, and `IgOrderCustomerEvent(kind=ugc_reward_issued)` in one transaction.
+- Do not send inside the assessment/manager transaction.
+- For order-linked rewards, fulfillment matching checks current assignment, delivered truth, reward, and active unused promo.
+- For external UGC rewards, matching checks the same client, assessment generation, lifetime slot, and active unused promo without inventing an order.
 - Exclude UGC reward events from canonical lifecycle cancellation.
 - Use existing lease, response-window, receipt, and ambiguous-delivery behavior.
-- Replay reuses the same promo and event; it never creates a second code.
+- Replay reuses the same reward, promo, and event. It never creates a second code.
 
 ## 13. Manager UX
 
@@ -349,4 +418,3 @@ Production verification uses read-only queries and one read-only Graph contract 
 5. Enable live/lifecycle attachment once production evidence is healthy.
 6. Enable durable UGC promo delivery after guest-safe promo tests pass.
 7. Keep capability circuit and feature behavior fail-closed on any provider regression.
-
