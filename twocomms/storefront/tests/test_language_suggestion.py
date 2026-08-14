@@ -52,6 +52,7 @@ class LanguageSuggestionTemplateTests(TestCase):
         self.assertIn("data-nosnippet", html)
         self.assertIn("language-suggestion.css", html)
         self.assertIn("language-suggestion.js", html)
+        self.assertIn('<div class="language-suggestion__eyebrow" translate="no">TWOCOMMS</div>', html)
         self.assertIn('hreflang="uk-UA"', html)
         self.assertIn('hreflang="x-default"', html)
         self.assertIn('aria-hidden="true"', html)
