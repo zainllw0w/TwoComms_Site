@@ -276,6 +276,39 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] Inspect production for unused existing UGC reward promos before deciding whether a targeted data migration/backfill is justified; do not rewrite used/expired codes.
 - [ ] Commit with `git commit -am "feat(ig): reward qualifying UGC across channels"`.
 
+#### Required scenario: cross-channel two-person branded story
+
+- [ ] Add an end-to-end fixture for a provider-native story mention in which the
+  posting Instagram identity shares one owned photo containing two people wearing
+  two different TwoComms shirts. Vision must return two independently grounded
+  catalog candidates, but the reward owner remains only the posting `IgClient`.
+- [ ] Verify the same scenario when neither person has an Instagram order, an
+  assigned chat order, or a known phone number. A missing order/TTN is valid for
+  `external_ugc`; the implementation must not invent an order, require a TTN, or
+  route the user into product discovery merely because purchase provenance is
+  unavailable. A public-site, physical-store, friend-assisted, or other-channel
+  purchase is intentionally accepted through the evidence path.
+- [ ] Verify that automatic issuance requires the live provider story-mention
+  target and locally captured media plus the high apparel/brand/catalog gates. A
+  manager URL, OCR-only `@twocomms`, generic share, ad, catalog screenshot,
+  unrelated image, or expired URL-only event routes to review/rejection and never
+  mints a code automatically.
+- [ ] Verify the live reply is a short natural acknowledgment of the worn items;
+  it must not ask to explain the products, start catalog discovery, attach a
+  paylink, or append a follow CTA in the same turn. If review is pending, it may
+  thank the customer without promising a discount; once authorized, the durable
+  reward event sends the exact private code separately.
+- [ ] Verify lifetime uniqueness across all channels and races: an Instagram
+  identity that already received the 10% UGC grant through a delivered order,
+  external evidence, another assessment, or a prior provider event cannot receive
+  a second grant. A second person in the photo receives nothing unless their own
+  identity later supplies an independent qualifying event.
+- [ ] Verify the code is a one-use private bearer promo with `max_uses=1`, no
+  stacking, `one_time_per_user=False`, and an exact 90-day expiry date in the
+  receipt. Guest COD, online checkout, and Instagram-assisted checkout consume
+  one shared capacity atomically; duplicate/concurrent redemption and ambiguous
+  delivery reuse the original grant and never create a replacement code.
+
 ### Task 10: Make the Private UGC Promo Guest-redeemable and Exact-once
 
 **Files:**
