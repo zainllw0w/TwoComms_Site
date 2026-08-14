@@ -814,6 +814,36 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   This is a factuality and locale-consistency correction, not a ranking or
   traffic guarantee.
 
+- [x] **P1.6** Remove the unsupported standard-site shrinkage percentage and
+  pre-wash/decatization promise from the shared `/faq/` answer. Replace it with
+  neutral, buyer-useful care and size guidance that does not assert a measured
+  production result. Keep the FAQPage JSON-LD synchronized with the visible
+  answer; do not touch DTF claims, the DTF subdomain/blog, or Custom Print.
+
+#### P1.6 release evidence
+
+- Code/test commit: `a8eb4b07ad263fab13c3d6586583ea19c3aafe14`
+  (`fix(seo): remove unsupported shrinkage promise from faq`) replaces the
+  unowned `1-2 %`/`1–2 %` and “попередню декатировку” claims with a neutral
+  explanation that shrinkage depends on fabric composition, washing and
+  drying, followed by the category size-chart and care-label guidance.
+  The regression asserts the new sentence and rejects all three retired
+  markers. The new test passed; a broader related run retained two unrelated
+  pre-existing failures and is not claimed green.
+- Production proof: the server is running commit `a8eb4b07ad263fab13c3d6586583ea19c3aafe14`;
+  `manage.py check` passed. Fresh HTTP requests to `/faq/` and a
+  cache-busted `/faq/?seo_probe=a8eb4b07a` returned `200`, canonicalized to
+  `/faq/`, and each contained the neutral visible answer plus one `FAQPage`
+  JSON-LD graph. The old percentage/decatization markers were absent from both
+  visible HTML and the serialized FAQ answer. `/ru/faq/` and `/en/faq/` kept
+  their own locale canonicals and did not receive the Ukrainian replacement.
+- Residual scope: the shared FAQ still contains separate DTF durability
+  statements (`30+` cycles), and `/doglyad-za-odyagom/` still contains the
+  DTF `50+` statement. These are open owner-verification findings, not part of
+  this slice; no DTF subdomain, DTF route/blog/module or Custom Print surface
+  was edited. This checkpoint claims factuality/schema consistency only, not
+  a ranking, traffic, rich-result or conversion uplift.
+
 #### P0.13a release evidence
 
 - Code/test commit: `bde21af6392dc1f3ed1fc1b74b1d911c959d3c06`

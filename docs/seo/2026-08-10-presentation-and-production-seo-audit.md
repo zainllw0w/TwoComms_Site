@@ -503,6 +503,17 @@
   localized labels и `/delivery/`, `/ru/delivery/`, `/en/delivery/`
   присутствуют. DTF и Custom Print не изменялись; это подтвержденная
   factuality/locale consistency, а не обещание роста позиций.
+- **Статус 2026-08-14, P1.6:** подтвержденный узкий срез удалил из общего
+  `/faq/` неподтвержденные `1-2 %`/`1–2 %` усадки и обещание предварительной
+  декатировки. Commit `a8eb4b07ad263fab13c3d6586583ea19c3aafe14` добавил
+  regression на нейтральный ответ и отсутствие старых маркеров. Production
+  `/faq/` и cache-busted вариант вернули `200`, self-canonical `/faq/`,
+  видимый нейтральный ответ и совпадающий `FAQPage` JSON-LD; старые маркеры
+  отсутствуют. RU/EN FAQ сохранили собственные locale canonicals и не получили
+  украинскую строку. Это исправляет factuality и согласованность schema, но не
+  доказывает рост позиций или трафика. Оставшиеся DTF `30+`/`50+` claims
+  намеренно открыты до проверки владельца факта; DTF subdomain/blog и Custom
+  Print не входили в scope.
 
 #### FIND-030 — общий каталог прямо оптимизирован под вставку keywords/cities и публикует неowned claims
 
@@ -745,6 +756,25 @@ pro_brand.html генерирует /catalog/tshirts/, /catalog/hoodie/ и /cata
   crawl/locale-signal hygiene, not a claim of ranking, traffic or rich-result
   growth. No Custom Print, DTF subdomain/module/blog, catalog text, product
   data, variant ownership or canonical policy changed.
+
+### 7.3. Release log: remove unsupported shrinkage promise from shared FAQ
+
+- [x] **P1-Facts-FAQ-shrinkage (2026-08-14):** `a8eb4b07ad263fab13c3d6586583ea19c3aafe14`
+  replaces the shared UK FAQ's unsupported measured shrinkage/decatization claim
+  with neutral care and size-chart guidance. The visible answer and `FAQPage`
+  JSON-LD are generated from the same `HELP_FAQ_ITEMS` entry, so the structured
+  answer no longer contradicts the rendered text.
+- Regression proof: the focused static-support regression requires the neutral
+  phrase and rejects `1-2 %`, `1–2 %` and `попередню декатировку`. The broader
+  support run retained two unrelated historical failures; it is not represented
+  as a green suite.
+- Production proof: `/faq/` and
+  `/faq/?seo_probe=a8eb4b07a` returned `200`, self-canonical `/faq/`, one
+  `FAQPage` graph, and no retired markers in visible HTML or JSON-LD. `/ru/faq/`
+  and `/en/faq/` remained locale-canonical and unchanged by the Ukrainian-only
+  content edit. `/doglyad-za-odyagom/` and the shared FAQ's separate DTF
+  durability numbers remain open owner-verification items; no DTF subdomain,
+  DTF blog/module or Custom Print route/content was edited.
 
 ## 8. Матрица проверки после будущих исправлений
 
