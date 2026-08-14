@@ -1,7 +1,7 @@
 """Phase 15 — per-product SEO landing block (rendered before footer).
 
 Each product page gets a landing block that mirrors the category-page
-structure (long SEO text + tabbed top_filters / top_queries / top_menu)
+structure (long SEO text + product queries / owned category menu)
 but with **per-product** content:
 
   * ``landing_html`` — unique text built from the Phase 13.5 theme system
@@ -13,9 +13,8 @@ but with **per-product** content:
     with **product-specific** queries; each ``url`` is a real internal
     link (catalog with colour filter, fit-specific path-URL, custom-print,
     etc.). No JS — pure ``<a href>``.
-  * ``category_layout`` — re-uses ``top_filters`` and ``top_menu`` from
-    the parent category (already curated by Phase 10b). Empty when the
-    category has no SEO blocks.
+  * ``category_layout`` — re-uses the owned ``top_menu`` from the parent
+    category. Catalog-only colour owners and pricing/cards are excluded.
   * ``override_html`` — populated when ``Product.seo_bottom_html`` is set
     (admin override path). Bypasses generated content.
 
@@ -594,7 +593,7 @@ def _top_queries_for_product(product, fit_code: Optional[str] = None) -> List[Di
 def _category_layout_for_product(
     product, *, language: str | None = None
 ) -> Dict[str, Any]:
-    """Re-use ``top_filters`` and ``top_menu`` from the parent category.
+    """Re-use only the owned ``top_menu`` from the parent category.
 
     Skips ``top_cards`` and ``best_prices`` (catalog-specific).
     """
@@ -607,7 +606,7 @@ def _category_layout_for_product(
     )
     # Filter to only the link-only blocks; product page has its own
     # top_queries + per-product cards (recommended + landing copy).
-    keep_types = {"top_filters", "top_menu"}
+    keep_types = {"top_menu"}
     layout["tab_blocks"] = [
         e for e in layout.get("tab_blocks", [])
         if e["block"].block_type in keep_types

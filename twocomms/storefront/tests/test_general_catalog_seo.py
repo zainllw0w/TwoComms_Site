@@ -78,7 +78,7 @@ class _Base(TestCase):
 
 
 class GeneralCatalogSeoServiceTests(_Base):
-    def test_layout_has_three_tabs(self):
+    def test_layout_exposes_only_owned_top_menu_links(self):
         layout = get_general_catalog_seo_layout(
             categories=[self.cat_hd, self.cat_ts],
             available_colors=[
@@ -88,8 +88,15 @@ class GeneralCatalogSeoServiceTests(_Base):
         )
         self.assertTrue(layout["has_any"])
         types = [entry["block"].block_type for entry in layout["tab_blocks"]]
-        self.assertEqual(types, ["top_menu", "top_queries"])
+        self.assertEqual(types, ["top_menu"])
         self.assertIsNone(layout["best_prices"])
+        urls = [
+            item.url
+            for entry in layout["tab_blocks"]
+            for item in entry["items"]
+        ]
+        self.assertEqual(urls.count("/custom-print/"), 1)
+        self.assertFalse(any("?" in url for url in urls))
 
     def test_top_menu_links_are_category_urls(self):
         layout = get_general_catalog_seo_layout(
@@ -120,16 +127,16 @@ class GeneralCatalogSeoServiceTests(_Base):
         ]
         self.assertFalse(any("?" in url for url in urls))
 
-    def test_top_queries_always_present(self):
+    def test_query_rails_are_absent_when_catalog_has_no_categories(self):
         layout = get_general_catalog_seo_layout(
             categories=[],
             available_colors=[],
         )
-        # Even with empty inputs, curated queries keep the section useful
-        # for SEO crawlers landing on /catalog/.
+        # The owned support/menu routes still make the section useful without
+        # publishing synthetic keyword-query rails.
         self.assertTrue(layout["has_any"])
         types = [e["block"].block_type for e in layout["tab_blocks"]]
-        self.assertEqual(types, ["top_menu", "top_queries"])
+        self.assertEqual(types, ["top_menu"])
 
     def test_block_get_block_type_display_callable(self):
         # Django templates auto-invoke callable attributes; SimpleNamespace
@@ -155,15 +162,17 @@ class GeneralCatalogViewIntegrationTests(_Base):
         types = [e["block"].block_type for e in layout["tab_blocks"]]
         self.assertIn("top_menu", types)
         self.assertNotIn("top_filters", types)
-        self.assertIn("top_queries", types)
+        self.assertNotIn("top_queries", types)
 
     def test_general_catalog_html_renders_bottom_seo_block(self):
         resp = self.client.get(reverse("catalog"))
         body = resp.content.decode()
         # Aria-label confirms the bottom SEO section was emitted.
         self.assertIn("Додаткові розділи каталогу", body)
-        # Curated query label should appear inside the rendered tabs.
-        self.assertIn("Купити худі ЗСУ", body)
+        self.assertNotIn('data-seo-tab-trigger="top_filters"', body)
+        self.assertNotIn('data-seo-tab-trigger="top_queries"', body)
+        self.assertNotIn("Купити худі ЗСУ", body)
+        self.assertIn('href="/custom-print/"', body)
 
     def test_general_catalog_does_not_render_unowned_generated_claim_block(self):
         response = self.client.get(reverse("catalog") + "?fact_probe=general-catalog")

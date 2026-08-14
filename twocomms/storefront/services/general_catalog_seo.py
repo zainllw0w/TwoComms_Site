@@ -2,18 +2,16 @@
 
 Per-category catalogs (hoodie / tshirts / long-sleeve) get their bottom
 SEO block from ``CategorySeoBlock`` rows. The general ``/catalog/`` root
-has no anchoring category and therefore no SEO block — but users still
-land on it from search and need the same kind of internal navigation
-to drill down into combinations of category + colour. This service
-builds an in-memory layout that mirrors the Phase 10b shape (tab_blocks
-+ best_prices + has_any) so the existing ``partials/category_seo_blocks.html``
-partial can render it without changes.
+has no anchoring category, so this service builds an in-memory owned-link
+menu that mirrors the Phase 10b shape (tab_blocks + best_prices + has_any).
+Interactive colour filters remain in the catalog selector and are not
+republished as editorial SEO links.
 
 We intentionally keep this service *purely* in-memory (no DB rows): the
-general catalog rarely changes its top-level shape (it's the union of
-all categories + all colours), so synthesising on each request is
-cheap. The ``catalog`` view already caches per-anon for 10 minutes so
-the in-memory cost amortises to near zero.
+general catalog rarely changes its owned top-level navigation, so
+synthesising it on each request is cheap. The ``catalog`` view already
+caches per-anon for 10 minutes, so the in-memory cost amortises to near
+zero.
 """
 from __future__ import annotations
 
@@ -21,8 +19,6 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Sequence
 
 from django.utils.translation import gettext_lazy as _
-
-from .seo_link_policy import filter_editorial_link_items
 
 
 def _block(block_type: str, title: str) -> SimpleNamespace:
@@ -59,37 +55,6 @@ def _item(
         extra=dict(extra or {}),
         product=product,
     )
-
-
-# ---------------------------------------------------------------------------
-# Curated top queries — high-intent, brand-relevant searches that funnel
-# users into approved clean owners. Kept in code (not DB) so the editorial
-# set is reviewable in version control. UI-only colour filters are deliberately
-# excluded by ``seo_link_policy`` and remain available in the interactive UI.
-# ---------------------------------------------------------------------------
-
-# Phase 21 (2026-05-10) — every URL in this curated list MUST be
-# indexable. ``?color=`` filters live behind ``noindex, follow``
-# (see ``catalog.html`` robots block) so linking to them from
-# SEO-visible bottom-nav is wasted equity. Routes here therefore use
-# only category roots, ``/catalog/``, ``/custom-print/`` or
-# colour-variant PDPs once those exist. Re-add a colour query only
-# when that page becomes self-canonical and indexable.
-_CURATED_TOP_QUERIES: List[Dict[str, Any]] = [
-    {"label": _("Купити худі ЗСУ"), "url": "/catalog/hoodie/"},
-    {"label": _("Чорна футболка з принтом"), "url": "/catalog/tshirts/"},
-    {"label": _("Тризуб футболка"), "url": "/catalog/tshirts/"},
-    {"label": _("Лонгслів мілітарі"), "url": "/catalog/long-sleeve/"},
-    {"label": _("Худі streetwear"), "url": "/catalog/hoodie/"},
-    {"label": _("Футболка унісекс TwoComms"), "url": "/catalog/tshirts/"},
-    {"label": _("Кайот худі"), "url": "/catalog/hoodie/"},
-    {"label": _("Чорний лонгслів"), "url": "/catalog/long-sleeve/"},
-    {"label": _("Власний принт на футболці"), "url": "/custom-print/"},
-    {"label": _("Подарунок захиснику"), "url": "/catalog/"},
-    {"label": _("Худі для пари"), "url": "/catalog/hoodie/"},
-    {"label": _("Український стрітвір"), "url": "/catalog/"},
-    {"label": _("Donate to ZSU merch"), "url": "/catalog/"},
-]
 
 
 def _build_top_menu_items(categories) -> List[SimpleNamespace]:
@@ -151,23 +116,6 @@ def _build_top_menu_items(categories) -> List[SimpleNamespace]:
     return unique
 
 
-def _build_top_filters_items(available_colors) -> List[SimpleNamespace]:
-    items: List[SimpleNamespace] = []
-    for chip in available_colors or []:
-        slug = (chip.get("slug") or "").strip()
-        label = chip.get("label") or slug.title()
-        if not slug:
-            continue
-        items.append(_item(label=label, url=f"/catalog/?color={slug}"))
-    return filter_editorial_link_items(items)
-
-
-def _build_top_queries_items() -> List[SimpleNamespace]:
-    return filter_editorial_link_items(
-        [_item(label=q["label"], url=q["url"]) for q in _CURATED_TOP_QUERIES]
-    )
-
-
 def get_general_catalog_seo_layout(
     *,
     categories: Sequence[Any],
@@ -178,11 +126,8 @@ def get_general_catalog_seo_layout(
     Args:
         categories: iterable of ``Category`` instances (active only).
             Used to build the ``top_menu`` (Розділи каталогу) tab.
-        available_colors: list of chip dicts produced by
-            ``services.color_filter.build_available_colors``. Used to
-            build the ``top_filters`` (Кольори) tab. Empty when no
-            published product carries any colour variant — in that
-            case the filter tab is dropped.
+        available_colors: retained for call-site compatibility. Colour chips
+            are interactive UI state and are intentionally not exposed here.
 
     Returns:
         ``{"tab_blocks": [...], "best_prices": None, "has_any": bool}``
@@ -196,20 +141,6 @@ def get_general_catalog_seo_layout(
         tab_blocks.append({
             "block": _block("top_menu", _("Розділи каталогу")),
             "items": menu_items,
-        })
-
-    filter_items = _build_top_filters_items(available_colors or [])
-    if filter_items:
-        tab_blocks.append({
-            "block": _block("top_filters", _("Фільтр за кольором")),
-            "items": filter_items,
-        })
-
-    query_items = _build_top_queries_items()
-    if query_items:
-        tab_blocks.append({
-            "block": _block("top_queries", _("Популярні запити")),
-            "items": query_items,
         })
 
     return {

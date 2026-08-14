@@ -8,6 +8,7 @@ import hashlib
 from collections import defaultdict
 from decimal import Decimal
 from typing import Iterable, List, Dict, Any
+from uuid import uuid4
 
 from django.apps import apps
 from django.core.cache import BaseCache
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY = "products:public_order_version"
 PUBLIC_CATEGORY_VERSION_CACHE_KEY = "categories:public_version"
+PUBLIC_CATEGORY_COLOR_LANDING_VERSION_CACHE_KEY = "categories:color_landing_public_version"
 
 # Raw UA labels are kept here so dictionary equality comparisons remain
 # locale-independent. Display lookups go through ``_color_label`` which
@@ -243,6 +245,47 @@ def bump_public_category_version(cache_backend: BaseCache | None = None) -> int:
         fallback_version = current_version + 1
         cache_backend.set(PUBLIC_CATEGORY_VERSION_CACHE_KEY, fallback_version, timeout=None)
         return fallback_version
+
+
+def get_public_category_color_landing_version(cache_backend: BaseCache | None = None) -> str:
+    """Opaque version token for catalog pages that render color owners."""
+    cache_backend = cache_backend or get_cache()
+    key = PUBLIC_CATEGORY_COLOR_LANDING_VERSION_CACHE_KEY
+    token = uuid4().hex
+    try:
+        version = cache_backend.get(key)
+    except Exception:
+        cache_backend.set(key, token, timeout=None)
+        return token
+
+    if isinstance(version, str) and version:
+        return version
+
+    if version is None:
+        try:
+            if cache_backend.add(key, token, timeout=None):
+                return token
+            version = cache_backend.get(key)
+        except Exception:
+            cache_backend.set(key, token, timeout=None)
+            return token
+        if isinstance(version, str) and version:
+            return version
+
+    cache_backend.set(key, token, timeout=None)
+    return token
+
+
+def bump_public_category_color_landing_version(cache_backend: BaseCache | None = None) -> str:
+    """Replace the public catalog token after a color landing mutation."""
+    cache_backend = cache_backend or get_cache()
+    token = uuid4().hex
+    cache_backend.set(
+        PUBLIC_CATEGORY_COLOR_LANDING_VERSION_CACHE_KEY,
+        token,
+        timeout=None,
+    )
+    return token
 
 
 def _load_product_color_variant_queryset(product_ids: Iterable[int]):

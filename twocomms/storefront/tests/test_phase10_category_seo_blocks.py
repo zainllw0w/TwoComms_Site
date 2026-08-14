@@ -318,7 +318,7 @@ class CatalogIntegrationTests(_BasePhase10Tests):
             extra={"product_id": self.product.id, "price": 1},
         )
         links = CategorySeoBlock.objects.create(
-            category=self.category, block_type="top_filters", title="Matrix links",
+            category=self.category, block_type="top_menu", title="Matrix links",
         )
         CategorySeoBlockItem.objects.create(
             block=links,
@@ -384,7 +384,7 @@ class CatalogIntegrationTests(_BasePhase10Tests):
                 for stale_url in stale_urls:
                     self.assertNotIn(stale_url, html)
 
-    def test_context_exposes_seo_blocks_on_category_page(self):
+    def test_public_context_hides_legacy_query_rails_without_deleting_rows(self):
         block = CategorySeoBlock.objects.create(
             category=self.category, block_type="top_filters", title="Топ фільтри",
         )
@@ -395,12 +395,10 @@ class CatalogIntegrationTests(_BasePhase10Tests):
                                           kwargs={"cat_slug": self.category.slug}))
         self.assertEqual(response.status_code, 200)
         seo_blocks = response.context["category_seo_blocks"]
-        self.assertEqual(len(seo_blocks), 1)
-        self.assertEqual(seo_blocks[0]["block"].block_type, "top_filters")
-        # Phase 10b — partial renders a tabs component, not legacy
-        # ``seo-block--<type>`` classes. Check the tab trigger + label.
-        self.assertContains(response, 'data-seo-tab-trigger="top_filters"')
-        self.assertContains(response, "Чорні")
+        self.assertEqual(seo_blocks, [])
+        self.assertNotContains(response, 'data-seo-tab-trigger="top_filters"')
+        self.assertNotContains(response, "Чорні")
+        self.assertTrue(CategorySeoBlock.objects.filter(pk=block.pk).exists())
 
     def test_root_catalog_has_no_db_seo_blocks_but_renders_synthetic_layout(self):
         # Phase 19f (2026-05-10): /catalog/ root no longer relies on

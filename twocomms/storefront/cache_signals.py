@@ -10,8 +10,9 @@ from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from product_catalog.models import MerchCollection, ProductMerchCollection
 
 from .analytics_exclusions import invalidate_snapshot as invalidate_analytics_exclusions
-from .models import AnalyticsExclusion, Category, Product
+from .models import AnalyticsExclusion, Category, CategoryColorLanding, Product
 from .services.catalog_helpers import (
+    bump_public_category_color_landing_version,
     bump_public_category_version,
     bump_public_product_order_version,
 )
@@ -56,6 +57,12 @@ def invalidate_public_product_listing_cache_for_color_data(sender, **kwargs):
     Colour-only edits change public cards but do not save Product itself.
     """
     transaction.on_commit(bump_public_product_order_version)
+
+
+@receiver([post_save, post_delete], sender=CategoryColorLanding)
+def invalidate_public_catalog_for_color_landing(sender, **kwargs):
+    """Refresh category rails after a color landing mutation commits."""
+    transaction.on_commit(bump_public_category_color_landing_version)
 
 
 @receiver([post_save, post_delete], sender=MerchCollection)

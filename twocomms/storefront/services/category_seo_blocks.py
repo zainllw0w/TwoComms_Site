@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 from urllib.parse import urlsplit, urlunsplit
 
-from django.db.models import Prefetch
+from django.db.models import Exists, OuterRef, Prefetch
 from django.urls import reverse
 from django.utils import translation
 from django.utils.translation import gettext as _
@@ -108,7 +108,11 @@ def _hydrate_product_items(items, products_by_id):
     return hydrated
 
 
-def get_category_seo_blocks(category) -> List[Dict[str, Any]]:
+def get_category_seo_blocks(
+    category,
+    *,
+    block_types=None,
+) -> List[Dict[str, Any]]:
     """Return active SEO blocks for the given category, ready to render.
 
     Each entry: ``{"block": CategorySeoBlock, "items": [CategorySeoBlockItem]}``.
@@ -120,7 +124,7 @@ def get_category_seo_blocks(category) -> List[Dict[str, Any]]:
 
     from ..models import CategorySeoBlock, CategorySeoBlockItem, Product
 
-    blocks = list(
+    block_queryset = (
         CategorySeoBlock.objects
         .filter(category=category, is_active=True)
         .prefetch_related(
@@ -131,6 +135,9 @@ def get_category_seo_blocks(category) -> List[Dict[str, Any]]:
         )
         .order_by("order", "id")
     )
+    if block_types is not None:
+        block_queryset = block_queryset.filter(block_type__in=tuple(block_types))
+    blocks = list(block_queryset)
     if not blocks:
         return []
 
@@ -173,9 +180,13 @@ def get_category_seo_blocks(category) -> List[Dict[str, Any]]:
 # the order tabs appear in the strip.
 TAB_BLOCK_TYPES: tuple[str, ...] = (
     "top_menu",
-    "top_filters",
-    "top_queries",
+    "color_landings",
     "top_cards",
+)
+_PERSISTED_LAYOUT_BLOCK_TYPES: tuple[str, ...] = (
+    "top_menu",
+    "top_cards",
+    "best_prices",
 )
 
 
@@ -234,7 +245,7 @@ def get_locale_safe_product_seo_layout(category, *, language: str) -> Dict[str, 
     if category is None:
         return {"tab_blocks": [], "best_prices": None, "has_any": False}
     if language == "uk":
-        return get_category_seo_layout(category)
+        return get_category_seo_layout(category, include_color_landings=False)
     menu = _locale_safe_top_menu(category, language)
     tab_blocks = [menu] if menu and menu.get("items") else []
     return {
@@ -244,7 +255,12 @@ def get_locale_safe_product_seo_layout(category, *, language: str) -> Dict[str, 
     }
 
 
-def get_category_seo_layout(category) -> Dict[str, Any]:
+def get_category_seo_layout(
+    category,
+    *,
+    blocks: List[Dict[str, Any]] | None = None,
+    include_color_landings: bool = True,
+) -> Dict[str, Any]:
     """Phase 10b — split SEO blocks into tabbed link rails + pricing table.
 
     Returns a dict::
@@ -268,7 +284,20 @@ def get_category_seo_layout(category) -> Dict[str, Any]:
     root. Admins can still override per-category by adding a real
     ``CategorySeoBlock(top_menu)`` row.
     """
-    blocks = get_category_seo_blocks(category)
+    if category is None:
+        return {"tab_blocks": [], "best_prices": None, "has_any": False}
+
+    if blocks is None:
+        blocks = get_category_seo_blocks(
+            category,
+            block_types=_PERSISTED_LAYOUT_BLOCK_TYPES,
+        )
+    else:
+        blocks = [
+            entry
+            for entry in blocks
+            if entry["block"].block_type in _PERSISTED_LAYOUT_BLOCK_TYPES
+        ]
 
     by_type: Dict[str, Dict[str, Any]] = {}
     for entry in blocks:
@@ -277,6 +306,13 @@ def get_category_seo_layout(category) -> Dict[str, Any]:
 
     tab_blocks: List[Dict[str, Any]] = []
     for btype in TAB_BLOCK_TYPES:
+        if btype == "color_landings":
+            if include_color_landings:
+                synthetic = _synthesize_color_landings(category)
+                if synthetic:
+                    tab_blocks.append(synthetic)
+            continue
+
         entry = by_type.get(btype)
         if entry and entry["items"]:
             tab_blocks.append(entry)
@@ -294,6 +330,64 @@ def get_category_seo_layout(category) -> Dict[str, Any]:
         "tab_blocks": tab_blocks,
         "best_prices": best_prices,
         "has_any": bool(tab_blocks or best_prices),
+    }
+
+
+def _synthesize_color_landings(category) -> Dict[str, Any] | None:
+    """Build a UK-only rail of published colour landing owners."""
+    if (
+        category is None
+        or not getattr(category, "is_active", False)
+        or _normalize_language(translation.get_language()) != "uk"
+    ):
+        return None
+
+    from productcolors.models import ProductColorVariant
+    from .general_catalog_seo import _block, _item
+    from ..models import CategoryColorLanding
+
+    published_inventory = ProductColorVariant.objects.filter(
+        color_id=OuterRef("color_id"),
+        product__category_id=category.pk,
+        product__status="published",
+    )
+    landings = (
+        CategoryColorLanding.objects
+        .filter(
+            category_id=category.pk,
+            category__is_active=True,
+            is_published=True,
+        )
+        .annotate(has_published_inventory=Exists(published_inventory))
+        .filter(has_published_inventory=True)
+        .select_related("color")
+        .order_by("order", "color_slug", "id")
+    )
+    items = []
+    seen_color_ids = set()
+    for landing in landings:
+        if (
+            landing.color_id in seen_color_ids
+            or not landing.color.name
+            or not landing.color_slug
+        ):
+            continue
+        seen_color_ids.add(landing.color_id)
+        items.append(_item(
+            label=landing.color.name,
+            url=reverse(
+                "catalog_by_cat_color",
+                kwargs={
+                    "cat_slug": category.slug,
+                    "color_slug": landing.color_slug,
+                },
+            ),
+        ))
+    if not items:
+        return None
+    return {
+        "block": _block("color_landings", _("Кольори категорії")),
+        "items": items,
     }
 
 

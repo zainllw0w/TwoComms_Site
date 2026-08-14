@@ -28,7 +28,7 @@
       <div class="product-seo-landing__copy">{{ psl.landing_html|safe }}</div>
     {% endif %}
 
-    {# 2. Tabbed block: top_queries (per-product) + top_filters/top_menu (from category). #}
+    {# 2. Tabbed block: product queries + owned category menu. #}
     {% if psl.top_queries_items or psl.category_layout.tab_blocks %}
     <div class="product-seo-landing__tabs seo-tabs" data-seo-tabs aria-label="{% trans 'Розділи товару' %}">
       <div class="seo-tabs__nav" role="tablist">
@@ -75,7 +75,7 @@
         </div>
         {% endif %}
 
-        {# Category-level tabs (top_filters, top_menu). #}
+        {# Category-level owned navigation. #}
         {% for entry in psl.category_layout.tab_blocks %}
         {% with block=entry.block items=entry.items %}
         <div class="seo-tab-panel{% if not psl.top_queries_items and forloop.first %} is-active{% endif %}"

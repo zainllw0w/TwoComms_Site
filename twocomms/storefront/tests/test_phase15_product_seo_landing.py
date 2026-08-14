@@ -122,9 +122,16 @@ class TopQueriesTests(_Base):
 
 class CategoryLayoutReuseTests(_Base):
 
-    def test_reuses_top_filters_block_only(self):
-        # top_filters block on the parent category — must surface on the
-        # product page.
+    @patch("storefront.services.category_seo_blocks._synthesize_color_landings")
+    def test_product_layout_does_not_build_catalog_color_rail(self, synthesize):
+        _category_layout_for_product(self.product)
+
+        synthesize.assert_not_called()
+
+    def test_drops_query_filter_and_best_price_blocks(self):
+        # Query filters are interactive UI state, not editorial SEO links.
+        # Product-level keyword chips and the owned category menu remain
+        # separate navigation surfaces.
         block = CategorySeoBlock.objects.create(
             category=self.cat, block_type="top_filters",
             title="Топ фільтри", is_active=True, order=0,
@@ -144,7 +151,7 @@ class CategoryLayoutReuseTests(_Base):
 
         layout = _category_layout_for_product(self.product)
         types = {e["block"].block_type for e in layout["tab_blocks"]}
-        self.assertIn("top_filters", types)
+        self.assertNotIn("top_filters", types)
         self.assertNotIn("best_prices", types)
         self.assertIsNone(layout["best_prices"])
         self.assertTrue(layout["has_any"])

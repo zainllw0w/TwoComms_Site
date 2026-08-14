@@ -61,7 +61,7 @@
   {% endwith %}
   {% endif %}
 
-  {# ---- Tabbed SEO blocks (top_menu / top_filters / top_queries / top_cards) ---- #}
+  {# ---- Owned SEO rails (top_menu / color_landings / top_cards) ---- #}
   {% if category_seo_layout.tab_blocks %}
   <section class="seo-tabs" data-seo-tabs aria-label="{% trans 'SEO-розділи категорії' %}">
     <div class="seo-tabs__nav" role="tablist">
@@ -89,16 +89,7 @@
            data-seo-tab-panel="{{ block.block_type }}"
            {% if not forloop.first %}hidden{% endif %}>
 
-        {% if block.block_type == "top_filters" or block.block_type == "top_menu" %}
-          <ul class="seo-tab-panel__links seo-tab-panel__links--columns" role="list">
-            {% for item in items %}
-            <li>
-              <a class="seo-tab-link" href="{{ item.url|default:'#' }}">{{ item.label }}</a>
-            </li>
-            {% endfor %}
-          </ul>
-
-        {% elif block.block_type == "top_queries" %}
+        {% if block.block_type == "top_menu" or block.block_type == "color_landings" %}
           <ul class="seo-tab-panel__links seo-tab-panel__links--columns" role="list">
             {% for item in items %}
             <li>

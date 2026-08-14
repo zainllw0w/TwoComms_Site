@@ -578,21 +578,45 @@ class CategorySeoOverridePhase21Tests(TestCase):
 
 
 class GeneralCatalogSeoColorlessQueriesTests(SimpleTestCase):
-    """Phase 21 — curated top queries on the bottom catalog block must
-    not link to ``?color=`` URLs (those pages are ``noindex, follow``).
+    """General-catalog editorial output must contain owned links only.
+
+    Colour filters remain interactive UI state. They are deliberately not
+    republished as ``top_filters`` or ``top_queries`` editorial rails.
     """
 
-    def test_curated_top_queries_do_not_link_to_color_filtered_pages(self):
-        from storefront.services.general_catalog_seo import _CURATED_TOP_QUERIES
+    def test_editorial_layout_has_no_query_facet_links(self):
+        from storefront.services.general_catalog_seo import get_general_catalog_seo_layout
 
-        for entry in _CURATED_TOP_QUERIES:
-            with self.subTest(label=entry["label"]):
-                self.assertNotIn("?color=", entry["url"])
+        layout = get_general_catalog_seo_layout(
+            categories=[],
+            available_colors=[
+                {"slug": "black", "label": "Чорний"},
+                {"slug": "coyote", "label": "Кайот"},
+            ],
+        )
 
-    def test_curated_queries_do_not_claim_unowned_gendered_assortment(self):
-        from storefront.services.general_catalog_seo import _CURATED_TOP_QUERIES
+        block_types = [entry["block"].block_type for entry in layout["tab_blocks"]]
+        self.assertNotIn("top_filters", block_types)
+        self.assertNotIn("top_queries", block_types)
+        urls = [
+            item.url
+            for entry in layout["tab_blocks"]
+            for item in entry["items"]
+        ]
+        self.assertFalse(any("?color=" in url for url in urls))
 
-        labels = {str(entry["label"]) for entry in _CURATED_TOP_QUERIES}
+    def test_editorial_layout_does_not_claim_unowned_gendered_assortment(self):
+        from storefront.services.general_catalog_seo import get_general_catalog_seo_layout
+
+        layout = get_general_catalog_seo_layout(
+            categories=[],
+            available_colors=[],
+        )
+        labels = {
+            str(item.label)
+            for entry in layout["tab_blocks"]
+            for item in entry["items"]
+        }
 
         # Product/category data has no gender or audience ownership field;
         # the general catalog must not promise a women's assortment solely

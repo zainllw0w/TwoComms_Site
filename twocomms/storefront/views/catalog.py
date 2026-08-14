@@ -51,6 +51,7 @@ from ..services.catalog_helpers import (
     build_color_preview_key,
     build_color_preview_map,
     get_categories_cached,
+    get_public_category_color_landing_version,
     get_public_category_version,
     get_public_product_order_version,
 )
@@ -180,7 +181,7 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
-_CATALOG_CACHE_VERSION = "catalog-seo-v8-20260814-locale-schema"
+_CATALOG_CACHE_VERSION = "catalog-v9"
 
 
 def _catalog_external_query_keys(request):
@@ -514,10 +515,16 @@ def _catalog_cacheable_request(request):
 
 def _catalog_cache_prefix(request, view_func):
     """Bust old full-page catalog responses after pagination serialization changes."""
-    return (
+    prefix = (
         f"{public_product_listing_cache_prefix(request, view_func)}:"
         f"{_CATALOG_CACHE_VERSION}"
     )
+    if getattr(view_func, "__name__", "") == "catalog":
+        prefix = (
+            f"{prefix}:cl:"
+            f"{get_public_category_color_landing_version()}"
+        )
+    return prefix
 
 
 def _catalog_cache_policy(view_func):
@@ -1895,6 +1902,21 @@ def catalog(request, cat_slug=None, collection_slug=None):
         catalog_showcase_cards,
         key=lambda card: card.get('mobile_order', 99),
     )
+    if category:
+        category_seo_blocks = get_category_seo_blocks(
+            category,
+            block_types=("top_menu", "top_cards", "best_prices"),
+        )
+        category_seo_layout = get_category_seo_layout(
+            category,
+            blocks=category_seo_blocks,
+        )
+    else:
+        category_seo_blocks = []
+        category_seo_layout = get_general_catalog_seo_layout(
+            categories=categories,
+            available_colors=available_colors,
+        )
 
     return render(
         request,
@@ -1958,20 +1980,14 @@ def catalog(request, cat_slug=None, collection_slug=None):
             ),
             'pagination_page_one_url': _build_catalog_page_one_url(request),
             # Phase 10 — structured SEO blocks shown after the products grid.
-            'category_seo_blocks': get_category_seo_blocks(category) if category else [],
-            # Phase 10b — split layout: tabs (top_menu/top_filters/top_queries/
-            # top_cards) vs. best_prices pricing table. Per-category catalogs
-            # pull from CategorySeoBlock rows; the general /catalog/ root
-            # synthesises an in-memory layout (top_menu = all categories,
-            # top_filters = available colours, top_queries = curated set)
-            # so the same partial renders on every catalog screen.
-            'category_seo_layout': (
-                get_category_seo_layout(category) if category
-                else get_general_catalog_seo_layout(
-                    categories=categories,
-                    available_colors=available_colors,
-                )
-            ),
+            'category_seo_blocks': category_seo_blocks,
+            # Phase 10b — split layout: owned rails (top_menu,
+            # color_landings, top_cards) vs. the best_prices pricing table.
+            # Category roots keep curated cards/prices and add published
+            # UK colour-landing owners; the general /catalog/ root exposes
+            # only its in-memory top_menu. Interactive query filters stay in
+            # the selector and are not republished as editorial SEO links.
+            'category_seo_layout': category_seo_layout,
             # Phase 19g — colour-aware SEO copy. Renders on /catalog/ root
             # (brand-level landing) and on any catalog screen with an
             # active colour filter (cross-category or per-category x
