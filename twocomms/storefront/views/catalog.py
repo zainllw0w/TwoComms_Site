@@ -62,7 +62,12 @@ from ..services.category_seo_blocks import (
 )
 from ..services.general_catalog_seo import get_general_catalog_seo_layout
 from ..services.color_seo_copy import build_catalog_color_seo
-from ..services.locale_publication import PRODUCT_SITEMAP_FIELDS, locale_is_indexable
+from ..services.locale_publication import (
+    PRODUCT_SITEMAP_FIELDS,
+    _raw_value,
+    locale_is_indexable,
+)
+from ..services.seo_link_policy import prepare_editorial_html
 from ..services.color_filter import (
     apply_color_filter,
     build_available_colors,
@@ -182,7 +187,7 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
-_CATALOG_CACHE_VERSION = "catalog-v10"
+_CATALOG_CACHE_VERSION = "catalog-v11"
 
 
 def _catalog_external_query_keys(request):
@@ -1903,8 +1908,18 @@ def catalog(request, cat_slug=None, collection_slug=None):
         catalog_showcase_cards,
         key=lambda card: card.get('mobile_order', 99),
     )
+    language = get_language()
+    category_description_html = ""
+    category_intro_html = ""
     if category:
-        language = get_language()
+        category_description_html = prepare_editorial_html(
+            _raw_value(category, "description", language),
+            language=language,
+        )
+        category_intro_html = prepare_editorial_html(
+            _raw_value(category, "seo_intro_html", language),
+            language=language,
+        )
         if language and language.split("-", 1)[0].lower() in {"ru", "en"}:
             category_seo_blocks = []
             category_seo_layout = get_locale_safe_product_seo_layout(
@@ -1933,6 +1948,8 @@ def catalog(request, cat_slug=None, collection_slug=None):
         {
             'categories': categories,
             'category': category,
+            'category_description_html': category_description_html,
+            'category_intro_html': category_intro_html,
             'products': products,
             'catalog_schema_products': catalog_schema_products,
             'show_category_cards': show_category_cards,

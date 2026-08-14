@@ -374,8 +374,8 @@ point at themselves.
             {% trans 'Каталог одягу TwoComms' %}
             {% endif %}
           </h1>
-          {% if category and category.description %}
-          <p class="catalog-hero__lead">{{ category.description|striptags|truncatewords:25 }}</p>
+          {% if category and category_description_html %}
+          <p class="catalog-hero__lead">{{ category_description_html|striptags|truncatewords:25 }}</p>
           {% elif is_search_page %}
           <p class="catalog-hero__lead">{% blocktrans with q=query|default:'' %}Результати за запитом «{{ q }}» у каталозі TwoComms.{% endblocktrans %}</p>
           {% else %}
@@ -524,13 +524,13 @@ point at themselves.
   {% endif %}
   {% endif %}
 
-  {% if category and category.seo_intro_html %}
+  {% if category and category_intro_html %}
   {% if not page_obj or page_obj.number == 1 %}
   {# Phase 10b — short intro under H1 with optional collapsible (mirrors AAC pattern). #}
   <section class="catalog-category-intro" aria-label="{% trans 'Опис категорії' %}">
     <div class="catalog-redesign-container">
       <div class="catalog-intro-panel">
-        {{ category.seo_intro_html|safe }}
+        {{ category_intro_html|safe }}
       </div>
     </div>
   </section>
@@ -643,13 +643,13 @@ point at themselves.
   {% endif %}
   {% endif %}
 
-  {% if category and category.description %}
+  {% if category and category_description_html %}
   {% if not page_obj or page_obj.number == 1 %}
   <section class="catalog-category-description">
     <div class="catalog-redesign-container">
       <div class="catalog-description-panel">
         <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
-        <div>{{ category.description|safe }}</div>
+        <div>{{ category_description_html|safe }}</div>
       </div>
     </div>
   </section>

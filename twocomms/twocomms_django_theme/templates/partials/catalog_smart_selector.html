@@ -37,8 +37,8 @@
         {% if not page_obj or page_obj.number == 1 %}
           {% if merch_collection_page.intro %}
           <p>{{ merch_collection_page.intro|striptags|truncatewords:24 }}</p>
-          {% elif category.description %}
-          <p>{{ category.description|striptags|truncatewords:24 }}</p>
+          {% elif category_description_html %}
+          <p>{{ category_description_html|striptags|truncatewords:24 }}</p>
           {% endif %}
         {% endif %}
       </div>
@@ -575,11 +575,11 @@
   </div>
 
   {% if not page_obj or page_obj.number == 1 %}
-    {% if category.seo_intro_html %}
+    {% if category_intro_html %}
     <section class="catalog-category-intro smart-selector__seo-intro smart-selector__seo-band" aria-label="{% trans 'Опис категорії' %}">
       <div class="catalog-redesign-container">
         <div class="catalog-intro-panel">
-          {{ category.seo_intro_html|safe }}
+          {{ category_intro_html|safe }}
         </div>
       </div>
     </section>
@@ -597,12 +597,12 @@
   {% endif %}
 
   {% if not page_obj or page_obj.number == 1 %}
-    {% if category.description %}
+    {% if category_description_html %}
     <section class="catalog-category-description smart-selector__seo-band">
       <div class="catalog-redesign-container">
         <div class="catalog-description-panel">
           <h2>{{ category.seo_text_title|default:category.name }} — TwoComms</h2>
-          <div>{{ category.description|safe }}</div>
+          <div>{{ category_description_html|safe }}</div>
         </div>
       </div>
     </section>
