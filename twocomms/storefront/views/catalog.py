@@ -58,6 +58,7 @@ from ..services.catalog_helpers import (
 from ..services.category_seo_blocks import (
     get_category_seo_blocks,
     get_category_seo_layout,
+    get_locale_safe_product_seo_layout,
 )
 from ..services.general_catalog_seo import get_general_catalog_seo_layout
 from ..services.color_seo_copy import build_catalog_color_seo
@@ -1903,14 +1904,22 @@ def catalog(request, cat_slug=None, collection_slug=None):
         key=lambda card: card.get('mobile_order', 99),
     )
     if category:
-        category_seo_blocks = get_category_seo_blocks(
-            category,
-            block_types=("top_menu", "top_cards", "best_prices"),
-        )
-        category_seo_layout = get_category_seo_layout(
-            category,
-            blocks=category_seo_blocks,
-        )
+        language = get_language()
+        if language and language.split("-", 1)[0].lower() in {"ru", "en"}:
+            category_seo_blocks = []
+            category_seo_layout = get_locale_safe_product_seo_layout(
+                category,
+                language=language,
+            )
+        else:
+            category_seo_blocks = get_category_seo_blocks(
+                category,
+                block_types=("top_menu", "top_cards", "best_prices"),
+            )
+            category_seo_layout = get_category_seo_layout(
+                category,
+                blocks=category_seo_blocks,
+            )
     else:
         category_seo_blocks = []
         category_seo_layout = get_general_catalog_seo_layout(

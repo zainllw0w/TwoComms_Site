@@ -305,7 +305,7 @@ class GetCategorySeoBlocksTests(_BasePhase10Tests):
 
 
 class CatalogIntegrationTests(_BasePhase10Tests):
-    def test_category_seo_blocks_render_locale_aware_product_and_custom_owners(self):
+    def test_category_seo_blocks_obey_locale_ownership_boundary(self):
         self.product.discount_percent = 10
         self.product.save(update_fields=["discount_percent"])
         pricing = CategorySeoBlock.objects.create(
@@ -353,11 +353,11 @@ class CatalogIntegrationTests(_BasePhase10Tests):
         )
 
         locale_matrix = {
-            "uk": ("", "/product/promo-hoodie/", "/custom-print/"),
-            "ru": ("/ru", "/ru/product/promo-hoodie/", "/ru/custom-print/"),
-            "en": ("/en", "/en/product/promo-hoodie/", "/en/custom-print/"),
+            "uk": "",
+            "ru": "/ru",
+            "en": "/en",
         }
-        for language, (prefix, product_url, custom_url) in locale_matrix.items():
+        for language, prefix in locale_matrix.items():
             with self.subTest(language=language):
                 with override(language):
                     response = self.client.get(
@@ -370,17 +370,24 @@ class CatalogIntegrationTests(_BasePhase10Tests):
                     html,
                     flags=re.DOTALL,
                 )
-                self.assertIsNotNone(pricing_html)
-                self.assertIn(f'href="{product_url}"', pricing_html.group())
-                self.assertIn("899", pricing_html.group())
-                self.assertNotRegex(
-                    pricing_html.group(),
-                    r'class="seo-pricing__td-price">\s*1(?:\s|<)',
-                )
-                self.assertIn(
-                    f'href="{custom_url}">Matrix custom</a>',
-                    html,
-                )
+                if language == "uk":
+                    self.assertIsNotNone(pricing_html)
+                    self.assertIn(
+                        'href="/product/promo-hoodie/"', pricing_html.group()
+                    )
+                    self.assertIn("899", pricing_html.group())
+                    self.assertNotRegex(
+                        pricing_html.group(),
+                        r'class="seo-pricing__td-price">\s*1(?:\s|<)',
+                    )
+                    self.assertIn(
+                        'href="/custom-print/">Matrix custom</a>', html,
+                    )
+                else:
+                    self.assertIsNone(pricing_html)
+                    self.assertNotIn("Matrix prices", html)
+                    self.assertNotIn("Matrix custom", html)
+                    self.assertEqual(response.context["category_seo_blocks"], [])
                 for stale_url in stale_urls:
                     self.assertNotIn(stale_url, html)
 
@@ -428,3 +435,78 @@ class CatalogIntegrationTests(_BasePhase10Tests):
         response = self.client.get(reverse("catalog_by_cat",
                                           kwargs={"cat_slug": self.other_category.slug}))
         self.assertContains(response, "Tees — TwoComms")
+
+
+class CatalogLocaleSeoIntegrationTests(TestCase):
+    """Locale-prefixed category pages must not publish UK-only SEO rails."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(
+            name="Футболки",
+            name_ru="Футболки",
+            name_en="T-shirts",
+            slug="locale-category-tees",
+            is_active=True,
+        )
+        cls.sibling = Category.objects.create(
+            name="Худі",
+            name_ru="Худи",
+            name_en="Hoodies",
+            slug="locale-category-hoodies",
+            is_active=True,
+        )
+        block = CategorySeoBlock.objects.create(
+            category=cls.category,
+            block_type="top_menu",
+            title="Legacy Ukrainian database block",
+            is_active=True,
+        )
+        CategorySeoBlockItem.objects.create(
+            block=block,
+            label="Legacy Ukrainian database item",
+            url="/catalog/theme/military/",
+        )
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+        caches["fragments"].clear()
+        for target in (
+            "storefront.signals.generate_google_merchant_feed_task.apply_async",
+            "storefront.signals.enqueue_indexnow_urls",
+        ):
+            patcher = patch(target)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_ru_and_en_category_rails_are_same_locale_and_ignore_legacy_rows(self):
+        for language, prefix, sibling_label in (
+            ("ru", "/ru", "Худи"),
+            ("en", "/en", "Hoodies"),
+        ):
+            with self.subTest(language=language):
+                with override(language):
+                    response = self.client.get(
+                        f"{prefix}/catalog/{self.category.slug}/"
+                    )
+
+                self.assertEqual(response.status_code, 200)
+                layout = response.context["category_seo_layout"]
+                self.assertEqual(len(layout["tab_blocks"]), 1)
+                menu = layout["tab_blocks"][0]
+                self.assertEqual(menu["block"].block_type, "top_menu")
+                self.assertEqual(menu["block"].title, {
+                    "ru": "Разделы каталога",
+                    "en": "Catalog sections",
+                }[language])
+
+                labels = [item.label for item in menu["items"]]
+                urls = [item.url for item in menu["items"]]
+                self.assertIn(sibling_label, labels)
+                self.assertNotIn("Legacy Ukrainian database item", labels)
+                self.assertNotIn("/catalog/theme/military/", urls)
+                self.assertTrue(all(url.startswith(f"{prefix}/") for url in urls))
+                self.assertNotIn(
+                    f"{prefix}/catalog/{self.category.slug}/", urls,
+                )
