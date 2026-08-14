@@ -1759,7 +1759,10 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   code gate proves publication/inventory ownership, but demand/GSC evidence,
   matching media, complete localized editorial/schema parity and an explicit
   owner decision for every color/fit candidate still need to be recorded before
-  broadening the discovery graph.
+  broadening the discovery graph. Live RU/EN checks also still find persisted
+  `top_menu` hrefs without the locale prefix and Ukrainian anchors, plus older
+  category-intro/description `?color=` links; these are deliberately not hidden
+  by the UK-only rail result and require a separate locale/content-owner slice.
 - [x] **6.4a** Code commits `ee06af48e` and `dcdc35c95` were each pushed and
   deployed; production now runs exact SHA `dcdc35c95e7026c3851cd969df9e7b807be4b5ce`.
   The targeted release suite passed `43/43`; a broader 110-test run retained

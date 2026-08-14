@@ -312,7 +312,12 @@
   proof прошёл для UK `?color=black`: clean URL `index, follow`/self-canonical,
   query URL `noindex, follow`/category canonical, zero editorial `?color=`
   links. Поэтому FIND-023 остаётся открытым как P1/P2 finding с частично
-  исправленным color-only механизмом.
+  исправленным color-only механизмом. Дополнительная live-проверка RU
+  `/ru/catalog/tshirts/` показала, что persisted `top_menu` всё ещё строит
+  unprefixed UK paths (`/catalog/hoodie/`, `/catalog/long-sleeve/`) с
+  украинскими anchors, а старые category-intro/description блоки всё ещё
+  содержат `?color=` ссылки. Эти остаточные surfaces намеренно не объявлены
+  исправленными.
 
 #### FIND-003 — главный H1 общего каталога меняет intent между desktop и mobile-first рендером
 
