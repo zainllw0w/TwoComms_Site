@@ -18,6 +18,26 @@ flake remains open as `F-DEBT-007`. This is SQLite/no-network evidence only;
 `T40`, disposable MariaDB parity, and full `IMP-094` release acceptance remain
 open.
 
+## W2.2 narrow MariaDB checkout-concurrency boundary (2026-08-14)
+
+The disposable MariaDB runner now reaches the dedicated checkout proposal
+lock/race assertion. Exact-SHA CI run `31761170448` at `8f4459f68` passed its
+runner/workflow and settings contract steps, lifecycle, and
+`checkout-concurrency` on `11.4.12-MariaDB-ubu2404`; generated schemas
+`test_twocomms_ig_0d322be43f2f` and `test_twocomms_ig_f6383867aa07` reported
+`cleanup=verified`. The initial errno `1644` occurred in Django
+`TransactionTestCase` teardown: the append-only event trigger correctly rejects
+the default `DELETE` flush. The scoped test uses Django's `TRUNCATE` teardown
+path with `reset_sequences=True`, preserving the production trigger.
+
+This is not full T41 parity or production evidence. Each further append-only
+test class requires its own root-cause assessment; never disable the trigger
+globally. The post-CI branch-only sanitizer hardening was independently
+RED/green tested and exact-SHA CI verified: it removes free-form test, subtest,
+and `FAILED (...)` details plus dynamic child/cleanup/CLI exception labels from
+retained CI failure evidence. It remains branch-only until main and production
+proof are recorded.
+
 ## W3 pre-deploy delivery findings (2026-08-13)
 
 The independent Wave 3 review found and the scoped slice now covers three

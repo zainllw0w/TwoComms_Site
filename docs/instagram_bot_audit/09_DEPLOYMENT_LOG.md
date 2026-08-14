@@ -4,6 +4,28 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W2.2 T41 disposable checkout-concurrency gate (2026-08-14)
+
+GitHub Actions run `31761170448` verified test-only commits through
+`8f4459f68` against pinned MariaDB `11.4.12-MariaDB-ubu2404`. It passed the
+runner/workflow and disposable-settings contract steps, the lifecycle gate, and
+the dedicated `checkout-concurrency` gate. The fresh local runner/workflow
+packet is `29/29`. Exact sanitized artifact evidence reported lifecycle schema
+`test_twocomms_ig_0d322be43f2f` and checkout schema
+`test_twocomms_ig_f6383867aa07`, each with `cleanup=verified`. Artifact
+`mariadb-gate-evidence` has digest
+`sha256:12ce607d8a867317d1f4b502e0a657d465333fffb8108d9ade877129ae0570ce`.
+This run includes the follow-up strict allowlist for free-form test results and
+dynamic child/cleanup/CLI exception labels. No production database or
+customer/provider event was used. This is branch-only evidence until the normal
+project release path reaches `main` and production.
+
+The original CI errno `1644` was a teardown-only failure caused by MariaDB
+append-only delete triggers and Django's default `DELETE` flush. The test class
+now invokes the existing Django flush contract with `reset_sequences=True`,
+which selects `TRUNCATE` for cleanup while preserving production triggers.
+Full T41 parity and the remaining `IMP-094` release gates stay open.
+
 ## Implement2 W2.1 T40 production rollback-fixture boundary (2026-08-13)
 
 Production was verified at exact SHA `c09c4ab974d2dc8ff9e969b62cf36d3b117c31ce`,
