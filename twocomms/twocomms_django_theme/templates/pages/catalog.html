@@ -103,9 +103,9 @@ point at themselves.
       "mainEntity": {
         "@type": "ItemList",
         "itemListOrder": "https://schema.org/ItemListOrderDescending",
-        "numberOfItems": {{ products|length }},
+        "numberOfItems": {{ catalog_schema_products|length }},
         "itemListElement": [
-          {% for p in products|slice:":20" %}
+          {% for p in catalog_schema_products|slice:":20" %}
           {
             "@type": "ListItem",
             "position": {{ forloop.counter }},
@@ -149,9 +149,9 @@ point at themselves.
         {# Google saw a Category ItemList here while the page rendered Product cards, which #}
         {# is a "schema-vs-content mismatch" signal that depresses indexing confidence. #}
         "itemListOrder": "https://schema.org/ItemListOrderDescending",
-        "numberOfItems": {{ products|length }},
+        "numberOfItems": {{ catalog_schema_products|length }},
         "itemListElement": [
-          {% for p in products|slice:":20" %}
+          {% for p in catalog_schema_products|slice:":20" %}
           {
             "@type": "ListItem",
             "position": {{ forloop.counter }},

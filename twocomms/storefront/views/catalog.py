@@ -26,6 +26,7 @@ from django.utils.translation import gettext_lazy as _
 from ..models import (
     CategoryColorLanding,
     Product,
+    ProductFAQ,
     ProductFitOption,
     Category,
     SurveySession,
@@ -59,6 +60,7 @@ from ..services.category_seo_blocks import (
 )
 from ..services.general_catalog_seo import get_general_catalog_seo_layout
 from ..services.color_seo_copy import build_catalog_color_seo
+from ..services.locale_publication import PRODUCT_SITEMAP_FIELDS, locale_is_indexable
 from ..services.color_filter import (
     apply_color_filter,
     build_available_colors,
@@ -178,7 +180,7 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
-_CATALOG_CACHE_VERSION = "catalog-seo-v7-20260814-root-editorial"
+_CATALOG_CACHE_VERSION = "catalog-seo-v8-20260814-locale-schema"
 
 
 def _catalog_external_query_keys(request):
@@ -1356,6 +1358,53 @@ def _product_cards_queryset(*, include_fit_options=False, include_merchandising=
     )
 
 
+def _catalog_schema_products(products, language_code: str):
+    """Return current-page products safe to publish in a CollectionPage ItemList.
+
+    Catalog cards deliberately remain navigable when a RU/EN product falls
+    back to Ukrainian. JSON-LD cannot advertise that same localized PDP as an
+    owner while the PDP itself returns ``noindex, follow``. Load the small
+    locale-publication projection separately, so card data stays untouched and
+    locale checks cannot turn deferred card fields or FAQs into N+1 queries.
+    """
+
+    locale = (language_code or "uk").split("-", 1)[0].lower()
+    if locale == "uk" or not products:
+        return products
+    if locale not in {"ru", "en"}:
+        return []
+
+    product_ids = [product.pk for product in products]
+    locale_faq_fields = (
+        "id",
+        "product_id",
+        "is_active",
+        f"question_{locale}",
+        f"answer_{locale}",
+    )
+    localized_products = {
+        product.pk: product
+        for product in (
+            Product.objects.filter(pk__in=product_ids)
+            .only(*PRODUCT_SITEMAP_FIELDS)
+            .prefetch_related(
+                Prefetch(
+                    "faqs",
+                    queryset=ProductFAQ.objects.only(*locale_faq_fields),
+                    to_attr="_locale_publication_faqs",
+                )
+            )
+        )
+    }
+
+    schema_products = []
+    for card_product in products:
+        localized_product = localized_products.get(card_product.pk)
+        if localized_product and locale_is_indexable(localized_product, locale):
+            schema_products.append(localized_product)
+    return schema_products
+
+
 HOME_SURVEY_VISIBILITY_CACHE_VERSION = "survey-visible-20260530"
 # Bump whenever homepage Organization/llms-owned facts change so cached HTML
 # cannot continue publishing retired structured-data claims after deploy.
@@ -1815,6 +1864,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
     paginator, page_obj = _paginate_catalog_queryset(product_qs, request)
 
     products = list(page_obj.object_list)
+    catalog_schema_products = _catalog_schema_products(products, get_language())
     color_previews = build_color_preview_map(products)
 
     for product in products:
@@ -1853,6 +1903,7 @@ def catalog(request, cat_slug=None, collection_slug=None):
             'categories': categories,
             'category': category,
             'products': products,
+            'catalog_schema_products': catalog_schema_products,
             'show_category_cards': show_category_cards,
             'catalog_showcase_cards': catalog_showcase_cards,
             'catalog_mobile_showcase_cards': catalog_mobile_showcase_cards,
@@ -2496,6 +2547,7 @@ def thematic_landing(request, theme_slug):
                 'keywords': config["keywords"],
             },
             'products': products,
+            'catalog_schema_products': products,
             'show_category_cards': False,
             'catalog_showcase_cards': [],
             'cat_slug': '',

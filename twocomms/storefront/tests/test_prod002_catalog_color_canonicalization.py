@@ -205,7 +205,7 @@ class ColorFilterCanonicalServiceTests(TestCase):
         request = self.factory.get("/catalog/")
 
         self.assertIn(
-            "catalog-seo-v7-20260814-root-editorial",
+            "catalog-seo-v8-20260814-locale-schema",
             _catalog_cache_prefix(request, lambda request: None),
         )
 

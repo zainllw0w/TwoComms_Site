@@ -65,12 +65,19 @@ def _localized_faqs(product, locale: str) -> bool:
     case.  A partially translated set is not an indexable locale owner.
     """
 
-    try:
-        rows = product.faqs.all()
-    except Exception:
-        # Fail closed if the relation cannot be checked. A transient data
-        # error must not turn a fallback-language page into an owner.
-        return False
+    if hasattr(product, "_locale_publication_faqs"):
+        # ``Prefetch(..., to_attr=...)`` intentionally produces a list even
+        # when the product has no FAQs.  Check the attribute rather than its
+        # truthiness so an empty prefetched list never falls back to a new
+        # related-manager query.
+        rows = product._locale_publication_faqs
+    else:
+        try:
+            rows = product.faqs.all()
+        except Exception:
+            # Fail closed if the relation cannot be checked. A transient data
+            # error must not turn a fallback-language page into an owner.
+            return False
     for row in rows:
         if not getattr(row, "is_active", True):
             continue

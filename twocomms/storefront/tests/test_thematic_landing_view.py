@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 from django.core.cache import cache, caches
 from django.http import HttpResponse
@@ -70,6 +72,41 @@ class ThematicLandingViewTests(TestCase):
         self.assertContains(
             page_two,
             'href="https://twocomms.shop/catalog/theme/streetwear/?page=2"',
+        )
+
+    def test_collection_schema_preserves_visible_thematic_products(self):
+        response = self.client.get("/catalog/theme/streetwear/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIs(
+            response.context["catalog_schema_products"],
+            response.context["products"],
+        )
+        payloads = [
+            json.loads(payload)
+            for payload in response.content.decode("utf-8").split(
+                '<script type="application/ld+json">'
+            )[1:]
+            for payload in [payload.split("</script>", 1)[0]]
+        ]
+        collection_page = next(
+            node
+            for payload in payloads
+            for node in payload.get("@graph", [payload])
+            if node.get("@type") == "CollectionPage"
+        )
+        item_list = collection_page["mainEntity"]
+
+        self.assertEqual(item_list["numberOfItems"], 3)
+        self.assertEqual(
+            {
+                urlparse(item["url"]).path
+                for item in item_list["itemListElement"]
+            },
+            {
+                f"/product/streetwear-theme-tee-{index}/"
+                for index in range(3)
+            },
         )
 
     def test_page_aliases_redirect_once_without_losing_locale_or_color(self):
