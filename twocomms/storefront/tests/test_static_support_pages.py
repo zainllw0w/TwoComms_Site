@@ -125,6 +125,17 @@ class SupportStaticPagesTests(SimpleTestCase):
             self.assertContains(response, item["question"])
         self.assertNotContains(response, "Чи є таблиця розмірів?")
 
+    def test_faq_does_not_publish_unowned_shrinkage_percentage(self):
+        response = self.client.get(reverse("faq"), secure=True)
+
+        self.assertContains(
+            response,
+            "Фактична усадка залежить від складу тканини, режиму прання та сушіння.",
+        )
+        self.assertNotContains(response, "1-2 %")
+        self.assertNotContains(response, "1–2 %")
+        self.assertNotContains(response, "попередню декатировку")
+
     @override_settings(FREE_SHIPPING_THRESHOLD="2750")
     def test_delivery_faq_uses_checkout_owned_free_shipping_threshold(self):
         response = self.client.get("/delivery/?fact_registry_probe=2750", secure=True)
