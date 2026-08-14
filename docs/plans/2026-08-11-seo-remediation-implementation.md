@@ -1737,6 +1737,51 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [ ] **6.3** For every proposed landing, write a decision record covering sellable inventory continuity, distinct user/query intent, matching media, factual locale content, schema support and at least one same-locale source link before inclusion in the chosen discovery graph. These are evidence categories, not Google-defined numeric thresholds; do not create copy merely to pass a uniqueness percentage.
 - [ ] **6.4** Commit/push/deploy and mark Task 6 after crawl/browser proof.
 
+#### Task 6 owned-color slice (checkpoint prepared)
+
+- [x] **6.1a** Add and run the narrow regression boundary for the currently evidenced
+  clean color owners. UK category pages may expose a normal link to a published
+  same-category color landing, while SEO rails contain no links to the
+  `noindex, follow` `?color=` UI state. This slice does not claim fit-landings,
+  every locale, or the full route matrix covered by 6.1.
+- [x] **6.2a** Implement the owner-backed color rail without changing selector
+  behavior. `/catalog/` publishes only its owned `top_menu`; category pages use
+  persisted `top_menu`/`top_cards`/`best_prices`, with a UK synthetic
+  `color_landings` rail only when the category is active, the landing is
+  published, and a published product in that category has the exact color
+  variant. Ordering is deterministic and one color has one owner. RU/EN do not
+  receive the UK-only rail; product SEO loads only `top_menu`; Smart Selector
+  `?color=` remains an interactive UI state. Cache invalidation is commit-safe
+  (`transaction.on_commit`) and the versioned catalog namespace is `catalog-v9`.
+  The Django 5.2 Context7 cross-check covered `transaction.on_commit`, cache
+  increment/version semantics and Memcached key-size limits used by this slice.
+- [ ] **6.3a** Full proposed-landing decision records remain open. The current
+  code gate proves publication/inventory ownership, but demand/GSC evidence,
+  matching media, complete localized editorial/schema parity and an explicit
+  owner decision for every color/fit candidate still need to be recorded before
+  broadening the discovery graph.
+- [x] **6.4a** Code commits `ee06af48e` and `dcdc35c95` were each pushed and
+  deployed; production now runs exact SHA `dcdc35c95e7026c3851cd969df9e7b807be4b5ce`.
+  The targeted release suite passed `43/43`; a broader 110-test run retained
+  only two known UTM-pagination baseline failures outside this diff.
+  `manage.py check`, touched-file compilation and `git diff --check` passed.
+  Live production proof showed UK
+  category owners for `hoodie/black`, `long-sleeve/black`, `tshirts/black` and
+  `tshirts/coyote`; clean `/catalog/tshirts/` exposed same-category clean owner
+  links, while RU/EN had no UK color rail. The browser Back/Forward gate for
+  `/catalog/tshirts/?color=black` restored the clean URL and query state exactly:
+  clean category was `index, follow` + self-canonical, query state was
+  `noindex, follow` + category canonical, and the SEO section had zero
+  `?color=` editorial links. The run made no cart/checkout/order write, although
+  normal analytics POSTs were observed. This is a deployed sub-slice, not
+  completion of 6.1–6.4.
+
+**Task 6 boundary:** the release does not approve fit/color×fit/city combinations,
+does not add keyword paraphrases or new SEO copy, and does not change canonical,
+sitemap, product, inventory, media, Custom Print, DTF subdomain/blog or ordinary
+DTF wording. The remaining broad Task 6 checks stay open until the route/locale
+matrix and owner decision records are complete.
+
 **Files:** `services/color_seo_copy.py`, `services/general_catalog_seo.py`, Smart Selector helpers, category/color landing templates/tests.
 
 ### Task 7: Complete variant media, alt text and fit data

@@ -297,6 +297,22 @@
 - Почему это влияет: crawl и внутренний вес направляются на noindex query URL, а утвержденные self-canonical страницы получают слабый contextual in-degree. Языковой переход на UK нарушает пользовательский путь и ослабляет locale-кластер. Это не означает, что весь новый мобильный selector нужно отменить.
 - Безопасное решение: сохранить интерактивные query-state controls, но добавить отдельные crawlable contextual links к опубликованным same-locale landing из category intro/SEO navigation и уместных PDP. Одиночную ?color= SEO-ссылку заменять clean path только когда landing опубликован и проходит eligibility. URL строить через locale-aware reverse; комбинации color x fit x city не создавать автоматически.
 - Acceptance check: каждый clean landing имеет хотя бы одну обычную ссылку из соответствующей same-locale категории; RU/EN sibling и PDP links остаются в том же языке; editorial crawl не находит ссылку на single-color noindex facet, если существует утвержденный landing; Smart Selector и back/forward state работают без регрессий.
+- **Статус 2026-08-14:** узкий color-owner срез частично исправил механизм.
+  `ee06af48e` добавил UK-only links из активной категории только к
+  опубликованным landing owners с опубликованным exact
+  `ProductColorVariant`; `dcdc35c95` ограничил PDP SEO-загрузку `top_menu` и
+  исключил query/color rails. Production подтвердил owners `hoodie/black`,
+  `long-sleeve/black`, `tshirts/black` и `tshirts/coyote`, а
+  `/catalog/tshirts/` содержит same-category clean links. RU/EN не получают UK
+  color rail, и Smart Selector `?color=black` остался рабочим.
+- **Что не закрыто:** это не полное исправление FIND-023. Не завершены fit и
+  color×fit ownership, GSC/demand decision records, matching-media и полная
+  RU/EN category/PDP link matrix; исторические cross-locale helper paths не
+  считаются исправленными без отдельного доказательства. Browser Back/Forward
+  proof прошёл для UK `?color=black`: clean URL `index, follow`/self-canonical,
+  query URL `noindex, follow`/category canonical, zero editorial `?color=`
+  links. Поэтому FIND-023 остаётся открытым как P1/P2 finding с частично
+  исправленным color-only механизмом.
 
 #### FIND-003 — главный H1 общего каталога меняет intent между desktop и mobile-first рендером
 
@@ -523,6 +539,12 @@
 - **Почему это проблема:** перечисление городов не доказывает отдельную локальную услугу и не превращает общий каталог в city landing. Жестко заданные ассортиментные/policy claims могут расходиться с DB, delivery/returns и реальными товарами. Механическая замена формулировок или городов увеличит scaled/doorway risk. Это не означает, что слова «купить», города или три H2 запрещены; проблема — манипулятивная цель и неподтвержденные утверждения.
 - **Безопасное решение:** определить одну задачу page-1 editorial: помочь выбрать категорию и понять фактические условия покупки. Оставить только подтвержденные, локализованные и полезные факты из registry; delivery/returns вести на canonical policy URLs. Убрать keyword/city insertion как acceptance и не создавать городские варианты блока. Если локальная ценность ограничивается отправкой из Харькова по Украине, сказать это один раз правдиво.
 - **Acceptance check:** page-1 UK/RU/EN не содержит списков городов/keyword repetition ради ranking; каждый material/weight/fit/size/wash/delivery/exchange/donation/location claim имеет owner/source/effective date; нет неподтвержденных женских cuts или диапазонов; page 2+ не повторяет блок; category links same-locale и canonical.
+- **Статус 2026-08-14:** release Task 6 не менял editorial copy и не
+  подтверждает ни один claim из этого finding. Отдельный root-catalog checkpoint
+  `6ce8466bf` удалил неowned fallback с чистого `/catalog/`, но category/page-2
+  boilerplate, source-owned fact registry и locale-specific claim parity
+  остаются открытыми. Color-owner links не являются исправлением keyword/city
+  over-optimization; FIND-030 остаётся открытым.
 
 #### FIND-010 — индексируемая page 2 повторяет большой SEO-boilerplate первой страницы категории
 
