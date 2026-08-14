@@ -32,6 +32,12 @@ LEGACY_SIGNATURES = (
         "answer_en": "Turn inside out, wash at 30 °C on a cotton cycle without bleach. Air-dry only. Iron inside out or through cheesecloth. The DTF print easily survives 50+ wash cycles.",
     },
 )
+LEGACY_SIGNATURES += (
+    {
+        **LEGACY_SIGNATURES[0],
+        "question_en": "How should I wash the tee so the print stays intact?",
+    },
+)
 
 
 @contextmanager

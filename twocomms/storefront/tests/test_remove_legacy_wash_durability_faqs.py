@@ -34,7 +34,14 @@ class RemoveLegacyWashDurabilityFaqsTests(TestCase):
             status="published",
         )
 
-    def _legacy_faq(self, *, answer_suffix="", order=1, is_active=True):
+    def _legacy_faq(
+        self,
+        *,
+        answer_suffix="",
+        order=1,
+        is_active=True,
+        question_en="How do I wash the tee without damaging the print?",
+    ):
         return ProductFAQ.objects.create(
             product=self.product,
             question="Як прати футболку, щоб принт не зіпсувався?",
@@ -61,7 +68,7 @@ class RemoveLegacyWashDurabilityFaqsTests(TestCase):
                 "такой стирки."
                 + answer_suffix
             ),
-            question_en="How do I wash the tee without damaging the print?",
+            question_en=question_en,
             answer_en=(
                 "Turn inside out, wash at 30 °C on a cotton cycle without "
                 "bleach. Air-dry only. Iron inside out or through cheesecloth. "
@@ -108,6 +115,22 @@ class RemoveLegacyWashDurabilityFaqsTests(TestCase):
         self.assertIn("candidate rows: 1", output.getvalue())
         self.assertIn(str(exact.pk), output.getvalue())
         self.assertNotIn(str(changed.pk), output.getvalue())
+
+    def test_reports_confirmed_imported_english_question_signature(self):
+        imported = self._legacy_faq(
+            question_en="How should I wash the tee so the print stays intact?"
+        )
+        output = StringIO()
+
+        call_command(
+            "remove_legacy_wash_durability_faqs",
+            "--slug",
+            self.product.slug,
+            stdout=output,
+        )
+
+        self.assertIn("candidate rows: 1", output.getvalue())
+        self.assertIn(str(imported.pk), output.getvalue())
 
     def test_apply_requires_confirmation_and_backup_path(self):
         self._legacy_faq()
