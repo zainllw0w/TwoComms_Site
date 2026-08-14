@@ -56,19 +56,13 @@ class _Base(TestCase):
 
 
 class ColorSeoCopyTests(_Base):
-    def test_general_catalog_returns_brand_copy(self):
+    def test_general_catalog_without_editorial_override_returns_none(self):
         copy = build_catalog_color_seo(
             category=None, selected_color_slugs=[], available_colors=[],
         )
-        self.assertIsNotNone(copy)
-        self.assertIn("TwoComms", copy["h2"])
-        self.assertGreaterEqual(len(copy["paragraphs"]), 3)
-        # Internal links to all three categories must appear in the
-        # brand-level copy so anonymous visitors have crawl paths.
-        body = " ".join(copy["paragraphs"])
-        self.assertIn("/catalog/hoodie/", body)
-        self.assertIn("/catalog/tshirts/", body)
-        self.assertIn("/catalog/long-sleeve/", body)
+        # The root catalog has no approved editorial owner in this fixture.
+        # It must not publish the retired generic copy as a fallback.
+        self.assertIsNone(copy)
 
     def test_curated_color_copy_does_not_publish_noindex_query_chips(self):
         copy = build_catalog_color_seo(
@@ -130,12 +124,12 @@ class ColorSeoCopyTests(_Base):
 
 
 class ColorSeoViewIntegrationTests(_Base):
-    def test_general_catalog_renders_color_seo_section(self):
+    def test_general_catalog_without_override_skips_color_seo_section(self):
         resp = self.client.get(reverse("catalog"))
         body = resp.content.decode()
-        self.assertIn("catalog-color-seo", body)
-        # Brand-level H2 marker.
-        self.assertIn("Каталог одягу TwoComms", body)
+        self.assertNotIn('<section class="catalog-color-seo"', body)
+        # Regression marker from the retired unowned fallback.
+        self.assertNotIn("30+ циклів", body)
 
     def test_filtered_catalog_renders_color_seo_section(self):
         # Need at least one product with a black variant so the colour

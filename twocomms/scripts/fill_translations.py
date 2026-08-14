@@ -881,7 +881,7 @@ TRANSLATIONS_PHASE_17I: dict[str, dict[str, str]] = {
         "en": "%(color)s hoodie with patriotic print",
     },
 
-    # GENERAL_CATALOG_SEO_COPY chip labels.
+    # Catalog SEO chip labels.
     "Купити худі":                           {"ru": "Купить худи",                       "en": "Buy a hoodie"},
     "Купити футболку з принтом":             {"ru": "Купить футболку с принтом",         "en": "Buy a printed t-shirt"},
     "Купити лонгслів":                       {"ru": "Купить лонгслив",                   "en": "Buy a long sleeve"},

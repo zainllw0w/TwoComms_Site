@@ -3,9 +3,9 @@
 Covers three contexts (a single service so the catalog view has one
 entry point):
 
-1. ``/catalog/`` (no category, no colour) — brand-level catalogue
-   landing copy with internal links to clean category owners; interactive
-   colour filters remain UI-only.
+1. ``/catalog/`` (no category, no colour) — only explicitly approved,
+   editor-managed general copy. Without an active general override the
+   service returns ``None``; interactive colour filters remain UI-only.
 
 2. ``/catalog/?color=<slug>`` (cross-category colour filter) — copy
    focused on the chosen colour; editorial links point only to clean
@@ -29,8 +29,7 @@ existing ``catalog-category-description`` panel so the styling stays
 consistent with per-category descriptions.
 
 Phase 17i (2026-05-12) — full RU/EN translation. Every curated colour
-palette is provided in three languages; the brand-level catalogue
-copy and the generic colour fallback use ``gettext_lazy`` so the
+palette and the generic colour fallback use ``gettext_lazy`` so the
 strings show up in the standard ``django.po`` workflow. The view
 selects the palette via :func:`django.utils.translation.get_language`
 at request time, so the same code path serves UA / RU / EN visitors
@@ -574,81 +573,6 @@ def _generic_color_copy(color_slug: str, color_label: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# General catalog (no category, no colour). Brand-level landing copy.
-# ---------------------------------------------------------------------------
-
-GENERAL_CATALOG_SEO_COPY: Dict[str, Any] = {
-    "h2": _("Каталог одягу TwoComms — український стрітвір з характером"),
-    "paragraphs": [
-        _(
-            "TwoComms — це український бренд одягу, який створює стрітвір "
-            "у трьох ключових категоріях: <a href=\"/catalog/hoodie/\">худі</a>, "
-            "<a href=\"/catalog/tshirts/\">футболки</a> й "
-            "<a href=\"/catalog/long-sleeve/\">лонгсліви</a>. Усі моделі ми "
-            "розробляємо в Україні, друкуємо принти на власному обладнанні "
-            "за технологією DTF і підбираємо тканини так, щоб одяг витримував "
-            "щоденне носіння, прання й любий клімат — від літньої спеки до "
-            "сирої осені."
-        ),
-
-        _(
-            "Кожен товар у каталозі доступний у кількох кольорах: класичний "
-            "<a href=\"/catalog/?color=black\">чорний</a> для тих, хто шукає "
-            "універсальну базу під будь-який принт; "
-            "<a href=\"/catalog/?color=coyote\">кайот</a> і "
-            "<a href=\"/catalog/?color=olive\">олива</a> для прихильників "
-            "мілітарної естетики; нейтральний "
-            "<a href=\"/catalog/?color=grey\">сірий</a> і чистий "
-            "<a href=\"/catalog/?color=white\">білий</a> для весняно-літніх "
-            "образів. Усі кольори перевіряються на стійкість до УФ та "
-            "перфектне зберігання форми навіть після 30+ циклів прання."
-        ),
-
-        _(
-            "Більшість принтів TwoComms — це авторські ілюстрації на тему "
-            "патріотизму, ЗСУ, української історії та сучасної поп-культури. "
-            "Ми передаємо частину прибутку на підтримку Збройних Сил України, "
-            "тому кожна покупка — це одночасно вибір якісного одягу й вклад у "
-            "перемогу. На сторінці кожного товару ви знайдете розмірну сітку, "
-            "детальні фото матеріалу, відгуки клієнтів і прозору інформацію "
-            "про склад тканини."
-        ),
-
-        _(
-            "Якщо ви не знайшли потрібну графіку — спробуйте розділ "
-            "<a href=\"/custom-print/\">«Власний принт»</a>: ми надрукуємо "
-            "будь-яку ілюстрацію на обраній моделі від однієї одиниці. "
-            "Доставка по Україні — Новою Поштою на відділення або в "
-            "поштомат за 1–2 дні. Оплата — карткою через Monobank/LiqPay "
-            "або накладеним платежем. Усі товари мають 14 днів на повернення, "
-            "якщо не підійшов розмір."
-        ),
-    ],
-    "queries": [
-        # HF
-        {"label": _("Купити худі"), "url": "/catalog/hoodie/", "freq": "hf"},
-        {"label": _("Купити футболку з принтом"), "url": "/catalog/tshirts/", "freq": "hf"},
-        {"label": _("Купити лонгслів"), "url": "/catalog/long-sleeve/", "freq": "hf"},
-        {"label": _("Український стрітвір"), "url": "/catalog/", "freq": "hf"},
-        # MF
-        {"label": _("Худі ЗСУ"), "url": "/catalog/hoodie/?color=coyote", "freq": "mf"},
-        {"label": _("Чорна футболка з тризубом"), "url": "/catalog/tshirts/?color=black", "freq": "mf"},
-        {"label": _("Кайотовий лонгслів"), "url": "/catalog/long-sleeve/?color=coyote", "freq": "mf"},
-        {"label": _("Оливкове худі мілітарі"), "url": "/catalog/hoodie/?color=olive", "freq": "mf"},
-        # LF
-        {"label": _("Подарунок захиснику український бренд"),
-         "url": "/catalog/?color=coyote", "freq": "lf"},
-        {"label": _("Худі з патріотичним принтом купити Київ"),
-         "url": "/catalog/hoodie/?color=black", "freq": "lf"},
-        {"label": _("Футболка ЗСУ донат на ЗСУ Україна"),
-         "url": "/catalog/tshirts/?color=coyote", "freq": "lf"},
-        {"label": _("Власний принт на одязі від 1 одиниці"),
-         "url": "/custom-print/", "freq": "lf"},
-    ],
-}
-
-
-# ---------------------------------------------------------------------------
 # Builder.
 # ---------------------------------------------------------------------------
 
@@ -837,23 +761,18 @@ def build_catalog_color_seo(
         return None
 
     if color_slug is None:
-        # /catalog/ root — brand-level copy. Phase 19h: admin override
-        # via CatalogColorSeoOverride(scope="general", color_slug="").
+        # /catalog/ root has no generated fallback. It can publish only an
+        # active, explicitly approved general-editorial row.
         override = _load_override("general", "", None)
-        if override is not None:
-            return _finalize_editorial_copy(_merge_curated_with_override(
-                base_h2=GENERAL_CATALOG_SEO_COPY["h2"],
-                base_paragraphs=GENERAL_CATALOG_SEO_COPY["paragraphs"],
-                base_queries=GENERAL_CATALOG_SEO_COPY["queries"],
-                override=override,
-                color_slug="",
-            ))
-        return _finalize_editorial_copy({
-            "h2": GENERAL_CATALOG_SEO_COPY["h2"],
-            "paragraphs": GENERAL_CATALOG_SEO_COPY["paragraphs"],
-            "queries": GENERAL_CATALOG_SEO_COPY["queries"],
-            "color_slug": "",
-        })
+        if override is None:
+            return None
+        return _finalize_editorial_copy(_merge_curated_with_override(
+            base_h2="",
+            base_paragraphs=[],
+            base_queries=[],
+            override=override,
+            color_slug="",
+        ))
 
     # Resolve a human-readable label for the colour, used by the
     # generic fallback. We prefer the chip label (matches what the
@@ -910,10 +829,11 @@ def build_catalog_color_seo(
     })
 
 
-def _finalize_editorial_copy(payload: Dict[str, Any]) -> Dict[str, Any]:
+def _finalize_editorial_copy(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Enforce clean-owner links for generated and administrator copy."""
 
     finalized = dict(payload)
+    finalized["h2"] = str(payload.get("h2") or "").strip()
     finalized["paragraphs"] = [
         strip_internal_ui_state_links(paragraph)
         for paragraph in (payload.get("paragraphs") or [])
@@ -921,6 +841,12 @@ def _finalize_editorial_copy(payload: Dict[str, Any]) -> Dict[str, Any]:
     finalized["queries"] = filter_editorial_link_items(
         payload.get("queries") or []
     )
+    if not (
+        finalized["h2"]
+        or finalized["paragraphs"]
+        or finalized["queries"]
+    ):
+        return None
     return finalized
 
 

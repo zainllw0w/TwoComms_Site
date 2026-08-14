@@ -2999,12 +2999,11 @@ class CategorySeoBlockItem(models.Model):
 
 # ===== Phase 19h (2026-05-10) — admin-editable colour-aware SEO copy =====
 #
-# Curated copy for /catalog/ root, /catalog/?color=<slug> and
-# /catalog/<cat>/?color=<slug> lives in ``services/color_seo_copy.py``
-# as a hand-written palette. To let the team tune the wording without
-# a code deploy, this model captures per-(scope, color, category)
-# overrides that the service consults *before* falling back to the
-# curated palette.
+# Curated copy for colour-filter catalog states lives in
+# ``services/color_seo_copy.py`` as a hand-written palette. The root
+# /catalog/ has no generated fallback: its visible editorial block exists
+# only when an active ``general`` row contains at least one allowed field.
+# This model captures per-(scope, color, category) editorial payloads.
 
 class CatalogColorSeoOverride(models.Model):
     """Override for the colour-aware SEO copy on catalog screens."""
@@ -3047,7 +3046,10 @@ class CatalogColorSeoOverride(models.Model):
         max_length=300,
         blank=True,
         verbose_name="Заголовок (H2)",
-        help_text="Якщо порожньо — використовується курований заголовок з коду.",
+        help_text=(
+            "Для «general» порожнє поле не підставляє текст з коду. Для "
+            "«brand»/«category» порожнє поле залишає курований заголовок."
+        ),
     )
     body_html = models.TextField(
         blank=True,
@@ -3055,7 +3057,8 @@ class CatalogColorSeoOverride(models.Model):
         help_text=(
             "Параграфи у форматі HTML (наприклад '<p>Перший абзац…</p>"
             "<p>Другий…</p>'). Дозволені теги <a>, <strong>, <em>. "
-            "Якщо порожньо — використовуються куровані параграфи з коду."
+            "Для «general» порожнє поле нічого не публікує; для "
+            "«brand»/«category» використовуються куровані параграфи з коду."
         ),
     )
     queries_json = models.JSONField(
@@ -3064,7 +3067,8 @@ class CatalogColorSeoOverride(models.Model):
         verbose_name="Чипи-запити",
         help_text=(
             "JSON-масив об’єктів {label, url, freq}, де freq — 'hf' / "
-            "'mf' / 'lf'. Якщо порожньо — використовуються куровані з коду."
+            "'mf' / 'lf'. Для «general» порожнє поле нічого не публікує; "
+            "для «brand»/«category» використовуються куровані чипи з коду."
         ),
     )
     is_active = models.BooleanField(default=True, verbose_name="Активний")

@@ -18,12 +18,16 @@
 <section class="catalog-color-seo"
          aria-label="{% blocktrans with slug=color_seo_copy.color_slug|default:_('каталога') %}SEO-опис {{ slug }}{% endblocktrans %}"
          data-color-seo-color="{{ color_seo_copy.color_slug|default:'' }}">
+  {% if color_seo_copy.h2 %}
   <h2 class="catalog-color-seo__title">{{ color_seo_copy.h2 }}</h2>
+  {% endif %}
+  {% if color_seo_copy.paragraphs %}
   <div class="catalog-color-seo__body">
     {% for paragraph in color_seo_copy.paragraphs %}
     <p>{{ paragraph|safe }}</p>
     {% endfor %}
   </div>
+  {% endif %}
 
   {% if color_seo_copy.queries %}
   <div class="catalog-color-seo__queries" role="navigation"

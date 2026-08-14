@@ -10,7 +10,9 @@ Covers:
 """
 from __future__ import annotations
 
+from django.core.cache import cache
 from django.test import TestCase
+from django.urls import reverse
 
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import (
@@ -137,6 +139,13 @@ class CategorySwatchOverrideTests(TestCase):
 
 
 class ColorSeoOverrideTests(TestCase):
+    def setUp(self):
+        super().setUp()
+        # The root catalog has a ten-minute anonymous full-page cache. Keep
+        # these override-rendering tests independent from earlier catalog views.
+        cache.clear()
+        self.addCleanup(cache.clear)
+
     def test_general_override_replaces_h2_and_body(self):
         CatalogColorSeoOverride.objects.create(
             scope="general", color_slug="", category=None,
@@ -155,6 +164,54 @@ class ColorSeoOverrideTests(TestCase):
         self.assertEqual(out["queries"], [
             {"label": "X", "url": "/catalog/", "freq": "hf"},
         ])
+
+    def test_general_override_does_not_inherit_retired_fallback_fields(self):
+        CatalogColorSeoOverride.objects.create(
+            scope="general", color_slug="", category=None,
+            h2="Reviewed catalog heading",
+            is_active=True,
+        )
+
+        out = build_catalog_color_seo(
+            category=None, selected_color_slugs=None, available_colors=[],
+        )
+
+        self.assertEqual(out["h2"], "Reviewed catalog heading")
+        self.assertEqual(out["paragraphs"], [])
+        self.assertEqual(out["queries"], [])
+
+    def test_empty_active_general_override_returns_none(self):
+        CatalogColorSeoOverride.objects.create(
+            scope="general", color_slug="", category=None,
+            is_active=True,
+        )
+
+        out = build_catalog_color_seo(
+            category=None, selected_color_slugs=None, available_colors=[],
+        )
+
+        self.assertIsNone(out)
+
+    def test_query_only_general_override_does_not_render_an_empty_heading(self):
+        CatalogColorSeoOverride.objects.create(
+            scope="general", color_slug="", category=None,
+            queries_json=[
+                {
+                    "label": "Reviewed catalog link",
+                    "url": "/catalog/hoodie/",
+                    "freq": "mf",
+                },
+            ],
+            is_active=True,
+        )
+
+        response = self.client.get(reverse("catalog"))
+        self.assertEqual(response.status_code, 200)
+        section = response.content.decode().split(
+            '<section class="catalog-color-seo"', 1
+        )[1].split("</section>", 1)[0]
+        self.assertIn("Reviewed catalog link", section)
+        self.assertNotIn("catalog-color-seo__title", section)
 
     def test_brand_override_partial_keeps_curated(self):
         # Only override the H2; body & queries fall back to curated black copy.
@@ -183,7 +240,7 @@ class ColorSeoOverrideTests(TestCase):
         out = build_catalog_color_seo(
             category=None, selected_color_slugs=None, available_colors=[],
         )
-        self.assertNotEqual(out["h2"], "WILL NOT SHOW")
+        self.assertIsNone(out)
 
     def test_category_scope_override(self):
         cat = Category.objects.create(name="Hoodie", slug="hoodie", order=1)

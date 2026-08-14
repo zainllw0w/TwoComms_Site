@@ -59,18 +59,14 @@ class EditorialLinkPolicyUnitTests(SimpleTestCase):
         self.assertNotIn("/catalog/?color=black", urls)
         self.assertFalse(any("?" in url for url in urls))
 
-    def test_generated_color_editorial_keeps_only_clean_owner_links(self):
+    def test_general_catalog_without_editorial_owner_returns_none(self):
         copy = build_catalog_color_seo(
             category=None,
             selected_color_slugs=None,
             available_colors=[],
         )
 
-        self.assertIsNotNone(copy)
-        self.assertTrue(copy["queries"])
-        self.assertFalse(any("?" in item["url"] for item in copy["queries"]))
-        self.assertNotIn("href=\"/catalog/?", " ".join(map(str, copy["paragraphs"])))
-        self.assertIn('href="/catalog/tshirts/"', " ".join(map(str, copy["paragraphs"])))
+        self.assertIsNone(copy)
 
 
 class EditorialLinkPolicyDatabaseTests(TestCase):
@@ -156,7 +152,7 @@ class EditorialLinkPolicyDatabaseTests(TestCase):
         self.assertNotIn('href="/catalog/?color=black"', paragraph)
         self.assertIn('href="/catalog/tshirts/"', paragraph)
 
-    def test_catalog_keeps_ui_filter_but_editorial_sections_have_no_query_links(self):
+    def test_catalog_keeps_ui_filter_without_unowned_color_editorial_section(self):
         black = Color.objects.create(name="Black", primary_hex="#000000")
         product = Product.objects.create(
             title="Policy tee",
@@ -180,9 +176,6 @@ class EditorialLinkPolicyDatabaseTests(TestCase):
         seo_tabs = body.split('<div class="category-seo-blocks"', 1)[1].split(
             "</div>\n\n<script>", 1
         )[0]
-        color_copy = body.split('<section class="catalog-color-seo"', 1)[1].split(
-            "</section>", 1
-        )[0]
         self.assertNotIn("href=\"/catalog/?", seo_tabs)
-        self.assertNotIn("href=\"/catalog/?", color_copy)
         self.assertNotIn(f'href="/catalog/{self.category.slug}/?color=', seo_tabs)
+        self.assertNotIn('<section class="catalog-color-seo"', body)
