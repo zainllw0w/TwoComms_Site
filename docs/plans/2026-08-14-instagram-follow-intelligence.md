@@ -204,18 +204,28 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - Modify: `twocomms/management/tests_ig_message_media.py`
 
 - [ ] RED: only provider-owned inbound story mention/repost/message evidence can schedule automatic assessment; no global media scan is introduced.
+- [ ] RED: ingress preserves structured Meta attachment provenance (`story_mention` target, provider `media_id`, media type, sender and webhook/message identity) before URL normalization; URL-only or model-supplied media cannot become owned evidence.
+- [ ] RED: `potential_ugc` is detected before classifier/commerce reduction and suppresses product pinning, paylink, generic product discovery, and follow CTA for that turn even when assessment is still pending.
 - [ ] RED: duplicate webhook/message/media fingerprint coalesces to one assessment.
 - [ ] RED: assessment records exact brand-tag provenance, owned media IDs, stable catalog product candidates, confidence, policy version, and safe reason codes without raw model reasoning.
+- [ ] RED: vision qualification requires high policy thresholds and catalog coverage above 60% for each claimed garment; two visible shirts may produce two candidates without changing single-identity reward ownership.
 - [ ] RED: clear story mention with verified `@twocomms` tag, visible apparel, strong catalog match, and no abuse flags becomes `qualified_auto`.
+- [ ] RED: automatic qualification is limited to a live provider-native story mention/repost with an owned attachment, exact configured `@twocomms` tag, personal worn apparel, and conservative high-confidence catalog evidence. A DM URL, OCR-only tag, official catalog/ad screenshot, share without provider mention, or expired/historical URL is never auto-qualified.
 - [ ] RED: medium confidence, obscured/multiple ambiguous products, manager URL, or incomplete provider metadata becomes `needs_manager_review`.
 - [ ] RED: ad/referral-only content, catalog screenshot, unrelated repost, no brand tag, no apparel, spam, duplicate/stolen evidence, and malformed model output becomes `rejected`.
 - [ ] RED: two people/two shirts may produce multiple product candidates but reward ownership remains the posting Instagram client.
+- [ ] RED: no face matching, identity inference, or reward transfer is attempted for the second person. A second reward requires that person's independent qualifying provider event.
 - [ ] RED: recognized UGC changes reply intent: natural acknowledgment is allowed; product discovery, “розповісти про продукт”, paylink, and follow CTA are prohibited in the same turn.
 - [ ] RED: assessment lease/generation and new inbound/manager decisions are revalidated before publication.
+- [ ] RED: provider-object/media-id reuse is a hard reject, while a byte-similar or cross-posted image from a different legitimate post/story is `needs_manager_review` unless ownership and provenance independently pass; never collapse those cases into one duplicate rule.
+- [ ] RED: automatic assessment is restricted to provider-owned inbound evidence and cannot be triggered by a global media scan, ad creative, or an image URL supplied by the model.
+- [ ] RED: manager review UI/API is part of this task (`bot_views.py`, `bot.html`, endpoint tests); review decisions are authenticated, audited, generation-bound, and cannot override lifetime identity or evidence provenance.
 - [ ] Confirm RED.
 - [ ] Implement `IgUgcEvidenceAssessment` as an InnoDB, lease-backed, generation-safe model.
 - [ ] Reuse locally owned media and catalog-grounded vision; do not store raw provider bodies or image copies beyond existing owned media.
+- [ ] Store only owned-media references or stable privacy-safe hashes with retention/cleanup behavior; use `PROTECT`/explicit cleanup semantics so an assessment cannot silently lose the evidence required for an already-issued reward.
 - [ ] Add a bounded structured `ugc_evidence_assessment` reasoning contract. The model recommends evidence facts; deterministic policy chooses auto/review/reject.
+- [ ] Persist provider-owned media/object identifiers and a privacy-safe perceptual fingerprint separately. Exact provider-object reuse is a hard block; perceptual similarity is only a review signal when provider provenance differs.
 - [ ] Feed assessment state into the existing Gemini call so the reply acknowledges UGC and does not restart sales discovery.
 - [ ] GREEN: run `management.tests_ig_ugc_assessment management.tests_ig_message_media management.tests_ig_agentic_dialog`.
 - [ ] Commit with `git commit -am "feat(ig): assess branded UGC intelligently"`.
@@ -239,17 +249,28 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] RED: one Instagram client cannot receive a second UGC 10% reward through another order, another assessment, another evidence type, or a concurrent worker.
 - [ ] RED: another person visible in the photo receives no reward unless their own Instagram identity supplies independent qualifying evidence.
 - [ ] RED: manager review can approve/reject but cannot override duplicate evidence, lifetime reward, client ownership, or malformed media provenance.
+- [ ] RED: `auto` and `manager` issuance have explicit decision sources; automatic qualification leaves `reviewed_by` nullable and must never create a synthetic manager identity. Database checks enforce the source/reviewer XOR.
+- [ ] RED: order-linked reward evidence is compared with `nova_poshta_delivery_confirmed_at()` (provider event timestamp, terminal timestamp only as fallback), not merely the time our delayed polling marked the order terminal.
 - [ ] RED: reward and `ugc_reward_issued` event are created atomically; forced event failure rolls back promo/reward.
 - [ ] RED: API returns `reward_eligible` and returns the same reward/event on idempotent replay.
 - [ ] RED: worker sends the exact existing code, records receipt, and never creates another code.
+- [ ] RED: concurrent delivered-order and `external_ugc` attempts for one Instagram identity serialize on the same lifetime slot and yield exactly one reward/promo/event.
 - [ ] RED: ambiguous promo delivery is not retried automatically.
+- [ ] RED: an ambiguous or failed provider send recovers the same grant/code and never burns a second lifetime slot; it must not silently mint a replacement reward.
+- [ ] RED: validity is anchored to grant issuance and the 90-day expiry is shown explicitly; delivery is queued only inside a valid response window or the same grant is delivered through a later authorized channel without re-issuance.
 - [ ] RED: canonical lifecycle handoff does not cancel UGC reward events.
 - [ ] RED: order-linked matcher cancels when assignment, delivered truth, reward, or promo validity is stale; external matcher uses assessment generation/client/lifetime slot without requiring an order.
 - [ ] Confirm RED.
 - [ ] Make reward order/assignment optional only for `external_ugc`; add eligibility path, assessment link, and database-enforced lifetime client slot.
+- [ ] Enforce lifetime identity uniqueness with a secret-bound `identity_digest` (HMAC/pepper, never a raw IGSID) so the database constraint is durable without expanding sensitive identifiers.
+- [ ] Add a separate receipt-backed external UGC outbox/event shape, or make order/assignment nullable only for `UGC_REWARD_ISSUED` with database XOR checks and an audit of every consumer; do not send an external reward through an event path that dereferences mandatory order/assignment FKs.
 - [ ] Preflight production for duplicate reward clients before applying the unique lifetime constraint; stop migration on unresolved duplicates rather than choosing silently.
 - [ ] Add `UGC_REWARD_ISSUED` kind and localized immutable promo message snapshot that states 10%, one use, and exact 90-day expiry.
+- [ ] Add a database-enforced lifetime slot keyed by Instagram client identity, while keeping order/assignment optional only for `external_ugc` and requiring path-specific XOR checks.
+- [ ] Link-order evidence time must use `nova_poshta_delivery_confirmed_at()` (provider event timestamp, with terminal timestamp only as fallback), so late polling cannot reject a genuine post-delivery mention.
+- [ ] Define post-issuance policy: full refund/return revokes an unused linked-order code; exchange pauses and revalidates; a redeemed code remains consumed on partial refund. External UGC has no fabricated order to revoke.
 - [ ] Create reward and event in the same transaction, then let the existing reconciler send after commit.
+- [ ] Ensure external rewards use a dedicated reward receipt-backed outbox or an event shape whose nullable order/assignment fields are protected by database XOR constraints; every consumer must handle the external path without dereferencing missing FKs.
 - [ ] Extend current-fulfillment checks and cancellation rules only for the new kind.
 - [ ] GREEN: run `management.tests_ig_w4_ugc_reward management.tests_ig_ugc_external_reward management.tests_ig_order_fulfillment`.
 - [ ] Inspect production for unused existing UGC reward promos before deciding whether a targeted data migration/backfill is justified; do not rewrite used/expired codes.
@@ -276,10 +297,28 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] RED: expired, consumed, leaked second use, grouped, account-scoped, or non-UGC guest promo fails closed.
 - [ ] Confirm RED.
 - [ ] Add the explicit capability field; do not infer guest safety from `one_time_per_user=False` alone.
+- [ ] Extend the anonymous checkout ledger because current `PromoCodeUsage` requires a non-null user; guest reservation and consumption must be atomic for both COD and online checkout and must not weaken authenticated promo rules.
 - [ ] Route all redemptions through `reserve_promo_for_checkout()` so `max_uses=1` is serialized.
 - [ ] Keep the private code tied to the `IgUgcReward.client` audit record while truthfully treating checkout redemption as bearer-based, not identity verification.
+- [ ] Treat the guest code as a bearer capability: enforce origin, one-use atomic reservation/consumption, no stacking, and audit metadata, but do not claim recipient identity verification.
 - [ ] GREEN: run storefront promo/checkout focused suites.
 - [ ] Commit with `git commit -am "fix(promo): redeem private UGC rewards as guest"`.
+
+#### UGC policy gates from adversarial review
+
+- [ ] Add a shadow/feature flag rollout for automatic qualification. Do not enable auto-award from uncalibrated Gemini probabilities; record calibrated deterministic gate outcomes first.
+- [ ] Keep the hard thresholds named and versioned (exact provider mention, live owned media, worn personal apparel, configured brand tag, catalog match, no risk/duplicate/lifetime/open service case). Any ambiguity or mid-confidence result routes to manager review.
+- [ ] Capture story bytes at webhook ingress. A live owned attachment plus original provider event may survive URL expiry; URL-only or failed capture can never become bot-proven auto evidence.
+- [ ] Treat OCR/text inside an image as untrusted input. Prompt-injection text, official ads, catalog screenshots, logo-only media, referral-only shares, missing Meta provenance, and no visible garment must fail closed.
+- [ ] Make `provider_object_key`, source-message identity, and evidence fingerprint dedupe fields explicit and unique where appropriate; exact object reuse is non-overridable, while same/near-similar bytes across distinct provider objects go to review for legitimate group cross-posts.
+- [ ] Lock the client row and InnoDB lifetime slot during issuance so delivered-order and external UGC paths cannot race into two rewards. A duplicate-client preflight must abort the migration rather than silently selecting a winner.
+- [ ] Ensure every UGC/outbox table is InnoDB and every legacy FK boundary is `db_constraint=False`; add engine and constraint checks to the disposable MariaDB gate.
+- [ ] Never fabricate a service manager for automatic issuance. Store an immutable assessment generation/policy snapshot, `decision_source`, and nullable reviewer; manager approval requires an authenticated actor and reason.
+- [ ] Keep the 90-day expiry visible as an exact Kyiv calendar date in the immutable message snapshot. The lifetime slot is consumed at issuance even after expiry; ambiguous or failed delivery recovers the same grant/code/event and never mints a second one.
+- [ ] Pre-provider retry may reuse the same event lease. Once provider I/O is ambiguous, require manual reconciliation and prohibit blind automatic resend.
+- [ ] Apply source-order lifecycle rules: hold while exchange/return/support is open; deactivate an unused linked-order grant on full cancellation/refund/return; partial refund after redemption does not restore the code; an unrelated order return never revokes an external UGC grant.
+- [ ] Route product-sale price plus UGC promo through the existing one-promo reservation semantics; no code+code stacking, and no marketing copy that promises stacking or a discount on shipping/custom charges unless explicitly configured.
+- [ ] Add RED tests for ingress provenance, story expiry owned-vs-URL-only, OCR prompt injection, official ad/catalog/no-garment rejection, two people/two shirts with one reward owner, exact object duplicate vs cross-post review, stale assessment/assignment/refund races, transaction rollback, MariaDB engine/unique constraints, guest COD/online/Instagram checkout, concurrent reservation, 90-day boundary, no stacking, and ambiguous delivery recovery.
 
 ### Task 11: Add Follow State to Manager API without N+1
 
