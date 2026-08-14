@@ -155,6 +155,7 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         self.assertNotIn("root-secret", evidence.getvalue())
         self.assertNotIn("provider-secret", evidence.getvalue())
         self.assertIn("version=11.4.12-MariaDB", evidence.getvalue())
+        self.assertIn(f"database={created_db}", evidence.getvalue())
         self.assertIn("cleanup=verified", evidence.getvalue())
 
     def test_failure_still_cleans_schema_and_user(self):
@@ -284,6 +285,29 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             [str(error) for error in raised.exception.cleanup_errors],
             ["drop user failed", "drop database failed"],
         )
+
+    def test_cleanup_error_summary_is_allowlisted_and_does_not_leak_driver_details(self):
+        admin = FakeAdmin(fail_cleanup=True)
+        admin.drop_user = mock.Mock(
+            side_effect=RuntimeError("access denied for user='gate' password=top-secret")
+        )
+        evidence = io.StringIO()
+
+        with self.assertRaises(self.runner.GateError) as raised:
+            self.runner.run_gate(
+                server_mode="external",
+                suite="lifecycle",
+                admin=admin,
+                command_runner=FakeCommandRunner(),
+                project_root=PROJECT_ROOT,
+                environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+                output=evidence,
+            )
+
+        rendered = str(raised.exception)
+        self.assertNotIn("top-secret", rendered)
+        self.assertNotIn("access denied", rendered)
+        self.assertIn("cleanup_error=RuntimeError", rendered)
 
     def test_partial_provisioning_still_attempts_idempotent_cleanup(self):
         admin = FakeAdmin(fail_at="create_user")
