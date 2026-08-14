@@ -6,11 +6,13 @@ from unittest import skipUnless
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.db import (
     DatabaseError,
     IntegrityError,
     close_old_connections,
     connection,
+    connections,
     transaction,
 )
 from django.db.models.deletion import ProtectedError
@@ -635,6 +637,27 @@ class IgCheckoutProposalModelTests(TestCase):
 )
 class IgCheckoutProposalConcurrencyTests(TransactionTestCase):
     reset_sequences = True
+
+    def _fixture_teardown(self):
+        # MariaDB append-only triggers reject Django's default DELETE flush.
+        # This class already resets IDs in setup, so use its matching TRUNCATE cleanup.
+        for db_name in self._databases_names(include_mirrors=False):
+            inhibit_post_migrate = (
+                self.available_apps is not None
+                or (
+                    self.serialized_rollback
+                    and hasattr(connections[db_name], "_test_serialized_contents")
+                )
+            )
+            call_command(
+                "flush",
+                verbosity=0,
+                interactive=False,
+                database=db_name,
+                reset_sequences=True,
+                allow_cascade=self.available_apps is not None,
+                inhibit_post_migrate=inhibit_post_migrate,
+            )
 
     def setUp(self):
         from management.models import IgCheckoutProposal
