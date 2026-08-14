@@ -17,14 +17,38 @@ packet is `29/29`. Exact sanitized artifact evidence reported lifecycle schema
 `sha256:12ce607d8a867317d1f4b502e0a657d465333fffb8108d9ade877129ae0570ce`.
 This run includes the follow-up strict allowlist for free-form test results and
 dynamic child/cleanup/CLI exception labels. No production database or
-customer/provider event was used. This is branch-only evidence until the normal
-project release path reaches `main` and production.
+customer/provider event was used. This was the branch-stage evidence; the
+final-main release proof is recorded below.
 
 The original CI errno `1644` was a teardown-only failure caused by MariaDB
 append-only delete triggers and Django's default `DELETE` flush. The test class
 now invokes the existing Django flush contract with `reset_sequences=True`,
 which selects `TRUNCATE` for cleanup while preserving production triggers.
 Full T41 parity and the remaining `IMP-094` release gates stay open.
+
+## Implement2 W2.2 T41 main/prod release proof (2026-08-14)
+
+The complete seven-commit T41 sequence plus its evidence documentation is in
+`main` at `9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`. Manual GitHub Actions run
+`31762702125` checked out that exact SHA and passed runner/workflow and
+disposable-settings contracts, lifecycle, and checkout-concurrency on pinned
+MariaDB `11.4.12-MariaDB-ubu2404`. Artifact `mariadb-gate-evidence`
+(`9205282515`, digest
+`sha256:2598b0fc7e9acbfcc7a1d641c48a0f16d048cdf546ba151ba7b916cd0c2bab06`)
+contains only the two allowlisted success lines; both generated schemas report
+`cleanup=verified`.
+
+The required project SSH `git pull` was executed and returned `Already up to
+date`. Read-only production verification then showed
+`HEAD == origin/main == 9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`,
+`manage.py check` with zero issues, and the Instagram bot running on
+`instagram_login` with fresh daemon heartbeat, zero pending/failed/unknown/
+dead-letter notification rows, zero analysis backlog, and no recorded error.
+The check also emitted the existing fail-safe warning that
+`CACHE/manifest.json` is older than static sources; offline compression is
+disabled until an approved static refresh. No prohibited restart/compress
+command was run, so this remains open deployment evidence under
+`F-DEPLOY-003`.
 
 ## Implement2 W2.1 T40 production rollback-fixture boundary (2026-08-13)
 

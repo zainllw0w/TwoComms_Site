@@ -19,12 +19,15 @@
   three CWDs, but full historical baseline remains open. F-DEBT-007 remains
   open pending full-order flake evidence.
   F-TEST-004 внутри IMP-094 закрыта на `dd93f9f3`; narrow disposable MariaDB
-  lifecycle/checkout-concurrency boundary passed exact-SHA branch CI
-  `31761170448` at `8f4459f68`, including the strict failure-evidence
-  allowlist, but full parity matrix, deterministic required command and all
-  remaining reliability acceptance criteria stay open. Other append-only
-  `TransactionTestCase` failures must be diagnosed individually; production
-  triggers must not be relaxed to make the suite green.
+  lifecycle/checkout-concurrency boundary passed exact-main CI
+  `31762702125` at `9ed640b06c`, including the strict failure-evidence
+  allowlist and verified disposable cleanup. Full parity matrix, deterministic
+  required command and all remaining reliability acceptance criteria stay
+  open. Other append-only `TransactionTestCase` failures must be diagnosed
+  individually; production triggers must not be relaxed to make the suite
+  green. Production verification additionally found a stale compression
+  manifest; offline compression is fail-safe disabled until an approved
+  static refresh, so this remains `F-DEPLOY-003` evidence.
   `F-DEPLOY-001` adds the reproducibly built `http-ece` wheel hash gate;
   `F-DEPLOY-002` bans CloudLinux selector environment JSON from evidence.
   T40 rollback-fixture boundary is now GREEN on production MariaDB with mocked

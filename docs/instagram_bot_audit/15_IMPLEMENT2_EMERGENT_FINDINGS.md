@@ -30,13 +30,30 @@ runner/workflow and settings contract steps, lifecycle, and
 the default `DELETE` flush. The scoped test uses Django's `TRUNCATE` teardown
 path with `reset_sequences=True`, preserving the production trigger.
 
-This is not full T41 parity or production evidence. Each further append-only
-test class requires its own root-cause assessment; never disable the trigger
-globally. The post-CI branch-only sanitizer hardening was independently
-RED/green tested and exact-SHA CI verified: it removes free-form test, subtest,
-and `FAILED (...)` details plus dynamic child/cleanup/CLI exception labels from
-retained CI failure evidence. It remains branch-only until main and production
-proof are recorded.
+This is not full T41 parity. Each further append-only test class requires its
+own root-cause assessment; never disable the trigger globally. The sanitizer
+hardening is now in current `main` and production through the rebased sequence:
+exact-main CI `31762702125` at `9ed640b06c` passed the same gates, and the
+approved SSH pull/read-only runtime proof is recorded in `09_DEPLOYMENT_LOG.md`.
+
+Production `manage.py check` also exposed a separate release-boundary finding:
+`CACHE/manifest.json` is older than static sources, so Django disables offline
+compression fail-safe to avoid a 500. The mandated git-pull-only deployment
+path did not run `collectstatic`/`compress`; this remains additional
+`F-DEPLOY-003` evidence and must be fixed in the approved deployment design,
+not by weakening the runtime check.
+
+## W2.1A Meta capability preflight for IMP-106 (2026-08-14)
+
+Current official Meta documentation confirms `/debug_token`'s app-token
+requirement and the `instagram_manage_messages` messaging scope, but only
+aggregate follower insights are documented. No individual follower-status
+endpoint was found in the official search. Production's Instagram Login token
+works for the account's own `/me` call, while the runtime has no explicit
+`IG_APP_ID` and `/debug_token` currently returns HTTP 401 / code 190 for the
+attempted authorizations. This is an external capability/configuration blocker:
+preserve `unknown`, suppress follow CTA, and do not infer `not_following` until
+the app identity and supported per-user signal are proven.
 
 ## W3 pre-deploy delivery findings (2026-08-13)
 

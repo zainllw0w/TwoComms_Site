@@ -896,6 +896,12 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   constraints are still open. Further append-only `TransactionTestCase`
   teardown failures require individual diagnosis; production triggers must not
   be weakened globally.
+  The complete seven-commit slice is now in current `main` and production at
+  `9ed640b06c`; exact-main CI run `31762702125` passed lifecycle and
+  checkout-concurrency with sanitized artifact `9205282515` and verified
+  cleanup. Production `manage.py check` and the read-only bot snapshot are
+  clean/running, but a stale static compression manifest warning remains open
+  under `F-DEPLOY-003` because the approved deployment path is git-pull-only.
   **Emergent release findings 2026-08-07:** `F-DEPLOY-001` requires the
   reproducibly built `http-ece` wheel SHA in the immutable install
   requirements; the sdist SHA alone fails a clean wheel-only hash install.

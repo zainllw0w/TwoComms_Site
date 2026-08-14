@@ -111,6 +111,25 @@ It retains only fixed failure categories plus a numeric MariaDB errno. Artifact
 `mariadb-gate-evidence` (`9204756023`) has digest
 `sha256:12ce607d8a867317d1f4b502e0a657d465333fffb8108d9ade877129ae0570ce`.
 
+The release boundary was then verified on current `main` at
+`9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`. Manual workflow run
+`31762702125` checked out that exact SHA and passed both disposable gates;
+artifact `9205282515` (digest
+`sha256:2598b0fc7e9acbfcc7a1d641c48a0f16d048cdf546ba151ba7b916cd0c2bab06`)
+reported fresh generated schemas and `cleanup=verified` for lifecycle and
+checkout-concurrency. The prescribed SSH `git pull` was executed and returned
+`Already up to date`; read-only production evidence showed
+`HEAD == origin/main == 9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`, clean
+`manage.py check`, and bot `state=running`, `running=True`,
+`daemon_online=True`, `provider_transport=instagram_login`, pending
+notification/analysis queues at zero, failed/unknown/dead-letter notification
+rows at zero, and no recorded error.
+Production also emitted a fail-safe warning that `CACHE/manifest.json` is older
+than static sources, so offline compression is disabled until an approved
+static refresh is run. The required git-pull-only deployment rule prevented
+running that refresh; this remains additional `F-DEPLOY-003` evidence and is
+not claimed as fixed.
+
 This is a narrow T41 evidence boundary only. The full management MariaDB
 parity matrix, `F-TEST-002`, `G-INFRA`, and immutable release/rollback gates
 under `IMP-094` remain open.

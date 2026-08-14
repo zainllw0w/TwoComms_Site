@@ -531,6 +531,11 @@ These findings were discovered while implementing Wave 0 and are owned here;
   subprocesses are bounded; evidence records allowlisted failure phase,
   rollback-needed/result and retained-lease state. Prove success and injected
   rollback failures, deploy exact SHA, and verify daemon/queue health.
+  Additional production evidence on 2026-08-14: `manage.py check` emitted a
+  fail-safe warning that `CACHE/manifest.json` is older than current static
+  sources, so offline compression is disabled until an approved static refresh.
+  The mandated deployment path is git-pull-only, so no compress/restart command
+  was run and this freshness defect remains open rather than being hidden.
 - [ ] **`F-DEPLOY-004` legacy entry-point retirement.** Record a fresh read-only
   production crontab/path/operator-usage boundary, route the sole supported
   executable through the exact target-SHA orchestrator, and make every retired
@@ -649,15 +654,51 @@ This closes the teardown defect only. It does not close the broader `T41`
 MariaDB race/constraint matrix, `G-INFRA`, `F-TEST-002` or `IMP-094`; those
 remain open until their separately scoped acceptance evidence exists.
 
+**T41 main/prod release proof (2026-08-14):** the complete seven-commit slice
+and this evidence record are reachable from current `main` at
+`9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`. Manual GitHub Actions run
+`31762702125` checked out that exact SHA and passed runner/workflow and
+disposable-settings contracts, lifecycle, and checkout-concurrency on pinned
+MariaDB `11.4.12-MariaDB-ubu2404`. Artifact `mariadb-gate-evidence`
+(`9205282515`, digest
+`sha256:2598b0fc7e9acbfcc7a1d641c48a0f16d048cdf546ba151ba7b916cd0c2bab06`)
+contains the exact allowlisted lifecycle and checkout-concurrency lines, each
+with `cleanup=verified`.
+
+The prescribed SSH `git pull` was executed and returned `Already up to date`.
+Read-only production evidence then showed
+`HEAD == origin/main == 9ed640b06c7324f610330d2d9b40fd3cd0e8c2b0`, clean
+`manage.py check`, and bot `state=running`, `running=True`,
+`daemon_online=True`, `provider_transport=instagram_login`, zero pending or
+pending analysis work, zero failed/unknown/dead-letter notification rows, and
+no recorded error. This is release
+proof for the narrow slice only; the T41 parity matrix and `IMP-094` remain
+open.
+
 ### W2.1A Next queued release — intelligent Instagram follow-state and lifecycle CTA — `IMP-106`
 
-**Status:** QUEUED after verified W2.2 main and production closeout. Do not
-begin before this T41 slice reaches `main`, the approved SSH-only `git pull`
-and read-only production evidence are recorded, and the Meta capability audit
-below is complete. This is a commercial follow-up policy, not a background
-message campaign: it must never turn a missing or failed provider lookup into
-`not_following`, and it must not create a perpetual cron that scans all
-customers.
+**Status:** QUEUED but BLOCKED on the Meta capability contract after the T41
+main/production closeout. The release gate, approved SSH-only `git pull`, and
+read-only production evidence are recorded above. This is a commercial
+follow-up policy, not a background message campaign: it must never turn a
+missing or failed provider lookup into `not_following`, and it must not create
+a perpetual cron that scans all customers.
+
+**Capability preflight (2026-08-14):** Context7's current official Meta
+documentation confirms that `/debug_token` requires a correctly matched app
+access token or developer user token and that Instagram messaging requires
+`instagram_manage_messages`; the documented `follower_count` insight is
+aggregate, not a per-user relationship. A targeted search of the same
+official documentation found no documented `is_user_following` or equivalent
+individual follower endpoint. Production is configured for `instagram_login`
+with a token, but no explicit `IG_APP_ID`; the runtime intentionally reports
+token permission and account access as `unknown`. A read-only self-account
+`/me` call succeeded, while `/debug_token` returned Meta code 190/HTTP 401
+under the attempted authorizations, so the app/token identity and scopes are
+not yet proven. Until a correctly matched app identity/token is supplied and
+the capability is re-audited, follow state must remain `unknown`, no
+follow-specific CTA may fire, and no model or profile inference may label a
+customer `not_following`.
 
 - [ ] **Capability contract first.** Reconcile the live Graph API version,
   token type, Instagram account ID, app subscription, scopes and available
