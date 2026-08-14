@@ -201,11 +201,11 @@ class ColorFilterCanonicalServiceTests(TestCase):
             "/ru/catalog/tshirts/?fit=oversize&utm_source=ad",
         )
 
-    def test_catalog_cache_version_busts_pre_serialization_responses(self):
+    def test_catalog_cache_version_busts_pre_locale_rail_responses(self):
         request = self.factory.get("/catalog/")
 
         self.assertIn(
-            "catalog-v9",
+            "catalog-v10",
             _catalog_cache_prefix(request, lambda request: None),
         )
 
