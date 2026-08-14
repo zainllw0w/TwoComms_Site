@@ -1779,6 +1779,48 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   normal analytics POSTs were observed. This is a deployed sub-slice, not
   completion of 6.1–6.4.
 
+#### Task 6 locale-safe category rail checkpoint
+
+- [x] **6.1b** Add a rendered RU/EN regression for persisted Ukrainian
+  `CategorySeoBlock` rows. The RED test proved that both locale category pages
+  selected the legacy DB title/item instead of same-locale owners. The updated
+  matrix also protects the existing UK pricing/custom-print owner behavior
+  while requiring RU/EN to fail closed on untranslated `top_menu`, `top_cards`
+  and `best_prices` rows.
+- [x] **6.2b** Route RU/EN category SEO layouts through the existing locale-safe
+  builder. Category names are read from owned modeltranslation columns;
+  `translation.override(language)` plus Django `reverse()` produces request-
+  locale category and support URLs. The current category is excluded, and
+  locale-less DB rows are not published. UK keeps its persisted menu/cards/
+  prices and the approved clean color-owner rail. Smart Selector query state,
+  product data, inventory, media, Custom Print and all DTF surfaces are
+  unchanged. Context7 Django documentation confirmed that `i18n_patterns`
+  derives the prefix from the active language and omits the default-language
+  prefix when `prefix_default_language=False`, so prefix concatenation was not
+  introduced.
+- [x] **6.4b** Commits `1b7ff25f5` and `7a3a0bdef` were pushed to `main`, pulled
+  on production and activated. The second commit bumped only the versioned
+  catalog page-cache namespace from `catalog-v9` to `catalog-v10` after live
+  proof showed that a cache-busted request used the fix while the clean URL
+  still served the pre-release response. Local category/PDP/layout tests passed
+  `55/55`, the cache-version RED/GREEN test passed `1/1`, touched Python
+  compilation and `git diff --check` passed. The expanded 95-test run retained
+  only the same two pre-existing UTM-pagination expectation failures outside
+  this diff. Production runs exact SHA
+  `7a3a0bdef63dfc4c57f8566aa858bbea21802bfa`; `manage.py check` passed and
+  Passenger was restarted. Clean `/ru/catalog/tshirts/` and
+  `/en/catalog/tshirts/` are `index, follow`, self-canonical and expose exactly
+  seven locale-prefixed links under `Разделы каталога` / `Catalog sections`,
+  with no persisted Ukrainian item and no locale-less pricing table. UK remains
+  `index, follow`, self-canonical, retains pricing and links to the approved
+  `/catalog/tshirts/black/` and `/catalog/tshirts/coyote/` owners.
+
+This checkpoint does not close broad 6.1–6.4 or FIND-023. The rendered category
+intro and long description still contain historical `?color=` / `?fit=`
+editorial anchors and locale-less clean internal links; those surfaces require
+a separate render-time policy while the interactive Smart Selector links stay
+operational.
+
 **Task 6 boundary:** the release does not approve fit/color×fit/city combinations,
 does not add keyword paraphrases or new SEO copy, and does not change canonical,
 sitemap, product, inventory, media, Custom Print, DTF subdomain/blog or ordinary

@@ -318,6 +318,28 @@
   украинскими anchors, а старые category-intro/description блоки всё ещё
   содержат `?color=` ссылки. Эти остаточные surfaces намеренно не объявлены
   исправленными.
+- **Locale-rail follow-up 2026-08-14:** commits `1b7ff25f5` и `7a3a0bdef`
+  закрыли именно persisted category-rail часть остатка. RU/EN category view
+  теперь fail-closed не публикует locale-less `CategorySeoBlock` menu/cards/
+  prices и строит один owned `top_menu` через active-language
+  `translation.override()` + Django `reverse()`. `catalog-v10` отдельно
+  инвалидировал persistent full-page cache после того, как live clean URL
+  продолжал отдавать старый `catalog-v9` HTML при уже исправленном cache-busted
+  запросе. Production SHA
+  `7a3a0bdef63dfc4c57f8566aa858bbea21802bfa`: clean RU/EN tshirts pages имеют
+  self-canonical, `index, follow`, локализованный title rail, ровно семь
+  same-locale href и ноль persisted украинских пунктов/pricing. UK сохранил
+  pricing и approved clean owners `black`/`coyote`. Context7 Django docs
+  подтвердили active-language prefix behavior `i18n_patterns` при
+  `prefix_default_language=False`; ручное добавление `/ru`/`/en` не
+  использовалось.
+- **Что всё ещё открыто в FIND-023:** category `seo_intro_html` и
+  `description` по-прежнему рендерят исторические internal UI-state anchors
+  (`?color=`, `?fit=`) и locale-less clean links. Это отдельный следующий
+  render-time sanitation/localization slice; Smart Selector query controls
+  должны остаться рабочими. Fit/color×fit ownership, matching-media, GSC/demand
+  decision records и полная locale link matrix также не доказаны. Поэтому
+  общий FIND-023 остаётся partial/open, а не помечается полностью исправленным.
 
 #### FIND-003 — главный H1 общего каталога меняет intent между desktop и mobile-first рендером
 

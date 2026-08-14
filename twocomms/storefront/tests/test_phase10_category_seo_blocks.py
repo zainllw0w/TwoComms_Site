@@ -16,7 +16,7 @@ from unittest.mock import patch
 from django.core.cache import cache, caches
 from django.test import TestCase
 from django.urls import reverse
-from django.utils.translation import override
+from django.utils.translation import activate, get_language, override
 
 from storefront.models import (
     Category,
@@ -446,15 +446,24 @@ class CatalogLocaleSeoIntegrationTests(TestCase):
             name="Футболки",
             name_ru="Футболки",
             name_en="T-shirts",
-            slug="locale-category-tees",
+            slug="tshirts",
             is_active=True,
         )
         cls.sibling = Category.objects.create(
             name="Худі",
             name_ru="Худи",
             name_en="Hoodies",
-            slug="locale-category-hoodies",
+            slug="hoodie",
             is_active=True,
+        )
+        cls.product = Product.objects.create(
+            title="Українська SEO-картка",
+            title_ru="Русская SEO-карточка",
+            title_en="English SEO card",
+            slug="locale-category-card",
+            category=cls.category,
+            price=900,
+            status="published",
         )
         block = CategorySeoBlock.objects.create(
             category=cls.category,
@@ -467,9 +476,23 @@ class CatalogLocaleSeoIntegrationTests(TestCase):
             label="Legacy Ukrainian database item",
             url="/catalog/theme/military/",
         )
+        cards = CategorySeoBlock.objects.create(
+            category=cls.category,
+            block_type="top_cards",
+            title="Legacy Ukrainian cards",
+            is_active=True,
+        )
+        CategorySeoBlockItem.objects.create(
+            block=cards,
+            label="Legacy Ukrainian published card",
+            url="/product/legacy-card/",
+            extra={"product_id": cls.product.id},
+        )
 
     def setUp(self):
         super().setUp()
+        previous_language = get_language()
+        self.addCleanup(activate, previous_language)
         cache.clear()
         caches["fragments"].clear()
         for target in (
@@ -486,12 +509,13 @@ class CatalogLocaleSeoIntegrationTests(TestCase):
             ("en", "/en", "Hoodies"),
         ):
             with self.subTest(language=language):
-                with override(language):
-                    response = self.client.get(
-                        f"{prefix}/catalog/{self.category.slug}/"
-                    )
+                response = self.client.get(
+                    f"{prefix}/catalog/{self.category.slug}/"
+                )
 
                 self.assertEqual(response.status_code, 200)
+                html = response.content.decode()
+                self.assertIn('data-smart-selector="true"', html)
                 layout = response.context["category_seo_layout"]
                 self.assertEqual(len(layout["tab_blocks"]), 1)
                 menu = layout["tab_blocks"][0]
@@ -505,8 +529,12 @@ class CatalogLocaleSeoIntegrationTests(TestCase):
                 urls = [item.url for item in menu["items"]]
                 self.assertIn(sibling_label, labels)
                 self.assertNotIn("Legacy Ukrainian database item", labels)
+                self.assertNotIn("Legacy Ukrainian published card", html)
+                self.assertNotIn("Legacy Ukrainian cards", html)
                 self.assertNotIn("/catalog/theme/military/", urls)
                 self.assertTrue(all(url.startswith(f"{prefix}/") for url in urls))
+                self.assertIn(menu["block"].title, html)
+                self.assertIn(f'href="{prefix}/catalog/{self.sibling.slug}/"', html)
                 self.assertNotIn(
                     f"{prefix}/catalog/{self.category.slug}/", urls,
                 )
