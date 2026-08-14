@@ -75,6 +75,11 @@ __all__ = [
     "IgCheckoutAccessToken",
     "IgCheckoutInventoryReservation",
     "IgLifecycleEvent",
+    "IgFollowCapabilityState",
+    "IgFollowState",
+    "IgFollowObservation",
+    "IgFollowRefreshJob",
+    "IgFollowCtaDecision",
     "IgCommerceSelectionSession",
     "IgCommerceSelectionTransition",
     "IgCommerceTurnDecision",
@@ -2688,6 +2693,420 @@ class IgLifecycleEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgLifecycleEvent is durable")
+
+
+class IgFollowCapabilityState(models.Model):
+    """Provider-wide capability and circuit state for follow lookups."""
+
+    class Status(models.TextChoices):
+        UNKNOWN = "unknown", _("Невідомо")
+        AVAILABLE = "available", _("Доступно")
+        DEGRADED = "degraded", _("Тимчасово недоступно")
+        BLOCKED = "blocked", _("Заблоковано політикою Meta")
+
+    singleton_key = models.PositiveSmallIntegerField(default=1, unique=True)
+    transport = models.CharField(max_length=32, blank=True, default="")
+    graph_version = models.CharField(max_length=16, blank=True, default="")
+    ig_user_id = models.CharField(max_length=64, blank=True, default="")
+    config_fingerprint = models.CharField(max_length=64, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.UNKNOWN,
+        db_index=True,
+    )
+    checked_at = models.DateTimeField(null=True, blank=True)
+    next_probe_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    blocked_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    consecutive_failures = models.PositiveIntegerField(default=0)
+    last_error_kind = models.CharField(max_length=32, blank=True, default="")
+    last_error_code = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(singleton_key=1),
+                name="ig_follow_cap_singleton_one",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["status", "next_probe_at"],
+                name="ig_follow_cap_status",
+            ),
+        ]
+
+    def is_probe_blocked(self, *, now=None) -> bool:
+        now = now or timezone.now()
+        return bool(
+            (self.blocked_until and self.blocked_until > now)
+            or (self.next_probe_at and self.next_probe_at > now)
+        )
+
+
+class IgFollowState(models.Model):
+    """Latest authoritative follow observation for one Instagram client."""
+
+    class State(models.TextChoices):
+        UNKNOWN = "unknown", _("Невідомо")
+        FOLLOWING = "following", _("Підписаний")
+        NOT_FOLLOWING = "not_following", _("Не підписаний")
+
+    class CheckResult(models.TextChoices):
+        NEVER = "never", _("Не перевірялось")
+        KNOWN = "known", _("Отримано")
+        ERROR = "error", _("Помилка")
+        SKIPPED = "skipped", _("Пропущено політикою")
+
+    client = models.OneToOneField(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="follow_state_projection",
+        db_constraint=False,
+    )
+    state = models.CharField(
+        max_length=16,
+        choices=State.choices,
+        default=State.UNKNOWN,
+        db_index=True,
+    )
+    revision = models.PositiveBigIntegerField(default=0)
+    source = models.CharField(max_length=32, blank=True, default="")
+    graph_version = models.CharField(max_length=16, blank=True, default="")
+    config_fingerprint = models.CharField(max_length=64, blank=True, default="")
+    observed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    first_observed_following_at = models.DateTimeField(null=True, blank=True)
+    last_check_at = models.DateTimeField(null=True, blank=True)
+    last_result = models.CharField(
+        max_length=16,
+        choices=CheckResult.choices,
+        default=CheckResult.NEVER,
+    )
+    consecutive_failures = models.PositiveIntegerField(default=0)
+    last_error_kind = models.CharField(max_length=32, blank=True, default="")
+    last_error_code = models.CharField(max_length=64, blank=True, default="")
+    next_retry_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    refresh_generation = models.PositiveBigIntegerField(default=0)
+    refresh_lease_token = models.CharField(max_length=64, blank=True, default="")
+    refresh_lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_cta_touch_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["state", "expires_at"],
+                name="ig_follow_state_fresh",
+            ),
+            models.Index(
+                fields=["next_retry_at", "client"],
+                name="ig_follow_state_retry",
+            ),
+        ]
+
+
+class _AppendOnlyFollowObservationQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgFollowObservation is append-only")
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ValueError("IgFollowObservation is append-only")
+
+    def delete(self):
+        raise ValueError("IgFollowObservation is append-only")
+
+    def _raw_delete(self, using):
+        raise ValueError("IgFollowObservation is append-only")
+
+
+class IgFollowObservation(models.Model):
+    """Append-only, token-free evidence returned by the Meta follow endpoint."""
+
+    class Result(models.TextChoices):
+        KNOWN = "known", _("Отримано")
+        ERROR = "error", _("Помилка")
+        SKIPPED = "skipped", _("Пропущено")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="follow_observations",
+        db_constraint=False,
+    )
+    revision = models.PositiveBigIntegerField(default=0)
+    trigger = models.CharField(max_length=32)
+    result = models.CharField(max_length=16, choices=Result.choices, db_index=True)
+    observed_value = models.BooleanField(null=True, blank=True)
+    field_present = models.BooleanField(default=False)
+    field_type = models.CharField(max_length=24, blank=True, default="")
+    transport = models.CharField(max_length=32, blank=True, default="")
+    graph_version = models.CharField(max_length=16, blank=True, default="")
+    config_fingerprint = models.CharField(max_length=64)
+    http_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    graph_code = models.PositiveIntegerField(null=True, blank=True)
+    graph_subcode = models.PositiveIntegerField(null=True, blank=True)
+    error_kind = models.CharField(max_length=32, blank=True, default="")
+    error_code = models.CharField(max_length=64, blank=True, default="")
+    duration_ms = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlyFollowObservationQuerySet)()
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(
+                fields=["client", "-created_at"],
+                name="ig_follow_obs_client_dt",
+            ),
+            models.Index(
+                fields=["result", "-created_at"],
+                name="ig_follow_obs_result_dt",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgFollowObservation is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgFollowObservation is append-only")
+
+
+class IgFollowRefreshJob(models.Model):
+    """One coalescing, lease-backed follow lookup request per client."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        PROCESSING = "processing", _("Обробляється")
+        DONE = "done", _("Завершено")
+        FAILED = "failed", _("Помилка")
+
+    client = models.OneToOneField(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="follow_refresh_job",
+        db_constraint=False,
+    )
+    requested_generation = models.PositiveBigIntegerField(default=0)
+    claimed_generation = models.PositiveBigIntegerField(default=0)
+    triggers = models.JSONField(default=list, blank=True)
+    expected_config_fingerprint = models.CharField(max_length=64, blank=True, default="")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    due_at = models.DateTimeField(default=timezone.now, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error_kind = models.CharField(max_length=32, blank=True, default="")
+    last_error_code = models.CharField(max_length=64, blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["status", "due_at", "id"],
+                name="ig_follow_job_due",
+            ),
+        ]
+
+
+class _IgFollowCtaDecisionQuerySet(models.QuerySet):
+    _IDENTITY_FIELDS = {
+        "trigger_key",
+        "client",
+        "client_id",
+        "opportunity",
+        "commercial_episode",
+        "commercial_episode_id",
+        "order",
+        "order_id",
+        "lifecycle_event",
+        "lifecycle_event_id",
+        "source_message",
+        "source_message_id",
+        "follow_state_revision",
+        "conversation_watermark",
+        "context_fingerprint",
+        "base_text",
+    }
+
+    def update(self, **kwargs):
+        if self._IDENTITY_FIELDS.intersection(kwargs):
+            raise ValueError("IgFollowCtaDecision identity is immutable")
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self._IDENTITY_FIELDS.intersection(fields):
+            raise ValueError("IgFollowCtaDecision identity is immutable")
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def delete(self):
+        raise ValueError("IgFollowCtaDecision is durable")
+
+    def _raw_delete(self, using):
+        raise ValueError("IgFollowCtaDecision is durable")
+
+
+class IgFollowCtaDecision(models.Model):
+    """Durable optional follow CTA decision and provider delivery outcome."""
+
+    class Opportunity(models.TextChoices):
+        PAYMENT = "payment", _("Підтвердження оплати")
+        HESITATION = "hesitation", _("М'яке вагання")
+        POST_DELIVERY = "post_delivery", _("Після позитивної відповіді")
+
+    class State(models.TextChoices):
+        SUPPRESSED = "suppressed", _("Заборонено політикою")
+        WAITING_FOLLOW = "waiting_follow", _("Очікує перевірки підписки")
+        PREPARING = "preparing", _("Готується")
+        PREPARED = "prepared", _("Підготовлено")
+        RESERVED = "reserved", _("Зарезервовано до відправлення")
+        SENT = "sent", _("Надіслано")
+        AMBIGUOUS = "ambiguous", _("Результат невідомий")
+        CANCELLED = "cancelled", _("Скасовано")
+        FAILED = "failed", _("Помилка")
+
+    trigger_key = models.CharField(max_length=180, unique=True)
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="follow_cta_decisions",
+        db_constraint=False,
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="follow_cta_decisions",
+        db_constraint=False,
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="instagram_follow_cta_decisions",
+        db_constraint=False,
+    )
+    lifecycle_event = models.ForeignKey(
+        "management.IgLifecycleEvent",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="follow_cta_decisions",
+        db_constraint=False,
+    )
+    source_message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="follow_cta_decisions",
+        db_constraint=False,
+    )
+    opportunity = models.CharField(max_length=24, choices=Opportunity.choices, db_index=True)
+    policy_version = models.CharField(max_length=32, default="follow-v1")
+    state = models.CharField(
+        max_length=24,
+        choices=State.choices,
+        default=State.PREPARING,
+        db_index=True,
+    )
+    episode_slot_key = models.CharField(
+        max_length=160,
+        null=True,
+        blank=True,
+        unique=True,
+    )
+    sent_scope_key = models.CharField(
+        max_length=180,
+        null=True,
+        blank=True,
+        unique=True,
+    )
+    follow_state_revision = models.PositiveBigIntegerField(default=0)
+    conversation_watermark = models.PositiveBigIntegerField(default=0)
+    context_fingerprint = models.CharField(max_length=64, blank=True, default="")
+    base_text = models.TextField(blank=True, default="")
+    candidate_text = models.CharField(max_length=300, blank=True, default="")
+    candidate_hash = models.CharField(max_length=64, blank=True, default="")
+    final_text = models.TextField(blank=True, default="")
+    suppression_reason = models.CharField(max_length=64, blank=True, default="")
+    reason_codes = models.JSONField(default=list, blank=True)
+    model = models.CharField(max_length=80, blank=True, default="")
+    model_key_alias = models.CharField(max_length=80, blank=True, default="")
+    prompt_version = models.CharField(max_length=40, blank=True, default="")
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    provider_message_ids = models.JSONField(default=list, blank=True)
+    provider_io_started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    follow_observed_after_cta_at = models.DateTimeField(null=True, blank=True)
+    last_error_kind = models.CharField(max_length=32, blank=True, default="")
+    last_error_code = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager.from_queryset(_IgFollowCtaDecisionQuerySet)()
+
+    _IDENTITY_FIELDS = (
+        "trigger_key",
+        "client_id",
+        "commercial_episode_id",
+        "order_id",
+        "lifecycle_event_id",
+        "source_message_id",
+        "opportunity",
+        "follow_state_revision",
+        "conversation_watermark",
+        "context_fingerprint",
+        "base_text",
+    )
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(
+                fields=["client", "-created_at"],
+                name="ig_follow_dec_client_dt",
+            ),
+            models.Index(
+                fields=["state", "-created_at"],
+                name="ig_follow_dec_state_dt",
+            ),
+            models.Index(
+                fields=["commercial_episode", "state"],
+                name="ig_follow_dec_episode",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                *self._IDENTITY_FIELDS
+            ).first()
+            if previous:
+                for field_name in self._IDENTITY_FIELDS:
+                    if getattr(self, field_name) != previous[field_name]:
+                        raise ValueError("IgFollowCtaDecision identity is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgFollowCtaDecision is durable")
 
 
 class IgPostSaleCase(models.Model):
