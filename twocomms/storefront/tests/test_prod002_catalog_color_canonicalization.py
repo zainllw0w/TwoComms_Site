@@ -181,31 +181,31 @@ class ColorFilterCanonicalServiceTests(TestCase):
             "fit=classic&fit=oversize&size=L&size=M&",
         )
 
-    def test_catalog_pagination_prefix_preserves_tracking_parameters(self):
+    def test_catalog_pagination_prefix_strips_tracking_parameters(self):
         request = self.factory.get(
             "/catalog/?utm_source=ad&size=M&page=2"
         )
 
         self.assertEqual(
             _build_catalog_pagination_query_prefix(request),
-            "utm_source=ad&size=M&",
+            "size=M&",
         )
 
-    def test_catalog_page_one_url_removes_page_without_dropping_state(self):
+    def test_catalog_page_one_url_removes_page_and_tracking_but_keeps_facets(self):
         request = self.factory.get(
             "/ru/catalog/tshirts/?fit=oversize&page=2&utm_source=ad"
         )
 
         self.assertEqual(
             _build_catalog_page_one_url(request),
-            "/ru/catalog/tshirts/?fit=oversize&utm_source=ad",
+            "/ru/catalog/tshirts/?fit=oversize",
         )
 
-    def test_catalog_cache_version_busts_pre_editorial_link_policy_responses(self):
+    def test_catalog_cache_version_busts_pre_facet_owner_policy_responses(self):
         request = self.factory.get("/catalog/")
 
         self.assertIn(
-            "catalog-v11",
+            "catalog-v12",
             _catalog_cache_prefix(request, lambda request: None),
         )
 

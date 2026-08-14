@@ -187,12 +187,17 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
-_CATALOG_CACHE_VERSION = "catalog-v11"
+_CATALOG_CACHE_VERSION = "catalog-v12"
 
 
 def _catalog_external_query_keys(request):
     """Return opaque parameters that do not control catalog content."""
     return set(request.GET) - _CATALOG_QUERY_KEYS
+
+
+def _catalog_has_non_owner_state(request):
+    """Return whether validated UI state changes a non-indexable catalog slice."""
+    return bool((set(request.GET) & _CATALOG_QUERY_KEYS) - {"page"})
 
 
 def _catalog_landing_query_policy(*, allow_color=False):
@@ -498,7 +503,7 @@ def _build_catalog_cache_query(
 
 
 def _build_catalog_pagination_query_prefix(request):
-    """Build stable pagination links without changing tracking propagation."""
+    """Build stable pagination links without propagating external tracking state."""
     if _catalog_cacheable_request(request):
         query = _build_catalog_cache_query(
             request,
@@ -1875,6 +1880,10 @@ def catalog(request, cat_slug=None, collection_slug=None):
 
     # Pagination
     paginator, page_obj = _paginate_catalog_queryset(product_qs, request)
+    catalog_facet_state = _catalog_has_non_owner_state(request)
+    catalog_owner_path = request.path
+    if page_obj.number > 1 and not catalog_facet_state:
+        catalog_owner_path = f"{catalog_owner_path}?page={page_obj.number}"
 
     products = list(page_obj.object_list)
     catalog_schema_products = _catalog_schema_products(products, get_language())
@@ -1977,6 +1986,8 @@ def catalog(request, cat_slug=None, collection_slug=None):
             'root_catalog_selected_sort': root_catalog_selected_sort,
             'root_catalog_filter_active_count': root_catalog_filter_active_count,
             'root_catalog_filters_active': bool(root_catalog_filter_active_count),
+            'catalog_facet_state': catalog_facet_state,
+            'catalog_owner_path': catalog_owner_path,
             'suppress_hreflang': suppress_hreflang,
             'catalog_landing_has_tracking': catalog_landing_has_tracking,
             'root_catalog_size_options': SELLABLE_SIZE_ORDER,
@@ -2572,6 +2583,10 @@ def thematic_landing(request, theme_slug):
         .split('?', 1)[0]
         .rstrip('/') + '/'
     )
+    catalog_facet_state = bool(has_active_color_filter)
+    catalog_owner_path = canonical_path
+    if page_obj.number > 1 and not catalog_facet_state:
+        catalog_owner_path = f"{catalog_owner_path}?page={page_obj.number}"
     from ..services.locale_publication import uk_only_publication_context
 
     return render(
@@ -2624,6 +2639,8 @@ def thematic_landing(request, theme_slug):
             'color_seo_copy': None,
             'thematic_canonical_url': canonical_url,
             'thematic_canonical_path': canonical_path,
+            'catalog_facet_state': catalog_facet_state,
+            'catalog_owner_path': catalog_owner_path,
             'locale_publication': uk_only_publication_context(
                 getattr(request, "LANGUAGE_CODE", "uk")
             ),

@@ -51,17 +51,17 @@ Treat them like any other facet: noindex, follow + canonical → base catalog.
 {# the same dataset on the same canonical URL. #}
 {% block robots %}{% if thematic_landing and not locale_publication.indexable %}noindex, follow{% elif catalog_landing_has_tracking %}noindex, follow{% elif smart_selector_enabled and smart_selector_request_has_facets %}noindex, follow{% elif selected_color_slugs|length > 1 %}noindex, nofollow{% elif is_search_page or root_catalog_filters_active or has_active_color_filter or request.GET.sort or request.GET.theme or request.GET.fit %}noindex, follow{% else %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endif %}{% endblock %}
 
-{# SEO 2026-05-16 — self-canonical on every paginator state (Google explicitly recommends "do not designate the first page as the canonical for paginator pages — give each its own canonical URL"; #}
-{# https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading). #}
-{% block canonical %}{% if thematic_landing %}{{ site_base_url }}{{ thematic_canonical_path }}{% if page_obj and page_obj.number > 1 and not has_active_color_filter %}?page={{ page_obj.number }}{% endif %}{% elif is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{# Clean paginator states remain self-canonical. Validated UI facet/sort/category #}
+{# states keep their filtered navigation but consolidate to the clean locale route. #}
+{% block canonical %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ catalog_owner_path }}{% endif %}{% endblock %}
 {% comment %}
 SEO v1.1 Phase 2 (2026-05-15) — base.html emits four hreflang entries
 via language_alternates. Don't override hreflang_uk / hreflang_x_default
 here so /ru/ and /en/ catalog pages publish reciprocal alternates that
 point at themselves.
 {% endcomment %}
-{% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
-{% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% elif page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}{% endblock %}
+{% block og_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ catalog_owner_path }}{% endif %}{% endblock %}
+{% block twitter_url %}{% if is_search_page %}{{ site_base_url }}{% url 'catalog' %}{% else %}{{ site_base_url }}{{ catalog_owner_path }}{% endif %}{% endblock %}
 
 {% block pagination_links %}
 {% if page_obj %}{% if page_obj.has_previous %}<link rel="prev" href="{% if page_obj.previous_page_number == 1 %}{{ site_base_url }}{{ pagination_page_one_url }}{% else %}{{ site_base_url }}{{ request.path }}?{{ pagination_query_prefix }}page={{ page_obj.previous_page_number }}{% endif %}">{% endif %}{% if page_obj.has_next %}<link rel="next" href="{{ site_base_url }}{{ request.path }}?{{ pagination_query_prefix }}page={{ page_obj.next_page_number }}">{% endif %}{% endif %}
@@ -91,15 +91,14 @@ point at themselves.
         {"@type": "ListItem", "position": 2, "name": "{% trans 'Каталог' %}", "item": "{{ site_base_url }}{% url 'catalog' %}"},
         {"@type": "ListItem", "position": 3, "name": "{% if merch_collection_page %}{{ merch_collection_page.label }}{% else %}{{ category.name }}{% endif %}", "item": "{{ site_base_url }}{{ request.path }}"}
       ]
-    },
+    }{% if not catalog_facet_state %},
     {
       "@type": "CollectionPage",
-      {# SEO 2026-05-16 — page-specific @id so each paginator state is a distinct entity #}
-      {# in the knowledge graph; same pattern as the catalog root above. #}
-      "@id": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}#collection{% else %}{{ site_base_url }}{{ request.path }}#collection{% endif %}",
+      {# Keep structured ownership aligned with the canonical URL. #}
+      "@id": "{{ site_base_url }}{{ catalog_owner_path }}#collection",
       "name": "{% if merch_collection_page %}{{ merch_collection_page.title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
       "description": "{% if merch_collection_page %}{{ merch_collection_page.description|escapejs }}{% else %}{% blocktrans with cat=category.name|lower %}Категорія {{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}{% endif %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}",
-      "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
+      "url": "{{ site_base_url }}{{ catalog_owner_path }}",
       "mainEntity": {
         "@type": "ItemList",
         "itemListOrder": "https://schema.org/ItemListOrderDescending",
@@ -115,7 +114,7 @@ point at themselves.
           {% endfor %}
         ]
       }
-    }
+    }{% endif %}
   ]
 }
 </script>
@@ -131,17 +130,14 @@ point at themselves.
         {"@type": "ListItem", "position": 1, "name": "{% trans 'Головна' %}", "item": "{{ site_base_url }}/"},
         {"@type": "ListItem", "position": 2, "name": "{% trans 'Каталог' %}", "item": "{{ site_base_url }}{{ request.path }}"}
       ]
-    },
+    }{% if not catalog_facet_state %},
     {
       "@type": "CollectionPage",
-      {# SEO 2026-05-16 — unique CollectionPage @id per paginator state. Without a #}
-      {# stable, page-specific @id Google was conflating ?page=N with the catalog #}
-      {# root and counting them as one entity, contributing to "Crawled, currently #}
-      {# not indexed" on the paginator URLs. #}
-      "@id": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}#collection{% else %}{{ site_base_url }}{{ request.path }}#collection{% endif %}",
+      {# Clean page N keeps its own entity; non-owner UI state uses the clean route. #}
+      "@id": "{{ site_base_url }}{{ catalog_owner_path }}#collection",
       "name": "{% trans 'Каталог TwoComms' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}",
       "description": "{% trans 'Повний каталог стріт та мілітарі одягу TwoComms.' %}{% if page_obj and page_obj.number > 1 %} {% blocktrans with n=page_obj.number total=paginator.num_pages %}Сторінка {{ n }} з {{ total }}.{% endblocktrans %}{% endif %}",
-      "url": "{% if page_obj and page_obj.number > 1 %}{{ site_base_url }}{{ request.path }}?page={{ page_obj.number }}{% else %}{{ site_base_url }}{{ request.path }}{% endif %}",
+      "url": "{{ site_base_url }}{{ catalog_owner_path }}",
       "mainEntity": {
         "@type": "ItemList",
         {# SEO 2026-05-16 — emit the actual products visible on this page (not the category #}
@@ -161,7 +157,7 @@ point at themselves.
           {% endfor %}
         ]
       }
-    }
+    }{% endif %}
   ]
 }
 </script>

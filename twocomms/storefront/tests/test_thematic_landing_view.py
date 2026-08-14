@@ -56,6 +56,24 @@ class ThematicLandingViewTests(TestCase):
         merchant_patcher.start()
         indexnow_patcher.start()
 
+    def _schema_nodes(self, response, node_type):
+        payloads = [
+            json.loads(payload)
+            for payload in response.content.decode("utf-8").split(
+                '<script type="application/ld+json">'
+            )[1:]
+            for payload in [payload.split("</script>", 1)[0]]
+        ]
+        return [
+            node
+            for payload in payloads
+            for node in payload.get("@graph", [payload])
+            if node.get("@type") == node_type
+        ]
+
+    def _collection_page(self, response):
+        return self._schema_nodes(response, "CollectionPage")[0]
+
     def test_clean_and_page_two_remain_indexable_and_self_canonical(self):
         clean = self.client.get("/catalog/theme/streetwear/")
         with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
@@ -82,19 +100,7 @@ class ThematicLandingViewTests(TestCase):
             response.context["catalog_schema_products"],
             response.context["products"],
         )
-        payloads = [
-            json.loads(payload)
-            for payload in response.content.decode("utf-8").split(
-                '<script type="application/ld+json">'
-            )[1:]
-            for payload in [payload.split("</script>", 1)[0]]
-        ]
-        collection_page = next(
-            node
-            for payload in payloads
-            for node in payload.get("@graph", [payload])
-            if node.get("@type") == "CollectionPage"
-        )
+        collection_page = self._collection_page(response)
         item_list = collection_page["mainEntity"]
 
         self.assertEqual(item_list["numberOfItems"], 3)
@@ -108,6 +114,31 @@ class ThematicLandingViewTests(TestCase):
                 for index in range(3)
             },
         )
+
+    def test_non_owner_thematic_page_omits_collection_schema(self):
+        path = "/catalog/theme/streetwear/"
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            clean = self.client.get(f"{path}?page=2")
+            filtered = self.client.get(
+                f"{path}?color=black&page=2",
+                follow=True,
+            )
+
+        clean_collection = self._collection_page(clean)
+        clean_owner = f"https://twocomms.shop{path}?page=2"
+        filtered_owner = f"https://twocomms.shop{path}"
+
+        self.assertEqual(clean.context["catalog_owner_path"], f"{path}?page=2")
+        self.assertEqual(filtered.context["catalog_owner_path"], path)
+        self.assertFalse(clean.context["catalog_facet_state"])
+        self.assertTrue(filtered.context["catalog_facet_state"])
+        self.assertEqual(clean_collection["@id"], f"{clean_owner}#collection")
+        self.assertEqual(clean_collection["url"], clean_owner)
+        self.assertEqual(self._schema_nodes(filtered, "CollectionPage"), [])
+        self.assertEqual(len(self._schema_nodes(filtered, "BreadcrumbList")), 1)
+        for response, owner in ((clean, clean_owner), (filtered, filtered_owner)):
+            self.assertContains(response, f'href="{owner}"', html=False)
+            self.assertContains(response, f'content="{owner}"', count=2, html=False)
 
     def test_page_aliases_redirect_once_without_losing_locale_or_color(self):
         clean_alias = self.client.get(
