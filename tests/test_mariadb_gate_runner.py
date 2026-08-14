@@ -217,8 +217,8 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             summary,
         )
         self.assertIn("ERROR: test_failed", summary)
-        self.assertIn("RuntimeError:", summary)
-        self.assertIn("pymysql.err.OperationalError: errno=1213", summary)
+        self.assertIn("exception:", summary)
+        self.assertIn("database_error: errno=1213", summary)
         self.assertIn("Ran 1 test in 2.345s", summary)
         self.assertIn("FAILED (errors=1)", summary)
         self.assertNotIn("Traceback", summary)
@@ -297,6 +297,50 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         ):
             self.assertNotIn(private_detail, summary)
 
+    def test_failure_summary_replaces_dynamic_exception_type_names(self):
+        customer_error = type("SensitiveCustomerError", (Exception,), {})
+        database_error = type("SensitiveOrderError", (Exception,), {})
+        completed = subprocess.CompletedProcess(
+            args=["python", "manage.py", "test"],
+            returncode=1,
+            stdout="",
+            stderr=(
+                f"{customer_error.__name__}: customer=Olena\n"
+                f"myapp.{database_error.__name__}: (1213, 'order=deadbeef')\n"
+            ),
+        )
+
+        summary = self.runner._failure_summary(
+            suite="checkout-concurrency",
+            completed=completed,
+        )
+
+        self.assertIn("exception:", summary)
+        self.assertIn("database_error: errno=1213", summary)
+        self.assertNotIn(customer_error.__name__, summary)
+        self.assertNotIn(database_error.__name__, summary)
+        self.assertNotIn("Olena", summary)
+        self.assertNotIn("deadbeef", summary)
+
+    def test_main_replaces_unexpected_dynamic_exception_type_name(self):
+        unexpected_error = type("SensitiveFallbackError", (Exception,), {})
+        stderr = io.StringIO()
+
+        with (
+            mock.patch.object(
+                self.runner,
+                "run_gate",
+                side_effect=unexpected_error("customer=Olena"),
+            ),
+            mock.patch.object(self.runner.sys, "stderr", stderr),
+        ):
+            self.assertEqual(self.runner.main(["--server-mode", "external"]), 1)
+
+        rendered = stderr.getvalue()
+        self.assertEqual(rendered, "MariaDB gate failed: unexpected_error\n")
+        self.assertNotIn(unexpected_error.__name__, rendered)
+        self.assertNotIn("Olena", rendered)
+
     def test_cleanup_failure_is_red_without_hiding_primary_error(self):
         admin = FakeAdmin(fail_cleanup=True)
         command = FakeCommandRunner(returncode=1)
@@ -355,8 +399,9 @@ class MariaDbGateRunnerTests(unittest.TestCase):
 
     def test_cleanup_error_summary_is_allowlisted_and_does_not_leak_driver_details(self):
         admin = FakeAdmin(fail_cleanup=True)
+        cleanup_error = type("SensitiveCustomerCleanupError", (Exception,), {})
         admin.drop_user = mock.Mock(
-            side_effect=RuntimeError("access denied for user='gate' password=top-secret")
+            side_effect=cleanup_error("access denied for user='gate' password=top-secret")
         )
         evidence = io.StringIO()
 
@@ -374,7 +419,8 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         rendered = str(raised.exception)
         self.assertNotIn("top-secret", rendered)
         self.assertNotIn("access denied", rendered)
-        self.assertIn("cleanup_error=RuntimeError", rendered)
+        self.assertIn("cleanup_error=exception", rendered)
+        self.assertNotIn(cleanup_error.__name__, rendered)
 
     def test_partial_provisioning_still_attempts_idempotent_cleanup(self):
         admin = FakeAdmin(fail_at="create_user")
