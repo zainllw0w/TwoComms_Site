@@ -700,6 +700,7 @@ pro_brand.html генерирует /catalog/tshirts/, /catalog/hoodie/ и /cata
 | Порядок | Работа | Effect / risk | Dependencies | Acceptance |
 |---:|---|---|---|---|
 | 1 — выполнено | Удалить internal links на 25 dead destinations | P1 crawl/UX | Deployed `e20ec393`; Custom Print flow не менялся | Достигнуто: live crawl 1 354 URL, 0 linked 404 |
+| 1b — выполнено | Убрать неутвержденный fallback SEO-блок с чистого корня каталога | P0 factuality / scaled-content hygiene | Active `CatalogColorSeoOverride(scope="general")`; cache invalidation | Deployed `6ce8466bf` (2026-08-14): production DB has 0 active general rows; UK/RU/EN `/catalog/` render 0 `catalog-color-seo` sections and 0 legacy markers; UK/RU/EN `?color=black` retain the colour block and `noindex, follow` |
 | 1a — условно | Проверить external history 24 numeric PDP перед redirect decision | P3/P2 только при реальных backlinks/traffic | GSC, logs, backlink/analytics history, exact successor | Exact successor -> one-hop 301; иначе 404/410; не блокирует выполненный пункт 1 |
 | 2 | Нормализовать exact-equivalent variant paths | P1/P2 URL ownership hygiene | Current parser/state tests; ownership policy не требуется | Lowercase stable order; exact permutations one-hop 301; ambiguous/repeated segments 404; selected state identical |
 | 3 | Утвердить variant ownership и single-page/multi-page policy | P1 canonical/state consistency | Demand/GSC/backlinks, inventory, media, locale fact matrix | Все 630 locale URL классифицированы; owners и UI states согласованы с sitemap/internal links/schema; mass changes запрещены без history review |
@@ -713,6 +714,12 @@ pro_brand.html генерирует /catalog/tshirts/, /catalog/hoodie/ и /cata
 | 11 | GEO/AI monitoring and local policy | P2 long-term factuality | Fact registry, query set, legal confirmation of entity/location | Monthly citation matrix; one truthful Kharkiv/Ukraine narrative; no unapproved city pages |
 
 Не следует начинать закупку ссылок до выполнения пунктов 1–5 и повторной проверки production: внешние ссылки не исправят неверный canonical, 404, смешанный язык или противоречивую цену и могут усилить неверные URL.
+
+### 7.1. Release log: root catalog editorial fallback
+
+- [x] **P0-Facts-RootCatalog (2026-08-14):** `6ce8466bf` removes `GENERAL_CATALOG_SEO_COPY` as a fallback for clean `/catalog/`. `build_catalog_color_seo()` now returns `None` unless production has an active, explicitly populated `general` override; a partial override never inherits retired claims. The template suppresses empty H2/body wrappers, and the versioned anonymous catalog page cache was bumped to `catalog-seo-v7-20260814-root-editorial` so cached root HTML cannot survive the release.
+- [x] **Regression boundary:** 24 focused Django tests pass for root/no-override, active/inactive/empty/query-only general overrides, coloured catalog rendering, clean editorial links, and cache identity. `manage.py check`, `py_compile`, `makemigrations --check --dry-run`, and `git diff --check` passed before commit. The broader historical catalog/SEO batch still has pre-existing unrelated failures in tracking-pagination expectations, swatch test expectations, and home/product schema cache fixtures; none are caused by this release and they remain separate work.
+- [x] **Production proof:** server checkout is `6ce8466bf960b02606c1a54600e8062c46994e41`; an authoritative MariaDB query returned `0` active `general` override rows. Fresh HTTP HTML checks confirmed `section=0`, `legacy=0` on `/catalog/`, `/ru/catalog/`, `/en/catalog/`; and `section=1`, `noindex=1` on the matching `?color=black` URLs. Custom Print, the DTF subdomain, blog, variant ownership, canonical, hreflang, and colour-filter policy were not changed in this release.
 
 ## 8. Матрица проверки после будущих исправлений
 
