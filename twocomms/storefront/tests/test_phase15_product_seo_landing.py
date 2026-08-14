@@ -122,11 +122,25 @@ class TopQueriesTests(_Base):
 
 class CategoryLayoutReuseTests(_Base):
 
-    @patch("storefront.services.category_seo_blocks._synthesize_color_landings")
-    def test_product_layout_does_not_build_catalog_color_rail(self, synthesize):
-        _category_layout_for_product(self.product)
+    def test_product_layout_loads_only_owned_menu_without_catalog_color_query(self):
+        from storefront.services.category_seo_blocks import get_category_seo_blocks
+
+        with (
+            patch(
+                "storefront.services.category_seo_blocks.get_category_seo_blocks",
+                wraps=get_category_seo_blocks,
+            ) as load_blocks,
+            patch(
+                "storefront.services.category_seo_blocks._synthesize_color_landings"
+            ) as synthesize,
+        ):
+            _category_layout_for_product(self.product)
 
         synthesize.assert_not_called()
+        load_blocks.assert_called_once_with(
+            self.cat,
+            block_types=("top_menu",),
+        )
 
     def test_drops_query_filter_and_best_price_blocks(self):
         # Query filters are interactive UI state, not editorial SEO links.

@@ -245,7 +245,15 @@ def get_locale_safe_product_seo_layout(category, *, language: str) -> Dict[str, 
     if category is None:
         return {"tab_blocks": [], "best_prices": None, "has_any": False}
     if language == "uk":
-        return get_category_seo_layout(category, include_color_landings=False)
+        blocks = get_category_seo_blocks(
+            category,
+            block_types=("top_menu",),
+        )
+        return get_category_seo_layout(
+            category,
+            blocks=blocks,
+            include_color_landings=False,
+        )
     menu = _locale_safe_top_menu(category, language)
     tab_blocks = [menu] if menu and menu.get("items") else []
     return {
