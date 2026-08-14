@@ -4,6 +4,41 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W2.1 authoritative order lifecycle and delivery truth (2026-08-14)
+
+The release candidate was published in `main` at exact SHA
+`8d8c5d05c647c2cfcc9fb4f70d7ee206f8f0359e`. The prescribed SSH `git pull`
+fast-forwarded production from `f81195895e5e7477c893ea87f6dfb277b4c82eeb`;
+the separately authorized targeted command
+`python manage.py migrate management 0156 --noinput` then applied
+`management.0156_ig_order_event_delivery_receipts` successfully. No restart,
+compress, source build, overlay, fixture or provider command was run.
+
+Read-only MariaDB proof after migration: server
+`11.4.12-MariaDB-cll-lve`, migration `0156=[X]`,
+`management_igordercustomerevent.provider_message_id` is `varchar(255)`,
+`delivery_provider_message_ids` is `LONGTEXT` with the exact positive
+`JSON_VALID` constraint. `manage.py check` reported zero issues and the
+management-only `makemigrations --check --dry-run` returned
+`No changes detected`.
+
+Runtime proof: bot `state=running`, `running=True`, `daemon_online=True`,
+`provider_transport=instagram_login`, `last_error=''`; dangerous backlog,
+inbound/reply/notification/analysis/recovery pending queues and notification
+unknown/failed/dead-letter rows are all `0`. `https://twocomms.shop/healthz/`
+and `https://management.twocomms.shop/bot/health/` returned HTTP `200`.
+
+No-send reconciliation is unchanged from the pre-pull production baseline:
+canonical lifecycle messages, provider send markers and receipts remain `0`,
+legacy `IgOrderCustomerEvent` rows remain `5`, and the single historical
+delivered funnel fact remains `1`. No customer, Meta, payment, order,
+synthetic fixture or provider event was created. The unscoped production
+`makemigrations --check --dry-run` still exposes a pre-existing storefront SEO
+model drift (`0095` would alter `h2`, `body_html` and `queries_json`); the
+management app is clean and no unrelated migration was generated. The existing
+stale compression manifest warning and 18 terminal historical analysis
+failures remain bounded open evidence under `IMP-094`/`F-DEPLOY-003`.
+
 ## Implement2 W2.2 T41 disposable checkout-concurrency gate (2026-08-14)
 
 GitHub Actions run `31761170448` verified test-only commits through

@@ -543,6 +543,15 @@ These findings were discovered while implementing Wave 0 and are owned here;
   destructive Git operations, runtime migration generation, overlays,
   password tooling, in-place installs and unbounded process restarts.
 
+**Additional `IMP-094` evidence (2026-08-14):** the unscoped production
+`makemigrations --check --dry-run` reports a pre-existing `storefront` SEO
+model drift that would generate `0095` for `h2`, `body_html` and
+`queries_json`; the same model source is present at the pre-pull SHA and the
+management app itself reports `No changes detected`. Do not generate or apply
+that unrelated migration during an Instagram release. It is a separate
+schema-drift follow-up for the deployment gate, alongside the existing stale
+compression-manifest evidence.
+
 ### W2.1 Close residual local reliability debt after preflight — `IMP-094.A`
 
 - [x] P0.5 bounded local slice is complete: it now has a cwd-independent/no-network baseline runner. The manager-
@@ -677,9 +686,9 @@ open.
 
 ### W2.1 closeout — authoritative order lifecycle and delivery truth
 
-**Status:** IMPLEMENTED / RELEASE GATE PENDING. This is the current release
-candidate and the mandatory lifecycle prerequisite for `IMP-106`; it does not
-implement follow-state lookup, a follow CTA or coupon issuance.
+**Status:** IMPLEMENTED / RELEASED 2026-08-14. This is the mandatory lifecycle
+prerequisite for `IMP-106`; it does not implement follow-state lookup, a follow
+CTA or coupon issuance.
 
 - Lifecycle events now require one current order attribution, checkout
   proposal, confirmed payment projection and current assignment/version before
@@ -732,11 +741,35 @@ compileall and `git diff --check` are clean. The missing local compression
 manifest/staticfiles warnings are unchanged environment warnings, not test
 failures; production check remains mandatory after the approved SSH pull.
 
-- [ ] Release acceptance: commit and push the rebased SHA, pass the exact-SHA
-  disposable MariaDB lifecycle gate including migration `0156`, integrate the
-  verified SHA into `main`, deploy only through the approved SSH `git pull`,
-  then record production SHA, migration, daemon/provider/queue health and the
-  final no-send read-only lifecycle evidence.
+- [x] Release acceptance (2026-08-14): commits `51db3058` and `8d8c5d05` are
+  reachable from `main`; the exact-SHA disposable MariaDB lifecycle gate and
+  runner contracts are green (`29/29`, GitHub Actions `31813850156` and
+  `31814617538`). Production was fast-forwarded only through the approved SSH
+  `git pull`; the explicitly authorized targeted command then applied
+  `management.0156_ig_order_event_delivery_receipts`.
+
+  Post-deploy production proof: `HEAD=8d8c5d05c647c2cfcc9fb4f70d7ee206f8f0359e`,
+  branch `main`, MariaDB `11.4.12-MariaDB-cll-lve`, migration `0156=[X]`,
+  `provider_message_id=varchar(255)`, and
+  `delivery_provider_message_ids=LONGTEXT` with the exact `JSON_VALID`
+  constraint. `manage.py check` reports zero issues and the management-only
+  migration drift check reports `No changes detected`. The bot is
+  `state=running`, `running=True`, `daemon_online=True`,
+  `provider_transport=instagram_login`, `last_error=''`, with dangerous
+  backlog and all pending/unknown/dead-letter queues at `0`; both
+  `/healthz/` and `/bot/health/` return HTTP `200`.
+
+  No-send reconciliation is unchanged from the pre-pull baseline: canonical
+  lifecycle events/messages/send markers/provider receipts remain `0`, legacy
+  order-customer events remain `5`, and the single historical delivered fact
+  remains `1`. No customer, Meta, payment, order, synthetic fixture or
+  provider event was created. The unscoped production
+  `makemigrations --check --dry-run` still reports a pre-existing storefront
+  SEO model drift (the same model source exists at the pre-pull SHA); no
+  runtime migration was generated. This is a separate `IMP-094` follow-up,
+  not a lifecycle release regression. The existing stale compression manifest
+  warning and 18 terminal historical analysis failures remain visible and
+  bounded; no compress/restart or retry sweep was run.
 
 ### W2.1A Next queued release — intelligent Instagram follow-state and lifecycle CTA — `IMP-106`
 

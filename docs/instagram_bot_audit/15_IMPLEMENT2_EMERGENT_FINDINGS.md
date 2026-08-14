@@ -96,6 +96,22 @@ This is release evidence only. `IMP-106` remains a separate queued capability
 and policy release; no follow lookup, CTA, coupon, live Meta send or synthetic
 production row is part of this slice.
 
+Post-deploy proof on 2026-08-14 is complete: the approved SSH pull reached
+`8d8c5d05`, the explicitly authorized `management.0156` migration applied on
+MariaDB `11.4.12`, and the exact receipt schema (`varchar(255)` plus
+`LONGTEXT`/`JSON_VALID`) was verified read-only. Bot health, both HTTP health
+endpoints and the zero-dangerous-backlog queue contract are green. Canonical
+lifecycle messages/send markers/receipts remained `0`; legacy order events
+remained `5` and the single historical delivered fact remained `1`.
+
+The same proof exposed a pre-existing unscoped storefront migration drift:
+production would propose migration `0095` for `h2`, `body_html` and
+`queries_json`, while `makemigrations management --check --dry-run` is clean.
+This is retained as an `IMP-094` deployment-gate follow-up; no unrelated
+migration was generated or applied during the Instagram release. The known
+stale compression manifest and 18 terminal historical analysis failures remain
+bounded open evidence, with no restart/compress/retry mutation performed.
+
 ## W3 pre-deploy delivery findings (2026-08-13)
 
 The independent Wave 3 review found and the scoped slice now covers three

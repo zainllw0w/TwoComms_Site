@@ -10,15 +10,15 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **Implement2 Wave 3 (`IMP-087.A`) полностью задеплоен и проверен; следующий независимый блок — оставшиеся W2 reliability gates и полный `IMP-087/088`** |
-| Дата старта / обновления | 2026-08-13 (Wave 3 bounded durable informational delivery) |
+| Текущая фаза | **Implement2 W2.1 authoritative order lifecycle/delivery truth released and verified; next is queued `IMP-106` follow-state capability gate** |
+| Дата старта / обновления | 2026-08-14 (W2.1 lifecycle release) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | Current runtime/code checkpoint — Wave 3 commits `7ad632de`/`ade00668` в `origin/main` и production; migrations `management.0152`/`0153`/`0154` применены. |
+| База внедрения | Current runtime/code checkpoint — W2.1 commits `51db3058`/`8d8c5d05` в `origin/main` и production; migrations `management.0152`/`0153`/`0154`/`0156` применены. |
 | **Статус 105 IMP-задач** | **81 закрыта, 14 открыты, 10 частично закрыты (`IMP-028`, `IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`, `IMP-088`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; главный источник реальных переписок/товаров/сделок/оплат. Discovery — read-only; concurrency/destructive tests — только disposable MariaDB |
 | Локальная SQLite | **не источник business/data истины и не MariaDB acceptance**; только быстрый unit/regression слой, не проверяет locks, concurrent constraints, triggers и `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **187 уникальных `F-*` идентификатора: 143 закрыты, 32 OPEN, 1 BLOCKED, 11 PARTIAL**; Wave 3 закрыл `F-CORE-006` для новой ingress-границы, `F-AI-018` и release-gates `F-DEPLOY-001…004` остаются открыты |
+| Реестр находок | **187 уникальных `F-*` идентификатора: 143 закрыты, 32 OPEN, 1 BLOCKED, 11 PARTIAL**; W2.1 lifecycle truth закрыт, `F-AI-018` и release-gates `F-DEPLOY-001…004` остаются открыты |
 | Улучшения / решения | **51 `IMPR-*` / 11 `DR-*`; 17 улучшений закрыто, 34 незавершено** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **105** в W0–W12, включая W4B/W4C/W4D и IMP-062…105 |
@@ -133,6 +133,28 @@ not claimed as fixed.
 This is a narrow T41 evidence boundary only. The full management MariaDB
 parity matrix, `F-TEST-002`, `G-INFRA`, and immutable release/rollback gates
 under `IMP-094` remain open.
+
+## Implement2 W2.1 authoritative order lifecycle and delivery truth (2026-08-14)
+
+The lifecycle/delivery release is now in production at exact SHA
+`8d8c5d05c647c2cfcc9fb4f70d7ee206f8f0359e`. The prescribed SSH `git pull` was
+followed by the explicitly authorized targeted application of
+`management.0156_ig_order_event_delivery_receipts`. MariaDB `11.4.12` proves
+`provider_message_id=varchar(255)` and
+`delivery_provider_message_ids=LONGTEXT` with the exact `JSON_VALID`
+constraint; the management app has no migration drift.
+
+Post-deploy runtime proof: bot `running=True`, `daemon_online=True`,
+`provider_transport=instagram_login`, `last_error=''`, dangerous backlog `0`,
+all pending/unknown/failed/dead-letter queues `0`, and both health endpoints
+HTTP `200`. The no-send baseline is unchanged: canonical lifecycle
+messages/send markers/provider receipts `0`, legacy order-customer events `5`,
+and one historical delivered fact. No customer, provider, payment, order or
+synthetic event was created. The full unscoped production migration check still
+reports pre-existing storefront SEO drift; it is recorded as an `IMP-094`
+follow-up and was not generated or applied during this release. `IMP-106`
+remains queued and blocked on the Meta capability contract and separate coupon
+policy.
 
 ## W1.4 reviewer/operator PII technical boundary (2026-08-08)
 

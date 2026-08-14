@@ -907,6 +907,12 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   requirements; the sdist SHA alone fails a clean wheel-only hash install.
   `F-DEPLOY-002` prohibits CloudLinux selector environment JSON from release
   diagnostics because it exposes production credentials.
+  **Post-deploy schema evidence 2026-08-14:** the unscoped production
+  `makemigrations --check --dry-run` still reports a pre-existing storefront
+  SEO model drift (`0095` would alter `h2`, `body_html`, `queries_json`), while
+  the management app reports `No changes detected`. This is retained as an
+  IMP-094 deployment-gate follow-up; no unrelated migration may be generated
+  during an Instagram release.
 - [ ] **IMP-096 (P2) — provenance ролей импортированной переписки
   (F-DATA-015).** Отделить подтверждённые manager/model сообщения от legacy
   import uncertainty, добавить read-only отчёт и dry-run backfill с точным
@@ -989,6 +995,11 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   reply anchoring с real provider receipts, burst reduction, delivery
   reconciliation и operational manager-review consumer; blind resend через
   неоднозначную boundary запрещён моделью.
+  The W2.1 authoritative order lifecycle/delivery prerequisite is separately
+  released at `51db3058`/`8d8c5d05` with migration `0156`, exact MariaDB receipt
+  schema and unchanged production no-send baseline. This closes the release
+  boundary only; full `IMP-087` remains PARTIAL until candidate/payable
+  delivery, reconciliation and manager-review consumers are proven.
   Последняя read-only production сверка на `42b41c7f` подтверждает, что
   `98bb160e` уже в deployed graph и terminal historical analysis jobs не
   создают customer sends; это не закрывает перечисленный delivery-остаток.

@@ -33,6 +33,13 @@
   T40 rollback-fixture boundary is now GREEN on production MariaDB with mocked
   transport and no residue; the full immutable deploy/rollback gate remains
   open under IMP-094/F-DEPLOY-001/003.
+  W2.1 authoritative order lifecycle/delivery truth is now released at
+  `8d8c5d05`; migration `0156`, exact receipt schema, runtime health and the
+  unchanged no-send baseline are recorded in `08`/`09`/`14`. The same
+  production post-deploy check exposed pre-existing unscoped storefront SEO
+  migration drift (`0095` would alter `h2`, `body_html`, `queries_json`), while
+  the management app is clean. Do not generate that unrelated migration during
+  an Instagram release; retain it as a separate IMP-094 deployment-gate task.
 - W9: partial `IMP-081`–`088`. `IMP-081` foundation is
   production; `IMP-082/083` graph/ranker foundation and prompt parity are
   production `0ad694bc`; `IMP-084` exact availability and proposal reservation

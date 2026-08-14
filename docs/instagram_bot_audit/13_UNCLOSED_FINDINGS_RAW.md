@@ -348,6 +348,17 @@
   Воспроизвести на 320/375/390 px; затем либо реализовать scoped CSS/test slice,
   либо записать terminal REJECTED с причиной. Branch-only diff не evidence.
 
+### Implement2 W2.1 release boundary (2026-08-14)
+
+The authoritative order lifecycle/delivery slice is released at exact SHA
+`8d8c5d05` with migration `management.0156` applied. Production MariaDB schema,
+runtime/health, queue and no-send evidence are recorded in `08_COMPLETION_LOG.md`,
+`09_DEPLOYMENT_LOG.md` and `14_IMPLEMENT2.md`. The full unscoped production
+`makemigrations --check --dry-run` still reports a pre-existing storefront SEO
+model drift (`0095` for `h2`, `body_html`, `queries_json`); the management app
+is clean. This unrelated schema drift is retained as an `IMP-094` follow-up and
+must not be generated or applied during an Instagram release.
+
 ## Незакрытые acceptance/test границы
 
 - [ ] T03 — ad context: BLOCKED до появления real attribution source.
