@@ -28,6 +28,7 @@ from management.services.ig_reply_boundary import (
     capture_reply_permission,
     customer_send_boundary,
 )
+from management.services.ig_delivery_receipts import normalize_provider_message_id
 from management.services.ig_response_control import ValidatedResponse, parse_legacy_response
 from management.services.instagram_bot import (
     HISTORY_LIMIT,
@@ -756,7 +757,7 @@ def _recovery_send_boundary(
 
 
 def _delivery_result(result) -> tuple[bool, str, str, str]:
-    provider_message_id = str(getattr(result, "provider_message_id", "") or "").strip()
+    provider_message_id = getattr(result, "provider_message_id", "")
     if isinstance(result, tuple):
         if len(result) >= 4:
             ok, kind, hint, provider_message_id = result[:4]
@@ -766,7 +767,12 @@ def _delivery_result(result) -> tuple[bool, str, str, str]:
         ok = bool(getattr(result, "ok", False))
         kind = str(getattr(result, "kind", "unknown") or "unknown")
         hint = str(getattr(result, "hint", "") or "")
-    return bool(ok), str(kind or "unknown"), str(hint or ""), str(provider_message_id or "").strip()
+    return (
+        bool(ok),
+        str(kind or "unknown"),
+        str(hint or ""),
+        normalize_provider_message_id(provider_message_id),
+    )
 
 
 def _finish_delivery(

@@ -7,6 +7,10 @@ from django.utils import timezone
 
 from management.models import IgCheckoutInventoryReservation, IgCheckoutProposal, IgLifecycleEvent
 from management.services.ig_inventory import release_expired_proposal_inventory, release_proposal_inventory
+from orders.fulfillment_truth import (
+    NOVA_POSHTA_DELIVERY_SUCCESS_CODES,
+    nova_poshta_order_fulfillment_confirmed,
+)
 
 
 def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
@@ -114,17 +118,28 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
         else release_expired_proposal_inventory(limit=limit)
     )
 
+    from management.services.ig_lifecycle import RECOVERABLE_CANCELLATION_REASONS
+
     payment_event_exists = IgLifecycleEvent.objects.filter(
         proposal_id=OuterRef("pk"),
         kind=IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
+    ).exclude(
+        state=IgLifecycleEvent.State.CANCELLED,
+        last_error__in=RECOVERABLE_CANCELLATION_REASONS,
     )
     ttn_event_exists = IgLifecycleEvent.objects.filter(
         proposal_id=OuterRef("pk"),
         kind=IgLifecycleEvent.Kind.TTN_CREATED,
+    ).exclude(
+        state=IgLifecycleEvent.State.CANCELLED,
+        last_error__in=RECOVERABLE_CANCELLATION_REASONS,
     )
     delivery_event_exists = IgLifecycleEvent.objects.filter(
         proposal_id=OuterRef("pk"),
         kind=IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+    ).exclude(
+        state=IgLifecycleEvent.State.CANCELLED,
+        last_error__in=RECOVERABLE_CANCELLATION_REASONS,
     )
     proposals = list(
         IgCheckoutProposal.objects.select_related(
@@ -163,6 +178,8 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                     | Q(
                         has_delivery_event=False,
                         payment_attempt__order__status="done",
+                        payment_attempt__order__tracking_status_code__in=NOVA_POSHTA_DELIVERY_SUCCESS_CODES,
+                        payment_attempt__order__tracking_terminal_at__isnull=False,
                     )
                 )
             )
@@ -201,7 +218,10 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                         and not proposal.has_ttn_event
                     ):
                         result["ttn_events"] += 1
-                    if order.status == "done" and not proposal.has_delivery_event:
+                    if (
+                        nova_poshta_order_fulfillment_confirmed(order)
+                        and not proposal.has_delivery_event
+                    ):
                         result["delivery_events"] += 1
                 continue
             if (
@@ -263,27 +283,20 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                     elif created:
                         result["ttn_events"] += 1
 
-                if order.status == "done" and not proposal.has_delivery_event:
-                    payment_payload = (
-                        order.payment_payload
-                        if isinstance(order.payment_payload, dict)
-                        else {}
-                    )
-                    np_tracking = payment_payload.get("np_tracking")
-                    if not isinstance(np_tracking, dict):
-                        np_tracking = {}
+                if (
+                    nova_poshta_order_fulfillment_confirmed(order)
+                    and not proposal.has_delivery_event
+                ):
                     event, created = ensure_lifecycle_event(
                         order,
                         IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
                         payload={
-                            "status_code": str(
-                                np_tracking.get("last_status_code") or "done"
-                            ),
+                            "status_code": str(order.tracking_status_code),
                             "status": str(
-                                np_tracking.get("last_status_text")
-                                or order.shipment_status
-                                or ""
+                                order.shipment_status or ""
                             )[:300],
+                            "tracking_number": str(order.tracking_number or ""),
+                            "tracking_terminal_at": order.tracking_terminal_at.isoformat(),
                         },
                     )
                     if event is None:

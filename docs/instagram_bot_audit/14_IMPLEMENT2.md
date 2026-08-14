@@ -675,6 +675,69 @@ no recorded error. This is release
 proof for the narrow slice only; the T41 parity matrix and `IMP-094` remain
 open.
 
+### W2.1 closeout — authoritative order lifecycle and delivery truth
+
+**Status:** IMPLEMENTED / RELEASE GATE PENDING. This is the current release
+candidate and the mandatory lifecycle prerequisite for `IMP-106`; it does not
+implement follow-state lookup, a follow CTA or coupon issuance.
+
+- Lifecycle events now require one current order attribution, checkout
+  proposal, confirmed payment projection and current assignment/version before
+  materialization. Payment reversal, assignment replacement, tracking-number
+  replacement and carrier-delivery revocation cancel only the affected
+  generation; restored truth creates a new deterministic generation instead of
+  reviving stale evidence or stealing another client's open episode.
+- The customer message snapshot and local outbox marker are persisted before
+  Meta I/O. Provider receipts are checkpointed before later fallible work;
+  expired leases, partial delivery, provider exceptions and success without a
+  valid receipt fail closed to ambiguity/review without automatic resend.
+- Legacy `IgOrderCustomerEvent` delivery now hands off to the canonical
+  lifecycle for assisted-checkout orders, retains all accepted chunk IDs in
+  `delivery_provider_message_ids`, and keeps the first exact provider ID in the
+  widened 255-character compatibility field. Numeric and overlong receipt IDs
+  are rejected in lifecycle, follow-up and AI-recovery boundaries instead of
+  being string-coerced or truncated into false `SENT` evidence.
+- Order-channel projection is monotonic by lifecycle stage, event identity and
+  event revision, so an older payment/TTN snapshot cannot overwrite a newer
+  delivery state. Shared Nova Poshta fulfillment truth is used by live sync,
+  reconciliation and analytics rather than free-form status text.
+- Immutable delivery facts use order identity plus canonical UTC authoritative
+  delivery time. A carrier success-code change at the same timestamp does not
+  duplicate the fact; a changed authoritative timestamp creates a new revision.
+  Funnel analytics counts only the latest fact whose timestamp still matches
+  current carrier truth, excluding stale legacy delivery evidence.
+- Delivered copy no longer promises an unowned automatic 10% reward. Existing
+  UGC reward behavior remains behind its server-owned proof/claim boundary; the
+  separate `IMP-106` coupon policy must be accepted before any new incentive is
+  generated or sent.
+
+**Read-only production preflight (before release):** production was at
+`f81195895e5e7477c893ea87f6dfb277b4c82eeb` on MariaDB `11.4.12`. Exactly one
+legacy `ig-delivered:<order_id>` fact was present; its order had no structured
+`tracking_status_code`, `tracking_provider_event_at` or `tracking_terminal_at`,
+and the historical fact came from `shipment_status_updated`. Generic episode
+fulfillment sync is intentionally not used for this row: it would reopen a
+roughly 20-day-old closed episode, set `open_slot=1` and make it current. The
+release therefore applies a provenance-aware analytics filter without mutating
+that production episode. No Meta send or synthetic production row was created.
+
+**Fresh post-rebase local proof:** independent review found no Critical issues
+and four Important boundaries, all covered by RED/GREEN regressions: strict
+follow-up receipt validation, strict AI-recovery receipt validation, exact
+multi-chunk fulfillment receipt persistence, and current storefront lifecycle/
+inventory fixtures. The reproducible ten-module affected gate is `369/369`;
+follow-up/recovery is `57/57`; the full assisted-checkout storefront
+module is `41/41`. Django check under `test_settings`, migration drift,
+compileall and `git diff --check` are clean. The missing local compression
+manifest/staticfiles warnings are unchanged environment warnings, not test
+failures; production check remains mandatory after the approved SSH pull.
+
+- [ ] Release acceptance: commit and push the rebased SHA, pass the exact-SHA
+  disposable MariaDB lifecycle gate including migration `0156`, integrate the
+  verified SHA into `main`, deploy only through the approved SSH `git pull`,
+  then record production SHA, migration, daemon/provider/queue health and the
+  final no-send read-only lifecycle evidence.
+
 ### W2.1A Next queued release — intelligent Instagram follow-state and lifecycle CTA — `IMP-106`
 
 **Status:** QUEUED but BLOCKED on the Meta capability contract after the T41
@@ -684,30 +747,37 @@ follow-up policy, not a background message campaign: it must never turn a
 missing or failed provider lookup into `not_following`, and it must not create
 a perpetual cron that scans all customers.
 
-**Capability preflight (2026-08-14):** Context7's current official Meta
-documentation confirms that `/debug_token` requires a correctly matched app
-access token or developer user token and that Instagram messaging requires
-`instagram_manage_messages`; the documented `follower_count` insight is
-aggregate, not a per-user relationship. A targeted search of the same
-official documentation found no documented `is_user_following` or equivalent
-individual follower endpoint. Production is configured for `instagram_login`
-with a token, but no explicit `IG_APP_ID`; the runtime intentionally reports
-token permission and account access as `unknown`. A read-only self-account
-`/me` call succeeded, while `/debug_token` returned Meta code 190/HTTP 401
-under the attempted authorizations, so the app/token identity and scopes are
-not yet proven. Until a correctly matched app identity/token is supplied and
-the capability is re-audited, follow state must remain `unknown`, no
-follow-specific CTA may fire, and no model or profile inference may label a
-customer `not_following`.
+**Capability preflight (2026-08-14, refreshed):** Context7's current official
+Meta documentation now explicitly documents the Instagram Login User Profile
+API at `GET https://graph.instagram.com/v25.0/<IGSID>` with
+`is_user_follow_business` and `is_business_follow_user` fields. The documented
+contract requires `instagram_business_basic` and
+`instagram_business_manage_messages`; a profile lookup is available for an
+Instagram-scoped ID obtained from messaging and requires the customer's
+consent boundary (message, icebreaker or persistent-menu interaction). A
+blocked app-user cannot be treated as a negative follow result. The same
+documentation confirms `/debug_token` requires a correctly matched app access
+token or developer user token.
+
+Production is configured for `instagram_login` with a token, but no explicit
+`IG_APP_ID`; the runtime intentionally reports token permission and account
+access as `unknown`. A read-only self-account `/me` call succeeded, while
+`/debug_token` returned Meta code 190/HTTP 401 under the attempted
+authorizations, so the live app/token identity, scopes and per-user field
+capability are still not proven. Until a correctly matched identity/token is
+supplied and the endpoint is re-audited against a real IGSID without sending
+anything, follow state must remain `unknown`, no follow-specific CTA may fire,
+and no model or profile inference may label a customer `not_following`.
 
 - [ ] **Capability contract first.** Reconcile the live Graph API version,
-  token type, Instagram account ID, app subscription, scopes and available
-  endpoint against current official Meta documentation. In particular, do not
-  assume that an aggregate follower count proves a per-user relationship or
-  that an `is_user_following` endpoint is available to this app/token. Record
-  the supported signal, rate limit and failure semantics. If no authorized
-  per-user signal exists, retain `unknown` and do not substitute customer text,
-  profile guesses or model inference.
+  token type, Instagram account ID, app subscription, scopes and the documented
+  User Profile endpoint against the current official Meta contract. Prove the
+  `is_user_follow_business` and `is_business_follow_user` fields for the
+  deployed transport and token, including consent/blocked/403/timeout
+  semantics, rate limits and cache behavior. Do not substitute aggregate
+  follower counts, customer text, profile guesses or model inference. If the
+  per-user fields are not authorized for this app/token, retain `unknown` and
+  suppress every follow CTA.
 - [ ] **Durable, auditable state.** Add a single owned follow-state record or
   fields linked to the Instagram client: `following`, `not_following`, or
   `unknown`; source/capability version; checked-at; expiry; error code; and

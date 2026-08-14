@@ -62,6 +62,9 @@ class UgcRewardTests(TestCase):
             total_sum=Decimal("1000.00"),
             payment_status="paid",
             status="done",
+            tracking_number="20450000000002",
+            tracking_status_code=9,
+            tracking_terminal_at=timezone.now(),
         )
         self.assignment = link_order_to_client(
             self.order,
@@ -224,7 +227,7 @@ class UgcRewardTests(TestCase):
 
                 with self.assertRaisesMessage(
                     UgcRewardConflict,
-                    "Нагороду можна видати лише після завершення замовлення.",
+                    "Нагороду можна видати лише після підтвердженого отримання замовлення.",
                 ):
                     award_ugc_reward(
                         client=self.ig_client,
@@ -232,6 +235,27 @@ class UgcRewardTests(TestCase):
                         actor=self.actor,
                         evidence_message_id=self.evidence.pk,
                     )
+
+        self.assertFalse(IgUgcReward.objects.exists())
+        self.assertFalse(PromoCode.objects.exists())
+
+    def test_manual_done_without_carrier_delivery_is_rejected(self):
+        self.order.tracking_status_code = 7
+        self.order.tracking_terminal_at = None
+        self.order.save(
+            update_fields=["tracking_status_code", "tracking_terminal_at"]
+        )
+
+        with self.assertRaisesMessage(
+            UgcRewardConflict,
+            "Нагороду можна видати лише після підтвердженого отримання замовлення.",
+        ):
+            award_ugc_reward(
+                client=self.ig_client,
+                order=self.order,
+                actor=self.actor,
+                evidence_message_id=self.evidence.pk,
+            )
 
         self.assertFalse(IgUgcReward.objects.exists())
         self.assertFalse(PromoCode.objects.exists())

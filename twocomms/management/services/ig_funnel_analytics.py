@@ -1,7 +1,8 @@
 """Event-time Instagram funnel facts and cohort analytics."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import hashlib
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import connection, transaction
@@ -13,6 +14,7 @@ from management.services.ig_commercial_episodes import (
     commercial_episode_client_lock,
     ensure_open_episode_for_locked_client,
 )
+from orders.fulfillment_truth import nova_poshta_delivery_confirmed_at
 
 
 FUNNEL_STEPS = (
@@ -48,6 +50,34 @@ DROP_OFF_STAGE_TO_STEP = {
     "done": "delivered",
     "spam": "conversation_started",
 }
+
+
+def delivery_funnel_event_key(episode, order) -> str:
+    """Return a replay-safe key for one carrier-confirmed delivery revision."""
+    from management.models import IgFunnelStepEvent
+
+    delivered_at = nova_poshta_delivery_confirmed_at(order)
+    if delivered_at is None:
+        raise ValueError("delivery_funnel_event_key requires carrier-confirmed delivery")
+    legacy_key = f"ig-delivered:{order.pk}"
+    legacy_event = IgFunnelStepEvent.objects.filter(
+        episode=episode,
+        event_key=legacy_key,
+    ).first()
+    normalized_delivered_at = _aware(delivered_at).astimezone(UTC)
+    if (
+        legacy_event is not None
+        and _aware(legacy_event.occurred_at).astimezone(UTC)
+        == normalized_delivered_at
+    ):
+        return legacy_key
+
+    delivery_revision = normalized_delivered_at.isoformat(
+        timespec="microseconds"
+    )
+    material = "\x1f".join((str(order.pk), delivery_revision))
+    revision = hashlib.sha256(material.encode("utf-8")).hexdigest()[:24]
+    return f"{legacy_key}:{revision}"
 
 
 def _aware(value: datetime | None) -> datetime:
@@ -667,8 +697,23 @@ def backfill_reconstructible_funnel_events(*, limit: int = 1000, apply: bool = F
             candidates.append((episode, IgFunnelStepEvent.Type.ORDER_CREATED, f"ig-order-created:{order.pk}", order.created, {"order_id": order.pk, "backfill_source": "canonical_order"}))
             if order.tracking_number:
                 candidates.append((episode, IgFunnelStepEvent.Type.TTN_CREATED, f"ig-ttn-created:{order.pk}:{order.tracking_number}", order.shipment_status_updated or order.updated, {"order_id": order.pk, "tracking_number": order.tracking_number, "backfill_source": "canonical_order"}))
-            if order.status == "done":
-                candidates.append((episode, IgFunnelStepEvent.Type.DELIVERED, f"ig-delivered:{order.pk}", order.shipment_status_updated or order.updated, {"order_id": order.pk, "tracking_number": order.tracking_number, "backfill_source": "canonical_order"}))
+            delivered_at = nova_poshta_delivery_confirmed_at(order)
+            if delivered_at is not None:
+                candidates.append(
+                    (
+                        episode,
+                        IgFunnelStepEvent.Type.DELIVERED,
+                        delivery_funnel_event_key(episode, order),
+                        delivered_at,
+                        {
+                            "order_id": order.pk,
+                            "tracking_number": order.tracking_number,
+                            "tracking_status_code": order.tracking_status_code,
+                            "tracking_terminal_at": order.tracking_terminal_at.isoformat(),
+                            "backfill_source": "canonical_order",
+                        },
+                    )
+                )
         deal = episode.deal
         projection = (
             IgPaymentProjection.objects.select_related("last_event")
@@ -703,7 +748,13 @@ def backfill_reconstructible_funnel_events(*, limit: int = 1000, apply: bool = F
 
 def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
     """Build reconciled entry cohorts without consulting mutable client stages."""
-    from management.models import IgFollowUpTask, IgFunnelDropOff, IgFunnelStepEvent
+    from management.models import (
+        IgCommercialEpisode,
+        IgCommercialEpisodeEvent,
+        IgFollowUpTask,
+        IgFunnelDropOff,
+        IgFunnelStepEvent,
+    )
 
     observation_cutoff = until or timezone.now()
     events = IgFunnelStepEvent.objects.filter(
@@ -715,14 +766,76 @@ def build_funnel_analytics(since=None, until=None, *, client_ids=None) -> dict:
     if client_ids is not None:
         events = events.filter(episode__client_id__in=client_ids)
         drop_offs = drop_offs.filter(episode__client_id__in=client_ids)
-    observed_events = list(events.values(
+    fulfillment_events = IgCommercialEpisodeEvent.objects.filter(
+        episode__client__hidden_at__isnull=True,
+        event_type="fulfillment_updated",
+        created_at__lt=observation_cutoff,
+    )
+    if client_ids is not None:
+        fulfillment_events = fulfillment_events.filter(
+            episode__client_id__in=client_ids
+        )
+    latest_fulfillment_state = {}
+    for event in fulfillment_events.order_by("episode_id", "created_at", "id").values(
         "episode_id",
-        "event_type",
-        "occurred_at",
-        "actor",
-        "evidence",
-        "is_backfilled",
-    ))
+        "to_state",
+    ):
+        latest_fulfillment_state[event["episode_id"]] = event["to_state"]
+
+    candidate_events = list(
+        events.values(
+            "id",
+            "created_at",
+            "episode_id",
+            "event_type",
+            "occurred_at",
+            "actor",
+            "evidence",
+            "is_backfilled",
+        )
+    )
+    delivery_episode_ids = {
+        event["episode_id"]
+        for event in candidate_events
+        if event["event_type"] == IgFunnelStepEvent.Type.DELIVERED
+    }
+    current_delivery_at = {}
+    if delivery_episode_ids:
+        for episode in (
+            IgCommercialEpisode.objects.filter(pk__in=delivery_episode_ids)
+            .select_related("intended_order")
+        ):
+            order = episode.intended_order
+            current_delivery_at[episode.pk] = (
+                nova_poshta_delivery_confirmed_at(order) if order else None
+            )
+    latest_delivery_event_id = {}
+    for event in candidate_events:
+        if event["event_type"] != IgFunnelStepEvent.Type.DELIVERED:
+            continue
+        current = latest_delivery_event_id.get(event["episode_id"])
+        candidate_order = (event["created_at"], event["id"])
+        if current is None or candidate_order > current[0]:
+            latest_delivery_event_id[event["episode_id"]] = (
+                candidate_order,
+                event["id"],
+            )
+    observed_events = []
+    for event in candidate_events:
+        if event["event_type"] != IgFunnelStepEvent.Type.DELIVERED:
+            observed_events.append(event)
+            continue
+        authoritative_delivered_at = current_delivery_at.get(event["episode_id"])
+        if (
+            authoritative_delivered_at is None
+            or event["occurred_at"] != authoritative_delivered_at
+        ):
+            continue
+        latest_state = latest_fulfillment_state.get(event["episode_id"])
+        if latest_state not in {None, IgCommercialEpisode.State.FULFILLED}:
+            continue
+        if latest_delivery_event_id[event["episode_id"]][1] == event["id"]:
+            observed_events.append(event)
     raw_events = [
         event
         for event in observed_events

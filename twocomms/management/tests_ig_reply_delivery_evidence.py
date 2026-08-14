@@ -61,6 +61,24 @@ class PersistedReplyEvidenceTests(TestCase):
             status=InstagramBotMessage.Status.PENDING,
         )
 
+    def test_persistence_boundary_rejects_malformed_provider_ids(self):
+        self.source.status = InstagramBotMessage.Status.PROCESSING
+        self.source.save(update_fields=["status"])
+
+        instagram_bot._persist_reply_delivery_evidence(
+            self.source,
+            original_text="Delivery evidence",
+            planned_chunk_count=4,
+            delivered_chunk_count=4,
+            provider_message_ids=[123, " valid-id ", "x" * 256, "valid-id"],
+        )
+
+        self.source.refresh_from_db()
+        self.assertEqual(
+            self.source.delivery_provider_message_ids,
+            ["valid-id"],
+        )
+
     @patch("management.services.instagram_bot.send_sender_action")
     @patch(
         "management.services.instagram_bot.gemini_generate",

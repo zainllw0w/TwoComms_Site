@@ -48,9 +48,10 @@ class EchoChunkAndScopeTests(TestCase):
         bot._handle_echo("B", "Привіт")  # для B це менеджер, не власне відлуння
         self.assertTrue(IgClient.objects.get(igsid="B").bot_paused)
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http", return_value=(200, "{}"))
-    def test_send_text_marks_each_chunk(self, mock_http, mock_pt):
+    @patch("management.services.instagram_bot._provider_http", return_value=(200, "{}"))
+    def test_send_text_marks_each_chunk(self, provider_http, _token, _account):
         IgClient.get_or_create_for_sender("rcptX")
         s = InstagramBotSettings.load()
         long_text = ("Абзац один. " * 60) + "\n" + ("Абзац два. " * 60)
@@ -183,6 +184,64 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertTrue(ok)
         self.assertEqual(kind, "")
         self.assertEqual(provider_ids, ["mid.real.1"])
+
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_numeric_meta_json_id_cannot_confirm_delivery(
+        self, provider_http, _token, _account
+    ):
+        provider_http.return_value = (200, json.dumps({"message_id": 123456}))
+        provider_ids = []
+
+        receipt = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            "Delivery update",
+            provider_message_callback=provider_ids.append,
+            return_receipt=True,
+        )
+
+        self.assertIsInstance(receipt, bot.ProviderDeliveryReceipt)
+        self.assertFalse(receipt.ok)
+        self.assertEqual(receipt.kind, "unknown")
+        self.assertEqual(receipt.hint, "provider_message_id_missing")
+        self.assertEqual(receipt.provider_message_ids, ())
+        self.assertEqual(receipt.delivered_chunk_count, 0)
+        self.assertEqual(
+            receipt.failure_boundary,
+            "chunk:1:provider_message_id_missing",
+        )
+        self.assertEqual(provider_ids, [])
+
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_overlong_meta_json_id_cannot_confirm_delivery(
+        self, provider_http, _token, _account
+    ):
+        provider_http.return_value = (200, json.dumps({"message_id": "m" * 256}))
+        provider_ids = []
+
+        receipt = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            "Delivery update",
+            provider_message_callback=provider_ids.append,
+            return_receipt=True,
+        )
+
+        self.assertIsInstance(receipt, bot.ProviderDeliveryReceipt)
+        self.assertFalse(receipt.ok)
+        self.assertEqual(receipt.kind, "unknown")
+        self.assertEqual(receipt.hint, "provider_message_id_missing")
+        self.assertEqual(receipt.provider_message_ids, ())
+        self.assertEqual(receipt.delivered_chunk_count, 0)
+        self.assertEqual(
+            receipt.failure_boundary,
+            "chunk:1:provider_message_id_missing",
+        )
+        self.assertEqual(provider_ids, [])
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
@@ -680,10 +739,13 @@ class SendApiBoundedRetryTests(TestCase):
             ).exists()
         )
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http")
-    def test_send_text_persists_permanent_error_for_dashboard(self, mock_http, _mock_pt):
-        mock_http.return_value = (
+    @patch("management.services.instagram_bot._provider_http")
+    def test_send_text_persists_permanent_error_for_dashboard(
+        self, provider_http, _token, _account
+    ):
+        provider_http.return_value = (
             403,
             json.dumps({
                 "error": {
@@ -706,19 +768,28 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertIn("Meta Send API", s.last_error)
         self.assertIn("Advanced Access", s.last_error)
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http", return_value=(503, "provider overloaded"))
-    def test_transient_provider_result_is_unknown_not_retryable(self, _mock_http, _mock_pt):
+    @patch(
+        "management.services.instagram_bot._provider_http",
+        return_value=(503, "provider overloaded"),
+    )
+    def test_transient_provider_result_is_unknown_not_retryable(
+        self, _provider_http, _token, _account
+    ):
         ok, kind, hint = bot.send_text(InstagramBotSettings.load(), "uncertain-recipient", "Привіт")
 
         self.assertFalse(ok)
         self.assertEqual(kind, "unknown")
         self.assertIn("не підтверджено", hint)
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http")
-    def test_explicit_graph_rate_limit_remains_retryable(self, mock_http, _mock_pt):
-        mock_http.return_value = (
+    @patch("management.services.instagram_bot._provider_http")
+    def test_explicit_graph_rate_limit_remains_retryable(
+        self, provider_http, _token, _account
+    ):
+        provider_http.return_value = (
             429,
             json.dumps({
                 "error": {
@@ -737,16 +808,17 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertFalse(ok)
         self.assertEqual(kind, "retryable")
         self.assertIn("ліміт", hint)
-        self.assertEqual(mock_http.call_count, 1)
+        self.assertEqual(provider_http.call_count, 1)
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http")
+    @patch("management.services.instagram_bot._provider_http")
     def test_rate_limit_after_partial_chunk_delivery_is_not_replayed(
-        self, mock_http, _mock_pt
+        self, provider_http, _token, _account
     ):
         reply = "Перша частина. " * 500
         self.assertGreater(len(bot._split_for_send(reply)), 1)
-        mock_http.side_effect = [
+        provider_http.side_effect = [
             (200, "{}"),
             (
                 429,
@@ -768,7 +840,7 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertFalse(ok)
         self.assertEqual(kind, "unknown")
         self.assertIn("часткова доставка", hint)
-        self.assertEqual(mock_http.call_count, 2)
+        self.assertEqual(provider_http.call_count, 2)
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot.send_sender_action")
@@ -813,11 +885,14 @@ class SendApiBoundedRetryTests(TestCase):
 
         self.assertTrue(bot._send_rate_limit_backoff_active(self.settings))
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http")
-    def test_permanent_send_block_is_persisted_on_the_affected_client(self, mock_http, _mock_pt):
+    @patch("management.services.instagram_bot._provider_http")
+    def test_permanent_send_block_is_persisted_on_the_affected_client(
+        self, provider_http, _token, _account
+    ):
         client = IgClient.get_or_create_for_sender("delivery-blocked-client")
-        mock_http.return_value = (
+        provider_http.return_value = (
             403,
             json.dumps({
                 "error": {
@@ -834,9 +909,12 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertEqual(getattr(client, "delivery_status", ""), "advanced_access")
         self.assertIn("Advanced Access", getattr(client, "delivery_error", ""))
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http", return_value=(200, "{}"))
-    def test_successful_send_clears_client_delivery_block(self, _mock_http, _mock_pt):
+    @patch("management.services.instagram_bot._provider_http", return_value=(200, "{}"))
+    def test_successful_send_clears_client_delivery_block(
+        self, _provider_http, _token, _account
+    ):
         client = IgClient.get_or_create_for_sender("delivery-cleared-client")
         setattr(client, "delivery_status", "advanced_access")
         setattr(client, "delivery_error", "попередня причина")
@@ -848,11 +926,14 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertEqual(getattr(client, "delivery_status", "advanced_access"), "")
         self.assertEqual(getattr(client, "delivery_error", "попередня причина"), "")
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http")
-    def test_graph_551_requires_message_requests_check_without_claiming_it_is_confirmed(self, mock_http, _mock_pt):
+    @patch("management.services.instagram_bot._provider_http")
+    def test_graph_551_requires_message_requests_check_without_claiming_it_is_confirmed(
+        self, provider_http, _token, _account
+    ):
         client = IgClient.get_or_create_for_sender("delivery-request-check-client")
-        mock_http.return_value = (
+        provider_http.return_value = (
             400,
             json.dumps({"error": {"code": 551, "message": "Recipient unavailable."}}),
         )
@@ -863,11 +944,14 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertEqual(getattr(client, "delivery_status", ""), "message_request_check")
 
     @patch("management.services.instagram_bot.log")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
-    @patch("management.services.instagram_bot._http")
-    def test_send_error_log_never_contains_raw_graph_response(self, mock_http, _mock_pt, mock_log):
+    @patch("management.services.instagram_bot._provider_http")
+    def test_send_error_log_never_contains_raw_graph_response(
+        self, provider_http, _token, _account, mock_log
+    ):
         raw_marker = "raw-meta-response-marker"
-        mock_http.return_value = (
+        provider_http.return_value = (
             403,
             json.dumps({"error": {"code": 200, "message": raw_marker}}),
         )

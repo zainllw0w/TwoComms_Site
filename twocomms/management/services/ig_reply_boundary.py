@@ -202,7 +202,17 @@ def customer_send_boundary(
             )
             allowed = bool(current and (permission is None or same_generation))
             aborted = not allowed
-            yield allowed
+            if allowed:
+                yield current
+            else:
+                yield ReplyPermission(
+                    settings_id=current.settings_id,
+                    settings_epoch=current.settings_epoch,
+                    client_id=current.client_id,
+                    client_epoch=current.client_epoch,
+                    allowed=False,
+                    reason=current.reason or "permission_epoch_changed",
+                )
     finally:
         # Redis/cache telemetry must never extend the permission lock.
         if waited_long:

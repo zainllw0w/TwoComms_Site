@@ -810,11 +810,11 @@ def _sync_instagram_lifecycle_channel(order_pk):
     """Project the durable IG event state without making it its trigger."""
     try:
         from management.ig_bot_models import IgLifecycleEvent
+        from management.services.ig_lifecycle import LIFECYCLE_PROJECTION_STAGE
 
         event = (
             IgLifecycleEvent.objects.filter(
                 order_id=order_pk,
-                kind=IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
             )
             .order_by("-id")
             .first()
@@ -841,7 +841,17 @@ def _sync_instagram_lifecycle_channel(order_pk):
             "instagram_lifecycle",
             state=state,
             error=event.last_error,
-            metadata={"provider_message_id": event.provider_message_id},
+            metadata={
+                "provider_message_id": event.provider_message_id,
+                "lifecycle_event_id": event.pk,
+                "kind": event.kind,
+                "event_key": event.event_key,
+                "lifecycle_stage": LIFECYCLE_PROJECTION_STAGE.get(event.kind, 0),
+                "lifecycle_event_updated_at": event.updated_at.isoformat(),
+            },
+            monotonic_metadata_key="lifecycle_event_id",
+            monotonic_stage_key="lifecycle_stage",
+            monotonic_revision_key="lifecycle_event_updated_at",
         )
     except Exception:
         monobank_logger.exception(
@@ -991,7 +1001,17 @@ def _dispatch_post_payment_events(order_pk, previous_status, pay_type):
     threading.Thread(target=_runner, daemon=True, name=f'post-payment-{order_pk}').start()
 
 
-def _record_post_payment_channel(order_pk, channel, state, *, error="", metadata=None):
+def _record_post_payment_channel(
+    order_pk,
+    channel,
+    state,
+    *,
+    error="",
+    metadata=None,
+    monotonic_metadata_key="",
+    monotonic_stage_key="",
+    monotonic_revision_key="",
+):
     """Merge one post-payment channel state without touching sibling markers."""
     from django.utils import timezone
     from orders.models import Order
@@ -1004,6 +1024,71 @@ def _record_post_payment_channel(order_pk, channel, state, *, error="", metadata
             channels = dict(channels) if isinstance(channels, dict) else {}
             entry = channels.get(channel)
             entry = dict(entry) if isinstance(entry, dict) else {}
+            if monotonic_metadata_key and isinstance(metadata, dict):
+                try:
+                    incoming_marker = int(metadata.get(monotonic_metadata_key) or 0)
+                except (TypeError, ValueError):
+                    incoming_marker = 0
+                try:
+                    current_marker = int(entry.get(monotonic_metadata_key) or 0)
+                except (TypeError, ValueError):
+                    current_marker = 0
+                if monotonic_stage_key:
+                    try:
+                        incoming_stage = int(
+                            metadata.get(monotonic_stage_key) or 0
+                        )
+                    except (TypeError, ValueError):
+                        incoming_stage = 0
+                    try:
+                        current_stage = int(
+                            entry.get(monotonic_stage_key) or 0
+                        )
+                    except (TypeError, ValueError):
+                        current_stage = 0
+                else:
+                    incoming_stage = current_stage = 0
+                incoming_revision = current_revision = None
+                if monotonic_revision_key:
+                    from django.utils.dateparse import parse_datetime
+
+                    incoming_revision = parse_datetime(
+                        str(metadata.get(monotonic_revision_key) or "")
+                    )
+                    current_revision = parse_datetime(
+                        str(entry.get(monotonic_revision_key) or "")
+                    )
+                    if incoming_revision is not None and timezone.is_naive(
+                        incoming_revision
+                    ):
+                        incoming_revision = timezone.make_aware(
+                            incoming_revision,
+                            timezone.get_default_timezone(),
+                        )
+                    if current_revision is not None and timezone.is_naive(
+                        current_revision
+                    ):
+                        current_revision = timezone.make_aware(
+                            current_revision,
+                            timezone.get_default_timezone(),
+                        )
+                if (
+                    incoming_stage < current_stage
+                    or (
+                        incoming_stage == current_stage
+                        and incoming_marker < current_marker
+                    )
+                    or (
+                        incoming_stage == current_stage
+                        and incoming_marker == current_marker
+                        and current_revision is not None
+                        and (
+                            incoming_revision is None
+                            or incoming_revision < current_revision
+                        )
+                    )
+                ):
+                    return False
             entry.update({
                 "state": str(state or "unknown")[:32],
                 "updated_at": timezone.now().isoformat(),
@@ -1018,12 +1103,14 @@ def _record_post_payment_channel(order_pk, channel, state, *, error="", metadata
             payload["post_payment_channels"] = channels
             current.payment_payload = payload
             current.save(update_fields=["payment_payload"])
+        return True
     except Exception:
         monobank_logger.exception(
             "Failed to persist post-payment channel state order=%s channel=%s",
             order_pk,
             channel,
         )
+        return False
 
 
 def _send_post_payment_events(order_pk, previous_status, pay_type):

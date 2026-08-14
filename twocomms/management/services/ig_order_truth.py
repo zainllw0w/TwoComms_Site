@@ -14,6 +14,10 @@ ORDER_TRUTH_FIELDS = frozenset({
     "payment_status",
     "tracking_number",
     "shipment_status",
+    "shipment_status_updated",
+    "tracking_status_code",
+    "tracking_provider_event_at",
+    "tracking_terminal_at",
 })
 DEAL_ORDER_TRUTH_FIELDS = frozenset({"order", "order_id", "shipped_notified_at"})
 

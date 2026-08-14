@@ -12,6 +12,8 @@ from urllib.parse import urlsplit, urlunsplit
 from django.db import transaction
 from django.utils import timezone
 
+from orders.fulfillment_truth import nova_poshta_order_fulfillment_confirmed
+
 
 class UgcRewardConflict(ValueError):
     """The evidence cannot authorize a reward for this order."""
@@ -110,8 +112,10 @@ def award_ugc_reward(
     )
     if assignment is None:
         raise UgcRewardConflict("Замовлення не має поточної прив'язки до цього Instagram-клієнта.")
-    if locked_order.status != "done":
-        raise UgcRewardConflict("Нагороду можна видати лише після завершення замовлення.")
+    if not nova_poshta_order_fulfillment_confirmed(locked_order):
+        raise UgcRewardConflict(
+            "Нагороду можна видати лише після підтвердженого отримання замовлення."
+        )
 
     evidence_message = None
     normalized_url = ""

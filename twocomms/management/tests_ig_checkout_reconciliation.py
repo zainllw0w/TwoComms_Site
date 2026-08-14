@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
+from management.ig_bot_models import IgPaymentProjection
 from management.models import (
     IgCheckoutInventoryReservation,
     IgCheckoutProposal,
@@ -15,6 +16,7 @@ from management.models import (
     IgOrderAttribution,
 )
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
+from management.services.ig_order_assignments import link_order_to_client
 from storefront.models import Category, Product
 from productcolors.models import Color, ProductColorVariant
 from orders.models import Order, PaymentAttempt
@@ -71,6 +73,8 @@ class InstagramCheckoutReconciliationTests(TestCase):
             status="done",
             tracking_number="20450000000009",
             shipment_status="Отримано",
+            tracking_status_code=9,
+            tracking_terminal_at=timezone.now(),
             payment_payload={
                 "np_tracking": {
                     "last_status_code": "9",
@@ -106,6 +110,14 @@ class InstagramCheckoutReconciliationTests(TestCase):
             deal=self.deal,
             creation_mode="provider_auto",
             payment_source="provider_attempt",
+        )
+        link_order_to_client(order, client=self.client)
+        IgPaymentProjection.objects.create(
+            deal=self.deal,
+            client=self.client,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=order.total_sum,
+            paid_at=self.deal.paid_at,
         )
         from management.services.ig_lifecycle import ensure_lifecycle_event
 
@@ -163,6 +175,91 @@ class InstagramCheckoutReconciliationTests(TestCase):
         )
         self.assertEqual(ttn_event.payload["tracking_number"], order.tracking_number)
         self.assertEqual(delivery_event.payload["status_code"], "9")
+        dispatch_lifecycle_event.assert_not_called()
+
+    def test_cancelled_lifecycle_generations_are_recreated_once(self):
+        order = self._bind_paid_delivered_order()
+        from management.services.ig_lifecycle import ensure_lifecycle_event
+
+        payment_event = IgLifecycleEvent.objects.get(
+            order=order,
+            kind=IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
+        )
+        payment_event.state = IgLifecycleEvent.State.CANCELLED
+        payment_event.last_error = "payment_not_verified"
+        payment_event.save(update_fields=["state", "last_error", "updated_at"])
+        kinds_and_payloads = (
+            (
+                IgLifecycleEvent.Kind.TTN_CREATED,
+                {
+                    "tracking_number": order.tracking_number,
+                    "order_number": order.order_number,
+                },
+            ),
+            (
+                IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+                {
+                    "status_code": str(order.tracking_status_code),
+                    "status": order.shipment_status,
+                    "tracking_number": order.tracking_number,
+                    "tracking_terminal_at": order.tracking_terminal_at.isoformat(),
+                },
+            ),
+        )
+        cancelled = [payment_event]
+        for kind, payload in kinds_and_payloads:
+            event, created = ensure_lifecycle_event(order, kind, payload=payload)
+            self.assertTrue(created)
+            event.state = IgLifecycleEvent.State.CANCELLED
+            event.last_error = (
+                "tracking_number_changed"
+                if kind == IgLifecycleEvent.Kind.TTN_CREATED
+                else "carrier delivery not confirmed"
+            )
+            event.save(update_fields=["state", "last_error", "updated_at"])
+            cancelled.append(event)
+
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+
+        first = reconcile_ig_checkout(limit=20, pull_ambiguous=False)
+        second = reconcile_ig_checkout(limit=20, pull_ambiguous=False)
+
+        self.assertEqual(first["payment_events"], 1, first)
+        self.assertEqual(first["ttn_events"], 1, first)
+        self.assertEqual(first["delivery_events"], 1, first)
+        self.assertEqual(second["payment_events"], 0, second)
+        self.assertEqual(second["ttn_events"], 0, second)
+        self.assertEqual(second["delivery_events"], 0, second)
+        for original in cancelled:
+            events = IgLifecycleEvent.objects.filter(
+                event_key__startswith=f"{original.event_key}:retry:"
+            )
+            self.assertEqual(events.count(), 1)
+            self.assertNotEqual(events.get().state, IgLifecycleEvent.State.CANCELLED)
+
+    @patch("management.services.ig_lifecycle.dispatch_lifecycle_event")
+    def test_manual_done_without_carrier_delivery_does_not_repair_delivery_event(
+        self,
+        dispatch_lifecycle_event,
+    ):
+        order = self._bind_paid_delivered_order()
+        Order.objects.filter(pk=order.pk).update(
+            tracking_status_code=7,
+            tracking_terminal_at=None,
+        )
+
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+
+        result = reconcile_ig_checkout(limit=20, pull_ambiguous=False)
+
+        self.assertEqual(result.get("ttn_events"), 1, result)
+        self.assertEqual(result.get("delivery_events"), 0, result)
+        self.assertFalse(
+            IgLifecycleEvent.objects.filter(
+                order=order,
+                kind=IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+            ).exists()
+        )
         dispatch_lifecycle_event.assert_not_called()
 
     @patch("management.services.ig_lifecycle.dispatch_lifecycle_event")

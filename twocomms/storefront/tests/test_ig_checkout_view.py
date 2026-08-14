@@ -153,6 +153,26 @@ class InstagramCheckoutViewTests(TestCase):
             }),
         }
 
+    def _attach_catalog_inventory(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        palette = (
+            ("Checkout Blue", "#2255AA"),
+            ("Checkout Black", "#111111"),
+        )
+        for item, (name, primary_hex) in zip(
+            self.proposal.items.order_by("position", "pk"),
+            palette,
+            strict=True,
+        ):
+            variant = ProductColorVariant.objects.create(
+                product=item.product,
+                color=Color.objects.create(name=name, primary_hex=primary_hex),
+                stock=5,
+            )
+            item.color_variant = variant
+            item.save(update_fields=["color_variant"])
+
     def test_ready_page_renders_exact_products_and_delivery_form_without_instagram_pii(self):
         response = self._open()
 
@@ -900,6 +920,7 @@ class InstagramCheckoutViewTests(TestCase):
         provider.assert_not_called()
 
     def test_prepayment_proposal_uses_generic_payment_attempt_amount(self):
+        self._attach_catalog_inventory()
         self.proposal.pay_type = IgCheckoutProposal.PayType.PREPAYMENT
         self.proposal.requested_payment_amount = Decimal("600.00")
         self.proposal.save(update_fields=["pay_type", "requested_payment_amount", "updated_at"])
@@ -1166,6 +1187,7 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertIn("private", response["Cache-Control"])
 
     def test_terminal_provider_failure_releases_invoice_inventory(self):
+        self._attach_catalog_inventory()
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
         entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
         self.client.get(entry["Location"])
@@ -1410,10 +1432,12 @@ class InstagramCheckoutViewTests(TestCase):
             1,
         )
 
-    def test_lifecycle_outside_response_window_is_waiting_window(self):
+    def test_lifecycle_outside_response_window_requires_manager_review(self):
         from datetime import timedelta
         from management.ig_bot_models import IgLifecycleEvent
+        from management.models import IgPaymentProjection
         from management.services.ig_lifecycle import dispatch_lifecycle_event, ensure_lifecycle_event
+        from management.services.ig_order_assignments import link_order_to_client
         from orders.models import Order
 
         order = Order.objects.create(
@@ -1433,6 +1457,14 @@ class InstagramCheckoutViewTests(TestCase):
             order, client=self.profile, deal=self.deal,
             creation_mode="provider_auto", payment_source="provider_attempt",
         )
+        IgPaymentProjection.objects.create(
+            deal=self.deal,
+            client=self.profile,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=order.total_sum,
+            paid_at=timezone.now(),
+        )
+        link_order_to_client(order, client=self.profile)
         self.profile.last_message_at = timezone.now() - timedelta(hours=30)
         self.profile.save(update_fields=["last_message_at", "updated_at"])
         event, _created = ensure_lifecycle_event(
@@ -1441,5 +1473,8 @@ class InstagramCheckoutViewTests(TestCase):
             payload={"tracking_number": order.tracking_number, "order_number": order.order_number},
         )
         with patch("management.services.instagram_bot.notify_manager") as notify:
-            self.assertEqual(dispatch_lifecycle_event(event.pk), IgLifecycleEvent.State.WAITING_WINDOW)
+            self.assertEqual(
+                dispatch_lifecycle_event(event.pk),
+                IgLifecycleEvent.State.MANAGER_REVIEW,
+            )
         notify.assert_called_once()

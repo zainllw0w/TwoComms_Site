@@ -66,6 +66,28 @@ class InstagramBotModelTelemetryTests(TestCase):
         )
         self.assertEqual(reply.gemini_model, "gemini-3.6-flash")
 
+    def test_generated_reply_rejects_malformed_provider_message_id(self):
+        from management.services import instagram_bot
+
+        for provider_message_id in (123, "x" * 256):
+            with self.subTest(provider_message_id=str(provider_message_id)[:20]):
+                inbound = InstagramBotMessage.objects.create(
+                    sender_id=self.client_row.igsid,
+                    client=self.client_row,
+                    role=InstagramBotMessage.Role.USER,
+                    text="Привіт",
+                    status=InstagramBotMessage.Status.PENDING,
+                )
+
+                reply = instagram_bot._persist_generated_reply_message(
+                    inbound,
+                    "Вітаю!",
+                    provider_message_id=provider_message_id,
+                    processed_at=instagram_bot.timezone.now(),
+                )
+
+                self.assertEqual(reply.provider_message_id, "")
+
 
 class InstagramBotModelUiContractTests(SimpleTestCase):
     def test_conversation_payload_and_badge_contract_are_present(self):

@@ -26,6 +26,9 @@ from management.services.ig_commerce_projection import (
     project_active_line_to_legacy_client,
 )
 from management.services.ig_commerce_types import CommerceTurnRequest
+from management.services.ig_delivery_receipts import (
+    normalize_provider_message_id as _normalize_provider_message_id,
+)
 
 
 class CommerceRevisionConflict(RuntimeError):
@@ -596,16 +599,6 @@ def _provider_ids(payload: dict) -> list[str]:
                 if normalized:
                     ids.append(normalized)
     return ids
-
-
-def _normalize_provider_message_id(value) -> str:
-    """Accept only a bounded, nonblank provider receipt identifier."""
-    if not isinstance(value, str):
-        return ""
-    normalized = value.strip()
-    if not normalized or len(normalized) > 255:
-        return ""
-    return normalized
 
 
 def _expected_parts(reply_payload: dict, key: str) -> int:

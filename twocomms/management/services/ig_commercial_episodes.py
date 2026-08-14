@@ -13,6 +13,10 @@ from django.db import connection, transaction
 from django.db.models import Max, Q
 from django.utils import timezone
 
+from orders.fulfillment_truth import (
+    nova_poshta_delivery_confirmed_at,
+)
+
 
 _EPISODE_LOCKS = WeakValueDictionary()
 _EPISODE_LOCKS_GUARD = RLock()
@@ -979,12 +983,24 @@ def _fulfillment_projection(order):
             if order.shipment_status_updated
             else ""
         ),
+        "tracking_status_code": order.tracking_status_code,
+        "tracking_provider_event_at": (
+            order.tracking_provider_event_at.isoformat()
+            if order.tracking_provider_event_at
+            else ""
+        ),
+        "tracking_terminal_at": (
+            order.tracking_terminal_at.isoformat()
+            if order.tracking_terminal_at
+            else ""
+        ),
     }
-    if order.status == "done":
+    delivered_at = nova_poshta_delivery_confirmed_at(order)
+    if delivered_at is not None:
         return (
             IgCommercialEpisode.State.FULFILLED,
             "fulfilled",
-            timezone.now(),
+            delivered_at,
             snapshot,
         )
     if order.status == "cancelled":
@@ -1029,6 +1045,7 @@ def _record_order_funnel_facts(episode, order, *, source: str):
     """Record order/TTN/delivery facts from canonical locked Order truth."""
     from management.ig_bot_models import IgFunnelStepEvent
     from management.services.ig_funnel_analytics import (
+        delivery_funnel_event_key,
         record_episode_step_event_in_transaction,
     )
 
@@ -1063,18 +1080,21 @@ def _record_order_funnel_facts(episode, order, *, source: str):
                 "tracking_number": tracking_number,
             },
         )
-    if order.status == "done":
+    delivered_at = nova_poshta_delivery_confirmed_at(order)
+    if delivered_at is not None:
         record_episode_step_event_in_transaction(
             episode,
             event_type=IgFunnelStepEvent.Type.DELIVERED,
-            event_key=f"ig-delivered:{order.pk}",
-            occurred_at=order.shipment_status_updated or order_updated_at,
+            event_key=delivery_funnel_event_key(episode, order),
+            occurred_at=delivered_at,
             stage="done",
             actor=source or "order_truth",
             evidence={
                 "order_id": order.pk,
                 "tracking_number": tracking_number,
                 "shipment_status": order.shipment_status or "",
+                "tracking_status_code": order.tracking_status_code,
+                "tracking_terminal_at": order.tracking_terminal_at.isoformat(),
             },
         )
 
@@ -1090,17 +1110,32 @@ def sync_episode_fulfillment(order_or_id, *, source="order_truth"):
         return None
     with commercial_episode_client_lock(episode.client_id):
         with transaction.atomic():
+            client = IgClient.objects.select_for_update().get(pk=episode.client_id)
             locked = IgCommercialEpisode.objects.select_for_update().get(pk=episode.pk)
+            current_owner = (
+                IgCommercialEpisode.objects.select_for_update()
+                .filter(client_id=locked.client_id, open_slot=1)
+                .exclude(pk=locked.pk)
+                .first()
+            )
             order = Order.objects.select_for_update().get(pk=order_id)
             _record_order_funnel_facts(locked, order, source=source)
             previous_state = locked.state
             previous_snapshot = locked.fulfillment_snapshot or {}
             target_state, outcome, closed_at, snapshot = _fulfillment_projection(order)
+            target_open_slot = None if closed_at or current_owner else 1
+            target_current_id = (
+                current_owner.pk
+                if current_owner
+                else locked.pk if target_open_slot == 1 else None
+            )
             changed = bool(
                 previous_state != target_state
                 or locked.outcome != outcome
                 or previous_snapshot != snapshot
                 or bool(locked.closed_at) != bool(closed_at)
+                or locked.open_slot != target_open_slot
+                or client.current_commercial_episode_id != target_current_id
             )
             if not changed:
                 return locked
@@ -1108,8 +1143,7 @@ def sync_episode_fulfillment(order_or_id, *, source="order_truth"):
             locked.outcome = outcome
             locked.closed_at = closed_at
             locked.fulfillment_snapshot = snapshot
-            if closed_at:
-                locked.open_slot = None
+            locked.open_slot = target_open_slot
             locked.save(update_fields=[
                 "state",
                 "outcome",
@@ -1118,11 +1152,9 @@ def sync_episode_fulfillment(order_or_id, *, source="order_truth"):
                 "fulfillment_snapshot",
                 "updated_at",
             ])
-            if closed_at:
-                IgClient.objects.filter(
-                    pk=locked.client_id,
-                    current_commercial_episode_id=locked.pk,
-                ).update(current_commercial_episode_id=None, updated_at=timezone.now())
+            if client.current_commercial_episode_id != target_current_id:
+                client.current_commercial_episode_id = target_current_id
+                client.save(update_fields=["current_commercial_episode", "updated_at"])
             event_fingerprint = hashlib.sha256(
                 json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode("utf-8")
             ).hexdigest()[:24]

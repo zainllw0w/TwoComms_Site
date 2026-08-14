@@ -986,30 +986,27 @@ def bind_verified_payment(attempt_id, order):
         order=order,
         paid_at=verified_at,
     )
-    event, _created = IgLifecycleEvent.objects.get_or_create(
-        event_key=f"payment:{attempt.pk}:verified",
-        defaults={
-            "kind": IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
-            "client": proposal.client,
-            "deal": deal,
-            "proposal": proposal,
-            "order": order,
-            "commercial_episode": proposal.commercial_episode,
-            "attribution": attribution,
-            "locale": proposal.locale,
-            "payload": {
-                "attempt_id": attempt.pk,
-                "attempt_reference": attempt.reference,
-                "amount": str(attempt.paid_amount or attempt.payment_amount),
-                "currency": proposal.currency,
-            },
+    from management.services.ig_lifecycle import (
+        dispatch_lifecycle_event,
+        ensure_lifecycle_event,
+    )
+
+    event, _created = ensure_lifecycle_event(
+        order,
+        IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
+        payload={
+            "attempt_id": attempt.pk,
+            "attempt_reference": attempt.reference,
+            "amount": str(attempt.paid_amount or attempt.payment_amount),
+            "currency": proposal.currency,
         },
     )
     # The durable event is committed with payment truth; only then may the
     # Instagram adapter call Meta. Replays claim the same event idempotently.
-    from management.services.ig_lifecycle import dispatch_lifecycle_event
-
-    transaction.on_commit(lambda event_id=event.pk: dispatch_lifecycle_event(event_id))
+    if event is not None:
+        transaction.on_commit(
+            lambda event_id=event.pk: dispatch_lifecycle_event(event_id)
+        )
     try:
         proposal.client.set_stage(IgClient.Stage.ORDER_CREATED, reason="instagram_checkout_paid")
     except Exception:

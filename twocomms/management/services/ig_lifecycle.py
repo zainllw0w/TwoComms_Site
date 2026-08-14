@@ -10,19 +10,71 @@ from __future__ import annotations
 import hashlib
 import logging
 import secrets
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import timedelta
 
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from management.models import IgCheckoutProposal, IgLifecycleEvent, IgOrderAttribution
+from management.models import (
+    IgCheckoutProposal,
+    IgClient,
+    IgDeal,
+    IgLifecycleEvent,
+    IgOrderAssignment,
+    IgOrderAssignmentEvent,
+    IgOrderAttribution,
+    IgPaymentProjection,
+    InstagramBotMessage,
+)
+from management.services.ig_delivery_receipts import (
+    normalize_provider_message_id,
+    normalize_provider_message_ids,
+)
+from orders.fulfillment_truth import nova_poshta_order_fulfillment_confirmed
+from orders.models import Order
 
 logger = logging.getLogger("management.ig_lifecycle")
 
 RESPONSE_WINDOW = timedelta(hours=23)
 LEASE_DURATION = timedelta(minutes=5)
+PERMISSION_DEFERRAL_DELAY = timedelta(minutes=15)
+PERMISSION_DEFERRAL_DURATION = timedelta(hours=12)
 NP_TRACKING_URL = "https://novaposhta.ua/tracking/?cargo_number="
+MESSAGE_SNAPSHOT_KEY = "message_snapshot"
+LIFECYCLE_MESSAGE_KEY_PREFIX = "ig-lifecycle:"
+STALE_ASSIGNMENT_ERROR = "order assignment no longer belongs to lifecycle client"
+PAYMENT_NOT_VERIFIED_ERROR = "payment_not_verified"
+STANDARD_RESPONSE_WINDOW_CLOSED = "standard_response_window_closed"
+LIFECYCLE_PROJECTION_STAGE = {
+    IgLifecycleEvent.Kind.PAYMENT_VERIFIED: 1,
+    IgLifecycleEvent.Kind.TTN_CREATED: 2,
+    IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED: 3,
+}
+VERIFIED_PAYMENT_TRUTHS = {
+    IgDeal.PaymentTruth.CONFIRMED,
+    IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+}
+PRECLAIM_CANCELLABLE_STATES = {
+    IgLifecycleEvent.State.PENDING,
+    IgLifecycleEvent.State.WAITING_WINDOW,
+}
+PROVIDER_BOUNDARY_CLAIM_MARKER = "provider_boundary_v1"
+RECOVERABLE_CANCELLATION_REASONS = frozenset({
+    PAYMENT_NOT_VERIFIED_ERROR,
+    STALE_ASSIGNMENT_ERROR,
+    "tracking_number_changed",
+    "carrier delivery not confirmed",
+})
+TRANSIENT_PERMISSION_REASONS = {
+    "client_paused",
+    "global_reply_paused",
+    "manager_takeover",
+    "permission_epoch_changed",
+    "permission_transition_pending",
+}
 
 
 def _locale(value: str | None) -> str:
@@ -32,6 +84,106 @@ def _locale(value: str | None) -> str:
 
 def _tracking_digest(value: str) -> str:
     return hashlib.sha256(str(value or "").strip().encode("utf-8")).hexdigest()[:24]
+
+
+def _lifecycle_message_key(event_key: str) -> str:
+    """Return a bounded unique key for the lifecycle conversation outbox row."""
+    digest = hashlib.sha256(str(event_key or "").encode("utf-8")).hexdigest()
+    return f"{LIFECYCLE_MESSAGE_KEY_PREFIX}{digest}"[:64]
+
+
+def _lifecycle_message_queryset(event_key: str):
+    return InstagramBotMessage.objects.filter(
+        synthetic_event_key=_lifecycle_message_key(event_key),
+        role=InstagramBotMessage.Role.MODEL,
+        source="lifecycle",
+    )
+
+
+def _lifecycle_message_has_provider_io(message) -> bool:
+    if message is None:
+        return False
+    return bool(
+        message.send_started_at
+        or message.provider_message_id
+        or message.send_state in {"sending", "sent", "unknown"}
+        or message.status in {
+            InstagramBotMessage.Status.DONE,
+            InstagramBotMessage.Status.FAILED,
+        }
+    )
+
+
+def _mark_lifecycle_message_unknown(message, *, when=None) -> None:
+    if message is None:
+        return
+    when = when or timezone.now()
+    InstagramBotMessage.objects.filter(pk=message.pk).update(
+        status=InstagramBotMessage.Status.FAILED,
+        send_state="unknown",
+        processed_at=when,
+    )
+    message.status = InstagramBotMessage.Status.FAILED
+    message.send_state = "unknown"
+    message.processed_at = when
+
+
+def _checkpoint_lifecycle_provider_receipt(
+    event_id: int,
+    lease: str,
+    provider_message_id: str,
+) -> None:
+    """Persist one confirmed Meta receipt before any later fallible step."""
+    receipt_id = normalize_provider_message_id(provider_message_id)
+    if not receipt_id:
+        raise ValueError("provider receipt checkpoint requires a message ID")
+
+    with transaction.atomic():
+        event = (
+            IgLifecycleEvent.objects.select_for_update()
+            .filter(
+                pk=event_id,
+                lease_token=lease,
+                state=IgLifecycleEvent.State.PROCESSING,
+            )
+            .first()
+        )
+        if event is None:
+            raise RuntimeError("lifecycle lease lost before receipt checkpoint")
+        lifecycle_message = (
+            _lifecycle_message_queryset(event.event_key)
+            .select_for_update()
+            .first()
+        )
+        if not _lifecycle_message_has_provider_io(lifecycle_message):
+            raise RuntimeError("lifecycle outbox marker missing before receipt checkpoint")
+
+        receipt_ids = list(normalize_provider_message_ids([
+            *(lifecycle_message.delivery_provider_message_ids or []),
+            receipt_id,
+        ]))
+        from management.services.instagram_bot import _split_for_send
+
+        delivered_count = max(
+            len(receipt_ids),
+            int(lifecycle_message.delivery_delivered_chunk_count or 0),
+        )
+        planned_count = max(
+            delivered_count,
+            int(lifecycle_message.delivery_planned_chunk_count or 0),
+            len(_split_for_send(lifecycle_message.text)),
+        )
+        first_receipt_id = receipt_ids[0]
+        InstagramBotMessage.objects.filter(pk=lifecycle_message.pk).update(
+            provider_message_id=first_receipt_id[:255],
+            delivery_original_text=lifecycle_message.text,
+            delivery_planned_chunk_count=planned_count,
+            delivery_delivered_chunk_count=delivered_count,
+            delivery_provider_message_ids=receipt_ids,
+        )
+        if not event.provider_message_id:
+            event.provider_message_id = first_receipt_id[:128]
+            event.save(update_fields=["provider_message_id", "updated_at"])
 
 
 def _context_for_order(order):
@@ -62,19 +214,71 @@ def _context_for_order(order):
     }
 
 
+def _assignment_belongs_to_client(order_id, client_id, *, for_update=False):
+    assignments = IgOrderAssignment.objects
+    if for_update:
+        assignments = assignments.select_for_update()
+    assignment = assignments.filter(order_id=order_id).only(
+        "client_id", "unassigned_at"
+    ).first()
+    if assignment is None:
+        return False
+    return assignment.client_id == client_id and assignment.unassigned_at is None
+
+
+def _assignment_snapshot_for_client(order_id, client_id, *, for_update=False):
+    assignments = IgOrderAssignment.objects
+    if for_update:
+        assignments = assignments.select_for_update()
+    assignment = (
+        assignments.filter(
+            order_id=order_id,
+            client_id=client_id,
+            unassigned_at__isnull=True,
+        )
+        .only("pk", "version")
+        .first()
+    )
+    if assignment is None:
+        return None
+    return {
+        "assignment_id": assignment.pk,
+        "assignment_version": assignment.version,
+    }
+
+
+def _assignment_matches_event(event, *, for_update=False):
+    payload = event.payload or {}
+    try:
+        assignment_id = int(payload.get("assignment_id"))
+        assignment_version = int(payload.get("assignment_version"))
+    except (TypeError, ValueError):
+        return False
+    if assignment_id <= 0 or assignment_version <= 0:
+        return False
+    assignments = IgOrderAssignment.objects
+    if for_update:
+        assignments = assignments.select_for_update()
+    return assignments.filter(
+        pk=assignment_id,
+        order_id=event.order_id,
+        client_id=event.client_id,
+        version=assignment_version,
+        unassigned_at__isnull=True,
+    ).exists()
+
+
 def _event_key(order, kind, payload):
     if kind == IgLifecycleEvent.Kind.PAYMENT_VERIFIED:
         return f"payment:{payload['attempt_id']}:verified"
     if kind == IgLifecycleEvent.Kind.TTN_CREATED:
         return f"ttn:{order.pk}:{_tracking_digest(payload['tracking_number'])}"
-    return f"delivered:{order.pk}:{payload['status_code']}"
+    return f"delivered:{order.pk}"
 
 
-def _message(event: IgLifecycleEvent) -> str:
-    locale = _locale(event.locale)
-    payload = event.payload or {}
-    order = event.order
-    if event.kind == IgLifecycleEvent.Kind.PAYMENT_VERIFIED:
+def _message_for(kind, locale, order, payload) -> str:
+    locale = _locale(locale)
+    if kind == IgLifecycleEvent.Kind.PAYMENT_VERIFIED:
         amount = payload.get("amount") or ""
         recipient = str(order.full_name or "").strip()
         phone = str(order.phone or "").strip()
@@ -102,7 +306,7 @@ def _message(event: IgLifecycleEvent) -> str:
             copies["ru"] += f" Сумма: {amount} грн."
             copies["en"] += f" Amount: {amount} UAH."
         return copies[locale]
-    if event.kind == IgLifecycleEvent.Kind.TTN_CREATED:
+    if kind == IgLifecycleEvent.Kind.TTN_CREATED:
         ttn = str(payload.get("tracking_number") or "").strip()
         track_url = f"{NP_TRACKING_URL}{ttn}"
         copies = {
@@ -112,37 +316,111 @@ def _message(event: IgLifecycleEvent) -> str:
         }
         return copies[locale]
     copies = {
-        "uk": "Дякуємо, що обрали TwoComms. Чи все добре із замовленням і чи вам сподобались речі? Якщо маєте хвилину, відмітьте @twocomms в Instagram або надішліть короткий чесний відгук. Надішліть посилання чи скрін у Direct — надамо 10% знижки на наступне замовлення.",
-        "ru": "Спасибо, что выбрали TwoComms. Все ли хорошо с заказом и понравились ли вам вещи? Если будет минутка, отметьте @twocomms в Instagram или отправьте короткий честный отзыв. Пришлите ссылку или скрин в Direct — дадим 10% скидки на следующий заказ.",
-        "en": "Thank you for choosing TwoComms. Did everything arrive correctly, and did you like the order? If you have a minute, tag @twocomms in an Instagram story or send a short honest review. Send us the story link or a screenshot in Direct and we will give you 10% off your next order.",
+        "uk": "Дякуємо, що обрали TwoComms. Чи все добре із замовленням і чи вам сподобались речі? Якщо маєте хвилину, відмітьте @twocomms в Instagram або надішліть короткий чесний відгук. Будемо раді побачити посилання чи скрін у Direct.",
+        "ru": "Спасибо, что выбрали TwoComms. Все ли хорошо с заказом и понравились ли вам вещи? Если будет минутка, отметьте @twocomms в Instagram или отправьте короткий честный отзыв. Будем рады увидеть ссылку или скрин в Direct.",
+        "en": "Thank you for choosing TwoComms. Did everything arrive correctly, and did you like the order? If you have a minute, tag @twocomms in an Instagram story or send a short honest review. We would be glad to see the story link or a screenshot in Direct.",
     }
     return copies[locale]
 
 
+def _message(event: IgLifecycleEvent) -> str:
+    payload = event.payload or {}
+    snapshot = payload.get(MESSAGE_SNAPSHOT_KEY)
+    if isinstance(snapshot, str) and snapshot:
+        return snapshot
+    return _message_for(event.kind, event.locale, event.order, payload)
+
+
 @transaction.atomic
 def ensure_lifecycle_event(order, kind, *, payload=None, due_at=None):
-    """Create one event from committed order truth, or return the existing one."""
+    """Create one event generation from committed order truth.
+
+    A cancelled generation remains immutable audit evidence. Once its business
+    truth is restored, a new deterministic generation is materialized instead
+    of silently reviving or permanently suppressing the original event.
+    """
+    initial_context = _context_for_order(order)
+    if initial_context is None:
+        return None, False
+    projection = (
+        IgPaymentProjection.objects.select_for_update()
+        .filter(
+            deal_id=initial_context["deal"].pk,
+            client_id=initial_context["client"].pk,
+        )
+        .first()
+    )
+    order = Order.objects.select_for_update().filter(pk=order.pk).first()
+    if order is None:
+        return None, False
     context = _context_for_order(order)
-    if context is None:
+    if (
+        context is None
+        or context["deal"].pk != initial_context["deal"].pk
+        or context["client"].pk != initial_context["client"].pk
+    ):
+        return None, False
+    assignment_snapshot = _assignment_snapshot_for_client(
+        order.pk,
+        context["client"].pk,
+        for_update=True,
+    )
+    if assignment_snapshot is None:
         return None, False
     payload = dict(payload or {})
-    key = _event_key(order, kind, payload)
-    event, created = IgLifecycleEvent.objects.get_or_create(
-        event_key=key,
-        defaults={
-            "kind": kind,
-            "client": context["client"],
-            "deal": context["deal"],
-            "proposal": context["proposal"],
-            "order": order,
-            "commercial_episode": context["episode"],
-            "attribution": context["attribution"],
-            "locale": _locale(getattr(context["client"], "language", "uk")),
-            "payload": payload,
-            "due_at": due_at or timezone.now(),
-        },
+    payload.update(assignment_snapshot)
+    cancellation_reason = _business_truth_cancellation_reason(
+        kind=kind,
+        payload=payload,
+        payment_truth=projection.truth if projection is not None else None,
+        order=order,
+        assignment_matches=True,
     )
-    return event, created
+    if cancellation_reason:
+        return None, False
+    key = _event_key(order, kind, payload)
+    locale = _locale(getattr(context["client"], "language", "uk"))
+    payload[MESSAGE_SNAPSHOT_KEY] = _message_for(kind, locale, order, payload)
+    defaults = {
+        "kind": kind,
+        "client": context["client"],
+        "deal": context["deal"],
+        "proposal": context["proposal"],
+        "order": order,
+        "commercial_episode": context["episode"],
+        "attribution": context["attribution"],
+        "locale": locale,
+        "payload": payload,
+        "due_at": due_at or timezone.now(),
+    }
+    canonical = (
+        IgLifecycleEvent.objects.select_for_update().filter(event_key=key).first()
+    )
+    if canonical is None:
+        return IgLifecycleEvent.objects.get_or_create(
+            event_key=key,
+            defaults=defaults,
+        )
+    if canonical.state != IgLifecycleEvent.State.CANCELLED:
+        return canonical, False
+
+    retry_prefix = f"{key}:retry:"
+    latest = (
+        IgLifecycleEvent.objects.select_for_update()
+        .filter(event_key__startswith=retry_prefix)
+        .order_by("-pk")
+        .first()
+    )
+    if latest is not None and latest.state != IgLifecycleEvent.State.CANCELLED:
+        return latest, False
+    previous = latest or canonical
+    if previous.last_error not in RECOVERABLE_CANCELLATION_REASONS:
+        return previous, False
+    replacement = IgLifecycleEvent.objects.create(
+        event_key=f"{retry_prefix}{previous.pk}",
+        **defaults,
+    )
+    return replacement, True
 
 
 def _response_window_open(client, now):
@@ -170,13 +448,109 @@ def _queue_manager_task(event: IgLifecycleEvent) -> None:
     )
 
 
-def _cancel_event(event_id: int, reason: str) -> str:
+def _notify_lifecycle_delivery_review(event: IgLifecycleEvent) -> None:
+    try:
+        from management.services.ig_alerts import format_operator_alert
+        from management.services.instagram_bot import notify_manager
+
+        notify_manager(
+            format_operator_alert(
+                "⚠️ IG: не вдалося доставити lifecycle-подію",
+                event_type="ig_lifecycle_delivery_review",
+                client_id=event.client_id,
+                deal_id=event.deal_id,
+                proposal_id=event.proposal_id,
+                lifecycle_event_id=event.pk,
+                status="delivery_failed",
+                instruction_code="ig_lifecycle_delivery_review",
+            ),
+            dedupe_key=f"ig-lifecycle:delivery:{event.event_key}",
+            event_type="ig_lifecycle_delivery_review",
+            client=event.client,
+        )
+    except Exception:
+        logger.exception("Unable to alert manager for lifecycle event %s", event.pk)
+
+
+def _notify_lifecycle_window_review(event: IgLifecycleEvent) -> None:
+    try:
+        from management.services.ig_alerts import format_operator_alert
+        from management.services.instagram_bot import notify_manager
+
+        notify_manager(
+            format_operator_alert(
+                "⚠️ IG: lifecycle-подія потребує відповіді менеджера",
+                event_type="ig_lifecycle_window_review",
+                client_id=event.client_id,
+                deal_id=event.deal_id,
+                proposal_id=event.proposal_id,
+                lifecycle_event_id=event.pk,
+                status="response_window_closed",
+                instruction_code="ig_lifecycle_window_review",
+            ),
+            dedupe_key=f"ig-lifecycle:window:{event.event_key}",
+            event_type="ig_lifecycle_window_review",
+            client=event.client,
+        )
+    except Exception:
+        logger.exception(
+            "Unable to create manager review for lifecycle event %s",
+            event.pk,
+        )
+
+
+def _publish_lifecycle_window_review(event_id: int) -> None:
+    event = (
+        IgLifecycleEvent.objects.select_related("client", "deal", "order")
+        .filter(pk=event_id)
+        .first()
+    )
+    if event is None or event.state != IgLifecycleEvent.State.MANAGER_REVIEW:
+        return
+    _project_order_channel(event)
+    _queue_manager_task(event)
+    _notify_lifecycle_window_review(event)
+
+
+def _notify_lifecycle_permission_review(event: IgLifecycleEvent, reason: str) -> None:
+    try:
+        from management.services.ig_alerts import format_operator_alert
+        from management.services.instagram_bot import notify_manager
+
+        notify_manager(
+            format_operator_alert(
+                "⚠️ IG: lifecycle-подія довго очікує дозволу на відправку",
+                event_type="ig_lifecycle_permission_review",
+                client_id=event.client_id,
+                deal_id=event.deal_id,
+                proposal_id=event.proposal_id,
+                lifecycle_event_id=event.pk,
+                status=reason,
+                instruction_code="ig_lifecycle_permission_review",
+            ),
+            dedupe_key=f"ig-lifecycle:permission:{event.event_key}",
+            event_type="ig_lifecycle_permission_review",
+            client=event.client,
+        )
+    except Exception:
+        logger.exception(
+            "Unable to alert manager about deferred lifecycle event %s",
+            event.pk,
+        )
+
+
+def _cancel_event(event_id: int, reason: str, *, lease: str) -> str:
     with transaction.atomic():
         event = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
         if event.state in {
             IgLifecycleEvent.State.SENT,
             IgLifecycleEvent.State.CANCELLED,
         }:
+            state = event.state
+        elif (
+            event.state != IgLifecycleEvent.State.PROCESSING
+            or event.lease_token != lease
+        ):
             state = event.state
         else:
             event.state = IgLifecycleEvent.State.CANCELLED
@@ -191,9 +565,97 @@ def _cancel_event(event_id: int, reason: str) -> str:
     return state
 
 
+def _apply_permission_deferral(event: IgLifecycleEvent, reason: str, *, now) -> bool:
+    """Release a pre-provider lease without consuming delivery retry budget."""
+    event.lease_token = ""
+    event.lease_expires_at = None
+    event.attempts = max(0, int(event.attempts or 0) - 1)
+    event.last_error = reason[:1000]
+    timed_out = bool(
+        event.created_at
+        and now - event.created_at >= PERMISSION_DEFERRAL_DURATION
+    )
+    if timed_out:
+        event.state = IgLifecycleEvent.State.MANAGER_REVIEW
+        event.due_at = now
+    else:
+        event.state = IgLifecycleEvent.State.WAITING_WINDOW
+        event.due_at = now + PERMISSION_DEFERRAL_DELAY
+    return timed_out
+
+
+def _defer_event_for_permission(event_id: int, reason: str, *, lease: str) -> str:
+    """Defer a temporary permission denial or escalate an overdue event."""
+    now = timezone.now()
+    needs_manager_review = False
+    with transaction.atomic():
+        event = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
+        if (
+            event.state == IgLifecycleEvent.State.PROCESSING
+            and event.lease_token == lease
+        ):
+            needs_manager_review = _apply_permission_deferral(
+                event,
+                reason,
+                now=now,
+            )
+            event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "attempts",
+                    "last_error",
+                    "due_at",
+                    "updated_at",
+                ]
+            )
+        state = event.state
+    _project_order_channel(event)
+    if needs_manager_review:
+        _queue_manager_task(event)
+        _notify_lifecycle_permission_review(event, reason)
+    return state
+
+
+def _transient_permission_reason(kind: str, hint: str, failure_boundary: str) -> str:
+    """Normalize only definite pre-provider permission denials into retryable control state."""
+    if kind != "cancelled":
+        return ""
+    normalized_hint = str(hint or "").strip()
+    if normalized_hint in TRANSIENT_PERMISSION_REASONS:
+        return normalized_hint
+    boundary_reason = str(failure_boundary or "").rsplit(":", 1)[-1]
+    if boundary_reason in TRANSIENT_PERMISSION_REASONS:
+        return boundary_reason
+    if "permission epoch changed" in normalized_hint.lower():
+        return "permission_epoch_changed"
+    return ""
+
+
+@dataclass(frozen=True)
+class _LifecycleDeliveryResult:
+    ok: bool
+    kind: str
+    hint: str
+    provider_message_id: str
+    provider_message_ids: tuple[str, ...]
+    planned_chunk_count: int
+    delivered_chunk_count: int
+    failure_boundary: str
+    receipt_present: bool
+
+
 def _delivery_result(result):
     """Normalize legacy tuples and optional structured provider receipts."""
-    provider_message_id = str(getattr(result, "provider_message_id", "") or "")
+    provider_message_id = normalize_provider_message_id(
+        getattr(result, "provider_message_id", "")
+    )
+    provider_message_ids: tuple[str, ...] = ()
+    planned_chunk_count = 0
+    delivered_chunk_count = 0
+    failure_boundary = ""
+    receipt_present = not isinstance(result, tuple)
     if isinstance(result, tuple):
         if len(result) >= 4:
             ok, kind, hint, provider_message_id = result[:4]
@@ -203,7 +665,97 @@ def _delivery_result(result):
         ok = bool(getattr(result, "ok", False))
         kind = str(getattr(result, "kind", "unknown") or "unknown")
         hint = str(getattr(result, "hint", "") or "")
-    return bool(ok), str(kind or "unknown"), str(hint or ""), str(provider_message_id or "")
+        provider_message_ids = normalize_provider_message_ids(
+            getattr(result, "provider_message_ids", ())
+        )
+        try:
+            planned_chunk_count = max(
+                0, int(getattr(result, "planned_chunk_count", 0) or 0)
+            )
+        except (TypeError, ValueError):
+            planned_chunk_count = 0
+        try:
+            delivered_chunk_count = max(
+                0, int(getattr(result, "delivered_chunk_count", 0) or 0)
+            )
+        except (TypeError, ValueError):
+            delivered_chunk_count = 0
+        failure_boundary = str(getattr(result, "failure_boundary", "") or "")[:64]
+    if provider_message_id and provider_message_id not in provider_message_ids:
+        provider_message_ids = (provider_message_id, *provider_message_ids)
+    if not receipt_present and provider_message_id:
+        planned_chunk_count = 1
+        delivered_chunk_count = 1
+    return _LifecycleDeliveryResult(
+        ok=bool(ok),
+        kind=str(kind or "unknown"),
+        hint=str(hint or ""),
+        provider_message_id=provider_message_id,
+        provider_message_ids=provider_message_ids,
+        planned_chunk_count=planned_chunk_count,
+        delivered_chunk_count=delivered_chunk_count,
+        failure_boundary=failure_boundary,
+        receipt_present=receipt_present,
+    )
+
+
+def _delivery_result_after_provider_exception(
+    event_id: int,
+    exc: Exception,
+) -> _LifecycleDeliveryResult:
+    """Recover the latest durable receipt without exposing provider details."""
+    event = IgLifecycleEvent.objects.filter(pk=event_id).first()
+    lifecycle_message = (
+        _lifecycle_message_queryset(event.event_key).first()
+        if event is not None
+        else None
+    )
+    provider_message_ids = normalize_provider_message_ids(
+        lifecycle_message.delivery_provider_message_ids
+        if lifecycle_message is not None
+        else []
+    )
+    delivered_chunk_count = max(
+        len(provider_message_ids),
+        int(
+            lifecycle_message.delivery_delivered_chunk_count
+            if lifecycle_message is not None
+            else 0
+        ),
+    )
+    planned_chunk_count = max(
+        delivered_chunk_count,
+        int(
+            lifecycle_message.delivery_planned_chunk_count
+            if lifecycle_message is not None
+            else 0
+        ),
+    )
+    provider_message_id = normalize_provider_message_id(
+        (event.provider_message_id if event is not None else "")
+        or (
+            lifecycle_message.provider_message_id
+            if lifecycle_message is not None
+            else ""
+        )
+        or (provider_message_ids[0] if provider_message_ids else "")
+    )
+    provider_io_started = _lifecycle_message_has_provider_io(lifecycle_message)
+    return _LifecycleDeliveryResult(
+        ok=False,
+        kind="unknown" if provider_io_started else "retryable",
+        hint=exc.__class__.__name__,
+        provider_message_id=provider_message_id,
+        provider_message_ids=provider_message_ids,
+        planned_chunk_count=planned_chunk_count,
+        delivered_chunk_count=delivered_chunk_count,
+        failure_boundary=(
+            f"chunk:{delivered_chunk_count + 1}:provider_exception"
+            if provider_io_started
+            else "preflight:provider_exception"
+        ),
+        receipt_present=provider_io_started,
+    )
 
 
 def _project_order_channel(event: IgLifecycleEvent) -> None:
@@ -226,7 +778,17 @@ def _project_order_channel(event: IgLifecycleEvent) -> None:
             "instagram_lifecycle",
             state_map.get(event.state, "unknown"),
             error=event.last_error,
-            metadata={"provider_message_id": event.provider_message_id},
+            metadata={
+                "provider_message_id": event.provider_message_id,
+                "lifecycle_event_id": event.pk,
+                "kind": event.kind,
+                "event_key": event.event_key,
+                "lifecycle_stage": LIFECYCLE_PROJECTION_STAGE.get(event.kind, 0),
+                "lifecycle_event_updated_at": event.updated_at.isoformat(),
+            },
+            monotonic_metadata_key="lifecycle_event_id",
+            monotonic_stage_key="lifecycle_stage",
+            monotonic_revision_key="lifecycle_event_updated_at",
         )
     except Exception:
         logger.exception(
@@ -234,14 +796,455 @@ def _project_order_channel(event: IgLifecycleEvent) -> None:
         )
 
 
+def _business_truth_cancellation_reason(
+    *,
+    kind: str,
+    payload: dict,
+    payment_truth: str | None,
+    order,
+    assignment_matches: bool,
+) -> str:
+    if payment_truth not in VERIFIED_PAYMENT_TRUTHS:
+        return PAYMENT_NOT_VERIFIED_ERROR
+    if order is None:
+        return "order_missing"
+    if (
+        kind == IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED
+        and not nova_poshta_order_fulfillment_confirmed(order)
+    ):
+        return "carrier delivery not confirmed"
+    if (
+        kind == IgLifecycleEvent.Kind.TTN_CREATED
+        and str(order.tracking_number or "").strip()
+        != str(payload.get("tracking_number") or "").strip()
+    ):
+        return "tracking_number_changed"
+    if not assignment_matches:
+        return STALE_ASSIGNMENT_ERROR
+    return ""
+
+
+def _preflight_cancellation_reason(event: IgLifecycleEvent) -> str:
+    payment_truth = (
+        IgPaymentProjection.objects.filter(
+            deal_id=event.deal_id,
+            client_id=event.client_id,
+        )
+        .values_list("truth", flat=True)
+        .first()
+    )
+    order = Order.objects.filter(pk=event.order_id).first()
+    return _business_truth_cancellation_reason(
+        kind=event.kind,
+        payload=event.payload or {},
+        payment_truth=payment_truth,
+        order=order,
+        assignment_matches=_assignment_matches_event(event),
+    )
+
+
+def _mark_event_ambiguous(event_id: int, reason: str, *, lease: str) -> str:
+    with transaction.atomic():
+        event = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
+        if event.state in {
+            IgLifecycleEvent.State.SENT,
+            IgLifecycleEvent.State.CANCELLED,
+        }:
+            return event.state
+        if (
+            event.state != IgLifecycleEvent.State.PROCESSING
+            or event.lease_token != lease
+        ):
+            return event.state
+        lifecycle_message = (
+            _lifecycle_message_queryset(event.event_key).select_for_update().first()
+        )
+        event.state = IgLifecycleEvent.State.AMBIGUOUS
+        event.lease_token = ""
+        event.lease_expires_at = None
+        event.last_error = reason[:1000]
+        event.due_at = timezone.now()
+        event.save(
+            update_fields=[
+                "state",
+                "lease_token",
+                "lease_expires_at",
+                "last_error",
+                "due_at",
+                "updated_at",
+            ]
+        )
+        _mark_lifecycle_message_unknown(lifecycle_message)
+    _project_order_channel(event)
+    _queue_manager_task(event)
+    _notify_lifecycle_delivery_review(event)
+    return event.state
+
+
+def _start_lifecycle_provider_io(
+    event_id: int,
+    lease: str,
+    *,
+    deal_id: int,
+    order_id: int,
+    client_id: int,
+    assignment_id: int | None,
+    assignment_version: int | None,
+) -> bool:
+    """Commit the lifecycle outbox marker in canonical lock order."""
+    with transaction.atomic():
+        projection = (
+            IgPaymentProjection.objects.select_for_update()
+            .filter(deal_id=deal_id, client_id=client_id)
+            .first()
+        )
+        locked_order = Order.objects.select_for_update().filter(pk=order_id).first()
+        assignment_matches = False
+        if assignment_id and assignment_version:
+            assignment_matches = (
+                IgOrderAssignment.objects.select_for_update()
+                .filter(
+                    pk=assignment_id,
+                    order_id=order_id,
+                    client_id=client_id,
+                    version=assignment_version,
+                    unassigned_at__isnull=True,
+                )
+                .exists()
+            )
+        current_event = (
+            IgLifecycleEvent.objects.select_for_update()
+            .filter(
+                pk=event_id,
+                lease_token=lease,
+                state=IgLifecycleEvent.State.PROCESSING,
+            )
+            .first()
+        )
+        if current_event is None:
+            return False
+        cancellation_reason = _business_truth_cancellation_reason(
+            kind=current_event.kind,
+            payload=current_event.payload or {},
+            payment_truth=projection.truth if projection is not None else None,
+            order=locked_order,
+            assignment_matches=assignment_matches,
+        )
+        if cancellation_reason:
+            current_event.state = IgLifecycleEvent.State.CANCELLED
+            current_event.lease_token = ""
+            current_event.lease_expires_at = None
+            current_event.last_error = cancellation_reason
+            current_event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "last_error",
+                    "updated_at",
+                ]
+            )
+            return False
+        fresh_now = timezone.now()
+        fresh_client = (
+            IgClient.objects.only("last_message_at")
+            .filter(pk=client_id)
+            .first()
+        )
+        if not _response_window_open(fresh_client, fresh_now):
+            current_event.state = IgLifecycleEvent.State.MANAGER_REVIEW
+            current_event.lease_token = ""
+            current_event.lease_expires_at = None
+            current_event.last_error = STANDARD_RESPONSE_WINDOW_CLOSED
+            current_event.due_at = fresh_now
+            current_event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "last_error",
+                    "due_at",
+                    "updated_at",
+                ]
+            )
+            transaction.on_commit(
+                lambda event_id=current_event.pk: _publish_lifecycle_window_review(
+                    event_id
+                )
+            )
+            return False
+        lifecycle_message = (
+            _lifecycle_message_queryset(current_event.event_key)
+            .select_for_update()
+            .first()
+        )
+        expected_text = _message(current_event)
+        if lifecycle_message is not None and (
+            lifecycle_message.client_id != current_event.client_id
+            or lifecycle_message.sender_id != current_event.client.igsid
+            or lifecycle_message.text != expected_text
+        ):
+            current_event.state = IgLifecycleEvent.State.AMBIGUOUS
+            current_event.lease_token = ""
+            current_event.lease_expires_at = None
+            current_event.last_error = "lifecycle outbox identity mismatch"
+            current_event.due_at = timezone.now()
+            current_event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "last_error",
+                    "due_at",
+                    "updated_at",
+                ]
+            )
+            _mark_lifecycle_message_unknown(lifecycle_message)
+            return False
+        if _lifecycle_message_has_provider_io(lifecycle_message):
+            current_event.state = IgLifecycleEvent.State.AMBIGUOUS
+            current_event.lease_token = ""
+            current_event.lease_expires_at = None
+            current_event.last_error = "provider I/O marker already exists"
+            current_event.due_at = timezone.now()
+            current_event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "last_error",
+                    "due_at",
+                    "updated_at",
+                ]
+            )
+            _mark_lifecycle_message_unknown(lifecycle_message)
+            return False
+        started_at = timezone.now()
+        if lifecycle_message is None:
+            InstagramBotMessage.objects.create(
+                sender_id=current_event.client.igsid,
+                client_id=current_event.client_id,
+                role=InstagramBotMessage.Role.MODEL,
+                text=expected_text,
+                status=InstagramBotMessage.Status.PROCESSING,
+                source="lifecycle",
+                synthetic_event_key=_lifecycle_message_key(current_event.event_key),
+                send_state="sending",
+                send_started_at=started_at,
+            )
+        else:
+            InstagramBotMessage.objects.filter(pk=lifecycle_message.pk).update(
+                status=InstagramBotMessage.Status.PROCESSING,
+                send_state="sending",
+                send_started_at=started_at,
+                send_completed_at=None,
+                processed_at=None,
+            )
+    return True
+
+
+@contextmanager
+def _lifecycle_provider_request_boundary(
+    event_id: int,
+    lease: str,
+    *,
+    deal_id: int,
+    order_id: int,
+    client_id: int,
+    assignment_id: int | None,
+    assignment_version: int | None,
+    delivered_chunk_count: int = 0,
+    provider_message_ids: tuple[str, ...] = (),
+    planned_chunk_count: int = 0,
+):
+    """Lock and revalidate business truth around one bounded Meta request."""
+    projected_event = None
+    needs_manager_review = False
+    window_review_required = False
+    with transaction.atomic():
+        projection = (
+            IgPaymentProjection.objects.select_for_update()
+            .filter(deal_id=deal_id, client_id=client_id)
+            .first()
+        )
+        locked_order = Order.objects.select_for_update().filter(pk=order_id).first()
+        assignment = None
+        if assignment_id and assignment_version:
+            assignment = (
+                IgOrderAssignment.objects.select_for_update()
+                .filter(
+                    pk=assignment_id,
+                    order_id=order_id,
+                    client_id=client_id,
+                    version=assignment_version,
+                    unassigned_at__isnull=True,
+                )
+                .first()
+            )
+        current_event = (
+            IgLifecycleEvent.objects.select_for_update()
+            .filter(
+                pk=event_id,
+                lease_token=lease,
+                state=IgLifecycleEvent.State.PROCESSING,
+            )
+            .first()
+        )
+        if current_event is None:
+            yield False
+        else:
+            fresh_client = (
+                IgClient.objects.only("last_message_at")
+                .filter(pk=client_id)
+                .first()
+            )
+            window_closed = not _response_window_open(
+                fresh_client,
+                timezone.now(),
+            )
+            lifecycle_message = (
+                _lifecycle_message_queryset(current_event.event_key)
+                .select_for_update()
+                .first()
+            )
+            cancellation_reason = _business_truth_cancellation_reason(
+                kind=current_event.kind,
+                payload=current_event.payload or {},
+                payment_truth=projection.truth if projection is not None else None,
+                order=locked_order,
+                assignment_matches=assignment is not None,
+            )
+            marker_identity_matches = bool(
+                lifecycle_message
+                and lifecycle_message.client_id == current_event.client_id
+                and lifecycle_message.sender_id == current_event.client.igsid
+                and lifecycle_message.text == _message(current_event)
+                and _lifecycle_message_has_provider_io(lifecycle_message)
+            )
+            terminal_reason = cancellation_reason or (
+                STANDARD_RESPONSE_WINDOW_CLOSED if window_closed else ""
+            )
+            if not terminal_reason and not marker_identity_matches:
+                terminal_reason = "lifecycle outbox marker missing or mismatched"
+                needs_manager_review = True
+
+            if terminal_reason:
+                receipt_ids = normalize_provider_message_ids(
+                    provider_message_ids
+                )
+                delivered_count = max(
+                    len(receipt_ids),
+                    max(0, int(delivered_chunk_count or 0)),
+                )
+                planned_count = max(
+                    delivered_count,
+                    max(0, int(planned_chunk_count or 0)),
+                )
+                failure_boundary = (
+                    f"chunk:{delivered_count + 1}:provider_request_rejected"
+                )[:64]
+                if receipt_ids:
+                    current_event.provider_message_id = receipt_ids[0][:128]
+                has_partial_delivery = delivered_count > 0
+                if window_closed and not has_partial_delivery and not needs_manager_review:
+                    current_event.state = IgLifecycleEvent.State.MANAGER_REVIEW
+                    current_event.last_error = STANDARD_RESPONSE_WINDOW_CLOSED
+                    current_event.due_at = timezone.now()
+                    window_review_required = True
+                    if lifecycle_message is not None:
+                        completed_at = timezone.now()
+                        InstagramBotMessage.objects.filter(
+                            pk=lifecycle_message.pk
+                        ).update(
+                            status=InstagramBotMessage.Status.DONE,
+                            send_state="cancelled",
+                            processed_at=completed_at,
+                            send_completed_at=completed_at,
+                            delivery_original_text=lifecycle_message.text,
+                            delivery_planned_chunk_count=planned_count,
+                            delivery_delivered_chunk_count=0,
+                            delivery_provider_message_ids=[],
+                            delivery_failure_boundary=failure_boundary,
+                        )
+                elif needs_manager_review or has_partial_delivery:
+                    current_event.state = IgLifecycleEvent.State.AMBIGUOUS
+                    current_event.last_error = (
+                        f"partial delivery before {terminal_reason}"
+                        if has_partial_delivery
+                        else terminal_reason
+                    )[:1000]
+                    current_event.due_at = timezone.now()
+                    needs_manager_review = True
+                    if lifecycle_message is not None:
+                        InstagramBotMessage.objects.filter(
+                            pk=lifecycle_message.pk
+                        ).update(
+                            delivery_original_text=lifecycle_message.text,
+                            delivery_planned_chunk_count=planned_count,
+                            delivery_delivered_chunk_count=delivered_count,
+                            delivery_provider_message_ids=list(receipt_ids),
+                            delivery_failure_boundary=failure_boundary,
+                            provider_message_id=(
+                                receipt_ids[0][:255] if receipt_ids else ""
+                            ),
+                        )
+                    _mark_lifecycle_message_unknown(lifecycle_message)
+                else:
+                    current_event.state = IgLifecycleEvent.State.CANCELLED
+                    current_event.last_error = terminal_reason[:1000]
+                    if lifecycle_message is not None:
+                        completed_at = timezone.now()
+                        InstagramBotMessage.objects.filter(
+                            pk=lifecycle_message.pk
+                        ).update(
+                            status=InstagramBotMessage.Status.DONE,
+                            send_state="cancelled",
+                            processed_at=completed_at,
+                            send_completed_at=completed_at,
+                            delivery_original_text=lifecycle_message.text,
+                            delivery_planned_chunk_count=planned_count,
+                            delivery_delivered_chunk_count=0,
+                            delivery_provider_message_ids=[],
+                            delivery_failure_boundary=failure_boundary,
+                        )
+                current_event.lease_token = ""
+                current_event.lease_expires_at = None
+                current_event.save(
+                    update_fields=[
+                        "state",
+                        "lease_token",
+                        "lease_expires_at",
+                        "provider_message_id",
+                        "last_error",
+                        "due_at",
+                        "updated_at",
+                    ]
+                )
+                projected_event = current_event
+                yield False
+            else:
+                # The transaction remains open while the single provider request
+                # is in flight, so these exact rows cannot change after validation.
+                yield True
+
+    if projected_event is not None:
+        _project_order_channel(projected_event)
+        if window_review_required:
+            _queue_manager_task(projected_event)
+            _notify_lifecycle_window_review(projected_event)
+        elif needs_manager_review:
+            _queue_manager_task(projected_event)
+            _notify_lifecycle_delivery_review(projected_event)
+
+
 def dispatch_lifecycle_event(event_id: int) -> str:
     """Lease and deliver one event; return its durable state value."""
     now = timezone.now()
     lease = secrets.token_hex(24)
+    claimed = False
     with transaction.atomic():
         event = (
             IgLifecycleEvent.objects.select_for_update()
-            .select_related("client", "order")
             .filter(pk=event_id)
             .first()
         )
@@ -249,6 +1252,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             return "missing"
         if event.state == IgLifecycleEvent.State.SENT:
             return event.state
+        ambiguous_event = None
         if event.state in {
             IgLifecycleEvent.State.CANCELLED,
             IgLifecycleEvent.State.MANAGER_REVIEW,
@@ -256,16 +1260,144 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             IgLifecycleEvent.State.FAILED,
         }:
             return event.state
-        if event.due_at > now:
+        if (
+            event.state == IgLifecycleEvent.State.PROCESSING
+            and event.lease_expires_at
+            and event.lease_expires_at > now
+        ):
             return event.state
-        if event.state == IgLifecycleEvent.State.PROCESSING and event.lease_expires_at and event.lease_expires_at > now:
+        lifecycle_message = (
+            _lifecycle_message_queryset(event.event_key).select_for_update().first()
+        )
+        provider_io_started = _lifecycle_message_has_provider_io(lifecycle_message)
+        if provider_io_started:
+            was_processing = event.state == IgLifecycleEvent.State.PROCESSING
+            event.state = IgLifecycleEvent.State.AMBIGUOUS
+            event.lease_token = ""
+            event.lease_expires_at = None
+            event.last_error = (
+                "processing lease expired after provider I/O started; "
+                "delivery outcome requires manager review"
+                if was_processing
+                else "provider I/O marker exists before a new lease"
+            )
+            event.due_at = now
+            event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "last_error",
+                    "due_at",
+                    "updated_at",
+                ]
+            )
+            _mark_lifecycle_message_unknown(lifecycle_message, when=now)
+            ambiguous_event = event
+        elif event.state == IgLifecycleEvent.State.PROCESSING:
+            if event.lease_expires_at is None:
+                event.state = IgLifecycleEvent.State.AMBIGUOUS
+                event.lease_token = ""
+                event.last_error = (
+                    "processing lease has no expiry; delivery outcome requires manager review"
+                )
+                event.due_at = now
+                event.save(
+                    update_fields=[
+                        "state",
+                        "lease_token",
+                        "last_error",
+                        "due_at",
+                        "updated_at",
+                    ]
+                )
+                ambiguous_event = event
+            elif event.last_error != PROVIDER_BOUNDARY_CLAIM_MARKER:
+                event.state = IgLifecycleEvent.State.AMBIGUOUS
+                event.lease_token = ""
+                event.lease_expires_at = None
+                event.last_error = (
+                    "legacy processing lease lacks the current claim marker; "
+                    "delivery outcome requires manager review"
+                )
+                event.due_at = now
+                event.save(
+                    update_fields=[
+                        "state",
+                        "lease_token",
+                        "lease_expires_at",
+                        "last_error",
+                        "due_at",
+                        "updated_at",
+                    ]
+                )
+                ambiguous_event = event
+            else:
+                # The durable marker is committed immediately before the first
+                # provider HTTP call. Its absence proves this lease never
+                # crossed the delivery boundary, so reclaim cannot duplicate.
+                event.lease_token = lease
+                event.lease_expires_at = now + LEASE_DURATION
+                event.attempts += 1
+                event.last_error = PROVIDER_BOUNDARY_CLAIM_MARKER
+                event.save(
+                    update_fields=[
+                        "lease_token",
+                        "lease_expires_at",
+                        "attempts",
+                        "last_error",
+                        "updated_at",
+                    ]
+                )
+                claimed = True
+        elif event.due_at > now:
             return event.state
-        event.state = IgLifecycleEvent.State.PROCESSING
-        event.lease_token = lease
-        event.lease_expires_at = now + LEASE_DURATION
-        event.attempts += 1
-        event.last_error = ""
-        event.save(update_fields=["state", "lease_token", "lease_expires_at", "attempts", "last_error", "updated_at"])
+        else:
+            event.state = IgLifecycleEvent.State.PROCESSING
+            event.lease_token = lease
+            event.lease_expires_at = now + LEASE_DURATION
+            event.attempts += 1
+            event.last_error = PROVIDER_BOUNDARY_CLAIM_MARKER
+            event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "attempts",
+                    "last_error",
+                    "updated_at",
+                ]
+            )
+            claimed = True
+
+    event = (
+        IgLifecycleEvent.objects.select_related("client", "order")
+        .filter(pk=event_id)
+        .first()
+    )
+    if event is None:
+        return "missing"
+    if claimed:
+        lifecycle_message = _lifecycle_message_queryset(event.event_key).first()
+        if _lifecycle_message_has_provider_io(lifecycle_message):
+            return _mark_event_ambiguous(
+                event_id,
+                "provider I/O marker exists before a new lease",
+                lease=lease,
+            )
+        cancellation_reason = _preflight_cancellation_reason(event)
+        if cancellation_reason:
+            return _cancel_event(event_id, cancellation_reason, lease=lease)
+    if ambiguous_event is not None:
+        event = (
+            IgLifecycleEvent.objects.select_related("client", "order")
+            .filter(pk=event_id)
+            .first()
+        ) or event
+        _project_order_channel(ambiguous_event)
+        _queue_manager_task(ambiguous_event)
+        _notify_lifecycle_delivery_review(ambiguous_event)
+        return ambiguous_event.state
 
     try:
         from management.models import InstagramBotSettings
@@ -278,36 +1410,28 @@ def dispatch_lifecycle_event(event_id: int) -> str:
         settings = InstagramBotSettings.load()
         with reply_execution_boundary(settings.pk, event.client_id) as permission:
             if not permission:
-                if permission.reason == "global_reply_paused":
-                    with transaction.atomic():
-                        owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
-                        if owned.lease_token == lease:
-                            owned.state = IgLifecycleEvent.State.WAITING_WINDOW
-                            owned.lease_token = ""
-                            owned.lease_expires_at = None
-                            owned.last_error = permission.reason
-                            owned.due_at = now + timedelta(minutes=15)
-                            owned.save(update_fields=[
-                                "state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at",
-                            ])
-                    _project_order_channel(owned)
-                    return IgLifecycleEvent.State.WAITING_WINDOW
-                return _cancel_event(event_id, permission.reason or "customer_send_not_allowed")
+                if permission.reason in TRANSIENT_PERMISSION_REASONS:
+                    return _defer_event_for_permission(
+                        event_id,
+                        permission.reason,
+                        lease=lease,
+                    )
+                return _cancel_event(
+                    event_id,
+                    permission.reason or "customer_send_not_allowed",
+                    lease=lease,
+                )
 
             if not _response_window_open(event.client, now):
                 with transaction.atomic():
                     owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
                     if owned.lease_token != lease:
                         return owned.state
-                    owned.state = IgLifecycleEvent.State.WAITING_WINDOW
+                    owned.state = IgLifecycleEvent.State.MANAGER_REVIEW
                     owned.lease_token = ""
                     owned.lease_expires_at = None
                     owned.last_error = "standard_response_window_closed"
-                    next_window = getattr(event.client, "last_message_at", None)
-                    owned.due_at = max(
-                        now + timedelta(minutes=15),
-                        (next_window + RESPONSE_WINDOW) if next_window else now + timedelta(hours=6),
-                    )
+                    owned.due_at = now
                     owned.save(update_fields=["state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at"])
                 _project_order_channel(owned)
                 _queue_manager_task(event)
@@ -332,8 +1456,18 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                     )
                 except Exception:
                     logger.exception("Unable to create manager review for lifecycle event %s", event_id)
-                return IgLifecycleEvent.State.WAITING_WINDOW
+                return IgLifecycleEvent.State.MANAGER_REVIEW
 
+            cancellation_reason = _preflight_cancellation_reason(event)
+            if cancellation_reason:
+                return _cancel_event(event_id, cancellation_reason, lease=lease)
+
+            payload = event.payload or {}
+            try:
+                assignment_id = int(payload.get("assignment_id"))
+                assignment_version = int(payload.get("assignment_version"))
+            except (TypeError, ValueError):
+                assignment_id = assignment_version = None
             result = send_text(
                 settings,
                 event.client.igsid,
@@ -341,71 +1475,169 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                 permission_boundary_factory=lambda: customer_send_boundary(
                     settings.pk, event.client_id, permission
                 ),
+                provider_io_started_callback=lambda: _start_lifecycle_provider_io(
+                    event_id,
+                    lease,
+                    deal_id=event.deal_id,
+                    order_id=event.order_id,
+                    client_id=event.client_id,
+                    assignment_id=assignment_id,
+                    assignment_version=assignment_version,
+                ),
+                provider_request_boundary_factory=lambda *, delivered_chunk_count=0,
+                provider_message_ids=(), planned_chunk_count=0: (
+                    _lifecycle_provider_request_boundary(
+                        event_id,
+                        lease,
+                        deal_id=event.deal_id,
+                        order_id=event.order_id,
+                        client_id=event.client_id,
+                        assignment_id=assignment_id,
+                        assignment_version=assignment_version,
+                        delivered_chunk_count=delivered_chunk_count,
+                        provider_message_ids=provider_message_ids,
+                        planned_chunk_count=planned_chunk_count,
+                    )
+                ),
+                provider_message_callback=lambda message_id: (
+                    _checkpoint_lifecycle_provider_receipt(
+                        event_id,
+                        lease,
+                        message_id,
+                    )
+                ),
                 return_receipt=True,
             )
-            ok, kind, hint, provider_message_id = _delivery_result(result)
-    except Exception as exc:  # provider call is outside the transaction
-        ok, kind, hint, provider_message_id = False, "unknown", repr(exc), ""
+            delivery = _delivery_result(result)
+    except Exception as exc:
+        delivery = _delivery_result_after_provider_exception(event_id, exc)
 
+    ok = delivery.ok
+    kind = delivery.kind
+    hint = delivery.hint
+    provider_message_id = delivery.provider_message_id
+    transient_permission_reason = _transient_permission_reason(
+        kind,
+        hint,
+        delivery.failure_boundary,
+    )
+    receipt_incomplete = bool(
+        ok
+        and delivery.receipt_present
+        and (
+            not delivery.provider_message_ids
+            or len(delivery.provider_message_ids) < delivery.delivered_chunk_count
+            or delivery.delivered_chunk_count < delivery.planned_chunk_count
+        )
+    )
+    if receipt_incomplete:
+        ok = False
+        kind = "unknown"
+        hint = "provider_message_id_missing"
     needs_manager_review = (not ok and kind in {"unknown", "transient", "permanent"})
+    permission_review_required = False
     with transaction.atomic():
         owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
-        if owned.lease_token != lease:
-            return owned.state
-        owned.lease_token = ""
-        owned.lease_expires_at = None
-        if ok and provider_message_id:
-            owned.state = IgLifecycleEvent.State.SENT
-            owned.provider_message_id = provider_message_id[:128]
-            owned.completed_at = timezone.now()
-            owned.last_error = ""
-        elif ok:
-            owned.state = IgLifecycleEvent.State.AMBIGUOUS
-            owned.last_error = "provider_message_id_missing"
-            owned.due_at = timezone.now() + timedelta(hours=6)
-        elif kind == "retryable" and owned.attempts < 3:
-            owned.state = IgLifecycleEvent.State.PENDING
-            owned.due_at = timezone.now() + timedelta(minutes=2 ** owned.attempts)
-            owned.last_error = f"{kind}:{hint}"[:1000]
-        elif kind in {"unknown", "transient"}:
-            owned.state = IgLifecycleEvent.State.AMBIGUOUS
-            owned.last_error = f"{kind}:{hint}"[:1000]
-            owned.due_at = timezone.now() + timedelta(hours=6)
-        else:
-            owned.state = IgLifecycleEvent.State.FAILED
-            owned.last_error = f"{kind}:{hint}"[:1000]
-        owned.save(update_fields=[
-            "state", "lease_token", "lease_expires_at", "provider_message_id",
-            "completed_at", "last_error", "due_at", "updated_at",
-        ])
+        lease_lost = owned.lease_token != lease
+        if not lease_lost:
+            lifecycle_message = (
+                _lifecycle_message_queryset(owned.event_key).select_for_update().first()
+            )
+            provider_io_started = _lifecycle_message_has_provider_io(lifecycle_message)
+            owned.lease_token = ""
+            owned.lease_expires_at = None
+            if provider_message_id:
+                owned.provider_message_id = provider_message_id[:128]
+            if ok and provider_message_id:
+                owned.state = IgLifecycleEvent.State.SENT
+                owned.completed_at = timezone.now()
+                owned.last_error = ""
+            elif ok:
+                owned.state = IgLifecycleEvent.State.AMBIGUOUS
+                owned.last_error = "provider_message_id_missing"
+                owned.due_at = timezone.now() + timedelta(hours=6)
+            elif provider_io_started:
+                owned.state = IgLifecycleEvent.State.AMBIGUOUS
+                owned.last_error = f"provider_io_started:{kind}:{hint}"[:1000]
+                owned.due_at = timezone.now() + timedelta(hours=6)
+            elif transient_permission_reason:
+                permission_review_required = _apply_permission_deferral(
+                    owned,
+                    transient_permission_reason,
+                    now=timezone.now(),
+                )
+            elif kind == "cancelled":
+                owned.state = IgLifecycleEvent.State.CANCELLED
+                owned.last_error = f"{kind}:{hint}"[:1000]
+            elif kind == "retryable" and owned.attempts < 3:
+                owned.state = IgLifecycleEvent.State.PENDING
+                owned.due_at = timezone.now() + timedelta(minutes=2 ** owned.attempts)
+                owned.last_error = f"{kind}:{hint}"[:1000]
+            elif kind in {"unknown", "transient"}:
+                owned.state = IgLifecycleEvent.State.AMBIGUOUS
+                owned.last_error = f"{kind}:{hint}"[:1000]
+                owned.due_at = timezone.now() + timedelta(hours=6)
+            else:
+                owned.state = IgLifecycleEvent.State.FAILED
+                owned.last_error = f"{kind}:{hint}"[:1000]
+            if lifecycle_message is not None:
+                message_updates = {
+                    "delivery_original_text": lifecycle_message.text,
+                    "delivery_planned_chunk_count": delivery.planned_chunk_count,
+                    "delivery_delivered_chunk_count": delivery.delivered_chunk_count,
+                    "delivery_provider_message_ids": list(
+                        delivery.provider_message_ids
+                    ),
+                    "delivery_failure_boundary": (
+                        delivery.failure_boundary
+                        or (
+                            f"chunk:{delivery.delivered_chunk_count + 1}:provider_message_id_missing"
+                            if receipt_incomplete
+                            else ""
+                        )
+                    )[:64],
+                }
+                if ok and provider_message_id:
+                    completed_at = owned.completed_at or timezone.now()
+                    message_updates.update(
+                        status=InstagramBotMessage.Status.DONE,
+                        send_state="sent",
+                        send_completed_at=completed_at,
+                        processed_at=completed_at,
+                        provider_message_id=provider_message_id[:255],
+                    )
+                elif provider_io_started:
+                    message_updates.update(
+                        status=InstagramBotMessage.Status.FAILED,
+                        send_state="unknown",
+                        processed_at=timezone.now(),
+                    )
+                InstagramBotMessage.objects.filter(pk=lifecycle_message.pk).update(
+                    **message_updates
+                )
+            owned.save(update_fields=[
+                "state", "lease_token", "lease_expires_at", "provider_message_id",
+                "attempts", "completed_at", "last_error", "due_at", "updated_at",
+            ])
         final_state = owned.state
     _project_order_channel(owned)
+    if lease_lost:
+        if final_state in {
+            IgLifecycleEvent.State.AMBIGUOUS,
+            IgLifecycleEvent.State.FAILED,
+        }:
+            _queue_manager_task(owned)
+            _notify_lifecycle_delivery_review(owned)
+        return final_state
     if needs_manager_review or final_state in {
         IgLifecycleEvent.State.AMBIGUOUS,
         IgLifecycleEvent.State.FAILED,
     }:
-        _queue_manager_task(event)
-        try:
-            from management.services.ig_alerts import format_operator_alert
-            from management.services.instagram_bot import notify_manager
-
-            notify_manager(
-                format_operator_alert(
-                    "⚠️ IG: не вдалося доставити lifecycle-подію",
-                    event_type="ig_lifecycle_delivery_review",
-                    client_id=event.client_id,
-                    deal_id=event.deal_id,
-                    proposal_id=event.proposal_id,
-                    lifecycle_event_id=event.pk,
-                    status="delivery_failed",
-                    instruction_code="ig_lifecycle_delivery_review",
-                ),
-                dedupe_key=f"ig-lifecycle:delivery:{event.event_key}",
-                event_type="ig_lifecycle_delivery_review",
-                client=event.client,
-            )
-        except Exception:
-            logger.exception("Unable to alert manager for lifecycle event %s", event_id)
+        _queue_manager_task(owned)
+        _notify_lifecycle_delivery_review(owned)
+    elif permission_review_required:
+        _queue_manager_task(owned)
+        _notify_lifecycle_permission_review(owned, transient_permission_reason)
     return final_state
 
 
@@ -424,6 +1656,10 @@ def dispatch_due_lifecycle_events(limit: int = 50) -> int:
                 state=IgLifecycleEvent.State.PROCESSING,
                 lease_expires_at__isnull=False,
                 lease_expires_at__lte=now,
+            )
+            | Q(
+                state=IgLifecycleEvent.State.PROCESSING,
+                lease_expires_at__isnull=True,
             )
         ).order_by("due_at", "id").values_list("id", flat=True)[:limit]
     )

@@ -384,6 +384,7 @@ def unlink_order_from_client(
             IgOrderCustomerEvent.State.CANCELLED,
             IgOrderCustomerEvent.State.MANAGER_REVIEW,
             IgOrderCustomerEvent.State.AMBIGUOUS,
+            IgOrderCustomerEvent.State.PROCESSING,
         )
     ).update(
         state=IgOrderCustomerEvent.State.CANCELLED,

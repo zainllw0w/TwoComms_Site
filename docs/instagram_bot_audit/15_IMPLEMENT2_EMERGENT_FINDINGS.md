@@ -45,15 +45,56 @@ not by weakening the runtime check.
 
 ## W2.1A Meta capability preflight for IMP-106 (2026-08-14)
 
-Current official Meta documentation confirms `/debug_token`'s app-token
-requirement and the `instagram_manage_messages` messaging scope, but only
-aggregate follower insights are documented. No individual follower-status
-endpoint was found in the official search. Production's Instagram Login token
-works for the account's own `/me` call, while the runtime has no explicit
-`IG_APP_ID` and `/debug_token` currently returns HTTP 401 / code 190 for the
-attempted authorizations. This is an external capability/configuration blocker:
-preserve `unknown`, suppress follow CTA, and do not infer `not_following` until
-the app identity and supported per-user signal are proven.
+Current official Meta documentation (refreshed through Context7) documents the
+Instagram Login User Profile endpoint
+`GET https://graph.instagram.com/v25.0/<IGSID>` and the per-user fields
+`is_user_follow_business` / `is_business_follow_user`, requiring
+`instagram_business_basic` and `instagram_business_manage_messages`. The
+lookup is scoped to an IGSID obtained from messaging and the consent boundary;
+blocked users and permission/transport errors are not a negative follow
+observation. Production's Instagram Login token works for the account's own
+`/me` call, while the runtime has no explicit `IG_APP_ID` and `/debug_token`
+currently returns HTTP 401 / code 190 for the attempted authorizations. This
+remains an external capability/configuration blocker: preserve `unknown`,
+suppress follow CTA, and do not infer `not_following` until the live app
+identity, scopes, endpoint fields and failure semantics are proven.
+
+## W2.1 lifecycle/delivery truth release findings (2026-08-14)
+
+The production read-only audit found one historical
+`ig-delivered:<order_id>` funnel fact whose order has no structured carrier
+code or authoritative carrier timestamps. The fact was produced by the old
+`shipment_status_updated` backfill. Replaying generic episode fulfillment is
+not a safe repair: the linked episode is closed and roughly 20 days old, has no
+current owner, and generic sync would reopen it with `open_slot=1`. The scoped
+repair therefore filters stale legacy delivery facts from analytics unless the
+latest fact still matches current authoritative carrier truth; it does not
+mutate production episode ownership.
+
+Immutable fact identity previously mixed delivery success code with time and
+could both duplicate one delivery (`9 -> 10/11`) and reuse a legacy key after
+the authoritative timestamp changed. Live sync and backfill now share one key
+builder based on order identity plus canonical UTC delivery time. Same-time
+status changes reuse the fact; a changed authoritative time produces a new
+revision; analytics accepts only the latest matching revision.
+
+Independent diff review found no Critical issue and four Important gaps. Raw
+`str(provider_message_id)` in follow-up and AI recovery could turn numeric IDs
+or overlong values into false `SENT` evidence. Multi-chunk legacy fulfillment
+stored a comma-joined/truncated pseudo-ID instead of the first exact receipt.
+The assisted-checkout module also had stale lifecycle and inventory fixtures:
+the lifecycle case lacked confirmed payment/current assignment, while two
+inventory cases expected reservations for untracked items. RED/GREEN coverage
+now uses the shared strict receipt normalizer, a 255-character exact legacy
+field plus all-receipts JSON, current lifecycle truth, and real catalog-variant
+stock fixtures. Post-rebase proof is the reproducible ten-module affected gate
+at `369/369`, follow-up/recovery `57/57`, and storefront
+`41/41`, with clean Django test-settings check, migration drift, compileall and
+diff check.
+
+This is release evidence only. `IMP-106` remains a separate queued capability
+and policy release; no follow lookup, CTA, coupon, live Meta send or synthetic
+production row is part of this slice.
 
 ## W3 pre-deploy delivery findings (2026-08-13)
 

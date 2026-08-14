@@ -17,6 +17,15 @@ from django.db import close_old_connections, transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
+from orders.fulfillment_truth import (
+    NOVA_POSHTA_DELIVERY_SUCCESS_CODES,
+    nova_poshta_order_fulfillment_confirmed,
+)
+from management.services.ig_delivery_receipts import (
+    normalize_provider_message_id,
+    normalize_provider_message_ids,
+)
+
 logger = logging.getLogger(__name__)
 
 LEASE_SECONDS = 300
@@ -28,6 +37,9 @@ MAX_WAITING_ATTEMPTS = 40
 MAX_WAITING_DURATION = timedelta(hours=12)
 RESPONSE_WINDOW = timedelta(hours=23)
 SUPERSEDED_ERROR = "superseded by current order fulfillment state"
+CANONICAL_LIFECYCLE_ERROR = (
+    "canonical Instagram lifecycle event owns this automated checkout"
+)
 _CANONICAL_LIFECYCLE_ASSIGNMENT_SOURCES = frozenset(
     {
         "provider_auto",
@@ -167,7 +179,6 @@ def _cancel_redundant_events(assignment, *, now):
         IgOrderCustomerEvent.State.PENDING,
         IgOrderCustomerEvent.State.FAILED,
         IgOrderCustomerEvent.State.WAITING_WINDOW,
-        IgOrderCustomerEvent.State.PROCESSING,
     )
     return IgOrderCustomerEvent.objects.filter(
         assignment_id=assignment.pk,
@@ -176,7 +187,7 @@ def _cancel_redundant_events(assignment, *, now):
         state=IgOrderCustomerEvent.State.CANCELLED,
         lease_token="",
         lease_expires_at=None,
-        last_error="canonical Instagram lifecycle event owns this automated checkout",
+        last_error=CANONICAL_LIFECYCLE_ERROR,
         due_at=now,
         updated_at=now,
     )
@@ -257,12 +268,17 @@ def _event_specs(assignment, *, now):
                 "message": _message("ttn_assigned", locale, order, tracking),
                 "payload": {"tracking_number": tracking, "tracking_url": f"https://novaposhta.ua/tracking/?cargo_number={tracking}"},
             }
-    if order.status == "done":
+    if nova_poshta_order_fulfillment_confirmed(order):
         yield {
             "kind": "delivered_review",
             "event_key": f"ig-assignment:{assignment.pk}:v{assignment.version}:delivered-review",
             "message": _message("delivered_review", locale, order, tracking),
-            "payload": {"order_number": order.order_number or str(order.pk)},
+            "payload": {
+                "order_number": order.order_number or str(order.pk),
+                "tracking_number": tracking,
+                "tracking_status_code": int(order.tracking_status_code),
+                "tracking_terminal_at": order.tracking_terminal_at.isoformat(),
+            },
         }
 
 
@@ -316,8 +332,27 @@ def _claim_event(event_id, *, now):
             return None
         if event.due_at > now:
             return None
-        if event.state == IgOrderCustomerEvent.State.PROCESSING and event.lease_expires_at and event.lease_expires_at > now:
-            return None
+        if event.state == IgOrderCustomerEvent.State.PROCESSING:
+            if event.lease_expires_at and event.lease_expires_at > now:
+                return None
+            event.state = IgOrderCustomerEvent.State.AMBIGUOUS
+            event.lease_token = ""
+            event.lease_expires_at = None
+            event.last_error = (
+                "processing lease expired; delivery outcome requires manager review"
+            )
+            event.due_at = now
+            event.save(
+                update_fields=[
+                    "state",
+                    "lease_token",
+                    "lease_expires_at",
+                    "last_error",
+                    "due_at",
+                    "updated_at",
+                ]
+            )
+            return event
         event.state = IgOrderCustomerEvent.State.PROCESSING
         event.attempts += 1
         event.lease_token = token
@@ -339,17 +374,52 @@ def _finish(
 ):
     from management.ig_bot_models import IgOrderCustomerEvent
 
-    updated = IgOrderCustomerEvent.objects.filter(pk=event.pk, lease_token=token).update(
+    updates = dict(
         state=state,
         lease_token="",
         lease_expires_at=None,
         last_error=(error or "")[:1000],
         due_at=due_at or now,
-        provider_message_id=str(provider_message_id or "")[:128],
         completed_at=now if state == IgOrderCustomerEvent.State.SENT else None,
         updated_at=now,
     )
+    receipt_id = normalize_provider_message_id(provider_message_id)
+    if receipt_id:
+        updates["provider_message_id"] = receipt_id
+    updated = IgOrderCustomerEvent.objects.filter(
+        pk=event.pk,
+        lease_token=token,
+    ).update(**updates)
     return bool(updated)
+
+
+def _checkpoint_provider_receipt(event_id, token, provider_message_id):
+    """Persist one Meta receipt while the legacy delivery lease is owned."""
+    from management.ig_bot_models import IgOrderCustomerEvent
+
+    receipt_id = normalize_provider_message_id(provider_message_id)
+    if not receipt_id:
+        raise ValueError("provider receipt checkpoint requires a message ID")
+    with transaction.atomic():
+        event = (
+            IgOrderCustomerEvent.objects.select_for_update()
+            .filter(
+                pk=event_id,
+                lease_token=token,
+                state=IgOrderCustomerEvent.State.PROCESSING,
+            )
+            .first()
+        )
+        if event is None:
+            raise RuntimeError("order customer event lease lost before receipt checkpoint")
+        receipt_ids = list(normalize_provider_message_ids([
+            *(event.delivery_provider_message_ids or []),
+            receipt_id,
+        ]))
+        IgOrderCustomerEvent.objects.filter(pk=event.pk).update(
+            provider_message_id=receipt_ids[0],
+            delivery_provider_message_ids=receipt_ids,
+        )
 
 
 def _active_opt_out(client) -> bool:
@@ -385,7 +455,7 @@ def _matches_current_fulfillment(event, order) -> bool:
             and str(order.payment_status or "") in {"paid", "prepaid", "partial"}
         )
     if event.kind == "delivered_review":
-        return order.status == "done"
+        return nova_poshta_order_fulfillment_confirmed(order)
     return False
 
 
@@ -409,13 +479,9 @@ def _event_send_boundary(
             yield False
             return
         with transaction.atomic():
-            current_event = (
-                IgOrderCustomerEvent.objects.select_for_update()
-                .filter(
-                    pk=event.pk,
-                    lease_token=token,
-                    state=IgOrderCustomerEvent.State.PROCESSING,
-                )
+            order = (
+                Order.objects.select_for_update()
+                .filter(pk=event.order_id)
                 .first()
             )
             assignment = (
@@ -424,9 +490,13 @@ def _event_send_boundary(
                 .filter(pk=event.assignment_id)
                 .first()
             )
-            order = (
-                Order.objects.select_for_update()
-                .filter(pk=event.order_id)
+            current_event = (
+                IgOrderCustomerEvent.objects.select_for_update()
+                .filter(
+                    pk=event.pk,
+                    lease_token=token,
+                    state=IgOrderCustomerEvent.State.PROCESSING,
+                )
                 .first()
             )
             client = assignment.client if assignment else None
@@ -437,10 +507,18 @@ def _event_send_boundary(
             )
             if current_event and order and not fulfillment_current:
                 boundary_state["superseded"] = True
-            current = bool(
+            canonical_handoff = bool(
+                current_event
+                and assignment
+                and _uses_canonical_lifecycle(assignment)
+            )
+            if canonical_handoff:
+                boundary_state["canonical_handoff"] = True
+            eligible_without_window = bool(
                 current_event
                 and assignment
                 and fulfillment_current
+                and not canonical_handoff
                 and assignment.client_id == event.client_id
                 and assignment.unassigned_at is None
                 and assignment.version == event.assignment_version
@@ -448,8 +526,29 @@ def _event_send_boundary(
                 and not client.hidden_at
                 and not client.is_blocked
                 and not _active_opt_out(client)
-                and _inside_response_window(client, now=now)
             )
+            fresh_now = timezone.now()
+            window_open = bool(
+                client and _inside_response_window(client, now=fresh_now)
+            )
+            if eligible_without_window and not window_open:
+                boundary_state["window_closed"] = True
+                current_event.state = IgOrderCustomerEvent.State.MANAGER_REVIEW
+                current_event.lease_token = ""
+                current_event.lease_expires_at = None
+                current_event.last_error = "standard response window is closed"
+                current_event.due_at = fresh_now
+                current_event.save(
+                    update_fields=[
+                        "state",
+                        "lease_token",
+                        "lease_expires_at",
+                        "last_error",
+                        "due_at",
+                        "updated_at",
+                    ]
+                )
+            current = eligible_without_window and window_open
             yield current
 
 
@@ -465,6 +564,8 @@ def deliver_event(event_id, *, send=True, now=None):
     event = _claim_event(event_id, now=now)
     if event is None:
         return "skipped"
+    if event.state == IgOrderCustomerEvent.State.AMBIGUOUS:
+        return "ambiguous"
     token = event.lease_token
     event = (
         IgOrderCustomerEvent.objects.select_related("assignment", "order", "client")
@@ -472,6 +573,15 @@ def deliver_event(event_id, *, send=True, now=None):
     )
     assignment = event.assignment
     client = event.client
+    if _uses_canonical_lifecycle(assignment):
+        _finish(
+            event,
+            token=token,
+            state=IgOrderCustomerEvent.State.CANCELLED,
+            now=now,
+            error=CANONICAL_LIFECYCLE_ERROR,
+        )
+        return "cancelled"
     if (
         not assignment.client_id
         or assignment.client_id != client.pk
@@ -533,7 +643,15 @@ def deliver_event(event_id, *, send=True, now=None):
 
     permission = capture_reply_permission(settings_obj.pk, client.pk)
     provider_message_ids = []
-    boundary_state = {"superseded": False}
+    boundary_state = {
+        "superseded": False,
+        "canonical_handoff": False,
+        "window_closed": False,
+    }
+
+    def checkpoint_provider_receipt(message_id):
+        _checkpoint_provider_receipt(event.pk, token, message_id)
+        provider_message_ids.append(normalize_provider_message_id(message_id))
 
     ok, kind, hint = instagram_bot.send_text(
         settings_obj,
@@ -547,12 +665,12 @@ def deliver_event(event_id, *, send=True, now=None):
             now=now,
             boundary_state=boundary_state,
         ),
-        provider_message_callback=lambda message_id: provider_message_ids.append(
-            str(message_id)
-        ),
+        provider_message_callback=checkpoint_provider_receipt,
         allow_url_fallback=True,
     )
-    provider_message_id = ",".join(provider_message_ids)
+    provider_message_id = provider_message_ids[0] if provider_message_ids else ""
+    if boundary_state["window_closed"]:
+        return "manager_review"
     if ok and provider_message_id:
         finished = _finish(
             event,
@@ -582,7 +700,12 @@ def deliver_event(event_id, *, send=True, now=None):
         )
         return "ambiguous"
     if kind == "cancelled":
-        error = SUPERSEDED_ERROR if boundary_state["superseded"] else hint
+        if boundary_state["canonical_handoff"]:
+            error = CANONICAL_LIFECYCLE_ERROR
+        elif boundary_state["superseded"]:
+            error = SUPERSEDED_ERROR
+        else:
+            error = hint
         _finish(event, token=token, state=IgOrderCustomerEvent.State.CANCELLED, now=now, error=error)
         return "cancelled"
     if kind in {"permanent", "policy", "link_restricted"}:
@@ -622,6 +745,30 @@ def reconcile_order_customer_events(*, order_id=None, limit=100, send=True, now=
             if materialized >= limit:
                 break
 
+    invalid_delivery_reviews = IgOrderCustomerEvent.objects.filter(
+        kind=IgOrderCustomerEvent.Kind.DELIVERED_REVIEW,
+        state__in=(
+            IgOrderCustomerEvent.State.PENDING,
+            IgOrderCustomerEvent.State.WAITING_WINDOW,
+        ),
+    ).filter(
+        ~Q(order__status="done")
+        | Q(order__tracking_number__isnull=True)
+        | Q(order__tracking_number="")
+        | ~Q(order__tracking_status_code__in=NOVA_POSHTA_DELIVERY_SUCCESS_CODES)
+        | Q(order__tracking_terminal_at__isnull=True)
+    )
+    if order_id is not None:
+        invalid_delivery_reviews = invalid_delivery_reviews.filter(order_id=order_id)
+    stats["cancelled"] += invalid_delivery_reviews.update(
+        state=IgOrderCustomerEvent.State.CANCELLED,
+        lease_token="",
+        lease_expires_at=None,
+        last_error="carrier delivery not confirmed",
+        due_at=now,
+        updated_at=now,
+    )
+
     active_events = IgOrderCustomerEvent.objects.exclude(
         state__in=(
             IgOrderCustomerEvent.State.SENT,
@@ -645,6 +792,7 @@ def reconcile_order_customer_events(*, order_id=None, limit=100, send=True, now=
                 IgOrderCustomerEvent.State.CANCELLED,
                 IgOrderCustomerEvent.State.MANAGER_REVIEW,
                 IgOrderCustomerEvent.State.AMBIGUOUS,
+                IgOrderCustomerEvent.State.PROCESSING,
             )
         ).update(
             state=IgOrderCustomerEvent.State.CANCELLED,
@@ -654,7 +802,9 @@ def reconcile_order_customer_events(*, order_id=None, limit=100, send=True, now=
             due_at=now,
             updated_at=now,
         )
-    ineligible = active_events.filter(
+    ineligible = active_events.exclude(
+        state=IgOrderCustomerEvent.State.PROCESSING,
+    ).filter(
         Q(assignment__client_id__isnull=True)
         | Q(assignment__unassigned_at__isnull=False)
         | ~Q(assignment__client_id=F("client_id"))

@@ -439,6 +439,49 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertEqual(again.pk, result.pk)
         send.assert_called_once()
 
+    def test_invalid_provider_receipt_ids_are_ambiguous_not_coerced_or_truncated(self):
+        for suffix, provider_message_id in (
+            ("numeric", 123),
+            ("overlong", "m" * 256),
+        ):
+            with self.subTest(receipt=suffix):
+                source = InstagramBotMessage.objects.create(
+                    sender_id=self.client.igsid,
+                    client=self.client,
+                    role=InstagramBotMessage.Role.USER,
+                    text=f"Receipt case: {suffix}",
+                    status=InstagramBotMessage.Status.DONE,
+                    send_state="sent",
+                )
+                job = self.recovery.schedule_recovery(source)
+                with patch.object(
+                    self.recovery,
+                    "_generate_recovery_draft",
+                    return_value="Технічну затримку вже виправлено.",
+                ), patch.object(
+                    self.recovery,
+                    "send_text",
+                    return_value=ProviderDeliveryReceipt(
+                        True,
+                        "",
+                        "",
+                        provider_message_id,
+                    ),
+                ) as send:
+                    result = self.recovery.process_recovery_job(job.pk)
+                    again = self.recovery.process_recovery_job(job.pk)
+
+                result.refresh_from_db()
+                self.assertEqual(result.status, result.Status.AMBIGUOUS)
+                self.assertEqual(result.provider_message_id, "")
+                self.assertEqual(again.pk, result.pk)
+                result.reply_message.refresh_from_db()
+                self.assertEqual(result.reply_message.send_state, "unknown")
+                self.assertEqual(result.reply_message.provider_message_id, "")
+                self.client.refresh_from_db()
+                self.assertIsNone(self.client.last_bot_reply_at)
+                send.assert_called_once()
+
     def test_recovery_draft_fits_one_meta_send_request(self):
         from management.services.instagram_bot import _split_for_send
 

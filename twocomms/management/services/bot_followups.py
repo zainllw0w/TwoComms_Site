@@ -29,6 +29,7 @@ from management.services.bot_payment_truth import (
     client_has_verified_payment,
     verified_payment_deals,
 )
+from management.services.ig_delivery_receipts import normalize_provider_message_id
 
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
 # IMP-054. Окно инициации автосообщений. Прежние 10:00–19:00 отрезали вечер —
@@ -2085,6 +2086,9 @@ def _persist_provider_receipt(
     provider_message_id: str,
 ) -> IgFollowUpTask:
     """Commit provider evidence before any fallible CRM/policy finalization."""
+    receipt_id = normalize_provider_message_id(provider_message_id)
+    if not receipt_id:
+        raise ValueError("follow-up receipt requires a valid provider message ID")
     with transaction.atomic():
         task = (
             IgFollowUpTask.objects.select_for_update()
@@ -2097,7 +2101,7 @@ def _persist_provider_receipt(
         ):
             raise RuntimeError("follow-up delivery claim changed before receipt")
         task.status = IgFollowUpTask.Status.SENT
-        task.provider_message_id = str(provider_message_id or "")[:255]
+        task.provider_message_id = receipt_id
         task.claim_token = ""
         task.claim_until = None
         task.next_attempt_at = None
@@ -2600,7 +2604,9 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                 continue
             if hasattr(delivery, "as_legacy_tuple"):
                 ok, kind, hint = delivery.as_legacy_tuple()
-                provider_message_id = str(getattr(delivery, "provider_message_id", "") or "")
+                provider_message_id = normalize_provider_message_id(
+                    getattr(delivery, "provider_message_id", "")
+                )
                 receipt_present = True
             else:
                 ok, kind, hint = delivery

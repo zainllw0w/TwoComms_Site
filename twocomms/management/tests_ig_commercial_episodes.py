@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from management.ig_bot_models import (
     IgClient,
@@ -193,21 +194,249 @@ class CommercialEpisodeTests(TestCase):
         )
 
         with self.captureOnCommitCallbacks(execute=True):
+            delivered_at = timezone.now()
             first_order.status = "done"
             first_order.shipment_status = "Отримано"
-            first_order.save(update_fields=["status", "shipment_status"])
+            first_order.tracking_status_code = 9
+            first_order.tracking_terminal_at = delivered_at
+            first_order.save(
+                update_fields=[
+                    "status",
+                    "shipment_status",
+                    "tracking_status_code",
+                    "tracking_terminal_at",
+                ]
+            )
 
         first.refresh_from_db()
         second.refresh_from_db()
         self.client.refresh_from_db()
         self.assertEqual(first.state, IgCommercialEpisode.State.FULFILLED)
         self.assertEqual(first.outcome, "fulfilled")
-        self.assertIsNotNone(first.closed_at)
+        self.assertEqual(first.closed_at, delivered_at)
         self.assertEqual(first.fulfillment_snapshot["shipment_status"], "Отримано")
+        self.assertEqual(first.fulfillment_snapshot["tracking_status_code"], 9)
         self.assertEqual(second.state, IgCommercialEpisode.State.ACTIVE)
         self.assertEqual(self.client.current_commercial_episode_id, second.pk)
         self.assertEqual(
             first.events.filter(event_type="fulfillment_updated").count(),
+            1,
+        )
+
+    def test_tracking_only_delivery_change_publishes_episode_truth(self):
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_review,
+        )
+
+        episode = ensure_episode_for_review(
+            self._confirmed_review(key="episode-tracking-only")
+        )
+        order = self._order(
+            status="done",
+            ttn="20450000000012",
+        )
+        bind_episode_order(episode, order, creation_mode="linked_existing")
+        episode.refresh_from_db()
+        self.assertEqual(episode.state, IgCommercialEpisode.State.ORDER_CREATED)
+
+        terminal_at = timezone.now()
+        provider_event_at = terminal_at - timedelta(minutes=2)
+        with self.captureOnCommitCallbacks(execute=True):
+            order.tracking_status_code = 9
+            order.tracking_provider_event_at = provider_event_at
+            order.tracking_terminal_at = terminal_at
+            order.save(
+                update_fields=[
+                    "tracking_status_code",
+                    "tracking_provider_event_at",
+                    "tracking_terminal_at",
+                ]
+            )
+
+        episode.refresh_from_db()
+        self.client.refresh_from_db()
+        self.assertEqual(episode.state, IgCommercialEpisode.State.FULFILLED)
+        self.assertEqual(episode.outcome, "fulfilled")
+        self.assertEqual(episode.closed_at, provider_event_at)
+        self.assertIsNone(episode.open_slot)
+        self.assertIsNone(self.client.current_commercial_episode_id)
+        self.assertEqual(
+            episode.fulfillment_snapshot["tracking_status_code"],
+            9,
+        )
+
+    def test_shipment_timestamp_only_change_refreshes_episode_snapshot(self):
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_review,
+        )
+
+        episode = ensure_episode_for_review(
+            self._confirmed_review(key="episode-shipment-timestamp")
+        )
+        order = self._order(ttn="20450000000015")
+        bind_episode_order(episode, order, creation_mode="linked_existing")
+        shipment_updated_at = timezone.now()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            order.shipment_status_updated = shipment_updated_at
+            order.save(update_fields=["shipment_status_updated"])
+
+        episode.refresh_from_db()
+        self.assertEqual(
+            episode.fulfillment_snapshot["shipment_updated_at"],
+            shipment_updated_at.isoformat(),
+        )
+
+    def test_revoked_delivery_reopens_episode_without_newer_owner(self):
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_review,
+        )
+
+        episode = ensure_episode_for_review(
+            self._confirmed_review(key="episode-delivery-revoked")
+        )
+        order = self._order(
+            status="done",
+            ttn="20450000000013",
+        )
+        delivered_at = timezone.now()
+        order.tracking_status_code = 9
+        order.tracking_provider_event_at = delivered_at
+        order.tracking_terminal_at = delivered_at
+        order.save(
+            update_fields=[
+                "tracking_status_code",
+                "tracking_provider_event_at",
+                "tracking_terminal_at",
+            ]
+        )
+        bind_episode_order(episode, order, creation_mode="linked_existing")
+        episode.refresh_from_db()
+        self.client.refresh_from_db()
+        self.assertEqual(episode.state, IgCommercialEpisode.State.FULFILLED)
+        self.assertIsNone(episode.open_slot)
+        self.assertIsNone(self.client.current_commercial_episode_id)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            order.tracking_status_code = 7
+            order.tracking_provider_event_at = None
+            order.tracking_terminal_at = None
+            order.save(
+                update_fields=[
+                    "tracking_status_code",
+                    "tracking_provider_event_at",
+                    "tracking_terminal_at",
+                ]
+            )
+
+        episode.refresh_from_db()
+        self.client.refresh_from_db()
+        self.assertEqual(episode.state, IgCommercialEpisode.State.ORDER_CREATED)
+        self.assertEqual(episode.outcome, "order_linked")
+        self.assertIsNone(episode.closed_at)
+        self.assertEqual(episode.open_slot, 1)
+        self.assertEqual(self.client.current_commercial_episode_id, episode.pk)
+        self.assertEqual(
+            IgCommercialEpisode.objects.filter(
+                client=self.client,
+                open_slot=1,
+            ).count(),
+            1,
+        )
+
+    def test_revoked_delivery_does_not_steal_newer_repeat_episode(self):
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_review,
+            start_repeat_episode,
+        )
+
+        historical = ensure_episode_for_review(
+            self._confirmed_review(key="episode-delivery-revoked-historical")
+        )
+        order = self._order(
+            status="done",
+            ttn="20450000000014",
+        )
+        delivered_at = timezone.now()
+        order.tracking_status_code = 9
+        order.tracking_provider_event_at = delivered_at
+        order.tracking_terminal_at = delivered_at
+        order.save(
+            update_fields=[
+                "tracking_status_code",
+                "tracking_provider_event_at",
+                "tracking_terminal_at",
+            ]
+        )
+        bind_episode_order(historical, order, creation_mode="linked_existing")
+        current = start_repeat_episode(
+            self.client,
+            repeat_kind="reorder",
+            evidence_message_ids=[612],
+            confidence=Decimal("0.93"),
+            analysis_model="gemini-test",
+            analysis_prompt_version="repeat-v1",
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            order.tracking_status_code = 7
+            order.tracking_provider_event_at = None
+            order.tracking_terminal_at = None
+            order.save(
+                update_fields=[
+                    "tracking_status_code",
+                    "tracking_provider_event_at",
+                    "tracking_terminal_at",
+                ]
+            )
+
+        historical.refresh_from_db()
+        current.refresh_from_db()
+        self.client.refresh_from_db()
+        self.assertEqual(historical.state, IgCommercialEpisode.State.ORDER_CREATED)
+        self.assertIsNone(historical.closed_at)
+        self.assertIsNone(historical.open_slot)
+        self.assertEqual(current.state, IgCommercialEpisode.State.ACTIVE)
+        self.assertEqual(current.open_slot, 1)
+        self.assertEqual(self.client.current_commercial_episode_id, current.pk)
+
+    def test_fulfillment_sync_repairs_orphaned_open_ownership_once(self):
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_review,
+            sync_episode_fulfillment,
+        )
+
+        episode = ensure_episode_for_review(
+            self._confirmed_review(key="episode-orphaned-open-slot")
+        )
+        order = self._order(ttn="20450000000016")
+        bind_episode_order(episode, order, creation_mode="linked_existing")
+        IgCommercialEpisode.objects.filter(pk=episode.pk).update(open_slot=None)
+        IgClient.objects.filter(pk=self.client.pk).update(
+            current_commercial_episode_id=None
+        )
+
+        first = sync_episode_fulfillment(order, source="repair_test")
+        second = sync_episode_fulfillment(order, source="repair_test")
+
+        episode.refresh_from_db()
+        self.client.refresh_from_db()
+        self.assertEqual(first.pk, episode.pk)
+        self.assertEqual(second.pk, episode.pk)
+        self.assertEqual(episode.state, IgCommercialEpisode.State.ORDER_CREATED)
+        self.assertEqual(episode.open_slot, 1)
+        self.assertEqual(self.client.current_commercial_episode_id, episode.pk)
+        self.assertEqual(
+            episode.events.filter(event_type="fulfillment_updated").count(),
             1,
         )
 

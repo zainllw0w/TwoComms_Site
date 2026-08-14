@@ -55,6 +55,10 @@ from management.services.ig_alerts import (
     client_admin_url,
     format_operator_alert,
 )
+from management.services.ig_delivery_receipts import (
+    normalize_provider_message_id,
+    normalize_provider_message_ids,
+)
 
 GRAPH_VERSION = "v25.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
@@ -184,18 +188,21 @@ class SenderActionResult:
 def _delivery_receipt(result) -> tuple[bool, str, str, str, bool, list[str]]:
     """Normalize old tuple callers while making an explicit receipt auditable."""
     if isinstance(result, ProviderDeliveryReceipt):
-        provider_message_ids = list(dict.fromkeys(
-            str(value).strip()
-            for value in (result.provider_message_ids or ())
-            if str(value).strip()
-        ))
-        if not provider_message_ids and result.provider_message_id:
-            provider_message_ids = [str(result.provider_message_id).strip()]
+        provider_message_ids = list(
+            normalize_provider_message_ids(result.provider_message_ids)
+        )
+        provider_message_id = normalize_provider_message_id(
+            result.provider_message_id
+        )
+        if provider_message_id and provider_message_id not in provider_message_ids:
+            provider_message_ids.insert(0, provider_message_id)
+        if not provider_message_id and provider_message_ids:
+            provider_message_id = provider_message_ids[0]
         return (
             bool(result.ok),
             str(result.kind or ""),
             str(result.hint or ""),
-            str(result.provider_message_id or ""),
+            provider_message_id,
             True,
             provider_message_ids,
         )
@@ -210,7 +217,9 @@ def _provider_message_id(response_body) -> str:
         return ""
     if not isinstance(payload, dict):
         return ""
-    return str(payload.get("message_id") or payload.get("id") or "").strip()
+    return normalize_provider_message_id(
+        payload.get("message_id") or payload.get("id")
+    )
 
 # Керуючі теги, які модель може додавати у відповідь (вирізаються перед
 # відправкою клієнту). [STAGE:x] просуває воронку, [MANAGER] кличе людину.
@@ -4995,9 +5004,7 @@ def _persist_reply_delivery_evidence(
     failure_boundary: str = "",
 ) -> None:
     """Store complete delivery evidence on the restricted source row only."""
-    ids = list(dict.fromkeys(
-        str(value).strip() for value in provider_message_ids if str(value).strip()
-    ))
+    ids = list(normalize_provider_message_ids(provider_message_ids))
     values = {
         "delivery_original_text": str(original_text or ""),
         "delivery_planned_chunk_count": max(0, int(planned_chunk_count or 0)),
@@ -5528,6 +5535,8 @@ def send_text(
     *,
     permission_boundary_factory=None,
     provider_message_callback=None,
+    provider_io_started_callback=None,
+    provider_request_boundary_factory=None,
     allow_url_fallback: bool = False,
     alert_link_restriction: bool = True,
     return_receipt: bool = False,
@@ -5541,6 +5550,16 @@ def send_text(
     provider_message_ids: list[str] = []
     provider_message_id = ""
     parts: list[str] = []
+    provider_io_started = provider_io_started_callback is None
+
+    def ensure_provider_io_started() -> bool:
+        nonlocal provider_io_started
+        if provider_io_started:
+            return True
+        if provider_io_started_callback() is not True:
+            return False
+        provider_io_started = True
+        return True
 
     def finish_delivery(
         ok: bool,
@@ -5591,6 +5610,7 @@ def send_text(
         return finish_delivery(False, "permanent", "порожня відповідь", failure_boundary="preflight:empty_reply")
     ok_any = False
     for chunk_index, part in enumerate(parts):
+        provider_exception = False
         boundary = (
             permission_boundary_factory()
             if permission_boundary_factory
@@ -5598,31 +5618,95 @@ def send_text(
         )
         with boundary as send_allowed:
             if not send_allowed:
-                hint = "permission epoch changed before Meta request"
+                permission_reason = (
+                    str(getattr(send_allowed, "reason", "") or "").strip()
+                    or "permission_epoch_changed"
+                )
+                hint = permission_reason
                 if ok_any:
                     return finish_delivery(
                         False, "unknown", f"часткова доставка; {hint}",
-                        failure_boundary=f"chunk:{chunk_index + 1}:permission_epoch_changed",
+                        failure_boundary=f"chunk:{chunk_index + 1}:{permission_reason}",
                     )
                 return finish_delivery(
                     False, "cancelled", hint,
-                    failure_boundary=f"chunk:{chunk_index + 1}:permission_epoch_changed",
+                    failure_boundary=f"chunk:{chunk_index + 1}:{permission_reason}",
                 )
-            # Позначаємо ДО відправки: echo цього чанка прийде асинхронно і не має
-            # сприйнятись за повідомлення менеджера (виправляє хибний авто-стоп).
-            _mark_bot_sent(recipient_id, part)
-            payload = {
-                "recipient": {"id": recipient_id},
-                "message": {"text": part},
-            }
-            if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
-                payload["messaging_type"] = "RESPONSE"
-            body = json.dumps(payload).encode("utf-8")
-            code, resp = _provider_http(
-                s,
-                _provider_url(s, f"/{account_id}/messages"),
-                token=page_token,
-                data=body,
+            if not ensure_provider_io_started():
+                hint = "provider I/O marker was not committed"
+                if ok_any:
+                    return finish_delivery(
+                        False,
+                        "unknown",
+                        f"часткова доставка; {hint}",
+                        failure_boundary=f"chunk:{chunk_index + 1}:provider_io_not_started",
+                    )
+                return finish_delivery(
+                    False,
+                    "cancelled",
+                    hint,
+                    failure_boundary=f"chunk:{chunk_index + 1}:provider_io_not_started",
+                )
+            provider_boundary = (
+                provider_request_boundary_factory(
+                    delivered_chunk_count=len(provider_message_ids),
+                    provider_message_ids=tuple(provider_message_ids),
+                    planned_chunk_count=len(parts),
+                )
+                if provider_request_boundary_factory
+                else nullcontext(True)
+            )
+            with provider_boundary as provider_request_allowed:
+                if not provider_request_allowed:
+                    hint = "provider request boundary rejected the send"
+                    if ok_any:
+                        return finish_delivery(
+                            False,
+                            "unknown",
+                            f"часткова доставка; {hint}",
+                            failure_boundary=(
+                                f"chunk:{chunk_index + 1}:provider_request_rejected"
+                            ),
+                        )
+                    return finish_delivery(
+                        False,
+                        "cancelled",
+                        hint,
+                        failure_boundary=(
+                            f"chunk:{chunk_index + 1}:provider_request_rejected"
+                        ),
+                    )
+                # Позначаємо ДО відправки: echo цього чанка прийде асинхронно і не має
+                # сприйнятись за повідомлення менеджера (виправляє хибний авто-стоп).
+                _mark_bot_sent(recipient_id, part)
+                payload = {
+                    "recipient": {"id": recipient_id},
+                    "message": {"text": part},
+                }
+                if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
+                    payload["messaging_type"] = "RESPONSE"
+                body = json.dumps(payload).encode("utf-8")
+                try:
+                    code, resp = _provider_http(
+                        s,
+                        _provider_url(s, f"/{account_id}/messages"),
+                        token=page_token,
+                        data=body,
+                    )
+                except Exception:
+                    provider_exception = True
+                    code, resp = 0, ""
+        if provider_exception:
+            log(
+                "error",
+                "send",
+                f"provider_exception before receipt for chunk {chunk_index + 1}",
+            )
+            return finish_delivery(
+                False,
+                "unknown",
+                "provider_exception",
+                failure_boundary=f"chunk:{chunk_index + 1}:provider_exception",
             )
         if code == 200:
             message_id = _provider_message_id(resp)
@@ -5636,18 +5720,27 @@ def send_text(
                     "provider_message_id_missing",
                     failure_boundary=f"chunk:{chunk_index + 1}:provider_message_id_missing",
                 )
-            if provider_message_callback:
-                try:
-                    response_payload = json.loads(resp or "{}")
-                except (TypeError, ValueError):
-                    response_payload = {}
-                callback_message_id = str(response_payload.get("message_id") or "").strip()
-                if callback_message_id:
-                    provider_message_callback(callback_message_id)
             ok_any = True
             if message_id:
                 provider_message_ids.append(message_id)
             provider_message_id = provider_message_id or message_id
+            if provider_message_callback and message_id:
+                try:
+                    provider_message_callback(message_id)
+                except Exception:
+                    log(
+                        "error",
+                        "send",
+                        "provider receipt checkpoint failed",
+                    )
+                    return finish_delivery(
+                        False,
+                        "unknown",
+                        "provider receipt checkpoint failed",
+                        failure_boundary=(
+                            f"chunk:{chunk_index + 1}:receipt_checkpoint_failed"
+                        ),
+                    )
             # Реєструємо `message_id` одразу: echo цього чанка прийде асинхронно,
             # і саме по цьому ідентифікатору ми його впізнаємо. Текстовий
             # відпечаток лишається, але він не працює для медіа й не переживає
@@ -5690,26 +5783,72 @@ def send_text(
                 )
                 with fallback_boundary as fallback_allowed:
                     if not fallback_allowed:
+                        permission_reason = (
+                            str(getattr(fallback_allowed, "reason", "") or "").strip()
+                            or "permission_epoch_changed"
+                        )
                         return finish_delivery(
                             False,
                             "cancelled",
-                            "permission epoch changed before Meta fallback request",
-                            failure_boundary="fallback:permission_epoch_changed",
+                            permission_reason,
+                            failure_boundary=f"fallback:{permission_reason}",
                         )
-                    _mark_bot_sent(recipient_id, fallback_part)
-                    fallback_body = json.dumps({
-                        "recipient": {"id": recipient_id},
-                        "message": {"text": fallback_part},
-                    }).encode("utf-8")
-                    if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
-                        fallback_payload = json.loads(fallback_body)
-                        fallback_payload["messaging_type"] = "RESPONSE"
-                        fallback_body = json.dumps(fallback_payload).encode("utf-8")
-                    fallback_code, fallback_resp = _provider_http(
-                        s,
-                        _provider_url(s, f"/{account_id}/messages"),
-                        token=page_token,
-                        data=fallback_body,
+                    if not ensure_provider_io_started():
+                        return finish_delivery(
+                            False,
+                            "unknown" if ok_any else "cancelled",
+                            "provider I/O marker was not committed",
+                            failure_boundary="fallback:provider_io_not_started",
+                        )
+                    fallback_provider_boundary = (
+                        provider_request_boundary_factory(
+                            delivered_chunk_count=len(provider_message_ids),
+                            provider_message_ids=tuple(provider_message_ids),
+                            planned_chunk_count=len(parts),
+                        )
+                        if provider_request_boundary_factory
+                        else nullcontext(True)
+                    )
+                    with fallback_provider_boundary as provider_request_allowed:
+                        if not provider_request_allowed:
+                            return finish_delivery(
+                                False,
+                                "unknown" if ok_any else "cancelled",
+                                "provider request boundary rejected the fallback",
+                                failure_boundary="fallback:provider_request_rejected",
+                            )
+                        _mark_bot_sent(recipient_id, fallback_part)
+                        fallback_body = json.dumps({
+                            "recipient": {"id": recipient_id},
+                            "message": {"text": fallback_part},
+                        }).encode("utf-8")
+                        if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
+                            fallback_payload = json.loads(fallback_body)
+                            fallback_payload["messaging_type"] = "RESPONSE"
+                            fallback_body = json.dumps(fallback_payload).encode("utf-8")
+                        try:
+                            fallback_code, fallback_resp = _provider_http(
+                                s,
+                                _provider_url(s, f"/{account_id}/messages"),
+                                token=page_token,
+                                data=fallback_body,
+                            )
+                        except Exception:
+                            fallback_code, fallback_resp = 0, ""
+                            fallback_provider_exception = True
+                        else:
+                            fallback_provider_exception = False
+                if fallback_provider_exception:
+                    log(
+                        "error",
+                        "send_link_fallback",
+                        "provider_exception before fallback receipt",
+                    )
+                    return finish_delivery(
+                        False,
+                        "unknown",
+                        "provider_exception",
+                        failure_boundary="fallback:provider_exception",
                     )
                 if fallback_code == 200:
                     fallback_message_id = _provider_message_id(fallback_resp)
@@ -5723,16 +5862,23 @@ def send_text(
                     if fallback_message_id:
                         provider_message_ids.append(fallback_message_id)
                     provider_message_id = provider_message_id or fallback_message_id
-                    if provider_message_callback:
+                    if provider_message_callback and fallback_message_id:
                         try:
-                            fallback_response_payload = json.loads(fallback_resp or "{}")
-                        except (TypeError, ValueError):
-                            fallback_response_payload = {}
-                        message_id = str(
-                            fallback_response_payload.get("message_id") or ""
-                        ).strip()
-                        if message_id:
-                            provider_message_callback(message_id)
+                            provider_message_callback(fallback_message_id)
+                        except Exception:
+                            log(
+                                "error",
+                                "send_link_fallback",
+                                "provider receipt checkpoint failed",
+                            )
+                            return finish_delivery(
+                                False,
+                                "unknown",
+                                "provider receipt checkpoint failed",
+                                failure_boundary=(
+                                    "fallback:receipt_checkpoint_failed"
+                                ),
+                            )
                     _clear_send_error(s)
                     _clear_client_delivery_error(recipient_id)
                     log("warning", "send_link_fallback", f"→ {recipient_id}: URL removed after Meta 508/2534122")
@@ -6159,7 +6305,7 @@ def _persist_generated_reply_message(
         text=text,
         status=status or InstagramBotMessage.Status.DONE,
         source=source or source_message.source,
-        provider_message_id=str(provider_message_id or "")[:255],
+        provider_message_id=normalize_provider_message_id(provider_message_id),
         processed_at=processed_at,
         send_state=send_state,
         gemini_model=str(provider_model or "").strip()[:80],
@@ -6456,7 +6602,10 @@ def record_shown_products(client, sender_id: str, selection, delivery) -> list[d
     if sent_count <= 0:
         return []
     delivered = items[:sent_count][:SHOWN_PRODUCTS_LIMIT]
-    provider_ids = list(getattr(delivery, "provider_message_ids", ()) or ())
+    provider_ids = [
+        normalize_provider_message_id(value)
+        for value in (getattr(delivery, "provider_message_ids", ()) or ())
+    ]
 
     shown: list[dict] = []
     for index, item in enumerate(delivered):
@@ -6465,7 +6614,7 @@ def record_shown_products(client, sender_id: str, selection, delivery) -> list[d
             "product_id": int(getattr(item, "product_id", 0) or 0),
             "title": str(getattr(item, "title", "") or "")[:200],
             "url": str(getattr(item, "url", "") or "")[:500],
-            "provider_message_id": str(provider_ids[index]) if index < len(provider_ids) else "",
+            "provider_message_id": provider_ids[index] if index < len(provider_ids) else "",
         })
 
     # Рядок історії: наші картинки більше не зникають із переписки.
@@ -6761,7 +6910,9 @@ def _finalize_durable_commerce_delivery(
 ) -> bool:
     """Persist one confirmed history row without running generic reply effects."""
     text = _durable_commerce_text(decision)
-    provider_message_id = str((decision.provider_message_ids or [""])[0] or "")
+    provider_message_id = normalize_provider_message_id(
+        (decision.provider_message_ids or [""])[0]
+    )
     if not text or not provider_message_id:
         return _mark_durable_commerce_unknown(row, decision)
 
@@ -6790,7 +6941,7 @@ def _finalize_durable_commerce_delivery(
                 text=text,
                 status=InstagramBotMessage.Status.DONE,
                 source=source.source,
-                provider_message_id=provider_message_id[:255],
+                provider_message_id=provider_message_id,
                 processed_at=processed_at,
             )
         if (
@@ -6888,9 +7039,11 @@ def _deliver_durable_commerce_reply(
             receipt_present,
             provider_message_ids,
         ) = _delivery_receipt(receipt)
-        provider_message_id = str(provider_message_id or "").strip()
+        provider_message_id = normalize_provider_message_id(provider_message_id)
         if not provider_message_id and len(provider_message_ids) == 1:
-            provider_message_id = str(provider_message_ids[0] or "").strip()
+            provider_message_id = normalize_provider_message_id(
+                provider_message_ids[0]
+            )
         if ok and receipt_present and provider_message_id:
             return {
                 "state": "sent",

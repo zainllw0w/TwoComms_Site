@@ -727,7 +727,17 @@ class IgFunnelAnalyticsApiTests(TestCase):
         order.status = "done"
         order.shipment_status = "Отримано"
         order.shipment_status_updated = timezone.now()
-        order.save(update_fields=["status", "shipment_status", "shipment_status_updated"])
+        order.tracking_status_code = 9
+        order.tracking_terminal_at = timezone.now()
+        order.save(
+            update_fields=[
+                "status",
+                "shipment_status",
+                "shipment_status_updated",
+                "tracking_status_code",
+                "tracking_terminal_at",
+            ]
+        )
         sync_episode_fulfillment(order)
         sync_episode_fulfillment(order)
         self.assertEqual(
@@ -737,6 +747,318 @@ class IgFunnelAnalyticsApiTests(TestCase):
             ).count(),
             1,
         )
+
+    def test_delivery_revocation_corrects_funnel_and_redelivery_time(self):
+        from management.models import IgDeal, IgFunnelStepEvent
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+            sync_episode_fulfillment,
+        )
+        from management.services.ig_funnel_analytics import build_funnel_analytics
+        from management.services.ig_funnel_analytics import (
+            backfill_reconstructible_funnel_events,
+        )
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("ig-delivery-correction")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("950.00"))
+        episode = ensure_episode_for_deal(deal)
+        order = Order.objects.create(
+            full_name="Delivery Correction",
+            phone="380501112233",
+            city="Київ",
+            np_office="Відділення №1",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20450000000012",
+            source="manual",
+            sale_source="Instagram",
+        )
+        first_delivered_at = timezone.now() - timedelta(hours=2)
+        order.tracking_status_code = 9
+        order.tracking_provider_event_at = first_delivered_at
+        order.tracking_terminal_at = first_delivered_at
+        order.save(
+            update_fields=[
+                "tracking_status_code",
+                "tracking_provider_event_at",
+                "tracking_terminal_at",
+            ]
+        )
+        bind_episode_order(episode, order, creation_mode="delivery_correction")
+
+        first = build_funnel_analytics()
+        first_delivered = next(
+            row for row in first["steps"] if row["step"] == "delivered"
+        )
+        self.assertEqual(first_delivered["entered"], 1)
+
+        order.tracking_status_code = 7
+        order.tracking_provider_event_at = None
+        order.tracking_terminal_at = None
+        order.save(
+            update_fields=[
+                "tracking_status_code",
+                "tracking_provider_event_at",
+                "tracking_terminal_at",
+            ]
+        )
+        sync_episode_fulfillment(order, source="delivery_revoked")
+
+        revoked = build_funnel_analytics()
+        revoked_delivered = next(
+            row for row in revoked["steps"] if row["step"] == "delivered"
+        )
+        self.assertEqual(revoked_delivered["entered"], 0)
+
+        second_delivered_at = timezone.now() - timedelta(hours=1)
+        order.tracking_status_code = 9
+        order.tracking_provider_event_at = second_delivered_at
+        order.tracking_terminal_at = second_delivered_at
+        order.save(
+            update_fields=[
+                "tracking_status_code",
+                "tracking_provider_event_at",
+                "tracking_terminal_at",
+            ]
+        )
+        sync_episode_fulfillment(order, source="delivery_reconfirmed")
+
+        reconfirmed = build_funnel_analytics()
+        reconfirmed_delivered = next(
+            row for row in reconfirmed["steps"] if row["step"] == "delivered"
+        )
+        self.assertEqual(reconfirmed_delivered["entered"], 1)
+        facts = list(
+            IgFunnelStepEvent.objects.filter(
+                episode=episode,
+                event_type=IgFunnelStepEvent.Type.DELIVERED,
+            ).order_by("occurred_at")
+        )
+        self.assertEqual(len(facts), 2)
+        self.assertEqual(facts[0].occurred_at, first_delivered_at)
+        self.assertEqual(facts[1].occurred_at, second_delivered_at)
+
+        backfill = backfill_reconstructible_funnel_events(limit=100, apply=True)
+
+        self.assertEqual(backfill["created"], 0)
+        self.assertEqual(
+            IgFunnelStepEvent.objects.filter(
+                episode=episode,
+                event_type=IgFunnelStepEvent.Type.DELIVERED,
+            ).count(),
+            2,
+        )
+
+    def test_delivery_fact_key_normalizes_same_timestamp_before_backfill(self):
+        from management.models import IgDeal, IgFunnelStepEvent
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+            sync_episode_fulfillment,
+        )
+        from management.services.ig_funnel_analytics import (
+            backfill_reconstructible_funnel_events,
+        )
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("ig-delivery-key-timezone")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("950.00"))
+        episode = ensure_episode_for_deal(deal)
+        delivered_at = timezone.make_aware(
+            datetime(2026, 8, 14, 15, 30),
+            ZoneInfo("Europe/Kyiv"),
+        )
+        order = Order.objects.create(
+            full_name="Delivery Key Timezone",
+            phone="380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20450000000021",
+            tracking_status_code=9,
+            tracking_provider_event_at=delivered_at,
+            tracking_terminal_at=delivered_at,
+            source="manual",
+            sale_source="Instagram",
+        )
+
+        bind_episode_order(episode, order, creation_mode="delivery_key_timezone")
+        order.refresh_from_db()
+        sync_episode_fulfillment(order, source="delivery_key_timezone_replay")
+        backfill = backfill_reconstructible_funnel_events(limit=100, apply=True)
+
+        self.assertEqual(backfill["created"], 0)
+        self.assertEqual(
+            IgFunnelStepEvent.objects.filter(
+                episode=episode,
+                event_type=IgFunnelStepEvent.Type.DELIVERED,
+            ).count(),
+            1,
+        )
+
+    def test_delivery_fact_key_ignores_success_code_change_at_same_timestamp(self):
+        from management.models import IgDeal, IgFunnelStepEvent
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+            sync_episode_fulfillment,
+        )
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("ig-delivery-key-status")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("950.00"))
+        episode = ensure_episode_for_deal(deal)
+        delivered_at = timezone.now() - timedelta(hours=1)
+        order = Order.objects.create(
+            full_name="Delivery Key Status",
+            phone="380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20450000000022",
+            tracking_status_code=9,
+            tracking_provider_event_at=delivered_at,
+            tracking_terminal_at=delivered_at,
+            source="manual",
+            sale_source="Instagram",
+        )
+        bind_episode_order(episode, order, creation_mode="delivery_key_status")
+
+        order.tracking_status_code = 10
+        order.save(update_fields=["tracking_status_code"])
+        sync_episode_fulfillment(order, source="delivery_key_status_refresh")
+
+        self.assertEqual(
+            IgFunnelStepEvent.objects.filter(
+                episode=episode,
+                event_type=IgFunnelStepEvent.Type.DELIVERED,
+            ).count(),
+            1,
+        )
+
+    def test_stale_legacy_delivery_fact_without_carrier_truth_is_excluded(self):
+        from management.models import (
+            IgCommercialEpisode,
+            IgCommercialEpisodeEvent,
+            IgDeal,
+            IgFunnelStepEvent,
+        )
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+        )
+        from management.services.ig_funnel_analytics import build_funnel_analytics
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("ig-stale-legacy-delivery")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("950.00"))
+        episode = ensure_episode_for_deal(deal)
+        legacy_delivered_at = timezone.now() - timedelta(days=1)
+        order = Order.objects.create(
+            full_name="Stale Legacy Delivery",
+            phone="380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20450000000023",
+            shipment_status_updated=legacy_delivered_at,
+            source="manual",
+            sale_source="Instagram",
+        )
+        bind_episode_order(episode, order, creation_mode="legacy_delivery")
+        IgCommercialEpisode.objects.filter(pk=episode.pk).update(
+            state=IgCommercialEpisode.State.FULFILLED,
+            outcome="fulfilled",
+            closed_at=legacy_delivered_at,
+            open_slot=None,
+        )
+        IgCommercialEpisodeEvent.objects.create(
+            episode=episode,
+            dedupe_key=f"legacy-fulfillment:{episode.pk}",
+            event_type="fulfillment_updated",
+            from_state=IgCommercialEpisode.State.ORDER_CREATED,
+            to_state=IgCommercialEpisode.State.FULFILLED,
+            source="order_signal",
+        )
+        IgFunnelStepEvent.objects.create(
+            episode=episode,
+            event_key=f"ig-delivered:{order.pk}",
+            event_type=IgFunnelStepEvent.Type.DELIVERED,
+            occurred_at=legacy_delivered_at,
+            actor="historical_backfill",
+            evidence={
+                "order_id": order.pk,
+                "tracking_number": order.tracking_number,
+                "backfill_source": "canonical_order",
+            },
+            is_backfilled=True,
+        )
+
+        analytics = build_funnel_analytics(client_ids=[client.pk])
+        delivered = next(
+            row for row in analytics["steps"] if row["step"] == "delivered"
+        )
+
+        self.assertEqual(delivered["entered"], 0)
+
+    def test_changed_authoritative_time_versions_legacy_delivery_without_history(self):
+        from management.models import IgDeal, IgFunnelStepEvent
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+            sync_episode_fulfillment,
+        )
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("ig-legacy-delivery-revision")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("950.00"))
+        episode = ensure_episode_for_deal(deal)
+        legacy_delivered_at = timezone.now() - timedelta(days=2)
+        order = Order.objects.create(
+            full_name="Legacy Delivery Revision",
+            phone="380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20450000000024",
+            shipment_status_updated=legacy_delivered_at,
+            source="manual",
+            sale_source="Instagram",
+        )
+        bind_episode_order(episode, order, creation_mode="legacy_delivery_revision")
+        IgFunnelStepEvent.objects.create(
+            episode=episode,
+            event_key=f"ig-delivered:{order.pk}",
+            event_type=IgFunnelStepEvent.Type.DELIVERED,
+            occurred_at=legacy_delivered_at,
+            actor="historical_backfill",
+            evidence={"order_id": order.pk},
+            is_backfilled=True,
+        )
+        confirmed_at = timezone.now() - timedelta(hours=1)
+        Order.objects.filter(pk=order.pk).update(
+            tracking_status_code=9,
+            tracking_provider_event_at=confirmed_at,
+            tracking_terminal_at=confirmed_at,
+        )
+
+        sync_episode_fulfillment(order.pk, source="carrier_truth_reconciled")
+
+        facts = list(
+            IgFunnelStepEvent.objects.filter(
+                episode=episode,
+                event_type=IgFunnelStepEvent.Type.DELIVERED,
+            ).order_by("occurred_at")
+        )
+        self.assertEqual(len(facts), 2)
+        self.assertEqual(facts[0].occurred_at, legacy_delivered_at)
+        self.assertEqual(facts[1].occurred_at, confirmed_at)
 
     def test_backfill_reads_production_order_timestamp_fields(self):
         from management.services.ig_commercial_episodes import (
@@ -758,6 +1080,8 @@ class IgFunnelAnalyticsApiTests(TestCase):
             total_sum=Decimal("950.00"),
             status="done",
             tracking_number="20450000000011",
+            tracking_status_code=9,
+            tracking_terminal_at=timezone.now(),
             source="manual",
             sale_source="Instagram",
         )
@@ -767,6 +1091,44 @@ class IgFunnelAnalyticsApiTests(TestCase):
 
         self.assertEqual(result["candidates"], 3)
         self.assertFalse(result["applied"])
+
+    def test_manual_done_without_carrier_delivery_does_not_close_episode(self):
+        from management.models import IgCommercialEpisode, IgDeal, IgFunnelStepEvent
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+            sync_episode_fulfillment,
+        )
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("ig-manual-done-not-delivered")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("950.00"))
+        episode = ensure_episode_for_deal(deal)
+        order = Order.objects.create(
+            full_name="Manual Done Test",
+            phone="380501112233",
+            city="Київ",
+            np_office="Відділення №1",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20450000000012",
+            tracking_status_code=7,
+            source="manual",
+            sale_source="Instagram",
+        )
+
+        bind_episode_order(episode, order, creation_mode="manual_done_test")
+        sync_episode_fulfillment(order)
+
+        episode.refresh_from_db()
+        self.assertEqual(episode.state, IgCommercialEpisode.State.ORDER_CREATED)
+        self.assertIsNone(episode.closed_at)
+        self.assertFalse(
+            IgFunnelStepEvent.objects.filter(
+                episode=episode,
+                event_type=IgFunnelStepEvent.Type.DELIVERED,
+            ).exists()
+        )
 
     def test_complete_variant_selection_records_configuration_evidence(self):
         from management.models import IgFunnelStepEvent

@@ -21,6 +21,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import close_old_connections, transaction
 from django.db.models import F, Q
 from .models import Order
+from .fulfillment_truth import NOVA_POSHTA_DELIVERY_SUCCESS_CODES
 from .telegram_notifications import TelegramNotifier
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ class NovaPoshtaService:
     STATUS_REFUSED = 103
     STATUS_REFUSED_ALT = STATUS_REFUSED
 
-    DELIVERY_SUCCESS_CODES = frozenset({9, 10, 11})
+    DELIVERY_SUCCESS_CODES = NOVA_POSHTA_DELIVERY_SUCCESS_CODES
     TERMINAL_FAILURE_CODES = frozenset({2, 103, 105, 118, 130, 155})
     WAITING_CHECK_CODES = frozenset({7, 8, 99, 102, 104, 106, 110, 111, 112, 113, 114, 115, 116, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149})
     TRACKING_BATCH_SIZE = 100

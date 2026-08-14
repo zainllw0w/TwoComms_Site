@@ -111,6 +111,8 @@ class FollowupDeliveryFsmTests(TestCase):
             "http_503": ProviderDeliveryReceipt(False, "transient", "http_503", ""),
             "unknown": ProviderDeliveryReceipt(False, "unknown", "unknown", ""),
             "missing_receipt": ProviderDeliveryReceipt(True, "", "", ""),
+            "numeric_receipt": ProviderDeliveryReceipt(True, "", "", 123),
+            "overlong_receipt": ProviderDeliveryReceipt(True, "", "", "m" * 256),
         }
         for suffix, outcome in outcomes.items():
             with self.subTest(outcome=suffix):
@@ -124,6 +126,8 @@ class FollowupDeliveryFsmTests(TestCase):
                     )
                     task.refresh_from_db()
                     self.assertEqual(task.status, IgFollowUpTask.Status.AMBIGUOUS)
+                    self.assertEqual(task.provider_message_id, "")
+                    self.assertFalse(task.sent_message_id)
                     self.assertEqual(task.attempt_count, 1)
                     self.assertEqual(task.claim_token, "")
                     self.assertIsNone(task.claim_until)

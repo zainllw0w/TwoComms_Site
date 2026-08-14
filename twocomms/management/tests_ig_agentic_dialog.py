@@ -1490,6 +1490,39 @@ class ShownProductsMemoryTests(TestCase):
         self.assertEqual(rows[0].provider_message_id, "mid-shown-1")
         self.assertIn(self.first.title, rows[0].text)
 
+    def test_shown_products_reject_malformed_provider_message_ids(self):
+        from management.services import instagram_bot as bot
+        from management.services.ig_catalog_media import (
+            CatalogMediaDelivery,
+            CatalogMediaDeliveryState,
+        )
+
+        selection, _ = self._selection_and_delivery()
+        delivery = CatalogMediaDelivery(
+            CatalogMediaDeliveryState.SENT,
+            sent_count=2,
+            attempted_count=2,
+            provider_message_ids=(123, "x" * 256),
+        )
+
+        bot.record_shown_products(
+            self.client_row,
+            self.client_row.igsid,
+            selection,
+            delivery,
+        )
+
+        rows = list(
+            InstagramBotMessage.objects.filter(
+                client=self.client_row,
+                source="catalog_media",
+            ).order_by("id")
+        )
+        self.assertEqual(
+            [row.provider_message_id for row in rows],
+            ["", ""],
+        )
+
     def test_partial_delivery_records_only_what_was_sent(self):
         from management.services import instagram_bot as bot
         from management.services.ig_catalog_media import (
