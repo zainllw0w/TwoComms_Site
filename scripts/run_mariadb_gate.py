@@ -76,10 +76,10 @@ _TEST_RESULT_RE = re.compile(
 _TEST_FAILURE_RE = re.compile(r"^(ERROR|FAIL):\s+.+$")
 _TEST_FAILURE_RESULT_RE = re.compile(r"^FAILED(?:\s+.*)?$")
 _EXCEPTION_RE = re.compile(
-    r"^((?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):(?:\s.*)?$"
+    r"^(?:(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):(?:\s.*)?$"
 )
 _DATABASE_ERRNO_RE = re.compile(
-    r"^((?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):\s*"
+    r"^(?:(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):\s*"
     r"\(([1-9]\d{0,4}),"
 )
 
@@ -100,8 +100,7 @@ class GateError(RuntimeError):
         )
         self.cleanup_error = cleanup_error or (self.cleanup_errors[0] if self.cleanup_errors else None)
         if self.cleanup_errors:
-            error_types = ",".join(type(error).__name__ for error in self.cleanup_errors)
-            message = f"{message}: cleanup_error={error_types}"
+            message = f"{message}: cleanup_error=exception"
         super().__init__(message)
         self.primary_error = primary_error
 
@@ -116,12 +115,9 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
         exception_match = _EXCEPTION_RE.fullmatch(candidate)
         test_failure_match = _TEST_FAILURE_RE.fullmatch(candidate)
         if database_errno_match:
-            lines.append(
-                f"{database_errno_match.group(1)}: "
-                f"errno={database_errno_match.group(2)}"
-            )
+            lines.append(f"database_error: errno={database_errno_match.group(1)}")
         elif exception_match:
-            lines.append(f"{exception_match.group(1)}:")
+            lines.append("exception:")
         elif test_failure_match:
             lines.append(f"{test_failure_match.group(1)}: test_failed")
         elif _TEST_RESULT_RE.fullmatch(candidate):
@@ -669,8 +665,8 @@ def main(argv: list[str] | None = None) -> int:
     except GateError as exc:
         print(f"MariaDB gate failed: {exc}", file=sys.stderr)
         return 1
-    except BaseException as exc:
-        print(f"MariaDB gate failed: {type(exc).__name__}", file=sys.stderr)
+    except BaseException:
+        print("MariaDB gate failed: unexpected_error", file=sys.stderr)
         return 1
     return 0
 
