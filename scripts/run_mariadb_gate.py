@@ -103,7 +103,8 @@ class GateError(RuntimeError):
         )
         self.cleanup_error = cleanup_error or (self.cleanup_errors[0] if self.cleanup_errors else None)
         if self.cleanup_errors:
-            message = f"{message}: " + "; ".join(str(error) for error in self.cleanup_errors)
+            error_types = ",".join(type(error).__name__ for error in self.cleanup_errors)
+            message = f"{message}: cleanup_error={error_types}"
         super().__init__(message)
         self.primary_error = primary_error
 
@@ -661,7 +662,7 @@ def run_gate(
     result["cleanup"] = "verified"
     output.write(
         f"MariaDB gate passed: mode={server_mode} suite={suite} "
-        f"version={version} cleanup=verified\n"
+        f"version={version} database={database} cleanup=verified\n"
     )
     return result
 
