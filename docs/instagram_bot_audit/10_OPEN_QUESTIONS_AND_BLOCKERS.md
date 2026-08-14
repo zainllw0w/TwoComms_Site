@@ -18,8 +18,13 @@
   back staged state and the required 207-test no-network gate is stable from
   three CWDs, but full historical baseline remains open. F-DEBT-007 remains
   open pending full-order flake evidence.
-  F-TEST-004 внутри IMP-094 закрыта на `dd93f9f3`, но disposable MariaDB gate
-  и остальные reliability acceptance criteria остаются открыты.
+  F-TEST-004 внутри IMP-094 закрыта на `dd93f9f3`; narrow disposable MariaDB
+  lifecycle/checkout-concurrency boundary passed exact-SHA branch CI
+  `31761170448` at `8f4459f68`, including the strict failure-evidence
+  allowlist, but full parity matrix, deterministic required command and all
+  remaining reliability acceptance criteria stay open. Other append-only
+  `TransactionTestCase` failures must be diagnosed individually; production
+  triggers must not be relaxed to make the suite green.
   `F-DEPLOY-001` adds the reproducibly built `http-ece` wheel hash gate;
   `F-DEPLOY-002` bans CloudLinux selector environment JSON from evidence.
   T40 rollback-fixture boundary is now GREEN on production MariaDB with mocked

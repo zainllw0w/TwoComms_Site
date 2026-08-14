@@ -91,6 +91,30 @@ tokens; common authority wording распознано, negated status не пр�
 `200/ok`, bot `running`, dangerous backlog и pending queues `0`. Ни customer,
 provider, payment, order, notification или analysis event не создавался.
 
+## Implement2 W2.2 T41 MariaDB checkout-concurrency gate (2026-08-14)
+
+The disposable MariaDB workflow now reaches and passes the checkout proposal
+lock/race assertion on the pinned MariaDB 11.4.12 service. CI run
+`31761170448` at sanitized SHA `8f4459f689ebe20b1b4cdda51b1e88c11cddc11b`
+passed the runner/workflow and settings contract steps, the lifecycle suite,
+and the `checkout-concurrency` suite. The fresh local runner/workflow packet is
+`29/29`. Exact artifact evidence names disposable schemas
+`test_twocomms_ig_0d322be43f2f` and `test_twocomms_ig_f6383867aa07`; both
+reported `cleanup=verified`. The preceding errno `1644` was traced to Django
+`TransactionTestCase` teardown issuing `DELETE` against an append-only event
+trigger. The scoped test teardown now uses `TRUNCATE` via
+`reset_sequences=True` without weakening production triggers.
+
+The post-teardown sanitizer follow-up was independently RED/green tested for
+free-form test lines, child/cleanup exception names, and the CLI fallback.
+It retains only fixed failure categories plus a numeric MariaDB errno. Artifact
+`mariadb-gate-evidence` (`9204756023`) has digest
+`sha256:12ce607d8a867317d1f4b502e0a657d465333fffb8108d9ade877129ae0570ce`.
+
+This is a narrow T41 evidence boundary only. The full management MariaDB
+parity matrix, `F-TEST-002`, `G-INFRA`, and immutable release/rollback gates
+under `IMP-094` remain open.
+
 ## W1.4 reviewer/operator PII technical boundary (2026-08-08)
 
 Source commit `71498170` находится в локальном `main`, `origin/main` и на

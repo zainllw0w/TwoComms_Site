@@ -53,7 +53,7 @@
 | Implementation | 105 total: 81 DONE, 14 OPEN, 10 PARTIAL; 24 unchecked |
 | Finding matrix / handoff | 187 total: 143 checked, 32 OPEN, 1 BLOCKED, 11 PARTIAL; 44 unchecked after Wave 3 |
 | Improvements | 51 total: 17 DONE, 12 OPEN, 21 PARTIAL, 1 REFRAMED; 34 unchecked |
-| Acceptance | 51 total: 40 GREEN, 11 PARTIAL (including SQLite-only `T41`); `T51` is GREEN regression guard |
+| Acceptance | 51 total: 40 GREEN, 11 PARTIAL (including SQLite GREEN plus a narrow disposable MariaDB checkout gate for `T41`); `T51` is GREEN regression guard |
 | Documentation conflicts | `DOC-001`, `DOC-002`, `DOC-003`, `DOC-004`, `DOC-005`, `DOC-006`, `DOC-007`, `DOC-008` reconciled by the 2026-08-07 handoff |
 
 Historical test totals such as 2675/2877/2897 prove only their named
@@ -557,12 +557,14 @@ These findings were discovered while implementing Wave 0 and are owned here;
   transport; no fixture residue or `AUTO_INCREMENT` drift remained. This closes
   only the fixture boundary; the full immutable deploy/rollback gate remains
   under `IMP-094` and `F-DEPLOY-001/003`.
-- [ ] Keep `T41` as SQLite-fast evidence only; do not call it production parity.
+- [ ] `T41` остаётся PARTIAL: SQLite suite GREEN и narrow disposable MariaDB
+  checkout-concurrency gate GREEN; полный parity matrix остаётся открыт.
 
 **Task 6A closeout (2026-08-14):** the
 disposable gate is now implemented as a cwd-independent runner in
 `scripts/run_mariadb_gate.py`. It validates the real Django entrypoint at
-`twocomms/manage.py`, accepts only the implemented `lifecycle` suite, generates
+`twocomms/manage.py`, accepts the implemented `lifecycle` and narrow
+`checkout-concurrency` suites, generates
 an isolated `test_twocomms_ig_<token>` schema and `twc_ig_<token>` user, checks
 `MariaDB 11.4`, sanitizes both Django and native-server child environments,
 forces native binaries to ignore system/user option files with a first
@@ -577,7 +579,8 @@ The GitHub Actions service is pinned to
 with `healthcheck.sh --connect --innodb_initialized`, Python 3.14, a 30-minute
 job timeout, push/PR path filters and an always-uploaded sanitized evidence
 artifact. The workflow runs the runner/workflow contracts and then
-`python scripts/run_mariadb_gate.py --server-mode external --suite lifecycle`.
+`python scripts/run_mariadb_gate.py --server-mode external --suite lifecycle`
+and the dedicated checkout-concurrency gate.
 
 Fresh local evidence on current `origin/main` (`04b8b241`) is **23/23
 runner/workflow contract tests OK**, including the all-host collision check,
@@ -606,13 +609,55 @@ This closes **Task 6A only**. `T41`, `G-INFRA`, `F-TEST-002` and `IMP-094`
 remain open until their separate MariaDB suites and acceptance evidence exist;
 future Tasks 6B–6F are not advertised or claimed.
 
+**T41 checkout-concurrency follow-up (2026-08-14):** the first CI run of the
+new MariaDB checkout gate (`31752952661`) reached the concurrency assertion,
+then failed during Django `TransactionTestCase` teardown. The test setup
+materializes an `IgCommercialEpisodeEvent`; migration `0106` deliberately
+installs a MariaDB `BEFORE DELETE` append-only trigger, while Django 5.2's
+default MySQL flush passes `reset_sequences=False` and therefore issues
+`DELETE`. The resulting errno `1644` was a test-cleanup defect, not a checkout
+locking failure.
+
+The scoped fix keeps the production trigger unchanged and overrides
+`_fixture_teardown()` only on
+`IgCheckoutProposalConcurrencyTests`, preserving Django's mirror,
+`available_apps`, serialized-rollback and post-migrate behavior while passing
+`reset_sequences=True`. MariaDB then uses `TRUNCATE` for this class, so the
+append-only event journal remains protected and cleanup succeeds. Fresh CI
+evidence on sanitized SHA `8f4459f689ebe20b1b4cdda51b1e88c11cddc11b` is GitHub
+Actions run `31761170448`: its runner/workflow and settings contract steps,
+lifecycle and checkout-concurrency are GREEN. The fresh local runner/workflow
+packet is **29/29**. The exact sanitized artifact lines are:
+
+`MariaDB gate passed: mode=external suite=lifecycle
+version=11.4.12-MariaDB-ubu2404 database=test_twocomms_ig_0d322be43f2f
+cleanup=verified`
+
+`MariaDB gate passed: mode=external suite=checkout-concurrency
+version=11.4.12-MariaDB-ubu2404 database=test_twocomms_ig_f6383867aa07
+cleanup=verified`
+
+The follow-up strict allowlist was independently RED/green checked against
+free-form test/subtest/result lines and dynamic child, cleanup and CLI fallback
+exception labels; the output keeps only fixed categories and numeric MariaDB
+errno. Artifact `mariadb-gate-evidence` (`9204756023`) has digest
+`sha256:12ce607d8a867317d1f4b502e0a657d465333fffb8108d9ade877129ae0570ce`.
+The current Mac host has neither `mariadbd` nor `mariadb-install-db`, so no
+native local MariaDB claim is made.
+
+This closes the teardown defect only. It does not close the broader `T41`
+MariaDB race/constraint matrix, `G-INFRA`, `F-TEST-002` or `IMP-094`; those
+remain open until their separately scoped acceptance evidence exists.
+
 ### W2.1A Next queued release — intelligent Instagram follow-state and lifecycle CTA — `IMP-106`
 
-**Status:** QUEUED after Task 6A. Do not begin before the pinned MariaDB gate
-has CI evidence and the Meta capability audit below is complete. This is a
-commercial follow-up policy, not a background message campaign: it must never
-turn a missing or failed provider lookup into `not_following`, and it must not
-create a perpetual cron that scans all customers.
+**Status:** QUEUED after verified W2.2 main and production closeout. Do not
+begin before this T41 slice reaches `main`, the approved SSH-only `git pull`
+and read-only production evidence are recorded, and the Meta capability audit
+below is complete. This is a commercial follow-up policy, not a background
+message campaign: it must never turn a missing or failed provider lookup into
+`not_following`, and it must not create a perpetual cron that scans all
+customers.
 
 - [ ] **Capability contract first.** Reconcile the live Graph API version,
   token type, Instagram account ID, app subscription, scopes and available

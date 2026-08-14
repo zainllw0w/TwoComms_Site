@@ -358,7 +358,7 @@
   автоматизировать ради зелёной галочки.
 - [ ] T38 — multiple open orders: partial до complete durable commerce session.
 - [x] T40 — rollback fixture boundary GREEN on production MariaDB (`c09c4ab97`); full immutable deploy/rollback gate remains IMP-094.
-- [ ] T41 — SQLite green недостаточен: disposable MariaDB test database обязателен.
+- [ ] T41 — SQLite suite GREEN и narrow checkout-concurrency gate GREEN on exact-SHA disposable MariaDB CI (`31761170448` / `8f4459f68`, strict failure-evidence allowlist, exact schema evidence, `cleanup=verified`), but the full management parity matrix and deterministic current command remain open.
 - [ ] T44 — sales semantic/inventory policy: partial до IMP-081 runtime/admin consumer.
 - [ ] T45 — price graph/candidates: partial до durable binding и stale protection.
 - [ ] T47 — exact availability: partial до MariaDB lock/constraint proof.

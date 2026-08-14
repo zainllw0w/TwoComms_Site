@@ -889,7 +889,13 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   (3 skipped) из двух CWD. Commit `15147ded` находится в `main` и production;
   `dd93f9f3` дополнительно закрыл F-TEST-004: reduced-motion assertion больше
   не зависит от соседства CSS selectors; 188/188 inbox/UI и 2897 full-suite
-  GREEN. Остался обязательный отдельный disposable MariaDB run.
+  GREEN. Exact-SHA disposable MariaDB lifecycle/checkout-concurrency CI
+  `31761170448` at `8f4459f68` now exists with verified generated-schema
+  cleanup and dynamic-error-label redaction, but it does not close `IMP-094`:
+  full parity, the deterministic required command and remaining MariaDB
+  constraints are still open. Further append-only `TransactionTestCase`
+  teardown failures require individual diagnosis; production triggers must not
+  be weakened globally.
   **Emergent release findings 2026-08-07:** `F-DEPLOY-001` requires the
   reproducibly built `http-ece` wheel SHA in the immutable install
   requirements; the sdist SHA alone fails a clean wheel-only hash install.
