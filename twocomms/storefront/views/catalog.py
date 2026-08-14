@@ -78,7 +78,7 @@ from ..services.color_filter import (
     normalise_color_slugs,
     parse_color_filter,
 )
-from ..services.survey_engine import load_survey_definition
+from ..services.survey_engine import load_survey_definition, localized_survey_ui_copy
 from ..utm_tracking import record_search
 from ..utm_utils import TRACKING_QUERY_PARAMS
 from cache_utils import get_fragment_cache
@@ -1423,7 +1423,7 @@ def _catalog_schema_products(products, language_code: str):
     return schema_products
 
 
-HOME_SURVEY_VISIBILITY_CACHE_VERSION = "survey-visible-20260530"
+HOME_SURVEY_VISIBILITY_CACHE_VERSION = "survey-visible-20260814-locale-copy"
 # Bump whenever homepage Organization/llms-owned facts change so cached HTML
 # cannot continue publishing retired structured-data claims after deploy.
 HOME_SEO_FACTS_CACHE_VERSION = "seo-facts-v3-20260813-geo"
@@ -1512,8 +1512,13 @@ def home(request):
     )
 
     survey_def = load_survey_definition()
-    survey_ui_home = survey_def.get('ui_copy', {}).get('homepage_block', {}) if survey_def else {}
-    survey_ui_modal = survey_def.get('ui_copy', {}).get('modal', {}) if survey_def else {}
+    active_language = get_language() or getattr(request, "LANGUAGE_CODE", "uk")
+    survey_ui_home = localized_survey_ui_copy(
+        survey_def, "homepage_block", active_language
+    )
+    survey_ui_modal = localized_survey_ui_copy(
+        survey_def, "modal", active_language
+    )
     survey_reward = survey_def.get('reward', {}) if survey_def else {}
     survey_key = survey_def.get('survey_key', 'print_feedback_v1') if survey_def else 'print_feedback_v1'
     survey_has_active = False
@@ -1544,7 +1549,7 @@ def home(request):
         ).exists()
         survey_block_hidden = already_completed or already_granted or already_dismissed
     survey_cta_text = survey_ui_home.get(
-        'cta_continue_uk' if survey_has_active else 'cta_start_uk',
+        'cta_continue' if survey_has_active else 'cta_start',
         'Пройти опитування',
     )
 

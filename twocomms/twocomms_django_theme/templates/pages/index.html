@@ -274,9 +274,9 @@ canonical entry point for the brand's URL graph.
               <span class="sl-amount">{% blocktrans with amount=survey_reward.amount_uah|default:200 %}Промокод на {{ amount }} грн{% endblocktrans %}</span>
             </div>
           </div>
-          <p class="sl-desc">{{ survey_ui_home.note_uk|default:'Можна пройти без реєстрації. Промокод покажемо одразу після завершення — збережи його в акаунті, щоб не загубити й застосувати в кошику.' }}</p>
+          <p class="sl-desc">{{ survey_ui_home.note|default:'Можна пройти без реєстрації. Промокод покажемо одразу після завершення — збережи його в акаунті, щоб не загубити й застосувати в кошику.' }}</p>
           <div class="sl-tags">
-            <div class="sl-tag">{{ survey_ui_home.micro_trust_uk|default:'≈3–5 хв · без спаму' }}</div>
+            <div class="sl-tag">{{ survey_ui_home.micro_trust|default:'≈3–5 хв · без спаму' }}</div>
             <div class="sl-tag">{% trans 'Контакт лише за згодою' %}</div>
             <div class="sl-tag">{% trans 'Промокод одразу' %}</div>
           </div>
@@ -294,7 +294,7 @@ canonical entry point for the brand's URL graph.
                   <span class="sr-brand-text">TWOCOMMS</span>
                 </span>
               </h2>
-              <p class="sr-subtitle">{{ survey_ui_home.subtitle_uk|default:'Короткий адаптивний квіз: питання підлаштовуються під твої відповіді, без зайвої анкети.' }}</p>
+              <p class="sr-subtitle">{{ survey_ui_home.subtitle|default:'Короткий адаптивний квіз: питання підлаштовуються під твої відповіді, без зайвої анкети.' }}</p>
             </div>
           </div>
 
@@ -391,8 +391,8 @@ canonical entry point for the brand's URL graph.
               class="sr-cta"
               data-survey-cta
               data-survey-key="{{ survey_key }}"
-              data-survey-start-text="{{ survey_ui_home.cta_start_uk|default:'Почати' }}"
-              data-survey-continue-text="{{ survey_ui_home.cta_continue_uk|default:'Продовжити' }}"
+              data-survey-start-text="{{ survey_ui_home.cta_start|default:'Почати' }}"
+              data-survey-continue-text="{{ survey_ui_home.cta_continue|default:'Продовжити' }}"
             >
               <span>{{ survey_cta_text|default:'Почати' }}</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -818,16 +818,16 @@ Trust / E-E-A-T блок (ТЗ v3, файл 04). Розміщено ПІСЛЯ �
     class="survey-modal"
     id="survey-modal"
     aria-hidden="true"
-    data-button-next="{{ survey_ui_modal.button_next_uk|default:'Далі' }}"
-    data-button-back="{{ survey_ui_modal.button_back_once_uk|default:'Назад' }}"
-    data-button-close="{{ survey_ui_modal.button_close_uk|default:'Закрити' }}"
-    data-button-skip="{{ survey_ui_modal.button_skip_uk|default:'Пропустити' }}"
-    data-thanks-title="{{ survey_ui_modal.thanks_title_uk|default:'Твій код готовий' }}"
+    data-button-next="{{ survey_ui_modal.button_next|default:'Далі' }}"
+    data-button-back="{{ survey_ui_modal.button_back_once|default:'Назад' }}"
+    data-button-close="{{ survey_ui_modal.button_close|default:'Закрити' }}"
+    data-button-skip="{{ survey_ui_modal.button_skip|default:'Пропустити' }}"
+    data-thanks-title="{{ survey_ui_modal.thanks_title|default:'Твій код готовий' }}"
     {# ТЗ v3 (файл 06): чесна промокод-рамка. Гість бачить код одразу, але #}
     {# застосувати може після входу — пояснюємо це через вигоду (збереження), #}
     {# а не через заборону. {expiry_date} підставляє survey.js. #}
-    data-thanks-text="{{ survey_ui_modal.thanks_text_uk|default:'Промокод готовий. Щоб не загубити його після закриття сторінки — збережи в акаунті, і застосуєш у кошику, коли обереш річ.' }}"
-    data-copy-code="{{ survey_ui_modal.copy_code_uk|default:'Скопіювати код' }}"
+    data-thanks-text="{{ survey_ui_modal.thanks_text|default:'Промокод готовий. Щоб не загубити його після закриття сторінки — збережи в акаунті, і застосуєш у кошику, коли обереш річ.' }}"
+    data-copy-code="{{ survey_ui_modal.copy_code|default:'Скопіювати код' }}"
     data-survey-key="{{ survey_key }}"
     data-survey-expires-days="{{ survey_expires_in_days|default:5 }}"
     data-login-url="{% url 'login' %}?next=/cart/"
@@ -849,13 +849,13 @@ Trust / E-E-A-T блок (ТЗ v3, файл 04). Розміщено ПІСЛЯ �
         <div class="survey-header-main">
           <div class="survey-badge">{% trans 'Опитування' %}</div>
           <h3 class="survey-modal-title" id="survey-modal-title">
-            {{ survey_ui_modal.title_uk|default:'Короткий квіз про TWOCOMMS' }}
+            {{ survey_ui_modal.title|default:'Короткий квіз про TWOCOMMS' }}
           </h3>
           <p class="survey-modal-subtitle">
-            {{ survey_ui_modal.subtitle_uk|default:'Питання підлаштовуються під твої відповіді — зайвого не питатимемо.' }}
+            {{ survey_ui_modal.subtitle|default:'Питання підлаштовуються під твої відповіді — зайвого не питатимемо.' }}
           </p>
         </div>
-        <p class="survey-modal-privacy">{{ survey_ui_modal.privacy_hint_uk|default:'Використовуємо відповіді тільки для аналітики, покращення колекцій, кастому й сервісу.' }}</p>
+        <p class="survey-modal-privacy">{{ survey_ui_modal.privacy_hint|default:'Використовуємо відповіді тільки для аналітики, покращення колекцій, кастому й сервісу.' }}</p>
       </div>
 
       <div class="survey-body" id="survey-body">

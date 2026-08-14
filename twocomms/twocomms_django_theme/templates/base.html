@@ -1265,7 +1265,7 @@
              aria-labelledby="language-suggestion-title" aria-describedby="language-suggestion-copy">
       <button type="button" class="language-suggestion__close" data-language-suggestion-close
               aria-label="{% trans 'Закрити' %}">×</button>
-      <div class="language-suggestion__eyebrow">TwoComms</div>
+      <div class="language-suggestion__eyebrow">TWOCOMMS</div>
       <h2 id="language-suggestion-title" class="language-suggestion__title" data-language-suggestion-title></h2>
       <p id="language-suggestion-copy" class="language-suggestion__copy" data-language-suggestion-copy></p>
       <div class="language-suggestion__actions">
@@ -1538,7 +1538,40 @@
   <!-- Service Worker cleanup: extracted to /static/js/sw-cleanup.js (2026-04-20),
        defer + static caching — не нагружает HTML-ответ. -->
   <script defer src="{% static 'js/sw-cleanup.js' %}"></script>
-  <script defer src="{% static 'js/language-suggestion.js' %}?v=20260719-language-prompt"></script>
+  <!--
+    Locale gate preflight: keep a stale hashed language-suggestion asset from
+    opening the old prompt on acquisition landings while staticfiles catches up.
+  -->
+  <script>
+    (function () {
+      var root = document.getElementById('language-suggestion');
+      if (!root) return;
+      try {
+        var language = (document.documentElement.getAttribute('lang') || '')
+          .toLowerCase().split('-')[0];
+        var tagged = false;
+        var params = new URLSearchParams(window.location.search || '');
+        params.forEach(function (_value, rawKey) {
+          var key = String(rawKey || '').toLowerCase();
+          if (/^utm_[a-z0-9_]+$/.test(key) || /^(?:srsltid|gclid|dclid|fbclid|ttclid|msclkid|gbraid|wbraid|yclid|gclsrc)$/.test(key)) {
+            tagged = true;
+          }
+        });
+        var languages = navigator.languages || [];
+        if (!languages.length && navigator.language) languages = [navigator.language];
+        var preferred = '';
+        for (var index = 0; index < languages.length; index += 1) {
+          var candidate = String(languages[index] || '').toLowerCase().split('-')[0];
+          if (candidate === 'uk' || candidate === 'ru' || candidate === 'en') {
+            preferred = candidate;
+            break;
+          }
+        }
+        if (tagged || (preferred && preferred === language)) root.remove();
+      } catch (error) { /* keep the normal controller as a fallback */ }
+    })();
+  </script>
+  <script defer src="{% static 'js/language-suggestion.js' %}?v=20260814-locale-gate"></script>
 
 </body>
 

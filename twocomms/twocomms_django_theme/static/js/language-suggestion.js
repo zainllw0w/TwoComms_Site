@@ -10,6 +10,39 @@
   var userAgent = navigator.userAgent || '';
   if (navigator.webdriver || /bot|crawler|spider|slurp|bingpreview|headless/i.test(userAgent)) return;
 
+  // A tagged landing URL carries an explicit acquisition intent. Do not put a
+  // language decision in front of visitors arriving from Google Merchant
+  // (``srsltid``) or a campaign (UTM/click-id parameters); the URL locale is
+  // the source of truth for that visit and the tracking query must not change
+  // the rendered language.
+  function hasTrackingParameter() {
+    var params = new URLSearchParams(window.location.search || '');
+    var found = false;
+    params.forEach(function (_value, rawKey) {
+      var key = String(rawKey || '').toLowerCase();
+      if (/^utm_[a-z0-9_]+$/.test(key) || /^(?:srsltid|gclid|dclid|fbclid|ttclid|msclkid|gbraid|wbraid|yclid|gclsrc)$/.test(key)) {
+        found = true;
+      }
+    });
+    return found;
+  }
+
+  if (hasTrackingParameter()) return;
+
+  // Only suggest a change when the browser's preferred language disagrees
+  // with the explicit locale in the URL. This keeps a deliberate /en/ visit
+  // quiet for English-speaking visitors while retaining the useful prompt
+  // for a Ukrainian or Russian browser that followed a foreign-language link.
+  var browserLanguages = navigator.languages || [];
+  if (!browserLanguages.length && navigator.language) browserLanguages = [navigator.language];
+  for (var languageIndex = 0; languageIndex < browserLanguages.length; languageIndex += 1) {
+    var preferred = String(browserLanguages[languageIndex] || '').toLowerCase().split('-')[0];
+    if (preferred === 'uk' || preferred === 'ru' || preferred === 'en') {
+      if (preferred === htmlLanguage) return;
+      break;
+    }
+  }
+
   // Store one decision for this browser. Ukrainian is the canonical language
   // and exits above, so it never gets a prompt or a stored decision.
   var storageKey = 'twocomms_language_suggestion_v3';

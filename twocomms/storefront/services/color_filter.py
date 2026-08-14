@@ -25,51 +25,26 @@ from django.core.cache import cache
 from django.db import DatabaseError
 from django.db.models import QuerySet
 from django.http import HttpResponsePermanentRedirect
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import get_language
+
+from productcolors.color_i18n import translate_color_name
 
 from storefront.utm_utils import PLATFORM_QUERY_PARAMS
 
 
-# 2026-05-16 — Phase 17v. The Color model is shared with admin tools and
-# does not use ``django-modeltranslation`` (Color rows store a single
-# Ukrainian display name in the ``name`` column). To keep the colour
-# filter chips fully localised we pre-register the catalogue colours as
-# gettext msgids; ``_translate_color_label`` looks them up at render
-# time and falls back to the raw DB value (humanised slug) for unknown
-# colours. The mapping is intentionally generous — extra entries are a
-# no-op when the colour is not in the catalogue, but they keep the .po
-# stable as new colours arrive.
-_KNOWN_COLOR_NAMES = (
-    "Чорний",
-    "Білий",
-    "Сірий",
-    "Кайот",
-    "Олива",
-    "Хакі",
-    "Бежевий",
-    "Червоний",
-    "Зелений",
-    "Синій",
-    "Темно-синій",
-    "Жовтий",
-    "Помаранчевий",
-    "Рожевий",
-    "Ментол",
-    "Фіолетовий",
-    "Коричневий",
-    "Бордовий",
-    "Бело-бордовий",
-    "бело-бордовий",
-)
-_COLOR_LABEL_LOOKUP = {name: _(name) for name in _KNOWN_COLOR_NAMES}
-
-
 def _translate_color_label(label: str):
-    """Return a lazy translation for a known colour, or the raw label."""
+    """Translate a DB colour name using the shared runtime colour map.
+
+    ``Color.name`` is intentionally stored once (usually in Ukrainian), so
+    gettext-only labels silently leaked the source language whenever a new
+    colour was not present in the compiled catalog. The runtime map handles
+    compound names and preserves unknown admin-authored shades.
+    """
 
     if not label:
         return label
-    return _COLOR_LABEL_LOOKUP.get(label.strip(), label)
+    language = (get_language() or "uk").split("-", 1)[0].lower()
+    return translate_color_name(str(label).strip(), language)
 
 
 # Maximum number of colour slugs we accept in a single ``?color=`` value.

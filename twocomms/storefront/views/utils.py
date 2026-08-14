@@ -130,7 +130,7 @@ def public_product_listing_cache_prefix(request, view_func):
     return (
         f"{view_func.__module__}.{view_func.__name__}"
         f":product-order-v{product_version}:category-v{category_version}"
-        ":card-v20260812-catalog-cache-identity"
+        ":card-v20260814-locale-brand-cache-identity"
     )
 
 

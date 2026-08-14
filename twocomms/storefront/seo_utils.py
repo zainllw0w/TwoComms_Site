@@ -43,6 +43,12 @@ def get_default_social_image_url() -> str:
     return _build_absolute_url(DEFAULT_SOCIAL_IMAGE_PATH)
 
 
+def _localized_static_text(values: Dict[str, str]) -> str:
+    """Resolve a locale-owned SEO value without relying on incomplete PO data."""
+    language = (get_language() or "uk").split("-", 1)[0].lower()
+    return values.get(language) or values.get("uk", "")
+
+
 def _clean_text(raw: str | None) -> str:
     if not raw:
         return ""
@@ -1740,9 +1746,21 @@ class StructuredDataGenerator:
             "url": base_url,
             "image": social_image,
             "logo": _build_absolute_url("static/img/logo.svg"),
-            "description": _(
-                "Український онлайн-магазин стріт- та мілітарі-одягу TwoComms: "
-                "футболки, худі, лонгсліви та кастомний DTF-друк."
+            "description": _localized_static_text(
+                {
+                    "uk": (
+                        "Український онлайн-магазин стріт- та мілітарі-одягу "
+                        "TWOCOMMS: футболки, худі, лонгсліви та кастомний DTF-друк."
+                    ),
+                    "ru": (
+                        "Украинский онлайн-магазин стрит- и милитари-одежды "
+                        "TWOCOMMS: футболки, худи, лонгсливы и кастомная DTF-печать."
+                    ),
+                    "en": (
+                        "Ukrainian online store for TWOCOMMS streetwear and "
+                        "military apparel: t-shirts, hoodies, longsleeves and custom DTF print."
+                    ),
+                }
             ),
             "telephone": "+380966543212",
             "currenciesAccepted": "UAH",

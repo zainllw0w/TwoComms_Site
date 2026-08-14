@@ -253,6 +253,43 @@ class RenderedLocaleMatrixTests(TestCase):
                 self.assertEqual(schema["slogan"], expected["slogan"])
                 self.assertNotIn("Не крапка, а продовження", schema["slogan"])
 
+    def test_homepage_english_copy_and_tracking_parameters_keep_locale(self):
+        response = self.client.get("/en/?utm_source=google&srsltid=free-listing-click")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("Content-Language"), "en")
+        body = response.content.decode("utf-8")
+        self.assertIn("lang='en-UA'", body)
+        self.assertIn("You can complete it without signing up", body)
+        self.assertIn("A short adaptive quiz", body)
+        self.assertIn("Black", body)
+        self.assertIn("Black", {str(chip["label"]) for chip in response.context["home_color_chips"]})
+        self.assertIn('data-button-next="Next"', body)
+        self.assertIn('data-thanks-title="Your code is ready"', body)
+        self.assertNotIn('data-button-next="Далі"', body)
+        self.assertNotIn("Можна пройти без реєстрації", body)
+        self.assertNotIn("Короткий адаптивний квіз", body)
+        self.assertNotIn("Чорний", body)
+
+        storefront = next(
+            node
+            for node in (
+                json.loads(payload)
+                for payload in re.findall(
+                    r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>',
+                    body,
+                    flags=re.DOTALL,
+                )
+            )
+            if isinstance(node, dict) and str(node.get("@id", "")).endswith("#storefront")
+        )
+        self.assertIn("online store", storefront["description"].lower())
+        self.assertNotIn("Український", storefront["description"])
+
+        plain = self.client.get("/en/")
+        self.assertEqual(plain.headers.get("Content-Language"), "en")
+        self.assertIn("A short adaptive quiz", plain.content.decode("utf-8"))
+
     def test_standard_pdp_founder_schema_is_locale_owned(self):
         matrix = {
             "ru": {

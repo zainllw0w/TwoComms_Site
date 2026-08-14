@@ -13,8 +13,9 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from django.core.cache import cache, caches
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
+from django.utils.translation import override
 
 from product_catalog.models import VariantSizeRule
 from productcolors.models import Color, ProductColorVariant
@@ -25,7 +26,18 @@ from storefront.services.color_filter import (
     build_home_color_chips,
     build_reset_url,
     parse_color_filter,
+    _translate_color_label,
 )
+
+
+class ColorFilterLocaleLabelTests(SimpleTestCase):
+    def test_english_labels_translate_legacy_compound_color_names(self):
+        with override("en"):
+            self.assertEqual(_translate_color_label("Кайот"), "Coyote")
+            self.assertEqual(_translate_color_label("Бежевий"), "Beige")
+            self.assertEqual(_translate_color_label("Ментол"), "Menthol")
+            self.assertEqual(_translate_color_label("Термо-зелена"), "Thermo green")
+            self.assertEqual(_translate_color_label("біло-бордовий"), "white-burgundy")
 
 
 class _BaseColorFilterTests(TestCase):

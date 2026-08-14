@@ -313,7 +313,7 @@ class CatalogViewTests(CatalogViewTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "class='navbar-brand navbar-brand--twocomms")
-        self.assertContains(response, 'class="navbar-brand__name">TwoComms</span>')
+        self.assertContains(response, 'class="navbar-brand__name">TWOCOMMS</span>')
         self.assertContains(response, 'class="mobile-site-shell__brand-name">TWOCOMMS</span>')
 
     def test_mobile_catalog_css_uses_stable_viewports_and_four_distinct_mark_paths(self):

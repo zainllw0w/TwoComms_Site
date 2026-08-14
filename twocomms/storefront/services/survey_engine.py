@@ -98,6 +98,134 @@ _SURVEY_CACHE: Dict[str, Any] = {
 }
 
 
+# The survey definition predates the public locale matrix and stores its copy
+# with ``*_uk`` keys. Keep the canonical keys below separate from that schema
+# so the homepage can render a real locale without making the survey engine
+# depend on Django's active translation state.
+_SURVEY_UI_FIELDS = {
+    "homepage_block": (
+        "badge",
+        "title",
+        "subtitle",
+        "note",
+        "cta_start",
+        "cta_continue",
+        "micro_trust",
+    ),
+    "modal": (
+        "title",
+        "subtitle",
+        "privacy_hint",
+        "button_next",
+        "button_back_once",
+        "button_skip",
+        "button_close",
+        "thanks_title",
+        "thanks_text",
+        "copy_code",
+    ),
+}
+
+_SURVEY_UI_FALLBACKS = {
+    "uk": {
+        "homepage_block": {
+            "badge": "Опитування",
+            "title": "Допоможи TWOCOMMS стати точнішим — отримай промокод на 200 грн",
+            "subtitle": "Не довга анкета, а короткий адаптивний квіз. Відповіді допоможуть нам зрозуміти, які речі, принти, кастом і сервіс справді потрібні.",
+            "note": "Можна пройти без реєстрації. Промокод покажемо одразу після завершення — збережи його в акаунті, щоб не загубити й застосувати в кошику.",
+            "cta_start": "Почати",
+            "cta_continue": "Продовжити",
+            "micro_trust": "≈3–5 хв · без спаму · контакт лише за згодою",
+        },
+        "modal": {
+            "title": "Короткий квіз про TWOCOMMS",
+            "subtitle": "Питання підлаштовуються під твої відповіді — зайвого не питатимемо.",
+            "privacy_hint": "Використовуємо відповіді тільки для аналітики, покращення колекцій, кастому й сервісу.",
+            "button_next": "Далі",
+            "button_back_once": "Назад",
+            "button_skip": "Пропустити",
+            "button_close": "Закрити",
+            "thanks_title": "Твій код готовий",
+            "thanks_text": "Промокод на 200 грн готовий і діє до {expiry_date}. Щоб не загубити його після закриття сторінки — збережи в акаунті, і застосуєш у кошику, коли обереш річ.",
+            "copy_code": "Скопіювати код",
+        },
+    },
+    "ru": {
+        "homepage_block": {
+            "badge": "Опрос",
+            "title": "Помоги TWOCOMMS стать точнее — получи промокод на 200 грн",
+            "subtitle": "Не длинная анкета, а короткий адаптивный квиз. Ответы помогут понять, какие вещи, принты, кастом и сервис действительно нужны.",
+            "note": "Можно пройти без регистрации. Промокод покажем сразу после завершения — сохрани его в аккаунте, чтобы не потерять и применить в корзине.",
+            "cta_start": "Начать",
+            "cta_continue": "Продолжить",
+            "micro_trust": "≈3–5 мин · без спама · контакт только с согласия",
+        },
+        "modal": {
+            "title": "Короткий квиз о TWOCOMMS",
+            "subtitle": "Вопросы подстраиваются под твои ответы — лишнего не спросим.",
+            "privacy_hint": "Используем ответы только для аналитики, улучшения коллекций, кастома и сервиса.",
+            "button_next": "Далее",
+            "button_back_once": "Назад",
+            "button_skip": "Пропустить",
+            "button_close": "Закрыть",
+            "thanks_title": "Твой код готов",
+            "thanks_text": "Промокод на 200 грн готов и действует до {expiry_date}. Чтобы не потерять его после закрытия страницы — сохрани в аккаунте и применишь в корзине при выборе вещи.",
+            "copy_code": "Скопировать код",
+        },
+    },
+    "en": {
+        "homepage_block": {
+            "badge": "Survey",
+            "title": "Help TWOCOMMS get better - get a UAH 200 promo code",
+            "subtitle": "A short adaptive quiz. Your answers help us understand which pieces, prints, custom work and services people really need.",
+            "note": "You can complete it without signing up. Your promo code appears right after you finish - save it in your account so you do not lose it and can use it in your cart.",
+            "cta_start": "Start",
+            "cta_continue": "Continue",
+            "micro_trust": "≈3–5 min · no spam · contact only with consent",
+        },
+        "modal": {
+            "title": "A short TWOCOMMS quiz",
+            "subtitle": "Questions adapt to your answers - we will not ask for anything unnecessary.",
+            "privacy_hint": "We use answers only for analytics and to improve collections, custom work and service.",
+            "button_next": "Next",
+            "button_back_once": "Back",
+            "button_skip": "Skip",
+            "button_close": "Close",
+            "thanks_title": "Your code is ready",
+            "thanks_text": "Your UAH 200 promo code is ready and valid until {expiry_date}. Save it in your account after closing the page so you can use it in your cart.",
+            "copy_code": "Copy code",
+        },
+    },
+}
+
+
+def localized_survey_ui_copy(
+    definition: Optional[Dict[str, Any]],
+    section: str,
+    language: str,
+) -> Dict[str, str]:
+    """Return canonical survey UI keys for the active public locale.
+
+    Older definitions may contain only Ukrainian keys. Explicit locale
+    fallbacks keep those definitions usable while allowing newer JSON files to
+    provide ``*_en``/``*_ru`` values without changing template contracts.
+    """
+    raw = ((definition or {}).get("ui_copy") or {}).get(section) or {}
+    lang = (language or "uk").split("-", 1)[0].lower()
+    if lang not in _SURVEY_UI_FALLBACKS:
+        lang = "uk"
+    fallback = _SURVEY_UI_FALLBACKS[lang].get(section, {})
+    result: Dict[str, str] = {}
+    for key in _SURVEY_UI_FIELDS.get(section, ()):
+        value = raw.get(f"{key}_{lang}")
+        if not value and lang == "uk":
+            value = raw.get(f"{key}_uk")
+        if not value:
+            value = fallback.get(key, "")
+        result[key] = str(value)
+    return result
+
+
 def load_survey_definition(path: Optional[Path] = None) -> Dict[str, Any]:
     """Load survey definition JSON with simple mtime cache."""
     target = Path(path or _default_survey_path())

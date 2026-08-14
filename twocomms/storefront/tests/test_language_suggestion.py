@@ -18,6 +18,10 @@ class LanguageSuggestionStaticTests(SimpleTestCase):
         self.assertIn("setTimeout(scheduleVisible, 7000)", source)
         self.assertIn("twocomms_language_suggestion_v3", source)
         self.assertIn("value.version === 3 && value.decision", source)
+        self.assertIn("srsltid", source)
+        self.assertIn("utm_", source)
+        self.assertIn("URLSearchParams", source)
+        self.assertIn("navigator.languages", source)
 
     def test_controller_localizes_actions_and_uses_server_rendered_target(self):
         source = LANGUAGE_JS.read_text(encoding="utf-8")
@@ -25,6 +29,12 @@ class LanguageSuggestionStaticTests(SimpleTestCase):
         self.assertIn("Stay in English", source)
         self.assertNotIn("next.value = window.location.href", source)
         self.assertIn('name="language" value="uk"', BASE_TEMPLATE.read_text(encoding="utf-8"))
+
+    def test_base_template_prevents_stale_static_prompt_on_tagged_or_matching_locale(self):
+        source = BASE_TEMPLATE.read_text(encoding="utf-8")
+        self.assertIn("URLSearchParams", source)
+        self.assertIn("root.remove()", source)
+        self.assertIn("utm_", source)
 
     def test_styles_cover_mobile_and_reduced_motion(self):
         source = LANGUAGE_CSS.read_text(encoding="utf-8")
