@@ -216,7 +216,7 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             "MariaDB gate child failed: suite=checkout-concurrency exit=1",
             summary,
         )
-        self.assertIn("ERROR: test_checkout", summary)
+        self.assertIn("ERROR: test_failed", summary)
         self.assertIn("RuntimeError:", summary)
         self.assertIn("pymysql.err.OperationalError: errno=1213", summary)
         self.assertIn("Ran 1 test in 2.345s", summary)
@@ -229,6 +229,73 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         self.assertNotIn(secret, summary)
         self.assertNotIn("Private customer note", summary)
         self.assertLessEqual(len(summary), self.runner.MAX_FAILURE_SUMMARY_CHARS)
+
+    def test_failure_summary_never_retains_free_form_test_or_subtest_details(self):
+        completed = subprocess.CompletedProcess(
+            args=["python", "manage.py", "test"],
+            returncode=1,
+            stdout="",
+            stderr=(
+                "ERROR: checkout failed for Olena at 12 Shevchenka Street, "
+                "order UUID deadbeef-dead-beef-dead-beefdeadbeef, "
+                "note=do not publish\n"
+                "FAIL: test_checkout "
+                "(management.tests.CheckoutTests.test_checkout) "
+                "(customer='Olena', address='12 Shevchenka Street', "
+                "order_id='deadbeef-dead-beef-dead-beefdeadbeef', "
+                "note='do not publish')\n"
+                "Ran 2 tests in 0.123s\n"
+                "FAILED (failures=1, errors=1)\n"
+                "FAILED (failures=1, customer='Olena', note='do not publish')\n"
+            ),
+        )
+
+        summary = self.runner._failure_summary(
+            suite="checkout-concurrency",
+            completed=completed,
+        )
+
+        self.assertIn("ERROR: test_failed", summary)
+        self.assertIn("FAIL: test_failed", summary)
+        self.assertIn("FAILED (failures=1, errors=1)", summary)
+        for private_detail in (
+            "Olena",
+            "12 Shevchenka Street",
+            "deadbeef-dead-beef-dead-beefdeadbeef",
+            "do not publish",
+            "customer=",
+            "address=",
+            "order_id=",
+            "note=",
+        ):
+            self.assertNotIn(private_detail, summary)
+
+    def test_failure_summary_never_retains_free_form_result_details(self):
+        completed = subprocess.CompletedProcess(
+            args=["python", "manage.py", "test"],
+            returncode=1,
+            stdout="",
+            stderr=(
+                "FAILED (customer='Olena', address='12 Shevchenka Street', "
+                "order_id='deadbeef-dead-beef-dead-beefdeadbeef')\n"
+            ),
+        )
+
+        summary = self.runner._failure_summary(
+            suite="checkout-concurrency",
+            completed=completed,
+        )
+
+        self.assertIn("FAILED (test_failed)", summary)
+        for private_detail in (
+            "Olena",
+            "12 Shevchenka Street",
+            "deadbeef-dead-beef-dead-beefdeadbeef",
+            "customer=",
+            "address=",
+            "order_id=",
+        ):
+            self.assertNotIn(private_detail, summary)
 
     def test_cleanup_failure_is_red_without_hiding_primary_error(self):
         admin = FakeAdmin(fail_cleanup=True)
