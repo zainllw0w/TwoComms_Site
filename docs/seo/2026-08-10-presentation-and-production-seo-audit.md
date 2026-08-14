@@ -333,13 +333,32 @@
   подтвердили active-language prefix behavior `i18n_patterns` при
   `prefix_default_language=False`; ручное добавление `/ru`/`/en` не
   использовалось.
-- **Что всё ещё открыто в FIND-023:** category `seo_intro_html` и
-  `description` по-прежнему рендерят исторические internal UI-state anchors
-  (`?color=`, `?fit=`) и locale-less clean links. Это отдельный следующий
-  render-time sanitation/localization slice; Smart Selector query controls
-  должны остаться рабочими. Fit/color×fit ownership, matching-media, GSC/demand
-  decision records и полная locale link matrix также не доказаны. Поэтому
-  общий FIND-023 остаётся partial/open, а не помечается полностью исправленным.
+- **Render-time editorial follow-up 2026-08-14:** commit `29213417e` закрывает
+  только этот конкретный остаток для category `seo_intro_html` и `description`.
+  Один shared `prepare_editorial_html()` применяется в legacy и Smart Selector
+  шаблонах во всех шести render-sites. Внутренние UI-state anchors
+  (`?color=`, `?fit=`, `?size=`, `?sort=`, `?page=`, `?theme=`,
+  `?availability=`, `?audience=`, `?thermo=` и `?category=`/`?q=`) снимаются
+  без потери текста и вложенной разметки; известные clean same-site routes
+  получают текущий locale prefix. Внешние, malformed, `mailto:`, `tel:` и
+  fragment-only ссылки сохраняются. Smart Selector query controls policy не
+  проходят и не были удалены.
+- **Evidence:** локальные release gates зафиксированы как policy/integration
+  `12/12`, cache `1/1`, selected extended `68/68` и critical Smart Selector
+  `3/3`; production `manage.py check` без ошибок. Девять clean category URL
+  (tshirts/hoodie/long-sleeve × UK/RU/EN) вернули `200`, `index, follow`,
+  self-canonical, `0` editorial facet href и `0` wrong-locale clean href.
+  UK/RU/EN `tshirts/?color=black` вернули `200`, `noindex, follow`,
+  same-locale category canonical, сохранили Smart Selector color controls и
+  имели `0` editorial `?color=` links. Это доказательство crawl/locale-link
+  hygiene, а не ranking, traffic, crawl-budget или conversion gain.
+- **Что всё ещё открыто в FIND-023:** fit/color×fit ownership, matching-media,
+  GSC/demand decision records, approved landing expansion и полная category/PDP
+  locale link matrix. Tracking parameters могут быть сохранены намеренно, а
+  non-empty RU/EN copy этим срезом не проверяется на translation/factuality.
+  Поэтому общий FIND-023 остаётся partial/open, а не помечается полностью
+  исправленным. Custom Print, DTF subdomain/blog/module/routes, ordinary DTF
+  wording, products, inventory и media этим срезом не затрагивались.
 
 #### FIND-003 — главный H1 общего каталога меняет intent между desktop и mobile-first рендером
 
@@ -824,6 +843,35 @@ pro_brand.html генерирует /catalog/tshirts/, /catalog/hoodie/ и /cata
   content edit. `/doglyad-za-odyagom/` and the shared FAQ's separate DTF
   durability numbers remain open owner-verification items; no DTF subdomain,
   DTF blog/module or Custom Print route/content was edited.
+
+### 7.4. Release log: locale-safe category editorial links
+
+- [x] **P1-FIND-023-editorial-links (2026-08-14):** `29213417e` applies one
+  render-time editorial-link policy to raw locale-owned category description
+  and intro HTML in both legacy and Smart Selector templates. It removes
+  internal UI-state anchors from editorial sections while preserving anchor
+  text/nested markup, localizes known same-site clean routes through Django's
+  active locale resolver, and fails closed for blank RU/EN fields rather than
+  showing UK fallback.
+- [x] **Regression and boundary proof:** policy/integration `12/12`, cache
+  `1/1`, selected extended `68/68`, critical Smart Selector `3/3`, server
+  `manage.py check`, compilation and `git diff --check` passed. The full
+  combined category/legacy module still has two unrelated historical
+  UTM-pagination expectation failures; they are recorded rather than hidden.
+  The cache namespace is `catalog-v11`. This is not an HTML/XSS sanitizer and
+  does not validate the meaning or translation quality of non-empty editorial
+  copy.
+- [x] **Production proof:** at the release SHA, nine clean UK/RU/EN category
+  pages returned `200`, `index, follow`, self-canonical, zero editorial facet
+  hrefs and zero wrong-locale clean hrefs. Three matching `?color=black` UI
+  states returned `200`, `noindex, follow`, same-locale category canonical,
+  retained Smart Selector controls and exposed zero editorial `?color=` links.
+  No new color/fit landing owner was created and no ranking/traffic/crawl-budget
+  improvement is claimed.
+- [ ] **Residual FIND-023 scope:** fit/color×fit/city ownership, GSC/demand
+  records, matching media, approved clean-landing expansion and the full
+  category/PDP locale matrix remain open. Custom Print and every DTF
+  subdomain/blog/module/route remain outside this remediation slice.
 
 ## 8. Матрица проверки после будущих исправлений
 

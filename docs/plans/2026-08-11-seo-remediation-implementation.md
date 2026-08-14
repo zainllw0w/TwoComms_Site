@@ -1815,11 +1815,45 @@ deployed and live-verified before its checklist mark changes to `[x]`.
   `index, follow`, self-canonical, retains pricing and links to the approved
   `/catalog/tshirts/black/` and `/catalog/tshirts/coyote/` owners.
 
-This checkpoint does not close broad 6.1–6.4 or FIND-023. The rendered category
-intro and long description still contain historical `?color=` / `?fit=`
-editorial anchors and locale-less clean internal links; those surfaces require
-a separate render-time policy while the interactive Smart Selector links stay
-operational.
+#### Task 6 locale-safe category editorial HTML checkpoint
+
+- [x] **6.1c** Add the regression boundary for raw locale-owned category
+  `description` and `seo_intro_html`. The unit/integration cases cover every
+  catalog UI-state key (including `audience` and `thermo`), nested markup
+  preservation, known clean-route localization, external/tracking-link
+  preservation, both legacy and Smart Selector render paths, and blank RU/EN
+  fields failing closed instead of falling back to UK.
+- [x] **6.2c** Apply one render-time `prepare_editorial_html()` policy at all
+  six category render sites (hero snippet, intro and long description in both
+  templates). Internal UI-state anchors are unwrapped while their text and
+  nested markup remain; known same-site routes are translated with Django's
+  locale-aware URL resolver; unknown, malformed, external, `mailto:`, `tel:`
+  and fragment-only URLs are left unchanged. Interactive Smart Selector query
+  controls are outside this policy and remain operational. This is link-policy
+  preparation, not an HTML/XSS sanitizer or a review of the truth/translation
+  quality of non-empty editorial copy. The anonymous catalog cache namespace is
+  `catalog-v11`.
+- [x] **6.4c** Commit `29213417e` was pushed to `main`, pulled on production and
+  activated. Recorded release gates were policy/integration `12/12`, cache
+  regression `1/1`, selected extended coverage `68/68`, critical Smart Selector
+  checks `3/3`, `manage.py check`, touched-file compilation and
+  `git diff --check`. A fresh server run of the full combined category/legacy
+  module reported `67/69`; the only two failures are the known pre-existing
+  UTM-pagination expectations about tracking-parameter retention and are
+  outside this diff. Production was verified at the exact release SHA before
+  this documentation-only checkpoint, `manage.py check` is clean, and nine
+  clean UK/RU/EN category URLs plus three
+  `?color=black` UI-state URLs were rechecked: all returned `200`, clean pages
+  were `index, follow` + self-canonical, filter pages were `noindex, follow`
+  + same-locale category canonical, editorial sections had zero facet anchors
+  and zero wrong-locale clean hrefs, while Smart Selector color controls
+  remained present.
+
+This checkpoint does not close broad 6.1–6.4 or FIND-023. It does not approve
+fit, color×fit or city owners; create clean landing links; establish GSC/demand
+evidence; verify matching media; or complete the category/PDP locale matrix.
+Tracking parameters may intentionally remain on otherwise valid editorial links,
+and the policy does not claim that non-empty RU/EN copy is translated or factual.
 
 **Task 6 boundary:** the release does not approve fit/color×fit/city combinations,
 does not add keyword paraphrases or new SEO copy, and does not change canonical,
@@ -1827,7 +1861,9 @@ sitemap, product, inventory, media, Custom Print, DTF subdomain/blog or ordinary
 DTF wording. The remaining broad Task 6 checks stay open until the route/locale
 matrix and owner decision records are complete.
 
-**Files:** `services/color_seo_copy.py`, `services/general_catalog_seo.py`, Smart Selector helpers, category/color landing templates/tests.
+**Files:** `services/color_seo_copy.py`, `services/general_catalog_seo.py`,
+`services/seo_link_policy.py`, `views/catalog.py`, Smart Selector helpers,
+category/color landing templates/tests.
 
 ### Task 7: Complete variant media, alt text and fit data
 
