@@ -82,6 +82,8 @@ _DATABASE_ERRNO_RE = re.compile(
     r"^(?:(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):\s*"
     r"\(([1-9]\d{0,4}),"
 )
+_RELEASE_MIGRATION = "0156_ig_order_event_delivery_receipts"
+_RELEASE_TABLE = "management_igordercustomerevent"
 
 
 class GateError(RuntimeError):
@@ -268,6 +270,60 @@ class AdminClient:
             f"WHERE User = '{username}'"
         )
         return bool(user_row[0]), bool(database_row[0])
+
+    def verify_release_schema(self, database: str) -> dict[str, str]:
+        if not re.fullmatch(r"test_twocomms_ig_[a-f0-9]{12}", database):
+            raise GateError("MariaDB release schema name is not gate-owned")
+
+        migration_row = self._query_one(
+            f"SELECT COUNT(*) FROM `{database}`.`django_migrations` "
+            "WHERE app = 'management' "
+            f"AND name = '{_RELEASE_MIGRATION}'"
+        )
+        if not migration_row or int(migration_row[0]) != 1:
+            raise GateError("MariaDB release migration is missing")
+
+        column_rows = self._query_all(
+            "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, "
+            "CHARACTER_MAXIMUM_LENGTH FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            f"AND TABLE_NAME = '{_RELEASE_TABLE}' "
+            "AND COLUMN_NAME IN "
+            "('provider_message_id', 'delivery_provider_message_ids')"
+        )
+        columns = {
+            str(name): (
+                str(data_type).lower(),
+                str(column_type).lower(),
+                None if maximum_length is None else int(maximum_length),
+            )
+            for name, data_type, column_type, maximum_length in column_rows
+        }
+        if columns.get("provider_message_id") != ("varchar", "varchar(255)", 255):
+            raise GateError("MariaDB provider receipt column does not match varchar(255)")
+
+        delivery_column = columns.get("delivery_provider_message_ids")
+        if not delivery_column or delivery_column[0] != "longtext":
+            raise GateError("MariaDB delivery receipt column is not JSON-compatible")
+
+        check_rows = self._query_all(
+            "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS "
+            f"WHERE CONSTRAINT_SCHEMA = '{database}' "
+            f"AND TABLE_NAME = '{_RELEASE_TABLE}'"
+        )
+        normalized_checks = [
+            re.sub(r"\s+", "", str(row[0]).lower()).replace("`", "")
+            for row in check_rows
+        ]
+        expected_json_check = "json_valid(delivery_provider_message_ids)"
+        if expected_json_check not in normalized_checks:
+            raise GateError("MariaDB delivery receipt JSON_VALID constraint is missing")
+
+        return {
+            "migration": f"management.{_RELEASE_MIGRATION}",
+            "provider_message_id": "varchar(255)",
+            "delivery_provider_message_ids": "longtext+json_valid",
+        }
 
 
 def _generated_identifiers() -> tuple[str, str, str]:
@@ -595,12 +651,23 @@ def run_gate(
             output.write(_failure_summary(suite=suite, completed=completed))
             primary_error = RuntimeError(f"{suite} command failed ({completed.returncode})")
             raise primary_error
+        verify_release_schema = getattr(admin, "verify_release_schema", None)
+        if verify_release_schema is None:
+            raise GateError("MariaDB admin client cannot verify release schema")
+        schema_evidence = verify_release_schema(database)
+        output.write(
+            "MariaDB schema proof: "
+            "migration=management.0156_ig_order_event_delivery_receipts "
+            "provider_message_id=varchar(255) "
+            "delivery_provider_message_ids=longtext+json_valid\n"
+        )
         result = {
             "status": "passed",
             "database": database,
             "suite": suite,
             "version": version,
             "version_comment": version_comment,
+            **schema_evidence,
         }
     except BaseException as exc:
         primary_error = primary_error or exc

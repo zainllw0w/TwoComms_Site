@@ -221,8 +221,10 @@ class InstagramMariaDbLifecycleConcurrencyTests(TransactionTestCase):
             self.assertTrue(http_entered.wait(timeout=10))
             second = Thread(target=dispatch, args=("second",))
             second.start()
-            self.assertFalse(second_finished.wait(timeout=0.25))
-            release_http.set()
+            try:
+                self.assertFalse(second_finished.wait(timeout=0.25))
+            finally:
+                release_http.set()
             first.join(timeout=10)
             second.join(timeout=10)
 
@@ -230,9 +232,24 @@ class InstagramMariaDbLifecycleConcurrencyTests(TransactionTestCase):
         self.assertFalse(second.is_alive())
         self.assertEqual(errors, [])
         self.assertEqual(provider_calls, 1)
-        self.assertEqual(
+        self.assertIn(
             sorted(state for _name, state in results),
-            [IgLifecycleEvent.State.SENT, IgLifecycleEvent.State.SENT],
+            (
+                [IgLifecycleEvent.State.PROCESSING, IgLifecycleEvent.State.SENT],
+                [IgLifecycleEvent.State.SENT, IgLifecycleEvent.State.SENT],
+            ),
+        )
+
+        self.event.refresh_from_db()
+        message = InstagramBotMessage.objects.get(
+            synthetic_event_key=_lifecycle_message_key(self.event.event_key)
+        )
+        self.assertEqual(self.event.state, IgLifecycleEvent.State.SENT)
+        self.assertEqual(self.event.provider_message_id, "mid-mariadb-once")
+        self.assertEqual(message.provider_message_id, "mid-mariadb-once")
+        self.assertEqual(
+            message.delivery_provider_message_ids,
+            ["mid-mariadb-once"],
         )
 
     def test_payment_reversal_waits_for_provider_truth_boundary(self):

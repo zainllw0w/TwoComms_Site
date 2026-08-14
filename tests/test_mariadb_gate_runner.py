@@ -77,6 +77,16 @@ class FakeAdmin:
         self.calls.append(("verify_cleanup", database, username))
         return self.residue
 
+    def verify_release_schema(self, database):
+        self.calls.append(("verify_release_schema", database))
+        if self.fail_at == "verify_release_schema":
+            raise RuntimeError("release schema mismatch")
+        return {
+            "migration": "management.0156_ig_order_event_delivery_receipts",
+            "provider_message_id": "varchar(255)",
+            "delivery_provider_message_ids": "longtext+json_valid",
+        }
+
     def close(self):
         self.calls.append(("close",))
 
@@ -157,6 +167,139 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         self.assertIn("version=11.4.12-MariaDB", evidence.getvalue())
         self.assertIn(f"database={created_db}", evidence.getvalue())
         self.assertIn("cleanup=verified", evidence.getvalue())
+
+    def test_success_verifies_release_schema_before_cleanup_and_emits_proof(self):
+        admin = FakeAdmin()
+        evidence = io.StringIO()
+
+        self.runner.run_gate(
+            server_mode="external",
+            suite="lifecycle",
+            admin=admin,
+            command_runner=FakeCommandRunner(),
+            project_root=PROJECT_ROOT,
+            environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+            output=evidence,
+        )
+
+        call_names = [call[0] for call in admin.calls]
+        self.assertIn("verify_release_schema", call_names)
+        self.assertLess(
+            call_names.index("verify_release_schema"),
+            call_names.index("drop_user"),
+        )
+        self.assertIn(
+            "MariaDB schema proof: "
+            "migration=management.0156_ig_order_event_delivery_receipts "
+            "provider_message_id=varchar(255) "
+            "delivery_provider_message_ids=longtext+json_valid\n",
+            evidence.getvalue(),
+        )
+
+    def test_release_schema_mismatch_is_red_and_still_cleans_namespace(self):
+        admin = FakeAdmin(fail_at="verify_release_schema")
+        evidence = io.StringIO()
+
+        with self.assertRaises(self.runner.GateError) as raised:
+            self.runner.run_gate(
+                server_mode="external",
+                suite="lifecycle",
+                admin=admin,
+                command_runner=FakeCommandRunner(),
+                project_root=PROJECT_ROOT,
+                environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+                output=evidence,
+            )
+
+        self.assertEqual(
+            str(raised.exception.primary_error),
+            "release schema mismatch",
+        )
+        self.assertEqual(
+            [call[0] for call in admin.calls[-4:]],
+            ["drop_user", "drop_database", "verify_cleanup", "close"],
+        )
+        self.assertNotIn("MariaDB gate passed", evidence.getvalue())
+
+    def test_admin_release_schema_accepts_mariadb_json_alias_metadata(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        with (
+            mock.patch.object(admin, "_query_one", return_value=(1,)),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[
+                    [
+                        ("provider_message_id", "varchar", "varchar(255)", 255),
+                        (
+                            "delivery_provider_message_ids",
+                            "longtext",
+                            "longtext",
+                            4294967295,
+                        ),
+                    ],
+                    [("json_valid(`delivery_provider_message_ids`)",)],
+                ],
+            ),
+        ):
+            proof = admin.verify_release_schema(
+                "test_twocomms_ig_0123456789ab"
+            )
+
+        self.assertEqual(
+            proof["delivery_provider_message_ids"],
+            "longtext+json_valid",
+        )
+
+    def test_admin_release_schema_rejects_non_positive_json_constraints(self):
+        invalid_clauses = (
+            "NOT JSON_VALID(`delivery_provider_message_ids`)",
+            "JSON_VALID(`delivery_provider_message_ids`) = 0",
+            "JSON_VALID(`delivery_provider_message_ids_backup`)",
+            "'JSON_VALID(`delivery_provider_message_ids`)'",
+        )
+
+        for clause in invalid_clauses:
+            with self.subTest(clause=clause):
+                admin = self.runner.AdminClient(
+                    host="127.0.0.1",
+                    port="3306",
+                    user="root",
+                    password="",
+                )
+                with (
+                    mock.patch.object(admin, "_query_one", return_value=(1,)),
+                    mock.patch.object(
+                        admin,
+                        "_query_all",
+                        side_effect=[
+                            [
+                                (
+                                    "provider_message_id",
+                                    "varchar",
+                                    "varchar(255)",
+                                    255,
+                                ),
+                                (
+                                    "delivery_provider_message_ids",
+                                    "longtext",
+                                    "longtext",
+                                    4294967295,
+                                ),
+                            ],
+                            [(clause,)],
+                        ],
+                    ),
+                ):
+                    with self.assertRaises(self.runner.GateError):
+                        admin.verify_release_schema(
+                            "test_twocomms_ig_0123456789ab"
+                        )
 
     def test_failure_still_cleans_schema_and_user(self):
         admin = FakeAdmin()
