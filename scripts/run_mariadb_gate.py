@@ -64,20 +64,17 @@ PRODUCTION_ENV_NAMES = {
     "DB_PORT_DTF",
 }
 MAX_FAILURE_SUMMARY_CHARS = 2048
-MAX_FAILURE_LINE_CHARS = 500
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-_EMAIL_RE = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])")
-_PHONE_RE = re.compile(r"(?<!\w)\+?\d[\d\s().-]{7,}\d(?!\w)")
-_URL_CREDENTIALS_RE = re.compile(r"(?i)(://)[^\s/@:]+:[^\s/@]+@")
-_BEARER_RE = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
-_SECRET_ASSIGNMENT_RE = re.compile(
-    r"(?i)\b(token|password|passwd|secret|authorization|api[_-]?key)"
-    r"\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
-)
 _TEST_RESULT_RE = re.compile(
-    r"^(?:(?:ERROR|FAIL):\s+.+|Ran \d+ tests? in [0-9.]+s|"
-    r"FAILED(?: \([^)]*\))?|OK(?: \([^)]*\))?)$"
+    r"^(?:Ran \d+ tests? in [0-9.]+s|"
+    r"FAILED(?: \((?:failures|errors|skipped|expected failures|"
+    r"unexpected successes)=\d+(?:, (?:failures|errors|skipped|"
+    r"expected failures|unexpected successes)=\d+)*\))?|"
+    r"OK(?: \((?:skipped|expected failures|unexpected successes)=\d+(?:, "
+    r"(?:skipped|expected failures|unexpected successes)=\d+)*\))?)$"
 )
+_TEST_FAILURE_RE = re.compile(r"^(ERROR|FAIL):\s+.+$")
+_TEST_FAILURE_RESULT_RE = re.compile(r"^FAILED(?:\s+.*)?$")
 _EXCEPTION_RE = re.compile(
     r"^((?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):(?:\s.*)?$"
 )
@@ -109,16 +106,6 @@ class GateError(RuntimeError):
         self.primary_error = primary_error
 
 
-def _sanitize_failure_line(line: str) -> str:
-    line = _ANSI_ESCAPE_RE.sub("", line.strip())
-    line = _URL_CREDENTIALS_RE.sub(r"\1[redacted]@", line)
-    line = _BEARER_RE.sub("Bearer [redacted]", line)
-    line = _SECRET_ASSIGNMENT_RE.sub(r"\1=[redacted]", line)
-    line = _EMAIL_RE.sub("[redacted-email]", line)
-    line = _PHONE_RE.sub("[redacted-phone]", line)
-    return line[:MAX_FAILURE_LINE_CHARS]
-
-
 def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> str:
     lines = [
         f"MariaDB gate child failed: suite={suite} exit={completed.returncode}"
@@ -127,6 +114,7 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
         candidate = _ANSI_ESCAPE_RE.sub("", raw_line.strip())
         database_errno_match = _DATABASE_ERRNO_RE.match(candidate)
         exception_match = _EXCEPTION_RE.fullmatch(candidate)
+        test_failure_match = _TEST_FAILURE_RE.fullmatch(candidate)
         if database_errno_match:
             lines.append(
                 f"{database_errno_match.group(1)}: "
@@ -134,8 +122,12 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
             )
         elif exception_match:
             lines.append(f"{exception_match.group(1)}:")
+        elif test_failure_match:
+            lines.append(f"{test_failure_match.group(1)}: test_failed")
         elif _TEST_RESULT_RE.fullmatch(candidate):
-            lines.append(_sanitize_failure_line(candidate))
+            lines.append(candidate)
+        elif _TEST_FAILURE_RESULT_RE.fullmatch(candidate):
+            lines.append("FAILED (test_failed)")
     summary = "\n".join(lines) + "\n"
     return summary[:MAX_FAILURE_SUMMARY_CHARS]
 
