@@ -23,6 +23,7 @@ class MariaDbWorkflowContractTests(unittest.TestCase):
     def test_runs_external_gate_without_production_database_variables(self):
         self.assertIn("--server-mode external --suite lifecycle", self.source)
         self.assertIn("--server-mode external --suite checkout-concurrency", self.source)
+        self.assertIn("--server-mode external --suite follow-ugc-concurrency", self.source)
         self.assertIn("MARIADB_ADMIN_PASSWORD: gate-root-password", self.source)
         self.assertNotRegex(self.source, r"(?m)^\s+DB_PASSWORD:")
         self.assertNotIn("qlknpodo_MySQL_DB", self.source)
@@ -40,11 +41,15 @@ class MariaDbWorkflowContractTests(unittest.TestCase):
         self.assertIn("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02", self.source)
         self.assertIn("if: always()", self.source)
         self.assertIn("mariadb-gate-evidence.txt", self.source)
+        self.assertIn("mariadb-follow-ugc-evidence.txt", self.source)
 
     def test_path_filters_cover_every_task_6a_input(self):
         for path in (
             "twocomms/requirements.lock",
             "twocomms/management/**",
+            "twocomms/orders/promo_reservations.py",
+            "twocomms/storefront/models.py",
+            "twocomms/storefront/migrations/0095_promocode_guest_ugc.py",
             "tests/test_mariadb_workflow_contract.py",
         ):
             self.assertIn(path, self.source)

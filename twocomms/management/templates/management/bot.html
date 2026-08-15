@@ -645,12 +645,34 @@ body.bot-stats-detail-drawer-open{overflow:hidden;}
 .bot-follow-indicator.stale-follow{border-style:dashed;border-color:#64748b;background:#111827;color:#94a3b8;}
 .bot-follow-indicator.unknown-follow{border-color:#475569;background:#111827;color:#64748b;}
 .bot-follow-tooltip{position:absolute;z-index:40;top:calc(100% + 7px);left:0;width:min(300px,calc(100vw - 40px));padding:8px 10px;border:1px solid #334155;border-radius:7px;background:#080d14;color:#d6deea;box-shadow:0 12px 28px rgba(0,0,0,.38);font-size:10.5px;font-weight:650;line-height:1.4;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-3px);transition:opacity .16s ease,transform .16s ease,visibility .16s ease;}
-.bot-follow-wrap:hover .bot-follow-tooltip,.bot-follow-wrap:focus-within .bot-follow-tooltip{opacity:1;visibility:visible;transform:none;}
+.bot-follow-wrap:hover .bot-follow-tooltip,.bot-follow-indicator:focus + .bot-follow-tooltip,.bot-follow-wrap.is-tooltip-open .bot-follow-tooltip{opacity:1;visibility:visible;transform:none;}
+.bot-follow-wrap.is-tooltip-dismissed .bot-follow-tooltip{opacity:0;visibility:hidden;transform:translateY(-3px);}
 .bot-follow-refresh{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;border:1px solid #334155;border-radius:6px;background:#111827;color:#a8b4c4;font-size:13px;line-height:1;cursor:pointer;}
 .bot-follow-refresh:hover,.bot-follow-refresh:focus-visible{border-color:#60a5fa;background:#172235;color:#dbeafe;outline:none;}
 .bot-follow-refresh:disabled{cursor:wait;opacity:.55;}
 @media(forced-colors:active){.bot-follow-indicator,.bot-follow-refresh{border:1px solid ButtonText;background:Canvas;color:ButtonText;}.bot-follow-indicator.fresh-following{outline:2px solid ButtonText;}.bot-follow-indicator.fresh-not-following{border-style:dashed;}}
 @media(prefers-reduced-motion:reduce){.bot-follow-tooltip{transition:none;}}
+@media(max-width:240px){
+  .bot-app{padding:12px 8px 32px;}
+  .bot-top{align-items:stretch;gap:8px;}
+  .bot-top-l{width:100%;justify-content:space-between;gap:8px;min-width:0;}
+  .bot-top h1{min-width:0;font-size:18px;overflow-wrap:anywhere;}
+  .bot-pill{min-width:0;padding:6px 8px;}
+  .bot-pill #bot-pill-text{min-width:0;overflow-wrap:anywhere;}
+  .bot-top-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+  .bot-top-actions .bot-btn{min-width:0;padding:8px 4px;white-space:normal;}
+  .bot-tabs{min-width:0;max-width:100%;}
+  .bot-conversation-head{grid-template-columns:minmax(0,1fr);}
+  .bot-conversation-title-row{align-items:flex-start;flex-wrap:wrap;}
+  .bot-conversation-title{flex:1 1 100%;}
+  .bot-conversation-actions{flex-wrap:wrap;}
+  .management-body[data-url-name="management_bot"] .global-header{padding:8px;gap:8px;overflow:hidden;}
+  .management-body[data-url-name="management_bot"] .header-left{width:auto;min-width:0;}
+  .management-body[data-url-name="management_bot"] .brand-title{display:none;}
+  .management-body[data-url-name="management_bot"] .header-actions{min-width:0;margin-left:auto;}
+  .management-body[data-url-name="management_bot"] .header-tabs{min-width:0;width:100%;max-width:100%;gap:4px;}
+  .management-body[data-url-name="management_bot"] .header-tabs .tab{padding:8px 4px;font-size:12px;}
+}
 .bot-conversation-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto;}
 .bot-head-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;border:1px solid #2b3749;border-radius:8px;background:#111925;color:#dbe4ef;padding:8px 10px;font:800 11px/1.1 inherit;cursor:pointer;}
 .bot-head-action:hover{border-color:#47607e;background:#162131;}
@@ -2216,8 +2238,12 @@ body.bot-drawer-open{overflow:hidden;}
     function followTooltipText(follow){const value=follow||{};const parts=[value.aria_label||'Статус підписки невідомий'];if(value.observed_at)parts.push('Остання перевірка: '+fmtDateTime(value.observed_at));if(value.first_observed_following_at)parts.push('Перше зафіксоване спостереження підписки: '+fmtDateTime(value.first_observed_following_at));if(value.source)parts.push('Джерело: '+value.source);if(value.retry_state==='scheduled'&&value.next_retry_at)parts.push('Повторна перевірка після '+fmtDateTime(value.next_retry_at));else if(value.retry_state==='error'||value.error_kind)parts.push('Помилка перевірки: '+(value.error_kind||'невідома'));else if(value.retry_state==='idle'&&!value.observed_at)parts.push('Повторна перевірка ще не запускалась');return parts.join(' · ');}
     function renderFollowIndicator(follow,clientId){
       const value=follow||{};const wrap=node('span','bot-follow-wrap');wrap.dataset.followClientId=String(clientId||'');
-      const indicator=node('span','bot-follow-indicator '+followStateClass(value),followSymbol(value));indicator.id='follow-indicator-'+String(clientId||'');indicator.setAttribute('role','img');indicator.tabIndex=0;indicator.setAttribute('aria-label',value.aria_label||'Статус підписки невідомий');indicator.setAttribute('data-follow-revision',String(value.revision||0));indicator.setAttribute('data-follow-signature',followIndicatorSignature(value));
+      const indicator=node('span','bot-follow-indicator '+followStateClass(value),followSymbol(value));indicator.id='follow-indicator-'+String(clientId||'');indicator.setAttribute('role','img');indicator.tabIndex=0;indicator.setAttribute('aria-label',value.aria_label||'Статус підписки невідомий');indicator.setAttribute('aria-keyshortcuts','Enter Space Escape');indicator.setAttribute('aria-expanded','false');indicator.setAttribute('data-follow-revision',String(value.revision||0));indicator.setAttribute('data-follow-signature',followIndicatorSignature(value));
       const tooltip=node('span','bot-follow-tooltip',followTooltipText(value));tooltip.id=indicator.id+'-tooltip';tooltip.setAttribute('role','tooltip');indicator.setAttribute('aria-describedby',tooltip.id);
+      const openTooltip=()=>{wrap.classList.remove('is-tooltip-dismissed');wrap.classList.add('is-tooltip-open');indicator.setAttribute('aria-expanded','true');};
+      const closeTooltip=({blur=false}={})=>{wrap.classList.remove('is-tooltip-open');wrap.classList.add('is-tooltip-dismissed');indicator.setAttribute('aria-expanded','false');if(blur)indicator.blur();};
+      indicator.addEventListener('focus',openTooltip);indicator.addEventListener('blur',()=>{wrap.classList.remove('is-tooltip-open');indicator.setAttribute('aria-expanded','false');});
+      indicator.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();openTooltip();}else if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeTooltip({blur:true});}});
       const followRefreshUrl=value.refresh_url||'';wrap.append(indicator,tooltip);
       if(followRefreshUrl){const refresh=node('button','bot-follow-refresh','↻');refresh.type='button';refresh.title='Оновити статус підписки';refresh.setAttribute('aria-label','Оновити статус підписки');refresh.addEventListener('click',async event=>{event.preventDefault();event.stopPropagation();refresh.disabled=true;try{const response=await fetch(followRefreshUrl,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося оновити статус підписки.');updateFollowIndicator(data.follow,clientId);}catch(error){indicator.setAttribute('aria-label','Не вдалося оновити статус підписки');tooltip.textContent=error.message||'Не вдалося оновити статус підписки.';}finally{refresh.disabled=false;}});wrap.appendChild(refresh);}
       return wrap;
@@ -2409,6 +2435,19 @@ body.bot-drawer-open{overflow:hidden;}
       const ugc=d.ugc_rewards||{};const issued=ugc.items||[];const assignments=((d.orders||{}).assignments||[]).filter(item=>item&&item.state==='active');
       const block=section(root,'UGC-нагороди',issued.length);
       const assessments=ugc.assessments||[];
+      const lifecycleMeta={
+        active:{label:'Активна · -10%',className:'confirmed',hint:'Промокод діє за своїми умовами.'},
+        held:{label:'Призупинена',className:'pending',hint:'Промокод тимчасово не діє до повторної перевірки замовлення-джерела.'},
+        revoked:{label:'Відкликана',className:'rejected',hint:'Промокод остаточно деактивовано через стан замовлення-джерела.'},
+      };
+      const lifecycleReasonLabels={
+        service_case_open:'Відкрите звернення клієнта',
+        source_order_not_eligible:'Замовлення-джерело більше не підтверджене як отримане',
+        source_order_cancelled:'Замовлення-джерело скасовано',
+        source_order_refunded:'Повне повернення коштів за замовленням-джерелом',
+        source_order_returned:'Замовлення-джерело повністю повернено',
+      };
+      const lifetimeConsumed=issued.length>0||ugc.eligibility_reason==='already_rewarded';
       assessments.filter(item=>item&&(item.decision==='needs_manager_review'||item.decision==='pending')).forEach(item=>{
         const card=node('div','bot-assignment-card');
         const head=node('div','bot-assignment-head');
@@ -2423,17 +2462,40 @@ body.bot-drawer-open{overflow:hidden;}
         card.appendChild(grid);
         if((item.reason_codes||[]).length)card.appendChild(node('div','bot-hint',(item.reason_codes||[]).join(' · ')));
         if(item.decision==='pending'){card.appendChild(node('div','bot-hint','Автоматична знижка ще не обіцяється: очікується перевірка provider provenance та фото.'));block.appendChild(card);return;}
+        if(lifetimeConsumed){card.appendChild(node('div','bot-hint','UGC-нагороду для цього Instagram-профілю вже видано. Повторне підтвердження недоступне.'));block.appendChild(card);return;}
+        const reviewNote=document.createElement('input');
+        reviewNote.className='bot-input';reviewNote.type='text';reviewNote.maxLength=1000;reviewNote.required=true;
+        reviewNote.placeholder='Причина підтвердження UGC';reviewNote.setAttribute('aria-label','Причина підтвердження UGC');
+        card.appendChild(reviewNote);
         const actions=node('div','bot-assignment-actions');
         const approve=node('button','bot-mini-btn primary','Підтвердити UGC і видати -10%');approve.type='button';
         const reject=node('button','bot-mini-btn','Відхилити');reject.type='button';
         const feedback=node('span','bot-hint');
-        const review=async(decision)=>{approve.disabled=true;reject.disabled=true;const body=new FormData();body.append('decision',decision);body.append('generation',String(item.generation||0));try{const response=await fetch(item.review_url,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося обробити UGC.');await detail(d.client.id);}catch(error){feedback.textContent=error.message||'Не вдалося обробити UGC.';approve.disabled=false;reject.disabled=false;}};
+        const review=async(decision)=>{if(decision==='approve'&&!reviewNote.value.trim()){feedback.textContent='Додайте причину підтвердження UGC.';reviewNote.focus();return;}approve.disabled=true;reject.disabled=true;const body=new FormData();body.append('decision',decision);body.append('generation',String(item.generation||0));body.append('note',reviewNote.value.trim());try{const response=await fetch(item.review_url,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося обробити UGC.');await detail(d.client.id);}catch(error){feedback.textContent=error.message||'Не вдалося обробити UGC.';approve.disabled=false;reject.disabled=false;}};
         approve.addEventListener('click',()=>review('approve'));reject.addEventListener('click',()=>review('reject'));actions.append(approve,reject,feedback);card.appendChild(actions);block.appendChild(card);
       });
-      issued.forEach(item=>{const card=node('div','bot-assignment-card');const head=node('div','bot-assignment-head');head.append(node('b','','№'+(item.order_number||item.order_id)),node('span','bot-order-state confirmed','-'+10+'%'));card.appendChild(head);const grid=node('div','bot-context-grid');contextFact(grid,'Промокод',item.promo_code);contextFact(grid,'Дійсний до',item.valid_until?fmtDateTime(item.valid_until):'—');contextFact(grid,'Перевірив',item.reviewed_by||'—');contextFact(grid,'Доказ',item.evidence_message_id?('Direct #'+item.evidence_message_id):(item.evidence_url||'—'));card.appendChild(grid);if(item.review_note)card.appendChild(node('div','bot-hint',item.review_note));block.appendChild(card);});
-      const rewarded=new Set(issued.map(item=>String(item.order_id)));const choices=assignments.filter(item=>item.order&&item.order.status==='done'&&!rewarded.has(String(item.order.id)));
+      issued.forEach(item=>{
+        const state=String(item.lifecycle_state||'active');
+        const lifecycle=lifecycleMeta[state]||{label:'Невідомий стан',className:'pending',hint:'Стан нагороди потребує перевірки.'};
+        const reason=lifecycleReasonLabels[item.lifecycle_reason]||item.lifecycle_reason||(state==='active'?'Обмежень немає':'—');
+        const title=(item.order_number||item.order_id)?('№'+(item.order_number||item.order_id)):'UGC без прив’язки до замовлення';
+        const card=node('div','bot-assignment-card');const head=node('div','bot-assignment-head');head.append(node('b','',title),node('span','bot-order-state '+lifecycle.className,lifecycle.label));card.appendChild(head);
+        const grid=node('div','bot-context-grid');contextFact(grid,'Стан',lifecycle.label);contextFact(grid,'Причина',reason);contextFact(grid,'Стан оновлено',item.lifecycle_updated_at?fmtDateTime(item.lifecycle_updated_at):'—');contextFact(grid,'Промокод',item.promo_code);contextFact(grid,'Дійсний до',item.valid_until?fmtDateTime(item.valid_until):'—');contextFact(grid,'Перевірив',item.reviewed_by||'—');contextFact(grid,'Доказ',item.evidence_message_id?('Direct #'+item.evidence_message_id):(item.evidence_url||'—'));card.appendChild(grid);
+        card.appendChild(node('div','bot-hint',lifecycle.hint+' Повторна видача цієї довічної нагороди недоступна.'));
+        if(item.review_note)card.appendChild(node('div','bot-hint',item.review_note));block.appendChild(card);
+      });
+      const choices=issued.length===0&&ugc.reward_eligible===true?assignments.filter(item=>item.reward_eligible===true&&item.order&&item.order.status==='done'):[];
       if(!choices.length){if(!issued.length)block.appendChild(node('div','bot-hint','Нагороду можна видати після отримання прив’язаного замовлення.'));return;}
-      const form=node('div','bot-assignment-card');const orderSelect=document.createElement('select');orderSelect.className='bot-input';choices.forEach(item=>{const option=document.createElement('option');option.value=String(item.order.id);option.textContent='№'+(item.order.number||item.order.id);orderSelect.appendChild(option);});const message=document.createElement('input');message.className='bot-input';message.type='number';message.min='1';message.placeholder='ID повідомлення клієнта в Direct';message.setAttribute('aria-label','ID повідомлення клієнта в Direct');const instagram=document.createElement('input');instagram.className='bot-input';instagram.type='url';instagram.placeholder='https://www.instagram.com/...';instagram.setAttribute('aria-label','Посилання Instagram');const note=document.createElement('input');note.className='bot-input';note.type='text';note.placeholder='Примітка перевірки';note.setAttribute('aria-label','Примітка перевірки');const fields=node('div','bot-assignment-add');fields.append(orderSelect,message,instagram,note);const actions=node('div','bot-assignment-actions');const submit=node('button','bot-mini-btn primary','Підтвердити UGC і видати -10%');submit.type='button';const feedback=node('span','bot-hint');submit.addEventListener('click',async()=>{if(Boolean(message.value.trim())===Boolean(instagram.value.trim())){feedback.textContent='Вкажіть одне підтвердження: ID Direct або Instagram URL.';return;}if(!window.confirm('Доказ перевірено вручну? Видати одноразовий промокод -10% для цього замовлення?'))return;submit.disabled=true;feedback.textContent='Видаємо промокод…';const body=new FormData();body.append('order_id',orderSelect.value);body.append('evidence_message_id',message.value.trim());body.append('evidence_url',instagram.value.trim());body.append('review_note',note.value.trim());try{const response=await fetch(ugc.award_url,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося видати промокод.');await detail(d.client.id);}catch(error){feedback.textContent=error.message||'Не вдалося видати промокод.';submit.disabled=false;}});actions.append(submit,feedback);form.append(fields,actions,node('div','bot-hint','Промокод лише з’явиться в картці. Автоматичного повідомлення клієнту немає.'));block.appendChild(form);
+      const form=node('div','bot-assignment-card');
+      const orderSelect=document.createElement('select');orderSelect.className='bot-input';
+      choices.forEach(item=>{const option=document.createElement('option');option.value=String(item.order.id);option.textContent='№'+(item.order.number||item.order.id);orderSelect.appendChild(option);});
+      const message=document.createElement('input');message.className='bot-input';message.type='number';message.min='1';message.placeholder='ID повідомлення клієнта в Direct';message.setAttribute('aria-label','ID повідомлення клієнта в Direct');
+      const instagram=document.createElement('input');instagram.className='bot-input';instagram.type='url';instagram.placeholder='https://www.instagram.com/...';instagram.setAttribute('aria-label','Посилання Instagram');
+      const note=document.createElement('input');note.className='bot-input';note.type='text';note.maxLength=1000;note.required=true;note.placeholder='Причина підтвердження UGC';note.setAttribute('aria-label','Причина підтвердження UGC');
+      const fields=node('div','bot-assignment-add');fields.append(orderSelect,message,instagram,note);
+      const actions=node('div','bot-assignment-actions');const submit=node('button','bot-mini-btn primary','Підтвердити UGC і видати -10%');submit.type='button';const feedback=node('span','bot-hint');
+      submit.addEventListener('click',async()=>{if(Boolean(message.value.trim())===Boolean(instagram.value.trim())){feedback.textContent='Вкажіть одне підтвердження: ID Direct або Instagram URL.';return;}if(!note.value.trim()){feedback.textContent='Додайте причину підтвердження UGC.';note.focus();return;}if(!window.confirm('Доказ перевірено вручну? Видати одноразовий промокод -10% для цього замовлення?'))return;submit.disabled=true;feedback.textContent='Видаємо промокод…';const body=new FormData();body.append('order_id',orderSelect.value);body.append('evidence_message_id',message.value.trim());body.append('evidence_url',instagram.value.trim());body.append('review_note',note.value.trim());try{const response=await fetch(ugc.award_url,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося видати промокод.');await detail(d.client.id);}catch(error){feedback.textContent=error.message||'Не вдалося видати промокод.';submit.disabled=false;}});
+      actions.append(submit,feedback);form.append(fields,actions,node('div','bot-hint','Промокод буде надіслано в Direct окремим повідомленням. Повторна видача для цього Instagram-профілю недоступна.'));block.appendChild(form);
     }
     function renderPostSale(root,d){
       const postSale=d.post_sale||{};const items=postSale.items||[];if(!items.length)return;const block=section(root,'Обмін / повернення',items.length);

@@ -63,6 +63,7 @@ __all__ = [
     "IgUgcEvidenceAssessment",
     "IgUgcRewardLifetime",
     "IgUgcRewardDelivery",
+    "IgUgcRewardLifecycleJob",
     "IgOrderCustomerEvent",
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
@@ -1521,6 +1522,11 @@ class IgUgcReward(models.Model):
         INSTAGRAM_URL = "instagram_url", _("Посилання Instagram")
         STORY_MENTION = "story_mention", _("Відмітка в story")
 
+    class LifecycleState(models.TextChoices):
+        ACTIVE = "active", _("Активна")
+        HELD = "held", _("Тимчасово призупинена")
+        REVOKED = "revoked", _("Відкликана")
+
     client = models.ForeignKey(
         "management.IgClient",
         on_delete=models.SET_NULL,
@@ -1594,6 +1600,14 @@ class IgUgcReward(models.Model):
     policy_version_snapshot = models.CharField(max_length=32, blank=True, default="")
     provider_object_digest_snapshot = models.CharField(max_length=64, blank=True, default="")
     catalog_candidates_snapshot = models.JSONField(default=list, blank=True)
+    lifecycle_state = models.CharField(
+        max_length=16,
+        choices=LifecycleState.choices,
+        default=LifecycleState.ACTIVE,
+        db_index=True,
+    )
+    lifecycle_reason = models.CharField(max_length=64, blank=True, default="")
+    lifecycle_updated_at = models.DateTimeField(default=timezone.now, db_index=True)
     issued_at = models.DateTimeField(default=timezone.now, db_index=True)
     lifetime_slot_key = models.CharField(max_length=128, unique=True, null=True, blank=True)
     reviewed_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -1774,6 +1788,37 @@ class IgUgcRewardDelivery(models.Model):
         indexes = [
             models.Index(fields=["state", "due_at", "id"], name="ig_ugc_delivery_due"),
             models.Index(fields=["client", "-created_at"], name="ig_ugc_delivery_client"),
+        ]
+
+
+class IgUgcRewardLifecycleJob(models.Model):
+    """Event-scoped retry queue for linked-order reward truth changes."""
+
+    order_id = models.PositiveBigIntegerField(null=True, blank=True, db_index=True)
+    client_id = models.PositiveBigIntegerField(null=True, blank=True, db_index=True)
+    source = models.CharField(max_length=32, blank=True, default="")
+    due_at = models.DateTimeField(default=timezone.now, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error_kind = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_at", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(order_id__isnull=False)
+                    | models.Q(client_id__isnull=False)
+                ),
+                name="ig_ugc_life_job_target",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["due_at", "id"],
+                name="ig_ugc_life_job_due",
+            ),
         ]
 
 

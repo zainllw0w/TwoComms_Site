@@ -92,6 +92,9 @@ def reward_payload(reward) -> dict:
         "policy_version": reward.policy_version_snapshot,
         "provider_object_digest": reward.provider_object_digest_snapshot,
         "catalog_candidates": list(reward.catalog_candidates_snapshot or []),
+        "lifecycle_state": reward.lifecycle_state,
+        "lifecycle_reason": reward.lifecycle_reason,
+        "lifecycle_updated_at": reward.lifecycle_updated_at.isoformat(),
         "issued_at": reward.issued_at.isoformat(),
         "reviewed_at": reward.reviewed_at.isoformat(),
         # An issued reward is deliberately never eligible for a second grant;
@@ -252,7 +255,7 @@ def _existing_lifetime_reward(lifetime):
     )
 
 
-def ugc_service_case_reason(client) -> str:
+def ugc_service_case_reason(client, *, order=None, using=None) -> str:
     """Return a durable suppression reason while the customer needs service.
 
     A post-sale case is authoritative when one is open.  If no case exists,
@@ -265,16 +268,30 @@ def ugc_service_case_reason(client) -> str:
         IgConversationAnalysisSnapshot,
         IgPostSaleCase,
     )
-    from management.services.ig_post_sale import (
-        TERMINAL_CASE_STATUSES,
-        open_service_case,
-    )
+    from management.services.ig_post_sale import TERMINAL_CASE_STATUSES
 
-    if open_service_case(client) is not None:
+    db_alias = (
+        using
+        or getattr(getattr(client, "_state", None), "db", None)
+        or "default"
+    )
+    unresolved_cases = IgPostSaleCase.objects.using(db_alias).filter(
+        client_id=client.pk
+    ).exclude(
+        status__in=TERMINAL_CASE_STATUSES
+    )
+    if order is not None:
+        order_id = getattr(order, "pk", order)
+        unresolved_cases = unresolved_cases.filter(
+            Q(order_id=order_id) | Q(order_id__isnull=True)
+        )
+    if unresolved_cases.exists():
         return "service_case_open"
     interaction_types = IgConversationAnalysisSnapshot.InteractionType
     latest = (
-        IgConversationAnalysisSnapshot.objects.filter(client_id=client.pk)
+        IgConversationAnalysisSnapshot.objects.using(db_alias).filter(
+            client_id=client.pk
+        )
         .exclude(interaction_type=interaction_types.MANAGER_OBSERVATION)
         .order_by("-analyzed_at", "-id")
         .values("interaction_type", "analyzed_at")
@@ -287,7 +304,7 @@ def ugc_service_case_reason(client) -> str:
     }:
         return ""
     latest_terminal_at = (
-        IgPostSaleCase.objects.filter(
+        IgPostSaleCase.objects.using(db_alias).filter(
             client_id=client.pk,
             status__in=TERMINAL_CASE_STATUSES,
         )
@@ -490,17 +507,16 @@ def award_external_ugc_reward(*, client, assessment, actor=None, review_note="")
     }:
         raise UgcRewardConflict("Ця UGC-доказова база не дає права на нагороду.")
     _validate_external_assessment(assessment=assessment, client=client)
-    is_authenticated = bool(actor is not None and getattr(actor, "is_authenticated", False))
-    if assessment.decision in {
-        IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
-        IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
-    } and not is_authenticated:
-        raise UgcRewardConflict("Для підтвердження UGC потрібен авторизований менеджер.")
-
     manager_decision = assessment.decision in {
         IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
         IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
     }
+    is_authenticated = bool(actor is not None and getattr(actor, "is_authenticated", False))
+    if manager_decision and not is_authenticated:
+        raise UgcRewardConflict("Для підтвердження UGC потрібен авторизований менеджер.")
+    normalized_review_note = str(review_note or "").strip()
+    if manager_decision and not normalized_review_note:
+        raise UgcRewardConflict("Додайте причину підтвердження UGC.")
 
     locked_client = type(client).objects.select_for_update().get(pk=client_pk)
     lifetime = _lifetime_slot_for_client(locked_client)
@@ -536,7 +552,7 @@ def award_external_ugc_reward(*, client, assessment, actor=None, review_note="")
             "evidence_message_id": None,
             "evidence_url": "",
             "evidence_fingerprint": assessment.evidence_fingerprint,
-            "review_note": str(review_note or "").strip()[:1000],
+            "review_note": normalized_review_note[:1000],
             "reviewed_by": (
                 actor
                 if manager_decision
@@ -606,6 +622,418 @@ UGC_DELIVERY_MAX_ATTEMPTS = 3
 UGC_DELIVERY_RETRYABLE_KINDS = frozenset({"retryable"})
 UGC_DELIVERY_AMBIGUOUS_KINDS = frozenset({"transient", "unknown", "ambiguous"})
 
+UGC_LIFECYCLE_HOLD_REASONS = frozenset({
+    "service_case_open",
+    "source_order_not_eligible",
+})
+UGC_LIFECYCLE_REFUND_TRUTHS = frozenset({"refunded", "reversed"})
+UGC_LIFECYCLE_JOB_RETRY_BASE = timedelta(minutes=1)
+UGC_LIFECYCLE_JOB_RETRY_MAX = timedelta(hours=1)
+
+
+def _ugc_promo_has_consumed_usage(promo, *, using=None) -> bool:
+    """Distinguish a completed redemption from a still-releasable reservation."""
+    from orders.models import Order
+    from storefront.models import PromoCodeGuestUsage, PromoCodeUsage
+
+    db_alias = (
+        using
+        or getattr(getattr(promo, "_state", None), "db", None)
+        or "default"
+    )
+    if PromoCodeGuestUsage.objects.using(db_alias).filter(
+        promo_code_id=promo.pk,
+        state=PromoCodeGuestUsage.State.CONSUMED,
+    ).exists():
+        return True
+    if PromoCodeUsage.objects.using(db_alias).filter(
+        promo_code_id=promo.pk
+    ).exists():
+        return True
+    return bool(
+        promo.current_uses > 0
+        and Order.objects.using(db_alias).filter(
+            promo_code_id=promo.pk
+        ).exists()
+    )
+
+
+def _ugc_source_order_fully_refunded(order_id: int, *, using=None) -> bool:
+    """Read provider projection first and use the legacy mirror only as fallback."""
+    from management.ig_bot_models import IgDeal, IgPaymentProjection
+
+    db_alias = using or "default"
+    projection_truths = list(
+        IgPaymentProjection.objects.using(db_alias).select_for_update()
+        .filter(deal__order_id=order_id)
+        .values_list("truth", flat=True)
+    )
+    if projection_truths:
+        return any(value in UGC_LIFECYCLE_REFUND_TRUTHS for value in projection_truths)
+    return IgDeal.objects.using(db_alias).filter(
+        order_id=order_id,
+        payment_truth__in=UGC_LIFECYCLE_REFUND_TRUTHS,
+    ).exists()
+
+
+def _ugc_source_order_returned(order_id: int, *, using=None) -> bool:
+    from management.ig_bot_models import IgPostSaleCase
+
+    return IgPostSaleCase.objects.using(using or "default").select_for_update().filter(
+        order_id=order_id,
+        case_type=IgPostSaleCase.CaseType.RETURN,
+        status=IgPostSaleCase.Status.COMPLETED,
+    ).exists()
+
+
+def _ugc_lifecycle_decision(*, reward, promo, order, using=None):
+    """Return the durable state/reason without mutating grant or redemption truth."""
+    from management.ig_bot_models import IgUgcReward
+
+    if reward.reward_path != "delivered_order" or order is None:
+        return IgUgcReward.LifecycleState.ACTIVE, "", False
+    if reward.lifecycle_state == IgUgcReward.LifecycleState.REVOKED:
+        return reward.lifecycle_state, reward.lifecycle_reason, False
+
+    consumed = _ugc_promo_has_consumed_usage(promo, using=using)
+    if consumed:
+        # A refund of the source purchase never rewinds a discount already
+        # consumed on a later purchase.  Reservation/usage ledgers remain the
+        # sole authority for that redemption.
+        return IgUgcReward.LifecycleState.ACTIVE, "", True
+    if order.status == "cancelled":
+        return IgUgcReward.LifecycleState.REVOKED, "source_order_cancelled", False
+    if _ugc_source_order_fully_refunded(order.pk, using=using):
+        return IgUgcReward.LifecycleState.REVOKED, "source_order_refunded", False
+    if _ugc_source_order_returned(order.pk, using=using):
+        return IgUgcReward.LifecycleState.REVOKED, "source_order_returned", False
+    if ugc_service_case_reason(reward.client, order=order, using=using):
+        return IgUgcReward.LifecycleState.HELD, "service_case_open", False
+    if not nova_poshta_order_fulfillment_confirmed(order):
+        return IgUgcReward.LifecycleState.HELD, "source_order_not_eligible", False
+    return IgUgcReward.LifecycleState.ACTIVE, "", False
+
+
+def _ugc_promo_can_reactivate(promo, *, now) -> bool:
+    return bool(
+        promo.current_uses == 0
+        and (not promo.valid_from or now >= promo.valid_from)
+        and (not promo.valid_until or now < promo.valid_until)
+        and (promo.max_uses <= 0 or promo.current_uses < promo.max_uses)
+        and (not promo.group_id or (promo.group and promo.group.is_active))
+        and promo.is_guest_ugc_capability()
+    )
+
+
+def _apply_ugc_delivery_lifecycle(
+    delivery,
+    *,
+    previous_state,
+    previous_reason,
+    state,
+    reason,
+    now,
+    using=None,
+):
+    """Pause/release only pre-provider rows; receipt-bearing outcomes stay immutable."""
+    from management.ig_bot_models import IgUgcReward, IgUgcRewardDelivery
+
+    if delivery is None:
+        return
+    update_fields = []
+    recoverable_states = {
+        IgUgcRewardDelivery.State.PENDING,
+        IgUgcRewardDelivery.State.WAITING_WINDOW,
+    }
+    if (
+        delivery.state == IgUgcRewardDelivery.State.FAILED
+        and delivery.completed_at is None
+    ):
+        recoverable_states.add(IgUgcRewardDelivery.State.FAILED)
+
+    if state == IgUgcReward.LifecycleState.HELD:
+        if (
+            delivery.state in recoverable_states
+            and not (
+                delivery.state == IgUgcRewardDelivery.State.WAITING_WINDOW
+                and delivery.last_error == reason
+            )
+        ):
+            delivery.state = IgUgcRewardDelivery.State.WAITING_WINDOW
+            delivery.due_at = now + UGC_DELIVERY_RECHECK_DELAY
+            delivery.completed_at = None
+            delivery.lease_token = ""
+            delivery.lease_expires_at = None
+            delivery.last_error = reason
+            update_fields.extend([
+                "state", "due_at", "completed_at", "lease_token",
+                "lease_expires_at", "last_error",
+            ])
+    elif state == IgUgcReward.LifecycleState.REVOKED:
+        if delivery.state in recoverable_states:
+            delivery.state = IgUgcRewardDelivery.State.FAILED
+            delivery.completed_at = now
+            delivery.lease_token = ""
+            delivery.lease_expires_at = None
+            delivery.last_error = reason
+            update_fields.extend([
+                "state", "completed_at", "lease_token",
+                "lease_expires_at", "last_error",
+            ])
+    elif (
+        previous_state == IgUgcReward.LifecycleState.HELD
+        and delivery.state == IgUgcRewardDelivery.State.WAITING_WINDOW
+        and delivery.last_error == previous_reason
+    ):
+        delivery.state = IgUgcRewardDelivery.State.PENDING
+        delivery.due_at = now
+        delivery.completed_at = None
+        delivery.lease_token = ""
+        delivery.lease_expires_at = None
+        delivery.last_error = ""
+        update_fields.extend([
+            "state", "due_at", "completed_at", "lease_token",
+            "lease_expires_at", "last_error",
+        ])
+    if update_fields:
+        delivery.save(using=using, update_fields=[*update_fields, "updated_at"])
+
+
+def _reconcile_locked_ugc_reward_lifecycle(reward_id: int, *, now, using=None):
+    from management.ig_bot_models import IgUgcReward, IgUgcRewardDelivery
+    from orders.models import Order
+    from storefront.models import PromoCode
+
+    db_alias = using or "default"
+    reward = (
+        IgUgcReward.objects.using(db_alias).select_for_update()
+        .select_related("client")
+        .get(pk=reward_id)
+    )
+    if reward.reward_path != "delivered_order" or reward.order_id is None:
+        return reward.lifecycle_state
+    promo = (
+        PromoCode.objects.using(db_alias).select_for_update()
+        .select_related("group")
+        .get(pk=reward.promo_code_id)
+    )
+    order = Order.objects.using(db_alias).filter(pk=reward.order_id).first()
+    delivery = (
+        IgUgcRewardDelivery.objects.using(db_alias).select_for_update()
+        .filter(reward_id=reward.pk)
+        .first()
+    )
+    previous_state = reward.lifecycle_state
+    previous_reason = reward.lifecycle_reason
+    state, reason, consumed = _ugc_lifecycle_decision(
+        reward=reward,
+        promo=promo,
+        order=order,
+        using=db_alias,
+    )
+
+    stored_reason = reason
+    if (
+        state == IgUgcReward.LifecycleState.HELD
+        and previous_state != IgUgcReward.LifecycleState.HELD
+        and not promo.is_active
+    ):
+        stored_reason = f"{reason}_promo_inactive"[:64]
+
+    if state in {
+        IgUgcReward.LifecycleState.HELD,
+        IgUgcReward.LifecycleState.REVOKED,
+    } and not consumed and promo.is_active:
+        PromoCode.objects.using(db_alias).filter(pk=promo.pk).update(
+            is_active=False,
+            updated_at=now,
+        )
+        promo.is_active = False
+        promo.updated_at = now
+    elif (
+        state == IgUgcReward.LifecycleState.ACTIVE
+        and previous_state == IgUgcReward.LifecycleState.HELD
+        and previous_reason in UGC_LIFECYCLE_HOLD_REASONS
+        and not promo.is_active
+        and promo.updated_at <= reward.lifecycle_updated_at
+        and _ugc_promo_can_reactivate(promo, now=now)
+    ):
+        PromoCode.objects.using(db_alias).filter(pk=promo.pk).update(
+            is_active=True,
+            updated_at=now,
+        )
+        promo.is_active = True
+        promo.updated_at = now
+
+    if reward.lifecycle_state != state or reward.lifecycle_reason != stored_reason:
+        reward.lifecycle_state = state
+        reward.lifecycle_reason = stored_reason
+        reward.lifecycle_updated_at = now
+        reward.save(using=db_alias, update_fields=[
+            "lifecycle_state",
+            "lifecycle_reason",
+            "lifecycle_updated_at",
+        ])
+    _apply_ugc_delivery_lifecycle(
+        delivery,
+        previous_state=previous_state,
+        previous_reason=previous_reason,
+        state=state,
+        reason=reason,
+        now=now,
+        using=db_alias,
+    )
+    return state
+
+
+def reconcile_linked_ugc_reward_lifecycle(reward_id: int, *, now=None, using=None):
+    """Revalidate one issued order-linked reward under database locks."""
+    db_alias = using or "default"
+    with transaction.atomic(using=db_alias):
+        return _reconcile_locked_ugc_reward_lifecycle(
+            int(getattr(reward_id, "pk", reward_id)),
+            now=now or timezone.now(),
+            using=db_alias,
+        )
+
+
+def reconcile_linked_ugc_rewards(
+    *, order_id=None, client_id=None, now=None, using=None, reward_ids=None
+):
+    """Reconcile only rewards named by an order/client lifecycle event."""
+    from management.ig_bot_models import IgUgcReward
+
+    db_alias = using or "default"
+    rewards = IgUgcReward.objects.using(db_alias).filter(
+        reward_path="delivered_order"
+    )
+    if order_id is not None:
+        rewards = rewards.filter(order_id=order_id)
+    if client_id is not None:
+        rewards = rewards.filter(client_id=client_id)
+    if order_id is None and client_id is None:
+        return {"selected": 0, "active": 0, "held": 0, "revoked": 0}
+    ids = (
+        list(reward_ids)
+        if reward_ids is not None
+        else list(rewards.order_by("id").values_list("id", flat=True))
+    )
+    counts = {"selected": len(ids), "active": 0, "held": 0, "revoked": 0}
+    for reward_id in ids:
+        state = reconcile_linked_ugc_reward_lifecycle(
+            reward_id,
+            now=now,
+            using=db_alias,
+        )
+        if state in counts:
+            counts[state] += 1
+    return counts
+
+
+def _ugc_lifecycle_job_retry_at(now, attempts: int):
+    exponent = max(0, min(int(attempts or 1) - 1, 6))
+    delay = min(
+        UGC_LIFECYCLE_JOB_RETRY_BASE * (2**exponent),
+        UGC_LIFECYCLE_JOB_RETRY_MAX,
+    )
+    return now + delay
+
+
+def process_linked_ugc_reward_lifecycle_job(job_id: int, *, now=None, using=None):
+    """Apply one durable truth event and delete it only after success."""
+    from management.ig_bot_models import IgUgcReward, IgUgcRewardLifecycleJob
+
+    db_alias = using or "default"
+    now = now or timezone.now()
+    with transaction.atomic(using=db_alias):
+        target = (
+            IgUgcRewardLifecycleJob.objects.using(db_alias)
+            .filter(pk=job_id)
+            .values("order_id", "client_id")
+            .first()
+        )
+        if target is None:
+            return {"state": "missing", "selected": 0}
+
+        # Scheduler and worker both serialize reward rows before touching the
+        # lifecycle-job row. The initial job read is intentionally unlocked so
+        # the worker can discover its target without inverting that order.
+        reward_queryset = (
+            IgUgcReward.objects.using(db_alias)
+            .select_for_update()
+            .filter(reward_path="delivered_order")
+        )
+        if target["order_id"] is not None:
+            reward_queryset = reward_queryset.filter(order_id=target["order_id"])
+        if target["client_id"] is not None:
+            reward_queryset = reward_queryset.filter(client_id=target["client_id"])
+        reward_ids = list(
+            reward_queryset.order_by("id").values_list("id", flat=True)
+        )
+
+        job = (
+            IgUgcRewardLifecycleJob.objects.using(db_alias)
+            .select_for_update()
+            .filter(pk=job_id)
+            .first()
+        )
+        if job is None:
+            return {"state": "missing", "selected": 0}
+        if (job.order_id, job.client_id) != (
+            target["order_id"],
+            target["client_id"],
+        ):
+            job.attempts = min(65535, int(job.attempts or 0) + 1)
+            job.due_at = _ugc_lifecycle_job_retry_at(now, job.attempts)
+            job.last_error_kind = "target_changed"
+            job.save(
+                using=db_alias,
+                update_fields=[
+                    "attempts",
+                    "due_at",
+                    "last_error_kind",
+                    "updated_at",
+                ],
+            )
+            return {
+                "state": "failed",
+                "selected": 0,
+                "last_error_kind": job.last_error_kind,
+            }
+
+        try:
+            # Keep operational/database failures inside a savepoint so the
+            # queue row remains writable and can retain its bounded retry schedule.
+            with transaction.atomic(using=db_alias):
+                counts = reconcile_linked_ugc_rewards(
+                    order_id=job.order_id,
+                    client_id=job.client_id,
+                    now=now,
+                    using=db_alias,
+                    reward_ids=reward_ids,
+                )
+        except Exception as exc:
+            job.attempts = min(65535, int(job.attempts or 0) + 1)
+            job.due_at = _ugc_lifecycle_job_retry_at(now, job.attempts)
+            job.last_error_kind = exc.__class__.__name__[:64]
+            job.save(
+                using=db_alias,
+                update_fields=[
+                    "attempts",
+                    "due_at",
+                    "last_error_kind",
+                    "updated_at",
+                ],
+            )
+            return {
+                "state": "failed",
+                "selected": 0,
+                "last_error_kind": job.last_error_kind,
+            }
+
+        job.delete(using=db_alias)
+        return {"state": "done", **counts}
+
 
 def _ugc_delivery_retry_at(now, attempts: int):
     """Bound provider retry delay and leave terminal failures durable."""
@@ -674,7 +1102,7 @@ def _set_ugc_delivery_waiting(delivery_id, *, token="", reason, now):
 
 def process_external_ugc_reward_delivery(delivery_id: int, *, settings_obj=None):
     """Send one outbox row after fresh window and permission revalidation."""
-    from management.ig_bot_models import IgClient, IgUgcRewardDelivery
+    from management.ig_bot_models import IgClient, IgUgcReward, IgUgcRewardDelivery
     from management.services.ig_reply_boundary import (
         capture_reply_permission,
         customer_send_boundary,
@@ -688,11 +1116,25 @@ def process_external_ugc_reward_delivery(delivery_id: int, *, settings_obj=None)
 
     now = timezone.now()
     with transaction.atomic():
+        reward_id = (
+            IgUgcRewardDelivery.objects.filter(pk=delivery_id)
+            .values_list("reward_id", flat=True)
+            .get()
+        )
+        lifecycle_state = _reconcile_locked_ugc_reward_lifecycle(
+            reward_id,
+            now=now,
+        )
         delivery = (
             IgUgcRewardDelivery.objects.select_for_update()
             .select_related("reward")
             .get(pk=delivery_id)
         )
+        if lifecycle_state in {
+            IgUgcReward.LifecycleState.HELD,
+            IgUgcReward.LifecycleState.REVOKED,
+        }:
+            return delivery.state
         if delivery.state in {
             IgUgcRewardDelivery.State.SENT,
             IgUgcRewardDelivery.State.AMBIGUOUS,
@@ -984,6 +1426,9 @@ def award_ugc_reward(
             "UGC-нагороду тимчасово призупинено: активне звернення клієнта "
             f"({service_reason})."
         )
+    normalized_review_note = str(review_note or "").strip()
+    if not normalized_review_note:
+        raise UgcRewardConflict("Додайте причину підтвердження UGC.")
     now = timezone.now()
     return _create_locked_ugc_grant(
         locked_client=locked_client,
@@ -1001,7 +1446,7 @@ def award_ugc_reward(
             "evidence_message": evidence_message,
             "evidence_url": normalized_url,
             "evidence_fingerprint": fingerprint,
-            "review_note": str(review_note or "").strip()[:1000],
+            "review_note": normalized_review_note[:1000],
             "reviewed_by": actor,
             "reward_path": "delivered_order",
             "decision_source": "manager",

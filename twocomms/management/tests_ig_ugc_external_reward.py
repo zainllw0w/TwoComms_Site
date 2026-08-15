@@ -436,6 +436,7 @@ class ExternalUGCRewardTests(TestCase):
             order=order,
             actor=manager,
             evidence_message_id=evidence.pk,
+            review_note="Перевірено фото та відповідність замовленню",
         )
         external, external_created = award_external_ugc_reward(
             client=self.client,
@@ -483,6 +484,7 @@ class ExternalUGCRewardTests(TestCase):
             order=order,
             actor=self.actor,
             evidence_message_id=evidence.pk,
+            review_note="Перевірено фото та відповідність замовленню",
         )
 
         self.assertTrue(external_created)
@@ -505,10 +507,146 @@ class ExternalUGCRewardTests(TestCase):
             client=self.client,
             assessment=review_assessment,
             actor=self.actor,
+            review_note="  Звірено provider provenance та фото  ",
         )
         self.assertTrue(created)
         self.assertEqual(reward.reviewed_by_id, self.actor.pk)
         self.assertEqual(reward.decision_source, "manager")
+        self.assertEqual(reward.review_note, "Звірено provider provenance та фото")
+
+    def test_direct_manager_approval_requires_a_non_blank_reason(self):
+        from management.ig_bot_models import (
+            IgUgcReward,
+            IgUgcRewardDelivery,
+            IgUgcRewardLifetime,
+        )
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
+        )
+
+        review_assessment = self._create_assessment(
+            "direct-review-reason",
+            confidence=Decimal("0.80"),
+        )
+
+        with self.assertRaisesMessage(
+            UgcRewardConflict,
+            "Додайте причину підтвердження UGC.",
+        ):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=review_assessment,
+                actor=self.actor,
+                review_note=" \t\r\n\u00a0 ",
+            )
+
+        self.assertFalse(IgUgcReward.objects.filter(assessment=review_assessment).exists())
+        self.assertFalse(
+            IgUgcRewardDelivery.objects.filter(reward__assessment=review_assessment).exists()
+        )
+        self.assertFalse(IgUgcRewardLifetime.objects.filter(client=self.client).exists())
+
+    def test_manager_review_api_requires_an_authenticated_manager(self):
+        from django.test import Client
+
+        from management.ig_bot_models import IgUgcEvidenceAssessment, IgUgcReward
+
+        assessment = self._create_assessment(
+            "api-auth",
+            confidence=Decimal("0.88"),
+        )
+        url = reverse(
+            "management_bot_client_ugc_assessment_review_api",
+            args=[self.client.pk, assessment.pk],
+        )
+        payload = {
+            "decision": "approve",
+            "generation": str(assessment.generation),
+            "note": "Звірено фото та provider provenance",
+        }
+
+        anonymous = Client()
+        anonymous_response = anonymous.post(url, payload)
+        self.assertEqual(anonymous_response.status_code, 302)
+
+        ordinary_user = get_user_model().objects.create_user(
+            username="ugc-ordinary-user",
+            password="test-password",
+        )
+        authenticated_non_manager = Client()
+        authenticated_non_manager.force_login(ordinary_user)
+        forbidden_response = authenticated_non_manager.post(url, payload)
+        self.assertEqual(forbidden_response.status_code, 403)
+        self.assertFalse(forbidden_response.json()["success"])
+
+        assessment.refresh_from_db()
+        self.assertEqual(
+            assessment.decision,
+            IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+        )
+        self.assertIsNone(assessment.reviewed_by_id)
+        self.assertIsNone(assessment.reviewed_at)
+        self.assertFalse(IgUgcReward.objects.filter(assessment=assessment).exists())
+
+    def test_manager_review_api_rejects_missing_blank_or_whitespace_approval_reason(self):
+        from django.test import Client
+
+        from management.ig_bot_models import (
+            IgUgcEvidenceAssessment,
+            IgUgcReward,
+            IgUgcRewardDelivery,
+            IgUgcRewardLifetime,
+        )
+
+        http = Client()
+        http.force_login(self.actor)
+
+        for label, note_payload in (
+            ("missing", {}),
+            ("blank", {"note": ""}),
+            ("whitespace", {"note": " \t\r\n\u00a0 "}),
+        ):
+            with self.subTest(reason=label):
+                case_client = IgClient.get_or_create_for_sender(f"ugc-reason-{label}")
+                assessment = self._create_assessment(
+                    f"api-reason-{label}",
+                    client=case_client,
+                    confidence=Decimal("0.88"),
+                )
+                url = reverse(
+                    "management_bot_client_ugc_assessment_review_api",
+                    args=[case_client.pk, assessment.pk],
+                )
+                response = http.post(
+                    url,
+                    {
+                        "decision": "approve",
+                        "generation": str(assessment.generation),
+                        **note_payload,
+                    },
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertFalse(response.json()["success"])
+                self.assertEqual(
+                    response.json()["error"],
+                    "Додайте причину підтвердження UGC.",
+                )
+
+                assessment.refresh_from_db()
+                self.assertEqual(
+                    assessment.decision,
+                    IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+                )
+                self.assertIsNone(assessment.reviewed_by_id)
+                self.assertIsNone(assessment.reviewed_at)
+                self.assertFalse(IgUgcReward.objects.filter(assessment=assessment).exists())
+                self.assertFalse(
+                    IgUgcRewardDelivery.objects.filter(reward__assessment=assessment).exists()
+                )
+                self.assertFalse(
+                    IgUgcRewardLifetime.objects.filter(client=case_client).exists()
+                )
 
     def test_manager_review_api_is_generation_bound_and_queues_exact_snapshot(self):
         from django.test import Client
@@ -534,7 +672,11 @@ class ExternalUGCRewardTests(TestCase):
                 "management_bot_client_ugc_assessment_review_api",
                 args=[self.client.pk, assessment.pk],
             ),
-            {"decision": "approve", "generation": "3", "note": "Перевірено менеджером"},
+            {
+                "decision": "approve",
+                "generation": "3",
+                "note": "  Звірено provider provenance та фото  ",
+            },
         )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -544,6 +686,14 @@ class ExternalUGCRewardTests(TestCase):
         self.assertEqual(payload["eligibility_reason"], "already_rewarded")
         self.assertEqual(payload["delivery"]["state"], "pending")
         self.assertIn("90", payload["delivery"]["message_snapshot"])
+        assessment.refresh_from_db()
+        reward = assessment.rewards.get()
+        self.assertEqual(assessment.reviewed_by_id, self.actor.pk)
+        self.assertIsNotNone(assessment.reviewed_at)
+        self.assertEqual(assessment.decision_source, "manager")
+        self.assertEqual(reward.reviewed_by_id, self.actor.pk)
+        self.assertEqual(reward.review_note, "Звірено provider provenance та фото")
+        self.assertEqual(payload["reward"]["review_note"], reward.review_note)
 
     def test_manager_approval_is_terminal_and_replay_returns_the_existing_reward(self):
         from django.test import Client
@@ -568,7 +718,11 @@ class ExternalUGCRewardTests(TestCase):
 
         first = http.post(
             url,
-            {"decision": "approve", "generation": str(assessment.generation)},
+            {
+                "decision": "approve",
+                "generation": str(assessment.generation),
+                "note": "Первинна ручна перевірка",
+            },
         )
 
         self.assertEqual(first.status_code, 200)
@@ -581,7 +735,11 @@ class ExternalUGCRewardTests(TestCase):
 
         replay = http.post(
             url,
-            {"decision": "approve", "generation": str(approved_generation)},
+            {
+                "decision": "approve",
+                "generation": str(approved_generation),
+                "note": "Повтор запиту після збою відповіді",
+            },
         )
 
         self.assertEqual(replay.status_code, 200)
@@ -596,6 +754,123 @@ class ExternalUGCRewardTests(TestCase):
             IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
         )
         self.assertEqual(assessment.generation, approved_generation)
+        reward = assessment.rewards.get()
+        self.assertEqual(reward.review_note, "Первинна ручна перевірка")
+
+    def test_manager_review_ui_collects_a_required_approval_reason(self):
+        from django.test import Client
+
+        http = Client()
+        http.force_login(self.actor)
+
+        response = http.get(reverse("management_bot"))
+
+        self.assertContains(response, "Причина підтвердження UGC")
+        self.assertContains(response, "Додайте причину підтвердження UGC.")
+        self.assertContains(response, "body.append('note',reviewNote.value.trim())")
+
+    def test_manager_detail_exposes_post_issuance_linked_order_lifecycle(self):
+        from django.test import Client
+
+        from management.ig_bot_models import IgUgcReward
+        from management.services.ig_order_assignments import link_order_to_client
+        from management.services.ig_ugc_rewards import award_ugc_reward
+        from orders.models import Order
+
+        delivered_at = timezone.now() - timedelta(minutes=5)
+        order = Order.objects.create(
+            order_number="TWC-UGC-LIFECYCLE-DETAIL",
+            full_name="UGC lifecycle buyer",
+            phone="380501112299",
+            city="Kyiv",
+            np_office="Branch 9",
+            total_sum=Decimal("1000.00"),
+            payment_status="paid",
+            status="done",
+            tracking_number="20450000000009",
+            tracking_status_code=9,
+            tracking_terminal_at=delivered_at,
+        )
+        link_order_to_client(order, client=self.client, actor=self.actor)
+        evidence = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Відмітила TwoComms після отримання",
+            provider_created_at=delivered_at + timedelta(minutes=1),
+        )
+        reward, _created = award_ugc_reward(
+            client=self.client,
+            order=order,
+            actor=self.actor,
+            evidence_message_id=evidence.pk,
+            review_note="Перевірено фото та відповідність замовленню",
+        )
+        lifecycle_updated_at = timezone.now().replace(microsecond=0)
+        reward.lifecycle_state = IgUgcReward.LifecycleState.HELD
+        reward.lifecycle_reason = "service_case_open"
+        reward.lifecycle_updated_at = lifecycle_updated_at
+        reward.save(update_fields=[
+            "lifecycle_state",
+            "lifecycle_reason",
+            "lifecycle_updated_at",
+        ])
+
+        http = Client()
+        http.force_login(self.actor)
+        response = http.get(
+            reverse("management_bot_client_detail_api", args=[self.client.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        ugc = response.json()["ugc_rewards"]
+        self.assertFalse(ugc["reward_eligible"])
+        self.assertEqual(ugc["eligibility_reason"], "already_rewarded")
+        item = ugc["items"][0]
+        self.assertEqual(item["lifecycle_state"], "held")
+        self.assertEqual(item["lifecycle_reason"], "service_case_open")
+        self.assertEqual(
+            item["lifecycle_updated_at"],
+            lifecycle_updated_at.isoformat(),
+        )
+        self.assertFalse(item["reward_eligible"])
+
+    def test_manager_ugc_ui_labels_lifecycle_and_suppresses_second_issuance(self):
+        from django.test import Client
+
+        http = Client()
+        http.force_login(self.actor)
+
+        response = http.get(reverse("management_bot"))
+
+        self.assertContains(response, "Активна · -10%")
+        self.assertContains(response, "Призупинена")
+        self.assertContains(response, "Відкликана")
+        self.assertContains(response, "Відкрите звернення клієнта")
+        self.assertContains(response, "Замовлення-джерело скасовано")
+        self.assertContains(response, "Повторна видача цієї довічної нагороди недоступна.")
+        self.assertContains(
+            response,
+            "issued.length===0&&ugc.reward_eligible===true",
+        )
+        self.assertContains(response, "item.reward_eligible===true")
+
+    def test_manager_linked_order_ui_requires_a_non_blank_review_reason(self):
+        from django.test import Client
+
+        http = Client()
+        http.force_login(self.actor)
+
+        response = http.get(reverse("management_bot"))
+
+        self.assertContains(response, "note.required=true")
+        self.assertContains(response, "if(!note.value.trim())")
+        self.assertContains(response, "Додайте причину підтвердження UGC.")
+        self.assertContains(response, "note.focus()")
+        self.assertContains(
+            response,
+            "body.append('review_note',note.value.trim())",
+        )
 
     def test_rejected_assessment_cannot_be_later_approved(self):
         from django.test import Client
@@ -723,6 +998,7 @@ class ExternalUGCRewardTests(TestCase):
         payload = {
             "order_id": order.pk,
             "evidence_message_id": evidence.pk,
+            "review_note": "Перевірено фото та відповідність замовленню",
         }
 
         first = http.post(url, payload).json()

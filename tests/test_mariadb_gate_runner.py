@@ -87,6 +87,20 @@ class FakeAdmin:
             "delivery_provider_message_ids": "longtext+json_valid",
         }
 
+    def verify_follow_ugc_schema(self, database):
+        self.calls.append(("verify_follow_ugc_schema", database))
+        if self.fail_at == "verify_follow_ugc_schema":
+            raise RuntimeError("follow UGC schema mismatch")
+        return {
+            "follow_ugc_migration": "management.0166_ig_ugc_reward_lifecycle",
+            "guest_promo_migration": "storefront.0095_promocode_guest_ugc",
+            "follow_ugc_tables": "12_innodb",
+            "follow_ugc_unique_indexes": "verified",
+            "follow_ugc_foreign_keys": "orm_only",
+            "follow_ugc_lifecycle": "3_columns+2_indexes",
+            "follow_ugc_lifecycle_job": "target_check+5_indexes",
+        }
+
     def close(self):
         self.calls.append(("close",))
 
@@ -300,6 +314,215 @@ class MariaDbGateRunnerTests(unittest.TestCase):
                         admin.verify_release_schema(
                             "test_twocomms_ig_0123456789ab"
                         )
+
+    def test_admin_follow_ugc_schema_proves_engines_indexes_and_lifecycle(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        engine_rows = [(table, "InnoDB") for table in self.runner._FOLLOW_UGC_TABLES]
+        unique_rows = []
+        for table, column_sets in self.runner._FOLLOW_UGC_UNIQUE_COLUMNS.items():
+            for index, columns in enumerate(sorted(column_sets)):
+                unique_rows.append((table, f"test_unique_{index}", ",".join(columns)))
+        lifecycle_columns = [
+            ("lifecycle_state", "varchar", "varchar(16)", 16, "NO"),
+            ("lifecycle_reason", "varchar", "varchar(64)", 64, "NO"),
+            ("lifecycle_updated_at", "datetime", "datetime(6)", None, "NO"),
+        ]
+        lifecycle_indexes = [
+            ("test_lifecycle_state", "lifecycle_state"),
+            ("test_lifecycle_updated", "lifecycle_updated_at"),
+        ]
+        lifecycle_job_indexes = [
+            ("test_job_order", "order_id"),
+            ("test_job_client", "client_id"),
+            ("test_job_due_at", "due_at"),
+            ("test_job_created", "created_at"),
+            ("ig_ugc_life_job_due", "due_at,id"),
+        ]
+        lifecycle_job_checks = [
+            ("ig_ugc_life_job_target", "order_id is not null or client_id is not null"),
+        ]
+        with (
+            mock.patch.object(admin, "_query_one", side_effect=[(1,), (1,)]),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[
+                    engine_rows,
+                    unique_rows,
+                    [],
+                    lifecycle_columns,
+                    lifecycle_indexes,
+                    lifecycle_job_indexes,
+                    lifecycle_job_checks,
+                ],
+            ),
+        ):
+            proof = admin.verify_follow_ugc_schema(
+                "test_twocomms_ig_0123456789ab"
+            )
+
+        self.assertEqual(
+            proof,
+            {
+                "follow_ugc_migration": "management.0166_ig_ugc_reward_lifecycle",
+                "guest_promo_migration": "storefront.0095_promocode_guest_ugc",
+                "follow_ugc_tables": "12_innodb",
+                "follow_ugc_unique_indexes": "verified",
+                "follow_ugc_foreign_keys": "orm_only",
+                "follow_ugc_lifecycle": "3_columns+2_indexes",
+                "follow_ugc_lifecycle_job": "target_check+5_indexes",
+            },
+        )
+
+    def test_follow_ugc_schema_proves_the_lifecycle_job_table_engine(self):
+        self.assertIn(
+            "management_igugcrewardlifecyclejob",
+            self.runner._FOLLOW_UGC_TABLES,
+        )
+
+    def test_admin_follow_ugc_schema_rejects_a_missing_lifecycle_index(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        engine_rows = [(table, "InnoDB") for table in self.runner._FOLLOW_UGC_TABLES]
+        unique_rows = [
+            (table, f"test_unique_{index}", ",".join(columns))
+            for table, column_sets in self.runner._FOLLOW_UGC_UNIQUE_COLUMNS.items()
+            for index, columns in enumerate(sorted(column_sets))
+        ]
+        lifecycle_columns = [
+            ("lifecycle_state", "varchar", "varchar(16)", 16, "NO"),
+            ("lifecycle_reason", "varchar", "varchar(64)", 64, "NO"),
+            ("lifecycle_updated_at", "datetime", "datetime(6)", None, "NO"),
+        ]
+        with (
+            mock.patch.object(admin, "_query_one", side_effect=[(1,), (1,)]),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[
+                    engine_rows,
+                    unique_rows,
+                    [],
+                    lifecycle_columns,
+                    [("test_lifecycle_state", "lifecycle_state")],
+                ],
+            ),
+        ):
+            with self.assertRaisesRegex(
+                self.runner.GateError,
+                "lifecycle index is missing",
+            ):
+                admin.verify_follow_ugc_schema(
+                    "test_twocomms_ig_0123456789ab"
+                )
+
+    def test_admin_follow_ugc_schema_rejects_a_missing_lifecycle_job_index(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        engine_rows = [(table, "InnoDB") for table in self.runner._FOLLOW_UGC_TABLES]
+        unique_rows = [
+            (table, f"test_unique_{index}", ",".join(columns))
+            for table, column_sets in self.runner._FOLLOW_UGC_UNIQUE_COLUMNS.items()
+            for index, columns in enumerate(sorted(column_sets))
+        ]
+        lifecycle_columns = [
+            ("lifecycle_state", "varchar", "varchar(16)", 16, "NO"),
+            ("lifecycle_reason", "varchar", "varchar(64)", 64, "NO"),
+            ("lifecycle_updated_at", "datetime", "datetime(6)", None, "NO"),
+        ]
+        lifecycle_indexes = [
+            ("test_lifecycle_state", "lifecycle_state"),
+            ("test_lifecycle_updated", "lifecycle_updated_at"),
+        ]
+        with (
+            mock.patch.object(admin, "_query_one", side_effect=[(1,), (1,)]),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[
+                    engine_rows,
+                    unique_rows,
+                    [],
+                    lifecycle_columns,
+                    lifecycle_indexes,
+                    [("ig_ugc_life_job_due", "due_at,id")],
+                    [("ig_ugc_life_job_target", "order_id is not null or client_id is not null")],
+                ],
+            ),
+        ):
+            with self.assertRaisesRegex(
+                self.runner.GateError,
+                "lifecycle-job index is missing",
+            ):
+                admin.verify_follow_ugc_schema(
+                    "test_twocomms_ig_0123456789ab"
+                )
+
+    def test_admin_follow_ugc_schema_rejects_missing_lifecycle_job_target_check(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        engine_rows = [(table, "InnoDB") for table in self.runner._FOLLOW_UGC_TABLES]
+        unique_rows = [
+            (table, f"test_unique_{index}", ",".join(columns))
+            for table, column_sets in self.runner._FOLLOW_UGC_UNIQUE_COLUMNS.items()
+            for index, columns in enumerate(sorted(column_sets))
+        ]
+        lifecycle_columns = [
+            ("lifecycle_state", "varchar", "varchar(16)", 16, "NO"),
+            ("lifecycle_reason", "varchar", "varchar(64)", 64, "NO"),
+            ("lifecycle_updated_at", "datetime", "datetime(6)", None, "NO"),
+        ]
+        lifecycle_indexes = [
+            ("test_lifecycle_state", "lifecycle_state"),
+            ("test_lifecycle_updated", "lifecycle_updated_at"),
+        ]
+        lifecycle_job_indexes = [
+            ("test_job_order", "order_id"),
+            ("test_job_client", "client_id"),
+            ("test_job_due_at", "due_at"),
+            ("test_job_created", "created_at"),
+            ("ig_ugc_life_job_due", "due_at,id"),
+        ]
+        with (
+            mock.patch.object(admin, "_query_one", side_effect=[(1,), (1,)]),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[
+                    engine_rows,
+                    unique_rows,
+                    [],
+                    lifecycle_columns,
+                    lifecycle_indexes,
+                    lifecycle_job_indexes,
+                    [],
+                ],
+            ),
+        ):
+            with self.assertRaisesRegex(
+                self.runner.GateError,
+                "lifecycle-job target check is missing",
+            ):
+                admin.verify_follow_ugc_schema(
+                    "test_twocomms_ig_0123456789ab"
+                )
 
     def test_failure_still_cleans_schema_and_user(self):
         admin = FakeAdmin()
@@ -751,6 +974,65 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         )
         with self.assertRaises(self.runner.GateError):
             self.runner._validate_suite("full")
+
+    def test_task_15_advertises_the_follow_ugc_concurrency_suite(self):
+        self.assertEqual(
+            self.runner.SUITES["follow-ugc-concurrency"],
+            ("management.tests_ig_mariadb_follow_ugc",),
+        )
+
+    def test_follow_ugc_suite_verifies_latest_schema_before_cleanup(self):
+        admin = FakeAdmin()
+        evidence = io.StringIO()
+
+        result = self.runner.run_gate(
+            server_mode="external",
+            suite="follow-ugc-concurrency",
+            admin=admin,
+            command_runner=FakeCommandRunner(),
+            project_root=PROJECT_ROOT,
+            environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+            output=evidence,
+        )
+
+        call_names = [call[0] for call in admin.calls]
+        self.assertIn("verify_release_schema", call_names)
+        self.assertIn("verify_follow_ugc_schema", call_names)
+        self.assertLess(
+            call_names.index("verify_follow_ugc_schema"),
+            call_names.index("drop_user"),
+        )
+        self.assertEqual(result["follow_ugc_tables"], "12_innodb")
+        self.assertIn(
+            "MariaDB follow/UGC schema proof: "
+            "migration=management.0166_ig_ugc_reward_lifecycle "
+            "guest_promo=storefront.0095_promocode_guest_ugc "
+            "tables=12_innodb unique_indexes=verified foreign_keys=orm_only "
+            "lifecycle=3_columns+2_indexes lifecycle_job=target_check+5_indexes",
+            evidence.getvalue(),
+        )
+
+    def test_follow_ugc_schema_mismatch_is_red_and_cleanup_is_verified(self):
+        admin = FakeAdmin(fail_at="verify_follow_ugc_schema")
+
+        with self.assertRaises(self.runner.GateError) as raised:
+            self.runner.run_gate(
+                server_mode="external",
+                suite="follow-ugc-concurrency",
+                admin=admin,
+                command_runner=FakeCommandRunner(),
+                project_root=PROJECT_ROOT,
+                environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+            )
+
+        self.assertEqual(
+            str(raised.exception.primary_error),
+            "follow UGC schema mismatch",
+        )
+        self.assertEqual(
+            [call[0] for call in admin.calls[-4:]],
+            ["drop_user", "drop_database", "verify_cleanup", "close"],
+        )
 
     def test_missing_django_entrypoint_fails_before_database_side_effects(self):
         admin = FakeAdmin()

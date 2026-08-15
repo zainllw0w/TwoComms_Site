@@ -12,6 +12,7 @@ from management.ig_bot_models import (
     IgFollowRefreshJob,
     IgPaymentFollowPreparation,
     IgUgcRewardDelivery,
+    IgUgcRewardLifecycleJob,
 )
 
 
@@ -108,6 +109,13 @@ def _due_ugc_deliveries(*, now, limit: int):
     )
 
 
+def _due_ugc_lifecycle_jobs(*, now, limit: int):
+    return list(
+        IgUgcRewardLifecycleJob.objects.filter(due_at__lte=now)
+        .order_by("due_at", "id")[:limit]
+    )
+
+
 def _due_payment_follow_preparations(*, now, limit: int):
     return list(
         IgPaymentFollowPreparation.objects.filter(
@@ -130,7 +138,10 @@ def reconcile_follow_intelligence_once(*, limit=50, dry_run=False, now=None):
         process_payment_follow_preparation,
         reconcile_expired_follow_reservations,
     )
-    from management.services.ig_ugc_rewards import process_external_ugc_reward_delivery
+    from management.services.ig_ugc_rewards import (
+        process_external_ugc_reward_delivery,
+        process_linked_ugc_reward_lifecycle_job,
+    )
     from management.services.ig_ugc_assessment import reconcile_pending_ugc_media
 
     now = now or timezone.now()
@@ -149,6 +160,11 @@ def reconcile_follow_intelligence_once(*, limit=50, dry_run=False, now=None):
         "payment_expired": 0,
         "payment_failed": 0,
         "ugc_selected": 0,
+        "ugc_lifecycle_selected": 0,
+        "ugc_lifecycle_active": 0,
+        "ugc_lifecycle_held": 0,
+        "ugc_lifecycle_revoked": 0,
+        "ugc_lifecycle_failed": 0,
         "ugc_media_selected": 0,
         "ugc_media_retried": 0,
         "ugc_media_owned": 0,
@@ -165,23 +181,47 @@ def reconcile_follow_intelligence_once(*, limit=50, dry_run=False, now=None):
     }
     if bounded == 0:
         return counts
-    payment_candidates = _due_payment_follow_preparations(now=now, limit=bounded)
-    follow_candidates = _due_follow_jobs(now=now, limit=bounded)
-    ugc_candidates = _due_ugc_deliveries(now=now, limit=bounded)
-    payment_budget = min(len(payment_candidates), max(1, bounded // 2))
+    lifecycle_candidates = _due_ugc_lifecycle_jobs(now=now, limit=bounded)
+    # Lifecycle invalidation is urgent, but a persistent retry backlog must
+    # not consume the entire daemon batch and starve payment/follow/outbox
+    # work.  A one-item command remains deterministic; larger batches reserve
+    # one slot for the other due queues.
+    lifecycle_budget = bounded if bounded == 1 else bounded - 1
+    lifecycle_jobs = lifecycle_candidates[:lifecycle_budget]
+    remaining_budget = max(0, bounded - len(lifecycle_jobs))
+    payment_candidates = _due_payment_follow_preparations(
+        now=now,
+        limit=remaining_budget,
+    )
+    follow_candidates = _due_follow_jobs(now=now, limit=remaining_budget)
+    ugc_candidates = _due_ugc_deliveries(now=now, limit=remaining_budget)
+    payment_budget = (
+        min(len(payment_candidates), max(1, remaining_budget // 2))
+        if remaining_budget
+        else 0
+    )
     payment_preparations = payment_candidates[:payment_budget]
     follow_jobs, deliveries = select_reconciliation_batch(
         follow_candidates,
         ugc_candidates,
-        limit=max(0, bounded - len(payment_preparations)),
+        limit=max(0, remaining_budget - len(payment_preparations)),
         now=now,
     )
     counts["follow_selected"] = len(follow_jobs)
     counts["payment_selected"] = len(payment_preparations)
     counts["ugc_selected"] = len(deliveries)
+    counts["ugc_lifecycle_selected"] = len(lifecycle_jobs)
     counts["selected"] = len(deliveries)
     if dry_run:
         return counts
+
+    for job in lifecycle_jobs:
+        result = process_linked_ugc_reward_lifecycle_job(job.pk, now=now)
+        if result.get("state") == "failed":
+            counts["ugc_lifecycle_failed"] += 1
+            continue
+        for state in ("active", "held", "revoked"):
+            counts[f"ugc_lifecycle_{state}"] += int(result.get(state, 0) or 0)
 
     recovered = reconcile_expired_follow_reservations(now=now, limit=bounded)
     counts["cta_cancelled"] = int(recovered.get("cancelled", 0) or 0)
@@ -225,6 +265,7 @@ def reconcile_follow_intelligence_once(*, limit=50, dry_run=False, now=None):
     media_budget = max(
         0,
         bounded
+        - len(lifecycle_jobs)
         - len(payment_preparations)
         - len(follow_jobs)
         - len(deliveries),

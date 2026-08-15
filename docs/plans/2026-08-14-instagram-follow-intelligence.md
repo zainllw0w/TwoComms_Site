@@ -14,12 +14,12 @@ This is the authoritative implementation checklist for this branch. A box is
 checked only after the corresponding code exists and a focused verification has
 passed. The snapshot is refreshed after each implementation slice.
 
-- Implementation checked: **210 / 277 (75.8%)**
+- Implementation checked: **234 / 277 (84.5%)**
 - Design ledger checked: **7 / 8 (87.5%)**
-- Combined checked: **217 / 285 (76.1%)**
-- Remaining implementation boxes: **67**
-- Last verified slices (2026-08-15): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, Python Playwright QA, terminal service-case ordering, service-case enforcement on both reward paths, exact-once ambiguous UGC delivery, and production deployment of feature SHA `04d392faa4f281893465f96ec259baf6fd74c10e`. Fresh change-specific gates: **198 passed** for lifecycle/UGC/webhook and **617 passed** for the final adjacent Instagram/checkout matrix, with 0 failures. Production MariaDB migrations/engines/invariants, daemon/runtime, queues, and HTTP boundaries were refreshed after deploy. The earlier **925 passed, 3 MariaDB-only skipped** expanded gate remains the broader baseline. Disposable MariaDB race proof, the complete browser/zoom/accessibility matrix, a consented Graph probe, calibration before production auto-award, post-issuance refund/revoke policy, unrelated storefront `0096` migration drift, and deployment-log reconciliation stay explicitly open.
-- Grouped evidence (2026-08-15): follow/core/UI **231 passed + 3 skips**; UGC + promo + Instagram checkout **138 passed**; UGC external + assessment + lifecycle timing **69 passed**; current external/delivered UGC pair **63 passed**; current focused and adjacent gates **198 / 617 passed**. Earlier recorded slices **155 / 585 / 17** remain historical breakdowns.
+- Combined checked: **241 / 285 (84.6%)**
+- Remaining implementation boxes: **43**
+- Last verified slices (2026-08-16): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, full authenticated Playwright follow matrix, terminal service-case ordering, linked-order hold/reactivate/revoke lifecycle, service-case enforcement on both reward paths, exact-once ambiguous UGC delivery, and native MariaDB 11.4.12 follow/UGC concurrency proof. Fresh gates: **706 passed + 3 skips** for focused feature suites, **647 passed** for the adjacent Instagram/checkout matrix, **41 passed** for the gate-runner contracts, and native MariaDB follow/UGC proof with 12 InnoDB tables, unique-index/FK/lifecycle checks, concurrency tests, and `cleanup=verified`. The consented Graph probe, calibration before production auto-award, privacy retention/biometric policy hardening, unrelated storefront `0096` migration drift, and deployment-log reconciliation stay explicitly open.
+- Grouped evidence (2026-08-16): focused feature gate **706 passed + 3 MariaDB-only skips**; adjacent gate **647 passed**; MariaDB gate contracts **41 passed**; native MariaDB follow/UGC race gate **6 passed**. Earlier recorded slices remain historical breakdowns.
 - Working documents: this file and `docs/plans/2026-08-14-instagram-follow-intelligence-design.md`.
 - Out of scope for this branch: `docs/instagram_bot_audit/14_IMPLEMENT2.md`.
 
@@ -134,7 +134,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [ ] Run focused tests and confirm RED.
 - [x] Implement policy reason codes, context fingerprint, immutable snapshots, atomic reservation, final revalidation, and outcome transitions. Evidence: `ig_follow_cta.py` and 231-test follow/core/UI gate.
 - [x] GREEN: rerun focused tests. Evidence: `management.tests_ig_follow_cta` passed in the 231-test follow/core/UI run (2026-08-15).
-- [ ] Add a MariaDB-only transaction test harness for concurrent episode and cross-episode reservation; keep it skippable when MariaDB env is absent.
+- [x] Add a MariaDB-only transaction test harness for concurrent episode and cross-episode reservation; keep it skippable when MariaDB env is absent. Evidence: `management.tests_ig_mariadb_follow_ugc` in the native MariaDB 11.4.12 gate; six tests passed with disposable cleanup verified.
 - [ ] Commit with `git commit -am "feat(ig): add contextual follow policy"`.
 
 ### Task 5: Extend Structured Gemini Response Safely
@@ -281,7 +281,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] RED: reward, lifetime slot, and immutable delivery outbox are created through one locked transaction; forced delivery failures roll back the grant. Evidence: `test_delivery_outbox_failure_rolls_back_reward_promo_and_lifetime`.
 - [x] RED: API returns `reward_eligible` and returns the same reward/event on idempotent replay. Evidence: terminal manager API and external replay tests.
 - [x] RED: worker sends the exact existing code, records receipt, and never creates another code. Evidence: external reward delivery/replay tests.
-- [ ] RED: concurrent delivered-order and `external_ugc` attempts for one Instagram identity serialize on the same lifetime slot and yield exactly one reward/promo/event.
+- [x] RED: concurrent delivered-order and `external_ugc` attempts for one Instagram identity serialize on the same lifetime slot and yield exactly one reward/promo/event. Evidence: `test_external_and_delivered_paths_consume_one_lifetime_slot` passed in the native MariaDB 11.4.12 gate.
 - [x] RED: ambiguous promo delivery is not retried automatically. Evidence: unknown/ambiguous and HTTP-5xx-style `transient` receipts become terminal `AMBIGUOUS`, are excluded from `_due_ugc_deliveries()`, and produce one provider call, reward, and code in `management.tests_ig_ugc_external_reward`.
 - [x] RED: an ambiguous or failed provider send recovers the same grant/code and never burns a second lifetime slot; it must not silently mint a replacement reward. Evidence: ambiguous-delivery/replay tests.
 - [x] RED: validity is anchored to grant issuance and the 90-day expiry is shown explicitly; delivery is queued only inside a valid response window or the same grant is delivered through a later authorized channel without re-issuance. Evidence: expiry/window tests.
@@ -295,7 +295,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] Use the dedicated `IgUgcRewardDelivery` receipt-backed outbox with a localized immutable promo message snapshot that states 10%, one use, and exact 90-day expiry; no mandatory order-event FK is dereferenced on `external_ugc`. Evidence: delivered/external reward delivery tests.
 - [x] Add a database-enforced lifetime slot keyed by Instagram client identity, while keeping order/assignment optional only for `external_ugc` and requiring path-specific XOR checks. Evidence: `IgUgcRewardLifetime` constraints and cross-path tests; MariaDB race proof remains Task 15.
 - [x] Link-order evidence time must use `nova_poshta_delivery_confirmed_at()` (provider event timestamp, with terminal timestamp only as fallback), so late polling cannot reject a genuine post-delivery mention. Evidence: delivered-order reward implementation/tests.
-- [ ] Define post-issuance policy: full refund/return revokes an unused linked-order code; exchange pauses and revalidates; a redeemed code remains consumed on partial refund. External UGC has no fabricated order to revoke.
+- [x] Define post-issuance policy: full refund/return revokes an unused linked-order code; exchange pauses and revalidates; a redeemed code remains consumed on partial refund. External UGC has no fabricated order to revoke. Evidence: linked-order lifecycle tests cover hold/reactivate/revoke, redeemed-code preservation, unrelated-order isolation, and reconciler retry behavior.
 - [x] Create reward, lifetime grant, and immutable delivery outbox atomically in one transaction, then let the reconciler send only after the transaction commits. Evidence: rollback/idempotent outbox tests in the 285-test UGC/provenance/agentic gate.
 - [x] Ensure external rewards use a dedicated reward receipt-backed outbox or an event shape whose nullable order/assignment fields are protected by database XOR constraints; every consumer must handle the external path without dereferencing missing FKs.
 - [x] Extend current-fulfillment checks and cancellation rules only for the new kind. Evidence: delivered-order rewards retain current assignment, TTN collection, cancellation/refund/return, and post-delivery evidence gates, while `external_ugc` uses assessment/client/lifetime truth without a fabricated order.
@@ -352,7 +352,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] RED: ordinary promos remain unavailable anonymously. Evidence: `UGCGuestPromoTests.test_ordinary_anonymous_promo_is_rejected` and anonymous view tests.
 - [x] RED: only explicit `guest_redeemable=True`, non-account-scoped, active, one-use UGC promo can be applied by an anonymous cart/assisted checkout.
 - [x] RED: both external and delivered-order reward promos are 10%, 90 days, `max_uses=1`, `one_time_per_user=False`, no account-scoped group, guest-capable, and cryptographically random. Evidence: external/delivered reward and guest-promo suites.
-- [ ] RED: public cart and assisted checkout reserve the same code atomically; concurrent attempts yield one reservation/invoice. Exact guest reservation-generation matching and fail-closed stale callbacks are covered by `orders.tests.test_promo_atomicity.PromoAtomicityTests.test_late_success_after_guest_reservation_release_cannot_consume_reissued_capacity` and `storefront.tests.test_ig_checkout_view.InstagramCheckoutViewTests.test_guest_ugc_promo_ig_checkout_late_success_cannot_steal_reissued_capacity`; real concurrent capacity proof remains Task 15.
+- [x] RED: public cart and assisted checkout reserve the same code atomically; concurrent attempts yield one reservation/invoice. Evidence: native MariaDB `test_concurrent_guest_reservations_consume_exactly_one_capacity` plus the guest reservation-generation tests named above.
 - [x] RED: a promo cannot stack with another session/order promo. Evidence: guest promo and negotiated-discount regression (102 promo/UGC tests).
 - [x] RED: expired, consumed, leaked second use, grouped, account-scoped, or non-UGC guest promo fails closed. Evidence: guest capability/expiry/replay cases.
 - [ ] Confirm RED.
@@ -375,14 +375,14 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] Capture story bytes at webhook ingress. A live owned attachment plus original provider event may survive URL expiry; URL-only or failed capture can never become bot-proven auto evidence. Evidence: owned storage bytes/content hash are re-read for assessment; expired-owned-media versus URL-only regressions pass.
 - [x] Treat OCR/text inside an image as untrusted input. Prompt-injection text, official ads, catalog screenshots, logo-only media, referral-only shares, missing Meta provenance, and no visible garment must fail closed. Evidence: model facts cannot replace webhook provenance, and adversarial assessment/webhook cases reject or route these inputs to review without promising a reward.
 - [x] Make `provider_object_key`, source-message identity, and evidence fingerprint dedupe fields explicit and unique where appropriate; exact object reuse is non-overridable, while same/near-similar bytes across distinct provider objects go to review for legitimate group cross-posts. Evidence: provider digest/source constraints plus exact-object and perceptual cross-post regressions.
-- [ ] Lock the client row and InnoDB lifetime slot during issuance so delivered-order and external UGC paths cannot race into two rewards. A duplicate-client preflight must abort the migration rather than silently selecting a winner.
-- [ ] Ensure every UGC/outbox table is InnoDB and every legacy FK boundary is `db_constraint=False`; add engine and constraint checks to the disposable MariaDB gate.
-- [ ] Never fabricate a service manager for automatic issuance. Store an immutable assessment generation/policy snapshot, `decision_source`, and nullable reviewer; manager approval requires an authenticated actor and reason.
+- [x] Lock the client row and InnoDB lifetime slot during issuance so delivered-order and external UGC paths cannot race into two rewards. A duplicate-client preflight must abort the migration rather than silently selecting a winner. Evidence: native MariaDB `test_external_and_delivered_paths_consume_one_lifetime_slot`, lifetime uniqueness constraints, and duplicate preflight.
+- [x] Ensure every UGC/outbox table is InnoDB and every legacy FK boundary is `db_constraint=False`; add engine and constraint checks to the disposable MariaDB gate. Evidence: native MariaDB schema proof reports 12 InnoDB tables, ORM-only foreign keys, unique indexes, lifecycle columns/indexes, and target check.
+- [x] Never fabricate a service manager for automatic issuance. Store an immutable assessment generation/policy snapshot, `decision_source`, and nullable reviewer; manager approval requires an authenticated actor and reason. Evidence: automatic/manager source XOR checks, authenticated review API, and non-blank reason tests.
 - [x] Keep the 90-day expiry visible as an exact Kyiv calendar date in the immutable message snapshot. The lifetime slot is consumed at issuance even after expiry; ambiguous or failed delivery recovers the same grant/code/event and never mints a second one. Evidence: `_ugc_expiry_label()` uses `Europe/Kyiv`; immutable snapshot, expiry, replay, and one-lifetime tests pass.
 - [x] Pre-provider retry may reuse the same event lease. Once provider I/O is ambiguous, require manual reconciliation and prohibit blind automatic resend. Evidence: only explicit `retryable` receipts use bounded backoff; `transient`, `unknown`, `ambiguous`, and stale `PROCESSING` become terminal `AMBIGUOUS` without a second send.
-- [ ] Apply source-order lifecycle rules: hold while exchange/return/support is open; deactivate an unused linked-order grant on full cancellation/refund/return; partial refund after redemption does not restore the code; an unrelated order return never revokes an external UGC grant.
+- [x] Apply source-order lifecycle rules: hold while exchange/return/support is open; deactivate an unused linked-order grant on full cancellation/refund/return; partial refund after redemption does not restore the code; an unrelated order return never revokes an external UGC grant. Evidence: `management.tests_ig_w4_ugc_reward` lifecycle/replay/isolation cases and the native race gate.
 - [x] Route product-sale price plus UGC promo through the existing one-promo reservation semantics; no code+code stacking, and no marketing copy that promises stacking or a discount on shipping/custom charges unless explicitly configured. Evidence: public and Instagram checkout use the shared reservation ledger; code+code, group+code, negotiated-discount, shipping, and custom-charge stacking remain fail-closed in promo/checkout tests.
-- [ ] Add RED tests for ingress provenance, story expiry owned-vs-URL-only, OCR prompt injection, official ad/catalog/no-garment rejection, two people/two shirts with one reward owner, exact object duplicate vs cross-post review, stale assessment/assignment/refund races, transaction rollback, MariaDB engine/unique constraints, guest COD/online/Instagram checkout, concurrent reservation, 90-day boundary, no stacking, and ambiguous delivery recovery.
+- [x] Add RED tests for ingress provenance, story expiry owned-vs-URL-only, OCR prompt injection, official ad/catalog/no-garment rejection, two people/two shirts with one reward owner, exact object duplicate vs cross-post review, stale assessment/assignment/refund races, transaction rollback, MariaDB engine/unique constraints, guest COD/online/Instagram checkout, concurrent reservation, 90-day boundary, no stacking, and ambiguous delivery recovery. Evidence: focused 706-test gate, adjacent 647-test gate, and native MariaDB concurrency/schema proof.
 
 ### Task 11: Add Follow State to Manager API without N+1
 
@@ -487,25 +487,25 @@ Normal-settings note: `check` is clean with the ephemeral task secret shown abov
 
 ### Task 15: Disposable MariaDB Migration and Race Gates
 
-- [ ] Load the configured MariaDB test credentials without printing secrets.
-- [ ] Create a disposable database with an explicit task-specific name.
-- [ ] Run migrations from zero through the new migration.
-- [ ] Confirm all new tables use InnoDB and expected unique indexes exist.
-- [ ] Run concurrent reservation tests: payment versus hesitation on one episode yields one slot.
-- [ ] Run concurrent reservation tests: two episodes for one client still enforce global cooldown.
-- [ ] Run stale lease/publication tests against real row locks.
-- [ ] Run concurrent external/order-linked UGC issuance for one client and prove one lifetime reward/promo/event.
-- [ ] Run concurrent guest promo reservations and prove exactly one capacity consumer.
-- [ ] Drop only the validated disposable database after recording results.
+- [x] Load the configured MariaDB test credentials without printing secrets. Evidence: native mode used pinned local MariaDB 11.4 binaries and a gate-owned root connection; no production credential was read or emitted.
+- [x] Create a disposable database with an explicit task-specific name. Evidence: `test_twocomms_ig_8c03b3b854ab` was created and owned by the gate.
+- [x] Run migrations from zero through the new migration. Evidence: gate completed through `management.0166_ig_ugc_reward_lifecycle` and `storefront.0095_promocode_guest_ugc`.
+- [x] Confirm all new tables use InnoDB and expected unique indexes exist. Evidence: schema proof reported `tables=12_innodb unique_indexes=verified foreign_keys=orm_only lifecycle=3_columns+2_indexes`.
+- [x] Run concurrent reservation tests: payment versus hesitation on one episode yields one slot. Evidence: native MariaDB `test_payment_beats_hesitation_for_one_episode_under_real_row_locks`.
+- [x] Run concurrent reservation tests: two episodes for one client still enforce global cooldown. Evidence: native MariaDB `test_two_episodes_share_one_global_active_reservation`.
+- [x] Run stale lease/publication tests against real row locks. Evidence: native MariaDB `test_stale_follow_refresh_lease_cannot_publish_after_reclaim`.
+- [x] Run concurrent external/order-linked UGC issuance for one client and prove one lifetime reward/promo/event. Evidence: native MariaDB `test_external_and_delivered_paths_consume_one_lifetime_slot`.
+- [x] Run concurrent guest promo reservations and prove exactly one capacity consumer. Evidence: native MariaDB `test_concurrent_guest_reservations_consume_exactly_one_capacity`.
+- [x] Drop only the validated disposable database after recording results. Evidence: gate output `cleanup=verified`; no MariaDB gate/test processes remain.
 
 ### Task 16: Browser and Accessibility QA
 
 - [x] Start the local development server on an unused port. Evidence: Python Playwright QA used an isolated `127.0.0.1:8765` server with a temporary SQLite database.
-- [ ] Use a manager fixture or authenticated test session with following, non-following, unknown, and stale/error conversations. Focused smoke evidence covered an authenticated fresh-following conversation; the remaining state fixtures stay open for the full browser matrix.
-- [ ] Capture and inspect `1440x900`, `1280x800`, `1024x768`, `820x1180`, `390x844`, `375x812`, and `320x568`.
-- [ ] Verify 200% zoom, keyboard focus, tooltip access, reduced motion, forced colors, no console errors, and no horizontal overflow.
-- [ ] Confirm long display names do not overlap follow indicator, stage, or action buttons.
-- [ ] Confirm incremental polling changes indicator state without layout shift.
+- [x] Use a manager fixture or authenticated test session with following, non-following, unknown, and stale/error conversations. Evidence: authenticated temporary SQLite fixture exercised all five states (`fresh-following`, `fresh-not-following`, `unknown`, `stale/error`, and long-name).
+- [x] Capture and inspect `1440x900`, `1280x800`, `1024x768`, `820x1180`, `390x844`, `375x812`, and `320x568`. Evidence: fresh Playwright matrix screenshots were written only under `/tmp/ig-follow-qa-archive`.
+- [x] Verify 200% zoom, keyboard focus, tooltip access, reduced motion, forced colors, no console errors, and no horizontal overflow. Evidence: effective half-viewport 200% check, Enter/Space/Escape, hover/focus tooltip, media emulation, and zero console/page/request errors.
+- [x] Confirm long display names do not overlap follow indicator, stage, or action buttons. Evidence: geometry assertions passed at all seven viewports.
+- [x] Confirm incremental polling changes indicator state without layout shift. Evidence: mocked revision transition changed `fresh-following` to `fresh-not-following` with zero-pixel title-row delta.
 - [x] Store only temporary QA screenshots outside tracked product paths unless an audit artifact explicitly needs one. Evidence: `/tmp/browser_qa_public_root.png`, `/tmp/browser_qa_manager_detail.png`, and `/tmp/browser_qa_manager_mobile.png`.
 
 ### Task 17: Independent Review
@@ -576,9 +576,9 @@ settings were changed in this feature rollout.
 
 The consented Graph probe remains intentionally open: production currently has
 zero Instagram clients with explicit `opted_in_at` consent, so a probe would
-not have a valid customer target. The full requested browser matrix (all seven
-viewports, 200% zoom, reduced motion, forced colors, long-name/layout-shift
-cases) also remains open beyond the completed focused Python Playwright smoke.
+not have a valid customer target. The full browser matrix is now closed by the
+authenticated temporary-fixture run above; no production customer message or
+Meta event was sent.
 - [ ] Update deployment log with exact SHA, migration, commands, counts, and read-only proof.
 
 ## Completion Gate

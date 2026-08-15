@@ -23,6 +23,7 @@ from management.ig_bot_models import (
     IgFollowState,
     IgPaymentFollowPreparation,
     IgUgcEvidenceAssessment,
+    IgUgcRewardLifecycleJob,
 )
 from management.models import (
     IgClient,
@@ -135,6 +136,10 @@ class LogDeletionScopeTests(TestCase):
             opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
             state=IgFollowCtaDecision.State.SUPPRESSED,
         )
+        lifecycle_job = IgUgcRewardLifecycleJob.objects.create(
+            client_id=target.pk,
+            source="privacy-test",
+        )
         assessment = IgUgcEvidenceAssessment.objects.create(
             client=target,
             source_message_id="delete-source",
@@ -149,6 +154,10 @@ class LogDeletionScopeTests(TestCase):
         self.assertFalse(IgFollowRefreshJob.objects.filter(client_id=target.pk).exists())
         self.assertFalse(IgFollowCtaDecision.objects.filter(client_id=target.pk).exists())
         self.assertFalse(IgUgcEvidenceAssessment.objects.filter(pk=assessment.pk).exists())
+        self.assertFalse(
+            IgUgcRewardLifecycleJob.objects.filter(pk=lifecycle_job.pk).exists(),
+            "lifecycle queue must not retain a deleted client id",
+        )
 
     def test_deletion_removes_payment_follow_preparation_orphan(self):
         """Client-scoped follow preparation must not survive privacy fulfillment."""

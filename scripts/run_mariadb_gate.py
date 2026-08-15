@@ -33,6 +33,9 @@ SUITES = {
         "IgCheckoutProposalConcurrencyTests."
         "test_concurrent_replacement_creation_serializes_on_deal",
     ),
+    "follow-ugc-concurrency": (
+        "management.tests_ig_mariadb_follow_ugc",
+    ),
 }
 SAFE_ENV_NAMES = {
     "PATH",
@@ -84,6 +87,60 @@ _DATABASE_ERRNO_RE = re.compile(
 )
 _RELEASE_MIGRATION = "0156_ig_order_event_delivery_receipts"
 _RELEASE_TABLE = "management_igordercustomerevent"
+_FOLLOW_UGC_MIGRATION = "0166_ig_ugc_reward_lifecycle"
+_GUEST_PROMO_MIGRATION = "0095_promocode_guest_ugc"
+_FOLLOW_UGC_TABLES = (
+    "management_igfollowcapabilitystate",
+    "management_igfollowstate",
+    "management_igfollowobservation",
+    "management_igfollowrefreshjob",
+    "management_igfollowctadecision",
+    "management_igugcreward",
+    "management_igugcevidenceassessment",
+    "management_igugcrewardlifetime",
+    "management_igugcrewarddelivery",
+    "management_igugcrewardlifecyclejob",
+    "management_igpaymentfollowpreparation",
+    "storefront_promocodeguestusage",
+)
+_FOLLOW_UGC_UNIQUE_COLUMNS = {
+    "management_igfollowcapabilitystate": {("singleton_key",)},
+    "management_igfollowstate": {("client_id",)},
+    "management_igfollowrefreshjob": {("client_id",)},
+    "management_igfollowctadecision": {
+        ("trigger_key",),
+        ("episode_slot_key",),
+        ("sent_scope_key",),
+    },
+    "management_igugcreward": {
+        ("order_id",),
+        ("evidence_fingerprint",),
+        ("promo_code_id",),
+        ("lifetime_slot_key",),
+    },
+    "management_igugcevidenceassessment": {
+        ("provider_object_digest",),
+        ("client_id", "source_message_id"),
+    },
+    "management_igugcrewardlifetime": {
+        ("client_id",),
+        ("identity_digest",),
+        ("reward_id",),
+    },
+    "management_igugcrewarddelivery": {("reward_id",)},
+    "management_igpaymentfollowpreparation": {("lifecycle_event_id",)},
+    "storefront_promocodeguestusage": {
+        ("promo_code_id",),
+        ("reservation_key",),
+    },
+}
+_FOLLOW_UGC_LIFECYCLE_JOB_INDEX_COLUMNS = {
+    ("order_id",),
+    ("client_id",),
+    ("due_at",),
+    ("created_at",),
+    ("due_at", "id"),
+}
 
 
 class GateError(RuntimeError):
@@ -323,6 +380,160 @@ class AdminClient:
             "migration": f"management.{_RELEASE_MIGRATION}",
             "provider_message_id": "varchar(255)",
             "delivery_provider_message_ids": "longtext+json_valid",
+        }
+
+    def verify_follow_ugc_schema(self, database: str) -> dict[str, str]:
+        """Prove the latest feature migrations and MariaDB-only invariants."""
+        if not re.fullmatch(r"test_twocomms_ig_[a-f0-9]{12}", database):
+            raise GateError("MariaDB follow/UGC schema name is not gate-owned")
+
+        for app, migration in (
+            ("management", _FOLLOW_UGC_MIGRATION),
+            ("storefront", _GUEST_PROMO_MIGRATION),
+        ):
+            row = self._query_one(
+                f"SELECT COUNT(*) FROM `{database}`.`django_migrations` "
+                f"WHERE app = '{app}' AND name = '{migration}'"
+            )
+            if not row or int(row[0]) != 1:
+                raise GateError(f"MariaDB {app} follow/UGC migration is missing")
+
+        table_literals = ", ".join(f"'{table}'" for table in _FOLLOW_UGC_TABLES)
+        engine_rows = self._query_all(
+            "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES "
+            f"WHERE TABLE_SCHEMA = '{database}' AND TABLE_NAME IN ({table_literals})"
+        )
+        engines = {str(table): str(engine).lower() for table, engine in engine_rows}
+        missing_tables = sorted(set(_FOLLOW_UGC_TABLES) - set(engines))
+        if missing_tables:
+            raise GateError("MariaDB follow/UGC required table is missing")
+        if any(engines[table] != "innodb" for table in _FOLLOW_UGC_TABLES):
+            raise GateError("MariaDB follow/UGC table is not InnoDB")
+
+        unique_rows = self._query_all(
+            "SELECT TABLE_NAME, INDEX_NAME, "
+            "GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') "
+            "FROM information_schema.STATISTICS "
+            f"WHERE TABLE_SCHEMA = '{database}' AND NON_UNIQUE = 0 "
+            f"AND TABLE_NAME IN ({table_literals}) "
+            "GROUP BY TABLE_NAME, INDEX_NAME"
+        )
+        actual_unique: dict[str, set[tuple[str, ...]]] = {}
+        for table, _index, columns in unique_rows:
+            actual_unique.setdefault(str(table), set()).add(
+                tuple(str(columns).split(","))
+            )
+        for table, expected in _FOLLOW_UGC_UNIQUE_COLUMNS.items():
+            if not expected.issubset(actual_unique.get(table, set())):
+                raise GateError("MariaDB follow/UGC unique index is missing")
+
+        foreign_key_rows = self._query_all(
+            "SELECT TABLE_NAME, CONSTRAINT_NAME "
+            "FROM information_schema.KEY_COLUMN_USAGE "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            "AND REFERENCED_TABLE_NAME IS NOT NULL "
+            f"AND TABLE_NAME IN ({table_literals})"
+        )
+        if foreign_key_rows:
+            raise GateError("MariaDB follow/UGC ORM-only foreign-key policy was violated")
+
+        lifecycle_column_rows = self._query_all(
+            "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, "
+            "CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE "
+            "FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            "AND TABLE_NAME = 'management_igugcreward' "
+            "AND COLUMN_NAME IN "
+            "('lifecycle_state', 'lifecycle_reason', 'lifecycle_updated_at')"
+        )
+        lifecycle_columns = {
+            str(name): (
+                str(data_type).lower(),
+                str(column_type).lower(),
+                None if maximum_length is None else int(maximum_length),
+                str(nullable).upper(),
+            )
+            for name, data_type, column_type, maximum_length, nullable
+            in lifecycle_column_rows
+        }
+        if lifecycle_columns.get("lifecycle_state") != (
+            "varchar", "varchar(16)", 16, "NO"
+        ):
+            raise GateError("MariaDB UGC lifecycle state column is invalid")
+        if lifecycle_columns.get("lifecycle_reason") != (
+            "varchar", "varchar(64)", 64, "NO"
+        ):
+            raise GateError("MariaDB UGC lifecycle reason column is invalid")
+        updated_column = lifecycle_columns.get("lifecycle_updated_at")
+        if not updated_column or updated_column[0] != "datetime" or updated_column[3] != "NO":
+            raise GateError("MariaDB UGC lifecycle timestamp column is invalid")
+
+        lifecycle_index_rows = self._query_all(
+            "SELECT INDEX_NAME, "
+            "GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') "
+            "FROM information_schema.STATISTICS "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            "AND TABLE_NAME = 'management_igugcreward' "
+            "GROUP BY INDEX_NAME"
+        )
+        lifecycle_index_columns = {
+            tuple(str(columns).split(","))
+            for _index, columns in lifecycle_index_rows
+        }
+        if not {
+            ("lifecycle_state",),
+            ("lifecycle_updated_at",),
+        }.issubset(lifecycle_index_columns):
+            raise GateError("MariaDB UGC lifecycle index is missing")
+
+        lifecycle_job_index_rows = self._query_all(
+            "SELECT INDEX_NAME, "
+            "GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') "
+            "FROM information_schema.STATISTICS "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            "AND TABLE_NAME = 'management_igugcrewardlifecyclejob' "
+            "AND NON_UNIQUE = 1 "
+            "GROUP BY INDEX_NAME"
+        )
+        lifecycle_job_index_columns = {
+            tuple(str(columns).split(","))
+            for _index, columns in lifecycle_job_index_rows
+        }
+        if not _FOLLOW_UGC_LIFECYCLE_JOB_INDEX_COLUMNS.issubset(
+            lifecycle_job_index_columns
+        ):
+            raise GateError("MariaDB UGC lifecycle-job index is missing")
+
+        lifecycle_job_check_rows = self._query_all(
+            "SELECT CONSTRAINT_NAME, CHECK_CLAUSE "
+            "FROM information_schema.CHECK_CONSTRAINTS "
+            f"WHERE CONSTRAINT_SCHEMA = '{database}' "
+            "AND TABLE_NAME = 'management_igugcrewardlifecyclejob' "
+            "AND CONSTRAINT_NAME = 'ig_ugc_life_job_target'"
+        )
+        target_check_re = re.compile(
+            r"(?:order_idisnotnullorclient_idisnotnull|"
+            r"client_idisnotnullororder_idisnotnull)"
+        )
+        if not any(
+            target_check_re.search(
+                re.sub(r"[\s()]+", "", str(clause).lower()).replace(
+                    chr(96), ""
+                )
+            )
+            for constraint_name, clause in lifecycle_job_check_rows
+            if str(constraint_name) == "ig_ugc_life_job_target"
+        ):
+            raise GateError("MariaDB UGC lifecycle-job target check is missing")
+
+        return {
+            "follow_ugc_migration": f"management.{_FOLLOW_UGC_MIGRATION}",
+            "guest_promo_migration": f"storefront.{_GUEST_PROMO_MIGRATION}",
+            "follow_ugc_tables": f"{len(_FOLLOW_UGC_TABLES)}_innodb",
+            "follow_ugc_unique_indexes": "verified",
+            "follow_ugc_foreign_keys": "orm_only",
+            "follow_ugc_lifecycle": "3_columns+2_indexes",
+            "follow_ugc_lifecycle_job": "target_check+5_indexes",
         }
 
 
@@ -661,6 +872,22 @@ def run_gate(
             "provider_message_id=varchar(255) "
             "delivery_provider_message_ids=longtext+json_valid\n"
         )
+        feature_evidence = {}
+        if suite == "follow-ugc-concurrency":
+            verify_follow_ugc_schema = getattr(admin, "verify_follow_ugc_schema", None)
+            if verify_follow_ugc_schema is None:
+                raise GateError("MariaDB admin client cannot verify follow/UGC schema")
+            feature_evidence = verify_follow_ugc_schema(database)
+            output.write(
+                "MariaDB follow/UGC schema proof: "
+                f"migration={feature_evidence['follow_ugc_migration']} "
+                f"guest_promo={feature_evidence['guest_promo_migration']} "
+                f"tables={feature_evidence['follow_ugc_tables']} "
+                f"unique_indexes={feature_evidence['follow_ugc_unique_indexes']} "
+                f"foreign_keys={feature_evidence['follow_ugc_foreign_keys']} "
+                f"lifecycle={feature_evidence['follow_ugc_lifecycle']} "
+                f"lifecycle_job={feature_evidence['follow_ugc_lifecycle_job']}\n"
+            )
         result = {
             "status": "passed",
             "database": database,
@@ -668,6 +895,7 @@ def run_gate(
             "version": version,
             "version_comment": version_comment,
             **schema_evidence,
+            **feature_evidence,
         }
     except BaseException as exc:
         primary_error = primary_error or exc

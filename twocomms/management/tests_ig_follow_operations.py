@@ -114,6 +114,43 @@ class FollowReconciliationCommandTests(TestCase):
 
 
 class FollowReconciliationFairnessTests(TestCase):
+    def test_lifecycle_backlog_leaves_capacity_for_other_due_work(self):
+        """Lifecycle recovery stays bounded without starving payment/follow work."""
+        from management.services.ig_follow_reconcile import (
+            reconcile_follow_intelligence_once,
+        )
+
+        now = timezone.now()
+        lifecycle_jobs = [SimpleNamespace(pk=1), SimpleNamespace(pk=2)]
+        preparation = SimpleNamespace(pk=3)
+
+        with (
+            patch(
+                "management.services.ig_follow_reconcile._due_ugc_lifecycle_jobs",
+                return_value=lifecycle_jobs,
+            ),
+            patch(
+                "management.services.ig_follow_reconcile._due_payment_follow_preparations",
+                return_value=[preparation],
+            ),
+            patch(
+                "management.services.ig_follow_reconcile._due_follow_jobs",
+                return_value=[],
+            ),
+            patch(
+                "management.services.ig_follow_reconcile._due_ugc_deliveries",
+                return_value=[],
+            ),
+        ):
+            counts = reconcile_follow_intelligence_once(
+                limit=2,
+                dry_run=True,
+                now=now,
+            )
+
+        self.assertEqual(counts["ugc_lifecycle_selected"], 1)
+        self.assertEqual(counts["payment_selected"], 1)
+
     def test_ugc_quota_is_reserved_when_follow_queue_is_continuously_due(self):
         """A busy follow queue must not starve mandatory reward delivery."""
         from management.services.ig_follow_reconcile import (

@@ -44,6 +44,44 @@ class FollowIndicatorTemplateContractTests(SimpleTestCase):
         self.assertIn("return;", source)
         self.assertIn("current.replaceWith(renderFollowIndicator(follow,id))", source)
 
+    def test_indicator_keyboard_contract_prevents_scroll_and_closes_tooltip(self):
+        for contract in (
+            "aria-keyshortcuts",
+            "indicator.addEventListener('keydown'",
+            "event.key===' '",
+            "event.preventDefault()",
+            "event.key==='Escape'",
+            "indicator.blur()",
+            "is-tooltip-dismissed",
+            "bot-follow-indicator:focus + .bot-follow-tooltip",
+            "@media(max-width:240px)",
+            "data-url-name=\"management_bot\"",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_indicator_keyboard_tooltip_contract_prevents_scroll_and_escapes(self):
+        start = self.template.index("function renderFollowIndicator(")
+        end = self.template.index("function updateFollowIndicator(", start)
+        source = self.template[start:end]
+        self.assertIn("indicator.addEventListener('keydown'", source)
+        self.assertIn("event.key==='Enter'||event.key===' '", source)
+        self.assertIn("event.preventDefault()", source)
+        self.assertIn("event.key==='Escape'", source)
+        self.assertIn("indicator.blur()", source)
+
+    def test_management_shell_reflows_at_effective_two_hundred_percent_width(self):
+        self.assertIn("@media(max-width:240px)", self.template)
+        start = self.template.index("@media(max-width:240px)")
+        source = self.template[start : start + 1200]
+        for contract in (
+            ".global-header",
+            ".brand-title",
+            ".bot-tabs",
+            ".bot-conversation-head",
+            ".bot-conversation-title-row",
+        ):
+            self.assertIn(contract, source)
+
     def test_all_visual_states_remain_distinct_and_sidebar_stays_dense(self):
         for state in (
             "fresh-following",
@@ -56,4 +94,3 @@ class FollowIndicatorTemplateContractTests(SimpleTestCase):
         row_start = self.template.index("function reconcileClients")
         row_end = self.template.index("function currentQuery()", row_start)
         self.assertNotIn("follow-indicator", self.template[row_start:row_end])
-

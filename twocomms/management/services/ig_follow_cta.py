@@ -43,6 +43,11 @@ RESERVATION_LEASE = timedelta(minutes=5)
 PAYMENT_PREPARATION_WINDOW = timedelta(seconds=7)
 PAYMENT_PREPARATION_LEASE = timedelta(seconds=10)
 PAYMENT_LOCAL_POLICY_VERSION = "payment-follow-local-v1"
+_PREPARED_OPPORTUNITY_PRIORITY = {
+    IgFollowCtaDecision.Opportunity.PAYMENT: 0,
+    IgFollowCtaDecision.Opportunity.HESITATION: 1,
+    IgFollowCtaDecision.Opportunity.POST_DELIVERY: 2,
+}
 _PAYMENT_LOCAL_CANDIDATES = {
     "uk": "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників.",
     "ru": "Если вам близок наш подход, будем рады видеть вас среди подписчиков.",
@@ -1196,6 +1201,41 @@ def authorize_follow_cta(
             )
             if state is None:
                 return None
+            # The client row is the global serialization boundary. Re-read
+            # committed contenders only after owning it so two workers that
+            # locked different decision rows cannot both reserve a CTA.
+            if IgFollowCtaDecision.objects.filter(
+                client_id=decision.client_id,
+                state=IgFollowCtaDecision.State.RESERVED,
+            ).exclude(pk=decision.pk).exists():
+                return None
+            if decision.commercial_episode_id:
+                active_same_episode = IgFollowCtaDecision.objects.filter(
+                    commercial_episode_id=decision.commercial_episode_id,
+                    state__in=(
+                        IgFollowCtaDecision.State.RESERVED,
+                        IgFollowCtaDecision.State.SENT,
+                        IgFollowCtaDecision.State.AMBIGUOUS,
+                    ),
+                ).exclude(pk=decision.pk)
+                if active_same_episode.exists():
+                    return None
+                prepared = list(
+                    IgFollowCtaDecision.objects.filter(
+                        commercial_episode_id=decision.commercial_episode_id,
+                        state=IgFollowCtaDecision.State.PREPARED,
+                    ).values_list("pk", "opportunity")
+                )
+                winner_id = min(
+                    prepared,
+                    key=lambda row: (
+                        _PREPARED_OPPORTUNITY_PRIORITY.get(row[1], 99),
+                        row[0],
+                    ),
+                    default=(decision.pk, decision.opportunity),
+                )[0]
+                if winner_id != decision.pk:
+                    return None
             reasons, view, _analysis = _current_opportunity_for_decision(
                 decision, client=client, episode=episode, now=now
             )
@@ -1236,16 +1276,6 @@ def authorize_follow_cta(
             # and cross-episode reservations.  The unique slots remain a
             # database-backed last line against incorrect application retries.
             episode_slot = f"ig-follow-episode:{decision.commercial_episode_id}" if decision.commercial_episode_id else None
-            if episode_slot and IgFollowCtaDecision.objects.filter(
-                commercial_episode_id=decision.commercial_episode_id,
-                state__in=(
-                    IgFollowCtaDecision.State.PREPARED,
-                    IgFollowCtaDecision.State.RESERVED,
-                    IgFollowCtaDecision.State.SENT,
-                    IgFollowCtaDecision.State.AMBIGUOUS,
-                ),
-            ).exclude(pk=decision.pk).exists():
-                return None
             history = _delivery_timestamps(decision.client_id, now=now)
             if history and now - max(history) < COOLDOWN:
                 return None

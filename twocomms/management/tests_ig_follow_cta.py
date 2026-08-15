@@ -617,6 +617,118 @@ class FollowCtaPolicyTests(TestCase):
         self.assertFalse(opp.allowed)
         self.assertIn("annual_cap", opp.reason_codes)
 
+    def test_prepared_same_episode_contenders_have_payment_priority(self):
+        IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            last_analyzed_message=self.message,
+            dedupe_key="follow-cta-prepared-priority",
+            score_band=IgConversationAnalysisSnapshot.Band.QUALIFIED,
+            interaction_type=IgConversationAnalysisSnapshot.InteractionType.PRICE_OBJECTION,
+            confidence=Decimal("0.91"),
+            purchase_probability=Decimal("0.85"),
+            commercial_episode=self.episode,
+            analyzed_at=self.now,
+        )
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=self.fresh_not_following,
+        ):
+            payment = ig_follow_cta.evaluate_follow_opportunity(
+                client=self.client,
+                opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+                episode=self.episode,
+                source_message=self.message,
+                base_text="Оплату отримали, дякуємо.",
+                now=self.now,
+            )
+            hesitation = ig_follow_cta.evaluate_follow_opportunity(
+                client=self.client,
+                opportunity=IgFollowCtaDecision.Opportunity.HESITATION,
+                episode=self.episode,
+                source_message=self.message,
+                base_text="Можу підказати з розміром.",
+                now=self.now,
+            )
+        # Persist hesitation first so the winner is policy-driven, not PK-driven.
+        hesitation_decision = ig_follow_cta.prepare_follow_decision(
+            hesitation,
+            candidate_text=(
+                "Можливо, вам буде цікаво залишатися поруч із TwoComms та стежити "
+                "за новими історіями бренду."
+            ),
+        )
+        payment_decision = ig_follow_cta.prepare_follow_decision(
+            payment,
+            candidate_text="Якщо вам близький наш підхід, будемо раді бачити вас серед підписників.",
+        )
+
+        self.assertIsNone(
+            ig_follow_cta.authorize_follow_cta(
+                hesitation_decision.pk,
+                current_base_text=hesitation_decision.base_text,
+                now=self.now,
+            )
+        )
+        self.assertIsNotNone(
+            ig_follow_cta.authorize_follow_cta(
+                payment_decision.pk,
+                current_base_text=payment_decision.base_text,
+                now=self.now,
+            )
+        )
+
+    def test_reserved_cta_blocks_a_different_episode_for_same_client(self):
+        candidate = "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників."
+        first = ig_follow_cta.prepare_follow_decision(
+            self._opportunity(),
+            candidate_text=candidate,
+        )
+        self.assertIsNotNone(
+            ig_follow_cta.authorize_follow_cta(
+                first.pk,
+                current_base_text=first.base_text,
+                now=self.now,
+            )
+        )
+
+        next_episode = IgCommercialEpisode.objects.create(
+            client=self.client,
+            sequence=2,
+            materialization_key="episode:follow-cta:global-reservation",
+            open_slot=None,
+        )
+        IgClient.objects.filter(pk=self.client.pk).update(
+            current_commercial_episode=next_episode,
+            last_message_at=self.now,
+        )
+        self.client.refresh_from_db()
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=self.fresh_not_following,
+        ):
+            next_opportunity = ig_follow_cta.evaluate_follow_opportunity(
+                client=self.client,
+                opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+                episode=next_episode,
+                source_message=self.message,
+                base_text="Платіж підтверджено, дякуємо.",
+                now=self.now,
+            )
+        next_decision = ig_follow_cta.prepare_follow_decision(
+            next_opportunity,
+            candidate_text=(
+                "Можливо, вам буде цікаво залишатися поруч із TwoComms та стежити "
+                "за новими історіями бренду."
+            ),
+        )
+        self.assertIsNone(
+            ig_follow_cta.authorize_follow_cta(
+                next_decision.pk,
+                current_base_text=next_decision.base_text,
+                now=self.now,
+            )
+        )
+
     def test_provider_io_outcome_is_durable_and_blind_replay_is_forbidden(self):
         good = "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників."
         decision = ig_follow_cta.prepare_follow_decision(

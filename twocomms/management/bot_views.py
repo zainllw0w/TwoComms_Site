@@ -204,6 +204,7 @@ def _delete_direct_bot_records(identifier: str) -> dict:
         IgUgcReward,
         IgUgcRewardDelivery,
         IgUgcRewardLifetime,
+        IgUgcRewardLifecycleJob,
     )
 
     normalized = _normalize_deletion_identifier(identifier)
@@ -254,10 +255,16 @@ def _delete_direct_bot_records(identifier: str) -> dict:
             # recreating the same IGSID would mint a second lifetime grant.
             reward_rows = list(
                 IgUgcReward.objects.filter(client_id__in=client_ids).values(
-                    "pk", "promo_code_id", "client_id", "issued_at", "created_at"
+                    "pk", "promo_code_id", "client_id", "order_id", "issued_at", "created_at"
                 )
             )
             promo_ids = [row["promo_code_id"] for row in reward_rows if row["promo_code_id"]]
+            reward_order_ids = [row["order_id"] for row in reward_rows if row["order_id"]]
+            IgUgcRewardLifecycleJob.objects.filter(client_id__in=client_ids).delete()
+            if reward_order_ids:
+                IgUgcRewardLifecycleJob.objects.filter(
+                    order_id__in=reward_order_ids,
+                ).delete()
             # Backfill the stable slot before deleting a legacy reward that
             # predates the slot migration. This is deliberately fail-closed:
             # a future recreation of the same IGSID must still see consumed
@@ -5130,6 +5137,11 @@ def bot_client_ugc_assessment_review_api(request, client_id, assessment_id):
                 })
             if decision != "approve":
                 return JsonResponse({"success": False, "error": "Невідоме рішення."}, status=400)
+            if not note:
+                return JsonResponse({
+                    "success": False,
+                    "error": "Додайте причину підтвердження UGC.",
+                }, status=400)
             if assessment.decision == IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED:
                 # A successful approval is terminal.  Replaying the same
                 # generation recovers the exact existing reward and outbox;
