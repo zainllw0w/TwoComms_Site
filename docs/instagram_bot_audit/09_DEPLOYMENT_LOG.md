@@ -6,12 +6,13 @@ Production host: `195.191.25.63`, path
 
 ## Instagram follow intelligence and UGC lifecycle (2026-08-16)
 
-Production was fast-forwarded from `f831519a8` to final documentation SHA
+The runtime release was fast-forwarded from `f831519a8` to code SHA
 `f476223a25321d21b3af1feeff3c958b9da6722c` (feature implementation
-`0eac60f05`). The production worktree had no tracked modifications; pre-existing
-untracked operational artifacts were preserved. Authentication used an
-ephemeral environment value sourced locally from macOS Keychain; no credential
-was written to Git, command arguments, or this log.
+`0eac60f05`). A subsequent documentation-only closeout was pulled separately;
+it does not require a runtime restart. The production worktree had no tracked
+modifications; pre-existing untracked operational artifacts were preserved.
+Authentication used an ephemeral environment value sourced locally from macOS
+Keychain; no credential was written to Git, command arguments, or this log.
 
 The approved server sequence completed successfully: `git pull --ff-only`,
 `migrate` (applied `management.0166_ig_ugc_reward_lifecycle`), `check`,

@@ -560,15 +560,17 @@ shape and rotation rule. `python manage.py check --deploy` still reports the
 pre-existing SSL redirect and short-SECRET_KEY warnings; no unrelated security
 settings were changed in this feature rollout.
 
-Current production deployment evidence (2026-08-16): server `HEAD` is
-`f476223a25321d21b3af1feeff3c958b9da6722c`, equal to `origin/main`. The
+Current production deployment evidence (2026-08-16): the runtime release was
+fast-forwarded and verified at code SHA
+`f476223a25321d21b3af1feeff3c958b9da6722c`; the subsequent documentation-only
+closeout was pulled separately and does not require a runtime restart. The
 server-side tracked worktree is clean; unrelated untracked operational files
 remain untouched. The credential is stored locally in macOS Keychain under
 `twocomms-deploy-password` and is never stored in Git or this plan.
 
 ### Task 20: Production Verification
 
-- [x] Confirm server `HEAD` equals pushed `origin/main` SHA `f476223a2` after current deploy. Evidence: read-only SSH check returned the full SHA `f476223a25321d21b3af1feeff3c958b9da6722c`.
+- [x] Confirm the runtime server `HEAD` equals pushed code SHA `f476223a2` after the current code deploy. Evidence: read-only SSH check returned the full SHA `f476223a25321d21b3af1feeff3c958b9da6722c`; the later docs-only closeout was pulled separately.
 - [x] Confirm migrations `0166` and `0095` are applied after current deploy. Evidence: `MigrationRecorder` returned `True` for `management.0166_ig_ugc_reward_lifecycle` and `storefront.0095_promocode_guest_ugc`.
 - [x] Confirm new tables are InnoDB and unique indexes/constraints exist after current deploy. Evidence: all 10 follow/UGC tables reported `InnoDB`; singleton, client, trigger, reward, assessment, lifetime, and delivery uniqueness indexes were present.
 - [x] Confirm daemon heartbeat and reply transport remain healthy with `provider_transport='instagram_login'` and polling disabled unless intentionally configured after current deploy. Evidence: `is_enabled=True`, `receive_via_poll=False`, cache heartbeat present, database heartbeat age `0.39s`, fresh watchdog task, and live daemon PID verified.
