@@ -552,6 +552,14 @@ python manage.py reconcile_ig_follow_intelligence --limit 50 --dry-run
 
 - [x] Never paste the SSH password into a tracked file, process listing, or final response. Evidence: the secret was used only as an ephemeral environment value for SSH authentication.
 
+Deployment configuration evidence (2026-08-15): the server's private
+`.env.production` now contains a generated versioned HMAC keyring (`v1` as the
+active key) and explicitly opts into `IG_UGC_AUTO_AWARD_MODE=auto`. The secret
+value is not stored in Git or this plan; `.env.example` documents the required
+shape and rotation rule. `python manage.py check --deploy` still reports the
+pre-existing SSL redirect and short-SECRET_KEY warnings; no unrelated security
+settings were changed in this feature rollout.
+
 ### Task 20: Production Verification
 
 - [x] Confirm server `HEAD` equals pushed `origin/main` SHA. Evidence: server reported `53f10f5a245c48e3b3d49e8021e3e6507d07dda9` after `git pull --ff-only`.
@@ -565,6 +573,12 @@ python manage.py reconcile_ig_follow_intelligence --limit 50 --dry-run
 - [ ] Run one read-only Graph follow contract probe for an existing consented production client; verify HTTP 200 and exact boolean without persisting raw response or sending a message.
 - [x] Verify `/`, `/healthz/`, manager login redirect/auth boundary, and the bot page static bundle. Evidence: production returned HTTP 200 for `/`, `/healthz/`, `/login/`, and HTTP 302 for unauthenticated `/bot/`.
 - [x] Confirm no synthetic customer messages or ad events were created during deployment verification. Evidence: deploy used migrations, maintenance commands, dry-run reconciliation, health requests, and daemon ensure only; no synthetic Meta/customer event was sent.
+
+The consented Graph probe remains intentionally open: production currently has
+zero Instagram clients with explicit `opted_in_at` consent, so a probe would
+not have a valid customer target. The full requested browser matrix (all seven
+viewports, 200% zoom, reduced motion, forced colors, long-name/layout-shift
+cases) also remains open beyond the completed focused Python Playwright smoke.
 - [ ] Update deployment log with exact SHA, migration, commands, counts, and read-only proof.
 
 ## Completion Gate
