@@ -17,7 +17,7 @@ and main-integration gates remain governed by the detailed checklist.
 - [x] Cross-channel external UGC reward path with one lifetime grant per Instagram identity. Evidence: external/delivered UGC suites and replay/cross-path tests; MariaDB race proof remains open.
 - [x] Exact 90-day one-use private promo snapshot and receipt-backed UGC delivery outbox shared by external and delivered-order rewards. Evidence: external reward, delivery, guest checkout, and no-stacking suites.
 - [x] Generation-bound manager review API/UI and explicit guest-redeemable promo capability. Evidence: terminal review/replay tests plus guest promo/checkout suites.
-- [ ] Live reply Gemini contract, nonblocking lifecycle handoff, complete storefront guest checkout integration, operations cleanup, MariaDB race gate, browser QA, main integration, deploy, and production proof. Core local reply/checkout/operations tests are green; the explicitly open MariaDB, browser/live, main, and production gates remain.
+- [ ] Remaining gates: disposable-MariaDB concurrency/race proof, the complete viewport/zoom/accessibility matrix, a consented read-only Graph follow probe, and deployment-log reconciliation. Core local reply/checkout/operations tests are green; main integration, production migration, daemon health, and read-only production invariants are now evidenced below.
 
 The detailed checkbox counts and evidence commands live in
 `docs/plans/2026-08-14-instagram-follow-intelligence.md`; `14_IMPLEMENT2.md`
