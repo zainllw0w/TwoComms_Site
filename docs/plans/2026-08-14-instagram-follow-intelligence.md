@@ -14,12 +14,12 @@ This is the authoritative implementation checklist for this branch. A box is
 checked only after the corresponding code exists and a focused verification has
 passed. The snapshot is refreshed after each implementation slice.
 
-- Implementation checked: **198 / 277 (71.5%)**
+- Implementation checked: **209 / 277 (75.5%)**
 - Design ledger checked: **7 / 8 (87.5%)**
-- Combined checked: **205 / 285 (71.9%)**
-- Remaining implementation boxes: **79**
-- Last verified slices (2026-08-15): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, Python Playwright QA, production migration/engine/index proof, daemon health, and read-only health/invariant checks. Fresh expanded gate: **925 passed, 3 MariaDB-only skipped, 0 failures**. Disposable MariaDB race proof, the complete browser/zoom/accessibility matrix, a consented Graph probe, migration drift, and deployment-log reconciliation stay explicitly open.
-- Grouped evidence (2026-08-15): follow/core/UI **231 passed + 3 skips**; UGC + promo + Instagram checkout **138 passed**; UGC external + assessment + lifecycle timing **69 passed**. Earlier recorded slices **155 / 585 / 17** remain historical breakdowns; the 925-test expanded gate is authoritative for this worktree.
+- Combined checked: **216 / 285 (75.8%)**
+- Remaining implementation boxes: **68**
+- Last verified slices (2026-08-15): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, Python Playwright QA, production migration/engine/index proof, daemon health, read-only health/invariant checks, terminal service-case ordering, service-case enforcement on both reward paths, and exact-once handling of ambiguous UGC delivery. Fresh change-specific gates: **198 passed** for lifecycle/UGC/webhook and **617 passed** for the final adjacent Instagram/checkout matrix, with 0 failures. The earlier **925 passed, 3 MariaDB-only skipped** expanded gate remains the broader baseline. Disposable MariaDB race proof, the complete browser/zoom/accessibility matrix, a consented Graph probe, calibration before production auto-award, post-issuance refund/revoke policy, and deployment-log reconciliation stay explicitly open.
+- Grouped evidence (2026-08-15): follow/core/UI **231 passed + 3 skips**; UGC + promo + Instagram checkout **138 passed**; UGC external + assessment + lifecycle timing **69 passed**; current external/delivered UGC pair **63 passed**; current focused and adjacent gates **198 / 617 passed**. Earlier recorded slices **155 / 585 / 17** remain historical breakdowns.
 - Working documents: this file and `docs/plans/2026-08-14-instagram-follow-intelligence-design.md`.
 - Out of scope for this branch: `docs/instagram_bot_audit/14_IMPLEMENT2.md`.
 
@@ -215,7 +215,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] Validate copy against the current-turn language, reject imperative/commanding follow wording, and compare against earlier sent/ambiguous CTA snapshots rather than only the current base reply. Evidence: language/prior-snapshot validator tests.
 - [x] Distinguish reactive in-conversation sends from background lifecycle preparation in quiet hours. Optional growth text never creates a standalone or out-of-hours automatic message. Evidence: lifecycle preparation and response-window tests.
 - [x] Revalidate the reserved follow decision inside `send_text(..., provider_request_boundary_factory=...)` immediately before every provider request. A changed follow revision, refusal, inbound watermark, complaint, permission, episode, or order state removes the CTA before Meta I/O. Evidence: provider-boundary live-reply tests.
-- [ ] Add a real production caller that prepares verified-payment opportunities after commit under a strict local budget; lifecycle dispatch must remain independent and use only an already prepared current decision.
+- [x] Add a real production caller that persists verified-payment opportunities with payment truth under a strict local/no-network budget; provider lifecycle dispatch must run only after commit, remain independent, and use only an already prepared current decision. Evidence: `ig_checkout_payment.py` stores the local snapshot and `IgPaymentFollowPreparation` in the payment transaction, defers lifecycle dispatch through `transaction.on_commit()`, and the reconciler processes optional model preparation independently; lifecycle/payment preparation tests pass in the 615-test adjacent gate.
 
 ### Task 8: Add Multimodal UGC Assessment and Lifetime Eligibility
 
@@ -282,7 +282,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] RED: API returns `reward_eligible` and returns the same reward/event on idempotent replay. Evidence: terminal manager API and external replay tests.
 - [x] RED: worker sends the exact existing code, records receipt, and never creates another code. Evidence: external reward delivery/replay tests.
 - [ ] RED: concurrent delivered-order and `external_ugc` attempts for one Instagram identity serialize on the same lifetime slot and yield exactly one reward/promo/event.
-- [x] RED: ambiguous promo delivery is not retried automatically.
+- [x] RED: ambiguous promo delivery is not retried automatically. Evidence: unknown/ambiguous and HTTP-5xx-style `transient` receipts become terminal `AMBIGUOUS`, are excluded from `_due_ugc_deliveries()`, and produce one provider call, reward, and code in `management.tests_ig_ugc_external_reward`.
 - [x] RED: an ambiguous or failed provider send recovers the same grant/code and never burns a second lifetime slot; it must not silently mint a replacement reward. Evidence: ambiguous-delivery/replay tests.
 - [x] RED: validity is anchored to grant issuance and the 90-day expiry is shown explicitly; delivery is queued only inside a valid response window or the same grant is delivered through a later authorized channel without re-issuance. Evidence: expiry/window tests.
 - [x] RED: canonical lifecycle handoff does not cancel UGC reward events. Evidence: dedicated `IgUgcRewardDelivery` outbox and order-linked/external reward tests.
@@ -291,16 +291,16 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] Make reward order/assignment optional only for `external_ugc`; add eligibility path, assessment link, and database-enforced lifetime client slot.
 - [x] Enforce lifetime identity uniqueness with a versioned, rotation-safe `identity_digest` keyring (HMAC/pepper, never a raw IGSID) so secret rotation cannot reopen a lifetime grant. Evidence: keyring/rotation/recreated-client tests in `management.tests_ig_ugc_external_reward`.
 - [x] Add a separate receipt-backed external UGC outbox/event shape, or make order/assignment nullable only for `UGC_REWARD_ISSUED` with database XOR checks and an audit of every consumer; do not send an external reward through an event path that dereferences mandatory order/assignment FKs.
-- [ ] Preflight production for duplicate reward clients before applying the unique lifetime constraint; stop migration on unresolved duplicates rather than choosing silently. Production/MariaDB evidence remains Task 15/20.
+- [x] Preflight production for duplicate reward clients before applying the unique lifetime constraint; stop migration on unresolved duplicates rather than choosing silently. Evidence: migration `0158_ig_ugc_intelligence.preflight_legacy_ugc_rewards()` aborts on duplicate clients; production duplicate scans were zero before/after migration.
 - [x] Use the dedicated `IgUgcRewardDelivery` receipt-backed outbox with a localized immutable promo message snapshot that states 10%, one use, and exact 90-day expiry; no mandatory order-event FK is dereferenced on `external_ugc`. Evidence: delivered/external reward delivery tests.
 - [x] Add a database-enforced lifetime slot keyed by Instagram client identity, while keeping order/assignment optional only for `external_ugc` and requiring path-specific XOR checks. Evidence: `IgUgcRewardLifetime` constraints and cross-path tests; MariaDB race proof remains Task 15.
 - [x] Link-order evidence time must use `nova_poshta_delivery_confirmed_at()` (provider event timestamp, with terminal timestamp only as fallback), so late polling cannot reject a genuine post-delivery mention. Evidence: delivered-order reward implementation/tests.
 - [ ] Define post-issuance policy: full refund/return revokes an unused linked-order code; exchange pauses and revalidates; a redeemed code remains consumed on partial refund. External UGC has no fabricated order to revoke.
 - [x] Create reward, lifetime grant, and immutable delivery outbox atomically in one transaction, then let the reconciler send only after the transaction commits. Evidence: rollback/idempotent outbox tests in the 285-test UGC/provenance/agentic gate.
 - [x] Ensure external rewards use a dedicated reward receipt-backed outbox or an event shape whose nullable order/assignment fields are protected by database XOR constraints; every consumer must handle the external path without dereferencing missing FKs.
-- [ ] Extend current-fulfillment checks and cancellation rules only for the new kind.
+- [x] Extend current-fulfillment checks and cancellation rules only for the new kind. Evidence: delivered-order rewards retain current assignment, TTN collection, cancellation/refund/return, and post-delivery evidence gates, while `external_ugc` uses assessment/client/lifetime truth without a fabricated order.
 - [x] GREEN: run `management.tests_ig_w4_ugc_reward management.tests_ig_ugc_external_reward management.tests_ig_order_fulfillment`. Evidence: fresh 925-test expanded gate (2026-08-15); MariaDB-only concurrency remains Task 15.
-- [ ] Inspect production for unused existing UGC reward promos before deciding whether a targeted data migration/backfill is justified; do not rewrite used/expired codes.
+- [x] Inspect production for unused existing UGC reward promos before deciding whether a targeted data migration/backfill is justified; do not rewrite used/expired codes. Evidence: read-only production inspection found zero existing lifetime rewards and zero guest-redeemable UGC promo rows, so no targeted promo rewrite/backfill was applied.
 - [ ] Commit with `git commit -am "feat(ig): reward qualifying UGC across channels"`.
 
 #### Required scenario: cross-channel two-person branded story
@@ -371,17 +371,17 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 #### UGC policy gates from adversarial review
 
 - [ ] Add a shadow/feature flag rollout for automatic qualification. Do not enable auto-award from uncalibrated Gemini probabilities; record calibrated deterministic gate outcomes first.
-- [ ] Keep the hard thresholds named and versioned (exact provider mention, live owned media, worn personal apparel, configured brand tag, catalog match, no risk/duplicate/lifetime/open service case). Any ambiguity or mid-confidence result routes to manager review.
-- [ ] Capture story bytes at webhook ingress. A live owned attachment plus original provider event may survive URL expiry; URL-only or failed capture can never become bot-proven auto evidence.
-- [ ] Treat OCR/text inside an image as untrusted input. Prompt-injection text, official ads, catalog screenshots, logo-only media, referral-only shares, missing Meta provenance, and no visible garment must fail closed.
-- [ ] Make `provider_object_key`, source-message identity, and evidence fingerprint dedupe fields explicit and unique where appropriate; exact object reuse is non-overridable, while same/near-similar bytes across distinct provider objects go to review for legitimate group cross-posts.
+- [x] Keep the hard thresholds named and versioned (exact provider mention, live owned media, worn personal apparel, configured brand tag, catalog match, no risk/duplicate/lifetime/open service case). Any ambiguity or mid-confidence result routes to manager review. Evidence: `POLICY_VERSION="ugc-v1"`, deterministic qualification gates, temporal complaint resolution, and transactional service/lifetime checks on both external and delivered-order issuance paths.
+- [x] Capture story bytes at webhook ingress. A live owned attachment plus original provider event may survive URL expiry; URL-only or failed capture can never become bot-proven auto evidence. Evidence: owned storage bytes/content hash are re-read for assessment; expired-owned-media versus URL-only regressions pass.
+- [x] Treat OCR/text inside an image as untrusted input. Prompt-injection text, official ads, catalog screenshots, logo-only media, referral-only shares, missing Meta provenance, and no visible garment must fail closed. Evidence: model facts cannot replace webhook provenance, and adversarial assessment/webhook cases reject or route these inputs to review without promising a reward.
+- [x] Make `provider_object_key`, source-message identity, and evidence fingerprint dedupe fields explicit and unique where appropriate; exact object reuse is non-overridable, while same/near-similar bytes across distinct provider objects go to review for legitimate group cross-posts. Evidence: provider digest/source constraints plus exact-object and perceptual cross-post regressions.
 - [ ] Lock the client row and InnoDB lifetime slot during issuance so delivered-order and external UGC paths cannot race into two rewards. A duplicate-client preflight must abort the migration rather than silently selecting a winner.
 - [ ] Ensure every UGC/outbox table is InnoDB and every legacy FK boundary is `db_constraint=False`; add engine and constraint checks to the disposable MariaDB gate.
 - [ ] Never fabricate a service manager for automatic issuance. Store an immutable assessment generation/policy snapshot, `decision_source`, and nullable reviewer; manager approval requires an authenticated actor and reason.
-- [ ] Keep the 90-day expiry visible as an exact Kyiv calendar date in the immutable message snapshot. The lifetime slot is consumed at issuance even after expiry; ambiguous or failed delivery recovers the same grant/code/event and never mints a second one.
-- [ ] Pre-provider retry may reuse the same event lease. Once provider I/O is ambiguous, require manual reconciliation and prohibit blind automatic resend.
+- [x] Keep the 90-day expiry visible as an exact Kyiv calendar date in the immutable message snapshot. The lifetime slot is consumed at issuance even after expiry; ambiguous or failed delivery recovers the same grant/code/event and never mints a second one. Evidence: `_ugc_expiry_label()` uses `Europe/Kyiv`; immutable snapshot, expiry, replay, and one-lifetime tests pass.
+- [x] Pre-provider retry may reuse the same event lease. Once provider I/O is ambiguous, require manual reconciliation and prohibit blind automatic resend. Evidence: only explicit `retryable` receipts use bounded backoff; `transient`, `unknown`, `ambiguous`, and stale `PROCESSING` become terminal `AMBIGUOUS` without a second send.
 - [ ] Apply source-order lifecycle rules: hold while exchange/return/support is open; deactivate an unused linked-order grant on full cancellation/refund/return; partial refund after redemption does not restore the code; an unrelated order return never revokes an external UGC grant.
-- [ ] Route product-sale price plus UGC promo through the existing one-promo reservation semantics; no code+code stacking, and no marketing copy that promises stacking or a discount on shipping/custom charges unless explicitly configured.
+- [x] Route product-sale price plus UGC promo through the existing one-promo reservation semantics; no code+code stacking, and no marketing copy that promises stacking or a discount on shipping/custom charges unless explicitly configured. Evidence: public and Instagram checkout use the shared reservation ledger; code+code, group+code, negotiated-discount, shipping, and custom-charge stacking remain fail-closed in promo/checkout tests.
 - [ ] Add RED tests for ingress provenance, story expiry owned-vs-URL-only, OCR prompt injection, official ad/catalog/no-garment rejection, two people/two shirts with one reward owner, exact object duplicate vs cross-post review, stale assessment/assignment/refund races, transaction rollback, MariaDB engine/unique constraints, guest COD/online/Instagram checkout, concurrent reservation, 90-day boundary, no stacking, and ambiguous delivery recovery.
 
 ### Task 11: Add Follow State to Manager API without N+1
@@ -501,7 +501,7 @@ Normal-settings note: `check` is clean with the ephemeral task secret shown abov
 ### Task 16: Browser and Accessibility QA
 
 - [x] Start the local development server on an unused port. Evidence: Python Playwright QA used an isolated `127.0.0.1:8765` server with a temporary SQLite database.
-- [x] Use a manager fixture or authenticated test session with following, non-following, unknown, and stale/error conversations. Evidence: authenticated manager fixture loaded the Clients tab and a fresh-following conversation; no customer/Meta events were sent.
+- [ ] Use a manager fixture or authenticated test session with following, non-following, unknown, and stale/error conversations. Focused smoke evidence covered an authenticated fresh-following conversation; the remaining state fixtures stay open for the full browser matrix.
 - [ ] Capture and inspect `1440x900`, `1280x800`, `1024x768`, `820x1180`, `390x844`, `375x812`, and `320x568`.
 - [ ] Verify 200% zoom, keyboard focus, tooltip access, reduced motion, forced colors, no console errors, and no horizontal overflow.
 - [ ] Confirm long display names do not overlap follow indicator, stage, or action buttons.
@@ -512,10 +512,10 @@ Normal-settings note: `check` is clean with the ephemeral task secret shown abov
 
 - [x] Request a read-only code review covering the full feature diff against base `51db3058a`. Evidence: independent follow/UGC/promo review completed before integration; the merged result was re-tested.
 - [x] Ask specifically for policy bypasses, UGC fraud/reused media, cross-channel eligibility, lifetime reward races, guest promo leakage, ambiguous delivery, PII retention, query growth, prompt injection, and UI accessibility. Evidence: review scope and browser QA report cover these boundaries.
-- [x] Reproduce every Critical/Important finding against current code before changing it. Evidence: the validated auto-award configuration gap was reproduced, fixed, and covered by `UGCSettingsContractTests`; no other Critical/Important finding remained.
-- [x] Add a failing regression test for each validated finding. Evidence: the environment-backed auto-award setting contract regression is in `management.tests_ig_ugc_assessment`.
-- [x] Fix and rerun focused/adjacent verification. Evidence: 925 tests passed with 3 MariaDB-only skips; the focused UGC/promo slice passed independently.
-- [x] Record rejected findings with evidence. Evidence: review reports recorded no additional bypass, provenance, lifetime, or guest-promo defect requiring a code change.
+- [x] Reproduce every Critical/Important finding against current code before changing it. Evidence: the auto-award configuration gap, a later rejected repost hiding earlier qualifying evidence, a terminal service case failing to clear an older complaint snapshot, `transient` delivery being blindly retryable, and delivered-order issuance bypassing the service gate were reproduced against current code and fixed.
+- [x] Add a failing regression test for each validated finding. Evidence: environment-backed auto-award coverage is in `management.tests_ig_ugc_assessment`; assessment ordering, terminal/new complaint ordering, terminal transient delivery, delivered-order no-side-effect blocking, and late-case idempotent replay regressions are in the UGC suites.
+- [x] Fix and rerun focused/adjacent verification. Evidence: the broad baseline passed 925 tests with 3 MariaDB-only skips; after the final service-case and transient-delivery fixes, fresh focused and adjacent runs passed 198 and 617 tests respectively.
+- [x] Record rejected findings with evidence. Evidence: validated local defects were fixed; unproven MariaDB races, full browser/accessibility coverage, consented Graph probing, calibration, manager-review reason enforcement, and post-issuance refund/revoke behavior remain explicitly open instead of being treated as completed.
 
 ### Task 18: Rebase, Audit Reconciliation, and Main Integration
 
@@ -533,7 +533,7 @@ Normal-settings note: `check` is clean with the ephemeral task secret shown abov
 
 - [x] Preflight SSH and server Git status without printing the password/token. Evidence: server branch/status/HEAD were inspected over SSH; credentials were passed only through `sshpass -e`.
 - [x] Refuse to pull over unexpected server modifications; inspect and preserve them. Evidence: only pre-existing untracked operational files were present; tracked code was clean and fast-forward pull preserved them.
-- [ ] Run on the server:
+- [x] Run on the server: the listed migration, check, static collection/compression, playbook seed, restart, daemon ensure, payment poll, and dry-run reconciliation commands all completed on 2026-08-15; no synthetic customer event was sent.
 
 ```bash
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate

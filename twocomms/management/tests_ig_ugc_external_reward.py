@@ -758,6 +758,51 @@ class ExternalUGCRewardTests(TestCase):
             self.assertEqual(process_external_ugc_reward_delivery(delivery.pk), IgUgcRewardDelivery.State.AMBIGUOUS)
             send.assert_called_once()
 
+    def test_transient_delivery_is_terminal_ambiguous_without_resend_or_reissue(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcReward, IgUgcRewardDelivery
+        from management.services.ig_follow_reconcile import _due_ugc_deliveries
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+        )
+
+        reward, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        self.assertTrue(created)
+        receipt = type(
+            "Receipt",
+            (),
+            {"ok": False, "kind": "transient", "provider_message_ids": ()},
+        )()
+
+        with patch(
+            "management.services.instagram_bot.send_text",
+            return_value=receipt,
+        ) as send:
+            first = process_external_ugc_reward_delivery(reward.delivery.pk)
+            replay = process_external_ugc_reward_delivery(reward.delivery.pk)
+
+        self.assertEqual(first, IgUgcRewardDelivery.State.AMBIGUOUS)
+        self.assertEqual(replay, IgUgcRewardDelivery.State.AMBIGUOUS)
+        send.assert_called_once()
+        reward.delivery.refresh_from_db()
+        self.assertEqual(reward.delivery.state, IgUgcRewardDelivery.State.AMBIGUOUS)
+        self.assertEqual(reward.delivery.attempts, 1)
+        self.assertIsNotNone(reward.delivery.completed_at)
+        self.assertEqual(
+            _due_ugc_deliveries(
+                now=timezone.now() + timedelta(days=1),
+                limit=10,
+            ),
+            [],
+        )
+        self.assertEqual(IgUgcReward.objects.count(), 1)
+        self.assertEqual(PromoCode.objects.count(), 1)
+
     def test_expired_processing_delivery_becomes_ambiguous_without_resend(self):
         from unittest.mock import patch
 
@@ -1001,6 +1046,21 @@ class ExternalUGCRewardTests(TestCase):
         self.assertEqual(reason, "qualified_assessment")
         self.assertEqual(latest.decision, IgUgcEvidenceAssessment.Decision.QUALIFIED_AUTO)
 
+    def test_later_rejected_source_does_not_hide_earlier_qualifying_evidence(self):
+        """One unrelated rejected repost cannot invalidate another valid mention."""
+        from management.ig_bot_models import IgUgcEvidenceAssessment
+        from management.services.ig_ugc_rewards import ugc_reward_eligibility
+
+        rejected = self._create_assessment("later-rejected")
+        rejected.decision = IgUgcEvidenceAssessment.Decision.REJECTED
+        rejected.reason_codes = ["evidence_rejected"]
+        rejected.save(update_fields=["decision", "reason_codes", "updated_at"])
+
+        eligible, reason = ugc_reward_eligibility(self.client)
+
+        self.assertTrue(eligible)
+        self.assertEqual(reason, "qualified_assessment")
+
     def _open_service_case(self, *, status=None, source_suffix="service"):
         from management.ig_bot_models import IgPostSaleCase
 
@@ -1048,6 +1108,62 @@ class ExternalUGCRewardTests(TestCase):
             interaction_type=(
                 IgConversationAnalysisSnapshot.InteractionType.SUPPORT_COMPLAINT
             ),
+        )
+
+        eligible, reason = ugc_reward_eligibility(self.client)
+
+        self.assertFalse(eligible)
+        self.assertEqual(reason, "service_case_open")
+
+    def test_completed_service_case_clears_older_complaint_snapshot(self):
+        from management.ig_bot_models import (
+            IgConversationAnalysisSnapshot,
+            IgPostSaleCase,
+        )
+        from management.services.ig_ugc_rewards import ugc_reward_eligibility
+
+        IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            dedupe_key="ugc-resolved-support-complaint",
+            score_band=IgConversationAnalysisSnapshot.Band.PAID,
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.SUPPORT_COMPLAINT
+            ),
+        )
+        self._open_service_case(
+            status=IgPostSaleCase.Status.COMPLETED,
+            source_suffix="completed",
+        )
+
+        eligible, reason = ugc_reward_eligibility(self.client)
+
+        self.assertTrue(eligible)
+        self.assertEqual(reason, "qualified_assessment")
+
+    def test_new_complaint_after_completed_service_case_blocks_again(self):
+        from management.ig_bot_models import (
+            IgConversationAnalysisSnapshot,
+            IgPostSaleCase,
+        )
+        from management.services.ig_ugc_rewards import ugc_reward_eligibility
+
+        terminal_at = timezone.now() - timedelta(minutes=5)
+        case = self._open_service_case(
+            status=IgPostSaleCase.Status.COMPLETED,
+            source_suffix="completed-before-new-complaint",
+        )
+        IgPostSaleCase.objects.filter(pk=case.pk).update(
+            resolved_at=terminal_at,
+            updated_at=terminal_at + timedelta(minutes=10),
+        )
+        IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            dedupe_key="ugc-new-support-complaint-after-resolution",
+            score_band=IgConversationAnalysisSnapshot.Band.PAID,
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.SUPPORT_COMPLAINT
+            ),
+            analyzed_at=terminal_at + timedelta(minutes=1),
         )
 
         eligible, reason = ugc_reward_eligibility(self.client)

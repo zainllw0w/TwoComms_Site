@@ -14,6 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from orders.fulfillment_truth import (
@@ -260,8 +261,14 @@ def ugc_service_case_reason(client) -> str:
     """
     if not client or not getattr(client, "pk", None):
         return ""
-    from management.ig_bot_models import IgConversationAnalysisSnapshot
-    from management.services.ig_post_sale import open_service_case
+    from management.ig_bot_models import (
+        IgConversationAnalysisSnapshot,
+        IgPostSaleCase,
+    )
+    from management.services.ig_post_sale import (
+        TERMINAL_CASE_STATUSES,
+        open_service_case,
+    )
 
     if open_service_case(client) is not None:
         return "service_case_open"
@@ -269,17 +276,29 @@ def ugc_service_case_reason(client) -> str:
     latest = (
         IgConversationAnalysisSnapshot.objects.filter(client_id=client.pk)
         .exclude(interaction_type=interaction_types.MANAGER_OBSERVATION)
-        .order_by("-id")
-        .values_list("interaction_type", flat=True)
+        .order_by("-analyzed_at", "-id")
+        .values("interaction_type", "analyzed_at")
         .first()
     )
-    if latest in {
+    if not latest or latest["interaction_type"] not in {
         interaction_types.SUPPORT_COMPLAINT,
         interaction_types.EXCHANGE_REQUEST,
         interaction_types.RETURN_REQUEST,
     }:
-        return "service_case_open"
-    return ""
+        return ""
+    latest_terminal_at = (
+        IgPostSaleCase.objects.filter(
+            client_id=client.pk,
+            status__in=TERMINAL_CASE_STATUSES,
+        )
+        .annotate(terminal_at=Coalesce("resolved_at", "updated_at"))
+        .order_by("-terminal_at", "-id")
+        .values_list("terminal_at", flat=True)
+        .first()
+    )
+    if latest_terminal_at and latest_terminal_at > latest["analyzed_at"]:
+        return ""
+    return "service_case_open"
 
 
 def ugc_identity_already_rewarded(client) -> bool:
@@ -322,26 +341,32 @@ def ugc_reward_eligibility(client, *, assignments=None, now=None) -> tuple[bool,
     service_reason = ugc_service_case_reason(client)
     if service_reason:
         return False, service_reason
-    assessment = (
-        IgUgcEvidenceAssessment.objects.filter(client_id=getattr(client, "pk", None))
+    assessments = IgUgcEvidenceAssessment.objects.filter(
+        client_id=getattr(client, "pk", None)
+    )
+    qualifying_assessment = (
+        assessments.filter(
+            decision__in=(
+                IgUgcEvidenceAssessment.Decision.QUALIFIED_AUTO,
+                IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
+            )
+        )
         .order_by("-created_at", "-id")
         .first()
     )
-    if assessment is not None and assessment.decision in {
-        IgUgcEvidenceAssessment.Decision.QUALIFIED_AUTO,
-        IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
-    }:
+    if qualifying_assessment is not None:
         try:
             from management.services.ig_ugc_assessment import validate_ugc_provenance
 
             validate_ugc_provenance(
-                assessment=assessment,
+                assessment=qualifying_assessment,
                 client=client,
                 lock=False,
             )
         except Exception:
             return False, "assessment_provenance_invalid"
         return True, "qualified_assessment"
+    assessment = assessments.order_by("-created_at", "-id").first()
     if assignments is None:
         assignments = IgOrderAssignment.objects.filter(
             client_id=getattr(client, "pk", None),
@@ -578,7 +603,8 @@ UGC_DELIVERY_RESPONSE_WINDOW = timedelta(hours=23)
 UGC_DELIVERY_RECHECK_DELAY = timedelta(hours=1)
 UGC_DELIVERY_RETRY_BASE_DELAY = timedelta(minutes=5)
 UGC_DELIVERY_MAX_ATTEMPTS = 3
-UGC_DELIVERY_RETRYABLE_KINDS = frozenset({"retryable", "transient"})
+UGC_DELIVERY_RETRYABLE_KINDS = frozenset({"retryable"})
+UGC_DELIVERY_AMBIGUOUS_KINDS = frozenset({"transient", "unknown", "ambiguous"})
 
 
 def _ugc_delivery_retry_at(now, attempts: int):
@@ -824,7 +850,7 @@ def process_external_ugc_reward_delivery(delivery_id: int, *, settings_obj=None)
         if ok and ids:
             row.state = IgUgcRewardDelivery.State.SENT
             row.completed_at = completed_at
-        elif kind in {"unknown", "ambiguous"}:
+        elif kind in UGC_DELIVERY_AMBIGUOUS_KINDS:
             row.state = IgUgcRewardDelivery.State.AMBIGUOUS
             row.completed_at = completed_at
         elif kind in UGC_DELIVERY_RETRYABLE_KINDS and row.attempts < UGC_DELIVERY_MAX_ATTEMPTS:
@@ -952,6 +978,12 @@ def award_ugc_reward(
         lifetime.save(update_fields=["reward", "consumed_at", "updated_at"])
         return _with_ugc_delivery(legacy_reward, False)
 
+    service_reason = ugc_service_case_reason(locked_client)
+    if service_reason:
+        raise UgcRewardConflict(
+            "UGC-нагороду тимчасово призупинено: активне звернення клієнта "
+            f"({service_reason})."
+        )
     now = timezone.now()
     return _create_locked_ugc_grant(
         locked_client=locked_client,

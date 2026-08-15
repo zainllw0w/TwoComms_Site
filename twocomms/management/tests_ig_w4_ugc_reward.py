@@ -84,6 +84,25 @@ class UgcRewardTests(TestCase):
             provider_created_at=self.delivered_at + timedelta(minutes=1),
         )
 
+    def _open_service_case(self, suffix):
+        from management.ig_bot_models import IgPostSaleCase
+
+        complaint = InstagramBotMessage.objects.create(
+            sender_id=self.ig_client.igsid,
+            client=self.ig_client,
+            role=InstagramBotMessage.Role.USER,
+            text="Хочу повернути замовлення",
+            source="webhook",
+            mid=f"ugc-delivered-open-service-case-{suffix}",
+            provider_created_at=timezone.now(),
+        )
+        return IgPostSaleCase.objects.create(
+            client=self.ig_client,
+            source_message=complaint,
+            case_type=IgPostSaleCase.CaseType.RETURN,
+            status=IgPostSaleCase.Status.OPEN,
+        )
+
     def test_verified_evidence_issues_one_bounded_single_use_code(self):
         before = timezone.now()
 
@@ -174,6 +193,54 @@ class UgcRewardTests(TestCase):
         self.assertFalse(IgUgcRewardLifetime.objects.exists())
         self.assertFalse(IgUgcRewardDelivery.objects.exists())
         self.assertFalse(PromoCode.objects.exists())
+
+    def test_open_service_case_blocks_delivered_order_award_without_side_effects(self):
+        from management.ig_bot_models import IgUgcRewardLifetime
+
+        self._open_service_case("new-award")
+
+        with self.assertRaisesRegex(UgcRewardConflict, "активне звернення"):
+            award_ugc_reward(
+                client=self.ig_client,
+                order=self.order,
+                actor=self.actor,
+                evidence_message_id=self.evidence.pk,
+            )
+
+        self.assertFalse(IgUgcReward.objects.exists())
+        self.assertFalse(PromoCode.objects.exists())
+        self.assertFalse(IgUgcRewardDelivery.objects.exists())
+        self.assertFalse(IgUgcRewardLifetime.objects.exists())
+
+    def test_existing_reward_replay_survives_late_open_service_case(self):
+        from management.ig_bot_models import IgUgcRewardLifetime
+
+        first, first_created = award_ugc_reward(
+            client=self.ig_client,
+            order=self.order,
+            actor=self.actor,
+            evidence_message_id=self.evidence.pk,
+        )
+        self._open_service_case("idempotent-replay")
+
+        try:
+            replay, replay_created = award_ugc_reward(
+                client=self.ig_client,
+                order=self.order,
+                actor=self.actor,
+                evidence_message_id=self.evidence.pk,
+            )
+        except UgcRewardConflict as exc:
+            self.fail(f"Idempotent reward replay was blocked: {exc}")
+
+        self.assertTrue(first_created)
+        self.assertFalse(replay_created)
+        self.assertEqual(replay.pk, first.pk)
+        self.assertEqual(replay.promo_code_id, first.promo_code_id)
+        self.assertEqual(IgUgcReward.objects.count(), 1)
+        self.assertEqual(PromoCode.objects.count(), 1)
+        self.assertEqual(IgUgcRewardDelivery.objects.count(), 1)
+        self.assertEqual(IgUgcRewardLifetime.objects.count(), 1)
 
     def test_same_evidence_is_idempotent_and_never_creates_a_second_code(self):
         first, first_created = award_ugc_reward(
