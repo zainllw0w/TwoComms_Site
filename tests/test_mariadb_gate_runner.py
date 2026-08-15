@@ -636,6 +636,28 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         ):
             self.assertNotIn(private_detail, summary)
 
+    def test_failure_summary_reads_sanitized_markers_from_stdout(self):
+        completed = subprocess.CompletedProcess(
+            args=["python", "manage.py", "test"],
+            returncode=1,
+            stdout=(
+                "pymysql.err.OperationalError: (1205, 'private detail')\n"
+                "Ran 1 test in 0.123s\n"
+                "FAILED (errors=1)\n"
+            ),
+            stderr="",
+        )
+
+        summary = self.runner._failure_summary(
+            suite="lifecycle",
+            completed=completed,
+        )
+
+        self.assertIn("database_error: errno=1205", summary)
+        self.assertIn("Ran 1 test in 0.123s", summary)
+        self.assertIn("FAILED (errors=1)", summary)
+        self.assertNotIn("private detail", summary)
+
     def test_failure_summary_never_retains_free_form_result_details(self):
         completed = subprocess.CompletedProcess(
             args=["python", "manage.py", "test"],

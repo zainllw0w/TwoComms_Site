@@ -168,21 +168,25 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
     lines = [
         f"MariaDB gate child failed: suite={suite} exit={completed.returncode}"
     ]
-    for raw_line in (completed.stderr or "").splitlines():
-        candidate = _ANSI_ESCAPE_RE.sub("", raw_line.strip())
-        database_errno_match = _DATABASE_ERRNO_RE.match(candidate)
-        exception_match = _EXCEPTION_RE.fullmatch(candidate)
-        test_failure_match = _TEST_FAILURE_RE.fullmatch(candidate)
-        if database_errno_match:
-            lines.append(f"database_error: errno={database_errno_match.group(1)}")
-        elif exception_match:
-            lines.append("exception:")
-        elif test_failure_match:
-            lines.append(f"{test_failure_match.group(1)}: test_failed")
-        elif _TEST_RESULT_RE.fullmatch(candidate):
-            lines.append(candidate)
-        elif _TEST_FAILURE_RESULT_RE.fullmatch(candidate):
-            lines.append("FAILED (test_failed)")
+    # Django's test runner writes setup/migration diagnostics to stdout while
+    # database-driver failures commonly use stderr. Inspect both streams, but
+    # retain only the same bounded, sanitized markers from either one.
+    for stream in (completed.stderr or "", completed.stdout or ""):
+        for raw_line in stream.splitlines():
+            candidate = _ANSI_ESCAPE_RE.sub("", raw_line.strip())
+            database_errno_match = _DATABASE_ERRNO_RE.match(candidate)
+            exception_match = _EXCEPTION_RE.fullmatch(candidate)
+            test_failure_match = _TEST_FAILURE_RE.fullmatch(candidate)
+            if database_errno_match:
+                lines.append(f"database_error: errno={database_errno_match.group(1)}")
+            elif exception_match:
+                lines.append("exception:")
+            elif test_failure_match:
+                lines.append(f"{test_failure_match.group(1)}: test_failed")
+            elif _TEST_RESULT_RE.fullmatch(candidate):
+                lines.append(candidate)
+            elif _TEST_FAILURE_RESULT_RE.fullmatch(candidate):
+                lines.append("FAILED (test_failed)")
     summary = "\n".join(lines) + "\n"
     return summary[:MAX_FAILURE_SUMMARY_CHARS]
 
