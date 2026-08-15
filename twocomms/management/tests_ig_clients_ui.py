@@ -12,10 +12,13 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -29,6 +32,7 @@ from management.models import (
 )
 from management.ig_bot_models import (
     IgDeal,
+    IgFollowState,
     IgOrderAttribution,
     IgPaymentConfirmationReview,
     IgPaymentProjection,
@@ -540,6 +544,29 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("st.state==='ingress_degraded'", self.template)
         self.assertIn("Прийом повідомлень порушено", self.template)
         self.assertIn("Процес працює, але нові повідомлення не надходять", self.template)
+
+    def test_follow_indicator_is_compact_accessible_and_not_rendered_in_sidebar(self):
+        for contract in (
+            "follow-indicator",
+            "role=\"img\"",
+            "aria-label",
+            "fresh-following",
+            "fresh-not-following",
+            "stale-follow",
+            "unknown-follow",
+            "followRefreshUrl",
+        ):
+            self.assertIn(contract, self.template)
+        row_renderer = self.template[self.template.index("function reconcileClients"):self.template.index("function currentQuery()")]
+        self.assertNotIn("follow-indicator", row_renderer)
+
+    def test_incremental_follow_revision_updates_header_indicator_without_list_reflow(self):
+        incremental_start = self.template.index("function applyIncrementalConversationState(d)")
+        incremental_end = self.template.index("function pollConv()", incremental_start)
+        incremental_source = self.template[incremental_start:incremental_end]
+        self.assertIn("updateFollowIndicator(d.follow)", incremental_source)
+        self.assertIn("data-follow-revision", self.template)
+        self.assertIn("followRefreshUrl", self.template)
 
     def test_live_chat_applies_incremental_stage_and_funnel_updates(self):
         self.assertIn('"funnel": _funnel_progress_for_stage(c, operational_stage)', Path(__file__).with_name("bot_views.py").read_text(encoding="utf-8"))
@@ -1067,6 +1094,69 @@ class ClientsApiTests(TestCase):
         data = r.json()
         self.assertTrue(data["success"])
         self.assertTrue(any(cl["name"] == "Іван" for cl in data["clients"]))
+
+    def test_follow_state_is_exposed_in_list_and_detail_without_labeling_stale_as_negative(self):
+        from management.services.ig_follow_state import configuration_fingerprint
+
+        now = timezone.now()
+        IgFollowState.objects.create(
+            client=self.c,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=4,
+            source="instagram_login",
+            graph_version="v25.0",
+            config_fingerprint=configuration_fingerprint(InstagramBotSettings.load()),
+            observed_at=now,
+            expires_at=now + timedelta(hours=1),
+            last_check_at=now,
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        data = self.client.get(reverse("management_bot_clients_api")).json()
+        row = next(item for item in data["clients"] if item["id"] == self.c.pk)
+        self.assertEqual(row["follow"]["state"], "not_following")
+        self.assertTrue(row["follow"]["fresh"])
+        self.assertEqual(row["follow"]["revision"], 4)
+
+        self.c.follow_state_projection.expires_at = now - timedelta(seconds=1)
+        self.c.follow_state_projection.save(update_fields=["expires_at", "updated_at"])
+        detail = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.pk])
+        ).json()
+        self.assertEqual(detail["client"]["follow"]["state"], "unknown")
+        self.assertTrue(detail["client"]["follow"]["stale"])
+
+        incremental = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.pk]),
+            {"after_id": self.c.messages.order_by("-id").values_list("id", flat=True).first()},
+        ).json()
+        self.assertEqual(incremental["follow"]["state"], "unknown")
+        self.assertEqual(incremental["follow"]["revision"], 4)
+
+    @patch("management.services.instagram_bot._provider_http")
+    def test_clients_list_prefetches_follow_projection_without_meta_io(self, provider_http):
+        for index in range(4):
+            IgClient.get_or_create_for_sender(f"ig-follow-list-{index}")
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(reverse("management_bot_clients_api"))
+
+        self.assertEqual(response.status_code, 200)
+        provider_http.assert_not_called()
+        follow_queries = [
+            query["sql"]
+            for query in queries.captured_queries
+            if "management_igfollowstate" in query["sql"].lower()
+        ]
+        self.assertLessEqual(len(follow_queries), 1)
+
+    @patch("management.services.ig_follow_state.refresh_follow_state_if_due", return_value="known")
+    def test_follow_refresh_endpoint_is_explicit_and_returns_result(self, refresh):
+        response = self.client.post(
+            reverse("management_bot_client_follow_refresh_api", args=[self.c.pk]),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["result"], "known")
+        refresh.assert_called_once()
 
     def test_clients_list_keeps_last_message_timestamp_and_authoritative_order(self):
         older = IgClient.get_or_create_for_sender("ig-order-older")

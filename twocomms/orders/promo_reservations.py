@@ -7,6 +7,7 @@ promo itself for an ungrouped one-time code). Production therefore requires
 
 from dataclasses import dataclass
 from decimal import Decimal
+import secrets
 
 from django.db import transaction
 from django.utils import timezone
@@ -103,6 +104,8 @@ def reserve_promo_for_checkout(*, promo_id=None, code=None, user=None, total_amo
         raise PromoReservationError("invalid")
 
     user_id = _authenticated_user_id(user)
+    if user_id is None and not promo.is_guest_ugc_capability():
+        raise PromoReservationError("account_required")
     account_scoped = bool(
         promo.one_time_per_user
         or (group is not None and group.one_per_account)
@@ -126,6 +129,40 @@ def reserve_promo_for_checkout(*, promo_id=None, code=None, user=None, total_amo
 
     promo.current_uses += 1
     promo.save(update_fields=["current_uses", "updated_at"])
+    guest_usage_id = None
+    if user_id is None:
+        from storefront.models import PromoCodeGuestUsage
+
+        guest_usage = (
+            PromoCodeGuestUsage.objects.select_for_update()
+            .filter(promo_code_id=promo.pk)
+            .first()
+        )
+        reservation_key = secrets.token_urlsafe(48)
+        if guest_usage is None:
+            guest_usage = PromoCodeGuestUsage.objects.create(
+                promo_code=promo,
+                reservation_key=reservation_key,
+                metadata={"surface": "checkout", "bearer": True},
+            )
+        else:
+            # A released invoice gives the same private bearer capability back
+            # its one capacity slot.  The OneToOne ledger row is reused instead
+            # of creating a second row and violating its uniqueness contract.
+            if guest_usage.state != PromoCodeGuestUsage.State.RELEASED:
+                raise PromoReservationError("already_reserved_or_used")
+            guest_usage.reservation_key = reservation_key
+            guest_usage.state = PromoCodeGuestUsage.State.RESERVED
+            guest_usage.order = None
+            guest_usage.reserved_at = timezone.now()
+            guest_usage.consumed_at = None
+            guest_usage.released_at = None
+            guest_usage.metadata = {"surface": "checkout", "bearer": True}
+            guest_usage.save(update_fields=[
+                "reservation_key", "state", "order", "reserved_at",
+                "consumed_at", "released_at", "metadata",
+            ])
+        guest_usage_id = guest_usage.pk
     return PromoReservation(
         promo=promo,
         discount=discount,
@@ -136,6 +173,10 @@ def reserve_promo_for_checkout(*, promo_id=None, code=None, user=None, total_amo
                 "state": "reserved",
                 "capacity_reserved": True,
                 "reserved_at": timezone.now().isoformat(),
+                "guest_usage_id": guest_usage_id,
+                "guest_reservation_key": (
+                    guest_usage.reservation_key if guest_usage_id else None
+                ),
             }
         },
     )
@@ -178,6 +219,20 @@ def consume_payment_attempt_promo(attempt, *, order):
         reservation.get("state") == "reserved"
         and int(reservation.get("promo_id") or 0) == promo.pk
     )
+    if not attempt.user_id and not was_reserved:
+        # Anonymous redemptions are bearer-capability payments.  A released,
+        # consumed, or malformed reservation must never fall back to the
+        # legacy ``promo.use()`` counter path: a late provider callback could
+        # otherwise consume a fresh reservation belonging to another invoice.
+        reservation.update({
+            "promo_id": promo.pk,
+            "group_id": promo.group_id,
+            "usage_error_at": timezone.now().isoformat(),
+            "usage_error": "guest_reservation_missing",
+        })
+        event_state["promo_reservation"] = reservation
+        attempt.event_state = event_state
+        return False
     try:
         with transaction.atomic():
             if attempt.user_id:
@@ -193,6 +248,27 @@ def consume_payment_attempt_promo(attempt, *, order):
                     )
             elif not was_reserved:
                 promo.use()
+            else:
+                from storefront.models import PromoCodeGuestUsage
+
+                guest_usage_lookup = {
+                    "pk": reservation.get("guest_usage_id"),
+                    "promo_code_id": promo.pk,
+                    "state": PromoCodeGuestUsage.State.RESERVED,
+                }
+                if reservation.get("guest_reservation_key"):
+                    guest_usage_lookup["reservation_key"] = reservation[
+                        "guest_reservation_key"
+                    ]
+                guest_usage = PromoCodeGuestUsage.objects.select_for_update().filter(
+                    **guest_usage_lookup
+                ).first()
+                if guest_usage is None:
+                    raise PromoReservationError("guest_reservation_missing")
+                guest_usage.state = PromoCodeGuestUsage.State.CONSUMED
+                guest_usage.order = order
+                guest_usage.consumed_at = timezone.now()
+                guest_usage.save(update_fields=["state", "order", "consumed_at"])
     except Exception as exc:
         reservation.update({
             "promo_id": promo.pk,
@@ -201,6 +277,15 @@ def consume_payment_attempt_promo(attempt, *, order):
             "usage_error_at": timezone.now().isoformat(),
             "usage_error": str(exc)[:200],
         })
+        if (
+            isinstance(exc, PromoReservationError)
+            and exc.reason == "guest_reservation_missing"
+        ):
+            # A reservation key from an older invoice no longer names the
+            # currently reserved ledger generation.  Keep this distinct from
+            # a transient persistence failure so conversion is not retried
+            # against another customer's reservation.
+            reservation["guest_reservation_mismatch"] = True
         event_state["promo_reservation"] = reservation
         attempt.event_state = event_state
         return False
@@ -208,6 +293,12 @@ def consume_payment_attempt_promo(attempt, *, order):
     if not was_reserved and attempt.user_id:
         # Legacy attempts did not reserve capacity before provider I/O.
         promo.use()
+    # A retry may be consuming a reservation that previously failed at the
+    # ledger boundary.  Clear the durable retry marker and diagnostic fields
+    # only after the guest/account usage write has committed successfully.
+    reservation.pop("usage_error_at", None)
+    reservation.pop("usage_error", None)
+    event_state.pop("promo_consumption_pending", None)
     reservation.update({
         "promo_id": promo.pk,
         "group_id": promo.group_id,
@@ -224,7 +315,7 @@ def consume_payment_attempt_promo(attempt, *, order):
 def release_payment_attempt_promo(attempt, *, reason="payment_terminal"):
     """Release one invoice reservation exactly once."""
     from orders.models import PaymentAttempt
-    from storefront.models import PromoCode
+    from storefront.models import PromoCode, PromoCodeGuestUsage
 
     locked = PaymentAttempt.objects.select_for_update().get(pk=attempt.pk)
     event_state = dict(locked.event_state or {})
@@ -233,6 +324,44 @@ def release_payment_attempt_promo(attempt, *, reason="payment_terminal"):
         return False
     promo_id = reservation.get("promo_id") or locked.promo_code_id
     promo = PromoCode.objects.select_for_update().filter(pk=promo_id).first()
+    guest_usage = None
+    if not locked.user_id:
+        guest_usage_id = reservation.get("guest_usage_id")
+        guest_reservation_key = reservation.get("guest_reservation_key")
+        if guest_usage_id or guest_reservation_key:
+            guest_usage_lookup = {
+                "promo_code_id": promo_id,
+                "state": PromoCodeGuestUsage.State.RESERVED,
+            }
+            if guest_usage_id:
+                guest_usage_lookup["pk"] = guest_usage_id
+            if guest_reservation_key:
+                guest_usage_lookup["reservation_key"] = guest_reservation_key
+            guest_usage = PromoCodeGuestUsage.objects.select_for_update().filter(
+                **guest_usage_lookup
+            ).first()
+        if guest_usage is None:
+            # The OneToOne ledger row may have been released and reissued to a
+            # newer invoice between two terminal callbacks.  An old/legacy
+            # anonymous attempt without an exact generation is equally unsafe:
+            # do not decrement the shared promo counter or release any other
+            # bearer reservation.
+            reservation.update({
+                "state": "released",
+                "released_at": timezone.now().isoformat(),
+                "release_reason": (
+                    "stale_reservation_generation"
+                    if (
+                        reservation.get("guest_usage_id")
+                        or reservation.get("guest_reservation_key")
+                    )
+                    else "guest_reservation_unresolved"
+                ),
+            })
+            event_state["promo_reservation"] = reservation
+            locked.event_state = event_state
+            locked.save(update_fields=["event_state", "updated"])
+            return False
     if (
         promo is not None
         and reservation.get("capacity_reserved", True)
@@ -248,4 +377,8 @@ def release_payment_attempt_promo(attempt, *, reason="payment_terminal"):
     event_state["promo_reservation"] = reservation
     locked.event_state = event_state
     locked.save(update_fields=["event_state", "updated"])
+    if guest_usage is not None:
+        guest_usage.state = PromoCodeGuestUsage.State.RELEASED
+        guest_usage.released_at = timezone.now()
+        guest_usage.save(update_fields=["state", "released_at"])
     return True

@@ -60,6 +60,9 @@ __all__ = [
     "IgOrderAssignment",
     "IgOrderAssignmentEvent",
     "IgUgcReward",
+    "IgUgcEvidenceAssessment",
+    "IgUgcRewardLifetime",
+    "IgUgcRewardDelivery",
     "IgOrderCustomerEvent",
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
@@ -80,6 +83,7 @@ __all__ = [
     "IgFollowObservation",
     "IgFollowRefreshJob",
     "IgFollowCtaDecision",
+    "IgPaymentFollowPreparation",
     "IgCommerceSelectionSession",
     "IgCommerceSelectionTransition",
     "IgCommerceTurnDecision",
@@ -1504,35 +1508,54 @@ class IgOrderAssignmentEvent(models.Model):
 
 
 class IgUgcReward(models.Model):
-    """Manager-verified UGC evidence and its bounded promo reward."""
+    """One lifetime UGC grant for an Instagram identity.
+
+    ``delivered_order`` keeps the historical order/assignment requirements;
+    ``external_ugc`` deliberately leaves them empty because a qualifying
+    provider-native mention may come from the public site, a store, a friend,
+    or another sales channel.
+    """
 
     class EvidenceType(models.TextChoices):
         DIRECT_MESSAGE = "direct_message", _("Повідомлення Direct")
         INSTAGRAM_URL = "instagram_url", _("Посилання Instagram")
+        STORY_MENTION = "story_mention", _("Відмітка в story")
 
     client = models.ForeignKey(
         "management.IgClient",
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         related_name="ugc_rewards",
+        null=True,
+        blank=True,
+        db_constraint=False,
     )
     order = models.OneToOneField(
         "orders.Order",
         on_delete=models.PROTECT,
         related_name="instagram_ugc_reward",
+        null=True,
+        blank=True,
+        # Production still contains legacy tables with mixed storage engines;
+        # retain this relationship at the ORM/service boundary only.
+        db_constraint=False,
     )
     assignment = models.ForeignKey(
         "management.IgOrderAssignment",
         on_delete=models.PROTECT,
         related_name="ugc_rewards",
+        null=True,
+        blank=True,
+        db_constraint=False,
     )
-    assignment_version = models.PositiveIntegerField()
+    assignment_version = models.PositiveIntegerField(default=0)
     evidence_type = models.CharField(max_length=24, choices=EvidenceType.choices)
     evidence_message = models.ForeignKey(
         "management.InstagramBotMessage",
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         related_name="ugc_rewards",
+        db_constraint=False,
     )
     evidence_url = models.URLField(max_length=500, blank=True, default="")
     evidence_fingerprint = models.CharField(max_length=64, unique=True)
@@ -1541,11 +1564,14 @@ class IgUgcReward(models.Model):
         "storefront.PromoCode",
         on_delete=models.PROTECT,
         related_name="instagram_ugc_reward",
+        db_constraint=False,
     )
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         related_name="reviewed_ig_ugc_rewards",
+        null=True,
+        blank=True,
         # `auth_user` на проді — MyISAM, як і ще 204 таблиці цієї бази: рушій
         # InnoDB отримують лише нові таблиці. FK на MyISAM неможливий, і
         # міграція падала з errno 150 «Foreign key constraint is incorrectly
@@ -1554,6 +1580,22 @@ class IgUgcReward(models.Model):
         # виняток заради деплою.
         db_constraint=False,
     )
+    reward_path = models.CharField(max_length=24, default="delivered_order", db_index=True)
+    decision_source = models.CharField(max_length=16, default="manager")
+    assessment = models.ForeignKey(
+        "management.IgUgcEvidenceAssessment",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="rewards",
+        db_constraint=False,
+    )
+    assessment_generation_snapshot = models.PositiveBigIntegerField(default=0)
+    policy_version_snapshot = models.CharField(max_length=32, blank=True, default="")
+    provider_object_digest_snapshot = models.CharField(max_length=64, blank=True, default="")
+    catalog_candidates_snapshot = models.JSONField(default=list, blank=True)
+    issued_at = models.DateTimeField(default=timezone.now, db_index=True)
+    lifetime_slot_key = models.CharField(max_length=128, unique=True, null=True, blank=True)
     reviewed_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -1562,6 +1604,176 @@ class IgUgcReward(models.Model):
         indexes = [
             models.Index(fields=["client", "-reviewed_at"], name="ig_ugc_client_dt"),
             models.Index(fields=["assignment", "assignment_version"], name="ig_ugc_assign_ver"),
+            models.Index(fields=["reward_path", "-issued_at"], name="ig_ugc_path_issued"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        reward_path="external_ugc",
+                        order__isnull=True,
+                        assignment__isnull=True,
+                    )
+                    | models.Q(
+                        reward_path="delivered_order",
+                        order__isnull=False,
+                        assignment__isnull=False,
+                    )
+                ),
+                name="ig_ugc_reward_path_refs",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(decision_source="auto", reviewed_by__isnull=True)
+                    | models.Q(decision_source="manager", reviewed_by__isnull=False)
+                ),
+                name="ig_ugc_reward_source_reviewer",
+            ),
+        ]
+
+
+class IgUgcEvidenceAssessment(models.Model):
+    """Durable, provenance-bound UGC assessment with deterministic policy gates."""
+
+    class Decision(models.TextChoices):
+        PENDING = "pending", _("Очікує оцінки")
+        QUALIFIED_AUTO = "qualified_auto", _("Автоматично підтверджено")
+        NEEDS_MANAGER_REVIEW = "needs_manager_review", _("Потрібен менеджер")
+        MANAGER_APPROVED = "manager_approved", _("Підтверджено менеджером")
+        REJECTED = "rejected", _("Відхилено")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.SET_NULL,
+        related_name="ugc_assessments",
+        db_constraint=False,
+        null=True,
+        blank=True,
+    )
+    source_message_id = models.CharField(max_length=255, db_index=True)
+    provider_object_key = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    provider_object_digest = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        unique=True,
+    )
+    provider_media_id = models.CharField(max_length=255, blank=True, default="")
+    provider_event_id = models.CharField(max_length=255, blank=True, default="")
+    target_username = models.CharField(max_length=80, blank=True, default="")
+    evidence_fingerprint = models.CharField(max_length=128, db_index=True)
+    perceptual_fingerprint = models.CharField(max_length=128, blank=True, default="", db_index=True)
+    decision = models.CharField(max_length=24, choices=Decision.choices, default=Decision.PENDING, db_index=True)
+    decision_source = models.CharField(max_length=16, default="policy")
+    policy_version = models.CharField(max_length=32, default="ugc-v1")
+    reason_codes = models.JSONField(default=list, blank=True)
+    catalog_candidates = models.JSONField(default=list, blank=True)
+    confidence = models.DecimalField(max_digits=5, decimal_places=4, default=0)
+    people_count = models.PositiveSmallIntegerField(default=0)
+    garment_count = models.PositiveSmallIntegerField(default=0)
+    reward_owner_client_id = models.PositiveBigIntegerField(null=True, blank=True)
+    generation = models.PositiveBigIntegerField(default=1)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_ig_ugc_assessments",
+        db_constraint=False,
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "source_message_id"],
+                name="ig_ugc_assess_source_once",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["client", "-created_at"], name="ig_ugc_assess_client_dt"),
+            models.Index(fields=["decision", "-created_at"], name="ig_ugc_assess_decision_dt"),
+            models.Index(fields=["provider_object_key", "source_message_id"], name="ig_ugc_assess_provider"),
+        ]
+
+
+class IgUgcRewardLifetime(models.Model):
+    """InnoDB identity slot that serializes all UGC reward paths per client."""
+
+    client = models.OneToOneField(
+        "management.IgClient",
+        on_delete=models.SET_NULL,
+        related_name="ugc_reward_lifetime",
+        db_constraint=False,
+        null=True,
+        blank=True,
+    )
+    identity_digest = models.CharField(max_length=128, unique=True)
+    reward = models.OneToOneField(
+        "management.IgUgcReward",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="lifetime_slot",
+        db_constraint=False,
+    )
+    # Privacy deletion may remove the reward/promo payload while the
+    # irreversible lifetime grant remains represented by this digest.
+    consumed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["client", "reward"], name="ig_ugc_life_client_reward")]
+
+
+class IgUgcRewardDelivery(models.Model):
+    """Receipt-backed outbox for the private UGC code message."""
+
+    class State(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        SENT = "sent", "Sent"
+        WAITING_WINDOW = "waiting_window", "Waiting window"
+        AMBIGUOUS = "ambiguous", "Ambiguous"
+        FAILED = "failed", "Failed"
+
+    reward = models.OneToOneField(
+        "management.IgUgcReward",
+        on_delete=models.PROTECT,
+        related_name="delivery",
+        db_constraint=False,
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.SET_NULL,
+        related_name="ugc_reward_deliveries",
+        db_constraint=False,
+        null=True,
+        blank=True,
+    )
+    message_snapshot = models.TextField()
+    state = models.CharField(max_length=20, choices=State.choices, default=State.PENDING, db_index=True)
+    due_at = models.DateTimeField(default=timezone.now, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    provider_message_ids = models.JSONField(default=list, blank=True)
+    last_error = models.CharField(max_length=500, blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_at", "id"]
+        indexes = [
+            models.Index(fields=["state", "due_at", "id"], name="ig_ugc_delivery_due"),
+            models.Index(fields=["client", "-created_at"], name="ig_ugc_delivery_client"),
         ]
 
 
@@ -2538,6 +2750,7 @@ class _IgLifecycleEventQuerySet(models.QuerySet):
         "attribution_id",
         "locale",
         "payload",
+        "final_text",
     }
 
     def update(self, **kwargs):
@@ -2602,6 +2815,10 @@ class IgLifecycleEvent(models.Model):
     )
     locale = models.CharField(max_length=12, default="uk")
     payload = models.JSONField(default=dict, blank=True)
+    # Optional follow copy is materialized exactly once immediately before
+    # provider I/O. It is deliberately separate from the immutable business
+    # payload so retries cannot rewrite payment evidence or message identity.
+    final_text = models.TextField(blank=True, default="")
     state = models.CharField(
         max_length=24,
         choices=State.choices,
@@ -2670,6 +2887,7 @@ class IgLifecycleEvent(models.Model):
                 "attribution_id",
                 "locale",
                 "payload",
+                "final_text",
             ).first()
             if previous:
                 for field_name in (
@@ -2686,6 +2904,9 @@ class IgLifecycleEvent(models.Model):
                 ):
                     if getattr(self, field_name) != previous[field_name]:
                         raise ValidationError("IgLifecycleEvent identity is immutable")
+                previous_final_text = previous.get("final_text", "")
+                if previous_final_text and self.final_text != previous_final_text:
+                    raise ValidationError("IgLifecycleEvent final_text is immutable")
         # Leave uniqueness enforcement to the database so duplicate event
         # delivery raises IntegrityError and remains transaction-safe.
         self.full_clean(validate_unique=False)
@@ -2793,6 +3014,8 @@ class IgFollowState(models.Model):
     refresh_lease_token = models.CharField(max_length=64, blank=True, default="")
     refresh_lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
     last_cta_touch_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    cta_refused_at = models.DateTimeField(null=True, blank=True)
+    cta_refusal_message_id = models.PositiveBigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -3107,6 +3330,59 @@ class IgFollowCtaDecision(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgFollowCtaDecision is durable")
+
+
+class IgPaymentFollowPreparation(models.Model):
+    """Lease-backed optional-copy preparation for one payment lifecycle event."""
+
+    class State(models.TextChoices):
+        PENDING = "pending", _("Очікує підготовки")
+        WAITING_FOLLOW = "waiting_follow", _("Очікує перевірки підписки")
+        PROCESSING = "processing", _("Готується")
+        PREPARED = "prepared", _("Підготовлено")
+        SUPPRESSED = "suppressed", _("Не додавати CTA")
+        EXPIRED = "expired", _("Час підготовки минув")
+        FAILED = "failed", _("Помилка підготовки")
+
+    lifecycle_event = models.OneToOneField(
+        "management.IgLifecycleEvent",
+        on_delete=models.DO_NOTHING,
+        related_name="follow_preparation",
+        db_constraint=False,
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="payment_follow_preparations",
+        db_constraint=False,
+    )
+    deadline_at = models.DateTimeField(db_index=True)
+    state = models.CharField(
+        max_length=24,
+        choices=State.choices,
+        default=State.PENDING,
+        db_index=True,
+    )
+    attempts = models.PositiveSmallIntegerField(default=0)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error_kind = models.CharField(max_length=32, blank=True, default="")
+    last_error_code = models.CharField(max_length=64, blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["state", "deadline_at", "id"],
+                name="ig_pay_follow_prep_due",
+            ),
+            models.Index(
+                fields=["client", "state"],
+                name="ig_pay_follow_prep_client",
+            ),
+        ]
 
 
 class IgPostSaleCase(models.Model):

@@ -330,6 +330,34 @@ def _checkout_lifecycle_worker(stop_event: threading.Event):
             break
 
 
+def _follow_intelligence_worker(stop_event: threading.Event):
+    """Drain demand-created follow jobs and mandatory UGC delivery fairly."""
+    from management.services.ig_follow_reconcile import (
+        reconcile_follow_intelligence_once,
+    )
+
+    while not stop_event.is_set():
+        worked = False
+        try:
+            close_old_connections()
+            if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                counts = reconcile_follow_intelligence_once(limit=10)
+                worked = bool(
+                    int(counts.get("payment_selected", 0) or 0)
+                    + int(counts.get("follow_selected", 0) or 0)
+                    + int(counts.get("ugc_selected", 0) or 0)
+                )
+        except Exception as exc:
+            try:
+                bot.log("error", "ig_follow_intelligence", repr(exc))
+            except Exception:
+                pass
+        finally:
+            close_old_connections()
+        if stop_event.wait(0.5 if worked else 5):
+            break
+
+
 def _reconcile_commercial_episodes_after_reload():
     """Repair source rows written by old workers during the deploy window."""
     from django.core.management import call_command
@@ -663,6 +691,12 @@ class Command(BaseCommand):
             daemon=True,
         )
         lifecycle_worker.start()
+        follow_intelligence_worker = threading.Thread(
+            target=_follow_intelligence_worker,
+            args=(stop_event,),
+            daemon=True,
+        )
+        follow_intelligence_worker.start()
 
         from django.utils import timezone as tz
 

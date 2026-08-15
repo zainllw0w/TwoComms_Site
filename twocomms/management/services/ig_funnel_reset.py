@@ -10,6 +10,7 @@ from management.models import IgClient, InstagramBotMessage
 from management.ig_bot_models import (
     IgCommercialEpisode,
     IgConversationAnalysisJob,
+    IgFollowCtaDecision,
     IgFunnelResetAudit,
 )
 from management.services.bot_payment_truth import client_has_confirmed_purchase
@@ -154,6 +155,34 @@ def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict
             cancelled_followups = bot_followups.cancel_pending(
                 client, reason="funnel_reset"
             )
+            current_episode_id = client.current_commercial_episode_id
+            cancelled_follow_ctas = 0
+            if current_episode_id:
+                # A reset changes the conversation watermark and therefore
+                # invalidates every unreserved optional CTA from this episode.
+                # Sent/ambiguous rows remain durable history and keep their
+                # lifetime cooldown semantics.
+                cancelled_follow_ctas = IgFollowCtaDecision.objects.filter(
+                    client_id=client.pk,
+                    commercial_episode_id=current_episode_id,
+                    state__in=(
+                        IgFollowCtaDecision.State.WAITING_FOLLOW,
+                        IgFollowCtaDecision.State.PREPARING,
+                        IgFollowCtaDecision.State.PREPARED,
+                        IgFollowCtaDecision.State.RESERVED,
+                    ),
+                ).update(
+                    state=IgFollowCtaDecision.State.CANCELLED,
+                    episode_slot_key=None,
+                    sent_scope_key=None,
+                    lease_token="",
+                    lease_expires_at=None,
+                    completed_at=now,
+                    suppression_reason="funnel_reset",
+                    last_error_kind="",
+                    last_error_code="",
+                    updated_at=now,
+                )
 
             # In-flight high-reasoning work is stale after the boundary. Keep
             # the row for operational accounting, but make it terminal.
@@ -250,4 +279,5 @@ def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict
         "reset_after_message_id": boundary,
         "stage": resulting_stage,
         "cancelled_followups": cancelled_followups,
+        "cancelled_follow_ctas": cancelled_follow_ctas,
     }

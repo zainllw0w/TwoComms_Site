@@ -140,7 +140,7 @@ def _invoice_payload(request, attempt, proposal, *, payment_amount, promo_discou
     if attempt.pay_type == PaymentAttempt.PayType.PREPAYMENT:
         description = (
             f"Передоплата замовлення {attempt.reference} на суму {payment_amount:.2f} грн. "
-            f"Повна погоджена сума: {proposal.quoted_total:.2f} грн."
+            f"Повна сума після знижок: {attempt.payable_amount:.2f} грн."
         )
         basket = [{
             "name": f"Передоплата за замовленням {attempt.reference}"[:128],
@@ -208,11 +208,29 @@ def _validate_payload(proposal, payload, *, user=None):
         if not proposal.allow_promo:
             raise CheckoutPaymentError("promo_unavailable", "Промокод для этого предложения недоступен.", field="promo_code")
         try:
-            reservation = reserve_promo_for_checkout(
-                code=promo_code,
-                user=user,
-                total_amount=proposal.requested_payment_amount,
-            )
+            # Keep the capacity reservation and the negotiated-discount gate
+            # in one savepoint.  This helper is normally called from the
+            # proposal transaction, but retaining the boundary here prevents
+            # a direct/replayed invocation from burning a guest capability
+            # before the stacking policy rejects it.
+            with transaction.atomic():
+                reservation = reserve_promo_for_checkout(
+                    code=promo_code,
+                    user=user,
+                    # A prepayment is only the amount collected now. Promo value
+                    # belongs to the full eligible merchandise total and therefore
+                    # reduces the later balance, not the agreed deposit itself.
+                    total_amount=proposal.quoted_total,
+                )
+                if (
+                    Decimal(str(proposal.negotiated_discount or 0)) > 0
+                    and reservation.promo.is_guest_ugc_capability()
+                ):
+                    raise CheckoutPaymentError(
+                        "promo_unavailable",
+                        "Промокод для этого предложения недоступен.",
+                        field="promo_code",
+                    )
         except PromoReservationError as exc:
             error = "promo_requires_account" if exc.reason == "account_required" else "promo_invalid"
             message = (
@@ -225,9 +243,19 @@ def _validate_payload(proposal, payload, *, user=None):
         promo_discount = reservation.discount
         promo_event_state = reservation.event_state
 
-    payable = max(Decimal(proposal.requested_payment_amount) - promo_discount, Decimal("0.00"))
-    if payable <= 0:
+    order_payable = max(
+        Decimal(proposal.quoted_total) - promo_discount,
+        Decimal("0.00"),
+    )
+    if order_payable <= 0:
         raise CheckoutPaymentError("invalid_amount", "Сумма заказа должна быть больше нуля.")
+    payment_amount = (
+        min(Decimal(proposal.requested_payment_amount), order_payable)
+        if proposal.pay_type == proposal.PayType.PREPAYMENT
+        else order_payable
+    )
+    if payment_amount <= 0:
+        raise CheckoutPaymentError("invalid_amount", "Сумма платежа должна быть больше нуля.")
     return {
         "full_name": full_name,
         "phone": phone,
@@ -237,7 +265,8 @@ def _validate_payload(proposal, payload, *, user=None):
         "promo_code": promo_code,
         "promo_discount": promo_discount,
         "promo_event_state": promo_event_state,
-        "payable": payable,
+        "order_payable": order_payable,
+        "payment_amount": payment_amount,
     }
 
 
@@ -499,8 +528,8 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
         cart_snapshot=_snapshot(locked),
         gross_amount=locked.catalog_total,
         discount_amount=Decimal(locked.negotiated_discount or 0) + values["promo_discount"],
-        payable_amount=values["payable"],
-        payment_amount=values["payable"],
+        payable_amount=values["order_payable"],
+        payment_amount=values["payment_amount"],
         promo_code=values["promo"],
         event_state=values["promo_event_state"],
     )
@@ -598,7 +627,7 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
         request,
         attempt,
         locked,
-        payment_amount=values["payable"],
+        payment_amount=values["payment_amount"],
         promo_discount=values["promo_discount"],
     )
     try:
@@ -990,7 +1019,15 @@ def bind_verified_payment(attempt_id, order):
         dispatch_lifecycle_event,
         ensure_lifecycle_event,
     )
+    from management.services.ig_follow_cta import (
+        payment_follow_preparation_due_at,
+        queue_payment_follow_preparation,
+    )
 
+    payment_follow_due_at = payment_follow_preparation_due_at(
+        proposal.client,
+        now=now,
+    )
     event, _created = ensure_lifecycle_event(
         order,
         IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
@@ -1000,10 +1037,24 @@ def bind_verified_payment(attempt_id, order):
             "amount": str(attempt.paid_amount or attempt.payment_amount),
             "currency": proposal.currency,
         },
+        # The payment confirmation is mandatory and must remain dispatchable
+        # immediately.  Optional follow preparation owns its own bounded
+        # deadline below and can never delay this lifecycle event.
+        due_at=now,
     )
     # The durable event is committed with payment truth; only then may the
     # Instagram adapter call Meta. Replays claim the same event idempotently.
     if event is not None:
+        try:
+            queue_payment_follow_preparation(
+                event.pk,
+                deadline_at=payment_follow_due_at,
+            )
+        except Exception:
+            logger.exception(
+                "Unable to queue optional payment follow preparation for lifecycle event %s",
+                event.pk,
+            )
         transaction.on_commit(
             lambda event_id=event.pk: dispatch_lifecycle_event(event_id)
         )

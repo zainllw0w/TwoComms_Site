@@ -2222,8 +2222,18 @@ def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook
                 attempt.pk, status=status, payload=payload, source=source,
             )
         except PaymentAttemptConversionError as exc:
+            event_state = dict(attempt.event_state or {})
+            if getattr(exc, "retryable", False):
+                marker = str(getattr(exc, "marker", "") or "").strip()
+                if marker:
+                    event_state[marker] = True
             PaymentAttempt.objects.filter(pk=attempt.pk).update(
-                status=PaymentAttempt.Status.FAILED,
+                status=(
+                    PaymentAttempt.Status.PROCESSING
+                    if getattr(exc, "retryable", False)
+                    else PaymentAttempt.Status.FAILED
+                ),
+                event_state=event_state,
                 error_reason=str(exc)[:500],
                 last_status_at=timezone.now(),
             )

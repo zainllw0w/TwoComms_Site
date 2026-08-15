@@ -230,6 +230,51 @@ class IgFollowStateServiceTests(TestCase):
         self.assertEqual(job.status, IgFollowRefreshJob.Status.PENDING)
         self.assertEqual(job.requested_generation, 2)
 
+    def test_expired_lease_cannot_publish_or_update_capability(self):
+        started_at = timezone.now()
+        with patch.dict(
+            "os.environ",
+            {
+                "IG_PROVIDER_TRANSPORT": "instagram_login",
+                "IG_INSTAGRAM_BOT": "expired-lease-token",
+            },
+            clear=False,
+        ):
+            job = ig_follow_state.request_follow_refresh(
+                self.client_record,
+                trigger="payment",
+                now=started_at,
+            )
+            claimed, _settings, lease_token = ig_follow_state._claim_job(
+                job.pk,
+                now=started_at,
+            )
+            self.assertIsNotNone(claimed)
+            result = ig_follow_state._LookupResult(
+                kind="error",
+                error_kind="permission",
+                error_code="200",
+            )
+            outcome = ig_follow_state._publish_lookup(
+                job.pk,
+                lease_token,
+                result,
+                now=started_at + ig_follow_state.REFRESH_LEASE + timedelta(seconds=1),
+            )
+
+        self.assertEqual(outcome, "lease_lost")
+        job.refresh_from_db()
+        self.assertEqual(job.status, IgFollowRefreshJob.Status.PENDING)
+        self.assertEqual(job.lease_token, "")
+        self.assertEqual(
+            IgFollowObservation.objects.filter(client=self.client_record).count(),
+            0,
+        )
+        capability = IgFollowCapabilityState.objects.get(singleton_key=1)
+        self.assertEqual(capability.status, IgFollowCapabilityState.Status.UNKNOWN)
+        state = IgFollowState.objects.get(client=self.client_record)
+        self.assertEqual(state.revision, 0)
+
     def test_permission_failure_opens_global_circuit_for_same_configuration(self):
         first_job = ig_follow_state.request_follow_refresh(self.client_record, trigger="payment")
         second_client = self._client("follow-circuit-second")

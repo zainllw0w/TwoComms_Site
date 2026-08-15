@@ -20,6 +20,7 @@ from storefront.models import (
     Product,
     PromoCode,
     PromoCodeGroup,
+    PromoCodeGuestUsage,
     PromoCodeUsage,
 )
 
@@ -283,6 +284,173 @@ class PromoAtomicityTests(TestCase):
         response = self._post_invoice(provider)
         self.assertEqual(response.status_code, 400)
         provider.assert_not_called()
+
+    def test_guest_usage_write_failure_keeps_paid_attempt_unmaterialized_and_retryable(self):
+        """A paid bearer reservation must not become a discounted Order on ledger failure."""
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        promo = PromoCode.objects.create(
+            code="GUESTUSAGEFAIL",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            max_uses=1,
+            current_uses=1,
+            guest_redeemable=True,
+        )
+        guest_usage = PromoCodeGuestUsage.objects.create(
+            promo_code=promo,
+            reservation_key="guest-usage-failure-key",
+            state=PromoCodeGuestUsage.State.RESERVED,
+        )
+        attempt = PaymentAttempt.objects.create(
+            fingerprint="guest-usage-write-failure",
+            user=None,
+            session_key="guest-usage-session",
+            full_name="Guest Buyer",
+            phone="+380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            cart_snapshot=self.snapshot,
+            gross_amount=Decimal("900.00"),
+            discount_amount=Decimal("90.00"),
+            payable_amount=Decimal("810.00"),
+            payment_amount=Decimal("810.00"),
+            promo_code=promo,
+            event_state={
+                "promo_reservation": {
+                    "promo_id": promo.pk,
+                    "state": "reserved",
+                    "capacity_reserved": True,
+                    "guest_usage_id": guest_usage.pk,
+                }
+            },
+        )
+
+        def reject_guest_usage_write(sender, instance, **kwargs):
+            raise RuntimeError("synthetic guest usage persistence failure")
+
+        dispatch_uid = "test-guest-promo-usage-write-failure"
+        pre_save.connect(
+            reject_guest_usage_write,
+            sender=PromoCodeGuestUsage,
+            weak=False,
+            dispatch_uid=dispatch_uid,
+        )
+        try:
+            order, created = _apply_payment_attempt_status(
+                attempt,
+                "success",
+                payload={"status": "success", "paidAmount": 81000},
+                source="test",
+            )
+        finally:
+            pre_save.disconnect(sender=PromoCodeGuestUsage, dispatch_uid=dispatch_uid)
+
+        self.assertIsNone(order)
+        self.assertFalse(created)
+        self.assertFalse(Order.objects.filter(payment_invoice_id=attempt.monobank_invoice_id).exists())
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PROCESSING)
+        self.assertTrue(
+            (attempt.event_state or {}).get("promo_consumption_pending")
+        )
+        guest_usage.refresh_from_db()
+        self.assertEqual(guest_usage.state, PromoCodeGuestUsage.State.RESERVED)
+        self.assertIsNone(guest_usage.order_id)
+
+        # The durable marker makes a later provider-pull/webhook retry safe;
+        # once the ledger write succeeds, the same paid attempt materializes.
+        order, created = _apply_payment_attempt_status(
+            attempt,
+            "success",
+            payload={"status": "success", "paidAmount": 81000},
+            source="reconciliation",
+        )
+        self.assertTrue(created)
+        self.assertIsNotNone(order)
+        guest_usage.refresh_from_db()
+        self.assertEqual(guest_usage.state, PromoCodeGuestUsage.State.CONSUMED)
+        self.assertEqual(guest_usage.order_id, order.pk)
+        attempt.refresh_from_db()
+        self.assertFalse((attempt.event_state or {}).get("promo_consumption_pending"))
+
+    def test_late_success_after_guest_reservation_release_cannot_consume_reissued_capacity(self):
+        """A stale paid invoice must not steal a newly re-reserved bearer code."""
+        from datetime import timedelta
+        from django.utils import timezone
+        from orders.promo_reservations import (
+            release_payment_attempt_promo,
+            reserve_promo_for_checkout,
+        )
+        from storefront.models import PromoCodeGuestUsage
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        now = timezone.now()
+        promo = PromoCode.objects.create(
+            code="GUESTSTALE01",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            max_uses=1,
+            one_time_per_user=False,
+            guest_redeemable=True,
+            promo_type="regular",
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(days=90),
+            is_active=True,
+        )
+        from storefront.tests.test_ugc_guest_promo import _attach_external_ugc_reward
+
+        _attach_external_ugc_reward(promo, suffix="stale-paid-invoice")
+        first = reserve_promo_for_checkout(
+            code=promo.code, user=None, total_amount=Decimal("900.00")
+        )
+        attempt = PaymentAttempt.objects.create(
+            fingerprint="guest-stale-paid-invoice",
+            user=None,
+            full_name="Guest Buyer",
+            phone="380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.CANCELLED,
+            cart_snapshot=self.snapshot,
+            gross_amount=Decimal("900.00"),
+            discount_amount=Decimal("90.00"),
+            payable_amount=Decimal("810.00"),
+            payment_amount=Decimal("810.00"),
+            promo_code=promo,
+            monobank_invoice_id="guest-stale-invoice",
+            event_state=first.event_state,
+        )
+        self.assertTrue(release_payment_attempt_promo(attempt, reason="expired"))
+
+        # The private code is now legitimately reserved by a different invoice.
+        reserve_promo_for_checkout(
+            code=promo.code, user=None, total_amount=Decimal("900.00")
+        )
+        self.assertEqual(
+            PromoCodeGuestUsage.objects.get(promo_code=promo).state,
+            PromoCodeGuestUsage.State.RESERVED,
+        )
+
+        _apply_payment_attempt_status(
+            attempt,
+            "success",
+            payload={"status": "success", "invoiceId": attempt.monobank_invoice_id},
+            source="provider_pull",
+        )
+
+        attempt.refresh_from_db()
+        promo.refresh_from_db()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.FAILED)
+        self.assertIsNone(attempt.order_id)
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(promo.current_uses, 1)
+        self.assertEqual(
+            PromoCodeGuestUsage.objects.get(promo_code=promo).state,
+            PromoCodeGuestUsage.State.RESERVED,
+        )
 
 
 class PromoEngineMigrationContractTests(TestCase):

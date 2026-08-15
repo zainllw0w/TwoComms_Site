@@ -194,6 +194,17 @@ def _delete_direct_bot_records(identifier: str) -> dict:
         InstagramBotProcessedMessage,
         InstagramBotRawEvent,
     )
+    from .ig_bot_models import (
+        IgFollowCtaDecision,
+        IgFollowObservation,
+        IgFollowRefreshJob,
+        IgFollowState,
+        IgPaymentFollowPreparation,
+        IgUgcEvidenceAssessment,
+        IgUgcReward,
+        IgUgcRewardDelivery,
+        IgUgcRewardLifetime,
+    )
 
     normalized = _normalize_deletion_identifier(identifier)
     result = {
@@ -211,7 +222,7 @@ def _delete_direct_bot_records(identifier: str) -> dict:
 
     with transaction.atomic():
         clients = list(
-            IgClient.objects.filter(
+            IgClient.objects.select_for_update().filter(
                 Q(igsid__iexact=normalized)
                 | Q(username__iexact=normalized)
                 | Q(display_name__iexact=normalized)
@@ -236,6 +247,99 @@ def _delete_direct_bot_records(identifier: str) -> dict:
         ).delete()
         if mids:
             InstagramBotProcessedMessage.objects.filter(mid__in=mids).delete()
+        client_ids = [client.pk for client in clients]
+        if client_ids:
+            # Remove private reward payloads but retain a secret-bound,
+            # irreversible consumed marker. Without it, deleting and later
+            # recreating the same IGSID would mint a second lifetime grant.
+            reward_rows = list(
+                IgUgcReward.objects.filter(client_id__in=client_ids).values(
+                    "pk", "promo_code_id", "client_id", "issued_at", "created_at"
+                )
+            )
+            promo_ids = [row["promo_code_id"] for row in reward_rows if row["promo_code_id"]]
+            # Backfill the stable slot before deleting a legacy reward that
+            # predates the slot migration. This is deliberately fail-closed:
+            # a future recreation of the same IGSID must still see consumed
+            # lifetime truth even when the original client row is gone.
+            if reward_rows:
+                from management.services.ig_ugc_rewards import _lifetime_slot_for_client
+
+                rewards_by_client = {}
+                for reward_row in reward_rows:
+                    rewards_by_client.setdefault(reward_row["client_id"], []).append(reward_row)
+                for client in clients:
+                    rows_for_client = rewards_by_client.get(client.pk, [])
+                    if not rows_for_client:
+                        continue
+                    lifetime = _lifetime_slot_for_client(client)
+                    if lifetime.consumed_at is None:
+                        issued_at = min(
+                            (
+                                row["issued_at"] or row["created_at"]
+                                for row in rows_for_client
+                            ),
+                            default=timezone.now(),
+                        )
+                        lifetime.consumed_at = issued_at
+                        lifetime.save(update_fields=["consumed_at", "updated_at"])
+            IgUgcRewardDelivery.objects.filter(
+                reward_id__in=[row["pk"] for row in reward_rows]
+            ).delete()
+            lifetime_rows = list(
+                IgUgcRewardLifetime.objects.filter(client_id__in=client_ids).values(
+                    "pk", "reward_id", "consumed_at"
+                )
+            )
+            consumed_slot_ids = [
+                row["pk"]
+                for row in lifetime_rows
+                if row["reward_id"] or row["consumed_at"]
+            ]
+            empty_slot_ids = [
+                row["pk"]
+                for row in lifetime_rows
+                if not row["reward_id"] and not row["consumed_at"]
+            ]
+            if consumed_slot_ids:
+                IgUgcRewardLifetime.objects.filter(pk__in=consumed_slot_ids).update(
+                    client=None,
+                    reward=None,
+                    consumed_at=Coalesce("consumed_at", timezone.now()),
+                )
+            if empty_slot_ids:
+                IgUgcRewardLifetime.objects.filter(pk__in=empty_slot_ids).delete()
+            IgUgcReward.objects.filter(pk__in=[row["pk"] for row in reward_rows]).delete()
+            IgUgcEvidenceAssessment.objects.filter(client_id__in=client_ids).delete()
+            if promo_ids:
+                # Keep order/payment audit rows intact, but revoke the private
+                # bearer capability and remove its guest reservation metadata.
+                from storefront.models import PromoCode, PromoCodeGuestUsage
+
+                PromoCodeGuestUsage.objects.filter(promo_code_id__in=promo_ids).delete()
+                PromoCode.objects.filter(pk__in=promo_ids).update(
+                    is_active=False,
+                    guest_redeemable=False,
+                )
+            # Follow observations and CTA decisions are intentionally
+            # append-only/durable in normal operation. Privacy fulfillment is
+            # the audited deletion boundary, so use model table metadata for a
+            # scoped SQL purge instead of weakening those runtime invariants.
+            placeholders = ", ".join(["%s"] * len(client_ids))
+            for model in (IgFollowObservation, IgFollowCtaDecision):
+                table = connection.ops.quote_name(model._meta.db_table)
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"DELETE FROM {table} WHERE client_id IN ({placeholders})",
+                        client_ids,
+                    )
+            IgFollowState.objects.filter(client_id__in=client_ids).delete()
+            IgFollowRefreshJob.objects.filter(client_id__in=client_ids).delete()
+            # Payment lifecycle events are durable business history, but their
+            # optional follow-copy preparation is a client-scoped operational
+            # job.  Its DO_NOTHING relation would otherwise leave an orphaned
+            # client id and deadline after privacy fulfillment.
+            IgPaymentFollowPreparation.objects.filter(client_id__in=client_ids).delete()
         # Attribution rows are append-only and already contain only a
         # non-reversible identity digest; no mutable profile snapshot is kept.
         clients_count = len(clients)
@@ -3667,7 +3771,22 @@ def _commercial_visual_state(c, *, payment_confirmation: dict) -> tuple[str, str
     return "", "", "", ""
 
 
-def _client_card(c) -> dict:
+def _client_follow_payload(c, *, settings_obj=None, now=None) -> dict:
+    from management.services.ig_follow_state import follow_state_payload
+
+    payload = follow_state_payload(
+        c,
+        settings_obj=settings_obj,
+        now=now,
+    )
+    payload["refresh_url"] = reverse(
+        "management_bot_client_follow_refresh_api",
+        args=[c.pk],
+    )
+    return payload
+
+
+def _client_card(c, *, follow_settings=None, follow_now=None) -> dict:
     from .ig_bot_models import IgConversationAnalysisSnapshot, IgPostSaleCase
 
     product = getattr(c, "current_product", None)
@@ -3897,6 +4016,11 @@ def _client_card(c) -> dict:
         "delivery_status_label": c.get_delivery_status_display() if c.delivery_status else "",
         "delivery_error": c.delivery_error,
         "delivery_failed_at": c.delivery_failed_at.isoformat() if c.delivery_failed_at else "",
+        "follow": _client_follow_payload(
+            c,
+            settings_obj=follow_settings,
+            now=follow_now,
+        ),
     }
 
 
@@ -3924,6 +4048,7 @@ def bot_clients_api(request):
     from django.db.models import Q
 
     from .models import IgClient, IgDeal
+    follow_settings = InstagramBotSettings.load()
 
     view = (request.GET.get("view") or "all").strip().lower()
     from django.db.models import Prefetch
@@ -4024,7 +4149,11 @@ def bot_clients_api(request):
     ).exclude(order__tracking_number="")
 
     qs = _with_latest_interaction(annotate_verified_payment(
-        IgClient.objects.select_related("current_product", "current_commercial_episode").prefetch_related(
+        IgClient.objects.select_related(
+            "current_product",
+            "current_commercial_episode",
+            "follow_state_projection",
+        ).prefetch_related(
         Prefetch(
             "analysis_snapshots",
             queryset=IgConversationAnalysisSnapshot.objects.select_related("commercial_episode").exclude(
@@ -4179,7 +4308,11 @@ def bot_clients_api(request):
         if requested_client:
             clients.insert(0, requested_client)
             requested_client_injected = True
-    rows = [_client_card(c) for c in clients]
+    follow_now = timezone.now()
+    rows = [
+        _client_card(c, follow_settings=follow_settings, follow_now=follow_now)
+        for c in clients
+    ]
     return JsonResponse({
         "success": True,
         "clients": rows,
@@ -4196,6 +4329,39 @@ def bot_clients_api(request):
             "has_next": page_obj.has_next(),
         },
     })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_client_follow_refresh_api(request, client_id):
+    """Explicit manager refresh for one stale/unknown follow projection."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    client = IgClient.objects.select_related("follow_state_projection").filter(
+        pk=client_id,
+    ).first()
+    if client is None:
+        return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
+    from management.services.ig_follow_state import (
+        follow_state_payload,
+        refresh_follow_state_if_due,
+    )
+
+    result = refresh_follow_state_if_due(
+        client,
+        trigger="manager_request",
+    )
+    # Re-read the projection after provider publication. This keeps the
+    # response authoritative while the manager UI remains the only caller of
+    # this synchronous endpoint.
+    client = IgClient.objects.select_related("follow_state_projection").get(pk=client.pk)
+    follow = follow_state_payload(client)
+    follow["refresh_url"] = reverse(
+        "management_bot_client_follow_refresh_api",
+        args=[client.pk],
+    )
+    return JsonResponse({"success": True, "result": result, "follow": follow})
 
 
 @login_required(login_url="management_login")
@@ -4299,6 +4465,7 @@ def bot_client_detail_api(request, client_id):
         "current_product",
         "current_commercial_episode",
         "current_commercial_episode__intended_order",
+        "follow_state_projection",
     ).filter(id=client_id).first()
     if not c:
         return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
@@ -4371,6 +4538,7 @@ def bot_client_detail_api(request, client_id):
             "stage": operational_stage,
             "stage_label": operational_stage_label,
             "funnel": _funnel_progress_for_stage(c, operational_stage),
+            "follow": _client_follow_payload(c),
         })
 
     events = [
@@ -4571,8 +4739,17 @@ def bot_client_detail_api(request, client_id):
         attribution_rows,
         limit=20,
     )
-    from .ig_bot_models import IgOrderAssignment, IgOrderAssignmentEvent, IgUgcReward
-    from management.services.ig_ugc_rewards import reward_payload
+    from .ig_bot_models import (
+        IgOrderAssignment,
+        IgOrderAssignmentEvent,
+        IgUgcEvidenceAssessment,
+        IgUgcReward,
+    )
+    from management.services.ig_ugc_rewards import (
+        reward_payload,
+        ugc_reward_eligibility,
+    )
+    from orders.fulfillment_truth import nova_poshta_order_fulfillment_confirmed
 
     assignment_rows = list(
         IgOrderAssignment.objects.filter(
@@ -4602,6 +4779,57 @@ def bot_client_detail_api(request, client_id):
         .select_related("order", "assignment", "promo_code", "reviewed_by")
         .order_by("-reviewed_at", "-id")[:20]
     )
+    ugc_assessment_rows = list(
+        IgUgcEvidenceAssessment.objects.filter(client=c)
+        .select_related("reviewed_by")
+        .order_by("-created_at", "-id")[:20]
+    )
+    reward_eligible, eligibility_reason = ugc_reward_eligibility(
+        c,
+        assignments=assignment_rows,
+    )
+    for assignment_payload, assignment in zip(assignment_payloads, assignment_rows):
+        order_delivered = nova_poshta_order_fulfillment_confirmed(assignment.order)
+        assignment_payload["reward_eligible"] = bool(
+            reward_eligible and order_delivered
+        )
+        assignment_payload["eligibility_reason"] = (
+            eligibility_reason
+            if not reward_eligible
+            else (
+                "delivered_order_eligible"
+                if order_delivered
+                else "order_not_delivered"
+            )
+        )
+    ugc_assessment_payloads = [
+        {
+            "id": row.pk,
+            "source_message_id": row.source_message_id,
+            "provider_object_key": row.provider_object_key,
+            "provider_media_id": row.provider_media_id,
+            "target_username": row.target_username,
+            "decision": row.decision,
+            "decision_source": row.decision_source,
+            "policy_version": row.policy_version,
+            "reason_codes": list(row.reason_codes or [])[:20],
+            "catalog_candidates": list(row.catalog_candidates or [])[:8],
+            "confidence": str(row.confidence),
+            "people_count": row.people_count,
+            "garment_count": row.garment_count,
+            "generation": row.generation,
+            "reviewed_by": (
+                row.reviewed_by.get_full_name() or row.reviewed_by.get_username()
+                if row.reviewed_by else ""
+            ),
+            "created_at": row.created_at.isoformat(),
+            "review_url": reverse(
+                "management_bot_client_ugc_assessment_review_api",
+                args=[c.pk, row.pk],
+            ),
+        }
+        for row in ugc_assessment_rows
+    ]
     manual_order_url = _manual_order_url_for_client(c.pk)
     card = _client_card(c)
     card.update({
@@ -4765,6 +4993,9 @@ def bot_client_detail_api(request, client_id):
         "ugc_rewards": {
             "items": [reward_payload(row) for row in ugc_reward_rows],
             "award_url": reverse("management_bot_client_ugc_reward_api", args=[c.pk]),
+            "assessments": ugc_assessment_payloads,
+            "reward_eligible": reward_eligible,
+            "eligibility_reason": eligibility_reason,
         },
         "post_sale": _post_sale_workspace_payload(c),
         "patterns": {
@@ -4791,6 +5022,7 @@ def bot_client_ugc_reward_api(request, client_id):
         UgcRewardConflict,
         award_ugc_reward,
         reward_payload,
+        ugc_reward_eligibility,
     )
     from orders.models import Order
 
@@ -4817,10 +5049,138 @@ def bot_client_ugc_reward_api(request, client_id):
     except UgcRewardConflict as exc:
         return JsonResponse({"success": False, "error": str(exc)}, status=400)
 
+    reward_eligible, eligibility_reason = ugc_reward_eligibility(client)
     return JsonResponse({
         "success": True,
         "created": created,
         "reward": reward_payload(reward),
+        "reward_eligible": reward_eligible,
+        "eligibility_reason": eligibility_reason,
+    })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_client_ugc_assessment_review_api(request, client_id, assessment_id):
+    """Approve/reject one generation-bound external UGC assessment."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .ig_bot_models import IgUgcEvidenceAssessment
+    from .models import IgClient
+    from management.services.ig_ugc_rewards import (
+        UgcRewardConflict,
+        award_external_ugc_reward,
+        queue_external_ugc_reward_delivery,
+        reward_payload,
+        ugc_reward_eligibility,
+    )
+
+    client = IgClient.objects.filter(pk=client_id).first()
+    if client is None:
+        return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
+    try:
+        expected_generation = int(request.POST.get("generation") or 0)
+    except (TypeError, ValueError):
+        expected_generation = 0
+    decision = str(request.POST.get("decision") or "").strip().lower()
+    note = str(request.POST.get("note") or "").strip()[:1000]
+    try:
+        with transaction.atomic():
+            assessment = (
+                IgUgcEvidenceAssessment.objects.select_for_update()
+                .filter(pk=assessment_id, client_id=client.pk)
+                .first()
+            )
+            if assessment is None:
+                return JsonResponse({"success": False, "error": "Оцінку не знайдено."}, status=404)
+            if expected_generation != assessment.generation:
+                return JsonResponse({"success": False, "error": "Оцінка вже змінилась."}, status=409)
+            # Review decisions are terminal.  An approved assessment may be
+            # replayed idempotently to recover its existing reward/outbox, but
+            # a rejected assessment must never be promoted later.
+            if assessment.decision == IgUgcEvidenceAssessment.Decision.REJECTED:
+                return JsonResponse({
+                    "success": False,
+                    "error": "Оцінка вже відхилена й не може бути змінена.",
+                }, status=409)
+            if (
+                assessment.decision == IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED
+                and decision != "approve"
+            ):
+                return JsonResponse({
+                    "success": False,
+                    "error": "Оцінка вже підтверджена й не може бути змінена.",
+                }, status=409)
+            if decision == "reject":
+                assessment.decision = IgUgcEvidenceAssessment.Decision.REJECTED
+                assessment.decision_source = "manager"
+                assessment.reviewed_by = request.user
+                assessment.reviewed_at = timezone.now()
+                assessment.reason_codes = ["manager_rejected", note[:64]] if note else ["manager_rejected"]
+                assessment.generation += 1
+                assessment.save(update_fields=[
+                    "decision", "decision_source", "reviewed_by", "reviewed_at",
+                    "reason_codes", "generation", "updated_at",
+                ])
+                return JsonResponse({
+                    "success": True,
+                    "decision": assessment.decision,
+                    "generation": assessment.generation,
+                })
+            if decision != "approve":
+                return JsonResponse({"success": False, "error": "Невідоме рішення."}, status=400)
+            if assessment.decision == IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED:
+                # A successful approval is terminal.  Replaying the same
+                # generation recovers the exact existing reward and outbox;
+                # the reward service never mints a second promo.
+                reward, created = award_external_ugc_reward(
+                    client=client,
+                    assessment=assessment,
+                    actor=request.user,
+                    review_note=note,
+                )
+            else:
+                # A manager may resolve uncertainty, but cannot manufacture
+                # provider ownership or a brand target from a plain URL/OCR
+                # claim.  The reward service revalidates the original webhook
+                # and owned media again under lock before issuing the code.
+                if (
+                    not assessment.provider_object_key
+                    or not assessment.evidence_fingerprint
+                    or assessment.target_username.casefold().lstrip("@").strip() != "twocomms"
+                ):
+                    return JsonResponse({"success": False, "error": "Недостатня provider provenance."}, status=400)
+                assessment.decision = IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED
+                assessment.decision_source = "manager"
+                assessment.reviewed_by = request.user
+                assessment.reviewed_at = timezone.now()
+                assessment.generation += 1
+                assessment.save(update_fields=[
+                    "decision", "decision_source", "reviewed_by", "reviewed_at",
+                    "generation", "updated_at",
+                ])
+                reward, created = award_external_ugc_reward(
+                    client=client,
+                    assessment=assessment,
+                    actor=request.user,
+                    review_note=note,
+                )
+            delivery = queue_external_ugc_reward_delivery(reward)
+    except UgcRewardConflict as exc:
+        return JsonResponse({"success": False, "error": str(exc)}, status=400)
+    reward_eligible, eligibility_reason = ugc_reward_eligibility(client)
+    return JsonResponse({
+        "success": True,
+        "created": created,
+        "reward": reward_payload(reward),
+        "reward_eligible": reward_eligible,
+        "eligibility_reason": eligibility_reason,
+        "delivery": {
+            "id": delivery.pk,
+            "state": delivery.state,
+            "message_snapshot": delivery.message_snapshot,
+        },
     })
 
 

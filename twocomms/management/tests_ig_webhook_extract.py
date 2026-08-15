@@ -52,6 +52,246 @@ class ExtractMediaUrlsTests(SimpleTestCase):
     def test_empty_when_no_media(self):
         self.assertEqual(bot._extract_media_urls({"text": "привіт"}), [])
 
+    def test_provider_story_provenance_is_preserved_separately_from_url(self):
+        msg = {
+            "mid": "story-mid",
+            "attachments": [{
+                "type": "story_mention",
+                "id": "story-object-1",
+                "payload": {
+                    "url": "https://cdn/story.jpg",
+                    "media_id": "media-1",
+                    "target": {"username": "twocomms"},
+                },
+            }],
+        }
+
+        media = bot._provider_attachment_metadata(msg)
+
+        self.assertEqual(media[0]["provider_object_key"], "story_mention:story-object-1")
+        self.assertEqual(media[0]["provider_media_id"], "media-1")
+        self.assertEqual(media[0]["target_username"], "twocomms")
+        self.assertTrue(media[0]["provider_native_mention"])
+        self.assertEqual(media[0]["provenance"], "live_webhook")
+
+    def test_story_mention_requires_provider_mid_media_identity_and_explicit_brand_target(self):
+        cases = {
+            "missing_mid": {
+                "attachments": [{
+                    "type": "story_mention",
+                    "id": "story-object-1",
+                    "payload": {
+                        "url": "https://cdn/story.jpg",
+                        "media_id": "media-1",
+                        "target": {"username": "twocomms"},
+                    },
+                }],
+            },
+            "missing_provider_media_identity": {
+                "mid": "story-mid",
+                "attachments": [{
+                    "type": "story_mention",
+                    "id": "arbitrary-object-id",
+                    "payload": {
+                        "url": "https://cdn/story.jpg",
+                        "target": {"username": "twocomms"},
+                    },
+                }],
+            },
+            "arbitrary_payload_object_id": {
+                "mid": "story-mid",
+                "attachments": [{
+                    "type": "story_mention",
+                    "payload": {
+                        "url": "https://cdn/story.jpg",
+                        "id": "arbitrary-object-id",
+                        "target": {"username": "twocomms"},
+                    },
+                }],
+            },
+        }
+
+        for name, msg in cases.items():
+            with self.subTest(name=name):
+                media = bot._provider_attachment_metadata(msg)
+
+                self.assertFalse(media[0]["provider_native_mention"])
+                self.assertEqual(media[0]["target_username"], "")
+
+    def test_story_mention_rejects_wrong_or_missing_target_and_attachment_username(self):
+        base = {
+            "mid": "story-mid",
+            "attachments": [{
+                "type": "story_mention",
+                "id": "story-object-1",
+                "payload": {
+                    "url": "https://cdn/story.jpg",
+                    "media_id": "media-1",
+                },
+            }],
+        }
+        cases = {
+            "missing_target": base,
+            "wrong_target": {
+                **base,
+                "attachments": [{
+                    **base["attachments"][0],
+                    "payload": {
+                        **base["attachments"][0]["payload"],
+                        "target": {"username": "another_brand"},
+                    },
+                }],
+            },
+            "attachment_only_username": {
+                **base,
+                "attachments": [{
+                    **base["attachments"][0],
+                    "username": "twocomms",
+                }],
+            },
+        }
+
+        for name, msg in cases.items():
+            with self.subTest(name=name):
+                media = bot._provider_attachment_metadata(msg)
+
+                self.assertFalse(media[0]["provider_native_mention"])
+                self.assertEqual(media[0]["target_username"], "")
+
+    def test_generic_story_share_and_reply_are_never_native_mentions(self):
+        messages = (
+            {
+                "mid": "story-mid",
+                "attachments": [{
+                    "type": "story",
+                    "id": "story-object-1",
+                    "payload": {
+                        "url": "https://cdn/story.jpg",
+                        "media_id": "media-1",
+                        "target": {"username": "twocomms"},
+                    },
+                }],
+            },
+            {
+                "mid": "share-mid",
+                "attachments": [{
+                    "type": "share",
+                    "id": "shared-object-1",
+                    "payload": {
+                        "url": "https://cdn/shared.jpg",
+                        "media_id": "media-1",
+                        "target": {"username": "twocomms"},
+                    },
+                }],
+            },
+            {
+                "mid": "reply-mid",
+                "reply_to": {
+                    "story": {
+                        "id": "story-object-1",
+                        "media_id": "media-1",
+                        "url": "https://cdn/story.jpg",
+                        "target": {"username": "twocomms"},
+                    }
+                },
+            },
+        )
+
+        for msg in messages:
+            with self.subTest(msg=msg):
+                media = bot._provider_attachment_metadata(msg)
+
+                self.assertFalse(media[0]["provider_native_mention"])
+                self.assertEqual(media[0]["target_username"], "")
+
+    def test_generic_share_fields_cannot_forge_provider_native_brand_mention(self):
+        msg = {
+            "mid": "share-mid",
+            "attachments": [{
+                "type": "share",
+                "id": "shared-object-1",
+                "username": "twocomms",
+                "payload": {
+                    "url": "https://cdn/shared.jpg",
+                    "target": {"username": "twocomms"},
+                },
+            }],
+        }
+
+        media = bot._provider_attachment_metadata(msg)
+
+        self.assertFalse(media[0]["provider_native_mention"])
+        self.assertEqual(media[0]["target_username"], "")
+
+    def test_story_mention_missing_target_cannot_be_inferred_from_event_type(self):
+        msg = {
+            "mid": "story-mid",
+            "attachments": [{
+                "type": "story_mention",
+                "id": "story-object-1",
+                "username": "attacker-controlled-name",
+                "payload": {"url": "https://cdn/story.jpg"},
+            }],
+        }
+
+        media = bot._provider_attachment_metadata(msg)
+
+        self.assertFalse(media[0]["provider_native_mention"])
+        self.assertEqual(media[0]["target_username"], "")
+
+    def test_story_mention_without_provider_event_identity_is_not_native(self):
+        msg = {
+            "attachments": [{
+                "type": "story_mention",
+                "id": "story-object-1",
+                "payload": {"url": "https://cdn/story.jpg"},
+            }],
+        }
+
+        media = bot._provider_attachment_metadata(msg)
+
+        self.assertFalse(media[0]["provider_native_mention"])
+        self.assertEqual(media[0]["target_username"], "")
+
+    def test_normalized_provider_object_key_cannot_forge_native_identity(self):
+        """Only provider fields from the raw attachment may establish identity."""
+        msg = {
+            "mid": "story-mid",
+            "attachments": [{
+                "type": "story_mention",
+                # ``provider_object_key`` is our normalized storage field, not
+                # a Meta attachment field.  It must not be accepted as a
+                # substitute for an object id supplied by the provider.
+                "provider_object_key": "forged-object",
+                "payload": {
+                    "url": "https://cdn/story.jpg",
+                    "media_id": "media-1",
+                    "target": {"username": "twocomms"},
+                },
+            }],
+        }
+
+        media = bot._provider_attachment_metadata(msg)
+
+        self.assertFalse(media[0]["provider_native_mention"])
+        self.assertEqual(media[0]["provider_object_key"], "")
+
+    def test_reply_to_story_is_context_not_provider_native_mention(self):
+        msg = {
+            "mid": "reply-mid",
+            "reply_to": {
+                "story": {
+                    "id": "story-object-1",
+                    "url": "https://cdn/story.jpg",
+                }
+            },
+        }
+
+        media = bot._provider_attachment_metadata(msg)
+
+        self.assertFalse(media[0]["provider_native_mention"])
+        self.assertEqual(media[0]["target_username"], "")
+
 
 class WebhookShapeSafetyTests(SimpleTestCase):
     def test_iter_events_ignores_non_object_envelopes(self):
@@ -111,6 +351,28 @@ class HandleWebhookPayloadTests(TestCase):
         self.assertEqual(n, 1)
         msg = InstagramBotMessage.objects.get(mid="mm1")
         self.assertEqual(json.loads(msg.attachments), ["https://cdn/post.jpg"])
+
+    def test_story_mention_keeps_provider_native_metadata(self):
+        payload = {"entry": [{"messaging": [{
+            "sender": {"id": "ugc-webhook"},
+            "message": {
+                "mid": "ugc-story-mid",
+                "text": "дивіться",
+                "attachments": [{
+                    "type": "story_mention",
+                    "id": "story-object-1",
+                    "payload": {
+                        "url": "https://cdn/story.jpg",
+                        "media_id": "media-1",
+                        "target": {"username": "twocomms"},
+                    },
+                }],
+            },
+        }]}]}
+
+        self.assertEqual(bot.handle_webhook_payload(self.s, payload), 1)
+        row = InstagramBotMessage.objects.get(mid="ugc-story-mid")
+        self.assertEqual(row.attachment_media[0]["provider_object_key"], "story_mention:story-object-1")
 
     def test_enqueues_messages_change_shape(self):
         payload = {"entry": [{"changes": [{

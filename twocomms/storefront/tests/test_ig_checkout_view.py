@@ -1,3 +1,4 @@
+import copy
 import hashlib
 from datetime import timedelta
 from decimal import Decimal
@@ -22,7 +23,14 @@ from management.models import (
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
 from orders.models import Order, PaymentAttempt
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
-from storefront.models import Category, Product, PromoCode, PromoCodeGroup, PromoCodeUsage
+from storefront.models import (
+    Category,
+    Product,
+    PromoCode,
+    PromoCodeGroup,
+    PromoCodeGuestUsage,
+    PromoCodeUsage,
+)
 
 
 class InstagramCheckoutViewTests(TestCase):
@@ -757,6 +765,157 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(response.json()["error"], "promo_requires_account")
         provider.assert_not_called()
 
+    def test_guest_ugc_promo_cannot_stack_with_negotiated_manual_discount(self):
+        from management.ig_bot_models import (
+            IgUgcEvidenceAssessment,
+            IgUgcReward,
+            IgUgcRewardLifetime,
+        )
+        from management.services.ig_checkout_payment import (
+            CheckoutPaymentError,
+            _validate_payload,
+        )
+
+        promo = PromoCode.objects.create(
+            code="IGUGCSTACK",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            max_uses=1,
+            one_time_per_user=False,
+            guest_redeemable=True,
+            valid_from=timezone.now() - timedelta(minutes=1),
+            valid_until=timezone.now() + timedelta(days=90),
+            is_active=True,
+        )
+        assessment = IgUgcEvidenceAssessment.objects.create(
+            client=self.profile,
+            source_message_id="ig-ugc-stack-message",
+            provider_object_key="story:ig-ugc-stack",
+            provider_object_digest="a" * 64,
+            provider_event_id="ig-ugc-stack-event",
+            target_username="twocomms",
+            evidence_fingerprint="ig-ugc-stack-assessment",
+            decision=IgUgcEvidenceAssessment.Decision.QUALIFIED_AUTO,
+            decision_source="auto",
+            policy_version="ugc-v1",
+            reward_owner_client_id=self.profile.pk,
+        )
+        reward = IgUgcReward.objects.create(
+            client=self.profile,
+            evidence_type=IgUgcReward.EvidenceType.STORY_MENTION,
+            evidence_fingerprint="ig-ugc-stack-reward",
+            promo_code=promo,
+            reward_path="external_ugc",
+            decision_source="auto",
+            assessment=assessment,
+            lifetime_slot_key="ig-ugc-stack-slot",
+        )
+        IgUgcRewardLifetime.objects.create(
+            client=self.profile,
+            identity_digest="ig-ugc-stack-lifetime",
+            reward=reward,
+            consumed_at=timezone.now(),
+        )
+
+        payload = self._delivery_payload()
+        payload["promo_code"] = promo.code
+
+        with self.assertRaisesRegex(CheckoutPaymentError, "недоступен") as raised:
+            _validate_payload(self.proposal, payload, user=self.client)
+
+        self.assertEqual(raised.exception.code, "promo_unavailable")
+        promo.refresh_from_db()
+        self.assertEqual(promo.current_uses, 0)
+
+    def test_guest_ugc_promo_ig_checkout_late_success_cannot_steal_reissued_capacity(self):
+        from storefront.tests.test_ugc_guest_promo import _attach_external_ugc_reward
+        from orders.promo_reservations import reserve_promo_for_checkout
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        now = timezone.now()
+        promo = PromoCode.objects.create(
+            code="IGUGCLATE01",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            max_uses=1,
+            one_time_per_user=False,
+            guest_redeemable=True,
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(days=90),
+            is_active=True,
+        )
+        _attach_external_ugc_reward(promo, suffix="ig-late-success")
+        self.proposal.negotiated_discount = Decimal("0.00")
+        self.proposal.quoted_total = Decimal("1900.00")
+        self.proposal.requested_payment_amount = Decimal("1900.00")
+        self.proposal.save(update_fields=[
+            "negotiated_discount", "quoted_total", "requested_payment_amount", "updated_at",
+        ])
+
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["promo_code"] = promo.code
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            return_value={"invoiceId": "ig-ugc-late", "pageUrl": "https://pay.example/ig-ugc-late"},
+        ), patch("orders.facebook_conversions_service.get_facebook_conversions_service") as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        attempt = PaymentAttempt.objects.get(monobank_invoice_id="ig-ugc-late")
+        self.assertIsNone(attempt.user_id)
+        self.assertEqual(attempt.promo_code_id, promo.pk)
+        stale_event_state = copy.deepcopy(attempt.event_state)
+        guest_usage = PromoCodeGuestUsage.objects.get(promo_code=promo)
+        self.assertEqual(guest_usage.state, PromoCodeGuestUsage.State.RESERVED)
+
+        _apply_payment_attempt_status(
+            attempt,
+            "cancelled",
+            payload={
+                "status": "cancelled",
+                "invoiceId": attempt.monobank_invoice_id,
+                "reference": attempt.reference,
+                "ccy": 980,
+            },
+            source="provider_pull",
+        )
+        guest_usage.refresh_from_db()
+        self.assertEqual(guest_usage.state, PromoCodeGuestUsage.State.RELEASED)
+
+        reserve_promo_for_checkout(
+            code=promo.code, user=None, total_amount=Decimal("1900.00")
+        )
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(event_state=stale_event_state)
+        _apply_payment_attempt_status(
+            attempt,
+            "success",
+            payload={
+                "status": "success",
+                "invoiceId": attempt.monobank_invoice_id,
+                "paidAmount": 171000,
+            },
+            source="provider_pull",
+        )
+
+        attempt.refresh_from_db()
+        promo.refresh_from_db()
+        guest_usage.refresh_from_db()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.FAILED)
+        self.assertIsNone(attempt.order_id)
+        self.assertFalse(Order.objects.filter(payment_invoice_id=attempt.monobank_invoice_id).exists())
+        self.assertEqual(promo.current_uses, 1)
+        self.assertEqual(guest_usage.state, PromoCodeGuestUsage.State.RESERVED)
+
     def test_authenticated_payer_uses_account_scoped_promo_only_once(self):
         user = get_user_model().objects.create_user(
             username="ig-promo-buyer",
@@ -962,6 +1121,58 @@ class InstagramCheckoutViewTests(TestCase):
             ).count(),
             2,
         )
+
+    def test_prepayment_promo_uses_full_order_value_without_reducing_agreed_deposit(self):
+        self._attach_catalog_inventory()
+        user = get_user_model().objects.create_user(
+            username="ig-prepay-promo",
+            password="test-password",
+        )
+        promo = PromoCode.objects.create(
+            code="IGPREPAY10",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            one_time_per_user=True,
+        )
+        self.client.force_login(user)
+        self.proposal.pay_type = IgCheckoutProposal.PayType.PREPAYMENT
+        self.proposal.negotiated_discount = Decimal("0.00")
+        self.proposal.quoted_total = Decimal("1900.00")
+        self.proposal.requested_payment_amount = Decimal("600.00")
+        self.proposal.save(update_fields=[
+            "pay_type",
+            "negotiated_discount",
+            "quoted_total",
+            "requested_payment_amount",
+            "updated_at",
+        ])
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["promo_code"] = promo.code
+
+        with patch("storefront.views.monobank._monobank_api_request", return_value={
+            "invoiceId": "ig-prepay-promo", "pageUrl": "https://pay.example/ig-prepay-promo",
+        }), patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as facebook, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            facebook.return_value.send_add_payment_info_event.return_value = True
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        attempt = PaymentAttempt.objects.get(monobank_invoice_id="ig-prepay-promo")
+        self.assertEqual(attempt.gross_amount, Decimal("1900.00"))
+        self.assertEqual(attempt.discount_amount, Decimal("190.00"))
+        self.assertEqual(attempt.payable_amount, Decimal("1710.00"))
+        self.assertEqual(attempt.payment_amount, Decimal("600.00"))
+        self.assertEqual(attempt.invoice_payload["request"]["amount"], 60000)
 
     def test_provider_failure_is_ambiguous_and_does_not_unlock_recipient(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
@@ -1231,12 +1442,18 @@ class InstagramCheckoutViewTests(TestCase):
         )
 
     def test_provider_terminal_truth_projects_cancellation_and_releases_promo_capacity(self):
+        user = get_user_model().objects.create_user(
+            username="ig-terminal-promo-buyer",
+            email="ig-terminal-promo@example.com",
+            password="test-password",
+        )
         promo = PromoCode.objects.create(
             code="IGLAST",
             discount_type="percentage",
             discount_value=Decimal("10.00"),
             max_uses=1,
         )
+        self.client.force_login(user)
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
         entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
         self.client.get(entry["Location"])

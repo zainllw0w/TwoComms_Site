@@ -17,7 +17,8 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
     """Repair persisted truth after a worker/request dies mid-transition.
 
     The function is deliberately bounded and idempotent. Provider pull is
-    attempted only for rows explicitly marked ambiguous by invoice creation.
+    attempted only for rows explicitly marked ambiguous by invoice creation
+    or by a retryable promo-ledger consumption failure.
     """
     limit = max(1, min(int(limit), 500))
     now = timezone.now()
@@ -164,6 +165,9 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                 status=IgCheckoutProposal.Status.PAID,
                 has_payment_event=False,
             )
+            | Q(
+                payment_attempt__event_state__promo_consumption_pending=True,
+            )
             | (
                 Q(
                     payment_attempt__order_id__isnull=False,
@@ -224,12 +228,16 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                     ):
                         result["delivery_events"] += 1
                 continue
+            promo_consumption_pending = bool(
+                (attempt.event_state or {}).get("promo_consumption_pending")
+            )
             if (
                 pull_ambiguous
-                and ambiguous
+                and (ambiguous or promo_consumption_pending)
                 and attempt.monobank_invoice_id
             ):
-                result["ambiguous_checked"] += 1
+                if ambiguous:
+                    result["ambiguous_checked"] += 1
                 from storefront.views.monobank import _apply_payment_attempt_status, _resolve_attempt_invoice_status
 
                 status, payload = _resolve_attempt_invoice_status(attempt, attempt.monobank_invoice_id)

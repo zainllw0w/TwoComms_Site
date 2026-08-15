@@ -19,6 +19,7 @@ from management.models import (
 )
 from management.services import ig_follow_cta
 from management.services.ig_follow_state import FollowStateView, configuration_fingerprint
+from orders.models import Order
 
 
 class FollowCtaPolicyTests(TestCase):
@@ -203,6 +204,176 @@ class FollowCtaPolicyTests(TestCase):
         self.assertFalse(opportunity.allowed)
         self.assertIn("post_sale_risk", opportunity.reason_codes)
 
+    def test_lifecycle_payload_post_sale_risk_is_checked_for_noncanonical_event_kind(self):
+        lifecycle = type(
+            "Lifecycle",
+            (),
+            {"kind": "manager_note", "payload": {"case_type": "return"}},
+        )()
+        self.assertTrue(
+            ig_follow_cta._has_post_sale_risk(
+                self.client,
+                lifecycle_event=lifecycle,
+            )
+        )
+
+    def test_explicit_follow_refusal_is_durable_and_suppresses_only_follow_cta(self):
+        refusal = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Не хочу підписуватись, дякую",
+            status=InstagramBotMessage.Status.DONE,
+            provider_created_at=self.now + timedelta(minutes=2),
+        )
+
+        self.assertTrue(
+            ig_follow_cta.record_follow_refusal_from_inbound(
+                refusal,
+                now=self.now + timedelta(minutes=2),
+            )
+        )
+
+        state = IgFollowState.objects.get(client=self.client)
+        self.assertEqual(state.cta_refusal_message_id, refusal.pk)
+        self.assertEqual(state.cta_refused_at, self.now + timedelta(minutes=2))
+        opportunity = self._opportunity(source_message=refusal)
+        self.assertFalse(opportunity.allowed)
+        self.assertIn("follow_refused", opportunity.reason_codes)
+        self.assertFalse(self.client.bot_paused)
+        self.assertIsNone(self.client.opted_out_at)
+
+    def test_current_turn_complaint_and_competing_reply_actions_outrank_follow(self):
+        self.message.text = "Дякую, але футболка з браком і я хочу повернення"
+        self.message.save(update_fields=["text"])
+        mixed = self._opportunity(
+            IgFollowCtaDecision.Opportunity.POST_DELIVERY,
+            source_message=self.message,
+        )
+        self.assertFalse(mixed.allowed)
+        self.assertIn("current_turn_risk", mixed.reason_codes)
+
+        self.message.text = "Думаю над замовленням"
+        self.message.save(update_fields=["text"])
+        for base_text, reason in (
+            ("Який розмір вам зручніше приміряти?", "existing_question"),
+            ("Передаю діалог менеджеру, він допоможе з деталями.", "manager_handoff"),
+            ("Можу оформити замовлення прямо зараз.", "customer_action"),
+        ):
+            with self.subTest(reason=reason):
+                opportunity = self._opportunity(base_text=base_text)
+                self.assertFalse(opportunity.allowed)
+                self.assertIn(reason, opportunity.reason_codes)
+
+    def test_current_turn_support_and_garment_care_never_receive_follow_cta(self):
+        for text in (
+            "Все супер, але принт потріскався після прання",
+            "Все супер, як прати?",
+        ):
+            with self.subTest(text=text):
+                self.message.text = text
+                self.message.save(update_fields=["text"])
+
+                opportunity = self._opportunity()
+
+                self.assertFalse(opportunity.allowed)
+                self.assertIn("current_turn_risk", opportunity.reason_codes)
+
+    def test_inbound_question_suppresses_follow_cta_when_base_reply_is_declarative(self):
+        self.message.text = "Як прати футболку?"
+        self.message.save(update_fields=["text"])
+
+        opportunity = self._opportunity(base_text="Підкажемо правила догляду за тканиною.")
+
+        self.assertFalse(opportunity.allowed)
+        self.assertIn("inbound_question", opportunity.reason_codes)
+
+    def test_post_delivery_requires_carrier_collection_and_later_specific_positive_inbound(self):
+        self.client.stage = IgClient.Stage.DONE
+        self.client.save(update_fields=["stage", "updated_at"])
+        self.message.text = "Дякую, все супер, футболка сподобалась"
+        self.message.provider_created_at = self.now + timedelta(minutes=2)
+        self.message.save(update_fields=["text", "provider_created_at"])
+
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=self.fresh_not_following,
+        ):
+            self.assertIsNone(
+                ig_follow_cta.live_follow_opportunity(
+                    client=self.client,
+                    source_message=self.message,
+                    now=self.now + timedelta(minutes=3),
+                )
+            )
+
+        delivered_at = self.now + timedelta(minutes=1)
+        order = Order.objects.create(
+            full_name="Іван Іванов",
+            phone="+380501112233",
+            email="follow@example.com",
+            city="Київ",
+            np_office="Відділення 1",
+            pay_type="online_full",
+            payment_status="paid",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20400000000000",
+            tracking_status_code=9,
+            tracking_provider_event_at=delivered_at,
+            tracking_terminal_at=delivered_at,
+        )
+        self.episode.intended_order = order
+        self.episode.save(update_fields=["intended_order", "updated_at"])
+        self.client.current_commercial_episode = self.episode
+
+        self.message.text = "Дякую"
+        self.message.save(update_fields=["text"])
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=self.fresh_not_following,
+        ):
+            self.assertIsNone(
+                ig_follow_cta.live_follow_opportunity(
+                    client=self.client,
+                    source_message=self.message,
+                    now=self.now + timedelta(minutes=3),
+                )
+            )
+
+        self.message.text = "Дякую, все супер, футболка сподобалась"
+        self.message.provider_created_at = delivered_at - timedelta(seconds=1)
+        self.message.save(update_fields=["text", "provider_created_at"])
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=self.fresh_not_following,
+        ):
+            self.assertIsNone(
+                ig_follow_cta.live_follow_opportunity(
+                    client=self.client,
+                    source_message=self.message,
+                    now=self.now + timedelta(minutes=3),
+                )
+            )
+
+        self.message.provider_created_at = delivered_at + timedelta(seconds=1)
+        self.message.save(update_fields=["provider_created_at"])
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=self.fresh_not_following,
+        ):
+            allowed = ig_follow_cta.live_follow_opportunity(
+                client=self.client,
+                source_message=self.message,
+                now=self.now + timedelta(minutes=3),
+            )
+        self.assertIsNotNone(allowed)
+        self.assertTrue(allowed.allowed)
+        self.assertEqual(
+            allowed.opportunity,
+            IgFollowCtaDecision.Opportunity.POST_DELIVERY,
+        )
+
     def test_candidate_validator_is_conservative_and_combined_text_is_one_chunk(self):
         opportunity = self._opportunity(base_text="Оплату отримали, дякуємо.")
         bad = (
@@ -224,6 +395,84 @@ class FollowCtaPolicyTests(TestCase):
         self.assertEqual(decision.model_key_alias, "alias-a")
         self.assertEqual(decision.prompt_version, "p1")
         self.assertEqual(len(ig_follow_cta._split_for_send(decision.base_text + " " + good)), 1)
+
+    def test_candidate_uses_current_inbound_language_not_stale_client_profile(self):
+        self.client.language = "ru"
+        self.client.save(update_fields=["language", "updated_at"])
+        self.message.text = "Мені дуже подобається ваш підхід до речей"
+        self.message.save(update_fields=["text"])
+        opportunity = self._opportunity(base_text="Дякуємо за теплі слова.")
+
+        decision = ig_follow_cta.prepare_follow_decision(
+            opportunity,
+            candidate_text="Если вам близок наш подход, будем рады видеть вас среди подписчиков.",
+        )
+
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SUPPRESSED)
+        self.assertIn("candidate_language", decision.reason_codes)
+
+    def test_imperative_or_question_follow_candidate_is_rejected(self):
+        opportunity = self._opportunity(base_text="Оплату отримали, дякуємо.")
+        for suffix, candidate in (
+            ("imperative", "Підпишіться на TwoComms, будемо раді вам."),
+            ("question", "Хотіли б підписатися на TwoComms і бачити новинки?"),
+        ):
+            with self.subTest(candidate=candidate):
+                decision = ig_follow_cta.prepare_follow_decision(
+                    replace(opportunity, trigger_key=f"{opportunity.trigger_key}:{suffix}"),
+                    candidate_text=candidate,
+                )
+
+                self.assertEqual(decision.state, IgFollowCtaDecision.State.SUPPRESSED)
+                self.assertIn("invalid_candidate", decision.reason_codes)
+
+    def test_prior_sent_or_ambiguous_cta_copy_cannot_be_reused(self):
+        candidate = "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників."
+        opportunity = self._opportunity(base_text="Оплату отримали, дякуємо.")
+        for suffix, state in (
+            ("sent", IgFollowCtaDecision.State.SENT),
+            ("ambiguous", IgFollowCtaDecision.State.AMBIGUOUS),
+        ):
+            with self.subTest(state=state):
+                first = ig_follow_cta.prepare_follow_decision(
+                    replace(opportunity, trigger_key=f"{opportunity.trigger_key}:{suffix}:first"),
+                    candidate_text=candidate,
+                )
+                first.state = state
+                first.completed_at = self.now
+                first.save(update_fields=["state", "completed_at", "updated_at"])
+
+                repeated = ig_follow_cta.prepare_follow_decision(
+                    replace(opportunity, trigger_key=f"{opportunity.trigger_key}:{suffix}:repeat"),
+                    candidate_text=candidate,
+                )
+
+                self.assertEqual(repeated.state, IgFollowCtaDecision.State.SUPPRESSED)
+                self.assertIn("candidate_similarity_history", repeated.reason_codes)
+
+    def test_invalid_model_candidate_stays_suppressed_and_cannot_consume_slot(self):
+        opportunity = self._opportunity(base_text="Оплату отримали, дякуємо.")
+        decision = ig_follow_cta.prepare_follow_decision(
+            opportunity,
+            candidate_text="Підпишіться: https://twocomms.shop і отримайте знижку!",
+        )
+
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SUPPRESSED)
+        self.assertIsNone(
+            ig_follow_cta.authorize_follow_cta(
+                decision.pk,
+                current_base_text=decision.base_text,
+                now=self.now,
+            )
+        )
+        ig_follow_cta.finalize_follow_delivery(
+            decision.pk,
+            outcome="cancelled_before_io",
+            now=self.now,
+        )
+        decision.refresh_from_db()
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SUPPRESSED)
+        self.assertIsNone(decision.episode_slot_key)
 
     def test_prepare_snapshots_immutable_context_and_authorize_reserves(self):
         opportunity = self._opportunity()
@@ -304,7 +553,10 @@ class FollowCtaPolicyTests(TestCase):
         self.assertIn("cooldown", blocked.reason_codes)
 
     def test_annual_cap_is_two_sent_or_ambiguous_and_episode_slot_is_unique(self):
-        good = "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників."
+        candidates = (
+            "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників.",
+            "Можливо, вам буде цікаво залишатися поруч із TwoComms та стежити за новими історіями бренду.",
+        )
         for index in (1, 2):
             episode = self.episode if index == 1 else IgCommercialEpisode.objects.create(
                 client=self.client,
@@ -333,7 +585,7 @@ class FollowCtaPolicyTests(TestCase):
                     now=current_now,
                 )
             decision = ig_follow_cta.prepare_follow_decision(
-                replace(opp, trigger_key=f"annual:{index}"), candidate_text=good
+                replace(opp, trigger_key=f"annual:{index}"), candidate_text=candidates[index - 1]
             )
             authorized = ig_follow_cta.authorize_follow_cta(
                 decision.pk, current_base_text=decision.base_text, now=current_now
@@ -395,6 +647,57 @@ class FollowCtaPolicyTests(TestCase):
         decision.refresh_from_db()
         self.assertEqual(decision.state, IgFollowCtaDecision.State.AMBIGUOUS)
         self.assertIsNotNone(decision.episode_slot_key)
+
+    def test_expired_reservation_before_provider_io_releases_episode_slot(self):
+        good = "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників."
+        decision = ig_follow_cta.prepare_follow_decision(
+            replace(self._opportunity(), trigger_key="expired-before-io"),
+            candidate_text=good,
+        )
+        self.assertIsNotNone(
+            ig_follow_cta.authorize_follow_cta(
+                decision.pk,
+                current_base_text=decision.base_text,
+                now=self.now,
+            )
+        )
+        IgFollowCtaDecision.objects.filter(pk=decision.pk).update(
+            lease_expires_at=self.now - timedelta(seconds=1),
+        )
+
+        counts = ig_follow_cta.reconcile_expired_follow_reservations(now=self.now)
+
+        decision.refresh_from_db()
+        self.assertEqual(counts, {"cancelled": 1, "ambiguous": 0})
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.CANCELLED)
+        self.assertIsNone(decision.episode_slot_key)
+        self.assertIsNone(decision.sent_scope_key)
+
+    def test_expired_reservation_after_provider_io_consumes_cooldown(self):
+        good = "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників."
+        decision = ig_follow_cta.prepare_follow_decision(
+            replace(self._opportunity(), trigger_key="expired-after-io"),
+            candidate_text=good,
+        )
+        self.assertIsNotNone(
+            ig_follow_cta.authorize_follow_cta(
+                decision.pk,
+                current_base_text=decision.base_text,
+                now=self.now,
+            )
+        )
+        IgFollowCtaDecision.objects.filter(pk=decision.pk).update(
+            provider_io_started_at=self.now - timedelta(seconds=2),
+            lease_expires_at=self.now - timedelta(seconds=1),
+        )
+
+        counts = ig_follow_cta.reconcile_expired_follow_reservations(now=self.now)
+
+        decision.refresh_from_db()
+        self.assertEqual(counts, {"cancelled": 0, "ambiguous": 1})
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.AMBIGUOUS)
+        self.assertIsNotNone(decision.episode_slot_key)
+        self.assertIsNotNone(decision.completed_at)
 
 
 class FollowCtaMariaDBHarnessTests(TransactionTestCase):

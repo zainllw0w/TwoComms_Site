@@ -210,6 +210,232 @@ class InstagramLifecycleTests(TestCase):
         self.assertIn("Іван Іванов", original)
         self.assertNotIn("Змінений Одержувач", _message(event))
 
+    def test_verified_payment_dispatches_immediately_and_queues_follow_preparation_without_network_io(self):
+        """Optional follow preparation must never delay mandatory payment delivery."""
+        from management.models import (
+            IgFollowState,
+            IgPaymentFollowPreparation,
+        )
+        from management.services.ig_checkout_payment import bind_verified_payment
+        from management.services.ig_follow_state import FollowStateView
+
+        now = timezone.now()
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=4,
+            observed_at=now,
+            expires_at=now + timedelta(hours=1),
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        follow_view = FollowStateView(
+            state=IgFollowState.State.NOT_FOLLOWING,
+            last_known_state=IgFollowState.State.NOT_FOLLOWING,
+            fresh=True,
+            stale=False,
+            revision=4,
+            observed_at=now,
+            first_observed_following_at=None,
+            source="instagram_login",
+            last_result=IgFollowState.CheckResult.KNOWN,
+            error_kind="",
+            next_retry_at=None,
+        )
+
+        with (
+            patch(
+                "management.services.ig_follow_cta.effective_follow_state",
+                return_value=follow_view,
+            ),
+            patch("management.services.ig_lifecycle.dispatch_lifecycle_event") as dispatch,
+            patch("management.services.instagram_bot._provider_http") as provider_http,
+            patch("management.services.call_ai_analysis.gemini_generate_json") as gemini,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            event = bind_verified_payment(self.attempt.pk, self.order)
+
+        preparation = IgPaymentFollowPreparation.objects.get(lifecycle_event=event)
+        self.assertEqual(
+            preparation.state,
+            IgPaymentFollowPreparation.State.PENDING,
+        )
+        self.assertGreater(preparation.deadline_at, event.due_at)
+        self.assertLessEqual(event.due_at, timezone.now())
+        self.assertGreater(preparation.deadline_at, now)
+        dispatch.assert_called_once_with(event.pk)
+        provider_http.assert_not_called()
+        gemini.assert_not_called()
+
+    def test_reconciler_prepares_payment_follow_copy_without_meta_io(self):
+        """A fresh payment opportunity is prepared asynchronously before dispatch."""
+        from management.models import (
+            IgFollowCtaDecision,
+            IgFollowState,
+            IgPaymentFollowPreparation,
+        )
+        from management.services.ig_checkout_payment import bind_verified_payment
+        from management.services.ig_follow_reconcile import (
+            reconcile_follow_intelligence_once,
+        )
+        from management.services.ig_follow_state import FollowStateView
+
+        now = timezone.now()
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=5,
+            observed_at=now,
+            expires_at=now + timedelta(hours=1),
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        follow_view = FollowStateView(
+            state=IgFollowState.State.NOT_FOLLOWING,
+            last_known_state=IgFollowState.State.NOT_FOLLOWING,
+            fresh=True,
+            stale=False,
+            revision=5,
+            observed_at=now,
+            first_observed_following_at=None,
+            source="instagram_login",
+            last_result=IgFollowState.CheckResult.KNOWN,
+            error_kind="",
+            next_retry_at=None,
+        )
+
+        with (
+            patch(
+                "management.services.ig_follow_cta.effective_follow_state",
+                return_value=follow_view,
+            ),
+            patch("management.services.ig_lifecycle.dispatch_lifecycle_event"),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            event = bind_verified_payment(self.attempt.pk, self.order)
+
+        with (
+            patch(
+                "management.services.call_ai_analysis.gemini_generate_json",
+                return_value={
+                    "parsed": {
+                        "include": True,
+                        "text": (
+                            "Якщо вам близький наш підхід, будемо раді бачити вас "
+                            "серед підписників."
+                        ),
+                    },
+                    "model": "gemini-test",
+                    "meta": {"key": "test-key", "reasoning_policy_version": "test-v1"},
+                },
+            ) as generate,
+            patch("management.services.instagram_bot._provider_http") as provider_http,
+            patch(
+                "management.services.ig_follow_cta.effective_follow_state",
+                return_value=follow_view,
+            ),
+        ):
+            # Reconciliation runs after the payment event has been persisted;
+            # use a fresh clock reading so ``event.due_at=bind_now`` cannot be
+            # mistaken for a future preparation deadline.
+            fresh_now = timezone.now()
+            counts = reconcile_follow_intelligence_once(limit=10, now=fresh_now)
+
+        preparation = IgPaymentFollowPreparation.objects.get(lifecycle_event=event)
+        decision = IgFollowCtaDecision.objects.get(lifecycle_event=event)
+        self.assertEqual(counts["payment_prepared"], 1)
+        self.assertEqual(preparation.state, IgPaymentFollowPreparation.State.PREPARED)
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.PREPARED)
+        self.assertEqual(decision.model, "gemini-test")
+        generate.assert_called_once()
+        self.assertEqual(
+            generate.call_args.kwargs["reasoning_task"],
+            "follow_cta_copy",
+        )
+        provider_http.assert_not_called()
+
+    def test_reconciler_expires_stale_payment_follow_preparation_without_io(self):
+        """Expired optional work cannot delay or alter the payment confirmation."""
+        from management.models import (
+            IgFollowCtaDecision,
+            IgPaymentFollowPreparation,
+        )
+        from management.services.ig_follow_reconcile import (
+            reconcile_follow_intelligence_once,
+        )
+        from management.services.ig_lifecycle import materialize_lifecycle_follow_text
+
+        now = timezone.now()
+        event = self._event()
+        original_text = _message(event)
+        event.due_at = now + timedelta(seconds=30)
+        event.save(update_fields=["due_at", "updated_at"])
+        preparation = IgPaymentFollowPreparation.objects.create(
+            lifecycle_event=event,
+            client=self.client,
+            deadline_at=now - timedelta(milliseconds=1),
+        )
+
+        with (
+            patch("management.services.call_ai_analysis.gemini_generate_json") as gemini,
+            patch("management.services.instagram_bot._provider_http") as provider_http,
+        ):
+            counts = reconcile_follow_intelligence_once(limit=10, now=now)
+
+        preparation.refresh_from_db()
+        event.refresh_from_db()
+        self.assertEqual(counts["payment_expired"], 1)
+        self.assertEqual(preparation.state, IgPaymentFollowPreparation.State.EXPIRED)
+        self.assertFalse(
+            IgFollowCtaDecision.objects.filter(lifecycle_event=event).exists()
+        )
+        self.assertEqual(materialize_lifecycle_follow_text(event), original_text)
+        self.assertEqual(event.final_text, "")
+        gemini.assert_not_called()
+        provider_http.assert_not_called()
+
+    def test_gemini_failure_keeps_original_payment_text_without_meta_io(self):
+        """Optional model failure is terminal and leaves mandatory delivery untouched."""
+        from management.models import (
+            IgFollowCtaDecision,
+            IgPaymentFollowPreparation,
+        )
+        from management.services.ig_follow_reconcile import (
+            reconcile_follow_intelligence_once,
+        )
+        from management.services.ig_lifecycle import materialize_lifecycle_follow_text
+
+        now = timezone.now()
+        event = self._event()
+        original_text = _message(event)
+        event.due_at = now + timedelta(seconds=30)
+        event.save(update_fields=["due_at", "updated_at"])
+        preparation = IgPaymentFollowPreparation.objects.create(
+            lifecycle_event=event,
+            client=self.client,
+            deadline_at=event.due_at,
+        )
+
+        with (
+            patch(
+                "management.services.call_ai_analysis.gemini_generate_json",
+                side_effect=TimeoutError("model timeout"),
+            ) as gemini,
+            patch("management.services.instagram_bot._provider_http") as provider_http,
+        ):
+            counts = reconcile_follow_intelligence_once(limit=10, now=now)
+
+        preparation.refresh_from_db()
+        event.refresh_from_db()
+        self.assertEqual(counts["payment_failed"], 1)
+        self.assertEqual(preparation.state, IgPaymentFollowPreparation.State.FAILED)
+        self.assertEqual(preparation.last_error_kind, "gemini")
+        self.assertFalse(
+            IgFollowCtaDecision.objects.filter(lifecycle_event=event).exists()
+        )
+        self.assertEqual(materialize_lifecycle_follow_text(event), original_text)
+        self.assertEqual(event.final_text, "")
+        gemini.assert_called_once()
+        provider_http.assert_not_called()
+
     @patch(
         "management.services.instagram_bot.send_text",
         return_value=(True, "", "", "meta-wrong-recipient"),
@@ -2652,3 +2878,139 @@ class InstagramLifecycleTests(TestCase):
         )
         self.assertIsNotNone(lifecycle_message.send_started_at)
         self.assertEqual(event.provider_message_id, "mid-provider-boundary")
+
+    def test_payment_dispatch_uses_prepared_follow_snapshot_and_finalizes_decision(self):
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_follow_cta import (
+            evaluate_follow_opportunity,
+            prepare_follow_decision,
+        )
+        from management.services.ig_follow_state import FollowStateView
+
+        event = self._event()
+        original_payload = dict(event.payload)
+        now = timezone.now()
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=7,
+            observed_at=now,
+            expires_at=now + timedelta(hours=1),
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        follow_view = FollowStateView(
+            state=IgFollowState.State.NOT_FOLLOWING,
+            last_known_state=IgFollowState.State.NOT_FOLLOWING,
+            fresh=True,
+            stale=False,
+            revision=7,
+            observed_at=now,
+            first_observed_following_at=None,
+            source="instagram_login",
+            last_result=IgFollowState.CheckResult.KNOWN,
+            error_kind="",
+            next_retry_at=None,
+        )
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=follow_view,
+        ):
+            opportunity = evaluate_follow_opportunity(
+                client=self.client,
+                opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+                episode=event.commercial_episode,
+                order=event.order,
+                lifecycle_event=event,
+                base_text=_message(event),
+                now=now,
+            )
+            decision = prepare_follow_decision(
+                opportunity,
+                candidate_text=(
+                    "Якщо вам близький наш підхід, будемо раді бачити вас "
+                    "серед підписників."
+                ),
+            )
+
+            sent_texts = []
+
+            def send_with_receipt(_settings, _igsid, text, **kwargs):
+                sent_texts.append(text)
+                self.assertTrue(kwargs["provider_io_started_callback"]())
+                return type(
+                    "Receipt",
+                    (),
+                    {
+                        "ok": True,
+                        "kind": "",
+                        "hint": "",
+                        "provider_message_id": "mid-follow-payment",
+                        "provider_message_ids": ("mid-follow-payment",),
+                        "planned_chunk_count": 1,
+                        "delivered_chunk_count": 1,
+                        "failure_boundary": "",
+                    },
+                )()
+
+            with patch(
+                "management.services.instagram_bot.send_text",
+                side_effect=send_with_receipt,
+            ):
+                state = dispatch_lifecycle_event(event.pk)
+
+        self.assertEqual(state, IgLifecycleEvent.State.SENT)
+        self.assertEqual(len(sent_texts), 1)
+        self.assertIn("серед підписників", sent_texts[0])
+        event.refresh_from_db()
+        decision.refresh_from_db()
+        self.assertEqual(event.payload, original_payload)
+        self.assertEqual(event.final_text, sent_texts[0])
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SENT)
+        self.assertEqual(decision.provider_message_ids, ["mid-follow-payment"])
+
+    def test_payment_follow_preparation_accepts_model_copy_without_network_io(self):
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_follow_cta import prepare_payment_follow_snapshot
+        from management.services.ig_follow_state import FollowStateView
+
+        event = self._event()
+        now = timezone.now()
+        view = FollowStateView(
+            state=IgFollowState.State.NOT_FOLLOWING,
+            last_known_state=IgFollowState.State.NOT_FOLLOWING,
+            fresh=True,
+            stale=False,
+            revision=9,
+            observed_at=now,
+            first_observed_following_at=None,
+            source="instagram_login",
+            last_result=IgFollowState.CheckResult.KNOWN,
+            error_kind="",
+            next_retry_at=None,
+        )
+        with (
+            patch(
+                "management.services.ig_follow_cta.effective_follow_state",
+                return_value=view,
+            ),
+            patch("management.services.instagram_bot._provider_http") as provider_http,
+            patch("management.services.call_ai_analysis.gemini_generate_json") as gemini,
+        ):
+            decision = prepare_payment_follow_snapshot(
+                event.pk,
+                candidate_text=(
+                    "Якщо вам близький наш підхід, будемо раді бачити вас "
+                    "серед підписників."
+                ),
+                model_meta={"model": "gemini-test", "prompt_version": "follow-copy-v1"},
+                now=now,
+            )
+
+        self.assertIsNotNone(decision)
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.PREPARED)
+        self.assertEqual(decision.lifecycle_event_id, event.pk)
+        self.assertEqual(decision.follow_state_revision, 9)
+        self.assertIn("підписників", decision.candidate_text)
+        self.assertEqual(decision.model, "gemini-test")
+        provider_http.assert_not_called()
+        gemini.assert_not_called()

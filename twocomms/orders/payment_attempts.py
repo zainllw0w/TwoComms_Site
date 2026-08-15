@@ -12,7 +12,10 @@ from storefront.models import CustomPrintLead, Product
 
 
 class PaymentAttemptConversionError(Exception):
-    pass
+    def __init__(self, message, *, retryable=False, marker=""):
+        super().__init__(message)
+        self.retryable = bool(retryable)
+        self.marker = str(marker or "")[:64]
 
 
 def _paid_amount_from_payload(attempt, payload):
@@ -168,7 +171,32 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
         if attempt.promo_code_id:
             from orders.promo_reservations import consume_payment_attempt_promo
 
-            consume_payment_attempt_promo(attempt, order=order)
+            promo_consumed = consume_payment_attempt_promo(attempt, order=order)
+            reservation = dict((attempt.event_state or {}).get("promo_reservation") or {})
+            anonymous_bearer_reservation = (
+                attempt.user_id is None
+                and reservation.get("state") == "reserved"
+                and reservation.get("guest_usage_id")
+                and not reservation.get("guest_reservation_mismatch")
+            )
+            if not promo_consumed and attempt.user_id is None:
+                # The provider payment is trusted, but an anonymous bearer
+                # reservation must still match this exact invoice.  Roll the
+                # Order and conversion marker back as one unit; only an active
+                # reservation with a valid guest ledger row is retryable.
+                raise PaymentAttemptConversionError(
+                    (
+                        "promo_usage_persistence_pending"
+                        if anonymous_bearer_reservation
+                        else "promo_reservation_invalid"
+                    ),
+                    retryable=bool(anonymous_bearer_reservation),
+                    marker=(
+                        "promo_consumption_pending"
+                        if anonymous_bearer_reservation
+                        else ""
+                    ),
+                )
 
         attempt.status = (
             PaymentAttempt.Status.PREPAID

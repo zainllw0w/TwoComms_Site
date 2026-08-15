@@ -18,6 +18,7 @@ REFRESH_LEASE = timedelta(minutes=2)
 PERMISSION_CIRCUIT = timedelta(hours=24)
 RATE_LIMIT_CIRCUIT = timedelta(minutes=15)
 MAX_TRIGGER_HISTORY = 8
+_PROJECTION_UNSET = object()
 
 
 @dataclass(frozen=True)
@@ -64,13 +65,25 @@ def configuration_fingerprint(settings_obj) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
-def effective_follow_state(client, *, now=None, settings_obj=None) -> FollowStateView:
+def effective_follow_state(
+    client,
+    *,
+    now=None,
+    settings_obj=None,
+    projection=_PROJECTION_UNSET,
+) -> FollowStateView:
     """Return policy-effective state while retaining last-known UI evidence."""
     from management.models import IgFollowState, InstagramBotSettings
 
     now = now or timezone.now()
     settings_obj = settings_obj or InstagramBotSettings.load()
-    projection = IgFollowState.objects.filter(client_id=client.pk).first()
+    if projection is _PROJECTION_UNSET:
+        # A queryset using ``select_related('follow_state_projection')`` puts
+        # the one-to-one row in Django's field cache. Reuse it for manager
+        # lists so follow serialization remains one bounded SQL query.
+        projection = client._state.fields_cache.get("follow_state_projection", _PROJECTION_UNSET)
+        if projection is _PROJECTION_UNSET:
+            projection = IgFollowState.objects.filter(client_id=client.pk).first()
     if projection is None:
         return FollowStateView(
             state=IgFollowState.State.UNKNOWN,
@@ -113,6 +126,70 @@ def effective_follow_state(client, *, now=None, settings_obj=None) -> FollowStat
         # suppress a fresh demand under the new capability fingerprint.
         next_retry_at=(projection.next_retry_at if fingerprint_matches else None),
     )
+
+
+def follow_state_payload(
+    client,
+    *,
+    now=None,
+    settings_obj=None,
+    projection=_PROJECTION_UNSET,
+) -> dict:
+    """Serialize policy-effective state for manager UI/API consumers.
+
+    The effective ``state`` is intentionally independent from the retained
+    last observation: expired, failed, or configuration-stale evidence is
+    always exposed as ``unknown`` so the UI cannot imply a negative follow.
+    """
+    from management.models import IgFollowState
+
+    now = now or timezone.now()
+    view = effective_follow_state(
+        client,
+        now=now,
+        settings_obj=settings_obj,
+        projection=projection,
+    )
+    state_labels = {
+        IgFollowState.State.FOLLOWING: "Підписаний",
+        IgFollowState.State.NOT_FOLLOWING: "Не підписаний",
+        IgFollowState.State.UNKNOWN: "Невідомо",
+    }
+    last_label = state_labels.get(view.last_known_state, state_labels[IgFollowState.State.UNKNOWN])
+    if view.fresh:
+        label = state_labels.get(view.state, state_labels[IgFollowState.State.UNKNOWN])
+        aria_label = f"{label} на @twocomms"
+    elif view.stale:
+        aria_label = f"Статус підписки застарів; останнє відоме: {last_label.lower()}"
+    else:
+        aria_label = "Статус підписки невідомий; перевірка ще не виконувалась"
+    if view.source:
+        aria_label += f"; джерело: {view.source}"
+    if view.error_kind:
+        aria_label += f"; остання перевірка: {view.error_kind}"
+    if view.next_retry_at:
+        aria_label += "; повторна перевірка запланована"
+    return {
+        "state": view.state,
+        "last_known_state": view.last_known_state,
+        "fresh": view.fresh,
+        "stale": view.stale,
+        "revision": view.revision,
+        "observed_at": view.observed_at.isoformat() if view.observed_at else "",
+        "first_observed_following_at": (
+            view.first_observed_following_at.isoformat()
+            if view.first_observed_following_at
+            else ""
+        ),
+        "source": view.source,
+        "last_result": view.last_result,
+        "error_kind": view.error_kind,
+        "next_retry_at": view.next_retry_at.isoformat() if view.next_retry_at else "",
+        "retry_state": "scheduled" if view.next_retry_at else ("error" if view.error_kind else "idle"),
+        "state_label": state_labels.get(view.state, state_labels[IgFollowState.State.UNKNOWN]),
+        "last_known_state_label": last_label,
+        "aria_label": aria_label,
+    }
 
 
 def _bounded_triggers(existing, trigger: str) -> list[str]:
@@ -305,6 +382,8 @@ def _publish_without_io(
         if (
             job.claimed_generation != job.requested_generation
             or job.expected_config_fingerprint != current_fingerprint
+            or not job.lease_expires_at
+            or job.lease_expires_at <= now
         ):
             job.status = IgFollowRefreshJob.Status.PENDING
             job.lease_token = ""
@@ -527,6 +606,25 @@ def _publish_lookup(job_id: int, token: str, result: _LookupResult, *, now) -> s
         )
         if job is None or job.lease_token != token:
             return "lease_lost"
+        if not job.lease_expires_at or job.lease_expires_at <= now:
+            job.status = IgFollowRefreshJob.Status.PENDING
+            job.lease_token = ""
+            job.lease_expires_at = None
+            job.due_at = now
+            job.next_attempt_at = None
+            job.completed_at = None
+            job.save(
+                update_fields=[
+                    "status",
+                    "lease_token",
+                    "lease_expires_at",
+                    "due_at",
+                    "next_attempt_at",
+                    "completed_at",
+                    "updated_at",
+                ]
+            )
+            return "lease_lost"
         current_fingerprint = configuration_fingerprint(InstagramBotSettings.load())
         if (
             job.claimed_generation != job.requested_generation
@@ -633,6 +731,7 @@ def run_follow_refresh_job(job_id: int, *, now=None) -> str:
     from management.models import IgFollowRefreshJob
     from management.services import instagram_bot
 
+    supplied_now = now is not None
     now = now or timezone.now()
     job, settings_obj, claim = _claim_job(job_id, now=now)
     if job is None:
@@ -647,7 +746,7 @@ def run_follow_refresh_job(job_id: int, *, now=None) -> str:
                 result="skipped",
                 error_kind="missing_messaging_consent",
                 error_code="",
-                now=now,
+                now=now if supplied_now else timezone.now(),
                 revalidate_claim=True,
             )
             if not published:
@@ -663,7 +762,7 @@ def run_follow_refresh_job(job_id: int, *, now=None) -> str:
                 result="skipped",
                 error_kind="unsupported_transport",
                 error_code="",
-                now=now,
+                now=now if supplied_now else timezone.now(),
                 revalidate_claim=True,
             )
             if not published:
@@ -702,7 +801,12 @@ def run_follow_refresh_job(job_id: int, *, now=None) -> str:
             error_kind="provider_setup",
             error_code=type(exc).__name__[:64],
         )
-    return _publish_lookup(job.pk, claim, result, now=now)
+    return _publish_lookup(
+        job.pk,
+        claim,
+        result,
+        now=now if supplied_now else timezone.now(),
+    )
 
 
 def refresh_follow_state_if_due(client, *, trigger, now=None) -> str:
@@ -720,6 +824,7 @@ __all__ = [
     "FollowStateView",
     "configuration_fingerprint",
     "effective_follow_state",
+    "follow_state_payload",
     "request_follow_refresh",
     "run_follow_refresh_job",
     "refresh_follow_state_if_due",

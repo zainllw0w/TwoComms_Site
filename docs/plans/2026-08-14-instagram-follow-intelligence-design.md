@@ -4,6 +4,25 @@
 
 **Status:** Approved for implementation by the user's instruction to produce the plan and continue autonomously.
 
+## Implementation Status Ledger
+
+Last reconciled: **2026-08-15**. The ledger records local implementation and
+focused-test evidence; MariaDB concurrency, browser/accessibility, production,
+and main-integration gates remain governed by the detailed checklist.
+
+- [x] Durable follow-state models, demand-driven Graph v25 observation, and fail-closed refresh behavior. Evidence: follow-state/operations suites and migration graph checks.
+- [x] Deterministic follow CTA policy with fresh-state, lifecycle, episode, cooldown, refusal, quiet-hours, final provider-boundary, and delivery guards. Evidence: CTA/AI/lifecycle/live-reply suites (64 focused tests; MariaDB concurrency remains open).
+- [x] Provider-native UGC ingress provenance and owned-media boundary. Evidence: webhook extraction 26/26, including forged normalized-key regression.
+- [x] Bounded multimodal UGC facts plus deterministic brand/apparel/unique-per-garment catalog hard-gates and tiered acknowledgements. Evidence: assessment/media/agentic suites (167 tests).
+- [x] Cross-channel external UGC reward path with one lifetime grant per Instagram identity. Evidence: external/delivered UGC suites and replay/cross-path tests; MariaDB race proof remains open.
+- [x] Exact 90-day one-use private promo snapshot and receipt-backed UGC delivery outbox shared by external and delivered-order rewards. Evidence: external reward, delivery, guest checkout, and no-stacking suites.
+- [x] Generation-bound manager review API/UI and explicit guest-redeemable promo capability. Evidence: terminal review/replay tests plus guest promo/checkout suites.
+- [ ] Live reply Gemini contract, nonblocking lifecycle handoff, complete storefront guest checkout integration, operations cleanup, MariaDB race gate, browser QA, main integration, deploy, and production proof. Core local reply/checkout/operations tests are green; the explicitly open MariaDB, browser/live, main, and production gates remain.
+
+The detailed checkbox counts and evidence commands live in
+`docs/plans/2026-08-14-instagram-follow-intelligence.md`; `14_IMPLEMENT2.md`
+is not an authoritative checklist for this feature.
+
 **Scope:** Management Instagram Direct bot, authoritative follow-state observation, contextual follow outreach, manager UX, and verified UGC promo delivery.
 
 ## 1. Problem
