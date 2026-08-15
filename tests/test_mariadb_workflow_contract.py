@@ -43,6 +43,13 @@ class MariaDbWorkflowContractTests(unittest.TestCase):
         self.assertIn("mariadb-gate-evidence.txt", self.source)
         self.assertIn("mariadb-follow-ugc-evidence.txt", self.source)
 
+    def test_installs_mysqlclient_build_headers_before_locked_dependencies(self):
+        self.assertIn("sudo apt-get install --yes libmariadb-dev", self.source)
+        self.assertLess(
+            self.source.index("sudo apt-get install --yes libmariadb-dev"),
+            self.source.index("python -m pip install --require-hashes -r requirements.lock"),
+        )
+
     def test_path_filters_cover_every_task_6a_input(self):
         for path in (
             "twocomms/requirements.lock",

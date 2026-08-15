@@ -57,11 +57,6 @@ if os.environ.get('DISABLE_ANALYTICS', 'false').lower() in ('1', 'true', 'yes'):
 # Добавляем middleware для кеширования медиа файлов
 if "twocomms.media_cache_middleware.MediaCacheMiddleware" not in MIDDLEWARE:
     MIDDLEWARE.append("twocomms.media_cache_middleware.MediaCacheMiddleware")
-import pymysql
-
-# Настройка PyMySQL для работы с MySQL
-pymysql.install_as_MySQLdb()
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 

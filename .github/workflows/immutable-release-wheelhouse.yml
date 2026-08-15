@@ -53,6 +53,26 @@ jobs:
           test "$(rpm -q libffi-devel)" = "libffi-devel-3.1-24.el8.x86_64"
           test -f /usr/include/ffi.h
 
+      - name: Install hash-pinned MariaDB Connector/C build libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_url="https://repo.almalinux.org/almalinux/8/AppStream/x86_64/os/Packages"
+          runtime_name="mariadb-connector-c-3.1.11-2.el8_3.x86_64.rpm"
+          devel_name="mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64.rpm"
+          runtime_path="/tmp/$runtime_name"
+          devel_path="/tmp/$devel_name"
+          curl --fail --silent --show-error --location "$base_url/$runtime_name" --output "$runtime_path"
+          curl --fail --silent --show-error --location "$base_url/$devel_name" --output "$devel_path"
+          printf '%s  %s\n' \
+            '85c37e356ca0e8114acfbe5fd5043ce1a95c35354851cc91b4066104e11dd658' "$runtime_path" \
+            'e7f9b90bb970c95179842fce9edf84ec943bc19b4bdd7029645e05d1e6a2e295' "$devel_path" \
+            | sha256sum --check --strict -
+          rpm -Uvh --replacepkgs "$runtime_path" "$devel_path"
+          test "$(rpm -q mariadb-connector-c)" = "mariadb-connector-c-3.1.11-2.el8_3.x86_64"
+          test "$(rpm -q mariadb-connector-c-devel)" = "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64"
+          test -f /usr/include/mysql/mysql.h
+
       - name: Build and verify the immutable wheelhouse
         shell: bash
         run: |
@@ -102,6 +122,10 @@ jobs:
               raise SystemExit("builder image provenance mismatch")
           if evidence["libffi_devel"] != "libffi-devel-3.1-24.el8.x86_64":
               raise SystemExit("libffi build dependency provenance mismatch")
+          if evidence["mariadb_connector_c"] != "mariadb-connector-c-3.1.11-2.el8_3.x86_64":
+              raise SystemExit("MariaDB Connector/C provenance mismatch")
+          if evidence["mariadb_connector_c_devel"] != "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64":
+              raise SystemExit("MariaDB Connector/C development provenance mismatch")
           PY
 
       - name: Upload immutable wheelhouse artifact

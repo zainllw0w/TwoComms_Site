@@ -13,6 +13,9 @@ from unittest.mock import patch
 from scripts import build_release_wheelhouse as builder
 from scripts.build_release_wheelhouse import (
     CFFI_SDIST_SHA256,
+    MARIADB_CONNECTOR_C_DEVEL_VERSION,
+    MARIADB_CONNECTOR_C_VERSION,
+    MYSQLCLIENT_SDIST_SHA256,
     build_manifest,
     replace_package_hashes,
 )
@@ -123,6 +126,8 @@ class ReleaseWheelhouseTests(unittest.TestCase):
         lock_text = (
             "cffi==2.1.1 \\\n"
             f"    --hash=sha256:{source_hash}\n"
+            "mysqlclient==2.2.8 \\\n"
+            f"    --hash=sha256:{MYSQLCLIENT_SDIST_SHA256}\n"
         )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -132,10 +137,16 @@ class ReleaseWheelhouseTests(unittest.TestCase):
             wheelhouse = root / "wheelhouse" / target_sha
             sdist = root / "cffi-2.1.1.tar.gz"
             sdist.write_bytes(b"verified source")
+            mysqlclient_sdist = root / "mysqlclient-2.2.8.tar.gz"
+            mysqlclient_sdist.write_bytes(b"verified mysqlclient source")
             setuptools_wheel = root / "setuptools-80.9.0-py3-none-any.whl"
             setuptools_wheel.write_bytes(b"verified build backend")
             cffi_wheel = root / "cffi-2.1.1-cp314-cp314-manylinux_2_28_x86_64.whl"
             cffi_wheel.write_bytes(b"verified wheel")
+            mysqlclient_wheel = root / (
+                "mysqlclient-2.2.8-cp314-cp314-manylinux_2_28_x86_64.whl"
+            )
+            mysqlclient_wheel.write_bytes(b"verified mysqlclient wheel")
             calls: list[tuple[str, ...]] = []
 
             def fake_run(command, **kwargs):
@@ -150,11 +161,17 @@ class ReleaseWheelhouseTests(unittest.TestCase):
             def fake_download(url, destination, expected_hash):
                 if "setuptools" in url:
                     return setuptools_wheel
+                if "mysqlclient" in url:
+                    return mysqlclient_sdist
                 return sdist
 
             def fake_tool_version(command):
                 if command[:3] == ["rpm", "-q", "libffi-devel"]:
                     return builder.EXPECTED_LIBFFI_DEVEL
+                if command[:3] == ["rpm", "-q", "mariadb-connector-c"]:
+                    return MARIADB_CONNECTOR_C_VERSION
+                if command[:3] == ["rpm", "-q", "mariadb-connector-c-devel"]:
+                    return MARIADB_CONNECTOR_C_DEVEL_VERSION
                 return "tool 1"
 
             with (
@@ -164,6 +181,9 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                 patch.object(builder, "_validate_cffi_source"),
                 patch.object(builder, "_build_cffi_once", return_value=cffi_wheel) as build_cffi,
                 patch.object(builder, "_validate_cffi_wheel"),
+                patch.object(builder, "_validate_mysqlclient_source"),
+                patch.object(builder, "_build_mysqlclient_once", return_value=mysqlclient_wheel) as build_mysqlclient,
+                patch.object(builder, "_validate_mysqlclient_wheel"),
                 patch.object(builder, "build_http_ece_main", return_value=0) as build_http_ece,
                 patch.object(builder, "_run", side_effect=fake_run),
             ):
@@ -178,6 +198,7 @@ class ReleaseWheelhouseTests(unittest.TestCase):
 
             self.assertEqual(result, wheelhouse)
             self.assertEqual(build_cffi.call_count, 2)
+            self.assertEqual(build_mysqlclient.call_count, 2)
             for call in build_cffi.call_args_list:
                 self.assertIn("build-venv/bin/python", str(call.args[0]))
             self.assertTrue(build_http_ece.called)
@@ -191,6 +212,13 @@ class ReleaseWheelhouseTests(unittest.TestCase):
             self.assertIn("--no-index", install)
             self.assertIn("--only-binary", install)
             self.assertIn("--require-hashes", install)
+            mysqlclient_smokes = [
+                call for call in calls if any("import MySQLdb" in part for part in call)
+            ]
+            self.assertTrue(mysqlclient_smokes)
+            mysqlclient_smoke = mysqlclient_smokes[0]
+            self.assertIn("verify-venv/bin/python", mysqlclient_smoke[0])
+            self.assertIn("MySQLdb.version_info", mysqlclient_smoke[-1])
             self.assertTrue((wheelhouse / "manifest.sha256").is_file())
 
     def test_cffi_validator_accepts_auditwheel_dual_platform_tag(self):
@@ -212,6 +240,27 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                 archive.writestr("_cffi_backend.cpython-314-x86_64-linux-gnu.so", b"binary")
 
             builder._validate_cffi_wheel(wheel)
+
+    def test_mysqlclient_validator_accepts_package_scoped_extension(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wheel = Path(directory) / (
+                "mysqlclient-2.2.8-cp314-cp314-manylinux_2_28_x86_64.whl"
+            )
+            with zipfile.ZipFile(wheel, "w") as archive:
+                archive.writestr(
+                    "mysqlclient-2.2.8.dist-info/METADATA",
+                    "Name: mysqlclient\nVersion: 2.2.8\n",
+                )
+                archive.writestr(
+                    "mysqlclient-2.2.8.dist-info/WHEEL",
+                    "Tag: cp314-cp314-manylinux_2_28_x86_64\n",
+                )
+                archive.writestr(
+                    "MySQLdb/_mysql.cpython-314-x86_64-linux-gnu.so",
+                    b"binary",
+                )
+
+            builder._validate_mysqlclient_wheel(wheel)
 
     def test_cffi_build_disables_nondeterministic_debug_paths(self):
         with tempfile.TemporaryDirectory() as directory:

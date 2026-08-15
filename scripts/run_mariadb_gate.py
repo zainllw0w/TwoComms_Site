@@ -217,7 +217,7 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
 
 
 class AdminClient:
-    """Small DB-admin protocol backed by the pinned PyMySQL dependency."""
+    """Small DB-admin protocol backed by the pinned mysqlclient dependency."""
 
     def __init__(self, *, host: str, port: str, user: str, password: str):
         self.host = host
@@ -225,79 +225,48 @@ class AdminClient:
         self.user = user
         self.password = password
 
-    def _sql(self, statement: str) -> None:
+    def _connect(self):
         try:
-            import pymysql
+            import MySQLdb
         except ImportError as exc:
-            raise RuntimeError("PyMySQL is required for MariaDB admin operations") from exc
-        connection = None
+            raise RuntimeError("mysqlclient is required for MariaDB admin operations") from exc
+        return MySQLdb.connect(
+            host=self.host,
+            port=int(self.port),
+            user=self.user,
+            password=self.password,
+            charset="utf8mb4",
+            connect_timeout=10,
+            read_timeout=30,
+            write_timeout=30,
+            autocommit=True,
+        )
+
+    def _sql(self, statement: str) -> None:
+        connection = self._connect()
         try:
-            connection = pymysql.connect(
-                host=self.host,
-                port=int(self.port),
-                user=self.user,
-                password=self.password,
-                charset="utf8mb4",
-                connect_timeout=10,
-                read_timeout=30,
-                write_timeout=30,
-                autocommit=True,
-            )
             with connection.cursor() as cursor:
                 cursor.execute(statement)
         finally:
-            if connection is not None:
-                connection.close()
+            connection.close()
 
     def _query_one(self, statement: str):
+        connection = self._connect()
         try:
-            import pymysql
-        except ImportError as exc:
-            raise RuntimeError("PyMySQL is required for MariaDB admin operations") from exc
-        connection = None
-        try:
-            connection = pymysql.connect(
-                host=self.host,
-                port=int(self.port),
-                user=self.user,
-                password=self.password,
-                charset="utf8mb4",
-                connect_timeout=10,
-                read_timeout=30,
-                write_timeout=30,
-                autocommit=True,
-            )
             with connection.cursor() as cursor:
                 cursor.execute(statement)
                 return cursor.fetchone()
         finally:
-            if connection is not None:
-                connection.close()
+            connection.close()
 
     def _query_all(self, statement: str) -> list[tuple]:
+        connection = self._connect()
         try:
-            import pymysql
-        except ImportError as exc:
-            raise RuntimeError("PyMySQL is required for MariaDB admin operations") from exc
-        connection = None
-        try:
-            connection = pymysql.connect(
-                host=self.host,
-                port=int(self.port),
-                user=self.user,
-                password=self.password,
-                charset="utf8mb4",
-                connect_timeout=10,
-                read_timeout=30,
-                write_timeout=30,
-                autocommit=True,
-            )
             with connection.cursor() as cursor:
                 cursor.execute(statement)
                 return list(cursor.fetchall())
         finally:
-            if connection is not None:
-                connection.close()
+            connection.close()
 
     def server_identity(self) -> tuple[str, str]:
         version, version_comment = self._query_one(

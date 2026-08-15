@@ -1353,6 +1353,15 @@ multidict==6.7.1 \
     # via
     #   aiohttp
     #   yarl
+mysqlclient==2.2.8 \
+    --hash=sha256:000c7ec3d11e7c411db832e4cfcd7f05db47464326381f5d5ae991b4bb572f93 \
+    --hash=sha256:260cce0e81446c83bf0a389e0fae38d68547d9f8fc0833bc733014e10ce28a99 \
+    --hash=sha256:60c9ed339dc09e3d5380cc2a9f42e86754fee25a661ced77a02df77990664c92 \
+    --hash=sha256:86db31bba7b3480fec2751350e9790e24f016f89af33a87bab7e79f7196474e8 \
+    --hash=sha256:8ed20c5615a915da451bb308c7d0306648a4fd9a2809ba95c992690006306199 \
+    --hash=sha256:9bed7c8d3b629bdc09e17fb628d5b3b0a5fd1f12b09432b464b9126c727bedc0 \
+    --hash=sha256:a81f5e12f8d05439709cb02fba97f9f76d1a6c528164f2260d8798fec969e300
+    # via -r twocomms/requirements.in
 oauthlib==3.3.1 \
     --hash=sha256:0f0f8aa759826a193cf66c12ea1af1637f87b9b4622d46e866952bb022e538c9 \
     --hash=sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1
@@ -1777,10 +1786,6 @@ pyjwt==2.13.0 \
     # via
     #   -r twocomms/requirements.in
     #   social-auth-core
-pymysql==1.1.2 \
-    --hash=sha256:4961d3e165614ae65014e361811a724e2044ad3ea3739de9903ae7c21f539f03 \
-    --hash=sha256:e6b1d89711dd51f8f74b1631fe08f039e7d76cf67a42a323d3178f0f25762ed9
-    # via -r twocomms/requirements.in
 python-docx==1.1.0 \
     --hash=sha256:5829b722141cf1ab79aedf0c34d9fe9924b29764584c0f2164eb2b02dcdf17c9 \
     --hash=sha256:bac9773278098a1ddc43a52d84e22f5909c4a3080a624530b3ecb3771b07c6cd

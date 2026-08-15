@@ -52,14 +52,16 @@ TEMP_WHEEL_DIR="$TEMP_DIR/wheelhouse"
 mkdir -p -- "$TEMP_WHEEL_DIR"
 
 # http-ece is pure Python and is published only as an sdist; pywebpush
-# requires it. Keep every compiled dependency wheel-only and make this
-# single, explicit exception visible in the generated lock metadata.
+# requires it. mysqlclient is the official Django MySQL/MariaDB driver and is
+# also published without Linux wheels. Keep both source distributions as
+# explicit exceptions; the release wheelhouse builds them before publishing.
 (cd "$ROOT_DIR" && "$UV_BIN" pip compile "$INPUT_PATH" \
     --output-file "$TEMP_LOCK" \
     --python-version 3.14.6 \
     --python-platform x86_64-manylinux_2_28 \
     --only-binary :all: \
     --no-binary http-ece \
+    --no-binary mysqlclient \
     --generate-hashes \
     --resolution highest \
     --exclude-newer 2026-08-07T00:00:00Z \

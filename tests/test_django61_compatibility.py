@@ -50,6 +50,25 @@ class Django61CompatibilityTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_mysql_backend_uses_official_django61_driver(self):
+        requirements = (DJANGO_ROOT / "requirements.in").read_text(encoding="utf-8")
+        self.assertRegex(requirements, r"(?m)^mysqlclient==2\.2\.[1-9][0-9]*\s*$")
+        self.assertNotRegex(requirements, r"(?m)^PyMySQL==")
+
+        for settings_path in (
+            DJANGO_ROOT / "twocomms" / "settings.py",
+            DJANGO_ROOT / "twocomms" / "production_settings.py",
+            DJANGO_ROOT / "twocomms" / "__init__.py",
+        ):
+            source = settings_path.read_text(encoding="utf-8")
+            self.assertNotIn("install_as_MySQLdb", source, settings_path.name)
+
+        result = self._run_django_import(
+            "import MySQLdb; "
+            "assert tuple(MySQLdb.version_info) >= (2, 2, 1)"
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

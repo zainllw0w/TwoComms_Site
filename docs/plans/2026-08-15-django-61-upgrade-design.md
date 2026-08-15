@@ -6,7 +6,7 @@
 
 ## Scope
 
-This release is a compatibility upgrade only. It includes the direct Django pin, the reproducible lockfile, dependency compatibility changes required by Django 6.1, and small source/test changes only when the upgrade exposes a real incompatibility.
+This release is a compatibility upgrade only. It includes the direct Django pin, the reproducible lockfile, dependency compatibility changes required by Django 6.1, and small source/test changes only when the upgrade exposes a real incompatibility. Django 6.1 requires `mysqlclient>=2.2.1`; the old PyMySQL shim is removed, and the release wheelhouse builds the pinned `mysqlclient` sdist against a hash-pinned MariaDB Connector/C toolchain.
 
 The release explicitly does not enable or refactor around Django 6.1 features such as model field fetch modes, database-level `on_delete` actions, or `MAILERS`. Those changes will be audited and measured in a separate follow-up.
 

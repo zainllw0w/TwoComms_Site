@@ -13,12 +13,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 from pathlib import Path
 import os
 import warnings
-import pymysql
 
 from .cache_headers import is_immutable_static_url
-
-# Настройка PyMySQL для работы с MySQL
-pymysql.install_as_MySQLdb()
 
 # Build paths inside the project
 

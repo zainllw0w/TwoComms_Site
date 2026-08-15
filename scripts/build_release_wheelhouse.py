@@ -46,6 +46,15 @@ SETUPTOOLS_WHEEL_URL = (
     "17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/"
     "setuptools-80.9.0-py3-none-any.whl"
 )
+MYSQLCLIENT_VERSION = "2.2.8"
+MYSQLCLIENT_SDIST_SHA256 = "8ed20c5615a915da451bb308c7d0306648a4fd9a2809ba95c992690006306199"
+MYSQLCLIENT_SDIST_URL = (
+    "https://files.pythonhosted.org/packages/eb/b0/"
+    "9df076488cb2e536d40ce6dbd4273c1f20a386e31ffe6e7cb613902b3c2a/"
+    "mysqlclient-2.2.8.tar.gz"
+)
+MARIADB_CONNECTOR_C_VERSION = "mariadb-connector-c-3.1.11-2.el8_3.x86_64"
+MARIADB_CONNECTOR_C_DEVEL_VERSION = "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64"
 SOURCE_DATE_EPOCH = 315532800
 EXPECTED_PYTHON = (3, 14, 6)
 EXPECTED_SOABI = "cpython-314-x86_64-linux-gnu"
@@ -155,6 +164,7 @@ def _download_verified(url: str, destination: Path, expected_hash: str) -> Path:
     allowed = {
         CFFI_SDIST_URL: CFFI_SDIST_SHA256,
         SETUPTOOLS_WHEEL_URL: SETUPTOOLS_WHEEL_SHA256,
+        MYSQLCLIENT_SDIST_URL: MYSQLCLIENT_SDIST_SHA256,
     }
     if allowed.get(url) != expected_hash or not url.startswith("https://files.pythonhosted.org/"):
         raise ValueError("build dependency URL/hash is not pinned")
@@ -179,6 +189,20 @@ def _validate_cffi_source(sdist: Path) -> None:
         raise ValueError("cffi sdist metadata is invalid") from exc
     if metadata.get("Name", "").lower() != "cffi" or metadata.get("Version") != CFFI_VERSION:
         raise ValueError("cffi sdist metadata name/version mismatch")
+
+
+def _validate_mysqlclient_source(sdist: Path) -> None:
+    try:
+        with tarfile.open(sdist, "r:gz") as archive:
+            member = archive.getmember("mysqlclient-2.2.8/PKG-INFO")
+            extracted = archive.extractfile(member)
+            if extracted is None:
+                raise ValueError("mysqlclient sdist metadata is unreadable")
+            metadata = Parser().parsestr(extracted.read().decode("utf-8"))
+    except (KeyError, OSError, tarfile.TarError, UnicodeError) as exc:
+        raise ValueError("mysqlclient sdist metadata is invalid") from exc
+    if metadata.get("Name", "").lower() != "mysqlclient" or metadata.get("Version") != MYSQLCLIENT_VERSION:
+        raise ValueError("mysqlclient sdist metadata name/version mismatch")
 
 
 def _assert_builder_environment(image_digest: str) -> dict[str, str]:
@@ -287,6 +311,95 @@ def _validate_cffi_wheel(wheel: Path) -> None:
         raise ValueError("cffi wheel contents or tag are invalid")
 
 
+def _build_mysqlclient_once(
+    python: Path,
+    auditwheel: str,
+    sdist: Path,
+    destination: Path,
+    *,
+    label: str,
+) -> Path:
+    raw = destination / f"raw-mysqlclient-{label}"
+    repaired = destination / f"repaired-mysqlclient-{label}"
+    raw.mkdir()
+    repaired.mkdir()
+    env = dict(os.environ)
+    env.update(
+        {
+            "CFLAGS": "-O2 -g0 -ffile-prefix-map=/tmp=.",
+            "CXXFLAGS": "-O2 -g0 -ffile-prefix-map=/tmp=.",
+            "LDFLAGS": "-Wl,--build-id=sha1",
+            "MYSQLCLIENT_CFLAGS": "-I/usr/include/mysql",
+            "MYSQLCLIENT_LDFLAGS": "-L/usr/lib64 -lmariadb",
+            "PYTHONHASHSEED": "0",
+            "SOURCE_DATE_EPOCH": str(SOURCE_DATE_EPOCH),
+        }
+    )
+    _run(
+        [
+            str(python),
+            "-m",
+            "pip",
+            "wheel",
+            "--disable-pip-version-check",
+            "--no-deps",
+            "--no-build-isolation",
+            "--no-cache-dir",
+            "--wheel-dir",
+            str(raw),
+            str(sdist),
+        ],
+        env=env,
+    )
+    wheels = tuple(raw.glob(f"mysqlclient-{MYSQLCLIENT_VERSION}-*.whl"))
+    if len(wheels) != 1:
+        raise ValueError("mysqlclient build did not produce exactly one wheel")
+    _run(
+        [
+            auditwheel,
+            "repair",
+            "--plat",
+            EXPECTED_PLATFORM,
+            "--wheel-dir",
+            str(repaired),
+            str(wheels[0]),
+        ],
+        env=env,
+    )
+    repaired_wheels = tuple(repaired.glob(f"mysqlclient-{MYSQLCLIENT_VERSION}-*.whl"))
+    if len(repaired_wheels) != 1:
+        raise ValueError("auditwheel did not produce exactly one mysqlclient wheel")
+    return repaired_wheels[0]
+
+
+def _validate_mysqlclient_wheel(wheel: Path) -> None:
+    prefix = f"mysqlclient-{MYSQLCLIENT_VERSION}-cp314-cp314-"
+    platform_tags = (
+        wheel.name[len(prefix) : -4].split(".")
+        if wheel.name.startswith(prefix) and wheel.name.endswith(".whl")
+        else []
+    )
+    if EXPECTED_PLATFORM not in platform_tags:
+        raise ValueError("mysqlclient wheel has an unexpected compatibility tag")
+    try:
+        with zipfile.ZipFile(wheel) as archive:
+            metadata = Parser().parsestr(
+                archive.read(f"mysqlclient-{MYSQLCLIENT_VERSION}.dist-info/METADATA").decode("utf-8")
+            )
+            wheel_metadata = archive.read(f"mysqlclient-{MYSQLCLIENT_VERSION}.dist-info/WHEEL").decode("utf-8")
+            extension_names = [
+                name
+                for name in archive.namelist()
+                if Path(name).name.startswith("_mysql") and name.endswith(".so")
+            ]
+    except (KeyError, OSError, UnicodeError, zipfile.BadZipFile) as exc:
+        raise ValueError("mysqlclient wheel contents are invalid") from exc
+    if metadata.get("Name", "").lower() != "mysqlclient" or metadata.get("Version") != MYSQLCLIENT_VERSION:
+        raise ValueError("mysqlclient wheel metadata name/version mismatch")
+    if f"Tag: cp314-cp314-{EXPECTED_PLATFORM}" not in wheel_metadata or len(extension_names) != 1:
+        raise ValueError("mysqlclient wheel contents or tag are invalid")
+
+
 def _tool_version(command: list[str]) -> str:
     result = subprocess.run(command, check=True, capture_output=True, text=True, timeout=60)
     return (result.stdout or result.stderr).strip().splitlines()[0][:160]
@@ -313,11 +426,19 @@ def build_wheelhouse(
     libffi_devel = _tool_version(["rpm", "-q", "libffi-devel"])
     if libffi_devel != EXPECTED_LIBFFI_DEVEL:
         raise ValueError("builder libffi-devel package mismatch")
+    mariadb_connector_c = _tool_version(["rpm", "-q", "mariadb-connector-c"])
+    if mariadb_connector_c != MARIADB_CONNECTOR_C_VERSION:
+        raise ValueError("MariaDB Connector/C package mismatch")
+    mariadb_connector_c_devel = _tool_version(["rpm", "-q", "mariadb-connector-c-devel"])
+    if mariadb_connector_c_devel != MARIADB_CONNECTOR_C_DEVEL_VERSION:
+        raise ValueError("MariaDB Connector/C development package mismatch")
     metadata.update(
         {
             "auditwheel": _tool_version([auditwheel, "--version"]),
             "libffi_devel": libffi_devel,
             "pip": _tool_version([str(python), "-m", "pip", "--version"]),
+            "mariadb_connector_c": mariadb_connector_c,
+            "mariadb_connector_c_devel": mariadb_connector_c_devel,
         }
     )
     source_lock_sha256 = sha256(lock_path)
@@ -338,6 +459,12 @@ def build_wheelhouse(
             CFFI_SDIST_SHA256,
         )
         _validate_cffi_source(cffi_sdist)
+        mysqlclient_sdist = _download_verified(
+            MYSQLCLIENT_SDIST_URL,
+            build / "mysqlclient-2.2.8.tar.gz",
+            MYSQLCLIENT_SDIST_SHA256,
+        )
+        _validate_mysqlclient_source(mysqlclient_sdist)
         setuptools_wheel = _download_verified(
             SETUPTOOLS_WHEEL_URL,
             build / "setuptools-80.9.0-py3-none-any.whl",
@@ -376,14 +503,36 @@ def build_wheelhouse(
             raise ValueError("cffi wheel build is not byte-for-byte reproducible")
         cffi_wheel = seed / first.name
         shutil.copy2(first, cffi_wheel)
+        mysqlclient_first = _build_mysqlclient_once(
+            build_python, auditwheel, mysqlclient_sdist, build, label="one"
+        )
+        mysqlclient_second = _build_mysqlclient_once(
+            build_python, auditwheel, mysqlclient_sdist, build, label="two"
+        )
+        _validate_mysqlclient_wheel(mysqlclient_first)
+        _validate_mysqlclient_wheel(mysqlclient_second)
+        if (
+            mysqlclient_first.name != mysqlclient_second.name
+            or mysqlclient_first.read_bytes() != mysqlclient_second.read_bytes()
+        ):
+            raise ValueError("mysqlclient wheel build is not byte-for-byte reproducible")
+        mysqlclient_wheel = seed / mysqlclient_first.name
+        shutil.copy2(mysqlclient_first, mysqlclient_wheel)
         install_lock = final / "requirements.install.lock"
+        install_lock_text = replace_package_hashes(
+            lock_path.read_text(encoding="utf-8"),
+            package="cffi",
+            version=CFFI_VERSION,
+            required_source_hash=CFFI_SDIST_SHA256,
+            wheel_hash=sha256(cffi_wheel),
+        )
         install_lock.write_text(
             replace_package_hashes(
-                lock_path.read_text(encoding="utf-8"),
-                package="cffi",
-                version=CFFI_VERSION,
-                required_source_hash=CFFI_SDIST_SHA256,
-                wheel_hash=sha256(cffi_wheel),
+                install_lock_text,
+                package="mysqlclient",
+                version=MYSQLCLIENT_VERSION,
+                required_source_hash=MYSQLCLIENT_SDIST_SHA256,
+                wheel_hash=sha256(mysqlclient_wheel),
             ),
             encoding="utf-8",
         )
@@ -442,12 +591,21 @@ def build_wheelhouse(
             ]
         )
         _run([str(verify_python), "-m", "pip", "check"])
+        _run(
+            [
+                str(verify_python),
+                "-c",
+                "import MySQLdb; assert tuple(MySQLdb.version_info) >= (2, 2, 1)",
+            ]
+        )
         verifier = lock_path.parents[1] / "scripts" / "verify_locked_requirements.py"
         _run([str(verify_python), str(verifier), "--lock", str(lock_path)])
         metadata.update(
             {
                 "cffi_sdist_sha256": CFFI_SDIST_SHA256,
                 "cffi_wheel_sha256": sha256(cffi_wheel),
+                "mysqlclient_sdist_sha256": MYSQLCLIENT_SDIST_SHA256,
+                "mysqlclient_wheel_sha256": sha256(mysqlclient_wheel),
                 "setuptools_version": SETUPTOOLS_VERSION,
                 "setuptools_wheel_sha256": SETUPTOOLS_WHEEL_SHA256,
                 "source_lock_sha256": source_lock_sha256,

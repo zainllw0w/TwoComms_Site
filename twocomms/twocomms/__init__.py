@@ -1,13 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
-
-# Использовать PyMySQL только если явно указано в переменной окружения
-if os.environ.get("MYSQL_USE_PYMYSQL") == "1":
-    try:
-        import pymysql
-        pymysql.install_as_MySQLdb()
-    except Exception:
-        pass
 
 # Celery удалён: хостинг не может запускать воркеры, проект работает по модели
 # cron + синхронные shim-задачи (см. storefront/tasks.py). Импорт оставлен

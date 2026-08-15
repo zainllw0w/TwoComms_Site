@@ -4,7 +4,7 @@
 
 **Goal:** Upgrade the TwoComms application from Django 5.2.11 to Django 6.1 with no intentional business-behavior changes and with verified local and production runtime compatibility.
 
-**Architecture:** Keep the existing Django/Passenger/MariaDB architecture unchanged. Update the exact-pinned direct dependency and regenerate the reproducible Python 3.14 lock; only add source changes when a failing compatibility test proves they are needed. Deploy the reviewed Git SHA and lock to production, then verify the live runtime before declaring the release complete.
+**Architecture:** Keep the existing Django/Passenger/MariaDB architecture unchanged. Update the exact-pinned direct dependency and regenerate the reproducible Python 3.14 lock; only add source changes when a failing compatibility test proves they are needed. Django 6.1 requires `mysqlclient>=2.2.1`, so the former PyMySQL compatibility shim is replaced with the official driver and the immutable release wheelhouse builds its Linux wheel from a hash-pinned source archive plus MariaDB Connector/C. Deploy the reviewed Git SHA and lock to production, then verify the live runtime before declaring the release complete.
 
 **Tech Stack:** Django 6.1, Python 3.14, uv 0.12.2, hash-locked pip requirements, Django `manage.py` tests/checks, MariaDB production, Passenger.
 
@@ -100,7 +100,7 @@ Install or invoke the exact `uv 0.12.2` binary and run:
 UV_BIN=/path/to/uv-0.12.2 PYTHON_BIN=python3.14 ./scripts/compile_requirements.sh
 ~~~
 
-Expected: the script exits 0, atomically replaces `twocomms/requirements.lock`, and includes a single hashed `django==6.1` entry. Resolver-owned dependencies may move only when required by the new framework and the lock remains reproducible.
+Expected: the script exits 0, atomically replaces `twocomms/requirements.lock`, and includes single hashed `django==6.1` and `mysqlclient==2.2.8` entries. `http-ece` and `mysqlclient` are the only explicit source-distribution exceptions; the immutable release workflow converts both into verified Linux wheels. Resolver-owned dependencies may move only when required by the new framework and the lock remains reproducible.
 
 **Step 5: Verify the contract turns green**
 
@@ -300,17 +300,19 @@ Expected: GitHub `main` points to the verified commit. If the remote advanced, s
 
 Use the repository-approved SSH path with `TWOCOMMS_DEPLOY_PASSWORD` supplied by the caller environment. Pull `main` in the Python 3.14 virtualenv and verify the resulting SHA.
 
-Before installing the lock, query the production database server version and stop unless it is MariaDB `10.11` or newer, as required by Django 6.1.
+Before installing the lock, query the production database server version and stop unless it is MariaDB `10.11` or newer, as required by Django 6.1. `mysqlclient` has no Linux wheel on PyPI for this target, so the repository-supported `git pull` path must also prove that the active virtualenv already provides `MySQLdb` at version `2.2.1` or newer. The CI wheelhouse is a provenance gate, not an input to the supported production `git pull` deployment path. Do not build mysqlclient from source or alter server system packages as part of this deployment. If the driver is absent, stop and obtain explicit approval for a separate, prebuilt-artifact delivery procedure before pulling this release.
 
-**Step 2: Install the committed lock**
+**Step 2: Verify the active virtualenv against the committed lock**
 
 In the same activated virtualenv, run:
 
 ~~~bash
-python -m pip install --require-hashes -r requirements.lock
+python -c 'import MySQLdb; assert tuple(MySQLdb.version_info) >= (2, 2, 1)'
+python -m pip check
+python scripts/verify_locked_requirements.py --lock requirements.lock
 ~~~
 
-Expected: Django 6.1 and all locked dependencies are installed; no unpinned install is used.
+Expected: the active virtualenv already contains the exact committed dependencies and the official driver; no unpinned install or source build is used. Verify the driver before removing the now-untracked `PyMySQL` package from the existing virtualenv, then rerun `pip check` and the lock verifier. This prevents an old shim from masking a failed mysqlclient installation.
 
 **Step 3: Run production checks without customer test data**
 

@@ -38,6 +38,20 @@ class ImmutableReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("rpm -Uvh --replacepkgs", self.source)
         self.assertIn("libffi-devel-3.1-24.el8.x86_64", self.source)
 
+    def test_mysqlclient_build_libraries_are_installed_from_hash_pinned_rpms(self):
+        self.assertIn("mariadb-connector-c-3.1.11-2.el8_3.x86_64.rpm", self.source)
+        self.assertIn("mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64.rpm", self.source)
+        self.assertIn(
+            "85c37e356ca0e8114acfbe5fd5043ce1a95c35354851cc91b4066104e11dd658",
+            self.source,
+        )
+        self.assertIn(
+            "e7f9b90bb970c95179842fce9edf84ec943bc19b4bdd7029645e05d1e6a2e295",
+            self.source,
+        )
+        self.assertIn("test -f /usr/include/mysql/mysql.h", self.source)
+        self.assertIn("mariadb_connector_c_devel", self.source)
+
     def test_workflow_builds_and_verifies_target_bound_artifact(self):
         self.assertIn("scripts/build_release_wheelhouse.py", self.source)
         self.assertIn("twocomms/requirements.lock", self.source)
