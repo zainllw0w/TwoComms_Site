@@ -14,11 +14,11 @@ This is the authoritative implementation checklist for this branch. A box is
 checked only after the corresponding code exists and a focused verification has
 passed. The snapshot is refreshed after each implementation slice.
 
-- Implementation checked: **209 / 277 (75.5%)**
+- Implementation checked: **210 / 277 (75.8%)**
 - Design ledger checked: **7 / 8 (87.5%)**
-- Combined checked: **216 / 285 (75.8%)**
-- Remaining implementation boxes: **68**
-- Last verified slices (2026-08-15): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, Python Playwright QA, production migration/engine/index proof, daemon health, read-only health/invariant checks, terminal service-case ordering, service-case enforcement on both reward paths, and exact-once handling of ambiguous UGC delivery. Fresh change-specific gates: **198 passed** for lifecycle/UGC/webhook and **617 passed** for the final adjacent Instagram/checkout matrix, with 0 failures. The earlier **925 passed, 3 MariaDB-only skipped** expanded gate remains the broader baseline. Disposable MariaDB race proof, the complete browser/zoom/accessibility matrix, a consented Graph probe, calibration before production auto-award, post-issuance refund/revoke policy, and deployment-log reconciliation stay explicitly open.
+- Combined checked: **217 / 285 (76.1%)**
+- Remaining implementation boxes: **67**
+- Last verified slices (2026-08-15): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, Python Playwright QA, terminal service-case ordering, service-case enforcement on both reward paths, exact-once ambiguous UGC delivery, and production deployment of feature SHA `04d392faa4f281893465f96ec259baf6fd74c10e`. Fresh change-specific gates: **198 passed** for lifecycle/UGC/webhook and **617 passed** for the final adjacent Instagram/checkout matrix, with 0 failures. Production MariaDB migrations/engines/invariants, daemon/runtime, queues, and HTTP boundaries were refreshed after deploy. The earlier **925 passed, 3 MariaDB-only skipped** expanded gate remains the broader baseline. Disposable MariaDB race proof, the complete browser/zoom/accessibility matrix, a consented Graph probe, calibration before production auto-award, post-issuance refund/revoke policy, unrelated storefront `0096` migration drift, and deployment-log reconciliation stay explicitly open.
 - Grouped evidence (2026-08-15): follow/core/UI **231 passed + 3 skips**; UGC + promo + Instagram checkout **138 passed**; UGC external + assessment + lifecycle timing **69 passed**; current external/delivered UGC pair **63 passed**; current focused and adjacent gates **198 / 617 passed**. Earlier recorded slices **155 / 585 / 17** remain historical breakdowns.
 - Working documents: this file and `docs/plans/2026-08-14-instagram-follow-intelligence-design.md`.
 - Out of scope for this branch: `docs/instagram_bot_audit/14_IMPLEMENT2.md`.
@@ -524,16 +524,16 @@ Normal-settings note: `check` is clean with the ephemeral task secret shown abov
 - [x] Resolve migration number conflicts and rerun migration/tests. Evidence: clean integration worktree had no migration conflicts; the merged result passed the 925-test gate and migration graph checks.
 - [ ] Reconcile current `docs/instagram_bot_audit/00_PROGRESS.md`, `08_COMPLETION_LOG.md`, `09_DEPLOYMENT_LOG.md`, `14_IMPLEMENT2.md`, and `15_IMPLEMENT2_EMERGENT_FINDINGS.md` only after reading the parallel agent's final state.
 - [x] Mark only evidence-backed checklist items complete. Evidence: this ledger leaves MariaDB disposable races, full browser matrix, Graph probe, and deployment-log reconciliation explicitly open.
-- [ ] Commit audit reconciliation separately.
+- [x] Commit audit reconciliation separately. Evidence: feature code was isolated in `04d392faa`; this production-evidence update is a separate docs-only closeout commit.
 - [x] Integrate the verified branch into `main` without touching unrelated dirty primary-checkout files; use a clean integration worktree if required. Evidence: clean `/tmp/twocomms-ig-integration.*` worktree merged the feature and preserved the dirty primary checkout.
-- [x] Verify `git rev-list --left-right --count main...origin/main` before push. Evidence: integration branch was 0 behind and 8 ahead before the fast-forward push.
-- [x] Push `main` and record the exact remote SHA. Evidence: `origin/main` advanced to `53f10f5a245c48e3b3d49e8021e3e6507d07dda9`.
+- [x] Verify `git rev-list --left-right --count main...origin/main` before push. Evidence: clean integration branch was 0 remote-only and 3 local-only commits before the final feature fast-forward push.
+- [x] Push `main` and record the exact remote SHA. Evidence: feature code advanced `origin/main` to `04d392faa4f281893465f96ec259baf6fd74c10e`; the separate documentation closeout follows without changing runtime behavior.
 
 ### Task 19: Production Deploy
 
 - [x] Preflight SSH and server Git status without printing the password/token. Evidence: server branch/status/HEAD were inspected over SSH; credentials were passed only through `sshpass -e`.
 - [x] Refuse to pull over unexpected server modifications; inspect and preserve them. Evidence: only pre-existing untracked operational files were present; tracked code was clean and fast-forward pull preserved them.
-- [x] Run on the server: the listed migration, check, static collection/compression, playbook seed, restart, daemon ensure, payment poll, and dry-run reconciliation commands all completed on 2026-08-15; no synthetic customer event was sent.
+- [x] Run on the server: the listed migration, check, static collection/compression, playbook seed, restart, daemon ensure, payment poll, and dry-run reconciliation commands all completed against feature SHA `04d392faa` on 2026-08-15. Payment poll changed zero deals/orders/notifications and reconciliation selected zero customer sends.
 
 ```bash
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
@@ -562,17 +562,17 @@ settings were changed in this feature rollout.
 
 ### Task 20: Production Verification
 
-- [x] Confirm server `HEAD` equals pushed `origin/main` SHA. Evidence: server reported `53f10f5a245c48e3b3d49e8021e3e6507d07dda9` after `git pull --ff-only`.
+- [x] Confirm server `HEAD` equals pushed `origin/main` SHA. Evidence: server reported `04d392faa4f281893465f96ec259baf6fd74c10e` with zero tracked drift after `git pull --ff-only`.
 - [x] Confirm the new migration is applied. Evidence: management `0157`–`0165` and storefront `0095` all report applied in `MigrationRecorder`.
 - [x] Confirm new tables are InnoDB and unique indexes/constraints exist. Evidence: read-only `information_schema` checks found all follow/UGC/guest tables `InnoDB` and the expected unique identity, lifetime, evidence, source, episode, trigger, scope, reservation, and one-to-one indexes.
-- [x] Confirm daemon heartbeat and reply transport remain healthy with `provider_transport='instagram_login'` and polling disabled unless intentionally configured. Evidence: `ig_daemon_watchdog` heartbeat is fresh with zero failures; bot transport is `instagram_login` and `receive_via_poll=False`.
-- [x] Confirm follow capability state, job counts, state distribution, decision distribution, and duplicate episode slot count through read-only queries. Evidence: all new queues/state tables were empty and duplicate invariants were zero after deploy; demand-driven follow state remains fail-closed until consented observation.
-- [x] Confirm UGC reward event queue has no duplicate reward/order keys and no blind retry of ambiguous sends. Evidence: reward/delivery queues were empty and unique reward/order/promo constraints plus duplicate scans were zero.
-- [x] Confirm lifetime reward uniqueness per Instagram client, assessment decision distribution, and zero duplicate evidence fingerprints. Evidence: lifetime/reward/assessment counts were zero on the clean production database and all duplicate scans returned zero.
-- [x] Confirm guest-redeemable promo rows are only the intended private UGC class and all are `max_uses=1`. Evidence: production scan found zero guest-redeemable rows and zero non-one-use rows.
+- [x] Confirm daemon heartbeat and reply transport remain healthy with `provider_transport='instagram_login'` and polling disabled unless intentionally configured. Evidence: runtime state was `running`, daemon online, heartbeat age `0.7s`, no last error, transport `instagram_login`, and `receive_via_poll=False`.
+- [x] Confirm follow capability state, job counts, state distribution, decision distribution, and duplicate episode slot count through read-only queries. Evidence: follow capability/state/refresh/CTA and payment-follow queues were empty after deploy; demand-driven follow state remains fail-closed until consented observation.
+- [x] Confirm UGC reward event queue has no duplicate reward/order keys and no blind retry of ambiguous sends. Evidence: assessment/reward/delivery queues were empty; due selection contained no terminal rows, `transient_nonterminal=0`, and all reward/evidence duplicate scans were zero.
+- [x] Confirm lifetime reward uniqueness per Instagram client, assessment decision distribution, and zero duplicate evidence fingerprints. Evidence: lifetime/reward/assessment counts were zero; client, identity, provider digest, and evidence fingerprint duplicate invariants all returned zero.
+- [x] Confirm guest-redeemable promo rows are only the intended private UGC class and all are `max_uses=1`. Evidence: guest promo/usage rows were empty and wrong-capacity, overuse, missing-reward, and invalid-shape invariants all returned zero.
 - [ ] Run one read-only Graph follow contract probe for an existing consented production client; verify HTTP 200 and exact boolean without persisting raw response or sending a message.
-- [x] Verify `/`, `/healthz/`, manager login redirect/auth boundary, and the bot page static bundle. Evidence: production returned HTTP 200 for `/`, `/healthz/`, `/login/`, and HTTP 302 for unauthenticated `/bot/`.
-- [x] Confirm no synthetic customer messages or ad events were created during deployment verification. Evidence: deploy used migrations, maintenance commands, dry-run reconciliation, health requests, and daemon ensure only; no synthetic Meta/customer event was sent.
+- [x] Verify `/`, `/healthz/`, manager login redirect/auth boundary, and the bot page static bundle. Evidence: storefront `/` and `/healthz/` returned 200; management `/login/` returned 200; unauthenticated management `/` and `/bot/` returned the expected 302 login redirects.
+- [x] Confirm no synthetic customer messages or ad events were created during deployment verification. Evidence: payment poll reported zero paid deals/new orders/notifications, follow reconciliation selected zero work, and verification used only read-only DB/HTTP checks after daemon ensure.
 
 The consented Graph probe remains intentionally open: production currently has
 zero Instagram clients with explicit `opted_in_at` consent, so a probe would
