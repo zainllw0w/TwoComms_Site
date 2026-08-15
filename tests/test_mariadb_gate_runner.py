@@ -582,6 +582,8 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             "MariaDB gate child failed: suite=checkout-concurrency exit=1",
             summary,
         )
+        self.assertIn("child_output: stdout=present stderr=present", summary)
+        self.assertIn("traceback=yes", summary)
         self.assertIn("ERROR: test_failed", summary)
         self.assertIn("exception:", summary)
         self.assertIn("database_error: errno=1213", summary)

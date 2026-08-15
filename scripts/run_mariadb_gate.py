@@ -168,6 +168,13 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
     lines = [
         f"MariaDB gate child failed: suite={suite} exit={completed.returncode}"
     ]
+    lines.append(
+        "child_output: "
+        f"stdout={'present' if completed.stdout else 'empty'} "
+        f"stderr={'present' if completed.stderr else 'empty'} "
+        f"stderr_lines={len((completed.stderr or '').splitlines())} "
+        f"traceback={'yes' if 'Traceback' in (completed.stderr or '') else 'no'}"
+    )
     # Django's test runner writes setup/migration diagnostics to stdout while
     # database-driver failures commonly use stderr. Inspect both streams, but
     # retain only the same bounded, sanitized markers from either one.
