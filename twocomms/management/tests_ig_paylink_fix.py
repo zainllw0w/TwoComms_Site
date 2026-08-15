@@ -659,6 +659,24 @@ class FinalizePaylinkTests(TestCase):
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_normal_bot_checkout_enables_promo_entry(self, mock_link, _mock_notify):
+        mock_link.return_value = {
+            "ok": True,
+            "invoice_url": "https://twocomms.shop/offer/a/promo-ready/",
+            "proposal_id": "promo-ready",
+        }
+
+        bot.finalize_paylink(
+            "Готово, перевірте замовлення.",
+            {"paylink": "full", "product": 1},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertTrue(mock_link.call_args.kwargs["allow_promo"])
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_first_party_offer_has_clear_checkout_copy(self, mock_link, _mock_notify):
         offer_url = "https://twocomms.shop/offer/a/opaque-token/"
         mock_link.return_value = {

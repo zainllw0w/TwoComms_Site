@@ -383,8 +383,8 @@ def create_order(request):
             # apply_promo_code кладёт в сессию promo_code_id — читаем его же
             # (старый код читал мёртвый ключ 'promo_code' с несуществующими
             # полями active/is_valid(), из-за чего промо в COD не работало).
-            # Промокоды доступны только зарегистрированным пользователям
-            # (та же политика, что в apply_promo_code).
+            # Promos are consumed only by the verified online/assisted payment
+            # paths.  This legacy form deliberately rejects COD above.
             applied_promo = None
             promo_code_id = request.session.get('promo_code_id')
             if promo_code_id and request.user.is_authenticated:

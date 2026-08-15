@@ -1366,20 +1366,23 @@ def apply_promo_code(request):
             }, status=409)
         promo_code = promo_matches[0]
 
-        # НОВАЯ ЛОГИКА: Проверяем авторизацию и права пользователя
-        if not request.user.is_authenticated:
-            return JsonResponse({
-                'success': False,
-                'auth_required': True,
-                'error': _('Промокоди доступні тільки для зареєстрованих користувачів'),
-                'message': _('Будь ласка, увійдіть в акаунт або зареєструйтесь, щоб використати промокод')
-            }, status=403)
-
-        # Проверяем, может ли пользователь использовать этот промокод
-        can_use, error_message = promo_code.can_be_used_by_user(request.user)
+        # Anonymous checkout is deliberately narrow: only an explicit private
+        # UGC bearer capability may pass this gate. Ordinary promos remain
+        # account-only even when one_time_per_user=False.
+        can_use, error_message = promo_code.can_be_used_by_user(
+            request.user if request.user.is_authenticated else None
+        )
 
         if not can_use:
+            if not request.user.is_authenticated and not promo_code.guest_redeemable:
+                return JsonResponse({
+                    'success': False,
+                    'auth_required': True,
+                    'error': _('Промокоди доступні тільки для зареєстрованих користувачів'),
+                    'message': _('Будь ласка, увійдіть в акаунт або зареєструйтесь, щоб використати промокод'),
+                }, status=403)
             return JsonResponse({
+                'auth_required': not request.user.is_authenticated,
                 'success': False,
                 'error': error_message
             }, status=400)

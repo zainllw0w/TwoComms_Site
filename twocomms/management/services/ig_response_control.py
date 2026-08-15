@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from copy import deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -74,6 +75,53 @@ _ASCII_CLOSED_CONTROL_TOKEN_RE = re.compile(
 _ASCII_CONTROL_SHAPED_RE = re.compile(
     rf"\[{_CONTROL_PREFIX_GAP}[A-Za-z][^\]\r\n]*(?:\]|\r?\n|$)"
 )
+_FOLLOW_URL_RE = re.compile(
+    r"(?:https?://|www\.|(?:[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?\.)+"
+    r"[a-z]{2,24}(?::\d{1,5})?(?:[/?:#][^\s]*)?)",
+    re.IGNORECASE,
+)
+_FOLLOW_MARKDOWN_RE = re.compile(r"[`*_#\[\]{}<>]|\]\(")
+_FOLLOW_INVISIBLE_RE = re.compile(
+    r"[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]"
+)
+_FOLLOW_PERCENT_RE = re.compile(r"\d+\s*%")
+_FOLLOW_PROMO_TOKEN_RE = re.compile(
+    r"\b(?=[a-z0-9_-]{5,}\b)(?=[a-z0-9_-]*[a-z])(?=[a-z0-9_-]*\d)"
+    r"[a-z0-9_-]+\b",
+    re.IGNORECASE,
+)
+_FOLLOW_DISCOUNT_RE = re.compile(
+    r"(?:зниж\w*|скид\w*|промо\s*код\w*|промокод\w*|promo(?:\s*code)?|"
+    r"coupon|discount|stack\w*|відсот\w*|процент\w*|"
+    r"\bкод(?:ом|у)?\s+[A-Z0-9][A-Z0-9_-]{3,}\b)",
+    re.IGNORECASE,
+)
+_FOLLOW_URGENCY_RE = re.compile(
+    r"(?:терміново|поспіш\w*|сьогодні|зараз|лише|тільки|останн\w*|"
+    r"last\s+chance|не\s+втрач\w*)",
+    re.IGNORECASE,
+)
+_FOLLOW_SURVEILLANCE_RE = re.compile(
+    r"(?:\b(?:я|ми)\s+(?:бач\w*|вид\w*|поміт\w*|замет\w*|зна\w*|"
+    r"відстеж\w*|отслеж\w*)|\bви\s+(?:ще\s+)?не\s+(?:підпис|подпис)\w*|"
+    r"\bстатус\b[^.!?]{0,40}\b(?:підпис|подпис)\w*|"
+    r"\b(?:підпис|подпис)\w*\b[^.!?]{0,30}\b(?:не\s+актив\w*|"
+    r"не\s+підтвердж\w*|не\s+подтвержд\w*)|перевір\w*|провер\w*|"
+    r"контролю\w*|контролир\w*|стежимо|следим|відслідков\w*|отслеж\w*)",
+    re.IGNORECASE,
+)
+_FOLLOW_FALSE_PROMISE_RE = re.compile(
+    r"(?:гарант\w*|обіця\w*|обещ\w*|безкоштов\w*|free\s+gift)",
+    re.IGNORECASE,
+)
+_FOLLOW_IMPERATIVE_RE = re.compile(
+    r"\b(?:підпис(?:уйтесь|іться|ись)|підпиш(?:іться|ись)|"
+    r"подпис(?:ывайтесь|итесь|ывайся)|"
+    r"follow(?:\s+us)?|стежте|следите|долучайтеся)\b",
+    re.IGNORECASE,
+)
+_FOLLOW_MIN_LENGTH = 24
+_FOLLOW_MAX_LENGTH = 220
 _KNOWN_KIND_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 _ID_RE = re.compile(r"^[1-9][0-9]{0,9}$")
 _QTY_RE = re.compile(r"^[1-9][0-9]{0,3}$")
@@ -116,6 +164,18 @@ STRUCTURED_RESPONSE_SCHEMA = {
                 "required": ["kind", "value"],
             },
         },
+        "follow_cta": {
+            "type": "object",
+            "properties": {
+                "include": {"type": "boolean"},
+                "text": {
+                    "type": "string",
+                    "minLength": _FOLLOW_MIN_LENGTH,
+                    "maxLength": _FOLLOW_MAX_LENGTH,
+                },
+            },
+            "required": ["include", "text"],
+        },
     },
     "required": ["reply_text", "controls"],
 }
@@ -135,6 +195,13 @@ class ResponseControl:
 
 
 @dataclass(frozen=True)
+class FollowCtaCandidate:
+    """Optional growth sentence proposed by the model, separate from controls."""
+
+    text: str
+
+
+@dataclass(frozen=True)
 class ValidatedResponse:
     """Immutable parser result.
 
@@ -146,6 +213,7 @@ class ValidatedResponse:
     controls: tuple[ResponseControl, ...] = ()
     valid: bool = True
     error: str = ""
+    follow_cta: FollowCtaCandidate | None = None
 
     @property
     def control(self) -> dict[str, Any]:
@@ -327,6 +395,69 @@ def _append_control(controls: list[ResponseControl], entry: ResponseControl) -> 
     return True
 
 
+def _follow_emoji_count(text: str) -> int:
+    return sum(
+        1
+        for char in text
+        if (0x1F000 <= ord(char) <= 0x1FAFF)
+        or (0x2600 <= ord(char) <= 0x27BF)
+    )
+
+
+def follow_cta_static_error(text: object) -> str:
+    """Return the shared lexical rejection reason for model-authored CTA copy."""
+    candidate = str(text or "").strip()
+    if not (_FOLLOW_MIN_LENGTH <= len(candidate) <= _FOLLOW_MAX_LENGTH):
+        return "candidate_length"
+    if "\n" in candidate or "\r" in candidate:
+        return "candidate_format"
+    lexical_candidate = unicodedata.normalize("NFKC", candidate)
+    lexical_candidate = _FOLLOW_INVISIBLE_RE.sub("", lexical_candidate)
+    if _FOLLOW_URL_RE.search(lexical_candidate):
+        return "candidate_url"
+    if _FOLLOW_INVISIBLE_RE.search(candidate):
+        return "candidate_format"
+    if _FOLLOW_MARKDOWN_RE.search(lexical_candidate) or _ASCII_CONTROL_SHAPED_RE.search(lexical_candidate):
+        return "candidate_control"
+    if (
+        _FOLLOW_PERCENT_RE.search(lexical_candidate)
+        or _FOLLOW_DISCOUNT_RE.search(lexical_candidate)
+        or _FOLLOW_PROMO_TOKEN_RE.search(lexical_candidate)
+    ):
+        return "candidate_discount"
+    if _FOLLOW_URGENCY_RE.search(lexical_candidate):
+        return "candidate_urgency"
+    if _FOLLOW_SURVEILLANCE_RE.search(lexical_candidate):
+        return "candidate_surveillance"
+    if _FOLLOW_FALSE_PROMISE_RE.search(lexical_candidate):
+        return "candidate_false_promise"
+    if _FOLLOW_IMPERATIVE_RE.search(lexical_candidate):
+        return "candidate_imperative"
+    if "?" in candidate or "？" in candidate:
+        return "candidate_question"
+    punctuation = re.findall(r"[.!?。！？]", candidate)
+    if len(punctuation) > 1 or candidate.count("?") > 1 or candidate.count("？") > 1:
+        return "candidate_sentence_count"
+    if _follow_emoji_count(candidate) > 1:
+        return "candidate_emoji"
+    return ""
+
+
+def _parse_follow_candidate(payload: object) -> FollowCtaCandidate | None:
+    """Parse optional CTA syntax without invalidating the base response."""
+    if not isinstance(payload, dict) or set(payload) != {"include", "text"}:
+        return None
+    if payload.get("include") is not True:
+        return None
+    text = payload.get("text")
+    if not isinstance(text, str):
+        return None
+    text = text.strip()
+    if follow_cta_static_error(text):
+        return None
+    return FollowCtaCandidate(text=text)
+
+
 def parse_structured_response(payload: object) -> ValidatedResponse:
     """Validate a structured model response without performing side effects."""
     if isinstance(payload, str):
@@ -334,7 +465,11 @@ def parse_structured_response(payload: object) -> ValidatedResponse:
             payload = json.loads(payload)
         except (TypeError, ValueError, json.JSONDecodeError):
             return _failure("", "invalid_json")
-    if not isinstance(payload, dict) or set(payload) != {"reply_text", "controls"}:
+    if (
+        not isinstance(payload, dict)
+        or not {"reply_text", "controls"}.issubset(payload)
+        or not set(payload).issubset({"reply_text", "controls", "follow_cta"})
+    ):
         return _failure(payload.get("reply_text", "") if isinstance(payload, dict) else "", "malformed_payload")
     reply_text = payload.get("reply_text")
     controls_payload = payload.get("controls")
@@ -358,7 +493,16 @@ def parse_structured_response(payload: object) -> ValidatedResponse:
             return _failure(reply_text, "invalid_control")
         if not _append_control(controls, entry):
             return _failure(reply_text, "conflicting_control")
-    return ValidatedResponse(reply_text=reply_text.strip(), controls=tuple(controls))
+    follow_cta = (
+        _parse_follow_candidate(payload.get("follow_cta"))
+        if "follow_cta" in payload
+        else None
+    )
+    return ValidatedResponse(
+        reply_text=reply_text.strip(),
+        controls=tuple(controls),
+        follow_cta=follow_cta,
+    )
 
 
 def parse_legacy_response(text: object) -> ValidatedResponse:
@@ -400,9 +544,11 @@ parse_legacy_tags = parse_legacy_response
 
 __all__ = [
     "CONTROL_KINDS",
+    "FollowCtaCandidate",
     "ResponseControl",
     "STRUCTURED_RESPONSE_SCHEMA",
     "ValidatedResponse",
+    "follow_cta_static_error",
     "parse_legacy_response",
     "parse_legacy_tags",
     "parse_model_response",

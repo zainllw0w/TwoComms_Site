@@ -81,6 +81,76 @@ class ResponseControlBoundaryTests(SimpleTestCase):
         self.assertEqual(result.control["show_products"], "12,34")
         self.assertEqual(result.control["catalog_link"], True)
 
+    def test_structured_response_keeps_optional_follow_candidate_separate(self):
+        from management.services.ig_response_control import (
+            FollowCtaCandidate,
+            parse_structured_response,
+        )
+
+        result = parse_structured_response({
+            "reply_text": "Дякуємо, оплату отримали.",
+            "controls": [{"kind": "stage", "value": "checkout"}],
+            "follow_cta": {
+                "include": True,
+                "text": "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників.",
+            },
+        })
+
+        self.assertTrue(result.valid)
+        self.assertIsInstance(result.follow_cta, FollowCtaCandidate)
+        self.assertEqual(
+            result.follow_cta.text,
+            "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників.",
+        )
+        self.assertEqual(result.control["stage"], "checkout")
+
+    def test_invalid_optional_follow_candidate_is_discarded_without_poisoning_base(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        for candidate in (
+            {"include": True, "text": "https://twocomms.shop отримайте 10% зараз"},
+            {"include": True, "text": "Підпишіться на t.me/twocomms і залишайтеся з нами."},
+            {"include": True, "text": "Деталі є на bit.ly/twocomms-follow, будемо раді вам."},
+            {"include": True, "text": "Приєднуйтесь до нас на t\u200b.me/twocomms, будемо раді вам."},
+            {"include": True, "text": "Підпишіться та використайте код TWOCOMMS10 при замовленні."},
+            {"include": True, "text": "Підпишіться та використайте TWOCOMMS10 при замовленні."},
+            {"include": True, "text": "Підпишіться, щоб отримати знижку на наступне замовлення."},
+            {"include": True, "text": "Ми бачимо, що ви ще не підписані на нашу сторінку."},
+            {"include": True, "text": "Я бачу, що ви ще не підписані на нашу сторінку."},
+            {"include": True, "text": "Ви ще не підписані на сторінку, будемо раді вам."},
+            {"include": True, "text": "Статус вашої підписки ще не активний, будемо раді вам."},
+            {"include": True, "text": "Будемо раді вам серед підписників [FOLLOW:TRUE]."},
+            {"include": "yes", "text": "Підпишіться"},
+            {"include": True, "text": ""},
+            {"include": True, "text": "ok", "extra": "discard"},
+        ):
+            with self.subTest(candidate=candidate):
+                result = parse_structured_response({
+                    "reply_text": "Безпечна відповідь",
+                    "controls": [{"kind": "manager", "value": True}],
+                    "follow_cta": candidate,
+                })
+                self.assertTrue(result.valid)
+                self.assertIsNone(result.follow_cta)
+                self.assertEqual(result.control["manager"], True)
+
+    def test_missing_follow_candidate_is_backward_compatible(self):
+        from management.services.ig_response_control import parse_structured_response
+
+        result = parse_structured_response({"reply_text": "Готово", "controls": []})
+
+        self.assertTrue(result.valid)
+        self.assertIsNone(result.follow_cta)
+
+    def test_validated_response_preserves_legacy_positional_field_order(self):
+        from management.services.ig_response_control import ValidatedResponse
+
+        result = ValidatedResponse("Безпечна відповідь", (), False, "legacy_error")
+
+        self.assertFalse(result.valid)
+        self.assertEqual(result.error, "legacy_error")
+        self.assertIsNone(result.follow_cta)
+
     def test_structured_result_is_immutable_and_projection_is_copy(self):
         from dataclasses import FrozenInstanceError
 
@@ -1591,7 +1661,7 @@ class StructuredPromptProtocolTests(TestCase):
         from management.models import DEFAULT_BOT_SYSTEM_PROMPT
 
         migration = importlib.import_module(
-            "management.migrations.0152_harden_ig_stage_prompt"
+            "management.migrations.0161_optional_follow_cta_prompt"
         )
         alter = next(
             operation

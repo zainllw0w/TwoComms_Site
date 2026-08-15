@@ -170,9 +170,38 @@ class ProviderDeliveryReceipt:
     planned_chunk_count: int = 0
     delivered_chunk_count: int = 0
     failure_boundary: str = ""
+    request_text: str = ""
 
     def as_legacy_tuple(self) -> tuple[bool, str, str]:
         return self.ok, self.kind, self.hint
+
+
+@dataclass(frozen=True)
+class ProviderRequestBoundaryResult:
+    """Authorization returned immediately before one provider request."""
+
+    allowed: bool
+    replacement_text: str = ""
+    reason: str = ""
+
+    def __bool__(self) -> bool:
+        return self.allowed
+
+
+def _follow_boundary_requires_base_fallback(
+    delivery, *, follow_authorized
+) -> bool:
+    """Recognize the legacy, provably pre-request follow-boundary rejection."""
+
+    return bool(
+        follow_authorized is not None
+        and isinstance(delivery, ProviderDeliveryReceipt)
+        and not delivery.ok
+        and delivery.kind == "cancelled"
+        and delivery.delivered_chunk_count == 0
+        and not delivery.provider_message_ids
+        and delivery.failure_boundary == "chunk:1:provider_request_rejected"
+    )
 
 
 @dataclass(frozen=True)
@@ -286,7 +315,7 @@ def _extract_control(reply: str) -> tuple[str, dict]:
     return clean, tags
 
 
-def _normalize_generated_reply(reply) -> tuple[str, dict, bool]:
+def _normalize_generated_reply_details(reply) -> tuple[str, dict, bool, object | None]:
     """Normalize structured or rolling legacy model output before any effects.
 
     The worker deliberately receives a copied compatibility mapping only after
@@ -307,20 +336,26 @@ def _normalize_generated_reply(reply) -> tuple[str, dict, bool]:
     elif isinstance(reply, str):
         result = parse_legacy_response(reply)
     else:
-        return "", {}, False
+        return "", {}, False, None
     if not result.valid and result.error in {
         "invalid_json",
         "invalid_reply_text",
         "malformed_payload",
         "malformed_text",
     }:
-        return "", {}, False
+        return "", {}, False, None
     if not result.valid:
         # The text itself is safe after control-shaped content was removed; only
         # the operational proposal is discarded.  This is the rolling adapter's
         # deliberate compatibility behavior for malformed controls.
-        return result.reply_text, {}, False
-    return result.reply_text, result.control, True
+        return result.reply_text, {}, False, None
+    return result.reply_text, result.control, True, result.follow_cta
+
+
+def _normalize_generated_reply(reply) -> tuple[str, dict, bool]:
+    """Backward-compatible projection without the optional CTA candidate."""
+    text, control, valid, _candidate = _normalize_generated_reply_details(reply)
+    return text, control, valid
 
 
 _AUTHORITY_CLAIM_WINDOW = r"[^\n.!?]{0,80}"
@@ -1523,8 +1558,10 @@ CANONICAL_PROMPT_AUTHORITY_POLICY = (
 # remain the actual authorization boundary.
 PAYMENT_PROTOCOL_NOTE = (
     "[СТРУКТУРОВАНА ВІДПОВІДЬ — службове, клієнт цього не бачить]\n"
-    "Поверни лише JSON-об'єкт рівно з ключами reply_text і controls. reply_text — "
-    "короткий customer-facing текст без службових маркерів. controls — масив "
+    "Поверни лише JSON-об'єкт; reply_text і controls — обов'язкові. follow_cta — "
+    "необов'язковий об'єкт {\"include\": boolean, \"text\": string}; якщо він не "
+    "доречний, повністю пропусти ключ follow_cta. reply_text — короткий "
+    "customer-facing текст без службових маркерів. controls — масив "
     "об'єктів kind/value; додавай лише точні пропозиції з поточного контексту. "
     "Дозволені kind: manager, spam, stage, paylink, payment, product, item, option, "
     "qty, size, fit, color_variant_id, price, price_quoted, order, show_products, "
@@ -2173,6 +2210,10 @@ def finalize_paylink(
             "item_specs": item_specs,
             "negotiated_total": negotiated_total,
             "requested_payment_amount": payment_amount,
+            # Normal catalog-price proposals accept the private one-use UGC
+            # bearer code at the hosted checkout.  A manually negotiated total
+            # remains non-stackable unless a caller explicitly opts it in.
+            "allow_promo": negotiated_total is None,
         }
         evidence_ids = []
         if negotiated_price is not None:
@@ -5551,6 +5592,9 @@ def send_text(
     provider_message_id = ""
     parts: list[str] = []
     provider_io_started = provider_io_started_callback is None
+    provider_request_text = ""
+    outgoing_text = str(text or "")
+    provider_boundary_downgraded = False
 
     def ensure_provider_io_started() -> bool:
         nonlocal provider_io_started
@@ -5579,6 +5623,7 @@ def send_text(
             planned_chunk_count=len(parts),
             delivered_chunk_count=len(provider_message_ids),
             failure_boundary=failure_boundary,
+            request_text=provider_request_text,
         )
 
     account_id = _provider_account_id(s)
@@ -5603,11 +5648,14 @@ def send_text(
             _remember_send_error(s, hint)
             return finish_delivery(False, "permanent", hint, failure_boundary="preflight:empty_linkless_fallback")
         text = fallback
+        outgoing_text = fallback
         degraded_text = fallback
 
     parts = _split_for_send(text)
     if not parts:
         return finish_delivery(False, "permanent", "порожня відповідь", failure_boundary="preflight:empty_reply")
+    if len(parts) == 1:
+        outgoing_text = parts[0]
     ok_any = False
     for chunk_index, part in enumerate(parts):
         provider_exception = False
@@ -5653,12 +5701,44 @@ def send_text(
                     provider_message_ids=tuple(provider_message_ids),
                     planned_chunk_count=len(parts),
                 )
-                if provider_request_boundary_factory
+                if provider_request_boundary_factory and not provider_boundary_downgraded
                 else nullcontext(True)
             )
             with provider_boundary as provider_request_allowed:
-                if not provider_request_allowed:
+                boundary_reason = str(
+                    getattr(provider_request_allowed, "reason", "") or ""
+                ).strip()
+                boundary_replacement = str(
+                    getattr(provider_request_allowed, "replacement_text", "") or ""
+                ).strip()
+                replacement_applied = False
+                if boundary_replacement:
+                    if degraded_text:
+                        boundary_replacement = _strip_customer_urls(
+                            boundary_replacement
+                        )
+                    replacement_parts = _split_for_send(boundary_replacement)
+                    if (
+                        not ok_any
+                        and chunk_index == 0
+                        and not provider_message_ids
+                        and len(parts) == 1
+                        and len(replacement_parts) == 1
+                    ):
+                        parts = replacement_parts
+                        part = replacement_parts[0]
+                        outgoing_text = part
+                        provider_boundary_downgraded = True
+                        replacement_applied = True
+                        if degraded_text:
+                            degraded_text = part
+                    else:
+                        boundary_reason = "unsafe_replacement"
+                if not provider_request_allowed and not replacement_applied:
                     hint = "provider request boundary rejected the send"
+                    boundary_suffix = (
+                        f":{boundary_reason}" if boundary_reason else ""
+                    )
                     if ok_any:
                         return finish_delivery(
                             False,
@@ -5666,6 +5746,7 @@ def send_text(
                             f"часткова доставка; {hint}",
                             failure_boundary=(
                                 f"chunk:{chunk_index + 1}:provider_request_rejected"
+                                f"{boundary_suffix}"
                             ),
                         )
                     return finish_delivery(
@@ -5674,6 +5755,7 @@ def send_text(
                         hint,
                         failure_boundary=(
                             f"chunk:{chunk_index + 1}:provider_request_rejected"
+                            f"{boundary_suffix}"
                         ),
                     )
                 # Позначаємо ДО відправки: echo цього чанка прийде асинхронно і не має
@@ -5686,6 +5768,7 @@ def send_text(
                 if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
                     payload["messaging_type"] = "RESPONSE"
                 body = json.dumps(payload).encode("utf-8")
+                provider_request_text = outgoing_text
                 try:
                     code, resp = _provider_http(
                         s,
@@ -5807,6 +5890,7 @@ def send_text(
                             planned_chunk_count=len(parts),
                         )
                         if provider_request_boundary_factory
+                        and not provider_boundary_downgraded
                         else nullcontext(True)
                     )
                     with fallback_provider_boundary as provider_request_allowed:
@@ -5827,6 +5911,7 @@ def send_text(
                             fallback_payload["messaging_type"] = "RESPONSE"
                             fallback_body = json.dumps(fallback_payload).encode("utf-8")
                         try:
+                            provider_request_text = fallback_part
                             fallback_code, fallback_resp = _provider_http(
                                 s,
                                 _provider_url(s, f"/{account_id}/messages"),
@@ -7385,6 +7470,8 @@ MEDIA_STATUS_OWNED = "owned"
 MEDIA_STATUS_METADATA_ONLY = "metadata_only"
 MEDIA_STATUS_UNAVAILABLE = "unavailable"
 MEDIA_CAPTURE_CLAIM_SECONDS = 60
+MEDIA_CAPTURE_MAX_ATTEMPTS = 2
+MEDIA_CAPTURE_RETRY_BASE_SECONDS = 30
 
 
 def _attachment_urls(attachments_json: str | None, *, limit: int = 8) -> list[str]:
@@ -7433,6 +7520,95 @@ def _attachment_media_metadata(
         if len(result) >= limit:
             break
     return result
+
+
+def _provider_attachment_metadata(msg: dict) -> list[dict]:
+    """Preserve provider-native media identity before URL normalization.
+
+    Signed CDN URLs are disposable and must never be the ownership key.  The
+    structured fields are intentionally bounded and treated as untrusted input;
+    the UGC policy still requires a live webhook, an owned local copy, and an
+    exact configured brand target before any reward can be issued.
+    """
+    if not isinstance(msg, dict):
+        return []
+    result: list[dict] = []
+    message_id = str(msg.get("mid") or "").strip()[:255]
+    for attachment in _attachment_items(msg) or []:
+        if not isinstance(attachment, dict):
+            continue
+        media_type = str(attachment.get("type") or "").strip().lower()[:32]
+        payload = attachment.get("payload") if isinstance(attachment.get("payload"), dict) else {}
+        candidates = _attachment_media_candidates(attachment)
+        if not candidates:
+            continue
+        provider_media_id = str(
+            attachment.get("media_id")
+            or attachment.get("asset_id")
+            or payload.get("media_id")
+            or payload.get("asset_id")
+            or ""
+        ).strip()[:255]
+        object_id = str(
+            attachment.get("object_id")
+            or attachment.get("id")
+            or payload.get("object_id")
+            or payload.get("story_id")
+            or payload.get("id")
+            or ""
+        ).strip()[:255]
+        target = payload.get("target") if isinstance(payload.get("target"), dict) else {}
+        target_username = str(target.get("username") or "").strip().casefold()
+        # A generic attachment can carry arbitrary ``username``/``target``
+        # fields.  They are useful for manager context, but are not proof that
+        # Meta delivered a native mention of our account.  Only the dedicated
+        # story-mention event, tied to the webhook MID, a provider media/object
+        # identity, and an explicit configured target, is eligible for the
+        # automatic UGC path.  Do not infer the target from the attachment type.
+        provider_native = bool(
+            media_type == "story_mention"
+            and message_id
+            and provider_media_id
+            and object_id
+            and target_username == "twocomms"
+        )
+        target_username = "twocomms" if provider_native else ""
+        for _kind, url, _title in candidates:
+            item = {
+                "url": url[:1200],
+                "provenance": MEDIA_PROVENANCE_LIVE_WEBHOOK,
+                "status": MEDIA_STATUS_PENDING,
+                "media_type": media_type or "image",
+                "provider_object_key": (
+                    f"{media_type}:{object_id}" if media_type and object_id else ""
+                ),
+                "provider_media_id": provider_media_id,
+                "provider_event_id": message_id,
+                "target_username": target_username,
+                "provider_native_mention": provider_native,
+            }
+            if not any(existing.get("url") == item["url"] for existing in result):
+                result.append(item)
+            if len(result) >= 8:
+                return result
+    reply_story = (msg.get("reply_to") or {}).get("story") or {}
+    if isinstance(reply_story, dict) and reply_story.get("url"):
+        story_id = str(reply_story.get("id") or reply_story.get("story_id") or "").strip()
+        result.append({
+            "url": str(reply_story.get("url"))[:1200],
+            "provenance": MEDIA_PROVENANCE_LIVE_WEBHOOK,
+            "status": MEDIA_STATUS_PENDING,
+            "media_type": "story",
+            "provider_object_key": f"story:{story_id}" if story_id else "",
+            "provider_media_id": str(reply_story.get("media_id") or "")[:255],
+            "provider_event_id": message_id,
+            "target_username": "",
+            # A reply-to-story identifies the referenced story, but it does
+            # not prove that the customer mentioned TwoComms in a provider
+            # native event.  Keep it as context for review only.
+            "provider_native_mention": False,
+        })
+    return result[:8]
 
 
 def _synthetic_inbound_event_key(
@@ -7524,7 +7700,23 @@ def _merge_attachment_media(existing: list[dict], incoming: list[dict]) -> list[
         if _media_merge_rank(item) > _media_merge_rank(current):
             merged[position] = item
         elif _media_merge_rank(item) == _media_merge_rank(current):
-            merged[position] = {**current, **item}
+            combined = {**current, **item}
+            # URL normalization/capture retries intentionally carry only
+            # transport metadata. They must never erase provider-authentic
+            # object/media identity or a verified story target captured at
+            # webhook ingress. Boolean provenance is monotonic as well.
+            for key in (
+                "media_type",
+                "provider_object_key",
+                "provider_media_id",
+                "provider_event_id",
+                "target_username",
+            ):
+                if current.get(key) and not item.get(key):
+                    combined[key] = current[key]
+            if current.get("provider_native_mention"):
+                combined["provider_native_mention"] = True
+            merged[position] = combined
     return merged
 
 
@@ -7599,8 +7791,19 @@ def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict] | None:
             if item.get("status") == MEDIA_STATUS_OWNED and item.get("storage_name"):
                 return None
             attempts = max(0, int(item.get("capture_attempts") or 0))
-            if item.get("status") == MEDIA_STATUS_UNAVAILABLE and attempts >= 2:
+            if (
+                item.get("status") == MEDIA_STATUS_UNAVAILABLE
+                and attempts >= MEDIA_CAPTURE_MAX_ATTEMPTS
+            ):
                 return None
+            next_attempt_at = str(item.get("capture_next_attempt_at") or "").strip()
+            if next_attempt_at:
+                try:
+                    retry_at = datetime.fromisoformat(next_attempt_at.replace("Z", "+00:00"))
+                except (TypeError, ValueError):
+                    retry_at = None
+                if retry_at and retry_at > timezone.now():
+                    return None
             if item.get("status") == MEDIA_STATUS_ACQUIRING:
                 try:
                     started = datetime.fromisoformat(
@@ -7682,7 +7885,8 @@ def _capture_message_media(
             item["status"] = MEDIA_STATUS_METADATA_ONLY
             for key in (
                 "storage_name", "local_url", "mime", "bytes", "content_hash",
-                "capture_token", "capture_started_at", "error_kind",
+                "capture_token", "capture_started_at", "capture_next_attempt_at",
+                "error_kind",
             ):
                 item.pop(key, None)
     current = _persist_media_metadata(row, current)
@@ -7708,6 +7912,15 @@ def _capture_message_media(
             current = _finish_media_capture(row.pk, url, token, {
                 "status": MEDIA_STATUS_UNAVAILABLE,
                 "error_kind": "download_failed",
+                "capture_next_attempt_at": (
+                    timezone.now()
+                    + timedelta(
+                        seconds=MEDIA_CAPTURE_RETRY_BASE_SECONDS
+                        * (2 ** max(0, int(item.get("capture_attempts") or 1) - 1))
+                    )
+                ).isoformat()
+                if int(item.get("capture_attempts") or 1) < MEDIA_CAPTURE_MAX_ATTEMPTS
+                else "",
             })
             continue
         mime, raw = downloaded
@@ -7744,6 +7957,7 @@ def _capture_message_media(
                 "bytes": len(raw),
                 "content_hash": content_hash,
                 "error_kind": "",
+                "capture_next_attempt_at": "",
             })
         except Exception as exc:
             if created_storage_name:
@@ -7754,6 +7968,15 @@ def _capture_message_media(
             current = _finish_media_capture(row.pk, url, token, {
                 "status": MEDIA_STATUS_UNAVAILABLE,
                 "error_kind": "storage_failed",
+                "capture_next_attempt_at": (
+                    timezone.now()
+                    + timedelta(
+                        seconds=MEDIA_CAPTURE_RETRY_BASE_SECONDS
+                        * (2 ** max(0, int(item.get("capture_attempts") or 1) - 1))
+                    )
+                ).isoformat()
+                if int(item.get("capture_attempts") or 1) < MEDIA_CAPTURE_MAX_ATTEMPTS
+                else "",
             })
             log("warning", "message_media_store", repr(exc))
         if on_progress is not None and not on_progress():
@@ -8395,6 +8618,7 @@ def _promote_manual_refresh_message(
 def enqueue_inbound(
     s: InstagramBotSettings, *, sender_id: str, text: str, mid: str,
     source: str = "webhook", attachments: list[str] | None = None,
+    attachment_metadata: list[dict] | None = None,
     received_at: datetime | None = None,
     reply_to_provider_message_id: str = "",
     quick_reply_payload: str = "",
@@ -8449,6 +8673,7 @@ def enqueue_inbound(
                 mid=mid,
                 source=source,
                 attachments=attachments,
+                attachment_metadata=attachment_metadata,
                 received_at=received_at,
                 reply_to_provider_message_id=reply_to_provider_message_id,
                 quick_reply_payload=quick_reply_payload,
@@ -8577,6 +8802,15 @@ def enqueue_inbound(
             else:
                 try:
                     with transaction.atomic():
+                        initial_media = _attachment_media_metadata(
+                            attachments,
+                            source=source,
+                        )
+                        if attachment_metadata:
+                            initial_media = _merge_attachment_media(
+                                initial_media,
+                                attachment_metadata,
+                            )
                         msg = InstagramBotMessage.objects.create(
                             sender_id=sender_id,
                             client=client,
@@ -8591,10 +8825,7 @@ def enqueue_inbound(
                             ),
                             source=source,
                             attachments=json.dumps(attachments) if attachments else "",
-                            attachment_media=_attachment_media_metadata(
-                                attachments,
-                                source=source,
-                            ),
+                            attachment_media=initial_media,
                             media_capture_eligible=source == "webhook",
                             provider_created_at=received_at,
                             reply_to_provider_message_id=reply_to_provider_message_id,
@@ -9268,6 +9499,24 @@ def _process_one_inside_reply_boundary(
     typing_active = False
     commerce_request = None
     commerce_decision = None
+    ugc_turn = False
+    ugc_assessment = None
+    follow_opportunity = None
+    follow_candidate = None
+    follow_decision = None
+    follow_authorized = None
+    follow_provider_io_started = False
+    follow_cancelled_before_io = False
+
+    if row.client_id:
+        try:
+            from management.services.ig_follow_cta import (
+                record_follow_refusal_from_inbound,
+            )
+
+            record_follow_refusal_from_inbound(row, now=timezone.now())
+        except Exception as exc:
+            log("warning", "follow_refusal", repr(exc))
 
     def clear_typing_indicator() -> None:
         nonlocal typing_active
@@ -9292,7 +9541,28 @@ def _process_one_inside_reply_boundary(
         except Exception as exc:
             log("error", "recovery_terminalize", repr(exc))
 
+    def cancel_prepared_follow_before_io() -> None:
+        nonlocal follow_cancelled_before_io
+        if (
+            follow_decision is not None
+            and not follow_provider_io_started
+            and str(getattr(follow_decision, "state", ""))
+            in {"prepared", "reserved"}
+        ):
+            try:
+                from management.services.ig_follow_cta import finalize_follow_delivery
+
+                finalize_follow_delivery(
+                    follow_decision.pk,
+                    outcome="cancelled_before_io",
+                    now=timezone.now(),
+                )
+                follow_cancelled_before_io = True
+            except Exception as exc:
+                log("warning", "follow_decision_cancel", repr(exc))
+
     def skip_after_permission_change() -> bool:
+        cancel_prepared_follow_before_io()
         skipped = _skip_observed_row(row, reason="permission_epoch_changed")
         if row.status == InstagramBotMessage.Status.DONE:
             terminalize_prepared_recovery_before_send(
@@ -9309,11 +9579,23 @@ def _process_one_inside_reply_boundary(
         except Exception as exc:
             log("warning", "message_media_capture", repr(exc))
     if row.client_id:
+        try:
+            from management.services.ig_ugc_assessment import (
+                ensure_pending_ugc_assessment,
+                potential_ugc_message,
+            )
+
+            ugc_turn = potential_ugc_message(row)
+            if ugc_turn:
+                ugc_assessment = ensure_pending_ugc_assessment(row)
+        except Exception as exc:
+            log("warning", "ugc_ingress_assessment", repr(exc))
+    if row.client_id:
         # Product corrections must become durable state before the classifier,
         # visual matcher, or Gemini can observe and reuse legacy current_* data.
         # Opted-out clients are handled by the existing policy gate below and do
         # not receive a new commerce decision while messaging remains forbidden.
-        if not row.client.opted_out_at:
+        if not row.client.opted_out_at and not ugc_turn:
             try:
                 commerce_request, commerce_decision = _persist_commerce_turn(
                     row,
@@ -9335,6 +9617,8 @@ def _process_one_inside_reply_boundary(
                 permission=permission,
             )
         try:
+            if ugc_turn:
+                raise StopIteration
             from management.services import bot_followups, bot_sales_classifier
 
             classified = bot_sales_classifier.ensure_rule_classification(
@@ -9376,6 +9660,8 @@ def _process_one_inside_reply_boundary(
                         )
                     return bool(consumed)
                 bot_followups.schedule_after_inbound(row.client)
+        except StopIteration:
+            log("info", "ugc_commerce_suppressed", f"{row.sender_id}: UGC turn")
         except DatabaseError:
             raise
         except Exception as exc:
@@ -9476,11 +9762,50 @@ def _process_one_inside_reply_boundary(
                 return False
             # Якщо є фото/пост — матчимо з каталогом і даємо моделі підказку.
             match_hint = None
-            product_media = _catalog_match_media(media)
+            product_media = [] if ugc_turn else _catalog_match_media(media)
             product_images = _collect_media_images(product_media) if media else (
                 [] if media_recovery_failed else images
             )
-            if product_images and _match_allowed(row.sender_id):
+            if ugc_turn and images:
+                try:
+                    from management.services import bot_vision
+                    from management.services.ig_ugc_assessment import assess_ugc_evidence
+
+                    vision_facts = bot_vision.assess_ugc(
+                        images,
+                        candidates=bot_vision.build_match_candidates(),
+                    )
+                    first_owned = next(
+                        (
+                            item for item in (row.attachment_media or [])
+                            if isinstance(item, dict)
+                            and item.get("provenance") == "live_webhook"
+                        ),
+                        {},
+                    )
+                    vision_facts.update({
+                        "provider_native_mention": bool(first_owned.get("provider_native_mention")),
+                        "target_username": first_owned.get("target_username", ""),
+                        "owned_media": first_owned.get("status") == "owned",
+                    })
+                    ugc_assessment = assess_ugc_evidence(
+                        message=row,
+                        facts=vision_facts,
+                    )
+                    if ugc_assessment.decision == "qualified_auto":
+                        from management.services.ig_ugc_rewards import (
+                            award_external_ugc_reward,
+                            queue_external_ugc_reward_delivery,
+                        )
+
+                        reward, _created = award_external_ugc_reward(
+                            client=row.client,
+                            assessment=ugc_assessment,
+                        )
+                        queue_external_ugc_reward_delivery(reward)
+                except Exception as exc:
+                    log("warning", "ugc_vision_assessment", repr(exc))
+            if product_images and _match_allowed(row.sender_id) and not ugc_turn:
                 try:
                     from management.services import bot_vision
 
@@ -9542,6 +9867,40 @@ def _process_one_inside_reply_boundary(
             turn_notes = "\n".join(
                 note for note in (deterministic_turn_note, customer_turn_context) if note
             )
+            if ugc_turn:
+                turn_notes = (
+                    f"{turn_notes}\n[UGC MODE] Це provider-native відмітка/репост. "
+                    "Подякуй природно; не продавай, не пояснюй товар, не формуй paylink, "
+                    "не проси підписку і не обіцяй знижку до завершення перевірки доказу."
+                ).strip()
+            if row.client_id and not ugc_turn:
+                try:
+                    from management.services.ig_follow_cta import (
+                        follow_opportunity_prompt_note,
+                        live_follow_opportunity,
+                    )
+
+                    follow_opportunity = live_follow_opportunity(
+                        client=row.client,
+                        source_message=row,
+                    )
+                    follow_note = follow_opportunity_prompt_note(follow_opportunity)
+                    if follow_note:
+                        turn_notes = "\n".join(
+                            note for note in (turn_notes, follow_note) if note
+                        )
+                    elif follow_opportunity is not None and "follow_state" in follow_opportunity.reason_codes:
+                        # A stale/unknown observation creates one coalesced local
+                        # demand. The worker/reconciliation path owns Meta I/O;
+                        # this live reply never blocks on a provider lookup.
+                        from management.services.ig_follow_state import request_follow_refresh
+
+                        request_follow_refresh(
+                            row.client,
+                            trigger=follow_opportunity.opportunity,
+                        )
+                except Exception as exc:
+                    log("warning", "follow_opportunity", repr(exc))
             reply = gemini_generate(
                 s, history, images=images or None, match_hint=match_hint,
                 memory_note=mem_note, context_note=ctx_note, client=row.client if row.client_id else None,
@@ -9570,10 +9929,21 @@ def _process_one_inside_reply_boundary(
     control = {}
     controls_valid = True
     if reply:
-        reply, control, controls_valid = _normalize_generated_reply(reply)
+        reply, control, controls_valid, follow_candidate = _normalize_generated_reply_details(reply)
         if not controls_valid:
             control["_invalid"] = True
             log("warning", "invalid_model_controls", f"{row.sender_id}: controls discarded")
+    if ugc_turn:
+        from management.services.ig_ugc_assessment import safe_ugc_acknowledgement
+
+        reply = safe_ugc_acknowledgement(
+            row.client,
+            reply,
+            assessment=ugc_assessment,
+        )
+        control = {}
+        controls_valid = True
+        follow_candidate = None
     # Invalid controls are discarded, not interpreted as a manager request.
     # A customer-safe reply may continue without changing CRM authority state;
     # explicit manager escalation remains separately validated below.
@@ -9624,7 +9994,7 @@ def _process_one_inside_reply_boundary(
     # передумав і назвав інший товар, `current_product_id` лишався старим —
     # звідси «не змінював товар назад». Опублікованість товару перевіряє
     # `bot_orders.pin_product`, тому вигаданий id тут не закріпиться.
-    if reply and row.client_id and _control_product_id(control):
+    if reply and row.client_id and not ugc_turn and _control_product_id(control):
         _pin_control_product(
             row.client,
             _control_product_id(control),
@@ -9637,7 +10007,7 @@ def _process_one_inside_reply_boundary(
     # [QTY:...]), навіть якщо посилання ще не створюється. Інакше уточнення
     # фасону губилось, і наступного ходу його знову бракувало — це і був
     # механізм нескінченного «підкажіть фасон».
-    if reply and row.client_id:
+    if reply and row.client_id and not ugc_turn:
         try:
             saved = persist_control_selection(
                 row.client,
@@ -9672,7 +10042,7 @@ def _process_one_inside_reply_boundary(
     # finalize_paylink гарантує, що клієнт НЕ лишиться з обіцянкою без лінку —
     # на успіх додає реальний URL (вирізаючи вигаданий моделлю), на невдачу
     # прибирає висяче обіцяння й кличе менеджера.
-    if reply and row.client_id:
+    if reply and row.client_id and not ugc_turn:
         reply = finalize_paylink(
             reply,
             control,
@@ -9685,6 +10055,40 @@ def _process_one_inside_reply_boundary(
     # provider may return a generic pageUrl that does not contain monobank/mbnk,
     # so hostname heuristics alone are not sufficient here.
     payment_deal = _invoice_deal_for_reply(row.client, reply) if row.client_id else None
+
+    if (
+        follow_candidate is not None
+        and follow_opportunity is not None
+        and row.client_id
+        and reply
+        and not ugc_turn
+    ):
+        try:
+            from management.services.ig_follow_cta import (
+                evaluate_follow_opportunity,
+                prepare_follow_decision,
+            )
+
+            current_episode = getattr(row.client, "current_commercial_episode", None)
+            follow_opportunity = evaluate_follow_opportunity(
+                client=row.client,
+                opportunity=follow_opportunity.opportunity,
+                episode=current_episode,
+                source_message=row,
+                base_text=reply,
+                now=timezone.now(),
+            )
+            follow_decision = prepare_follow_decision(
+                follow_opportunity,
+                candidate_text=getattr(follow_candidate, "text", ""),
+                model_meta={
+                    "model": gemini_failure.get("model", ""),
+                    "prompt_version": "follow-v1-live",
+                },
+            )
+        except Exception as exc:
+            log("warning", "follow_decision_prepare", repr(exc))
+            follow_decision = None
 
     if not reply and s.ai_enabled:
         if _defer_for_gemini_cooldown(row, s):
@@ -9847,6 +10251,7 @@ def _process_one_inside_reply_boundary(
     # process dies during this advisory action, stale recovery still sees the
     # row as processing and may safely retry it; no false send boundary exists.
     def mark_send_state():
+        nonlocal reply, follow_authorized, follow_cancelled_before_io
         # Recheck the lease after typing_off, then enter the short permission
         # boundary for the marker.  No external I/O runs while that lock is held.
         if not _renew_client_automation_lease(row, lease_token):
@@ -9854,6 +10259,23 @@ def _process_one_inside_reply_boundary(
         with customer_send_boundary(s.pk, row.client_id, permission) as send_allowed:
             if not send_allowed:
                 return "permission_denied", False
+            if follow_decision is not None:
+                try:
+                    from management.services.ig_follow_cta import authorize_follow_cta
+
+                    authorized = authorize_follow_cta(
+                        follow_decision.pk,
+                        current_base_text=reply,
+                        now=timezone.now(),
+                    )
+                except Exception as exc:
+                    log("warning", "follow_decision_authorize", repr(exc))
+                    authorized = None
+                if authorized is not None:
+                    follow_authorized = authorized
+                    reply = authorized.final_text
+                elif str(getattr(follow_decision, "state", "")) == "prepared":
+                    follow_cancelled_before_io = True
             send_started_at = timezone.now()
             if not _own_processing_claim(row).update(
                 send_state="sending", send_started_at=send_started_at, send_completed_at=None,
@@ -9879,9 +10301,13 @@ def _process_one_inside_reply_boundary(
             )
         return False
     if send_boundary_state != "allowed":
+        cancel_prepared_follow_before_io()
         return skip_after_permission_change()
     if send_claim_lost:
         return False
+    if follow_cancelled_before_io and follow_authorized is None:
+        cancel_prepared_follow_before_io()
+    original_reply_for_delivery = reply
     planned_chunk_count = len(_split_for_send(reply))
     _persist_reply_delivery_evidence(
         row,
@@ -9890,6 +10316,33 @@ def _process_one_inside_reply_boundary(
         delivered_chunk_count=0,
         provider_message_ids=[],
     )
+    def mark_follow_provider_io_started() -> bool:
+        nonlocal follow_provider_io_started
+        follow_provider_io_started = True
+        if follow_authorized is not None:
+            try:
+                from management.services.ig_follow_cta import finalize_follow_delivery
+
+                finalize_follow_delivery(
+                    follow_authorized.decision_id,
+                    outcome="provider_io_started",
+                    lease_token=follow_authorized.lease_token,
+                    now=timezone.now(),
+                )
+            except Exception as exc:
+                log("warning", "follow_decision_io", repr(exc))
+        return True
+
+    follow_provider_boundary_factory = None
+    if follow_authorized is not None:
+        from management.services.ig_follow_cta import follow_provider_request_boundary
+
+        def follow_provider_boundary_factory(**_boundary_state):
+            return follow_provider_request_boundary(
+                follow_authorized,
+                now=timezone.now(),
+            )
+
     delivery = _send_with_typing_off(
         s,
         row,
@@ -9901,6 +10354,8 @@ def _process_one_inside_reply_boundary(
             permission_boundary_factory=lambda: customer_send_boundary(
                 s.pk, row.client_id, permission
             ),
+            provider_io_started_callback=mark_follow_provider_io_started,
+            provider_request_boundary_factory=follow_provider_boundary_factory,
             # A normal product/catalog answer remains useful without a URL. A
             # generated payment link does not: silently stripping it would make
             # a false promise, so payment delivery stays fail-closed for a
@@ -9916,6 +10371,54 @@ def _process_one_inside_reply_boundary(
         ),
     )
     typing_active = False
+    if _follow_boundary_requires_base_fallback(
+        delivery,
+        follow_authorized=follow_authorized,
+    ):
+        # Production boundaries return a structured in-call downgrade. This
+        # branch only preserves compatibility with an older boolean boundary,
+        # and may run after durable proof that its follow reservation was
+        # cancelled before any provider request.
+        try:
+            from management.models import IgFollowCtaDecision
+
+            legacy_decision = IgFollowCtaDecision.objects.filter(
+                pk=follow_authorized.decision_id,
+            ).values(
+                "state",
+                "provider_io_started_at",
+                "lease_token",
+            ).first()
+            legacy_base_text = str(follow_authorized.base_text or "").strip()
+            legacy_fallback_safe = bool(
+                legacy_decision
+                and legacy_decision["state"] == IgFollowCtaDecision.State.CANCELLED
+                and legacy_decision["provider_io_started_at"] is None
+                and not legacy_decision["lease_token"]
+                and legacy_base_text
+            )
+        except Exception as exc:
+            log("warning", "follow_boundary_legacy_fallback", repr(exc))
+            legacy_fallback_safe = False
+            legacy_base_text = ""
+        if legacy_fallback_safe:
+            delivery = send_text(
+                s,
+                row.sender_id,
+                legacy_base_text,
+                permission_boundary_factory=lambda: customer_send_boundary(
+                    s.pk, row.client_id, permission
+                ),
+                allow_url_fallback=_allows_linkless_fallback(
+                    legacy_base_text,
+                    control,
+                    row.client,
+                ),
+                alert_link_restriction=not bool(
+                    payment_deal is not None or _PAY_URL_RE.search(legacy_base_text)
+                ),
+                return_receipt=True,
+            )
     (
         ok,
         kind,
@@ -9924,6 +10427,13 @@ def _process_one_inside_reply_boundary(
         receipt_present,
         provider_message_ids,
     ) = _delivery_receipt(delivery)
+    delivery_request_text = (
+        str(getattr(delivery, "request_text", "") or "")
+        if receipt_present else ""
+    )
+    if delivery_request_text:
+        original_reply_for_delivery = delivery_request_text
+        reply = delivery_request_text
     receipt_planned_count = (
         int(getattr(delivery, "planned_chunk_count", 0) or 0)
         if receipt_present else 0
@@ -9955,6 +10465,25 @@ def _process_one_inside_reply_boundary(
         failure_boundary = failure_boundary or (
             f"chunk:{delivered_chunk_count + 1}:provider_message_id_missing"
         )
+    if follow_authorized is not None:
+        try:
+            from management.services.ig_follow_cta import finalize_follow_delivery
+
+            if ok and provider_message_ids and delivered_chunk_count >= planned_chunk_count:
+                follow_outcome = "sent"
+            elif follow_provider_io_started or kind == "unknown":
+                follow_outcome = "ambiguous"
+            else:
+                follow_outcome = "cancelled_before_io"
+            finalize_follow_delivery(
+                follow_authorized.decision_id,
+                outcome=follow_outcome,
+                provider_message_ids=provider_message_ids,
+                lease_token=follow_authorized.lease_token,
+                now=timezone.now(),
+            )
+        except Exception as exc:
+            log("warning", "follow_decision_finalize", repr(exc))
     _persist_reply_delivery_evidence(
         row,
         original_text=original_reply_for_delivery,
@@ -10931,6 +11460,7 @@ def handle_webhook_payload(
             except Exception as exc:
                 log("warning", "referral", repr(exc))
         media = _extract_media_urls(msg)
+        media_metadata = _provider_attachment_metadata(msg)
         if enqueue_inbound(
             s,
             sender_id=sender_id,
@@ -10938,6 +11468,7 @@ def handle_webhook_payload(
             mid=msg.get("mid", ""),
             source="webhook",
             attachments=media,
+            attachment_metadata=media_metadata,
             received_at=msg.get("_event_created_at"),
             reply_to_provider_message_id=_reply_to_provider_message_id(msg),
             quick_reply_payload=_quick_reply_payload(msg),

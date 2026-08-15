@@ -324,11 +324,151 @@ def _message_for(kind, locale, order, payload) -> str:
 
 
 def _message(event: IgLifecycleEvent) -> str:
+    final_text = str(getattr(event, "final_text", "") or "").strip()
+    if final_text:
+        return final_text
     payload = event.payload or {}
     snapshot = payload.get(MESSAGE_SNAPSHOT_KEY)
     if isinstance(snapshot, str) and snapshot:
         return snapshot
     return _message_for(event.kind, event.locale, event.order, payload)
+
+
+def _base_message(event: IgLifecycleEvent) -> str:
+    """Return the committed lifecycle copy, excluding optional follow text."""
+    # Keep the existing `_message` seam available to receipt tests and
+    # operational callers that intentionally provide a deterministic override
+    # while the event has not yet been materialized.
+    if not str(getattr(event, "final_text", "") or "").strip():
+        return _message(event)
+    payload = event.payload or {}
+    snapshot = payload.get(MESSAGE_SNAPSHOT_KEY)
+    if isinstance(snapshot, str) and snapshot:
+        return snapshot
+    return _message_for(event.kind, event.locale, event.order, payload)
+
+
+def _prepared_follow_text(event: IgLifecycleEvent) -> str:
+    """Authorize one already-prepared payment CTA without provider I/O."""
+    if getattr(event, "kind", "") != IgLifecycleEvent.Kind.PAYMENT_VERIFIED:
+        return ""
+    try:
+        from management.ig_bot_models import IgFollowCtaDecision
+        from management.services.ig_follow_cta import (
+            authorize_follow_cta,
+            finalize_follow_delivery,
+        )
+
+        decision = (
+            IgFollowCtaDecision.objects.filter(
+                lifecycle_event_id=event.pk,
+                opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+                state=IgFollowCtaDecision.State.PREPARED,
+            )
+            .order_by("-id")
+            .first()
+        )
+        if decision is None:
+            return ""
+        authorized = authorize_follow_cta(
+            decision.pk,
+            current_base_text=_base_message(event),
+            now=timezone.now(),
+        )
+        if authorized is None:
+            finalize_follow_delivery(
+                decision.pk,
+                outcome="cancelled_before_io",
+                now=timezone.now(),
+            )
+            return ""
+        return authorized.final_text
+    except Exception:
+        logger.exception("Unable to authorize prepared lifecycle follow CTA %s", getattr(event, "pk", None))
+        return ""
+
+
+def materialize_lifecycle_follow_text(event: IgLifecycleEvent) -> str:
+    """Choose a final lifecycle snapshot; only verified payment may append CTA."""
+    existing = str(getattr(event, "final_text", "") or "").strip()
+    if existing:
+        return existing
+    base = _base_message(event)
+    if getattr(event, "kind", "") != IgLifecycleEvent.Kind.PAYMENT_VERIFIED:
+        return base
+    return _prepared_follow_text(event) or base
+
+
+def _persist_lifecycle_final_text(event_id: int, text: str):
+    """Set the one-time final text before the provider boundary is claimed."""
+    with transaction.atomic():
+        event = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
+        normalized = str(text or "").strip() or _base_message(event)
+        if event.final_text and event.final_text != normalized:
+            raise ValueError("IgLifecycleEvent final_text is immutable")
+        if not event.final_text:
+            event.final_text = normalized
+            event.save(update_fields=["final_text", "updated_at"])
+        return event
+
+
+def _finalize_lifecycle_follow_decision(event_id: int, lifecycle_state: str) -> None:
+    """Project the mandatory lifecycle receipt onto its optional CTA decision."""
+    try:
+        from management.ig_bot_models import IgFollowCtaDecision
+        from management.services.ig_follow_cta import finalize_follow_delivery
+
+        decision = (
+            IgFollowCtaDecision.objects.filter(
+                lifecycle_event_id=event_id,
+                opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+                state=IgFollowCtaDecision.State.RESERVED,
+            )
+            .order_by("-id")
+            .first()
+        )
+        if decision is None:
+            return
+        event = IgLifecycleEvent.objects.filter(pk=event_id).first()
+        lifecycle_message = (
+            _lifecycle_message_queryset(event.event_key).first()
+            if event is not None
+            else None
+        )
+        provider_ids = normalize_provider_message_ids(
+            lifecycle_message.delivery_provider_message_ids
+            if lifecycle_message is not None
+            else []
+        )
+        if event is not None and event.provider_message_id:
+            provider_id = normalize_provider_message_id(event.provider_message_id)
+            if provider_id and provider_id not in provider_ids:
+                provider_ids = (provider_id, *provider_ids)
+        if lifecycle_state == IgLifecycleEvent.State.SENT:
+            outcome = "sent"
+        elif (
+            lifecycle_state == IgLifecycleEvent.State.AMBIGUOUS
+            or _lifecycle_message_has_provider_io(lifecycle_message)
+        ):
+            outcome = "ambiguous"
+        elif lifecycle_state in {
+            IgLifecycleEvent.State.CANCELLED,
+            IgLifecycleEvent.State.FAILED,
+            IgLifecycleEvent.State.MANAGER_REVIEW,
+        }:
+            outcome = "cancelled_before_io"
+        else:
+            # A retryable pre-provider lifecycle failure retains the exact
+            # frozen text and reservation for that same event generation.
+            return
+        finalize_follow_delivery(
+            decision.pk,
+            outcome=outcome,
+            provider_message_ids=provider_ids,
+            now=timezone.now(),
+        )
+    except Exception:
+        logger.exception("Unable to finalize lifecycle follow decision %s", event_id)
 
 
 @transaction.atomic
@@ -1462,6 +1602,13 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             if cancellation_reason:
                 return _cancel_event(event_id, cancellation_reason, lease=lease)
 
+            # Optional follow copy is fully local at dispatch. Any Meta/Gemini
+            # preparation belongs to a prior worker; this boundary only
+            # authorizes an already prepared decision and freezes the exact
+            # text before the first provider request.
+            final_text = materialize_lifecycle_follow_text(event)
+            event = _persist_lifecycle_final_text(event.pk, final_text)
+
             payload = event.payload or {}
             try:
                 assignment_id = int(payload.get("assignment_id"))
@@ -1471,7 +1618,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             result = send_text(
                 settings,
                 event.client.igsid,
-                _message(event),
+                event.final_text or _base_message(event),
                 permission_boundary_factory=lambda: customer_send_boundary(
                     settings.pk, event.client_id, permission
                 ),
@@ -1621,6 +1768,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             ])
         final_state = owned.state
     _project_order_channel(owned)
+    _finalize_lifecycle_follow_decision(event_id, final_state)
     if lease_lost:
         if final_state in {
             IgLifecycleEvent.State.AMBIGUOUS,

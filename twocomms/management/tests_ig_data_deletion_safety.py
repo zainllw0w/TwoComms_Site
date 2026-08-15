@@ -13,8 +13,17 @@
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
-from management.ig_bot_models import BotDataDeletionRequest
+from management.ig_bot_models import (
+    BotDataDeletionRequest,
+    IgFollowCtaDecision,
+    IgFollowObservation,
+    IgFollowRefreshJob,
+    IgFollowState,
+    IgPaymentFollowPreparation,
+    IgUgcEvidenceAssessment,
+)
 from management.models import (
     IgClient,
     InstagramBotLog,
@@ -106,6 +115,62 @@ class LogDeletionScopeTests(TestCase):
 
         self.assertFalse(InstagramBotLog.objects.filter(pk=own.pk).exists())
         self.assertEqual(result["logs"], 1)
+
+    def test_deletion_removes_follow_and_ugc_intelligence_before_client(self):
+        from management.bot_views import _delete_direct_bot_records
+
+        target = IgClient.objects.create(igsid="2000000011", username="intelligence_user")
+        IgFollowState.objects.create(client=target)
+        IgFollowObservation.objects.create(
+            client=target,
+            revision=0,
+            trigger="test",
+            result=IgFollowObservation.Result.SKIPPED,
+            config_fingerprint="f" * 64,
+        )
+        IgFollowRefreshJob.objects.create(client=target)
+        IgFollowCtaDecision.objects.create(
+            trigger_key="delete-follow-cta",
+            client=target,
+            opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+            state=IgFollowCtaDecision.State.SUPPRESSED,
+        )
+        assessment = IgUgcEvidenceAssessment.objects.create(
+            client=target,
+            source_message_id="delete-source",
+            evidence_fingerprint="delete-fingerprint",
+        )
+
+        _delete_direct_bot_records(target.username)
+
+        self.assertFalse(IgClient.objects.filter(pk=target.pk).exists())
+        self.assertFalse(IgFollowState.objects.filter(client_id=target.pk).exists())
+        self.assertFalse(IgFollowObservation.objects.filter(client_id=target.pk).exists())
+        self.assertFalse(IgFollowRefreshJob.objects.filter(client_id=target.pk).exists())
+        self.assertFalse(IgFollowCtaDecision.objects.filter(client_id=target.pk).exists())
+        self.assertFalse(IgUgcEvidenceAssessment.objects.filter(pk=assessment.pk).exists())
+
+    def test_deletion_removes_payment_follow_preparation_orphan(self):
+        """Client-scoped follow preparation must not survive privacy fulfillment."""
+        from datetime import timedelta
+
+        from management.bot_views import _delete_direct_bot_records
+
+        target = IgClient.objects.create(igsid="2000000012", username="prep_user")
+        preparation = IgPaymentFollowPreparation.objects.create(
+            client=target,
+            # The lifecycle event is durable and may already be retained; this
+            # client-scoped optional-follow job is the data-deletion target.
+            lifecycle_event_id=987654,
+            deadline_at=timezone.now() + timedelta(minutes=5),
+        )
+
+        _delete_direct_bot_records(target.username)
+
+        self.assertFalse(
+            IgPaymentFollowPreparation.objects.filter(pk=preparation.pk).exists(),
+            "optional follow preparation must not retain a deleted client id",
+        )
 
 
 @override_settings(ALLOWED_HOSTS=["management.twocomms.shop", "testserver"])

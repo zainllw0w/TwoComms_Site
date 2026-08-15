@@ -13,6 +13,41 @@ from management.models import InstagramBotMessage, InstagramBotSettings
 
 
 class MediaSemanticsTests(SimpleTestCase):
+    def test_equal_rank_capture_merge_keeps_provider_native_provenance(self):
+        from management.services.instagram_bot import _merge_attachment_media
+
+        url = "https://lookaside.example/story-mention.jpg"
+        existing = [{
+            "url": url,
+            "provenance": "live_webhook",
+            "status": "pending",
+            "media_type": "story_mention",
+            "provider_object_key": "story_mention:story-object-1",
+            "provider_media_id": "media-1",
+            "provider_event_id": "mid-1",
+            "target_username": "twocomms",
+            "provider_native_mention": True,
+        }]
+        normalized = [{
+            "url": url,
+            "provenance": "live_webhook",
+            "status": "pending",
+            "media_type": "",
+            "provider_object_key": "",
+            "provider_media_id": "",
+            "provider_event_id": "",
+            "target_username": "",
+            "provider_native_mention": False,
+        }]
+
+        merged = _merge_attachment_media(existing, normalized)
+
+        self.assertEqual(merged[0]["provider_object_key"], "story_mention:story-object-1")
+        self.assertEqual(merged[0]["provider_media_id"], "media-1")
+        self.assertEqual(merged[0]["provider_event_id"], "mid-1")
+        self.assertEqual(merged[0]["target_username"], "twocomms")
+        self.assertTrue(merged[0]["provider_native_mention"])
+
     @patch("management.services.ig_payment_review._raw_media_by_mid")
     def test_historical_webhook_raw_media_stays_metadata_only_and_not_retryable(
         self, raw_media

@@ -28,8 +28,10 @@ from django.test import TestCase
 from django.utils import timezone
 
 from management.ig_bot_models import (
+    IgCommercialEpisode,
     IgClient,
     IgDeal,
+    IgFollowCtaDecision,
     IgPaymentConfirmationReview,
     IgPaymentReviewDecision,
 )
@@ -520,6 +522,44 @@ class CrmConsumerTests(BuyerTruthTestMixin, TestCase):
         self.assertTrue(result["ok"], result)
         self.buyer.refresh_from_db()
         self.assertEqual(self.buyer.stage, IgClient.Stage.ORDER_CREATED)
+
+    def test_funnel_reset_cancels_unreserved_follow_decisions_but_keeps_sent_history(self):
+        from management.services.ig_funnel_reset import reset_funnel
+
+        client = self._client("follow-reset-client")
+        episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=1,
+            open_slot=1,
+            materialization_key="follow-reset:episode",
+        )
+        client.current_commercial_episode = episode
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+        prepared = IgFollowCtaDecision.objects.create(
+            trigger_key="follow-reset-prepared",
+            client=client,
+            commercial_episode=episode,
+            opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+            state=IgFollowCtaDecision.State.PREPARED,
+            episode_slot_key="follow-reset-slot",
+        )
+        sent = IgFollowCtaDecision.objects.create(
+            trigger_key="follow-reset-sent",
+            client=client,
+            commercial_episode=episode,
+            opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+            state=IgFollowCtaDecision.State.SENT,
+            episode_slot_key="follow-reset-sent-slot",
+        )
+
+        result = reset_funnel(client_id=client.pk, actor=self.manager, reason="follow reset")
+
+        self.assertTrue(result["ok"], result)
+        prepared.refresh_from_db()
+        sent.refresh_from_db()
+        self.assertEqual(prepared.state, IgFollowCtaDecision.State.CANCELLED)
+        self.assertIsNone(prepared.episode_slot_key)
+        self.assertEqual(sent.state, IgFollowCtaDecision.State.SENT)
 
 
 class BuyerTruthBackfillCommandTests(BuyerTruthTestMixin, TestCase):

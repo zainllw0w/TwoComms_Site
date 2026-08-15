@@ -116,6 +116,27 @@ else:
 # не знеструмлювала збережені токени.
 FINANCE_TOKEN_KEY = os.environ.get('FINANCE_TOKEN_KEY', '')
 
+# Stable privacy boundary for the one-lifetime Instagram UGC reward.  This is
+# intentionally separate from Django SECRET_KEY: rotating session/signing
+# secrets must not make an already rewarded Instagram identity eligible again.
+# The JSON object retains old verification keys during rotation, for example
+# {"v1":"...old...","v2":"...active..."}; new digests use the active id.
+IG_UGC_IDENTITY_HMAC_KEYRING = _env_json('IG_UGC_IDENTITY_HMAC_KEYRING', {})
+IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID = os.environ.get(
+    'IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID',
+    '',
+).strip()
+
+# Automatic UGC reward issuance is deliberately shadowed unless production
+# opts in explicitly. Keep this environment-backed so the policy cannot be
+# changed by a code-only default or an ad-hoc runtime mutation.
+IG_UGC_AUTO_AWARD_MODE = os.environ.get(
+    'IG_UGC_AUTO_AWARD_MODE',
+    'shadow',
+).strip().casefold()
+if IG_UGC_AUTO_AWARD_MODE not in {'auto', 'shadow', 'disabled'}:
+    IG_UGC_AUTO_AWARD_MODE = 'shadow'
+
 # W1-10 (NEW-502): лимиты на загрузку файлов — защита shared-хостинга от
 # произвольно больших аплоадов (аватар/УБД-док и другие формы).
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB

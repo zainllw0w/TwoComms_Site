@@ -456,6 +456,44 @@ class InstagramCheckoutReconciliationTests(TestCase):
         ambiguous_attempt.refresh_from_db()
         self.assertTrue((ambiguous_attempt.event_state or {}).get("invoice_creation_ambiguous"))
 
+    @patch(
+        "storefront.views.monobank._resolve_attempt_invoice_status",
+        return_value=(None, {}),
+    )
+    def test_reconciliation_selects_promo_consumption_pending_marker(
+        self,
+        resolve_attempt_invoice_status,
+    ):
+        """JSON marker rows are pulled even though no Order exists yet."""
+        attempt = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"promo-pending-marker").hexdigest(),
+            full_name="Promo Pending Buyer",
+            phone="+380501112244",
+            city="Kyiv",
+            np_office="Branch 2",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("810.00"),
+            payment_amount=Decimal("810.00"),
+            monobank_invoice_id="promo-pending-invoice",
+            event_state={"promo_consumption_pending": True},
+        )
+        self.proposal.payment_attempt = attempt
+        self.proposal.status = IgCheckoutProposal.Status.INVOICE_CREATED
+        self.proposal.save(update_fields=["payment_attempt", "status", "updated_at"])
+
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+
+        result = reconcile_ig_checkout(limit=20, pull_ambiguous=True)
+
+        self.assertEqual(result["errors"], 0, result)
+        resolve_attempt_invoice_status.assert_called_once_with(
+            attempt,
+            attempt.monobank_invoice_id,
+        )
+
     def test_released_catalog_reservation_without_payment_time_requires_review(self):
         color = Color.objects.create(name="Blue", primary_hex="#2244AA")
         variant = ProductColorVariant.objects.create(

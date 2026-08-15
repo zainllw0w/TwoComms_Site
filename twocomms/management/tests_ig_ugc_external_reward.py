@@ -1,0 +1,1103 @@
+import hashlib
+from datetime import timedelta
+from decimal import Decimal
+from io import BytesIO
+from io import StringIO
+
+from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.core.management import call_command
+from django.db import IntegrityError, transaction
+from django.test import TestCase, override_settings
+from django.utils import timezone
+from django.urls import reverse
+from PIL import Image
+
+from management.models import IgClient, InstagramBotMessage
+from storefront.models import PromoCode
+
+
+@override_settings(
+    IG_UGC_AUTO_AWARD_MODE="auto",
+    ROOT_URLCONF="twocomms.urls_management",
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"
+        },
+    },
+)
+class ExternalUGCRewardTests(TestCase):
+    def _owned_image(self, storage_name, *, pattern_key=""):
+        buffer = BytesIO()
+        digest = hashlib.sha256(str(pattern_key or storage_name).encode("utf-8")).digest()
+        image = Image.new("RGB", (16, 16))
+        for y in range(16):
+            for x in range(16):
+                offset = (x * 5 + y * 7) % len(digest)
+                image.putpixel(
+                    (x, y),
+                    (
+                        digest[offset],
+                        digest[(offset + 9) % len(digest)],
+                        digest[(offset + 17) % len(digest)],
+                    ),
+                )
+        image.save(buffer, format="JPEG")
+        raw = buffer.getvalue()
+        if default_storage.exists(storage_name):
+            default_storage.delete(storage_name)
+        saved_name = default_storage.save(storage_name, ContentFile(raw))
+        self.addCleanup(default_storage.delete, saved_name)
+        return {
+            "storage_name": saved_name,
+            "mime": "image/jpeg",
+            "bytes": len(raw),
+            "content_hash": hashlib.sha256(raw).hexdigest(),
+        }
+
+    def _create_assessment(
+        self,
+        suffix,
+        *,
+        client=None,
+        confidence=Decimal("0.99"),
+        generation=1,
+    ):
+        from management.services.ig_ugc_assessment import assess_ugc_evidence
+
+        client = client or self.client
+        mid = f"story-mid-{suffix}"
+        provider_key = f"story:{suffix}-object"
+        owned = self._owned_image(f"ig/owned/{suffix}.jpg", pattern_key=suffix)
+        message = InstagramBotMessage.objects.create(
+            client=client,
+            sender_id=client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Відмітила TwoComms",
+            source="webhook",
+            mid=mid,
+            media_capture_eligible=True,
+            attachment_media=[{
+                "url": f"https://lookaside.fbsbx.com/media/{suffix}.jpg",
+                "provider_object_key": provider_key,
+                "provider_media_id": f"media:{suffix}",
+                "provider_event_id": mid,
+                "media_type": "story_mention",
+                "target_username": "twocomms",
+                "provider_native_mention": True,
+                "provenance": "live_webhook",
+                "status": "owned",
+                **owned,
+            }],
+        )
+        assessment = assess_ugc_evidence(
+            message=message,
+            facts={
+                "provider_native_mention": True,
+                "target_username": "twocomms",
+                "owned_media": True,
+                "personal_worn_apparel": True,
+                "customer_created_content": True,
+                "customer_content_confidence": Decimal("0.99"),
+                "brand_match_confidence": confidence,
+                "catalog_matches": [{"product_id": 42, "confidence": confidence}],
+                "risk_flags": [],
+                "people_count": 2,
+                "garment_count": 1,
+            },
+        )
+        if generation != assessment.generation:
+            assessment.generation = generation
+            assessment.save(update_fields=["generation", "updated_at"])
+        return assessment
+
+    def setUp(self):
+        self.client = IgClient.get_or_create_for_sender("external-ugc-client")
+        self.client.last_message_at = timezone.now()
+        self.client.save(update_fields=["last_message_at", "updated_at"])
+        self.actor = get_user_model().objects.create_user(
+            username="ugc-manager",
+            password="test-password",
+            is_staff=True,
+        )
+        from management.models import InstagramBotSettings
+
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.is_enabled = True
+        settings_obj.save(update_fields=["is_enabled", "updated_at"])
+        self.assessment = self._create_assessment("external")
+
+    def test_reward_legacy_boundaries_are_orm_only(self):
+        """Mixed production engines must not receive cross-table FK DDL."""
+        from management.ig_bot_models import IgUgcReward
+
+        for field_name in ("client", "order", "assignment", "evidence_message", "promo_code", "reviewed_by"):
+            with self.subTest(field=field_name):
+                self.assertFalse(IgUgcReward._meta.get_field(field_name).db_constraint)
+
+    def test_reward_path_and_decision_source_constraints_fail_closed(self):
+        from management.ig_bot_models import IgUgcReward
+
+        for overrides in (
+            {
+                "reward_path": "delivered_order",
+                "decision_source": "manager",
+                "reviewed_by": None,
+            },
+            {
+                "reward_path": "external_ugc",
+                "decision_source": "auto",
+                "reviewed_by": self.actor,
+            },
+        ):
+            with self.subTest(overrides=overrides), self.assertRaises(IntegrityError):
+                with transaction.atomic():
+                    IgUgcReward.objects.create(
+                        client=self.client,
+                        order=None,
+                        assignment=None,
+                        assignment_version=0,
+                        evidence_type=IgUgcReward.EvidenceType.STORY_MENTION,
+                        evidence_fingerprint=f"invalid-{overrides['reward_path']}-{overrides['decision_source']}",
+                        review_note="",
+                        promo_code=PromoCode.objects.create(
+                            code=f"BAD{overrides['reward_path'][:3].upper()}{overrides['decision_source'][:3].upper()}",
+                            discount_type="percentage",
+                            discount_value=Decimal("10.00"),
+                            max_uses=1,
+                        ),
+                        **overrides,
+                    )
+
+    def test_external_reward_does_not_require_order_assignment_or_actor(self):
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        reward, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+
+        self.assertTrue(created)
+        self.assertIsNone(reward.order_id)
+        self.assertIsNone(reward.assignment_id)
+        self.assertIsNone(reward.reviewed_by_id)
+        self.assertEqual(reward.decision_source, "auto")
+        self.assertEqual(reward.promo_code.discount_value, Decimal("10.00"))
+        self.assertEqual(reward.promo_code.max_uses, 1)
+        self.assertFalse(reward.promo_code.one_time_per_user)
+        self.assertTrue(reward.promo_code.guest_redeemable)
+        self.assertEqual(
+            reward.promo_code.valid_until.date(),
+            (reward.issued_at + timedelta(days=90)).date(),
+        )
+
+    def test_reward_freezes_assessment_evidence_snapshot_at_issuance(self):
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        expected_generation = self.assessment.generation
+        expected_policy = self.assessment.policy_version
+        expected_provider_digest = self.assessment.provider_object_digest
+        expected_catalog = list(self.assessment.catalog_candidates)
+
+        reward, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        self.assertTrue(created)
+
+        self.assessment.generation += 1
+        self.assessment.policy_version = "future-policy"
+        self.assessment.provider_object_digest = hashlib.sha256(b"changed").hexdigest()
+        self.assessment.catalog_candidates = [{"product_id": 999, "confidence": 1.0}]
+        self.assessment.save(update_fields=[
+            "generation",
+            "policy_version",
+            "provider_object_digest",
+            "catalog_candidates",
+            "updated_at",
+        ])
+        reward.refresh_from_db()
+
+        self.assertEqual(reward.assessment_generation_snapshot, expected_generation)
+        self.assertEqual(reward.policy_version_snapshot, expected_policy)
+        self.assertEqual(reward.provider_object_digest_snapshot, expected_provider_digest)
+        self.assertEqual(reward.catalog_candidates_snapshot, expected_catalog)
+
+    def test_qualified_assessment_without_provider_gates_cannot_mint_code(self):
+        from management.services.ig_ugc_rewards import UgcRewardConflict, award_external_ugc_reward
+
+        self.assessment.target_username = ""
+        self.assessment.provider_object_key = ""
+        self.assessment.save(update_fields=["target_username", "provider_object_key"])
+
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(client=self.client, assessment=self.assessment)
+
+        from management.ig_bot_models import IgUgcReward
+        self.assertFalse(IgUgcReward.objects.exists())
+
+    def test_reward_rejects_stale_assessment_policy(self):
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
+        )
+
+        self.assessment.policy_version = "ugc-v0"
+        self.assessment.save(update_fields=["policy_version", "updated_at"])
+
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=self.assessment,
+            )
+
+    def test_reward_reloads_original_user_webhook_message(self):
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
+        )
+
+        source = InstagramBotMessage.objects.get(mid=self.assessment.source_message_id)
+        source.source = "poll"
+        source.save(update_fields=["source"])
+
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=self.assessment,
+            )
+
+    def test_reward_reloads_original_owned_attachment(self):
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
+        )
+
+        source = InstagramBotMessage.objects.get(mid=self.assessment.source_message_id)
+        source.attachment_media = []
+        source.save(update_fields=["attachment_media"])
+
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=self.assessment,
+            )
+
+    def test_reward_and_delivery_outbox_commit_together(self):
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        reward, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+
+        self.assertTrue(created)
+        self.assertTrue(IgUgcRewardDelivery.objects.filter(reward=reward).exists())
+
+    def test_delivery_outbox_failure_rolls_back_reward_promo_and_lifetime(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import (
+            IgUgcReward,
+            IgUgcRewardDelivery,
+            IgUgcRewardLifetime,
+        )
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        with patch.object(
+            IgUgcRewardDelivery.objects,
+            "get_or_create",
+            side_effect=RuntimeError("forced outbox failure"),
+        ), self.assertRaisesRegex(RuntimeError, "forced outbox failure"):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=self.assessment,
+            )
+
+        self.assertFalse(IgUgcReward.objects.exists())
+        self.assertFalse(IgUgcRewardLifetime.objects.exists())
+        self.assertFalse(PromoCode.objects.exists())
+
+    def test_second_assessment_cannot_reissue_lifetime_reward(self):
+        from management.ig_bot_models import IgUgcReward
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
+        )
+
+        first, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        self.assertTrue(created)
+        second_assessment = self._create_assessment("external-2")
+        self.assertEqual(second_assessment.decision, "rejected")
+        self.assertIn("already_rewarded", second_assessment.reason_codes)
+
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=second_assessment,
+            )
+
+        self.assertEqual(IgUgcReward.objects.count(), 1)
+        self.assertEqual(PromoCode.objects.count(), 1)
+        self.assertEqual(IgUgcReward.objects.get().pk, first.pk)
+
+    def test_idempotent_replay_reuses_reward_promo_and_delivery_snapshot(self):
+        from management.ig_bot_models import IgUgcReward, IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            queue_external_ugc_reward_delivery,
+        )
+        from storefront.models import PromoCode
+
+        first, first_created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        first_delivery = queue_external_ugc_reward_delivery(first)
+
+        replay, replay_created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        replay_delivery = queue_external_ugc_reward_delivery(replay)
+
+        self.assertTrue(first_created)
+        self.assertFalse(replay_created)
+        self.assertEqual(replay.pk, first.pk)
+        self.assertEqual(replay.promo_code_id, first.promo_code_id)
+        self.assertEqual(replay_delivery.pk, first_delivery.pk)
+        self.assertEqual(
+            replay_delivery.message_snapshot,
+            first_delivery.message_snapshot,
+        )
+        self.assertEqual(IgUgcReward.objects.count(), 1)
+        self.assertEqual(IgUgcRewardDelivery.objects.count(), 1)
+        self.assertEqual(PromoCode.objects.count(), 1)
+
+    def test_legacy_reward_without_slot_is_bound_before_replay(self):
+        from management.ig_bot_models import IgUgcRewardLifetime
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        first, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        IgUgcRewardLifetime.objects.all().delete()
+
+        replay, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+
+        self.assertFalse(created)
+        self.assertEqual(replay.pk, first.pk)
+        lifetime = IgUgcRewardLifetime.objects.get()
+        self.assertEqual(lifetime.reward_id, first.pk)
+        self.assertEqual(lifetime.client_id, self.client.pk)
+        self.assertIsNotNone(lifetime.consumed_at)
+
+    def test_delivered_order_and_external_paths_share_one_lifetime_slot(self):
+        from management.services.ig_ugc_rewards import award_external_ugc_reward, award_ugc_reward
+        from management.models import InstagramBotMessage
+        from management.services.ig_order_assignments import link_order_to_client
+        from orders.models import Order
+
+        manager = self.actor
+        order = Order.objects.create(
+            order_number="TWC-CROSS-PATH",
+            full_name="Cross path buyer",
+            phone="380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            total_sum=Decimal("1000.00"),
+            payment_status="paid",
+            status="done",
+            tracking_number="20450000000002",
+            tracking_status_code=9,
+            tracking_terminal_at=timezone.now(),
+        )
+        link_order_to_client(order, client=self.client, actor=manager)
+        evidence = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Відмітила TwoComms",
+            provider_created_at=timezone.now(),
+        )
+
+        delivered, delivered_created = award_ugc_reward(
+            client=self.client,
+            order=order,
+            actor=manager,
+            evidence_message_id=evidence.pk,
+        )
+        external, external_created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+
+        self.assertTrue(delivered_created)
+        self.assertFalse(external_created)
+        self.assertEqual(external.pk, delivered.pk)
+
+    def test_external_path_blocks_later_delivered_order_path(self):
+        from management.services.ig_ugc_rewards import award_external_ugc_reward, award_ugc_reward
+        from management.models import InstagramBotMessage
+        from management.services.ig_order_assignments import link_order_to_client
+        from orders.models import Order
+
+        external, external_created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        order = Order.objects.create(
+            order_number="TWC-CROSS-PATH-2",
+            full_name="Cross path buyer",
+            phone="380501112244",
+            city="Kyiv",
+            np_office="Branch 2",
+            total_sum=Decimal("1000.00"),
+            payment_status="paid",
+            status="done",
+            tracking_number="20450000000003",
+            tracking_status_code=9,
+            tracking_terminal_at=timezone.now(),
+        )
+        link_order_to_client(order, client=self.client, actor=self.actor)
+        evidence = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Відмітила TwoComms",
+            provider_created_at=timezone.now(),
+        )
+
+        delivered, delivered_created = award_ugc_reward(
+            client=self.client,
+            order=order,
+            actor=self.actor,
+            evidence_message_id=evidence.pk,
+        )
+
+        self.assertTrue(external_created)
+        self.assertFalse(delivered_created)
+        self.assertEqual(delivered.pk, external.pk)
+
+    def test_manager_approval_requires_authenticated_actor(self):
+        from management.services.ig_ugc_rewards import award_external_ugc_reward, UgcRewardConflict
+
+        review_assessment = self._create_assessment(
+            "review",
+            confidence=Decimal("0.80"),
+        )
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=review_assessment,
+            )
+        reward, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=review_assessment,
+            actor=self.actor,
+        )
+        self.assertTrue(created)
+        self.assertEqual(reward.reviewed_by_id, self.actor.pk)
+        self.assertEqual(reward.decision_source, "manager")
+
+    def test_manager_review_api_is_generation_bound_and_queues_exact_snapshot(self):
+        from django.test import Client
+
+        assessment = self._create_assessment(
+            "api",
+            confidence=Decimal("0.88"),
+            generation=3,
+        )
+        http = Client()
+        http.force_login(self.actor)
+        response = http.post(
+            reverse(
+                "management_bot_client_ugc_assessment_review_api",
+                args=[self.client.pk, assessment.pk],
+            ),
+            {"decision": "approve", "generation": "2"},
+        )
+        self.assertEqual(response.status_code, 409)
+
+        response = http.post(
+            reverse(
+                "management_bot_client_ugc_assessment_review_api",
+                args=[self.client.pk, assessment.pk],
+            ),
+            {"decision": "approve", "generation": "3", "note": "Перевірено менеджером"},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["reward"]["reward_path"], "external_ugc")
+        self.assertFalse(payload["reward_eligible"])
+        self.assertEqual(payload["eligibility_reason"], "already_rewarded")
+        self.assertEqual(payload["delivery"]["state"], "pending")
+        self.assertIn("90", payload["delivery"]["message_snapshot"])
+
+    def test_manager_approval_is_terminal_and_replay_returns_the_existing_reward(self):
+        from django.test import Client
+
+        from management.ig_bot_models import IgUgcEvidenceAssessment
+
+        assessment = self._create_assessment(
+            "api-terminal",
+            confidence=Decimal("0.88"),
+            generation=3,
+        )
+        self.assertEqual(
+            assessment.decision,
+            IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+        )
+        http = Client()
+        http.force_login(self.actor)
+        url = reverse(
+            "management_bot_client_ugc_assessment_review_api",
+            args=[self.client.pk, assessment.pk],
+        )
+
+        first = http.post(
+            url,
+            {"decision": "approve", "generation": str(assessment.generation)},
+        )
+
+        self.assertEqual(first.status_code, 200)
+        assessment.refresh_from_db()
+        self.assertEqual(
+            assessment.decision,
+            IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
+        )
+        approved_generation = assessment.generation
+
+        replay = http.post(
+            url,
+            {"decision": "approve", "generation": str(approved_generation)},
+        )
+
+        self.assertEqual(replay.status_code, 200)
+        self.assertFalse(replay.json()["created"])
+        self.assertEqual(
+            replay.json()["reward"]["promo_code"],
+            first.json()["reward"]["promo_code"],
+        )
+        assessment.refresh_from_db()
+        self.assertEqual(
+            assessment.decision,
+            IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
+        )
+        self.assertEqual(assessment.generation, approved_generation)
+
+    def test_rejected_assessment_cannot_be_later_approved(self):
+        from django.test import Client
+
+        from management.ig_bot_models import IgUgcEvidenceAssessment, IgUgcReward
+
+        assessment = self._create_assessment(
+            "api-rejected",
+            confidence=Decimal("0.88"),
+        )
+        http = Client()
+        http.force_login(self.actor)
+        url = reverse(
+            "management_bot_client_ugc_assessment_review_api",
+            args=[self.client.pk, assessment.pk],
+        )
+
+        rejected = http.post(
+            url,
+            {"decision": "reject", "generation": str(assessment.generation)},
+        )
+        self.assertEqual(rejected.status_code, 200)
+        assessment.refresh_from_db()
+        self.assertEqual(
+            assessment.decision,
+            IgUgcEvidenceAssessment.Decision.REJECTED,
+        )
+
+        late_approval = http.post(
+            url,
+            {"decision": "approve", "generation": str(assessment.generation)},
+        )
+
+        self.assertEqual(late_approval.status_code, 409)
+        self.assertFalse(IgUgcReward.objects.exists())
+
+    def test_manager_approval_rolls_back_when_reward_outbox_creation_fails(self):
+        from unittest.mock import patch
+
+        from django.test import Client
+
+        from management.ig_bot_models import (
+            IgUgcReward,
+            IgUgcRewardDelivery,
+            IgUgcRewardLifetime,
+        )
+
+        assessment = self._create_assessment(
+            "api-rollback",
+            confidence=Decimal("0.88"),
+            generation=4,
+        )
+        original = {
+            "decision": assessment.decision,
+            "decision_source": assessment.decision_source,
+            "generation": assessment.generation,
+            "reviewed_by_id": assessment.reviewed_by_id,
+            "reviewed_at": assessment.reviewed_at,
+        }
+        http = Client()
+        http.force_login(self.actor)
+
+        with patch(
+            "management.services.ig_ugc_rewards.queue_external_ugc_reward_delivery",
+            side_effect=RuntimeError("forced manager outbox failure"),
+        ), self.assertRaisesRegex(RuntimeError, "forced manager outbox failure"):
+            http.post(
+                reverse(
+                    "management_bot_client_ugc_assessment_review_api",
+                    args=[self.client.pk, assessment.pk],
+                ),
+                {
+                    "decision": "approve",
+                    "generation": str(assessment.generation),
+                    "note": "Перевірено менеджером",
+                },
+            )
+
+        assessment.refresh_from_db()
+        self.assertEqual(
+            {
+                "decision": assessment.decision,
+                "decision_source": assessment.decision_source,
+                "generation": assessment.generation,
+                "reviewed_by_id": assessment.reviewed_by_id,
+                "reviewed_at": assessment.reviewed_at,
+            },
+            original,
+        )
+        self.assertFalse(IgUgcReward.objects.exists())
+        self.assertFalse(IgUgcRewardLifetime.objects.exists())
+        self.assertFalse(IgUgcRewardDelivery.objects.exists())
+        self.assertFalse(PromoCode.objects.exists())
+
+    def test_manager_reward_api_exposes_idempotent_eligibility_at_top_level(self):
+        from django.test import Client
+        from management.models import InstagramBotMessage
+        from management.services.ig_order_assignments import link_order_to_client
+        from orders.models import Order
+
+        order = Order.objects.create(
+            order_number="TWC-API-ELIGIBILITY",
+            full_name="API eligibility buyer",
+            phone="380501112255",
+            city="Kyiv",
+            np_office="Branch 3",
+            total_sum=Decimal("1000.00"),
+            payment_status="paid",
+            status="done",
+            tracking_number="20450000000004",
+            tracking_status_code=9,
+            tracking_terminal_at=timezone.now(),
+        )
+        link_order_to_client(order, client=self.client, actor=self.actor)
+        evidence = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Відмітила TwoComms",
+            provider_created_at=timezone.now(),
+        )
+        http = Client()
+        http.force_login(self.actor)
+        url = reverse("management_bot_client_ugc_reward_api", args=[self.client.pk])
+        payload = {
+            "order_id": order.pk,
+            "evidence_message_id": evidence.pk,
+        }
+
+        first = http.post(url, payload).json()
+        replay = http.post(url, payload).json()
+
+        self.assertTrue(first["success"])
+        self.assertFalse(first["reward_eligible"])
+        self.assertEqual(first["eligibility_reason"], "already_rewarded")
+        self.assertFalse(replay["reward_eligible"])
+        self.assertEqual(replay["eligibility_reason"], "already_rewarded")
+        self.assertEqual(
+            first["reward"]["promo_code"],
+            replay["reward"]["promo_code"],
+        )
+
+    def test_ambiguous_delivery_is_not_blindly_retried(self):
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+            queue_external_ugc_reward_delivery,
+        )
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from unittest.mock import patch
+
+        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment)
+        delivery = queue_external_ugc_reward_delivery(reward)
+        with patch(
+            "management.services.instagram_bot.send_text",
+            return_value=type("Receipt", (), {"ok": False, "kind": "unknown", "provider_message_ids": ()})(),
+        ) as send:
+            state = process_external_ugc_reward_delivery(delivery.pk)
+            self.assertEqual(state, IgUgcRewardDelivery.State.AMBIGUOUS)
+            self.assertEqual(process_external_ugc_reward_delivery(delivery.pk), IgUgcRewardDelivery.State.AMBIGUOUS)
+            send.assert_called_once()
+
+    def test_expired_processing_delivery_becomes_ambiguous_without_resend(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+        )
+
+        reward, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        delivery = reward.delivery
+        delivery.state = IgUgcRewardDelivery.State.PROCESSING
+        delivery.lease_token = "crashed-worker"
+        delivery.lease_expires_at = timezone.now() - timedelta(seconds=1)
+        delivery.save(
+            update_fields=["state", "lease_token", "lease_expires_at", "updated_at"]
+        )
+
+        with patch("management.services.instagram_bot.send_text") as send:
+            state = process_external_ugc_reward_delivery(delivery.pk)
+
+        self.assertEqual(state, IgUgcRewardDelivery.State.AMBIGUOUS)
+        send.assert_not_called()
+        delivery.refresh_from_db()
+        self.assertEqual(delivery.last_error, "stale_processing_provider_outcome_unknown")
+
+    def test_reconciler_selects_expired_processing_delivery(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        reward, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        delivery = reward.delivery
+        delivery.state = IgUgcRewardDelivery.State.PROCESSING
+        delivery.lease_token = "crashed-worker"
+        delivery.lease_expires_at = timezone.now() - timedelta(seconds=1)
+        delivery.save(
+            update_fields=["state", "lease_token", "lease_expires_at", "updated_at"]
+        )
+
+        output = StringIO()
+        with patch(
+            "management.services.ig_ugc_rewards.process_external_ugc_reward_delivery",
+            return_value=IgUgcRewardDelivery.State.AMBIGUOUS,
+        ) as process:
+            call_command(
+                "reconcile_ig_follow_intelligence",
+                limit=10,
+                stdout=output,
+            )
+
+        process.assert_called_once_with(delivery.pk)
+        self.assertIn("ambiguous=1", output.getvalue())
+
+    def test_known_meta_delivery_blocks_never_reach_send_api(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+        )
+
+        reward, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        delivery = reward.delivery
+        for delivery_status in (
+            "window_closed",
+            "advanced_access",
+            "message_request_check",
+            "send_blocked",
+        ):
+            with self.subTest(delivery_status=delivery_status):
+                self.client.delivery_status = delivery_status
+                self.client.save(update_fields=["delivery_status", "updated_at"])
+                delivery.state = IgUgcRewardDelivery.State.PENDING
+                delivery.due_at = timezone.now()
+                delivery.lease_token = ""
+                delivery.lease_expires_at = None
+                delivery.save(
+                    update_fields=[
+                        "state",
+                        "due_at",
+                        "lease_token",
+                        "lease_expires_at",
+                        "updated_at",
+                    ]
+                )
+                with patch("management.services.instagram_bot.send_text") as send:
+                    state = process_external_ugc_reward_delivery(delivery.pk)
+
+                self.assertEqual(state, IgUgcRewardDelivery.State.WAITING_WINDOW)
+                send.assert_not_called()
+
+    def test_lifetime_digest_is_stable_when_client_row_is_recreated(self):
+        from types import SimpleNamespace
+
+        from management.services.ig_ugc_rewards import _identity_digest
+
+        first = _identity_digest(SimpleNamespace(pk=101, igsid="  IG-Identity-1 "))
+        recreated = _identity_digest(SimpleNamespace(pk=808, igsid="ig-identity-1"))
+
+        self.assertEqual(first, recreated)
+
+    @override_settings(
+        SECRET_KEY="rotated-django-secret",
+        IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID="v2",
+        IG_UGC_IDENTITY_HMAC_KEYRING={
+            "v1": "old-ugc-identity-key-0000000000000001",
+            "v2": "new-ugc-identity-key-0000000000000002",
+        },
+    )
+    def test_lifetime_digest_uses_versioned_keyring_not_django_secret(self):
+        from types import SimpleNamespace
+
+        from management.services.ig_ugc_rewards import (
+            _identity_digest,
+            _identity_digest_candidates,
+        )
+
+        identity = SimpleNamespace(igsid="stable-identity")
+        active = _identity_digest(identity)
+        candidates = _identity_digest_candidates(identity)
+
+        self.assertTrue(active.startswith("v2:"))
+        self.assertEqual(candidates[0], active)
+        self.assertEqual({value.split(":", 1)[0] for value in candidates}, {"v1", "v2"})
+
+    @override_settings(
+        IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID="v1",
+        IG_UGC_IDENTITY_HMAC_KEYRING={
+            "v1": "old-ugc-identity-key-0000000000000001",
+            "v2": "new-ugc-identity-key-0000000000000002",
+        },
+    )
+    def test_retained_key_prevents_second_reward_after_active_key_rotation(self):
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        first, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        self.assertTrue(created)
+        self.assertTrue(first.lifetime_slot_key.startswith("v1:"))
+
+        with self.settings(IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID="v2"):
+            replay, replay_created = award_external_ugc_reward(
+                client=self.client,
+                assessment=self.assessment,
+            )
+
+        self.assertFalse(replay_created)
+        self.assertEqual(replay.pk, first.pk)
+
+    def test_privacy_delete_then_recreate_same_igsid_cannot_mint_second_reward(self):
+        from management.ig_bot_models import IgClient, IgUgcReward
+        from management.services.ig_ugc_rewards import UgcRewardConflict, award_external_ugc_reward
+
+        _first, created = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        self.assertTrue(created)
+
+        from management.bot_views import _delete_direct_bot_records
+
+        deletion = _delete_direct_bot_records(self.client.igsid)
+        self.assertEqual(deletion["clients"], 1)
+        recreated = IgClient.get_or_create_for_sender("external-ugc-client")
+        assessment = self._create_assessment("recreated", client=recreated)
+
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(client=recreated, assessment=assessment)
+        self.assertEqual(IgUgcReward.objects.count(), 0)
+
+    def test_versioned_migration_lifetime_slot_survives_privacy_delete_recreate(self):
+        """A migration-created slot remains authoritative after its client is erased."""
+        from importlib import import_module
+
+        from management.ig_bot_models import IgClient, IgUgcRewardLifetime
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
+        )
+        from management.bot_views import _delete_direct_bot_records
+
+        migration = import_module("management.migrations.0158_ig_ugc_intelligence")
+        digest = migration._identity_digest_for_igsid(self.client.igsid)
+        IgUgcRewardLifetime.objects.create(
+            client=self.client,
+            identity_digest=digest,
+            consumed_at=timezone.now(),
+        )
+
+        deletion = _delete_direct_bot_records(self.client.igsid)
+        self.assertEqual(deletion["clients"], 1)
+        recreated = IgClient.get_or_create_for_sender("external-ugc-client")
+        assessment = self._create_assessment("migration-recreated", client=recreated)
+
+        with self.assertRaises(UgcRewardConflict):
+            award_external_ugc_reward(client=recreated, assessment=assessment)
+
+    def test_detail_api_exposes_ugc_eligibility_reason(self):
+        from django.test import Client
+
+        http = Client()
+        http.force_login(self.actor)
+
+        response = http.get(
+            reverse("management_bot_client_detail_api", args=[self.client.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        ugc = response.json()["ugc_rewards"]
+        self.assertTrue(ugc["reward_eligible"])
+        self.assertEqual(ugc["eligibility_reason"], "qualified_assessment")
+
+    def test_delivery_waits_when_response_window_is_closed(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+            queue_external_ugc_reward_delivery,
+        )
+
+        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment)
+        delivery = queue_external_ugc_reward_delivery(reward)
+        self.client.last_message_at = timezone.now() - timedelta(hours=24)
+        self.client.save(update_fields=["last_message_at", "updated_at"])
+
+        with patch("management.services.instagram_bot.send_text") as send:
+            state = process_external_ugc_reward_delivery(delivery.pk)
+
+        self.assertEqual(state, IgUgcRewardDelivery.State.WAITING_WINDOW)
+        send.assert_not_called()
+
+    def test_waiting_delivery_resumes_with_same_snapshot_and_is_not_replayed(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+            queue_external_ugc_reward_delivery,
+        )
+
+        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment)
+        delivery = queue_external_ugc_reward_delivery(reward)
+        original_snapshot = delivery.message_snapshot
+        self.client.last_message_at = timezone.now() - timedelta(hours=24)
+        self.client.save(update_fields=["last_message_at", "updated_at"])
+        self.assertEqual(
+            process_external_ugc_reward_delivery(delivery.pk),
+            IgUgcRewardDelivery.State.WAITING_WINDOW,
+        )
+
+        self.client.last_message_at = timezone.now()
+        self.client.save(update_fields=["last_message_at", "updated_at"])
+        receipt = type(
+            "Receipt",
+            (),
+            {"ok": True, "kind": "", "provider_message_ids": ("ig-mid-ugc-1",)},
+        )()
+        with patch(
+            "management.services.instagram_bot.send_text",
+            return_value=receipt,
+        ) as send:
+            first = process_external_ugc_reward_delivery(delivery.pk)
+            replay = process_external_ugc_reward_delivery(delivery.pk)
+
+        self.assertEqual(first, IgUgcRewardDelivery.State.SENT)
+        self.assertEqual(replay, IgUgcRewardDelivery.State.SENT)
+        send.assert_called_once()
+        self.assertEqual(send.call_args.args[2], original_snapshot)
+        delivery.refresh_from_db()
+        self.assertEqual(delivery.message_snapshot, original_snapshot)
+        self.assertEqual(delivery.provider_message_ids, ["ig-mid-ugc-1"])
+
+    def test_delivery_revalidates_opt_out_and_takeover_before_provider_io(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+            queue_external_ugc_reward_delivery,
+        )
+
+        for field, value in (
+            ("opted_out_at", timezone.now()),
+            ("manager_takeover", True),
+        ):
+            with self.subTest(field=field):
+                reward, _ = award_external_ugc_reward(
+                    client=self.client,
+                    assessment=self.assessment,
+                )
+                delivery = queue_external_ugc_reward_delivery(reward)
+                setattr(self.client, field, value)
+                self.client.save(update_fields=[field, "updated_at"])
+                with patch("management.services.instagram_bot.send_text") as send:
+                    state = process_external_ugc_reward_delivery(delivery.pk)
+                self.assertEqual(state, IgUgcRewardDelivery.State.WAITING_WINDOW)
+                send.assert_not_called()
+                setattr(self.client, field, False if field == "manager_takeover" else None)
+                self.client.save(update_fields=[field, "updated_at"])
+
+    def test_expired_promo_is_not_sent_or_reissued(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+            queue_external_ugc_reward_delivery,
+        )
+
+        reward, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        reward.promo_code.valid_until = timezone.now() - timedelta(seconds=1)
+        reward.promo_code.save(update_fields=["valid_until"])
+        delivery = queue_external_ugc_reward_delivery(reward)
+
+        with patch("management.services.instagram_bot.send_text") as send:
+            state = process_external_ugc_reward_delivery(delivery.pk)
+
+        self.assertEqual(state, IgUgcRewardDelivery.State.FAILED)
+        send.assert_not_called()
+        delivery.refresh_from_db()
+        self.assertEqual(delivery.last_error, "promo_expired")

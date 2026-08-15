@@ -90,6 +90,8 @@ _REASONING_BUDGETS = {"minimal": 0, "low": 1024, "medium": 4096, "high": 8192}
 _REASONING_POLICIES = {
     "health_probe": "low",
     "customer_chat": "low",
+    "follow_cta_copy": "low",
+    "ugc_evidence_assessment": "high",
     "product_decision": "high",
     "size_fit_decision": "high",
     "catalog_match": "high",
@@ -104,12 +106,20 @@ _REASONING_POLICIES = {
 }
 _REASONING_OUTPUT_CAPS = {
     "customer_chat": 1536,
+    "follow_cta_copy": 256,
+    "ugc_evidence_assessment": 2048,
     "product_decision": 4096,
     "size_fit_decision": 4096,
     "catalog_match": 4096,
     "media_analysis": 4096,
     "payment_decision": 4096,
     "order_decision": 4096,
+}
+_REASONING_THINKING_BUDGET_OVERRIDES = {
+    # This task needs one short sentence. Disabling 2.5 fallback thinking keeps
+    # its bounded output budget available for customer-facing text, while
+    # Gemini 3.x still receives the quality-first ``low`` thinking level.
+    "follow_cta_copy": 0,
 }
 
 _BOUNDED_PROVIDER_REASONS = frozenset({
@@ -135,7 +145,9 @@ def reasoning_policy(task: str) -> dict:
     return {
         "task": key,
         "level": level,
-        "thinking_budget": _REASONING_BUDGETS[level],
+        "thinking_budget": _REASONING_THINKING_BUDGET_OVERRIDES.get(
+            key, _REASONING_BUDGETS[level]
+        ),
         "max_output_tokens": _REASONING_OUTPUT_CAPS.get(key),
         "policy_version": REASONING_POLICY_VERSION,
     }
@@ -929,6 +941,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
 def gemini_generate_json(system_instruction: str, user_text: str, *,
                          role: str = "management", max_output_tokens: int = 4096,
                          reasoning_task: str | None = None,
+                         timeout: tuple[float, float] | None = None,
+                         deadline_seconds: float | None = None,
                          images: list[tuple[str, bytes]] | None = None,
                          image_labels: list[dict] | None = None) -> dict:
     """Текстовий JSON-запит до Gemini. Пул ключів ролі + цепочка моделей."""
@@ -966,9 +980,11 @@ def gemini_generate_json(system_instruction: str, user_text: str, *,
     return _run_with_pool(
         role,
         payload,
-        timeout=MANAGEMENT_TEXT_TIMEOUT if role == "management" else None,
+        timeout=timeout or (MANAGEMENT_TEXT_TIMEOUT if role == "management" else None),
         deadline_seconds=(
-            MANAGEMENT_TEXT_DEADLINE_SECONDS if role == "management" else None
+            deadline_seconds
+            if deadline_seconds is not None
+            else (MANAGEMENT_TEXT_DEADLINE_SECONDS if role == "management" else None)
         ),
         reasoning_task=reasoning_task or (
             "customer_intelligence" if role in {"management", "checker"} else "customer_chat"

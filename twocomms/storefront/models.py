@@ -1804,6 +1804,9 @@ class PromoCode(models.Model):
     max_uses = models.PositiveIntegerField(default=0, verbose_name=_('Максимальна кількість використань (0 = безліміт)'))
     current_uses = models.PositiveIntegerField(default=0, verbose_name=_('Поточна кількість використань'))
     one_time_per_user = models.BooleanField(default=False, verbose_name=_('Одноразове використання на користувача'))
+    # Explicit bearer capability for private UGC rewards.  Anonymous checkout
+    # must never be inferred from ``one_time_per_user=False`` alone.
+    guest_redeemable = models.BooleanField(default=False, verbose_name=_('Дозволити гостьове використання'))
     min_order_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -1848,7 +1851,11 @@ class PromoCode(models.Model):
         now = timezone.now()
         if self.valid_from and now < self.valid_from:
             return False
-        if self.valid_until and now > self.valid_until:
+        # ``valid_until`` is an exclusive upper bound.  Keeping the boundary
+        # strict prevents a checkout that starts at the exact expiry instant
+        # from reserving a bearer code that every delivery/reconciliation path
+        # already treats as expired.
+        if self.valid_until and now >= self.valid_until:
             return False
         return True
 
@@ -1864,9 +1871,46 @@ class PromoCode(models.Model):
             return False
         return True
 
+    def is_guest_ugc_capability(self):
+        """Return whether this is an issued, bounded UGC bearer code."""
+        if (
+            not self.pk
+            or not self.guest_redeemable
+            or self.max_uses != 1
+            or self.one_time_per_user
+            or self.group_id is not None
+            or self.promo_type != 'regular'
+            or self.discount_type != 'percentage'
+            or self.discount_value != Decimal('10.00')
+        ):
+            return False
+        from management.ig_bot_models import IgUgcReward
+
+        return (
+            IgUgcReward.objects.filter(
+                promo_code_id=self.pk,
+                client_id__isnull=False,
+                lifetime_slot__consumed_at__isnull=False,
+            )
+            .filter(
+                models.Q(
+                    reward_path='external_ugc',
+                    assessment_id__isnull=False,
+                )
+                | models.Q(
+                    reward_path='delivered_order',
+                    order_id__isnull=False,
+                    assignment_id__isnull=False,
+                )
+            )
+            .exists()
+        )
+
     def can_be_used_by_user(self, user):
         """Проверяет, может ли конкретный пользователь использовать промокод"""
         if not user or not user.is_authenticated:
+            if self.is_guest_ugc_capability():
+                return (True, 'OK') if self.can_be_used() else (False, _('Промокод неактивний або вичерпаний'))
             return False, _('Промокоди доступні тільки для зареєстрованих користувачів')
 
         if not self.can_be_used():
@@ -2003,6 +2047,39 @@ class PromoCodeUsage(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {self.promo_code.code} ({self.used_at.strftime("%Y-%m-%d %H:%M")})'
+
+
+class PromoCodeGuestUsage(models.Model):
+    """Bearer-capability reservation/consumption ledger for private UGC codes."""
+
+    class State(models.TextChoices):
+        RESERVED = "reserved", "Reserved"
+        CONSUMED = "consumed", "Consumed"
+        RELEASED = "released", "Released"
+
+    promo_code = models.OneToOneField(
+        PromoCode,
+        on_delete=models.PROTECT,
+        related_name="guest_usage",
+        db_constraint=False,
+    )
+    reservation_key = models.CharField(max_length=96, unique=True)
+    order = models.ForeignKey(
+        "orders.Order",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="guest_promo_usages",
+        db_constraint=False,
+    )
+    state = models.CharField(max_length=16, choices=State.choices, default=State.RESERVED, db_index=True)
+    reserved_at = models.DateTimeField(auto_now_add=True)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["state", "reserved_at"], name="promo_guest_state_dt")]
 
 
 class UserPromoCode(models.Model):

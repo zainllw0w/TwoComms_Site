@@ -34,6 +34,13 @@ from twocomms.settings import *  # noqa: F401,F403
 # instead of silently falling back to plaintext in SQLite tests.
 FIELD_ENCRYPTION_KEY = 'Tj-k7EnSDEgaPpRWR9lEGgp2DmQ4LgU6L6-3P5qiv5U='
 
+# Dedicated deterministic keyring for UGC lifetime-identity tests.  Production
+# must supply its own retained keyring through environment variables.
+IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID = 'test-v1'
+IG_UGC_IDENTITY_HMAC_KEYRING = {
+    'test-v1': 'test-ugc-identity-hmac-key-0000000000000001',
+}
+
 
 # Используем SQLite для тестов (быстрее и не требует MySQL)
 DATABASES = {
