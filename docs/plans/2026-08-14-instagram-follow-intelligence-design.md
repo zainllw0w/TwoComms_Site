@@ -6,18 +6,20 @@
 
 ## Implementation Status Ledger
 
-Last reconciled: **2026-08-15**. The ledger records local implementation and
-focused-test evidence; MariaDB concurrency, browser/accessibility, production,
-and main-integration gates remain governed by the detailed checklist.
+Last reconciled: **2026-08-16**. The ledger records local implementation,
+MariaDB concurrency, browser/accessibility, main-integration, and current
+production evidence; intentionally unavailable consent and policy-hardening
+gates remain explicit below.
 
 - [x] Durable follow-state models, demand-driven Graph v25 observation, and fail-closed refresh behavior. Evidence: follow-state/operations suites and migration graph checks.
 - [x] Deterministic follow CTA policy with fresh-state, lifecycle, episode, cooldown, refusal, quiet-hours, final provider-boundary, and delivery guards. Evidence: CTA/AI/lifecycle/live-reply suites plus native MariaDB reservation/race proof (64 focused tests; six native concurrency tests).
 - [x] Provider-native UGC ingress provenance and owned-media boundary. Evidence: webhook extraction 26/26, including forged normalized-key regression.
 - [x] Bounded multimodal UGC facts plus deterministic brand/apparel/unique-per-garment catalog hard-gates and tiered acknowledgements. Evidence: assessment/media/agentic suites (167 tests).
-- [x] Cross-channel external UGC reward path with one lifetime grant per Instagram identity. Evidence: external/delivered UGC suites and replay/cross-path tests; open service cases suppress every new grant, a terminal case newer than the complaint snapshot clears that stale block, a later complaint blocks again, and an already-issued reward remains idempotently retrievable without a second code. MariaDB race proof remains open.
+- [x] Cross-channel external UGC reward path with one lifetime grant per Instagram identity. Evidence: external/delivered UGC suites, replay/cross-path tests, and native MariaDB race proof; open service cases suppress every new grant, a terminal case newer than the complaint snapshot clears that stale block, a later complaint blocks again, and an already-issued reward remains idempotently retrievable without a second code.
 - [x] Exact 90-day one-use private promo snapshot and receipt-backed UGC delivery outbox shared by external and delivered-order rewards. Evidence: external reward, delivery, guest checkout, and no-stacking suites; explicit `retryable` outcomes alone use bounded backoff, while `transient`/unknown/ambiguous outcomes are terminal and never blindly resent.
 - [x] Generation-bound manager review API/UI and explicit guest-redeemable promo capability. Evidence: terminal review/replay tests plus guest promo/checkout suites.
-- [ ] Remaining gates (reconciled 2026-08-16): a consented read-only Graph follow probe, calibrated shadow evidence before production auto-award, and privacy retention/biometric-policy hardening, plus the unrelated storefront `0096` migration drift and deployment-log reconciliation. The disposable MariaDB race/schema gate, complete authenticated browser/accessibility matrix, and linked-order post-issuance hold/reactivate/revoke policy are now evidence-backed in the detailed checklist. Runtime deployment evidence is refreshed after the current commit/deploy rather than inherited from historical SHA `04d392faa`.
+- [x] Current production deployment and read-only runtime gate. Evidence: server `HEAD` `f476223a25321d21b3af1feeff3c958b9da6722c` equals `origin/main`; migrations `0166` and `0095` are applied; all ten follow/UGC tables are InnoDB with expected unique indexes; daemon heartbeat is fresh on `instagram_login` with polling disabled; public and management health/auth boundaries return expected HTTP statuses; no synthetic message or test-event marker was created.
+- [ ] Remaining gates (reconciled 2026-08-16): a consented read-only Graph follow probe, calibrated shadow evidence before production auto-award, privacy retention/biometric-policy hardening, and unrelated storefront `0096` migration drift. Production has zero Instagram clients with explicit `opted_in_at`, so the Graph probe is intentionally not run; the disposable MariaDB race/schema gate, complete authenticated browser/accessibility matrix, linked-order post-issuance hold/reactivate/revoke policy, and deployment evidence are closed in the detailed checklist.
 
 The detailed checkbox counts and evidence commands live in
 `docs/plans/2026-08-14-instagram-follow-intelligence.md`; `14_IMPLEMENT2.md`

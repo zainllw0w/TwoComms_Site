@@ -4,6 +4,50 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Instagram follow intelligence and UGC lifecycle (2026-08-16)
+
+Production was fast-forwarded from `f831519a8` to final documentation SHA
+`f476223a25321d21b3af1feeff3c958b9da6722c` (feature implementation
+`0eac60f05`). The production worktree had no tracked modifications; pre-existing
+untracked operational artifacts were preserved. Authentication used an
+ephemeral environment value sourced locally from macOS Keychain; no credential
+was written to Git, command arguments, or this log.
+
+The approved server sequence completed successfully: `git pull --ff-only`,
+`migrate` (applied `management.0166_ig_ugc_reward_lifecycle`), `check`,
+`collectstatic --noinput` (1048 post-processed), `compress --force`,
+`seed_ig_bot_sales_playbooks` (0 created/updated/preserved), Passenger restart,
+`run_instagram_bot --ensure`, bounded payment polling (0 projections/orders),
+and `reconcile_ig_follow_intelligence --limit 50 --dry-run` (all selection,
+delivery, and failure counters 0). Migration recorder also confirms
+`storefront.0095_promocode_guest_ugc`.
+
+Read-only MariaDB proof: all ten new follow/UGC tables are InnoDB. Unique
+indexes cover capability singleton, follow/client projections and jobs, CTA
+trigger/episode/sent scopes, UGC reward evidence/lifetime/order/promo, UGC
+assessment source/provider digest, lifetime identity/client/reward, and
+delivery reward. The production dataset currently has 298 Instagram clients but
+no follow projections, CTAs, assessments, rewards, lifetime slots, reward
+deliveries, lifecycle jobs, or guest-redeemable UGC promos. Duplicate episode
+slots, reward/order keys, lifetime client/digests, evidence/provider
+fingerprints, and ambiguous reward deliveries are all 0.
+
+Runtime proof: bot settings are enabled with `provider_transport=instagram_login`
+and `receive_via_poll=False`; cache heartbeat was present, database heartbeat
+age was 0.39 seconds, and one `run_instagram_bot --forever` process was live.
+The watchdog, checkout, payment, fulfillment, and Telegram reconciliation
+heartbeats were fresh with zero consecutive failures. Public `/` and `/healthz/`
+returned 200; management `/login/` returned 200, anonymous `/bot/` returned the
+expected 302 to login, and `/bot/health/` returned 200 with no dangerous backlog.
+The deployed manager template contains the follow indicator and incremental
+polling code. Eighteen historical terminal analysis failures remain visible in
+the health payload and were not changed by this release.
+
+No Graph follow contract probe was run because the production database has zero
+clients with explicit `opted_in_at`; no valid target exists. No synthetic
+customer-message marker or test Meta event was created during deployment or
+verification, and no provider send/test-event command was invoked.
+
 ## Implement2 W2.1 authoritative order lifecycle and delivery truth (2026-08-14)
 
 The release candidate was published in `main` at exact SHA

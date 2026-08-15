@@ -14,11 +14,11 @@ This is the authoritative implementation checklist for this branch. A box is
 checked only after the corresponding code exists and a focused verification has
 passed. The snapshot is refreshed after each implementation slice.
 
-- Implementation checked: **222 / 277 (80.1%)**
-- Design ledger checked: **7 / 8 (87.5%)**
-- Combined checked: **229 / 285 (80.4%)**
-- Remaining implementation boxes: **55**
-- Last verified slices (2026-08-16): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, full authenticated Playwright follow matrix, terminal service-case ordering, linked-order hold/reactivate/revoke lifecycle, service-case enforcement on both reward paths, exact-once ambiguous UGC delivery, native MariaDB 11.4.12 follow/UGC concurrency proof, and push of implementation SHA `0eac60f05` to `origin/main`. Fresh gates: **706 passed + 3 skips** for focused feature suites, **647 passed** for the adjacent Instagram/checkout matrix, **41 passed** for the gate-runner contracts, and native MariaDB follow/UGC proof with 12 InnoDB tables, unique-index/FK/lifecycle checks, concurrency tests, and `cleanup=verified`. Current server deploy/verification, the consented Graph probe, calibration before production auto-award, privacy retention/biometric policy hardening, unrelated storefront `0096` migration drift, and deployment-log reconciliation stay explicitly open.
+- Implementation checked: **236 / 277 (85.2%)**
+- Design ledger checked: **8 / 9 (88.9%)**
+- Combined checked: **244 / 286 (85.3%)**
+- Remaining implementation boxes: **41**
+- Last verified slices (2026-08-16): durable follow observation/CTA/UI, immediate payment lifecycle plus optional preparation, provider-native UGC provenance/assessment retry, lifetime reward snapshots, guest promo ledger rollback/retry, normal Instagram proposal `allow_promo`, compact accessible follow UI, environment-backed UGC auto-award mode, full authenticated Playwright follow matrix, terminal service-case ordering, linked-order hold/reactivate/revoke lifecycle, service-case enforcement on both reward paths, exact-once ambiguous UGC delivery, native MariaDB 11.4.12 follow/UGC concurrency proof, and production deployment/verification at `f476223a2`. Fresh gates: **706 passed + 3 skips** for focused feature suites, **647 passed** for the adjacent Instagram/checkout matrix, **41 passed** for the gate-runner contracts, and native MariaDB follow/UGC proof with 12 InnoDB tables, unique-index/FK/lifecycle checks, concurrency tests, and `cleanup=verified`. The consented Graph probe, calibration before production auto-award, privacy retention/biometric policy hardening, unrelated storefront `0096` migration drift, and out-of-scope historical audit reconciliation stay explicitly open.
 - Grouped evidence (2026-08-16): focused feature gate **706 passed + 3 MariaDB-only skips**; adjacent gate **647 passed**; MariaDB gate contracts **41 passed**; native MariaDB follow/UGC race gate **6 passed**. Earlier recorded slices remain historical breakdowns.
 - Working documents: this file and `docs/plans/2026-08-14-instagram-follow-intelligence-design.md`.
 - Out of scope for this branch: `docs/instagram_bot_audit/14_IMPLEMENT2.md`.
@@ -66,9 +66,9 @@ class IgFollowCtaDecision(models.Model): ...
 - [x] Run `python manage.py test management.tests_ig_follow_models --settings=test_settings_no_network -v 2` from `twocomms/`. Evidence: passed in the 231-test follow/core/UI run.
 - [ ] Confirm RED because the models do not exist.
 - [x] Implement enums, fields, constraints, indexes, append-only guards, and `__all__` exports. Evidence: durable follow models and model contract tests are present.
-- [x] Generate the migration with normal project settings, then inspect it manually. Evidence: migration graph replay through management `0165` passes on the disposable SQLite test layer; live MariaDB DDL remains Task 15.
-- [x] Ensure every new table is converted to InnoDB using the repository's non-atomic MariaDB-safe migration pattern. Evidence: migrations `0157`, `0158`, `0164`, and storefront `0095` are non-atomic and each runs an explicit MySQL/MariaDB `information_schema.TABLES` engine guard after creating its tables; full migration replay through `0165`/`0095` succeeds on disposable SQLite (`MIGRATE_ALL_SQLITE_OK`). Live MariaDB engine proof remains Task 15.
-- [x] Use `db_constraint=False` for references that cross the legacy engine boundary. Evidence: AST/static inspection of all new FK/O2O fields in `0157`–`0165` and storefront `0095` found the legacy-boundary references explicitly disabled; the migration graph loads without unresolved dependencies. Live MariaDB constraint proof remains Task 15.
+- [x] Generate the migration with normal project settings, then inspect it manually. Evidence: migration graph replay through management `0165` passes on the disposable SQLite test layer; live MariaDB DDL is closed by the native gate and current production migration proof.
+- [x] Ensure every new table is converted to InnoDB using the repository's non-atomic MariaDB-safe migration pattern. Evidence: migrations `0157`, `0158`, `0164`, and storefront `0095` are non-atomic and each runs an explicit MySQL/MariaDB `information_schema.TABLES` engine guard after creating its tables; full migration replay through `0165`/`0095` succeeds on disposable SQLite (`MIGRATE_ALL_SQLITE_OK`); native and production checks report the expected InnoDB engines.
+- [x] Use `db_constraint=False` for references that cross the legacy engine boundary. Evidence: AST/static inspection of all new FK/O2O fields in `0157`–`0165` and storefront `0095` found the legacy-boundary references explicitly disabled; the migration graph loads without unresolved dependencies; native MariaDB constraint proof is closed.
 - [x] GREEN: rerun `management.tests_ig_follow_models` and expect all tests to pass. Evidence: included in the 231-test follow/core/UI run (2026-08-15).
 - [ ] Run `python manage.py makemigrations --check --dry-run` and expect `No changes detected`.
 - [ ] Commit with `git commit -am "feat(ig): add follow intelligence state"` plus the new files.
@@ -129,7 +129,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] RED: delivered-review/UGC request wins over follow CTA. Evidence: CTA/UGC suppression tests.
 - [x] RED: validator rejects URL, markdown, multiple sentences/questions, percentages, discount/stacking claims, urgency, guilt, surveillance wording, excess emoji, wrong language, control tokens, and high similarity. Evidence: candidate validator tests.
 - [x] RED: combined text must remain one `_split_for_send` chunk. Evidence: CTA/live-reply tests.
-- [x] RED: one episode slot is atomic and global 90-day/two-per-year limits serialize on an InnoDB follow-state row. Evidence: reservation/cooldown tests; real MariaDB lock proof remains Task 15.
+- [x] RED: one episode slot is atomic and global 90-day/two-per-year limits serialize on an InnoDB follow-state row. Evidence: reservation/cooldown tests and native MariaDB lock proof.
 - [x] RED: pre-provider cancellation releases without cooldown; receipt-confirmed and ambiguous provider I/O consume cooldown. Evidence: CTA outcome tests.
 - [ ] Run focused tests and confirm RED.
 - [x] Implement policy reason codes, context fingerprint, immutable snapshots, atomic reservation, final revalidation, and outcome transitions. Evidence: `ig_follow_cta.py` and 231-test follow/core/UI gate.
@@ -247,7 +247,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] RED: automatic assessment is restricted to provider-owned inbound evidence and cannot be triggered by a global media scan, ad creative, or an image URL supplied by the model. Evidence: 26/26 webhook extraction plus 80/80 assessment/reward tests.
 - [x] RED: manager review UI/API is part of this task (`bot_views.py`, `bot.html`, endpoint tests); review decisions are authenticated, audited, generation-bound, and cannot override lifetime identity or evidence provenance. Evidence: 65 UGC tests green, including terminal approve/reject/replay and rollback.
 - [ ] Confirm RED.
-- [x] Implement `IgUgcEvidenceAssessment` as an InnoDB, lease-backed, generation-safe model and enforce lease/generation ownership in assessment publication, not only in fields. Evidence: migrations `0158`/`0160`/`0163`, capture lease publication, and 285-test UGC/provenance/agentic run; MariaDB engine proof remains Task 15.
+- [x] Implement `IgUgcEvidenceAssessment` as an InnoDB, lease-backed, generation-safe model and enforce lease/generation ownership in assessment publication, not only in fields. Evidence: migrations `0158`/`0160`/`0163`, capture lease publication, 285-test UGC/provenance/agentic run, and native/production MariaDB engine proof.
 - [x] Reuse locally owned media and catalog-grounded vision; do not store raw provider bodies or image copies beyond existing owned media.
 - [ ] Store only owned-media references or stable privacy-safe hashes with retention/cleanup behavior; use `PROTECT`/explicit cleanup semantics so an assessment cannot silently lose the evidence required for an already-issued reward. Core references and deletion cleanup are present; retention/production proof remains open.
 - [x] Add a bounded structured `ugc_evidence_assessment` reasoning contract. The model recommends evidence facts; deterministic policy chooses auto/review/reject.
@@ -273,7 +273,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] RED: stale assignment/version is rejected under lock. Evidence: order-linked fulfillment/reward tests.
 - [x] RED: order-linked eligibility still requires current assignment, authoritative TTN collection, no cancellation/refund/return, and evidence after collection. Evidence: delivered-order reward/fulfillment tests.
 - [x] RED: `external_ugc` eligibility requires a current `qualified_auto` or manager-approved assessment but requires no fabricated order/assignment/TTN.
-- [x] RED: one Instagram client cannot receive a second UGC 10% reward through another order, another assessment, another evidence type, or a concurrent worker. Evidence: lifetime replay/cross-path/expiry tests; real MariaDB race proof remains Task 15.
+- [x] RED: one Instagram client cannot receive a second UGC 10% reward through another order, another assessment, another evidence type, or a concurrent worker. Evidence: lifetime replay/cross-path/expiry tests and native MariaDB race proof.
 - [x] RED: another person visible in the photo receives no reward unless their own Instagram identity supplies independent qualifying evidence.
 - [x] RED: manager review can approve/reject but cannot override duplicate evidence, lifetime reward, client ownership, or malformed media provenance. Evidence: `tests_ig_ugc_external_reward` manager API/authentication, generation-bound terminal approve/reject, provenance revalidation, lifetime idempotency, and rollback tests (65 UGC tests green).
 - [x] RED: `auto` and `manager` issuance have explicit decision sources; automatic qualification leaves `reviewed_by` nullable and must never create a synthetic manager identity. Database checks enforce the source/reviewer XOR.
@@ -293,13 +293,13 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
 - [x] Add a separate receipt-backed external UGC outbox/event shape, or make order/assignment nullable only for `UGC_REWARD_ISSUED` with database XOR checks and an audit of every consumer; do not send an external reward through an event path that dereferences mandatory order/assignment FKs.
 - [x] Preflight production for duplicate reward clients before applying the unique lifetime constraint; stop migration on unresolved duplicates rather than choosing silently. Evidence: migration `0158_ig_ugc_intelligence.preflight_legacy_ugc_rewards()` aborts on duplicate clients; production duplicate scans were zero before/after migration.
 - [x] Use the dedicated `IgUgcRewardDelivery` receipt-backed outbox with a localized immutable promo message snapshot that states 10%, one use, and exact 90-day expiry; no mandatory order-event FK is dereferenced on `external_ugc`. Evidence: delivered/external reward delivery tests.
-- [x] Add a database-enforced lifetime slot keyed by Instagram client identity, while keeping order/assignment optional only for `external_ugc` and requiring path-specific XOR checks. Evidence: `IgUgcRewardLifetime` constraints and cross-path tests; MariaDB race proof remains Task 15.
+- [x] Add a database-enforced lifetime slot keyed by Instagram client identity, while keeping order/assignment optional only for `external_ugc` and requiring path-specific XOR checks. Evidence: `IgUgcRewardLifetime` constraints, cross-path tests, and native MariaDB race proof.
 - [x] Link-order evidence time must use `nova_poshta_delivery_confirmed_at()` (provider event timestamp, with terminal timestamp only as fallback), so late polling cannot reject a genuine post-delivery mention. Evidence: delivered-order reward implementation/tests.
 - [x] Define post-issuance policy: full refund/return revokes an unused linked-order code; exchange pauses and revalidates; a redeemed code remains consumed on partial refund. External UGC has no fabricated order to revoke. Evidence: linked-order lifecycle tests cover hold/reactivate/revoke, redeemed-code preservation, unrelated-order isolation, and reconciler retry behavior.
 - [x] Create reward, lifetime grant, and immutable delivery outbox atomically in one transaction, then let the reconciler send only after the transaction commits. Evidence: rollback/idempotent outbox tests in the 285-test UGC/provenance/agentic gate.
 - [x] Ensure external rewards use a dedicated reward receipt-backed outbox or an event shape whose nullable order/assignment fields are protected by database XOR constraints; every consumer must handle the external path without dereferencing missing FKs.
 - [x] Extend current-fulfillment checks and cancellation rules only for the new kind. Evidence: delivered-order rewards retain current assignment, TTN collection, cancellation/refund/return, and post-delivery evidence gates, while `external_ugc` uses assessment/client/lifetime truth without a fabricated order.
-- [x] GREEN: run `management.tests_ig_w4_ugc_reward management.tests_ig_ugc_external_reward management.tests_ig_order_fulfillment`. Evidence: fresh 925-test expanded gate (2026-08-15); MariaDB-only concurrency remains Task 15.
+- [x] GREEN: run `management.tests_ig_w4_ugc_reward management.tests_ig_ugc_external_reward management.tests_ig_order_fulfillment`. Evidence: fresh 925-test expanded gate (2026-08-15) plus the native MariaDB concurrency gate.
 - [x] Inspect production for unused existing UGC reward promos before deciding whether a targeted data migration/backfill is justified; do not rewrite used/expired codes. Evidence: read-only production inspection found zero existing lifetime rewards and zero guest-redeemable UGC promo rows, so no targeted promo rewrite/backfill was applied.
 - [ ] Commit with `git commit -am "feat(ig): reward qualifying UGC across channels"`.
 
@@ -329,7 +329,7 @@ def finalize_follow_delivery(decision_id, *, outcome, provider_message_ids=(), n
   identity that already received the 10% UGC grant through a delivered order,
   external evidence, another assessment, or a prior provider event cannot receive
   a second grant. A second person in the photo receives nothing unless their own
-  identity later supplies an independent qualifying event. Evidence: cross-path/lifetime replay tests; real MariaDB race remains Task 15.
+  identity later supplies an independent qualifying event. Evidence: cross-path/lifetime replay tests and native MariaDB race proof.
 - [x] Verify the code is a one-use private bearer promo with `max_uses=1`, no
   stacking, `one_time_per_user=False`, and an exact 90-day expiry date in the
   receipt. Guest COD, online checkout, and Instagram-assisted checkout consume
@@ -523,7 +523,7 @@ Normal-settings note: `check` is clean with the ephemeral task secret shown abov
 - [x] Reconcile branch base with current `origin/main` while preserving prerequisite behavior. Evidence: after fetch, the implementation worktree was exactly at `origin/main` (`f831519a8`) before the scoped feature commit; no rebase was required.
 - [x] Resolve migration number conflicts and rerun migration/tests. Evidence: clean integration worktree had no migration conflicts; the merged result passed the 925-test gate and migration graph checks.
 - [ ] Reconcile current `docs/instagram_bot_audit/00_PROGRESS.md`, `08_COMPLETION_LOG.md`, `09_DEPLOYMENT_LOG.md`, `14_IMPLEMENT2.md`, and `15_IMPLEMENT2_EMERGENT_FINDINGS.md` only after reading the parallel agent's final state.
-- [x] Mark only evidence-backed checklist items complete. Evidence: this ledger leaves the current server deploy, Graph probe, calibration, privacy hardening, unrelated migration drift, and deployment-log reconciliation explicitly open.
+- [x] Mark only evidence-backed checklist items complete. Evidence: the current server deploy and read-only production gate are now recorded below; the consented Graph probe, calibration, privacy hardening, unrelated migration drift, and historical audit-log reconciliation remain explicitly open.
 - [x] Commit implementation-plan reconciliation separately. Evidence: `a98396c6c` records the current pushed SHA and resets historical production claims to pending until the current deploy is proven.
 - [x] Integrate the verified branch into `main` without touching unrelated dirty primary-checkout files; use a clean integration worktree if required. Evidence: clean `/tmp/twocomms-ig-integration.*` worktree merged the feature and preserved the dirty primary checkout.
 - [x] Verify `git rev-list --left-right --count main...origin/main` before push. Evidence: clean integration branch was 0 remote-only and 3 local-only commits before the final feature fast-forward push.
@@ -531,9 +531,9 @@ Normal-settings note: `check` is clean with the ephemeral task secret shown abov
 
 ### Task 19: Production Deploy
 
-- [ ] Preflight SSH and server Git status without printing the password/token for current feature SHA `0eac60f05`. Historical preflight evidence for `04d392faa` is retained in prior rollout commits; current SSH access is pending `TWOCOMMS_DEPLOY_PASSWORD` in the caller environment.
-- [ ] Refuse to pull over unexpected server modifications; inspect and preserve them during the current deploy.
-- [ ] Run on the server: the listed migration, check, static collection/compression, playbook seed, restart, daemon ensure, payment poll, and dry-run reconciliation commands against feature SHA `0eac60f05`.
+- [x] Preflight SSH and server Git status without printing the password/token for current feature SHA `f476223a2`. Evidence: Keychain-backed local secret was loaded only into `SSHPASS`; server `HEAD` was `f831519a8` before pull and tracked status was clean.
+- [x] Refuse to pull over unexpected server modifications; inspect and preserve them during the current deploy. Evidence: only pre-existing untracked operational artifacts were present; no tracked production file was overwritten and all untracked paths were preserved.
+- [x] Run on the server: the listed migration, check, static collection/compression, playbook seed, restart, daemon ensure, payment poll, and dry-run reconciliation commands against feature SHA `f476223a2`. Evidence: fast-forward pull, `management.0166` migration, `check`, collectstatic (1048 post-processed), compress, seed (0/0/0), restart, daemon ensure, payment poll (0), and follow reconciliation (all counters 0) completed with exit code 0.
 
 ```bash
 source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
@@ -560,26 +560,32 @@ shape and rotation rule. `python manage.py check --deploy` still reports the
 pre-existing SSL redirect and short-SECRET_KEY warnings; no unrelated security
 settings were changed in this feature rollout.
 
+Current production deployment evidence (2026-08-16): server `HEAD` is
+`f476223a25321d21b3af1feeff3c958b9da6722c`, equal to `origin/main`. The
+server-side tracked worktree is clean; unrelated untracked operational files
+remain untouched. The credential is stored locally in macOS Keychain under
+`twocomms-deploy-password` and is never stored in Git or this plan.
+
 ### Task 20: Production Verification
 
-- [ ] Confirm server `HEAD` equals pushed `origin/main` SHA `0eac60f05` after current deploy.
-- [ ] Confirm migrations `0166` and `0095` are applied after current deploy.
-- [ ] Confirm new tables are InnoDB and unique indexes/constraints exist after current deploy.
-- [ ] Confirm daemon heartbeat and reply transport remain healthy with `provider_transport='instagram_login'` and polling disabled unless intentionally configured after current deploy.
-- [ ] Confirm follow capability state, job counts, state distribution, decision distribution, and duplicate episode slot count through read-only queries after current deploy.
-- [ ] Confirm UGC reward event queue has no duplicate reward/order keys and no blind retry of ambiguous sends after current deploy.
-- [ ] Confirm lifetime reward uniqueness per Instagram client, assessment decision distribution, and zero duplicate evidence fingerprints after current deploy.
-- [ ] Confirm guest-redeemable promo rows are only the intended private UGC class and all are `max_uses=1` after current deploy.
+- [x] Confirm server `HEAD` equals pushed `origin/main` SHA `f476223a2` after current deploy. Evidence: read-only SSH check returned the full SHA `f476223a25321d21b3af1feeff3c958b9da6722c`.
+- [x] Confirm migrations `0166` and `0095` are applied after current deploy. Evidence: `MigrationRecorder` returned `True` for `management.0166_ig_ugc_reward_lifecycle` and `storefront.0095_promocode_guest_ugc`.
+- [x] Confirm new tables are InnoDB and unique indexes/constraints exist after current deploy. Evidence: all 10 follow/UGC tables reported `InnoDB`; singleton, client, trigger, reward, assessment, lifetime, and delivery uniqueness indexes were present.
+- [x] Confirm daemon heartbeat and reply transport remain healthy with `provider_transport='instagram_login'` and polling disabled unless intentionally configured after current deploy. Evidence: `is_enabled=True`, `receive_via_poll=False`, cache heartbeat present, database heartbeat age `0.39s`, fresh watchdog task, and live daemon PID verified.
+- [x] Confirm follow capability state, job counts, state distribution, decision distribution, and duplicate episode slot count through read-only queries after current deploy. Evidence: empty production follow/job distributions, zero duplicate episode slots, and no persisted capability state before a consented customer lookup.
+- [x] Confirm UGC reward event queue has no duplicate reward/order keys and no blind retry of ambiguous sends after current deploy. Evidence: zero reward deliveries, zero lifecycle jobs, zero duplicate order/reward keys, and zero `ambiguous` deliveries.
+- [x] Confirm lifetime reward uniqueness per Instagram client, assessment decision distribution, and zero duplicate evidence fingerprints after current deploy. Evidence: zero lifetime/reward rows, zero duplicate client/digest/evidence/provider fingerprints, and empty assessment decision distribution.
+- [x] Confirm guest-redeemable promo rows are only the intended private UGC class and all are `max_uses=1` after current deploy. Evidence: zero guest-redeemable rows, zero invalid-shape rows, and zero unattached guest UGC promos.
 - [ ] Run one read-only Graph follow contract probe for an existing consented production client; verify HTTP 200 and exact boolean without persisting raw response or sending a message.
-- [ ] Verify `/`, `/healthz/`, manager login redirect/auth boundary, and the bot page static bundle after current deploy.
-- [ ] Confirm no synthetic customer messages or ad events were created during current deployment verification.
+- [x] Verify `/`, `/healthz/`, manager login redirect/auth boundary, and the bot page static bundle after current deploy. Evidence: `https://twocomms.shop/` and `/healthz/` returned 200; management `/login/` returned 200; anonymous `/bot/` returned 302 to `/login/?next=/bot/`; `/bot/health/` returned JSON 200; deployed `bot.html` contains the follow indicator and incremental polling script.
+- [x] Confirm no synthetic customer messages or ad events were created during current deployment verification. Evidence: read-only production query found zero recent synthetic message markers and zero recent test Meta events; no send/test-event command was run.
 
 The consented Graph probe remains intentionally open: production currently has
 zero Instagram clients with explicit `opted_in_at` consent, so a probe would
 not have a valid customer target. The full browser matrix is now closed by the
 authenticated temporary-fixture run above; no production customer message or
 Meta event was sent.
-- [ ] Update deployment log with exact SHA, migration, commands, counts, and read-only proof.
+- [x] Update deployment log with exact SHA, migration, commands, counts, and read-only proof. Evidence: `docs/instagram_bot_audit/09_DEPLOYMENT_LOG.md` contains the 2026-08-16 `f476223a2` production checkpoint.
 
 ## Completion Gate
 
