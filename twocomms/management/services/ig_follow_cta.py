@@ -42,6 +42,12 @@ ROLLING_YEAR = timedelta(days=365)
 RESERVATION_LEASE = timedelta(minutes=5)
 PAYMENT_PREPARATION_WINDOW = timedelta(seconds=7)
 PAYMENT_PREPARATION_LEASE = timedelta(seconds=10)
+PAYMENT_LOCAL_POLICY_VERSION = "payment-follow-local-v1"
+_PAYMENT_LOCAL_CANDIDATES = {
+    "uk": "Якщо вам близький наш підхід, будемо раді бачити вас серед підписників.",
+    "ru": "Если вам близок наш подход, будем рады видеть вас среди подписчиков.",
+    "en": "If our approach resonates with you, we would be glad to have you among our followers.",
+}
 _SOFT_HESITATION = re.compile(
     r"\b(подума|думаю|подум|ще подума|порад|не впевн|maybe|think|consider|размыш)",
     re.IGNORECASE,
@@ -584,6 +590,55 @@ def payment_follow_preparation_due_at(client, *, now=None):
         # Optional observation cannot interfere with verified-payment truth.
         pass
     return now
+
+
+def prepare_local_payment_follow_snapshot(event_id: int, *, now=None):
+    """Prepare a safe payment CTA from already-fresh local follow truth.
+
+    This path is deliberately synchronous and provider-free.  It is only a
+    fast opportunity probe: the full deterministic policy still owns every
+    suppression gate and the lifecycle provider boundary remains the final
+    authorization point.
+    """
+    now = now or timezone.now()
+    event = (
+        IgLifecycleEvent.objects.select_related(
+            "client",
+            "commercial_episode",
+            "order",
+        )
+        .filter(
+            pk=event_id,
+            kind=IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
+        )
+        .first()
+    )
+    if event is None:
+        return None
+    try:
+        view = effective_follow_state(event.client, now=now)
+    except Exception:
+        return None
+    if not (
+        view.fresh
+        and view.state == IgFollowState.State.NOT_FOLLOWING
+    ):
+        return None
+    language = _enum_value(getattr(event.client, "language", ""))
+    language = language.lower().replace("_", "-").split("-", 1)[0]
+    candidate = _PAYMENT_LOCAL_CANDIDATES.get(
+        language,
+        _PAYMENT_LOCAL_CANDIDATES["uk"],
+    )
+    return prepare_payment_follow_snapshot(
+        event.pk,
+        candidate_text=candidate,
+        model_meta={
+            "model": "local_template",
+            "prompt_version": PAYMENT_LOCAL_POLICY_VERSION,
+        },
+        now=now,
+    )
 
 
 def queue_payment_follow_preparation(event_id, *, deadline_at=None):
@@ -1495,6 +1550,7 @@ __all__ = [
     "follow_provider_request_boundary",
     "finalize_follow_delivery",
     "live_follow_opportunity",
+    "prepare_local_payment_follow_snapshot",
     "prepare_payment_follow_snapshot",
     "prepare_follow_decision",
     "record_follow_refusal_from_inbound",

@@ -7542,11 +7542,24 @@ def _provider_attachment_metadata(msg: dict) -> list[dict]:
         candidates = _attachment_media_candidates(attachment)
         if not candidates:
             continue
+        typed_post_id = str(
+            attachment.get("ig_post_media_id")
+            or payload.get("ig_post_media_id")
+            or payload.get("post_media_id")
+            or ""
+        ).strip()[:255]
+        typed_reel_id = str(
+            attachment.get("reel_video_id")
+            or payload.get("reel_video_id")
+            or ""
+        ).strip()[:255]
         provider_media_id = str(
             attachment.get("media_id")
             or attachment.get("asset_id")
             or payload.get("media_id")
             or payload.get("asset_id")
+            or typed_post_id
+            or typed_reel_id
             or ""
         ).strip()[:255]
         object_id = str(
@@ -7554,23 +7567,31 @@ def _provider_attachment_metadata(msg: dict) -> list[dict]:
             or attachment.get("id")
             or payload.get("object_id")
             or payload.get("story_id")
+            or typed_post_id
+            or typed_reel_id
             or payload.get("id")
             or ""
         ).strip()[:255]
         target = payload.get("target") if isinstance(payload.get("target"), dict) else {}
-        target_username = str(target.get("username") or "").strip().casefold()
+        target_username = str(target.get("username") or "").strip().lstrip("@").casefold()
         # A generic attachment can carry arbitrary ``username``/``target``
         # fields.  They are useful for manager context, but are not proof that
         # Meta delivered a native mention of our account.  Only the dedicated
         # story-mention event, tied to the webhook MID, a provider media/object
         # identity, and an explicit configured target, is eligible for the
         # automatic UGC path.  Do not infer the target from the attachment type.
+        typed_repost = bool(
+            media_type in {"share", "ig_post"}
+            and typed_post_id
+            or media_type in {"ig_reel", "reel"}
+            and typed_reel_id
+        )
         provider_native = bool(
-            media_type == "story_mention"
-            and message_id
+            message_id
             and provider_media_id
             and object_id
             and target_username == "twocomms"
+            and (media_type == "story_mention" or typed_repost)
         )
         target_username = "twocomms" if provider_native else ""
         for _kind, url, _title in candidates:

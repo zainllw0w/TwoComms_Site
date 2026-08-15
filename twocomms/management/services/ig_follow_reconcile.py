@@ -89,9 +89,13 @@ def _due_ugc_deliveries(*, now, limit: int):
             Q(
                 state__in=(
                     IgUgcRewardDelivery.State.PENDING,
-                    IgUgcRewardDelivery.State.FAILED,
                     IgUgcRewardDelivery.State.WAITING_WINDOW,
                 ),
+                due_at__lte=now,
+            )
+            | Q(
+                state=IgUgcRewardDelivery.State.FAILED,
+                completed_at__isnull=True,
                 due_at__lte=now,
             )
             | Q(

@@ -251,6 +251,37 @@ def _existing_lifetime_reward(lifetime):
     )
 
 
+def ugc_service_case_reason(client) -> str:
+    """Return a durable suppression reason while the customer needs service.
+
+    A post-sale case is authoritative when one is open.  If no case exists,
+    the latest non-manager conversation analysis still protects an active
+    complaint/return/exchange turn before a case row has been opened.
+    """
+    if not client or not getattr(client, "pk", None):
+        return ""
+    from management.ig_bot_models import IgConversationAnalysisSnapshot
+    from management.services.ig_post_sale import open_service_case
+
+    if open_service_case(client) is not None:
+        return "service_case_open"
+    interaction_types = IgConversationAnalysisSnapshot.InteractionType
+    latest = (
+        IgConversationAnalysisSnapshot.objects.filter(client_id=client.pk)
+        .exclude(interaction_type=interaction_types.MANAGER_OBSERVATION)
+        .order_by("-id")
+        .values_list("interaction_type", flat=True)
+        .first()
+    )
+    if latest in {
+        interaction_types.SUPPORT_COMPLAINT,
+        interaction_types.EXCHANGE_REQUEST,
+        interaction_types.RETURN_REQUEST,
+    }:
+        return "service_case_open"
+    return ""
+
+
 def ugc_identity_already_rewarded(client) -> bool:
     """Return whether this identity has consumed its one lifetime UGC grant."""
     from management.ig_bot_models import IgUgcRewardLifetime
@@ -288,9 +319,12 @@ def ugc_reward_eligibility(client, *, assignments=None, now=None) -> tuple[bool,
         return False, "already_rewarded"
     if getattr(client, "pk", None) and _legacy_reward_for_client(client) is not None:
         return False, "already_rewarded"
+    service_reason = ugc_service_case_reason(client)
+    if service_reason:
+        return False, service_reason
     assessment = (
         IgUgcEvidenceAssessment.objects.filter(client_id=getattr(client, "pk", None))
-        .order_by("-generation", "-id")
+        .order_by("-created_at", "-id")
         .first()
     )
     if assessment is not None and assessment.decision in {
@@ -450,6 +484,12 @@ def award_external_ugc_reward(*, client, assessment, actor=None, review_note="")
         return _with_ugc_delivery(existing, False)
     if lifetime.consumed_at:
         raise UgcRewardConflict("Для цієї Instagram identity UGC-нагороду вже було видано.")
+    service_reason = ugc_service_case_reason(locked_client)
+    if service_reason:
+        raise UgcRewardConflict(
+            "UGC-нагороду тимчасово призупинено: активне звернення клієнта "
+            f"({service_reason})."
+        )
     legacy_reward = _legacy_reward_for_client(locked_client, lock=True)
     if legacy_reward is not None:
         lifetime.reward = legacy_reward
@@ -536,6 +576,15 @@ def queue_external_ugc_reward_delivery(reward):
 
 UGC_DELIVERY_RESPONSE_WINDOW = timedelta(hours=23)
 UGC_DELIVERY_RECHECK_DELAY = timedelta(hours=1)
+UGC_DELIVERY_RETRY_BASE_DELAY = timedelta(minutes=5)
+UGC_DELIVERY_MAX_ATTEMPTS = 3
+UGC_DELIVERY_RETRYABLE_KINDS = frozenset({"retryable", "transient"})
+
+
+def _ugc_delivery_retry_at(now, attempts: int):
+    """Bound provider retry delay and leave terminal failures durable."""
+    exponent = max(0, min(int(attempts or 1) - 1, 6))
+    return now + UGC_DELIVERY_RETRY_BASE_DELAY * (2**exponent)
 
 
 def _active_opt_out(client) -> bool:
@@ -562,6 +611,9 @@ def _ugc_delivery_gate(*, settings_obj, client, now) -> tuple[bool, str]:
         return False, "client_paused"
     if client.manager_takeover:
         return False, "manager_takeover"
+    service_reason = ugc_service_case_reason(client)
+    if service_reason:
+        return False, service_reason
     delivery_status = str(getattr(client, "delivery_status", "") or "")
     if delivery_status in {
         "window_closed",
@@ -618,7 +670,10 @@ def process_external_ugc_reward_delivery(delivery_id: int, *, settings_obj=None)
         if delivery.state in {
             IgUgcRewardDelivery.State.SENT,
             IgUgcRewardDelivery.State.AMBIGUOUS,
-        }:
+        } or (
+            delivery.state == IgUgcRewardDelivery.State.FAILED
+            and delivery.completed_at is not None
+        ):
             return delivery.state
         if (
             delivery.state == IgUgcRewardDelivery.State.PROCESSING
@@ -672,10 +727,11 @@ def process_external_ugc_reward_delivery(delivery_id: int, *, settings_obj=None)
             delivery.state = IgUgcRewardDelivery.State.FAILED
             delivery.lease_token = ""
             delivery.lease_expires_at = None
+            delivery.completed_at = now
             delivery.last_error = promo_error
             delivery.save(update_fields=[
                 "state", "lease_token", "lease_expires_at", "last_error",
-                "updated_at",
+                "completed_at", "updated_at",
             ])
             return delivery.state
 
@@ -710,6 +766,7 @@ def process_external_ugc_reward_delivery(delivery_id: int, *, settings_obj=None)
             return delivery.state
         delivery.state = IgUgcRewardDelivery.State.PROCESSING
         delivery.attempts += 1
+        delivery.completed_at = None
         delivery.lease_token = secrets.token_hex(16)
         delivery.lease_expires_at = now + timedelta(minutes=5)
         delivery.save(update_fields=[
@@ -763,16 +820,23 @@ def process_external_ugc_reward_delivery(delivery_id: int, *, settings_obj=None)
         row.lease_expires_at = None
         row.provider_message_ids = ids
         row.last_error = error or ("" if ok else kind[:500])
+        completed_at = timezone.now()
         if ok and ids:
             row.state = IgUgcRewardDelivery.State.SENT
-            row.completed_at = timezone.now()
+            row.completed_at = completed_at
         elif kind in {"unknown", "ambiguous"}:
             row.state = IgUgcRewardDelivery.State.AMBIGUOUS
+            row.completed_at = completed_at
+        elif kind in UGC_DELIVERY_RETRYABLE_KINDS and row.attempts < UGC_DELIVERY_MAX_ATTEMPTS:
+            row.state = IgUgcRewardDelivery.State.FAILED
+            row.completed_at = None
+            row.due_at = _ugc_delivery_retry_at(completed_at, row.attempts)
         else:
             row.state = IgUgcRewardDelivery.State.FAILED
+            row.completed_at = completed_at
         row.save(update_fields=[
             "state", "lease_token", "lease_expires_at", "provider_message_ids",
-            "last_error", "completed_at", "updated_at",
+            "last_error", "completed_at", "due_at", "updated_at",
         ])
         return row.state
 

@@ -984,6 +984,108 @@ class ExternalUGCRewardTests(TestCase):
         self.assertTrue(ugc["reward_eligible"])
         self.assertEqual(ugc["eligibility_reason"], "qualified_assessment")
 
+    def test_latest_source_assessment_wins_over_older_higher_generation(self):
+        """Per-source generation must not hide a newer qualifying mention."""
+        from management.ig_bot_models import IgUgcEvidenceAssessment
+        from management.services.ig_ugc_rewards import ugc_reward_eligibility
+
+        self.assessment.decision = IgUgcEvidenceAssessment.Decision.REJECTED
+        self.assessment.reason_codes = ["evidence_rejected"]
+        self.assessment.generation = 9
+        self.assessment.save(update_fields=["decision", "reason_codes", "generation", "updated_at"])
+        latest = self._create_assessment("newer-source", generation=1)
+
+        eligible, reason = ugc_reward_eligibility(self.client)
+
+        self.assertTrue(eligible)
+        self.assertEqual(reason, "qualified_assessment")
+        self.assertEqual(latest.decision, IgUgcEvidenceAssessment.Decision.QUALIFIED_AUTO)
+
+    def _open_service_case(self, *, status=None, source_suffix="service"):
+        from management.ig_bot_models import IgPostSaleCase
+
+        source = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            source="webhook",
+            mid=f"service-mid-{source_suffix}",
+            text="Потрібна допомога із замовленням",
+        )
+        return IgPostSaleCase.objects.create(
+            client=self.client,
+            source_message=source,
+            case_type=IgPostSaleCase.CaseType.RETURN,
+            status=status or IgPostSaleCase.Status.OPEN,
+        )
+
+    def test_active_service_case_blocks_eligibility_and_external_issuance(self):
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
+            ugc_reward_eligibility,
+        )
+
+        self._open_service_case()
+
+        eligible, reason = ugc_reward_eligibility(self.client)
+        self.assertFalse(eligible)
+        self.assertEqual(reason, "service_case_open")
+        with self.assertRaisesRegex(UgcRewardConflict, "service"):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=self.assessment,
+            )
+
+    def test_latest_support_complaint_blocks_ugc_without_case_row(self):
+        from management.ig_bot_models import IgConversationAnalysisSnapshot
+        from management.services.ig_ugc_rewards import ugc_reward_eligibility
+
+        IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            dedupe_key="ugc-active-support-complaint",
+            score_band=IgConversationAnalysisSnapshot.Band.PAID,
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.SUPPORT_COMPLAINT
+            ),
+        )
+
+        eligible, reason = ugc_reward_eligibility(self.client)
+
+        self.assertFalse(eligible)
+        self.assertEqual(reason, "service_case_open")
+
+    def test_active_service_case_blocks_assessment_auto_award(self):
+        self._open_service_case(source_suffix="assessment")
+
+        assessment = self._create_assessment("service-assessment")
+
+        self.assertEqual(assessment.decision, "needs_manager_review")
+        self.assertIn("service_case_open", assessment.reason_codes)
+
+    def test_delivery_waits_when_service_case_opens_after_grant(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+        )
+
+        reward, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        self._open_service_case(source_suffix="delivery")
+
+        with patch("management.services.instagram_bot.send_text") as send:
+            state = process_external_ugc_reward_delivery(reward.delivery.pk)
+
+        self.assertEqual(state, IgUgcRewardDelivery.State.WAITING_WINDOW)
+        reward.delivery.refresh_from_db()
+        self.assertEqual(reward.delivery.last_error, "service_case_open")
+        send.assert_not_called()
+
     def test_delivery_waits_when_response_window_is_closed(self):
         from unittest.mock import patch
 
@@ -1101,3 +1203,82 @@ class ExternalUGCRewardTests(TestCase):
         send.assert_not_called()
         delivery.refresh_from_db()
         self.assertEqual(delivery.last_error, "promo_expired")
+        self.assertIsNotNone(delivery.completed_at)
+
+        from management.services.ig_follow_reconcile import _due_ugc_deliveries
+
+        self.assertEqual(
+            _due_ugc_deliveries(now=timezone.now() + timedelta(days=1), limit=10),
+            [],
+        )
+
+    def test_reconcile_does_not_hot_loop_terminal_promo_failure(self):
+        from unittest.mock import patch
+
+        from management.services.ig_follow_reconcile import (
+            reconcile_follow_intelligence_once,
+        )
+        from management.services.ig_ugc_rewards import award_external_ugc_reward
+
+        reward, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        reward.promo_code.is_active = False
+        reward.promo_code.save(update_fields=["is_active"])
+
+        with patch("management.services.instagram_bot.send_text") as send:
+            first = reconcile_follow_intelligence_once(limit=10)
+            second = reconcile_follow_intelligence_once(limit=10)
+
+        self.assertEqual(first["ugc_selected"], 1)
+        self.assertEqual(first["failed"], 1)
+        self.assertEqual(second["ugc_selected"], 0)
+        send.assert_not_called()
+
+    def test_retryable_delivery_failure_uses_bounded_backoff(self):
+        from unittest.mock import patch
+
+        from management.ig_bot_models import IgUgcRewardDelivery
+        from management.services.ig_ugc_rewards import (
+            award_external_ugc_reward,
+            process_external_ugc_reward_delivery,
+        )
+
+        reward, _ = award_external_ugc_reward(
+            client=self.client,
+            assessment=self.assessment,
+        )
+        now = timezone.now()
+        retry_receipt = type(
+            "Receipt",
+            (),
+            {"ok": False, "kind": "retryable", "provider_message_ids": ()},
+        )()
+        with patch(
+            "management.services.instagram_bot.send_text",
+            return_value=retry_receipt,
+        ) as send:
+            first = process_external_ugc_reward_delivery(reward.delivery.pk)
+
+            self.assertEqual(first, IgUgcRewardDelivery.State.FAILED)
+            reward.delivery.refresh_from_db()
+            self.assertIsNone(reward.delivery.completed_at)
+            self.assertGreater(reward.delivery.due_at, now)
+            from management.services.ig_follow_reconcile import _due_ugc_deliveries
+
+            self.assertEqual(_due_ugc_deliveries(now=now, limit=10), [])
+            for attempt in (2, 3):
+                reward.delivery.due_at = timezone.now() - timedelta(seconds=1)
+                reward.delivery.save(update_fields=["due_at", "updated_at"])
+                state = process_external_ugc_reward_delivery(reward.delivery.pk)
+                self.assertEqual(state, IgUgcRewardDelivery.State.FAILED)
+                reward.delivery.refresh_from_db()
+                self.assertEqual(reward.delivery.attempts, attempt)
+
+        self.assertIsNotNone(reward.delivery.completed_at)
+        self.assertEqual(
+            _due_ugc_deliveries(now=timezone.now() + timedelta(days=1), limit=10),
+            [],
+        )
+        self.assertEqual(send.call_count, 3)

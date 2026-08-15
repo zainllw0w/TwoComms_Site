@@ -28,7 +28,14 @@ AUTO_CUSTOMER_CONTENT_THRESHOLD = Decimal("0.95")
 LIVE_PROVENANCE = "live_webhook"
 OWNED_STATUS = "owned"
 BRAND_TARGET_USERNAME = "twocomms"
-PROVIDER_MEDIA_TYPES = frozenset({"story_mention", "story", "share"})
+PROVIDER_MEDIA_TYPES = frozenset({
+    "story_mention",
+    "story",
+    "share",
+    "ig_post",
+    "ig_reel",
+    "reel",
+})
 MAX_OWNED_MEDIA_BYTES = 6 * 1024 * 1024
 UGC_MEDIA_RECONCILE_LEASE_SECONDS = 120
 UGC_MEDIA_CAPTURE_MAX_ATTEMPTS = 2
@@ -373,6 +380,12 @@ def assess_ugc_evidence(*, message, facts: dict | None = None, now=None):
         already_rewarded=ugc_identity_already_rewarded(message.client),
         auto_award_mode=auto_award_mode,
     )
+    from management.services.ig_ugc_rewards import ugc_service_case_reason
+
+    service_reason = ugc_service_case_reason(message.client)
+    if service_reason and decision != IgUgcEvidenceAssessment.Decision.REJECTED:
+        decision = IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW
+        reasons = _safe_reasons([*reasons, service_reason])
     candidates = _catalog_candidates(facts)
     confidence = max(
         [_decimal(facts.get("brand_match_confidence"))]

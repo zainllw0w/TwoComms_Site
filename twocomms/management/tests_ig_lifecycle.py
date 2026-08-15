@@ -347,7 +347,7 @@ class InstagramLifecycleTests(TestCase):
         self.assertEqual(counts["payment_prepared"], 1)
         self.assertEqual(preparation.state, IgPaymentFollowPreparation.State.PREPARED)
         self.assertEqual(decision.state, IgFollowCtaDecision.State.PREPARED)
-        self.assertEqual(decision.model, "gemini-test")
+        self.assertEqual(decision.model, "local_template")
         generate.assert_called_once()
         self.assertEqual(
             generate.call_args.kwargs["reasoning_task"],
@@ -3264,3 +3264,199 @@ class InstagramLifecycleTests(TestCase):
         self.assertEqual(decision.model, "gemini-test")
         provider_http.assert_not_called()
         gemini.assert_not_called()
+    def test_verified_payment_local_follow_template_is_in_first_lifecycle_message(self):
+        """Fresh local follow truth can enrich payment without a model/provider round trip."""
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_checkout_payment import bind_verified_payment
+        from management.services.ig_follow_state import FollowStateView
+
+        now = timezone.now().replace(microsecond=0)
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=12,
+            observed_at=now,
+            expires_at=now + timedelta(hours=1),
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        follow_view = FollowStateView(
+            state=IgFollowState.State.NOT_FOLLOWING,
+            last_known_state=IgFollowState.State.NOT_FOLLOWING,
+            fresh=True,
+            stale=False,
+            revision=12,
+            observed_at=now,
+            first_observed_following_at=None,
+            source="instagram_login",
+            last_result=IgFollowState.CheckResult.KNOWN,
+            error_kind="",
+            next_retry_at=None,
+        )
+
+        @contextmanager
+        def permit(*_args, **_kwargs):
+            yield True
+
+        with (
+            patch(
+                "management.services.ig_follow_cta.effective_follow_state",
+                return_value=follow_view,
+            ),
+            patch(
+                "management.services.ig_reply_boundary.reply_execution_boundary",
+                side_effect=permit,
+            ),
+            patch(
+                "management.services.ig_reply_boundary.customer_send_boundary",
+                side_effect=permit,
+            ),
+            patch(
+                "management.services.instagram_bot._provider_account_id",
+                return_value="ig-account",
+            ),
+            patch(
+                "management.services.instagram_bot.get_page_token",
+                return_value="page-token",
+            ),
+            patch(
+                "management.services.instagram_bot._provider_http",
+                return_value=(200, '{"message_id":"mid-local-payment-follow"}'),
+            ) as provider_http,
+            patch("management.services.call_ai_analysis.gemini_generate_json") as gemini,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            event = bind_verified_payment(self.attempt.pk, self.order)
+
+        provider_http.assert_called_once()
+        payload = json.loads(provider_http.call_args.kwargs["data"])
+        self.assertIn("серед підписників", payload["message"]["text"])
+        self.assertIn("Дякуємо, оплату отримано", payload["message"]["text"])
+        gemini.assert_not_called()
+        event.refresh_from_db()
+        decision = IgFollowCtaDecision.objects.get(lifecycle_event=event)
+        self.assertEqual(event.state, IgLifecycleEvent.State.SENT)
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SENT)
+
+    def test_local_payment_follow_template_suppresses_unknown_state(self):
+        from management.models import IgFollowCtaDecision
+        from management.services.ig_follow_cta import prepare_local_payment_follow_snapshot
+
+        event = self._event()
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=type(
+                "UnknownFollowView",
+                (),
+                {"fresh": False, "state": "unknown", "revision": 0},
+            )(),
+        ):
+            decision = prepare_local_payment_follow_snapshot(event.pk)
+
+        self.assertIsNone(decision)
+        self.assertFalse(IgFollowCtaDecision.objects.filter(lifecycle_event=event).exists())
+
+    def test_local_payment_follow_template_suppresses_following_state(self):
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_follow_cta import prepare_local_payment_follow_snapshot
+
+        event = self._event()
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=type(
+                "FollowingView",
+                (),
+                {"fresh": True, "state": IgFollowState.State.FOLLOWING, "revision": 3},
+            )(),
+        ):
+            decision = prepare_local_payment_follow_snapshot(event.pk)
+
+        self.assertIsNone(decision)
+        self.assertFalse(IgFollowCtaDecision.objects.filter(lifecycle_event=event).exists())
+
+    def test_local_payment_follow_template_suppresses_refusal(self):
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_follow_cta import prepare_local_payment_follow_snapshot
+
+        event = self._event()
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=3,
+            cta_refused_at=timezone.now(),
+        )
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=type(
+                "NotFollowingView",
+                (),
+                {"fresh": True, "state": IgFollowState.State.NOT_FOLLOWING, "revision": 3},
+            )(),
+        ):
+            decision = prepare_local_payment_follow_snapshot(event.pk)
+
+        self.assertIsNotNone(decision)
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SUPPRESSED)
+        self.assertIn("follow_refused", decision.reason_codes)
+
+    def test_local_payment_follow_template_suppresses_new_inbound(self):
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_follow_cta import prepare_local_payment_follow_snapshot
+
+        event = self._event()
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=3,
+            observed_at=timezone.now(),
+            expires_at=timezone.now() + timedelta(hours=1),
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Ще одне питання",
+            status=InstagramBotMessage.Status.DONE,
+        )
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=type(
+                "NotFollowingView",
+                (),
+                {"fresh": True, "state": IgFollowState.State.NOT_FOLLOWING, "revision": 3},
+            )(),
+        ):
+            decision = prepare_local_payment_follow_snapshot(event.pk)
+
+        self.assertIsNotNone(decision)
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SUPPRESSED)
+        self.assertIn("new_inbound", decision.reason_codes)
+
+    def test_local_payment_follow_template_suppresses_complaint(self):
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_follow_cta import prepare_local_payment_follow_snapshot
+
+        event = self._event()
+        self.client.intent = self.client.Intent.SUPPORT
+        self.client.save(update_fields=["intent", "updated_at"])
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=3,
+            observed_at=timezone.now(),
+            expires_at=timezone.now() + timedelta(hours=1),
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=type(
+                "NotFollowingView",
+                (),
+                {"fresh": True, "state": IgFollowState.State.NOT_FOLLOWING, "revision": 3},
+            )(),
+        ):
+            decision = prepare_local_payment_follow_snapshot(event.pk)
+
+        self.assertIsNotNone(decision)
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.SUPPRESSED)
+        self.assertIn("post_sale_risk", decision.reason_codes)

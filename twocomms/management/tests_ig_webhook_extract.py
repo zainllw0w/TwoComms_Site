@@ -223,6 +223,28 @@ class ExtractMediaUrlsTests(SimpleTestCase):
         self.assertFalse(media[0]["provider_native_mention"])
         self.assertEqual(media[0]["target_username"], "")
 
+    def test_provider_native_share_with_post_media_id_preserves_repost_provenance(self):
+        """A Meta-native repost is eligible when its typed object identity is present."""
+        msg = {
+            "mid": "share-mid-native",
+            "attachments": [{
+                "type": "share",
+                "payload": {
+                    "url": "https://cdn/shared.jpg",
+                    "ig_post_media_id": "post-media-1",
+                    "target": {"username": "@TwoComms"},
+                },
+            }],
+        }
+
+        media = bot._provider_attachment_metadata(msg)
+
+        self.assertTrue(media[0]["provider_native_mention"])
+        self.assertEqual(media[0]["media_type"], "share")
+        self.assertEqual(media[0]["provider_media_id"], "post-media-1")
+        self.assertEqual(media[0]["provider_object_key"], "share:post-media-1")
+        self.assertEqual(media[0]["target_username"], "twocomms")
+
     def test_story_mention_missing_target_cannot_be_inferred_from_event_type(self):
         msg = {
             "mid": "story-mid",

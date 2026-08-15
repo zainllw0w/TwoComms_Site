@@ -1021,6 +1021,7 @@ def bind_verified_payment(attempt_id, order):
     )
     from management.services.ig_follow_cta import (
         payment_follow_preparation_due_at,
+        prepare_local_payment_follow_snapshot,
         queue_payment_follow_preparation,
     )
 
@@ -1045,6 +1046,16 @@ def bind_verified_payment(attempt_id, order):
     # The durable event is committed with payment truth; only then may the
     # Instagram adapter call Meta. Replays claim the same event idempotently.
     if event is not None:
+        try:
+            # A fresh local NOT_FOLLOWING observation is already authoritative
+            # enough for one deterministic optional sentence. This never calls
+            # Meta or Gemini and therefore cannot delay the mandatory receipt.
+            prepare_local_payment_follow_snapshot(event.pk, now=now)
+        except Exception:
+            logger.exception(
+                "Unable to prepare local payment follow snapshot for lifecycle event %s",
+                event.pk,
+            )
         try:
             queue_payment_follow_preparation(
                 event.pk,

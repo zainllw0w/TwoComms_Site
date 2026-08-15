@@ -381,6 +381,21 @@ class UGCIngressAssessmentTests(TestCase):
 
         self.assertFalse(potential_ugc_message(self.message))
 
+    def test_provider_native_share_repost_can_qualify_like_story_mention(self):
+        """A typed provider post ID is sufficient provenance for a repost."""
+        media = dict(self.message.attachment_media[0])
+        media.update({
+            "media_type": "ig_post",
+            "provider_media_id": "post-media-share",
+            "provider_object_key": "ig_post:post-media-share",
+        })
+        self.message.attachment_media = [media]
+        self.message.save(update_fields=["attachment_media"])
+
+        assessment = self._assessment()
+
+        self.assertEqual(assessment.decision, "qualified_auto")
+
     def test_potential_ugc_requires_media_capture_eligibility(self):
         from management.services.ig_ugc_assessment import potential_ugc_message
 
