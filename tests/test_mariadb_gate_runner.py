@@ -586,6 +586,7 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         self.assertIn("traceback=yes", summary)
         self.assertIn("ERROR: test_failed", summary)
         self.assertIn("exception:", summary)
+        self.assertIn("exception_kind: runtime", summary)
         self.assertIn("database_error: errno=1213", summary)
         self.assertIn("Ran 1 test in 2.345s", summary)
         self.assertIn("FAILED (errors=1)", summary)

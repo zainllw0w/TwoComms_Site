@@ -81,6 +81,13 @@ _TEST_FAILURE_RESULT_RE = re.compile(r"^FAILED(?:\s+.*)?$")
 _EXCEPTION_RE = re.compile(
     r"^(?:(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):(?:\s.*)?$"
 )
+_EXCEPTION_KIND_PATTERNS = (
+    (re.compile(r"\b(?:OperationalError|ProgrammingError|IntegrityError|DatabaseError)\b"), "database"),
+    (re.compile(r"\b(?:ImproperlyConfigured|CommandError|ConfigurationError)\b"), "configuration"),
+    (re.compile(r"\b(?:ImportError|ModuleNotFoundError)\b"), "import"),
+    (re.compile(r"\b(?:TypeError|AttributeError|ValueError)\b"), "type"),
+    (re.compile(r"\b(?:RuntimeError|OSError|FileNotFoundError)\b"), "runtime"),
+)
 _DATABASE_ERRNO_RE = re.compile(
     r"^(?:(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):\s*"
     r"\(([1-9]\d{0,4}),"
@@ -184,8 +191,19 @@ def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> s
             database_errno_match = _DATABASE_ERRNO_RE.match(candidate)
             exception_match = _EXCEPTION_RE.fullmatch(candidate)
             test_failure_match = _TEST_FAILURE_RE.fullmatch(candidate)
+            exception_kind = next(
+                (
+                    kind
+                    for pattern, kind in _EXCEPTION_KIND_PATTERNS
+                    if pattern.search(candidate)
+                ),
+                None,
+            )
             if database_errno_match:
                 lines.append(f"database_error: errno={database_errno_match.group(1)}")
+            elif exception_kind:
+                lines.append("exception:")
+                lines.append(f"exception_kind: {exception_kind}")
             elif exception_match:
                 lines.append("exception:")
             elif test_failure_match:
