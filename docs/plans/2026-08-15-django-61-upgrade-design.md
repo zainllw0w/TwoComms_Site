@@ -30,7 +30,7 @@ If Django 6.1 reveals a compatibility issue, fix only the smallest affected boun
 1. The lock contains `django==6.1` and resolves without dependency conflicts for Python 3.14.
 2. A clean environment installs with hashes and reports Django 6.1; `pip check` is clean.
 3. The pre-upgrade project passes deprecation-warning tests (`-Wa`) so removals are addressed rather than hidden.
-4. The project passes Django system/deployment checks, migration drift checks, Python compilation, the focused compatibility suite, and the full available Django test suite.
+4. The project passes Django system/deployment checks, migration drift checks, Python compilation, the focused compatibility suite, and a full Django test suite whose failure set is unchanged from the recorded baseline; MariaDB-only behavior is covered by the disposable MariaDB workflow.
 5. Static collection/compressor commands complete in the release environment without changing application behavior.
 6. The release is committed and pushed to `main` only after the gates pass.
 7. Production MariaDB is verified at 10.11 or newer, then production is fast-forwarded to the exact release SHA, installs the committed lock in the configured Python 3.14 virtualenv, runs checks, restarts Passenger, and reports Django 6.1 plus healthy representative endpoints.

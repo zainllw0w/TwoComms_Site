@@ -182,7 +182,16 @@ Run:
 SECRET_KEY=codex-django-upgrade-test /tmp/twocomms-django-61-venv/bin/python -Wa manage.py test --settings=test_settings --noinput
 ~~~
 
-Expected: all available tests pass. Compare warnings against the Task 1 baseline and resolve warnings introduced by the upgrade. Django 6.1's `RemovedInDjango70Warning` items (including email settings, `fail_silently`, and third-party `list_select_related`) are tracked separately unless they block current behavior.
+Expected: record the complete result and compare the exact `FAIL`/`ERROR`
+identifiers with the Django 5.2 baseline. This repository's SQLite profile has
+known pre-existing failures, including tests that explicitly require MariaDB;
+those tests must not be treated as an SQLite upgrade signal. A release is
+acceptable only when the Django 6.1 set matches the baseline (no new failure
+identifiers) and the disposable MariaDB workflow below passes. Compare warnings
+against the Task 1 baseline and resolve warnings introduced by the upgrade.
+Django 6.1's `RemovedInDjango70Warning` items (including email settings,
+`fail_silently`, and third-party `list_select_related`) are tracked separately
+unless they block current behavior.
 
 **Step 3: Run Python compilation and repository contract tests**
 
