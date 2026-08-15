@@ -11,7 +11,7 @@ focused-test evidence; MariaDB concurrency, browser/accessibility, production,
 and main-integration gates remain governed by the detailed checklist.
 
 - [x] Durable follow-state models, demand-driven Graph v25 observation, and fail-closed refresh behavior. Evidence: follow-state/operations suites and migration graph checks.
-- [x] Deterministic follow CTA policy with fresh-state, lifecycle, episode, cooldown, refusal, quiet-hours, final provider-boundary, and delivery guards. Evidence: CTA/AI/lifecycle/live-reply suites (64 focused tests; MariaDB concurrency remains open).
+- [x] Deterministic follow CTA policy with fresh-state, lifecycle, episode, cooldown, refusal, quiet-hours, final provider-boundary, and delivery guards. Evidence: CTA/AI/lifecycle/live-reply suites plus native MariaDB reservation/race proof (64 focused tests; six native concurrency tests).
 - [x] Provider-native UGC ingress provenance and owned-media boundary. Evidence: webhook extraction 26/26, including forged normalized-key regression.
 - [x] Bounded multimodal UGC facts plus deterministic brand/apparel/unique-per-garment catalog hard-gates and tiered acknowledgements. Evidence: assessment/media/agentic suites (167 tests).
 - [x] Cross-channel external UGC reward path with one lifetime grant per Instagram identity. Evidence: external/delivered UGC suites and replay/cross-path tests; open service cases suppress every new grant, a terminal case newer than the complaint snapshot clears that stale block, a later complaint blocks again, and an already-issued reward remains idempotently retrievable without a second code. MariaDB race proof remains open.
