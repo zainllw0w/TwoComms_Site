@@ -63,6 +63,7 @@ mkdir -p -- "$TEMP_WHEEL_DIR"
     --generate-hashes \
     --resolution highest \
     --exclude-newer 2026-08-07T00:00:00Z \
+    --exclude-newer-package djangorestframework=2026-08-08T00:00:00Z \
     --no-emit-index-url \
     --custom-compile-command "./scripts/compile_requirements.sh")
 

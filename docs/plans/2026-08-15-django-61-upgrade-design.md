@@ -15,6 +15,7 @@ The release explicitly does not enable or refactor around Django 6.1 features su
 - The authoritative source is the latest `origin/main` commit.
 - Existing uncommitted work in the primary checkout must remain untouched.
 - The production virtualenv is Python 3.14; the lock must remain reproducible for that runtime.
+- Django 6.1 production MariaDB must be version 10.11 or newer; verify this before installing the lock.
 - Production MariaDB is not a test fixture and must not be modified except by an explicitly required migration (none is expected from a framework-only upgrade).
 - The supported deployment path is commit/push to `main`, then the authorized SSH pull, followed by the required runtime checks and restart.
 
@@ -32,7 +33,7 @@ If Django 6.1 reveals a compatibility issue, fix only the smallest affected boun
 4. The project passes Django system/deployment checks, migration drift checks, Python compilation, the focused compatibility suite, and the full available Django test suite.
 5. Static collection/compressor commands complete in the release environment without changing application behavior.
 6. The release is committed and pushed to `main` only after the gates pass.
-7. Production is fast-forwarded to the exact release SHA, installs the committed lock in the configured Python 3.14 virtualenv, runs checks, restarts Passenger, and reports Django 6.1 plus healthy representative endpoints.
+7. Production MariaDB is verified at 10.11 or newer, then production is fast-forwarded to the exact release SHA, installs the committed lock in the configured Python 3.14 virtualenv, runs checks, restarts Passenger, and reports Django 6.1 plus healthy representative endpoints.
 
 ## Rollback
 
@@ -41,4 +42,3 @@ The rollback unit is the previous Git SHA plus the previous `requirements.lock`.
 ## Follow-up
 
 After this release is proven stable, perform a separate audit of Django 5.2-to-6.1 changes and the 6.1 documentation. Candidate work includes targeted `fetch_mode()` adoption with query-count tests, database-level delete actions only after schema review, and `MAILERS` only where multiple mail backends are actually needed.
-

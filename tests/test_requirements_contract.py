@@ -23,7 +23,7 @@ HTTP_ECE_BUILDER_PATH = ROOT / "scripts" / "build_http_ece_wheel.py"
 # These are the project's direct requirements.  Resolver-owned transitive
 # packages (currently cffi and pycparser) deliberately do not belong here.
 EXPECTED_DIRECT = {
-    "django": "5.2.11",
+    "django": "6.1",
     "asgiref": "3.9.1",
     "sqlparse": "0.5.3",
     "pillow": "11.3.0",
@@ -51,7 +51,7 @@ EXPECTED_DIRECT = {
     "markdown": "3.8.2",
     "openpyxl": "3.1.2",
     "python-docx": "1.1.0",
-    "djangorestframework": "3.15.2",
+    "djangorestframework": "3.18.0",
     "drf-spectacular": "0.27.2",
     "django-ratelimit": "4.1.0",
     "facebook-business": "25.0.3",
@@ -123,6 +123,7 @@ class RequirementsContractTests(unittest.TestCase):
             "--generate-hashes",
             "--resolution highest",
             "--exclude-newer 2026-08-07T00:00:00Z",
+            "--exclude-newer-package djangorestframework=2026-08-08T00:00:00Z",
             "--no-emit-index-url",
             "mktemp",
             "mv",

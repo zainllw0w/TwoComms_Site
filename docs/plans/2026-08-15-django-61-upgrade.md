@@ -55,7 +55,7 @@ Expected: PASS on the unchanged 5.2.11 contract. Any pre-existing failure is rec
 Run from `twocomms/` with a test-only secret:
 
 ~~~bash
-SECRET_KEY=codex-django-upgrade-test python3.14 manage.py test --settings=test_settings -Wa --noinput
+SECRET_KEY=codex-django-upgrade-test python3.14 -Wa manage.py test --settings=test_settings --noinput
 ~~~
 
 Expected: the current suite completes; every deprecation warning is captured for comparison with the 6.1 run.
@@ -83,9 +83,14 @@ python3 -m unittest tests.test_requirements_contract.RequirementsContractTests.t
 
 Expected: FAIL because `requirements.in` still pins 5.2.11. This confirms the test detects the requested upgrade.
 
-**Step 3: Change only the direct Django pin**
+**Step 3: Update the framework-coupled direct pins**
 
-Change `Django==5.2.11` to `Django==6.1` in `twocomms/requirements.in`.
+Change `Django==5.2.11` to `Django==6.1` and move
+`djangorestframework==3.15.2` to `djangorestframework==3.18.0` in
+`twocomms/requirements.in`. The DRF change is required, not opportunistic:
+DRF 3.15.2 imports the removed Django 6.1 symbol `django.utils.cache.cc_delim_re`
+and fails before the application can start; DRF 3.18.0 is the first supported
+release for Django 6.1.
 
 **Step 4: Compile the lock with the repository toolchain**
 
@@ -174,10 +179,10 @@ Expected: all commands exit 0 and no migration files are generated.
 Run:
 
 ~~~bash
-SECRET_KEY=codex-django-upgrade-test /tmp/twocomms-django-61-venv/bin/python manage.py test --settings=test_settings -Wa --noinput
+SECRET_KEY=codex-django-upgrade-test /tmp/twocomms-django-61-venv/bin/python -Wa manage.py test --settings=test_settings --noinput
 ~~~
 
-Expected: all available tests pass. Compare warnings against the Task 1 baseline and resolve warnings introduced by the upgrade.
+Expected: all available tests pass. Compare warnings against the Task 1 baseline and resolve warnings introduced by the upgrade. Django 6.1's `RemovedInDjango70Warning` items (including email settings, `fail_silently`, and third-party `list_select_related`) are tracked separately unless they block current behavior.
 
 **Step 3: Run Python compilation and repository contract tests**
 
@@ -202,17 +207,20 @@ Run the smallest affected test and confirm it fails for the Django 6.1 incompati
 - Read: `twocomms/twocomms/settings.py`
 - Read: `twocomms/twocomms_django_theme/`
 
-**Step 1: Collect static files in an isolated output**
+**Step 1: Collect static files into the ignored project output**
 
-Run with a temporary `STATIC_ROOT` if the settings permit it:
+`twocomms.settings` currently fixes `STATIC_ROOT` to
+`twocomms/staticfiles`; it does not honor an environment override. The
+directory is ignored by Git, so run the collection there and confirm the
+release diff remains clean afterwards:
 
 ~~~bash
-SECRET_KEY=codex-django-upgrade-test STATIC_ROOT=/tmp/twocomms-django-61-static /tmp/twocomms-django-61-venv/bin/python manage.py collectstatic --noinput --settings=test_settings
+SECRET_KEY=codex-django-upgrade-test /tmp/twocomms-django-61-venv/bin/python manage.py collectstatic --noinput --settings=test_settings
 ~~~
 
 Expected: collection completes and the manifest is valid.
 
-**Step 2: Rebuild offline compression in the isolated environment**
+**Step 2: Rebuild offline compression in that test environment**
 
 Run:
 
@@ -283,6 +291,8 @@ Expected: GitHub `main` points to the verified commit. If the remote advanced, s
 
 Use the repository-approved SSH path with `TWOCOMMS_DEPLOY_PASSWORD` supplied by the caller environment. Pull `main` in the Python 3.14 virtualenv and verify the resulting SHA.
 
+Before installing the lock, query the production database server version and stop unless it is MariaDB `10.11` or newer, as required by Django 6.1.
+
 **Step 2: Install the committed lock**
 
 In the same activated virtualenv, run:
@@ -309,4 +319,3 @@ Apply `migrate --noinput` only if the pulled `main` contains pending reviewed mi
 **Step 4: Prove live runtime**
 
 Record the production SHA, `python -m django --version`, `pip check`, migration state, Passenger restart result, and representative `/healthz/`, `/`, `/cart/`, and localized storefront responses. Any failed gate leaves the release unverified and triggers rollback to the prior SHA/lock.
-

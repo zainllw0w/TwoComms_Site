@@ -265,7 +265,7 @@ class ReviewVote(models.Model):
                 name="rev_vote_unique_per_anon",
             ),
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(user__isnull=False)
                     | (models.Q(user__isnull=True) & ~models.Q(anon_key=""))
                 ),
