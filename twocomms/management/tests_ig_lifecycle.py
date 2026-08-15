@@ -1,7 +1,9 @@
 import hashlib
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
+import json
 from unittest.mock import patch
 
 from django.db import connection
@@ -26,6 +28,7 @@ from management.models import (
 )
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
 from management.services.ig_lifecycle import (
+    MESSAGE_SNAPSHOT_KEY,
     PAYMENT_NOT_VERIFIED_ERROR,
     PROVIDER_BOUNDARY_CLAIM_MARKER,
     STALE_ASSIGNMENT_ERROR,
@@ -2878,6 +2881,253 @@ class InstagramLifecycleTests(TestCase):
         )
         self.assertIsNotNone(lifecycle_message.send_started_at)
         self.assertEqual(event.provider_message_id, "mid-provider-boundary")
+
+    def _prepare_payment_follow_decision_for_boundary(self, event):
+        from management.models import IgFollowCtaDecision, IgFollowState
+        from management.services.ig_follow_cta import (
+            evaluate_follow_opportunity,
+            prepare_follow_decision,
+        )
+        from management.services.ig_follow_state import FollowStateView
+
+        now = timezone.now()
+        IgFollowState.objects.create(
+            client=self.client,
+            state=IgFollowState.State.NOT_FOLLOWING,
+            revision=7,
+            observed_at=now,
+            expires_at=now + timedelta(hours=1),
+            last_result=IgFollowState.CheckResult.KNOWN,
+        )
+        view = FollowStateView(
+            state=IgFollowState.State.NOT_FOLLOWING,
+            last_known_state=IgFollowState.State.NOT_FOLLOWING,
+            fresh=True,
+            stale=False,
+            revision=7,
+            observed_at=now,
+            first_observed_following_at=None,
+            source="instagram_login",
+            last_result=IgFollowState.CheckResult.KNOWN,
+            error_kind="",
+            next_retry_at=None,
+        )
+        self._boundary_follow_view = view
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=view,
+        ):
+            opportunity = evaluate_follow_opportunity(
+                client=self.client,
+                opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+                episode=event.commercial_episode,
+                order=event.order,
+                lifecycle_event=event,
+                base_text=_message(event),
+                now=now,
+            )
+            return prepare_follow_decision(
+                opportunity,
+                candidate_text=(
+                    "Якщо вам близький наш підхід, будемо раді бачити вас "
+                    "серед підписників."
+                ),
+            )
+
+    def _dispatch_payment_follow_with_marker_race(self, event, mutate):
+        from management.services.ig_lifecycle import _start_lifecycle_provider_io
+
+        real_start = _start_lifecycle_provider_io
+
+        def start_and_race(*args, **kwargs):
+            result = real_start(*args, **kwargs)
+            mutate()
+            return result
+
+        @contextmanager
+        def permit(*_args, **_kwargs):
+            yield True
+
+        sent_texts = []
+
+        def provider_http(*_args, **kwargs):
+            body = json.loads(kwargs["data"].decode("utf-8"))
+            sent_texts.append(body["message"]["text"])
+            return 200, json.dumps({"message_id": "mid-boundary-race"})
+
+        with (
+            patch(
+                "management.services.ig_reply_boundary.reply_execution_boundary",
+                side_effect=permit,
+            ),
+            patch(
+                "management.services.ig_reply_boundary.customer_send_boundary",
+                side_effect=permit,
+            ),
+            patch(
+                "management.services.instagram_bot._provider_account_id",
+                return_value="ig-account",
+            ),
+            patch(
+                "management.services.instagram_bot.get_page_token",
+                return_value="page-token",
+            ),
+            patch(
+                "management.services.instagram_bot._provider_http",
+                side_effect=provider_http,
+            ),
+            patch(
+                "management.services.ig_lifecycle._start_lifecycle_provider_io",
+                side_effect=start_and_race,
+            ),
+            patch(
+                "management.services.ig_follow_cta.effective_follow_state",
+                side_effect=lambda *_args, **_kwargs: self._boundary_follow_view,
+            ),
+            patch("management.services.instagram_bot.notify_manager"),
+        ):
+            state = dispatch_lifecycle_event(event.pk)
+
+        return state, sent_texts
+
+    def test_lifecycle_follow_boundary_downgrades_when_follow_revision_changes_before_meta(
+        self,
+    ):
+        from management.models import IgFollowState, IgFollowCtaDecision
+
+        event = self._event()
+        decision = self._prepare_payment_follow_decision_for_boundary(event)
+
+        def mutate():
+            IgFollowState.objects.filter(client=self.client).update(revision=8)
+            self._boundary_follow_view = replace(
+                self._boundary_follow_view,
+                revision=8,
+            )
+
+        state, sent_texts = self._dispatch_payment_follow_with_marker_race(
+            event,
+            mutate,
+        )
+
+        event.refresh_from_db()
+        decision.refresh_from_db()
+        self.assertEqual(state, IgLifecycleEvent.State.SENT)
+        self.assertEqual(sent_texts, [event.payload[MESSAGE_SNAPSHOT_KEY]])
+        lifecycle_message = InstagramBotMessage.objects.get(
+            synthetic_event_key=_lifecycle_message_key(event.event_key),
+            source="lifecycle",
+        )
+        self.assertEqual(lifecycle_message.text, event.payload[MESSAGE_SNAPSHOT_KEY])
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.CANCELLED)
+        self.assertEqual(decision.suppression_reason, "follow_revision_changed")
+
+    def test_lifecycle_follow_boundary_downgrades_when_refusal_arrives_before_meta(
+        self,
+    ):
+        from management.models import IgFollowCtaDecision, IgFollowState
+
+        event = self._event()
+        decision = self._prepare_payment_follow_decision_for_boundary(event)
+
+        def mutate():
+            state = IgFollowState.objects.get(client=self.client)
+            state.cta_refused_at = timezone.now()
+            state.cta_refusal_message_id = 999999
+            state.save(update_fields=["cta_refused_at", "cta_refusal_message_id", "updated_at"])
+
+        state, sent_texts = self._dispatch_payment_follow_with_marker_race(
+            event,
+            mutate,
+        )
+
+        event.refresh_from_db()
+        decision.refresh_from_db()
+        self.assertEqual(state, IgLifecycleEvent.State.SENT)
+        self.assertEqual(sent_texts, [event.payload[MESSAGE_SNAPSHOT_KEY]])
+        lifecycle_message = InstagramBotMessage.objects.get(
+            synthetic_event_key=_lifecycle_message_key(event.event_key),
+            source="lifecycle",
+        )
+        self.assertEqual(lifecycle_message.text, event.payload[MESSAGE_SNAPSHOT_KEY])
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.CANCELLED)
+        self.assertEqual(decision.suppression_reason, "follow_refused")
+
+    def test_lifecycle_follow_boundary_downgrades_when_new_inbound_arrives_before_meta(
+        self,
+    ):
+        from management.models import IgFollowCtaDecision
+
+        event = self._event()
+        decision = self._prepare_payment_follow_decision_for_boundary(event)
+
+        def mutate():
+            InstagramBotMessage.objects.create(
+                sender_id=self.client.igsid,
+                client=self.client,
+                role=InstagramBotMessage.Role.USER,
+                text="У мене ще одне питання",
+                status=InstagramBotMessage.Status.DONE,
+            )
+
+        state, sent_texts = self._dispatch_payment_follow_with_marker_race(
+            event,
+            mutate,
+        )
+
+        event.refresh_from_db()
+        decision.refresh_from_db()
+        self.assertEqual(state, IgLifecycleEvent.State.SENT)
+        self.assertEqual(sent_texts, [event.payload[MESSAGE_SNAPSHOT_KEY]])
+        lifecycle_message = InstagramBotMessage.objects.get(
+            synthetic_event_key=_lifecycle_message_key(event.event_key),
+            source="lifecycle",
+        )
+        self.assertEqual(lifecycle_message.text, event.payload[MESSAGE_SNAPSHOT_KEY])
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.CANCELLED)
+        self.assertEqual(decision.suppression_reason, "new_inbound")
+
+    def test_lifecycle_follow_snapshot_downgrades_cancelled_reservation_before_dispatch(
+        self,
+    ):
+        from management.models import IgFollowCtaDecision
+        from management.services.ig_follow_cta import finalize_follow_delivery
+        from management.services.ig_lifecycle import (
+            _lifecycle_follow_authorization,
+            _persist_lifecycle_final_text,
+        )
+
+        event = self._event()
+        decision = self._prepare_payment_follow_decision_for_boundary(event)
+        with patch(
+            "management.services.ig_follow_cta.effective_follow_state",
+            return_value=self._boundary_follow_view,
+        ):
+            authorized = _lifecycle_follow_authorization(event)
+        self.assertIsNotNone(authorized)
+        event = _persist_lifecycle_final_text(event.pk, authorized.final_text)
+        finalize_follow_delivery(
+            decision.pk,
+            outcome="cancelled_before_io",
+            lease_token=authorized.lease_token,
+            now=timezone.now(),
+        )
+
+        state, sent_texts = self._dispatch_payment_follow_with_marker_race(
+            event,
+            lambda: None,
+        )
+
+        event.refresh_from_db()
+        decision.refresh_from_db()
+        self.assertEqual(state, IgLifecycleEvent.State.SENT)
+        self.assertEqual(sent_texts, [event.payload[MESSAGE_SNAPSHOT_KEY]])
+        lifecycle_message = InstagramBotMessage.objects.get(
+            synthetic_event_key=_lifecycle_message_key(event.event_key),
+            source="lifecycle",
+        )
+        self.assertEqual(lifecycle_message.text, event.payload[MESSAGE_SNAPSHOT_KEY])
+        self.assertEqual(decision.state, IgFollowCtaDecision.State.CANCELLED)
 
     def test_payment_dispatch_uses_prepared_follow_snapshot_and_finalizes_decision(self):
         from management.models import IgFollowCtaDecision, IgFollowState

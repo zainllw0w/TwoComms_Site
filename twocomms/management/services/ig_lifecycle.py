@@ -348,13 +348,20 @@ def _base_message(event: IgLifecycleEvent) -> str:
     return _message_for(event.kind, event.locale, event.order, payload)
 
 
-def _prepared_follow_text(event: IgLifecycleEvent) -> str:
-    """Authorize one already-prepared payment CTA without provider I/O."""
+def _lifecycle_follow_authorization(event: IgLifecycleEvent):
+    """Return the reserved payment CTA snapshot for the final send boundary.
+
+    A lifecycle retry may already have persisted ``event.final_text`` and left
+    its follow decision in ``RESERVED``. Reconstructing the immutable
+    authorization object in that case lets the same provider boundary
+    revalidate the optional clause before every Meta request.
+    """
     if getattr(event, "kind", "") != IgLifecycleEvent.Kind.PAYMENT_VERIFIED:
-        return ""
+        return None
     try:
         from management.ig_bot_models import IgFollowCtaDecision
         from management.services.ig_follow_cta import (
+            AuthorizedFollowCta,
             authorize_follow_cta,
             finalize_follow_delivery,
         )
@@ -363,16 +370,41 @@ def _prepared_follow_text(event: IgLifecycleEvent) -> str:
             IgFollowCtaDecision.objects.filter(
                 lifecycle_event_id=event.pk,
                 opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
-                state=IgFollowCtaDecision.State.PREPARED,
+                state__in=(
+                    IgFollowCtaDecision.State.PREPARED,
+                    IgFollowCtaDecision.State.RESERVED,
+                ),
             )
             .order_by("-id")
             .first()
         )
         if decision is None:
-            return ""
+            return None
+        base_text = _base_message(event)
+        if decision.state == IgFollowCtaDecision.State.RESERVED:
+            # The lifecycle event owns the frozen text after the first
+            # materialization. A mismatched snapshot is deliberately not
+            # reconstructed; normal lifecycle finalization will release it.
+            if (
+                not decision.lease_token
+                or decision.base_text != base_text
+                or not decision.final_text
+                or (
+                    event.final_text
+                    and decision.final_text != event.final_text
+                )
+            ):
+                return None
+            return AuthorizedFollowCta(
+                decision_id=decision.pk,
+                text=decision.candidate_text,
+                base_text=decision.base_text,
+                final_text=decision.final_text,
+                lease_token=decision.lease_token,
+            )
         authorized = authorize_follow_cta(
             decision.pk,
-            current_base_text=_base_message(event),
+            current_base_text=base_text,
             now=timezone.now(),
         )
         if authorized is None:
@@ -381,11 +413,95 @@ def _prepared_follow_text(event: IgLifecycleEvent) -> str:
                 outcome="cancelled_before_io",
                 now=timezone.now(),
             )
-            return ""
-        return authorized.final_text
+            return None
+        return authorized
     except Exception:
         logger.exception("Unable to authorize prepared lifecycle follow CTA %s", getattr(event, "pk", None))
-        return ""
+        return None
+
+
+def _prepared_follow_text(event: IgLifecycleEvent) -> str:
+    """Authorize one already-prepared payment CTA without provider I/O."""
+    authorized = _lifecycle_follow_authorization(event)
+    return authorized.final_text if authorized is not None else ""
+
+
+def _lifecycle_follow_snapshot(event: IgLifecycleEvent):
+    """Return the active optional CTA and safe base fallback for this event.
+
+    ``final_text`` is immutable once materialized, but the reserved follow
+    decision can be cancelled by another worker before the provider boundary.
+    A non-base payment snapshot without an active reservation therefore has to
+    downgrade to the committed lifecycle copy rather than leak stale CTA text.
+    """
+    base_text = _base_message(event)
+    final_text = str(getattr(event, "final_text", "") or "").strip()
+    if (
+        getattr(event, "kind", "") != IgLifecycleEvent.Kind.PAYMENT_VERIFIED
+        or not final_text
+        or final_text == base_text
+    ):
+        return None, ""
+    try:
+        from management.ig_bot_models import IgFollowCtaDecision
+        from management.services.ig_follow_cta import finalize_follow_delivery
+
+        decision = (
+            IgFollowCtaDecision.objects.filter(
+                lifecycle_event_id=event.pk,
+                opportunity=IgFollowCtaDecision.Opportunity.PAYMENT,
+            )
+            .order_by("-id")
+            .first()
+        )
+        # If there is no decision, preserve a caller-provided immutable
+        # payment copy. A known follow decision, however, makes this an
+        # optional CTA and stale state must fail closed to the base message.
+        if decision is None:
+            return None, ""
+        authorized = _lifecycle_follow_authorization(event)
+        if authorized is not None:
+            return authorized, base_text
+        if (
+            decision.state == IgFollowCtaDecision.State.RESERVED
+            and decision.lease_token
+        ):
+            finalize_follow_delivery(
+                decision.pk,
+                outcome="cancelled_before_io",
+                lease_token=decision.lease_token,
+                now=timezone.now(),
+            )
+        return None, base_text
+    except Exception:
+        logger.exception(
+            "Unable to load lifecycle follow snapshot for event %s",
+            getattr(event, "pk", None),
+        )
+        return None, base_text
+
+
+def _replace_lifecycle_message_snapshot(event_id: int, lease: str, text: str) -> None:
+    """Record the actual base text when the optional CTA is downgraded."""
+    normalized = str(text or "").strip()
+    if not normalized:
+        return
+    event = (
+        IgLifecycleEvent.objects.filter(
+            pk=event_id,
+            lease_token=lease,
+            state=IgLifecycleEvent.State.PROCESSING,
+        )
+        .only("event_key")
+        .first()
+    )
+    if event is None:
+        return
+    InstagramBotMessage.objects.filter(
+        synthetic_event_key=_lifecycle_message_key(event.event_key),
+        role=InstagramBotMessage.Role.MODEL,
+        source="lifecycle",
+    ).update(text=normalized)
 
 
 def materialize_lifecycle_follow_text(event: IgLifecycleEvent) -> str:
@@ -1377,6 +1493,88 @@ def _lifecycle_provider_request_boundary(
             _notify_lifecycle_delivery_review(projected_event)
 
 
+@contextmanager
+def _lifecycle_follow_provider_request_boundary(
+    authorized_follow,
+    base_text: str,
+    *,
+    event_id: int,
+    lease: str,
+    deal_id: int,
+    order_id: int,
+    client_id: int,
+    assignment_id: int | None,
+    assignment_version: int | None,
+    delivered_chunk_count: int = 0,
+    provider_message_ids: tuple[str, ...] = (),
+    planned_chunk_count: int = 0,
+):
+    """Hold lifecycle truth and optional follow truth for one Meta request.
+
+    The follow clause is optional. If it becomes invalid after lifecycle
+    authorization, its boundary supplies the immutable base reply as a safe
+    replacement while the mandatory lifecycle boundary remains active.
+    """
+    with _lifecycle_provider_request_boundary(
+        event_id,
+        lease,
+        deal_id=deal_id,
+        order_id=order_id,
+        client_id=client_id,
+        assignment_id=assignment_id,
+        assignment_version=assignment_version,
+        delivered_chunk_count=delivered_chunk_count,
+        provider_message_ids=provider_message_ids,
+        planned_chunk_count=planned_chunk_count,
+    ) as lifecycle_allowed:
+        if not lifecycle_allowed:
+            yield lifecycle_allowed
+            return
+
+        from management.services.instagram_bot import ProviderRequestBoundaryResult
+
+        if authorized_follow is None:
+            if not base_text:
+                yield lifecycle_allowed
+                return
+            _replace_lifecycle_message_snapshot(event_id, lease, base_text)
+            yield ProviderRequestBoundaryResult(
+                allowed=False,
+                replacement_text=base_text,
+                reason="follow_decision_not_active",
+            )
+            return
+
+        from management.services.ig_follow_cta import follow_provider_request_boundary
+
+        with follow_provider_request_boundary(
+            authorized_follow,
+            now=timezone.now(),
+        ) as follow_allowed:
+            if follow_allowed:
+                yield True
+                return
+            replacement_text = str(
+                getattr(follow_allowed, "replacement_text", "") or ""
+            ).strip() or base_text
+            if replacement_text:
+                _replace_lifecycle_message_snapshot(
+                    event_id,
+                    lease,
+                    replacement_text,
+                )
+                yield ProviderRequestBoundaryResult(
+                    allowed=False,
+                    replacement_text=replacement_text,
+                    reason=(
+                        str(getattr(follow_allowed, "reason", "") or "").strip()
+                        or "follow_provider_boundary_rejected"
+                    ),
+                )
+            else:
+                yield follow_allowed
+
+
 def dispatch_lifecycle_event(event_id: int) -> str:
     """Lease and deliver one event; return its durable state value."""
     now = timezone.now()
@@ -1608,6 +1806,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             # text before the first provider request.
             final_text = materialize_lifecycle_follow_text(event)
             event = _persist_lifecycle_final_text(event.pk, final_text)
+            authorized_follow, follow_base_text = _lifecycle_follow_snapshot(event)
 
             payload = event.payload or {}
             try:
@@ -1633,9 +1832,11 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                 ),
                 provider_request_boundary_factory=lambda *, delivered_chunk_count=0,
                 provider_message_ids=(), planned_chunk_count=0: (
-                    _lifecycle_provider_request_boundary(
-                        event_id,
-                        lease,
+                    _lifecycle_follow_provider_request_boundary(
+                        authorized_follow,
+                        follow_base_text,
+                        event_id=event_id,
+                        lease=lease,
                         deal_id=event.deal_id,
                         order_id=event.order_id,
                         client_id=event.client_id,
