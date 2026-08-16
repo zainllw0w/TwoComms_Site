@@ -14,6 +14,11 @@ import os
 import re
 from ipaddress import ip_address
 
+from test_network_guard import install_external_network_guard
+
+
+install_external_network_guard()
+
 
 _TEST_DATABASE_NAME_RE = re.compile(r"test_twocomms_[A-Za-z0-9_]+$")
 _LOOPBACK_HOSTS = {"localhost", "::1"}
@@ -124,6 +129,15 @@ _NAME, _USER, _PASSWORD, _HOST, _PORT = _test_database_configuration()
 from test_settings import *  # noqa: E402,F401,F403
 
 
+INSTALLED_APPS = [
+    app
+    for app in INSTALLED_APPS
+    if app not in {"dtf", "dtf.apps.DtfConfig"}
+]
+INSTALLED_APPS.append("test_support.dtf_stub.apps.DtfStubConfig")
+ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if "dtf" not in host.casefold()]
+
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -153,5 +167,10 @@ DATABASES = {
 
 # The SQLite profile disables migrations. A MariaDB proof must instead exercise
 # the actual migration graph and has no reason to retain the optional DTF alias.
-MIGRATION_MODULES = {}
+MIGRATION_MODULES = {
+    "dtf": "test_support.dtf_stub.migrations",
+    "warehouse": "test_support.warehouse_migrations_non_dtf",
+}
 DATABASE_ROUTERS = []
+TEST_NETWORK_POLICY = "deny-external-allow-loopback"
+TEST_DTF_SCOPE = "excluded-with-dependency-stub"

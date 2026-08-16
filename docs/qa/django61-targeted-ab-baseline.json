@@ -1,0 +1,68 @@
+{
+  "baseline": {
+    "error_ids": [],
+    "failure_ids": [],
+    "log_sha256": "0c2f1b2de6b7ad549062a21df917dccd8019908868a64170c951610c212ed6dc",
+    "runtime": "CPython 3.14.6 / Django 5.2.11 / MariaDB 11.4",
+    "status": "passed",
+    "summary": {
+      "errors": 0,
+      "expected_failures": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 14,
+      "unexpected_successes": 0
+    }
+  },
+  "candidate": {
+    "error_ids": [],
+    "failure_ids": [],
+    "log_sha256": "bd7530b382f271617eddaf2dfddb094eca390b2bab73c393aec063ecec809891",
+    "runtime": "CPython 3.14.6 / Django 6.1 / MariaDB 11.4",
+    "status": "passed",
+    "summary": {
+      "errors": 0,
+      "expected_failures": 0,
+      "failures": 0,
+      "skipped": 0,
+      "tests": 14,
+      "unexpected_successes": 0
+    }
+  },
+  "delta": {
+    "baseline_only": [],
+    "candidate_only": []
+  },
+  "metadata": {
+    "command": "<django-runtime> manage.py test <14 explicit MariaDB test IDs> --settings=test_settings_mariadb --noinput --keepdb --verbosity 2",
+    "dtf_migration_setup": "included-in-historical-logs",
+    "dtf_scope": "test-identifiers-excluded",
+    "provenance": {
+      "base_sha": "f57f8cfb47ffa726815081365499ce7ccee7ec2c",
+      "clean_tree_assertion": "not-made",
+      "evidence_scope": "local pre-integration MariaDB A/B comparison; not main, CI, or production proof",
+      "source_tree_state": "uncommitted-stage0-changes"
+    },
+    "scope": "14 explicit MariaDB 11.4 lifecycle and concurrency test IDs from management.tests_ig_mariadb_lifecycle and management.tests_ig_mariadb_follow_ugc",
+    "stable_shards": [
+      "management.tests_ig_mariadb_follow_ugc.FollowCtaMariaDbConcurrencyTests.test_payment_beats_hesitation_for_one_episode_under_real_row_locks",
+      "management.tests_ig_mariadb_follow_ugc.FollowCtaMariaDbConcurrencyTests.test_stale_follow_refresh_lease_cannot_publish_after_reclaim",
+      "management.tests_ig_mariadb_follow_ugc.FollowCtaMariaDbConcurrencyTests.test_two_episodes_share_one_global_active_reservation",
+      "management.tests_ig_mariadb_follow_ugc.InstagramFollowUgcMariaDbContractTests.test_database_is_disposable_mariadb_11_4",
+      "management.tests_ig_mariadb_follow_ugc.UgcMariaDbConcurrencyTests.test_concurrent_guest_reservations_consume_exactly_one_capacity",
+      "management.tests_ig_mariadb_follow_ugc.UgcMariaDbConcurrencyTests.test_external_and_delivered_paths_consume_one_lifetime_slot",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleConcurrencyTests.test_competing_dispatchers_emit_one_provider_request",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleConcurrencyTests.test_older_lifecycle_event_cannot_clobber_newer_json_projection",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleConcurrencyTests.test_payment_reversal_waits_for_provider_truth_boundary",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleConcurrencyTests.test_stale_delivered_order_snapshot_cannot_materialize_after_lock",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleConcurrencyTests.test_stale_same_event_snapshot_cannot_clobber_sent_json_projection",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleConcurrencyTests.test_stale_worker_cannot_finalize_reclaimed_lease",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleTests.test_database_connection_uses_utf8mb4",
+      "management.tests_ig_mariadb_lifecycle.InstagramMariaDbLifecycleTests.test_database_is_mariadb_and_schema_is_disposable"
+    ]
+  },
+  "root_cause_clusters": [],
+  "schema_version": 2,
+  "status": "matched",
+  "summary_matches": true
+}

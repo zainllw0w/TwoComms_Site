@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import uuid
+from datetime import date
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Callable, Mapping, TextIO
@@ -92,6 +93,29 @@ _DATABASE_ERRNO_RE = re.compile(
     r"^(?:(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception|Failure)):\s*"
     r"\(([1-9]\d{0,4}),"
 )
+_DATABASE_CHECK_WARNING_RE = re.compile(
+    r"^(?P<object>[A-Za-z0-9_.]+): \((?P<check_id>[A-Za-z0-9.]+)\) "
+)
+DATABASE_CHECK_WARNING_ALLOWLIST = {
+    ("reviews.ReviewVote", "models.W036"): {
+        "max_count": 2,
+        "owner": "data-integrity",
+        "expires": "2026-10-01",
+        "finding": "DJ6-BASE-004",
+    },
+    ("storefront.ProductFitOption", "models.W036"): {
+        "max_count": 1,
+        "owner": "storefront-data",
+        "expires": "2026-10-01",
+        "finding": "DJ6-BASE-004",
+    },
+    ("storefront.WebPushDeviceSubscription.endpoint", "mysql.W003"): {
+        "max_count": 1,
+        "owner": "storefront-notifications",
+        "expires": "2026-10-01",
+        "finding": "DJ6-BASE-004",
+    },
+}
 _RELEASE_MIGRATION = "0156_ig_order_event_delivery_receipts"
 _RELEASE_TABLE = "management_igordercustomerevent"
 _FOLLOW_UGC_MIGRATION = "0166_ig_ugc_reward_lifecycle"
@@ -169,6 +193,40 @@ class GateError(RuntimeError):
             message = f"{message}: cleanup_error=exception"
         super().__init__(message)
         self.primary_error = primary_error
+
+
+def classify_database_check_warnings(
+    output: str,
+    *,
+    today: date | None = None,
+) -> dict[str, object]:
+    current_date = date.today() if today is None else today
+    counts: dict[tuple[str, str], int] = {}
+    for line in output.splitlines():
+        match = _DATABASE_CHECK_WARNING_RE.match(line.strip())
+        if match is None:
+            continue
+        key = (match.group("object"), match.group("check_id"))
+        counts[key] = counts.get(key, 0) + 1
+
+    allowed_count = 0
+    blocked = []
+    for key, count in sorted(counts.items()):
+        policy = DATABASE_CHECK_WARNING_ALLOWLIST.get(key)
+        rendered = f"{key[0]}:{key[1]}"
+        if policy is None:
+            blocked.append(rendered)
+            continue
+        expiry = date.fromisoformat(str(policy["expires"]))
+        if current_date >= expiry or count > int(policy["max_count"]):
+            blocked.append(rendered)
+            continue
+        allowed_count += count
+    return {
+        "allowed_count": allowed_count,
+        "blocked": blocked,
+        "policies": DATABASE_CHECK_WARNING_ALLOWLIST,
+    }
 
 
 def _failure_summary(*, suite: str, completed: subprocess.CompletedProcess) -> str:
@@ -817,6 +875,7 @@ def run_gate(
     database_attempted = False
     user_attempted = False
     version = version_comment = ""
+    database_warning_count = 0
     try:
         try:
             version, version_comment = _validate_server_identity(admin.server_identity())
@@ -860,6 +919,50 @@ def run_gate(
             output.write(_failure_summary(suite=suite, completed=completed))
             primary_error = RuntimeError(f"{suite} command failed ({completed.returncode})")
             raise primary_error
+        check_command = [
+            sys.executable,
+            str(manage_path),
+            "check",
+            "--settings=test_settings_mariadb",
+            "--database=default",
+            "--fail-level=ERROR",
+        ]
+        check_completed = command_runner(
+            check_command,
+            cwd=str(project_root / "twocomms"),
+            env=child_env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if check_completed.returncode:
+            output.write(
+                _failure_summary(
+                    suite="database-check",
+                    completed=check_completed,
+                )
+            )
+            primary_error = RuntimeError(
+                f"database check command failed ({check_completed.returncode})"
+            )
+            raise primary_error
+        warning_policy = classify_database_check_warnings(
+            f"{check_completed.stdout}\n{check_completed.stderr}"
+        )
+        blocked_warnings = warning_policy["blocked"]
+        if blocked_warnings:
+            output.write(
+                "MariaDB database check blocked warnings: "
+                + ",".join(blocked_warnings)
+                + "\n"
+            )
+            primary_error = RuntimeError("database check warning policy failed")
+            raise primary_error
+        database_warning_count = int(warning_policy["allowed_count"])
+        output.write(
+            "MariaDB database check: alias=default status=passed "
+            f"allowed_warnings={database_warning_count}\n"
+        )
         verify_release_schema = getattr(admin, "verify_release_schema", None)
         if verify_release_schema is None:
             raise GateError("MariaDB admin client cannot verify release schema")
@@ -892,6 +995,9 @@ def run_gate(
             "suite": suite,
             "version": version,
             "version_comment": version_comment,
+            "database_check": (
+                f"default:passed;allowed_warnings={database_warning_count}"
+            ),
             **schema_evidence,
             **feature_evidence,
         }

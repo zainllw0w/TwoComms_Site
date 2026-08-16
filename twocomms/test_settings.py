@@ -11,6 +11,9 @@ Django Test Settings для запуска тестов с SQLite вместо M
 # Never let a production or developer secret leak into the deterministic test
 # settings profile when manage.py has loaded a local environment file first.
 os.environ['SECRET_KEY'] = 'test-secret-key-for-testing-only-do-not-use-in-production'
+# Keep the imported base settings from probing an offline compressor manifest.
+# The deterministic profile sets DEBUG=False again after the import below.
+os.environ['DEBUG'] = 'True'
 
 # Test runs are also executed on the production host. The notification layer
 # reads these values directly from ``os.environ`` (not only from Django
@@ -81,7 +84,13 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_DOMAIN = None
 CSRF_COOKIE_DOMAIN = None
-EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+MAILERS = {
+    'default': {
+        'BACKEND': 'django.core.mail.backends.locmem.EmailBackend',
+    },
+}
+EMAIL_REPLY_TO_ADDRESS = 'test@example.invalid'
+EMAIL_DELIVERY_CONFIGURED = False
 NOVA_POSHTA_FALLBACK_ENABLED = False
 TESTING = True
 # Post-commit production wake-ups must not start detached workers against the

@@ -662,7 +662,10 @@ COMPRESS_JS_FILTERS = [
 ]
 COMPRESS_CSS_HASHING_METHOD = 'content'
 COMPRESS_JS_HASHING_METHOD = 'content'
-COMPRESS_OFFLINE = ensure_compress_offline(COMPRESS_OFFLINE)
+COMPRESS_OFFLINE = ensure_compress_offline(
+    COMPRESS_OFFLINE,
+    static_root=STATIC_ROOT,
+)
 
 # Настройки для правильной работы медиа-файлов на PythonAnywhere
 MEDIAFILES_DIRS = [

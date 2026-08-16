@@ -14,7 +14,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = REPO_ROOT / "twocomms"
-SETTINGS = "test_settings_no_network"
+SETTINGS = "test_settings_no_network_non_dtf"
+MIGRATION_SETTINGS = "test_settings_migrations_non_dtf"
 SENSITIVE_ENV_MARKERS = (
     "TOKEN",
     "SECRET",
@@ -44,13 +45,19 @@ GATES = (
             "management.tests_ig_conversation_analysis_jobs",
             "management.tests_ig_followup_delivery_fsm",
             "management.tests_telephony_call.AdminCallReviewTest",
-            "--settings=test_settings_no_network",
+            "--settings=test_settings_no_network_non_dtf",
             "--noinput",
         ),
     ),
     (
         "check",
-        ("{python}", "manage.py", "check", "--settings=test_settings_no_network"),
+        (
+            "{python}",
+            "manage.py",
+            "check",
+            "--database=default",
+            "--settings=test_settings_no_network_non_dtf",
+        ),
     ),
     (
         "migration-drift",
@@ -60,7 +67,7 @@ GATES = (
             "makemigrations",
             "--check",
             "--dry-run",
-            "--settings=test_settings_no_network",
+            "--settings=test_settings_migrations_non_dtf",
         ),
     ),
     ("compileall", ("{python}", "-m", "compileall", "-q", "management")),

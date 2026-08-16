@@ -5,9 +5,29 @@
 
 ## Боевой settings-модуль
 
-- Продакшен: `twocomms.settings` (env-переменные из `.env` в корне проекта на сервере).
+- Продакшен Passenger: `twocomms.production_settings` (env-переменные из
+  `.env.production`, выбранного `manage.py`/WSGI на сервере).
+- Локальные быстрые тесты: `test_settings` (SQLite); non-DTF release checks
+  используют `test_settings_no_network_non_dtf` и отдельные migration/static
+  profiles. Не подменять production settings локальным bare runtime.
 - Тесты в песочнице/CI: `test_settings` (sqlite in-memory) / `preview_settings`.
 - Ключевые env-инварианты: `MONOBANK_TOKEN`, `MONOBANK_WEBHOOK_SECRET`, `TELEGRAM_BOT_TOKEN`, `FACEBOOK_CAPI_TOKEN`, `TIKTOK_EVENTS_TOKEN` — все берутся из env, НЕ из кода (после W0-2-ротации).
+
+## Exact runtime contract
+
+Для локальных команд и linked worktrees использовать только общий project
+interpreter. Bare `python`/`python3` может указывать на другой Django.
+
+```bash
+TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
+test -x "$TWC_PYTHON"
+"$TWC_PYTHON" -c 'import django, sys; assert sys.version_info[:3] == (3, 14, 6); assert django.get_version() == "6.1"; print(sys.executable, django.get_version())'
+"$TWC_PYTHON" scripts/verify_project_runtime.py
+```
+
+На production этот же contract выполняется после активации virtualenv
+`.../3.14/bin/activate`; Passenger должен загрузить
+`twocomms.production_settings` и только alias `default` для non-DTF proof.
 
 ## Crontab (live snapshot 17.07.2026: 6 задач)
 
@@ -110,7 +130,8 @@ SERVER-часть:
 Прогонять локально перед каждым деплоем:
 
 ```bash
-python manage.py test \
+TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
+"$TWC_PYTHON" manage.py test \
   storefront.tests.test_checkout \
   storefront.tests.test_monobank_webhook \
   storefront.tests.test_cart_sync \
@@ -129,3 +150,45 @@ python manage.py test \
 - Изменили статику (`static/js/*`, CSS) → bump cache-buster в base.html + `collectstatic`.
 - Изменили модели → `makemigrations` + `migrate` (бэкап БД перед migrate — см. W0-3).
 - После деплоя: смок-прогон руками — главная, карточка товара, добавление в корзину, шаг чекаута.
+
+### Единственный разрешенный deploy path
+
+После commit и push в GitHub `main` production обновляется только fast-forward
+pull по утвержденному SSH-шаблону. Пароль приходит из локального
+`deploy-env.zsh`, не хранится в OPS и не печатается:
+
+```bash
+source /Users/zainllw0w/.config/twocomms/deploy-env.zsh
+test -n "${TWOCOMMS_DEPLOY_PASSWORD:-}"
+SSHPASS="$TWOCOMMS_DEPLOY_PASSWORD" sshpass -e ssh \
+  -o StrictHostKeyChecking=no qlknpodo@195.191.25.63 \
+  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull --ff-only origin main'"
+unset TWOCOMMS_DEPLOY_PASSWORD
+```
+
+Не использовать `deploy.sh`, `scripts/deploy_release.py`, SCP/package install,
+source build или произвольный remote checkout mutation как замену этому пути.
+До pull и после pull запускать sanitized live matrix:
+
+```bash
+# На сервере, в активированном virtualenv:
+python scripts/run_django61_live_matrix.py server --phase preflight
+python scripts/run_django61_live_matrix.py server --phase post-deploy --expected-sha "$EXPECTED_SHA"
+
+# Локально, через exact interpreter:
+"$TWC_PYTHON" scripts/run_django61_live_matrix.py http --phase preflight
+"$TWC_PYTHON" scripts/run_django61_live_matrix.py http --phase post-deploy
+```
+
+Server matrix проверяет `main`/SHA, CPython 3.14.6, Django 6.1, DRF,
+mysqlclient, MariaDB alias `default`, migration/check state, Passenger и только
+non-DTF health routes. HTTP matrix не следует redirect автоматически и не
+выводит body, headers, cookies или credentials. Failed pre/post proof блокирует
+закрытие release checklist.
+
+### MariaDB parity note
+
+Stage 0 target inventory: 332 base tables, 142 InnoDB, 190 MyISAM, 25 triggers,
+0 routines, 0 events. `--single-transaction` является InnoDB-consistent;
+MyISAM остаётся best-effort. Snapshot/restore выполняется только в local
+`twc_snapshot_*` database и не включает DTF.

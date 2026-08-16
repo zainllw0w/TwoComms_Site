@@ -118,7 +118,11 @@ def provider_evidence_signature(
         sort_keys=True,
         separators=(",", ":"),
     )
-    return salted_hmac("twocomms.ig_payment_event.v1", canonical).hexdigest()
+    return salted_hmac(
+        "twocomms.ig_payment_event.v1",
+        canonical,
+        algorithm="sha1",
+    ).hexdigest()
 
 
 class InstagramBotRawEvent(models.Model):

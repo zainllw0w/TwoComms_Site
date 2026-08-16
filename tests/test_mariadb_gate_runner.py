@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -167,6 +168,9 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         )
         self.assertTrue(Path(command.calls[0][0][1]).is_file())
         self.assertEqual(command.calls[0][1]["cwd"], str(PROJECT_ROOT / "twocomms"))
+        self.assertEqual(command.calls[1][0][2], "check")
+        self.assertIn("--database=default", command.calls[1][0])
+        self.assertIn("--fail-level=ERROR", command.calls[1][0])
         child_env = command.calls[0][1]["env"]
         self.assertEqual(child_env["TEST_MARIADB_NAME"], created_db)
         self.assertNotIn("DB_NAME", child_env)
@@ -181,6 +185,67 @@ class MariaDbGateRunnerTests(unittest.TestCase):
         self.assertIn("version=11.4.12-MariaDB", evidence.getvalue())
         self.assertIn(f"database={created_db}", evidence.getvalue())
         self.assertIn("cleanup=verified", evidence.getvalue())
+        self.assertIn(
+            "MariaDB database check: alias=default status=passed",
+            evidence.getvalue(),
+        )
+
+    def test_database_check_warning_policy_is_exact_and_expires(self):
+        known = """WARNINGS:
+reviews.ReviewVote: (models.W036) conditional unique unsupported
+reviews.ReviewVote: (models.W036) conditional unique unsupported
+storefront.ProductFitOption: (models.W036) conditional unique unsupported
+storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
+"""
+        classified = self.runner.classify_database_check_warnings(
+            known,
+            today=date(2026, 8, 16),
+        )
+        self.assertEqual(classified["allowed_count"], 4)
+        self.assertEqual(classified["blocked"], [])
+
+        unknown = self.runner.classify_database_check_warnings(
+            known + "storefront.Product: (models.W999) unknown\n",
+            today=date(2026, 8, 16),
+        )
+        self.assertEqual(unknown["blocked"], ["storefront.Product:models.W999"])
+
+        expired = self.runner.classify_database_check_warnings(
+            known,
+            today=date(2026, 10, 1),
+        )
+        self.assertTrue(expired["blocked"])
+
+    def test_runner_accepts_only_the_exact_database_warning_allowlist(self):
+        known = """WARNINGS:
+reviews.ReviewVote: (models.W036) conditional unique unsupported
+reviews.ReviewVote: (models.W036) conditional unique unsupported
+storefront.ProductFitOption: (models.W036) conditional unique unsupported
+storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
+"""
+
+        class WarningRunner(FakeCommandRunner):
+            def __call__(self, args, **kwargs):
+                self.calls.append((list(args), kwargs))
+                stderr = known if len(self.calls) == 2 else ""
+                return subprocess.CompletedProcess(args, 0, "", stderr)
+
+        evidence = io.StringIO()
+        result = self.runner.run_gate(
+            server_mode="external",
+            suite="lifecycle",
+            admin=FakeAdmin(),
+            command_runner=WarningRunner(),
+            project_root=PROJECT_ROOT,
+            environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+            output=evidence,
+        )
+
+        self.assertEqual(
+            result["database_check"],
+            "default:passed;allowed_warnings=4",
+        )
+        self.assertIn("allowed_warnings=4", evidence.getvalue())
 
     def test_success_verifies_release_schema_before_cleanup_and_emits_proof(self):
         admin = FakeAdmin()

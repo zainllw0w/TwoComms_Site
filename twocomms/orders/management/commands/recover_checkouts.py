@@ -85,7 +85,7 @@ class Command(BaseCommand):
             if (
                 cap.recovery_sent_at is None
                 and cap.email
-                and getattr(settings, 'EMAIL_HOST_PASSWORD', '')
+                and getattr(settings, 'EMAIL_DELIVERY_CONFIGURED', False)
             ):
                 try:
                     from django.core.mail import send_mail

@@ -103,9 +103,10 @@ class ProductVideoSchemaTests(TestCase):
             video_url="https://youtu.be/dQw4w9WgXcQ", status="published",
         )
         schema = StructuredDataGenerator.generate_product_schema(product)
-        self.assertIn("video", schema)
-        self.assertEqual(schema["video"]["@type"], "VideoObject")
-        self.assertIn("dQw4w9WgXcQ", schema["video"]["embedUrl"])
+        self.assertNotIn("video", schema)
+        self.assertEqual(schema["subjectOf"]["@type"], "VideoObject")
+        self.assertIn("dQw4w9WgXcQ", schema["subjectOf"]["embedUrl"])
+        self.assertIn("dQw4w9WgXcQ", schema["subjectOf"]["contentUrl"])
 
     def test_schema_no_video_key_without_video(self):
         from storefront.seo_utils import StructuredDataGenerator
@@ -115,6 +116,7 @@ class ProductVideoSchemaTests(TestCase):
         )
         schema = StructuredDataGenerator.generate_product_schema(product)
         self.assertNotIn("video", schema)
+        self.assertNotIn("subjectOf", schema)
 
 
 class ProductVideoFeedTests(TestCase):

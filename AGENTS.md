@@ -1,5 +1,22 @@
 # TwoComms Agent Rules
 
+## Local Django Runtime
+
+For local Django commands, tests, and dependency checks, use the shared
+project virtualenv rather than a bare `python` or `python3` from `PATH`. The
+required runtime is CPython `3.14.6` with Django `6.1`.
+
+```bash
+TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
+test -x "$TWC_PYTHON"
+"$TWC_PYTHON" -c 'import django, sys; assert sys.version_info[:3] == (3, 14, 6); assert django.get_version() == "6.1"; print(sys.executable, django.get_version())'
+```
+
+Use `"$TWC_PYTHON" manage.py ...` for management commands and
+`uv pip ... --python "$TWC_PYTHON"` for package inspection. Do not run a bare
+`pip` after activating the environment: this uv-managed virtualenv does not
+seed pip.
+
 ## Production Deployment
 
 For this repository, the supported production deployment path is:

@@ -6589,7 +6589,8 @@ def commercial_offer_email(request):
                 html_body_to_send = email_build["html"] if settings_obj.mode == "VISUAL" else email_build["html_light"]
 
                 from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
-                reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
+                reply_to_address = getattr(settings, "EMAIL_REPLY_TO_ADDRESS", "")
+                reply_to = [reply_to_address] if reply_to_address else None
 
                 status = CommercialOfferEmailLog.Status.SENT
                 error_text = ""
@@ -6893,7 +6894,8 @@ def commercial_offer_email_resend_api(request, log_id: int):
         return JsonResponse({"ok": False, "error": "not_found"}, status=404)
 
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
-    reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
+    reply_to_address = getattr(settings, "EMAIL_REPLY_TO_ADDRESS", "")
+    reply_to = [reply_to_address] if reply_to_address else None
 
     status = CommercialOfferEmailLog.Status.SENT
     error_text = ""
@@ -7265,7 +7267,8 @@ def commercial_offer_email_send_api(request):
     html_body_to_send = email_build["html"] if settings_obj.mode == "VISUAL" else email_build["html_light"]
 
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
-    reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
+    reply_to_address = getattr(settings, "EMAIL_REPLY_TO_ADDRESS", "")
+    reply_to = [reply_to_address] if reply_to_address else None
 
     status = CommercialOfferEmailLog.Status.SENT
     error_text = ""
@@ -8219,7 +8222,8 @@ def commercial_offer_email_send_test_api(request):
     html_body = email_build["html"] if (payload.get("mode") or "VISUAL") == "VISUAL" else email_build["html_light"]
 
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
-    reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
+    reply_to_address = getattr(settings, "EMAIL_REPLY_TO_ADDRESS", "")
+    reply_to = [reply_to_address] if reply_to_address else None
     try:
         msg = EmailMultiAlternatives(subject=subject, body=email_build["text"], from_email=from_email, to=[to_email], reply_to=reply_to)
         msg.attach_alternative(html_body, "text/html")

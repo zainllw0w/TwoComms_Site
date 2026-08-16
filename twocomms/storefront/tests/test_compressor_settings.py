@@ -10,6 +10,28 @@ from twocomms import settings as project_settings
 
 
 class EnsureCompressOfflineTests(SimpleTestCase):
+    def test_explicit_static_root_is_used_by_imported_production_helper(self):
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            base_root = root / "base"
+            release_root = root / "release"
+            manifest_path = release_root / "CACHE" / "manifest.json"
+            manifest_path.parent.mkdir(parents=True)
+            manifest_path.write_text('{"bundle": "bundle.123.css"}', encoding="utf-8")
+
+            original_static_root = project_settings.STATIC_ROOT
+            project_settings.STATIC_ROOT = base_root
+            try:
+                enabled = project_settings.ensure_compress_offline(
+                    True,
+                    static_root=release_root,
+                    source_watch_dirs=[],
+                )
+            finally:
+                project_settings.STATIC_ROOT = original_static_root
+
+        self.assertTrue(enabled)
+
     def test_empty_manifest_disables_offline_compression(self):
         with TemporaryDirectory() as temp_dir:
             static_root = Path(temp_dir)

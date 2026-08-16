@@ -92,7 +92,7 @@ class BaselineRunnerContractTests(unittest.TestCase):
             self.assertNotIn("production-secret", rendered)
             self.assertNotIn("prod-token", rendered)
             self.assertNotIn("mysql://", rendered)
-            self.assertEqual(payload["settings"], "test_settings_no_network")
+            self.assertEqual(payload["settings"], "test_settings_no_network_non_dtf")
             self.assertEqual(payload["network_policy"], "deny-external")
 
     def test_runner_rejects_unmocked_external_network(self):
@@ -137,6 +137,49 @@ class BaselineRunnerContractTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("external network", result.stderr.lower())
+
+    def test_network_profile_rejects_three_argument_udp_sendto(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys,socket; sys.path.insert(0, %r); "
+                    "import test_settings_no_network; "
+                    "socket.socket(socket.AF_INET,socket.SOCK_DGRAM).sendto("
+                    "b'x',0,('198.51.100.1',9))"
+                ) % str(APP_ROOT),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("external network", result.stderr.lower())
+
+    def test_network_profile_rejects_direct_hostname_resolution(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys,socket; sys.path.insert(0, %r); "
+                    "import test_settings_no_network; "
+                    "socket.gethostbyname('provider.example.invalid')"
+                ) % str(APP_ROOT),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("external network", result.stderr.lower())
+
+    def test_migration_gate_uses_real_non_dtf_migration_profile(self):
+        source = RUNNER.read_text(encoding="utf-8")
+        self.assertIn("test_settings_migrations_non_dtf", source)
+        self.assertIn("--database=default", source)
+        self.assertNotIn('"--settings=test_settings_no_network",', source)
 
     def test_runner_emits_sanitized_machine_readable_evidence(self):
         with tempfile.TemporaryDirectory() as directory:

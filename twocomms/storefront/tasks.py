@@ -51,20 +51,25 @@ from django.db import close_old_connections
 from django.core.management import call_command
 from django.utils import timezone
 
-# Defensive import for image optimizer in case PYTHONPATH lacks project root
+# Defensive import for image optimizer in case PYTHONPATH lacks project root.
 try:
-    from twocomms.image_optimizer import ImageOptimizer
+    from image_optimizer import ImageOptimizer
 except ModuleNotFoundError:
     base_dir = Path(__file__).resolve().parent.parent  # twocomms/
-    if str(base_dir.parent) not in sys.path:
-        sys.path.append(str(base_dir.parent))
+    module_path = base_dir / "image_optimizer.py"
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("image_optimizer", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load image optimizer from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     try:
-        from twocomms.image_optimizer import ImageOptimizer
-    except ModuleNotFoundError:
-        # Последний шанс: грузим модуль напрямую по пути
-        module_path = base_dir / "image_optimizer.py"
-        from importlib.machinery import SourceFileLoader
-        ImageOptimizer = SourceFileLoader("twocomms.image_optimizer", str(module_path)).load_module().ImageOptimizer
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(spec.name, None)
+        raise
+    ImageOptimizer = module.ImageOptimizer
 
 from .models import Product, Category
 from .seo_utils import SEOKeywordGenerator, SEOContentOptimizer

@@ -958,26 +958,47 @@ MEDIA_ROOT = BASE_DIR / "media"
 SURVEY_DEFINITION_PATH = BASE_DIR / "surveys" / "twocomms_survey_v3_4_adaptive_research.json"
 SURVEY_REPORTS_DIR = MEDIA_ROOT / "survey_reports"
 
-# Email (SMTP)
-# cPanel: mail.twocomms.shop, SSL 465, user cooperation@twocomms.shop
-EMAIL_BACKEND = os.environ.get(
+# Email (SMTP). Django 6.1 mailers replace the deprecated EMAIL_* settings.
+# Existing environment variable names remain stable for hosting compatibility.
+_MAILER_BACKEND = os.environ.get(
     "EMAIL_BACKEND",
-    "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
 )
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "mail.twocomms.shop")
-EMAIL_PORT = _env_int("EMAIL_PORT", 465)
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "cooperation@twocomms.shop")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_SSL = _env_bool("EMAIL_USE_SSL", default=True)
-EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", default=False)
-EMAIL_TIMEOUT = _env_int("EMAIL_TIMEOUT", 10)
+_MAILER_HOST = os.environ.get("EMAIL_HOST", "mail.twocomms.shop")
+_MAILER_PORT = _env_int("EMAIL_PORT", 465)
+_MAILER_USERNAME = os.environ.get(
+    "EMAIL_HOST_USER", "cooperation@twocomms.shop"
+)
+_MAILER_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+_MAILER_USE_SSL = _env_bool("EMAIL_USE_SSL", default=True)
+_MAILER_USE_TLS = _env_bool("EMAIL_USE_TLS", default=False)
+_MAILER_TIMEOUT = _env_int("EMAIL_TIMEOUT", 10)
+if _MAILER_USE_SSL and _MAILER_USE_TLS:
+    _MAILER_USE_TLS = False
 
-# Prevent invalid SMTP config
-if EMAIL_USE_SSL and EMAIL_USE_TLS:
-    EMAIL_USE_TLS = False
-
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", f"TwoComms <{EMAIL_HOST_USER}>")
-SERVER_EMAIL = os.environ.get("SERVER_EMAIL", EMAIL_HOST_USER)
+_MAILER_CONFIG = {"BACKEND": _MAILER_BACKEND}
+if _MAILER_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
+    _MAILER_CONFIG["OPTIONS"] = {
+        "host": _MAILER_HOST,
+        "port": _MAILER_PORT,
+        "username": _MAILER_USERNAME,
+        "password": _MAILER_PASSWORD,
+        "use_ssl": _MAILER_USE_SSL,
+        "use_tls": _MAILER_USE_TLS,
+        "timeout": _MAILER_TIMEOUT,
+    }
+MAILERS = {"default": _MAILER_CONFIG}
+EMAIL_REPLY_TO_ADDRESS = _MAILER_USERNAME
+EMAIL_DELIVERY_CONFIGURED = bool(
+    _MAILER_BACKEND == "django.core.mail.backends.smtp.EmailBackend"
+    and _MAILER_PASSWORD
+)
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL", f"TwoComms <{_MAILER_USERNAME}>"
+)
+SERVER_EMAIL = os.environ.get("SERVER_EMAIL", _MAILER_USERNAME)
 
 # Image optimization (middleware is disabled by default to avoid CPU-heavy on-the-fly conversions)
 IMAGE_OPTIMIZATION_MIDDLEWARE_ENABLED = _env_bool('IMAGE_OPTIMIZATION_MIDDLEWARE_ENABLED', default=False)
@@ -1155,9 +1176,14 @@ COMPRESS_SOURCE_WATCH_DIRS = [
 COMPRESS_SOURCE_WATCH_SUFFIXES = (".html", ".htm", ".css", ".js")
 
 
-def _latest_compress_source_mtime():
+def _latest_compress_source_mtime(source_watch_dirs=None):
     latest_mtime = None
-    for source_dir in COMPRESS_SOURCE_WATCH_DIRS:
+    watch_dirs = (
+        COMPRESS_SOURCE_WATCH_DIRS
+        if source_watch_dirs is None
+        else source_watch_dirs
+    )
+    for source_dir in watch_dirs:
         source_path = Path(source_dir)
         if not source_path.exists():
             continue
@@ -1178,7 +1204,12 @@ def _latest_compress_source_mtime():
     return latest_mtime
 
 
-def ensure_compress_offline(enabled_flag):
+def ensure_compress_offline(
+    enabled_flag,
+    *,
+    static_root=None,
+    source_watch_dirs=None,
+):
     """
     Проверяем, что для offline-компрессии сгенерирован manifest.
     Если его нет (deploy без python manage.py compress), откатываемся
@@ -1186,7 +1217,8 @@ def ensure_compress_offline(enabled_flag):
     """
     if not enabled_flag:
         return False
-    manifest_path = (STATIC_ROOT / 'CACHE' / 'manifest.json')
+    effective_static_root = Path(STATIC_ROOT if static_root is None else static_root)
+    manifest_path = effective_static_root / 'CACHE' / 'manifest.json'
     if not manifest_path.exists():
         warnings.warn(
             "COMPRESS_OFFLINE=True, но manifest CACHE/manifest.json не найден. "
@@ -1220,7 +1252,7 @@ def ensure_compress_offline(enabled_flag):
             RuntimeWarning,
         )
         return False
-    latest_source_mtime = _latest_compress_source_mtime()
+    latest_source_mtime = _latest_compress_source_mtime(source_watch_dirs)
     if latest_source_mtime is not None and latest_source_mtime > manifest_mtime:
         warnings.warn(
             "COMPRESS_OFFLINE=True, но CACHE/manifest.json старше шаблонов или static-исходников. "

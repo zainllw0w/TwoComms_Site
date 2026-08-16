@@ -1,0 +1,105 @@
+name: Django 6.1 non-DTF gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "twocomms/dtf/**"
+      - "twocomms/twocomms/urls_dtf.py"
+      - "specs/dtf-codex/**"
+  pull_request:
+    paths-ignore:
+      - "twocomms/dtf/**"
+      - "twocomms/twocomms/urls_dtf.py"
+      - "specs/dtf-codex/**"
+
+permissions:
+  contents: read
+
+jobs:
+  django61:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the exact revision
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+      - name: Set up exact project Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version-file: .python-version
+      - name: Install MariaDB client build headers
+        run: sudo apt-get update && sudo apt-get install --yes libmariadb-dev
+      - name: Install the immutable dependency lock
+        working-directory: twocomms
+        run: python -m pip install --require-hashes -r requirements.lock
+      - name: Verify exact runtime and lock
+        run: |
+          python scripts/verify_project_runtime.py
+          python scripts/verify_locked_requirements.py --lock twocomms/requirements.lock
+      - name: Run Stage 0 policy contracts
+        run: |
+          python -m unittest \
+            tests.test_django61_stage0_contracts \
+            tests.test_django61_stage0_tooling \
+            tests.test_django61_warning_prerequisites \
+            tests.test_django61_compatibility \
+            tests.test_ig_baseline_runner \
+            tests.test_requirements_contract \
+            tests.test_verify_locked_requirements -v
+      - name: Run no-network system and migration checks
+        working-directory: twocomms
+        run: |
+          python manage.py check --database=default --settings=test_settings_no_network_non_dtf
+          python manage.py makemigrations --check --dry-run --noinput --settings=test_settings_migrations_non_dtf
+      - name: Import non-DTF management commands
+        run: python scripts/check_management_commands.py --output command-smoke.json
+      - name: Reject new Django 7 deprecations
+        run: python scripts/run_django_warning_gate.py --output warning-gate.json
+      - name: Run stable Django compatibility tests
+        working-directory: twocomms
+        run: |
+          python manage.py test storefront.tests.test_product_video --settings=test_settings_no_network_non_dtf --noinput
+      - name: Exercise production-like static pipeline
+        run: python scripts/run_static_gate.py --output static-gate.json
+      - name: Build sanitized non-DTF coverage inventory
+        run: python scripts/build_non_dtf_inventory.py --output non-dtf-inventory.json
+      - name: Validate tracked Django A/B evidence
+        run: |
+          python scripts/build_django61_baseline_artifact.py \
+            --validate docs/qa/django61-full-ab-baseline.json
+          python scripts/build_django61_baseline_artifact.py \
+            --validate docs/qa/django61-targeted-ab-baseline.json
+      - name: Capture full non-DTF smoke
+        id: full_non_dtf_smoke
+        continue-on-error: true
+        run: |
+          python scripts/run_non_dtf_test_suite.py \
+            --settings test_settings_no_network_non_dtf \
+            --output full-non-dtf-smoke.log \
+            --verbosity 1
+      - name: Compare full smoke with tracked Django 6.1 baseline
+        if: always()
+        run: |
+          python scripts/build_django61_baseline_artifact.py \
+            --tracked-artifact docs/qa/django61-full-ab-baseline.json \
+            --compare-candidate-log full-non-dtf-smoke.log \
+            --comparison-output full-non-dtf-comparison.json
+      - name: Upload Stage 0 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: django61-stage0-evidence
+          path: |
+            command-smoke.json
+            warning-gate.json
+            static-gate.json
+            non-dtf-inventory.json
+            full-non-dtf-smoke.log
+            full-non-dtf-comparison.json
+            docs/qa/django61-full-ab-baseline.json
+            docs/qa/django61-targeted-ab-baseline.json
+          if-no-files-found: warn
+          retention-days: 14
