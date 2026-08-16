@@ -71,7 +71,14 @@ class RestockSubscriptionAdmin(admin.ModelAdmin):
             )
         )
 
-    @admin.action(description='Поставити автоматичне повідомлення в чергу')
+    @admin.action(
+        description='Поставити повідомлення в чергу',
+        description_plural='Поставити вибрані повідомлення в чергу',
+        location=(
+            admin.ActionLocation.CHANGE_LIST,
+            admin.ActionLocation.CHANGE_FORM,
+        ),
+    )
     def retry_notifications(self, request, queryset):
         from django.utils import timezone
 
@@ -88,7 +95,14 @@ class RestockSubscriptionAdmin(admin.ModelAdmin):
             f'Поставлено в чергу: {queued}; пропущено: {selected - queued}.',
         )
 
-    @admin.action(description='Закрити вибрані заявки')
+    @admin.action(
+        description='Закрити заявку',
+        description_plural='Закрити вибрані заявки',
+        location=(
+            admin.ActionLocation.CHANGE_LIST,
+            admin.ActionLocation.CHANGE_FORM,
+        ),
+    )
     def close_subscriptions(self, request, queryset):
         closed = queryset.exclude(
             status=RestockSubscription.Status.SENDING,
@@ -99,7 +113,14 @@ class RestockSubscriptionAdmin(admin.ModelAdmin):
         )
         self._action_message(request, f'Закрито заявок: {closed}.')
 
-    @admin.action(description='Повторно відкрити вибрані заявки')
+    @admin.action(
+        description='Повторно відкрити заявку',
+        description_plural='Повторно відкрити вибрані заявки',
+        location=(
+            admin.ActionLocation.CHANGE_LIST,
+            admin.ActionLocation.CHANGE_FORM,
+        ),
+    )
     def reopen_subscriptions(self, request, queryset):
         from django.utils import timezone
 

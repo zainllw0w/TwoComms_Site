@@ -824,3 +824,66 @@ class RestockVariantSaveAndAdminTests(TestCase):
         self.assertEqual(email.notification_attempts, 0)
         self.assertIn("1", action_message.call_args.args[1])
         self.assertIn("2", action_message.call_args.args[1])
+
+    def test_admin_actions_support_change_form_and_plural_descriptions(self):
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=["is_superuser"])
+        model_admin = RestockSubscriptionAdmin(RestockSubscription, admin.site)
+        request = RequestFactory().post("/admin/storefront/restocksubscription/")
+        request.user = self.staff
+
+        change_form_actions = model_admin.get_actions(
+            request,
+            action_location=admin.ActionLocation.CHANGE_FORM,
+        )
+        change_list_actions = model_admin.get_actions(
+            request,
+            action_location=admin.ActionLocation.CHANGE_LIST,
+        )
+
+        expected_descriptions = {
+            "retry_notifications": (
+                "Поставити повідомлення в чергу",
+                "Поставити вибрані повідомлення в чергу",
+            ),
+            "close_subscriptions": (
+                "Закрити заявку",
+                "Закрити вибрані заявки",
+            ),
+            "reopen_subscriptions": (
+                "Повторно відкрити заявку",
+                "Повторно відкрити вибрані заявки",
+            ),
+        }
+        for action_name, descriptions in expected_descriptions.items():
+            self.assertIn(action_name, change_form_actions)
+            self.assertIn(action_name, change_list_actions)
+            action = change_form_actions[action_name]
+            self.assertIsInstance(action, admin.Action)
+            self.assertEqual(action.description, descriptions[0])
+            self.assertEqual(action.plural_description, descriptions[1])
+
+    def test_admin_changelist_auto_selects_product_without_n_plus_one(self):
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=["is_superuser"])
+        RestockSubscription.objects.bulk_create([
+            RestockSubscription(
+                product=self.product,
+                size=f"size-{index}",
+                channel=RestockSubscription.Channel.PHONE,
+                fingerprint=f"admin-query-plan-{index}",
+            )
+            for index in range(10)
+        ])
+        model_admin = RestockSubscriptionAdmin(RestockSubscription, admin.site)
+        request = RequestFactory().get("/admin/storefront/restocksubscription/")
+        request.user = self.staff
+
+        changelist = model_admin.get_changelist_instance(request)
+        self.assertEqual(changelist.queryset.query.select_related, {"product": {}})
+
+        with CaptureQueriesContext(connection) as queries:
+            product_titles = [row.product.title for row in changelist.queryset]
+
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(product_titles, [self.product.title] * 10)
