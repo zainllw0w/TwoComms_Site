@@ -265,6 +265,32 @@ class ReleaseWheelhouseTests(unittest.TestCase):
 
             builder._validate_mysqlclient_wheel(wheel)
 
+    def test_auditwheel_output_normalization_removes_archive_nondeterminism(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.whl"
+            second = Path(directory) / "second.whl"
+            members = {
+                "z-last.txt": b"last",
+                "a-first.txt": b"first",
+            }
+            for wheel, timestamp in ((first, (2024, 1, 1, 0, 0, 0)), (second, (2025, 2, 2, 0, 0, 0))):
+                with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                    for name, payload in reversed(tuple(members.items())):
+                        info = zipfile.ZipInfo(name, date_time=timestamp)
+                        info.compress_type = zipfile.ZIP_DEFLATED
+                        info.external_attr = 0o644 << 16
+                        archive.writestr(info, payload)
+
+            builder._normalize_wheel(first)
+            builder._normalize_wheel(second)
+
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            with zipfile.ZipFile(first) as archive:
+                self.assertEqual(archive.namelist(), sorted(members))
+                self.assertTrue(
+                    all(info.date_time == (1980, 1, 1, 0, 0, 0) for info in archive.infolist())
+                )
+
     def test_cffi_build_disables_nondeterministic_debug_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -286,7 +312,10 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                     name = "cffi-2.1.1-cp314-cp314-linux_x86_64.whl"
                 (output / name).write_bytes(b"wheel")
 
-            with patch.object(builder, "_run", side_effect=fake_run):
+            with (
+                patch.object(builder, "_run", side_effect=fake_run),
+                patch.object(builder, "_normalize_wheel"),
+            ):
                 builder._build_cffi_once(
                     root / "python",
                     "auditwheel",

@@ -283,7 +283,44 @@ def _build_cffi_once(
     repaired_wheels = tuple(repaired.glob("cffi-2.1.1-*.whl"))
     if len(repaired_wheels) != 1:
         raise ValueError("auditwheel did not produce exactly one cffi wheel")
-    return repaired_wheels[0]
+    wheel = repaired_wheels[0]
+    _normalize_wheel(wheel)
+    return wheel
+
+
+def _normalize_wheel(wheel: Path) -> None:
+    """Rewrite an auditwheel artifact with stable ZIP metadata and ordering."""
+
+    wheel = Path(wheel)
+    temporary = wheel.with_name(f".{wheel.name}.normalized")
+    try:
+        with zipfile.ZipFile(wheel) as source:
+            members = source.infolist()
+            names = [member.filename for member in members]
+            if len(names) != len(set(names)):
+                raise ValueError("wheel contains duplicate archive members")
+            with zipfile.ZipFile(
+                temporary,
+                "w",
+                compression=zipfile.ZIP_DEFLATED,
+                compresslevel=9,
+                strict_timestamps=True,
+            ) as output:
+                for member in sorted(members, key=lambda item: item.filename):
+                    normalized = zipfile.ZipInfo(member.filename, date_time=(1980, 1, 1, 0, 0, 0))
+                    normalized.compress_type = member.compress_type
+                    normalized.create_system = 3
+                    normalized.external_attr = member.external_attr
+                    output.writestr(
+                        normalized,
+                        source.read(member),
+                        compress_type=member.compress_type,
+                        compresslevel=9 if member.compress_type == zipfile.ZIP_DEFLATED else None,
+                    )
+        os.replace(temporary, wheel)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def _validate_cffi_wheel(wheel: Path) -> None:
@@ -370,7 +407,9 @@ def _build_mysqlclient_once(
     repaired_wheels = tuple(repaired.glob(f"mysqlclient-{MYSQLCLIENT_VERSION}-*.whl"))
     if len(repaired_wheels) != 1:
         raise ValueError("auditwheel did not produce exactly one mysqlclient wheel")
-    return repaired_wheels[0]
+    wheel = repaired_wheels[0]
+    _normalize_wheel(wheel)
+    return wheel
 
 
 def _validate_mysqlclient_wheel(wheel: Path) -> None:
