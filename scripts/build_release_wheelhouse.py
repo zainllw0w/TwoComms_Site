@@ -335,7 +335,7 @@ def _normalize_wheel(wheel: Path) -> None:
                     normalized = zipfile.ZipInfo(member.filename, date_time=(1980, 1, 1, 0, 0, 0))
                     normalized.compress_type = member.compress_type
                     normalized.create_system = 3
-                    normalized.external_attr = member.external_attr
+                    normalized.external_attr = _normalized_zip_external_attr(member)
                     output.writestr(
                         normalized,
                         payloads[member.filename],
@@ -351,6 +351,19 @@ def _normalize_wheel(wheel: Path) -> None:
 _SBOM_ORDER_INSENSITIVE_ARRAYS = frozenset(
     {"components", "dependencies", "dependsOn", "properties", "externalReferences"}
 )
+
+
+def _normalized_zip_external_attr(member: zipfile.ZipInfo) -> int:
+    source_mode = (member.external_attr >> 16) & 0xFFFF
+    if member.is_dir():
+        return ((stat.S_IFDIR | 0o755) << 16) | 0x10
+    if stat.S_ISLNK(source_mode):
+        raise ValueError("wheel contains a symbolic link member")
+    file_type = stat.S_IFMT(source_mode)
+    if file_type not in (0, stat.S_IFREG):
+        raise ValueError("wheel contains a non-regular archive member")
+    permissions = 0o755 if source_mode & 0o111 else 0o644
+    return (stat.S_IFREG | permissions) << 16
 
 
 def _canonicalize_sbom_value(value: object, *, key: str | None = None) -> object:

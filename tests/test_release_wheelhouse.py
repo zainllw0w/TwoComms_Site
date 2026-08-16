@@ -292,6 +292,39 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                     all(info.date_time == (1980, 1, 1, 0, 0, 0) for info in archive.infolist())
                 )
 
+    def test_auditwheel_output_normalizes_nonsemantic_permission_bits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.whl"
+            second = Path(directory) / "second.whl"
+            members = {
+                "pkg/data.txt": b"data",
+                "pkg/tool": b"tool",
+                "pkg/": b"",
+            }
+            modes = (
+                {"pkg/data.txt": 0o100644, "pkg/tool": 0o100755, "pkg/": 0o40755},
+                {"pkg/data.txt": 0o100664, "pkg/tool": 0o100775, "pkg/": 0o40775},
+            )
+            for wheel, wheel_modes in zip((first, second), modes):
+                with zipfile.ZipFile(wheel, "w") as archive:
+                    for name, payload in members.items():
+                        info = zipfile.ZipInfo(name)
+                        info.create_system = 3
+                        info.external_attr = wheel_modes[name] << 16
+                        archive.writestr(info, payload)
+
+            builder._normalize_wheel(first)
+            builder._normalize_wheel(second)
+
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            with zipfile.ZipFile(first) as archive:
+                normalized_modes = {
+                    info.filename: info.external_attr >> 16 for info in archive.infolist()
+                }
+            self.assertEqual(normalized_modes["pkg/data.txt"], 0o100644)
+            self.assertEqual(normalized_modes["pkg/tool"], 0o100755)
+            self.assertEqual(normalized_modes["pkg/"], 0o40755)
+
     def test_auditwheel_sbom_and_record_are_byte_for_byte_normalized(self):
         with tempfile.TemporaryDirectory() as directory:
             first = Path(directory) / "first.whl"
