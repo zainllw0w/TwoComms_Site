@@ -1,4 +1,4 @@
-"""Regression contracts for warnings that must be green before Stage 0 exits."""
+"""Regression contracts for Django 6.1 and upcoming Django/Python removals."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -95,7 +96,9 @@ with override_settings(SECRET_KEY="signature-contract-secret"):
 
 
 class ImportCompatibilityContractTests(unittest.TestCase):
-    def test_storefront_tasks_import_has_no_load_module_warning(self):
+    def _run_storefront_tasks_script(
+        self, script: str
+    ) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         environment.update(
             {
@@ -104,21 +107,153 @@ class ImportCompatibilityContractTests(unittest.TestCase):
                 "PYTHONPATH": str(APP_ROOT),
             }
         )
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-Wa",
-                "-c",
-                "import django; django.setup(); import storefront.tasks",
-            ],
+        return subprocess.run(
+            [sys.executable, "-Wa", "-c", textwrap.dedent(script)],
             cwd=APP_ROOT,
             env=environment,
             capture_output=True,
             text=True,
             check=False,
         )
+
+    def test_storefront_tasks_import_has_no_load_module_warning(self):
+        result = self._run_storefront_tasks_script(
+            "import django; django.setup(); import storefront.tasks"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("load_module()", result.stderr)
+
+    def test_storefront_tasks_forced_fallback_preserves_module_identity(self):
+        result = self._run_storefront_tasks_script(
+            """
+            import builtins
+            import django
+            import importlib
+            import sys
+
+            django.setup()
+            sys.modules.pop("storefront.tasks", None)
+            sys.modules.pop("image_optimizer", None)
+            real_import = builtins.__import__
+            forced = {"count": 0}
+
+            def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+                if name == "image_optimizer" and forced["count"] == 0:
+                    forced["count"] += 1
+                    raise ModuleNotFoundError(
+                        "forced direct image_optimizer miss",
+                        name="image_optimizer",
+                    )
+                return real_import(name, globals, locals, fromlist, level)
+
+            builtins.__import__ = guarded_import
+            try:
+                tasks = importlib.import_module("storefront.tasks")
+            finally:
+                builtins.__import__ = real_import
+
+            image_optimizer = importlib.import_module("image_optimizer")
+            assert forced["count"] == 1
+            assert sys.modules["image_optimizer"] is image_optimizer
+            assert tasks.ImageOptimizer is image_optimizer.ImageOptimizer
+            assert tasks.ImageOptimizer.__module__ == "image_optimizer"
+            """
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("load_module()", result.stderr)
+
+    def test_storefront_tasks_fallback_propagates_exec_error_and_cleans_module(self):
+        result = self._run_storefront_tasks_script(
+            """
+            import builtins
+            import django
+            import importlib
+            import importlib.machinery
+            import importlib.util
+            import sys
+
+            django.setup()
+            sys.modules.pop("storefront.tasks", None)
+            sys.modules.pop("image_optimizer", None)
+            real_import = builtins.__import__
+            real_spec_from_file_location = importlib.util.spec_from_file_location
+
+            class FailingLoader:
+                def create_module(self, spec):
+                    return None
+
+                def exec_module(self, module):
+                    raise RuntimeError("forced exec_module failure")
+
+            def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+                if name == "image_optimizer":
+                    raise ModuleNotFoundError(
+                        "forced direct image_optimizer miss",
+                        name="image_optimizer",
+                    )
+                return real_import(name, globals, locals, fromlist, level)
+
+            def failing_spec(name, path):
+                assert name == "image_optimizer"
+                return importlib.machinery.ModuleSpec(name, FailingLoader())
+
+            builtins.__import__ = guarded_import
+            importlib.util.spec_from_file_location = failing_spec
+            try:
+                try:
+                    importlib.import_module("storefront.tasks")
+                except RuntimeError as exc:
+                    assert str(exc) == "forced exec_module failure"
+                else:
+                    raise AssertionError("exec_module failure did not propagate")
+            finally:
+                builtins.__import__ = real_import
+                importlib.util.spec_from_file_location = real_spec_from_file_location
+
+            assert "image_optimizer" not in sys.modules
+            assert "storefront.tasks" not in sys.modules
+            """
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("load_module()", result.stderr)
+
+    def test_storefront_tasks_does_not_fallback_for_transitive_import_error(self):
+        result = self._run_storefront_tasks_script(
+            """
+            import builtins
+            import django
+            import importlib
+            import sys
+
+            django.setup()
+            sys.modules.pop("storefront.tasks", None)
+            sys.modules.pop("image_optimizer", None)
+            real_import = builtins.__import__
+
+            def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+                if name == "image_optimizer":
+                    raise ModuleNotFoundError(
+                        "forced transitive dependency miss",
+                        name="forced_transitive_dependency",
+                    )
+                return real_import(name, globals, locals, fromlist, level)
+
+            builtins.__import__ = guarded_import
+            try:
+                try:
+                    importlib.import_module("storefront.tasks")
+                except ModuleNotFoundError as exc:
+                    assert exc.name == "forced_transitive_dependency"
+                else:
+                    raise AssertionError("transitive import error was hidden by fallback")
+            finally:
+                builtins.__import__ = real_import
+
+            assert "image_optimizer" not in sys.modules
+            assert "storefront.tasks" not in sys.modules
+            """
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

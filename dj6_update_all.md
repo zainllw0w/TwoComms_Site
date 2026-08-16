@@ -760,12 +760,12 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-PY-001 - Заменить deprecated `SourceFileLoader.load_module()` до Python 3.15
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
-- Область: fallback import в `twocomms/storefront/tasks.py:62-68`.
-- Доказательство: при `ModuleNotFoundError` код вызывает `SourceFileLoader(...).load_module()`. API deprecated в Python importlib и удаляется в Python 3.15; проект уже использует CPython 3.14.6. Источник: <https://docs.python.org/3/library/importlib.html#importlib.machinery.SourceFileLoader.load_module>.
+- Статус: `реализовано`; предварительный приоритет был `P2`.
+- Область: fallback import в `twocomms/storefront/tasks.py`.
+- Доказательство: deprecated `load_module()` заменен на `spec_from_file_location()`/`module_from_spec()`/`exec_module()`. Forced fallback test подтверждает identity `sys.modules["image_optimizer"]`; отдельный test подтверждает cleanup и распространение ошибки `exec_module()`. Regression test доказал RED старого широкого `except ModuleNotFoundError` и GREEN после ограничения fallback только прямым отсутствием `image_optimizer`; транзитивная import error больше не скрывается. Источник API: <https://docs.python.org/3/library/importlib.html#importlib.machinery.SourceFileLoader.load_module>.
 - Что даст: исключит будущий hard failure при следующем обновлении Python и сделает fallback import согласованным с уже используемым `spec_from_loader` pattern в legacy loader.
-- Риск и ограничения: fallback срабатывает только при поврежденном import path; нельзя считать обычный import failure поводом тихо загрузить другой module и скрыть packaging defect.
-- Следующая проверка: отдельный test с forced fallback, заменить на `spec_from_file_location`/`module_from_spec`/`exec_module`, затем проверить module identity и error propagation.
+- Риск и ограничения: fallback разрешен только когда отсутствует сам top-level `image_optimizer`; ошибки его транзитивных зависимостей намеренно пробрасываются.
+- Следующая проверка: сохранять четыре import compatibility tests в Python 3.14/3.15 compatibility gate.
 
 ### DJ6-DOC-001 - Обновить активную архитектурную документацию после интеграции
 

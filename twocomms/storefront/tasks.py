@@ -54,7 +54,9 @@ from django.utils import timezone
 # Defensive import for image optimizer in case PYTHONPATH lacks project root.
 try:
     from image_optimizer import ImageOptimizer
-except ModuleNotFoundError:
+except ModuleNotFoundError as exc:
+    if exc.name != "image_optimizer":
+        raise
     base_dir = Path(__file__).resolve().parent.parent  # twocomms/
     module_path = base_dir / "image_optimizer.py"
     import importlib.util

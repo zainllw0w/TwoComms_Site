@@ -270,8 +270,12 @@ Release Stage 0 уже содержит подготовительные изм�
 - [ ] **DJ6-LEGACY-001 - Убрать no-argument \`select_related()\` из активного legacy loader.**
   - Обязательный route test \`/pricelist_opt.xlsx\`; \`views.py.backup\` не считать мертвым.
 
-- [ ] **DJ6-PY-001 - Заменить \`SourceFileLoader.load_module()\` до Python 3.15.**
+- [x] **DJ6-PY-001 - Заменить \`SourceFileLoader.load_module()\` до Python 3.15.**
   - Acceptance: forced fallback test проверяет module identity и нормальное распространение import error.
+  - Выполнено: fallback использует
+    `spec_from_file_location()`/`module_from_spec()`/`exec_module()`, сохраняет
+    identity `sys.modules["image_optimizer"]`, очищает модуль при ошибке
+    `exec_module()` и не скрывает транзитивный `ModuleNotFoundError`.
 
 ### Exit gate этапа 1
 
