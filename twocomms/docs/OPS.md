@@ -171,9 +171,10 @@ source build или произвольный remote checkout mutation как з�
 До pull и после pull запускать sanitized live matrix:
 
 ```bash
-# На сервере, в активированном virtualenv:
-python scripts/run_django61_live_matrix.py server --phase preflight
-python scripts/run_django61_live_matrix.py server --phase post-deploy --expected-sha "$EXPECTED_SHA"
+# На сервере, в активированном virtualenv и каталоге с manage.py.
+# Repository scripts находятся уровнем выше этого каталога:
+python ../scripts/run_django61_live_matrix.py server --phase preflight
+python ../scripts/run_django61_live_matrix.py server --phase post-deploy --expected-sha "$EXPECTED_SHA"
 
 # Локально, через exact interpreter:
 "$TWC_PYTHON" scripts/run_django61_live_matrix.py http --phase preflight

@@ -83,9 +83,17 @@ Checkbox нельзя отмечать по факту написания код
 
 **Почему первый:** без этого любой следующий зеленый тест может быть ложным, а provider/network side effects могут попасть в production.
 
+**Статус: завершен 2026-08-16.** Release SHA
+`df5a99d09b4135bdc7d70baba7956e89e3610ca9` находится в GitHub `main` и
+production. Django gate
+[`31967237986`](https://github.com/TwoComms-shop/TwoComms_Site/actions/runs/31967237986)
+и MariaDB gate
+[`31967237927`](https://github.com/TwoComms-shop/TwoComms_Site/actions/runs/31967237927)
+завершились `success`; server и HTTP post-deploy matrices имеют `status=ok`.
+
 ### Foundation
 
-- [ ] **FOUNDATION-DB-001 - Подготовить защищенную локальную копию production non-DTF MariaDB.**
+- [x] **FOUNDATION-DB-001 - Подготовить защищенную локальную копию production non-DTF MariaDB.**
   - Проверить существующие commits/ветку guarded MariaDB sync, не дублировать уже готовую реализацию.
   - Dump получать только утвержденным SSH-путем, с \`--single-transaction --quick --routines --triggers --no-tablespaces\`.
   - Архивы и local env должны быть untracked, mode \`0600\`, без production host/user/password в repository.
@@ -94,55 +102,55 @@ Checkbox нельзя отмечать по факту написания код
 
 ### Audit IDs
 
-- [ ] **DJ6-ENV-001 - Запретить silent downgrade dependency lock.**
+- [x] **DJ6-ENV-001 - Запретить silent downgrade dependency lock.**
   - Files: \`twocomms/requirements.in\`, \`twocomms/requirements.lock\`, \`tests/test_requirements_contract.py\`, release wheelhouse scripts.
   - Acceptance: clean install доказывает exact Django 6.1/mysqlclient 2.2.8 и падает на старом lock.
 
-- [ ] **DJ6-ENV-002 - Сделать project Python единственным допустимым runtime.**
+- [x] **DJ6-ENV-002 - Сделать project Python единственным допустимым runtime.**
   - Добавить tracked Python 3.14.6 pin и reusable preflight.
   - Acceptance: bare Python 3.13/Django 5.2 не может пройти project gate; worktree/subagent используют exact interpreter.
 
-- [ ] **DJ6-CI-001 - Проверять exact CPython 3.14.6 и Django 6.1 во всех relevant jobs.**
+- [x] **DJ6-CI-001 - Проверять exact CPython 3.14.6 и Django 6.1 во всех relevant jobs.**
   - Acceptance: каждый Django job печатает и asserts versions после hash-locked install.
 
-- [ ] **DJ6-CI-002 - Создать честный migration-drift gate с включенными migration modules.**
+- [x] **DJ6-CI-002 - Создать честный migration-drift gate с включенными migration modules.**
   - Files: \`twocomms/test_settings_no_network.py\`, новый isolated settings profile, \`scripts/run_ig_baseline.py\`.
   - Acceptance: intentional model drift делает gate красным.
 
-- [ ] **DJ6-CI-003 - Добавить \`check --database=default\` в disposable MariaDB gate.**
+- [x] **DJ6-CI-003 - Добавить \`check --database=default\` в disposable MariaDB gate.**
   - Acceptance: MariaDB backend warnings видны и имеют явный временный allowlist.
 
-- [ ] **DJ6-CI-004 - Добавить общий Django 6.1 gate для обычных pull requests.**
+- [x] **DJ6-CI-004 - Добавить общий Django 6.1 gate для обычных pull requests.**
   - Минимум: exact versions, no-network check, migration drift, command import/parser, stable focused suites.
   - Acceptance: изменение обычного view/model/form не может обойти Django gate.
 
-- [ ] **DJ6-WARN-001 - Добавить отдельный \`-Wa\` deprecation-warning gate.**
+- [x] **DJ6-WARN-001 - Добавить отдельный \`-Wa\` deprecation-warning gate.**
   - Project-owned warnings запрещены; vendor warnings имеют owner и срок удаления.
   - Acceptance: новый \`RemovedInDjango70Warning\` делает job красным.
 
-- [ ] **DJ6-NET-001 - Реально запретить сеть внутри test subprocess.**
+- [x] **DJ6-NET-001 - Реально запретить сеть внутри test subprocess.**
   - Не использовать отдельный завершившийся monkeypatch process как доказательство.
   - Acceptance: synthetic DNS/direct socket/provider call блокируется внутри тестового процесса; local disposable MariaDB разрешается явно.
 
-- [ ] **DJ6-CMD-001 - Закрепить import/parser smoke 138 non-DTF management commands.**
+- [x] **DJ6-CMD-001 - Закрепить import/parser smoke 138 non-DTF management commands.**
   - Не вызывать \`handle()\`.
   - Acceptance: удаленный import или сломанный \`add_arguments()\` ловится без DB/network side effects.
 
-- [ ] **DJ6-CHECK-001 - Явно ограничить database checks alias \`default\`.**
+- [x] **DJ6-CHECK-001 - Явно ограничить database checks alias \`default\`.**
   - Acceptance: check не открывает DTF alias и не вызывает внешнюю сеть.
 
-- [ ] **DJ6-STATIC-001 - Воспроизвести production static/compressor pipeline в изоляции.**
+- [x] **DJ6-STATIC-001 - Воспроизвести production static/compressor pipeline в изоляции.**
   - Temporary static root, WhiteNoise manifest, offline compressor.
   - Acceptance: representative non-DTF templates рендерят manifest-backed assets после \`collectstatic\` и \`compress\`.
 
-- [ ] **DJ6-COMPAT-001 - Зафиксировать compatibility matrix активных интеграций.**
+- [x] **DJ6-COMPAT-001 - Зафиксировать compatibility matrix активных интеграций.**
   - Compressor, WhiteNoise, DRF Spectacular, ratelimit, Redis client и social-auth тестируются по отдельным contracts.
 
-- [ ] **DJ6-MIG-002 - Закрыть baseline drift \`CatalogColorSeoOverride\`.**
+- [x] **DJ6-MIG-002 - Закрыть baseline drift \`CatalogColorSeoOverride\`.**
   - Сначала доказать metadata-only operations на local MariaDB copy.
   - Acceptance: \`makemigrations --check --dry-run\` чистый на реальном migration graph.
 
-- [ ] **DJ6-TEST-002 - Классифицировать полный non-DTF suite.**
+- [x] **DJ6-TEST-002 - Классифицировать полный non-DTF suite.**
   - Каждый failure/error occurrence поместить в один детерминированный triage
     cluster и сравнить этот cluster на Django 5.2.11 и Django 6.1.
   - Stage 0 не обязан исправлять старый одинаковый test debt или угадывать его
@@ -150,30 +158,31 @@ Checkbox нельзя отмечать по факту написания код
   - Acceptance: compatibility delta отделена от старого test debt, все
     occurrences учтены ровно один раз, стабильные shards выделены в CI.
 
-- [ ] **DJ6-TEST-003 - Исправить stale Product Video Schema test.**
+- [x] **DJ6-TEST-003 - Исправить stale Product Video Schema test.**
   - Files: \`twocomms/storefront/tests/test_product_video.py\`, \`twocomms/storefront/seo_utils.py\`.
   - Проверять \`subjectOf -> VideoObject\`, \`embedUrl\`, \`contentUrl\`, не возвращать невалидный \`Product.video\`.
 
-- [ ] **DJ6-SITE-001 - Превратить полный non-DTF coverage smoke в CI artifact.**
+- [x] **DJ6-SITE-001 - Превратить полный non-DTF coverage smoke в CI artifact.**
   - Сохранять counts моделей, URL, templates, Python/JS и commands с явным DTF exclusion.
 
-- [ ] **DJ6-LIVE-001 - Сделать sanitized read-only preflight/post-deploy matrix обязательной.**
+- [x] **DJ6-LIVE-001 - Сделать sanitized read-only preflight/post-deploy matrix обязательной.**
   - Проверять deployed SHA, Python/Django/DRF, MariaDB, migrations/check, Passenger и non-DTF health routes.
 
 ### Exit gate этапа 0
 
-- [ ] Чистая CPython 3.14.6 среда устанавливается только из текущего lock.
-- [ ] Fast required CI зеленый и не ходит во внешнюю сеть.
-- [ ] Migration drift и production-like static pipeline доказательны.
-- [ ] Локальная MariaDB-копия доступна для следующих query/schema тестов.
-- [ ] Полный suite имеет классифицированный baseline, а не безымянные 112 проблем.
+- [x] Чистая CPython 3.14.6 среда устанавливается только из текущего lock.
+- [x] Fast required CI зеленый и не ходит во внешнюю сеть.
+- [x] Migration drift и production-like static pipeline доказательны.
+- [x] Локальная MariaDB-копия доступна для следующих query/schema тестов.
+- [x] Полный suite имеет классифицированный baseline, а не безымянные 112 проблем.
 
 ### Локальные доказательства до main/deploy
 
-Эти отметки фиксируют уже выполненную локальную работу, но не закрывают
-основные `DJ6-*`, foundation или exit-gate чекбоксы выше. Для их закрытия все
-еще обязательны свежий полный A/B baseline, интеграция в GitHub `main`, зеленый
-CI artifact и, где есть production-эффект, deploy с post-deploy proof.
+Эти отметки сохраняют локальную часть release evidence. Основные `DJ6-*`,
+foundation и exit-gate чекбоксы выше закрыты после публикации tracked schema v2
+A/B artifacts, свежего Django 6.1 CI comparison, disposable MariaDB CI,
+интеграции в GitHub `main`, deployment и post-deploy proof. Повторный полный
+Django 5.2.11 A/B для документационного закрытия не выполнялся.
 
 - [x] Exact runtime подтвержден: CPython 3.14.6, Django 6.1, DRF 3.18.0 и
   mysqlclient 2.2.8; verifier отклоняет любое несовпадение версии.
@@ -209,12 +218,21 @@ CI artifact и, где есть production-эффект, deploy с post-deploy p
 - [x] Schema v2 validation прошла для полного non-DTF и MariaDB A/B artifacts;
   сохраненный Django 6.1 full log повторно совпал с tracked candidate без
   summary/outcome delta. CI выполняет такое же сравнение после fresh smoke.
+- [x] Ограничение исторического MariaDB A/B записано явно: DTF test identifiers
+  исключены, но setup старых 14-test logs применял DTF migration dependency.
+  Полный 6080-test A/B имеет `dtf_migration_setup=not-loaded`; строгий
+  DTF-zero setup для исторического MariaDB artifact не заявляется.
 
 ---
 
 ## Этап 1. Корректность, security и совместимость до Django 7
 
 **Почему сейчас:** это небольшие или средние изменения с высоким риском будущей поломки платежных/почтовых/security контрактов.
+
+Release Stage 0 уже содержит подготовительные изменения explicit SHA-1,
+`MAILERS` и замены `load_module()`. Они считаются начатыми, но чекбоксы Stage 1
+остаются открытыми до полного call graph, regression matrix и acceptance каждого
+пункта; повторно реализовывать эти части с нуля не нужно.
 
 - [ ] **DJ6-SEC-001 - Явно закрепить algorithm для IG payment \`salted_hmac\`.**
   - Сначала parity test текущих SHA-1 signatures; не менять digest format скрыто.

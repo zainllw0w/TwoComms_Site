@@ -18,6 +18,8 @@ APP_ROOT = ROOT / "twocomms"
 PYTHON_PIN = ROOT / ".python-version"
 GENERAL_WORKFLOW = ROOT / ".github" / "workflows" / "django61-gate.yml"
 MARIADB_WORKFLOW = ROOT / ".github" / "workflows" / "instagram-bot-mariadb-gate.yml"
+STAGE0_RUNBOOK = ROOT / "docs" / "operations" / "django61-stage0-runbook.md"
+OPS_DOC = ROOT / "twocomms" / "docs" / "OPS.md"
 
 
 class ProjectRuntimeContractTests(unittest.TestCase):
@@ -280,6 +282,7 @@ class Django61WorkflowContractTests(unittest.TestCase):
             "- name: Capture full non-DTF smoke", 1
         )[1].split("- name:", 1)[0]
 
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", smoke_step)
         self.assertIn("id: full_non_dtf_smoke", smoke_step)
         self.assertIn("continue-on-error: true", smoke_step)
         self.assertIn("scripts/run_non_dtf_test_suite.py", smoke_step)
@@ -307,11 +310,44 @@ class Django61WorkflowContractTests(unittest.TestCase):
         upload_step = source.split("- name: Upload Stage 0 evidence", 1)[1]
         self.assertIn("docs/qa/django61-targeted-ab-baseline.json", upload_step)
 
+    def test_general_gate_keeps_pull_requests_fast_and_docs_pushes_quiet(self):
+        source = GENERAL_WORKFLOW.read_text(encoding="utf-8")
+        push_block = source.split("push:", 1)[1].split("pull_request:", 1)[0]
+        pull_request_block = source.split("pull_request:", 1)[1].split(
+            "permissions:", 1
+        )[0]
+
+        for docs_path in (
+            '"docs/operations/**"',
+            '"docs/plans/**"',
+            '"docs/qa/*.md"',
+            '"dj6_update_all.md"',
+        ):
+            self.assertIn(docs_path, push_block)
+            self.assertNotIn(docs_path, pull_request_block)
+
+        smoke_step = source.split(
+            "- name: Capture full non-DTF smoke", 1
+        )[1].split("- name:", 1)[0]
+        comparison_step = source.split(
+            "- name: Compare full smoke with tracked Django 6.1 baseline", 1
+        )[1].split("- name:", 1)[0]
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", smoke_step)
+        self.assertIn(
+            "if: always() && github.event_name == 'workflow_dispatch'",
+            comparison_step,
+        )
+
     def test_mariadb_gate_uses_exact_runtime_and_database_check(self):
         source = MARIADB_WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("python-version-file: .python-version", source)
         self.assertIn("scripts/verify_project_runtime.py", source)
         self.assertNotIn('python-version: "3.14"', source)
+        for settings_path in (
+            '"twocomms/twocomms/settings.py"',
+            '"twocomms/twocomms/production_settings.py"',
+        ):
+            self.assertEqual(source.count(settings_path), 2)
         runner = (ROOT / "scripts" / "run_mariadb_gate.py").read_text(
             encoding="utf-8"
         )
@@ -320,6 +356,25 @@ class Django61WorkflowContractTests(unittest.TestCase):
         # its own expiring warning policy after parsing the check output.
         self.assertIn('"--fail-level=ERROR"', runner)
         self.assertIn("classify_database_check_warnings", runner)
+
+
+class Django61Stage0DocumentationContractTests(unittest.TestCase):
+    def test_server_matrix_uses_repository_relative_script_path(self):
+        runbook = STAGE0_RUNBOOK.read_text(encoding="utf-8")
+        ops = OPS_DOC.read_text(encoding="utf-8")
+
+        for phase in ("preflight", "post-deploy"):
+            expected = f"python ../scripts/run_django61_live_matrix.py server --phase {phase}"
+            self.assertIn(expected, runbook)
+            self.assertIn(expected, ops)
+            self.assertNotIn(
+                f"python scripts/run_django61_live_matrix.py server --phase {phase}",
+                runbook,
+            )
+            self.assertNotIn(
+                f"python scripts/run_django61_live_matrix.py server --phase {phase}",
+                ops,
+            )
 
 
 if __name__ == "__main__":

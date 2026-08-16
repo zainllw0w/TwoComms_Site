@@ -8,6 +8,10 @@ on:
       - "twocomms/dtf/**"
       - "twocomms/twocomms/urls_dtf.py"
       - "specs/dtf-codex/**"
+      - "docs/operations/**"
+      - "docs/plans/**"
+      - "docs/qa/*.md"
+      - "dj6_update_all.md"
   pull_request:
     paths-ignore:
       - "twocomms/dtf/**"
@@ -73,6 +77,7 @@ jobs:
           python scripts/build_django61_baseline_artifact.py \
             --validate docs/qa/django61-targeted-ab-baseline.json
       - name: Capture full non-DTF smoke
+        if: github.event_name == 'workflow_dispatch'
         id: full_non_dtf_smoke
         continue-on-error: true
         run: |
@@ -81,7 +86,7 @@ jobs:
             --output full-non-dtf-smoke.log \
             --verbosity 1
       - name: Compare full smoke with tracked Django 6.1 baseline
-        if: always()
+        if: always() && github.event_name == 'workflow_dispatch'
         run: |
           python scripts/build_django61_baseline_artifact.py \
             --tracked-artifact docs/qa/django61-full-ab-baseline.json \

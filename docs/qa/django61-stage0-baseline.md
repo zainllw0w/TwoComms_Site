@@ -20,18 +20,20 @@
 | DRF | 3.18.0 |
 | mysqlclient | 2.2.8 |
 | MariaDB | 11.4.12 production runtime; exact live value проверяется matrix |
-| Baseline repository SHA | `f57f8cfb47ffa726815081365499ce7ccee7ec2c` |
+| A/B source baseline SHA | `f57f8cfb47ffa726815081365499ce7ccee7ec2c` |
+| Stage 0 release SHA | `df5a99d09b4135bdc7d70baba7956e89e3610ca9` |
 
 Exact runtime должен подтверждаться `scripts/verify_project_runtime.py`, а не
 версией, напечатанной bare `python` из PATH.
 
 ## Статус release evidence
 
-Локальные Stage 0 contracts, полный A/B baseline и MariaDB rehearsal обновлены
-и имеют свежий evidence. Перед release завершен read-only production preflight;
-интеграция в GitHub `main`, фактический CI artifact и post-deploy proof будут
-зафиксированы в секции release evidence после deployment. До этого основные
-implementation-plan checkboxes остаются открытыми.
+Stage 0 завершен 2026-08-16. Release SHA находится в GitHub `main` и
+production; state-only migration `storefront.0096` применена. Django gate
+[`31967237986`](https://github.com/TwoComms-shop/TwoComms_Site/actions/runs/31967237986)
+и MariaDB gate
+[`31967237927`](https://github.com/TwoComms-shop/TwoComms_Site/actions/runs/31967237927)
+завершились `success`. Server и HTTP post-deploy matrices вернули `status=ok`.
 
 ## Non-DTF inventory
 
@@ -66,6 +68,14 @@ Evidence fields: `dtf_scope=excluded`, `dtf_app_loaded=false`, без путей
 | MariaDB-only subset на Django 6.1 | 14/14 passed |
 | MariaDB-only subset на Django 5.2.11 | 14/14 passed |
 | MariaDB compatibility delta | 0 test-status IDs |
+
+Граница DTF у двух artifacts различается и не скрывается. Полный 6080-test A/B
+имеет `dtf_scope=excluded` и `dtf_migration_setup=not-loaded`. Исторические
+14-test MariaDB logs не содержат DTF test identifiers, но их setup применял DTF
+migration dependency; artifact явно хранит
+`dtf_scope=test-identifiers-excluded` и
+`dtf_migration_setup=included-in-historical-logs`. Поэтому строгий DTF-zero
+setup для этого исторического MariaDB снимка не заявляется.
 
 Старые числа `65 failures + 47 errors`, `67/47`, `66/47` и targeted subset
 остаются только историческими снимками. Для `DJ6-TEST-002` используется schema
@@ -116,9 +126,9 @@ Acceptance для `FOUNDATION-DB-001`:
 - DTF database отсутствует;
 - dump, rollback и local env находятся вне Git и имеют private mode.
 
-Это закрывает локальный parity/rehearsal evidence для `FOUNDATION-DB-001`;
-чекбокс плана остается открытым до интеграции в `main`, CI artifact и release
-proof.
+Это закрывает parity/rehearsal evidence для `FOUNDATION-DB-001`; после
+интеграции в `main`, зеленых CI artifacts и release proof пункт отмечен
+выполненным.
 
 ## Свежие локальные Stage 0 contracts
 
@@ -140,10 +150,26 @@ proof.
   `f57f8cfb47ffa726815081365499ce7ccee7ec2c`, чистые tracked-файлы, CPython
   3.14.6, Django 6.1, MariaDB 11.4.12 и отсутствие примененной
   `storefront.0096` до release.
+- GitHub Django gate `31967237986` повторил fresh 6080-test Django 6.1 smoke за
+  422.297 сек. и получил `6080/71/30/10`; comparison artifact имеет
+  `status=matched`, `fresh_only=[]`, `tracked_candidate_only=[]`.
+- GitHub MariaDB gate `31967237927` прошел lifecycle, checkout concurrency и
+  follow/UGC concurrency suites на disposable MariaDB 11.4.12; каждый run
+  подтвердил `check --database=default`, schema proof и cleanup.
+- Production post-deploy matrix на SHA
+  `df5a99d09b4135bdc7d70baba7956e89e3610ca9` подтвердил branch `main`, чистые
+  tracked-файлы, совпадение `HEAD/origin/main`, exact runtime, MariaDB 11.4.12,
+  `pending migrations=0`, database check и три `lswsgi` processes.
+- Финальный read-only inventory production alias `default` подтвердил 332 base
+  tables: 142 InnoDB, 190 MyISAM, 25 triggers, 0 routines и 0 events.
+- HTTP post-deploy matrix проверил 10 non-DTF endpoints: storefront,
+  management, finance и storage вернули ожидаемые `200/302`, общий
+  `status=ok`.
 
 ## CI evidence artifacts
 
-`.github/workflows/django61-gate.yml` должен сохранять sanitized artifacts:
+Release run `31967237986` сохранил artifact `django61-stage0-evidence`, а run
+`31967237927` - `mariadb-gate-evidence`. General workflow сохраняет:
 
 - `command-smoke.json` - 138 non-DTF command imports/parsers;
 - `warning-gate.json` - blocked and allowlisted warning counts with owner/expiry;
@@ -158,22 +184,24 @@ tokens, user names, raw exceptions или executable paths. CI retention сей�
 14 дней; для долговременного baseline в этот документ заносится только
 sanitized summary и source SHA.
 
-## Current open gates
+Обычный pull request и push в `main` выполняют fast Stage 0 checks, но не
+повторяют 6080-test smoke. Fresh полный smoke и сравнение с tracked candidate
+остаются явным release proof через manual `workflow_dispatch`. Push, меняющий только
+implementation/report Markdown (`docs/operations/**`, `docs/plans/**`,
+`docs/qa/*.md`, `dj6_update_all.md`), не запускает повторный полный suite.
 
-- `DJ6-CI-002`: локальный RED->GREEN drift contract готов; нужен GitHub `main`
-  и CI artifact с этим доказательством.
-- `DJ6-STATIC-001`: локальный render/hashed/CACHE contract готов; нужен CI
-  artifact и release evidence на `main`.
-- `DJ6-COMPAT-001`: named behavioral integration contracts готовы, включая
-  schema/request/cache/OAuth evidence; нужен CI artifact на `main`.
-- `FOUNDATION-DB-001`: локальный snapshot parity и hash сверка готовы; нужны
-  интеграция в `main` и сохраненный CI/release proof.
-- `DJ6-TEST-002`: полный non-DTF A/B и MariaDB A/B закрыты локально с delta 0;
-  остается опубликовать machine-readable evidence в CI.
-- `DJ6-MIG-002`: `storefront.0096` rehearsal прошел локально; нужен CI/main
-  migration-drift proof перед отметкой плана.
-- `DJ6-LIVE-001`: выполнить server preflight и post-deploy matrix с expected
-  SHA.
+## Closure evidence
 
-Ни один checkbox Stage 0 не отмечается до commit/push в `main`; для
-production-effect дополнительно нужны approved SSH deploy и post-deploy proof.
+| Gate | Evidence | Итог |
+| --- | --- | --- |
+| Runtime release verification | `df5a99d09b4135bdc7d70baba7956e89e3610ca9` | `HEAD == origin/main` на момент release proof |
+| Django CI | Run `31967237986`, artifact `django61-stage0-evidence` | `success` |
+| MariaDB CI | Run `31967237927`, artifact `mariadb-gate-evidence` | `success` |
+| Migration | Production `storefront.0096` | `[X]`, pending non-DTF migrations `0` |
+| Server matrix | exact SHA/runtime/default MariaDB/check/Passenger | `status=ok` |
+| HTTP matrix | 10 non-DTF storefront/management/finance/storage probes | `status=ok` |
+| DTF boundary | Full A/B setup excluded; historical MariaDB setup limitation recorded | production DTF не затронут; DTF test IDs не запускались |
+
+Stage 0 checkboxes в implementation plan отмечены выполненными. Подготовительные
+изменения Stage 1 в этом release не считаются завершенными без их отдельных
+acceptance matrices.

@@ -5,31 +5,32 @@
 Каждое изменение vendor-пакета требует отдельной изолированной проверки и
 нового lock.
 
-Локальные named contracts для перечисленных integrations реализованы и
-проверены. GitHub `main`, CI artifacts и approved production deploy proof пока
-ожидаются; поэтому implementation-plan checkboxes не отмечаются по одному
-локальному результату.
+Named contracts для перечисленных integrations реализованы и подтверждены
+release SHA `df5a99d09b4135bdc7d70baba7956e89e3610ca9`, GitHub Django run
+`31967237986`, MariaDB run `31967237927` и production post-deploy matrices.
+Stage 0 закрывает совместимость текущих pins, но не разрешает их массовое
+обновление без отдельного lock diff и regression proof.
 
 ## Runtime contract
 
 | Компонент | Locked version | Contract | Текущее evidence | Статус Stage 0 |
 | --- | --- | --- | --- | --- |
-| CPython | 3.14.6 | `scripts/verify_project_runtime.py` | exact verifier; CI job wiring | Локально готов, CI proof нужен |
-| Django | 6.1 | exact verifier + Django compatibility tests | import/check tests под 6.1 | Локально готов, main/CI proof нужен |
-| Django REST Framework | 3.18.0 | router/import and API compatibility tests | import contract и schema generation passed | Локально готов, CI proof нужен |
-| mysqlclient | 2.2.8 | MySQLdb import/version + locked requirements | official driver contract passed | MariaDB/runtime proof нужен |
+| CPython | 3.14.6 | `scripts/verify_project_runtime.py` | exact verifier, CI и server matrix | Stage 0 подтвержден |
+| Django | 6.1 | exact verifier + Django compatibility tests | import/check, full smoke comparison и production runtime | Stage 0 подтвержден |
+| Django REST Framework | 3.18.0 | router/import and API compatibility tests | import contract, schema generation и server matrix | Stage 0 подтвержден |
+| mysqlclient | 2.2.8 | MySQLdb import/version + locked requirements | lock CI, disposable MariaDB и production MariaDB 11.4.12 | Stage 0 подтвержден |
 
 ## Active integrations
 
 | Integration | Locked version | Required contract | Current evidence | Gap / owner action |
 | --- | --- | --- | --- | --- |
-| django-compressor | 4.6.0 | isolated `collectstatic` + `compress --force`, offline manifest, representative `{% compress %}` render | Named static gate runs both commands, renders `base.html` and resolves non-empty `/static/CACHE/` manifest-backed URLs | Local contract ready; publish CI artifact on `main`, then review any package bump separately |
-| WhiteNoise | 6.7.0 | `CompressedManifestStaticFilesStorage`, hashed asset URL resolves from temporary root | Named static gate resolves hashed CSS URLs from temporary `STATIC_ROOT` and confirms rendered files exist | Local contract ready; publish CI artifact on `main` and review upstream support before upgrade |
-| drf-spectacular | 0.27.2 | schema generation and representative non-DTF operation count | Schema contract builds `44` paths and `44` operations, with DTF absent | Behavioral contract ready; publish CI/main proof before any package bump |
-| django-ratelimit | 4.1.0 | decorator import plus representative request/rate-limit contract | AJAX login accepts 10 POST requests and returns `429`/`limited` on the next request | Behavioral contract ready; publish CI/main proof |
+| django-compressor | 4.6.0 | isolated `collectstatic` + `compress --force`, offline manifest, representative `{% compress %}` render | CI static artifact runs both commands, renders `base.html` and resolves non-empty `/static/CACHE/` URLs | Current pin proven; review any package bump separately |
+| WhiteNoise | 6.7.0 | `CompressedManifestStaticFilesStorage`, hashed asset URL resolves from temporary root | CI static artifact resolves hashed CSS URLs and confirms rendered files exist | Current pin proven; review upstream support before upgrade |
+| drf-spectacular | 0.27.2 | schema generation and representative non-DTF operation count | Schema contract builds `44` paths and `44` operations, with DTF absent | Current pin proven; package bump remains separate |
+| django-ratelimit | 4.1.0 | decorator import plus representative request/rate-limit contract | AJAX login accepts 10 POST requests and returns `429`/`limited` on the next request | Current pin proven in CI |
 | django-redis | 5.4.0 | client/cache backend import and settings construction without requiring Redis | RedisCache and DefaultClient construct lazily with `_clients=[None]` and no connection | Import/config compatibility proven; production Redis capability remains a separate Stage 6 prerequisite |
-| social-auth-app-django | 5.6.0 | admin/login import and OAuth callback smoke | Google backend, primary/fallback URLs, begin redirect and patched callback redirect pass without provider call | Keep owner/expiry warning allowlist, resolve before Django 7, and publish CI/main proof |
-| django-mathfilters | 1.0.0 | render templates using `{% load mathfilters %}` | Named `test_mathfilters_template_library_renders` passes | Local contract ready; retain pin until isolated replacement proof and CI/main evidence |
+| social-auth-app-django | 5.6.0 | admin/login import and OAuth callback smoke | Google backend, URLs, begin/callback pass without provider call | Current pin works; owner/expiry warning remains Stage 1 debt before Django 7 |
+| django-mathfilters | 1.0.0 | render templates using `{% load mathfilters %}` | Named render contract passes in CI | Current pin works; retain until isolated replacement proof |
 
 ## Commands used by the matrix
 

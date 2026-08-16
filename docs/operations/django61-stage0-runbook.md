@@ -63,8 +63,12 @@ SSHPASS="$TWOCOMMS_DEPLOY_PASSWORD" sshpass -e ssh \
 ```bash
 SSHPASS="$TWOCOMMS_DEPLOY_PASSWORD" sshpass -e ssh \
   -o StrictHostKeyChecking=no qlknpodo@195.191.25.63 \
-  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python scripts/run_django61_live_matrix.py server --phase preflight'"
+  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python ../scripts/run_django61_live_matrix.py server --phase preflight'"
 ```
+
+Production command выполняется из каталога с `manage.py`, тогда как repository
+root находится уровнем выше. Поэтому server matrix вызывается через
+`../scripts/...`; путь `scripts/...` из этого каталога неверен.
 
 Ожидается JSON со статусом `ok`, веткой `main`, чистыми tracked-файлами,
 CPython 3.14.6/Django 6.1/DRF 3.18.0/mysqlclient 2.2.8, MariaDB на alias
@@ -114,7 +118,7 @@ EXPECTED_SHA="$(git rev-parse HEAD)"
 
 SSHPASS="$TWOCOMMS_DEPLOY_PASSWORD" sshpass -e ssh \
   -o StrictHostKeyChecking=no qlknpodo@195.191.25.63 \
-  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python scripts/run_django61_live_matrix.py server --phase post-deploy --expected-sha $EXPECTED_SHA'"
+  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && python ../scripts/run_django61_live_matrix.py server --phase post-deploy --expected-sha $EXPECTED_SHA'"
 
 "$TWC_PYTHON" scripts/run_django61_live_matrix.py http --phase post-deploy
 ```
@@ -177,7 +181,10 @@ Stage 0 checkbox не отмечается по наличию файла или
 а для production effect - deployed SHA и post-deploy evidence. DTF должен быть
 исключен из кода, тестов и server commands.
 
-General Django 6.1 CI дополнительно валидирует оба tracked schema v2 A/B
-artifact и после full smoke сравнивает свежий Django 6.1 log с tracked
-candidate. Сам smoke может завершиться с известным ненулевым unittest status,
-но новая summary/failure/error delta делает comparison step красным.
+General Django 6.1 CI валидирует оба tracked schema v2 A/B artifact. Обычный
+pull request и push в `main` выполняют fast checks и не запускают 6080-test
+smoke. Fresh полный smoke и сравнение с tracked candidate выполняются только
+как явный release proof через manual `workflow_dispatch`; известный ненулевой
+unittest status допустим только
+при полном совпадении summary/failure/error delta. Markdown-only push с
+implementation/report docs не повторяет этот release smoke.

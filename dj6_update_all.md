@@ -1,6 +1,7 @@
 # Django 6.1: единый backlog аудита и улучшений TwoComms
 
-> Статус документа: живой inventory. На этом этапе ничего из списка не внедряется автоматически.
+> Статус документа: живой inventory. Stage 0 завершен; остальные находки не
+> считаются внедренными без checkbox и отдельного release evidence.
 > Каждая новая находка добавляется отдельной записью с доказательством и следующим шагом проверки.
 
 ## Цель и границы
@@ -44,10 +45,22 @@ DTF-субдомен и его код, страницы, задачи, мигр�
   `138/138` management command parsers, static/compressor/WhiteNoise pipeline и
   sanitized non-DTF inventory.
 - Локальный MariaDB snapshot default alias совпал с production table+engine
-  hash; MariaDB A/B дал `14/14` на обеих версиях и delta `0`. DTF отсутствует.
-- Следующий и последний шаг закрытия Stage 0: commit/push в GitHub `main`,
-  зеленый CI artifact, approved SSH pull, применение только `storefront.0096`
-  и sanitized post-deploy matrix. Повторный полный suite для этого не нужен.
+  hash. Исторический MariaDB A/B дал `14/14` на обеих версиях и delta `0`; DTF
+  test identifiers отсутствуют, но setup этих старых logs применял DTF
+  migration dependency. Строгий DTF-zero setup для исторического MariaDB
+  artifact не заявляется. Полный 6080-test A/B DTF не загружал.
+- Stage 0 закрыт release SHA
+  `df5a99d09b4135bdc7d70baba7956e89e3610ca9`: GitHub Django run
+  `31967237986` и MariaDB run `31967237927` завершились `success`, migration
+  `storefront.0096` применена, server и HTTP post-deploy matrices вернули
+  `status=ok`.
+- Обычные pull requests и push в `main` выполняют fast required gates без
+  6080-test smoke. Fresh полный smoke остается явным release proof через
+  manual `workflow_dispatch`; Markdown-only push с
+  implementation/report docs не запускает его повторно.
+- Stage 1 начат подготовительными explicit SHA-1, `MAILERS` и `load_module()`
+  изменениями, но соответствующие пункты остаются открытыми до полных
+  acceptance matrices.
 
 ## Правила записи находок
 
@@ -73,7 +86,7 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 | Async, Celery, cron, Redis, фоновые задачи и параллелизация | delegated async/server audit | проверено; worker/Redis production заблокированы |
 | HTTP, middleware, templates, forms, admin, DRF, security | primary repository sweep | проверено локально; browser/live gaps отмечены |
 | Приложения и субдомены, кроме DTF | primary repository sweep | проверено локально |
-| Production MariaDB, Passenger, права, observability | server read-only audit | проверено read-only; миграции и server mutation не выполнялись |
+| Production MariaDB, Passenger, права, observability | server audit + Stage 0 release | read-only inventory проверен; `storefront.0096` применена; post-deploy matrix зеленая |
 
 ## Начальные находки после перехода
 
