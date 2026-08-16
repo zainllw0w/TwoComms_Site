@@ -157,6 +157,43 @@ class ConsignmentServiceTestCase(TestCase):
         self.assertEqual(svc.reseller_frozen(self.reseller), Decimal('2500'))
         self.assertEqual(svc.reseller_frozen_qty(self.reseller), 5)
 
+    def _create_query_count_consignment_items(self):
+        shipment = ConsignmentShipment.objects.create(
+            company=self.company,
+            reseller=self.reseller,
+            number='QUERY-COUNT',
+            date=timezone.localdate(),
+        )
+        ConsignmentItem.objects.bulk_create([
+            ConsignmentItem(
+                company=self.company,
+                shipment=shipment,
+                reseller=self.reseller,
+                title=f'Консигнація {index}',
+                qty=3,
+                sold_qty=1,
+                unit_cost=Decimal('12.34'),
+                is_consignment=True,
+            )
+            for index in range(10)
+        ])
+
+    def test_reseller_frozen_loads_consignment_flag_in_single_query(self):
+        self._create_query_count_consignment_items()
+
+        with self.assertNumQueries(1):
+            total = svc.reseller_frozen(self.reseller)
+
+        self.assertEqual(total, Decimal('246.80'))
+
+    def test_company_frozen_total_loads_consignment_flag_in_single_query(self):
+        self._create_query_count_consignment_items()
+
+        with self.assertNumQueries(1):
+            total = svc.consignment_frozen_total(self.company)
+
+        self.assertEqual(total, Decimal('246.80'))
+
     def test_consignment_in_receivables(self):
         """Борг магазину з'являється в дебіторці з полем reseller."""
         svc.create_shipment(

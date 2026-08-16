@@ -797,6 +797,7 @@ def admin_order_payment_snapshots(request):
         'payment_status',
         'pay_type',
         'total_sum',
+        'discount_amount',
         'payment_payload',
     )
     payload = {}

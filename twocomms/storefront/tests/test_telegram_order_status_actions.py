@@ -1,7 +1,8 @@
+import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 
@@ -277,6 +278,36 @@ class TelegramOrderStatusActionTests(TestCase):
         self.assertEqual(snapshot["prepayment_amount"], "200.00")
         self.assertEqual(snapshot["remaining_amount"], "900.00")
         self.assertEqual(snapshot["declared_cost"], "1100.00")
+
+    def test_staff_payment_snapshot_batch_loads_discount_in_single_query(self):
+        from storefront.views.admin import admin_order_payment_snapshots
+
+        orders = [
+            self._create_order(
+                total_sum=f"{1200 + index}.00",
+                discount_amount=f"{100 + index}.00",
+                payment_status="paid",
+                pay_type="online_full",
+            )
+            for index in range(10)
+        ]
+        request = RequestFactory().get(
+            "/admin/order-payment-snapshots/",
+            {"ids": ",".join(str(order.pk) for order in orders)},
+            secure=True,
+        )
+        request.user = User(username="snapshot-query-staff", is_staff=True, is_active=True)
+
+        with self.assertNumQueries(1):
+            response = admin_order_payment_snapshots(request)
+
+        self.assertEqual(response.status_code, 200)
+        snapshots = json.loads(response.content)["orders"]
+        self.assertEqual(len(snapshots), 10)
+        for index, order in enumerate(orders):
+            snapshot = snapshots[str(order.pk)]
+            self.assertEqual(snapshot["discount_amount"], f"{100 + index}.00")
+            self.assertEqual(snapshot["payable_total"], "1100.00")
 
     def test_telegram_order_and_payment_update_show_discounted_amounts(self):
         order = self._create_order(

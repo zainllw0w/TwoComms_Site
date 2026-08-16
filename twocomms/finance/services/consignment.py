@@ -390,7 +390,7 @@ def reseller_frozen(reseller: Reseller) -> Decimal:
     """Заморожено під реалізацію = Σ (qty - sold_qty) * unit_cost консигнаційних."""
     total = Decimal('0')
     items = reseller.consignment_items.filter(is_consignment=True).only(
-        'qty', 'sold_qty', 'unit_cost')
+        'qty', 'sold_qty', 'unit_cost', 'is_consignment')
     for item in items:
         total += item.frozen_value
     return total
@@ -423,7 +423,7 @@ def consignment_frozen_total(company) -> Decimal:
         total = Decimal('0')
         items = (ConsignmentItem.objects
                  .filter(company=company, is_consignment=True)
-                 .only('qty', 'sold_qty', 'unit_cost'))
+                 .only('qty', 'sold_qty', 'unit_cost', 'is_consignment'))
         for item in items:
             total += item.frozen_value
         return total
