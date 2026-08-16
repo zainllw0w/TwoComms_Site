@@ -1,4 +1,5 @@
 import hashlib
+from contextlib import contextmanager
 from pathlib import Path
 from datetime import timedelta
 from decimal import Decimal
@@ -6,6 +7,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.db.models import FETCH_RAISE, QuerySet
 from django.test import TestCase
 from django.test import override_settings
 from django.urls import reverse
@@ -33,6 +35,17 @@ from management.services.ig_commercial_episodes import ensure_episode_for_deal
 from management.services.instagram_bot import ProviderDeliveryReceipt
 from orders.models import Order, PaymentAttempt
 from storefront.models import Category, Product
+
+
+@contextmanager
+def strict_only_projections():
+    original_only = QuerySet.only
+
+    def only_with_raise(queryset, *fields):
+        return original_only(queryset, *fields).fetch_mode(FETCH_RAISE)
+
+    with patch.object(QuerySet, "only", only_with_raise):
+        yield
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
@@ -393,12 +406,13 @@ class InstagramCheckoutWorkspaceTests(TestCase):
             last_error="RuntimeError('https://graph.facebook.com/path?access_token=secret')",
         )
 
-        response = self.client.get(
-            reverse(
-                "management_bot_checkout_proposal_preview_api",
-                kwargs={"proposal_id": self.proposal.public_id},
+        with strict_only_projections():
+            response = self.client.get(
+                reverse(
+                    "management_bot_checkout_proposal_preview_api",
+                    kwargs={"proposal_id": self.proposal.public_id},
+                )
             )
-        )
 
         self.assertEqual(response.status_code, 200)
         lifecycle = response.json()["proposal"]["history"]["lifecycle"][0]
