@@ -303,8 +303,15 @@ def _normalize_wheel(wheel: Path) -> None:
             if len(names) != len(set(names)):
                 raise ValueError("wheel contains duplicate archive members")
             payloads = {member.filename: source.read(member) for member in members}
-            sbom_name = "auditwheel.cdx.json"
-            if sbom_name in payloads:
+            sbom_names = [
+                name
+                for name in names
+                if name.endswith(".dist-info/sboms/auditwheel.cdx.json")
+            ]
+            if len(sbom_names) > 1:
+                raise ValueError("wheel contains multiple auditwheel SBOM files")
+            if sbom_names:
+                sbom_name = sbom_names[0]
                 payloads[sbom_name] = _canonicalize_auditwheel_sbom(payloads[sbom_name])
             record_names = [
                 name for name in names if name.endswith(".dist-info/RECORD")

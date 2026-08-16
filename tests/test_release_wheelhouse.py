@@ -324,7 +324,7 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                 sbom = json.dumps(document).encode("utf-8")
                 payloads = {
                     "pkg/data.bin": b"binary",
-                    "auditwheel.cdx.json": sbom,
+                    "pkg.dist-info/sboms/auditwheel.cdx.json": sbom,
                 }
                 record = "".join(
                     f"{name},sha256={'0' * 43},{len(payload)}\n"
@@ -340,7 +340,8 @@ class ReleaseWheelhouseTests(unittest.TestCase):
 
             self.assertEqual(first.read_bytes(), second.read_bytes())
             with zipfile.ZipFile(first) as archive:
-                sbom = json.loads(archive.read("auditwheel.cdx.json"))
+                sbom_name = "pkg.dist-info/sboms/auditwheel.cdx.json"
+                sbom = json.loads(archive.read(sbom_name))
                 self.assertEqual(
                     [component["name"] for component in sbom["components"]], ["a", "z"]
                 )
@@ -349,8 +350,10 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                 )
                 self.assertEqual(dependency["dependsOn"], ["pkg:pypi/a", "pkg:pypi/b"])
                 record = archive.read("pkg.dist-info/RECORD").decode("utf-8")
-                expected = base64.urlsafe_b64encode(hashlib.sha256(archive.read("auditwheel.cdx.json")).digest()).rstrip(b"=").decode("ascii")
-                self.assertIn(f"auditwheel.cdx.json,sha256={expected},", record)
+                expected = base64.urlsafe_b64encode(
+                    hashlib.sha256(archive.read(sbom_name)).digest()
+                ).rstrip(b"=").decode("ascii")
+                self.assertIn(f"{sbom_name},sha256={expected},", record)
 
     def test_cffi_build_disables_nondeterministic_debug_paths(self):
         with tempfile.TemporaryDirectory() as directory:
