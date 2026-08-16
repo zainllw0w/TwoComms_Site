@@ -244,7 +244,8 @@ def _build_manager_start_payload(user_id: int, code: str) -> str:
 
 
 def _resolve_profile_from_start_payload(payload: str):
-    token = (payload or "").strip()
+    raw_token = payload or ""
+    token = raw_token.strip()
     if not token:
         return None
 
@@ -262,10 +263,11 @@ def _resolve_profile_from_start_payload(payload: str):
     # base64url-обгортці). Лишаємо для зворотної сумісності зі вже виданими
     # посиланнями.
     candidates = [token]
-    try:
-        candidates.append(strict_b64decode(token).decode("utf-8"))
-    except (ValueError, UnicodeDecodeError):
-        pass
+    if raw_token == token:
+        try:
+            candidates.append(strict_b64decode(raw_token).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            pass
     for candidate in candidates:
         try:
             value = signing.Signer(salt="management.bot.bind").unsign(candidate)

@@ -124,6 +124,9 @@ class LegacyManagerStartPayloadBase64ContractTests(TestCase):
             _resolve_profile_from_start_payload(f"{self.wrapped.rstrip('=')}!!!")
         )
 
+    def test_rejects_legacy_wrapper_surrounded_by_whitespace(self):
+        self.assertIsNone(_resolve_profile_from_start_payload(f" {self.wrapped}\n"))
+
 
 @override_settings(
     GOOGLE_SERVICE_ACCOUNT_JSON="",
