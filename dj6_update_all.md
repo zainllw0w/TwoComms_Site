@@ -742,21 +742,21 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-COMPAT-002 - `social-auth-app-django` уже выдает Django 7 deprecation warning
 
-- Статус: `подтверждено`; предварительный приоритет: `P1` до Django 7.0.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1` до Django 7.0.
 - Область: установленный `social-auth-app-django==5.6.0`, `social_django.admin.UserSocialAuthOption`, OAuth admin/login integration.
-- Доказательство: fresh `PYTHONWARNINGS=default manage.py check --settings=test_settings --database default` под CPython `3.14.6`/Django `6.1` выдал `RemovedInDjango70Warning` из `site-packages/social_django/admin.py:13`: пакет задает `ModelAdmin.list_select_related = True`, что deprecated в Django 6.1.
+- Доказательство: upstream `6.0.1` все еще задает deprecated `list_select_related=True`, а major 6.0 одновременно меняет login на POST-only. Поэтому proven pin сохранен, а `TwoCommsAdminConfig` точечно заменяет vendor registration на `UserSocialAuthCompatAdmin` с `list_select_related=("user",)`. Runtime contract подтверждает отсутствие warning; warning gate имеет blocked `0`, allowed `0`, vendor allowlist `{}`.
 - Что даст: раннее решение vendor compatibility до Django 7.0 без потери social-auth admin и OAuth flow.
-- Риск и ограничения: не monkey-patch vendor class без тестов; обновление social-auth может изменить callback, pipeline, storage и token semantics.
-- Следующая проверка: проверить свежий upstream release/changelog, воспроизвести warning в isolated matrix и выбрать upgrade либо минимальный локальный admin subclass с OAuth/admin regression tests.
+- Риск и ограничения: локальный shim ограничен admin registration и не меняет OAuth pipeline/login semantics; будущий vendor upgrade должен отдельно доказать callback и POST-login parity.
+- Следующая проверка: сохранять registry/warning/OAuth contracts; удалить shim только после безопасного upstream release и отдельного upgrade slice.
 
 ### DJ6-LEGACY-001 - Активный `views.py.backup` содержит удаляемый `select_related()` без полей
 
-- Статус: `подтверждено`; предварительный приоритет: `P1` до Django 7.0.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1` до Django 7.0.
 - Область: `twocomms/storefront/views/__init__.py:318-347`, `twocomms/storefront/views.py.backup:299,1584,3369,5605,5614,5833,5842,5890,5899`, route `twocomms/storefront/urls.py:625` (`/pricelist_opt.xlsx`).
-- Доказательство: legacy loader реально подгружает `views.py.backup`, а public pricelist route берет из него `wholesale_prices_xlsx`; модуль содержит вызовы `select_related()` без имен полей. Django 6.1 deprecated no-argument form и требует перечислить relation fields либо рассмотреть `FETCH_PEERS`. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#miscellaneous>.
+- Доказательство: legacy loader реально подгружает `views.py.backup`; static AST contract теперь подтверждает ноль no-argument вызовов после удаления девяти мест. Существующие explicit `select_related("category")` и per-product variant queries сохранены. `/pricelist_opt.xlsx` проверяет content type, filename и workbook values без Django 7 warning; существующий `/wholesale/` regression также проходит. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#miscellaneous>.
 - Что даст: сохранит доступность прайс-листа и legacy management paths после следующего major upgrade, а также устранит неявные joins.
-- Риск и ограничения: backup фактически active runtime, поэтому его нельзя удалять или mass-refactor как мертвый файл; для каждого call site нужно определить реальные relation names и query count.
-- Следующая проверка: route-level test `/pricelist_opt.xlsx`, static inventory всех no-argument calls и маленькие query-count tests перед точечной заменой или переносом функции в поддерживаемый module.
+- Риск и ограничения: backup остается active runtime и не должен массово рефакториться как мертвый файл; этот slice намеренно не меняет query counts или XLSX semantics.
+- Следующая проверка: держать AST/route contracts до отдельного переноса legacy функций в поддерживаемые modules; ORM-оптимизации выполнять отдельными measured slices.
 
 ### DJ6-PY-001 - Заменить deprecated `SourceFileLoader.load_module()` до Python 3.15
 

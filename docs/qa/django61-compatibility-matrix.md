@@ -29,7 +29,7 @@ Stage 0 закрывает совместимость текущих pins, но 
 | drf-spectacular | 0.27.2 | schema generation and representative non-DTF operation count | Schema contract builds `44` paths and `44` operations, with DTF absent | Current pin proven; package bump remains separate |
 | django-ratelimit | 4.1.0 | decorator import plus representative request/rate-limit contract | AJAX login accepts 10 POST requests and returns `429`/`limited` on the next request | Current pin proven in CI |
 | django-redis | 5.4.0 | client/cache backend import and settings construction without requiring Redis | RedisCache and DefaultClient construct lazily with `_clients=[None]` and no connection | Import/config compatibility proven; production Redis capability remains a separate Stage 6 prerequisite |
-| social-auth-app-django | 5.6.0 | admin/login import and OAuth callback smoke | Google backend, URLs, begin/callback pass without provider call | Current pin works; owner/expiry warning remains Stage 1 debt before Django 7 |
+| social-auth-app-django | 5.6.0 | admin/login import and OAuth callback smoke | Google backend, URLs, begin/callback pass without provider call; project admin uses explicit `("user",)` fetch fields | Latest 6.0.1 still sets deprecated `True` and adds unrelated breaking login changes, so this slice keeps the proven pin and removes the warning locally |
 | django-mathfilters | 1.0.0 | render templates using `{% load mathfilters %}` | Named render contract passes in CI | Current pin works; retain until isolated replacement proof |
 
 ## Commands used by the matrix
@@ -50,11 +50,10 @@ the release evidence; local `/tmp` files are not a substitute for them.
 
 ## Warning policy
 
-Project-owned Django 7 warnings fail the gate. The only current vendor
-allowlist entry is `social_django.admin.list_select_related`, owned by
-`runtime-maintainers` and expiring `2026-10-01`. A new warning, a changed
-message, or an expired entry must fail review rather than being silently
-ignored.
+Project-owned and vendor Django 7 warnings fail the gate. The former
+`social_django.admin.list_select_related` exception was removed after the
+project registered an explicit `("user",)` compatibility admin; the vendor
+allowlist is now empty.
 
 ## Compatibility decision rules
 

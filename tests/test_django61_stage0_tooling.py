@@ -8,7 +8,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import date
 from pathlib import Path
 
 
@@ -17,23 +16,7 @@ APP_ROOT = ROOT / "twocomms"
 
 
 class WarningGateContractTests(unittest.TestCase):
-    def test_only_owned_vendor_warning_is_allowlisted(self):
-        from scripts.run_django_warning_gate import classify_warning_lines
-
-        project = (
-            "/repo/storefront/models.py:10: RemovedInDjango70Warning: project warning"
-        )
-        vendor = (
-            "/venv/site-packages/social_django/admin.py:8: "
-            "RemovedInDjango70Warning: Setting ModelAdmin.list_select_related "
-            "to True is deprecated. Use False or a list or tuple of fields to fetch instead."
-        )
-        result = classify_warning_lines([project, vendor])
-
-        self.assertEqual(result["blocked"], [project])
-        self.assertEqual(result["allowed"], [vendor])
-
-    def test_expired_vendor_allowlist_entry_is_blocked(self):
+    def test_social_auth_vendor_warning_is_blocked_after_stage1(self):
         from scripts.run_django_warning_gate import classify_warning_lines
 
         vendor = (
@@ -41,7 +24,20 @@ class WarningGateContractTests(unittest.TestCase):
             "RemovedInDjango70Warning: Setting ModelAdmin.list_select_related "
             "to True is deprecated. Use False or a list or tuple of fields to fetch instead."
         )
-        result = classify_warning_lines([vendor], today=date(2026, 10, 2))
+        result = classify_warning_lines([vendor])
+
+        self.assertEqual(result["blocked"], [vendor])
+        self.assertEqual(result["allowed"], [])
+
+    def test_social_auth_vendor_warning_has_no_temporary_allowlist(self):
+        from scripts.run_django_warning_gate import classify_warning_lines
+
+        vendor = (
+            "/venv/site-packages/social_django/admin.py:8: "
+            "RemovedInDjango70Warning: Setting ModelAdmin.list_select_related "
+            "to True is deprecated. Use False or a list or tuple of fields to fetch instead."
+        )
+        result = classify_warning_lines([vendor])
 
         self.assertEqual(result["allowed"], [])
         self.assertEqual(result["blocked"], [vendor])

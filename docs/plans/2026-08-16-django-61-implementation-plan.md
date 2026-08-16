@@ -276,11 +276,16 @@ Release Stage 0 уже содержит подготовительные изм�
     \`docs/qa/django61-stage1-email-call-graph.md\`; DTF и delivery policy не
     изменялись.
 
-- [ ] **DJ6-COMPAT-002 - Устранить social-auth Django 7 warning.**
+- [x] **DJ6-COMPAT-002 - Устранить social-auth Django 7 warning.**
   - Сначала проверить upstream release; local subclass только при отсутствии безопасного обновления.
+  - Выполнено: latest upstream 6.0.1 сохраняет deprecated \`True\` и добавляет
+    unrelated login changes, поэтому текущий proven pin оставлен; локальный
+    admin использует explicit \`("user",)\`, а vendor allowlist теперь пуст.
 
-- [ ] **DJ6-LEGACY-001 - Убрать no-argument \`select_related()\` из активного legacy loader.**
+- [x] **DJ6-LEGACY-001 - Убрать no-argument \`select_related()\` из активного legacy loader.**
   - Обязательный route test \`/pricelist_opt.xlsx\`; \`views.py.backup\` не считать мертвым.
+  - Выполнено: удалены девять no-argument вызовов без изменения explicit
+    joins или query shape; XLSX output и wholesale page закреплены route tests.
 
 - [x] **DJ6-PY-001 - Заменить \`SourceFileLoader.load_module()\` до Python 3.15.**
   - Acceptance: forced fallback test проверяет module identity и нормальное распространение import error.

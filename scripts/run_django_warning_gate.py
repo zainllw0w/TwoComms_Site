@@ -9,7 +9,6 @@ import os
 import subprocess
 import sys
 import tempfile
-from datetime import date
 from pathlib import Path
 
 
@@ -20,46 +19,18 @@ WARNING_NAMES = (
     "DeprecationWarning",
     "PendingDeprecationWarning",
 )
-SOCIAL_AUTH_WARNING = (
-    "Setting ModelAdmin.list_select_related to True is deprecated. "
-    "Use False or a list or tuple of fields to fetch instead."
-)
-VENDOR_ALLOWLIST = {
-    "social_django.admin.list_select_related": {
-        "owner": "runtime-maintainers",
-        "expires": "2026-10-01",
-        "upstream": "python-social-auth/social-app-django",
-    }
-}
+VENDOR_ALLOWLIST: dict[str, dict[str, str]] = {}
 
 
-def _is_allowed_vendor_warning(line: str, *, today: date | None = None) -> bool:
-    effective_today = date.today() if today is None else today
-    allowlist_entry = VENDOR_ALLOWLIST["social_django.admin.list_select_related"]
-    if effective_today >= date.fromisoformat(allowlist_entry["expires"]):
-        return False
-    normalized = line.replace("\\", "/")
-    return (
-        "/site-packages/social_django/admin.py:" in normalized
-        and SOCIAL_AUTH_WARNING in line
-    )
-
-
-def classify_warning_lines(
-    lines: list[str], *, today: date | None = None
-) -> dict[str, list[str]]:
+def classify_warning_lines(lines: list[str]) -> dict[str, list[str]]:
     warnings = [
         line.strip()
         for line in lines
         if any(f"{warning_name}:" in line for warning_name in WARNING_NAMES)
     ]
     return {
-        "allowed": [
-            line for line in warnings if _is_allowed_vendor_warning(line, today=today)
-        ],
-        "blocked": [
-            line for line in warnings if not _is_allowed_vendor_warning(line, today=today)
-        ],
+        "allowed": [],
+        "blocked": warnings,
     }
 
 

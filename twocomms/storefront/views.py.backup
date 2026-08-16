@@ -296,7 +296,7 @@ def uaprom_products_feed(request):
 
     categories_ids = {p.category_id for p in products if p.category_id}
     categories_map = {
-        cat.id: cat for cat in Category.objects.select_related().filter(id__in=categories_ids)
+        cat.id: cat for cat in Category.objects.filter(id__in=categories_ids)
     }
 
     catalog = ET.Element("yml_catalog", {"date": timezone.now().strftime("%Y-%m-%d %H:%M")})
@@ -1581,7 +1581,7 @@ def admin_panel(request):
         ctx.update({'user_data': user_data})
     elif section == 'catalogs':
         from .models import Category, Product
-        categories = Category.objects.select_related().filter(is_active=True).order_by('order','name') if hasattr(Category, 'order') else Category.objects.select_related().filter(is_active=True).order_by('name')
+        categories = Category.objects.filter(is_active=True).order_by('order','name') if hasattr(Category, 'order') else Category.objects.filter(is_active=True).order_by('name')
         products = Product.objects.select_related('category').order_by('-id')
         ctx.update({'categories': categories, 'products': products})
     elif section == 'promocodes':
@@ -3366,7 +3366,7 @@ def admin_store_management(request, store_id):
         'color_variants__images'
     ).all()
 
-    categories = Category.objects.select_related().filter(is_active=True).order_by('order', 'name')
+    categories = Category.objects.filter(is_active=True).order_by('order', 'name')
 
     inventory_items = _get_store_inventory_items(store)
     sales_items = _get_store_sales(store)
@@ -5602,7 +5602,7 @@ def wholesale_prices_xlsx(request):
     import io
     
     # Фильтруем категории по ключевым словам
-    tshirt_categories = Category.objects.select_related().filter(
+    tshirt_categories = Category.objects.filter(
         Q(name__icontains='футболка') | 
         Q(name__icontains='tshirt') | 
         Q(name__icontains='t-shirt') |
@@ -5611,7 +5611,7 @@ def wholesale_prices_xlsx(request):
         Q(slug__icontains='t-shirt')
     )
     
-    hoodie_categories = Category.objects.select_related().filter(
+    hoodie_categories = Category.objects.filter(
         Q(name__icontains='худи') | 
         Q(name__icontains='hoodie') | 
         Q(name__icontains='hooded') |
@@ -5830,7 +5830,7 @@ def wholesale_page(request):
         from storefront.models import Product, Category
         
         # Фильтруем категории по ключевым словам
-        tshirt_categories = Category.objects.select_related().filter(
+        tshirt_categories = Category.objects.filter(
             Q(name__icontains='футболка') | 
             Q(name__icontains='tshirt') | 
             Q(name__icontains='t-shirt') |
@@ -5839,7 +5839,7 @@ def wholesale_page(request):
             Q(slug__icontains='t-shirt')
         )
         
-        hoodie_categories = Category.objects.select_related().filter(
+        hoodie_categories = Category.objects.filter(
             Q(name__icontains='худи') | 
             Q(name__icontains='hoodie') | 
             Q(name__icontains='hooded') |
@@ -5887,7 +5887,7 @@ def wholesale_order_form(request):
         from storefront.models import Product, Category
         
         # Фильтруем категории по ключевым словам
-        tshirt_categories = Category.objects.select_related().filter(
+        tshirt_categories = Category.objects.filter(
             Q(name__icontains='футболка') | 
             Q(name__icontains='tshirt') | 
             Q(name__icontains='t-shirt') |
@@ -5896,7 +5896,7 @@ def wholesale_order_form(request):
             Q(slug__icontains='t-shirt')
         )
         
-        hoodie_categories = Category.objects.select_related().filter(
+        hoodie_categories = Category.objects.filter(
             Q(name__icontains='худи') | 
             Q(name__icontains='hoodie') | 
             Q(name__icontains='hooded') |

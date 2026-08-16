@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import os
@@ -95,6 +96,77 @@ with override_settings(SECRET_KEY="signature-contract-secret"):
         self.assertEqual(signature, "dbd20b4d534cef919aa46493f69b143ee815c3c4")
         self.assertEqual(len(signature), hashlib.sha1().digest_size * 2)
         self.assertNotIn("salted_hmac()", result.stderr)
+
+
+class SocialAuthAdminCompatibilityTests(unittest.TestCase):
+    def test_social_auth_admin_uses_explicit_related_fields_without_warning(self):
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "DJANGO_SETTINGS_MODULE": "test_settings_no_network_non_dtf",
+                "PYTHONPATH": str(APP_ROOT),
+            }
+        )
+        statement = """
+import json
+import warnings
+
+import django
+from django.contrib import admin
+from django.utils.deprecation import RemovedInDjango70Warning
+
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    django.setup()
+
+from social_django.models import UserSocialAuth
+
+model_admin = admin.site._registry[UserSocialAuth]
+django70_warnings = [
+    str(item.message)
+    for item in caught
+    if issubclass(item.category, RemovedInDjango70Warning)
+]
+print(json.dumps({
+    "admin_class": model_admin.__class__.__module__ + "." + model_admin.__class__.__name__,
+    "list_select_related": model_admin.get_list_select_related(None),
+    "warnings": django70_warnings,
+}, sort_keys=True))
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", textwrap.dedent(statement)],
+            cwd=APP_ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(payload["list_select_related"], ["user"])
+        self.assertEqual(payload["warnings"], [])
+        self.assertEqual(
+            payload["admin_class"],
+            "twocomms.social_auth_admin.UserSocialAuthCompatAdmin",
+        )
+
+
+class LegacyLoaderCompatibilityTests(unittest.TestCase):
+    def test_active_legacy_loader_has_no_no_argument_select_related(self):
+        legacy_path = APP_ROOT / "storefront" / "views.py.backup"
+        tree = ast.parse(legacy_path.read_text(encoding="utf-8"))
+        no_argument_calls = [
+            node.lineno
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "select_related"
+            and not node.args
+            and not node.keywords
+        ]
+
+        self.assertEqual(no_argument_calls, [])
 
 
 class ImportCompatibilityContractTests(unittest.TestCase):

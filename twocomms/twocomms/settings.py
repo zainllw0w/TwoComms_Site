@@ -184,7 +184,7 @@ INSTALLED_APPS = [
     # Phase 17c — django-modeltranslation MUST come BEFORE django.contrib.admin
     # so its admin patcher can extend ModelAdmin classes with translation fields.
     "modeltranslation",
-    "django.contrib.admin",
+    "twocomms.admin_apps.TwoCommsAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
