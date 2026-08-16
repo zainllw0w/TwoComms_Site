@@ -15,7 +15,6 @@ API финализации: https://monobank.ua/api-docs/acquiring/methods/ia/po
 
 import logging
 import json
-import base64
 import hashlib
 import secrets
 import threading
@@ -37,6 +36,7 @@ from django.contrib import messages
 
 import requests
 
+from base64_utils import InvalidBase64, strict_b64decode
 from ..models import Product, PromoCode
 from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.nova_poshta_documents import normalize_checkout_phone
@@ -450,6 +450,12 @@ def _verify_monobank_signature(request, token=None, cache_key=None):
             monobank_logger.warning('Missing X-Sign header in Monobank webhook')
             return False
 
+        try:
+            signature_bytes = strict_b64decode(signature)
+        except InvalidBase64:
+            monobank_logger.warning('Monobank signature rejected: invalid Base64')
+            return False
+
         # Получаем публичный ключ
         public_key_pem = _get_monobank_public_key(token=token, cache_key=cache_key)
         if not public_key_pem:
@@ -458,9 +464,6 @@ def _verify_monobank_signature(request, token=None, cache_key=None):
 
         # Получаем тело запроса
         body = request.body
-
-        # Декодируем подпись из base64
-        signature_bytes = base64.b64decode(signature)
 
         if _verify_signature_with_key(public_key_pem, signature_bytes, body):
             return True
@@ -505,11 +508,13 @@ def _verify_signature_with_key(public_key_raw, signature_bytes, body):
         pem_bytes = raw
         if b'-----BEGIN' not in raw:
             try:
-                decoded = base64.b64decode(raw)
-                if b'-----BEGIN' in decoded:
-                    pem_bytes = decoded
-            except Exception:
-                pass
+                pem_bytes = strict_b64decode(raw)
+            except InvalidBase64:
+                monobank_logger.warning('Failed to decode Monobank public key')
+                return False
+            if b'-----BEGIN' not in pem_bytes:
+                monobank_logger.warning('Failed to load Monobank public key')
+                return False
 
         public_key = serialization.load_pem_public_key(pem_bytes, backend=default_backend())
 

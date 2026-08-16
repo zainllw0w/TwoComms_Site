@@ -12,6 +12,8 @@ from django.core.cache import cache
 from django.db import transaction
 from django.utils.encoding import iri_to_uri
 
+from base64_utils import InvalidBase64, strict_b64decode
+
 
 def _build_query_string(querydict):
     if not querydict:
@@ -1526,7 +1528,6 @@ def _verify_monobank_signature(request):
     Returns:
         bool: True если подпись валидна, False иначе
     """
-    import base64
     from django.core.cache import cache
     from django.conf import settings
 
@@ -1573,7 +1574,11 @@ def _verify_monobank_signature(request):
         )
 
         # Декодируем подпись из base64
-        signature_bytes = base64.b64decode(signature)
+        try:
+            signature_bytes = strict_b64decode(signature)
+        except InvalidBase64:
+            monobank_logger.warning('Monobank signature rejected: invalid Base64')
+            return False
 
         # Проверяем
         try:

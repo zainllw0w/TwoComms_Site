@@ -50,8 +50,8 @@ def decrypt(token: bytes | None) -> str:
         return _fernet().decrypt(token).decode("utf-8")
     except PIIKeyMissing:
         return ""
-    except Exception as exc:
-        logger.warning("PII decrypt failed: %s", exc)
+    except Exception:
+        logger.warning("PII decrypt failed")
         return ""
 
 

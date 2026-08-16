@@ -35,6 +35,8 @@ import uuid
 
 from docx import Document
 
+from base64_utils import strict_b64decode
+
 from .forms import CommercialOfferEmailForm, CommercialOfferEmailPreviewForm
 from .bot_access import is_meta_bot_reviewer
 from .models import (
@@ -261,9 +263,8 @@ def _resolve_profile_from_start_payload(payload: str):
     # посиланнями.
     candidates = [token]
     try:
-        padding = "=" * (-len(token) % 4)
-        candidates.append(base64.urlsafe_b64decode((token + padding).encode()).decode())
-    except Exception:
+        candidates.append(strict_b64decode(token).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
         pass
     for candidate in candidates:
         try:

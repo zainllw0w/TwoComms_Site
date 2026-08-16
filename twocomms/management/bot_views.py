@@ -16,8 +16,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
-import base64
-import binascii
 import hashlib
 import hmac
 import json
@@ -26,6 +24,8 @@ import re
 import secrets
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode, urlsplit
+
+from base64_utils import strict_b64decode
 
 from .bot_access import is_meta_bot_reviewer
 from .models import (
@@ -416,8 +416,7 @@ def data_deletion_submit(request):
 
 
 def _base64_url_decode(value: str) -> bytes:
-    value += "=" * ((4 - len(value) % 4) % 4)
-    return base64.urlsafe_b64decode(value.encode("utf-8"))
+    return strict_b64decode(value)
 
 
 def _parse_meta_signed_request(signed_request: str) -> dict:
@@ -447,7 +446,6 @@ def _parse_meta_signed_request(signed_request: str) -> dict:
         TypeError,
         UnicodeDecodeError,
         json.JSONDecodeError,
-        binascii.Error,
     ):
         return {}
     return payload if isinstance(payload, dict) else {}

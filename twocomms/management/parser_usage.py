@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta, timezone as dt_timezone
-import base64
 import json
 import os
 import time
@@ -14,6 +13,8 @@ from django.utils import timezone
 
 import jwt
 import requests
+
+from base64_utils import strict_b64decode
 
 from .models import LeadParsingJob
 
@@ -98,9 +99,9 @@ def _service_account_info_from_env_or_file() -> dict | None:
         getattr(settings, "GOOGLE_SERVICE_ACCOUNT_JSON_B64", None)
         or os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON_B64")
         or ""
-    ).strip()
+    )
     if raw_json_b64:
-        decoded = base64.b64decode(raw_json_b64).decode("utf-8")
+        decoded = strict_b64decode(raw_json_b64).decode("utf-8")
         return json.loads(decoded)
 
     path = (
