@@ -58,20 +58,37 @@ jobs:
         run: |
           set -euo pipefail
           base_url="https://repo.almalinux.org/almalinux/8/AppStream/x86_64/os/Packages"
+          config_name="mariadb-connector-c-config-3.1.11-2.el8_3.noarch.rpm"
           runtime_name="mariadb-connector-c-3.1.11-2.el8_3.x86_64.rpm"
           devel_name="mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64.rpm"
+          config_path="/tmp/$config_name"
           runtime_path="/tmp/$runtime_name"
           devel_path="/tmp/$devel_name"
+          curl --fail --silent --show-error --location "$base_url/$config_name" --output "$config_path"
           curl --fail --silent --show-error --location "$base_url/$runtime_name" --output "$runtime_path"
           curl --fail --silent --show-error --location "$base_url/$devel_name" --output "$devel_path"
           printf '%s  %s\n' \
+            'eca6eb7026bfbb5ff51825587af1376bd6bd957dea4ec89cc7e9971a32983b0f' "$config_path" \
             '85c37e356ca0e8114acfbe5fd5043ce1a95c35354851cc91b4066104e11dd658' "$runtime_path" \
             'e7f9b90bb970c95179842fce9edf84ec943bc19b4bdd7029645e05d1e6a2e295' "$devel_path" \
             | sha256sum --check --strict -
-          rpm -Uvh --replacepkgs "$runtime_path" "$devel_path"
+          rpm -Uvh --replacepkgs "$config_path" "$runtime_path"
+          # The manylinux runtime image deliberately omits openssl-devel,
+          # which is metadata-only for this C extension build. Keep the
+          # exception scoped to the verified development RPM; runtime package
+          # dependencies remain installed and checked normally.
+          rpm -Uvh --replacepkgs --nodeps "$devel_path"
+          ldconfig
+          test "$(rpm -q mariadb-connector-c-config)" = "mariadb-connector-c-config-3.1.11-2.el8_3.noarch"
           test "$(rpm -q mariadb-connector-c)" = "mariadb-connector-c-3.1.11-2.el8_3.x86_64"
           test "$(rpm -q mariadb-connector-c-devel)" = "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64"
+          test -f /etc/my.cnf
           test -f /usr/include/mysql/mysql.h
+          test -f /usr/lib64/libmariadb.so.3
+          ldd_output="$(ldd /usr/lib64/libmariadb.so.3)"
+          if grep -F "not found" <<<"$ldd_output"; then
+            exit 1
+          fi
 
       - name: Build and verify the immutable wheelhouse
         shell: bash
@@ -126,6 +143,8 @@ jobs:
               raise SystemExit("MariaDB Connector/C provenance mismatch")
           if evidence["mariadb_connector_c_devel"] != "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64":
               raise SystemExit("MariaDB Connector/C development provenance mismatch")
+          if evidence["mariadb_connector_c_config"] != "mariadb-connector-c-config-3.1.11-2.el8_3.noarch":
+              raise SystemExit("MariaDB Connector/C configuration provenance mismatch")
           PY
 
       - name: Upload immutable wheelhouse artifact

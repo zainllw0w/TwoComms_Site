@@ -39,8 +39,13 @@ class ImmutableReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("libffi-devel-3.1-24.el8.x86_64", self.source)
 
     def test_mysqlclient_build_libraries_are_installed_from_hash_pinned_rpms(self):
+        self.assertIn("mariadb-connector-c-config-3.1.11-2.el8_3.noarch.rpm", self.source)
         self.assertIn("mariadb-connector-c-3.1.11-2.el8_3.x86_64.rpm", self.source)
         self.assertIn("mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64.rpm", self.source)
+        self.assertIn(
+            "eca6eb7026bfbb5ff51825587af1376bd6bd957dea4ec89cc7e9971a32983b0f",
+            self.source,
+        )
         self.assertIn(
             "85c37e356ca0e8114acfbe5fd5043ce1a95c35354851cc91b4066104e11dd658",
             self.source,
@@ -50,6 +55,14 @@ class ImmutableReleaseWorkflowTests(unittest.TestCase):
             self.source,
         )
         self.assertIn("test -f /usr/include/mysql/mysql.h", self.source)
+        self.assertIn("test -f /usr/lib64/libmariadb.so.3", self.source)
+        self.assertIn("test -f /etc/my.cnf", self.source)
+        self.assertIn("rpm -q mariadb-connector-c-config", self.source)
+        self.assertIn('rpm -Uvh --replacepkgs --nodeps "$devel_path"', self.source)
+        self.assertIn('rpm -Uvh --replacepkgs "$config_path" "$runtime_path"', self.source)
+        self.assertIn('ldd_output="$(ldd /usr/lib64/libmariadb.so.3)"', self.source)
+        self.assertIn('grep -F "not found" <<<"$ldd_output"', self.source)
+        self.assertNotIn('rpm -Uvh --replacepkgs --nodeps "$runtime_path"', self.source)
         self.assertIn("mariadb_connector_c_devel", self.source)
 
     def test_workflow_builds_and_verifies_target_bound_artifact(self):

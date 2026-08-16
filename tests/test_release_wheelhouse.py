@@ -13,6 +13,7 @@ from unittest.mock import patch
 from scripts import build_release_wheelhouse as builder
 from scripts.build_release_wheelhouse import (
     CFFI_SDIST_SHA256,
+    MARIADB_CONNECTOR_C_CONFIG_VERSION,
     MARIADB_CONNECTOR_C_DEVEL_VERSION,
     MARIADB_CONNECTOR_C_VERSION,
     MYSQLCLIENT_SDIST_SHA256,
@@ -172,6 +173,8 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                     return MARIADB_CONNECTOR_C_VERSION
                 if command[:3] == ["rpm", "-q", "mariadb-connector-c-devel"]:
                     return MARIADB_CONNECTOR_C_DEVEL_VERSION
+                if command[:3] == ["rpm", "-q", "mariadb-connector-c-config"]:
+                    return MARIADB_CONNECTOR_C_CONFIG_VERSION
                 return "tool 1"
 
             with (

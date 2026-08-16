@@ -55,6 +55,7 @@ MYSQLCLIENT_SDIST_URL = (
 )
 MARIADB_CONNECTOR_C_VERSION = "mariadb-connector-c-3.1.11-2.el8_3.x86_64"
 MARIADB_CONNECTOR_C_DEVEL_VERSION = "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64"
+MARIADB_CONNECTOR_C_CONFIG_VERSION = "mariadb-connector-c-config-3.1.11-2.el8_3.noarch"
 SOURCE_DATE_EPOCH = 315532800
 EXPECTED_PYTHON = (3, 14, 6)
 EXPECTED_SOABI = "cpython-314-x86_64-linux-gnu"
@@ -432,6 +433,9 @@ def build_wheelhouse(
     mariadb_connector_c_devel = _tool_version(["rpm", "-q", "mariadb-connector-c-devel"])
     if mariadb_connector_c_devel != MARIADB_CONNECTOR_C_DEVEL_VERSION:
         raise ValueError("MariaDB Connector/C development package mismatch")
+    mariadb_connector_c_config = _tool_version(["rpm", "-q", "mariadb-connector-c-config"])
+    if mariadb_connector_c_config != MARIADB_CONNECTOR_C_CONFIG_VERSION:
+        raise ValueError("MariaDB Connector/C configuration package mismatch")
     metadata.update(
         {
             "auditwheel": _tool_version([auditwheel, "--version"]),
@@ -439,6 +443,7 @@ def build_wheelhouse(
             "pip": _tool_version([str(python), "-m", "pip", "--version"]),
             "mariadb_connector_c": mariadb_connector_c,
             "mariadb_connector_c_devel": mariadb_connector_c_devel,
+            "mariadb_connector_c_config": mariadb_connector_c_config,
         }
     )
     source_lock_sha256 = sha256(lock_path)
