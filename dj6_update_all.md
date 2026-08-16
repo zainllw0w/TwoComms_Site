@@ -551,12 +551,23 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-SEC-001 - Зафиксировать алгоритм `salted_hmac` для стабильного IG payment digest
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
-- Область: `twocomms/management/ig_bot_models.py:105-121`, функция `build_ig_payment_event_signature`.
-- Доказательство: вызов `salted_hmac("twocomms.ig_payment_event.v1", canonical)` не передает `algorithm`. Runtime parity test подтвердил: default digest равен `algorithm="sha1"`, а SHA-256 меняет digest (40 против 64 hex chars). Django 6.1 предупреждает, что default `sha1` изменится на `sha256` в Django 7.0. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#miscellaneous>.
-- Что даст: одинаковый digest для дедупликации/сверки webhook-событий при следующем upgrade.
-- Риск и ограничения: если digest уже хранится или уходит внешнему провайдеру, механическая смена алгоритма создаст несовместимость; если функция не вызывается, сначала подтвердить call graph.
-- Следующая проверка: найти все импорты/сохраненные значения, добавить явный algorithm только после parity теста старых записей.
+- Статус: `выполнено 2026-08-16`; приоритет реализации: `P2`.
+- Область: `twocomms/management/ig_bot_models.py`, функция
+  `provider_evidence_signature`; provider poll/webhook, terminal cancellation,
+  verified payment и проверка cancellation evidence.
+- Реализация: `salted_hmac()` получает explicit `algorithm="sha1"`, поэтому
+  Django 7 не изменит существующий 40-символьный digest скрыто.
+- Доказательство: frozen vector с `SECRET_KEY="signature-contract-secret"`
+  равен `dbd20b4d534cef919aa46493f69b143ee815c3c4`; отдельный model test создает
+  legacy event с подписью от независимой SHA-1 reference-функции и подтверждает
+  `has_provider_confirmed_cancellation() is True`. При временной мутации на
+  `sha256` оба acceptance-теста падают, после восстановления SHA-1 проходят;
+  `RemovedInDjango70Warning` не возникает.
+- Что дает: сохраненные payment evidence остаются валидными после Django 7,
+  новые подписи детерминированы и сохраняют прежний формат.
+- Остаточный риск: изменение `SECRET_KEY` по-прежнему инвалидирует подписи и
+  требует отдельной key-rotation стратегии; алгоритм без нового формата
+  менять нельзя.
 
 ### DJ6-CHECK-001 - Явно ограничить database checks основным alias
 

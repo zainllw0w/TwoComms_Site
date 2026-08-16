@@ -57,17 +57,28 @@ class PaymentSignatureContractTests(unittest.TestCase):
         environment.update(
             {
                 "DJANGO_SETTINGS_MODULE": "test_settings_no_network_non_dtf",
-                "SECRET_KEY": "signature-contract-secret",
                 "PYTHONPATH": str(APP_ROOT),
             }
         )
-        statement = (
-            "import django; django.setup(); "
-            "from management.ig_bot_models import provider_evidence_signature; "
-            "print(provider_evidence_signature(deal_id=1,client_id=2,provider='monobank',"
-            "source='provider_pull',invoice_id='inv-1',provider_status='success',"
-            "payload_digest='a'*64))"
+        statement = """
+import django
+django.setup()
+from django.test import override_settings
+from management.ig_bot_models import provider_evidence_signature
+
+with override_settings(SECRET_KEY="signature-contract-secret"):
+    print(
+        provider_evidence_signature(
+            deal_id=1,
+            client_id=2,
+            provider="monobank",
+            source="provider_pull",
+            invoice_id="inv-1",
+            provider_status="success",
+            payload_digest="a" * 64,
         )
+    )
+"""
         result = subprocess.run(
             [sys.executable, "-Wa", "-c", statement],
             cwd=APP_ROOT,
@@ -78,6 +89,7 @@ class PaymentSignatureContractTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         signature = result.stdout.strip().splitlines()[-1]
+        self.assertEqual(signature, "dbd20b4d534cef919aa46493f69b143ee815c3c4")
         self.assertEqual(len(signature), hashlib.sha1().digest_size * 2)
         self.assertNotIn("salted_hmac()", result.stderr)
 

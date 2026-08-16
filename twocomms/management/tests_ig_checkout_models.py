@@ -1,4 +1,6 @@
 import hashlib
+import hmac
+import json
 from datetime import timedelta
 from decimal import Decimal
 from threading import Barrier, Lock, Thread
@@ -7,6 +9,7 @@ from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
+from django.conf import settings
 from django.db import (
     DatabaseError,
     IntegrityError,
@@ -18,6 +21,7 @@ from django.db import (
 from django.db.models.deletion import ProtectedError
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
+from django.utils.encoding import force_bytes
 
 from management.models import IgClient, IgDeal
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
@@ -398,6 +402,65 @@ class IgCheckoutProposalModelTests(TestCase):
         proposal.provider_cancellation_event = forged
         proposal.save(update_fields=["provider_cancellation_event", "updated_at"])
         self.assertFalse(proposal.has_provider_confirmed_cancellation())
+
+    def test_legacy_sha1_provider_signature_still_authorizes_cancellation(self):
+        from management.models import (
+            IgCheckoutProposal,
+            IgPaymentEvent,
+            IgPaymentProjection,
+        )
+
+        attempt = self._terminal_attempt("legacy-signature")
+        payload_digest = hashlib.sha256(b"payload:legacy-signature").hexdigest()
+        canonical = json.dumps(
+            {
+                "client_id": self.client.pk,
+                "deal_id": self.deal.pk,
+                "invoice_id": attempt.monobank_invoice_id,
+                "payload_digest": payload_digest,
+                "provider": "monobank",
+                "provider_status": "cancelled",
+                "source": "provider_pull",
+            },
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        legacy_key = hashlib.sha1(
+            force_bytes("twocomms.ig_payment_event.v1")
+            + force_bytes(settings.SECRET_KEY)
+        ).digest()
+        legacy_signature = hmac.new(
+            legacy_key,
+            msg=force_bytes(canonical),
+            digestmod=hashlib.sha1,
+        ).hexdigest()
+        event = IgPaymentEvent.objects.create(
+            event_key=hashlib.sha256(b"terminal:legacy-signature").hexdigest(),
+            deal=self.deal,
+            client=self.client,
+            provider="monobank",
+            source="provider_pull",
+            invoice_id=attempt.monobank_invoice_id,
+            provider_status="cancelled",
+            evidence={"status": "cancelled", "signature": legacy_signature},
+            payload_digest=payload_digest,
+        )
+        IgPaymentProjection.objects.create(
+            deal=self.deal,
+            client=self.client,
+            truth=IgDeal.PaymentTruth.CANCELLED,
+            last_event=event,
+        )
+
+        proposal = self._proposal(
+            status=IgCheckoutProposal.Status.CANCELLED,
+            payment_attempt=attempt,
+            provider_cancellation_event=event,
+            invoice_cancelled_at=timezone.now(),
+        )
+
+        self.assertTrue(proposal.has_provider_confirmed_cancellation())
 
     def test_deal_retains_historical_proposals_with_one_active_pointer(self):
         from management.models import IgCheckoutProposal

@@ -234,9 +234,14 @@ Release Stage 0 уже содержит подготовительные изм�
 остаются открытыми до полного call graph, regression matrix и acceptance каждого
 пункта; повторно реализовывать эти части с нуля не нужно.
 
-- [ ] **DJ6-SEC-001 - Явно закрепить algorithm для IG payment \`salted_hmac\`.**
+- [x] **DJ6-SEC-001 - Явно закрепить algorithm для IG payment \`salted_hmac\`.**
   - Сначала parity test текущих SHA-1 signatures; не менять digest format скрыто.
   - Acceptance: старые события валидируются, новые детерминированы, Django 7 warning отсутствует.
+  - Evidence: frozen vector
+    `dbd20b4d534cef919aa46493f69b143ee815c3c4` закрепляет SHA-1 при
+    контролируемом `SECRET_KEY`; отдельный model test создает старое событие
+    через независимую reference HMAC-функцию и подтверждает его прием. Оба
+    теста RED при `sha256`, GREEN при explicit `sha1`; warning отсутствует.
 
 - [ ] **DJ6-COOKIE-001 - Проверить и ограничить legacy signed-cookie compatibility.**
   - Не включать global fallback бессрочно.
