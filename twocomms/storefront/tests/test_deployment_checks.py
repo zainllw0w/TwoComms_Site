@@ -3,6 +3,7 @@ from django.core.checks import run_checks
 from django.test import SimpleTestCase, TestCase
 from django.urls import resolve, reverse
 
+from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
 from storefront.viewsets import ProductViewSet
 from twocomms.cache_headers import add_cache_headers
@@ -154,6 +155,74 @@ class ProductApiRoutingTests(TestCase):
             )
         )
         self.assertEqual(inactive_products.status_code, 404)
+
+    def test_category_api_uses_bounded_queries_and_preserves_published_counts(self):
+        draft_only = Category.objects.create(
+            name="Draft only API category",
+            slug="draft-only-api-category",
+        )
+        Product.objects.create(
+            title="Only draft API product",
+            slug="only-draft-api-product",
+            category=draft_only,
+            price=900,
+            status="draft",
+        )
+        empty = Category.objects.create(name="Empty API category", slug="empty-api-category")
+        for index in range(7):
+            Category.objects.create(
+                name=f"Empty API category {index}",
+                slug=f"empty-api-category-{index}",
+            )
+
+        with self.assertNumQueries(2):
+            response = self.client.get(reverse("api-category-list"))
+
+        self.assertEqual(response.status_code, 200)
+        counts = {
+            row["slug"]: row["products_count"]
+            for row in response.json()["results"]
+        }
+        self.assertEqual(counts[self.category.slug], 2)
+        self.assertEqual(counts[draft_only.slug], 0)
+        self.assertEqual(counts[empty.slug], 0)
+
+    def test_product_detail_prefetches_variant_colors_but_list_does_not(self):
+        variants = []
+        for index in range(3):
+            color = Color.objects.create(
+                name=f"API color {index}",
+                primary_hex=f"#{index + 1:06X}",
+            )
+            variants.append(
+                ProductColorVariant.objects.create(
+                    product=self.product,
+                    color=color,
+                    order=index,
+                )
+            )
+
+        with self.assertNumQueries(3):
+            detail = self.client.get(
+                reverse("api-product-detail", kwargs={"slug": self.product.slug})
+            )
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(
+            [row["id"] for row in detail.json()["colors"]],
+            [variant.id for variant in variants],
+        )
+
+        with self.assertNumQueries(2) as list_queries:
+            product_list = self.client.get(reverse("api-product-list"))
+
+        self.assertEqual(product_list.status_code, 200)
+        self.assertFalse(
+            any(
+                "productcolors_productcolorvariant" in query["sql"]
+                for query in list_queries.captured_queries
+            ),
+        )
 
     def test_suggestions_limit_is_bounded_and_tolerates_invalid_input(self):
         suggestions_url = reverse("api-product-suggestions")

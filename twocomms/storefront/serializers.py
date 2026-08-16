@@ -30,6 +30,9 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def get_products_count(self, obj) -> int:
         """Возвращает количество товаров в категории."""
+        annotated_count = getattr(obj, 'published_products_count', None)
+        if annotated_count is not None:
+            return annotated_count
         return obj.products.filter(status='published').count()
 
 

@@ -16,8 +16,10 @@ from rest_framework.permissions import (
 )
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from django.db.models import Q
+from django.db.models import Count, Prefetch, Q
 from django.shortcuts import get_object_or_404
+
+from productcolors.models import ProductColorVariant
 
 from .models import Product, Category, Catalog
 from .serializers import (
@@ -46,7 +48,16 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
     Permissions: Read-only для всех пользователей
     """
-    queryset = Category.objects.filter(is_active=True).order_by('name')
+    queryset = (
+        Category.objects.filter(is_active=True)
+        .annotate(
+            published_products_count=Count(
+                'products',
+                filter=Q(products__status='published'),
+            )
+        )
+        .order_by('name')
+    )
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
     lookup_field = 'slug'
@@ -74,10 +85,18 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
 
         Использует select_related для минимизации запросов к БД.
         """
-        return Product.objects.filter(
+        queryset = Product.objects.filter(
             status='published',
             category__is_active=True,
         ).select_related('category').order_by('-id')
+        if getattr(self, 'action', None) == 'retrieve':
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'color_variants',
+                    queryset=ProductColorVariant.objects.select_related('color'),
+                )
+            )
+        return queryset
 
     def get_serializer_class(self):
         """
