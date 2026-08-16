@@ -989,7 +989,17 @@ if _MAILER_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
         "use_tls": _MAILER_USE_TLS,
         "timeout": _MAILER_TIMEOUT,
     }
-MAILERS = {"default": _MAILER_CONFIG}
+MAILERS = {
+    alias: {
+        "BACKEND": _MAILER_CONFIG["BACKEND"],
+        **(
+            {"OPTIONS": _MAILER_CONFIG["OPTIONS"].copy()}
+            if "OPTIONS" in _MAILER_CONFIG
+            else {}
+        ),
+    }
+    for alias in ("default", "transactional", "reports")
+}
 EMAIL_REPLY_TO_ADDRESS = _MAILER_USERNAME
 EMAIL_DELIVERY_CONFIGURED = bool(
     _MAILER_BACKEND == "django.core.mail.backends.smtp.EmailBackend"

@@ -365,7 +365,7 @@ def _send_email(subscription) -> bool:
         to=[recipient],
     )
     message.attach_alternative(html_body, "text/html")
-    if message.send() != 1:
+    if message.send(using="transactional") != 1:
         raise RuntimeError("Email provider did not accept the message")
     return True
 

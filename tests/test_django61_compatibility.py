@@ -258,8 +258,9 @@ assert provider_call.call_count == 1
     def test_default_mailer_uses_django_61_mailers_api(self):
         result = self._run_django_import(
             "from django.conf import settings; from django.core.mail import mailers; "
-            "assert sorted(settings.MAILERS) == ['default']; "
-            "assert mailers['default'].__class__.__name__ == 'EmailBackend'"
+            "assert sorted(settings.MAILERS) == ['default', 'reports', 'transactional']; "
+            "assert all(mailers[alias].__class__.__name__ == 'EmailBackend' "
+            "for alias in settings.MAILERS)"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 

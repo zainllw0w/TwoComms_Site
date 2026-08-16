@@ -375,7 +375,7 @@ def send_order_receipt_email(order, *, force: bool = False, recipient: str | Non
             headers={"X-Entity-Ref-ID": order.order_number or str(order.pk)},
         )
         msg.attach_alternative(built["html"], "text/html")
-        msg.send(fail_silently=False)
+        msg.send(using="transactional")
     except Exception as exc:
         logger.warning("Failed to send receipt email for order %s to %s: %s", order.pk, to_email, exc)
         try:

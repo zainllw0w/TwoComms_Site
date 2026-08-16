@@ -253,16 +253,25 @@ Release Stage 0 уже содержит подготовительные изм�
 - [ ] **DJ6-SEC-002 - Включить строгую Base64-валидацию на credential/PII/provider paths.**
   - Acceptance: мусор отклоняется предсказуемо; валидные padded/unpadded payloads имеют тесты; секреты не логируются.
 
-- [ ] **DJ6-EMAIL-001 - Перейти на Django 6.1 \`MAILERS\`.**
+- [x] **DJ6-EMAIL-001 - Перейти на Django 6.1 \`MAILERS\`.**
   - Алиасы: минимум \`default\`, \`transactional\`, \`reports\`, если call graph докажет их необходимость.
   - Acceptance: no-send backends и production SMTP configuration проходят \`mail.E001\`; delivery policy не меняется скрыто.
+  - Выполнено: настроены три именованных mailer alias с сохранением текущих
+    environment variables; no-network и production-equivalent SMTP contracts
+    создают все backend и проходят \`mail.E001\` без отправки писем.
 
-- [ ] **DJ6-EMAIL-002 - Удалить deprecated email kwargs и определить exception policy.**
+- [x] **DJ6-EMAIL-002 - Удалить deprecated email kwargs и определить exception policy.**
   - Для каждого call site выбрать raise/log/retry/outbox.
   - Acceptance: SMTP exception tests есть для HTTP, cron и recovery paths.
+  - Выполнено: восемь non-DTF call sites используют явный \`using=\`, семь
+    \`fail_silently=False\` удалены без изменения raise-policy; SMTP failures
+    закреплены тестами для HTTP, cron и recovery paths.
 
-- [ ] **DJ6-BASE-003 - Закрыть umbrella-пункт MAILERS полным call graph.**
+- [x] **DJ6-BASE-003 - Закрыть umbrella-пункт MAILERS полным call graph.**
   - Отмечается только вместе с \`DJ6-EMAIL-001\` и \`DJ6-EMAIL-002\`.
+  - Выполнено: полный non-DTF call graph и назначение aliases сохранены в
+    \`docs/qa/django61-stage1-email-call-graph.md\`; DTF и delivery policy не
+    изменялись.
 
 - [ ] **DJ6-COMPAT-002 - Устранить social-auth Django 7 warning.**
   - Сначала проверить upstream release; local subclass только при отсутствии безопасного обновления.

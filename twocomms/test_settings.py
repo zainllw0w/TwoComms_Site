@@ -85,9 +85,10 @@ CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_DOMAIN = None
 CSRF_COOKIE_DOMAIN = None
 MAILERS = {
-    'default': {
+    alias: {
         'BACKEND': 'django.core.mail.backends.locmem.EmailBackend',
-    },
+    }
+    for alias in ('default', 'transactional', 'reports')
 }
 EMAIL_REPLY_TO_ADDRESS = 'test@example.invalid'
 EMAIL_DELIVERY_CONFIGURED = False

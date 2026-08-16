@@ -28,10 +28,10 @@ class MailersContractTests(unittest.TestCase):
         )
         statement = (
             "import json,django; django.setup(); from django.conf import settings; "
-            "from django.core.mail import mailers; connection=mailers['default']; "
+            "from django.core.mail import mailers; "
             "print(json.dumps({"
             "'aliases':sorted(settings.MAILERS),"
-            "'backend':connection.__class__.__module__+'.'+connection.__class__.__name__,"
+            "'backends':{alias:mailers[alias].__class__.__module__+'.'+mailers[alias].__class__.__name__ for alias in settings.MAILERS},"
             "'reply_to':settings.EMAIL_REPLY_TO_ADDRESS,"
             "'configured':settings.EMAIL_DELIVERY_CONFIGURED"
             "},sort_keys=True))"
@@ -47,8 +47,10 @@ class MailersContractTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("The EMAIL_", result.stderr)
         payload = json.loads(result.stdout.strip().splitlines()[-1])
-        self.assertEqual(payload["aliases"], ["default"])
-        self.assertIn("locmem.EmailBackend", payload["backend"])
+        self.assertEqual(payload["aliases"], ["default", "reports", "transactional"])
+        self.assertTrue(
+            all("locmem.EmailBackend" in backend for backend in payload["backends"].values())
+        )
         self.assertFalse(payload["configured"])
 
 

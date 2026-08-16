@@ -108,14 +108,14 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 - Риск: существующие MyISAM-таблицы, исторические данные, разные семантики `PROTECT`/`RESTRICT`/`SET_NULL`, миграции и irreversible cascade.
 - Следующая проверка: инвентаризация engine/constraints/удалений и read-only dry-run на копии схемы; production mutation не выполнять.
 
-### DJ6-BASE-003 - Не исследован новый `MAILERS` API
+### DJ6-BASE-003 - Закрыть новый `MAILERS` API полным call graph
 
-- Статус: `подтверждено`; предварительный приоритет: `P3`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1` как umbrella для email migration.
 - Область: email notifications, password reset, checkout/management mail paths.
-- Доказательство: `rg` нашел проектные `EmailMessage`/`EmailMultiAlternatives`/`send_mail` call sites и deprecated `EMAIL_*` settings; документация Django 6.1 подтверждает `MAILERS` и `using=` как replacement. Все вызовы остаются sync и не дают очередь сами по себе.
+- Доказательство: `docs/qa/django61-stage1-email-call-graph.md` фиксирует все восемь non-DTF отправок, их aliases и exception policy. Настроены `default`, `transactional` и `reports`; contract запрещает неявный mailer и покрывает no-network/production-equivalent backend construction.
 - Что может дать: явное разделение backend/политик отправки, изоляция ошибок и более управляемые тестовые/production mail routes.
-- Риск: shared-hosting SMTP credentials, `fail_silently`, шаблоны, retry/idempotency и наблюдаемость доставки.
-- Следующая проверка: найти все `send_mail`/`EmailMessage`/`EmailMultiAlternatives`, измерить фактические backend и delivery failure semantics.
+- Риск: named mailers не являются очередью; retry/idempotency и наблюдаемость доставки остаются отдельной задачей background/durable delivery.
+- Следующая проверка: сохранять AST inventory и no-send mail checks в CI; реальную SMTP-доставку проверять только отдельным контролируемым operational smoke.
 
 ### DJ6-BASE-004 - MariaDB system-check warnings требуют отдельного решения
 
@@ -182,21 +182,21 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-EMAIL-001 - Перейти с deprecated `EMAIL_*`/`EMAIL_BACKEND` на Django 6.1 `MAILERS`
 
-- Статус: `подтверждено`; предварительный приоритет: `P1` как обязательная подготовка к Django 7.0.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1` как обязательная подготовка к Django 7.0.
 - Область: общая конфигурация email и все не-DTF пути отправки: `twocomms/twocomms/settings.py:961-980`, `twocomms/orders/email_receipt.py:369-378`, `twocomms/storefront/services/restock.py:361`, `twocomms/storefront/management/commands/send_utm_report.py:140-155`, `twocomms/management/views.py:6597-6605`, `6901-6910`, `7273-7281`, `8224-8226`.
-- Доказательство: Django 6.1 официально пометил `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_SSL`, `EMAIL_USE_TLS`, `EMAIL_TIMEOUT` и связанные настройки deprecated; текущий проект использует именно их. `MAILERS` позволяет именованные backend-конфигурации и аргумент `using=`. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#mailers> и <https://docs.djangoproject.com/en/6.1/howto/mailers-migration/>.
+- Доказательство: Django 6.1 `MAILERS` внедрен с aliases `default`, `transactional`, `reports`; существующие hosting environment names сохранены. Все восемь non-DTF call sites передают `using=`, а no-network и production-equivalent SMTP contracts проходят `mail.E001` без реальной отправки. Полная карта: `docs/qa/django61-stage1-email-call-graph.md`. Источник API: <https://docs.djangoproject.com/en/6.1/releases/6.1/#mailers> и <https://docs.djangoproject.com/en/6.1/howto/mailers-migration/>.
 - Что даст: уберет накопление deprecation debt, подготовит проект к Django 7.0, позволит развести транзакционные письма, отчеты и потенциальные маркетинговые отправки по разным backend/credentials/timeout-политикам и тестировать их независимо.
 - Риск и ограничения: нельзя механически переносить SMTP-параметры без проверки cPanel SSL/TLS, `DEFAULT_FROM_EMAIL`, поведения console backend в `DEBUG`, маскирования секретов и фактической доставки. Именованные mailers не являются очередью и сами по себе не дают retry/idempotency.
-- Следующая проверка: построить полный call graph email, определить алиасы (`default`, `transactional`, `reports`), проверить новый `mail.E001` deployment check и сделать no-send тестовые backend-проверки до переключения production SMTP.
+- Следующая проверка: контролировать aliases через AST contract и отдельно проектировать durable retry/outbox; реальный SMTP smoke не смешивать с automated tests.
 
 ### DJ6-EMAIL-002 - Удалить deprecated `fail_silently` и проверить новые ошибки email API
 
-- Статус: `подтверждено`; предварительный приоритет: `P1`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1`.
 - Область: `EmailMessage.send()`/`EmailMultiAlternatives.send()` и `send_mail()` во всех не-DTF приложениях; конкретные вызовы перечислены в `DJ6-EMAIL-001`, дополнительно `twocomms/orders/management/commands/recover_checkouts.py:105-110`.
-- Доказательство: в коде есть многочисленные `msg.send(fail_silently=False)` и `send_mail(..., fail_silently=False)`. Django 6.1 deprecated `fail_silently`, `connection`, `auth_user`, `auth_password` и `get_connection()`; сочетание явного `connection` с частью старых аргументов уже может давать `TypeError`. Django 6.0 также требует keyword-аргументы для необязательных параметров. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#email> и <https://docs.djangoproject.com/en/6.1/releases/6.0/#positional-arguments-in-django-core-mail-apis>.
+- Доказательство: удалены семь `fail_silently=False`; default raise semantics сохранены. SMTP exception tests подтверждают существующую политику для management HTTP, UTM cron, restock/receipt и checkout recovery paths; deprecated project-owned kwargs больше не остаются. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#email> и <https://docs.djangoproject.com/en/6.1/releases/6.0/#positional-arguments-in-django-core-mail-apis>.
 - Что даст: явную политику обработки SMTP-сбоев вместо скрытого флага, одинаковые исключения для HTTP, cron и будущих background workers, готовность к Django 7.0.
 - Риск и ограничения: простое удаление `fail_silently=False` может изменить ожидаемую обработку исключений в recovery-командах и административных формах; для каждого пути нужно решить `raise`, логирование, retry или durable outbox.
-- Следующая проверка: для каждого вызова зафиксировать владельца retry/idempotency, добавить тесты SMTP exception path и проверить, нет ли кастомных email backend/subclass, принимающих лишние `**kwargs`.
+- Следующая проверка: retry/idempotency реализовывать отдельно через durable delivery contract; текущие sync paths намеренно продолжают поднимать SMTP exception.
 
 ### DJ6-CSP-001 - Заменить самописную CSP-строку на встроенный Django CSP с report-only и nonce
 

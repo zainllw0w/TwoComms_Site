@@ -6603,7 +6603,7 @@ def commercial_offer_email(request):
                         reply_to=reply_to,
                     )
                     msg.attach_alternative(html_body_to_send, "text/html")
-                    msg.send(fail_silently=False)
+                    msg.send(using="transactional")
                 except Exception as exc:
                     status = CommercialOfferEmailLog.Status.FAILED
                     error_text = str(exc)
@@ -6909,7 +6909,7 @@ def commercial_offer_email_resend_api(request, log_id: int):
         )
         if original.body_html:
             msg.attach_alternative(original.body_html, "text/html")
-        msg.send(fail_silently=False)
+        msg.send(using="transactional")
     except Exception as exc:
         status = CommercialOfferEmailLog.Status.FAILED
         error_text = str(exc)
@@ -7281,7 +7281,7 @@ def commercial_offer_email_send_api(request):
             reply_to=reply_to,
         )
         msg.attach_alternative(html_body_to_send, "text/html")
-        msg.send(fail_silently=False)
+        msg.send(using="transactional")
     except Exception as exc:
         status = CommercialOfferEmailLog.Status.FAILED
         error_text = str(exc)
@@ -8227,7 +8227,7 @@ def commercial_offer_email_send_test_api(request):
     try:
         msg = EmailMultiAlternatives(subject=subject, body=email_build["text"], from_email=from_email, to=[to_email], reply_to=reply_to)
         msg.attach_alternative(html_body, "text/html")
-        msg.send(fail_silently=False)
+        msg.send(using="transactional")
     except Exception as exc:
         return JsonResponse({"ok": False, "error": "send_failed", "message": str(exc)}, status=500)
     return JsonResponse({"ok": True, "to": to_email})

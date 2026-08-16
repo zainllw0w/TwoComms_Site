@@ -253,6 +253,20 @@ class RestockDeliveryTests(TestCase):
         self.assertIn("&lt;Оверсайз&gt;", html)
         self.assertNotIn("<Limited & Rare>", html)
 
+    @patch("storefront.services.restock.EmailMultiAlternatives")
+    def test_email_smtp_failure_is_retained_for_cron_retry(self, email_class):
+        email_class.return_value.send.side_effect = OSError("SMTP unavailable")
+        subscription = self.subscription()
+
+        call_command("process_restock_notifications", subscription_id=subscription.pk)
+
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.status, RestockSubscription.Status.FAILED)
+        self.assertEqual(subscription.notification_attempts, 1)
+        self.assertIn("SMTP unavailable", subscription.last_error)
+        self.assertIsNotNone(subscription.next_attempt_at)
+        email_class.return_value.send.assert_called_once_with(using="transactional")
+
     @patch("storefront.services.restock.TelegramBot")
     def test_failure_gets_exponential_retry_then_success(self, bot_class):
         bot_class.return_value.send_message.side_effect = [False, True]

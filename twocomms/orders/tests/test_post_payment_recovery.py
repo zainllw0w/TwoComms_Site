@@ -410,3 +410,29 @@ class PostPaymentRecoveryTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.payment_payload.get("receipt_email_status"), "failed")
         self.assertIn("template render failed", order.payment_payload.get("receipt_email_error", ""))
+
+    def test_receipt_smtp_failure_marks_failed_and_uses_transactional_mailer(self):
+        order = Order.objects.create(
+            full_name="Buyer",
+            email="buyer@example.com",
+            phone="+380501112233",
+            city="Київ",
+            np_office="Відділення №1",
+            pay_type="online_full",
+            payment_status="paid",
+            total_sum=Decimal("950.00"),
+            payment_payload={},
+        )
+
+        with patch(
+            "orders.email_receipt.build_order_receipt_email",
+            return_value={"subject": "Receipt", "text": "Receipt", "html": "<p>Receipt</p>"},
+        ), patch("orders.email_receipt.EmailMultiAlternatives") as email_class:
+            email_class.return_value.send.side_effect = OSError("SMTP unavailable")
+            result = send_order_receipt_email(order)
+
+        self.assertEqual(result, (False, "SMTP unavailable"))
+        email_class.return_value.send.assert_called_once_with(using="transactional")
+        order.refresh_from_db()
+        self.assertEqual(order.payment_payload.get("receipt_email_status"), "failed")
+        self.assertIn("SMTP unavailable", order.payment_payload.get("receipt_email_error", ""))

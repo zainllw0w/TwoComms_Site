@@ -152,7 +152,7 @@ class Command(BaseCommand):
                 self._attach_csv_files(email, context)
 
             # Отправляем
-            email.send(fail_silently=False)
+            email.send(using="reports")
 
             self.stdout.write(self.style.SUCCESS(f'✓ Отчет отправлен на {len(recipients)} адресов'))
 

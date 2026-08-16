@@ -107,7 +107,7 @@ class Command(BaseCommand):
                         body,
                         settings.DEFAULT_FROM_EMAIL,
                         [cap.email],
-                        fail_silently=False,
+                        using="transactional",
                     )
                     cap.recovery_sent_at = now
                     cap.save(update_fields=['recovery_sent_at'])

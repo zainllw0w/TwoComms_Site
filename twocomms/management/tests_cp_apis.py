@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import TestCase, Client as TestClient, override_settings
@@ -26,6 +28,25 @@ class SendTestTests(TestCase):
         self.assertIn("mgr@example.com", mail.outbox[0].to)
         # Test send must not create a log entry.
         self.assertEqual(CommercialOfferEmailLog.objects.count(), before)
+
+    @patch("management.views.EmailMultiAlternatives")
+    def test_send_test_reports_smtp_failure_without_creating_log(self, email_class):
+        email_class.return_value.send.side_effect = OSError("SMTP unavailable")
+        url = reverse("management_commercial_offer_email_send_test_api")
+        before = CommercialOfferEmailLog.objects.count()
+
+        response = self.http.post(
+            url,
+            data={"recipient_name": "X", "mode": "VISUAL"},
+            HTTP_HOST=HOST,
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 500, response.content)
+        self.assertEqual(response.json()["error"], "send_failed")
+        self.assertIn("SMTP unavailable", response.json()["message"])
+        self.assertEqual(CommercialOfferEmailLog.objects.count(), before)
+        email_class.return_value.send.assert_called_once_with(using="transactional")
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
