@@ -108,6 +108,25 @@ def _get_dropship_categories():
     return categories_data
 
 
+def _dropshipper_orders_queryset(user):
+    return (
+        DropshipperOrder.objects.filter(dropshipper=user)
+        .prefetch_related("items__product", "items__color_variant__color")
+        .order_by("-created_at", "-id")
+    )
+
+
+def _dropshipper_payouts_queryset(user):
+    return (
+        DropshipperPayout.objects.filter(
+            dropshipper=user,
+            status__in=["pending", "processing", "completed"],
+        )
+        .prefetch_related("included_orders")
+        .order_by("-requested_at", "-id")
+    )
+
+
 def _format_color_count(count):
     if not count:
         return '1 колір (чорний)'
@@ -332,10 +351,7 @@ def dropshipper_orders(request):
     status_filter = request.GET.get('status', '')
 
     # Базовый queryset - сортировка от новых к старым (новые сверху)
-    orders = DropshipperOrder.objects.filter(dropshipper=request.user).prefetch_related(
-        'items__product',
-        'items__color_variant__color'
-    ).order_by('-created_at')
+    orders = _dropshipper_orders_queryset(request.user)
     print(f"=== ОТЛАДКА ЗАКАЗОВ ===")
     print(f"Пользователь: {request.user.username} (ID: {request.user.id})")
     print(f"Всего заказов в БД: {orders.count()}")
@@ -440,10 +456,7 @@ def dropshipper_statistics(request):
 def dropshipper_payouts(request):
     """Страница с выплатами дропшипера"""
     # Получаем выплаты (только те, которые были запрошены через DropshipperPayout, а не автоматические)
-    payouts = DropshipperPayout.objects.filter(
-        dropshipper=request.user,
-        status__in=['pending', 'processing', 'completed']
-    ).prefetch_related('included_orders').order_by('-requested_at')
+    payouts = _dropshipper_payouts_queryset(request.user)
 
     # Пагинация
     paginator = Paginator(payouts, 10)

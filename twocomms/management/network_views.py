@@ -66,7 +66,7 @@ def _networks_queryset(*, q: str, policy: str, state: str):
     elif state == "needs_review":
         qs = qs.filter(policy=LeadNetwork.Policy.NEEDS_REVIEW, confirmed_by__isnull=True)
     # «найвпливовіші» спершу: більше точок → більший сенс політики.
-    return qs.order_by("-members_count", "-updated_at")
+    return qs.order_by("-members_count", "-updated_at", "-id")
 
 
 @login_required(login_url="management_login")

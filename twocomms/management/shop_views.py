@@ -273,22 +273,27 @@ def _rebuild_receipts_for_shipment(shipment: ShopShipment) -> None:
         ShopInventoryMovement.objects.bulk_create(moves)
 
 
+def _shops_queryset(user):
+    qs = Shop.objects.all() if user.is_staff else Shop.objects.filter(created_by=user)
+    return (
+        qs.annotate(
+            total_amount=Coalesce(
+                Sum("shipments__invoice_total_amount"),
+                Decimal("0"),
+                output_field=models.DecimalField(max_digits=12, decimal_places=2),
+            )
+        )
+        .prefetch_related("phones", "shipments__wholesale_invoice")
+        .order_by("-created_at", "-id")
+    )
+
+
 @login_required(login_url="management_login")
 def shops(request):
     if not user_is_management(request.user):
         return redirect("management_login")
 
-    qs = Shop.objects.all() if request.user.is_staff else Shop.objects.filter(created_by=request.user)
-    qs = qs.annotate(
-        total_amount=Coalesce(
-            Sum("shipments__invoice_total_amount"),
-            Decimal("0"),
-            output_field=models.DecimalField(max_digits=12, decimal_places=2),
-        )
-    )
-    qs = qs.prefetch_related("phones", "shipments__wholesale_invoice")
-    qs = qs.order_by("-created_at")
-
+    qs = _shops_queryset(request.user)
     paginator = Paginator(qs, 11)  # 12 cards total incl. "+", so 11 shops per page
     page_obj = paginator.get_page(request.GET.get("page") or 1)
 

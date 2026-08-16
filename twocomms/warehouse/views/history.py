@@ -12,14 +12,15 @@ from warehouse.models import MovementReason, StockMovement
 from warehouse.permissions import warehouse_admin_required
 
 
+def _history_queryset():
+    return StockMovement.objects.select_related(
+        "created_by", "verified_by", "order", "content_type"
+    ).order_by("-created_at", "-id")
+
+
 @warehouse_admin_required
 def history_list(request):
-    qs = (
-        StockMovement.objects.select_related(
-            "created_by", "verified_by", "order", "content_type"
-        )
-        .order_by("-created_at")
-    )
+    qs = _history_queryset()
 
     reason = request.GET.get("reason")
     if reason and reason in dict(MovementReason.choices):

@@ -159,7 +159,7 @@ def _results_queryset(band, city, status="", q=""):
     q = (q or "").strip()
     if q:
         qs = qs.filter(Q(shop_name__icontains=q) | Q(city__icontains=q))
-    return qs.order_by("-ai_score", "-ai_checked_at")
+    return qs.order_by("-ai_score", "-ai_checked_at", "-id")
 
 
 @login_required(login_url="management_login")
@@ -300,4 +300,3 @@ def checker_context(request) -> dict:
 def checker_dashboard(request):
     # Чекер злитий зі сторінкою «Лідоген» (Парсинг). Єдина вкладка.
     return redirect("management_parsing")
-

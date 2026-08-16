@@ -493,6 +493,26 @@ def _build_phase_family_state_map(clients, today, *, now_dt=None) -> dict[int, d
     return state_map
 
 
+def _admin_shops_queryset():
+    from decimal import Decimal
+
+    from django.db import models
+    from django.db.models import Sum
+    from django.db.models.functions import Coalesce
+
+    return (
+        Shop.objects.annotate(
+            total_amount=Coalesce(
+                Sum("shipments__invoice_total_amount"),
+                Decimal("0"),
+                output_field=models.DecimalField(max_digits=12, decimal_places=2),
+            )
+        )
+        .prefetch_related("phones", "shipments__wholesale_invoice")
+        .order_by("-created_at", "-id")
+    )
+
+
 def _sync_phase_family_shared_fields(anchor_client: Client):
     shared_values = {field: getattr(anchor_client, field) for field in PHASE_SHARED_FIELDS}
     for member in _phase_family_queryset(anchor_client).exclude(id=anchor_client.id):
@@ -2091,22 +2111,11 @@ def admin_overview(request):
         ctx['weekly_reviews_pending_count'] = len(pending_reviews)
 
     if tab == 'shops':
-        from decimal import Decimal
         from datetime import time as dt_time, timedelta as dt_timedelta
 
         from django.core.paginator import Paginator
-        from django.db import models
-        from django.db.models import Sum
-        from django.db.models.functions import Coalesce
 
-        qs = Shop.objects.all().annotate(
-            total_amount=Coalesce(
-                Sum("shipments__invoice_total_amount"),
-                Decimal("0"),
-                output_field=models.DecimalField(max_digits=12, decimal_places=2),
-            )
-        )
-        qs = qs.prefetch_related("phones", "shipments__wholesale_invoice").order_by("-created_at")
+        qs = _admin_shops_queryset()
         paginator = Paginator(qs, 12)
         page_obj = paginator.get_page(request.GET.get("page") or 1)
 

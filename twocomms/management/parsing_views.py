@@ -115,7 +115,7 @@ def _moderation_queryset():
     return (
         ManagementLead.objects.filter(status=ManagementLead.Status.MODERATION)
         .select_related("added_by", "moderated_by")
-        .order_by("-created_at")
+        .order_by("-created_at", "-id")
     )
 
 
