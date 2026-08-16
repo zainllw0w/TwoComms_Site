@@ -8,7 +8,10 @@ verifies and consumes its output; it never compiles packages during deploy.
 from __future__ import annotations
 
 import argparse
+import base64
+import csv
 import hashlib
+import io
 import json
 import os
 import platform
@@ -289,7 +292,7 @@ def _build_cffi_once(
 
 
 def _normalize_wheel(wheel: Path) -> None:
-    """Rewrite an auditwheel artifact with stable ZIP metadata and ordering."""
+    """Rewrite an auditwheel artifact with stable payloads and ZIP metadata."""
 
     wheel = Path(wheel)
     temporary = wheel.with_name(f".{wheel.name}.normalized")
@@ -299,6 +302,21 @@ def _normalize_wheel(wheel: Path) -> None:
             names = [member.filename for member in members]
             if len(names) != len(set(names)):
                 raise ValueError("wheel contains duplicate archive members")
+            payloads = {member.filename: source.read(member) for member in members}
+            sbom_name = "auditwheel.cdx.json"
+            if sbom_name in payloads:
+                payloads[sbom_name] = _canonicalize_auditwheel_sbom(payloads[sbom_name])
+            record_names = [
+                name for name in names if name.endswith(".dist-info/RECORD")
+            ]
+            if len(record_names) > 1:
+                raise ValueError("wheel contains multiple RECORD files")
+            if record_names:
+                record_name = record_names[0]
+                payloads[record_name] = _rebuild_record(
+                    record_name,
+                    payloads,
+                )
             with zipfile.ZipFile(
                 temporary,
                 "w",
@@ -313,7 +331,7 @@ def _normalize_wheel(wheel: Path) -> None:
                     normalized.external_attr = member.external_attr
                     output.writestr(
                         normalized,
-                        source.read(member),
+                        payloads[member.filename],
                         compress_type=member.compress_type,
                         compresslevel=9 if member.compress_type == zipfile.ZIP_DEFLATED else None,
                     )
@@ -321,6 +339,69 @@ def _normalize_wheel(wheel: Path) -> None:
     finally:
         if temporary.exists():
             temporary.unlink()
+
+
+_SBOM_ORDER_INSENSITIVE_ARRAYS = frozenset(
+    {"components", "dependencies", "dependsOn", "properties", "externalReferences"}
+)
+
+
+def _canonicalize_sbom_value(value: object, *, key: str | None = None) -> object:
+    if isinstance(value, dict):
+        return {
+            name: _canonicalize_sbom_value(child, key=name)
+            for name, child in value.items()
+        }
+    if isinstance(value, list):
+        normalized = [_canonicalize_sbom_value(child) for child in value]
+        if key in _SBOM_ORDER_INSENSITIVE_ARRAYS:
+            normalized.sort(
+                key=lambda child: json.dumps(
+                    child,
+                    ensure_ascii=True,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+        return normalized
+    return value
+
+
+def _canonicalize_auditwheel_sbom(payload: bytes) -> bytes:
+    try:
+        document = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("auditwheel SBOM is not valid JSON") from exc
+    if not isinstance(document, dict):
+        raise ValueError("auditwheel SBOM must be a JSON object")
+    normalized = _canonicalize_sbom_value(document)
+    return (
+        json.dumps(
+            normalized,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def _rebuild_record(record_name: str, payloads: dict[str, bytes]) -> bytes:
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, lineterminator="\n")
+    for name in sorted(payloads):
+        if name == record_name:
+            writer.writerow((name, "", ""))
+            continue
+        digest = base64.urlsafe_b64encode(hashlib.sha256(payloads[name]).digest())
+        writer.writerow(
+            (
+                name,
+                "sha256=" + digest.rstrip(b"=").decode("ascii"),
+                str(len(payloads[name])),
+            )
+        )
+    return output.getvalue().encode("utf-8")
 
 
 def _validate_cffi_wheel(wheel: Path) -> None:

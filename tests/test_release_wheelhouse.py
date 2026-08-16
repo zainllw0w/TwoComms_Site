@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import tempfile
@@ -290,6 +291,66 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                 self.assertTrue(
                     all(info.date_time == (1980, 1, 1, 0, 0, 0) for info in archive.infolist())
                 )
+
+    def test_auditwheel_sbom_and_record_are_byte_for_byte_normalized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.whl"
+            second = Path(directory) / "second.whl"
+            sbom_documents = (
+                {
+                    "bomFormat": "CycloneDX",
+                    "components": [
+                        {"bom-ref": "pkg:pypi/z", "name": "z"},
+                        {"bom-ref": "pkg:pypi/a", "name": "a"},
+                    ],
+                    "dependencies": [
+                        {"ref": "pkg:pypi/z", "dependsOn": ["pkg:pypi/b", "pkg:pypi/a"]},
+                        {"ref": "pkg:pypi/a", "dependsOn": []},
+                    ],
+                },
+                {
+                    "dependencies": [
+                        {"dependsOn": [], "ref": "pkg:pypi/a"},
+                        {"dependsOn": ["pkg:pypi/a", "pkg:pypi/b"], "ref": "pkg:pypi/z"},
+                    ],
+                    "components": [
+                        {"name": "a", "bom-ref": "pkg:pypi/a"},
+                        {"name": "z", "bom-ref": "pkg:pypi/z"},
+                    ],
+                    "bomFormat": "CycloneDX",
+                },
+            )
+            for wheel, document in zip((first, second), sbom_documents):
+                sbom = json.dumps(document).encode("utf-8")
+                payloads = {
+                    "pkg/data.bin": b"binary",
+                    "auditwheel.cdx.json": sbom,
+                }
+                record = "".join(
+                    f"{name},sha256={'0' * 43},{len(payload)}\n"
+                    for name, payload in payloads.items()
+                ).encode("utf-8")
+                payloads["pkg.dist-info/RECORD"] = record
+                with zipfile.ZipFile(wheel, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                    for name, payload in reversed(tuple(payloads.items())):
+                        archive.writestr(name, payload)
+
+            builder._normalize_wheel(first)
+            builder._normalize_wheel(second)
+
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            with zipfile.ZipFile(first) as archive:
+                sbom = json.loads(archive.read("auditwheel.cdx.json"))
+                self.assertEqual(
+                    [component["name"] for component in sbom["components"]], ["a", "z"]
+                )
+                dependency = next(
+                    item for item in sbom["dependencies"] if item["ref"] == "pkg:pypi/z"
+                )
+                self.assertEqual(dependency["dependsOn"], ["pkg:pypi/a", "pkg:pypi/b"])
+                record = archive.read("pkg.dist-info/RECORD").decode("utf-8")
+                expected = base64.urlsafe_b64encode(hashlib.sha256(archive.read("auditwheel.cdx.json")).digest()).rstrip(b"=").decode("ascii")
+                self.assertIn(f"auditwheel.cdx.json,sha256={expected},", record)
 
     def test_cffi_build_disables_nondeterministic_debug_paths(self):
         with tempfile.TemporaryDirectory() as directory:
