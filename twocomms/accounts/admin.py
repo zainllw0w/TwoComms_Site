@@ -56,6 +56,9 @@ class UserAdmin(BaseUserAdmin):
                     'is_staff', 'user_phone', 'user_points', 'date_joined')
     list_filter = ('is_staff', 'is_superuser', 'is_active', 'date_joined')
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('userprofile', 'points')
+
     def user_phone(self, obj):
         """Отображает телефон из профиля."""
         try:
