@@ -99,7 +99,7 @@ def _calculate_original_subtotal(cart):
     if not cart:
         return Decimal('0')
     ids = [item.get('product_id') for item in cart.values() if item.get('product_id')]
-    products = Product.objects.in_bulk(ids)
+    products = Product.objects.values('price').in_bulk(ids)
     total = Decimal('0')
     for item in cart.values():
         product = products.get(item.get('product_id'))
@@ -109,7 +109,7 @@ def _calculate_original_subtotal(cart):
             qty = int(item.get('qty', 1))
         except (TypeError, ValueError):
             qty = 1
-        total += Decimal(product.price) * qty
+        total += Decimal(product['price']) * qty
     return total
 
 

@@ -268,7 +268,15 @@ def filter_cart_variant_ownership(cart, variants):
         variant_id = item.get('color_variant_id')
         if variant_id:
             variant = variants.get(variant_id)
-            if variant is None or variant.product_id != item['product_id']:
+            if variant is None:
+                changed = True
+                continue
+            variant_product_id = (
+                variant.get('product_id')
+                if isinstance(variant, dict)
+                else getattr(variant, 'product_id', None)
+            )
+            if variant_product_id != item['product_id']:
                 changed = True
                 continue
         cleaned[key] = item
@@ -306,7 +314,11 @@ def get_validated_cart_from_session(request):
 
     from productcolors.models import ProductColorVariant
 
-    variants = ProductColorVariant.objects.in_bulk(variant_ids)
+    variants = (
+        ProductColorVariant.objects.order_by()
+        .values('product_id')
+        .in_bulk(variant_ids)
+    )
     cart, changed = filter_cart_variant_ownership(cart, variants)
     if changed:
         request.session['cart'] = cart

@@ -9,6 +9,8 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.test import SimpleTestCase, TestCase
 from django.test import override_settings
 from django.urls import reverse
@@ -18,6 +20,7 @@ from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
 from storefront.models import Category, Product, ProductFitOption, PromoCode
 from storefront.views.utils import MAX_CART_ITEM_QTY as SESSION_MAX_CART_ITEM_QTY
 from storefront.views.utils import MAX_CART_ITEMS
+from storefront.views.utils import get_validated_cart_from_session
 from storefront.views.utils import normalize_cart_session
 
 
@@ -66,6 +69,115 @@ class CartSessionNormalizationTests(SimpleTestCase):
 
         self.assertTrue(changed)
         self.assertEqual(list(cleaned), ["line-0", "line-1"])
+
+
+class CartDjango61BulkMappingTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.category = Category.objects.create(name="Bulk cart", slug="bulk-cart")
+        cls.product = Product.objects.create(
+            title="Bulk cart product",
+            slug="bulk-cart-product",
+            category=cls.category,
+            price=200,
+            discount_percent=25,
+            status="published",
+        )
+        cls.zero_price_product = Product.objects.create(
+            title="Free bulk cart product",
+            slug="free-bulk-cart-product",
+            category=cls.category,
+            price=0,
+            status="published",
+        )
+
+    def test_original_subtotal_uses_values_in_bulk_without_changing_money_rules(self):
+        from storefront.views.cart import _calculate_original_subtotal
+
+        cart = {
+            "discounted": {"product_id": self.product.pk, "qty": "2"},
+            "invalid-qty": {"product_id": self.product.pk, "qty": "broken"},
+            "free": {"product_id": self.zero_price_product.pk, "qty": 7},
+            "missing": {"product_id": 999999, "qty": 5},
+        }
+
+        with CaptureQueriesContext(connection) as queries:
+            total = _calculate_original_subtotal(cart)
+
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(total, Decimal("600"))
+        self.assertIn('"storefront_product"."price"', queries[0]["sql"])
+        self.assertNotIn('"storefront_product"."title"', queries[0]["sql"])
+
+    def test_variant_ownership_uses_narrow_mapping_and_preserves_session_cleanup(self):
+        from types import SimpleNamespace
+
+        from productcolors.models import Color, ProductColorVariant
+
+        class MutableSession(dict):
+            modified = False
+
+        other_product = Product.objects.create(
+            title="Other bulk cart product",
+            slug="other-bulk-cart-product",
+            category=self.category,
+            price=300,
+            status="published",
+        )
+        color = Color.objects.create(name="Bulk mapping", primary_hex="#123456")
+        valid_variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=color,
+        )
+        foreign_variant = ProductColorVariant.objects.create(
+            product=other_product,
+            color=color,
+        )
+        session = MutableSession(
+            cart={
+                "valid-one": {
+                    "product_id": self.product.pk,
+                    "color_variant_id": valid_variant.pk,
+                    "qty": 1,
+                },
+                "valid-two": {
+                    "product_id": self.product.pk,
+                    "color_variant_id": valid_variant.pk,
+                    "qty": 2,
+                },
+                "foreign": {
+                    "product_id": self.product.pk,
+                    "color_variant_id": foreign_variant.pk,
+                    "qty": 1,
+                },
+                "missing": {
+                    "product_id": self.product.pk,
+                    "color_variant_id": 999999,
+                    "qty": 1,
+                },
+            },
+            monobank_invoice_id="stale-invoice",
+            monobank_pending_order_id=0,
+        )
+        request = SimpleNamespace(session=session)
+
+        with CaptureQueriesContext(connection) as queries:
+            cart = get_validated_cart_from_session(request)
+
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(set(cart), {"valid-one", "valid-two"})
+        self.assertEqual(session["cart"], cart)
+        self.assertNotIn("monobank_invoice_id", session)
+        self.assertNotIn("monobank_pending_order_id", session)
+        self.assertTrue(session.modified)
+        self.assertIn(
+            '"productcolors_productcolorvariant"."product_id"',
+            queries[0]["sql"],
+        )
+        self.assertNotIn(
+            '"productcolors_productcolorvariant"."color_id"',
+            queries[0]["sql"],
+        )
 
 
 class CartViewTestCase(TestCase):
