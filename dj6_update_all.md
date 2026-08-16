@@ -58,9 +58,11 @@ DTF-субдомен и его код, страницы, задачи, мигр�
   6080-test smoke. Fresh полный smoke остается явным release proof через
   manual `workflow_dispatch`; Markdown-only push с
   implementation/report docs не запускает его повторно.
-- Stage 1 начат подготовительными explicit SHA-1, `MAILERS` и `load_module()`
-  изменениями, но соответствующие пункты остаются открытыми до полных
-  acceptance matrices.
+- Stage 1 закрыт: explicit SHA-1, named `MAILERS`, URLField contracts,
+  signed-cookie policy, strict Base64 boundaries, social-auth compatibility,
+  active legacy loader и Python 3.15 import contract прошли единый gate
+  `61/61`; итоговый отчёт находится в
+  `docs/qa/django61-stage1-completion-report.md`.
 
 ## Правила записи находок
 
@@ -160,23 +162,23 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 | 6.0 | Database-level `on_delete` (`DB_CASCADE` и аналоги) | Нужны InnoDB и реальные FK; production содержит 178 MyISAM и только 39 FK. | `DJ6-BASE-002`, `DJ6-DB-001`, `DJ6-SRV-003` - отложено. |
 | 6.0 | Template partials (`partialdef`/`partial`) | 265 шаблонов распарсились; повторяющиеся full/fragment пары не переведены. | `DJ6-TPL-001` - подтвержденная opportunity. |
 | 6.0 | `{% querystring %}` | Найдены ручные `request.GET.urlencode` и pagination links. | `DJ6-TPL-002` - подтверждено. |
-| 6.0 | HTTPS default для `URLField` | Runtime `URLField().assume_scheme == "https"`; найдено 16 model URLFields и 1 explicit form field. | `DJ6-FORM-001` - подтверждено. |
+| 6.0 | HTTPS default для `URLField` | Все 16 non-DTF model URLFields инвентаризированы; project-owned формы и legacy HTTP behavior закреплены regression tests. | `DJ6-FORM-001` - реализовано. |
 | 6.0 | Forkserver/parallel test runner | Изолированный `--parallel 2` проходит, полный suite еще не green. | `DJ6-TEST-001` - отложено. |
-| 6.0 | Keyword-only mail API и новые email deprecations | Старые `fail_silently`/email kwargs используются во множестве call sites. | `DJ6-EMAIL-002` - подтверждено. |
+| 6.0 | Keyword-only mail API и новые email deprecations | Deprecated kwargs удалены из полного non-DTF call graph; raise/retry policy закреплена HTTP/cron/recovery tests. | `DJ6-EMAIL-002` - реализовано. |
 | 6.0 | PBKDF2 iteration increase до 1,200,000 | Пароли используют стандартный hasher; CPU/rehash behavior требует измерения. | `DJ6-AUTH-001` - подтверждено. |
 | 6.0 | Встроенная CSP middleware/policy base | Проект формирует CSP вручную; inline/eval policy не переведена. | `DJ6-CSP-001` - подтверждено. |
 | 6.1 | Model field fetch modes (`FETCH_PEERS`, `FETCH_RAISE`) | 126 `only()`/`defer()` вызовов; локальный динамический smoke подтвердил оба режима. | `DJ6-BASE-001`, `DJ6-ORM-001..012` - подтверждено, внедрение отложено до query parity. |
-| 6.1 | Named `MAILERS` и `using=` | Настройки и call sites используют deprecated `EMAIL_*`/старую mail policy. | `DJ6-EMAIL-001` - подтверждено. |
+| 6.1 | Named `MAILERS` и `using=` | Настроены `default`, `transactional`, `reports`; восемь non-DTF call sites используют явный alias и проходят `mail.E001`. | `DJ6-EMAIL-001`, `DJ6-BASE-003` - реализовано. |
 | 6.1 | CSP nonce attribute и `security.W027` | Базовая CSP есть вручную, nonce/report-only contract отсутствует. | `DJ6-CSP-001` - подтверждено. |
-| 6.1 | Signed-cookie salt derivation | `SIGNED_COOKIE_LEGACY_SALT_FALLBACK=False`; custom salts отдельно инвентаризированы. | `DJ6-COOKIE-001` - подтверждено. |
+| 6.1 | Signed-cookie salt derivation | Project override отсутствует; runtime использует Django default `False`, custom salts инвентаризированы. | `DJ6-COOKIE-001` - реализовано. |
 | 6.1 | PBKDF2 iteration increase до 1,500,000 | Следующий login может rehash старый пароль; нагрузка не измерена. | `DJ6-AUTH-001` - подтверждено. |
 | 6.1 | `UUID4`/`UUID7` database functions | MariaDB `11.4.12` ниже официального порога availability `11.7`. | `DJ6-ORM-014` - заблокировано версией БД. |
-| 6.1 | Admin `list_select_related` behavior/deprecation | 124 non-DTF admin зарегистрированы; deprecated project `True` не найден, vendor warning есть. | `DJ6-ADMIN-001`, `DJ6-COMPAT-002` - подтверждено. |
-| 6.1 | Strict Base64 parsing | В credential/provider paths есть permissive `b64decode`; strict table-driven smoke пройден. | `DJ6-SEC-002` - подтверждено. |
+| 6.1 | Admin `list_select_related` behavior/deprecation | 124 non-DTF admin зарегистрированы; social-auth admin переведён на explicit related fields, warning gate пуст. | `DJ6-ADMIN-001` - подтверждено; `DJ6-COMPAT-002` - реализовано. |
+| 6.1 | Strict Base64 parsing | Credential, PII, Meta, Telegram legacy и Monobank paths используют общий strict decoder и regression matrix. | `DJ6-SEC-002` - реализовано. |
 | 6.1 | Cache-key/signed-cookie compatibility changes | File cache и краткоживущие cookies требуют controlled deploy miss/rollout. | `DJ6-CACHE-001`, `DJ6-COOKIE-001` - подтверждено. |
-| 6.1 | `salted_hmac()` explicit algorithm requirement | IG payment digest не передает `algorithm`; текущий default SHA-1 меняется в Django 7. | `DJ6-SEC-001`, `DJ6-WARN-001` - подтверждено. |
+| 6.1 | `salted_hmac()` explicit algorithm requirement | IG payment evidence явно закрепляет SHA-1; frozen vector и historical signature acceptance предотвращают скрытую смену формата. | `DJ6-SEC-001`, `DJ6-WARN-001` - реализовано. |
 | 6.1 | QuerySet `values().in_bulk()` и `totally_ordered` | Найдены два узких mapping path и несколько недетерминированных paginator ordering. | `DJ6-ORM-009..011` - подтверждено. |
-| 6.1 | Strict model/parser validation и текущие checks | `manage.py check`, import/parser/template/static smoke пройдены; baseline video test и migration drift остаются отдельно. | `DJ6-SITE-001`, `DJ6-MIG-002`, `DJ6-TEST-003` - подтверждено как coverage/baseline debt. |
+| 6.1 | Strict model/parser validation и текущие checks | `manage.py check`, import/parser/template/static smoke, реальный migration graph и исправленный Product Video contract входят в Stage 0 gates. | `DJ6-SITE-001`, `DJ6-MIG-002`, `DJ6-TEST-003` - реализовано. |
 
 Матрица закрывает найденные пересечения релизов с сайтом. Функции, не имеющие model/HTTP/template/worker/DB применения в non-DTF коде, не превращаются в искусственные backlog-пункты.
 
@@ -227,12 +229,20 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-COOKIE-001 - Проверить совместимость старых подписанных cookies после смены salt derivation в 6.1
 
-- Статус: `подтверждено`; предварительный приоритет: `P1` для бесшовного перехода пользователей.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1`.
 - Область: общие session/messages cookies и custom signed payloads в `twocomms/twocomms/middleware.py:108-154`, `orders/nova_poshta_checkout.py:49-86`, `orders/telegram_status_links.py:25-43`, `storefront/views/ig_checkout.py:462-495`, `storefront/views/qr.py:122-245`, `management/views.py:270-272`, `8155-8183`.
-- Доказательство: Django 6.1 изменил derivation salt для signed cookies и по умолчанию выключил `SIGNED_COOKIE_LEGACY_SALT_FALLBACK`; runtime подтвердил `SESSION_ENGINE=django.contrib.sessions.backends.cached_db` и fallback `False`. Custom `signing.dumps()` tokens используют собственные salts и не меняются автоматически; legacy message-cookie остается ограниченным краткоживущим UI-риском. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#security>.
+- Доказательство: project setting намеренно отсутствует,
+  runtime default Django 6.1 равен `False`. AST inventory фиксирует
+  20 non-DTF signing call sites и отсутствие project-owned HTTP
+  signed-cookie API. Executable matrix доказывает v2 rejection/acceptance,
+  `cached_db` sessions, message cookies и девять custom formats; `23/23`
+  focused/consumer tests прошли. Карта: `docs/qa/django61-stage1-signed-cookie-matrix.md`.
 - Что даст: предотвращение неожиданных logout/потери messages/невалидных долгоживущих ссылок или QR-context после обновления и явная дата окончания legacy acceptance.
-- Риск и ограничения: изменение относится не ко всем `django.core.signing` токенам одинаково; нельзя включать fallback бессрочно без подтверждения конкретного affected cookie path. Это compatibility-аудит, а не доказанная поломка.
-- Следующая проверка: на canary-окне проверить реальный legacy message cookie и задать срок окончания fallback; сессионные и custom salted tokens не мигрировать без отдельного parity-теста.
+- Риск и ограничения: fallback не включён; будущий project-owned
+  `set_signed_cookie()`/`get_signed_cookie()` потребует отдельный lifetime/rotation
+  contract, а не глобальную миграцию custom salts.
+- Следующая проверка: сохранять AST inventory в CI и обновлять matrix
+  при каждом новом signing call site.
 
 ### DJ6-ADMIN-001 - Проверить новую 6.1 семантику `list_select_related` и admin actions
 
@@ -670,21 +680,29 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-SEC-002 - Проверить строгую Base64-валидацию на PII/credential import paths
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
-- Область: `twocomms/management/models.py:3419-3439` (BinaryField encrypted PII), `management/parser_usage.py:97-104`, Monobank signature decoders `storefront/views/utils.py:1406-1408`, `storefront/views/monobank.py:504-511`.
-- Доказательство: Django 6.1 теперь строго отклоняет invalid Base64 в `BinaryField`, multipart parser и DatabaseCache. Проект принимает Base64 из Google credential/env и provider signatures с permissive `b64decode`; table-driven smoke подтвердил, что Python `base64.b64decode()` без `validate=True` принимает мусор, тогда как strict validation его отклоняет. PII BinaryField должен оставаться bytes, а не silently coerced text. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#models> и <https://docs.djangoproject.com/en/6.1/releases/6.1/#miscellaneous>.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
+- Область: Google credential env, Meta `signed_request`, legacy Telegram
+  manager start wrapper, modular/legacy Monobank signatures и public keys,
+  active `views.py.backup`, encrypted PII `BinaryField`.
+- Доказательство: `strict_b64decode()` принимает standard/URL-safe
+  padded и unpadded Base64, но отклоняет whitespace, не-ASCII,
+  partial padding, impossible length и trailing garbage. Все provider paths
+  декодируются до crypto/parser processing; logs не содержат
+  credential, key, signature или PII material. Matrix: `21/21`, с active
+  consumers: `28/28`. Карта: `docs/qa/django61-stage1-sec002-base64.md`.
 - Что даст: явные ошибки конфигурации/подписи вместо тихого обрезания или пустого значения, меньше неоднозначности при импорте/валидации.
 - Риск и ограничения: менять декодирование webhook можно только с сохранением provider-compatible padding/URL-safe rules; не логировать секретные payloads.
-- Следующая проверка: table-driven tests valid/invalid/padded/base64url inputs и форма/serializer round-trip для BinaryField без production mutation.
+- Следующая проверка: сохранять static inventory всех non-DTF
+  decoder call sites и добавлять provider-specific valid vectors при новых форматах.
 
 ### DJ6-ENV-001 - Не допустить silent downgrade из старого dependency lock
 
-- Статус: `подтверждено`; предварительный приоритет: `P1`.
-- Область: основной локальный checkout `main`, `twocomms/requirements.in`, `twocomms/requirements.lock`, общая `.venv`, CI и будущая интеграция upgrade-ветки.
-- Доказательство: на момент проверки `/Users/zainllw0w/TwoComms/site/.venv` содержит CPython `3.14.6`, Django `6.1`, DRF `3.18.0` и `mysqlclient 2.2.8`, но current `main` закрепляет `Django==5.2.11`, `djangorestframework==3.15.2` и `PyMySQL==1.1.2`. Верифицированная ветка `codex/django-61-upgrade` содержит согласованный набор Django `6.1`, DRF `3.18.0`, `mysqlclient 2.2.8` и compatibility-правки. Повторный install из lock основного checkout вернет старый runtime; запуск старого кода на новой `.venv` выявил несовместимый `CheckConstraint(check=...)`.
+- Статус: `реализовано`; приоритет реализации: `P1`.
+- Область: основной локальный checkout `main`, `twocomms/requirements.in`, `twocomms/requirements.lock`, общая `.venv`, CI и production release gates.
+- Доказательство: current `main`, hash-locked requirements, CI и project `.venv` закрепляют CPython `3.14.6`, Django `6.1`, DRF `3.18.0` и `mysqlclient 2.2.8`; exact-version preflight отклоняет несовпадение, чистая установка lock и production runtime подтверждены Stage 0 release evidence.
 - Что даст: один воспроизводимый источник истины для локальных тестов, CI, release wheelhouse и production; устранит ложные результаты, когда код тестируется не под той парой Python/Django.
-- Риск и ограничения: нельзя копировать только два requirements-файла: переход одновременно меняет DB driver и код моделей/settings. Не выполнять `pip install -r` из старого lock поверх Django 6.1 venv и не использовать несовместимое состояние как доказательство production readiness.
-- Следующая проверка: сравнить полный diff verified upgrade-ветки с целевым `main`, интегрировать его атомарно в отдельной задаче, затем проверить hash-locked install на чистой CPython 3.14.6 venv и exact SHA на server.
+- Риск и ограничения: нельзя частично откатывать requirements или запускать bare Python; dependency changes должны проходить lock compilation, clean install, CI и production preflight как единый контракт.
+- Следующая проверка: сохранять exact-version assertions и hash-locked clean-install gate при каждом dependency update.
 
 ### DJ6-ENV-002 - Bare `python` и `python3` не являются runtime проекта
 
@@ -879,10 +897,10 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 - Статус: `подтверждено`; предварительный приоритет: `P2`.
 - Область: `README_ARCHITECTURE.md`, `twocomms/wsgi.py`, старые runbooks и инструкции, которые называют Django 5.2.6/Python 3.x или используют bare `python`.
-- Доказательство: runtime/lock audit подтверждает CPython 3.14.6/Django 6.1 на проверенной ветке, тогда как active architecture README и часть WSGI-комментариев остаются на старых версиях; основной checkout `main` все еще закрепляет Django 5.2.11, поэтому менять исторические документы до интеграции upgrade нельзя.
-- Что даст: после атомарной интеграции уменьшит повторный запуск проверок под старым runtime и риск silent downgrade.
+- Доказательство: current `main`, CI, локальная `.venv` и production уже используют CPython 3.14.6/Django 6.1, тогда как active architecture README и часть WSGI-комментариев всё ещё называют старые версии.
+- Что даст: синхронизация current-facing документации уменьшит повторный запуск проверок под старым runtime и риск silent downgrade.
 - Риск и ограничения: исторические incident reports и планы не переписывать; обновлять только current-facing docs после merge/deploy.
-- Следующая проверка: после интеграции lock в `main` обновить README/runbook, добавить exact-version preflight и проверить ссылки на production Python 3.14 virtualenv.
+- Следующая проверка: обновить README/runbook и проверить ссылки на production Python 3.14 virtualenv; исторические incident reports не переписывать.
 
 
 ## Сводка статусов после полной read-only проверки

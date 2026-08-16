@@ -229,10 +229,9 @@ Django 5.2.11 A/B для документационного закрытия н�
 
 **Почему сейчас:** это небольшие или средние изменения с высоким риском будущей поломки платежных/почтовых/security контрактов.
 
-Release Stage 0 уже содержит подготовительные изменения explicit SHA-1,
-`MAILERS` и замены `load_module()`. Они считаются начатыми, но чекбоксы Stage 1
-остаются открытыми до полного call graph, regression matrix и acceptance каждого
-пункта; повторно реализовывать эти части с нуля не нужно.
+Stage 1 завершён поверх release Stage 0. Ниже сохранены закрытые acceptance
+contracts для explicit SHA-1, `MAILERS`, URLField, signed cookies, strict Base64,
+social-auth admin, active legacy loader и Python 3.15 import compatibility.
 
 - [x] **DJ6-SEC-001 - Явно закрепить algorithm для IG payment \`salted_hmac\`.**
   - Сначала parity test текущих SHA-1 signatures; не менять digest format скрыто.
@@ -243,9 +242,13 @@ Release Stage 0 уже содержит подготовительные изм�
     через независимую reference HMAC-функцию и подтверждает его прием. Оба
     теста RED при `sha256`, GREEN при explicit `sha1`; warning отсутствует.
 
-- [ ] **DJ6-COOKIE-001 - Проверить и ограничить legacy signed-cookie compatibility.**
+- [x] **DJ6-COOKIE-001 - Проверить и ограничить legacy signed-cookie compatibility.**
   - Не включать global fallback бессрочно.
   - Acceptance: session/messages/custom salted token matrix документирует affected и unaffected paths.
+  - Выполнено: project setting намеренно отсутствует, runtime
+    использует Django 6.1 default `False`. AST inventory фиксирует
+    20 non-DTF signing call sites; cached DB sessions, cookie messages и
+    девять custom salted formats доказаны unaffected. Focused matrix: `23/23`.
 
 - [x] **DJ6-FORM-001 - Проверить HTTPS default для всех URLField contracts.**
   - Acceptance: stored legacy HTTP/provider URLs, forms и validation errors сохраняют ожидаемое поведение.
@@ -253,8 +256,12 @@ Release Stage 0 уже содержит подготовительные изм�
     project-owned формы явно используют HTTPS, а explicit HTTP/HTTPS и stored
     legacy HTTP значения сохраняются без скрытой нормализации модели.
 
-- [ ] **DJ6-SEC-002 - Включить строгую Base64-валидацию на credential/PII/provider paths.**
+- [x] **DJ6-SEC-002 - Включить строгую Base64-валидацию на credential/PII/provider paths.**
   - Acceptance: мусор отклоняется предсказуемо; валидные padded/unpadded payloads имеют тесты; секреты не логируются.
+  - Выполнено: общий strict decoder закрывает Google credentials,
+    Meta `signed_request`, legacy Telegram start wrapper, три Monobank paths
+    и active `views.py.backup`; BinaryField/PII contract и безопасное
+    логирование закреплены. Strict matrix: `21/21`, с consumers: `28/28`.
 
 - [x] **DJ6-EMAIL-001 - Перейти на Django 6.1 \`MAILERS\`.**
   - Алиасы: минимум \`default\`, \`transactional\`, \`reports\`, если call graph докажет их необходимость.
@@ -296,9 +303,25 @@ Release Stage 0 уже содержит подготовительные изм�
 
 ### Exit gate этапа 1
 
-- [ ] Warning gate не содержит project-owned Django 7/Python 3.15 warnings.
-- [ ] Payment signature, cookies, URL parsing, Base64 и email имеют regression matrix.
-- [ ] Ни один тест не отправляет реальное письмо или provider event.
+- [x] Warning gate не содержит project-owned Django 7/Python 3.15 warnings.
+  - Evidence: `blocked_warning_count=0`, `allowed_vendor_warning_count=0`,
+    allowlist пуст, все три subprocess завершились с code `0`.
+- [x] Payment signature, cookies, URL parsing, Base64 и email имеют regression matrix.
+  - Evidence: единый non-DTF Stage 1 gate прошел `61/61`.
+- [x] Ни один тест не отправляет реальное письмо или provider event.
+  - Evidence: mailer aliases используют `locmem`, socket-level network
+    guard включен, SMTP/provider boundaries заменены mocks.
+
+Production acceptance от 2026-08-17:
+
+- code SHA `cdb8f78b13d7b642b12c395afe04eee5d8cb0552` опубликован в GitHub
+  `main` и получен production checkout через `git pull --ff-only`;
+- production runtime: CPython `3.14.6`, Django `6.1`, MariaDB
+  `11.4.12-MariaDB-cll-lve`, cookie fallback `False`;
+- storefront, management, storage и finance probes завершились HTTP `200`
+  после ожидаемых login redirects;
+- production database check выдал только четыре уже вынесенных
+  в `DJ6-BASE-004` MariaDB capability warnings; новых Stage 1 warnings нет.
 
 ---
 
