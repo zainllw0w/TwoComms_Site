@@ -30,7 +30,8 @@ class CompanyProfileForm(forms.Form):
     website = forms.URLField(
         label="Сайт або магазин",
         required=False,
-        widget=forms.URLInput(attrs={"placeholder": "https://"})
+        assume_scheme="https",
+        widget=forms.URLInput(attrs={"placeholder": "https://"}),
     )
     instagram = forms.CharField(
         label="Instagram",

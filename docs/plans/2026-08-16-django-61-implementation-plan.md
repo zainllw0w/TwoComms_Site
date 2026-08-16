@@ -247,8 +247,11 @@ Release Stage 0 уже содержит подготовительные изм�
   - Не включать global fallback бессрочно.
   - Acceptance: session/messages/custom salted token matrix документирует affected и unaffected paths.
 
-- [ ] **DJ6-FORM-001 - Проверить HTTPS default для всех URLField contracts.**
+- [x] **DJ6-FORM-001 - Проверить HTTPS default для всех URLField contracts.**
   - Acceptance: stored legacy HTTP/provider URLs, forms и validation errors сохраняют ожидаемое поведение.
+  - Выполнено: inventory закрепляет все 16 non-DTF model \`URLField\`; три
+    project-owned формы явно используют HTTPS, а explicit HTTP/HTTPS и stored
+    legacy HTTP значения сохраняются без скрытой нормализации модели.
 
 - [ ] **DJ6-SEC-002 - Включить строгую Base64-валидацию на credential/PII/provider paths.**
   - Acceptance: мусор отклоняется предсказуемо; валидные padded/unpadded payloads имеют тесты; секреты не логируются.

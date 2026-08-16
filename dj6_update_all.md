@@ -598,12 +598,12 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-FORM-001 - Проверить изменение default scheme `URLField` на HTTPS
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/orders/forms.py:30-34` и все ModelForm для URLField в `accounts`, `finance`, `orders`, `product_catalog`, `storefront`, `management`.
-- Доказательство: Django 6.0 удалил transitional `FORMS_URLFIELD_ASSUME_HTTPS` и сделал default scheme `https`; runtime подтвердил `forms.URLField().assume_scheme == "https"`, а inventory содержит 16 non-DTF model URLFields и один explicit form URLField. Сохраненные старые значения и внешние интеграции нужно проверить. Источник: <https://docs.djangoproject.com/en/6.0/releases/6.0/#features-removed-in-6-0>.
+- Доказательство: contract inventory фиксирует все 16 non-DTF model URLFields. `CompanyProfileForm`, `BlogPostForm` и `PrintProposalForm` явно задают `assume_scheme="https"`; scheme-less ввод становится HTTPS, explicit HTTP/HTTPS сохраняются, invalid URL возвращает стабильный код `invalid`, а DB round-trip не переписывает stored legacy HTTP. Источник: <https://docs.djangoproject.com/en/6.0/releases/6.0/#features-removed-in-6-0>.
 - Что даст: единообразные безопасные ссылки и меньше mixed-content/redirect surprises.
-- Риск и ограничения: нельзя автоматически переписывать пользовательские URL или webhook endpoints; часть legacy HTTP-сервисов может быть намеренной.
-- Следующая проверка: form validation matrix (`example.com`, `http://`, `https://`, localhost/provider endpoints) и read-only inventory stored schemes.
+- Риск и ограничения: stored HTTP намеренно не мигрируется; его допустимость остается предметом конкретного provider/content contract, а не глобальной перезаписи.
+- Следующая проверка: сохранять 16-field inventory и forced framework-default regression; новые project-owned ModelForm с URLField должны явно выбирать scheme policy.
 
 ### DJ6-TPL-002 - Заменить ручное сохранение query string на `{% querystring %}`
 

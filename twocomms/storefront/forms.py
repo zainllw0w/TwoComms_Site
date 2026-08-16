@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from django import forms
 from django.conf import settings
+from django.db import models
 from django.forms import BaseInlineFormSet, inlineformset_factory
 
 from dtf.utils import (
@@ -34,6 +35,13 @@ from .models import (
     PrintProposal,
     PushNotificationCampaign,
 )
+
+
+def _https_url_formfield(db_field, **kwargs):
+    if isinstance(db_field, models.URLField):
+        kwargs["assume_scheme"] = "https"
+    return db_field.formfield(**kwargs)
+
 
 # ✅ Виджет с поддержкой множественной загрузки
 
@@ -884,6 +892,7 @@ class BlogPostForm(forms.ModelForm):
 
     class Meta:
         model = BlogPost
+        formfield_callback = _https_url_formfield
         fields = _model_fields(
             BlogPost,
             [
@@ -1002,6 +1011,7 @@ class BlogMediaAssetForm(forms.ModelForm):
 class PrintProposalForm(forms.ModelForm):
     class Meta:
         model = PrintProposal
+        formfield_callback = _https_url_formfield
         fields = ["image", "link_url", "description"]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 4, "placeholder": "Опис і примітки до принта"}),
