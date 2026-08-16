@@ -14,6 +14,7 @@ from typing import Any
 from django.core.cache import cache
 from django.db.models import Avg, Case, CharField, Count, DurationField, Exists, ExpressionWrapper, F, Min, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.functions import Coalesce, NullIf
+from django.db.models.lookups import IsNull
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
@@ -1328,12 +1329,16 @@ def _products_data(filters: AnalyticsFilters) -> dict[str, Any]:
     top_viewed = []
     category_counter = Counter()
     viewed_product_ids = []
-    for row in view_rows[:25]:
+    top_view_rows = list(view_rows[:25])
+    products_by_id = Product.objects.select_related("category").in_bulk(
+        [row["product_id"] for row in top_view_rows if row["product_id"]]
+    )
+    for row in top_view_rows:
         product_id = row["product_id"]
         if not product_id:
             continue
         viewed_product_ids.append(product_id)
-        product = Product.objects.filter(pk=product_id).select_related("category").first()
+        product = products_by_id.get(product_id)
         add_count = add_rows.get(product_id, 0)
         purchase_meta = purchase_rows.get(product_id, {})
         total_views = row["total_views"]
@@ -1519,11 +1524,20 @@ def _survey_data(filters: AnalyticsFilters) -> dict[str, Any]:
         .order_by("-total")
     )
 
+    downstream_orders = Order.objects.filter(created__gte=OuterRef("completed_at")).filter(
+        Q(user_id=OuterRef("user_id"))
+        | (Q(user_id__isnull=True) & Q(IsNull(OuterRef("user_id"), True)))
+    )
+    completed_sessions = survey_qs.filter(status="completed", completed_at__isnull=False).annotate(
+        has_downstream_purchase=Exists(downstream_orders)
+    )
+    completed_sessions_count = 0
     downstream_purchases = 0
-    completed_sessions = list(survey_qs.filter(status="completed", completed_at__isnull=False).select_related("user"))
-    for session in completed_sessions:
-        if Order.objects.filter(user=session.user, created__gte=session.completed_at).exists():
-            downstream_purchases += 1
+    for has_downstream_purchase in completed_sessions.values_list(
+        "has_downstream_purchase", flat=True
+    ).iterator(chunk_size=2000):
+        completed_sessions_count += 1
+        downstream_purchases += int(has_downstream_purchase)
 
     return {
         "summary": {
@@ -1537,8 +1551,8 @@ def _survey_data(filters: AnalyticsFilters) -> dict[str, Any]:
             "completion_rate": round((survey_qs.filter(status="completed").count() / survey_qs.count()) * 100, 2)
             if survey_qs.count()
             else 0,
-            "downstream_purchase_rate": round((downstream_purchases / len(completed_sessions)) * 100, 2)
-            if completed_sessions
+            "downstream_purchase_rate": round((downstream_purchases / completed_sessions_count) * 100, 2)
+            if completed_sessions_count
             else 0,
         },
         "question_answers": [
