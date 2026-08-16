@@ -61,7 +61,7 @@ class Command(BaseCommand):
             if options.get('order_number'):
                 queryset = queryset.filter(order_number=options['order_number'])
 
-            scanned = attempted = sent = failed = leased = 0
+            scanned = attempted = sent = failed = leased = ambiguous = 0
             for order in queryset.iterator():
                 scanned += 1
                 payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
@@ -87,9 +87,11 @@ class Command(BaseCommand):
                     leased += 1
                 elif result == 'failed':
                     failed += 1
+                elif result == 'ambiguous':
+                    ambiguous += 1
 
         self.stdout.write(
             'reconcile_order_telegram_notifications: '
             f'scanned={scanned} attempted={attempted} sent={sent} '
-            f'failed={failed} leased={leased}'
+            f'failed={failed} leased={leased} ambiguous={ambiguous}'
         )

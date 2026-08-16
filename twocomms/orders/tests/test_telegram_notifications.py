@@ -1,12 +1,15 @@
+from decimal import Decimal
 from http.client import RemoteDisconnected
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import requests
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
-from orders.telegram_notifications import TelegramNotifier
+from orders.models import Order
+from orders.telegram_notifications import TelegramNotifier, _parse_chat_ids
 
 
 class TelegramResponse:
@@ -92,6 +95,188 @@ class TelegramSendMessageRetryTests(SimpleTestCase):
                 self.assertEqual(post.call_count, 2)
                 sleep.assert_called_once()
 
+    def test_at_most_once_policy_does_not_retry_ambiguous_transport_failure(self):
+        post = Mock(
+            side_effect=[
+                requests.ConnectionError(RemoteDisconnected("response lost")),
+                TelegramResponse(200, {"ok": True, "result": {"message_id": 117}}),
+            ]
+        )
+
+        with patch("orders.telegram_notifications.requests.post", post), patch(
+            "time.sleep"
+        ) as sleep, self.assertLogs("orders.telegram_notifications", level="WARNING") as logs:
+            report = self.make_notifier().send_message(
+                "private-message",
+                retry_ambiguous=False,
+                return_report=True,
+            )
+
+        self.assertEqual(report.outcome, "ambiguous")
+        self.assertEqual(post.call_count, 1)
+        sleep.assert_not_called()
+        self.assertIn("ambiguous_delivery", "\n".join(logs.output))
+
+    def test_at_most_once_policy_does_not_retry_http_500(self):
+        post = Mock(
+            side_effect=[
+                TelegramResponse(500, {"ok": False}),
+                TelegramResponse(200, {"ok": True, "result": {"message_id": 118}}),
+            ]
+        )
+
+        with patch("orders.telegram_notifications.requests.post", post), patch(
+            "time.sleep"
+        ) as sleep, self.assertLogs("orders.telegram_notifications", level="WARNING"):
+            report = self.make_notifier().send_message(
+                "private-message",
+                retry_ambiguous=False,
+                return_report=True,
+            )
+
+        self.assertEqual(report.outcome, "ambiguous")
+        self.assertEqual(post.call_count, 1)
+        sleep.assert_not_called()
+
+    def test_at_most_once_policy_treats_other_request_errors_as_ambiguous(self):
+        post = Mock(
+            side_effect=requests.exceptions.ChunkedEncodingError("response body lost")
+        )
+
+        with patch("orders.telegram_notifications.requests.post", post), patch(
+            "time.sleep"
+        ) as sleep, self.assertLogs("orders.telegram_notifications", level="WARNING"):
+            report = self.make_notifier().send_message(
+                "private-message",
+                retry_ambiguous=False,
+                return_report=True,
+            )
+
+        self.assertEqual(report.outcome, "ambiguous")
+        post.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_at_most_once_policy_still_retries_explicit_rate_limit(self):
+        post = Mock(
+            side_effect=[
+                TelegramResponse(429, {"ok": False}),
+                TelegramResponse(200, {"ok": True, "result": {"message_id": 119}}),
+            ]
+        )
+
+        with patch("orders.telegram_notifications.requests.post", post), patch(
+            "time.sleep"
+        ) as sleep:
+            report = self.make_notifier().send_message(
+                "private-message",
+                retry_ambiguous=False,
+                return_report=True,
+            )
+
+        self.assertEqual(report.outcome, "sent")
+        self.assertEqual(post.call_count, 2)
+        sleep.assert_called_once()
+
+    def test_parse_chat_ids_deduplicates_targets_without_reordering(self):
+        self.assertEqual(
+            _parse_chat_ids("111, 222;111 333,222"),
+            ["111", "222", "333"],
+        )
+
+    def test_at_most_once_partial_delivery_is_terminally_ambiguous(self):
+        post = Mock(
+            side_effect=[
+                TelegramResponse(
+                    200,
+                    {"ok": True, "result": {"chat": {"id": 111}, "message_id": 120}},
+                ),
+                TelegramResponse(400, {"ok": False, "description": "rejected"}),
+            ]
+        )
+
+        with patch("orders.telegram_notifications.requests.post", post), self.assertLogs(
+            "orders.telegram_notifications", level="WARNING"
+        ):
+            report = self.make_notifier("111,222").send_message(
+                "private-message",
+                retry_ambiguous=False,
+                return_report=True,
+            )
+
+        self.assertEqual(report.outcome, "ambiguous")
+        self.assertEqual(
+            list(report.results),
+            [{"chat": {"id": 111}, "message_id": 120}],
+        )
+        self.assertEqual(post.call_count, 2)
+
+    def test_order_card_outcome_uses_at_most_once_transport_policy(self):
+        notifier = self.make_notifier()
+        report = SimpleNamespace(outcome="ambiguous", results=())
+
+        with patch.object(notifier, "format_order_message", return_value="order"), patch.object(
+            notifier,
+            "_build_order_management_reply_markup",
+            return_value=None,
+        ), patch.object(notifier, "send_message", return_value=report) as send_message:
+            outcome = notifier.send_new_order_notification(
+                SimpleNamespace(pk=None),
+                return_outcome=True,
+            )
+
+        self.assertEqual(outcome, "ambiguous")
+        send_message.assert_called_once_with(
+            "order",
+            reply_markup=None,
+            retry_ambiguous=False,
+            return_report=True,
+        )
+
+    def test_order_card_default_path_also_uses_at_most_once_transport_policy(self):
+        notifier = self.make_notifier()
+        report = SimpleNamespace(
+            outcome="sent",
+            results=({"chat": {"id": 111}, "message_id": 121},),
+        )
+
+        with patch.object(notifier, "format_order_message", return_value="order"), patch.object(
+            notifier,
+            "_build_order_management_reply_markup",
+            return_value=None,
+        ), patch.object(notifier, "send_message", return_value=report) as send_message:
+            delivered = notifier.send_new_order_notification(SimpleNamespace(pk=None))
+
+        self.assertTrue(delivered)
+        send_message.assert_called_once_with(
+            "order",
+            reply_markup=None,
+            retry_ambiguous=False,
+            return_report=True,
+        )
+
+    def test_payment_alert_outcome_uses_at_most_once_transport_policy(self):
+        notifier = self.make_notifier()
+        report = SimpleNamespace(outcome="ambiguous", results=())
+
+        with patch.object(
+            notifier,
+            "format_admin_payment_status_update",
+            return_value="payment",
+        ), patch.object(notifier, "send_message", return_value=report) as send_message:
+            outcome = notifier.send_admin_payment_status_update(
+                SimpleNamespace(),
+                "unpaid",
+                "paid",
+                return_outcome=True,
+            )
+
+        self.assertEqual(outcome, "ambiguous")
+        send_message.assert_called_once_with(
+            "payment",
+            retry_ambiguous=False,
+            return_report=True,
+        )
+
     def test_http_200_ok_false_and_non_429_4xx_are_not_retried(self):
         cases = (
             TelegramResponse(200, {"ok": False, "description": "rejected"}),
@@ -108,7 +293,6 @@ class TelegramSendMessageRetryTests(SimpleTestCase):
                 self.assertFalse(delivered)
                 post.assert_called_once()
                 sleep.assert_not_called()
-
     def test_one_exhausted_target_does_not_block_later_target_success(self):
         post = Mock(
             side_effect=[
@@ -321,3 +505,75 @@ class TelegramSendMessageRetryTests(SimpleTestCase):
         self.assertIn("not_configured", output)
         self.assertIn("invalid_target", output)
         self.assertNotIn("personal-id", output)
+
+
+class OrderCardDeliveryClaimTests(TestCase):
+    def make_notifier(self):
+        return TelegramNotifier(
+            bot_token="bot-token-secret",
+            admin_id="111",
+            chat_id="",
+        )
+
+    def make_order(self, number):
+        return Order.objects.create(
+            order_number=number,
+            full_name="Direct Buyer",
+            phone="+380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            pay_type="online_full",
+            total_sum=Decimal("900.00"),
+            discount_amount=Decimal("0.00"),
+            payment_status="checking",
+            payment_provider="monobank_pay",
+            payment_payload={"attempt_id": 101},
+        )
+
+    def test_direct_order_card_is_claimed_before_io_and_not_sent_twice(self):
+        order = self.make_order("TWC16082026N91")
+        notifier = self.make_notifier()
+
+        def assert_claim_before_send(*args, **kwargs):
+            order.refresh_from_db()
+            notifications = order.payment_payload["telegram_notifications"]
+            self.assertTrue(notifications["order_notification_send_started_at"])
+            self.assertFalse(notifications["payment_status_update_sent"])
+            return SimpleNamespace(outcome="sent", results=())
+
+        with patch.object(notifier, "format_order_message", return_value="order"), patch.object(
+            notifier,
+            "_build_order_management_reply_markup",
+            return_value=None,
+        ), patch.object(
+            notifier,
+            "send_message",
+            side_effect=assert_claim_before_send,
+        ) as send_message:
+            self.assertTrue(notifier.send_new_order_notification(order))
+            self.assertTrue(notifier.send_new_order_notification(order))
+
+        send_message.assert_called_once()
+        order.refresh_from_db()
+        notifications = order.payment_payload["telegram_notifications"]
+        self.assertTrue(notifications["order_notification_sent"])
+        self.assertIsNone(notifications["order_notification_send_started_at"])
+
+    def test_ambiguous_direct_order_card_is_not_retried(self):
+        order = self.make_order("TWC16082026N92")
+        notifier = self.make_notifier()
+        report = SimpleNamespace(outcome="ambiguous", results=())
+
+        with patch.object(notifier, "format_order_message", return_value="order"), patch.object(
+            notifier,
+            "_build_order_management_reply_markup",
+            return_value=None,
+        ), patch.object(notifier, "send_message", return_value=report) as send_message:
+            self.assertFalse(notifier.send_new_order_notification(order))
+            self.assertFalse(notifier.send_new_order_notification(order))
+
+        send_message.assert_called_once()
+        order.refresh_from_db()
+        notifications = order.payment_payload["telegram_notifications"]
+        self.assertTrue(notifications["order_notification_ambiguous"])
+        self.assertFalse(notifications["order_notification_pending"])

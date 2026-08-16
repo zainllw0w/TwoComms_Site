@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.db import transaction
 
+from orders.models import Order
 from warehouse.models import WriteOffRequest
 
 
@@ -15,11 +17,13 @@ def get_storage_base_url() -> str:
 
 def build_storage_writeoff_url(order) -> str:
     """Створює (або повертає існуючий pending) WriteOffRequest та формує URL."""
-    pending = order.warehouse_write_off_requests.filter(
-        status=WriteOffRequest.STATUS_PENDING
-    ).first()
-    if pending is None:
-        pending = WriteOffRequest.objects.create(order=order)
+    with transaction.atomic():
+        locked_order = Order.objects.select_for_update().get(pk=order.pk)
+        pending = locked_order.warehouse_write_off_requests.filter(
+            status=WriteOffRequest.STATUS_PENDING
+        ).first()
+        if pending is None:
+            pending = WriteOffRequest.objects.create(order=locked_order)
     return f"{get_storage_base_url()}/order/{pending.token}/write-off/"
 
 

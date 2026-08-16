@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -77,6 +78,16 @@ class WriteOffFlowTests(TestCase):
         url2 = build_storage_writeoff_url(self.order)
         self.assertEqual(url1, url2)
         self.assertEqual(self.order.warehouse_write_off_requests.count(), 1)
+
+    @patch("warehouse.services.order_links.Order.objects.select_for_update")
+    def test_pending_request_creation_locks_the_order(self, select_for_update):
+        select_for_update.return_value.get.return_value = self.order
+
+        url = build_storage_writeoff_url(self.order)
+
+        select_for_update.assert_called_once_with()
+        select_for_update.return_value.get.assert_called_once_with(pk=self.order.pk)
+        self.assertIn(str(self.order.warehouse_write_off_requests.get().token), url)
 
     def test_write_off_page_renders(self):
         self.client.login(username="admin_wo", password="pw")

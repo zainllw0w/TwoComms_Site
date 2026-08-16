@@ -859,8 +859,22 @@ def _sync_instagram_lifecycle_channel(order_pk):
         )
 
 
+def _normalize_telegram_delivery_outcome(value):
+    """Accept the report API while keeping old bool-returning test doubles valid."""
+    outcome = getattr(value, "outcome", None)
+    if outcome in {"sent", "failed", "ambiguous"}:
+        return outcome
+    if value is True:
+        return "sent"
+    if value is False or value is None:
+        return "failed"
+    if str(value) in {"sent", "failed", "ambiguous"}:
+        return str(value)
+    return "failed"
+
+
 def _claim_order_telegram_delivery(order_pk):
-    """Claim one missing paid-order card with a short, crash-recoverable lease."""
+    """Claim one missing paid-order delivery with an ambiguity-safe lease."""
     from datetime import timedelta
 
     from django.utils import timezone
@@ -873,14 +887,57 @@ def _claim_order_telegram_delivery(order_pk):
         order = Order.objects.select_for_update().get(pk=order_pk)
         payload = dict(order.payment_payload) if isinstance(order.payment_payload, dict) else {}
         notifications = dict(payload.get('telegram_notifications') or {})
-        if notifications.get('order_notification_sent'):
+        order_sent = bool(notifications.get('order_notification_sent'))
+        order_ambiguous = bool(notifications.get('order_notification_ambiguous'))
+        payment_ambiguous = bool(notifications.get('payment_status_update_ambiguous'))
+        payment_marker_present = 'payment_status_update_sent' in notifications
+        payment_sent = bool(notifications.get('payment_status_update_sent'))
+        if (order_sent or order_ambiguous) and (
+            payment_sent or payment_ambiguous or not payment_marker_present
+        ):
+            if order_ambiguous or payment_ambiguous:
+                return None, 'ambiguous'
             return None, 'already_sent'
+        notifications.setdefault('payment_status_update_sent', False)
 
         lease_until = parse_datetime(str(notifications.get('delivery_retry_lease_until') or ''))
+        if lease_until is not None and timezone.is_naive(lease_until):
+            lease_until = timezone.make_aware(lease_until, timezone.get_current_timezone())
         if lease_until and lease_until > now:
             return None, 'leased'
 
-        notifications.setdefault('order_notification_pending', True)
+        payment_phase_expired = bool(
+            notifications.get('payment_status_update_send_started_at')
+            and not notifications.get('payment_status_update_sent')
+            and not notifications.get('payment_status_update_ambiguous')
+        )
+        order_phase_expired = bool(
+            notifications.get('order_notification_send_started_at')
+            and not notifications.get('order_notification_sent')
+            and not notifications.get('order_notification_ambiguous')
+        )
+        if payment_phase_expired:
+            notifications['payment_status_update_ambiguous'] = True
+            notifications['payment_status_update_ambiguous_at'] = now.isoformat()
+            notifications['delivery_last_failed_at'] = now.isoformat()
+            notifications['delivery_last_error'] = 'telegram_payment_status_update_ambiguous'
+            payment_ambiguous = True
+        if order_phase_expired:
+            notifications['order_notification_ambiguous'] = True
+            notifications['order_notification_ambiguous_at'] = now.isoformat()
+            notifications['order_notification_pending'] = False
+            notifications['delivery_retry_lease_until'] = None
+            notifications['delivery_last_failed_at'] = now.isoformat()
+            notifications['delivery_last_error'] = 'telegram_order_notification_ambiguous'
+            order_ambiguous = True
+
+        if (order_sent or order_ambiguous) and (payment_sent or payment_ambiguous):
+            payload['telegram_notifications'] = notifications
+            order.payment_payload = payload
+            order.save(update_fields=['payment_payload'])
+            return None, 'ambiguous' if order_ambiguous or payment_ambiguous else 'already_sent'
+
+        notifications['order_notification_pending'] = not (order_sent or order_ambiguous)
         notifications.setdefault('order_notification_pending_at', now.isoformat())
         notifications['delivery_attempt_count'] = int(
             notifications.get('delivery_attempt_count') or 0
@@ -891,6 +948,29 @@ def _claim_order_telegram_delivery(order_pk):
         order.payment_payload = payload
         order.save(update_fields=['payment_payload'])
     return order, 'claimed'
+
+
+def _mark_telegram_delivery_ambiguous(order_pk, phase):
+    from django.utils import timezone
+
+    now = timezone.now().isoformat()
+    if phase == 'payment_status_update':
+        changes = {
+            'payment_status_update_ambiguous': True,
+            'payment_status_update_ambiguous_at': now,
+            'delivery_last_failed_at': now,
+            'delivery_last_error': 'telegram_payment_status_update_ambiguous',
+        }
+    else:
+        changes = {
+            'order_notification_ambiguous': True,
+            'order_notification_ambiguous_at': now,
+            'order_notification_pending': False,
+            'delivery_retry_lease_until': None,
+            'delivery_last_failed_at': now,
+            'delivery_last_error': 'telegram_order_notification_ambiguous',
+        }
+    return _update_order_telegram_notification_state(order_pk, **changes)
 
 
 def deliver_pending_order_telegram_notifications(
@@ -910,38 +990,123 @@ def deliver_pending_order_telegram_notifications(
     if claim_status != 'claimed':
         return claim_status
 
+    active_phase = None
     try:
         from orders.telegram_notifications import TelegramNotifier
 
         notifier = TelegramNotifier()
         payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
         notifications = payload.get('telegram_notifications') or {}
+        if notifications.get('payment_status_update_sent'):
+            payment_outcome = 'sent'
+        elif notifications.get('payment_status_update_ambiguous'):
+            payment_outcome = 'ambiguous'
+        else:
+            payment_outcome = None
 
-        if not notifications.get('payment_status_update_sent'):
-            payment_update_sent = notifier.send_admin_payment_status_update(
-                order,
-                old_status=previous_status or 'unpaid',
-                new_status=order.payment_status,
-                pay_type=pay_type or order.pay_type,
+        if payment_outcome is None:
+            order = _update_order_telegram_notification_state(
+                order.pk,
+                payment_status_update_send_started_at=timezone.now().isoformat(),
             )
-            if payment_update_sent:
+            active_phase = 'payment_status_update'
+            try:
+                payment_result = notifier.send_admin_payment_status_update(
+                    order,
+                    old_status=previous_status or 'unpaid',
+                    new_status=order.payment_status,
+                    pay_type=pay_type or order.pay_type,
+                    return_outcome=True,
+                )
+            except Exception:
+                monobank_logger.exception(
+                    'Ambiguous Telegram payment alert for paid order %s',
+                    order.order_number,
+                )
+                order = _mark_telegram_delivery_ambiguous(order.pk, active_phase)
+                payment_outcome = 'ambiguous'
+                active_phase = None
+            else:
+                payment_outcome = _normalize_telegram_delivery_outcome(payment_result)
+
+            if payment_outcome == 'ambiguous' and active_phase:
+                order = _mark_telegram_delivery_ambiguous(order.pk, active_phase)
+                active_phase = None
+            elif payment_outcome == 'sent':
+                active_phase = None
                 order = _update_order_telegram_notification_state(
                     order.pk,
                     payment_status_update_sent=True,
                     payment_status_update_sent_at=timezone.now().isoformat(),
+                    payment_status_update_send_started_at=None,
+                )
+            elif payment_outcome == 'failed':
+                active_phase = None
+                order = _update_order_telegram_notification_state(
+                    order.pk,
+                    payment_status_update_send_started_at=None,
+                    payment_status_update_last_failed_at=timezone.now().isoformat(),
                 )
 
-        delivered = notifier.send_new_order_notification(order)
-        if delivered:
+        payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+        notifications = payload.get('telegram_notifications') or {}
+        if notifications.get('order_notification_sent'):
+            order_outcome = 'sent'
+        elif notifications.get('order_notification_ambiguous'):
+            order_outcome = 'ambiguous'
+        else:
+            order_outcome = None
+        if order_outcome is None:
+            order = _update_order_telegram_notification_state(
+                order.pk,
+                order_notification_send_started_at=timezone.now().isoformat(),
+            )
+            active_phase = 'order_notification'
+            try:
+                order_result = notifier.send_new_order_notification(
+                    order,
+                    return_outcome=True,
+                    delivery_claimed=True,
+                )
+            except Exception:
+                monobank_logger.exception(
+                    'Ambiguous Telegram order card for paid order %s',
+                    order.order_number,
+                )
+                _mark_telegram_delivery_ambiguous(order.pk, active_phase)
+                return 'ambiguous'
+            order_outcome = _normalize_telegram_delivery_outcome(order_result)
+            if order_outcome == 'ambiguous':
+                _mark_telegram_delivery_ambiguous(order.pk, active_phase)
+                return 'ambiguous'
+            active_phase = None
+            if order_outcome == 'sent':
+                order = _update_order_telegram_notification_state(
+                    order.pk,
+                    order_notification_sent=True,
+                    order_notification_sent_at=timezone.now().isoformat(),
+                    order_notification_status=order.payment_status,
+                    order_notification_send_started_at=None,
+                )
+            else:
+                order = _update_order_telegram_notification_state(
+                    order.pk,
+                    order_notification_send_started_at=None,
+                    order_notification_last_failed_at=timezone.now().isoformat(),
+                )
+
+        if order_outcome in {'sent', 'ambiguous'} and payment_outcome in {
+            'sent',
+            'ambiguous',
+        }:
             _update_order_telegram_notification_state(
                 order.pk,
-                order_notification_sent=True,
-                order_notification_sent_at=timezone.now().isoformat(),
-                order_notification_status=order.payment_status,
                 order_notification_pending=False,
                 delivery_retry_lease_until=None,
                 delivery_last_error=None,
             )
+            if 'ambiguous' in {order_outcome, payment_outcome}:
+                return 'ambiguous'
             return 'sent'
 
         _update_order_telegram_notification_state(
@@ -955,6 +1120,9 @@ def deliver_pending_order_telegram_notifications(
     except Exception:
         monobank_logger.exception('Failed Telegram delivery for paid order %s', order.order_number)
         try:
+            if active_phase:
+                _mark_telegram_delivery_ambiguous(order.pk, active_phase)
+                return 'ambiguous'
             _update_order_telegram_notification_state(
                 order.pk,
                 order_notification_pending=True,
@@ -1165,6 +1333,7 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
             "failed": "failed",
             "leased": "pending",
             "already_sent": "sent",
+            "ambiguous": "ambiguous",
         }.get(telegram_result, "unknown"),
         error="telegram_delivery_failed" if telegram_result == "failed" else "",
     )

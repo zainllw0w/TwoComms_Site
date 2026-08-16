@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import time
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -39,6 +40,91 @@ _SEND_DOCUMENT_RETRY_BASE_SECONDS = 0.2
 _SEND_DOCUMENT_RETRY_MAX_SECONDS = 0.6
 
 
+@dataclass(frozen=True)
+class TelegramDeliveryReport:
+    """Outcome of one logical Telegram delivery across configured targets."""
+
+    outcome: str
+    results: tuple = ()
+
+
+def _claim_direct_order_card_delivery(order):
+    """Persist a send boundary before direct callers reach Telegram."""
+    from orders.models import Order
+
+    now = timezone.now().isoformat()
+    with transaction.atomic():
+        current = Order.objects.select_for_update().get(pk=order.pk)
+        payload = dict(current.payment_payload) if isinstance(current.payment_payload, dict) else {}
+        notifications = dict(payload.get("telegram_notifications") or {})
+        if notifications.get("order_notification_sent"):
+            order.payment_payload = payload
+            return "sent"
+        if notifications.get("order_notification_ambiguous"):
+            order.payment_payload = payload
+            return "ambiguous"
+        if notifications.get("order_notification_send_started_at"):
+            notifications.update({
+                "order_notification_ambiguous": True,
+                "order_notification_ambiguous_at": now,
+                "order_notification_pending": False,
+                "delivery_last_failed_at": now,
+                "delivery_last_error": "telegram_order_notification_ambiguous",
+            })
+            payload["telegram_notifications"] = notifications
+            current.payment_payload = payload
+            current.save(update_fields=["payment_payload"])
+            order.payment_payload = payload
+            return "ambiguous"
+
+        notifications.setdefault("payment_status_update_sent", False)
+        notifications["order_notification_send_started_at"] = now
+        payload["telegram_notifications"] = notifications
+        current.payment_payload = payload
+        current.save(update_fields=["payment_payload"])
+        order.payment_payload = payload
+    return "claimed"
+
+
+def _finish_direct_order_card_delivery(order, outcome):
+    """Finalize a direct card claim without overwriting adjacent markers."""
+    from orders.models import Order
+
+    now = timezone.now().isoformat()
+    with transaction.atomic():
+        current = Order.objects.select_for_update().get(pk=order.pk)
+        payload = dict(current.payment_payload) if isinstance(current.payment_payload, dict) else {}
+        notifications = dict(payload.get("telegram_notifications") or {})
+        if outcome == "sent":
+            notifications.update({
+                "order_notification_sent": True,
+                "order_notification_sent_at": now,
+                "order_notification_status": current.payment_status,
+                "order_notification_send_started_at": None,
+                "order_notification_ambiguous": False,
+                "order_notification_ambiguous_at": None,
+                "order_notification_pending": False,
+            })
+        elif outcome == "ambiguous":
+            notifications.update({
+                "order_notification_send_started_at": None,
+                "order_notification_ambiguous": True,
+                "order_notification_ambiguous_at": now,
+                "order_notification_pending": False,
+                "delivery_last_failed_at": now,
+                "delivery_last_error": "telegram_order_notification_ambiguous",
+            })
+        else:
+            notifications.update({
+                "order_notification_send_started_at": None,
+                "order_notification_last_failed_at": now,
+            })
+        payload["telegram_notifications"] = notifications
+        current.payment_payload = payload
+        current.save(update_fields=["payment_payload"])
+        order.payment_payload = payload
+
+
 def _telegram_error_hint(payload):
     """Return a bounded, non-sensitive classification of a Bot API error."""
     if not isinstance(payload, dict):
@@ -69,7 +155,13 @@ def _parse_chat_ids(raw_value):
     if not raw_value:
         return []
     parts = re.split(r"[;,\s]+", str(raw_value))
-    return [part for part in (p.strip() for p in parts) if part]
+    parsed = []
+    seen = set()
+    for part in (p.strip() for p in parts):
+        if part and part not in seen:
+            parsed.append(part)
+            seen.add(part)
+    return parsed
 
 
 def _normalize_order_admin_message_ref(chat_id, message_id):
@@ -196,15 +288,33 @@ class TelegramNotifier:
         payload = self._post_json(method, data=data, files=files, timeout=timeout)
         return bool(payload and payload.get("ok"))
 
-    def _post_send_message_json(self, *, data, timeout, target_index, target_count):
-        """POST one text message with bounded retries for transient failures."""
+    def _post_send_message_json(
+        self,
+        *,
+        data,
+        timeout,
+        target_index,
+        target_count,
+        retry_ambiguous=True,
+    ):
+        """POST one text message and classify the delivery outcome."""
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         for attempt in range(1, _SEND_MESSAGE_MAX_ATTEMPTS + 1):
             status_code = None
             try:
                 response = requests.post(url, data=data, timeout=timeout)
                 status_code = response.status_code
-            except (requests.ConnectionError, requests.Timeout) as exc:
+            except requests.RequestException as exc:
+                if not retry_ambiguous:
+                    logger.warning(
+                        "telegram_send_message ambiguous_delivery attempt=%s target_index=%s "
+                        "target_count=%s reason=exception exception_class=%s",
+                        attempt,
+                        target_index,
+                        target_count,
+                        type(exc).__name__,
+                    )
+                    return "ambiguous", None
                 if attempt == _SEND_MESSAGE_MAX_ATTEMPTS:
                     logger.warning(
                         "telegram_send_message retry_exhausted attempt=%s target_index=%s "
@@ -214,7 +324,7 @@ class TelegramNotifier:
                         target_count,
                         type(exc).__name__,
                     )
-                    return None
+                    return "failed", None
                 logger.warning(
                     "telegram_send_message retry_scheduled attempt=%s target_index=%s "
                     "target_count=%s reason=exception exception_class=%s",
@@ -234,9 +344,9 @@ class TelegramNotifier:
                     target_count,
                     type(exc).__name__,
                 )
-                return None
+                return "failed", None
 
-            if status_code == 429 or status_code >= 500:
+            if status_code == 429:
                 if attempt == _SEND_MESSAGE_MAX_ATTEMPTS:
                     logger.warning(
                         "telegram_send_message retry_exhausted attempt=%s target_index=%s "
@@ -246,7 +356,39 @@ class TelegramNotifier:
                         target_count,
                         status_code,
                     )
-                    return None
+                    return "failed", None
+                logger.warning(
+                    "telegram_send_message retry_scheduled attempt=%s target_index=%s "
+                    "target_count=%s reason=http_status status=%s",
+                    attempt,
+                    target_index,
+                    target_count,
+                    status_code,
+                )
+                self._sleep_before_send_message_retry(attempt)
+                continue
+
+            if status_code is not None and status_code >= 500:
+                if not retry_ambiguous:
+                    logger.warning(
+                        "telegram_send_message ambiguous_delivery attempt=%s target_index=%s "
+                        "target_count=%s reason=http_status status=%s",
+                        attempt,
+                        target_index,
+                        target_count,
+                        status_code,
+                    )
+                    return "ambiguous", None
+                if attempt == _SEND_MESSAGE_MAX_ATTEMPTS:
+                    logger.warning(
+                        "telegram_send_message retry_exhausted attempt=%s target_index=%s "
+                        "target_count=%s reason=http_status status=%s",
+                        attempt,
+                        target_index,
+                        target_count,
+                        status_code,
+                    )
+                    return "failed", None
                 logger.warning(
                     "telegram_send_message retry_scheduled attempt=%s target_index=%s "
                     "target_count=%s reason=http_status status=%s",
@@ -269,7 +411,16 @@ class TelegramNotifier:
                     target_count,
                     status_code,
                 )
-                return None
+                if not retry_ambiguous and 200 <= (status_code or 0) < 300:
+                    logger.warning(
+                        "telegram_send_message ambiguous_delivery attempt=%s target_index=%s "
+                        "target_count=%s reason=invalid_json",
+                        attempt,
+                        target_index,
+                        target_count,
+                    )
+                    return "ambiguous", None
+                return "failed", None
 
             if payload and payload.get("ok"):
                 if attempt > 1:
@@ -280,7 +431,27 @@ class TelegramNotifier:
                         target_index,
                         target_count,
                     )
-                return payload
+                return "sent", payload
+
+            if isinstance(payload, dict) and payload.get("error_code") == 429:
+                if attempt == _SEND_MESSAGE_MAX_ATTEMPTS:
+                    logger.warning(
+                        "telegram_send_message retry_exhausted attempt=%s target_index=%s "
+                        "target_count=%s reason=api_rate_limit",
+                        attempt,
+                        target_index,
+                        target_count,
+                    )
+                    return "failed", None
+                logger.warning(
+                    "telegram_send_message retry_scheduled attempt=%s target_index=%s "
+                    "target_count=%s reason=api_rate_limit",
+                    attempt,
+                    target_index,
+                    target_count,
+                )
+                self._sleep_before_send_message_retry(attempt)
+                continue
 
             logger.warning(
                 "telegram_send_message api_rejected attempt=%s target_index=%s "
@@ -292,8 +463,8 @@ class TelegramNotifier:
                 payload.get("error_code") if isinstance(payload, dict) else None,
                 _telegram_error_hint(payload),
             )
-            return None
-        return None
+            return "failed", None
+        return "failed", None
 
     @staticmethod
     def _sleep_before_send_message_retry(attempt):
@@ -406,21 +577,31 @@ class TelegramNotifier:
             return None
         return None
 
-    def send_message(self, message, parse_mode='HTML', reply_markup=None, return_results=False):
-        """Отправляет сообщение в Telegram админу"""
+    def send_message(
+        self,
+        message,
+        parse_mode='HTML',
+        reply_markup=None,
+        return_results=False,
+        *,
+        retry_ambiguous=True,
+        return_report=False,
+    ):
+        """Отправляет сообщение в Telegram админу."""
         if not self.is_configured():
             logger.warning("telegram_send_message not_configured")
+            if return_report:
+                return TelegramDeliveryReport("failed")
             return False
 
-        # Используем админ ID, если он доступен, иначе chat_id
         target_ids = self._resolve_targets(admin=True)
         if not target_ids:
+            if return_report:
+                return TelegramDeliveryReport("failed")
             return [] if return_results else False
 
-        # W3-1: async-ветка удалена — она зависела от битого импорта и
-        # никогда не выполнялась. Отправка синхронная; фоновость
-        # обеспечивает вызывающий код (orders/tasks.py, daemon-thread).
         sent_results = []
+        outcomes = []
         delivered_count = 0
         target_count = len(target_ids)
         for target_index, target_id in enumerate(target_ids, start=1):
@@ -428,22 +609,25 @@ class TelegramNotifier:
                 data = {
                     'chat_id': target_id,
                     'text': message,
-                    'parse_mode': parse_mode
+                    'parse_mode': parse_mode,
                 }
                 if reply_markup is not None:
                     data['reply_markup'] = json.dumps(reply_markup, ensure_ascii=False)
-                payload = self._post_send_message_json(
+                outcome, payload = self._post_send_message_json(
                     data=data,
                     timeout=10,
                     target_index=target_index,
                     target_count=target_count,
+                    retry_ambiguous=retry_ambiguous,
                 )
-                if payload and payload.get("ok"):
+                outcomes.append(outcome)
+                if outcome == "sent" and payload and payload.get("ok"):
                     delivered_count += 1
                     result = payload.get("result") or {}
-                    if return_results:
+                    if return_results or return_report:
                         sent_results.append(result)
             except Exception as exc:
+                outcomes.append("failed")
                 logger.warning(
                     "telegram_send_message delivery_failed target_index=%s target_count=%s "
                     "exception_class=%s",
@@ -452,12 +636,23 @@ class TelegramNotifier:
                     type(exc).__name__,
                 )
 
+        if any(outcome == "ambiguous" for outcome in outcomes) or (
+            delivered_count and delivered_count < target_count
+        ):
+            overall_outcome = "ambiguous"
+        elif delivered_count == target_count:
+            overall_outcome = "sent"
+        else:
+            overall_outcome = "failed"
+
         if 0 < delivered_count < target_count:
             logger.warning(
                 "telegram_send_message partial_delivery delivered_count=%s target_count=%s",
                 delivered_count,
                 target_count,
             )
+        if return_report:
+            return TelegramDeliveryReport(overall_outcome, tuple(sent_results))
         return sent_results if return_results else delivered_count > 0
 
     def send_admin_message(self, message, parse_mode='HTML', reply_markup=None):
@@ -640,13 +835,13 @@ class TelegramNotifier:
             'text': message,
             'parse_mode': parse_mode,
         }
-        payload = self._post_send_message_json(
+        outcome, payload = self._post_send_message_json(
             data=data,
             timeout=10,
             target_index=1,
             target_count=1,
         )
-        return bool(payload and payload.get("ok"))
+        return bool(outcome == "sent" and payload and payload.get("ok"))
 
     def _format_payment_info(self, order):
         """
@@ -1002,40 +1197,87 @@ class TelegramNotifier:
             keyboard_rows.append([storage_button])
         return {"inline_keyboard": keyboard_rows}
 
-    def send_new_order_notification(self, order):
+    def send_new_order_notification(
+        self,
+        order,
+        *,
+        return_outcome=False,
+        delivery_claimed=False,
+    ):
         """Отправляет уведомление о новом заказе"""
         if not self.is_configured():
-            return False
+            return "failed" if return_outcome else False
 
         message = self.format_order_message(order)
         reply_markup = self._build_order_management_reply_markup(order)
-        sent_results = self.send_message(
-            message,
-            reply_markup=reply_markup,
-            return_results=True,
-        )
+        if not delivery_claimed and getattr(order, "pk", None):
+            try:
+                claim_outcome = _claim_direct_order_card_delivery(order)
+            except Exception:
+                logger.exception("Failed to claim Telegram delivery for order %s", order.pk)
+                return "failed" if return_outcome else False
+            if claim_outcome != "claimed":
+                return claim_outcome if return_outcome else claim_outcome == "sent"
+
+        try:
+            report = self.send_message(
+                message,
+                reply_markup=reply_markup,
+                retry_ambiguous=False,
+                return_report=True,
+            )
+        except Exception:
+            if not delivery_claimed and getattr(order, "pk", None):
+                try:
+                    _finish_direct_order_card_delivery(order, "ambiguous")
+                except Exception:
+                    logger.exception(
+                        "Failed to persist ambiguous Telegram delivery for order %s",
+                        order.pk,
+                    )
+            raise
+        if isinstance(report, (list, tuple)):
+            sent_results = list(report)
+            outcome = "sent" if sent_results else "failed"
+        else:
+            outcome = getattr(report, "outcome", "sent" if report else "failed")
+            sent_results = list(getattr(report, "results", ()) or ())
+
         if sent_results and getattr(order, "pk", None):
             refs = []
             for result in sent_results:
                 chat = result.get("chat") or {}
                 refs.append((chat.get("id"), result.get("message_id")))
             _save_order_admin_message_refs(order, refs)
+        if getattr(order, "pk", None):
             try:
-                from orders.models import Order
+                if delivery_claimed and outcome == "sent":
+                    from orders.models import Order
 
-                with transaction.atomic():
-                    current = Order.objects.select_for_update().get(pk=order.pk)
-                    payload = current.payment_payload if isinstance(current.payment_payload, dict) else {}
-                    notifications = payload.setdefault('telegram_notifications', {})
-                    notifications['order_notification_sent'] = True
-                    notifications['order_notification_sent_at'] = timezone.now().isoformat()
-                    notifications['order_notification_status'] = current.payment_status
-                    current.payment_payload = payload
-                    current.save(update_fields=['payment_payload'])
-                    order.payment_payload = payload
+                    with transaction.atomic():
+                        current = Order.objects.select_for_update().get(pk=order.pk)
+                        payload = (
+                            dict(current.payment_payload)
+                            if isinstance(current.payment_payload, dict)
+                            else {}
+                        )
+                        notifications = dict(payload.get('telegram_notifications') or {})
+                        notifications.update({
+                            'order_notification_sent': True,
+                            'order_notification_sent_at': timezone.now().isoformat(),
+                            'order_notification_status': current.payment_status,
+                            'order_notification_ambiguous': False,
+                            'order_notification_ambiguous_at': None,
+                        })
+                        payload['telegram_notifications'] = notifications
+                        current.payment_payload = payload
+                        current.save(update_fields=['payment_payload'])
+                        order.payment_payload = payload
+                elif not delivery_claimed:
+                    _finish_direct_order_card_delivery(order, outcome)
             except Exception:
                 logger.exception('Failed to persist Telegram delivery marker for order %s', order.pk)
-        return bool(sent_results)
+        return outcome if return_outcome else outcome == "sent"
 
     def send_payment_attempt_notification(self, attempt):
         """Notify staff that a checkout invoice was opened, before an order exists."""
@@ -1178,17 +1420,33 @@ class TelegramNotifier:
 
         return self.send_message(message)
 
-    def send_admin_payment_status_update(self, order, old_status, new_status, pay_type=None):
+    def send_admin_payment_status_update(
+        self,
+        order,
+        old_status,
+        new_status,
+        pay_type=None,
+        *,
+        return_outcome=False,
+    ):
         """Отправляет админу уведомление об изменении статусу оплати"""
         if not self.is_configured():
-            return False
+            return "failed" if return_outcome else False
 
-        return self.send_message(self.format_admin_payment_status_update(
+        message = self.format_admin_payment_status_update(
             order,
             old_status=old_status,
             new_status=new_status,
             pay_type=pay_type,
-        ))
+        )
+        if return_outcome:
+            report = self.send_message(
+                message,
+                retry_ambiguous=False,
+                return_report=True,
+            )
+            return getattr(report, "outcome", "sent" if report else "failed")
+        return self.send_message(message)
 
     def format_admin_payment_status_update(self, order, old_status, new_status, pay_type=None):
         """Build a clear payment event message with gross, discount and paid values."""
