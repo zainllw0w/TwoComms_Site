@@ -167,7 +167,7 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 | 6.0 | Keyword-only mail API и новые email deprecations | Deprecated kwargs удалены из полного non-DTF call graph; raise/retry policy закреплена HTTP/cron/recovery tests. | `DJ6-EMAIL-002` - реализовано. |
 | 6.0 | PBKDF2 iteration increase до 1,200,000 | Пароли используют стандартный hasher; CPU/rehash behavior требует измерения. | `DJ6-AUTH-001` - подтверждено. |
 | 6.0 | Встроенная CSP middleware/policy base | Проект формирует CSP вручную; inline/eval policy не переведена. | `DJ6-CSP-001` - подтверждено. |
-| 6.1 | Model field fetch modes (`FETCH_PEERS`, `FETCH_RAISE`) | 126 `only()`/`defer()` вызовов; локальный динамический smoke подтвердил оба режима. | `DJ6-BASE-001`, `DJ6-ORM-001..012` - подтверждено, внедрение отложено до query parity. |
+| 6.1 | Model field fetch modes (`FETCH_PEERS`, `FETCH_RAISE`) | 126 `only()`/`defer()` вызовов; первые три deferred N+1 устранены точной projection без global fetch mode. | `DJ6-ORM-001..003` - реализовано; `DJ6-BASE-001`, `DJ6-ORM-004..012` - в работе/подтверждено. |
 | 6.1 | Named `MAILERS` и `using=` | Настроены `default`, `transactional`, `reports`; восемь non-DTF call sites используют явный alias и проходят `mail.E001`. | `DJ6-EMAIL-001`, `DJ6-BASE-003` - реализовано. |
 | 6.1 | CSP nonce attribute и `security.W027` | Базовая CSP есть вручную, nonce/report-only contract отсутствует. | `DJ6-CSP-001` - подтверждено. |
 | 6.1 | Signed-cookie salt derivation | Project override отсутствует; runtime использует Django default `False`, custom salts инвентаризированы. | `DJ6-COOKIE-001` - реализовано. |
@@ -309,30 +309,42 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-ORM-001 - Устранить deferred N+1 в снимках оплаты заказов
 
-- Статус: `подтверждено`; предварительный приоритет: `P1`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1`.
 - Область: `twocomms/storefront/views/admin.py:795-804`, `twocomms/orders/nova_poshta_documents.py:244-247`.
-- Доказательство: endpoint загружает заказы через `.only("id", "payment_status", "pay_type", "total_sum", "payment_payload")`, а `build_order_payment_snapshot()` затем читает невыбранный `discount_amount`. Для каждого заказа Django делает отдельную ленивую догрузку. Django 6.1 позволяет управлять этим через `FETCH_PEERS`, но здесь дешевле сначала расширить явную projection. Источник: <https://docs.djangoproject.com/en/6.1/topics/db/fetch-modes/>.
+- Доказательство: regression batch из 10 заказов воспроизводит RED `11 != 1`
+  с десятью отдельными SELECT `discount_amount`; explicit projection даёт GREEN
+  `1` запрос и сохраняет 10 snapshot rows, discount/payable totals. Production
+  MariaDB old/new `EXPLAIN` идентичен на 10 последних заказах. Карта:
+  `docs/qa/django61-stage2-orm-001-003.md`.
 - Что даст: устранит до одного дополнительного SQL-запроса на каждый заказ в пакетном admin endpoint и снизит задержку обновления платежных карточек.
-- Риск и ограничения: глобально включать `FETCH_PEERS` нельзя; это может увеличить размер batch-запроса и память. Добавление одного денежного поля в `.only()` является более узким первым вариантом.
-- Следующая проверка: query-count test на 3-10 заказах со скидкой и без нее, затем сравнение явного поля с локальным `FETCH_PEERS`.
+- Риск и ограничения: глобальный `FETCH_PEERS` не включён; точная projection
+  доказана дешевле локального peer fetch (`1` против `2` запросов).
+- Следующая проверка: сохранять query-count test при изменении payment snapshot.
 
 ### DJ6-ORM-002 - Устранить deferred N+1 в расчете замороженной суммы одного реселлера
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/finance/services/consignment.py:389-396`, `twocomms/finance/models_consignment.py:214-223`.
-- Доказательство: queryset выбирает только `qty`, `sold_qty`, `unit_cost`, но property `frozen_value` дополнительно читает `is_consignment`. Несмотря на фильтр `is_consignment=True`, поле модели остается deferred и догружается на каждом объекте.
+- Доказательство: batch из 10 consignment items воспроизводит RED `11 != 1`;
+  включение `is_consignment` в `.only()` даёт GREEN `1` и точный
+  `Decimal('246.80')`. Production таблица сейчас пуста, поэтому data-bearing
+  MariaDB plan не заявляется; old/new empty-table `EXPLAIN` идентичен.
 - Что даст: один SQL вместо схемы `1 + N` при расчете замороженных средств магазина; уменьшит задержку finance dashboard.
-- Риск и ограничения: `FETCH_PEERS` можно рассматривать только локально. Самый дешевый фикс - добавить boolean в `.only()` или заменить Python-цикл DB aggregate после проверки Decimal-семантики.
-- Следующая проверка: query-count и точная сумма для набора с проданными, частично проданными и неконсигнационными позициями.
+- Риск и ограничения: production data отсутствуют, поэтому representative
+  MariaDB copy evidence остаётся частью общего Stage 2 exit gate.
+- Следующая проверка: повторить `EXPLAIN` на локальном production mirror после появления/восстановления consignment fixtures.
 
 ### DJ6-ORM-003 - Устранить тот же deferred N+1 в общей замороженной сумме компании
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/finance/services/consignment.py:417-431`, `twocomms/finance/models_consignment.py:214-223`.
-- Доказательство: company-wide расчет повторяет projection без `is_consignment`, после чего property читает это поле для каждой строки. Широкий `except Exception` дополнительно способен скрыть ошибку или timeout и вернуть ложный ноль.
+- Доказательство: тот же controlled batch фиксирует `11 -> 1` и точный
+  `Decimal('246.80')`; broad `except Exception` не изменён. Spec и quality review
+  commit `c8e6b13bd` прошли без замечаний.
 - Что даст: особенно заметное снижение числа запросов на общем dashboard и более предсказуемая диагностика ошибочного расчета.
 - Риск и ограничения: изменение exception policy является отдельным поведением; в первом проходе достаточно устранить deferred access и измерить запросы.
-- Следующая проверка: query-count на реальном объеме копии MariaDB, regression test точной суммы и отдельный аудит причины широкого exception.
+- Следующая проверка: отдельно аудировать broad exception policy и повторить
+  data-bearing `EXPLAIN` на локальном MariaDB mirror.
 
 ### DJ6-ORM-004 - Убрать до двух N+1-запросов на строку в Django admin пользователей
 

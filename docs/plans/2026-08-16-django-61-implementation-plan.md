@@ -332,16 +332,28 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-BASE-001 - Внедрить fetch modes только как локальную стратегию.**
   - Запрещено глобально включать \`FETCH_PEERS\`.
   - Default: сначала исправить projection/prefetch; \`FETCH_PEERS\` применять только при доказанном выигрыше.
+  - Прогресс: в \`DJ6-ORM-001..003\` точная projection дала \`1\` запрос,
+    тогда как локальный \`FETCH_PEERS\` smoke давал \`2\`; production fetch mode
+    не добавлен. Пункт остаётся открытым до \`DJ6-ORM-012\` и полного Stage 2 audit.
 
-- [ ] **DJ6-ORM-001 - Устранить deferred N+1 в payment snapshots.**
+- [x] **DJ6-ORM-001 - Устранить deferred N+1 в payment snapshots.**
   - Files: \`storefront/views/admin.py\`, \`orders/nova_poshta_documents.py\`.
   - Acceptance: batch из 10 заказов не создает по запросу на \`discount_amount\`.
+  - Выполнено: explicit \`discount_amount\` projection сократила endpoint
+    с \`11\` до \`1\` business query; 10 payload rows и точные discount/payable
+    значения закреплены regression test.
 
-- [ ] **DJ6-ORM-002 - Устранить deferred N+1 в frozen value одного reseller.**
+- [x] **DJ6-ORM-002 - Устранить deferred N+1 в frozen value одного reseller.**
   - Acceptance: точная Decimal-сумма и bounded query count.
+  - Выполнено: \`is_consignment\` включён в projection; batch из 10 строк
+    сократился с \`11\` до \`1\` запроса при точном \`Decimal('246.80')\`.
 
-- [ ] **DJ6-ORM-003 - Устранить deferred N+1 в company frozen total.**
+- [x] **DJ6-ORM-003 - Устранить deferred N+1 в company frozen total.**
   - Не менять broad exception policy в том же change без отдельного теста.
+  - Выполнено: company projection также загружает \`is_consignment\` и даёт
+    \`11 -> 1\` при точном \`Decimal('246.80')\`; broad exception policy не менялась.
+
+Evidence блока: \`docs/qa/django61-stage2-orm-001-003.md\`.
 
 - [ ] **DJ6-ORM-004 - Добавить \`select_related\` для reverse OneToOne в UserAdmin.**
   - Acceptance: пользователи без profile/points корректны; changelist query count стабилен.
