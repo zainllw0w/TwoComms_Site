@@ -253,7 +253,7 @@ class PostPaymentRecoveryTests(TestCase):
         )
         output = StringIO()
         with patch(
-            "orders.management.commands.reconcile_order_telegram_notifications._send_post_payment_events"
+            "storefront.views.utils._send_post_payment_events"
         ) as dispatch:
             call_command(
                 "reconcile_order_telegram_notifications",
@@ -311,7 +311,7 @@ class PostPaymentRecoveryTests(TestCase):
         Order.objects.filter(pk=newer.pk).update(created=now - timedelta(minutes=5))
 
         with patch(
-            "orders.management.commands.reconcile_order_telegram_notifications._send_post_payment_events"
+            "storefront.views.utils._send_post_payment_events"
         ) as dispatch:
             call_command(
                 "reconcile_order_telegram_notifications",
@@ -336,7 +336,7 @@ class PostPaymentRecoveryTests(TestCase):
         )
 
         with patch(
-            "orders.management.commands.reconcile_order_telegram_notifications._send_post_payment_events"
+            "storefront.views.utils._send_post_payment_events"
         ) as dispatch:
             call_command(
                 "reconcile_order_telegram_notifications",

@@ -21,7 +21,7 @@ from management.models import (
     InstagramBotSettings,
 )
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
-from orders.models import Order, PaymentAttempt
+from orders.models import Order, PaymentAttempt, PaymentSideEffectJob
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
 from storefront.models import (
     Category,
@@ -1343,7 +1343,7 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(attempt.tracking_payload["client_user_agent"], "First Payer Browser")
         self.assertEqual(attempt.tracking_payload["client_ip_address"], "198.51.100.10")
 
-    def test_reused_invoice_retries_missing_add_payment_info_marker(self):
+    def test_reused_invoice_keeps_one_durable_add_payment_info_job(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
         entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
         self.client.get(entry["Location"])
@@ -1369,7 +1369,15 @@ class InstagramCheckoutViewTests(TestCase):
 
         self.assertEqual(first["Location"], second["Location"])
         provider.assert_called_once()
-        self.assertEqual(fb.return_value.send_add_payment_info_event.call_count, 2)
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(
+            PaymentSideEffectJob.objects.filter(
+                kind=PaymentSideEffectJob.Kind.ATTEMPT_ADD_PAYMENT_INFO,
+                payment_attempt=attempt,
+            ).count(),
+            1,
+        )
+        fb.return_value.send_add_payment_info_event.assert_not_called()
 
     def test_pending_status_endpoint_requires_grant_and_exposes_no_pii(self):
         denied = self.client.get(

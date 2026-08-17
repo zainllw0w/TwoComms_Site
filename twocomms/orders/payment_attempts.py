@@ -214,4 +214,12 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
             'last_status_at', 'updated'
         ])
 
+        from orders.payment_side_effects import enqueue_order_post_payment_side_effect
+
+        enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status='unpaid',
+            pay_type=attempt.pay_type,
+        )
+
         return order, True

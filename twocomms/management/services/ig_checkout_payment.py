@@ -398,22 +398,17 @@ def _capture_attempt_tracking(request, attempt):
 
 
 def _send_add_payment_info_if_missing(attempt, request):
-    """Retry the stable AddPaymentInfo event until its durable marker exists."""
+    """Persist the stable AddPaymentInfo intent without provider I/O in request."""
     attempt.refresh_from_db(fields=["event_state", "tracking_payload", "updated"])
     if (attempt.event_state or {}).get("fb_capi_add_payment_info"):
         return True
-    try:
-        from orders.facebook_conversions_service import get_facebook_conversions_service
+    from orders.payment_side_effects import enqueue_attempt_add_payment_info_side_effect
 
-        return bool(get_facebook_conversions_service().send_add_payment_info_event(
-            order=attempt,
-            payment_amount=float(attempt.payment_amount),
-            event_id=attempt.add_payment_event_id,
-            source_url=request.build_absolute_uri(),
-        ))
-    except Exception:
-        logger.warning("Failed to send IG AddPaymentInfo for attempt %s", attempt.pk, exc_info=True)
-        return False
+    enqueue_attempt_add_payment_info_side_effect(
+        attempt.pk,
+        source_url=request.build_absolute_uri(),
+    )
+    return True
 
 
 def _lock_attempt_proposal_graph(attempt_id, *, proposal_related=()):

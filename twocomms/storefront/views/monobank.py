@@ -17,7 +17,6 @@ import logging
 import json
 import hashlib
 import secrets
-import threading
 from urllib.parse import urlparse
 from decimal import Decimal
 from datetime import timedelta
@@ -59,7 +58,6 @@ from ..utm_tracking import (
     record_lead,
 )
 from .utils import (
-    _dispatch_post_payment_events,
     _reset_monobank_session,
     get_validated_cart_from_session,
     _get_color_variant_safe,
@@ -110,48 +108,13 @@ def _capi_checkout_source_url(request):
 
 
 def _schedule_missing_add_payment_info(order, request=None):
-    """Retry AddPaymentInfo after an invoice is reused if the first send failed."""
-    payload = getattr(order, 'payment_payload', None)
-    if payload is None:
-        payload = getattr(order, 'event_state', None)
-    if not isinstance(payload, dict) or payload.get('fb_capi_add_payment_info'):
+    """Ensure reused PaymentAttempt invoices retain their durable side effects."""
+    if not isinstance(order, PaymentAttempt):
         return
-
-    event_id = getattr(order, 'get_add_payment_event_id', lambda: None)()
-    payment_amount = getattr(order, 'payment_amount', None)
-    if not payment_amount:
-        if getattr(order, 'payment_status', None) == 'prepaid':
-            payment_amount = getattr(order, 'get_prepayment_amount', lambda: 0)()
-        else:
-            payment_amount = getattr(order, 'final_total', None) or getattr(order, 'total_sum', 0)
     source_url = _capi_checkout_source_url(request) if request is not None else None
+    from orders.payment_side_effects import enqueue_attempt_invoice_side_effects
 
-    def runner():
-        from django.db import close_old_connections
-        try:
-            close_old_connections()
-            get_facebook_conversions_service().send_add_payment_info_event(
-                order=order,
-                payment_amount=float(payment_amount or 0),
-                event_id=event_id,
-                source_url=source_url,
-            )
-        except Exception:
-            monobank_logger.warning(
-                'Failed retrying AddPaymentInfo for %s',
-                getattr(order, 'order_number', getattr(order, 'reference', getattr(order, 'pk', '?'))),
-                exc_info=True,
-            )
-        finally:
-            close_old_connections()
-
-    transaction.on_commit(
-        lambda: threading.Thread(
-            target=runner,
-            daemon=True,
-            name=f'add-payment-info-retry-{getattr(order, "pk", "unknown")}',
-        ).start()
-    )
+    enqueue_attempt_invoice_side_effects(order.pk, source_url=source_url)
 
 # Константы статусов Monobank
 MONOBANK_SUCCESS_STATUSES = {'success'}
@@ -925,16 +888,24 @@ def _create_payment_attempt_invoice(request):
     event_state.pop('invoice_creation_lease', None)
     event_state.pop('invoice_creation_lease_expires_at', None)
     event_state.pop('invoice_creation_ambiguous', None)
-    PaymentAttempt.objects.filter(pk=attempt.pk).update(
-        monobank_invoice_id=invoice_id,
-        invoice_url=invoice_url,
-        invoice_payload={'request': payload, 'create': creation},
-        tracking_payload=tracking,
-        invoice_expires_at=timezone.now() + timedelta(hours=24),
-        event_state=event_state,
-        status=PaymentAttempt.Status.PROCESSING,
-        last_status_at=timezone.now(),
-    )
+    from orders.payment_side_effects import enqueue_attempt_invoice_side_effects
+
+    source_url = _capi_checkout_source_url(request)
+    with transaction.atomic():
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            monobank_invoice_id=invoice_id,
+            invoice_url=invoice_url,
+            invoice_payload={'request': payload, 'create': creation},
+            tracking_payload=tracking,
+            invoice_expires_at=timezone.now() + timedelta(hours=24),
+            event_state=event_state,
+            status=PaymentAttempt.Status.PROCESSING,
+            last_status_at=timezone.now(),
+        )
+        enqueue_attempt_invoice_side_effects(
+            attempt.pk,
+            source_url=source_url,
+        )
     attempt.refresh_from_db()
     request.session['monobank_invoice_id'] = invoice_id
     request.session['monobank_pending_attempt_id'] = attempt.pk
@@ -943,25 +914,6 @@ def _create_payment_attempt_invoice(request):
     request.session['monobank_pending_custom_keys'] = pending_keys
     request.session.modified = True
 
-    try:
-        get_facebook_conversions_service().send_add_payment_info_event(
-            order=attempt, payment_amount=float(payment_amount), event_id=attempt.add_payment_event_id,
-            source_url=_capi_checkout_source_url(request),
-        )
-    except Exception:
-        monobank_logger.warning('Failed to send AddPaymentInfo for attempt %s', attempt.pk, exc_info=True)
-    try:
-        from orders.telegram_notifications import TelegramNotifier
-        notifier = TelegramNotifier()
-        if not (attempt.notification_state or {}).get('started_sent'):
-            delivered = notifier.send_payment_attempt_notification(attempt)
-            if delivered:
-                state = dict(attempt.notification_state or {})
-                state['started_sent'] = True
-                state['started_sent_at'] = timezone.now().isoformat()
-                PaymentAttempt.objects.filter(pk=attempt.pk).update(notification_state=state)
-    except Exception:
-        monobank_logger.warning('Failed to send Telegram attempt notification %s', attempt.pk, exc_info=True)
     return JsonResponse({
         'success': True, 'reused': False, 'payment_complete': False,
         'invoice_url': invoice_url, 'invoice_id': invoice_id,
@@ -2068,16 +2020,14 @@ def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
 
         if order.payment_status in ('paid', 'prepaid') and order.payment_status != old_payment_status:
             # Transactional, idempotent DB side-effects remain under the same
-            # order lock. Network calls are delegated after commit below.
+            # order lock. Provider I/O is owned by the durable cron consumer.
             _record_promo_usage_for_order(order)
-            transaction.on_commit(
-                lambda order_pk=order.pk,
-                previous=old_payment_status or 'unpaid',
-                pay_type=canonical_pay_type: _dispatch_post_payment_events(
-                    order_pk,
-                    previous,
-                    pay_type,
-                )
+            from orders.payment_side_effects import enqueue_order_post_payment_side_effect
+
+            enqueue_order_post_payment_side_effect(
+                order.pk,
+                previous_status=old_payment_status or 'unpaid',
+                pay_type=canonical_pay_type,
             )
 
     return status_lower
@@ -2263,11 +2213,6 @@ def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook
                 mark_checkout_capture_converted(order.session_key)
             except Exception:
                 monobank_logger.debug('Failed to mark checkout capture converted for attempt %s', attempt.pk, exc_info=True)
-            transaction.on_commit(
-                lambda order_pk=order.pk, pay_type=order.pay_type: _dispatch_post_payment_events(
-                    order_pk, 'unpaid', _normalize_order_pay_type(pay_type)
-                )
-            )
         return order, created
 
     terminal_status = {

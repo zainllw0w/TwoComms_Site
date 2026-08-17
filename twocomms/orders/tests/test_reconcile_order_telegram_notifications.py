@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from orders.models import Order
+from orders.models import Order, PaymentSideEffectJob
 
 
 class ReconcileOrderTelegramNotificationsTests(TestCase):
@@ -30,6 +30,42 @@ class ReconcileOrderTelegramNotificationsTests(TestCase):
                 },
             },
         )
+
+    def _make_failed_job_due(self, order):
+        PaymentSideEffectJob.objects.filter(
+            order=order,
+            state=PaymentSideEffectJob.State.FAILED,
+        ).update(due_at=timezone.now() - timedelta(seconds=1))
+
+    def test_order_number_scope_never_drains_another_orders_job(self):
+        selected = self._paid_attempt_order(number='TWC30072026N11')
+        selected.payment_payload = {}
+        selected.save(update_fields=['payment_payload'])
+        other = self._paid_attempt_order(number='TWC30072026N12')
+        other_job = PaymentSideEffectJob.objects.create(
+            event_key='order:other:post-payment',
+            kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+            order=other,
+            payload={'previous_status': 'unpaid', 'pay_type': other.pay_type},
+            due_at=timezone.now() - timedelta(seconds=1),
+        )
+
+        with patch(
+            'orders.management.commands.reconcile_order_telegram_notifications.'
+            'process_payment_side_effect_job',
+            return_value='done',
+        ) as process:
+            call_command(
+                'reconcile_order_telegram_notifications',
+                max_age_hours=168,
+                min_age_seconds=0,
+                limit=10,
+                order_number=selected.order_number,
+            )
+
+        process.assert_not_called()
+        other_job.refresh_from_db()
+        self.assertEqual(other_job.state, PaymentSideEffectJob.State.PENDING)
 
     def test_retries_missing_paid_order_card_once_and_persists_delivery(self):
         order = self._paid_attempt_order()
@@ -78,6 +114,7 @@ class ReconcileOrderTelegramNotificationsTests(TestCase):
                 min_age_seconds=0,
                 limit=10,
             )
+            self._make_failed_job_due(order)
             call_command(
                 'reconcile_order_telegram_notifications',
                 max_age_hours=168,
@@ -108,6 +145,7 @@ class ReconcileOrderTelegramNotificationsTests(TestCase):
                 min_age_seconds=0,
                 limit=10,
             )
+            self._make_failed_job_due(order)
             call_command(
                 'reconcile_order_telegram_notifications',
                 max_age_hours=168,
@@ -324,6 +362,7 @@ class ReconcileOrderTelegramNotificationsTests(TestCase):
                 min_age_seconds=0,
                 limit=10,
             )
+            self._make_failed_job_due(order)
             call_command(
                 'reconcile_order_telegram_notifications',
                 max_age_hours=168,

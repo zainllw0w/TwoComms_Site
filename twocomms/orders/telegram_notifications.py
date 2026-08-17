@@ -1279,10 +1279,10 @@ class TelegramNotifier:
                 logger.exception('Failed to persist Telegram delivery marker for order %s', order.pk)
         return outcome if return_outcome else outcome == "sent"
 
-    def send_payment_attempt_notification(self, attempt):
+    def send_payment_attempt_notification(self, attempt, *, return_outcome=False):
         """Notify staff that a checkout invoice was opened, before an order exists."""
         if not self.is_configured():
-            return False
+            return "failed" if return_outcome else False
         gross = self._fmt_amount(getattr(attempt, 'gross_amount', 0))
         discount = self._fmt_amount(getattr(attempt, 'discount_amount', 0))
         amount = self._fmt_amount(getattr(attempt, 'payable_amount', 0))
@@ -1311,7 +1311,11 @@ class TelegramNotifier:
             f"⏳ Статус: очікуємо підтвердження Monobank\n"
             f"🧾 Invoice: <code>{attempt.monobank_invoice_id or 'створюється'}</code>"
         )
-        return bool(self.send_message(message, return_results=True))
+        report = self.send_message(message, return_report=True)
+        outcome = getattr(report, "outcome", "sent" if report else "failed")
+        if return_outcome:
+            return outcome
+        return outcome == "sent"
 
     def update_order_notification_message(self, order, *, clear_actions=False):
         refs = _get_order_admin_message_refs(order)

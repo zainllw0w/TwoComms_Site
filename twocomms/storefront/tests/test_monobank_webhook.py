@@ -18,7 +18,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
-from orders.models import Order, PaymentAttempt
+from orders.models import Order, PaymentAttempt, PaymentSideEffectJob
 
 
 def _make_ec_keypair():
@@ -141,20 +141,27 @@ class MonobankWebhookSecurityTests(TestCase):
         ), patch(
             'storefront.views.monobank._monobank_api_request',
             return_value={'status': 'success', 'amount': 26000, 'paidAmount': 26000},
-        ), patch(
-            'storefront.views.monobank._dispatch_post_payment_events'
-        ) as mock_dispatch:
-            with self.captureOnCommitCallbacks(execute=True):
-                first = self.post_webhook(x_sign=_sign(private_key, self.payload))
+        ):
+            first = self.post_webhook(x_sign=_sign(private_key, self.payload))
             self.assertEqual(first.status_code, 200)
-            self.assertEqual(mock_dispatch.call_count, 1)
+            self.assertEqual(
+                PaymentSideEffectJob.objects.filter(
+                    kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+                    order=self.order,
+                ).count(),
+                1,
+            )
 
             # Повторная доставка того же вебхука
-            with self.captureOnCommitCallbacks(execute=True):
-                second = self.post_webhook(x_sign=_sign(private_key, self.payload))
+            second = self.post_webhook(x_sign=_sign(private_key, self.payload))
             self.assertEqual(second.status_code, 200)
-            # Статус уже paid → post-payment dispatcher не запускається вдруге.
-            self.assertEqual(mock_dispatch.call_count, 1)
+            self.assertEqual(
+                PaymentSideEffectJob.objects.filter(
+                    kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+                    order=self.order,
+                ).count(),
+                1,
+            )
 
         self.order.refresh_from_db()
         self.assertEqual(self.order.payment_status, 'paid')
@@ -376,7 +383,7 @@ class DropshipperMonobankCallbackSecurityTests(TestCase):
 
 
 class PostPaymentEventsDeferralTests(TestCase):
-    """W2-7 (AN-011/DB-009): внешние отправки — ПОСЛЕ commit, вне row-lock."""
+    """External sends are represented by durable intent under the row lock."""
 
     def setUp(self):
         self.order = Order.objects.create(
@@ -391,7 +398,7 @@ class PostPaymentEventsDeferralTests(TestCase):
             payment_invoice_id='inv-defer-1',
         )
 
-    def test_external_sends_deferred_until_commit(self):
+    def test_external_sends_are_replaced_by_durable_intent(self):
         from storefront.views.utils import _record_monobank_status
 
         with patch('storefront.views.utils._send_post_payment_events') as mock_send:
@@ -399,14 +406,14 @@ class PostPaymentEventsDeferralTests(TestCase):
                 _record_monobank_status(
                     self.order, {'status': 'success'}, source='webhook'
                 )
-            # Внутри транзакции внешние отправки НЕ выполнялись
             mock_send.assert_not_called()
-            # ...но callback зарегистрирован и выполняется после commit
-            self.assertEqual(len(callbacks), 1)
-            callbacks[0]()
-            mock_send.assert_called_once()
-            args = mock_send.call_args[0]
-            self.assertEqual(args[0], self.order.pk)
+            self.assertEqual(callbacks, [])
+            job = PaymentSideEffectJob.objects.get(
+                kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+                order=self.order,
+            )
+            self.assertEqual(job.payload['previous_status'], 'unpaid')
+            self.assertEqual(job.payload['pay_type'], 'online_full')
 
         self.order.refresh_from_db()
         self.assertEqual(self.order.payment_status, 'paid')
@@ -435,55 +442,66 @@ class PostPaymentEventsDeferralTests(TestCase):
 
         self.order.payment_status = 'paid'
         self.order.save(update_fields=['payment_status'])
+        jobs_before = PaymentSideEffectJob.objects.filter(
+            kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+            order=self.order,
+        ).count()
 
-        with patch(
-            'storefront.views.monobank._dispatch_post_payment_events',
-        ) as mock_dispatch:
-            with self.captureOnCommitCallbacks(execute=True):
-                _apply_monobank_status(
-                    self.order,
-                    'success',
-                    payload={'status': 'success'},
-                    source='webhook',
-                )
+        with self.captureOnCommitCallbacks(execute=True) as callbacks:
+            _apply_monobank_status(
+                self.order,
+                'success',
+                payload={'status': 'success'},
+                source='webhook',
+            )
 
-        mock_dispatch.assert_not_called()
+        self.assertEqual(callbacks, [])
+        self.assertEqual(
+            PaymentSideEffectJob.objects.filter(
+                kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+                order=self.order,
+            ).count(),
+            jobs_before,
+        )
         self.assertEqual(
             UserAction.objects.filter(action_type='purchase', order_id=self.order.pk).count(),
             1,
         )
 
-    def test_retail_status_helper_uses_shared_dispatcher_after_commit_once(self):
+    def test_retail_status_helper_persists_one_shared_intent(self):
         from storefront.views.monobank import _apply_monobank_status
 
-        with patch(
-            'storefront.views.monobank._dispatch_post_payment_events',
-        ) as mock_dispatch:
-            with self.captureOnCommitCallbacks(execute=False) as callbacks:
-                _apply_monobank_status(
-                    self.order,
-                    'success',
-                    payload={'status': 'success'},
-                    source='webhook',
-                )
-
-            mock_dispatch.assert_not_called()
-            self.assertEqual(len(callbacks), 1)
-            callbacks[0]()
-            mock_dispatch.assert_called_once_with(
-                self.order.pk,
-                'unpaid',
-                'online_full',
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            _apply_monobank_status(
+                self.order,
+                'success',
+                payload={'status': 'success'},
+                source='webhook',
             )
+        self.assertEqual(callbacks, [])
+        self.assertEqual(
+            PaymentSideEffectJob.objects.filter(
+                kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+                order=self.order,
+            ).count(),
+            1,
+        )
 
-            with self.captureOnCommitCallbacks(execute=False) as duplicate_callbacks:
-                _apply_monobank_status(
-                    self.order,
-                    'success',
-                    payload={'status': 'success'},
-                    source='webhook',
-                )
-            self.assertEqual(duplicate_callbacks, [])
+        with self.captureOnCommitCallbacks(execute=False) as duplicate_callbacks:
+            _apply_monobank_status(
+                self.order,
+                'success',
+                payload={'status': 'success'},
+                source='webhook',
+            )
+        self.assertEqual(duplicate_callbacks, [])
+        self.assertEqual(
+            PaymentSideEffectJob.objects.filter(
+                kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+                order=self.order,
+            ).count(),
+            1,
+        )
 
     def test_shared_dispatcher_sends_idempotent_receipt_outside_status_lock(self):
         from types import SimpleNamespace

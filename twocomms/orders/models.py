@@ -511,6 +511,75 @@ class PaymentAttempt(models.Model):
         return self.status in {self.Status.INITIATED, self.Status.PROCESSING} and not self.order_id
 
 
+class PaymentSideEffectJob(models.Model):
+    """Durable intent for one payment-side external delivery."""
+
+    class Kind(models.TextChoices):
+        ATTEMPT_ADD_PAYMENT_INFO = "attempt_add_payment_info", _("Meta AddPaymentInfo")
+        ATTEMPT_TELEGRAM_STARTED = "attempt_telegram_started", _("Telegram: спроба оплати")
+        ORDER_POST_PAYMENT = "order_post_payment", _("Події після оплати")
+
+    class State(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        PROCESSING = "processing", _("Обробляється")
+        DONE = "done", _("Завершено")
+        FAILED = "failed", _("Помилка")
+        AMBIGUOUS = "ambiguous", _("Результат невідомий")
+
+    event_key = models.CharField(max_length=180, unique=True)
+    kind = models.CharField(max_length=40, choices=Kind.choices)
+    payment_attempt = models.ForeignKey(
+        PaymentAttempt,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="side_effect_jobs",
+        db_constraint=False,
+    )
+    order = models.ForeignKey(
+        Order,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="side_effect_jobs",
+        db_constraint=False,
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    state = models.CharField(
+        max_length=16,
+        choices=State.choices,
+        default=State.PENDING,
+    )
+    due_at = models.DateTimeField(default=timezone.now, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    provider_io_started_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=500, blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_at", "id"]
+        indexes = [
+            models.Index(fields=["state", "due_at", "id"], name="payment_job_due"),
+            models.Index(fields=["lease_expires_at", "id"], name="payment_job_lease"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(payment_attempt__isnull=False, order__isnull=True)
+                    | models.Q(payment_attempt__isnull=True, order__isnull=False)
+                ),
+                name="payment_job_one_subject",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.kind}:{self.event_key}:{self.state}"
+
+
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True)

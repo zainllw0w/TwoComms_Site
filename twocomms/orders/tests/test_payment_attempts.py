@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from orders.models import Order, OrderItem, PaymentAttempt
+from orders.models import Order, OrderItem, PaymentAttempt, PaymentSideEffectJob
 from storefront.models import Category, Product
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
 
@@ -110,6 +110,12 @@ class PaymentAttemptLifecycleTests(TestCase):
         self.assertTrue(
             first.payment_payload['telegram_notifications']['order_notification_pending']
         )
+        post_payment_job = PaymentSideEffectJob.objects.get(
+            kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+            order=first,
+        )
+        self.assertEqual(post_payment_job.payload['previous_status'], 'unpaid')
+        self.assertEqual(post_payment_job.payload['pay_type'], 'online_full')
         from orders.facebook_conversions_service import FacebookConversionsService
         self.assertEqual(FacebookConversionsService.__new__(FacebookConversionsService)._extract_paid_amount(first), 900.0)
 
@@ -132,7 +138,7 @@ class PaymentAttemptLifecycleTests(TestCase):
                 'invoiceId': 'invoice-attempt-1', 'pageUrl': 'https://pay.example/1',
             }), patch('orders.facebook_conversions_service.get_facebook_conversions_service') as fb, patch(
                 'orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification', return_value=True,
-            ):
+            ) as telegram:
             fb.return_value.send_add_payment_info_event.return_value = True
             response = self.client.post(
                 reverse('monobank_create_invoice'), data=json.dumps(payload),
@@ -142,6 +148,16 @@ class PaymentAttemptLifecycleTests(TestCase):
         self.assertEqual(Order.objects.count(), 0)
         self.assertEqual(OrderItem.objects.count(), 0)
         self.assertEqual(PaymentAttempt.objects.count(), 1)
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(
+            set(attempt.side_effect_jobs.values_list('kind', flat=True)),
+            {
+                PaymentSideEffectJob.Kind.ATTEMPT_ADD_PAYMENT_INFO,
+                PaymentSideEffectJob.Kind.ATTEMPT_TELEGRAM_STARTED,
+            },
+        )
+        fb.return_value.send_add_payment_info_event.assert_not_called()
+        telegram.assert_not_called()
 
     def test_invoice_endpoint_rejects_cod_without_fallback(self):
         session = self.client.session
@@ -421,9 +437,8 @@ class PaymentAttemptLifecycleTests(TestCase):
             patch('storefront.views.monobank._monobank_api_request', return_value={
                 'status': 'success', 'paidAmount': 20000,
             }),
-            patch('storefront.views.monobank._dispatch_post_payment_events'),
         ]
-        with patches[0], patches[1], patches[2]:
+        with patches[0], patches[1]:
             first = self.client.post(
                 reverse('monobank_webhook'), data=json.dumps(payload),
                 content_type='application/json', secure=True,
@@ -439,6 +454,13 @@ class PaymentAttemptLifecycleTests(TestCase):
         attempt.refresh_from_db()
         self.assertEqual(attempt.status, PaymentAttempt.Status.PREPAID)
         self.assertIsNotNone(attempt.order_id)
+        self.assertEqual(
+            PaymentSideEffectJob.objects.filter(
+                kind=PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT,
+                order_id=attempt.order_id,
+            ).count(),
+            1,
+        )
 
     def test_admin_attempts_view_is_opt_in_and_shows_discount_breakdown(self):
         staff = User.objects.create_user(username='attempt-admin', password='x', is_staff=True)

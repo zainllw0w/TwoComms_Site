@@ -1,4 +1,4 @@
-"""Retry paid Monobank order cards that a request-owned daemon thread lost."""
+"""Drain the durable payment side-effect outbox with one bounded cron owner."""
 
 from datetime import timedelta
 
@@ -6,7 +6,12 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from orders.models import Order
-from storefront.views.utils import _POST_PAYMENT_CHANNEL_NAMES, _send_post_payment_events
+from orders.payment_side_effects import (
+    due_payment_side_effect_job_ids,
+    enqueue_order_post_payment_side_effect,
+    process_payment_side_effect_job,
+)
+from storefront.views.utils import _POST_PAYMENT_CHANNEL_NAMES
 from management.services.ig_task_health import task_heartbeat
 
 
@@ -35,7 +40,7 @@ def _has_recoverable_post_payment_channel(payload):
 
 
 class Command(BaseCommand):
-    help = 'Retry missing Telegram order cards for recent paid PaymentAttempt orders'
+    help = 'Drain durable CAPI/Telegram/post-payment jobs and backfill recent paid orders'
 
     def add_arguments(self, parser):
         parser.add_argument('--max-age-hours', type=int, default=168)
@@ -61,27 +66,40 @@ class Command(BaseCommand):
             if options.get('order_number'):
                 queryset = queryset.filter(order_number=options['order_number'])
 
-            scanned = attempted = sent = failed = leased = ambiguous = 0
+            scanned = backfilled = 0
+            selected_order_id = None
             for order in queryset.iterator():
                 scanned += 1
+                if options.get('order_number'):
+                    selected_order_id = order.pk
                 payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
                 if not payload.get('attempt_id'):
                     continue
                 if not _has_recoverable_post_payment_channel(payload):
                     continue
-                if attempted >= limit:
+                _, created = enqueue_order_post_payment_side_effect(
+                    order.pk,
+                    previous_status='unpaid',
+                    pay_type=order.pay_type,
+                    due_at=now,
+                )
+                backfilled += int(created)
+                if backfilled >= limit:
                     break
 
-                attempted += 1
-                # Replay the shared idempotent dispatcher. Telegram delivery is
-                # the durable recovery gate, while Purchase/Meta/TikTok/email
-                # markers make the adjacent post-payment work safe to heal too.
-                result = _send_post_payment_events(
-                    order.pk,
-                    'unpaid',
-                    order.pay_type,
+            if options.get('order_number') and selected_order_id is None:
+                job_ids = []
+            else:
+                job_ids = due_payment_side_effect_job_ids(
+                    limit=limit,
+                    now=now,
+                    order_id=selected_order_id,
                 )
-                if result == 'sent':
+            attempted = sent = failed = leased = ambiguous = 0
+            for job_id in job_ids:
+                attempted += 1
+                result = process_payment_side_effect_job(job_id)
+                if result == 'done':
                     sent += 1
                 elif result == 'leased':
                     leased += 1
@@ -93,5 +111,6 @@ class Command(BaseCommand):
         self.stdout.write(
             'reconcile_order_telegram_notifications: '
             f'scanned={scanned} attempted={attempted} sent={sent} '
-            f'failed={failed} leased={leased} ambiguous={ambiguous}'
+            f'failed={failed} leased={leased} ambiguous={ambiguous} '
+            f'jobs_scanned={len(job_ids)} backfilled={backfilled}'
         )

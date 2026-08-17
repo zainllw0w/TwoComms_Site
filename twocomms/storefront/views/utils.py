@@ -749,17 +749,15 @@ def _record_monobank_status_locked(order, payload, source='api'):
             metadata={'source': source, 'monobank_status': status},
         )
 
-        # W2-7 (AN-011/DB-009): внешние HTTP-вызовы (Telegram, Meta CAPI,
-        # TikTok) раньше выполнялись ЗДЕСЬ — внутри select_for_update()
-        # транзакции, удерживая row-lock на заказ до ~25-40s. Теперь они
-        # откладываются через transaction.on_commit и выполняются ПОСЛЕ
-        # снятия блокировки.
+        # Persist the external delivery intent under the same order lock. The
+        # existing cron consumer performs provider I/O after this transaction.
         if previous_status != order.payment_status:
-            order_pk = order.pk
-            prev_for_notify = normalized_previous or 'unpaid'
-            pay_type_for_notify = pay_type
-            transaction.on_commit(
-                lambda: _dispatch_post_payment_events(order_pk, prev_for_notify, pay_type_for_notify)
+            from orders.payment_side_effects import enqueue_order_post_payment_side_effect
+
+            enqueue_order_post_payment_side_effect(
+                order.pk,
+                previous_status=normalized_previous or 'unpaid',
+                pay_type=pay_type,
             )
 
         return
@@ -1152,35 +1150,14 @@ def deliver_pending_order_telegram_notifications(
 
 
 def _dispatch_post_payment_events(order_pk, previous_status, pay_type):
-    """
-    W2-9 (AN-011): запуск post-payment событий в фоновом daemon-потоке.
+    """Compatibility adapter that now persists intent instead of spawning."""
+    from orders.payment_side_effects import enqueue_order_post_payment_side_effect
 
-    Meta CAPI retry использует блокирующий time.sleep (до ~3.5s суммарно
-    на 3 попытки с backoff) — в on_commit это держало воркер и задерживало
-    ответ вебхуку Monobank. Поток снимает блокировку с request-цикла;
-    DB-соединение потока закрывается в finally (иначе утечка коннектов).
-    В тестах (Django TestCase) поток не используется — иначе фоновые
-    записи ломают транзакционную изоляцию тестов.
-    """
-    import sys
-    import threading
-
-    # В тестовом раннере выполняем синхронно (транзакционная изоляция)
-    if 'test' in sys.argv:
-        _send_post_payment_events(order_pk, previous_status, pay_type)
-        return
-
-    def _runner():
-        from django.db import connection
-        try:
-            _send_post_payment_events(order_pk, previous_status, pay_type)
-        finally:
-            try:
-                connection.close()
-            except Exception:
-                pass
-
-    threading.Thread(target=_runner, daemon=True, name=f'post-payment-{order_pk}').start()
+    return enqueue_order_post_payment_side_effect(
+        order_pk,
+        previous_status=previous_status,
+        pay_type=pay_type,
+    )
 
 
 def _record_post_payment_channel(
@@ -1314,8 +1291,8 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
 
     _initialize_post_payment_channels(order.pk)
 
-    # A request-owned daemon can disappear before any external work starts.
-    # Heal the internal purchase ledger first; this operation is idempotent.
+    # Heal the internal purchase ledger before provider delivery; this DB-only
+    # operation is idempotent across retries by the bounded outbox consumer.
     try:
         from storefront.utm_tracking import ensure_order_purchase_action
 
@@ -1331,9 +1308,8 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
             'Failed to persist Purchase action for order %s', order.order_number
         )
 
-    # 1. Telegram is still attempted immediately, but its DB lease/pending
-    # marker makes the delivery recoverable by cron if Passenger stops this
-    # daemon thread before or during the external request.
+    # 1. Telegram is attempted by the bounded consumer. Its own send-phase
+    # markers prevent blind replay when the consumer stops during provider I/O.
     telegram_result = deliver_pending_order_telegram_notifications(
         order.pk,
         previous_status=previous_status,
