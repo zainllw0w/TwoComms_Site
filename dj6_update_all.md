@@ -711,12 +711,12 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-SRV-010 - Добавить overlap guard для cron Instagram bot
 
-- Статус: `подтверждено как configuration gap`; предварительный приоритет: `P1`.
+- Статус: `реализовано и production-проверено 2026-08-17`; приоритет: `P1`, закрыт.
 - Область: production `crontab`: `* * * * * ... manage.py run_instagram_bot --ensure` без `flock`; рядом уже работает отдельный `run_instagram_bot --forever`.
-- Доказательство: остальные пять периодик используют `/usr/bin/flock`, но Instagram line lock не содержит. При задержке/гонке cron может породить второй starter или неясное ownership между `--ensure` и `--forever`.
+- Доказательство: release `4af27a19b` исправил ложный healthy при удерживаемом lock и stale heartbeat; `scripts/install_instagram_bot_watchdog_cron.sh` заменил legacy line на один managed block с `/usr/bin/flock -n` и `/usr/bin/timeout --signal=TERM 50s`. Production check вернул один watchdog line, один BEGIN/END block, held daemon lock, `daemon_online=True`, `running=True`, `alive=True`, healthy task heartbeat.
 - Что даст: единственный владелец bot process, отсутствие duplicate polling/API side effects и понятный exit/health contract.
-- Риск и ограничения: не менять cron вслепую; сначала понять semantics `--ensure`, running marker и restart recovery. `flock` path должен быть writable и иметь stale-safe lifecycle.
-- Следующая проверка: read-only проверить command state machine, затем тест overlap на staging/copy и добавить lock/timeout/alerting.
+- Риск и ограничения: внешний lock сериализует starters, а внутренние spawn/daemon locks остаются authoritative singleton boundary; timeout короче минутного cadence. Общий contract остальных cron jobs остаётся отдельным `DJ6-SRV-005`.
+- Проверка: 21 watchdog contracts, 3 installer contracts, shell syntax/compile/diff gates и production installer `--check`; полный evidence: `docs/qa/django61-stage3-srv-010.md`.
 
 ### DJ6-TEST-001 - Оценить forkserver/parallel test runner после стабилизации suite
 

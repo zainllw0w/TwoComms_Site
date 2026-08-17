@@ -450,8 +450,14 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-SRV-005 - Ввести единый cron job contract.**
   - Обязательные поля: owner, cadence, flock/DB lease, timeout, bounded batch, retry/backoff, exit code и alert.
 
-- [ ] **DJ6-SRV-010 - Добавить overlap guard для \`run_instagram_bot --ensure\`.**
-  - Сначала доказать semantics \`--ensure\` и \`--forever\`; не остановить текущий daemon.
+- [x] **DJ6-SRV-010 - Добавить overlap guard для \`run_instagram_bot --ensure\`.**
+  - \`--ensure\` теперь считает удерживаемый daemon lock здоровым только при
+    свежем heartbeat; stale worker проходит bounded restart path.
+  - Production cron переведён в один managed block с внешним \`flock\` и
+    \`timeout 50s\`; installer сохраняет unrelated entries и запрещает двух owners.
+  - Release \`4af27a19b\`: один watchdog line, один managed block, daemon lock
+    удерживается, daemon/task heartbeat healthy. Подробности:
+    \`docs/qa/django61-stage3-srv-010.md\`.
 
 - [ ] **DJ6-BG-001 - Заменить post-payment request daemon на durable outbox/job.**
   - В transaction сохранять только durable intent; внешняя отправка после commit.
