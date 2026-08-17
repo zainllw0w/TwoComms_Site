@@ -93,7 +93,11 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertIn("17 4 * * * /opt/other-job", content)
         self.assertEqual(content.count(BEGIN_MARKER), 1)
         self.assertIn(f"{self.fake_bin / 'flock'} -n -E 75", content)
-        self.assertIn(f"{self.fake_bin / 'timeout'} --signal=TERM 75s", content)
+        self.assertIn(
+            f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 75s",
+            content,
+        )
+        self.assertIn("--kill-after=15s", content)
         self.assertNotIn(legacy, content)
 
     def test_check_detects_missing_block_and_install_rejects_duplicates(self):

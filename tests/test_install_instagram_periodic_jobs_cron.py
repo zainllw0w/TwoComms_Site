@@ -141,9 +141,10 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         for line in managed_lines:
             self.assertIn(f"{self.fake_bin / 'flock'} -n -E 75", line)
             self.assertIn(f"{self.fake_bin / 'timeout'} --signal=TERM", line)
+            self.assertIn("--kill-after=15s", line)
             self.assertIn("--limit", line)
-        self.assertIn("timeout --signal=TERM 90s", content)
-        self.assertIn("timeout --signal=TERM 180s", content)
+        self.assertIn("timeout --signal=TERM --kill-after=15s 90s", content)
+        self.assertIn("timeout --signal=TERM --kill-after=15s 180s", content)
 
     def test_check_detects_missing_and_drifted_block(self):
         self.assertNotEqual(self._run("--check").returncode, 0)
@@ -178,6 +179,19 @@ cp "$1" "$FAKE_CRONTAB_FILE"
 
     def test_unknown_marker_version_is_rejected_without_writes(self):
         original = "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v2\n/unknown\n"
+        self.crontab_file.write_text(original, encoding="utf-8")
+        before = self.crontab_file.read_bytes()
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.crontab_file.read_bytes(), before)
+
+    def test_unknown_loose_owner_variant_is_rejected_without_writes(self):
+        original = (
+            f"* * * * * cd {self.django_root} && {self.python} manage.py "
+            "reconcile_ig_checkout --limit 1 >/tmp/alternate.log 2>&1\n"
+        )
         self.crontab_file.write_text(original, encoding="utf-8")
         before = self.crontab_file.read_bytes()
 

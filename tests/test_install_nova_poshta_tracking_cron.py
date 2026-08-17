@@ -88,9 +88,10 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             first_content.decode(),
         )
         self.assertIn(
-            f"{self.fake_bin / 'timeout'} --signal=TERM 240s",
+            f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 240s",
             first_content.decode(),
         )
+        self.assertIn("--kill-after=15s", first_content.decode())
 
     def test_malformed_or_duplicate_markers_are_rejected_without_writes(self):
         for original in (

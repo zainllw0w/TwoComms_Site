@@ -77,13 +77,13 @@ fi
 cat >"$expected" <<EOF
 $BEGIN_MARKER
 # codex:order-telegram-reconcile
-*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/order_telegram_reconcile.lock $TIMEOUT_BIN --signal=TERM 90s $PYTHON_BIN manage.py reconcile_order_telegram_notifications --max-age-hours 168 --min-age-seconds 60 --limit 50 >> $DJANGO_ROOT/logs/order_telegram_reconcile.log 2>&1
+*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/order_telegram_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_order_telegram_notifications --max-age-hours 168 --min-age-seconds 60 --limit 50 >> $DJANGO_ROOT/logs/order_telegram_reconcile.log 2>&1
 # codex:ig-checkout-reconcile
-*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_checkout_reconcile.lock $TIMEOUT_BIN --signal=TERM 90s $PYTHON_BIN manage.py reconcile_ig_checkout --limit 100 >> $DJANGO_ROOT/logs/ig_checkout_reconcile.log 2>&1
+*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_checkout_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_checkout --limit 100 >> $DJANGO_ROOT/logs/ig_checkout_reconcile.log 2>&1
 # codex:ig-order-fulfillment
-*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_order_fulfillment.lock $TIMEOUT_BIN --signal=TERM 90s $PYTHON_BIN manage.py reconcile_ig_order_fulfillment --limit 100 >> $DJANGO_ROOT/logs/ig_order_fulfillment.log 2>&1
+*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_order_fulfillment.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_order_fulfillment --limit 100 >> $DJANGO_ROOT/logs/ig_order_fulfillment.log 2>&1
 # codex:ig-deal-payments
-*/4 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/poll_ig_deal_payments.lock $TIMEOUT_BIN --signal=TERM 180s $PYTHON_BIN manage.py poll_ig_deal_payments --limit 50 >> $DJANGO_ROOT/logs/poll_ig_deal_payments.log 2>&1
+*/4 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/poll_ig_deal_payments.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 180s $PYTHON_BIN manage.py poll_ig_deal_payments --limit 50 >> $DJANGO_ROOT/logs/poll_ig_deal_payments.log 2>&1
 $END_MARKER
 EOF
 
@@ -106,6 +106,21 @@ if [ "$begin_count" -eq 1 ]; then
 fi
 
 legacy_kind=""
+owner_kind=""
+is_owner_line() {
+  local line="$1"
+  owner_kind=""
+  case "$line" in
+    \#*|"") return 1 ;;
+    *"manage.py reconcile_order_telegram_notifications"*) owner_kind="order" ;;
+    *"manage.py reconcile_ig_checkout"*) owner_kind="checkout" ;;
+    *"manage.py reconcile_ig_order_fulfillment"*) owner_kind="fulfillment" ;;
+    *"manage.py poll_ig_deal_payments"*) owner_kind="payments" ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
 is_legacy_job_line() {
   local line="$1"
   legacy_kind=""
@@ -133,7 +148,9 @@ while IFS= read -r line || [ -n "$line" ]; do
     inside_managed=1
     continue
   fi
-  if is_legacy_job_line "$line"; then
+  if is_owner_line "$line"; then
+    observed_kind="$owner_kind"
+    is_legacy_job_line "$line" || contract_error "unsupported loose $observed_kind owner"
     case "$legacy_kind" in
       order) legacy_order_count=$((legacy_order_count + 1)); [ "$legacy_order_count" -eq 1 ] || contract_error "duplicate order reconcile owner" ;;
       checkout) legacy_checkout_count=$((legacy_checkout_count + 1)); [ "$legacy_checkout_count" -eq 1 ] || contract_error "duplicate checkout reconcile owner" ;;
