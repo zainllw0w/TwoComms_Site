@@ -471,11 +471,18 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-BG-003 - Убрать пятиминутный Binotel polling из request-owned daemon.**
   - Использовать существующую command state machine, caps и leases.
 
-- [ ] **DJ6-BG-005 - Убрать полный Nova Poshta tracking batch из middleware.**
-  - Сначала canary: cron owner включен, request trigger выключен, reconciliation доказана.
+- [x] **DJ6-BG-005 - Убрать полный Nova Poshta tracking batch из middleware.**
+  - Middleware удалён из active request stack; legacy-классы оставлены только
+    как pass-through compatibility и не содержат DB/provider/thread работы.
+  - Production cron остаётся единственным owner, managed block прошёл
+    `--check`; перед release due backlog был `0`.
 
-- [ ] **DJ6-BG-006 - Заменить fulfillment wake-up thread, сохранив event semantics.**
-  - Не удалять thread до доказанного idempotent replay новым owner.
+- [x] **DJ6-BG-006 - Заменить fulfillment wake-up thread, сохранив event semantics.**
+  - `kick_order_fulfillment()` больше не создаёт daemon thread; durable
+    `IgOrderCustomerEvent` reconciliation остаётся у существующего cron owner.
+  - Локальный focused gate прошёл 40 тестов; production due backlog был `0`,
+    post-deploy server/HTTP matrices зелёные. Подробности:
+    `docs/qa/django61-stage3-bg-005-006.md`.
 
 - [ ] **DJ6-BG-007 - Сделать registration notification commit-safe и durable.**
   - Передавать PK/идентификатор, не ORM instance и не PII/password.

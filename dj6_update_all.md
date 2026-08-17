@@ -529,21 +529,21 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-BG-005 - Убрать полный tracking batch из middleware Nova Poshta
 
-- Статус: `подтверждено`; предварительный приоритет: `P1`.
-- Область: `twocomms/orders/nova_poshta_middleware.py:57-154`, `180-232`; batch `NovaPoshtaService.update_all_tracking_statuses`.
-- Доказательство: каждый web request проверяет heartbeat/lock и может запускать полный tracking batch в daemon, а simple режим выполняет его прямо в request. Batch уже ограничен и использует row locks.
+- Статус: `реализовано`; приоритет: `P1`; release `83652c134d3d35398b3098337751ba90813dc8c6`.
+- Область: `twocomms/orders/nova_poshta_middleware.py`, `twocomms/twocomms/settings.py`; batch `NovaPoshtaService.update_all_tracking_statuses`.
+- Доказательство: middleware удалён из active `MIDDLEWARE`; legacy-классы стали pass-through без cache/ORM/provider/thread работы. Production managed cron block `update_tracking_statuses` прошёл `--check`, request flag принудительно `False`, due backlog перед release был `0`.
 - Что даст: стабильное время ответа storefront/management и одно плановое место для rate-limited внешнего API.
-- Риск и ограничения: middleware отключать только после подтвержденного cron/task scheduler, `flock`/DB lease, timeout и alerting. Нельзя оставлять две competing owners периодики.
-- Следующая проверка: измерить batch duration и overlap, затем canary cron с выключенным request trigger и reconciliation proof.
+- Риск и ограничения: timeout/alerting всей cron-периодики закрываются общим `DJ6-SRV-005`; возвращать request fallback нельзя.
+- Проверка закрытия: 40 focused тестов, Django system check, production preflight/post-deploy и 10-route non-DTF HTTP matrix прошли; детали в `docs/qa/django61-stage3-bg-005-006.md`.
 
 ### DJ6-BG-006 - Заменить поток wake-up fulfillment, сохранив durable event semantics
 
-- Статус: `отложено`; предварительный приоритет: `P2`.
+- Статус: `реализовано`; приоритет: `P2`; release `83652c134d3d35398b3098337751ba90813dc8c6`.
 - Область: `twocomms/management/services/ig_order_fulfillment.py:860-877`, event/lease graph `285-423`, `718-857`.
-- Доказательство: `kick_order_fulfillment()` только ускоряет уже durable event queue с event keys, leases, receipt checkpoint и stale-to-ambiguous переходом.
+- Доказательство: `kick_order_fulfillment()` теперь compatibility no-op и не создаёт request-owned thread. Существующий `reconcile_ig_order_fulfillment --limit 100` cron остаётся owner durable event queue с event keys, leases, receipt checkpoint и stale-to-ambiguous переходом; production due backlog перед release был `0`.
 - Что даст: task wake-up или чистый cron снизит количество локальных потоков без потери бизнес-состояния и упростит recovery.
-- Риск и ограничения: неизвестный Meta outcome должен остаться `manager review`; нельзя заменять queue семантику простым повтором API.
-- Следующая проверка: сравнить latency bot/cron, проверить idempotent replay и убрать thread только после proof.
+- Риск и ограничения: доставка теперь имеет cron cadence до двух минут; неизвестный Meta outcome остаётся `manager_review`, queue семантика и provider receipt не изменялись.
+- Проверка закрытия: 40 focused тестов, production post-deploy matrix и все 10 non-DTF HTTP probes прошли; детали в `docs/qa/django61-stage3-bg-005-006.md`.
 
 ### DJ6-BG-007 - Сделать уведомление о новой регистрации durable и commit-safe
 
@@ -955,8 +955,8 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 ## Сводка статусов после полной read-only проверки
 
 - Всего записей: 83 уникальных ID; дублей нет.
-- Реализовано или подтверждено с уточненным типом сигнала/границы: 71 запись.
-- Отложено до отдельного implementation/schema/worker этапа: 8 записей.
+- Реализовано или подтверждено с уточненным типом сигнала/границы: 72 записи.
+- Отложено до отдельного implementation/schema/worker этапа: 7 записей.
 - Заблокировано правами, архитектурой или версией MariaDB: 3 записи.
 - Неактуально для текущего runtime: 1 запись (`DJ6-BASE-006`, async-кода нет).
 - Статус `кандидат` после этой проверки не оставлен: каждая исходная гипотеза переведена в доказанный backlog, отложенный пункт, блокер или неактуальный пункт.
