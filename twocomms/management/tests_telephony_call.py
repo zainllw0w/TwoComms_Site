@@ -2,9 +2,10 @@
 сервіс telephony_call. Без реальних викликів Binotel — лише локальна логіка."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
+from django.db import DatabaseError
 from django.test import TestCase, override_settings
 
 from management.models import CallSession, Client, ClientPhone
@@ -1006,6 +1007,165 @@ class ScheduleCallAnalysisTest(TestCase):
             1,
         )
 
+    def test_schedule_preserves_classified_noanswer_record(self):
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999994",
+            duration_seconds=0,
+            payload={"disposition": "NOANSWER"},
+            ai_status=CallRecord.AiStatus.NONE,
+        )
+
+        _caa.schedule_call_analysis(record.external_call_id)
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.NONE)
+
+    def test_schedule_propagates_durable_intent_write_failure(self):
+        with patch.object(
+            CallRecord.objects,
+            "select_for_update",
+            side_effect=DatabaseError("write failed"),
+        ):
+            with self.assertRaisesRegex(DatabaseError, "write failed"):
+                _caa.schedule_call_analysis("999993")
+
+    @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
+    def test_scheduled_placeholder_hydrates_metadata_before_eligibility(self):
+        from io import StringIO
+        from types import SimpleNamespace
+
+        from django.core.management import call_command
+
+        _caa.schedule_call_analysis("999995")
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999995")
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+        )
+        provider = MagicMock()
+        provider.call_details.return_value = {
+            "callDetails": {
+                "999995": {
+                    "generalCallID": "999995",
+                    "callType": "1",
+                    "billsec": 65,
+                    "disposition": "ANSWER",
+                }
+            }
+        }
+        provider.list_of_employees.return_value = {"listOfEmployees": {}}
+        analysis = SimpleNamespace(status=CallAIAnalysis.Status.DONE)
+
+        with (
+            patch.object(_caa.BinotelClient, "from_settings", return_value=provider),
+            patch(
+                "management.services.call_ai_analysis.analyze_call",
+                return_value=analysis,
+            ) as analyze,
+        ):
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.duration_seconds, 65)
+        self.assertEqual(record.payload["disposition"], "ANSWER")
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.DONE)
+        analyze.assert_called_once_with(record.external_call_id, force=True)
+
+    @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
+    def test_scheduled_short_call_is_skipped_without_analysis(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        _caa.schedule_call_analysis("999992")
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999992")
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+        )
+        provider = MagicMock()
+        provider.call_details.return_value = {
+            "callDetails": {
+                "999992": {
+                    "generalCallID": "999992",
+                    "callType": "1",
+                    "billsec": 8,
+                    "disposition": "ANSWER",
+                }
+            }
+        }
+        provider.list_of_employees.return_value = {"listOfEmployees": {}}
+
+        with (
+            patch.object(_caa.BinotelClient, "from_settings", return_value=provider),
+            patch("management.services.call_ai_analysis.analyze_call") as analyze,
+        ):
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.duration_seconds, 8)
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.SKIPPED)
+        analyze.assert_not_called()
+
+    @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
+    def test_scheduled_noanswer_call_is_skipped_without_analysis(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        _caa.schedule_call_analysis("999990")
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999990")
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+        )
+        provider = MagicMock()
+        provider.call_details.return_value = {
+            "callDetails": {
+                "999990": {
+                    "generalCallID": "999990",
+                    "callType": "1",
+                    "billsec": 65,
+                    "disposition": "NOANSWER",
+                }
+            }
+        }
+        provider.list_of_employees.return_value = {"listOfEmployees": {}}
+
+        with (
+            patch.object(_caa.BinotelClient, "from_settings", return_value=provider),
+            patch("management.services.call_ai_analysis.analyze_call") as analyze,
+        ):
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.SKIPPED)
+        analyze.assert_not_called()
+
+    @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
+    def test_scheduled_placeholder_retries_when_provider_metadata_is_missing(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        _caa.schedule_call_analysis("999991")
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999991")
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+        )
+        provider = MagicMock()
+        provider.call_details.return_value = {"callDetails": {}}
+        provider.list_of_employees.return_value = {"listOfEmployees": {}}
+
+        with (
+            patch.object(_caa.BinotelClient, "from_settings", return_value=provider),
+            patch("management.services.call_ai_analysis.analyze_call") as analyze,
+        ):
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.PENDING)
+        self.assertEqual(record.ai_attempts, 1)
+        analyze.assert_not_called()
+
     @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
     def test_scheduled_record_runs_through_existing_command_state_machine(self):
         from io import StringIO
@@ -1019,6 +1179,7 @@ class ScheduleCallAnalysisTest(TestCase):
         CallRecord.objects.filter(pk=record.pk).update(
             created_at=_tz.now() - _td(minutes=5),
             duration_seconds=60,
+            payload={"disposition": "ANSWER"},
         )
 
         analysis = SimpleNamespace(status=CallAIAnalysis.Status.DONE)

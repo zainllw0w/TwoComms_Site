@@ -91,11 +91,47 @@ class TaskHeartbeatTests(TestCase):
                 "ig_deal_payments",
                 "order_telegram_reconcile",
                 "nova_poshta_tracking",
+                "binotel_call_ai_analyses",
             },
         )
 
 
 class CronCommandHeartbeatTests(TestCase):
+    def test_binotel_call_ai_empty_run_records_success(self):
+        call_command("run_call_ai_analyses", limit=1)
+
+        self.assertTrue(
+            InstagramBotTaskHeartbeat.objects.filter(
+                task_key="binotel_call_ai_analyses",
+                last_succeeded_at__isnull=False,
+            ).exists()
+        )
+
+    @patch(
+        "management.management.commands.run_call_ai_analyses.CallAIAnalysis.objects.filter",
+        side_effect=RuntimeError("provider queue unavailable"),
+    )
+    def test_binotel_call_ai_failure_is_observed(self, _filter):
+        with self.assertRaisesRegex(RuntimeError, "provider queue unavailable"):
+            call_command("run_call_ai_analyses", limit=1)
+
+        self.assertTrue(
+            InstagramBotTaskHeartbeat.objects.filter(
+                task_key="binotel_call_ai_analyses",
+                last_failed_at__isnull=False,
+                last_error_kind="RuntimeError",
+            ).exists()
+        )
+
+    def test_binotel_call_ai_dry_run_does_not_record_heartbeat(self):
+        call_command("run_call_ai_analyses", limit=1, dry_run=True)
+
+        self.assertFalse(
+            InstagramBotTaskHeartbeat.objects.filter(
+                task_key="binotel_call_ai_analyses",
+            ).exists()
+        )
+
     @override_settings(NOVA_POSHTA_API_KEY="")
     def test_nova_poshta_tracking_configuration_failure_is_observed(self):
         with self.assertRaisesRegex(CommandError, "NOVA_POSHTA_API_KEY"):

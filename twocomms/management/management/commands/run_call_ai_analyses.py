@@ -1,17 +1,17 @@
 """
 Cron-воркер авто ШІ-аналізу записів дзвінків.
 
-Запускається крон-джобом кожні 1–2 хв. Бере CallRecord зі статусом
+Запускається крон-джобом кожні 5 хв. Бере CallRecord зі статусом
 ai_status=pending, які:
   - мають generalCallID,
   - завершилися щонайменше ANALYSIS_DELAY_SECONDS тому (щоб запис устиг
     зʼявитися у провайдера),
-  - тривали >= MEANINGFUL_SECONDS.
+  - завершили provider metadata hydration або ще очікують її.
 
 Для кожного: атомарно бере «лок» (ai_status=running, ai_locked_at, ai_attempts++),
-викликає синхронний analyze_call (тут таймаути не страшні — це фон), і ставить
-ai_status=done / error. Ретраї обмежені MAX_ATTEMPTS. Денний кеп захищає від
-вигорання квоти Gemini.
+класифікує непридатні дзвінки без Gemini або викликає синхронний analyze_call,
+після чого ставить ai_status=done / skipped / pending / error. Ретраї обмежені
+MAX_ATTEMPTS. Денний кеп захищає від вигорання квоти Gemini.
 
 Ідемпотентно: stale-лок (running старше STALE_LOCK_MINUTES) перепідбирається —
 страховка від падіння процесу.
@@ -31,6 +31,7 @@ ANALYSIS_DELAY_SECONDS = 90
 MEANINGFUL_SECONDS = 30
 MAX_ATTEMPTS = 3
 STALE_LOCK_MINUTES = 15
+RECORDABLE_DISPOSITIONS = frozenset({"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"})
 
 
 def _daily_cap() -> int:
@@ -50,6 +51,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         limit = max(1, int(options["limit"]))
         dry = bool(options["dry_run"])
+        if dry:
+            return self._handle(limit=limit, dry=True)
+
+        from management.services.ig_task_health import task_heartbeat
+
+        with task_heartbeat("binotel_call_ai_analyses"):
+            return self._handle(limit=limit, dry=False)
+
+    def _handle(self, *, limit: int, dry: bool):
         now = timezone.now()
         cutoff = now - timedelta(seconds=ANALYSIS_DELAY_SECONDS)
         stale = now - timedelta(minutes=STALE_LOCK_MINUTES)
@@ -65,7 +75,6 @@ class Command(BaseCommand):
         candidates = (
             CallRecord.objects.filter(ai_status=CallRecord.AiStatus.PENDING)
             .exclude(external_call_id="")
-            .filter(duration_seconds__gte=MEANINGFUL_SECONDS)
             .filter(created_at__lte=cutoff)
             .order_by("created_at")[: limit * 2]
         )
@@ -84,7 +93,12 @@ class Command(BaseCommand):
             self.stdout.write(f"Кандидати: {ids}")
             return
 
-        from management.services.call_ai_analysis import CallAIAnalysisError, analyze_call
+        from management.services.call_ai_analysis import (
+            BinotelClient,
+            CallAIAnalysisError,
+            analyze_call,
+            upsert_call_record,
+        )
 
         processed = 0
         for rec_id in ids:
@@ -110,6 +124,26 @@ class Command(BaseCommand):
 
             # Поза транзакцією — довгий мережевий виклик.
             try:
+                payload = rec.payload if isinstance(rec.payload, dict) else {}
+                disposition = str(payload.get("disposition") or "").strip().upper()
+                if not disposition:
+                    rec = upsert_call_record(
+                        BinotelClient.from_settings(),
+                        rec.external_call_id,
+                    )
+                    payload = rec.payload if isinstance(rec.payload, dict) else {}
+                    disposition = str(payload.get("disposition") or "").strip().upper()
+                if not disposition:
+                    raise CallAIAnalysisError("Binotel metadata is not available yet.")
+                if (
+                    disposition not in RECORDABLE_DISPOSITIONS
+                    or rec.duration_seconds < MEANINGFUL_SECONDS
+                ):
+                    rec.ai_status = CallRecord.AiStatus.SKIPPED
+                    rec.save(update_fields=["ai_status", "updated_at"])
+                    processed += 1
+                    self.stdout.write(f"#{rec_id}: skipped")
+                    continue
                 analysis = analyze_call(rec.external_call_id, force=True)
                 ok = analysis.status == CallAIAnalysis.Status.DONE
             except CallAIAnalysisError as exc:

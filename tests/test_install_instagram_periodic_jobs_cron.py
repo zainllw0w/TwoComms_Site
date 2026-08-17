@@ -83,6 +83,7 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             f"*/2 * * * * cd {root} && /usr/bin/flock -n {root}/tmp/ig_checkout_reconcile.lock {python} manage.py reconcile_ig_checkout --limit 100 >> {root}/logs/ig_checkout_reconcile.log 2>&1",
             f"*/2 * * * * cd {root} && /usr/bin/flock -n {root}/tmp/ig_order_fulfillment.lock {python} manage.py reconcile_ig_order_fulfillment --limit 100 >> {root}/logs/ig_order_fulfillment.log 2>&1",
             f"*/4 * * * * cd {root} && /usr/bin/flock -n {root}/tmp/poll_ig_deal_payments.lock {python} manage.py poll_ig_deal_payments --limit 50 >> {root}/logs/poll_ig_deal_payments.log 2>&1",
+            f"*/5 * * * * cd {root} && /usr/bin/flock -n {root}/tmp/run_call_ai_analyses.lock {python} manage.py run_call_ai_analyses --limit 1 >> {root}/logs/run_call_ai_analyses.log 2>&1",
         )
 
     def test_install_migrates_loose_jobs_preserves_other_blocks_and_is_idempotent(self):
@@ -117,6 +118,7 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             "reconcile_ig_checkout",
             "reconcile_ig_order_fulfillment",
             "poll_ig_deal_payments",
+            "run_call_ai_analyses",
         ):
             self.assertEqual(
                 sum(
@@ -127,6 +129,15 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             )
         self.assertNotIn("run_instagram_bot --ensure", first_content)
         self.assertNotIn("update_tracking_statuses", first_content)
+        self.assertIn("# codex:binotel-call-ai", first_content)
+        self.assertIn(
+            "*/5 * * * * "
+            f"cd {self.django_root} && {self.fake_bin / 'flock'} -n -E 75 "
+            f"{self.django_root}/tmp/run_call_ai_analyses.lock "
+            f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 240s "
+            f"{self.python} manage.py run_call_ai_analyses --limit 1",
+            first_content,
+        )
 
     def test_managed_jobs_have_distinct_overlap_exit_timeout_and_bounds(self):
         self.assertEqual(self._run("--install").returncode, 0)
@@ -137,7 +148,7 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             if " manage.py " in line
         ]
 
-        self.assertEqual(len(managed_lines), 4)
+        self.assertEqual(len(managed_lines), 5)
         for line in managed_lines:
             self.assertIn(f"{self.fake_bin / 'flock'} -n -E 75", line)
             self.assertIn(f"{self.fake_bin / 'timeout'} --signal=TERM", line)
@@ -145,6 +156,7 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             self.assertIn("--limit", line)
         self.assertIn("timeout --signal=TERM --kill-after=15s 90s", content)
         self.assertIn("timeout --signal=TERM --kill-after=15s 180s", content)
+        self.assertIn("timeout --signal=TERM --kill-after=15s 240s", content)
 
     def test_check_detects_missing_and_drifted_block(self):
         self.assertNotEqual(self._run("--check").returncode, 0)
@@ -188,17 +200,23 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertEqual(self.crontab_file.read_bytes(), before)
 
     def test_unknown_loose_owner_variant_is_rejected_without_writes(self):
-        original = (
-            f"* * * * * cd {self.django_root} && {self.python} manage.py "
-            "reconcile_ig_checkout --limit 1 >/tmp/alternate.log 2>&1\n"
-        )
-        self.crontab_file.write_text(original, encoding="utf-8")
-        before = self.crontab_file.read_bytes()
+        for cadence, command in (
+            ("* * * * *", "reconcile_ig_checkout --limit 1"),
+            ("*/5 * * * *", "run_call_ai_analyses --limit 2"),
+            ("*/5 * * * *", "run_call_ai_analyses --limit 10"),
+        ):
+            with self.subTest(command=command):
+                original = (
+                    f"{cadence} cd {self.django_root} && {self.python} manage.py "
+                    f"{command} >/tmp/alternate.log 2>&1\n"
+                )
+                self.crontab_file.write_text(original, encoding="utf-8")
+                before = self.crontab_file.read_bytes()
 
-        result = self._run("--install")
+                result = self._run("--install")
 
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.crontab_file.read_bytes(), before)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(self.crontab_file.read_bytes(), before)
 
 
 if __name__ == "__main__":

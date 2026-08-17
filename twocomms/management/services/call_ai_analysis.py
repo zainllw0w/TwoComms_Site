@@ -34,6 +34,7 @@ from decimal import Decimal, InvalidOperation
 import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils import timezone
 
 from management.models import CallAIAnalysis, CallRecord, Client
@@ -1519,13 +1520,13 @@ def schedule_call_analysis(general_call_id: str) -> None:
     gcid = (str(general_call_id or "")).strip()
     if not gcid:
         return
-    try:
-        record, created = CallRecord.objects.get_or_create(
+    with transaction.atomic():
+        record, created = CallRecord.objects.select_for_update().get_or_create(
             provider="binotel",
             external_call_id=gcid,
             defaults={"ai_status": CallRecord.AiStatus.PENDING},
         )
-        if not created:
+        if not created and record.ai_status == CallRecord.AiStatus.NONE and not record.payload:
             CallRecord.objects.filter(
                 pk=record.pk,
                 ai_status=CallRecord.AiStatus.NONE,
@@ -1534,5 +1535,3 @@ def schedule_call_analysis(general_call_id: str) -> None:
                 ai_locked_at=None,
                 updated_at=timezone.now(),
             )
-    except Exception:
-        logger.exception("schedule_call_analysis: failed to persist intent")

@@ -34,6 +34,7 @@ TASK_SPECS = (
     TaskSpec("ig_deal_payments", "backstop перевірки IG-оплат", 240, 720),
     TaskSpec("order_telegram_reconcile", "відновлення Telegram-карток замовлень", 120, 480),
     TaskSpec("nova_poshta_tracking", "оновлення статусів Нової Пошти", 300, 900),
+    TaskSpec("binotel_call_ai_analyses", "ШІ-аналіз дзвінків Binotel", 300, 900),
 )
 _SPECS_BY_KEY = {spec.key: spec for spec in TASK_SPECS}
 
