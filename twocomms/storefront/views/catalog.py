@@ -374,7 +374,7 @@ def _validate_catalog_query_shape(request, *, scope):
 
     raw_pages = request.GET.getlist("page")
     if raw_pages:
-        raw_page = str(raw_pages[0] or "").strip()
+        raw_page = str(raw_pages[0] or "")
         if (
             not raw_page.isascii()
             or not raw_page.isdecimal()
@@ -409,6 +409,12 @@ def _validate_catalog_query_shape(request, *, scope):
             raise Http404(f"Facet '{key}' contains an empty value.")
         if len(canonical_values) != len(set(canonical_values)):
             raise Http404(f"Facet '{key}' contains a duplicate value.")
+        if (
+            scope == "root"
+            and key in {"size", "availability"}
+            and any(value not in FACET_ALLOWED[key] for value in canonical_values)
+        ):
+            raise Http404(f"Facet '{key}' contains an unknown value.")
 
 
 def _catalog_query_alias_redirect(

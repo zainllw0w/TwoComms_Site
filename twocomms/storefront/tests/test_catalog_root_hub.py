@@ -9,6 +9,7 @@ from unittest.mock import patch
 from django.core.cache import cache, caches
 from django.test import TestCase, override_settings
 
+from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product
 
 
@@ -60,6 +61,10 @@ class _RootHubSignals(HTMLParser):
 class CatalogRootHubTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        cls.black = Color.objects.create(
+            name="Black",
+            primary_hex="#111111",
+        )
         cls.categories = []
         for slug, uk, ru, en in (
             ("long-sleeve", "Лонгсліви", "Лонгсливы", "Long sleeves"),
@@ -77,23 +82,32 @@ class CatalogRootHubTests(TestCase):
 
         cls.tshirts = []
         for index in range(3):
-            cls.tshirts.append(
-                Product.objects.create(
-                    title=f"Root hub tee {index}",
-                    slug=f"root-hub-tee-{index}",
-                    category=cls.categories[1],
-                    price=900 + index,
-                    priority=index,
-                    status="published",
-                )
+            product = Product.objects.create(
+                title=f"Root hub tee {index}",
+                slug=f"root-hub-tee-{index}",
+                category=cls.categories[1],
+                price=900 + index,
+                priority=index,
+                status="published",
             )
+            ProductColorVariant.objects.create(
+                product=product,
+                color=cls.black,
+                slug="black",
+            )
+            cls.tshirts.append(product)
         for category in (cls.categories[0], cls.categories[2]):
-            Product.objects.create(
+            product = Product.objects.create(
                 title=f"Root hub {category.slug}",
                 slug=f"root-hub-{category.slug}",
                 category=category,
                 price=1200,
                 status="published",
+            )
+            ProductColorVariant.objects.create(
+                product=product,
+                color=cls.black,
+                slug="black",
             )
 
     def setUp(self):
@@ -170,14 +184,33 @@ class CatalogRootHubTests(TestCase):
             "page=-1",
             "page=99999999999",
             "page=٢",
+            "page=%202%20",
+            "page=%092",
         )
         for query in queries:
             with self.subTest(query=query), patch(
                 "storefront.views.utils.cache.get", wraps=cache.get
-            ) as cache_get:
+            ) as cache_get, patch(
+                "storefront.views.utils.cache.set", wraps=cache.set
+            ) as cache_set:
                 response = self.client.get(f"/catalog/?{query}", follow=False)
                 self.assertEqual(response.status_code, 404)
-                self._assert_page_cache_was_not_touched(cache_get)
+                self._assert_page_cache_was_not_touched(cache_get, cache_set)
+
+        valid_alias = self.client.get("/catalog/?page=02", follow=False)
+        self.assertEqual(valid_alias.status_code, 301)
+        self.assertEqual(valid_alias["Location"], "/catalog/")
+
+    def test_unknown_root_inventory_facets_are_404_before_cache(self):
+        for query in ("size=3XL", "availability=preorder"):
+            with self.subTest(query=query), patch(
+                "storefront.views.utils.cache.get", wraps=cache.get
+            ) as cache_get, patch(
+                "storefront.views.utils.cache.set", wraps=cache.set
+            ) as cache_set:
+                response = self.client.get(f"/catalog/?{query}", follow=False)
+                self.assertEqual(response.status_code, 404)
+                self._assert_page_cache_was_not_touched(cache_get, cache_set)
 
     def test_real_root_result_state_keeps_strict_pagination(self):
         with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
@@ -197,6 +230,41 @@ class CatalogRootHubTests(TestCase):
         self.assertContains(page_two, 'content="noindex, follow', html=False)
         self.assertEqual(page_two.context["catalog_owner_path"], "/catalog/")
         self.assertEqual(self._signals(page_two).nodes_of_type("CollectionPage"), [])
+
+    def test_each_root_result_state_keeps_real_strict_pagination(self):
+        cases = (
+            ("/catalog/", "color=black"),
+            ("/catalog/", "size=M"),
+            ("/ru/catalog/", "availability=in_stock"),
+            ("/catalog/", "sort=newest"),
+            ("/catalog/", "sort=price-asc"),
+            ("/catalog/", "sort=price-desc"),
+        )
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            for path, query in cases:
+                with self.subTest(path=path, query=query):
+                    page_one = self.client.get(f"{path}?{query}")
+                    if query.startswith("color="):
+                        page_two = self.client.get(f"{path}?page=2&{query}")
+                        missing = self.client.get(f"{path}?page=999&{query}")
+                    else:
+                        page_two = self.client.get(f"{path}?{query}&page=2")
+                        missing = self.client.get(f"{path}?{query}&page=999")
+
+                    self.assertEqual(page_one.status_code, 200)
+                    self.assertEqual(page_two.status_code, 200)
+                    self.assertEqual(missing.status_code, 404)
+                    self.assertNotEqual(
+                        [product.pk for product in page_one.context["products"]],
+                        [product.pk for product in page_two.context["products"]],
+                    )
+                    self.assertContains(page_two, "catalog-products-grid")
+                    self.assertContains(page_two, "catalog-pagination")
+                    self.assertFalse(page_two.context["show_category_cards"])
+                    self.assertEqual(
+                        self._signals(page_two).nodes_of_type("CollectionPage"),
+                        [],
+                    )
 
     def test_category_clean_page_two_remains_a_real_indexable_page(self):
         with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
