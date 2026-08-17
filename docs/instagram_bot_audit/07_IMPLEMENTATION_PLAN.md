@@ -845,6 +845,10 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   telemetry remains open under `IMP-044`.
 - [ ] **IMP-061 (P2) — открыта.** `hub.verify_token` в access-логе (F-SEC-010):
   диагностику подписки без токена в query, затем ротация токена.
+- [ ] **IMP-106 (P2) — core shipped, external gates open.** Follow-state,
+  demand-driven CTA/lifecycle guards, manager UX and migrations `0157`–`0166`
+  уже в current `main`/production; consented Graph capability probe,
+  auto-award calibration, privacy retention and biometric policy remain open.
 - [ ] **IMP-044 (P1) — открыта.** Atomic lease Gemini-ключей + jitter (F-AI-003/004);
   UI-состояние ключей вычисляемое вместо хранимого `last_status` (F-DATA-012);
   data-migration невалидного `gemini_model` + предупреждение о расхождении

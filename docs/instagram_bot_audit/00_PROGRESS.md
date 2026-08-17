@@ -10,7 +10,7 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **Implement2 W2.1 authoritative order lifecycle/delivery truth released and verified; next is queued `IMP-106` follow-state capability gate** |
+| Текущая фаза | **Implement2 W2.1 lifecycle released; `IMP-106` core is already in main/production, while the consented Graph capability, incentive calibration and privacy-policy gates remain open** |
 | Дата старта / обновления | 2026-08-14 (W2.1 lifecycle release) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
 | База внедрения | Current runtime/code checkpoint — W2.1 commits `51db3058`/`8d8c5d05` в `origin/main` и production; migrations `management.0152`/`0153`/`0154`/`0156` применены. |
@@ -154,9 +154,11 @@ messages/send markers/provider receipts `0`, legacy order-customer events `5`,
 and one historical delivered fact. No customer, provider, payment, order or
 synthetic event was created. The full unscoped production migration check still
 reports pre-existing storefront SEO drift; it is recorded as an `IMP-094`
-follow-up and was not generated or applied during this release. `IMP-106`
-remains queued and blocked on the Meta capability contract and separate coupon
-policy.
+follow-up and was not generated or applied during this release. `IMP-106` core
+is implemented in current main/production. The Meta capability contract,
+separate coupon calibration and privacy-policy decisions remain open; without a
+consented target and matched app/token, state stays `unknown` and the follow
+CTA is suppressed.
 
 ## W1.4 reviewer/operator PII technical boundary (2026-08-08)
 

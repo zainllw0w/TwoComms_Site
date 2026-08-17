@@ -6,6 +6,9 @@
 `13_UNCLOSED_FINDINGS_RAW.md`; активный порядок: `14_IMPLEMENT2.md`.
 
 - W4B: закрыта; `IMP-058` и `IMP-089` имеют code, tests и production evidence.
+- `IMP-106`: core follow-state, CTA/lifecycle guards and manager UX are already
+  shipped. Only the consented Graph capability probe, reward calibration and
+  privacy-policy decisions remain open; `unknown` suppresses every CTA.
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
 - W8: `IMP-044`–`046`, `061`, `094`, `096`, `100`, `101`; partial `043`.

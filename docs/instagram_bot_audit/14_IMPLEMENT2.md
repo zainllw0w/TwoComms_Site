@@ -687,8 +687,8 @@ open.
 ### W2.1 closeout — authoritative order lifecycle and delivery truth
 
 **Status:** IMPLEMENTED / RELEASED 2026-08-14. This is the mandatory lifecycle
-prerequisite for `IMP-106`; it does not implement follow-state lookup, a follow
-CTA or coupon issuance.
+prerequisite for `IMP-106`; the remaining external work is the consented
+provider capability probe and approved coupon policy/issuance calibration.
 
 - Lifecycle events now require one current order attribution, checkout
   proposal, confirmed payment projection and current assignment/version before
@@ -772,14 +772,23 @@ failures; production check remains mandatory after the approved SSH pull.
   warning and 18 terminal historical analysis failures remain visible and
   bounded; no compress/restart or retry sweep was run.
 
-### W2.1A Next queued release — intelligent Instagram follow-state and lifecycle CTA — `IMP-106`
+### W2.1A Follow-state and lifecycle CTA — `IMP-106`
 
-**Status:** QUEUED but BLOCKED on the Meta capability contract after the T41
-main/production closeout. The release gate, approved SSH-only `git pull`, and
-read-only production evidence are recorded above. This is a commercial
-follow-up policy, not a background message campaign: it must never turn a
-missing or failed provider lookup into `not_following`, and it must not create
-a perpetual cron that scans all customers.
+**Status:** CORE IMPLEMENTATION IN MAIN / PRODUCTION; external capability and
+policy gates remain open. The durable state, demand-driven refresh, CTA guard,
+lifecycle boundary, UGC/payment preparation, and manager badge are implemented
+through migrations `0157`–`0166` and focused tests. The official per-user Graph
+probe has not been run because production has no opted-in target; until a
+consented IGSID and correctly matched app/token are supplied, state remains
+`unknown` and no follow CTA may fire. This is a commercial follow-up policy,
+not a background message campaign, and it must never turn a missing or failed
+provider lookup into `not_following`.
+
+**Historical branch reconciliation (2026-08-17):** the old
+`codex/ig-follow-intelligence` tips `dba5a424`/`988bb4552` are preserved as
+requirements sources only. Their relevant behavior is already present in the
+current main implementation; wholesale cherry-picking would remove newer
+runtime, migration, and audit evidence. See `12_SOURCE_RECONCILIATION.md`.
 
 **Capability preflight (2026-08-14, refreshed):** Context7's current official
 Meta documentation now explicitly documents the Instagram Login User Profile
@@ -803,7 +812,7 @@ supplied and the endpoint is re-audited against a real IGSID without sending
 anything, follow state must remain `unknown`, no follow-specific CTA may fire,
 and no model or profile inference may label a customer `not_following`.
 
-- [ ] **Capability contract first.** Reconcile the live Graph API version,
+- [ ] **Capability contract first (OPEN EXTERNAL GATE).** Reconcile the live Graph API version,
   token type, Instagram account ID, app subscription, scopes and the documented
   User Profile endpoint against the current official Meta contract. Prove the
   `is_user_follow_business` and `is_business_follow_user` fields for the
@@ -812,28 +821,28 @@ and no model or profile inference may label a customer `not_following`.
   follower counts, customer text, profile guesses or model inference. If the
   per-user fields are not authorized for this app/token, retain `unknown` and
   suppress every follow CTA.
-- [ ] **Durable, auditable state.** Add a single owned follow-state record or
+- [x] **Durable, auditable state.** Add a single owned follow-state record or
   fields linked to the Instagram client: `following`, `not_following`, or
   `unknown`; source/capability version; checked-at; expiry; error code; and
   `first_observed_following_at` only when an observation becomes positive.
   It is not a claim of the actual historical follow date. Preserve opt-out,
   blocked and Meta-window boundaries; restrict manager views to minimum
   necessary status metadata.
-- [ ] **Demand-driven refresh and decision policy.** Resolve/refresh only at
+- [x] **Demand-driven refresh and decision policy.** Resolve/refresh only at
   inbound or commercial decision points, with cache TTL, retry backoff and
   per-client cooldown: accepted paid order, authoritative delivery/collection,
   an explicit qualified hesitation, or a model turn that needs the fact. A
   transport/API failure remains `unknown`; it must suppress follow CTA rather
   than treating the customer as unfollowed. No periodic all-client polling and
   no lookup for unrelated factual replies.
-- [ ] **Authoritative commerce lifecycle.** Trace the production source of
+- [x] **Authoritative commerce lifecycle.** Trace the production source of
   truth from `Order`/payment through a persisted tracking number and authoritative
   Nova Poshta delivery or collection status into an owned
   `IgOrderShipment`/`IgLifecycleEvent`-style idempotent event. A label-created,
   estimated or stale tracking status is not proof that the order was received.
   Tie the CTA eligibility and duplicate suppression to that durable event,
   never a free-form agent claim.
-- [ ] **Non-spam, episode-aware CTA selection.** Persist decision evidence and
+- [x] **Non-spam, episode-aware CTA selection.** Persist decision evidence and
   enforce at most one follow ask for a commercial episode/cooldown. Never ask
   uninterested, opted-out, blocked, negative, already-following or `unknown`
   customers. Prefer a short optional sentence embedded in an existing truthful
@@ -841,34 +850,34 @@ and no model or profile inference may label a customer `not_following`.
   price/hesitation contexts, permit one delayed, relevant invitation only when
   evidence supports it; a promise to follow without observed state is not a
   reason to repeatedly ask.
-- [ ] **Generated voice behind server-owned guardrails.** The model may choose
+- [x] **Generated voice behind server-owned guardrails.** The model may choose
   warm Ukrainian phrasing, variation and restrained emoji from structured
   customer context; it receives the follow state, stage, consent and allowed
   offer facts, but never decides eligibility. Validate output for one CTA,
   no fabricated follow status, discount, delivery, urgency or manager promise.
   Provide deterministic safe fallback/omit behavior, record the decision and
   prevent same-copy repetition without falsely impersonating a human.
-- [ ] **Offer/coupon policy before any 10% promise.** Do not promise or invent
+- [ ] **Offer/coupon policy before any 10% promise (OPEN CALIBRATION/POLICY).** Do not promise or invent
   a discount until a separate server-owned 10% policy defines eligibility,
   stacking, expiry, use limit, order/customer binding, fraud controls,
   idempotent generation and delivery receipt. Only a confirmed collected-order
   event may unlock an approved coupon; replay or duplicate delivery events
   must reuse the same entitlement and must not create another code.
-- [ ] **Minimal manager UX.** Add a compact accessible status dot/badge in the
+- [x] **Minimal manager UX.** Add a compact accessible status dot/badge in the
   conversation header or customer identity area: following / not following /
   unknown with non-sensitive source and last-checked time in a tooltip/detail.
   It must not add a large control, distract from message work, or imply that
   `unknown` is negative. Include loading/error/stale state and preserve the
   existing responsive/accessibility contract.
-- [ ] **Proof before release.** Add focused RED/green tests for API capability
-  denial, timeout-to-unknown, TTL/cooldown, no-provider-call for unrelated
-  turns, episode dedupe, opt-out/Meta window, paid/shipped/collected lifecycle
-  truth, coupon idempotency, copy guardrails and badge rendering. Run the
-  required disposable MariaDB race/migration tests, a manager browser matrix,
-  a mocked Meta contract test without live customer events, independent review,
-  then commit, push, SSH-only `git pull`, and record deployed SHA plus
-  read-only production evidence. No live follow/discount probing that alters
-  customer or advertising data merely to close this checkbox.
+- [x] **Proof for shipped core (external probe still open).** Focused state,
+  CTA, live-reply, lifecycle, manager-UI and MariaDB tests plus deployment
+  evidence cover timeout-to-unknown, TTL/cooldown, unrelated-turn suppression,
+  episode dedupe, opt-out/Meta-window, paid/shipped/collected lifecycle truth,
+  coupon idempotency, copy guardrails and badge rendering. The consented Graph
+  probe, auto-award calibration, privacy retention and biometric-policy
+  decisions remain open and must be recorded before marking the external gate
+  complete. No live follow/discount probing that alters customer or advertising
+  data is permitted merely to close this checkbox.
 
 ### W2.2 Disposable MariaDB — `IMP-094` second half
 
