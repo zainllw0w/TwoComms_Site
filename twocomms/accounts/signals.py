@@ -5,17 +5,13 @@ regardless of the registration path (site form, Google OAuth,
 Telegram login).
 
 Implementation: ``post_save`` on ``User`` with ``created=True`` covers
-all paths uniformly. The notification is sent from a daemon thread
-with a short delay so the social-auth pipeline has time to create the
-``UserSocialAuth`` row — that is how we label the signup method.
+all paths uniformly. The signal commits an idempotent outbox intent; the
+outbox worker resolves the user and social-auth association immediately
+before delivery, so the signup method is not guessed in the request.
 """
-
-import threading
-import time
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.db import close_old_connections
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -23,6 +19,8 @@ _PROVIDER_LABELS = {
     "google-oauth2": "Google",
     "telegram": "Telegram",
 }
+
+_SOCIAL_AUTH_ASSOCIATION_DELAY_SECONDS = 5
 
 
 def _detect_method(user_id):
@@ -41,38 +39,51 @@ def _detect_method(user_id):
     return "сайт (email/пароль)"
 
 
-def _notify_admins(user_id, username, email):
+def registration_notification_text(user_id):
+    """Build registration text from committed rows at delivery time.
+
+    The outbox payload intentionally contains only ``user_id``. This keeps
+    personal data out of deferred task metadata and lets social-auth finish
+    associating the provider before the method is classified.
+    """
+    user = User.objects.filter(pk=user_id).first()
+    if user is None:
+        return None
+    method = _detect_method(user.pk)
+    total = User.objects.count()
+    return (
+        "👤 <b>Нова реєстрація на сайті</b>\n"
+        f"Користувач: <b>{user.username}</b>\n"
+        f"Email: {user.email or '—'}\n"
+        f"Спосіб: {method}\n"
+        f"Всього акаунтів: {total}"
+    )
+
+
+def _notify_admins(user_id, *_legacy_args):
     try:
-        # Give the social-auth pipeline a moment to attach the provider row.
-        time.sleep(5)
-        close_old_connections()
+        from management.services.instagram_bot import notify_manager
 
-        method = _detect_method(user_id)
-        total = User.objects.count()
-
-        from orders.telegram_notifications import telegram_notifier
-
-        message = (
-            "👤 <b>Нова реєстрація на сайті</b>\n"
-            f"Користувач: <b>{username}</b>\n"
-            f"Email: {email or '—'}\n"
-            f"Спосіб: {method}\n"
-            f"Всього акаунтів: {total}"
+        notify_manager(
+            "registration pending",
+            dedupe_key=f"registration:{int(user_id)}",
+            event_type="registration",
+            metadata={
+                "transport": "site_registration",
+                "registration_user_id": str(user_id),
+            },
+            deliver_immediately=False,
+            not_before_seconds=_SOCIAL_AUTH_ASSOCIATION_DELAY_SECONDS,
         )
-        telegram_notifier.send_admin_message(message)
     except Exception:
         # Notifications must never break registration.
         pass
-    finally:
-        close_old_connections()
 
 
 @receiver(post_save, sender=User, dispatch_uid="notify_admins_new_user")
 def notify_admins_on_registration(sender, instance, created, **kwargs):
     if not created or getattr(settings, "TESTING", False):
         return
-    threading.Thread(
-        target=_notify_admins,
-        args=(instance.pk, instance.username, instance.email),
-        daemon=True,
-    ).start()
+    # Persist the outbox intent in the same transaction as the User row.
+    # Delivery and provider lookup remain deferred to the notification worker.
+    _notify_admins(instance.pk)
