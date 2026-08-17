@@ -63,6 +63,13 @@ DTF-субдомен и его код, страницы, задачи, мигр�
   active legacy loader и Python 3.15 import contract прошли единый gate
   `61/61`; итоговый отчёт находится в
   `docs/qa/django61-stage1-completion-report.md`.
+- Stage 2 закрыт code и live proof: release SHA
+  `505458e919064205113aeb9b88e2e471ac2488ef` опубликован в GitHub `main` и
+  получен production через разрешённый `git pull --ff-only`; SQLite и
+  disposable MariaDB 11.4 gates прошли `29/29`, production runtime
+  CPython 3.14.6/Django 6.1/MariaDB 11.4.12 подтверждён, 10 non-DTF HTTP
+  probes зелёные, Passenger перезапущен через `tmp/restart.txt`, DTF scope
+  остаётся `excluded`. Полный отчёт: `docs/qa/django61-stage2-completion-report.md`.
 
 ## Правила записи находок
 
@@ -92,14 +99,22 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ## Начальные находки после перехода
 
-### DJ6-BASE-001 - Не включены новые model field fetch modes
+### DJ6-BASE-001 - Новые model field fetch modes внедрены как локальная стратегия
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: ORM всего storefront/management/accounts/reviews/finance; DTF исключить.
-- Доказательство: compatibility upgrade намеренно оставил `fetch_mode`/`FETCH_PEERS` выключенными; static inventory нашел 126 вызовов `only()`/`defer()` в non-DTF Python-коде. На динамической SQLite-модели Django 6.1 `FETCH_PEERS` загрузил поле для двух peer-инстансов одним дополнительным запросом, а `FETCH_RAISE` корректно выбросил `FieldFetchBlocked`.
-- Что может дать: меньше round-trip при чтении deferred-полей, предсказуемее загрузка peer-полей, меньше N+1 и лишних payload в тяжелых списках.
-- Риск: изменение числа SQL-запросов и памяти, async-код не может лениво догружать deferred fields, возможна несовместимость с `select_related`, сериализаторами и шаблонами.
-- Следующая проверка: выбрать 2-3 узких read-only projections, снять query-count/latency на representative flows и внедрять `FETCH_PEERS` только там, где parity доказана.
+- Доказательство: Stage 2 устранил подтвержденные N+1 через exact projection,
+  annotation, `select_related`, `Prefetch` и bulk mappings. Локальный smoke для
+  `DJ6-ORM-001..003` дал `1` запрос с exact fields против `2` с `FETCH_PEERS`.
+  Семь `FETCH_RAISE` contracts защищают узкие projections, default
+  `FETCH_ONE` подтвержден, production override отсутствует. Evidence:
+  `docs/qa/django61-stage2-completion-report.md`.
+- Что дало: скрытая lazy fetch теперь падает в целевых tests, но production не
+  получает глобального изменения query count, памяти или async behavior.
+- Риск и ограничения: новый `FETCH_PEERS` может быть полезен на других
+  queryset batches, но только после измерения; глобальное включение по-прежнему запрещено.
+- Следующая проверка: для новых доказанных deferred N+1 сравнивать exact fields,
+  prefetch и локальный `FETCH_PEERS`, затем выбирать минимальный measured вариант.
 
 ### DJ6-BASE-002 - Не исследованы database-level `on_delete` actions
 
@@ -167,17 +182,17 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 | 6.0 | Keyword-only mail API и новые email deprecations | Deprecated kwargs удалены из полного non-DTF call graph; raise/retry policy закреплена HTTP/cron/recovery tests. | `DJ6-EMAIL-002` - реализовано. |
 | 6.0 | PBKDF2 iteration increase до 1,200,000 | Пароли используют стандартный hasher; CPU/rehash behavior требует измерения. | `DJ6-AUTH-001` - подтверждено. |
 | 6.0 | Встроенная CSP middleware/policy base | Проект формирует CSP вручную; inline/eval policy не переведена. | `DJ6-CSP-001` - подтверждено. |
-| 6.1 | Model field fetch modes (`FETCH_PEERS`, `FETCH_RAISE`) | 126 `only()`/`defer()` вызовов; первые три deferred N+1 устранены точной projection без global fetch mode. | `DJ6-ORM-001..003` - реализовано; `DJ6-BASE-001`, `DJ6-ORM-004..012` - в работе/подтверждено. |
+| 6.1 | Model field fetch modes (`FETCH_PEERS`, `FETCH_RAISE`) | В tracked non-DTF Python найдено 129 call sites: 127 production (`125` `only()` + `2` `defer()`) и 2 test-only `only()`; подтвержденные Stage 2 N+1 устранены точными ORM-стратегиями, семь projections защищены test-only `FETCH_RAISE`. | `DJ6-BASE-001`, `DJ6-ORM-001..012` - реализовано. |
 | 6.1 | Named `MAILERS` и `using=` | Настроены `default`, `transactional`, `reports`; восемь non-DTF call sites используют явный alias и проходят `mail.E001`. | `DJ6-EMAIL-001`, `DJ6-BASE-003` - реализовано. |
 | 6.1 | CSP nonce attribute и `security.W027` | Базовая CSP есть вручную, nonce/report-only contract отсутствует. | `DJ6-CSP-001` - подтверждено. |
 | 6.1 | Signed-cookie salt derivation | Project override отсутствует; runtime использует Django default `False`, custom salts инвентаризированы. | `DJ6-COOKIE-001` - реализовано. |
 | 6.1 | PBKDF2 iteration increase до 1,500,000 | Следующий login может rehash старый пароль; нагрузка не измерена. | `DJ6-AUTH-001` - подтверждено. |
 | 6.1 | `UUID4`/`UUID7` database functions | MariaDB `11.4.12` ниже официального порога availability `11.7`. | `DJ6-ORM-014` - заблокировано версией БД. |
-| 6.1 | Admin `list_select_related` behavior/deprecation | 124 non-DTF admin зарегистрированы; social-auth admin переведён на explicit related fields, warning gate пуст. | `DJ6-ADMIN-001` - подтверждено; `DJ6-COMPAT-002` - реализовано. |
+| 6.1 | Admin `list_select_related` behavior/deprecation | Runtime registry содержит 125 non-DTF admin; social-auth admin переведён на explicit related fields, restock actions проверены на query count и permissions. | `DJ6-ADMIN-001`, `DJ6-COMPAT-002` - реализовано. |
 | 6.1 | Strict Base64 parsing | Credential, PII, Meta, Telegram legacy и Monobank paths используют общий strict decoder и regression matrix. | `DJ6-SEC-002` - реализовано. |
 | 6.1 | Cache-key/signed-cookie compatibility changes | File cache и краткоживущие cookies требуют controlled deploy miss/rollout. | `DJ6-CACHE-001`, `DJ6-COOKIE-001` - подтверждено. |
 | 6.1 | `salted_hmac()` explicit algorithm requirement | IG payment evidence явно закрепляет SHA-1; frozen vector и historical signature acceptance предотвращают скрытую смену формата. | `DJ6-SEC-001`, `DJ6-WARN-001` - реализовано. |
-| 6.1 | QuerySet `values().in_bulk()` и `totally_ordered` | Найдены два узких mapping path и несколько недетерминированных paginator ordering. | `DJ6-ORM-009..011` - подтверждено. |
+| 6.1 | QuerySet `values().in_bulk()` и `totally_ordered` | Два cart mapping path используют узкие dict mappings; восемь paginator querysets получили unique tie-breaker. | `DJ6-ORM-009..011` - реализовано. |
 | 6.1 | Strict model/parser validation и текущие checks | `manage.py check`, import/parser/template/static smoke, реальный migration graph и исправленный Product Video contract входят в Stage 0 gates. | `DJ6-SITE-001`, `DJ6-MIG-002`, `DJ6-TEST-003` - реализовано. |
 
 Матрица закрывает найденные пересечения релизов с сайтом. Функции, не имеющие model/HTTP/template/worker/DB применения в non-DTF коде, не превращаются в искусственные backlog-пункты.
@@ -246,12 +261,17 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-ADMIN-001 - Проверить новую 6.1 семантику `list_select_related` и admin actions
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: все кастомные `ModelAdmin` не-DTF приложений и административные change list/change form страницы.
-- Доказательство: в runtime зарегистрировано 124 non-DTF `ModelAdmin`; 122 используют `False`/`None`, один project admin tuple, а единственный `list_select_related=True` принадлежит vendor `social_django`. Django 6.1 автоматически берет FK из `list_display`; project code не использует deprecated True. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#django-contrib-admin>.
-- Что даст: меньше лишних JOIN в admin, возможность действия с change form и корректные singular/plural подписи; одновременно предотвращает скрытый N+1 в вычисляемых `list_display`.
-- Риск и ограничения: автоматическое улучшение Django не покрывает свойства, методы и deep relations в `list_display`; изменение query plan надо измерять по каждой тяжелой админке, а action API проверить на кастомные overrides.
-- Следующая проверка: собрать карту `ModelAdmin`/`list_display`/`get_queryset`, запустить query-count на списках с реальными объемами и отдельно проверить сигнатуры `get_actions`/`get_action_choices`.
+- Доказательство: runtime inventory 125 non-DTF `ModelAdmin` сохранён. Restock actions
+  перенесены в `CHANGE_LIST + CHANGE_FORM`, получили отдельные singular/plural
+  descriptions и `permissions=['change']`. View-only staff не видит actions и
+  не может выполнить forged POST; 10 строк changelist читаются одним запросом.
+- Что дало: единый action UX без N+1 и закрытая privilege boundary для mutating actions.
+- Риск и ограничения: auto select-related не покрывает computed/deep relations
+  новых admin classes; каждый новый тяжёлый `list_display` всё ещё измерять отдельно.
+- Следующая проверка: сохранять permission regression и query-count test при
+  добавлении новых admin actions или computed columns.
 
 ### DJ6-SRV-001 - Redis endpoint недоступен с production, поэтому не является доступной основой для очереди
 
@@ -327,105 +347,122 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 - Область: `twocomms/finance/services/consignment.py:389-396`, `twocomms/finance/models_consignment.py:214-223`.
 - Доказательство: batch из 10 consignment items воспроизводит RED `11 != 1`;
   включение `is_consignment` в `.only()` даёт GREEN `1` и точный
-  `Decimal('246.80')`. Production таблица сейчас пуста, поэтому data-bearing
-  MariaDB plan не заявляется; old/new empty-table `EXPLAIN` идентичен.
+  `Decimal('246.80')`. На disposable MariaDB 11.4 fixture из 10 целевых,
+  1 non-consignment и 500 rows другой компании old/new `EXPLAIN` идентичен:
+  `type=ref`, key `idx_cons_item_res_cons`, estimate `10`, `Using where`.
 - Что даст: один SQL вместо схемы `1 + N` при расчете замороженных средств магазина; уменьшит задержку finance dashboard.
-- Риск и ограничения: production data отсутствуют, поэтому representative
-  MariaDB copy evidence остаётся частью общего Stage 2 exit gate.
-- Следующая проверка: повторить `EXPLAIN` на локальном production mirror после появления/восстановления consignment fixtures.
+- Риск и ограничения: production таблица пуста, поэтому data-bearing evidence
+  получено только на disposable MariaDB, а не на live данных.
+- Следующая проверка: повторить read-only `EXPLAIN` на production после появления реальных consignment rows.
 
 ### DJ6-ORM-003 - Устранить тот же deferred N+1 в общей замороженной сумме компании
 
 - Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/finance/services/consignment.py:417-431`, `twocomms/finance/models_consignment.py:214-223`.
 - Доказательство: тот же controlled batch фиксирует `11 -> 1` и точный
-  `Decimal('246.80')`; broad `except Exception` не изменён. Spec и quality review
-  commit `c8e6b13bd` прошли без замечаний.
+  `Decimal('246.80')`; broad `except Exception` не изменён. Disposable MariaDB
+  old/new `EXPLAIN` идентичен: `type=ref`, company FK key, estimate `11`,
+  `Using where`. Spec и quality review commit `c8e6b13bd` прошли без замечаний.
 - Что даст: особенно заметное снижение числа запросов на общем dashboard и более предсказуемая диагностика ошибочного расчета.
 - Риск и ограничения: изменение exception policy является отдельным поведением; в первом проходе достаточно устранить deferred access и измерить запросы.
-- Следующая проверка: отдельно аудировать broad exception policy и повторить
-  data-bearing `EXPLAIN` на локальном MariaDB mirror.
+- Следующая проверка: отдельно аудировать broad exception policy; live
+  `EXPLAIN` повторять после появления production consignment rows.
 
 ### DJ6-ORM-004 - Убрать до двух N+1-запросов на строку в Django admin пользователей
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/accounts/admin.py:52-77`, связи `UserProfile.user` и `UserPoints.user` в `twocomms/accounts/models.py:22-24`, `112-115`.
-- Доказательство: `UserAdmin.list_display` вызывает `obj.userprofile.phone` и `obj.points.points`, но `get_queryset()` не переопределен. Новая admin-оптимизация Django 6.1 охватывает ForeignKey из `list_display`, но не эти вычисляемые reverse OneToOne методы. Источник: <https://docs.djangoproject.com/en/6.1/ref/contrib/admin/#django.contrib.admin.ModelAdmin.get_queryset>.
-- Что даст: заменить до двух запросов на каждого пользователя одним `LEFT JOIN` через явный `select_related("userprofile", "points")`.
-- Риск и ограничения: проверить пользователей без одной или обеих связей и не раздувать queryset тяжелыми inline relations.
-- Следующая проверка: query-count changelist на 25-100 пользователей, включая отсутствующие profile/points.
+- Доказательство: explicit `select_related("userprofile", "points")` сократил
+  10 строк `21 -> 1`; отсутствующие profile/points возвращают `—`. SQLite и
+  disposable MariaDB 11.4 contracts прошли.
+- Что дало: убраны два reverse OneToOne lazy fetch на строку UserAdmin.
+- Риск и ограничения: в queryset не добавлялись inline/M2M relations.
+- Следующая проверка: сохранять test при расширении `UserAdmin.list_display`.
 
 ### DJ6-ORM-005 - Заменить N+1 подсчет товаров в Category API на аннотацию
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/storefront/viewsets.py:39-52`, `twocomms/storefront/serializers.py:24-33`.
-- Доказательство: `CategorySerializer.get_products_count()` выполняет `.count()` отдельно для каждой категории. Queryset viewset не добавляет агрегат.
-- Что даст: один grouped SQL с `Count(..., filter=...)` вместо `1 + N` запросов к публичному API.
-- Риск и ограничения: на MariaDB нужно проверить `GROUP BY`, distinct при возможных join и сохранение нулевого значения для пустых категорий.
-- Следующая проверка: API response parity и query-count для нескольких активных категорий с published/draft товарами.
+- Доказательство: filtered `Count` сократил 10 категорий `12 -> 2`; published,
+  draft-only и empty values совпадают на SQLite/MariaDB.
+- Что дало: публичный Category API больше не выполняет count на каждую строку.
+- Риск и ограничения: при добавлении новых joins повторно проверить необходимость `distinct`.
+- Следующая проверка: query plan повторно измерять при изменении Category queryset.
 
 ### DJ6-ORM-006 - Предзагрузить цвет и варианты только для Product detail API
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/storefront/viewsets.py:71-91`, `twocomms/storefront/serializers.py:36-49`, `108-110`, `twocomms/productcolors/models.py:28-34`.
-- Доказательство: detail serializer читает `color_variants` и вложенный `color` через `depth=1`, но queryset загружает только category. Это создает запрос к вариантам и затем запросы к color по каждой строке.
-- Что даст: bounded набор запросов через `Prefetch("color_variants", queryset=...select_related("color"))`, без увеличения payload list API.
-- Риск и ограничения: prefetch должен включаться только для action `retrieve`; глобальный prefetch раздует список товаров.
-- Следующая проверка: detail с 3+ вариантами, query-count и отдельная проверка неизменного list endpoint.
+- Доказательство: detail с тремя variants сократился `6 -> 3`; list остался
+  `2` и SQL не обращается к variant table.
+- Что дало: bounded detail queries без дополнительного list payload.
+- Риск и ограничения: prefetch намеренно привязан только к action `retrieve`.
+- Следующая проверка: сохранять отдельные detail/list query-count tests.
 
 ### DJ6-ORM-007 - Использовать один `in_bulk()` вместо 25 запросов в analytics widget товаров
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/storefront/services/admin_analytics.py:1328-1358`.
-- Доказательство: цикл по `view_rows[:25]` делает `Product.objects.filter(...).select_related("category").first()` для каждой строки.
-- Что даст: один запрос `select_related("category").in_bulk(ids)` вместо до 25 отдельных запросов, быстрее административная аналитика.
-- Риск и ограничения: сохранить текущие fallback для удаленных/null product IDs и порядок исходных analytics rows.
-- Следующая проверка: query-count с существующими, удаленными и пустыми product IDs.
+- Доказательство: до 25 lookups заменены одним `in_bulk()`; исходный rows
+  order, duplicate IDs, null skip и deleted product fallback сохранены.
+- Что дало: product lookup cluster административной аналитики ограничен одним SQL.
+- Риск и ограничения: aggregate queries вокруг widget не менялись.
+- Следующая проверка: сохранять fallback/query-count contract при изменении widget.
 
 ### DJ6-ORM-008 - Заменить N+1 `exists()` в survey analytics на `Exists/OuterRef`
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/storefront/services/admin_analytics.py:1522-1526`.
-- Доказательство: все completed sessions материализуются, после чего для каждой выполняется отдельный `Order.objects.filter(...).exists()`.
-- Что даст: вычислить downstream purchase одним correlated `Exists` запросом, уменьшить SQL round-trip и Python memory.
-- Риск и ограничения: до внедрения нужен `EXPLAIN` на MariaDB; составной индекс для условия `user + created` должен быть подтвержден, а anonymous session semantics сохранены.
-- Следующая проверка: parity downstream count, query-count и `EXPLAIN` на локальной копии production MariaDB.
+- Доказательство: пять order lookups сведены к одному correlated query; rate
+  `40.0%`, user/anonymous/null semantics сохранены. Production `EXPLAIN`
+  использует user index (`ref`, estimate 7), `created` остаётся residual predicate.
+- Что дало: bounded SQL и отсутствие materialization всех completed sessions.
+- Риск и ограничения: составной `(user_id, created)` пока не оправдан текущим объёмом.
+- Следующая проверка: вернуться к индексу при росте survey/order rows и slow-query evidence.
 
 ### DJ6-ORM-009 - Применить новый Django 6.1 `values().in_bulk()` в расчете subtotal корзины
 
-- Статус: `подтверждено`; предварительный приоритет: `P3`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P3`.
 - Область: `twocomms/storefront/views/cart.py:95-113`.
-- Доказательство: `_calculate_original_subtotal()` materializes полные Product через `Product.objects.in_bulk(ids)`, хотя использует только `id` и `price`. Django 6.1 разрешил `in_bulk()` после `values()`/`values_list()`. Источник: <https://docs.djangoproject.com/en/6.1/releases/6.1/#models>.
-- Что даст: уменьшить ширину строк, создание model instances и память на каждом расчете корзины.
-- Риск и ограничения: новый mapping shape нужно проверить отдельно; dynamic-model smoke уже вернул `{pk: dict}` mapping с ожидаемыми ключами, но Decimal и отсутствующие товары не должны изменить итог.
-- Следующая проверка: benchmark корзин разного размера и тесты missing product, zero price, скидка и невалидное quantity.
+- Доказательство: запрос остался `1 -> 1`, но выбирает только `id/price`;
+  `Decimal('600')`, missing product, zero price, discount и invalid quantity
+  закреплены backend-neutral SQLite/MariaDB assertions.
+- Что дало: меньше выбранных колонок и без создания Product instances.
+- Риск и ограничения: выигрыш по latency зависит от размера корзины/строки.
+- Следующая проверка: benchmark крупных корзин только при performance incident.
 
 ### DJ6-ORM-010 - Применить `values().in_bulk()` при проверке принадлежности варианта товара
 
-- Статус: `подтверждено`; предварительный приоритет: `P3`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P3`.
 - Область: `twocomms/storefront/views/utils.py:261-273`, `294-313`.
-- Доказательство: проверке нужны только `variant.id` и `variant.product_id`, но `ProductColorVariant.objects.in_bulk()` загружает всю модель.
-- Что даст: меньше данных и model-object overhead на каждом чтении корзины с цветовыми вариантами.
-- Риск и ограничения: сохранить интерфейс `filter_cart_variant_ownership()` либо явно адаптировать его к dict; API smoke подтвердил саму возможность `values().in_bulk()`, а session mutation и Monobank reset требуют regression tests.
-- Следующая проверка: wrong product, missing variant, duplicate session rows и неизменность очистки pending checkout.
+- Доказательство: запрос остался `1 -> 1`, выбирает только `id/product_id`;
+  dict/model mappings, wrong/missing/duplicate variants и pending Monobank reset сохранены.
+- Что дало: уже bulk path стал уже по payload и model allocation.
+- Риск и ограничения: helper намеренно поддерживает старые model mappings для callers/tests.
+- Следующая проверка: сохранять session cleanup contract при изменении cart schema.
 
 ### DJ6-ORM-011 - Использовать `QuerySet.totally_ordered` как gate для стабильной пагинации
 
-- Статус: `подтверждено`; предварительный приоритет: `P1` для операционных списков, `P2` для остальных.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P1` для операционных списков, `P2` для остальных.
 - Область: `twocomms/management/views.py:2099-2108`, `management/shop_views.py:281-293`, `management/network_views.py:56-87`, `management/checker_views.py:150-188`, `management/parsing_views.py:114-138`, `warehouse/views/history.py:17-42`, `orders/dropshipper_views.py:329-355`, `439-451`.
-- Доказательство: paginator querysets сортируются по timestamp/score/count без уникального tie-breaker. Django 6.1 добавил `QuerySet.totally_ordered`, который позволяет формально обнаруживать недетерминированный порядок. Источник: <https://docs.djangoproject.com/en/6.1/ref/models/querysets/#django.db.models.query.QuerySet.totally_ordered>.
-- Что даст: исключить пропуски и дубли между страницами при одинаковых timestamp/score; добавить тестируемый guardrail для новых paginator endpoints.
-- Риск и ограничения: добавление `id` меняет SQL plan и может потребовать составные индексы; сначала `EXPLAIN`, затем tie-boundary tests. Отдельно в dropshipper view обнаружен production `print()` и повторная итерация queryset, это вынести в отдельную находку.
-- Следующая проверка: создать ties на границе страниц, добавить уникальный `id/pk` в ordering и проверить `totally_ordered is True` для каждого пути.
+- Доказательство: восемь querysets получили `-id`; `totally_ordered` стал
+  `False -> True`, 8 tie-boundary tests исключают пропуски/дубли. MariaDB plans
+  не ухудшились, новый DDL не нужен.
+- Что дало: стабильная пагинация management, dropshipper и warehouse lists.
+- Риск и ограничения: существующие production `print()` в dropshipper view не
+  менялись и остаются отдельной observability находкой.
+- Следующая проверка: использовать `totally_ordered` как regression gate для новых paginator paths.
 
 ### DJ6-ORM-012 - Включать `FETCH_RAISE` в тестах для намеренно узких projections
 
-- Статус: `подтверждено`; предварительный приоритет: `P2`.
+- Статус: `реализовано 2026-08-17`; приоритет реализации: `P2`.
 - Область: `twocomms/storefront/services/catalog_facets.py:40-47`, `storefront/seo_utils.py:167-199`, `management/bot_views.py:2418-2429`, `storefront/sitemaps.py:114-130`, `239-250`, `307-320`.
-- Доказательство: эти пути сознательно используют `.only()` и сейчас читают выбранные поля. `FETCH_RAISE` позволяет превратить будущую скрытую ленивую догрузку в `FieldFetchBlocked` во время теста. Источник: <https://docs.djangoproject.com/en/6.1/topics/db/fetch-modes/>.
-- Что даст: защитит SEO, sitemap, catalog facets и bot observability от незаметного появления N+1 после следующего изменения property/template.
-- Риск и ограничения: не включать режим глобально в production; сначала локальные tests/query-count. Любой intentionally deferred access придется сделать явным.
-- Следующая проверка: targeted tests с `FETCH_RAISE`, где доступ к omitted field намеренно падает, а штатный результат остается прежним.
+- Доказательство: шесть storefront contracts и один management lifecycle
+  contract проходят под test-only `FETCH_RAISE`; контрольный omitted field
+  выбрасывает `FieldFetchBlocked`, default остаётся `FETCH_ONE`.
+- Что дало: SEO/sitemap/facets/lifecycle projections теперь fail-fast при будущем N+1.
+- Риск и ограничения: monkeypatch ограничен test context; production не изменён.
+- Следующая проверка: добавлять такой contract к новым намеренно узким `.only()` paths.
 
 ### DJ6-ORM-013 - Исследовать `GeneratedField` для единой итоговой цены Product
 

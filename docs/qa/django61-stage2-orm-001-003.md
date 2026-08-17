@@ -44,8 +44,20 @@ commit `c8e6b13bd2d7cd72301a5031513e60adfb1fb639`.
 На 10 production заказах old/new payment projection имеют одинаковый
 `EXPLAIN`; меняется только выбранная колонка, access plan не ухудшен.
 
-Production `finance_consignmentitem` сейчас содержит `0` строк. Old/new
-company/reseller `EXPLAIN` также совпадает, но MariaDB сообщает
-`Impossible WHERE noticed after reading const tables`. Это не выдаётся за
-data-bearing benchmark: representative consignment `EXPLAIN` остаётся открытой
-частью общего exit gate Stage 2 и будет выполнен на локальном production mirror.
+Production `finance_consignmentitem` сейчас содержит `0` строк, поэтому live
+old/new `EXPLAIN` сообщает `Impossible WHERE noticed after reading const tables`.
+Data-bearing proof выполнен отдельно на disposable MariaDB `11.4.12` после
+полного migration graph и `ANALYZE TABLE`: 10 целевых consignment rows,
+1 non-consignment row и 500 rows другой компании.
+
+- `reseller_frozen()`: old/new `type=ref`, key `idx_cons_item_res_cons`,
+  estimate `10`, `Using where`.
+- `consignment_frozen_total()`: old/new `type=ref`, company FK key,
+  estimate `11`, `Using where`.
+- В обеих парах SQL отличается только добавленной колонкой `is_consignment`;
+  filters, params, ordering и планы совпадают. Old/new totals равны
+  `Decimal('246.80')`, query count `11 -> 1`.
+- Временные schema/user и native MariaDB process удалены; cleanup проверен.
+
+Live `EXPLAIN` следует повторить после появления production consignment rows,
+но data-bearing exit gate Stage 2 закрыт без использования production как fixture.

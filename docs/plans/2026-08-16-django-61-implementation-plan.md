@@ -329,12 +329,13 @@ Production acceptance от 2026-08-17:
 
 **Почему раньше фоновых worker и DDL:** это подтвержденные N+1/overfetch проблемы, которые можно исправлять точечно и измерять query-count тестами.
 
-- [ ] **DJ6-BASE-001 - Внедрить fetch modes только как локальную стратегию.**
+- [x] **DJ6-BASE-001 - Внедрить fetch modes только как локальную стратегию.**
   - Запрещено глобально включать \`FETCH_PEERS\`.
   - Default: сначала исправить projection/prefetch; \`FETCH_PEERS\` применять только при доказанном выигрыше.
-  - Прогресс: в \`DJ6-ORM-001..003\` точная projection дала \`1\` запрос,
-    тогда как локальный \`FETCH_PEERS\` smoke давал \`2\`; production fetch mode
-    не добавлен. Пункт остаётся открытым до \`DJ6-ORM-012\` и полного Stage 2 audit.
+  - Выполнено: production default остался \`FETCH_ONE\`; глобальные
+    \`FETCH_PEERS\`/\`FETCH_RAISE\` не добавлены. В \`DJ6-ORM-001..010\`
+    использованы точные projection, annotation, prefetch и bulk mappings, а
+    \`FETCH_RAISE\` включён только в семи test contracts \`DJ6-ORM-012\`.
 
 - [x] **DJ6-ORM-001 - Устранить deferred N+1 в payment snapshots.**
   - Files: \`storefront/views/admin.py\`, \`orders/nova_poshta_documents.py\`.
@@ -355,42 +356,90 @@ Production acceptance от 2026-08-17:
 
 Evidence блока: \`docs/qa/django61-stage2-orm-001-003.md\`.
 
-- [ ] **DJ6-ORM-004 - Добавить \`select_related\` для reverse OneToOne в UserAdmin.**
+- [x] **DJ6-ORM-004 - Добавить \`select_related\` для reverse OneToOne в UserAdmin.**
   - Acceptance: пользователи без profile/points корректны; changelist query count стабилен.
+  - Выполнено: explicit \`select_related("userprofile", "points")\` сократил
+    чтение 10 пользователей с \`21\` до \`1\` запроса; отсутствие любой из
+    reverse OneToOne связей сохраняет fallback \`—\`.
 
-- [ ] **DJ6-ORM-005 - Заменить Category API N+1 count на annotation.**
+- [x] **DJ6-ORM-005 - Заменить Category API N+1 count на annotation.**
   - Acceptance: published/draft/empty category response parity на MariaDB.
+  - Выполнено: filtered \`Count\` сократил список десяти категорий с \`12\`
+    до \`2\` запросов; published/draft/empty counts совпадают на SQLite и
+    disposable MariaDB 11.4.
 
-- [ ] **DJ6-ORM-006 - Добавить detail-only Prefetch color variants + color.**
+- [x] **DJ6-ORM-006 - Добавить detail-only Prefetch color variants + color.**
   - List endpoint не должен получить лишний prefetch/payload.
+  - Выполнено: detail с тремя вариантами сократился с \`6\` до \`3\`
+    запросов; list остался на \`2\` и не читает таблицу вариантов.
 
-- [ ] **DJ6-ORM-007 - Заменить до 25 product lookups одним \`in_bulk()\`.**
+- [x] **DJ6-ORM-007 - Заменить до 25 product lookups одним \`in_bulk()\`.**
   - Сохранить порядок analytics rows и fallback удаленных ID.
+  - Выполнено: до 25 отдельных product lookups заменены одним
+    \`select_related("category").in_bulk()\`; порядок, duplicate/null ID и
+    fallback удалённых товаров сохранены.
 
-- [ ] **DJ6-ORM-008 - Перенести survey purchase \`exists()\` в \`Exists/OuterRef\`.**
+- [x] **DJ6-ORM-008 - Перенести survey purchase \`exists()\` в \`Exists/OuterRef\`.**
   - Acceptance: parity count и приемлемый MariaDB \`EXPLAIN\`.
+  - Выполнено: пять per-session order lookups сведены к одному correlated
+    \`Exists\`; user/anonymous semantics и rate \`40.0%\` сохранены. Production
+    MariaDB использует индекс \`orders_order_user_id_e9b59eb1\`.
 
-- [ ] **DJ6-ORM-009 - Использовать \`values().in_bulk()\` в subtotal корзины.**
+- [x] **DJ6-ORM-009 - Использовать \`values().in_bulk()\` в subtotal корзины.**
   - Acceptance: Decimal, missing product, zero price, discount и invalid quantity parity.
+  - Выполнено: один запрос остался одним, но загружает только \`id/price\`
+    без model instances; Decimal, missing/zero/discount/invalid quantity parity
+    закреплена backend-neutral SQL assertions.
 
-- [ ] **DJ6-ORM-010 - Использовать \`values().in_bulk()\` для variant ownership.**
+- [x] **DJ6-ORM-010 - Использовать \`values().in_bulk()\` для variant ownership.**
   - Acceptance: wrong/missing/duplicate variant и pending checkout reset не меняются.
+  - Выполнено: один запрос загружает только \`id/product_id\`; helper сохраняет
+    совместимость с dict/model mappings, очистку wrong/missing/duplicate rows и
+    reset pending Monobank state.
 
-- [ ] **DJ6-ORM-011 - Сделать paginator querysets totally ordered.**
+- [x] **DJ6-ORM-011 - Сделать paginator querysets totally ordered.**
   - Добавлять unique tie-breaker только после \`EXPLAIN\`; тестировать ties на границе страниц.
+  - Выполнено: восемь management/orders/warehouse paginator querysets получили
+    unique \`-id\` tie-breaker; \`totally_ordered\` изменился \`False -> True\`,
+    boundary tests не допускают пропуски/дубли, MariaDB plans не ухудшились.
 
-- [ ] **DJ6-ORM-012 - Добавить \`FETCH_RAISE\` в тесты узких projections.**
+- [x] **DJ6-ORM-012 - Добавить \`FETCH_RAISE\` в тесты узких projections.**
   - Production behavior не менять глобально.
+  - Выполнено: семь contracts защищают catalog facets, homepage price, sitemap
+    и management lifecycle projections; default \`FETCH_ONE\` подтверждён,
+    production queryset behavior не изменён.
 
-- [ ] **DJ6-ADMIN-001 - Проверить admin query plans и Django 6.1 action API.**
+- [x] **DJ6-ADMIN-001 - Проверить admin query plans и Django 6.1 action API.**
   - Отдельно измерить computed/deep \`list_display\`, которые auto select-related не покрывает.
+  - Выполнено: restock actions доступны в change list/change form, имеют
+    singular/plural descriptions и требуют \`change\` permission. View-only
+    forged POST не меняет записи; changelist из 10 строк выполняет один запрос.
+
+Evidence блока: \`docs/qa/django61-stage2-completion-report.md\`.
 
 ### Exit gate этапа 2
 
-- [ ] Для каждого ORM-пункта сохранены before/after query counts.
-- [ ] API/HTML/денежная parity доказана.
-- [ ] На representative MariaDB copy нет ухудшения \`EXPLAIN\`.
-- [ ] Ни один глобальный fetch mode не добавлен.
+- [x] Для каждого ORM-пункта сохранены before/after query counts либо явно
+  зафиксировано отсутствие изменения числа запросов для projection/test-only пунктов.
+- [x] API/HTML/денежная parity доказана 29 focused contracts.
+- [x] Disposable MariaDB \`11.4.12\` gate прошёл с реальными миграциями и
+  representative fixtures; production read-only \`EXPLAIN\` не требует нового DDL.
+- [x] Ни один глобальный fetch mode не добавлен.
+
+Production acceptance от 2026-08-17:
+
+- code SHA \`505458e919064205113aeb9b88e2e471ac2488ef\` опубликован в GitHub
+  \`main\` и получен production checkout через \`git pull --ff-only origin main\`;
+- production runtime: CPython \`3.14.6\`, Django \`6.1\`, DRF \`3.18.0\`,
+  mysqlclient \`2.2.8\`, MariaDB \`11.4.12\`; pending non-DTF migrations: \`0\`;
+- server preflight и post-deploy matrix имеют \`status=ok\`, tracked checkout
+  чистый, SHA и \`origin/main\` совпадают с release SHA;
+- local и production HTTP matrices прошли все 10 non-DTF probes; ожидаемые
+  login redirects остаются \`302\`, DTF scope \`excluded\`;
+- \`tmp/restart.txt\` обновлён, после HTTP-запросов Passenger получил новые
+  \`lswsgi\` workers; \`run_instagram_bot --ensure\` запустил daemon;
+- code diff не содержит migrations/static/templates/assets, поэтому
+  \`migrate\`, \`collectstatic\` и \`compress\` для этого release не требовались.
 
 ---
 
