@@ -138,6 +138,12 @@ class Django61FetchModeContractTests(TestCase):
                 for post in posts
             ]
 
-        self.assertEqual(len(payload), 1)
-        self.assertIn(self.blog_post.slug, payload[0][0])
-        self.assertEqual(payload[0][1], self.blog_post.updated_at)
+        matching_payload = [
+            (location, lastmod)
+            for location, lastmod in payload
+            if self.blog_post.slug in location
+        ]
+        self.assertEqual(
+            matching_payload,
+            [(sitemap.location(self.blog_post), self.blog_post.updated_at)],
+        )
