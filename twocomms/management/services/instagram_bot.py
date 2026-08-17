@@ -3544,6 +3544,20 @@ def _notification_retry_at(row, now, *, minimum_delay_seconds=0):
     return now + timedelta(seconds=max(base, provider_delay) + jitter)
 
 
+def _parse_notification_chat_ids(raw_value):
+    """Match the legacy TelegramNotifier recipient parsing semantics."""
+    if not raw_value:
+        return []
+    result = []
+    seen = set()
+    for part in re.split(r"[;,\s]+", str(raw_value)):
+        part = part.strip()
+        if part and part not in seen:
+            result.append(part)
+            seen.add(part)
+    return result
+
+
 def _finish_notification(
     dedupe_key,
     *,
@@ -3642,10 +3656,34 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
     row.refresh_from_db()
     payload = dict(row.payload or {})
 
-    token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN", "").strip()
-    chat = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID", "").strip() or str(payload.get("chat_id") or "")
-    text = str(payload.get("text") or "")[:3500]
-    if not token or not chat:
+    registration_transport = payload.get("transport") == "site_registration"
+    if registration_transport:
+        try:
+            from accounts.signals import registration_notification_text
+
+            registration_user_id = int(payload.get("registration_user_id"))
+            text = registration_notification_text(registration_user_id) or ""
+        except Exception:
+            text = ""
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        admin_ids = _parse_notification_chat_ids(os.environ.get("TELEGRAM_ADMIN_ID", ""))
+        chat_ids = _parse_notification_chat_ids(os.environ.get("TELEGRAM_CHAT_ID", ""))
+        target_ids = admin_ids or chat_ids
+        chat = target_ids[0] if target_ids else ""
+    else:
+        token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN", "").strip()
+        chat = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID", "").strip() or str(payload.get("chat_id") or "")
+        target_ids = [chat] if chat else []
+        text = str(payload.get("text") or "")[:3500]
+    if not text and registration_transport:
+        _finish_notification(
+            dedupe_key,
+            status=IgBotNotification.Status.DEAD_LETTER,
+            error="registration_user_not_found",
+            failure_kind="registration_permanent",
+        )
+        return False
+    if not token or not target_ids:
         _finish_notification(
             dedupe_key,
             status=IgBotNotification.Status.FAILED,
@@ -3672,55 +3710,81 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
 
     main_message_id = str(payload.get("main_delivery_message_id") or "")
     if not main_message_id:
-        try:
-            body = json.dumps({
-                "chat_id": chat,
-                "text": text,
-                "disable_web_page_preview": True,
-                **({"reply_markup": reply_markup} if reply_markup is not None else {}),
-            }).encode("utf-8")
-            code, response_body = _http(
-                f"https://api.telegram.org/bot{token}/sendMessage", data=body, timeout=HTTP_TIMEOUT
-            )
-        except Exception as exc:
+        delivered_by_target = (
+            dict(payload.get("main_delivery_target_ids") or {})
+            if registration_transport
+            else {}
+        )
+        delivered_ids = []
+        for target_id in target_ids:
+            if registration_transport and target_id in delivered_by_target:
+                delivered_ids.append(str(delivered_by_target[target_id]))
+                continue
+            try:
+                body = json.dumps({
+                    "chat_id": target_id,
+                    "text": text,
+                    "disable_web_page_preview": True,
+                    **({"reply_markup": reply_markup} if reply_markup is not None else {}),
+                }).encode("utf-8")
+                code, response_body = _http(
+                    f"https://api.telegram.org/bot{token}/sendMessage", data=body, timeout=HTTP_TIMEOUT
+                )
+            except Exception as exc:
+                _finish_notification(
+                    dedupe_key,
+                    status=IgBotNotification.Status.UNKNOWN,
+                    error=repr(exc),
+                    failure_kind="ambiguous_transport",
+                )
+                return False
+            response = parse_response(code, response_body)
+            if code < 0 or (code == 200 and response is None):
+                _finish_notification(
+                    dedupe_key,
+                    status=IgBotNotification.Status.UNKNOWN,
+                    error=response_body or "Telegram returned an unreadable success response",
+                    failure_kind="ambiguous_provider_response" if code == 200 else "ambiguous_transport",
+                )
+                return False
+            response = response or {}
+            if code != 200 or not response.get("ok"):
+                retryable = code == 429 or code >= 500
+                parameters = response.get("parameters")
+                retry_after = parameters.get("retry_after") if code == 429 and isinstance(parameters, dict) else 0
+                _finish_notification(
+                    dedupe_key,
+                    status=(IgBotNotification.Status.FAILED if retryable else IgBotNotification.Status.DEAD_LETTER),
+                    error=str(response.get("description") or f"HTTP {code}"),
+                    failure_kind=("rate_limited" if code == 429 else ("provider_retryable" if retryable else "provider_permanent")),
+                    retry_after_seconds=retry_after,
+                )
+                return False
+            message_id = str((response.get("result") or {}).get("message_id") or "")
+            if not message_id:
+                _finish_notification(
+                    dedupe_key,
+                    status=IgBotNotification.Status.UNKNOWN,
+                    error="Telegram success response has no message_id",
+                    failure_kind="ambiguous_provider_response",
+                )
+                return False
+            delivered_ids.append(message_id)
+            if registration_transport:
+                delivered_by_target[target_id] = message_id
+                payload["main_delivery_target_ids"] = delivered_by_target
+                persist_payload()
+        if not delivered_ids:
             _finish_notification(
                 dedupe_key,
                 status=IgBotNotification.Status.UNKNOWN,
-                error=repr(exc),
-                failure_kind="ambiguous_transport",
-            )
-            return False
-        response = parse_response(code, response_body)
-        if code < 0 or (code == 200 and response is None):
-            _finish_notification(
-                dedupe_key,
-                status=IgBotNotification.Status.UNKNOWN,
-                error=response_body or "Telegram returned an unreadable success response",
-                failure_kind="ambiguous_provider_response" if code == 200 else "ambiguous_transport",
-            )
-            return False
-        response = response or {}
-        if code != 200 or not response.get("ok"):
-            retryable = code == 429 or code >= 500
-            parameters = response.get("parameters")
-            retry_after = parameters.get("retry_after") if code == 429 and isinstance(parameters, dict) else 0
-            _finish_notification(
-                dedupe_key,
-                status=(IgBotNotification.Status.FAILED if retryable else IgBotNotification.Status.DEAD_LETTER),
-                error=str(response.get("description") or f"HTTP {code}"),
-                failure_kind=("rate_limited" if code == 429 else ("provider_retryable" if retryable else "provider_permanent")),
-                retry_after_seconds=retry_after,
-            )
-            return False
-        main_message_id = str((response.get("result") or {}).get("message_id") or "")
-        if not main_message_id:
-            _finish_notification(
-                dedupe_key,
-                status=IgBotNotification.Status.UNKNOWN,
-                error="Telegram success response has no message_id",
+                error="Telegram delivery has no target receipts",
                 failure_kind="ambiguous_provider_response",
             )
             return False
+        main_message_id = delivered_ids[0]
+        if registration_transport and len(delivered_ids) > 1:
+            payload["main_delivery_message_ids"] = delivered_ids
         payload["main_delivery_message_id"] = main_message_id
         persist_payload()
 
@@ -3998,6 +4062,10 @@ def notify_manager(
         return False
     if not dedupe_key:
         dedupe_key = "generic:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+    try:
+        delay_seconds = max(0, min(int(not_before_seconds), 300))
+    except (TypeError, ValueError):
+        delay_seconds = 0
     chat = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID", "").strip()
     payload = {"text": text, "chat_id": chat}
     if isinstance(metadata, dict):
@@ -4029,6 +4097,11 @@ def notify_manager(
                     "client": client,
                     "event_type": (event_type or "generic")[:64],
                     "payload": payload,
+                    "next_attempt_at": (
+                        timezone.now() + timedelta(seconds=delay_seconds)
+                        if delay_seconds
+                        else None
+                    ),
                 },
             )
             if not created and row.status in {
