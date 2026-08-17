@@ -665,7 +665,7 @@ def _post_payment_subject_outcome(order):
         if state not in _POST_PAYMENT_TERMINAL_STATES:
             return None
         states.append(state)
-    if "ambiguous" in states:
+    if "ambiguous" in states or "unknown" in states:
         return "ambiguous"
     return "done"
 

@@ -866,6 +866,44 @@ class PaymentSideEffectJobServiceTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.state, model.State.AMBIGUOUS)
 
+    def test_unknown_channel_outcome_is_ambiguous_and_not_replayed(self):
+        service = self._service()
+        model = order_models.PaymentSideEffectJob
+        order = self._order()
+        job, _ = service.enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status="unpaid",
+            pay_type="online_full",
+        )
+        delivered = []
+
+        def persist_channel(order_id, *_args, only_channel=None, **_kwargs):
+            delivered.append(only_channel)
+            state = "unknown" if only_channel == "meta_purchase" else "sent"
+            current = order_models.Order.objects.get(pk=order_id)
+            payload = dict(current.payment_payload or {})
+            channels = dict(payload.get("post_payment_channels") or {})
+            channels[only_channel] = {"state": state}
+            payload["post_payment_channels"] = channels
+            current.payment_payload = payload
+            current.save(update_fields=["payment_payload"])
+            return state
+
+        with patch(
+            "storefront.views.utils._send_post_payment_events",
+            side_effect=persist_channel,
+        ):
+            first = service.process_payment_side_effect_job(job.pk)
+            second = service.process_payment_side_effect_job(job.pk)
+
+        self.assertEqual((first, second), ("ambiguous", "ambiguous"))
+        self.assertEqual(
+            delivered,
+            ["telegram", "meta_purchase", "tiktok_purchase", "receipt_email"],
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.state, model.State.AMBIGUOUS)
+
     def test_channel_cursor_and_provider_boundary_are_persisted_before_delivery(self):
         service = self._service()
         model = order_models.PaymentSideEffectJob
