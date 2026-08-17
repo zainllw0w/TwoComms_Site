@@ -12105,7 +12105,7 @@ msgstr "Buy %(cat)s at TwoComms. Quality street & military apparel with exclusiv
 #: twocomms_django_theme/templates/pages/catalog.html:138
 #, python-format
 msgid "Сторінка %(n)s з %(total)s."
-msgstr ""
+msgstr "Page %(n)s of %(total)s."
 
 #: twocomms_django_theme/templates/pages/catalog.html:29
 msgid "Каталог стріт-мілітарі одягу TwoComms: футболки, худі, лонгсліви з авторськими принтами, DTF-друк, бавовна. Доставка Новою Поштою від 1 дня по Україні."

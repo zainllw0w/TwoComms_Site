@@ -17,6 +17,7 @@ class _CatalogOwnerSignalParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.canonical = ""
+        self.meta_description = ""
         self.social_urls = {}
         self.json_ld = []
         self._json_ld_parts = []
@@ -28,7 +29,9 @@ class _CatalogOwnerSignalParser(HTMLParser):
             self.canonical = attrs.get("href", "")
         elif tag == "meta":
             key = attrs.get("property") or attrs.get("name")
-            if key in {"og:url", "twitter:url"}:
+            if key == "description":
+                self.meta_description = attrs.get("content", "")
+            elif key in {"og:url", "twitter:url"}:
                 self.social_urls[key] = attrs.get("content", "")
         elif tag == "script" and attrs.get("type") == "application/ld+json":
             self._in_json_ld = True
@@ -298,6 +301,30 @@ class CatalogFacetPaginationOwnerTests(TestCase):
                     self.assertEqual(
                         [product.pk for product in response.context["products"]],
                         [product_id],
+                    )
+
+    def test_ru_en_page_two_pagination_suffix_is_locale_owned(self):
+        cases = (
+            ("/ru/catalog/tshirts/", "Страница 2 из 3.", "Сторінка 2 з 3."),
+            ("/en/catalog/tshirts/", "Page 2 of 3.", "Сторінка 2 з 3."),
+        )
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            for path, expected_suffix, forbidden_suffix in cases:
+                with self.subTest(path=path):
+                    response = self.client.get(f"{path}?page=2")
+                    self.assertEqual(response.status_code, 200)
+                    self.assertContains(response, 'content="index, follow', html=False)
+                    parser = self._signals(response)
+                    expected_url = f"https://twocomms.shop{path}?page=2"
+                    self.assertEqual(parser.canonical, expected_url)
+                    self.assertIn(expected_suffix, parser.meta_description)
+                    self.assertNotIn(forbidden_suffix, parser.meta_description)
+                    collection = parser.collection_page()
+                    self.assertIn(expected_suffix, collection["description"])
+                    self.assertNotIn(forbidden_suffix, collection["description"])
+                    self.assertEqual(
+                        [product.pk for product in response.context["products"]],
+                        [self.tee_products[1].pk],
                     )
 
     def test_tracking_only_page_two_keeps_page_owner_without_facet_state(self):
