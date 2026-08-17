@@ -106,8 +106,11 @@ class CartDjango61BulkMappingTests(TestCase):
 
         self.assertEqual(len(queries), 1)
         self.assertEqual(total, Decimal("600"))
-        self.assertIn('"storefront_product"."price"', queries[0]["sql"])
-        self.assertNotIn('"storefront_product"."title"', queries[0]["sql"])
+        product_table = connection.ops.quote_name(Product._meta.db_table)
+        price_column = connection.ops.quote_name(Product._meta.get_field("price").column)
+        title_column = connection.ops.quote_name(Product._meta.get_field("title").column)
+        self.assertIn(f"{product_table}.{price_column}", queries[0]["sql"])
+        self.assertNotIn(f"{product_table}.{title_column}", queries[0]["sql"])
 
     def test_variant_ownership_uses_narrow_mapping_and_preserves_session_cleanup(self):
         from types import SimpleNamespace
@@ -170,12 +173,19 @@ class CartDjango61BulkMappingTests(TestCase):
         self.assertNotIn("monobank_invoice_id", session)
         self.assertNotIn("monobank_pending_order_id", session)
         self.assertTrue(session.modified)
+        variant_table = connection.ops.quote_name(ProductColorVariant._meta.db_table)
+        product_id_column = connection.ops.quote_name(
+            ProductColorVariant._meta.get_field("product").column,
+        )
+        color_id_column = connection.ops.quote_name(
+            ProductColorVariant._meta.get_field("color").column,
+        )
         self.assertIn(
-            '"productcolors_productcolorvariant"."product_id"',
+            f"{variant_table}.{product_id_column}",
             queries[0]["sql"],
         )
         self.assertNotIn(
-            '"productcolors_productcolorvariant"."color_id"',
+            f"{variant_table}.{color_id_column}",
             queries[0]["sql"],
         )
 
