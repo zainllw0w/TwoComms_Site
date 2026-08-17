@@ -4,18 +4,22 @@
 
 ## Что изменено
 
-- Добавлен единый repository contract для шести текущих application cron jobs.
-- Watchdog, четыре Instagram periodic jobs и Nova Poshta tracking находятся в
-  трёх idempotent managed blocks; installer сохраняет unrelated entries и
-  fail closed при duplicate, malformed или неизвестном loose owner.
+- Добавлен единый repository contract для исходных шести application cron jobs.
+  Позднее тот же managed contract был расширен седьмым, guarded owner для
+  автоанализа звонков. Watchdog, четыре Instagram periodic jobs, Nova Poshta
+  tracking и guarded call-analysis находятся в трёх idempotent managed blocks;
+  installer сохраняет unrelated entries и fail closed при duplicate, malformed
+  или неизвестном loose owner.
 - Каждая scheduled line использует non-blocking `flock -n -E 75` и
   `timeout --signal=TERM --kill-after=15s` с deadline короче либо согласованным
   с cadence задачи.
 - Batch limits, durable leases/idempotency markers, provider receipt и
   retry/backoff остаются в command/service state machines. Cron отвечает за
   ownership и запуск, но не объявляется exactly-once системой.
-- Все шесть jobs публикуют durable task heartbeat; failed/stale state получает
-  hourly-deduplicated manager alert. Nova Poshta добавлена в supervision.
+- Шесть активных supervised jobs публикуют durable task heartbeat; failed/stale
+  state получает hourly-deduplicated manager alert. Седьмой call-analysis owner
+  защищён default-OFF marker и при выключенном флаге не запускает Django, поэтому
+  отдельный heartbeat от него не ожидается. Nova Poshta добавлена в supervision.
 
 ## Локальные gates
 
@@ -35,10 +39,10 @@
   `254bdb3e6d877daa35cb60f619b231d0d94d4094`.
 - Runtime: CPython `3.14.6`, Django `6.1`, DRF `3.18.0`, mysqlclient `2.2.8`.
 - Три installer `--install` и последующие три `--check` вернули `OK`.
-- Найдено ровно шесть matching scheduled lines: по одному owner для watchdog,
-  order Telegram reconciliation, IG checkout, IG fulfillment, IG payments и
-  Nova Poshta. Все шесть содержат ожидаемые `flock` и TERM-to-KILL timeout;
-  каждый из трёх managed BEGIN markers существует один раз.
+- На исходном rollout найдено ровно шесть matching scheduled lines: по одному
+  owner для watchdog, order Telegram reconciliation, IG checkout, IG fulfillment,
+  IG payments и Nova Poshta. Все шесть содержали ожидаемые `flock` и
+  TERM-to-KILL timeout; каждый из трёх managed BEGIN markers существовал один раз.
 - Cron самостоятельно выполнил все шесть jobs после установки: task heartbeat
   snapshot показал `healthy=true`, `unhealthy_count=0`, возраст success 15-17
   секунд и пустой `last_error_kind` для каждой задачи. Отдельный ручной
@@ -60,10 +64,30 @@
   storage login/home.
 - Migrations, collectstatic и compress для этого release не требовались.
 
+## Финальный Stage 3 snapshot
+
+- Подтверждённый текущий production/main SHA:
+  `718c412682b3eb455068660ebfee75860c92cf7d`.
+- Подтверждённый Stage 3 ancestor:
+  `6f340cd409c37c25ab8b9084db873e4a0f8a1f94`.
+- Production runtime: CPython `3.14.6`, Django `6.1`, MySQL/MariaDB `11.4.12`;
+  pending migrations: `0`.
+- Все три installer-файла существуют в production checkout, tracked текущим
+  `HEAD`, и каждый `--check` завершился с exit code `0` и результатом `OK`.
+- Текущий crontab содержит ровно семь owner lines в трёх managed blocks. Шесть
+  активных heartbeat entries имеют `healthy=true`, `unhealthy_count=0`; guarded
+  call-analysis owner выключен и не должен запускать Python/Django.
+- Queue snapshot: `dangerous_backlog=0`; соединения MariaDB: `11/20`.
+- Read-only `reconcile_ig_analysis_jobs --dry-run --report-failed --limit 500`
+  завершился с exit code `0`: найдено 18 исторических failures, `retry_ids=[]`,
+  persisted state не изменялся.
+- Storefront, catalog, PDP, management и storage вернули HTTP `200`; DTF не
+  входил в scope проверки.
+
 ## Граница закрытия
 
 `DJ6-SRV-005` закрывает scheduler ownership, overlap, deadline, batch и
-operational health текущих шести jobs. Он не заменяет durable business state и
+operational health текущих owners. Он не заменяет durable business state и
 не закрывает остальные Stage 3 side effects. Новый worker/backend нельзя
 включать вторым owner: требуется отдельная ownership migration с теми же
 idempotency и ambiguous-delivery правилами.

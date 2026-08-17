@@ -450,8 +450,9 @@ Production acceptance от 2026-08-17:
 - [x] **DJ6-SRV-005 - Ввести единый cron job contract.**
   - Releases `5d4e358cb`, `c56123c0d` и review-hardening `254bdb3e6`
     добавили три idempotent installer-а для watchdog, четырёх Instagram
-    periodic jobs и Nova Poshta tracking.
-  - На production каждый из шести owners существует ровно в одном managed
+    periodic jobs и Nova Poshta tracking; позднее managed contract расширен
+    guarded default-OFF owner для автоанализа звонков.
+  - На production каждый из семи owners существует ровно в одном managed
     block. Все строки используют `flock -n -E 75` и
     `timeout --signal=TERM --kill-after=15s` с deadline `75/90/180/240s` по
     типу задачи; cadence и batch limits зафиксированы в repository contract.
@@ -459,9 +460,10 @@ Production acceptance от 2026-08-17:
     соответствующих command/service state machines. `task_heartbeat` пишет
     success/failure, а daemon supervision сообщает о failed/stale cron jobs;
     Nova Poshta включена в тот же health contract.
-  - Production acceptance: `HEAD == origin/main == 254bdb3e6`, все три
-    installer `--check` прошли, шесть heartbeat healthy, dangerous backlog
-    `0`, server matrix и 10-route non-DTF HTTP matrix зелёные. Подробности:
+  - Финальный production snapshot: `HEAD == origin/main == 718c41268`, все три
+    installer `--check` прошли, семь owner lines и шесть активных heartbeat
+    entries healthy; guarded call-analysis выключен, dangerous backlog `0`,
+    non-DTF HTTP matrix зелёная. Подробности:
     `docs/qa/django61-stage3-srv-005.md`.
 
 - [x] **DJ6-SRV-010 - Добавить overlap guard для \`run_instagram_bot --ensure\`.**
@@ -475,15 +477,15 @@ Production acceptance от 2026-08-17:
     удерживается, daemon/task heartbeat healthy. Подробности:
     \`docs/qa/django61-stage3-srv-010.md\`.
 
-- [ ] **DJ6-BG-001 - Заменить post-payment request daemon на durable outbox/job.**
+- [x] **DJ6-BG-001 - Заменить post-payment request daemon на durable outbox/job.**
   - В transaction сохранять только durable intent; внешняя отправка после commit.
   - Acceptance: rollback, crash-before-send, crash-after-send и replay не дают дублей.
 
-- [ ] **DJ6-BG-002 - Оставить Monobank invoice sync, вынести CAPI/Telegram.**
+- [x] **DJ6-BG-002 - Оставить Monobank invoice sync, вынести CAPI/Telegram.**
   - Не менять Purchase/Lead semantics и сумму события.
   - Acceptance: checkout latency before/after, durable replay и provider mock.
 
-- [ ] **DJ6-BG-003 - Убрать пятиминутный Binotel polling из request-owned daemon.**
+- [x] **DJ6-BG-003 - Убрать пятиминутный Binotel polling из request-owned daemon.**
   - Использовать существующую command state machine, caps и leases.
 
 - [x] **DJ6-BG-005 - Убрать полный Nova Poshta tracking batch из middleware.**
@@ -499,24 +501,24 @@ Production acceptance от 2026-08-17:
     post-deploy server/HTTP matrices зелёные. Подробности:
     `docs/qa/django61-stage3-bg-005-006.md`.
 
-- [ ] **DJ6-BG-007 - Сделать registration notification commit-safe и durable.**
+- [x] **DJ6-BG-007 - Сделать registration notification commit-safe и durable.**
   - Передавать PK/идентификатор, не ORM instance и не PII/password.
 
-- [ ] **DJ6-BG-009 - Зафиксировать Telegram logging как отдельный аварийный канал.**
+- [x] **DJ6-BG-009 - Зафиксировать Telegram logging как отдельный аварийный канал.**
   - Не переносить его в обычную task queue; добавить bounded timeout/fallback и защиту от recursive logging.
 
-- [ ] **DJ6-BG-011 - Сохранить sync transaction boundaries.**
+- [x] **DJ6-BG-011 - Сохранить sync transaction boundaries.**
   - Любой future async/task adapter получает ID и открывает свою sync transaction.
 
-- [ ] **DJ6-LIVE-002 - Разобрать 18 failed Instagram analysis jobs через dry-run.**
+- [x] **DJ6-LIVE-002 - Разобрать 18 failed Instagram analysis jobs через dry-run.**
   - Сначала report по ID/reason/attempts; адресный retry только с quota budget и без массовой мутации.
 
 ### Exit gate этапа 3
 
-- [ ] Request завершение не владеет долгоживущим daemon/thread для критичных side effects.
-- [ ] Все внешние side effects имеют durable state и idempotency marker.
-- [ ] Повторный command/cron run дает нулевую или детерминированную работу.
-- [ ] Connection budget остается ниже production лимита \`max_user_connections=20\`.
+- [x] Request завершение не владеет долгоживущим daemon/thread для критичных side effects.
+- [x] Все внешние side effects имеют durable state и idempotency marker.
+- [x] Повторный command/cron run дает нулевую или детерминированную работу.
+- [x] Connection budget остается ниже production лимита \`max_user_connections=20\`.
 
 ---
 
