@@ -157,15 +157,16 @@ details.bn-ai-transcript summary{cursor:pointer;color:#b9a8ff;font-size:12.5px;f
     <button type="button" class="bn-btn ghost sm" id="bn-recheck">Перевірити</button>
   </div>
 
-  <div class="bn-card" style="margin-bottom:18px;">
-    <h2>ШІ-аналіз дзвінків</h2>
-    <p class="hint">Окремий перемикач фонового завдання. Вимкнення не видаляє історію дзвінків і не зупиняє прийом вебхуків.</p>
+  <section class="bn-card" id="call-auto-analysis-card" style="margin-bottom:18px;">
+    <h2>Автоаналіз дзвінків</h2>
+    <p class="hint">Вимкнення зупиняє фонову обробку, але зберігає дзвінки та чергу.</p>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cdd6e3;">
-      <input type="checkbox" id="bn-ai-enabled" {% if binotel_ai_enabled %}checked{% endif %}>
-      Увімкнути чергу та аналіз Gemini
+      <input type="checkbox" id="bn-ai-enabled" {% if call_auto_analysis_state.effective_enabled %}checked{% endif %}>
+      Увімкнути автоаналіз дзвінків
     </label>
-    <div class="bn-msg info" id="bn-ai-toggle-msg"></div>
-  </div>
+    <p class="hint" id="call-auto-analysis-status" style="margin:10px 0 0;">{% if call_auto_analysis_state.effective_enabled %}Увімкнено{% else %}Вимкнено{% endif %}</p>
+    <div class="bn-msg {% if call_auto_analysis_state.degraded %}show err{% else %}info{% endif %}" id="bn-ai-toggle-msg">{% if call_auto_analysis_state.degraded %}{{ call_auto_analysis_state.reason }}{% endif %}</div>
+  </section>
 
   <div class="bn-tabs" role="tablist">
     <button type="button" class="bn-tab active" data-tab="call">📞 Дзвінок</button>

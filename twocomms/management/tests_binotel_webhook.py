@@ -14,6 +14,7 @@ from management.services.binotel import (
     is_binotel_ip,
     parse_webhook_call_details,
 )
+from management.tests_call_auto_analysis_helpers import enable_call_auto_analysis
 
 HOST = "management.twocomms.shop"
 BINOTEL_IP = "194.88.218.116"
@@ -38,9 +39,7 @@ class BinotelWebhookHelpersTests(TestCase):
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class BinotelWebhookEndpointTests(TestCase):
     def setUp(self):
-        settings_obj = InstagramBotSettings.load()
-        settings_obj.binotel_ai_enabled = True
-        settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
+        enable_call_auto_analysis(self)
         self.http = TestClient()
         self.url = reverse("management_binotel_webhook")
 

@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.core.cache import cache, caches
+from django.db import OperationalError
 from django.test import TestCase
 from django.urls import reverse
 
@@ -116,6 +117,65 @@ class ProductDetailContentOrderTests(TestCase):
                 "landing_seo": True,
             },
         )
+
+    def test_pdp_retries_recommendations_after_transient_database_disconnect(self):
+        with (
+            patch(
+                "storefront.views.product.ProductRecommendationEngine.get_recommendations",
+                side_effect=[
+                    OperationalError(2006, "server has gone away"),
+                    [self.recommendation],
+                ],
+            ) as recommendations,
+            patch("twocomms.db_resilience.connections") as connections,
+        ):
+            connections.__getitem__.return_value.in_atomic_block = False
+            response = self.client.get(
+                reverse("product", kwargs={"slug": self.product.slug})
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["recommended_products"]),
+            [self.recommendation],
+        )
+        self.assertEqual(recommendations.call_count, 2)
+        connections.__getitem__.return_value.close.assert_called_once_with()
+
+    def test_pdp_omits_recommendations_after_repeated_database_disconnect(self):
+        with (
+            patch(
+                "storefront.views.product.ProductRecommendationEngine.get_recommendations",
+                side_effect=OperationalError(2006, "server has gone away"),
+            ) as recommendations,
+            patch("twocomms.db_resilience.connections") as connections,
+        ):
+            connections.__getitem__.return_value.in_atomic_block = False
+            response = self.client.get(
+                reverse("product", kwargs={"slug": self.product.slug})
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["recommended_products"], [])
+        self.assertEqual(recommendations.call_count, 2)
+        self.assertEqual(connections.__getitem__.return_value.close.call_count, 2)
+
+    def test_pdp_does_not_hide_non_disconnect_recommendation_database_errors(self):
+        with (
+            patch(
+                "storefront.views.product.ProductRecommendationEngine.get_recommendations",
+                side_effect=OperationalError(1040, "too many connections"),
+            ) as recommendations,
+            patch("twocomms.db_resilience.connections") as connections,
+        ):
+            connections.__getitem__.return_value.in_atomic_block = False
+            with self.assertRaises(OperationalError):
+                self.client.get(
+                    reverse("product", kwargs={"slug": self.product.slug})
+                )
+
+        recommendations.assert_called_once_with(product=self.product, limit=8)
+        connections.__getitem__.return_value.close.assert_not_called()
 
     def test_general_seo_block_uses_full_pdp_shell_width(self):
         css = Path(

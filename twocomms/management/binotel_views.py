@@ -17,7 +17,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .services.binotel import (
     BINOTEL_ERROR_MESSAGES,
@@ -27,7 +27,10 @@ from .services.binotel import (
     BinotelNotConfigured,
 )
 from .services.binotel_runtime import is_binotel_ai_enabled
-from .models import InstagramBotSettings
+from .services.call_auto_analysis import (
+    read_call_auto_analysis_state,
+    set_call_auto_analysis_enabled,
+)
 
 # Дозволені для generic-консолі ендпоінти (whitelist, щоб не дати викликати
 # деструктивні методи на кшталт customers/delete з тестової сторінки).
@@ -140,7 +143,7 @@ def binotel_test(request):
         "binotel_webhook_url": f"{base}{webhook_path}",
         "binotel_webhook_enforce_ip": bool(getattr(settings, "BINOTEL_WEBHOOK_ENFORCE_IP", False)),
         "binotel_recording_base": "/binotel/recording/",
-        "binotel_ai_enabled": is_binotel_ai_enabled(),
+        "call_auto_analysis_state": read_call_auto_analysis_state(),
     }
     return render(request, "management/binotel_test.html", context)
 
@@ -200,18 +203,47 @@ def binotel_status(request):
 
 
 @login_required(login_url="management_login")
-@require_POST
+@require_http_methods(["GET", "POST"])
 def binotel_ai_toggle(request):
-    """Persistently enable/disable the optional Binotel AI worker."""
+    """Read or change the provider-neutral call auto-analysis state."""
     blocked = _require_admin_json(request)
     if blocked:
         return blocked
-    payload = _post_json(request)
-    enabled = str(payload.get("enabled") or "").strip().lower() in {"1", "true", "on", "yes"}
-    settings_obj = InstagramBotSettings.load()
-    settings_obj.binotel_ai_enabled = enabled
-    settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
-    return JsonResponse({"success": True, "ai_enabled": enabled})
+
+    if request.method == "GET":
+        state = read_call_auto_analysis_state()
+    else:
+        if request.content_type != "application/json":
+            return JsonResponse(
+                {"success": False, "error": "Очікується application/json."},
+                status=400,
+            )
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return JsonResponse(
+                {"success": False, "error": "Некоректний JSON."}, status=400
+            )
+        if (
+            not isinstance(payload, dict)
+            or "enabled" not in payload
+            or type(payload["enabled"]) is not bool
+        ):
+            return JsonResponse(
+                {"success": False, "error": "enabled має бути boolean."}, status=400
+            )
+        state = set_call_auto_analysis_enabled(payload["enabled"])
+
+    response = {
+        "success": not state.degraded,
+        "configured": state.configured_enabled,
+        "effective": state.effective_enabled,
+        "degraded": state.degraded,
+        "code": state.code,
+        "reason": state.reason,
+    }
+    status = 409 if state.degraded and request.method == "POST" else 200
+    return JsonResponse(response, status=status)
 
 
 @login_required(login_url="management_login")
@@ -551,11 +583,6 @@ def binotel_call_ai_analysis(request):
     blocked = _require_admin_json(request)
     if blocked:
         return blocked
-    if not is_binotel_ai_enabled():
-        return JsonResponse(
-            {"success": False, "disabled": True, "error": "ШІ-аналіз Binotel вимкнено."},
-            status=409,
-        )
 
     from .services.call_ai_analysis import (
         CallAIAnalysisError,

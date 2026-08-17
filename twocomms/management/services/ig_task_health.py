@@ -12,19 +12,10 @@ from datetime import timedelta
 from time import monotonic
 
 from django.db import DatabaseError, OperationalError, ProgrammingError
-from django.db.models import F, Q
+from django.db.models import F
 from django.utils import timezone
 
 from management.models import InstagramBotTaskHeartbeat
-from management.services.call_ai_queue import (
-    ELIGIBLE,
-    INELIGIBLE,
-    METADATA_PENDING,
-    STALE_ANALYSIS_LOCK_MINUTES,
-    analysis_queue_category,
-)
-
-
 @dataclass(frozen=True)
 class TaskSpec:
     key: str
@@ -42,9 +33,33 @@ TASK_SPECS = (
     TaskSpec("ig_deal_payments", "backstop перевірки IG-оплат", 240, 720),
     TaskSpec("order_telegram_reconcile", "відновлення Telegram-карток замовлень", 120, 480),
     TaskSpec("nova_poshta_tracking", "оновлення статусів Нової Пошти", 300, 900),
-    TaskSpec("binotel_call_ai_analyses", "ШІ-аналіз дзвінків Binotel", 300, 900),
+    TaskSpec("binotel_call_ai_analyses", "Автоаналіз дзвінків", 300, 900),
 )
 _SPECS_BY_KEY = {spec.key: spec for spec in TASK_SPECS}
+_CALL_AUTO_ANALYSIS_TASK_KEY = "binotel_call_ai_analyses"
+_CALL_QUEUE_KEYS = ("eligible", "metadata_pending", "ineligible")
+
+
+def _call_auto_analysis_enabled() -> bool:
+    """Read the optional task state without weakening other monitors."""
+    try:
+        from management.services.call_auto_analysis import (
+            is_call_auto_analysis_enabled,
+        )
+
+        return bool(is_call_auto_analysis_enabled())
+    except (DatabaseError, OperationalError, ProgrammingError):
+        return False
+
+
+def _active_task_specs() -> tuple[TaskSpec, ...]:
+    if _call_auto_analysis_enabled():
+        return TASK_SPECS
+    return tuple(
+        spec
+        for spec in TASK_SPECS
+        if spec.key != _CALL_AUTO_ANALYSIS_TASK_KEY
+    )
 
 
 def _spec(task_key: str) -> TaskSpec:
@@ -76,9 +91,9 @@ def _upsert_expectation(spec: TaskSpec) -> InstagramBotTaskHeartbeat:
 
 
 def ensure_task_expectations() -> bool:
-    """Register every expected task without making a pre-migration deploy fail."""
+    """Register active tasks without deleting historical heartbeat rows."""
     try:
-        for spec in TASK_SPECS:
+        for spec in _active_task_specs():
             _upsert_expectation(spec)
     except (DatabaseError, OperationalError, ProgrammingError):
         return False
@@ -187,33 +202,20 @@ def task_heartbeat(task_key: str):
 def task_health_snapshot(*, now=None) -> dict:
     """Return a non-sensitive health summary suitable for UI and public probe."""
     now = now or timezone.now()
+    active_specs = _active_task_specs()
+    active_keys = {spec.key for spec in active_specs}
     try:
         rows = {
             row.task_key: row
             for row in InstagramBotTaskHeartbeat.objects.filter(
-                task_key__in=_SPECS_BY_KEY
+                task_key__in=active_keys
             )
         }
     except (DatabaseError, OperationalError, ProgrammingError):
         return {"available": False, "healthy": False, "tasks": [], "unhealthy_count": 0}
 
-    from management.services.binotel_runtime import is_binotel_ai_enabled
-
-    binotel_enabled = is_binotel_ai_enabled()
     tasks = []
-    for spec in TASK_SPECS:
-        if spec.key == "binotel_call_ai_analyses" and not binotel_enabled:
-            tasks.append({
-                "key": spec.key,
-                "label": spec.label,
-                "state": "disabled",
-                "healthy": True,
-                "age_seconds": None,
-                "stale_after_seconds": spec.stale_after_seconds,
-                "last_succeeded_at": "",
-                "last_error_kind": "",
-            })
-            continue
+    for spec in active_specs:
         row = rows.get(spec.key)
         if row is None:
             state = "unobserved"
@@ -258,11 +260,11 @@ def task_health_snapshot(*, now=None) -> dict:
 
 def release_queue_snapshot() -> dict:
     """Return sanitized release-boundary queue counts, without customer data."""
-    from management.models import CallRecord, IgBotNotification, InstagramBotMessage
+    from management.models import IgBotNotification, InstagramBotMessage
     from management.ig_bot_models import IgAiReplyRecoveryJob, IgConversationAnalysisJob
-    from management.services.binotel_runtime import is_binotel_ai_enabled
 
     try:
+        call_auto_analysis_enabled = _call_auto_analysis_enabled()
         inbound_pending = InstagramBotMessage.objects.filter(
             role=InstagramBotMessage.Role.USER,
             status__in=(InstagramBotMessage.Status.PENDING, InstagramBotMessage.Status.PROCESSING),
@@ -298,10 +300,21 @@ def release_queue_snapshot() -> dict:
         analysis_failed = IgConversationAnalysisJob.objects.filter(
             status=IgConversationAnalysisJob.Status.FAILED
         ).count()
-        binotel_counts = {ELIGIBLE: 0, METADATA_PENDING: 0, INELIGIBLE: 0}
+        binotel_counts = dict.fromkeys(_CALL_QUEUE_KEYS, 0)
         binotel_stale_running = 0
         binotel_error = 0
-        if is_binotel_ai_enabled():
+        if call_auto_analysis_enabled:
+            from django.db.models import Q
+
+            from management.models import CallRecord
+            from management.services.call_ai_queue import (
+                ELIGIBLE,
+                INELIGIBLE,
+                METADATA_PENDING,
+                STALE_ANALYSIS_LOCK_MINUTES,
+                analysis_queue_category,
+            )
+
             binotel_pending = CallRecord.objects.filter(
                 provider="binotel", ai_status=CallRecord.AiStatus.PENDING,
             ).values_list("duration_seconds", "payload")
@@ -340,9 +353,9 @@ def release_queue_snapshot() -> dict:
         + notification_unresolved
         + analysis_pending
         + recovery_unresolved
-        + binotel_counts[ELIGIBLE]
-        + binotel_counts[METADATA_PENDING]
-        + binotel_counts[INELIGIBLE]
+        + binotel_counts["eligible"]
+        + binotel_counts["metadata_pending"]
+        + binotel_counts["ineligible"]
         + binotel_stale_running
     )
     return {
@@ -354,9 +367,9 @@ def release_queue_snapshot() -> dict:
         "analysis_pending": analysis_pending,
         "recovery_unresolved": recovery_unresolved,
         "analysis_failed": analysis_failed,
-        "binotel_eligible_pending": binotel_counts[ELIGIBLE],
-        "binotel_metadata_pending": binotel_counts[METADATA_PENDING],
-        "binotel_ineligible_pending": binotel_counts[INELIGIBLE],
+        "binotel_eligible_pending": binotel_counts["eligible"],
+        "binotel_metadata_pending": binotel_counts["metadata_pending"],
+        "binotel_ineligible_pending": binotel_counts["ineligible"],
         "binotel_stale_running": binotel_stale_running,
         "binotel_error": binotel_error,
     }

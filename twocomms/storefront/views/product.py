@@ -34,6 +34,7 @@ from ..services.variant_meta import VariantMetaInputs, build_variant_meta
 from ..services.locale_publication import publication_context
 from ..recommendations import ProductRecommendationEngine
 from ..utm_tracking import record_product_view
+from twocomms.db_resilience import retry_mysql_read
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,19 @@ CONFIGURATOR_EXPECTED_EXCEPTIONS = (
     TypeError,
     ValueError,
 )
+
+
+def _load_product_recommendations(recommendation_engine, product, *, limit):
+    """Retry one dropped DB connection without making PDP recommendations fatal."""
+    return retry_mysql_read(
+        lambda: list(
+            recommendation_engine.get_recommendations(
+                product=product,
+                limit=limit,
+            )
+        ),
+        fallback=[],
+    )
 
 
 def _is_locale_owned_variant_meta(entry, field: str, language: str) -> bool:
@@ -380,7 +394,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         offer_id_map: JSON mapping (color_variant_id, size) -> offer_id для JS
         default_offer_id: Offer ID для текущего выбора (default цвет + размер)
     """
-    product = get_object_or_404(
+    product_queryset = (
         Product.objects.select_related('category', 'catalog', 'size_grid', 'size_grid__catalog').prefetch_related(
             'images',
             'catalog__size_grids',
@@ -409,9 +423,14 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'faqs',
             'audience_assignments__tag',
             'merch_collection_assignments__collection',
-        ),
-        slug=slug,
-        status='published',
+        )
+    )
+    product = retry_mysql_read(
+        lambda: get_object_or_404(
+            product_queryset,
+            slug=slug,
+            status='published',
+        )
     )
     # W2-4 (AN-035): record_product_view перенесён НИЖЕ — после решения о
     # legacy-301 редиректе, иначе один просмотр считался дважды
@@ -761,7 +780,11 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
     # Получаем рекомендации товаров
     recommendation_engine = ProductRecommendationEngine(user=request.user if hasattr(request, 'user') else None)
-    recommended_products = list(recommendation_engine.get_recommendations(product=product, limit=8))
+    recommended_products = _load_product_recommendations(
+        recommendation_engine,
+        product,
+        limit=8,
+    )
     recommended_product_ids = ':'.join(str(rec_product.id) for rec_product in recommended_products)
 
     # Обрабатываем цветовые превью для рекомендаций

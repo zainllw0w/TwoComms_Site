@@ -37,7 +37,12 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
-from management.models import CallAIAnalysis, CallRecord, Client
+from management.models import (
+    CallAIAnalysis,
+    CallRecord,
+    Client,
+    InstagramBotSettings,
+)
 from management.models import normalize_phone as model_normalize_phone
 from management.services import gemini_keys
 from management.services.call_ai_queue import METADATA_PENDING, analysis_queue_category
@@ -1519,11 +1524,14 @@ def schedule_call_analysis(general_call_id: str) -> None:
     ``run_call_ai_analyses``.
     """
     gcid = (str(general_call_id or "")).strip()
-    from management.services.binotel_runtime import is_binotel_ai_enabled
+    from management.services.call_auto_analysis import is_call_auto_analysis_enabled
 
-    if not gcid or not is_binotel_ai_enabled():
+    if not gcid or not is_call_auto_analysis_enabled():
         return
     with transaction.atomic():
+        InstagramBotSettings.objects.select_for_update().filter(pk=1).first()
+        if not is_call_auto_analysis_enabled():
+            return
         record, created = CallRecord.objects.select_for_update().get_or_create(
             provider="binotel",
             external_call_id=gcid,

@@ -1,5 +1,7 @@
 import os
+import shutil
 import stat
+import socket
 import subprocess
 import tempfile
 import unittest
@@ -10,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_instagram_periodic_jobs_cron.sh"
 BEGIN_MARKER = "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v1"
 END_MARKER = "# END TWOCOMMS INSTAGRAM PERIODIC JOBS v1"
+CALL_MARKER_NAME = "call_auto_analysis.enabled"
+CALL_MARKER_TOKEN = b"call-auto-analysis-enabled-v1\n"
 WATCHDOG_BEGIN = "# BEGIN TWOCOMMS INSTAGRAM BOT WATCHDOG"
 TRACKING_BEGIN = "# BEGIN TWOCOMMS NOVA POSHTA TRACKING"
 
@@ -66,10 +70,13 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         )
         return env
 
-    def _run(self, mode):
+    def _run(self, mode, extra_env=None):
+        env = self._env()
+        if extra_env:
+            env.update(extra_env)
         return subprocess.run(
             ["bash", str(INSTALL_SCRIPT), mode],
-            env=self._env(),
+            env=env,
             text=True,
             capture_output=True,
             timeout=10,
@@ -129,15 +136,283 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             )
         self.assertNotIn("run_instagram_bot --ensure", first_content)
         self.assertNotIn("update_tracking_statuses", first_content)
-        self.assertIn("# codex:binotel-call-ai", first_content)
+        self.assertIn("# codex:call-auto-analysis", first_content)
         self.assertIn(
-            "*/5 * * * * "
-            f"cd {self.django_root} && {self.fake_bin / 'flock'} -n -E 75 "
             f"{self.django_root}/tmp/run_call_ai_analyses.lock "
-            f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 240s "
+            "/bin/sh -c ",
+            first_content,
+        )
+        self.assertIn(
+            f"exec {self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 240s "
             f"{self.python} manage.py run_call_ai_analyses --limit 1",
             first_content,
         )
+
+    def _install_and_get_call_command(self):
+        result = self._run("--install")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = self.crontab_file.read_text(encoding="utf-8").splitlines()
+        return next(line for line in lines if "manage.py run_call_ai_analyses" in line)
+
+    def _marker_path(self):
+        return self.django_root / "tmp" / CALL_MARKER_NAME
+
+    def _run_rendered_call(
+        self, command, log_path, extra_env=None, flock_before_exec=None
+    ):
+        fake_flock = self.fake_bin / "flock"
+        fake_timeout = self.fake_bin / "timeout"
+        fake_python = self.root / "fake-python"
+        flock_hook = flock_before_exec or ""
+        fake_flock.write_text(
+            "#!/usr/bin/env bash\nset -eu\nshift 4\n"
+            f"{flock_hook}"
+            "exec \"$@\"\n",
+            encoding="utf-8",
+        )
+        fake_timeout.write_text(
+            "#!/usr/bin/env bash\nset -eu\nshift 3\nexec \"$@\"\n",
+            encoding="utf-8",
+        )
+        fake_python.write_text(
+            f"#!/usr/bin/env bash\nprintf x >> {log_path}\n",
+            encoding="utf-8",
+        )
+        for path in (fake_flock, fake_timeout, fake_python):
+            path.chmod(path.stat().st_mode | stat.S_IXUSR)
+        # Cron supplies the command after the five schedule fields to /bin/sh.
+        command_body = command.split(" ", 5)[5].replace(
+            str(self.python), str(fake_python)
+        )
+        env = self._env()
+        if extra_env:
+            env.update(extra_env)
+        return subprocess.run(
+            ["sh", "-c", command_body],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+
+    def test_call_job_gate_precedes_every_process_and_is_provider_neutral(self):
+        line = self._install_and_get_call_command()
+        marker = f"{self.django_root}/tmp/{CALL_MARKER_NAME}"
+        gate = (
+            f'if [ -f "{marker}" ] && [ ! -L "{marker}" ] && '
+            f'[ "$("/usr/bin/find" "{marker}" -prune -type f -perm 600 '
+            f'-print 2>/dev/null)" = "{marker}" ] && '
+            '{ echo call-auto-analysis-enabled-v1 | "/usr/bin/cmp" -s - '
+            f'"{marker}"; }}; then'
+        )
+        self.assertTrue(line.index(gate) < line.index("cd "))
+        self.assertLess(line.index("cd "), line.index("flock"))
+        self.assertLess(line.index("flock"), line.index("timeout"))
+        self.assertLess(line.index("timeout"), line.index("manage.py"))
+        self.assertLess(line.index("manage.py"), line.index(">>"))
+        self.assertNotIn("binotel", line.lower())
+        self.assertNotIn("%", line)
+
+    def test_call_job_runs_only_with_exact_regular_marker(self):
+        line = self._install_and_get_call_command()
+        log_path = self.root / "python-started"
+        marker = self._marker_path()
+        invalid_markers = [None, b"", b"wrong\n", b"call-auto-analysis-enabled-v1", b"call-auto-analysis-enabled-v1\n\n"]
+        for content in invalid_markers:
+            with self.subTest(marker=content):
+                if marker.exists() or marker.is_symlink():
+                    marker.unlink()
+                if content is not None:
+                    marker.write_bytes(content)
+                    marker.chmod(0o600)
+                result = self._run_rendered_call(line, log_path)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(log_path.exists(), f"python launched for {content!r}")
+
+        marker.write_bytes(CALL_MARKER_TOKEN)
+        marker.chmod(0o600)
+        result = self._run_rendered_call(line, log_path)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(log_path.read_text(encoding="utf-8"), "x")
+
+        log_path.unlink()
+        marker.chmod(0o644)
+        result = self._run_rendered_call(line, log_path)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(log_path.exists())
+
+        marker.unlink()
+        marker.mkdir()
+        result = self._run_rendered_call(line, log_path)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(log_path.exists())
+
+        marker.rmdir()
+        target = marker.with_name("marker-target")
+        target.write_bytes(CALL_MARKER_TOKEN)
+        marker.symlink_to(target)
+        result = self._run_rendered_call(line, log_path)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(log_path.exists())
+
+    def test_call_job_does_not_launch_when_cmp_fails(self):
+        line = self._install_and_get_call_command()
+        marker = self._marker_path()
+        marker.write_bytes(CALL_MARKER_TOKEN)
+        cmp_error = self.fake_bin / "cmp-error"
+        cmp_error.write_text("#!/usr/bin/env bash\nexit 2\n", encoding="utf-8")
+        cmp_error.chmod(cmp_error.stat().st_mode | stat.S_IXUSR)
+        # The installed line uses the configured absolute cmp path at render time.
+        self.crontab_file.write_text(
+            self.crontab_file.read_text(encoding="utf-8").replace("/usr/bin/cmp", str(cmp_error)),
+            encoding="utf-8",
+        )
+        line = next(line for line in self.crontab_file.read_text(encoding="utf-8").splitlines() if "manage.py run_call_ai_analyses" in line)
+        result = self._run_rendered_call(line, self.root / "python-started")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.root / "python-started").exists())
+
+    def test_call_job_rechecks_marker_inside_flock_before_python(self):
+        line = self._install_and_get_call_command()
+        log_path = self.root / "python-started"
+        marker = self._marker_path()
+        marker.write_bytes(CALL_MARKER_TOKEN)
+        marker.chmod(0o600)
+
+        result = self._run_rendered_call(
+            line,
+            log_path,
+            flock_before_exec=f'rm -f -- "{marker}"\n',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(log_path.exists())
+
+    def test_call_job_rejects_fifo_socket_and_unreadable_marker(self):
+        short_root = Path(tempfile.mkdtemp(prefix="twc-", dir="/tmp")) / "r"
+        short_root.mkdir()
+        extra_env = {"TWC_DJANGO_ROOT": str(short_root)}
+        marker = short_root / "tmp" / CALL_MARKER_NAME
+        result = self._run("--install", extra_env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        line = next(
+            line
+            for line in self.crontab_file.read_text(encoding="utf-8").splitlines()
+            if "manage.py run_call_ai_analyses" in line
+        )
+        log_path = self.root / "python-started"
+        try:
+            marker.parent.mkdir(exist_ok=True)
+            os.mkfifo(marker)
+            result = self._run_rendered_call(line, log_path, extra_env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(log_path.exists())
+            marker.unlink()
+
+            unix_socket = socket.socket(socket.AF_UNIX)
+            try:
+                unix_socket.bind(str(marker))
+                result = self._run_rendered_call(line, log_path, extra_env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(log_path.exists())
+            finally:
+                unix_socket.close()
+                marker.unlink(missing_ok=True)
+
+            if os.geteuid() == 0:
+                self.skipTest("root can read mode-000 files")
+            marker.write_bytes(CALL_MARKER_TOKEN)
+            marker.chmod(0)
+            try:
+                result = self._run_rendered_call(line, log_path, extra_env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertFalse(log_path.exists())
+            finally:
+                marker.chmod(0o600)
+        finally:
+            shutil.rmtree(short_root.parent, ignore_errors=True)
+
+    def test_install_never_creates_call_marker(self):
+        result = self._run("--install")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self._marker_path().exists())
+
+    def test_install_migrates_ungated_managed_call_job_after_check_reports_drift(self):
+        old_block = (
+            f"{BEGIN_MARKER}\n# codex:binotel-call-ai\n"
+            f"{self._legacy_lines()[-1]}\n{END_MARKER}\n"
+        )
+        self.crontab_file.write_text(
+            "17 4 * * * /opt/unrelated\n" + old_block,
+            encoding="utf-8",
+        )
+
+        drift = self._run("--check")
+        install = self._run("--install")
+        content = self.crontab_file.read_text(encoding="utf-8")
+
+        self.assertNotEqual(drift.returncode, 0)
+        self.assertIn("DRIFT", drift.stderr)
+        self.assertEqual(install.returncode, 0, install.stderr)
+        self.assertIn("17 4 * * * /opt/unrelated", content)
+        self.assertIn("# codex:call-auto-analysis", content)
+        self.assertNotIn("# codex:binotel-call-ai", content)
+        self.assertIn(f"{self.django_root}/tmp/{CALL_MARKER_NAME}", content)
+
+    def test_install_removes_loose_legacy_call_comment_with_job(self):
+        self.crontab_file.write_text(
+            "# codex:binotel-call-ai\n" + self._legacy_lines()[-1] + "\n",
+            encoding="utf-8",
+        )
+
+        result = self._run("--install")
+        content = self.crontab_file.read_text(encoding="utf-8")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("# codex:binotel-call-ai", content)
+        self.assertIn("# codex:call-auto-analysis", content)
+
+    def test_cmp_path_must_be_absolute_executable_and_safe(self):
+        for cmp_path in ("cmp", "relative/cmp", str(self.root / "missing-cmp")):
+            with self.subTest(cmp_path=cmp_path):
+                result = self._run("--install", {"TWC_CMP_BIN": cmp_path})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("cmp", result.stderr.lower())
+
+    def test_installer_comparisons_use_configured_cmp_not_path(self):
+        configured_cmp = self.fake_bin / "configured-cmp"
+        configured_cmp.write_text(
+            "#!/usr/bin/env bash\nexec /usr/bin/cmp \"$@\"\n",
+            encoding="utf-8",
+        )
+        configured_cmp.chmod(configured_cmp.stat().st_mode | stat.S_IXUSR)
+        path_cmp_dir = self.root / "path-cmp"
+        path_cmp_dir.mkdir()
+        path_cmp = path_cmp_dir / "cmp"
+        path_cmp.write_text("#!/usr/bin/env bash\nexit 42\n", encoding="utf-8")
+        path_cmp.chmod(path_cmp.stat().st_mode | stat.S_IXUSR)
+
+        install = self._run(
+            "--install", {"TWC_CMP_BIN": str(configured_cmp)}
+        )
+        self.assertEqual(install.returncode, 0, install.stderr)
+
+        result = self._run(
+            "--check",
+            {
+                "PATH": f"{path_cmp_dir}:{self._env()['PATH']}",
+                "TWC_CMP_BIN": str(configured_cmp),
+            },
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_find_path_must_be_absolute_executable_and_safe(self):
+        for find_path in ("find", "relative/find", str(self.root / "missing-find")):
+            with self.subTest(find_path=find_path):
+                result = self._run("--install", {"TWC_FIND_BIN": find_path})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("find", result.stderr.lower())
 
     def test_managed_jobs_have_distinct_overlap_exit_timeout_and_bounds(self):
         self.assertEqual(self._run("--install").returncode, 0)

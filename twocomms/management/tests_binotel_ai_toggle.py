@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.core.management import call_command
 from django.contrib.auth import get_user_model
 from django.db import DatabaseError
-from django.test import Client as TestClient, TestCase, override_settings
+from django.test import Client as TestClient, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
@@ -19,10 +19,14 @@ from management.services.ig_task_health import (
     release_queue_snapshot,
     task_health_snapshot,
 )
+from management.tests_call_auto_analysis_helpers import disable_call_auto_analysis
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
-class BinotelAiToggleTests(TestCase):
+class BinotelAiToggleTests(TransactionTestCase):
+    def setUp(self):
+        disable_call_auto_analysis(self)
+
     def test_toggle_read_fails_closed(self):
         with patch(
             "management.models.InstagramBotSettings.objects.filter",
@@ -56,7 +60,7 @@ class BinotelAiToggleTests(TestCase):
             ai_status=CallRecord.AiStatus.PENDING,
         )
         with patch(
-            "management.management.commands.run_call_ai_analyses.CallRecord.objects.filter",
+            "management.models.CallRecord.objects.filter",
             side_effect=AssertionError("disabled worker must not inspect the queue"),
         ), patch("management.services.ig_task_health.task_heartbeat") as heartbeat:
             call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
@@ -70,9 +74,9 @@ class BinotelAiToggleTests(TestCase):
                 mark_task_succeeded(spec.key, at=now)
         with patch("management.services.instagram_bot.notify_manager") as notify:
             snapshot = check_task_health()
-        task = next(item for item in snapshot["tasks"] if item["key"] == "binotel_call_ai_analyses")
-        self.assertEqual(task["state"], "disabled")
-        self.assertTrue(task["healthy"])
+        self.assertNotIn(
+            "binotel_call_ai_analyses", {item["key"] for item in snapshot["tasks"]}
+        )
         self.assertTrue(snapshot["healthy"])
         notify.assert_not_called()
 
@@ -94,7 +98,7 @@ class BinotelAiToggleTests(TestCase):
         url = reverse("management_binotel_ai_toggle")
         response = client.post(url, data={"enabled": True}, content_type="application/json")
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["ai_enabled"])
-        self.assertTrue(InstagramBotSettings.load().binotel_ai_enabled)
+        self.assertTrue(response.json()["effective"])
+        self.assertTrue(InstagramBotSettings.load().call_auto_analysis_enabled)
         schedule_call_analysis("reenabled-1")
         self.assertTrue(CallRecord.objects.filter(external_call_id="reenabled-1").exists())

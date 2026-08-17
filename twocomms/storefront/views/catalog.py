@@ -83,6 +83,7 @@ from ..services.survey_engine import load_survey_definition, localized_survey_ui
 from ..utm_tracking import record_search
 from ..utm_utils import TRACKING_QUERY_PARAMS
 from cache_utils import get_fragment_cache
+from twocomms.db_resilience import retry_mysql_read_view
 from .utils import (
     _build_query_string,
     cache_page_for_anon,
@@ -1712,6 +1713,7 @@ def load_more_products(request):
     cache_identity=_build_catalog_cache_query,
     cache_condition=_catalog_cacheable_request,
 )  # Кэшируем каталог на 10 минут только для анонимов
+@retry_mysql_read_view
 def catalog(request, cat_slug=None, collection_slug=None):
     """
     Страница каталога товаров.

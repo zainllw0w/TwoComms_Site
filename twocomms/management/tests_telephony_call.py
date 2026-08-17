@@ -152,6 +152,7 @@ from management.services.call_ai_queue import (
     METADATA_PENDING,
     analysis_queue_category,
 )
+from management.tests_call_auto_analysis_helpers import enable_call_auto_analysis
 
 
 class CallAIQueueCategoryTest(TestCase):
@@ -178,9 +179,7 @@ class CallAIQueueCategoryTest(TestCase):
 
 class WebhookLinkEnqueueTest(TestCase):
     def setUp(self):
-        settings_obj = InstagramBotSettings.load()
-        settings_obj.binotel_ai_enabled = True
-        settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
+        enable_call_auto_analysis(self)
         self.manager = User.objects.create_user(username="mgr3", password="x")
         self.client_obj = Client.objects.create(
             shop_name="S", phone="0671112233", full_name="X", owner=self.manager
@@ -1019,9 +1018,7 @@ class DayReportAuditTest(TestCase):
 
 class ScheduleCallAnalysisTest(TestCase):
     def setUp(self):
-        settings_obj = InstagramBotSettings.load()
-        settings_obj.binotel_ai_enabled = True
-        settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
+        enable_call_auto_analysis(self)
 
     def test_blank_general_call_id_is_ignored(self):
         _caa.schedule_call_analysis("")

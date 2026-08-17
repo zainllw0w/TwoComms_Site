@@ -41,20 +41,30 @@
   }
   function errText(d){ var t=d.error||'Помилка'; if(d.code) t='['+d.code+'] '+t; if(d.hint) t+=' — '+d.hint; return t; }
 
-  var aiToggle=$("bn-ai-enabled"), aiToggleMsg=$("bn-ai-toggle-msg");
+  // call-auto-analysis:start
+  var aiToggle=$("bn-ai-enabled"), aiToggleMsg=$("bn-ai-toggle-msg"), aiToggleStatus=$("call-auto-analysis-status");
   if(aiToggle){
     aiToggle.addEventListener("change", function(){
-      var input=this, previous=!input.checked;
+      var input=this, previous=!input.checked, hasEffectiveState=false;
       input.disabled=true;
       api(URLS.aiToggle,"POST",{enabled:input.checked}).then(function(data){
-        if(!data.success) throw new Error(errText(data));
-        msg(aiToggleMsg,data.ai_enabled?"ШІ-аналіз увімкнено.":"ШІ-аналіз вимкнено.","ok");
+        if(typeof data.effective==="boolean"){
+          hasEffectiveState=true;
+          input.checked=Boolean(data.effective);
+          show(aiToggleStatus,data.effective?"Увімкнено":"Вимкнено");
+        }
+        if(!data.success) throw new Error(data.reason||errText(data));
+        msg(aiToggleMsg,data.effective?"Автоаналіз дзвінків увімкнено.":"Автоаналіз дзвінків вимкнено.","ok");
       }).catch(function(error){
-        input.checked=previous;
+        if(!hasEffectiveState){
+          input.checked=previous;
+          show(aiToggleStatus,previous?"Увімкнено":"Вимкнено");
+        }
         msg(aiToggleMsg,error.message||"Не вдалося зберегти перемикач.","err");
       }).finally(function(){ input.disabled=false; });
     });
   }
+  // call-auto-analysis:end
 
   // ---------- Tabs ----------
   var tabs=root.querySelectorAll('.bn-tab'), panels=root.querySelectorAll('.bn-panel');

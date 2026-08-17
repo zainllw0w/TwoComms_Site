@@ -26,23 +26,15 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
-from management.models import CallAIAnalysis, CallRecord
-from management.services.call_ai_queue import (
-    ANALYSIS_DELAY_SECONDS,
-    ELIGIBLE,
-    INELIGIBLE,
-    MAX_ANALYSIS_ATTEMPTS,
-    METADATA_PENDING,
-    STALE_ANALYSIS_LOCK_MINUTES,
-    analysis_queue_category,
-)
-
-
 def _daily_cap() -> int:
     try:
         return int(os.environ.get("GEMINI_CALL_ANALYSIS_DAILY_CAP", "200"))
     except (TypeError, ValueError):
         return 200
+
+
+class _AutoAnalysisDisabled(Exception):
+    """Stop the current run without consuming or changing queued work."""
 
 
 class Command(BaseCommand):
@@ -55,10 +47,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         limit = max(1, int(options["limit"]))
         dry = bool(options["dry_run"])
-        from management.services.binotel_runtime import is_binotel_ai_enabled
+        # This check deliberately precedes heartbeat, model and provider imports.
+        from management.services.call_auto_analysis import is_call_auto_analysis_enabled
 
-        if not is_binotel_ai_enabled():
-            self.stdout.write("Binotel AI вимкнено; пропуск.")
+        if not is_call_auto_analysis_enabled():
+            self.stdout.write("Автоаналіз дзвінків вимкнено; пропуск.")
             return
         if dry:
             return self._handle(limit=limit, dry=True)
@@ -69,6 +62,29 @@ class Command(BaseCommand):
             return self._handle(limit=limit, dry=False)
 
     def _handle(self, *, limit: int, dry: bool):
+        from management.services.call_auto_analysis import is_call_auto_analysis_enabled
+
+        if not is_call_auto_analysis_enabled():
+            self.stdout.write("Автоаналіз дзвінків вимкнено; пропуск.")
+            return
+
+        # Keep the expensive ORM/provider modules out of the disabled path.
+        from management.models import CallAIAnalysis, CallRecord, InstagramBotSettings
+        from management.services.call_ai_analysis import CallAIAnalysisError
+        from management.services.call_ai_queue import (
+            ANALYSIS_DELAY_SECONDS,
+            ELIGIBLE,
+            INELIGIBLE,
+            MAX_ANALYSIS_ATTEMPTS,
+            METADATA_PENDING,
+            STALE_ANALYSIS_LOCK_MINUTES,
+            analysis_queue_category,
+        )
+
+        if not is_call_auto_analysis_enabled():
+            self.stdout.write("Автоаналіз дзвінків вимкнено; пропуск.")
+            return
+
         now = timezone.now()
         cutoff = now - timedelta(seconds=ANALYSIS_DELAY_SECONDS)
         stale = now - timedelta(minutes=STALE_ANALYSIS_LOCK_MINUTES)
@@ -102,17 +118,23 @@ class Command(BaseCommand):
             self.stdout.write(f"Кандидати: {ids}")
             return
 
-        from management.services.call_ai_analysis import (
-            BinotelClient,
-            CallAIAnalysisError,
-            analyze_call,
-            upsert_call_record,
-        )
-
         processed = 0
         for rec_id in ids:
+            if not is_call_auto_analysis_enabled():
+                self.stdout.write("Автоаналіз дзвінків вимкнено; чергу збережено.")
+                break
             # Атомарний лок.
             with transaction.atomic():
+                settings_row = (
+                    InstagramBotSettings.objects.select_for_update()
+                    .filter(pk=1)
+                    .first()
+                )
+                if settings_row is None or not is_call_auto_analysis_enabled():
+                    self.stdout.write(
+                        "Автоаналіз дзвінків вимкнено; чергу збережено."
+                    )
+                    break
                 rec = CallRecord.objects.select_for_update().filter(id=rec_id).first()
                 if not rec:
                     continue
@@ -141,11 +163,26 @@ class Command(BaseCommand):
                 rec.save(update_fields=["ai_status", "ai_locked_at", "ai_attempts", "updated_at"])
 
             # Поза транзакцією — довгий мережевий виклик.
+            if not is_call_auto_analysis_enabled():
+                rec.refresh_from_db(fields=["ai_attempts"])
+                rec.ai_status = CallRecord.AiStatus.PENDING
+                rec.ai_locked_at = None
+                rec.ai_attempts = max(0, int(rec.ai_attempts or 0) - 1)
+                rec.save(update_fields=["ai_status", "ai_locked_at", "ai_attempts", "updated_at"])
+                break
+
             try:
                 queue_category = analysis_queue_category(rec.payload, rec.duration_seconds)
                 if queue_category == METADATA_PENDING:
+                    if not is_call_auto_analysis_enabled():
+                        raise _AutoAnalysisDisabled
+                    from management.services.call_ai_analysis import BinotelClient, upsert_call_record
+
+                    client = BinotelClient.from_settings()
+                    if not is_call_auto_analysis_enabled():
+                        raise _AutoAnalysisDisabled
                     rec = upsert_call_record(
-                        BinotelClient.from_settings(),
+                        client,
                         rec.external_call_id,
                     )
                     queue_category = analysis_queue_category(rec.payload, rec.duration_seconds)
@@ -169,9 +206,33 @@ class Command(BaseCommand):
                         f"#{rec_id}: денний кеп досягнуто ({analysis_attempts_today}/{cap})"
                     )
                     continue
+                if not is_call_auto_analysis_enabled():
+                    raise _AutoAnalysisDisabled
+                from management.services.call_ai_analysis import analyze_call
+
                 analysis_attempts_today += 1
                 analysis = analyze_call(rec.external_call_id, force=True)
+                # Once the provider request has started it may complete while
+                # an administrator turns the switch off. Persist that one
+                # completed result; the next record is gated at loop entry.
                 ok = analysis.status == CallAIAnalysis.Status.DONE
+            except _AutoAnalysisDisabled:
+                rec.refresh_from_db(fields=["ai_attempts"])
+                completed = rec.ai_analyses.filter(
+                    status=CallAIAnalysis.Status.DONE
+                ).exists()
+                rec.ai_status = (
+                    CallRecord.AiStatus.DONE
+                    if completed
+                    else CallRecord.AiStatus.PENDING
+                )
+                rec.ai_locked_at = None
+                update_fields = ["ai_status", "ai_locked_at", "updated_at"]
+                if not completed:
+                    rec.ai_attempts = max(0, int(rec.ai_attempts or 0) - 1)
+                    update_fields.append("ai_attempts")
+                rec.save(update_fields=update_fields)
+                break
             except CallAIAnalysisError as exc:
                 ok = False
                 self.stderr.write(f"#{rec_id}: {exc}")

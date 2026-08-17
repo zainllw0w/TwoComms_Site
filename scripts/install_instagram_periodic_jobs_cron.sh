@@ -12,6 +12,9 @@ PYTHON_BIN="${TWC_PYTHON:-/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3
 CRONTAB_BIN="${TWC_CRONTAB_BIN:-crontab}"
 FLOCK_BIN="${TWC_FLOCK_BIN:-/usr/bin/flock}"
 TIMEOUT_BIN="${TWC_TIMEOUT_BIN:-/usr/bin/timeout}"
+CMP_BIN="${TWC_CMP_BIN:-/usr/bin/cmp}"
+FIND_BIN="${TWC_FIND_BIN:-/usr/bin/find}"
+CALL_MARKER="$DJANGO_ROOT/tmp/call_auto_analysis.enabled"
 
 usage() {
   echo "Usage: $0 --check|--install" >&2
@@ -51,10 +54,14 @@ validate_path "Django root" "$DJANGO_ROOT"
 validate_path "Python executable" "$PYTHON_BIN"
 validate_path "flock executable" "$FLOCK_BIN"
 validate_path "timeout executable" "$TIMEOUT_BIN"
+validate_path "cmp executable" "$CMP_BIN"
+validate_path "find executable" "$FIND_BIN"
 [ -d "$DJANGO_ROOT" ] || config_error "Django root does not exist: $DJANGO_ROOT"
 [ -x "$PYTHON_BIN" ] || config_error "Python is not executable: $PYTHON_BIN"
 [ -x "$FLOCK_BIN" ] || config_error "flock is required: $FLOCK_BIN"
 [ -x "$TIMEOUT_BIN" ] || config_error "timeout is required: $TIMEOUT_BIN"
+[ -x "$CMP_BIN" ] || config_error "cmp is required: $CMP_BIN"
+[ -x "$FIND_BIN" ] || config_error "find is required: $FIND_BIN"
 command -v "$CRONTAB_BIN" >/dev/null 2>&1 || config_error "crontab command is unavailable"
 
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-instagram-periodic-cron.XXXXXX")"
@@ -84,8 +91,8 @@ $BEGIN_MARKER
 */2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_order_fulfillment.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_order_fulfillment --limit 100 >> $DJANGO_ROOT/logs/ig_order_fulfillment.log 2>&1
 # codex:ig-deal-payments
 */4 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/poll_ig_deal_payments.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 180s $PYTHON_BIN manage.py poll_ig_deal_payments --limit 50 >> $DJANGO_ROOT/logs/poll_ig_deal_payments.log 2>&1
-# codex:binotel-call-ai
-*/5 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/run_call_ai_analyses.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 240s $PYTHON_BIN manage.py run_call_ai_analyses --limit 1 >> $DJANGO_ROOT/logs/run_call_ai_analyses.log 2>&1
+# codex:call-auto-analysis
+*/5 * * * * if [ -f "$CALL_MARKER" ] && [ ! -L "$CALL_MARKER" ] && [ "\$("$FIND_BIN" "$CALL_MARKER" -prune -type f -perm 600 -print 2>/dev/null)" = "$CALL_MARKER" ] && { echo call-auto-analysis-enabled-v1 | "$CMP_BIN" -s - "$CALL_MARKER"; }; then cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/run_call_ai_analyses.lock /bin/sh -c 'if [ -f "$CALL_MARKER" ] && [ ! -L "$CALL_MARKER" ] && [ "\$("$FIND_BIN" "$CALL_MARKER" -prune -type f -perm 600 -print 2>/dev/null)" = "$CALL_MARKER" ] && { echo call-auto-analysis-enabled-v1 | "$CMP_BIN" -s - "$CALL_MARKER"; }; then exec $TIMEOUT_BIN --signal=TERM --kill-after=15s 240s $PYTHON_BIN manage.py run_call_ai_analyses --limit 1; fi' >> $DJANGO_ROOT/logs/run_call_ai_analyses.log 2>&1; fi
 $END_MARKER
 EOF
 
@@ -118,7 +125,7 @@ is_owner_line() {
     *"manage.py reconcile_ig_checkout"*) owner_kind="checkout" ;;
     *"manage.py reconcile_ig_order_fulfillment"*) owner_kind="fulfillment" ;;
     *"manage.py poll_ig_deal_payments"*) owner_kind="payments" ;;
-    *"manage.py run_call_ai_analyses"*) owner_kind="binotel" ;;
+    *"manage.py run_call_ai_analyses"*) owner_kind="call_analysis" ;;
     *) return 1 ;;
   esac
   return 0
@@ -132,7 +139,7 @@ is_legacy_job_line() {
     "*/2 * * * * "*"$DJANGO_ROOT"*"manage.py reconcile_ig_checkout"*) legacy_kind="checkout" ;;
     "*/2 * * * * "*"$DJANGO_ROOT"*"manage.py reconcile_ig_order_fulfillment"*) legacy_kind="fulfillment" ;;
     "*/4 * * * * "*"$DJANGO_ROOT"*"manage.py poll_ig_deal_payments"*) legacy_kind="payments" ;;
-    "*/5 * * * * "*"$DJANGO_ROOT"*"manage.py run_call_ai_analyses --limit 1 >> $DJANGO_ROOT/logs/run_call_ai_analyses.log 2>&1") legacy_kind="binotel" ;;
+    "*/5 * * * * "*"$DJANGO_ROOT"*"manage.py run_call_ai_analyses --limit 1 >> $DJANGO_ROOT/logs/run_call_ai_analyses.log 2>&1") legacy_kind="call_analysis" ;;
     *) return 1 ;;
   esac
   return 0
@@ -142,7 +149,7 @@ legacy_order_count=0
 legacy_checkout_count=0
 legacy_fulfillment_count=0
 legacy_payments_count=0
-legacy_binotel_count=0
+legacy_call_analysis_count=0
 inside_managed=0
 while IFS= read -r line || [ -n "$line" ]; do
   if [ "$inside_managed" -eq 1 ]; then
@@ -161,12 +168,12 @@ while IFS= read -r line || [ -n "$line" ]; do
       checkout) legacy_checkout_count=$((legacy_checkout_count + 1)); [ "$legacy_checkout_count" -eq 1 ] || contract_error "duplicate checkout reconcile owner" ;;
       fulfillment) legacy_fulfillment_count=$((legacy_fulfillment_count + 1)); [ "$legacy_fulfillment_count" -eq 1 ] || contract_error "duplicate fulfillment owner" ;;
       payments) legacy_payments_count=$((legacy_payments_count + 1)); [ "$legacy_payments_count" -eq 1 ] || contract_error "duplicate payment poll owner" ;;
-      binotel) legacy_binotel_count=$((legacy_binotel_count + 1)); [ "$legacy_binotel_count" -eq 1 ] || contract_error "duplicate Binotel analysis owner" ;;
+      call_analysis) legacy_call_analysis_count=$((legacy_call_analysis_count + 1)); [ "$legacy_call_analysis_count" -eq 1 ] || contract_error "duplicate call auto-analysis owner" ;;
     esac
   fi
 done <"$current"
 
-outside_owner_count=$((legacy_order_count + legacy_checkout_count + legacy_fulfillment_count + legacy_payments_count + legacy_binotel_count))
+outside_owner_count=$((legacy_order_count + legacy_checkout_count + legacy_fulfillment_count + legacy_payments_count + legacy_call_analysis_count))
 if [ "$begin_count" -eq 1 ] && [ "$outside_owner_count" -ne 0 ]; then
   contract_error "managed block coexists with a loose periodic owner"
 fi
@@ -181,7 +188,7 @@ if [ "$mode" = "--check" ]; then
     inside { print }
     $0 == end { exit }
   ' "$current" >"$candidate"
-  cmp -s "$candidate" "$expected" || {
+  "$CMP_BIN" -s "$candidate" "$expected" || {
     echo "[instagram-periodic-cron] DRIFT: managed block differs" >&2
     exit 1
   }
@@ -209,7 +216,7 @@ while IFS= read -r line || [ -n "$line" ]; do
   fi
   if [ "$begin_count" -eq 0 ]; then
     case "$line" in
-      "# codex:order-telegram-reconcile"|"# codex:ig-checkout-reconcile"|"# codex:ig-order-fulfillment"|"# codex:ig-deal-payments"|"# codex:binotel-call-ai") continue ;;
+      "# codex:order-telegram-reconcile"|"# codex:ig-checkout-reconcile"|"# codex:ig-order-fulfillment"|"# codex:ig-deal-payments"|"# codex:call-auto-analysis"|"# codex:binotel-call-ai") continue ;;
     esac
   fi
   printf '%s\n' "$line" >>"$candidate"
@@ -220,7 +227,7 @@ if [ "$inserted" -eq 0 ]; then
   cat "$expected" >>"$candidate"
 fi
 
-if cmp -s "$candidate" "$current"; then
+if "$CMP_BIN" -s "$candidate" "$current"; then
   echo "[instagram-periodic-cron] OK: managed block already installed"
   exit 0
 fi

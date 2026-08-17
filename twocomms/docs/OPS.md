@@ -62,10 +62,14 @@ retention и задач из snapshot 05.07.2026 этим прогоном не 
 
 ### Единый application cron contract (DJ6-SRV-005)
 
-Три repository installer-а владеют шестью application jobs. Все строки имеют
-non-blocking `/usr/bin/flock -n -E 75` и внешний
-`/usr/bin/timeout --signal=TERM --kill-after=15s`; exit `75` означает, что
-предыдущий owner ещё работает и новый прогон намеренно пропущен.
+Три repository installer-а владеют семью application jobs: шесть работают
+постоянно, а `run_call_ai_analyses` запускается только когда администратор
+включил `Автоаналіз дзвінків`. Постоянные строки имеют non-blocking
+`/usr/bin/flock -n -E 75` и внешний `/usr/bin/timeout
+--signal=TERM --kill-after=15s`; exit `75` означает, что предыдущий owner
+ещё работает и новый прогон намеренно пропущен. Условная строка сначала
+проверяет приватный runtime-маркер и при выключенном состоянии завершается до
+запуска Python, Django, MariaDB, `flock` и `timeout`.
 
 | Owner | Cadence | Deadline | Ограничение и recovery |
 |---|---:|---:|---|
@@ -75,6 +79,7 @@ non-blocking `/usr/bin/flock -n -E 75` и внешний
 | `reconcile_ig_order_fulfillment` | 2 мин | 90 с | `--limit 100`, event key, lease, provider receipt и retry due time |
 | `poll_ig_deal_payments` | 4 мин | 180 с | `--limit 50`, projection/invoice lifecycle и bounded provider polling |
 | `update_tracking_statuses` | 5 мин | 240 с | batch до 100 ТТН, provider timeout/retry/rate limit и due filtering |
+| `run_call_ai_analyses` | 5 мин | 240 с | выключаемый администратором fail-closed gate; сохранённая очередь не меняется, пока функция выключена |
 
 Каждая scheduled command пишет `InstagramBotTaskHeartbeat`. Ошибка команды
 фиксирует только безопасный exception class; отсутствие свежего success даёт
@@ -100,7 +105,7 @@ duplicate/malformed/unknown owner. Ручной запуск provider-коман
 
 ### Инварианты
 
-- Три application managed blocks содержат ровно шесть matching jobs, по одному owner каждой команды; infrastructure cron entries считаются отдельно.
+- Три application managed blocks содержат ровно семь matching jobs: шесть постоянных и один runtime-gated, по одному owner каждой команды; infrastructure cron entries считаются отдельно.
 - НИКОГДА не добавляйте cron-задачу без repository installer-а, bounded contract и записи в этот runbook.
 - Новые задачи логируйте в закрытый служебный каталог; backup log находится вне web-root, а `reconcile_purchase_actions` пишет одну короткую итоговую строку в сутки.
 

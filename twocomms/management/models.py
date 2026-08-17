@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
+from twocomms.db_resilience import retry_mysql_read
 
 try:
     import phonenumbers
@@ -3630,9 +3631,11 @@ class InstagramBotSettings(models.Model):
         CUSTOM = "custom", _("Свій ключ")
 
     is_enabled = models.BooleanField(default=False)
-    # Binotel call AI is independently switchable from the Instagram bot.
-    # Keep it off by default until provider credentials/runtime are verified.
-    binotel_ai_enabled = models.BooleanField(default=False)
+    # Call auto-analysis is independently switchable from the Instagram bot.
+    # The legacy column name is retained so deployment never rewrites data.
+    call_auto_analysis_enabled = models.BooleanField(
+        default=False, db_column="binotel_ai_enabled"
+    )
 
     direct_source = models.CharField(
         max_length=10, choices=CredSource.choices, default=CredSource.ENV
@@ -3757,12 +3760,24 @@ class InstagramBotSettings(models.Model):
     def has_custom_gemini_key(self) -> bool:
         return bool(self.custom_gemini_key_encrypted)
 
+    @property
+    def binotel_ai_enabled(self) -> bool:
+        """Compatibility alias for callers deployed before the field rename."""
+        return self.call_auto_analysis_enabled
+
+    @binotel_ai_enabled.setter
+    def binotel_ai_enabled(self, value: bool) -> None:
+        self.call_auto_analysis_enabled = value
+
     def save(self, *args, **kwargs):
         # Keep legacy call sites using the public property names compatible
         # while the physical fields intentionally describe encrypted storage.
         update_fields = kwargs.get("update_fields")
         if update_fields is not None:
             remapped = set(update_fields)
+            if "binotel_ai_enabled" in remapped:
+                remapped.remove("binotel_ai_enabled")
+                remapped.add("call_auto_analysis_enabled")
             if "custom_direct_token" in remapped:
                 remapped.remove("custom_direct_token")
                 remapped.add("custom_direct_token_encrypted")
@@ -3777,8 +3792,9 @@ class InstagramBotSettings(models.Model):
 
     @classmethod
     def load(cls) -> "InstagramBotSettings":
-        obj, _created = cls.objects.get_or_create(pk=1)
-        return obj
+        # This singleton is normally a read. The primary-key get-or-create is
+        # also idempotent during initial bootstrap, so one reconnect is safe.
+        return retry_mysql_read(lambda: cls.objects.get_or_create(pk=1)[0])
 
 
 class InstagramBotLog(models.Model):

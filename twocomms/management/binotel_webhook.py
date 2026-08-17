@@ -26,15 +26,15 @@ import json
 import logging
 
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import BinotelWebhookEvent, CallRecord, Client
+from .models import BinotelWebhookEvent, CallRecord, Client, InstagramBotSettings
 from .models import normalize_phone as model_normalize_phone
 from .services.call_ai_queue import ELIGIBLE, INELIGIBLE, analysis_queue_category
-from .services.binotel_runtime import is_binotel_ai_enabled
 from .services.binotel import (
     client_ip_from_request,
     is_binotel_ip,
@@ -172,21 +172,27 @@ def _link_call_session_and_enqueue(record, parsed: dict) -> None:
             record.matched_client_id = session.client_id
             update_fields.append("matched_client")
 
-    if is_binotel_ai_enabled():
-        if queue_category == ELIGIBLE and record.ai_status == CallRecord.AiStatus.NONE:
-            changed = CallRecord.objects.filter(
-                pk=record.pk,
-                ai_status=CallRecord.AiStatus.NONE,
-            ).update(ai_status=CallRecord.AiStatus.PENDING, updated_at=timezone.now())
-            if changed:
-                record.ai_status = CallRecord.AiStatus.PENDING
-        elif queue_category == INELIGIBLE and record.ai_status == CallRecord.AiStatus.PENDING:
-            changed = CallRecord.objects.filter(
-                pk=record.pk,
-                ai_status=CallRecord.AiStatus.PENDING,
-            ).update(ai_status=CallRecord.AiStatus.SKIPPED, updated_at=timezone.now())
-            if changed:
-                record.ai_status = CallRecord.AiStatus.SKIPPED
+    from .services.call_auto_analysis import is_call_auto_analysis_enabled
+
+    if is_call_auto_analysis_enabled():
+        with transaction.atomic():
+            InstagramBotSettings.objects.select_for_update().filter(pk=1).first()
+            if is_call_auto_analysis_enabled():
+                locked_record = CallRecord.objects.select_for_update().get(pk=record.pk)
+                if (
+                    queue_category == ELIGIBLE
+                    and locked_record.ai_status == CallRecord.AiStatus.NONE
+                ):
+                    locked_record.ai_status = CallRecord.AiStatus.PENDING
+                    locked_record.save(update_fields=["ai_status", "updated_at"])
+                    record.ai_status = CallRecord.AiStatus.PENDING
+                elif (
+                    queue_category == INELIGIBLE
+                    and locked_record.ai_status == CallRecord.AiStatus.PENDING
+                ):
+                    locked_record.ai_status = CallRecord.AiStatus.SKIPPED
+                    locked_record.save(update_fields=["ai_status", "updated_at"])
+                    record.ai_status = CallRecord.AiStatus.SKIPPED
 
     if update_fields:
         update_fields.append("updated_at")
