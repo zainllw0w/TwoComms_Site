@@ -3,6 +3,7 @@ import importlib.util
 from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.core.management import call_command
@@ -359,6 +360,99 @@ class PaymentSideEffectJobServiceTests(TestCase):
         self.assertEqual(job.state, model.State.FAILED)
         self.assertGreater(job.due_at, now + timedelta(seconds=1))
         self.assertIsNone(job.provider_io_started_at)
+
+    def test_add_payment_transport_timeout_is_ambiguous_and_not_replayed(self):
+        from orders.provider_delivery import ProviderDeliveryAmbiguous
+
+        service = self._service()
+        model = order_models.PaymentSideEffectJob
+        job, _ = service.enqueue_payment_side_effect(
+            kind=model.Kind.ATTEMPT_ADD_PAYMENT_INFO,
+            event_key="attempt:service:add-payment-timeout",
+            payment_attempt_id=self.attempt.pk,
+        )
+        facebook = Mock(enabled=True)
+        facebook.send_add_payment_info_event.side_effect = (
+            ProviderDeliveryAmbiguous("transport outcome unknown")
+        )
+
+        with patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service",
+            return_value=facebook,
+        ):
+            first = service.process_payment_side_effect_job(job.pk)
+            second = service.process_payment_side_effect_job(job.pk)
+
+        self.assertEqual((first, second), ("ambiguous", "ambiguous"))
+        facebook.send_add_payment_info_event.assert_called_once()
+        job.refresh_from_db()
+        self.assertEqual(job.state, model.State.AMBIGUOUS)
+
+    def _post_payment_provider_job(self):
+        service = self._service()
+        order = self._order()
+        job, _ = service.enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status="unpaid",
+            pay_type="online_full",
+        )
+        return service, order, job
+
+    def test_meta_purchase_transport_reset_is_ambiguous_and_not_replayed(self):
+        from orders.provider_delivery import ProviderDeliveryAmbiguous
+
+        service, _order, job = self._post_payment_provider_job()
+        facebook = SimpleNamespace(
+            enabled=True,
+            send_purchase_event=Mock(
+                side_effect=ProviderDeliveryAmbiguous("connection reset")
+            ),
+        )
+        tiktok = SimpleNamespace(enabled=False)
+        with patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service",
+            return_value=facebook,
+        ), patch(
+            "orders.tiktok_events_service.get_tiktok_events_service",
+            return_value=tiktok,
+        ), patch(
+            "storefront.utm_tracking.ensure_order_purchase_action"
+        ):
+            first = service.process_payment_side_effect_job(job.pk)
+            second = service.process_payment_side_effect_job(job.pk)
+
+        self.assertEqual((first, second), ("ambiguous", "ambiguous"))
+        facebook.send_purchase_event.assert_called_once()
+        job.refresh_from_db()
+        self.assertEqual(job.state, order_models.PaymentSideEffectJob.State.AMBIGUOUS)
+
+    def test_tiktok_purchase_transport_timeout_is_ambiguous_and_not_replayed(self):
+        from orders.provider_delivery import ProviderDeliveryAmbiguous
+
+        service, _order, job = self._post_payment_provider_job()
+        facebook = SimpleNamespace(enabled=False)
+        tiktok = SimpleNamespace(
+            enabled=True,
+            send_purchase_event=Mock(
+                side_effect=ProviderDeliveryAmbiguous("transport timeout")
+            ),
+        )
+        with patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service",
+            return_value=facebook,
+        ), patch(
+            "orders.tiktok_events_service.get_tiktok_events_service",
+            return_value=tiktok,
+        ), patch(
+            "storefront.utm_tracking.ensure_order_purchase_action"
+        ):
+            first = service.process_payment_side_effect_job(job.pk)
+            second = service.process_payment_side_effect_job(job.pk)
+
+        self.assertEqual((first, second), ("ambiguous", "ambiguous"))
+        tiktok.send_purchase_event.assert_called_once()
+        job.refresh_from_db()
+        self.assertEqual(job.state, order_models.PaymentSideEffectJob.State.AMBIGUOUS)
 
     def test_failure_before_provider_boundary_remains_retryable(self):
         service = self._service()

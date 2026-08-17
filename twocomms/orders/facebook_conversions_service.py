@@ -32,6 +32,10 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from storefront.utils.analytics_helpers import get_offer_id as build_offer_id
+from orders.provider_delivery import (
+    ProviderDeliveryAmbiguous,
+    is_ambiguous_transport_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -380,36 +384,15 @@ class FacebookConversionsService:
         return True
 
     def _send_request_with_retry(self, event_request, order, event_name: str):
-        """Отправляет запрос в Facebook с повторными попытками при ошибках."""
-        attempt = 1
-        delay = self.retry_initial_delay
-        while attempt <= max(1, self.retry_max_attempts):
-            try:
-                return event_request.execute()
-            except Exception as exc:
-                if attempt >= max(1, self.retry_max_attempts):
-                    logger.error(
-                        "❌ Failed to send %s event for order %s after %s attempts: %s",
-                        event_name,
-                        order.order_number,
-                        attempt,
-                        exc,
-                        exc_info=True,
-                    )
-                    raise
-
-                logger.warning(
-                    "⚠️ Attempt %s/%s failed for %s event (order %s): %s. Retrying in %s s",
-                    attempt,
-                    self.retry_max_attempts,
-                    event_name,
-                    order.order_number,
-                    exc,
-                    delay,
-                )
-                time.sleep(max(0.5, delay))
-                delay *= max(1, self.retry_backoff)
-                attempt += 1
+        """Send once; an exception after execute starts has unknown outcome."""
+        try:
+            return event_request.execute()
+        except Exception as exc:
+            if is_ambiguous_transport_error(exc):
+                raise ProviderDeliveryAmbiguous(
+                    f"{event_name} provider outcome is unknown"
+                ) from exc
+            raise
 
     def _prepare_user_data(self, order) -> "UserData":
         """
@@ -769,6 +752,8 @@ class FacebookConversionsService:
                 )
 
             return True
+        except ProviderDeliveryAmbiguous:
+            raise
         except Exception as e:
             logger.error(
                 "❌ Failed to send AddPaymentInfo event to Facebook Conversions API: %s",
@@ -930,6 +915,8 @@ class FacebookConversionsService:
 
             return True
 
+        except ProviderDeliveryAmbiguous:
+            raise
         except Exception as e:
             logger.error(
                 f"❌ Failed to send Purchase event to Facebook Conversions API: {e}",

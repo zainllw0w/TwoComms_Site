@@ -17,6 +17,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from storefront.utils.analytics_helpers import get_offer_id as build_offer_id
+from orders.provider_delivery import ProviderDeliveryAmbiguous
 
 logger = logging.getLogger(__name__)
 
@@ -269,15 +270,21 @@ class TikTokEventsService:
         try:
             response = self.session.post(self.api_endpoint, json=payload, timeout=15)
             response.raise_for_status()
-        except requests.RequestException as exc:
+        except requests.HTTPError as exc:
             logger.error("❌ TikTok Events API request failed: %s", exc, exc_info=True)
             return False
+        except requests.RequestException as exc:
+            raise ProviderDeliveryAmbiguous(
+                "TikTok provider outcome is unknown"
+            ) from exc
 
         try:
             data = response.json()
         except ValueError:
             logger.error("❌ TikTok Events API returned non-JSON response: %s", response.text)
-            return False
+            raise ProviderDeliveryAmbiguous(
+                "TikTok returned an unreadable response after accepting the request"
+            )
 
         if data.get('code') == 0:
             events = payload.get('data') or [{}]

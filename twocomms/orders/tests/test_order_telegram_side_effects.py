@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.db import transaction
+from django.db import connection, transaction
 from django.test import TransactionTestCase
 from django.utils import timezone
 
@@ -80,10 +80,15 @@ class OrderTelegramSideEffectTests(TransactionTestCase):
     def test_save_failure_rolls_back_intent_with_order_update(self):
         order = self._order()
         order.status = "prep"
+        self.assertFalse(connection.in_atomic_block)
+
+        def fail_update(*args, **kwargs):
+            self.assertTrue(connection.in_atomic_block)
+            raise RuntimeError("order update failed")
 
         with patch(
             "django.db.models.sql.compiler.SQLUpdateCompiler.execute_sql",
-            side_effect=RuntimeError("order update failed"),
+            side_effect=fail_update,
         ), self.assertRaisesRegex(RuntimeError, "order update failed"):
             order.save()
 

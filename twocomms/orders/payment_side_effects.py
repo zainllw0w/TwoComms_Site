@@ -899,6 +899,7 @@ def _process_order_post_payment(job, lease_token, *, now):
     from orders.models import Order
 
     processed = set()
+    ambiguous_channel = ""
     while len(processed) < len(_POST_PAYMENT_CHANNELS):
         job.refresh_from_db(fields=["payload", "provider_io_started_at"])
         order = Order.objects.get(pk=job.order_id)
@@ -945,6 +946,8 @@ def _process_order_post_payment(job, lease_token, *, now):
             )
             order.refresh_from_db(fields=["payment_payload"])
             state = _post_payment_channel_state(order, channel)
+        if state == "ambiguous":
+            ambiguous_channel = ambiguous_channel or channel
         processed.add(channel)
         next_channel = _next_post_payment_channel_after(
             order,
@@ -957,6 +960,15 @@ def _process_order_post_payment(job, lease_token, *, now):
             next_channel=next_channel,
         ):
             return "leased"
+
+    if ambiguous_channel:
+        mark_payment_side_effect_ambiguous(
+            job.pk,
+            lease_token,
+            f"post_payment_channel_ambiguous:{ambiguous_channel}",
+            now=now,
+        )
+        return "ambiguous"
 
     reconciled = _reconcile_subject_terminal_outcome(job.pk, now=now)
     if reconciled is not None:

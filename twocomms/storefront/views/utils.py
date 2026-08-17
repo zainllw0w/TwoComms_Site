@@ -1571,6 +1571,7 @@ def _send_post_payment_channel_events(order_pk, previous_status, pay_type, chann
 
     if channel == "meta_purchase":
         try:
+            from orders.provider_delivery import ProviderDeliveryAmbiguous
             from orders.facebook_conversions_service import (
                 get_facebook_conversions_service,
             )
@@ -1646,6 +1647,14 @@ def _send_post_payment_channel_events(order_pk, previous_status, pay_type, chann
                 },
             )
             return "sent"
+        except ProviderDeliveryAmbiguous as exc:
+            _record_post_payment_channel(
+                order.pk,
+                channel,
+                "ambiguous",
+                error=str(exc),
+            )
+            return "ambiguous"
         except Exception as exc:
             monobank_logger.exception(
                 "Failed to send Facebook event for order %s",
@@ -1661,6 +1670,7 @@ def _send_post_payment_channel_events(order_pk, previous_status, pay_type, chann
 
     if channel == "tiktok_purchase":
         try:
+            from orders.provider_delivery import ProviderDeliveryAmbiguous
             from orders.tiktok_events_service import get_tiktok_events_service
 
             service = get_tiktok_events_service()
@@ -1708,6 +1718,14 @@ def _send_post_payment_channel_events(order_pk, previous_status, pay_type, chann
             order.save(update_fields=["payment_payload"])
             _record_post_payment_channel(order.pk, channel, "sent")
             return "sent"
+        except ProviderDeliveryAmbiguous as exc:
+            _record_post_payment_channel(
+                order.pk,
+                channel,
+                "ambiguous",
+                error=str(exc),
+            )
+            return "ambiguous"
         except ImportError:
             _record_post_payment_channel(
                 order.pk,
