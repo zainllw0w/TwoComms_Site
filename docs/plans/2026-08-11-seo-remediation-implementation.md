@@ -1150,7 +1150,7 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     not ranking, traffic, citation or conversion uplift. The remaining global
     Telegram/profile shell and full catalog/PDP matrix stay open under Tasks
     `3.1` and `3.6`.
-- [ ] **3.2h** Localize the existing pagination suffix `Сторінка %(n)s з %(total)s.`
+- [x] **3.2h** Localize the existing pagination suffix `Сторінка %(n)s з %(total)s.`
   for RU and EN standard category page>=2 metadata. The current production
   `/ru/catalog/tshirts/?page=2` and `/en/catalog/tshirts/?page=2` responses
   retain the Ukrainian phrase in both `meta description` and
@@ -1171,6 +1171,41 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     language switching or fallback suppression is needed.
   - Priority: P1 locale correctness because the defect is present on indexable
     metadata/schema. It makes no ranking, snippet or traffic guarantee.
+
+  #### Task 3.2h execution evidence
+
+  - Code releases: `713688b7707016f9e256ab9d16b7e9bc13233c93`
+    (`fix(i18n): localize catalog pagination metadata`) supplies the reviewed
+    RU/EN gettext values and compiled catalogs;
+    `3969a5cc352a4867b0faab772473e40f5de3102e`
+    (`fix(seo): bust catalog cache after locale metadata update`) advances
+    only the anonymous standard-catalog namespace from `catalog-v13` to
+    `catalog-v14-i18n`. No global production cache flush was used.
+  - TDD proof: with the production namespace temporarily restored to
+    `catalog-v13`, the real RU page-2 route returned the seeded legacy HTML
+    response and the regression failed at `assertNotContains`; after restoring
+    `catalog-v14-i18n`, the focused gate passed `46/46` and the final catalog
+    gate passed `90/90`. Django's system check and separate RU/EN
+    `msgfmt --check` validations completed successfully. The generated cache
+    key measured 232 bytes, below Django's 250-byte compatibility limit, and
+    emitted no cache-key warning. Independent spec and code-quality reviews
+    reported no remaining findings.
+  - Production proof: the server pulled the exact code release
+    `3969a5cc352a4867b0faab772473e40f5de3102e`, Passenger was restarted, and
+    `manage.py check` completed with no errors (four existing MariaDB
+    capability warnings remained). Two consecutive clean requests to each of
+    `/ru/catalog/tshirts/?page=2` and
+    `/en/catalog/tshirts/?page=2` returned `200`, the correct
+    `Content-Language`, localized pagination text in both meta description and
+    `CollectionPage.description`, and no Ukrainian pagination fallback. Each
+    response retained a self-canonical URL, `index, follow`, four hreflang
+    alternates, one `CollectionPage`, no `X-Robots-Tag`, and the same stable
+    14-product link slice across repeated requests.
+  - Scope boundary: no URL, product/category data, editorial keyword copy,
+    inventory, media, schema shape, canonical/hreflang policy, DTF route,
+    subdomain, module or blog, or Custom Print behavior was changed. This closes
+    only the stale-cache continuation of the verified RU/EN locale defect and
+    makes no ranking, snippet, traffic, crawl-budget or conversion claim.
 - [ ] **3.2i** Make the standard catalog `BreadcrumbList` home item use the
   active locale URL (`/`, `/ru/`, `/en/`) instead of the hard-coded root URL.
   Production RU/EN category pages currently pair localized `Home` labels with
