@@ -680,16 +680,18 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
     event_state.pop("invoice_creation_lease", None)
     event_state.pop("invoice_creation_lease_expires_at", None)
     event_state.pop("invoice_creation_ambiguous", None)
-    PaymentAttempt.objects.filter(pk=attempt.pk).update(
-        monobank_invoice_id=str(invoice_id)[:128],
-        invoice_url=str(invoice_url)[:600],
-        invoice_payload={"request": invoice_payload, "create": creation},
-        tracking_payload=tracking,
-        invoice_expires_at=min(locked.expires_at, now + timedelta(minutes=25)),
-        event_state=event_state,
-        status=PaymentAttempt.Status.PROCESSING,
-        last_status_at=now,
-    )
+    with transaction.atomic():
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            monobank_invoice_id=str(invoice_id)[:128],
+            invoice_url=str(invoice_url)[:600],
+            invoice_payload={"request": invoice_payload, "create": creation},
+            tracking_payload=tracking,
+            invoice_expires_at=min(locked.expires_at, now + timedelta(minutes=25)),
+            event_state=event_state,
+            status=PaymentAttempt.Status.PROCESSING,
+            last_status_at=now,
+        )
+        _send_add_payment_info_if_missing(attempt, request)
     from management.models import IgCheckoutProposal
     locked.refresh_from_db()
     locked.status = IgCheckoutProposal.Status.INVOICE_CREATED
@@ -713,7 +715,6 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
     request.session["ig_checkout_proposal_id"] = str(locked.public_id)
     request.session.modified = True
 
-    _send_add_payment_info_if_missing(attempt, request)
     try:
         from management.services.ig_alerts import format_operator_alert
         from management.services.instagram_bot import notify_manager
@@ -733,6 +734,7 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
             dedupe_key=f"ig-checkout-invoice-created:{attempt.pk}",
             event_type="ig_checkout_invoice_created",
             client=locked.client,
+            deliver_immediately=False,
         )
     except Exception:
         logger.warning("Failed to send IG checkout invoice alert %s", attempt.pk, exc_info=True)

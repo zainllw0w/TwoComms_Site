@@ -16,6 +16,7 @@ from management.models import (
     IgCheckoutInventoryReservation,
     IgCheckoutProposal,
     IgCheckoutProposalItem,
+    IgBotNotification,
     IgClient,
     IgDeal,
     InstagramBotSettings,
@@ -504,6 +505,86 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.INVOICE_CREATED)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.stage, IgClient.Stage.PAYMENT_PENDING)
+
+    def test_post_persists_ig_invoice_side_effects_without_request_delivery(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(
+            reverse("ig_checkout_token_entry", kwargs={"token": raw})
+        )
+        self.client.get(entry["Location"])
+
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            return_value={
+                "invoiceId": "ig-durable-side-effects",
+                "pageUrl": "https://pay.example/ig-durable-side-effects",
+            },
+        ), patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as facebook, patch(
+            "orders.telegram_notifications.TelegramNotifier."
+            "send_payment_attempt_notification"
+        ) as payment_telegram, patch(
+            "management.services.instagram_bot._deliver_manager_notification"
+        ) as manager_delivery:
+            response = self.client.post(
+                reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": self.proposal.public_id},
+                ),
+                data=self._delivery_payload(),
+            )
+
+        self.assertEqual(response.status_code, 302)
+        attempt = PaymentAttempt.objects.get(
+            monobank_invoice_id="ig-durable-side-effects"
+        )
+        add_payment_job = PaymentSideEffectJob.objects.get(
+            kind=PaymentSideEffectJob.Kind.ATTEMPT_ADD_PAYMENT_INFO,
+            payment_attempt=attempt,
+        )
+        self.assertEqual(
+            add_payment_job.event_key,
+            f"payment-attempt:{attempt.pk}:add-payment-info",
+        )
+        alert = IgBotNotification.objects.get(
+            dedupe_key=f"ig-checkout-invoice-created:{attempt.pk}"
+        )
+        self.assertEqual(alert.status, IgBotNotification.Status.PENDING)
+        facebook.assert_not_called()
+        payment_telegram.assert_not_called()
+        manager_delivery.assert_not_called()
+
+    def test_invoice_state_rolls_back_when_durable_intent_cannot_be_saved(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(
+            reverse("ig_checkout_token_entry", kwargs={"token": raw})
+        )
+        self.client.get(entry["Location"])
+
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            return_value={
+                "invoiceId": "ig-outbox-write-failed",
+                "pageUrl": "https://pay.example/ig-outbox-write-failed",
+            },
+        ), patch(
+            "orders.payment_side_effects."
+            "enqueue_attempt_add_payment_info_side_effect",
+            side_effect=RuntimeError("outbox write failed"),
+        ), self.assertRaisesRegex(RuntimeError, "outbox write failed"):
+            self.client.post(
+                reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": self.proposal.public_id},
+                ),
+                data=self._delivery_payload(),
+            )
+
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(attempt.monobank_invoice_id, "")
+        self.assertEqual(attempt.invoice_url, "")
+        self.assertFalse(attempt.side_effect_jobs.exists())
 
     def test_post_without_receipt_email_creates_invoice_and_persists_blank_email(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)

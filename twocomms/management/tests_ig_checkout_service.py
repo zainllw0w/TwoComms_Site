@@ -880,6 +880,7 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
         provider.assert_called_once()
         legacy_payment_alert.assert_not_called()
         notify_manager.assert_called_once()
+        self.assertFalse(notify_manager.call_args.kwargs["deliver_immediately"])
         alert = notify_manager.call_args.args[0]
         for private_marker in (
             payload["full_name"],
