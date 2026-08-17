@@ -40,6 +40,7 @@ from django.utils import timezone
 from management.models import CallAIAnalysis, CallRecord, Client
 from management.models import normalize_phone as model_normalize_phone
 from management.services import gemini_keys
+from management.services.call_ai_queue import METADATA_PENDING, analysis_queue_category
 from management.services.binotel import (
     BinotelClient,
     BinotelError,
@@ -1526,7 +1527,11 @@ def schedule_call_analysis(general_call_id: str) -> None:
             external_call_id=gcid,
             defaults={"ai_status": CallRecord.AiStatus.PENDING},
         )
-        if not created and record.ai_status == CallRecord.AiStatus.NONE and not record.payload:
+        if (
+            not created
+            and record.ai_status == CallRecord.AiStatus.NONE
+            and analysis_queue_category(record.payload, record.duration_seconds) == METADATA_PENDING
+        ):
             CallRecord.objects.filter(
                 pk=record.pk,
                 ai_status=CallRecord.AiStatus.NONE,

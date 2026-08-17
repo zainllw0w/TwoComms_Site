@@ -23,15 +23,19 @@ from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.db.models import F, Q
 from django.utils import timezone
 
 from management.models import CallAIAnalysis, CallRecord
-
-ANALYSIS_DELAY_SECONDS = 90
-MEANINGFUL_SECONDS = 30
-MAX_ATTEMPTS = 3
-STALE_LOCK_MINUTES = 15
-RECORDABLE_DISPOSITIONS = frozenset({"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"})
+from management.services.call_ai_queue import (
+    ANALYSIS_DELAY_SECONDS,
+    ELIGIBLE,
+    INELIGIBLE,
+    MAX_ANALYSIS_ATTEMPTS,
+    METADATA_PENDING,
+    STALE_ANALYSIS_LOCK_MINUTES,
+    analysis_queue_category,
+)
 
 
 def _daily_cap() -> int:
@@ -62,30 +66,30 @@ class Command(BaseCommand):
     def _handle(self, *, limit: int, dry: bool):
         now = timezone.now()
         cutoff = now - timedelta(seconds=ANALYSIS_DELAY_SECONDS)
-        stale = now - timedelta(minutes=STALE_LOCK_MINUTES)
+        stale = now - timedelta(minutes=STALE_ANALYSIS_LOCK_MINUTES)
 
-        # Денний кеп: скільки done+error за сьогодні.
+        # The cap limits analysis calls, not hydration and queue reconciliation.
         start_day = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
-        done_today = CallAIAnalysis.objects.filter(created_at__gte=start_day).count()
+        analysis_attempts_today = CallAIAnalysis.objects.filter(created_at__gte=start_day).count()
         cap = _daily_cap()
-        if done_today >= cap:
-            self.stdout.write(f"Денний кеп досягнуто ({done_today}/{cap}). Пропуск.")
-            return
 
-        candidates = (
-            CallRecord.objects.filter(ai_status=CallRecord.AiStatus.PENDING)
-            .exclude(external_call_id="")
-            .filter(created_at__lte=cutoff)
-            .order_by("created_at")[: limit * 2]
-        )
-        # Підхопити «завислі» running.
+        # Stale work has priority so a constant pending queue cannot starve it.
         stale_running = list(
             CallRecord.objects.filter(
-                ai_status=CallRecord.AiStatus.RUNNING, ai_locked_at__lte=stale
-            ).order_by("ai_locked_at")[:limit]
+                Q(ai_locked_at__lte=stale) | Q(ai_locked_at__isnull=True),
+                ai_status=CallRecord.AiStatus.RUNNING,
+                provider="binotel",
+            ).order_by(F("ai_locked_at").asc(nulls_first=True), "created_at", "id")[:limit]
+        )
+        remaining = max(0, limit - len(stale_running))
+        pending = list(
+            CallRecord.objects.filter(provider="binotel", ai_status=CallRecord.AiStatus.PENDING)
+            .exclude(external_call_id="")
+            .filter(created_at__lte=cutoff)
+            .order_by("created_at", "id")[:remaining]
         )
 
-        ids = [r.id for r in list(candidates) + stale_running][:limit]
+        ids = [record.id for record in stale_running + pending]
         if not ids:
             self.stdout.write("Немає записів для аналізу.")
             return
@@ -102,8 +106,6 @@ class Command(BaseCommand):
 
         processed = 0
         for rec_id in ids:
-            if done_today + processed >= cap:
-                break
             # Атомарний лок.
             with transaction.atomic():
                 rec = CallRecord.objects.select_for_update().filter(id=rec_id).first()
@@ -113,9 +115,20 @@ class Command(BaseCommand):
                     continue
                 if rec.ai_status == CallRecord.AiStatus.RUNNING and rec.ai_locked_at and rec.ai_locked_at > stale:
                     continue  # ще обробляється іншим процесом
-                if rec.ai_attempts >= MAX_ATTEMPTS:
+                if (
+                    rec.ai_status == CallRecord.AiStatus.RUNNING
+                    and rec.ai_analyses.filter(status=CallAIAnalysis.Status.DONE).exists()
+                ):
+                    rec.ai_status = CallRecord.AiStatus.DONE
+                    rec.ai_locked_at = None
+                    rec.save(update_fields=["ai_status", "ai_locked_at", "updated_at"])
+                    processed += 1
+                    self.stdout.write(f"#{rec_id}: reconciled done")
+                    continue
+                if rec.ai_attempts >= MAX_ANALYSIS_ATTEMPTS:
                     rec.ai_status = CallRecord.AiStatus.ERROR
-                    rec.save(update_fields=["ai_status", "updated_at"])
+                    rec.ai_locked_at = None
+                    rec.save(update_fields=["ai_status", "ai_locked_at", "updated_at"])
                     continue
                 rec.ai_status = CallRecord.AiStatus.RUNNING
                 rec.ai_locked_at = timezone.now()
@@ -124,26 +137,34 @@ class Command(BaseCommand):
 
             # Поза транзакцією — довгий мережевий виклик.
             try:
-                payload = rec.payload if isinstance(rec.payload, dict) else {}
-                disposition = str(payload.get("disposition") or "").strip().upper()
-                if not disposition:
+                queue_category = analysis_queue_category(rec.payload, rec.duration_seconds)
+                if queue_category == METADATA_PENDING:
                     rec = upsert_call_record(
                         BinotelClient.from_settings(),
                         rec.external_call_id,
                     )
-                    payload = rec.payload if isinstance(rec.payload, dict) else {}
-                    disposition = str(payload.get("disposition") or "").strip().upper()
-                if not disposition:
+                    queue_category = analysis_queue_category(rec.payload, rec.duration_seconds)
+                if queue_category == METADATA_PENDING:
                     raise CallAIAnalysisError("Binotel metadata is not available yet.")
-                if (
-                    disposition not in RECORDABLE_DISPOSITIONS
-                    or rec.duration_seconds < MEANINGFUL_SECONDS
-                ):
+                if queue_category == INELIGIBLE:
                     rec.ai_status = CallRecord.AiStatus.SKIPPED
-                    rec.save(update_fields=["ai_status", "updated_at"])
+                    rec.ai_locked_at = None
+                    rec.save(update_fields=["ai_status", "ai_locked_at", "updated_at"])
                     processed += 1
                     self.stdout.write(f"#{rec_id}: skipped")
                     continue
+                if analysis_attempts_today >= cap:
+                    rec.ai_status = CallRecord.AiStatus.PENDING
+                    rec.ai_locked_at = None
+                    rec.ai_attempts = max(0, int(rec.ai_attempts or 0) - 1)
+                    rec.save(
+                        update_fields=["ai_status", "ai_locked_at", "ai_attempts", "updated_at"]
+                    )
+                    self.stdout.write(
+                        f"#{rec_id}: денний кеп досягнуто ({analysis_attempts_today}/{cap})"
+                    )
+                    continue
+                analysis_attempts_today += 1
                 analysis = analyze_call(rec.external_call_id, force=True)
                 ok = analysis.status == CallAIAnalysis.Status.DONE
             except CallAIAnalysisError as exc:
@@ -155,9 +176,12 @@ class Command(BaseCommand):
 
             rec.refresh_from_db(fields=["ai_attempts"])
             rec.ai_status = CallRecord.AiStatus.DONE if ok else (
-                CallRecord.AiStatus.PENDING if rec.ai_attempts < MAX_ATTEMPTS else CallRecord.AiStatus.ERROR
+                CallRecord.AiStatus.PENDING
+                if rec.ai_attempts < MAX_ANALYSIS_ATTEMPTS
+                else CallRecord.AiStatus.ERROR
             )
-            rec.save(update_fields=["ai_status", "updated_at"])
+            rec.ai_locked_at = None
+            rec.save(update_fields=["ai_status", "ai_locked_at", "updated_at"])
             processed += 1
             self.stdout.write(f"#{rec_id}: {'done' if ok else 'retry/error'}")
 

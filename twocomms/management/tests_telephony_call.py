@@ -145,6 +145,35 @@ class AdminTelephonySaveEndpointTest(TestCase):
 
 from management.models import CallRecord
 from management import binotel_webhook
+from management.services.call_ai_queue import (
+    ELIGIBLE,
+    INELIGIBLE,
+    MAX_ANALYSIS_ATTEMPTS,
+    METADATA_PENDING,
+    analysis_queue_category,
+)
+
+
+class CallAIQueueCategoryTest(TestCase):
+    def test_normalizes_disposition_and_enforces_duration_boundary(self):
+        self.assertEqual(
+            analysis_queue_category({"disposition": " answer "}, 30),
+            ELIGIBLE,
+        )
+        self.assertEqual(
+            analysis_queue_category({"disposition": "ANSWER"}, 29),
+            INELIGIBLE,
+        )
+
+    def test_distinguishes_missing_from_explicit_ineligible_disposition(self):
+        self.assertEqual(
+            analysis_queue_category({"generalCallID": "partial"}, 60),
+            METADATA_PENDING,
+        )
+        self.assertEqual(
+            analysis_queue_category({"disposition": " NOANSWER "}, 60),
+            INELIGIBLE,
+        )
 
 
 class WebhookLinkEnqueueTest(TestCase):
@@ -189,6 +218,30 @@ class WebhookLinkEnqueueTest(TestCase):
         )
         rec.refresh_from_db()
         self.assertEqual(rec.ai_status, CallRecord.AiStatus.NONE)
+
+    def test_short_completed_call_terminalizes_pending_placeholder(self):
+        rec = self._record("555000444")
+        rec.ai_status = CallRecord.AiStatus.PENDING
+        rec.save(update_fields=["ai_status", "updated_at"])
+
+        binotel_webhook._link_call_session_and_enqueue(
+            rec, {"disposition": "ANSWER", "bill_seconds": 8}
+        )
+
+        rec.refresh_from_db()
+        self.assertEqual(rec.ai_status, CallRecord.AiStatus.SKIPPED)
+
+    def test_noanswer_completed_call_terminalizes_pending_placeholder(self):
+        rec = self._record("555000555")
+        rec.ai_status = CallRecord.AiStatus.PENDING
+        rec.save(update_fields=["ai_status", "updated_at"])
+
+        binotel_webhook._link_call_session_and_enqueue(
+            rec, {"disposition": "NOANSWER", "bill_seconds": 65}
+        )
+
+        rec.refresh_from_db()
+        self.assertEqual(rec.ai_status, CallRecord.AiStatus.SKIPPED)
 
 
 from management import call_views
@@ -1021,6 +1074,19 @@ class ScheduleCallAnalysisTest(TestCase):
         record.refresh_from_db()
         self.assertEqual(record.ai_status, CallRecord.AiStatus.NONE)
 
+    def test_schedule_requeues_unclassified_partial_record(self):
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999989",
+            payload={"generalCallID": "999989"},
+            ai_status=CallRecord.AiStatus.NONE,
+        )
+
+        _caa.schedule_call_analysis(record.external_call_id)
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.PENDING)
+
     def test_schedule_propagates_durable_intent_write_failure(self):
         with patch.object(
             CallRecord.objects,
@@ -1192,4 +1258,223 @@ class ScheduleCallAnalysisTest(TestCase):
         record.refresh_from_db()
         self.assertEqual(record.ai_status, CallRecord.AiStatus.DONE)
         self.assertEqual(record.ai_attempts, 1)
+        self.assertIsNone(record.ai_locked_at)
         analyze.assert_called_once_with(record.external_call_id, force=True)
+
+    def test_stale_running_is_processed_before_pending_at_limit_one(self):
+        from io import StringIO
+        from types import SimpleNamespace
+
+        from django.core.management import call_command
+
+        pending = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999988",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        stale = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999987",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.RUNNING,
+            ai_attempts=1,
+            ai_locked_at=_tz.now() - _td(minutes=20),
+        )
+        CallRecord.objects.filter(pk=pending.pk).update(
+            created_at=_tz.now() - _td(minutes=10),
+        )
+        analysis = SimpleNamespace(status=CallAIAnalysis.Status.DONE)
+
+        with patch(
+            "management.services.call_ai_analysis.analyze_call",
+            return_value=analysis,
+        ) as analyze:
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        pending.refresh_from_db()
+        stale.refresh_from_db()
+        self.assertEqual(pending.ai_status, CallRecord.AiStatus.PENDING)
+        self.assertEqual(stale.ai_status, CallRecord.AiStatus.DONE)
+        analyze.assert_called_once_with(stale.external_call_id, force=True)
+
+    def test_stale_running_reconciles_existing_done_analysis_without_retry(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999986",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.RUNNING,
+            ai_attempts=MAX_ANALYSIS_ATTEMPTS,
+            ai_locked_at=_tz.now() - _td(minutes=20),
+        )
+        CallAIAnalysis.objects.create(
+            call_record=record,
+            status=CallAIAnalysis.Status.DONE,
+        )
+
+        with patch("management.services.call_ai_analysis.analyze_call") as analyze:
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.DONE)
+        self.assertEqual(record.ai_attempts, MAX_ANALYSIS_ATTEMPTS)
+        self.assertIsNone(record.ai_locked_at)
+        analyze.assert_not_called()
+
+    def test_running_without_lock_is_recovered(self):
+        from io import StringIO
+        from types import SimpleNamespace
+
+        from django.core.management import call_command
+
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999984",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.RUNNING,
+            ai_attempts=1,
+            ai_locked_at=None,
+        )
+        analysis = SimpleNamespace(status=CallAIAnalysis.Status.DONE)
+
+        with patch(
+            "management.services.call_ai_analysis.analyze_call",
+            return_value=analysis,
+        ) as analyze:
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.DONE)
+        self.assertEqual(record.ai_attempts, 2)
+        self.assertIsNone(record.ai_locked_at)
+        analyze.assert_called_once_with(record.external_call_id, force=True)
+
+    def test_exhausted_stale_running_terminalizes_and_clears_lock(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999983",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.RUNNING,
+            ai_attempts=MAX_ANALYSIS_ATTEMPTS,
+            ai_locked_at=_tz.now() - _td(minutes=20),
+        )
+
+        with patch("management.services.call_ai_analysis.analyze_call") as analyze:
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.ERROR)
+        self.assertIsNone(record.ai_locked_at)
+        analyze.assert_not_called()
+
+    def test_worker_ignores_non_binotel_records(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        record = CallRecord.objects.create(
+            provider="aggregate",
+            external_call_id="not-binotel",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+        )
+        stale = CallRecord.objects.create(
+            provider="aggregate",
+            external_call_id="not-binotel-stale",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.RUNNING,
+            ai_attempts=1,
+            ai_locked_at=_tz.now() - _td(minutes=20),
+        )
+
+        with patch("management.services.call_ai_analysis.analyze_call") as analyze:
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        stale.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.PENDING)
+        self.assertEqual(record.ai_attempts, 0)
+        self.assertEqual(stale.ai_status, CallRecord.AiStatus.RUNNING)
+        self.assertEqual(stale.ai_attempts, 1)
+        analyze.assert_not_called()
+
+    def test_daily_cap_preserves_eligible_pending_attempt_count(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999982",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+        )
+
+        with (
+            patch.dict("os.environ", {"GEMINI_CALL_ANALYSIS_DAILY_CAP": "0"}),
+            patch("management.services.call_ai_analysis.analyze_call") as analyze,
+        ):
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.PENDING)
+        self.assertEqual(record.ai_attempts, 0)
+        self.assertIsNone(record.ai_locked_at)
+        analyze.assert_not_called()
+
+    @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
+    def test_daily_cap_still_terminalizes_ineligible_placeholder(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        _caa.schedule_call_analysis("999985")
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999985")
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+        )
+        provider = MagicMock()
+        provider.call_details.return_value = {
+            "callDetails": {
+                "999985": {
+                    "generalCallID": "999985",
+                    "callType": "1",
+                    "billsec": 0,
+                    "disposition": "NOANSWER",
+                }
+            }
+        }
+        provider.list_of_employees.return_value = {"listOfEmployees": {}}
+
+        with (
+            patch.dict("os.environ", {"GEMINI_CALL_ANALYSIS_DAILY_CAP": "0"}),
+            patch.object(_caa.BinotelClient, "from_settings", return_value=provider),
+            patch("management.services.call_ai_analysis.analyze_call") as analyze,
+        ):
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.SKIPPED)
+        analyze.assert_not_called()

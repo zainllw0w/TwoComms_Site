@@ -33,6 +33,7 @@ from django.views.decorators.http import require_http_methods
 
 from .models import BinotelWebhookEvent, CallRecord, Client
 from .models import normalize_phone as model_normalize_phone
+from .services.call_ai_queue import ELIGIBLE, INELIGIBLE, analysis_queue_category
 from .services.binotel import (
     client_ip_from_request,
     is_binotel_ip,
@@ -143,10 +144,9 @@ def _link_call_session_and_enqueue(record, parsed: dict) -> None:
     авто-аналізу значущі відповіді (duration >= поріг, запис доступний)."""
     from .models import CallSession
 
-    disposition = (parsed.get("disposition") or "").upper()
+    disposition = (parsed.get("disposition") or "").strip().upper()
     duration = int(parsed.get("bill_seconds") or 0)
-    recordable = disposition in {"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"}
-    meaningful = duration >= 30
+    queue_category = analysis_queue_category(parsed, duration)
 
     update_fields = []
     session = (
@@ -171,9 +171,20 @@ def _link_call_session_and_enqueue(record, parsed: dict) -> None:
             record.matched_client_id = session.client_id
             update_fields.append("matched_client")
 
-    if recordable and meaningful and record.ai_status == CallRecord.AiStatus.NONE:
-        record.ai_status = CallRecord.AiStatus.PENDING
-        update_fields.append("ai_status")
+    if queue_category == ELIGIBLE and record.ai_status == CallRecord.AiStatus.NONE:
+        changed = CallRecord.objects.filter(
+            pk=record.pk,
+            ai_status=CallRecord.AiStatus.NONE,
+        ).update(ai_status=CallRecord.AiStatus.PENDING, updated_at=timezone.now())
+        if changed:
+            record.ai_status = CallRecord.AiStatus.PENDING
+    elif queue_category == INELIGIBLE and record.ai_status == CallRecord.AiStatus.PENDING:
+        changed = CallRecord.objects.filter(
+            pk=record.pk,
+            ai_status=CallRecord.AiStatus.PENDING,
+        ).update(ai_status=CallRecord.AiStatus.SKIPPED, updated_at=timezone.now())
+        if changed:
+            record.ai_status = CallRecord.AiStatus.SKIPPED
 
     if update_fields:
         update_fields.append("updated_at")

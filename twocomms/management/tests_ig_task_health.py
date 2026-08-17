@@ -3,10 +3,12 @@ from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from django.core.management import CommandError, call_command
+from django.db import DatabaseError
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from management.models import (
+    CallRecord,
     IgBotNotification,
     IgClient,
     InstagramBotMessage,
@@ -255,3 +257,96 @@ class BotHealthEndpointTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["queues"]["dangerous_backlog"], 2)
         self.assertEqual(response.json()["queues"]["analysis_failed"], 1)
+
+    def test_release_snapshot_reports_sanitized_binotel_queue_categories(self):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = False
+        settings.save(update_fields=["is_enabled", "updated_at"])
+        self._make_all_tasks_healthy()
+        CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="health-eligible",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="health-metadata",
+            payload={"generalCallID": "health-metadata"},
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="health-ineligible",
+            payload={"disposition": "NOANSWER"},
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="health-stale",
+            ai_status=CallRecord.AiStatus.RUNNING,
+            ai_locked_at=timezone.now() - timedelta(minutes=20),
+        )
+        CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="health-error",
+            ai_status=CallRecord.AiStatus.ERROR,
+        )
+        CallRecord.objects.create(
+            provider="aggregate",
+            external_call_id="health-non-binotel-pending",
+            duration_seconds=65,
+            payload={"disposition": "ANSWER"},
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        CallRecord.objects.create(
+            provider="aggregate",
+            external_call_id="health-non-binotel-stale",
+            ai_status=CallRecord.AiStatus.RUNNING,
+            ai_locked_at=timezone.now() - timedelta(minutes=20),
+        )
+        CallRecord.objects.create(
+            provider="aggregate",
+            external_call_id="health-non-binotel-error",
+            ai_status=CallRecord.AiStatus.ERROR,
+        )
+
+        snapshot = release_queue_snapshot()
+
+        self.assertEqual(snapshot["binotel_eligible_pending"], 1)
+        self.assertEqual(snapshot["binotel_metadata_pending"], 1)
+        self.assertEqual(snapshot["binotel_ineligible_pending"], 1)
+        self.assertEqual(snapshot["binotel_stale_running"], 1)
+        self.assertEqual(snapshot["binotel_error"], 1)
+        self.assertEqual(snapshot["dangerous_backlog"], 4)
+        response = self.client.get(
+            "/bot/health/", HTTP_HOST="management.twocomms.shop", secure=True
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["queues"]["binotel_stale_running"], 1)
+
+    @patch(
+        "management.models.InstagramBotMessage.objects.filter",
+        side_effect=DatabaseError("queue unavailable"),
+    )
+    def test_release_snapshot_database_fallback_preserves_complete_shape(self, _filter):
+        self.assertEqual(
+            release_queue_snapshot(),
+            {
+                "available": False,
+                "dangerous_backlog": 0,
+                "inbound_pending": 0,
+                "reply_pending": 0,
+                "notification_unresolved": 0,
+                "analysis_pending": 0,
+                "recovery_unresolved": 0,
+                "analysis_failed": 0,
+                "binotel_eligible_pending": 0,
+                "binotel_metadata_pending": 0,
+                "binotel_ineligible_pending": 0,
+                "binotel_stale_running": 0,
+                "binotel_error": 0,
+                "error": "DatabaseError",
+            },
+        )

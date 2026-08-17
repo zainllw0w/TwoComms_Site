@@ -2,6 +2,7 @@
 Тести єдиного вхідного вебхука Binotel (apiCallSettings / apiCallCompleted).
 """
 import json
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, Client as TestClient, override_settings
@@ -88,6 +89,85 @@ class BinotelWebhookEndpointTests(TestCase):
         self._post(payload)
         self._post(payload)
         self.assertEqual(CallRecord.objects.filter(external_call_id="777").count(), 1)
+
+    def test_call_completed_terminalizes_pending_placeholder(self):
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="778",
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+
+        response = self._post({
+            "requestType": "apiCallCompleted",
+            "callDetails": {
+                "generalCallID": 778,
+                "callType": 1,
+                "billsec": 0,
+                "disposition": "NOANSWER",
+            },
+        })
+
+        self.assertEqual(response.status_code, 200)
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.SKIPPED)
+
+    def test_call_completed_preserves_non_pending_ai_states(self):
+        statuses = (
+            CallRecord.AiStatus.RUNNING,
+            CallRecord.AiStatus.DONE,
+            CallRecord.AiStatus.ERROR,
+            CallRecord.AiStatus.SKIPPED,
+        )
+        for offset, status in enumerate(statuses, start=780):
+            with self.subTest(status=status):
+                record = CallRecord.objects.create(
+                    provider="binotel",
+                    external_call_id=str(offset),
+                    ai_status=status,
+                )
+
+                response = self._post({
+                    "requestType": "apiCallCompleted",
+                    "callDetails": {
+                        "generalCallID": offset,
+                        "callType": 1,
+                        "billsec": 0,
+                        "disposition": "NOANSWER",
+                    },
+                })
+
+                self.assertEqual(response.status_code, 200)
+                record.refresh_from_db()
+                self.assertEqual(record.ai_status, status)
+
+    def test_call_completed_does_not_overwrite_concurrently_running_record(self):
+        stale_record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="779",
+            ai_status=CallRecord.AiStatus.PENDING,
+        )
+        CallRecord.objects.filter(pk=stale_record.pk).update(
+            ai_status=CallRecord.AiStatus.RUNNING,
+        )
+
+        with patch.object(
+            CallRecord.objects,
+            "update_or_create",
+            return_value=(stale_record, False),
+        ):
+            response = self._post({
+                "requestType": "apiCallCompleted",
+                "callDetails": {
+                    "generalCallID": 779,
+                    "callType": 1,
+                    "billsec": 0,
+                    "disposition": "NOANSWER",
+                },
+            })
+
+        self.assertEqual(response.status_code, 200)
+        stale_record.refresh_from_db()
+        self.assertEqual(stale_record.ai_status, CallRecord.AiStatus.RUNNING)
 
     def test_call_settings_known_client(self):
         owner = get_user_model().objects.create_user(username="own1", password="x", email="m@e.com")
