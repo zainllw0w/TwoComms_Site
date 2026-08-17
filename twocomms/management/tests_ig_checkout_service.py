@@ -905,7 +905,7 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
             "pageUrl": "https://pay.monobank.test/alert-outbox-failure",
         },
     )
-    def test_invoice_creation_rolls_back_when_operator_alert_outbox_fails(
+    def test_invoice_creation_keeps_provider_invoice_when_operator_alert_outbox_fails(
         self, provider, notify_manager
     ):
         from types import SimpleNamespace
@@ -916,7 +916,7 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
 
         from management.services import bot_orders
         from management.services.ig_checkout_payment import create_or_reuse_invoice
-        from orders.models import PaymentAttempt
+        from orders.models import PaymentSideEffectJob
 
         result = bot_orders.create_deal_and_link(
             self.client,
@@ -945,21 +945,33 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
         with patch(
             "management.services.ig_checkout_payment.resolve_delivery_selection",
             return_value=delivery,
-        ), patch(
-            "management.services.ig_checkout_payment._send_add_payment_info_if_missing",
-            return_value=True,
-        ), self.assertRaisesRegex(RuntimeError, "invoice operator alert outbox"):
-            create_or_reuse_invoice(
+        ):
+            attempt, invoice_url, reused = create_or_reuse_invoice(
                 proposal,
                 request=request,
                 payload=payload,
             )
 
-        attempt = PaymentAttempt.objects.get()
-        self.assertEqual(attempt.monobank_invoice_id, "")
-        self.assertEqual(attempt.invoice_url, "")
-        self.assertFalse(attempt.side_effect_jobs.exists())
-        notify_manager.assert_called_once()
+        self.assertFalse(reused)
+        self.assertEqual(invoice_url, "https://pay.monobank.test/alert-outbox-failure")
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.monobank_invoice_id, "ALERT_OUTBOX_FAILURE_INVOICE")
+        self.assertEqual(attempt.invoice_url, invoice_url)
+        self.assertTrue(attempt.side_effect_jobs.filter(
+            kind=PaymentSideEffectJob.Kind.ATTEMPT_ADD_PAYMENT_INFO,
+        ).exists())
+
+        repeat_attempt, repeat_url, repeated = create_or_reuse_invoice(
+            proposal,
+            request=request,
+            payload=payload,
+        )
+
+        self.assertTrue(repeated)
+        self.assertEqual(repeat_attempt.pk, attempt.pk)
+        self.assertEqual(repeat_url, invoice_url)
+        provider.assert_called_once()
+        self.assertEqual(notify_manager.call_count, 2)
 
     @patch("storefront.views.monobank._monobank_api_request")
     def test_bot_deal_path_blocks_missing_generic_option(self, provider):

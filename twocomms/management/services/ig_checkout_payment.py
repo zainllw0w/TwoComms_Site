@@ -412,7 +412,7 @@ def _send_add_payment_info_if_missing(attempt, request):
 
 
 def _persist_invoice_created_alert(locked, attempt):
-    """Persist the manager alert in the same unit as the invoice state."""
+    """Persist one idempotent manager alert for an invoice."""
     from management.services.ig_alerts import format_operator_alert
     from management.services.instagram_bot import notify_manager
 
@@ -433,6 +433,24 @@ def _persist_invoice_created_alert(locked, attempt):
         client=locked.client,
         deliver_immediately=False,
     )
+
+
+def _enqueue_invoice_created_alert_best_effort(locked, attempt):
+    """Keep a notification failure from changing the provider invoice result."""
+    try:
+        alert_persisted = _persist_invoice_created_alert(locked, attempt)
+    except Exception:
+        logger.warning(
+            "Failed to persist IG invoice alert %s after provider success",
+            attempt.pk,
+            exc_info=True,
+        )
+    else:
+        if not alert_persisted:
+            logger.warning(
+                "Failed to persist IG invoice alert %s after provider success",
+                attempt.pk,
+            )
 
 
 def _lock_attempt_proposal_graph(attempt_id, *, proposal_related=()):
@@ -602,11 +620,7 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
         )
     if reused and attempt.invoice_url:
         _send_add_payment_info_if_missing(attempt, request)
-        if not _persist_invoice_created_alert(locked, attempt):
-            logger.warning(
-                "Failed to persist reused IG invoice alert %s",
-                attempt.pk,
-            )
+        _enqueue_invoice_created_alert_best_effort(locked, attempt)
         return attempt, attempt.invoice_url, True
     if values is None:
         raise CheckoutPaymentError("in_progress", "Платеж уже создается. Подождите несколько секунд.")
@@ -721,8 +735,9 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
             last_status_at=now,
         )
         _send_add_payment_info_if_missing(attempt, request)
-        if not _persist_invoice_created_alert(locked, attempt):
-            raise RuntimeError("invoice operator alert outbox persistence failed")
+    # The provider invoice and payment side-effect intent are durable before
+    # the best-effort, idempotent manager notification is attempted.
+    _enqueue_invoice_created_alert_best_effort(locked, attempt)
     from management.models import IgCheckoutProposal
     locked.refresh_from_db()
     locked.status = IgCheckoutProposal.Status.INVOICE_CREATED
