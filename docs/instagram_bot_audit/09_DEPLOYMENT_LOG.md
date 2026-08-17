@@ -4,6 +4,23 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 bounded release reconciliation (2026-08-18)
+
+The CSRF source-enumeration blocker was released in
+`b3f37abc126d02103ae51cf8bc5468d5fc32f4b0` after a focused `26/26` gate. The
+legacy catalog-query preservation fix `22dd96685a097daa1dab6b434b4bc7f441a80655`
+was also released; the subsequent cache follow-up advanced `main` to
+`3969a5cc352a4867b0faab772473e40f5de3102e`. The prescribed SSH `git pull`
+fast-forwarded production to that exact SHA on branch `main`.
+
+The post-pull read-only command reported `csrf-exempt contract OK: 25 active
+non-DTF exemptions, 25 contract rows; legacy backup decorators=7, loaded=4,
+wrapper-not-exempt=4; no network`. No customer, Meta, payment, order, or
+database fixture was created. `IMP-044` remains explicitly open: its slow-drip
+wall-clock deadline, draft fixture assertion, and migration-number conflict
+were preserved as the next implementation slice. No broad test suite was run
+during this closeout.
+
 ## Instagram follow intelligence and UGC lifecycle (2026-08-16)
 
 The runtime release was fast-forwarded from `f831519a8` to code SHA

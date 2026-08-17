@@ -194,11 +194,21 @@ rules and its own 1090–1450 acceptance, not for every commerce task.
   built-wheel hash provenance, selector-secret redaction, owned
   maintenance-lease cleanup and legacy deploy-wrapper retirement.
 
-  **Local-ready 2026-08-18:** the CSRF contract validator now enumerates only
-  Git-tracked Python sources and fails closed when the tracked-file list cannot
-  be obtained. A focused RED reproduced the production `UnicodeDecodeError`
-  from an untracked non-UTF8 `.py`; the scoped local gate is GREEN. Deployment
-  and the production invariant remain pending.
+  **Bounded blocker release 2026-08-18:** the CSRF contract validator now
+  enumerates only Git-tracked Python sources and fails closed when the
+  tracked-file list cannot be obtained. A focused RED reproduced the
+  production `UnicodeDecodeError` from an untracked non-UTF8 `.py`; the scoped
+  gate was GREEN with `26/26` focused tests. Commit
+  `b3f37abc126d02103ae51cf8bc5468d5fc32f4b0` was pushed to `main` and pulled
+  on production; the live validator reported `25 active / 25 contract rows`
+  and legacy `7/4/4`.
+
+  This closes only the CSRF source-enumeration blocker. The wider stable
+  baseline remains open, so `P0.5` stays unchecked. The adjacent storefront
+  release `22dd96685a097daa1dab6b434b4bc7f441a80655` and cache follow-up
+  `3969a5cc352a4867b0faab772473e40f5de3102e` were preserved in `main`; they do
+  not close an Instagram-bot checkbox. The root checkout's user WIP and
+  unrelated untracked artifacts remain preserved during synchronization.
 - [ ] **P0.6 Release boundary.** Commit only one independently deployable
   slice, push, integrate into `main`, deploy, verify exact SHA, migrations,
   daemon heartbeat, dangerous queues and persisted DB/API evidence.
@@ -935,6 +945,16 @@ close the unrelated Gemini/lease items in Wave 2.
   safely renewed. Five stale leases must not end as an opaque string.
 - [ ] MariaDB competition/reclaim tests; failed analysis must not mutate
   operational state and must not block live customer reply delivery.
+
+**Open closeout note (2026-08-18):** `IMP-044` was reviewed but deliberately
+excluded from this release. The preserved branch
+`codex/imp044-analysis-key-lease-20260818` (`79ed12455`) still has an
+unfinished `tests_ig_bot_resilience.py` WIP; the Requests tuple timeout does
+not impose a hard wall-clock stop on a slow-drip response, the draft fixture
+calls `self.assertEqual` outside a test case, and its migration
+`0168_analysis_provider_attempt_evidence.py` conflicts with the current
+`0168_call_auto_analysis_enabled.py` and must become `0169`. These items
+remain the next bounded implementation slice.
 
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 
