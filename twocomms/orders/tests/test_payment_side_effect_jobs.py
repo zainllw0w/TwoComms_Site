@@ -550,7 +550,275 @@ class PaymentSideEffectJobServiceTests(TestCase):
 
         self.assertEqual(first, "done")
         self.assertEqual(second, "done")
-        send.assert_called_once_with(order.pk, "unpaid", "online_full")
+        send.assert_called_once_with(
+            order.pk,
+            "unpaid",
+            "online_full",
+            only_channel="telegram",
+        )
+
+    def test_expired_cursor_after_telegram_resumes_remaining_channels(self):
+        service = self._service()
+        model = order_models.PaymentSideEffectJob
+        now = timezone.now()
+        order = self._order(
+            payment_payload={
+                "post_payment_channels": {
+                    "telegram": {"state": "sent"},
+                    "meta_purchase": {"state": "pending"},
+                    "tiktok_purchase": {"state": "pending"},
+                    "receipt_email": {"state": "pending"},
+                }
+            }
+        )
+        job, _ = service.enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status="unpaid",
+            pay_type="online_full",
+            due_at=now,
+        )
+        job.state = model.State.PROCESSING
+        job.attempts = 1
+        job.lease_token = "stopped-worker"
+        job.lease_expires_at = now - timedelta(seconds=1)
+        job.provider_io_started_at = now - timedelta(seconds=2)
+        job.payload = {
+            **job.payload,
+            "channel_cursor": "telegram",
+        }
+        job.save(
+            update_fields=[
+                "state",
+                "attempts",
+                "lease_token",
+                "lease_expires_at",
+                "provider_io_started_at",
+                "payload",
+            ]
+        )
+        delivered = []
+
+        def persist_channel(order_id, *_args, only_channel=None, **_kwargs):
+            delivered.append(only_channel)
+            current = order_models.Order.objects.get(pk=order_id)
+            payload = dict(current.payment_payload or {})
+            channels = dict(payload.get("post_payment_channels") or {})
+            channels[only_channel] = {"state": "sent"}
+            payload["post_payment_channels"] = channels
+            current.payment_payload = payload
+            current.save(update_fields=["payment_payload"])
+            return "sent"
+
+        with patch(
+            "storefront.views.utils._send_post_payment_events",
+            side_effect=persist_channel,
+        ):
+            first = service.process_payment_side_effect_job(job.pk, now=now)
+            second = service.process_payment_side_effect_job(
+                job.pk,
+                now=now + timedelta(seconds=1),
+            )
+
+        self.assertEqual(first, "done")
+        self.assertEqual(second, "done")
+        self.assertEqual(
+            delivered,
+            ["meta_purchase", "tiktok_purchase", "receipt_email"],
+        )
+        job.refresh_from_db()
+        self.assertEqual(job.state, model.State.DONE)
+        self.assertIsNone(job.provider_io_started_at)
+
+    def test_terminal_ledger_reconciliation_clears_stale_channel_boundary(self):
+        service = self._service()
+        model = order_models.PaymentSideEffectJob
+        now = timezone.now()
+        order = self._order(
+            payment_payload={
+                "post_payment_channels": {
+                    "telegram": {"state": "sent"},
+                    "meta_purchase": {"state": "sent"},
+                    "tiktok_purchase": {"state": "disabled"},
+                    "receipt_email": {"state": "sent"},
+                }
+            }
+        )
+        job, _ = service.enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status="unpaid",
+            pay_type="online_full",
+            due_at=now,
+        )
+        job.state = model.State.PROCESSING
+        job.attempts = 1
+        job.lease_token = "stopped-after-receipt"
+        job.lease_expires_at = now - timedelta(seconds=1)
+        job.provider_io_started_at = now - timedelta(seconds=2)
+        job.payload = {**job.payload, "channel_cursor": "receipt_email"}
+        job.save(
+            update_fields=[
+                "state",
+                "attempts",
+                "lease_token",
+                "lease_expires_at",
+                "provider_io_started_at",
+                "payload",
+            ]
+        )
+
+        outcome = service.process_payment_side_effect_job(job.pk, now=now)
+
+        self.assertEqual(outcome, "done")
+        job.refresh_from_db()
+        self.assertEqual(job.state, model.State.DONE)
+        self.assertEqual(job.lease_token, "")
+        self.assertIsNone(job.lease_expires_at)
+        self.assertIsNone(job.provider_io_started_at)
+        self.assertNotIn("channel_cursor", job.payload)
+
+    def test_failed_channel_does_not_block_later_channels_or_repeat_successes(self):
+        service = self._service()
+        model = order_models.PaymentSideEffectJob
+        now = timezone.now()
+        order = self._order()
+        job, _ = service.enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status="unpaid",
+            pay_type="online_full",
+            due_at=now,
+        )
+        attempts = []
+        meta_attempts = 0
+
+        def persist_channel(order_id, *_args, only_channel=None, **_kwargs):
+            nonlocal meta_attempts
+            attempts.append(only_channel)
+            state = "sent"
+            if only_channel == "meta_purchase":
+                meta_attempts += 1
+                state = "failed" if meta_attempts == 1 else "sent"
+            current = order_models.Order.objects.get(pk=order_id)
+            payload = dict(current.payment_payload or {})
+            channels = dict(payload.get("post_payment_channels") or {})
+            channels[only_channel] = {"state": state}
+            payload["post_payment_channels"] = channels
+            current.payment_payload = payload
+            current.save(update_fields=["payment_payload"])
+            return "failed" if state == "failed" else "sent"
+
+        with patch(
+            "storefront.views.utils._send_post_payment_events",
+            side_effect=persist_channel,
+        ):
+            first = service.process_payment_side_effect_job(job.pk, now=now)
+            job.refresh_from_db()
+            retry_at = job.due_at
+            second = service.process_payment_side_effect_job(job.pk, now=retry_at)
+
+        self.assertEqual(first, "failed")
+        self.assertEqual(second, "done")
+        self.assertEqual(
+            attempts,
+            [
+                "telegram",
+                "meta_purchase",
+                "tiktok_purchase",
+                "receipt_email",
+                "meta_purchase",
+            ],
+        )
+
+    def test_provider_success_without_durable_ledger_is_channel_ambiguous(self):
+        service = self._service()
+        model = order_models.PaymentSideEffectJob
+        order = self._order()
+        job, _ = service.enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status="unpaid",
+            pay_type="online_full",
+        )
+        delivered = []
+
+        def lose_first_ledger_write(order_id, *_args, only_channel=None, **_kwargs):
+            delivered.append(only_channel)
+            if only_channel == "telegram":
+                return "sent"
+            current = order_models.Order.objects.get(pk=order_id)
+            payload = dict(current.payment_payload or {})
+            channels = dict(payload.get("post_payment_channels") or {})
+            channels[only_channel] = {"state": "sent"}
+            payload["post_payment_channels"] = channels
+            current.payment_payload = payload
+            current.save(update_fields=["payment_payload"])
+            return "sent"
+
+        with patch(
+            "storefront.views.utils._send_post_payment_events",
+            side_effect=lose_first_ledger_write,
+        ):
+            outcome = service.process_payment_side_effect_job(job.pk)
+
+        self.assertEqual(outcome, "ambiguous")
+        self.assertEqual(
+            delivered,
+            ["telegram", "meta_purchase", "tiktok_purchase", "receipt_email"],
+        )
+        order.refresh_from_db()
+        channels = order.payment_payload["post_payment_channels"]
+        self.assertEqual(channels["telegram"]["state"], "ambiguous")
+        self.assertEqual(channels["meta_purchase"]["state"], "sent")
+        self.assertEqual(channels["tiktok_purchase"]["state"], "sent")
+        self.assertEqual(channels["receipt_email"]["state"], "sent")
+        job.refresh_from_db()
+        self.assertEqual(job.state, model.State.AMBIGUOUS)
+
+    def test_channel_cursor_and_provider_boundary_are_persisted_before_delivery(self):
+        service = self._service()
+        model = order_models.PaymentSideEffectJob
+        order = self._order()
+        job, _ = service.enqueue_order_post_payment_side_effect(
+            order.pk,
+            previous_status="unpaid",
+            pay_type="online_full",
+        )
+        observed = []
+
+        def persist_channel(order_id, *_args, only_channel=None, **_kwargs):
+            current_job = model.objects.get(pk=job.pk)
+            observed.append(
+                (
+                    only_channel,
+                    current_job.payload.get("channel_cursor"),
+                    current_job.provider_io_started_at is not None,
+                )
+            )
+            current = order_models.Order.objects.get(pk=order_id)
+            payload = dict(current.payment_payload or {})
+            channels = dict(payload.get("post_payment_channels") or {})
+            channels[only_channel] = {"state": "sent"}
+            payload["post_payment_channels"] = channels
+            current.payment_payload = payload
+            current.save(update_fields=["payment_payload"])
+            return "sent"
+
+        with patch(
+            "storefront.views.utils._send_post_payment_events",
+            side_effect=persist_channel,
+        ):
+            outcome = service.process_payment_side_effect_job(job.pk)
+
+        self.assertEqual(outcome, "done")
+        self.assertEqual(
+            observed,
+            [
+                ("telegram", "telegram", True),
+                ("meta_purchase", "meta_purchase", True),
+                ("tiktok_purchase", "tiktok_purchase", True),
+                ("receipt_email", "receipt_email", True),
+            ],
+        )
+        job.refresh_from_db()
+        self.assertIsNone(job.provider_io_started_at)
 
     def test_existing_reconcile_command_drains_bounded_due_job_batch(self):
         service = self._service()

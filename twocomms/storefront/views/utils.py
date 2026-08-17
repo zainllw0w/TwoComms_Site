@@ -1272,7 +1272,7 @@ def _record_post_payment_channel(
         return False
 
 
-def _send_post_payment_events(order_pk, previous_status, pay_type):
+def _send_post_payment_events(order_pk, previous_status, pay_type, *, only_channel=None):
     """
     W2-7: отправка внешних событий (Telegram, Meta CAPI, TikTok) ПОСЛЕ
     коммита транзакции — row-lock на заказ уже снят. Дедуп-флаги
@@ -1280,6 +1280,21 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
     payment_payload, как и раньше.
     """
     from django.utils import timezone
+
+    if only_channel is not None:
+        if only_channel not in {
+            "telegram",
+            "meta_purchase",
+            "tiktok_purchase",
+            "receipt_email",
+        }:
+            raise ValueError(f"unsupported post-payment channel: {only_channel}")
+        return _send_post_payment_channel_events(
+            order_pk,
+            previous_status,
+            pay_type,
+            only_channel,
+        )
 
     from orders.models import Order
 
@@ -1503,6 +1518,262 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
 
     _sync_instagram_lifecycle_channel(order.pk)
     return telegram_result
+
+
+def _send_post_payment_channel_events(order_pk, previous_status, pay_type, channel):
+    """Deliver exactly one outbox-owned channel and persist its ledger state."""
+    from django.utils import timezone
+    from orders.models import Order
+
+    try:
+        order = Order.objects.select_related("user").get(pk=order_pk)
+    except Order.DoesNotExist:
+        monobank_logger.error("Post-payment channel: order %s not found", order_pk)
+        return "failed"
+
+    _initialize_post_payment_channels(order.pk)
+    try:
+        from storefront.utm_tracking import ensure_order_purchase_action
+
+        ensure_order_purchase_action(
+            order,
+            metadata={
+                "source": "post_payment_dispatch",
+                "payment_status": order.payment_status,
+            },
+        )
+    except Exception:
+        monobank_logger.exception(
+            "Failed to persist Purchase action for order %s",
+            order.order_number,
+        )
+    order.refresh_from_db()
+
+    if channel == "telegram":
+        outcome = deliver_pending_order_telegram_notifications(
+            order.pk,
+            previous_status=previous_status,
+            pay_type=pay_type,
+        )
+        _record_post_payment_channel(
+            order.pk,
+            "telegram",
+            {
+                "sent": "sent",
+                "failed": "failed",
+                "leased": "pending",
+                "already_sent": "sent",
+                "ambiguous": "ambiguous",
+            }.get(outcome, "unknown"),
+            error="telegram_delivery_failed" if outcome == "failed" else "",
+        )
+        return outcome
+
+    if channel == "meta_purchase":
+        try:
+            from orders.facebook_conversions_service import (
+                get_facebook_conversions_service,
+            )
+
+            service = get_facebook_conversions_service()
+            payment_payload = order.payment_payload or {}
+            facebook_events = payment_payload.get("facebook_events", {})
+            if not service.enabled:
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "disabled",
+                    error="capi_disabled",
+                )
+                return "disabled"
+            if order.payment_status not in ("paid", "prepaid", "partial"):
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "skipped",
+                    error="payment_not_verified",
+                )
+                return "skipped"
+            if facebook_events.get("purchase_sent", False):
+                order.refresh_from_db()
+                payment_payload = order.payment_payload or {}
+                facebook_events = payment_payload.get("facebook_events", {})
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "sent",
+                    metadata={
+                        "already_sent": True,
+                        "event_id": (
+                            ((payment_payload.get("fb_conversions_api") or {}).get("event_id"))
+                            or facebook_events.get("purchase_event_id", "")
+                            or order.get_purchase_event_id()
+                        ),
+                    },
+                )
+                return "sent"
+
+            facebook_events.setdefault(
+                "purchase_event_time",
+                int(timezone.now().timestamp()),
+            )
+            payment_payload["facebook_events"] = facebook_events
+            order.payment_payload = payment_payload
+            order.save(update_fields=["payment_payload"])
+            sent = service.send_purchase_event(order)
+            if not sent:
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "failed",
+                    error="provider_rejected",
+                )
+                return "failed"
+            facebook_events["purchase_sent"] = True
+            facebook_events["purchase_sent_at"] = timezone.now().isoformat()
+            order.payment_payload = payment_payload
+            order.save(update_fields=["payment_payload"])
+            _record_post_payment_channel(
+                order.pk,
+                channel,
+                "sent",
+                metadata={
+                    "event_id": (
+                        ((order.payment_payload or {}).get("fb_conversions_api") or {}).get("event_id")
+                        or facebook_events.get("purchase_event_id", "")
+                        or order.get_purchase_event_id()
+                    )
+                },
+            )
+            return "sent"
+        except Exception as exc:
+            monobank_logger.exception(
+                "Failed to send Facebook event for order %s",
+                order.order_number,
+            )
+            _record_post_payment_channel(
+                order.pk,
+                channel,
+                "unknown",
+                error=repr(exc),
+            )
+            return "ambiguous"
+
+    if channel == "tiktok_purchase":
+        try:
+            from orders.tiktok_events_service import get_tiktok_events_service
+
+            service = get_tiktok_events_service()
+            if not service.enabled:
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "disabled",
+                    error="tiktok_disabled",
+                )
+                return "disabled"
+            if order.payment_status not in ("paid", "prepaid", "partial"):
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "skipped",
+                    error="payment_not_verified",
+                )
+                return "skipped"
+            payment_payload = order.payment_payload or {}
+            tiktok_events = payment_payload.get("tiktok_events", {})
+            if tiktok_events.get("purchase_sent", False):
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "sent",
+                    metadata={"already_sent": True},
+                )
+                return "sent"
+            sent = service.send_purchase_event(order)
+            if not sent:
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    "failed",
+                    error="provider_rejected",
+                )
+                return "failed"
+            payment_payload.setdefault("tiktok_events", {})
+            payment_payload["tiktok_events"]["purchase_sent"] = True
+            payment_payload["tiktok_events"]["purchase_sent_at"] = (
+                timezone.now().isoformat()
+            )
+            order.payment_payload = payment_payload
+            order.save(update_fields=["payment_payload"])
+            _record_post_payment_channel(order.pk, channel, "sent")
+            return "sent"
+        except ImportError:
+            _record_post_payment_channel(
+                order.pk,
+                channel,
+                "disabled",
+                error="service_unavailable",
+            )
+            return "disabled"
+        except Exception as exc:
+            monobank_logger.exception(
+                "Failed to send TikTok event for order %s",
+                order.order_number,
+            )
+            _record_post_payment_channel(
+                order.pk,
+                channel,
+                "unknown",
+                error=repr(exc),
+            )
+            return "ambiguous"
+
+    if channel == "receipt_email":
+        try:
+            if getattr(order, "email", None):
+                from orders.email_receipt import send_order_receipt_email
+
+                result = send_order_receipt_email(order)
+                if isinstance(result, tuple) and len(result) >= 2:
+                    sent, error = result[0], result[1]
+                else:
+                    sent, error = False, "delivery_unknown"
+                state = (
+                    "sent"
+                    if sent
+                    else ("unknown" if error == "delivery_unknown" else "failed")
+                )
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    state,
+                    error=error or "",
+                )
+            else:
+                state = "skipped"
+                _record_post_payment_channel(
+                    order.pk,
+                    channel,
+                    state,
+                    error="no_valid_email",
+                )
+        except Exception:
+            monobank_logger.exception(
+                "Failed to send receipt email for order %s",
+                order.pk,
+            )
+            state = "unknown"
+            _record_post_payment_channel(
+                order.pk,
+                channel,
+                state,
+                error="sender_exception",
+            )
+        _sync_instagram_lifecycle_channel(order.pk)
+        return state
+
+    raise ValueError(f"unsupported post-payment channel: {channel}")
 
 
 def _verify_monobank_signature(request):

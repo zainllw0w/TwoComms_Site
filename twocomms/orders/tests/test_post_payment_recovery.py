@@ -261,7 +261,11 @@ class PostPaymentRecoveryTests(TestCase):
                 stdout=output,
             )
 
-        dispatch.assert_called_once_with(order.pk, "unpaid", order.pay_type)
+        self.assertEqual(dispatch.call_count, 4)
+        self.assertEqual(
+            [call.kwargs["only_channel"] for call in dispatch.call_args_list],
+            ["telegram", "meta_purchase", "tiktok_purchase", "receipt_email"],
+        )
 
     def test_recovery_limit_ignores_older_order_with_terminal_channel_ledger(self):
         now = timezone.now()
@@ -319,7 +323,12 @@ class PostPaymentRecoveryTests(TestCase):
                 limit=1,
             )
 
-        dispatch.assert_called_once_with(newer.pk, "unpaid", newer.pay_type)
+        dispatch.assert_called_once_with(
+            newer.pk,
+            "unpaid",
+            newer.pay_type,
+            only_channel="telegram",
+        )
 
     def test_ig_pending_alone_does_not_replay_post_payment_dispatch(self):
         order = self._paid_order(

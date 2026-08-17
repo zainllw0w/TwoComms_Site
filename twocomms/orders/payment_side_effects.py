@@ -14,7 +14,9 @@ from orders.models import PaymentSideEffectJob
 DEFAULT_LEASE_DURATION = timedelta(minutes=5)
 BASE_RETRY_DELAY = timedelta(minutes=1)
 MAX_RETRY_DELAY = timedelta(hours=1)
-_ALLOWED_PAYLOAD_KEYS = frozenset({"previous_status", "pay_type", "source_url"})
+_ALLOWED_PAYLOAD_KEYS = frozenset(
+    {"previous_status", "pay_type", "source_url", "channel_cursor"}
+)
 _ATTEMPT_KINDS = frozenset(
     {
         PaymentSideEffectJob.Kind.ATTEMPT_ADD_PAYMENT_INFO,
@@ -30,6 +32,7 @@ _POST_PAYMENT_CHANNELS = (
 _POST_PAYMENT_TERMINAL_STATES = frozenset(
     {"sent", "skipped", "disabled", "unknown", "ambiguous"}
 )
+_POST_PAYMENT_RETRYABLE_STATES = frozenset({"pending", "failed"})
 
 
 @dataclass(frozen=True)
@@ -151,9 +154,226 @@ def enqueue_order_post_payment_side_effect(
         payload={
             "previous_status": str(previous_status or "unpaid"),
             "pay_type": str(pay_type or ""),
+            "channel_cursor": _POST_PAYMENT_CHANNELS[0],
         },
         due_at=due_at,
     )
+
+
+def _post_payment_channel_state(order, channel):
+    payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+    channels = payload.get("post_payment_channels")
+    if not isinstance(channels, dict):
+        return ""
+    entry = channels.get(channel)
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get("state") or "").strip().lower()
+
+
+def _next_post_payment_channel(order, *, cursor="", exclude=()):
+    excluded = set(exclude)
+    pending = [
+        channel
+        for channel in _POST_PAYMENT_CHANNELS
+        if channel not in excluded
+        and _post_payment_channel_state(order, channel)
+        not in _POST_PAYMENT_TERMINAL_STATES
+    ]
+    if cursor in pending:
+        return cursor
+    return pending[0] if pending else ""
+
+
+def _next_post_payment_channel_after(order, channel, *, exclude=()):
+    try:
+        current_index = _POST_PAYMENT_CHANNELS.index(channel)
+    except ValueError:
+        current_index = -1
+    ordered = (
+        _POST_PAYMENT_CHANNELS[current_index + 1 :]
+        + _POST_PAYMENT_CHANNELS[: current_index + 1]
+    )
+    excluded = set(exclude)
+    for candidate in ordered:
+        if candidate in excluded:
+            continue
+        if (
+            _post_payment_channel_state(order, candidate)
+            not in _POST_PAYMENT_TERMINAL_STATES
+        ):
+            return candidate
+    return ""
+
+
+def _persist_order_channel_ambiguous(order_id, channel, error, *, now):
+    """Persist an unknown provider outcome without overwriting known facts."""
+    from orders.models import Order
+
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order_id)
+        payload = dict(order.payment_payload) if isinstance(order.payment_payload, dict) else {}
+        channels = payload.get("post_payment_channels")
+        channels = dict(channels) if isinstance(channels, dict) else {}
+        entry = channels.get(channel)
+        entry = dict(entry) if isinstance(entry, dict) else {}
+        state = str(entry.get("state") or "").strip().lower()
+        if state in _POST_PAYMENT_TERMINAL_STATES or state == "failed":
+            return state
+        entry.update(
+            {
+                "state": "ambiguous",
+                "updated_at": now.isoformat(),
+                "error": str(error or "provider outcome is ambiguous")[:500],
+            }
+        )
+        channels[channel] = entry
+        payload["post_payment_channels"] = channels
+        order.payment_payload = payload
+        order.save(update_fields=["payment_payload"])
+    return "ambiguous"
+
+
+def _begin_order_post_payment_channel(job_id, lease_token, channel, *, now):
+    """Commit the cursor and provider boundary before one channel delivery."""
+    from orders.models import Order
+
+    if channel not in _POST_PAYMENT_CHANNELS:
+        return False
+    with transaction.atomic():
+        job = (
+            PaymentSideEffectJob.objects.select_for_update()
+            .filter(
+                pk=job_id,
+                state=PaymentSideEffectJob.State.PROCESSING,
+                lease_token=lease_token,
+            )
+            .first()
+        )
+        if (
+            job is None
+            or job.provider_io_started_at is not None
+            or job.order_id is None
+        ):
+            return False
+        order = Order.objects.select_for_update().get(pk=job.order_id)
+        order_payload = (
+            dict(order.payment_payload)
+            if isinstance(order.payment_payload, dict)
+            else {}
+        )
+        channels = order_payload.get("post_payment_channels")
+        channels = dict(channels) if isinstance(channels, dict) else {}
+        entry = channels.get(channel)
+        entry = dict(entry) if isinstance(entry, dict) else {}
+        if (
+            str(entry.get("state") or "").strip().lower()
+            in _POST_PAYMENT_TERMINAL_STATES
+        ):
+            return False
+        entry.update(
+            {
+                "state": "processing",
+                "updated_at": now.isoformat(),
+                "job_id": job.pk,
+                "job_attempt": job.attempts,
+            }
+        )
+        channels[channel] = entry
+        order_payload["post_payment_channels"] = channels
+        order.payment_payload = order_payload
+        order.save(update_fields=["payment_payload"])
+        payload = dict(job.payload) if isinstance(job.payload, dict) else {}
+        payload["channel_cursor"] = channel
+        job.payload = payload
+        job.provider_io_started_at = now
+        job.save(
+            update_fields=[
+                "payload",
+                "provider_io_started_at",
+                "updated_at",
+            ]
+        )
+    return True
+
+
+def _finish_order_post_payment_channel(
+    job_id,
+    lease_token,
+    *,
+    next_channel="",
+):
+    """Advance one owned cursor and clear only that channel's I/O boundary."""
+    with transaction.atomic():
+        job = (
+            PaymentSideEffectJob.objects.select_for_update()
+            .filter(
+                pk=job_id,
+                state=PaymentSideEffectJob.State.PROCESSING,
+                lease_token=lease_token,
+            )
+            .first()
+        )
+        if job is None:
+            return False
+        payload = dict(job.payload) if isinstance(job.payload, dict) else {}
+        if next_channel:
+            payload["channel_cursor"] = next_channel
+        else:
+            payload.pop("channel_cursor", None)
+        job.payload = payload
+        job.provider_io_started_at = None
+        job.save(
+            update_fields=[
+                "payload",
+                "provider_io_started_at",
+                "updated_at",
+            ]
+        )
+    return True
+
+
+def _recover_expired_order_post_payment_channel(job, *, now):
+    """Resolve one expired channel boundary, then leave sibling work claimable."""
+    from orders.models import Order
+
+    payload = job.payload if isinstance(job.payload, dict) else {}
+    channel = str(payload.get("channel_cursor") or "").strip()
+    if channel not in _POST_PAYMENT_CHANNELS or job.order_id is None:
+        return False
+    try:
+        order = Order.objects.get(pk=job.order_id)
+    except Order.DoesNotExist:
+        return False
+    state = _post_payment_channel_state(order, channel)
+    if state not in _POST_PAYMENT_TERMINAL_STATES and state != "failed":
+        _persist_order_channel_ambiguous(
+            job.order_id,
+            channel,
+            "provider I/O started before lease recovery; channel outcome requires review",
+            now=now,
+        )
+        order.refresh_from_db(fields=["payment_payload"])
+    next_channel = _next_post_payment_channel_after(order, channel)
+    job_payload = dict(job.payload) if isinstance(job.payload, dict) else {}
+    if next_channel:
+        job_payload["channel_cursor"] = next_channel
+    else:
+        job_payload.pop("channel_cursor", None)
+    job.payload = job_payload
+    job.provider_io_started_at = None
+    job.last_error = (
+        f"recovered expired channel boundary: {channel}={state or 'ambiguous'}"
+    )[:500]
+    job.save(
+        update_fields=[
+            "payload",
+            "provider_io_started_at",
+            "last_error",
+            "updated_at",
+        ]
+    )
+    return True
 
 
 def _mark_ambiguous(job, *, now, error):
@@ -200,11 +420,19 @@ def claim_payment_side_effect(
             if job.lease_expires_at and job.lease_expires_at > now:
                 return PaymentSideEffectClaim(job.pk, "leased")
             if job.provider_io_started_at is not None:
-                return _mark_ambiguous(
-                    job,
-                    now=now,
-                    error="provider I/O started before lease recovery; outcome requires review",
-                )
+                if (
+                    job.kind == PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT
+                    and _recover_expired_order_post_payment_channel(job, now=now)
+                ):
+                    # The channel boundary is now durable in the order ledger;
+                    # reclaim the same job so its sibling channels can drain.
+                    pass
+                else:
+                    return _mark_ambiguous(
+                        job,
+                        now=now,
+                        error="provider I/O started before lease recovery; outcome requires review",
+                    )
             if job.lease_expires_at is None:
                 return _mark_ambiguous(
                     job,
@@ -439,6 +667,10 @@ def _reconcile_subject_terminal_outcome(job_id, *, now=None):
         )
         job.lease_token = ""
         job.lease_expires_at = None
+        job.provider_io_started_at = None
+        payload = dict(job.payload) if isinstance(job.payload, dict) else {}
+        payload.pop("channel_cursor", None)
+        job.payload = payload
         job.last_error = "" if outcome == "done" else "subject delivery is ambiguous"
         job.completed_at = now if outcome == "done" else None
         job.save(
@@ -446,6 +678,8 @@ def _reconcile_subject_terminal_outcome(job_id, *, now=None):
                 "state",
                 "lease_token",
                 "lease_expires_at",
+                "provider_io_started_at",
+                "payload",
                 "last_error",
                 "completed_at",
                 "updated_at",
@@ -546,26 +780,84 @@ def _process_attempt_telegram(job, lease_token, *, now):
 
 def _process_order_post_payment(job, lease_token, *, now):
     from storefront.views.utils import _send_post_payment_events
+    from orders.models import Order
 
-    if not mark_payment_side_effect_provider_io_started(job.pk, lease_token, now=now):
-        return "leased"
-    result = _send_post_payment_events(
-        job.order_id,
-        job.payload.get("previous_status") or "unpaid",
-        job.payload.get("pay_type") or job.order.pay_type,
-    )
+    processed = set()
+    while len(processed) < len(_POST_PAYMENT_CHANNELS):
+        job.refresh_from_db(fields=["payload", "provider_io_started_at"])
+        order = Order.objects.get(pk=job.order_id)
+        payload = job.payload if isinstance(job.payload, dict) else {}
+        channel = _next_post_payment_channel(
+            order,
+            cursor=str(payload.get("channel_cursor") or "").strip(),
+            exclude=processed,
+        )
+        if not channel:
+            break
+        if not _begin_order_post_payment_channel(
+            job.pk,
+            lease_token,
+            channel,
+            now=timezone.now(),
+        ):
+            return "leased"
+        try:
+            _send_post_payment_events(
+                job.order_id,
+                payload.get("previous_status") or "unpaid",
+                payload.get("pay_type") or order.pay_type,
+                only_channel=channel,
+            )
+        except Exception as exc:
+            _persist_order_channel_ambiguous(
+                job.order_id,
+                channel,
+                f"channel delivery raised after provider boundary: {type(exc).__name__}: {exc}",
+                now=timezone.now(),
+            )
+        order.refresh_from_db(fields=["payment_payload"])
+        state = _post_payment_channel_state(order, channel)
+        if (
+            state not in _POST_PAYMENT_TERMINAL_STATES
+            and state not in _POST_PAYMENT_RETRYABLE_STATES
+        ):
+            _persist_order_channel_ambiguous(
+                job.order_id,
+                channel,
+                "channel delivery returned without a durable outcome",
+                now=timezone.now(),
+            )
+            order.refresh_from_db(fields=["payment_payload"])
+            state = _post_payment_channel_state(order, channel)
+        processed.add(channel)
+        next_channel = _next_post_payment_channel_after(
+            order,
+            channel,
+            exclude=processed,
+        )
+        if not _finish_order_post_payment_channel(
+            job.pk,
+            lease_token,
+            next_channel=next_channel,
+        ):
+            return "leased"
+
     reconciled = _reconcile_subject_terminal_outcome(job.pk, now=now)
     if reconciled is not None:
         return reconciled
-    if _normalize_delivery_outcome(result) == "ambiguous":
-        mark_payment_side_effect_ambiguous(
-            job.pk,
-            lease_token,
-            "post_payment_delivery_ambiguous",
-            now=now,
-        )
-        return "ambiguous"
-    fail_payment_side_effect(job.pk, lease_token, "post_payment_incomplete", now=now)
+    order.refresh_from_db(fields=["payment_payload"])
+    incomplete = [
+        channel
+        for channel in _POST_PAYMENT_CHANNELS
+        if _post_payment_channel_state(order, channel)
+        not in _POST_PAYMENT_TERMINAL_STATES
+    ]
+    fail_payment_side_effect(
+        job.pk,
+        lease_token,
+        "post_payment_incomplete:" + ",".join(incomplete),
+        now=now,
+    )
     return "failed"
 
 
