@@ -9,6 +9,8 @@ W3-2 (TD-022/TECH-041): Telegram-алерты для серверных ошиб
 - Rate-limit через Django cache: не больше MAX_ALERTS_PER_WINDOW за
   WINDOW_SECONDS; при превышении шлётся один «suppressed N» алерт.
 - Отправка в daemon-потоке — logging не должен блокировать request.
+- Emergency transport is one direct Bot API request to one target with a
+  two-second cap; it intentionally bypasses the normal retrying notifier flow.
 - Любая ошибка внутри handler'а глотается (иначе рекурсия
   logging → error → logging).
 - Текст обрезается: Telegram лимит 4096, нам хватает 1000.
@@ -16,10 +18,16 @@ W3-2 (TD-022/TECH-041): Telegram-алерты для серверных ошиб
 
 import logging
 import re
+import sys
 import threading
+
+import requests
 
 WINDOW_SECONDS = 600
 MAX_ALERTS_PER_WINDOW = 5
+# The alert is deliberately best-effort: requests must not wait for Telegram,
+# and a direct stderr line remains available when the transport is unavailable.
+TELEGRAM_ALERT_TIMEOUT_SECONDS = 2.0
 EMAIL_RE = re.compile(r'(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b')
 PHONE_RE = re.compile(
     r'(?<![\w])(?:\+?380|0)[\s-]?\(?\d{2}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?!\d)'
@@ -54,14 +62,21 @@ class PIIRedactionFilter(logging.Filter):
 
 
 class TelegramAlertHandler(logging.Handler):
-    """Шлёт ERROR+ записи админу в Telegram (rate-limited, non-blocking)."""
+    """Send ERROR+ records through an independent, bounded emergency channel."""
+
+    _recursion_state = threading.local()
 
     def emit(self, record):
+        if getattr(self._recursion_state, 'active', False):
+            return
+        self._recursion_state.active = True
         try:
             self._emit_inner(record)
         except Exception:
             # Никогда не даём handler'у уронить логирование.
             pass
+        finally:
+            self._recursion_state.active = False
 
     def _emit_inner(self, record):
         from django.core.cache import cache
@@ -94,14 +109,68 @@ class TelegramAlertHandler(logging.Handler):
         self._send_async(f'{prefix}\n{message}')
 
     @staticmethod
-    def _send_async(text):
-        def _worker():
-            try:
-                from orders.telegram_notifications import TelegramNotifier
-                notifier = TelegramNotifier()
-                if notifier.is_configured():
-                    notifier.send_message(text)
-            except Exception:
-                pass
+    def _write_fallback(text, reason):
+        """Write a bounded emergency trace without going through logging."""
+        try:
+            sys.stderr.write(
+                'Telegram alert fallback ({0}): {1}\n'.format(reason, text[:1000])
+            )
+            sys.stderr.flush()
+        except Exception:
+            pass
 
-        threading.Thread(target=_worker, daemon=True).start()
+    @classmethod
+    def _send_async(cls, text):
+        state = {'success': False, 'fallback': False}
+        state_lock = threading.Lock()
+        completed = threading.Event()
+
+        def fallback(reason):
+            with state_lock:
+                if state['success'] or state['fallback']:
+                    return
+                state['fallback'] = True
+            cls._write_fallback(text, reason)
+
+        def _worker():
+            cls._recursion_state.active = True
+            try:
+                if cls._send_emergency_alert(text):
+                    with state_lock:
+                        state['success'] = True
+                else:
+                    fallback('failed')
+            except Exception:
+                fallback('exception')
+            finally:
+                completed.set()
+                cls._recursion_state.active = False
+
+        def _deadline_watcher():
+            if not completed.wait(TELEGRAM_ALERT_TIMEOUT_SECONDS):
+                fallback('timeout')
+
+        try:
+            threading.Thread(target=_worker, daemon=True).start()
+            threading.Thread(target=_deadline_watcher, daemon=True).start()
+        except Exception:
+            fallback('thread_start')
+
+    @staticmethod
+    def _send_emergency_alert(text):
+        """Send one bounded Bot API request without entering the normal notifier flow."""
+        from orders.telegram_notifications import TelegramNotifier
+
+        notifier = TelegramNotifier()
+        if not notifier.is_configured():
+            return False
+        targets = notifier._resolve_targets(admin=True)
+        if not targets:
+            return False
+
+        response = requests.post(
+            f'https://api.telegram.org/bot{notifier.bot_token}/sendMessage',
+            data={'chat_id': targets[0], 'text': text},
+            timeout=TELEGRAM_ALERT_TIMEOUT_SECONDS,
+        )
+        return bool(response.ok)
