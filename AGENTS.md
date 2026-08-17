@@ -6,6 +6,9 @@ For local Django commands, tests, and dependency checks, use the shared
 project virtualenv rather than a bare `python` or `python3` from `PATH`. The
 required runtime is CPython `3.14.6` with Django `6.1`.
 
+This resolves the primary checkout's `.venv` even when work is being performed
+from a linked Git worktree:
+
 ```bash
 TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
 test -x "$TWC_PYTHON"
