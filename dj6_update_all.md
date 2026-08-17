@@ -311,12 +311,12 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 
 ### DJ6-SRV-005 - Cron является текущим единственным допустимым scheduler: проверить overlap, lease и idempotency каждой периодики
 
-- Статус: `подтверждено`; предварительный приоритет: `P1`.
+- Статус: `реализовано и production-проверено 2026-08-17`; приоритет: `P1`, закрыт.
 - Область: production cron и команды `run_instagram_bot` (каждую минуту), `reconcile_order_telegram_notifications`, `reconcile_ig_checkout`, `reconcile_ig_order_fulfillment` (каждые 2 минуты), `poll_ig_deal_payments` (каждые 4 минуты), `update_tracking_statuses` (каждые 5 минут); DTF исключен.
-- Доказательство: на production нет `supervisorctl`, `systemctl` и `celery`, но есть `crontab`, `nohup`, `flock`; обнаружены 6 активных cron lines и один running `run_instagram_bot`. Django Tasks не предоставляет worker/scheduler сам по себе.
-- Что даст: стабильный переходный путь для выноса тяжелых request-path действий без предположения о несуществующей очереди: durable row/job, `flock`/DB lease, bounded batch, retry/backoff, наблюдаемое завершение.
-- Риск и ограничения: cron cadence не гарантирует exactly-once; запуск новой задачи без overlap protection способен дублировать Telegram, платежные или внешние API side effects. Нельзя переводить уже работающую IG-periodику на новый scheduler до сравнения ownership.
-- Следующая проверка: для шести существующих команд проверить `flock`/lease/timeout/exit-code/alerting и описать единый job contract, который позже можно использовать Django Tasks backend-ом.
+- Доказательство: releases `5d4e358cb`, `c56123c0d` и review-hardening `254bdb3e6` создали три managed blocks и idempotent installers. Последний hardening закрыл неизвестные loose variants watchdog/Nova Poshta и malformed marker boundaries без записи повреждённого crontab. На production найден ровно один owner каждой из шести команд, всего шесть matching scheduled lines; loose duplicates отсутствуют. Каждая строка содержит `/usr/bin/flock -n -E 75` и `/usr/bin/timeout --signal=TERM --kill-after=15s`; deadlines составляют 75 секунд для watchdog, 90 секунд для трёх двухминутных reconciliation jobs, 180 секунд для payment polling и 240 секунд для Nova Poshta. Встроенные limits/state machines ограничивают batch, leases и retry/backoff; `task_heartbeat` и hourly-deduplicated alerting наблюдают failed/stale owners.
+- Что даст: один проверяемый scheduler boundary для текущего shared hosting, отсутствие overlap двух владельцев, ограниченное время/число элементов одного прогона и единая operational telemetry. Этот contract можно сохранить при будущем переходе на durable Django Tasks backend без изменения бизнес-idempotency.
+- Риск и ограничения: cron по-прежнему не даёт exactly-once. Exit `75` означает намеренный overlap skip, а принудительный `KILL` после grace period останавливает зависший процесс, но не доказывает исход уже начатого внешнего запроса; поэтому provider receipt/ambiguous state остаются authoritative. Добавлять новый scheduler или второй owner без отдельного ownership migration запрещено.
+- Проверка закрытия: production `HEAD == origin/main == 254bdb3e6`; все три installer `--install`/`--check` вернули `OK`; шесть task heartbeat были healthy с возрастом 15-17 секунд, dangerous backlog `0`; MariaDB `11.4.12`, pending non-DTF migrations `0`, server matrix `status=ok`, все 10 non-DTF HTTP probes прошли. Полный evidence: `docs/qa/django61-stage3-srv-005.md`.
 
 ### DJ6-SRV-006 - Server default charset `latin1` расходится с `utf8mb4` таблицами и требует явной миграционной защиты
 

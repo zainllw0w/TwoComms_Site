@@ -447,15 +447,30 @@ Production acceptance от 2026-08-17:
 
 **Архитектурное решение:** до появления реального worker использовать durable DB rows/outbox, idempotency, leases и существующий cron. Не создавать вторых owners одной периодики.
 
-- [ ] **DJ6-SRV-005 - Ввести единый cron job contract.**
-  - Обязательные поля: owner, cadence, flock/DB lease, timeout, bounded batch, retry/backoff, exit code и alert.
+- [x] **DJ6-SRV-005 - Ввести единый cron job contract.**
+  - Releases `5d4e358cb`, `c56123c0d` и review-hardening `254bdb3e6`
+    добавили три idempotent installer-а для watchdog, четырёх Instagram
+    periodic jobs и Nova Poshta tracking.
+  - На production каждый из шести owners существует ровно в одном managed
+    block. Все строки используют `flock -n -E 75` и
+    `timeout --signal=TERM --kill-after=15s` с deadline `75/90/180/240s` по
+    типу задачи; cadence и batch limits зафиксированы в repository contract.
+  - Durable state/leases/provider receipts и retry/backoff остаются внутри
+    соответствующих command/service state machines. `task_heartbeat` пишет
+    success/failure, а daemon supervision сообщает о failed/stale cron jobs;
+    Nova Poshta включена в тот же health contract.
+  - Production acceptance: `HEAD == origin/main == 254bdb3e6`, все три
+    installer `--check` прошли, шесть heartbeat healthy, dangerous backlog
+    `0`, server matrix и 10-route non-DTF HTTP matrix зелёные. Подробности:
+    `docs/qa/django61-stage3-srv-005.md`.
 
 - [x] **DJ6-SRV-010 - Добавить overlap guard для \`run_instagram_bot --ensure\`.**
   - \`--ensure\` теперь считает удерживаемый daemon lock здоровым только при
     свежем heartbeat; stale worker проходит bounded drain/spawn path, а при
     неосвобождённом lock команда завершается ошибкой без второго daemon.
-  - Production cron переведён в один managed block с внешним \`flock\` и
-    \`timeout 50s\`; installer сохраняет unrelated entries и запрещает двух owners.
+  - Production cron переведён в один managed block с внешним \`flock\`;
+    первоначальный release использовал \`timeout 50s\`, а единый contract
+    `DJ6-SRV-005` поднял текущий deadline до `75s` с `--kill-after=15s`.
   - Release \`4af27a19b\`: один watchdog line, один managed block, daemon lock
     удерживается, daemon/task heartbeat healthy. Подробности:
     \`docs/qa/django61-stage3-srv-010.md\`.

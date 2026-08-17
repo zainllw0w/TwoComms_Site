@@ -53,15 +53,55 @@ retention и задач из snapshot 05.07.2026 этим прогоном не 
 
 Прод-хостинг (shared, Passenger) не запускает Celery-воркер и beat; Redis-брокер
 с сервера не резолвится. Все `@shared_task` работают через синхронный шим
-(`storefront/tasks.py`), фоновость для Telegram-уведомлений — daemon-поток
-(`orders/tasks.py`). `CELERY_BEAT_SCHEDULE` в settings.py — мёртвый конфиг,
-периодика выполняется ТОЛЬКО через crontab (см. отдельные scopes выше). Новую
-фоновую работу оформлять как management-команду + cron, НЕ как Celery-таск.
+(`storefront/tasks.py`). `CELERY_BEAT_SCHEDULE` в settings.py — мёртвый конфиг,
+периодика выполняется ТОЛЬКО через crontab. Критичные side effects должны
+сначала сохранять durable DB state/idempotency marker, а management-команда
+забирает ограниченный batch; request-owned daemon thread не считается delivery
+гарантией. До появления проверенного внешнего backend/worker новую периодику
+оформлять как durable state + management-команду + managed cron block.
+
+### Единый application cron contract (DJ6-SRV-005)
+
+Три repository installer-а владеют шестью application jobs. Все строки имеют
+non-blocking `/usr/bin/flock -n -E 75` и внешний
+`/usr/bin/timeout --signal=TERM --kill-after=15s`; exit `75` означает, что
+предыдущий owner ещё работает и новый прогон намеренно пропущен.
+
+| Owner | Cadence | Deadline | Ограничение и recovery |
+|---|---:|---:|---|
+| `run_instagram_bot --ensure` | 1 мин | 75 с | heartbeat + внутренние spawn/daemon locks; bounded drain/start |
+| `reconcile_order_telegram_notifications` | 2 мин | 90 с | `--limit 50`, per-order delivery lease и monotonic channel markers |
+| `reconcile_ig_checkout` | 2 мин | 90 с | `--limit 100`, durable checkout state, leases и ambiguous recovery |
+| `reconcile_ig_order_fulfillment` | 2 мин | 90 с | `--limit 100`, event key, lease, provider receipt и retry due time |
+| `poll_ig_deal_payments` | 4 мин | 180 с | `--limit 50`, projection/invoice lifecycle и bounded provider polling |
+| `update_tracking_statuses` | 5 мин | 240 с | batch до 100 ТТН, provider timeout/retry/rate limit и due filtering |
+
+Каждая scheduled command пишет `InstagramBotTaskHeartbeat`. Ошибка команды
+фиксирует только безопасный exception class; отсутствие свежего success даёт
+`failed/stale` health и deduplicated manager alert. Это дополняет, но не
+заменяет бизнес-idempotency: ambiguous provider boundary нельзя повторять
+вслепую.
+
+Установка и проверка выполняются из Django-каталога:
+
+```bash
+../scripts/install_instagram_bot_watchdog_cron.sh --install
+../scripts/install_instagram_periodic_jobs_cron.sh --install
+../scripts/install_nova_poshta_tracking_cron.sh --install
+
+../scripts/install_instagram_bot_watchdog_cron.sh --check
+../scripts/install_instagram_periodic_jobs_cron.sh --check
+../scripts/install_nova_poshta_tracking_cron.sh --check
+```
+
+Installer обязан сохранить unrelated crontab entries и fail closed при
+duplicate/malformed/unknown owner. Ручной запуск provider-команды допустим
+только через тот же `flock`/`timeout` wrapper.
 
 ### Инварианты
 
-- Все три документированные cron-команды имеют entry points в репо; итоговый crontab содержит шесть scheduled jobs.
-- НИКОГДА не добавляйте cron-задачу без записи в эту таблицу.
+- Три application managed blocks содержат ровно шесть matching jobs, по одному owner каждой команды; infrastructure cron entries считаются отдельно.
+- НИКОГДА не добавляйте cron-задачу без repository installer-а, bounded contract и записи в этот runbook.
 - Новые задачи логируйте в закрытый служебный каталог; backup log находится вне web-root, а `reconcile_purchase_actions` пишет одну короткую итоговую строку в сутки.
 
 ### MySQL backup runbook (F-090)
