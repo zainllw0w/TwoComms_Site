@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.urls import path
+from django.urls import path, reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import RedirectView
 from django.http import Http404, HttpResponsePermanentRedirect
@@ -65,6 +65,11 @@ def _legacy_pagination_redirect(request, page=None):
     return HttpResponsePermanentRedirect(target)
 
 
+def _legacy_catalog_pagination_redirect(request, page=None):
+    """Collapse obsolete catalog paginator paths to the localized hub."""
+    return HttpResponsePermanentRedirect(reverse('catalog'))
+
+
 def admin_panel_view(request, *args, **kwargs):
     from .views.admin import admin_panel as _admin_panel
 
@@ -95,9 +100,7 @@ urlpatterns = [
     # SEO 2026-05-16 — same legacy paginator pattern fix as on the homepage.
     path(
         'catalog/page/<int:page>/',
-        lambda request, page: HttpResponsePermanentRedirect(
-            f"/catalog/?page={page}" if int(page) > 1 else "/catalog/"
-        ),
+        _legacy_catalog_pagination_redirect,
         name='catalog_pagination_legacy',
     ),
     # SEO molecular-upgrade US-5 (2026-05-16) — thematic landings.

@@ -134,7 +134,7 @@ class CatalogLocaleSchemaTests(TestCase):
                     return node["mainEntity"]
         self.fail("No CollectionPage ItemList JSON-LD node found")
 
-    def test_localized_catalog_itemlist_lists_only_owned_products(self):
+    def test_localized_category_itemlist_lists_only_owned_products(self):
         locale_owned_product_ids = {
             "ru": {
                 product.pk
@@ -148,10 +148,7 @@ class CatalogLocaleSchemaTests(TestCase):
         }
 
         for language in ("ru", "en"):
-            for path in (
-                f"/{language}/catalog/",
-                f"/{language}/catalog/{self.category.slug}/",
-            ):
+            for path in (f"/{language}/catalog/{self.category.slug}/",):
                 response = self.client.get(path)
 
                 self.assertEqual(response.status_code, 200)
@@ -200,8 +197,8 @@ class CatalogLocaleSchemaTests(TestCase):
                     self.assertEqual(product_response.status_code, 200)
                     self.assertNotContains(product_response, "noindex, follow")
 
-    def test_uk_catalog_itemlist_remains_the_visible_product_list(self):
-        for path in ("/catalog/", f"/catalog/{self.category.slug}/"):
+    def test_uk_category_itemlist_remains_the_visible_product_list(self):
+        for path in (f"/catalog/{self.category.slug}/",):
             response = self.client.get(path)
 
             self.assertEqual(response.status_code, 200)

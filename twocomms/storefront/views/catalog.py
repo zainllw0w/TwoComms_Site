@@ -188,7 +188,7 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
-_CATALOG_CACHE_VERSION = "catalog-v12"
+_CATALOG_CACHE_VERSION = "catalog-v13"
 
 
 def _catalog_external_query_keys(request):
@@ -199,6 +199,17 @@ def _catalog_external_query_keys(request):
 def _catalog_has_non_owner_state(request):
     """Return whether validated UI state changes a non-indexable catalog slice."""
     return bool((set(request.GET) & _CATALOG_QUERY_KEYS) - {"page"})
+
+
+def _catalog_root_has_result_state(request):
+    """Return whether the root request represents an actual product result set."""
+    if any(key in request.GET for key in ("category", "color", "size", "availability")):
+        return True
+    raw_sorts = request.GET.getlist("sort")
+    return bool(
+        raw_sorts
+        and _catalog_query_value(raw_sorts[0], "sort") != "recommended"
+    )
 
 
 def _catalog_landing_query_policy(*, allow_color=False):
@@ -365,7 +376,8 @@ def _validate_catalog_query_shape(request, *, scope):
     if raw_pages:
         raw_page = str(raw_pages[0] or "").strip()
         if (
-            not raw_page.isdecimal()
+            not raw_page.isascii()
+            or not raw_page.isdecimal()
             or len(raw_page) > 10
             or int(raw_page) < 1
         ):
@@ -399,11 +411,17 @@ def _validate_catalog_query_shape(request, *, scope):
             raise Http404(f"Facet '{key}' contains a duplicate value.")
 
 
-def _catalog_query_alias_redirect(request, *, reset_page_on_color_change=True):
+def _catalog_query_alias_redirect(
+    request,
+    *,
+    reset_page_on_color_change=True,
+    scope=None,
+):
     raw_pages = request.GET.getlist("page")
     params = request.GET.copy()
     changed = False
     color_identity_changed = False
+    root_hub_redirect = False
 
     # Canonicalize color, pagination and catalog aliases together before the
     # color-only decorator runs. Otherwise a request such as
@@ -429,11 +447,16 @@ def _catalog_query_alias_redirect(request, *, reset_page_on_color_change=True):
     if raw_pages:
         raw_page = str(raw_pages[0] or "").strip()
         canonical_page = str(int(raw_page))
-        if canonical_page == "1" or (
+        root_hub_page = (
+            scope == "root"
+            and not _catalog_root_has_result_state(request)
+        )
+        root_hub_redirect = root_hub_page
+        if canonical_page == "1" or root_hub_page or (
             changed and color_identity_changed and reset_page_on_color_change
         ):
             params.pop("page", None)
-            changed = changed or canonical_page == "1"
+            changed = changed or canonical_page == "1" or root_hub_page
         elif raw_page != canonical_page:
             params.setlist("page", [canonical_page])
             changed = True
@@ -458,6 +481,10 @@ def _catalog_query_alias_redirect(request, *, reset_page_on_color_change=True):
 
     if not changed:
         return None
+    if root_hub_redirect:
+        query = params.urlencode()
+        target = request.path + (f"?{query}" if query else "")
+        return HttpResponsePermanentRedirect(target)
     # Keep color last, matching ``canonical_color_filter`` and all existing
     # public catalog color URLs, while sorting the remaining aliases.
     query_parts = []
@@ -544,7 +571,7 @@ def _catalog_cache_policy(view_func):
     def _wrapped_view(request, *args, **kwargs):
         scope = _catalog_route_scope(kwargs)
         _validate_catalog_query_shape(request, scope=scope)
-        redirect = _catalog_query_alias_redirect(request)
+        redirect = _catalog_query_alias_redirect(request, scope=scope)
         if redirect is not None:
             return redirect
         request._catalog_cache_query = _build_catalog_cache_query(request)
@@ -1263,6 +1290,10 @@ def _build_catalog_showcase_cards(categories):
         # Override the static config swatches with live ones when
         # available; preserve the rest of the config unchanged.
         card = {**config, 'category': category}
+        card['url'] = reverse(
+            'catalog_by_cat',
+            args=[category.slug if category else config['fallback_slug']],
+        )
         # Phase 19i: legacy ``swatches`` (tuple of hex strings) →
         # ``swatch_specs`` (list of {primary, secondary}). Convert any
         # static config palette so the template only needs one shape.

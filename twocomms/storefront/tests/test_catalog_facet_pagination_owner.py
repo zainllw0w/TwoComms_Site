@@ -278,9 +278,6 @@ class CatalogFacetPaginationOwnerTests(TestCase):
                 ("/catalog/tshirts/", self.tee_products[1].pk),
                 ("/ru/catalog/tshirts/", self.tee_products[1].pk),
                 ("/en/catalog/tshirts/", self.tee_products[1].pk),
-                ("/catalog/", self.tee_products[2].pk),
-                ("/ru/catalog/", self.tee_products[2].pk),
-                ("/en/catalog/", self.tee_products[2].pk),
             ):
                 with self.subTest(path=path):
                     response = self.client.get(f"{path}?page=2")
@@ -309,9 +306,6 @@ class CatalogFacetPaginationOwnerTests(TestCase):
                 ("/catalog/tshirts/", self.tee_products[1].pk),
                 ("/ru/catalog/tshirts/", self.tee_products[1].pk),
                 ("/en/catalog/tshirts/", self.tee_products[1].pk),
-                ("/catalog/", self.tee_products[2].pk),
-                ("/ru/catalog/", self.tee_products[2].pk),
-                ("/en/catalog/", self.tee_products[2].pk),
             ):
                 with self.subTest(path=path):
                     response = self.client.get(

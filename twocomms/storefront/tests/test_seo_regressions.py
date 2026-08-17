@@ -1157,13 +1157,12 @@ class PublicUrlIndexationSeoRegressionTests(TestCase):
         self.assertEqual(response.status_code, 301)
         self.assertEqual(response["Location"], "/")
 
-    def test_legacy_catalog_page_pagination_redirects_to_querystring(self):
-        """SEO 2026-05-16 — /catalog/page/N/ legacy URL must 301 to
-        /catalog/?page=N for the same reason as the homepage paginator."""
+    def test_legacy_catalog_page_pagination_redirects_to_catalog_hub(self):
+        """The category-first catalog root has no meaningful page N."""
         response = self.client.get("/catalog/page/3/", secure=True, follow=False)
 
         self.assertEqual(response.status_code, 301)
-        self.assertEqual(response["Location"], "/catalog/?page=3")
+        self.assertEqual(response["Location"], "/catalog/")
 
 
 class CustomPrintSeoRegressionTests(TestCase):
