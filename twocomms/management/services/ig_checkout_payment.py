@@ -411,6 +411,30 @@ def _send_add_payment_info_if_missing(attempt, request):
     return True
 
 
+def _persist_invoice_created_alert(locked, attempt):
+    """Persist the manager alert in the same unit as the invoice state."""
+    from management.services.ig_alerts import format_operator_alert
+    from management.services.instagram_bot import notify_manager
+
+    return notify_manager(
+        format_operator_alert(
+            "💳 IG: платіжне посилання створено",
+            event_type="ig_checkout_invoice_created",
+            client_id=locked.client_id,
+            deal_id=locked.deal_id,
+            proposal_id=locked.pk,
+            attempt_id=attempt.pk,
+            amount=attempt.payment_amount,
+            status="invoice_created",
+            instruction_code="ig_checkout_invoice_created",
+        ),
+        dedupe_key=f"ig-checkout-invoice-created:{attempt.pk}",
+        event_type="ig_checkout_invoice_created",
+        client=locked.client,
+        deliver_immediately=False,
+    )
+
+
 def _lock_attempt_proposal_graph(attempt_id, *, proposal_related=()):
     """Lock an existing payment graph in one InnoDB-safe order."""
     from management.models import IgCheckoutProposal, IgDeal
@@ -578,6 +602,11 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
         )
     if reused and attempt.invoice_url:
         _send_add_payment_info_if_missing(attempt, request)
+        if not _persist_invoice_created_alert(locked, attempt):
+            logger.warning(
+                "Failed to persist reused IG invoice alert %s",
+                attempt.pk,
+            )
         return attempt, attempt.invoice_url, True
     if values is None:
         raise CheckoutPaymentError("in_progress", "Платеж уже создается. Подождите несколько секунд.")
@@ -692,6 +721,8 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
             last_status_at=now,
         )
         _send_add_payment_info_if_missing(attempt, request)
+        if not _persist_invoice_created_alert(locked, attempt):
+            raise RuntimeError("invoice operator alert outbox persistence failed")
     from management.models import IgCheckoutProposal
     locked.refresh_from_db()
     locked.status = IgCheckoutProposal.Status.INVOICE_CREATED
@@ -715,29 +746,6 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
     request.session["ig_checkout_proposal_id"] = str(locked.public_id)
     request.session.modified = True
 
-    try:
-        from management.services.ig_alerts import format_operator_alert
-        from management.services.instagram_bot import notify_manager
-
-        notify_manager(
-            format_operator_alert(
-                "💳 IG: платіжне посилання створено",
-                event_type="ig_checkout_invoice_created",
-                client_id=locked.client_id,
-                deal_id=locked.deal_id,
-                proposal_id=locked.pk,
-                attempt_id=attempt.pk,
-                amount=attempt.payment_amount,
-                status="invoice_created",
-                instruction_code="ig_checkout_invoice_created",
-            ),
-            dedupe_key=f"ig-checkout-invoice-created:{attempt.pk}",
-            event_type="ig_checkout_invoice_created",
-            client=locked.client,
-            deliver_immediately=False,
-        )
-    except Exception:
-        logger.warning("Failed to send IG checkout invoice alert %s", attempt.pk, exc_info=True)
     attempt.refresh_from_db()
     return attempt, attempt.invoice_url, False
 

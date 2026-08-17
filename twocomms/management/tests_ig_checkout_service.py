@@ -897,6 +897,70 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
             self.assertIn(str(local_id), alert)
         self.assertIn("950.00", alert)
 
+    @patch("management.services.instagram_bot.notify_manager", return_value=False)
+    @patch(
+        "storefront.views.monobank._monobank_api_request",
+        return_value={
+            "invoiceId": "ALERT_OUTBOX_FAILURE_INVOICE",
+            "pageUrl": "https://pay.monobank.test/alert-outbox-failure",
+        },
+    )
+    def test_invoice_creation_rolls_back_when_operator_alert_outbox_fails(
+        self, provider, notify_manager
+    ):
+        from types import SimpleNamespace
+
+        from django.contrib.auth.models import AnonymousUser
+        from django.contrib.sessions.middleware import SessionMiddleware
+        from django.test import RequestFactory
+
+        from management.services import bot_orders
+        from management.services.ig_checkout_payment import create_or_reuse_invoice
+        from orders.models import PaymentAttempt
+
+        result = bot_orders.create_deal_and_link(
+            self.client,
+            pay_type="full",
+            product_id=self.product.pk,
+            size="M",
+        )
+        self.assertTrue(result["ok"], result)
+        proposal = IgCheckoutProposal.objects.get(client=self.client)
+        request = RequestFactory().post("/offer/payment/", secure=True)
+        SessionMiddleware(lambda req: None).process_request(request)
+        request.user = AnonymousUser()
+        delivery = SimpleNamespace(
+            city="Alert failure city",
+            np_office="Alert failure office",
+            settlement_ref="settlement-ref",
+            city_ref="city-ref",
+            warehouse_ref="warehouse-ref",
+            warehouse_kind="branch",
+        )
+        payload = {
+            "full_name": "Alert failure customer",
+            "phone": "+380501234567",
+            "email": "alert-failure@example.test",
+        }
+        with patch(
+            "management.services.ig_checkout_payment.resolve_delivery_selection",
+            return_value=delivery,
+        ), patch(
+            "management.services.ig_checkout_payment._send_add_payment_info_if_missing",
+            return_value=True,
+        ), self.assertRaisesRegex(RuntimeError, "invoice operator alert outbox"):
+            create_or_reuse_invoice(
+                proposal,
+                request=request,
+                payload=payload,
+            )
+
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(attempt.monobank_invoice_id, "")
+        self.assertEqual(attempt.invoice_url, "")
+        self.assertFalse(attempt.side_effect_jobs.exists())
+        notify_manager.assert_called_once()
+
     @patch("storefront.views.monobank._monobank_api_request")
     def test_bot_deal_path_blocks_missing_generic_option(self, provider):
         from product_catalog.models import GarmentFlow, GarmentFlowCategory
