@@ -117,6 +117,42 @@ if [ "$begin_count" -eq 0 ] && [ "$legacy_marker_count" -eq 1 ]; then
   }
 fi
 
+outside_owner_count=0
+supported_outside_owner_count=0
+inside_managed=0
+while IFS= read -r line || [ -n "$line" ]; do
+  if [ "$inside_managed" -eq 1 ]; then
+    [ "$line" = "$END_MARKER" ] && inside_managed=0
+    continue
+  fi
+  if [ "$line" = "$BEGIN_MARKER" ]; then
+    inside_managed=1
+    continue
+  fi
+  trimmed="${line#"${line%%[![:space:]]*}"}"
+  case "$trimmed" in
+    ""|\#*) continue ;;
+    *"manage.py run_instagram_bot --ensure"*)
+      outside_owner_count=$((outside_owner_count + 1))
+      if [ "$line" = "$legacy_line" ] || [ "$line" = "$cron_line" ]; then
+        supported_outside_owner_count=$((supported_outside_owner_count + 1))
+      fi
+      ;;
+  esac
+done < "$current"
+[ "$outside_owner_count" -le 1 ] || {
+  echo "[instagram-watchdog-cron] ERROR: duplicate watchdog owners" >&2
+  exit 65
+}
+if [ "$begin_count" -eq 1 ] && [ "$outside_owner_count" -ne 0 ]; then
+  echo "[instagram-watchdog-cron] ERROR: managed block coexists with a loose watchdog owner" >&2
+  exit 65
+fi
+if [ "$begin_count" -eq 0 ] && [ "$outside_owner_count" -eq 1 ] && [ "$supported_outside_owner_count" -ne 1 ]; then
+  echo "[instagram-watchdog-cron] ERROR: unsupported loose watchdog owner" >&2
+  exit 65
+fi
+
 if [ "$mode" = "--check" ]; then
   [ "$begin_count" -eq 1 ] || {
     echo "[instagram-watchdog-cron] DRIFT: managed block is missing" >&2
@@ -145,7 +181,7 @@ while IFS= read -r line || [ -n "$line" ]; do
     skip_managed=1
     continue
   fi
-  if [ "$begin_count" -eq 0 ] && [ "$line" = "$legacy_line" ]; then
+  if [ "$begin_count" -eq 0 ] && { [ "$line" = "$legacy_line" ] || [ "$line" = "$cron_line" ]; }; then
     cat "$expected" >> "$candidate"
     inserted=1
     continue

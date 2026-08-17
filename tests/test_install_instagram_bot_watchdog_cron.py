@@ -159,3 +159,30 @@ cp "$1" "$FAKE_CRONTAB_FILE"
 
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.crontab_file.read_bytes(), before)
+
+    def test_install_rejects_unmanaged_watchdog_owner_variant_without_writes(self):
+        original = (
+            f"*/2 * * * * cd {self.django_root} && {self.python} manage.py "
+            "run_instagram_bot --ensure >/tmp/alternate-watchdog.log 2>&1\n"
+        )
+        self.crontab_file.write_text(original, encoding="utf-8")
+        before = self.crontab_file.read_bytes()
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.crontab_file.read_bytes(), before)
+
+    def test_install_rejects_reversed_managed_markers_without_writes(self):
+        self.assertEqual(self._run("--install").returncode, 0)
+        installed = self.crontab_file.read_text(encoding="utf-8").splitlines()
+        reversed_block = "\n".join(
+            [installed[-1], installed[0], *installed[1:-1]]
+        ) + "\n"
+        self.crontab_file.write_text(reversed_block, encoding="utf-8")
+        before = self.crontab_file.read_bytes()
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.crontab_file.read_bytes(), before)

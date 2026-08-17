@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_nova_poshta_tracking_cron.sh"
 BEGIN_MARKER = "# BEGIN TWOCOMMS NOVA POSHTA TRACKING"
 END_MARKER = "# END TWOCOMMS NOVA POSHTA TRACKING"
+LEGACY_MARKER = "# codex:nova-poshta-tracking"
 
 
 class InstallNovaPoshtaTrackingCronTests(unittest.TestCase):
@@ -108,3 +109,62 @@ cp "$1" "$FAKE_CRONTAB_FILE"
 
     def test_check_detects_missing_block(self):
         self.assertNotEqual(self._run("--check").returncode, 0)
+
+    def test_install_rejects_unmanaged_tracking_owner_variant_without_writes(self):
+        original = (
+            f"* * * * * cd {self.django_root} && {self.python} manage.py "
+            "update_tracking_statuses >/tmp/alternate-tracking.log 2>&1\n"
+        )
+        self.crontab_file.write_text(original, encoding="utf-8")
+        before = self.crontab_file.read_bytes()
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.crontab_file.read_bytes(), before)
+
+    def test_install_replaces_unmarked_supported_tracking_owner(self):
+        legacy = (
+            f"*/5 * * * * cd {self.django_root} && /usr/bin/flock -n "
+            f"{self.django_root}/tmp/nova_poshta_tracking.lock /usr/bin/nice -n 10 "
+            f"{self.python} manage.py update_tracking_statuses >> "
+            f"{self.django_root}/logs/nova_poshta_cron.log 2>&1"
+        )
+        self.crontab_file.write_text(f"{legacy}\n", encoding="utf-8")
+
+        result = self._run("--install")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        content = self.crontab_file.read_text(encoding="utf-8")
+        self.assertEqual(content.count("manage.py update_tracking_statuses"), 1)
+        self.assertEqual(content.count(BEGIN_MARKER), 1)
+
+    def test_install_rejects_reversed_managed_markers_without_writes(self):
+        self.assertEqual(self._run("--install").returncode, 0)
+        installed = self.crontab_file.read_text(encoding="utf-8").splitlines()
+        reversed_block = "\n".join(
+            [installed[-1], installed[0], *installed[1:-1]]
+        ) + "\n"
+        self.crontab_file.write_text(reversed_block, encoding="utf-8")
+        before = self.crontab_file.read_bytes()
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.crontab_file.read_bytes(), before)
+
+    def test_install_rejects_job_marker_outside_managed_block(self):
+        self.assertEqual(self._run("--install").returncode, 0)
+        installed = self.crontab_file.read_text(encoding="utf-8")
+        invalid = installed.replace(
+            LEGACY_MARKER,
+            "# missing managed job marker",
+            1,
+        ) + f"{LEGACY_MARKER}\n"
+        self.crontab_file.write_text(invalid, encoding="utf-8")
+        before = self.crontab_file.read_bytes()
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.crontab_file.read_bytes(), before)

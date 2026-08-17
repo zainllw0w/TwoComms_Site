@@ -57,8 +57,59 @@ if [ "$begin_count" -eq 1 ] && [ "$legacy_count" -ne 1 ]; then
   echo "[nova-poshta-cron] ERROR: managed block must contain exactly one job marker" >&2
   exit 65
 fi
+if [ "$begin_count" -eq 1 ]; then
+  begin_line="$(grep -Fnx "$BEGIN_MARKER" "$current" | cut -d: -f1)"
+  end_line="$(grep -Fnx "$END_MARKER" "$current" | cut -d: -f1)"
+  [ "$begin_line" -lt "$end_line" ] || {
+    echo "[nova-poshta-cron] ERROR: managed block markers are out of order" >&2
+    exit 65
+  }
+  managed_block="$tmp_dir/managed_block"
+  awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" '$0 == begin { inside = 1 } inside { print } $0 == end { exit }' "$current" > "$managed_block"
+  block_marker_count="$(grep -Fxc "$LEGACY_MARKER" "$managed_block" || true)"
+  [ "$block_marker_count" -eq 1 ] && [ "$legacy_count" -eq "$block_marker_count" ] || {
+    echo "[nova-poshta-cron] ERROR: job marker is outside the managed block" >&2
+    exit 65
+  }
+fi
 if [ "$begin_count" -eq 0 ] && [ "$legacy_count" -gt 1 ]; then
   echo "[nova-poshta-cron] ERROR: duplicate legacy job markers" >&2
+  exit 65
+fi
+
+outside_owner_count=0
+supported_outside_owner_count=0
+inside_managed=0
+while IFS= read -r line || [ -n "$line" ]; do
+  if [ "$inside_managed" -eq 1 ]; then
+    [ "$line" = "$END_MARKER" ] && inside_managed=0
+    continue
+  fi
+  if [ "$line" = "$BEGIN_MARKER" ]; then
+    inside_managed=1
+    continue
+  fi
+  trimmed="${line#"${line%%[![:space:]]*}"}"
+  case "$trimmed" in
+    ""|\#*) continue ;;
+    *"manage.py update_tracking_statuses"*)
+      outside_owner_count=$((outside_owner_count + 1))
+      if [ "$line" = "$cron_line" ] || [ "$line" = "$legacy_cron_line" ]; then
+        supported_outside_owner_count=$((supported_outside_owner_count + 1))
+      fi
+      ;;
+  esac
+done < "$current"
+[ "$outside_owner_count" -le 1 ] || {
+  echo "[nova-poshta-cron] ERROR: duplicate tracking owners" >&2
+  exit 65
+}
+if [ "$begin_count" -eq 1 ] && [ "$outside_owner_count" -ne 0 ]; then
+  echo "[nova-poshta-cron] ERROR: managed block coexists with a loose tracking owner" >&2
+  exit 65
+fi
+if [ "$begin_count" -eq 0 ] && [ "$outside_owner_count" -eq 1 ] && [ "$supported_outside_owner_count" -ne 1 ]; then
+  echo "[nova-poshta-cron] ERROR: unsupported loose tracking owner" >&2
   exit 65
 fi
 
@@ -88,9 +139,14 @@ while IFS= read -r line || [ -n "$line" ]; do
   if [ "$skip_managed" -eq 1 ]; then [ "$line" = "$END_MARKER" ] && skip_managed=0; continue; fi
   if [ "$line" = "$BEGIN_MARKER" ]; then cat "$expected" >> "$candidate"; inserted=1; skip_managed=1; continue; fi
   if [ "$begin_count" -eq 0 ] && [ "$line" = "$LEGACY_MARKER" ]; then cat "$expected" >> "$candidate"; inserted=1; skip_legacy_command=1; continue; fi
+  if [ "$begin_count" -eq 0 ] && { [ "$line" = "$cron_line" ] || [ "$line" = "$legacy_cron_line" ]; }; then cat "$expected" >> "$candidate"; inserted=1; continue; fi
   printf '%s\n' "$line" >> "$candidate"
 done < "$current"
 
+[ "$skip_managed" -eq 0 ] || {
+  echo "[nova-poshta-cron] ERROR: managed block did not terminate" >&2
+  exit 65
+}
 if [ "$inserted" -eq 0 ]; then cat "$expected" >> "$candidate"; fi
 if cmp -s "$candidate" "$current"; then echo "[nova-poshta-cron] OK: managed block already installed"; exit 0; fi
 "$CRONTAB_BIN" "$candidate"
