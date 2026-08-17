@@ -189,7 +189,7 @@ _CATALOG_PAGINATION_KEY_ORDER = (
     "color",
     "thermo",
 )
-_CATALOG_CACHE_VERSION = "catalog-v13"
+_CATALOG_CACHE_VERSION = "catalog-v14-i18n"
 
 
 def _catalog_external_query_keys(request):

@@ -201,11 +201,11 @@ class ColorFilterCanonicalServiceTests(TestCase):
             "/ru/catalog/tshirts/?fit=oversize",
         )
 
-    def test_catalog_cache_version_busts_pre_facet_owner_policy_responses(self):
+    def test_catalog_cache_version_busts_pre_locale_metadata_responses(self):
         request = self.factory.get("/catalog/")
 
         self.assertIn(
-            "catalog-v13",
+            "catalog-v14-i18n",
             _catalog_cache_prefix(request, lambda request: None),
         )
 

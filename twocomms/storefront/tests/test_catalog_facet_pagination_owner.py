@@ -7,10 +7,18 @@ import json
 from unittest.mock import patch
 
 from django.core.cache import cache, caches
+from django.http import HttpResponse
+from django.test import RequestFactory
 from django.test import TestCase, override_settings
 from django.utils import translation
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product, ProductFitOption
+from storefront.views.catalog import (
+    _build_catalog_cache_query,
+    _catalog_cache_prefix,
+    catalog,
+)
+from storefront.views.utils import _build_anon_cache_key
 
 
 class _CatalogOwnerSignalParser(HTMLParser):
@@ -326,6 +334,36 @@ class CatalogFacetPaginationOwnerTests(TestCase):
                         [product.pk for product in response.context["products"]],
                         [self.tee_products[1].pk],
                     )
+
+    def test_locale_metadata_release_does_not_reuse_catalog_v13_page_cache(self):
+        request = RequestFactory().get("/ru/catalog/tshirts/?page=2")
+        request.LANGUAGE_CODE = "ru"
+        current_prefix = _catalog_cache_prefix(request, catalog)
+        legacy_prefix = current_prefix.replace(
+            "catalog-v14-i18n",
+            "catalog-v13",
+        )
+        legacy_key = _build_anon_cache_key(
+            request,
+            catalog,
+            key_prefix=legacy_prefix,
+            query_string=_build_catalog_cache_query(request),
+        )
+        cache.set(
+            legacy_key,
+            HttpResponse("legacy catalog-v13 Ukrainian pagination metadata"),
+            600,
+        )
+
+        with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
+            response = self.client.get("/ru/catalog/tshirts/?page=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(
+            response,
+            "legacy catalog-v13 Ukrainian pagination metadata",
+        )
+        self.assertContains(response, "Страница 2 из 3.")
 
     def test_tracking_only_page_two_keeps_page_owner_without_facet_state(self):
         with patch("storefront.views.catalog.PRODUCTS_PER_PAGE", 1):
