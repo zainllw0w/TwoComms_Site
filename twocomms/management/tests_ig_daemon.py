@@ -332,6 +332,26 @@ print(json.dumps({
         })
         popen.assert_called_once()
 
+    @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
+    @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=False)
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
+    @patch("management.management.commands.run_instagram_bot._daemon_alive", return_value=False)
+    @patch("management.management.commands.run_instagram_bot._daemon_code_current", return_value=True)
+    def test_ensure_fails_closed_when_stale_worker_keeps_lock(
+        self, _current, _alive, _held, wait, popen
+    ):
+        command = Command()
+
+        with self.assertRaisesMessage(CommandError, "did not release singleton lock"):
+            command._ensure()
+
+        wait.assert_called_once_with(
+            DAEMON_LOCK_FILE,
+            held=False,
+            timeout=RELOAD_LOCK_WAIT_SECONDS,
+        )
+        popen.assert_not_called()
+
     def test_process_lock_is_exclusive_across_real_processes(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             lock_path = os.path.join(temp_dir, "daemon.lock")

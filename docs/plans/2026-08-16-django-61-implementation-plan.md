@@ -452,7 +452,8 @@ Production acceptance от 2026-08-17:
 
 - [x] **DJ6-SRV-010 - Добавить overlap guard для \`run_instagram_bot --ensure\`.**
   - \`--ensure\` теперь считает удерживаемый daemon lock здоровым только при
-    свежем heartbeat; stale worker проходит bounded restart path.
+    свежем heartbeat; stale worker проходит bounded drain/spawn path, а при
+    неосвобождённом lock команда завершается ошибкой без второго daemon.
   - Production cron переведён в один managed block с внешним \`flock\` и
     \`timeout 50s\`; installer сохраняет unrelated entries и запрещает двух owners.
   - Release \`4af27a19b\`: один watchdog line, один managed block, daemon lock

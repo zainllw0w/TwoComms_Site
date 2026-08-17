@@ -18,10 +18,36 @@ usage() { echo "Usage: $0 --check|--install" >&2; exit 64; }
 [ "$#" -eq 1 ] || usage
 case "$1" in --check|--install) mode="$1" ;; *) usage ;; esac
 
-[ -d "$DJANGO_ROOT" ] || { echo "[instagram-watchdog-cron] ERROR: Django root does not exist: $DJANGO_ROOT" >&2; exit 66; }
-[ -x "$PYTHON_BIN" ] || { echo "[instagram-watchdog-cron] ERROR: Python is not executable: $PYTHON_BIN" >&2; exit 66; }
-[ -x "$FLOCK_BIN" ] || { echo "[instagram-watchdog-cron] ERROR: flock is required: $FLOCK_BIN" >&2; exit 66; }
-[ -x "$TIMEOUT_BIN" ] || { echo "[instagram-watchdog-cron] ERROR: timeout is required: $TIMEOUT_BIN" >&2; exit 66; }
+error() {
+  echo "[instagram-watchdog-cron] ERROR: $*" >&2
+  exit 66
+}
+
+# These values are interpolated into a crontab shell command.  Reject shell
+# metacharacters before checking the filesystem so an operator typo cannot
+# turn an installer invocation into arbitrary command text.
+validate_path() {
+  local label="$1"
+  local value="$2"
+  case "$value" in
+    /*) ;;
+    *) error "$label must be an absolute path" ;;
+  esac
+  case "$value" in
+    *[!A-Za-z0-9_./-]*) error "$label contains unsafe characters" ;;
+  esac
+  [ "$value" != "/" ] || error "$label must not be the filesystem root"
+}
+
+validate_path "Django root" "$DJANGO_ROOT"
+validate_path "Python executable" "$PYTHON_BIN"
+validate_path "flock executable" "$FLOCK_BIN"
+validate_path "timeout executable" "$TIMEOUT_BIN"
+
+[ -d "$DJANGO_ROOT" ] || error "Django root does not exist: $DJANGO_ROOT"
+[ -x "$PYTHON_BIN" ] || error "Python is not executable: $PYTHON_BIN"
+[ -x "$FLOCK_BIN" ] || error "flock is required: $FLOCK_BIN"
+[ -x "$TIMEOUT_BIN" ] || error "timeout is required: $TIMEOUT_BIN"
 
 cron_line="* * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM 50s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 legacy_line="* * * * * cd $DJANGO_ROOT && $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
@@ -66,6 +92,15 @@ fi
 if [ "$begin_count" -eq 1 ] && [ "$legacy_marker_count" -ne 1 ]; then
   echo "[instagram-watchdog-cron] ERROR: managed block must contain exactly one job marker" >&2
   exit 65
+fi
+if [ "$begin_count" -eq 1 ]; then
+  managed_block="$tmp_dir/managed_block"
+  awk -v begin="$BEGIN_MARKER" -v end="$END_MARKER" '$0 == begin { inside = 1 } inside { print } $0 == end { exit }' "$current" > "$managed_block"
+  block_marker_count="$(grep -Fxc "$LEGACY_MARKER" "$managed_block" || true)"
+  [ "$block_marker_count" -eq 1 ] && [ "$legacy_marker_count" -eq "$block_marker_count" ] || {
+    echo "[instagram-watchdog-cron] ERROR: job marker is outside the managed block" >&2
+    exit 65
+  }
 fi
 if [ "$begin_count" -eq 0 ] && [ "$legacy_marker_count" -gt 1 ]; then
   echo "[instagram-watchdog-cron] ERROR: duplicate legacy job markers" >&2

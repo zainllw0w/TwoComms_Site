@@ -123,3 +123,35 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertEqual(content.count(BEGIN_MARKER), 1)
         self.assertEqual(content.count(LEGACY_MARKER), 1)
         self.assertNotIn(f"{LEGACY_MARKER}\n{legacy}", content)
+
+    def test_install_rejects_unsafe_paths_before_crontab_write(self):
+        env = self._env()
+        unsafe_root = self.root / "safe; touch compromised"
+        unsafe_root.mkdir()
+        env["TWC_DJANGO_ROOT"] = str(unsafe_root)
+
+        result = subprocess.run(
+            ["bash", str(INSTALL_SCRIPT), "--install"],
+            env=env,
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.crontab_file.exists())
+
+    def test_install_rejects_job_marker_outside_managed_block(self):
+        managed_without_job_marker = (
+            f"{BEGIN_MARKER}\n"
+            "# missing managed job marker\n"
+            f"{END_MARKER}\n"
+            f"{LEGACY_MARKER}\n"
+        )
+        self.crontab_file.write_text(managed_without_job_marker, encoding="utf-8")
+        before = self.crontab_file.read_bytes()
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.crontab_file.read_bytes(), before)
