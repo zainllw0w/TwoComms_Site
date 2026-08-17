@@ -1558,6 +1558,108 @@ def process_due_analysis(*, limit: int = 2, now=None) -> dict:
     return counts
 
 
+def report_failed_analysis_jobs(*, limit: int = 500, quota_budget: int = 0) -> dict:
+    """Return a read-only failure inventory for bounded manual retry review.
+
+    This deliberately does not reclaim leases, advance the reconciliation
+    cursor, reset attempts, or enqueue work.  A later operator can select the
+    returned ``retry_ids`` within an explicitly reviewed provider quota.
+    """
+
+    try:
+        bounded_limit = max(1, min(int(limit), 5000))
+    except (TypeError, ValueError):
+        bounded_limit = 500
+    try:
+        bounded_budget = max(0, min(int(quota_budget), bounded_limit))
+    except (TypeError, ValueError):
+        bounded_budget = 0
+
+    rows = list(
+        IgConversationAnalysisJob.objects.filter(
+            status=IgConversationAnalysisJob.Status.FAILED,
+        )
+        .order_by("-attempts", "id")
+        .values(
+            "id",
+            "client_id",
+            "status",
+            "attempts",
+            "last_error",
+            "revision",
+            "watermark_message_id",
+            "analyzed_watermark_message_id",
+            "next_attempt_at",
+            "lease_until",
+            "updated_at",
+            "client__hidden_at",
+            "client__is_blocked",
+            "client__stage",
+        )[:bounded_limit]
+    )
+
+    retry_ids = []
+    jobs = []
+    for row in rows:
+        attempts = int(row["attempts"] or 0)
+        if (
+            row["client__hidden_at"]
+            or row["client__is_blocked"]
+            or row["client__stage"] == IgClient.Stage.SPAM
+        ):
+            disposition = "blocked_client"
+        elif attempts >= MAX_ATTEMPTS:
+            disposition = "attempts_exhausted"
+        else:
+            disposition = "retry_candidate"
+
+        # A failed row is terminal after MAX_ATTEMPTS.  Selecting it here is
+        # only a bounded operator review list; this function never resets the
+        # row or invokes a provider.  Hidden/blocked clients remain excluded.
+        selected_for_retry = bool(
+            disposition != "blocked_client" and len(retry_ids) < bounded_budget
+        )
+        if selected_for_retry:
+            retry_ids.append(int(row["id"]))
+
+        jobs.append(
+            {
+                "id": int(row["id"]),
+                "client_id": row["client_id"],
+                "status": row["status"],
+                "reason": str(row["last_error"] or "")[:1000],
+                "last_error": str(row["last_error"] or "")[:1000],
+                "attempts": attempts,
+                "revision": int(row["revision"] or 0),
+                "watermark_message_id": int(row["watermark_message_id"] or 0),
+                "analyzed_watermark_message_id": int(
+                    row["analyzed_watermark_message_id"] or 0
+                ),
+                "next_attempt_at": (
+                    row["next_attempt_at"].isoformat()
+                    if row["next_attempt_at"]
+                    else None
+                ),
+                "lease_until": (
+                    row["lease_until"].isoformat() if row["lease_until"] else None
+                ),
+                "updated_at": (
+                    row["updated_at"].isoformat() if row["updated_at"] else None
+                ),
+                "disposition": disposition,
+                "selected_for_retry": selected_for_retry,
+            }
+        )
+
+    return {
+        "mode": "dry-run",
+        "failed": len(jobs),
+        "quota_budget": bounded_budget,
+        "retry_ids": retry_ids,
+        "jobs": jobs,
+    }
+
+
 def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
     """Queue changed or prompt-stale conversations without invoking Gemini."""
     now = now or timezone.now()

@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, Mock, call, patch
 
 from django.test import SimpleTestCase, TestCase
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.utils import timezone
 
 from management.models import (
@@ -2743,3 +2744,77 @@ class ConversationAnalysisCommandTests(SimpleTestCase):
         process_events.assert_called_once_with(limit=1)
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload["processed_events"], {"applied": 1})
+
+
+class ConversationAnalysisFailureDryRunTests(TestCase):
+    def test_dry_run_reports_failed_jobs_and_never_mutates_them(self):
+        exhausted_client = IgClient.objects.create(igsid="failed-report-exhausted")
+        retry_client = IgClient.objects.create(igsid="failed-report-retry")
+        exhausted = IgConversationAnalysisJob.objects.create(
+            client=exhausted_client,
+            status=IgConversationAnalysisJob.Status.FAILED,
+            attempts=5,
+            last_error="provider timeout",
+        )
+        retryable = IgConversationAnalysisJob.objects.create(
+            client=retry_client,
+            status=IgConversationAnalysisJob.Status.FAILED,
+            attempts=2,
+            last_error="quota response",
+        )
+        before = list(
+            IgConversationAnalysisJob.objects.order_by("id").values_list(
+                "id", "status", "attempts", "last_error", "updated_at"
+            )
+        )
+        stdout = StringIO()
+
+        call_command(
+            "reconcile_ig_analysis_jobs",
+            "--dry-run",
+            "--quota-budget",
+            "1",
+            stdout=stdout,
+        )
+
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["mode"], "dry-run")
+        self.assertEqual(payload["failed"], 2)
+        self.assertEqual(payload["quota_budget"], 1)
+        self.assertEqual(payload["retry_ids"], [exhausted.pk])
+        self.assertEqual(
+            {row["id"] for row in payload["jobs"]},
+            {exhausted.pk, retryable.pk},
+        )
+        retry_row = next(row for row in payload["jobs"] if row["id"] == retryable.pk)
+        self.assertEqual(retry_row["reason"], "quota response")
+        self.assertEqual(retry_row["last_error"], "quota response")
+        self.assertEqual(retry_row["attempts"], 2)
+        self.assertEqual(retry_row["disposition"], "retry_candidate")
+        exhausted_row = next(row for row in payload["jobs"] if row["id"] == exhausted.pk)
+        self.assertEqual(exhausted_row["disposition"], "attempts_exhausted")
+        self.assertTrue(exhausted_row["selected_for_retry"])
+        after = list(
+            IgConversationAnalysisJob.objects.order_by("id").values_list(
+                "id", "status", "attempts", "last_error", "updated_at"
+            )
+        )
+        self.assertEqual(after, before)
+
+    def test_dry_run_cannot_be_combined_with_live_processing(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "reconcile_ig_analysis_jobs",
+                "--dry-run",
+                "--run-due",
+                stdout=StringIO(),
+            )
+
+    def test_quota_budget_cannot_select_mutating_reconcile_path(self):
+        with self.assertRaises(CommandError):
+            call_command(
+                "reconcile_ig_analysis_jobs",
+                "--quota-budget",
+                "1",
+                stdout=StringIO(),
+            )
