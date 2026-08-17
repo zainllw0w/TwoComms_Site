@@ -335,6 +335,47 @@ class CsrfExemptContractTests(unittest.TestCase):
             ):
                 discover_legacy_scope(repo_root)
 
+    def test_legacy_loader_rejects_local_importlib_rebinding(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._write_legacy_fixture(
+                repo_root,
+                """
+                import unrelated as importlib
+                legacy_path = "views.py.backup"
+                loader = importlib.machinery.SourceFileLoader("legacy", legacy_path)
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                legacy_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(legacy_module)
+                """,
+            )
+
+            with self.assertRaisesRegex(
+                ContractError,
+                r"legacy backup loader contract changed",
+            ):
+                discover_legacy_scope(repo_root)
+
+    def test_backup_path_rejects_nested_string_segments(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._write_legacy_fixture(
+                repo_root,
+                """
+                legacy_path = Path(__file__).resolve().parent / "nested" / "views.py.backup"
+                loader = importlib.machinery.SourceFileLoader("legacy", legacy_path)
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                legacy_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(legacy_module)
+                """,
+            )
+
+            with self.assertRaisesRegex(
+                ContractError,
+                r"legacy backup loader contract changed",
+            ):
+                discover_legacy_scope(repo_root)
+
     def test_backup_path_expression_must_resolve_to_the_backup(self):
         path_expressions = (
             '("views.py.backup", "unrelated.py")[1]',

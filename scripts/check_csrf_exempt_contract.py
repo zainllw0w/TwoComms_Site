@@ -323,11 +323,6 @@ def _is_backup_path_expression(
 def _is_path_base_expression(node: ast.AST) -> bool:
     """Recognize the Path-derived base used by the production loader."""
 
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-        return _is_path_base_expression(node.left) and (
-            isinstance(node.right, ast.Constant)
-            and isinstance(node.right.value, str)
-        )
     if not isinstance(node, ast.Attribute) or node.attr != "parent":
         return False
     parent_chain = node.value
@@ -347,6 +342,41 @@ def _is_path_base_expression(node: ast.AST) -> bool:
         and isinstance(parent_chain.func.value.args[0], ast.Name)
         and parent_chain.func.value.args[0].id == "__file__"
     )
+
+
+def _has_stdlib_importlib_provenance(
+    module_tree: ast.Module,
+    loader_function: ast.FunctionDef | None,
+) -> bool:
+    """Require the exact stdlib imports that establish ``importlib``."""
+
+    required_imports = {"importlib.machinery", "importlib.util"}
+    discovered_imports: set[str] = set()
+
+    for node in module_tree.body:
+        if node is loader_function:
+            continue
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bound_name = alias.asname or alias.name.partition(".")[0]
+                if bound_name != "importlib":
+                    continue
+                if alias.asname is not None or alias.name not in required_imports:
+                    return False
+                discovered_imports.add(alias.name)
+            continue
+        if isinstance(node, ast.ImportFrom):
+            if any((alias.asname or alias.name) == "importlib" for alias in node.names):
+                return False
+            continue
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name == "importlib":
+                return False
+            continue
+        if "importlib" in _rebound_names(node):
+            return False
+
+    return required_imports <= discovered_imports
 
 
 def _binding_for_name(
@@ -382,7 +412,10 @@ def _spec_name_matches_loader(
     )
 
 
-def _legacy_loader_chain_is_valid(loader_function: ast.FunctionDef | None) -> bool:
+def _legacy_loader_chain_is_valid(
+    module_tree: ast.Module,
+    loader_function: ast.FunctionDef | None,
+) -> bool:
     """Trace one exact backup loader -> spec -> module -> exec chain.
 
     Bindings represent the current value of each local name. Every assignment
@@ -392,12 +425,16 @@ def _legacy_loader_chain_is_valid(loader_function: ast.FunctionDef | None) -> bo
     constructions; the production loader is a straight-line chain.
     """
 
-    if loader_function is None:
+    if loader_function is None or not _has_stdlib_importlib_provenance(
+        module_tree, loader_function
+    ):
         return False
     bindings: dict[str, _LegacyBinding] = {}
     next_token = 0
 
     for node in loader_function.body:
+        if "importlib" in _rebound_names(node):
+            return False
         if isinstance(node, ast.Expr):
             for changed_name in _rebound_names(node):
                 bindings.pop(changed_name, None)
@@ -553,7 +590,7 @@ def discover_legacy_scope(repo_root: Path = REPO_ROOT) -> LegacyScope:
         ),
         None,
     )
-    if not _legacy_loader_chain_is_valid(loader_function):
+    if not _legacy_loader_chain_is_valid(init_tree, loader_function):
         raise ContractError(
             "legacy backup loader contract changed: expected SourceFileLoader "
             "of views.py.backup followed by exec_module"
