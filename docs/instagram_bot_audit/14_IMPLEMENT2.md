@@ -344,6 +344,15 @@ These slices do not wait for white assets, attribution or retention policy.
 - [ ] `F-SEC-010`: remove token from our diagnostic URLs, redact server logs
   where compatible with Meta GET verification, rotate token and prove
   resubscription.
+
+  **Code hardening 2026-08-17:** no repository-owned diagnostic URL generator
+  was found. The shared application log filter now masks
+  `hub.verify_token` in Django-visible access-line messages, and the
+  Instagram diagnostic sanitizer masks the same parameter before bot console
+  persistence. Focused regression gates passed `4/4` redaction tests and
+  `22/22` webhook security/observability tests. The checkbox remains open until
+  the approved SSH deployment, operator-controlled token rotation and Meta
+  resubscription proof are completed; no live customer event is required.
 - [x] `F-SEC-001`: move account IDs, allowed senders and debug reply from model
   defaults to explicit singleton config; test fresh install, empty whitelist
   semantics and operator warning.

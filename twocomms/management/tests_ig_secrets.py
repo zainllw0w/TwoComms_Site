@@ -7,12 +7,13 @@ from management.services import instagram_bot as bot
 
 class SecretRedactionTests(SimpleTestCase):
     def test_query_credentials_are_redacted(self):
-        raw = "error access_token=direct-secret&client_secret=app-secret api_key=gemini-secret"
+        raw = "error access_token=direct-secret&client_secret=app-secret api_key=gemini-secret hub.verify_token=webhook-secret"
         safe = bot._redact_secret_text(raw)
         self.assertNotIn("direct-secret", safe)
         self.assertNotIn("app-secret", safe)
         self.assertNotIn("gemini-secret", safe)
-        self.assertEqual(safe.count("[REDACTED]"), 3)
+        self.assertNotIn("webhook-secret", safe)
+        self.assertEqual(safe.count("[REDACTED]"), 4)
 
     @patch("management.services.instagram_bot.log")
     def test_page_token_error_does_not_log_secret_query_value(self, log):

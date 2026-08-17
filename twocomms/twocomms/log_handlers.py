@@ -25,6 +25,9 @@ PHONE_RE = re.compile(
     r'(?<![\w])(?:\+?380|0)[\s-]?\(?\d{2}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}(?!\d)'
 )
 LONG_NUMBER_RE = re.compile(r'(?<!\d)\d{12,19}(?!\d)')
+WEBHOOK_VERIFY_TOKEN_RE = re.compile(
+    r'(?i)([?&]hub\.verify_token=)[^&\s"\']+'
+)
 
 
 def redact_pii(text):
@@ -34,6 +37,7 @@ def redact_pii(text):
     text = EMAIL_RE.sub('[email]', str(text))
     text = PHONE_RE.sub('[phone]', text)
     text = LONG_NUMBER_RE.sub('[number]', text)
+    text = WEBHOOK_VERIFY_TOKEN_RE.sub(r'\1[redacted]', text)
     return text
 
 

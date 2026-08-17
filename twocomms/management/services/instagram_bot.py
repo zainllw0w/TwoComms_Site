@@ -278,7 +278,7 @@ _PRICE_RANGE_RE = re.compile(
 )
 _OPTION_KEY_RE = re.compile(r"^[a-z][a-z0-9_-]{0,48}$", re.IGNORECASE)
 _SECRET_PARAM_RE = re.compile(
-    r"((?:access_token|client_secret|api[_-]?key|password|token)=)[^&\s]+",
+    r"((?:access_token|client_secret|api[_-]?key|password|token|hub\.verify_token)=)[^&\s]+",
     re.IGNORECASE,
 )
 
