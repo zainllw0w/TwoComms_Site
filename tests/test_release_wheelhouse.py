@@ -306,6 +306,11 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                 build_env["MYSQLCLIENT_LDFLAGS"],
                 "-L/opt/mariadb-connector-c-3.3.19/lib/mariadb -lmariadb",
             )
+            for environment in environments:
+                self.assertEqual(
+                    environment["LD_LIBRARY_PATH"],
+                    "/opt/mariadb-connector-c-3.3.19/lib/mariadb",
+                )
 
     def test_connector_tree_validation_records_version_hash_and_soname(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -485,6 +485,9 @@ def _build_mysqlclient_once(
             "LDFLAGS": "-Wl,--build-id=sha1",
             "MYSQLCLIENT_CFLAGS": f"-I{MARIADB_CONNECTOR_C_INCLUDE}",
             "MYSQLCLIENT_LDFLAGS": f"-L{MARIADB_CONNECTOR_C_LIBRARY.parent} -lmariadb",
+            # Keep both the compiler and auditwheel resolver on the same
+            # hash-pinned Connector/C provider.
+            "LD_LIBRARY_PATH": os.fspath(MARIADB_CONNECTOR_C_LIBRARY.parent),
             "PYTHONHASHSEED": "0",
             "SOURCE_DATE_EPOCH": str(SOURCE_DATE_EPOCH),
         }
