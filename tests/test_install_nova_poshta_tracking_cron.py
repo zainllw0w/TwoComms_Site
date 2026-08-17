@@ -40,6 +40,9 @@ fi
 cp "$1" "$FAKE_CRONTAB_FILE"
 """,
         )
+        self._write_executable("flock", "#!/usr/bin/env bash\nexit 0\n")
+        self._write_executable("timeout", "#!/usr/bin/env bash\nexit 0\n")
+        self._write_executable("nice", "#!/usr/bin/env bash\nexit 0\n")
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -57,6 +60,9 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             "TWC_PROJECT_ROOT": str(self.project_root),
             "TWC_DJANGO_ROOT": str(self.django_root),
             "TWC_PYTHON": str(self.python),
+            "TWC_FLOCK_BIN": str(self.fake_bin / "flock"),
+            "TWC_TIMEOUT_BIN": str(self.fake_bin / "timeout"),
+            "TWC_NICE_BIN": str(self.fake_bin / "nice"),
         })
         return env
 
@@ -77,6 +83,14 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertEqual(self.crontab_file.read_bytes(), first_content)
         self.assertIn("17 4 * * * /opt/other-job", first_content.decode())
         self.assertEqual(first_content.decode().count(BEGIN_MARKER), 1)
+        self.assertIn(
+            f"{self.fake_bin / 'flock'} -n -E 75",
+            first_content.decode(),
+        )
+        self.assertIn(
+            f"{self.fake_bin / 'timeout'} --signal=TERM 240s",
+            first_content.decode(),
+        )
 
     def test_malformed_or_duplicate_markers_are_rejected_without_writes(self):
         for original in (

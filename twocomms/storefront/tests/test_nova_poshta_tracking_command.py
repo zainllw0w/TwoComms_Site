@@ -2,10 +2,10 @@ from io import StringIO
 from unittest.mock import MagicMock, patch
 
 from django.core.management import CommandError, call_command
-from django.test import SimpleTestCase, override_settings
+from django.test import TestCase, override_settings
 
 
-class NovaPoshtaTrackingCommandTests(SimpleTestCase):
+class NovaPoshtaTrackingCommandTests(TestCase):
     @override_settings(NOVA_POSHTA_API_KEY="")
     def test_missing_api_key_exits_with_command_error(self):
         with self.assertRaisesRegex(CommandError, "NOVA_POSHTA_API_KEY"):

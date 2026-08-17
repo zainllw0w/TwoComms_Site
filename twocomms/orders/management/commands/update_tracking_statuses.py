@@ -2,9 +2,12 @@
 Django management команда для обновления статусов посылок
 """
 import logging
+from contextlib import nullcontext
+
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from django.utils import timezone
+from management.services.ig_task_health import task_heartbeat
 from orders.nova_poshta_service import NovaPoshtaService
 
 logger = logging.getLogger(__name__)
@@ -37,23 +40,31 @@ class Command(BaseCommand):
         else:
             logging.basicConfig(level=logging.INFO)
 
-        # Проверяем наличие API ключа
-        if not getattr(settings, 'NOVA_POSHTA_API_KEY', ''):
-            message = (
-                "NOVA_POSHTA_API_KEY не настроен в settings. "
-                "Добавьте ключ API Новой Почты в переменные окружения."
-            )
-            logger.error("NOVA_POSHTA_API_KEY not configured")
-            raise CommandError(message)
+        scheduled_batch = not options['order_number'] and not options['dry_run']
+        heartbeat = (
+            task_heartbeat('nova_poshta_tracking')
+            if scheduled_batch
+            else nullcontext()
+        )
+        with heartbeat:
+            # Проверяем наличие API ключа
+            if not getattr(settings, 'NOVA_POSHTA_API_KEY', ''):
+                message = (
+                    "NOVA_POSHTA_API_KEY не настроен в settings. "
+                    "Добавьте ключ API Новой Почты в переменные окружения."
+                )
+                logger.error("NOVA_POSHTA_API_KEY not configured")
+                raise CommandError(message)
 
-        service = NovaPoshtaService()
+            service = NovaPoshtaService()
 
-        if options['order_number']:
-            # Обновляем конкретный заказ
-            self._update_single_order(service, options['order_number'], options['dry_run'])
-        else:
-            # Обновляем все заказы
-            self._update_all_orders(service, options['dry_run'])
+            if options['order_number']:
+                # Обновляем конкретный заказ
+                self._update_single_order(service, options['order_number'], options['dry_run'])
+            elif options['dry_run']:
+                self._update_all_orders(service, True)
+            else:
+                self._update_all_orders(service, False)
 
     def _update_single_order(self, service, order_number, dry_run):
         """Обновляет статус одного заказа"""

@@ -11,6 +11,9 @@ PROJECT_ROOT="${TWC_PROJECT_ROOT:-/home/qlknpodo/TWC/TwoComms_Site}"
 DJANGO_ROOT="${TWC_DJANGO_ROOT:-$PROJECT_ROOT/twocomms}"
 PYTHON_BIN="${TWC_PYTHON:-/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python}"
 CRONTAB_BIN="${TWC_CRONTAB_BIN:-crontab}"
+FLOCK_BIN="${TWC_FLOCK_BIN:-/usr/bin/flock}"
+TIMEOUT_BIN="${TWC_TIMEOUT_BIN:-/usr/bin/timeout}"
+NICE_BIN="${TWC_NICE_BIN:-/usr/bin/nice}"
 
 usage() { echo "Usage: $0 --check|--install" >&2; exit 64; }
 [ "$#" -eq 1 ] || usage
@@ -18,8 +21,12 @@ case "$1" in --check|--install) mode="$1" ;; *) usage ;; esac
 
 [ -d "$DJANGO_ROOT" ] || { echo "[nova-poshta-cron] ERROR: Django root does not exist: $DJANGO_ROOT" >&2; exit 66; }
 [ -x "$PYTHON_BIN" ] || { echo "[nova-poshta-cron] ERROR: Python is not executable: $PYTHON_BIN" >&2; exit 66; }
+[ -x "$FLOCK_BIN" ] || { echo "[nova-poshta-cron] ERROR: flock is required: $FLOCK_BIN" >&2; exit 66; }
+[ -x "$TIMEOUT_BIN" ] || { echo "[nova-poshta-cron] ERROR: timeout is required: $TIMEOUT_BIN" >&2; exit 66; }
+[ -x "$NICE_BIN" ] || { echo "[nova-poshta-cron] ERROR: nice is required: $NICE_BIN" >&2; exit 66; }
 
-cron_line="*/5 * * * * cd $DJANGO_ROOT && /usr/bin/flock -n $DJANGO_ROOT/tmp/nova_poshta_tracking.lock /usr/bin/nice -n 10 $PYTHON_BIN manage.py update_tracking_statuses >> $DJANGO_ROOT/logs/nova_poshta_cron.log 2>&1"
+cron_line="*/5 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/nova_poshta_tracking.lock $TIMEOUT_BIN --signal=TERM 240s $NICE_BIN -n 10 $PYTHON_BIN manage.py update_tracking_statuses >> $DJANGO_ROOT/logs/nova_poshta_cron.log 2>&1"
+legacy_cron_line="*/5 * * * * cd $DJANGO_ROOT && /usr/bin/flock -n $DJANGO_ROOT/tmp/nova_poshta_tracking.lock /usr/bin/nice -n 10 $PYTHON_BIN manage.py update_tracking_statuses >> $DJANGO_ROOT/logs/nova_poshta_cron.log 2>&1"
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-np-cron.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT INT TERM
 current="$tmp_dir/current"
@@ -66,7 +73,10 @@ fi
 mkdir -p "$DJANGO_ROOT/tmp" "$DJANGO_ROOT/logs"
 if [ "$begin_count" -eq 0 ] && [ "$legacy_count" -eq 1 ]; then
   legacy_command="$(awk -v marker="$LEGACY_MARKER" '$0 == marker { getline; print; exit }' "$current")"
-  [ "$legacy_command" = "$cron_line" ] || { echo "[nova-poshta-cron] ERROR: legacy marker is followed by an unknown command" >&2; exit 65; }
+  [ "$legacy_command" = "$cron_line" ] || [ "$legacy_command" = "$legacy_cron_line" ] || {
+    echo "[nova-poshta-cron] ERROR: legacy marker is followed by an unknown command" >&2
+    exit 65
+  }
 fi
 
 : > "$candidate"

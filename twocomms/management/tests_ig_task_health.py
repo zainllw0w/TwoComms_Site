@@ -1,8 +1,8 @@
 """IMP-041 / IMP-059: supervise the real Instagram cron boundary."""
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
@@ -90,11 +90,48 @@ class TaskHeartbeatTests(TestCase):
                 "ig_order_fulfillment",
                 "ig_deal_payments",
                 "order_telegram_reconcile",
+                "nova_poshta_tracking",
             },
         )
 
 
 class CronCommandHeartbeatTests(TestCase):
+    @override_settings(NOVA_POSHTA_API_KEY="")
+    def test_nova_poshta_tracking_configuration_failure_is_observed(self):
+        with self.assertRaisesRegex(CommandError, "NOVA_POSHTA_API_KEY"):
+            call_command("update_tracking_statuses")
+
+        self.assertTrue(
+            InstagramBotTaskHeartbeat.objects.filter(
+                task_key="nova_poshta_tracking",
+                last_failed_at__isnull=False,
+                last_error_kind="CommandError",
+            ).exists()
+        )
+
+    @override_settings(NOVA_POSHTA_API_KEY="test-key")
+    @patch("orders.management.commands.update_tracking_statuses.NovaPoshtaService")
+    def test_nova_poshta_tracking_records_success(self, service_cls):
+        service = service_cls.return_value
+        queryset = MagicMock()
+        queryset.count.return_value = 1
+        service.get_orders_with_tracking_queryset.return_value = queryset
+        service.update_all_tracking_statuses.return_value = {
+            "total_orders": 1,
+            "processed": 1,
+            "updated": 0,
+            "errors": 0,
+        }
+
+        call_command("update_tracking_statuses")
+
+        self.assertTrue(
+            InstagramBotTaskHeartbeat.objects.filter(
+                task_key="nova_poshta_tracking",
+                last_succeeded_at__isnull=False,
+            ).exists()
+        )
+
     @patch("management.management.commands.reconcile_ig_checkout.reconcile_ig_checkout")
     def test_checkout_reconciler_records_success(self, reconcile):
         reconcile.return_value = {"repaired": 0}

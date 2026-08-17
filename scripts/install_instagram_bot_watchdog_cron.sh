@@ -49,7 +49,10 @@ validate_path "timeout executable" "$TIMEOUT_BIN"
 [ -x "$FLOCK_BIN" ] || error "flock is required: $FLOCK_BIN"
 [ -x "$TIMEOUT_BIN" ] || error "timeout is required: $TIMEOUT_BIN"
 
-cron_line="* * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM 50s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
+# --ensure may wait up to 45s for an old daemon to drain and another 15s for
+# the replacement to acquire its singleton lock. Keep the outer timeout above
+# that bound so cron cannot kill a valid reload in its startup window.
+cron_line="* * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM 75s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 legacy_line="* * * * * cd $DJANGO_ROOT && $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-ig-watchdog-cron.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT INT TERM
