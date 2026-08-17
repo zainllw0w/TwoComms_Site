@@ -245,7 +245,6 @@ MIDDLEWARE = [
     "storefront.tracking.AnalyticsIdentityMiddleware",  # first-party analytics identity cookies
     "storefront.utm_middleware.UTMTrackingMiddleware",  # UTM tracking (ПЕРЕД SimpleAnalyticsMiddleware!)
     "storefront.tracking.SimpleAnalyticsMiddleware",  # простая аналитика посещений
-    "orders.nova_poshta_middleware.NovaPoshtaFallbackMiddleware",  # Резервное обновление статусов НП
 ]
 
 ROOT_URLCONF = 'twocomms.urls'
@@ -1565,5 +1564,6 @@ NOVA_POSHTA_API_URL = os.environ.get('NOVA_POSHTA_API_URL', 'https://api.novapos
 # Nova Poshta Auto-Update Interval (minutes)
 NOVA_POSHTA_UPDATE_INTERVAL = _env_int('NOVA_POSHTA_UPDATE_INTERVAL', 5)
 
-# Nova Poshta Fallback Middleware (включить/выключить резервное обновление)
-NOVA_POSHTA_FALLBACK_ENABLED = _env_bool('NOVA_POSHTA_FALLBACK_ENABLED', True)
+# Legacy compatibility only. Tracking batches are owned exclusively by the
+# guarded management-command cron and must never run from an HTTP request.
+NOVA_POSHTA_FALLBACK_ENABLED = False

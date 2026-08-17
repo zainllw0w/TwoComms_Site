@@ -7,13 +7,11 @@ unlink/relink cannot replay a message to the previous customer.
 from __future__ import annotations
 
 import logging
-import threading
 import uuid
 from contextlib import contextmanager
 from datetime import timedelta
 
-from django.conf import settings
-from django.db import close_old_connections, transaction
+from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
 
@@ -858,20 +856,5 @@ def reconcile_order_customer_events(*, order_id=None, limit=100, send=True, now=
 
 
 def kick_order_fulfillment(order_id):
-    """Best-effort post-commit wake-up; durable reconciliation remains retryable."""
-    if not getattr(settings, "IG_FULFILLMENT_BACKGROUND_WAKE_ENABLED", True):
-        return
-
-    def run():
-        close_old_connections()
-        try:
-            reconcile_order_customer_events(order_id=order_id, limit=10, send=True)
-        except Exception:
-            logger.exception("Instagram fulfillment reconciliation failed for order %s", order_id)
-        finally:
-            close_old_connections()
-
-    try:
-        threading.Thread(target=run, name=f"ig-fulfillment-{order_id}", daemon=True).start()
-    except Exception:
-        logger.exception("Could not start Instagram fulfillment worker for order %s", order_id)
+    """Compatibility hook; the guarded cron is the only reconciliation owner."""
+    return None
