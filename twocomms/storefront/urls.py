@@ -67,7 +67,18 @@ def _legacy_pagination_redirect(request, page=None):
 
 def _legacy_catalog_pagination_redirect(request, page=None):
     """Collapse obsolete catalog paginator paths to the localized hub."""
-    return HttpResponsePermanentRedirect(reverse('catalog'))
+    marker = f"page/{page}/"
+    path = request.path
+    target = path[:-len(marker)] if path.endswith(marker) else reverse('catalog')
+    if not target.endswith("/"):
+        target += "/"
+
+    params = request.GET.copy()
+    params.pop("page", None)
+    query = params.urlencode()
+    if query:
+        target = f"{target}?{query}"
+    return HttpResponsePermanentRedirect(target)
 
 
 def admin_panel_view(request, *args, **kwargs):

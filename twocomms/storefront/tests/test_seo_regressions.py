@@ -1164,6 +1164,27 @@ class PublicUrlIndexationSeoRegressionTests(TestCase):
         self.assertEqual(response.status_code, 301)
         self.assertEqual(response["Location"], "/catalog/")
 
+    def test_legacy_catalog_pagination_preserves_non_page_query_for_each_locale(self):
+        for source, target in (
+            (
+                "/catalog/page/3/?page=999&utm_source=audit&opaque_token=future",
+                "/catalog/?utm_source=audit&opaque_token=future",
+            ),
+            (
+                "/ru/catalog/page/3/?page=999&utm_source=audit&opaque_token=future",
+                "/ru/catalog/?utm_source=audit&opaque_token=future",
+            ),
+            (
+                "/en/catalog/page/3/?page=999&utm_source=audit&opaque_token=future",
+                "/en/catalog/?utm_source=audit&opaque_token=future",
+            ),
+        ):
+            with self.subTest(source=source):
+                response = self.client.get(source, secure=True, follow=False)
+
+                self.assertEqual(response.status_code, 301)
+                self.assertEqual(response["Location"], target)
+
 
 class CustomPrintSeoRegressionTests(TestCase):
     def setUp(self):
