@@ -115,6 +115,19 @@ def _call_name(node: ast.AST) -> str | None:
     return None
 
 
+def _qualified_name(node: ast.AST) -> tuple[str, ...] | None:
+    """Return a dotted name only for a plain Name/Attribute chain."""
+
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if not isinstance(node, ast.Name):
+        return None
+    parts.append(node.id)
+    return tuple(reversed(parts))
+
+
 def _call_argument(
     call: ast.Call,
     *,
@@ -206,22 +219,43 @@ def _assigned_names(node: ast.AST) -> frozenset[str]:
 def _rebound_names(node: ast.AST) -> frozenset[str]:
     """Return local names that a non-linear statement may replace."""
 
-    names = {
-        item.id
-        for item in ast.walk(node)
-        if isinstance(item, ast.Name)
-        and isinstance(item.ctx, (ast.Store, ast.Del))
-    }
-    for item in ast.walk(node):
-        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+    names: set[str] = set()
+
+    class Visitor(ast.NodeVisitor):
+        def visit_Lambda(self, item: ast.Lambda) -> None:
+            # A walrus in an unexecuted lambda does not rebind this scope.
+            return
+
+        def visit_Name(self, item: ast.Name) -> None:
+            if isinstance(item.ctx, (ast.Store, ast.Del)):
+                names.add(item.id)
+
+        def visit_FunctionDef(self, item: ast.FunctionDef) -> None:
             names.add(item.name)
-        elif isinstance(item, (ast.Import, ast.ImportFrom)):
+            self.generic_visit(item)
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+
+        def visit_ClassDef(self, item: ast.ClassDef) -> None:
+            names.add(item.name)
+            self.generic_visit(item)
+
+        def visit_Import(self, item: ast.Import) -> None:
             for alias in item.names:
-                if alias.name == "*":
-                    continue
-                names.add(alias.asname or alias.name.partition(".")[0])
-        elif isinstance(item, ast.ExceptHandler) and item.name:
-            names.add(item.name)
+                if alias.name != "*":
+                    names.add(alias.asname or alias.name.partition(".")[0])
+
+        def visit_ImportFrom(self, item: ast.ImportFrom) -> None:
+            for alias in item.names:
+                if alias.name != "*":
+                    names.add(alias.asname or alias.name)
+
+        def visit_ExceptHandler(self, item: ast.ExceptHandler) -> None:
+            if item.name:
+                names.add(item.name)
+            self.generic_visit(item)
+
+    Visitor().visit(node)
     return frozenset(names)
 
 
@@ -289,33 +323,30 @@ def _is_backup_path_expression(
 def _is_path_base_expression(node: ast.AST) -> bool:
     """Recognize the Path-derived base used by the production loader."""
 
-    if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "Path"
-        and len(node.args) == 1
-        and not node.keywords
-    ):
-        return isinstance(node.args[0], ast.Name) and node.args[0].id == "__file__"
-    if (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "resolve"
-        and not node.args
-        and not node.keywords
-    ):
-        return _is_path_base_expression(node.func.value)
-    if (
-        isinstance(node, ast.Attribute)
-        and node.attr == "parent"
-    ):
-        return _is_path_base_expression(node.value)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
         return _is_path_base_expression(node.left) and (
             isinstance(node.right, ast.Constant)
             and isinstance(node.right.value, str)
         )
-    return False
+    if not isinstance(node, ast.Attribute) or node.attr != "parent":
+        return False
+    parent_chain = node.value
+    while isinstance(parent_chain, ast.Attribute) and parent_chain.attr == "parent":
+        parent_chain = parent_chain.value
+    return (
+        isinstance(parent_chain, ast.Call)
+        and isinstance(parent_chain.func, ast.Attribute)
+        and parent_chain.func.attr == "resolve"
+        and not parent_chain.args
+        and not parent_chain.keywords
+        and isinstance(parent_chain.func.value, ast.Call)
+        and isinstance(parent_chain.func.value.func, ast.Name)
+        and parent_chain.func.value.func.id == "Path"
+        and len(parent_chain.func.value.args) == 1
+        and not parent_chain.func.value.keywords
+        and isinstance(parent_chain.func.value.args[0], ast.Name)
+        and parent_chain.func.value.args[0].id == "__file__"
+    )
 
 
 def _binding_for_name(
@@ -416,8 +447,8 @@ def _legacy_loader_chain_is_valid(loader_function: ast.FunctionDef | None) -> bo
         if _is_backup_path_expression(value, bindings):
             binding = _LegacyBinding("path", next_token)
         if isinstance(value, ast.Call):
-            call_name = _call_name(value.func)
-            if call_name == "SourceFileLoader":
+            qualified_call = _qualified_name(value.func)
+            if qualified_call == ("importlib", "machinery", "SourceFileLoader"):
                 name_argument = _call_argument(
                     value, position=0, keyword="fullname"
                 )
@@ -434,7 +465,7 @@ def _legacy_loader_chain_is_valid(loader_function: ast.FunctionDef | None) -> bo
                     binding = _LegacyBinding(
                         "loader", next_token, module_name=module_name
                     )
-            elif call_name == "spec_from_loader":
+            elif qualified_call == ("importlib", "util", "spec_from_loader"):
                 name_argument = _call_argument(
                     value, position=0, keyword="name"
                 )
@@ -450,7 +481,7 @@ def _legacy_loader_chain_is_valid(loader_function: ast.FunctionDef | None) -> bo
                     binding = _LegacyBinding(
                         "spec", next_token, loader_binding.token
                     )
-            elif call_name == "spec_from_file_location":
+            elif qualified_call == ("importlib", "util", "spec_from_file_location"):
                 name_argument = _call_argument(
                     value, position=0, keyword="name"
                 )
@@ -478,7 +509,7 @@ def _legacy_loader_chain_is_valid(loader_function: ast.FunctionDef | None) -> bo
                     binding = _LegacyBinding(
                         "spec", next_token, loader_binding.token
                     )
-            elif call_name == "module_from_spec":
+            elif qualified_call == ("importlib", "util", "module_from_spec"):
                 spec_argument = _call_argument(
                     value, position=0, keyword="spec"
                 )

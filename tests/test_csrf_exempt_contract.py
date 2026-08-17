@@ -295,6 +295,46 @@ class CsrfExemptContractTests(unittest.TestCase):
             ):
                 discover_legacy_scope(repo_root)
 
+    def test_legacy_loader_requires_the_exact_importlib_source_file_loader(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._write_legacy_fixture(
+                repo_root,
+                """
+                legacy_path = "views.py.backup"
+                loader = unrelated.SourceFileLoader("legacy", legacy_path)
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                legacy_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(legacy_module)
+                """,
+            )
+
+            with self.assertRaisesRegex(
+                ContractError,
+                r"legacy backup loader contract changed",
+            ):
+                discover_legacy_scope(repo_root)
+
+    def test_backup_path_requires_resolve_before_parent(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._write_legacy_fixture(
+                repo_root,
+                """
+                legacy_path = Path(__file__).parent.resolve() / "views.py.backup"
+                loader = importlib.machinery.SourceFileLoader("legacy", legacy_path)
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                legacy_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(legacy_module)
+                """,
+            )
+
+            with self.assertRaisesRegex(
+                ContractError,
+                r"legacy backup loader contract changed",
+            ):
+                discover_legacy_scope(repo_root)
+
     def test_backup_path_expression_must_resolve_to_the_backup(self):
         path_expressions = (
             '("views.py.backup", "unrelated.py")[1]',
@@ -646,6 +686,28 @@ class CsrfExemptContractTests(unittest.TestCase):
                     legacy_path,
                 )
                 deferred = lambda: (loader := unrelated_loader)
+                spec = importlib.util.spec_from_loader(loader.name, loader)
+                legacy_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(legacy_module)
+                """,
+            )
+
+            scope = discover_legacy_scope(repo_root)
+
+            self.assertEqual(
+                scope.loaded_ids,
+                frozenset({"legacy:backup:function:legacy"}),
+            )
+
+    def test_named_expression_inside_lambda_expression_keeps_outer_loader_binding(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            self._write_legacy_fixture(
+                repo_root,
+                """
+                legacy_path = "views.py.backup"
+                loader = importlib.machinery.SourceFileLoader("legacy", legacy_path)
+                (lambda: (loader := unrelated_loader))
                 spec = importlib.util.spec_from_loader(loader.name, loader)
                 legacy_module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(legacy_module)
