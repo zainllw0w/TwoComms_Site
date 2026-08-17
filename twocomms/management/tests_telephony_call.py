@@ -961,8 +961,74 @@ class DayReportAuditTest(TestCase):
 
 
 class ScheduleCallAnalysisTest(TestCase):
-    def test_schedule_safe_without_config(self):
-        # Без налаштованого Binotel (тестове середовище) — тихо виходить, без винятків.
+    def test_blank_general_call_id_is_ignored(self):
         _caa.schedule_call_analysis("")
-        _caa.schedule_call_analysis("999999")
-        self.assertTrue(True)
+        self.assertFalse(CallRecord.objects.exists())
+
+    @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
+    def test_schedule_persists_pending_record_without_request_owned_thread(self):
+        with patch("threading.Thread") as thread:
+            _caa.schedule_call_analysis(" 999999 ")
+
+        thread.assert_not_called()
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999999")
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.PENDING)
+
+    def test_schedule_does_not_probe_provider_configuration(self):
+        with patch.object(
+            _caa.BinotelClient,
+            "is_configured",
+            side_effect=AssertionError("request path must not inspect provider configuration"),
+        ) as configured:
+            _caa.schedule_call_analysis("999998")
+
+        configured.assert_not_called()
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999998")
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.PENDING)
+
+    def test_schedule_is_idempotent_and_preserves_terminal_state(self):
+        record = CallRecord.objects.create(
+            provider="binotel",
+            external_call_id="999997",
+            ai_status=CallRecord.AiStatus.DONE,
+        )
+
+        _caa.schedule_call_analysis(record.external_call_id)
+        _caa.schedule_call_analysis(record.external_call_id)
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.DONE)
+        self.assertEqual(
+            CallRecord.objects.filter(
+                provider="binotel",
+                external_call_id=record.external_call_id,
+            ).count(),
+            1,
+        )
+
+    @override_settings(BINOTEL_API_KEY="test-key", BINOTEL_API_SECRET="test-secret")
+    def test_scheduled_record_runs_through_existing_command_state_machine(self):
+        from io import StringIO
+        from types import SimpleNamespace
+
+        from django.core.management import call_command
+
+        with patch("threading.Thread"):
+            _caa.schedule_call_analysis("999996")
+        record = CallRecord.objects.get(provider="binotel", external_call_id="999996")
+        CallRecord.objects.filter(pk=record.pk).update(
+            created_at=_tz.now() - _td(minutes=5),
+            duration_seconds=60,
+        )
+
+        analysis = SimpleNamespace(status=CallAIAnalysis.Status.DONE)
+        with patch(
+            "management.services.call_ai_analysis.analyze_call",
+            return_value=analysis,
+        ) as analyze:
+            call_command("run_call_ai_analyses", limit=1, stdout=StringIO())
+
+        record.refresh_from_db()
+        self.assertEqual(record.ai_status, CallRecord.AiStatus.DONE)
+        self.assertEqual(record.ai_attempts, 1)
+        analyze.assert_called_once_with(record.external_call_id, force=True)
