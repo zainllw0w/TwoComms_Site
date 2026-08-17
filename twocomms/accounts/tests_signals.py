@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.db import transaction
+from django.db import DatabaseError, connection, transaction
 from django.test import TestCase, TransactionTestCase
 from django.test.utils import override_settings
 
@@ -133,3 +133,59 @@ class RegistrationNotificationAutocommitTests(TransactionTestCase):
         self.assertEqual(row.status, IgBotNotification.Status.PENDING)
         self.assertIsNotNone(row.next_attempt_at)
         deliver.assert_not_called()
+
+
+class RegistrationNotificationDatabaseFailureTests(TransactionTestCase):
+    @override_settings(TESTING=False)
+    @patch("management.services.instagram_bot._deliver_manager_notification")
+    @patch("management.services.instagram_bot._http")
+    def test_notification_persistence_failure_does_not_abort_registration(
+        self,
+        http,
+        deliver,
+    ):
+        username = "signal-persistence-failure-user"
+        persistence_errors = []
+        real_save = IgBotNotification.save
+
+        def fail_notification_save(notification, *args, **kwargs):
+            notification.status = None
+            try:
+                return real_save(notification, *args, **kwargs)
+            except DatabaseError as error:
+                persistence_errors.append(error)
+                raise
+
+        with patch.object(
+            IgBotNotification,
+            "save",
+            new=fail_notification_save,
+        ):
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    email="persistence-failure@example.com",
+                )
+                self.assertTrue(User.objects.filter(pk=user.pk).exists())
+                self.assertFalse(
+                    IgBotNotification.objects.filter(
+                        dedupe_key=f"registration:{user.pk}"
+                    ).exists()
+                )
+                self.assertFalse(connection.needs_rollback)
+
+        self.assertEqual(len(persistence_errors), 1)
+        self.assertTrue(User.objects.filter(username=username).exists())
+        self.assertFalse(
+            IgBotNotification.objects.filter(
+                dedupe_key=f"registration:{user.pk}"
+            ).exists()
+        )
+        self.assertFalse(connection.needs_rollback)
+        next_user = User.objects.create_user(
+            username="signal-after-persistence-failure-user",
+            email="after-persistence-failure@example.com",
+        )
+        self.assertTrue(User.objects.filter(pk=next_user.pk).exists())
+        deliver.assert_not_called()
+        http.assert_not_called()
