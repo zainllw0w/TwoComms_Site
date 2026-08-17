@@ -1150,6 +1150,41 @@ deployed and live-verified before its checklist mark changes to `[x]`.
     not ranking, traffic, citation or conversion uplift. The remaining global
     Telegram/profile shell and full catalog/PDP matrix stay open under Tasks
     `3.1` and `3.6`.
+- [ ] **3.2h** Localize the existing pagination suffix `Сторінка %(n)s з %(total)s.`
+  for RU and EN standard category page>=2 metadata. The current production
+  `/ru/catalog/tshirts/?page=2` and `/en/catalog/tshirts/?page=2` responses
+  retain the Ukrainian phrase in both `meta description` and
+  `CollectionPage.description`, while title, canonical, robots, hreflang and
+  visible product pagination are already locale-correct. Change only the RU/EN
+  gettext translations and compiled catalogs; do not add copy, URLs, keywords,
+  or touch DTF/Custom Print.
+
+  - Evidence baseline (2026-08-18): empty `msgstr` entries are present at
+    `twocomms/locale/ru/LC_MESSAGES/django.po:12153` and
+    `twocomms/locale/en/LC_MESSAGES/django.po:12107`; Django falls back to the
+    Ukrainian msgid. The requested acceptance is a rendered RU/EN page-2
+    regression that parses both meta description and `CollectionPage` JSON-LD,
+    rejects the Ukrainian phrase, and preserves the existing owner/indexability
+    contract.
+  - Context7/Django contract: edit `.po`, compile `.mo` with `compilemessages`,
+    and test the active locale with `translation.override`; no runtime manual
+    language switching or fallback suppression is needed.
+  - Priority: P1 locale correctness because the defect is present on indexable
+    metadata/schema. It makes no ranking, snippet or traffic guarantee.
+- [ ] **3.2i** Make the standard catalog `BreadcrumbList` home item use the
+  active locale URL (`/`, `/ru/`, `/en/`) instead of the hard-coded root URL.
+  Production RU/EN category pages currently pair localized `Home` labels with
+  `https://twocomms.shop/`. Add a parsed UK/RU/EN schema regression first, then
+  use the existing active-language URL reversal; do not hand-concatenate locale
+  prefixes. This is a separate P2 structured-data ownership slice from 3.2h.
+- [ ] **3.2j** Add a fail-closed publication predicate for future incomplete
+  standard categories and apply it consistently to category HTML,
+  `CollectionPage`/hreflang and `sitemap-categories.xml`. Production currently
+  has three complete categories and nine valid locale owners, so this is a
+  preventive P2 system gap, not a reason to suppress current pages. Require raw
+  locale-owned `name`, `seo_title`, `seo_h1`, `seo_description` and at least one
+  substantive `description`/`seo_intro_html` field; preserve UK ownership and
+  do not copy Ukrainian fallback text into RU/EN.
 - [x] **3.3** Remove query/noindex alternates from noindex facet pages while preserving full reciprocal self-inclusive hreflang on indexable owners. See P1.2 evidence above.
 - [x] **3.4** Verify translated fields for the six products with missing RU/EN data; keep them consolidated or non-indexable until editorial data exists.
 
@@ -1314,8 +1349,18 @@ deployed and live-verified before its checklist mark changes to `[x]`.
 - [x] **5.2a** Remove internal UI-state query links (`color`, `fit`, `size`, `sort`, `theme`, `page`, `q`, `availability`, `category`, `collection`) from generated and admin-authored editorial rails while preserving the same URLs in interactive catalog controls. Shipped as `78e28c4c` and live-verified on UK/RU/EN catalog and hoodie routes; the catalog/search hreflang half is now closed separately in 5.2b.
 - [x] **5.2b** Suppress SEO hreflang on noindex catalog/search query states while preserving the language switcher, valid query controls and reciprocal alternates on clean owners and page>=2. Do not remove locale alternates from published clean color landings.
 - [x] **5.3** Make grey/olive filter exceptions intentional: approved clean owners, or body-equivalent UI states consolidated to the correct owner. `index,follow + non-self canonical` is not automatically an error; reject only mismatched canonicals, unintended index owners and contradictory hreflang. Do not add blanket `noindex + canonical`.
-- [ ] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement. Reopened on 2026-08-14 because the category/thematic/color sub-boundary is shipped, but the clean root catalog still paginates a category showcase instead of a visible product list.
-- [ ] **5.4b** Resolve the P1 root-catalog pagination contract. Live UK/RU/EN `/catalog/` and `?page=2` render three category showcase cards and zero visible product cards/links, while each page's `CollectionPage.mainEntity.numberOfItems` claims 16 products; page 2 remains `200`, `index, follow` and self-canonical. Choose one truthful architecture before editing: either make the root a non-paginated category hub and reject/remove internal `page>1` states, or render the actual page-specific product slice in visible HTML. Keep visible content, JSON-LD, canonical, pagination links and locale behavior aligned; do not solve this by hiding a useful product route without first confirming the intended root UX.
+- [ ] **5.4** Ensure page>=2 does not render the full page-1 editorial boilerplate; preserve distinct product lists, crawlable pagination and self-canonical URLs. Distinct pagination title/description is optional UX polish, not a hard Google requirement. The category/thematic/color sub-boundary and the separate root-hub exception are shipped, but the umbrella page>=2/crawl checkpoint remains open until its remaining evidence is reconciled.
+- [x] **5.4b** Resolve the P1 root-catalog pagination contract. The intended root architecture is a non-paginated locale category hub: clean UK/RU/EN `/catalog/` routes expose three category cards, while root `page>1` aliases collapse directly to the corresponding locale hub. Category routes and explicit root facet result states retain their own product pagination contract. Visible content, JSON-LD, canonical, pagination links and locale behavior must remain aligned; do not hide a useful product route without preserving an explicit category/facet owner.
+
+#### Task 5.4b execution evidence (checkpoint prepared)
+
+- Code/test commits: `b1776179f941c01dd9dde5ebfc64759f6bd0a754` (`fix(seo): make catalog root a truthful category hub`) introduced the category-first root contract; `69be1a8e340af27cbd0aca0b4b447630f03dbb02` (`fix(seo): validate catalog root state before cache`) hardened page/query validation before cache lookup. Both commits are on `origin/main` and are the current production release.
+- TDD/local proof: the focused root-hub and catalog-owner suites passed `15/15` on 2026-08-18 under the pinned CPython `3.14.6`/Django `6.1` runtime; `manage.py check --settings=test_settings` reported no issues. The tests cover one-hop root page collapse, invalid values before cache, category/facet page-2 ownership, visible category cards, and truthful `CollectionPage` ItemList projection.
+- Fresh production HTML proof at the current release: `/catalog/`, `/ru/catalog/` and `/en/catalog/` each returned `200`, `index, follow`, a locale self-canonical, one `catalog-showcase`, zero `catalog-products-grid`/`catalog-pagination`, one `CollectionPage` with three non-product category items, and no product URLs in that ItemList. The corresponding `?page=2` requests returned one `301` directly to `/catalog/`, `/ru/catalog/` and `/en/catalog/` respectively. This verifies the root-hub exception without changing category page-2 product owners.
+- Scope boundary: no DTF subdomain/module/route/blog, Custom Print flow/configurator, product copy, catalog data, variant inventory, media, cart or analytics persistence was changed. This checkpoint claims only truthful root ownership and removes the former schema/body contradiction; it makes no ranking, traffic, crawl-budget or conversion claim. Parent `5.4` remains open for its umbrella acceptance and adjacent residual findings.
+
+- [ ] **5.4c** Audit and, only if reproducible in the accessibility tree, give the mobile root catalog one real visible `h1` owner. The current baseline reports a `0x0` `.catalog-hero__title` H1 while the visible hero is a `div[role=heading][aria-level="2"]` plus a visible H2. Do not add duplicate keyword headings or change desktop semantics until the rendered DOM, computed styles and accessibility tree agree on the smallest fix.
+- [ ] **5.4d** Reconcile mobile category-card DOM order with desktop order and the `CollectionPage.ItemList` order only if the difference is user-visible or machine-significant. Preserve the category-first root contract and avoid reordering by keyword preference; acceptance must compare the rendered link sequence and JSON-LD positions at representative mobile and desktop widths.
 - [ ] **5.4a** Measure anonymous cache-key cardinality and catalog query timing for clean, valid facet, invalid facet and page>=2 requests; reject the release if UX selectors regress or invalid 200 aliases still populate cache.
 - [x] **5.4a.1** Restore the documented OR contract within the color facet while keeping different inventory axes intersected on the same eligible color variant. This release gate was triggered by production-backed selector evidence, not by a keyword or ranking hypothesis.
 - [x] **5.4a.2** Canonicalize validated cache identities, reject or bypass invalid 200 aliases, align page and fragment invalidation versions, and remeasure default/fragments cardinality without flushing production caches.
@@ -1922,6 +1967,17 @@ category/color landing templates/tests.
 - [ ] **9.1** Add failing browser/JS tests for a clean URL showing filter badge `0` and for back/forward state transitions.
 - [ ] **9.2** Fix state derivation without changing catalog availability or analytics contracts; preserve Custom Print.
 - [ ] **9.3** Run three sequential mobile Lighthouse traces per representative catalog/PDP URL and record median/p75; do not call lab opportunities a field ranking penalty.
+- [ ] **9.3a** Reproduce the mobile root-catalog `catalog-hero.webp` unused-preload
+  warning against the final responsive `<picture>` candidate and LCP resource.
+  Remove or condition the preload only if browser network/initiator evidence
+  proves it is not consumed at the relevant viewport; preserve the actual hero
+  image, source order and desktop LCP path. Treat this as P3 performance hygiene
+  until lab/field data demonstrates material impact, not as a ranking error.
+- [ ] **9.3b** Isolate the catalog browser form-field console warning reported in
+  the 2026-08-18 mobile proof. Record the exact element, message and affected
+  viewport before editing; close as `N/A` if it is a third-party/devtools notice.
+  Any fix must preserve filter submission, labels, back/forward state and locale
+  behavior and remain separate from 5.4c heading semantics.
 - [ ] **9.4** Obtain dated CrUX/GSC/RUM evidence where available, then commit/push/deploy and mark Task 9.
 
 **Files:** catalog filter JS/templates/styles; Lighthouse runner and browser tests; no real ad/purchase test events.
