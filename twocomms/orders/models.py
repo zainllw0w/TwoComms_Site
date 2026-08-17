@@ -186,6 +186,12 @@ class Order(models.Model):
         return f'Order {self.order_number} by {self.get_user_display()} — {self.get_status_display()}'
 
     def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            update_fields = set(update_fields)
+            if update_fields & {'status', 'tracking_number'}:
+                update_fields.add('updated')
+            kwargs['update_fields'] = update_fields
         attempts = 0
         while True:
             if not self.order_number:
@@ -512,12 +518,16 @@ class PaymentAttempt(models.Model):
 
 
 class PaymentSideEffectJob(models.Model):
-    """Durable intent for one payment-side external delivery."""
+    """Durable intent for one order or payment external delivery."""
 
     class Kind(models.TextChoices):
         ATTEMPT_ADD_PAYMENT_INFO = "attempt_add_payment_info", _("Meta AddPaymentInfo")
         ATTEMPT_TELEGRAM_STARTED = "attempt_telegram_started", _("Telegram: спроба оплати")
         ORDER_POST_PAYMENT = "order_post_payment", _("Події після оплати")
+        ORDER_TELEGRAM_NOTIFICATION = (
+            "order_telegram_notification",
+            _("Telegram: зміна замовлення"),
+        )
 
     class State(models.TextChoices):
         PENDING = "pending", _("Очікує")

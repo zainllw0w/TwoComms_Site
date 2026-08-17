@@ -1,7 +1,8 @@
-"""Lease-backed durable payment side-effect intents and bounded delivery."""
+"""Lease-backed durable order side-effect intents and bounded delivery."""
 
 from dataclasses import dataclass
 from datetime import timedelta
+import hashlib
 import secrets
 
 from django.db import transaction
@@ -15,7 +16,15 @@ DEFAULT_LEASE_DURATION = timedelta(minutes=5)
 BASE_RETRY_DELAY = timedelta(minutes=1)
 MAX_RETRY_DELAY = timedelta(hours=1)
 _ALLOWED_PAYLOAD_KEYS = frozenset(
-    {"previous_status", "pay_type", "source_url", "channel_cursor"}
+    {
+        "previous_status",
+        "pay_type",
+        "source_url",
+        "channel_cursor",
+        "notification_type",
+        "old_status",
+        "new_status",
+    }
 )
 _ATTEMPT_KINDS = frozenset(
     {
@@ -72,6 +81,11 @@ def _validate_subject(kind, payment_attempt_id, order_id):
         raise ValueError(f"payment_attempt is required for {kind}")
     if kind == PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT and not has_order:
         raise ValueError("order is required for order_post_payment")
+    if (
+        kind == PaymentSideEffectJob.Kind.ORDER_TELEGRAM_NOTIFICATION
+        and not has_order
+    ):
+        raise ValueError("order is required for order_telegram_notification")
 
 
 def enqueue_payment_side_effect(
@@ -156,6 +170,50 @@ def enqueue_order_post_payment_side_effect(
             "pay_type": str(pay_type or ""),
             "channel_cursor": _POST_PAYMENT_CHANNELS[0],
         },
+        due_at=due_at,
+    )
+
+
+def enqueue_order_telegram_notification(
+    order_id,
+    notification_type,
+    *,
+    transition_version,
+    old_status="",
+    new_status="",
+    due_at=None,
+):
+    """Persist one immutable status/TTN transition intent."""
+    notification_type = str(notification_type or "").strip()
+    if notification_type not in {"status_update", "ttn_added"}:
+        raise ValueError(
+            f"unsupported order Telegram notification: {notification_type}"
+        )
+    transition_version = str(transition_version or "").strip()
+    if not transition_version:
+        raise ValueError("order Telegram transition_version is required")
+    old_status = str(old_status or "").strip()
+    new_status = str(new_status or "").strip()
+    if notification_type == "status_update" and not (old_status and new_status):
+        raise ValueError("status_update requires old_status and new_status")
+    identity = "|".join(
+        (
+            str(int(order_id)),
+            notification_type,
+            transition_version,
+            old_status,
+            new_status,
+        )
+    )
+    digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:32]
+    payload = {"notification_type": notification_type}
+    if notification_type == "status_update":
+        payload.update({"old_status": old_status, "new_status": new_status})
+    return enqueue_payment_side_effect(
+        kind=PaymentSideEffectJob.Kind.ORDER_TELEGRAM_NOTIFICATION,
+        event_key=f"order:{int(order_id)}:telegram:{notification_type}:{digest}",
+        order_id=order_id,
+        payload=payload,
         due_at=due_at,
     )
 
@@ -639,6 +697,8 @@ def _subject_terminal_outcome(job):
         if job.order is None:
             return "ambiguous"
         return _post_payment_subject_outcome(job.order)
+    if job.kind == PaymentSideEffectJob.Kind.ORDER_TELEGRAM_NOTIFICATION:
+        return "ambiguous" if job.order is None else None
     return "ambiguous"
 
 
@@ -778,6 +838,62 @@ def _process_attempt_telegram(job, lease_token, *, now):
     return "failed"
 
 
+def _process_order_telegram_notification(job, lease_token, *, now):
+    from orders.telegram_notifications import TelegramNotifier
+
+    notification_type = str(job.payload.get("notification_type") or "")
+    if notification_type not in {"status_update", "ttn_added"}:
+        mark_payment_side_effect_ambiguous(
+            job.pk,
+            lease_token,
+            "unsupported_order_telegram_notification",
+            now=now,
+        )
+        return "ambiguous"
+    order = job.order
+    user = order.user if order is not None else None
+    profile = getattr(user, "userprofile", None) if user is not None else None
+    if not getattr(profile, "telegram_id", None):
+        complete_payment_side_effect(job.pk, lease_token, now=now)
+        return "done"
+    if not mark_payment_side_effect_provider_io_started(
+        job.pk, lease_token, now=now
+    ):
+        return "leased"
+    notifier = TelegramNotifier()
+    if notification_type == "status_update":
+        outcome = notifier.send_order_status_update(
+            job.order,
+            job.payload.get("old_status"),
+            job.payload.get("new_status"),
+            return_outcome=True,
+        )
+    else:
+        outcome = notifier.send_ttn_added_notification(
+            job.order,
+            return_outcome=True,
+        )
+    outcome = _normalize_delivery_outcome(outcome)
+    if outcome == "sent":
+        complete_payment_side_effect(job.pk, lease_token, now=now)
+        return "done"
+    if outcome == "ambiguous":
+        mark_payment_side_effect_ambiguous(
+            job.pk,
+            lease_token,
+            "order_telegram_delivery_ambiguous",
+            now=now,
+        )
+        return "ambiguous"
+    fail_payment_side_effect(
+        job.pk,
+        lease_token,
+        "order_telegram_delivery_failed",
+        now=now,
+    )
+    return "failed"
+
+
 def _process_order_post_payment(job, lease_token, *, now):
     from storefront.views.utils import _send_post_payment_events
     from orders.models import Order
@@ -884,6 +1000,10 @@ def process_payment_side_effect_job(job_id, *, now=None):
             return _process_attempt_telegram(job, claim.lease_token, now=now)
         if job.kind == PaymentSideEffectJob.Kind.ORDER_POST_PAYMENT:
             return _process_order_post_payment(job, claim.lease_token, now=now)
+        if job.kind == PaymentSideEffectJob.Kind.ORDER_TELEGRAM_NOTIFICATION:
+            return _process_order_telegram_notification(
+                job, claim.lease_token, now=now
+            )
         mark_payment_side_effect_ambiguous(
             job.pk,
             claim.lease_token,

@@ -1,10 +1,7 @@
-from unittest.mock import patch
-
 from django.test import TestCase
 
-from orders.models import Order
-from orders.tasks import _send_notification
-from orders.telegram_notifications import telegram_notifier
+from orders.models import Order, PaymentSideEffectJob
+from orders.tasks import send_telegram_notification_task
 
 
 class TelegramNotificationTaskTests(TestCase):
@@ -16,33 +13,34 @@ class TelegramNotificationTaskTests(TestCase):
             np_office="Branch 1",
         )
 
-    def notification_cases(self):
-        return (
-            ("new_order", "send_new_order_notification", {}),
-            (
-                "status_update",
-                "send_order_status_update",
-                {"old_status": "new", "new_status": "prep"},
-            ),
-            ("ttn_added", "send_ttn_added_notification", {}),
+    def test_compatibility_entrypoint_persists_without_delivery(self):
+        job, created = send_telegram_notification_task.delay(
+            self.order.pk,
+            "status_update",
+            transition_version="v1",
+            old_status="В обробці",
+            new_status="Готується до відправлення",
         )
 
-    def test_false_notifier_result_logs_failure_without_sent_claim(self):
-        for notification_type, method_name, kwargs in self.notification_cases():
-            with self.subTest(notification_type=notification_type), patch.object(
-                telegram_notifier, method_name, return_value=False
-            ), self.assertLogs("orders.tasks", level="INFO") as logs:
-                _send_notification(self.order.pk, notification_type, **kwargs)
+        self.assertTrue(created)
+        self.assertEqual(job.state, PaymentSideEffectJob.State.PENDING)
+        self.assertEqual(job.order_id, self.order.pk)
 
-            output = "\n".join(logs.output)
-            self.assertIn("delivery failed", output)
-            self.assertNotIn(" sent for order ", output)
+    def test_compatibility_entrypoint_is_idempotent(self):
+        kwargs = {
+            "transition_version": "v1",
+            "old_status": "В обробці",
+            "new_status": "Готується до відправлення",
+        }
+        first, created = send_telegram_notification_task.apply_async(
+            args=(self.order.pk, "status_update"),
+            kwargs=kwargs,
+        )
+        second, created_again = send_telegram_notification_task.apply_async(
+            args=(self.order.pk, "status_update"),
+            kwargs=kwargs,
+        )
 
-    def test_true_notifier_result_keeps_sent_log(self):
-        for notification_type, method_name, kwargs in self.notification_cases():
-            with self.subTest(notification_type=notification_type), patch.object(
-                telegram_notifier, method_name, return_value=True
-            ), self.assertLogs("orders.tasks", level="INFO") as logs:
-                _send_notification(self.order.pk, notification_type, **kwargs)
-
-            self.assertIn(" sent for order ", "\n".join(logs.output))
+        self.assertTrue(created)
+        self.assertFalse(created_again)
+        self.assertEqual(first.pk, second.pk)

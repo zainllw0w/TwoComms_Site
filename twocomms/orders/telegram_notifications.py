@@ -819,15 +819,17 @@ class TelegramNotifier:
         return success
 
 
-    def send_personal_message(self, telegram_id, message, parse_mode='HTML'):
+    def send_personal_message(
+        self, telegram_id, message, parse_mode='HTML', *, return_outcome=False
+    ):
         """Отправляет личное сообщение пользователю по telegram_id"""
         if not self.bot_token:
             logger.warning("telegram_send_message not_configured channel=personal")
-            return False
+            return "failed" if return_outcome else False
 
         if not telegram_id:
             logger.warning("telegram_send_message invalid_target channel=personal")
-            return False
+            return "failed" if return_outcome else False
 
         # W3-1: мёртвая async-ветка удалена (см. комментарий у импорта).
         data = {
@@ -840,7 +842,10 @@ class TelegramNotifier:
             timeout=10,
             target_index=1,
             target_count=1,
+            retry_ambiguous=not return_outcome,
         )
+        if return_outcome:
+            return outcome
         return bool(outcome == "sent" and payload and payload.get("ok"))
 
     def _format_payment_info(self, order):
@@ -1575,21 +1580,31 @@ class TelegramNotifier:
 
         return message
 
-    def send_ttn_added_notification(self, order):
+    def send_ttn_added_notification(self, order, *, return_outcome=False):
         """Отправляет уведомление пользователю о добавлении ТТН"""
         if not order.user or not order.user.userprofile.telegram_id:
-            return False
+            return "failed" if return_outcome else False
 
         message = self._format_ttn_added_message(order)
-        return self.send_personal_message(order.user.userprofile.telegram_id, message)
+        return self.send_personal_message(
+            order.user.userprofile.telegram_id,
+            message,
+            return_outcome=return_outcome,
+        )
 
-    def send_order_status_update(self, order, old_status, new_status):
+    def send_order_status_update(
+        self, order, old_status, new_status, *, return_outcome=False
+    ):
         """Отправляет уведомление пользователю об изменении статуса заказа"""
         if not order.user or not order.user.userprofile.telegram_id:
-            return False
+            return "failed" if return_outcome else False
 
         message = self._format_status_update_message(order, old_status, new_status)
-        return self.send_personal_message(order.user.userprofile.telegram_id, message)
+        return self.send_personal_message(
+            order.user.userprofile.telegram_id,
+            message,
+            return_outcome=return_outcome,
+        )
 
     def send_ttn_notification(self, order):
         """Отправляет уведомление дропшиперу о добавлении ТТН"""
