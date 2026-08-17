@@ -3848,6 +3848,16 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
 
 
 def drain_manager_notifications(*, limit: int = 20) -> int:
+    try:
+        from accounts.signals import reconcile_registration_notification_intents
+
+        reconcile_registration_notification_intents(limit=limit)
+    except Exception as exc:
+        log(
+            "error",
+            "registration_notification_reconcile_failed",
+            type(exc).__name__,
+        )
     now = timezone.now()
     stale_before = now - timedelta(seconds=NOTIFICATION_STALE_SENDING_SECONDS)
     stale_ids = list(
@@ -3979,6 +3989,8 @@ def notify_manager(
     media: list[dict] | None = None,
     metadata: dict | None = None,
     deliver_immediately: bool = True,
+    not_before_seconds: int = 0,
+    raise_on_error: bool = False,
 ) -> bool:
     """Persist one idempotent notification and optionally deliver it now."""
     text = (text or "").strip()[:3500]
@@ -4086,6 +4098,8 @@ def notify_manager(
                     row.next_attempt_at = timezone.now()
                     row.save(update_fields=["payload", "status", "next_attempt_at", "updated_at"])
     except Exception:
+        if raise_on_error:
+            raise
         return False
     return _deliver_manager_notification(dedupe_key) if deliver_immediately else True
 
