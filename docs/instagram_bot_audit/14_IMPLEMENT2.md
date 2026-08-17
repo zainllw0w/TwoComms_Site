@@ -193,6 +193,12 @@ rules and its own 1090–1450 acceptance, not for every commerce task.
   structural evidence. Emergent `F-DEPLOY-001…004` additionally require
   built-wheel hash provenance, selector-secret redaction, owned
   maintenance-lease cleanup and legacy deploy-wrapper retirement.
+
+  **Local-ready 2026-08-18:** the CSRF contract validator now enumerates only
+  Git-tracked Python sources and fails closed when the tracked-file list cannot
+  be obtained. A focused RED reproduced the production `UnicodeDecodeError`
+  from an untracked non-UTF8 `.py`; the scoped local gate is GREEN. Deployment
+  and the production invariant remain pending.
 - [ ] **P0.6 Release boundary.** Commit only one independently deployable
   slice, push, integrate into `main`, deploy, verify exact SHA, migrations,
   daemon heartbeat, dangerous queues and persisted DB/API evidence.

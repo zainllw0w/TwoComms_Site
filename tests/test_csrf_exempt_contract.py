@@ -1,5 +1,6 @@
 """No-network coverage gate for the active csrf_exempt contract."""
 
+import subprocess
 import tempfile
 import textwrap
 import unittest
@@ -70,6 +71,35 @@ class CsrfExemptContractTests(unittest.TestCase):
         )
         self.assertEqual(result.legacy_wrapper_not_exempt_ids, result.legacy_loaded_ids)
 
+    def test_active_discovery_ignores_untracked_non_utf8_python(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            repo_root = Path(temporary_directory)
+            source_path = repo_root / "twocomms" / "tracked.py"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_text(
+                "from django.views.decorators.csrf import csrf_exempt\n"
+                "@csrf_exempt\n"
+                "def tracked(request):\n"
+                "    return request\n",
+                encoding="utf-8",
+            )
+            (source_path.parent / "untracked.py").write_bytes(b"\xff\xfe")
+            subprocess.run(
+                ["git", "init", "--quiet"],
+                cwd=repo_root,
+                check=True,
+            )
+            subprocess.run(
+                ["git", "add", "twocomms/tracked.py"],
+                cwd=repo_root,
+                check=True,
+            )
+
+            self.assertEqual(
+                discover_active_exemptions(repo_root),
+                ("function:twocomms.tracked.tracked",),
+            )
+
     def test_url_wrappers_are_discovered_only_from_named_path_callbacks(self):
         """A runtime helper call must not become a URL wrapper contract row."""
 
@@ -105,6 +135,10 @@ class CsrfExemptContractTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            subprocess.run(["git", "init", "--quiet"], cwd=repo_root, check=True)
+            subprocess.run(
+                ["git", "add", "twocomms/routes.py"], cwd=repo_root, check=True
+            )
 
             self.assertEqual(
                 discover_active_exemptions(repo_root),
@@ -125,6 +159,10 @@ class CsrfExemptContractTests(unittest.TestCase):
                 "from django.views.decorators.csrf import csrf_exempt\n"
                 "urlpatterns = [path('unnamed/', csrf_exempt(callback))]\n",
                 encoding="utf-8",
+            )
+            subprocess.run(["git", "init", "--quiet"], cwd=repo_root, check=True)
+            subprocess.run(
+                ["git", "add", "twocomms/routes.py"], cwd=repo_root, check=True
             )
 
             with self.assertRaisesRegex(

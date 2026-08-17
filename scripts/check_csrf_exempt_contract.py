@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -676,13 +677,33 @@ def discover_legacy_scope(repo_root: Path = REPO_ROOT) -> LegacyScope:
 def discover_active_exemptions(repo_root: Path = REPO_ROOT) -> tuple[str, ...]:
     """Return stable IDs for every active non-DTF exemption occurrence."""
 
-    # The helper accepts a root for tests, while IDs and source paths remain
-    # rooted at the repository's ``twocomms`` package.
-    source_root = repo_root / "twocomms"
+    try:
+        tracked = subprocess.run(
+            ["git", "ls-files", "-z", "--", "twocomms"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ContractError(
+            f"cannot enumerate tracked Python sources in {repo_root}: {exc}"
+        ) from exc
+
+    try:
+        tracked_paths = sorted(
+            Path(item.decode("utf-8"))
+            for item in tracked.split(b"\0")
+            if item and item.endswith(b".py")
+        )
+    except UnicodeDecodeError as exc:
+        raise ContractError(
+            f"tracked source path is not UTF-8 in {repo_root}: {exc}"
+        ) from exc
+
     entries: list[str] = []
-    for path in sorted(source_root.rglob("*.py")):
+    for relative in tracked_paths:
+        path = repo_root / relative
         # Resolve exclusions against the supplied root, not the module global.
-        relative = path.relative_to(repo_root)
         if path.name.endswith(".py.backup") or any(
             part in {"dtf", "Ideas", "migrations", "__pycache__"}
             for part in relative.parts
