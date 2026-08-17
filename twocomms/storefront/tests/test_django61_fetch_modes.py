@@ -5,12 +5,13 @@ from django.core.cache import cache
 from django.core.exceptions import FieldFetchBlocked
 from django.db.models import FETCH_ONE, FETCH_RAISE, QuerySet
 from django.test import TestCase
+from django.utils import timezone
 
 from product_catalog.models import MerchCollection
-from storefront.models import Category, Product
+from storefront.models import BlogCategory, BlogPost, Category, Product
 from storefront.seo_utils import _homepage_price_aggregate
 from storefront.services.catalog_facets import redundant_parent_theme_slugs
-from storefront.sitemaps import CategorySitemap, ProductSitemap
+from storefront.sitemaps import BlogPostSitemap, CategorySitemap, ProductSitemap
 
 
 @contextmanager
@@ -51,6 +52,18 @@ class Django61FetchModeContractTests(TestCase):
             parent=cls.theme,
             name_uk="Fetch collection",
             order=2,
+        )
+        cls.blog_category = BlogCategory.objects.create(
+            name="Fetch mode blog category",
+            slug="fetch-mode-blog-category",
+        )
+        cls.blog_post = BlogPost.objects.create(
+            category=cls.blog_category,
+            title="Fetch mode blog post",
+            slug="fetch-mode-blog-post",
+            content_html="<p>Fetch mode contract.</p>",
+            published_at=timezone.now(),
+            is_published=True,
         )
 
     def setUp(self):
@@ -114,3 +127,17 @@ class Django61FetchModeContractTests(TestCase):
         self.assertEqual(len(category_payload), 1)
         self.assertIn("fetch-mode-product", product_payload[0][0])
         self.assertIn("fetch-mode-category", category_payload[0][0])
+
+    def test_blog_post_sitemap_projection_is_complete_under_fetch_raise(self):
+        sitemap = BlogPostSitemap()
+
+        with strict_only_projections():
+            posts = list(sitemap.items())
+            payload = [
+                (sitemap.location(post), sitemap.lastmod(post))
+                for post in posts
+            ]
+
+        self.assertEqual(len(payload), 1)
+        self.assertIn(self.blog_post.slug, payload[0][0])
+        self.assertEqual(payload[0][1], self.blog_post.updated_at)
