@@ -134,6 +134,7 @@ details.bn-ai-transcript summary{cursor:pointer;color:#b9a8ff;font-size:12.5px;f
 {% block content %}
 <div class="bn-wrap" id="bn-root"
      data-status-url="{% url 'management_binotel_status' %}"
+     data-ai-toggle-url="{% url 'management_binotel_ai_toggle' %}"
      data-employees-url="{% url 'management_binotel_employees' %}"
      data-voice-url="{% url 'management_binotel_voice_files' %}"
      data-call-url="{% url 'management_binotel_call' %}"
@@ -154,6 +155,16 @@ details.bn-ai-transcript summary{cursor:pointer;color:#b9a8ff;font-size:12.5px;f
       <span class="dot"></span><span id="bn-status-text">{% if binotel_configured %}Перевірка…{% else %}Ключі не задані{% endif %}</span>
     </span>
     <button type="button" class="bn-btn ghost sm" id="bn-recheck">Перевірити</button>
+  </div>
+
+  <div class="bn-card" style="margin-bottom:18px;">
+    <h2>ШІ-аналіз дзвінків</h2>
+    <p class="hint">Окремий перемикач фонового завдання. Вимкнення не видаляє історію дзвінків і не зупиняє прийом вебхуків.</p>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#cdd6e3;">
+      <input type="checkbox" id="bn-ai-enabled" {% if binotel_ai_enabled %}checked{% endif %}>
+      Увімкнути чергу та аналіз Gemini
+    </label>
+    <div class="bn-msg info" id="bn-ai-toggle-msg"></div>
   </div>
 
   <div class="bn-tabs" role="tablist">

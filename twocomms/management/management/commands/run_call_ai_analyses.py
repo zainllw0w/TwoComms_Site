@@ -55,6 +55,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         limit = max(1, int(options["limit"]))
         dry = bool(options["dry_run"])
+        from management.services.binotel_runtime import is_binotel_ai_enabled
+
+        if not is_binotel_ai_enabled():
+            self.stdout.write("Binotel AI вимкнено; пропуск.")
+            return
         if dry:
             return self._handle(limit=limit, dry=True)
 

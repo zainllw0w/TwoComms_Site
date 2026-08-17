@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, Client as TestClient, override_settings
 from django.urls import reverse
 
-from management.models import BinotelWebhookEvent, CallRecord, Client
+from management.models import BinotelWebhookEvent, CallRecord, Client, InstagramBotSettings
 from management.services.binotel import (
     client_ip_from_request,
     is_binotel_ip,
@@ -38,6 +38,9 @@ class BinotelWebhookHelpersTests(TestCase):
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
 class BinotelWebhookEndpointTests(TestCase):
     def setUp(self):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.binotel_ai_enabled = True
+        settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
         self.http = TestClient()
         self.url = reverse("management_binotel_webhook")
 

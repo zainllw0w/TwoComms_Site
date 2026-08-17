@@ -26,6 +26,8 @@ from .services.binotel import (
     BinotelError,
     BinotelNotConfigured,
 )
+from .services.binotel_runtime import is_binotel_ai_enabled
+from .models import InstagramBotSettings
 
 # Дозволені для generic-консолі ендпоінти (whitelist, щоб не дати викликати
 # деструктивні методи на кшталт customers/delete з тестової сторінки).
@@ -138,6 +140,7 @@ def binotel_test(request):
         "binotel_webhook_url": f"{base}{webhook_path}",
         "binotel_webhook_enforce_ip": bool(getattr(settings, "BINOTEL_WEBHOOK_ENFORCE_IP", False)),
         "binotel_recording_base": "/binotel/recording/",
+        "binotel_ai_enabled": is_binotel_ai_enabled(),
     }
     return render(request, "management/binotel_test.html", context)
 
@@ -156,6 +159,7 @@ def binotel_status(request):
         return JsonResponse(
             {
                 "success": True,
+                "ai_enabled": is_binotel_ai_enabled(),
                 "configured": False,
                 "reachable": False,
                 "key_present": bool(getattr(settings, "BINOTEL_API_KEY", "")),
@@ -174,6 +178,7 @@ def binotel_status(request):
         return JsonResponse(
             {
                 "success": True,
+                "ai_enabled": is_binotel_ai_enabled(),
                 "configured": True,
                 "reachable": True,
                 "auth_ok": False,
@@ -185,12 +190,28 @@ def binotel_status(request):
     return JsonResponse(
         {
             "success": True,
+            "ai_enabled": is_binotel_ai_enabled(),
             "configured": True,
             "reachable": True,
             "auth_ok": True,
             "employees_count": len(employees),
         }
     )
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_ai_toggle(request):
+    """Persistently enable/disable the optional Binotel AI worker."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    enabled = str(payload.get("enabled") or "").strip().lower() in {"1", "true", "on", "yes"}
+    settings_obj = InstagramBotSettings.load()
+    settings_obj.binotel_ai_enabled = enabled
+    settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
+    return JsonResponse({"success": True, "ai_enabled": enabled})
 
 
 @login_required(login_url="management_login")
@@ -530,6 +551,11 @@ def binotel_call_ai_analysis(request):
     blocked = _require_admin_json(request)
     if blocked:
         return blocked
+    if not is_binotel_ai_enabled():
+        return JsonResponse(
+            {"success": False, "disabled": True, "error": "ШІ-аналіз Binotel вимкнено."},
+            status=409,
+        )
 
     from .services.call_ai_analysis import (
         CallAIAnalysisError,

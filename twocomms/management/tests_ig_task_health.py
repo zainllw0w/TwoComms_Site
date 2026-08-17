@@ -99,6 +99,11 @@ class TaskHeartbeatTests(TestCase):
 
 
 class CronCommandHeartbeatTests(TestCase):
+    def setUp(self):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.binotel_ai_enabled = True
+        settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
+
     def test_binotel_call_ai_empty_run_records_success(self):
         call_command("run_call_ai_analyses", limit=1)
 
@@ -208,7 +213,8 @@ class BotHealthEndpointTests(TestCase):
     def test_public_endpoint_is_ready_when_disabled_bot_and_cron_are_healthy(self):
         settings = InstagramBotSettings.load()
         settings.is_enabled = False
-        settings.save(update_fields=["is_enabled", "updated_at"])
+        settings.binotel_ai_enabled = True
+        settings.save(update_fields=["is_enabled", "binotel_ai_enabled", "updated_at"])
         self._make_all_tasks_healthy()
 
         response = self.client.get("/bot/health/", HTTP_HOST="management.twocomms.shop", secure=True)
@@ -261,7 +267,8 @@ class BotHealthEndpointTests(TestCase):
     def test_release_snapshot_reports_sanitized_binotel_queue_categories(self):
         settings = InstagramBotSettings.load()
         settings.is_enabled = False
-        settings.save(update_fields=["is_enabled", "updated_at"])
+        settings.binotel_ai_enabled = True
+        settings.save(update_fields=["is_enabled", "binotel_ai_enabled", "updated_at"])
         self._make_all_tasks_healthy()
         CallRecord.objects.create(
             provider="binotel",

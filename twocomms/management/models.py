@@ -3630,6 +3630,9 @@ class InstagramBotSettings(models.Model):
         CUSTOM = "custom", _("Свій ключ")
 
     is_enabled = models.BooleanField(default=False)
+    # Binotel call AI is independently switchable from the Instagram bot.
+    # Keep it off by default until provider credentials/runtime are verified.
+    binotel_ai_enabled = models.BooleanField(default=False)
 
     direct_source = models.CharField(
         max_length=10, choices=CredSource.choices, default=CredSource.ENV

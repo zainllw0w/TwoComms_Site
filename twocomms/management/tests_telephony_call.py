@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.db import DatabaseError
 from django.test import TestCase, override_settings
 
-from management.models import CallSession, Client, ClientPhone
+from management.models import CallSession, Client, ClientPhone, InstagramBotSettings
 from management.services import telephony_call as tc
 
 User = get_user_model()
@@ -178,6 +178,9 @@ class CallAIQueueCategoryTest(TestCase):
 
 class WebhookLinkEnqueueTest(TestCase):
     def setUp(self):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.binotel_ai_enabled = True
+        settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
         self.manager = User.objects.create_user(username="mgr3", password="x")
         self.client_obj = Client.objects.create(
             shop_name="S", phone="0671112233", full_name="X", owner=self.manager
@@ -1015,6 +1018,11 @@ class DayReportAuditTest(TestCase):
 
 
 class ScheduleCallAnalysisTest(TestCase):
+    def setUp(self):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.binotel_ai_enabled = True
+        settings_obj.save(update_fields=["binotel_ai_enabled", "updated_at"])
+
     def test_blank_general_call_id_is_ignored(self):
         _caa.schedule_call_analysis("")
         self.assertFalse(CallRecord.objects.exists())

@@ -197,6 +197,7 @@ urlpatterns = [
     # Binotel telephony — тестова пісочниця (тільки адміністратори)
     path('binotel/', binotel_views.binotel_test, name='management_binotel_test'),
     path('binotel/api/status/', binotel_views.binotel_status, name='management_binotel_status'),
+    path('binotel/api/ai-toggle/', binotel_views.binotel_ai_toggle, name='management_binotel_ai_toggle'),
     path('binotel/api/employees/', binotel_views.binotel_employees, name='management_binotel_employees'),
     path('binotel/api/voice-files/', binotel_views.binotel_voice_files, name='management_binotel_voice_files'),
     path('binotel/api/call/', binotel_views.binotel_call, name='management_binotel_call'),

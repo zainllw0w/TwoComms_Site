@@ -8,7 +8,8 @@
     details: root.dataset.detailsUrl, record: root.dataset.recordUrl, online: root.dataset.onlineUrl,
     period: root.dataset.periodUrl, search: root.dataset.searchUrl, raw: root.dataset.rawUrl,
     webhookEvents: root.dataset.webhookEventsUrl,
-    aiAnalysis: root.dataset.aiAnalysisUrl
+    aiAnalysis: root.dataset.aiAnalysisUrl,
+    aiToggle: root.dataset.aiToggleUrl
   };
   var RECORDING_BASE = root.dataset.recordingBase || '/binotel/recording/';
   var CONFIGURED = {{ binotel_configured|yesno:"true,false" }};
@@ -39,6 +40,21 @@
     return fetch(url, opts).then(function(r){ return r.json().catch(function(){ return {success:false, error:'Невалідна відповідь ('+r.status+').'}; }); });
   }
   function errText(d){ var t=d.error||'Помилка'; if(d.code) t='['+d.code+'] '+t; if(d.hint) t+=' — '+d.hint; return t; }
+
+  var aiToggle=$("bn-ai-enabled"), aiToggleMsg=$("bn-ai-toggle-msg");
+  if(aiToggle){
+    aiToggle.addEventListener("change", function(){
+      var input=this, previous=!input.checked;
+      input.disabled=true;
+      api(URLS.aiToggle,"POST",{enabled:input.checked}).then(function(data){
+        if(!data.success) throw new Error(errText(data));
+        msg(aiToggleMsg,data.ai_enabled?"ШІ-аналіз увімкнено.":"ШІ-аналіз вимкнено.","ok");
+      }).catch(function(error){
+        input.checked=previous;
+        msg(aiToggleMsg,error.message||"Не вдалося зберегти перемикач.","err");
+      }).finally(function(){ input.disabled=false; });
+    });
+  }
 
   // ---------- Tabs ----------
   var tabs=root.querySelectorAll('.bn-tab'), panels=root.querySelectorAll('.bn-panel');

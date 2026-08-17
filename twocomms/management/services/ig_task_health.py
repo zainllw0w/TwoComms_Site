@@ -197,8 +197,23 @@ def task_health_snapshot(*, now=None) -> dict:
     except (DatabaseError, OperationalError, ProgrammingError):
         return {"available": False, "healthy": False, "tasks": [], "unhealthy_count": 0}
 
+    from management.services.binotel_runtime import is_binotel_ai_enabled
+
+    binotel_enabled = is_binotel_ai_enabled()
     tasks = []
     for spec in TASK_SPECS:
+        if spec.key == "binotel_call_ai_analyses" and not binotel_enabled:
+            tasks.append({
+                "key": spec.key,
+                "label": spec.label,
+                "state": "disabled",
+                "healthy": True,
+                "age_seconds": None,
+                "stale_after_seconds": spec.stale_after_seconds,
+                "last_succeeded_at": "",
+                "last_error_kind": "",
+            })
+            continue
         row = rows.get(spec.key)
         if row is None:
             state = "unobserved"
@@ -245,6 +260,7 @@ def release_queue_snapshot() -> dict:
     """Return sanitized release-boundary queue counts, without customer data."""
     from management.models import CallRecord, IgBotNotification, InstagramBotMessage
     from management.ig_bot_models import IgAiReplyRecoveryJob, IgConversationAnalysisJob
+    from management.services.binotel_runtime import is_binotel_ai_enabled
 
     try:
         inbound_pending = InstagramBotMessage.objects.filter(
@@ -282,28 +298,24 @@ def release_queue_snapshot() -> dict:
         analysis_failed = IgConversationAnalysisJob.objects.filter(
             status=IgConversationAnalysisJob.Status.FAILED
         ).count()
-        binotel_pending = CallRecord.objects.filter(
-            provider="binotel",
-            ai_status=CallRecord.AiStatus.PENDING,
-        ).values_list("duration_seconds", "payload")
-        binotel_counts = {
-            ELIGIBLE: 0,
-            METADATA_PENDING: 0,
-            INELIGIBLE: 0,
-        }
-        for duration_seconds, payload in binotel_pending:
-            category = analysis_queue_category(payload, duration_seconds)
-            binotel_counts[category] += 1
-        stale_before = timezone.now() - timedelta(minutes=STALE_ANALYSIS_LOCK_MINUTES)
-        binotel_stale_running = CallRecord.objects.filter(
-            Q(ai_locked_at__lte=stale_before) | Q(ai_locked_at__isnull=True),
-            provider="binotel",
-            ai_status=CallRecord.AiStatus.RUNNING,
-        ).count()
-        binotel_error = CallRecord.objects.filter(
-            provider="binotel",
-            ai_status=CallRecord.AiStatus.ERROR,
-        ).count()
+        binotel_counts = {ELIGIBLE: 0, METADATA_PENDING: 0, INELIGIBLE: 0}
+        binotel_stale_running = 0
+        binotel_error = 0
+        if is_binotel_ai_enabled():
+            binotel_pending = CallRecord.objects.filter(
+                provider="binotel", ai_status=CallRecord.AiStatus.PENDING,
+            ).values_list("duration_seconds", "payload")
+            for duration_seconds, payload in binotel_pending:
+                category = analysis_queue_category(payload, duration_seconds)
+                binotel_counts[category] += 1
+            stale_before = timezone.now() - timedelta(minutes=STALE_ANALYSIS_LOCK_MINUTES)
+            binotel_stale_running = CallRecord.objects.filter(
+                Q(ai_locked_at__lte=stale_before) | Q(ai_locked_at__isnull=True),
+                provider="binotel", ai_status=CallRecord.AiStatus.RUNNING,
+            ).count()
+            binotel_error = CallRecord.objects.filter(
+                provider="binotel", ai_status=CallRecord.AiStatus.ERROR,
+            ).count()
     except (DatabaseError, OperationalError, ProgrammingError) as exc:
         return {
             "available": False,

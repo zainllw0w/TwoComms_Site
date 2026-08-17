@@ -1519,7 +1519,9 @@ def schedule_call_analysis(general_call_id: str) -> None:
     ``run_call_ai_analyses``.
     """
     gcid = (str(general_call_id or "")).strip()
-    if not gcid:
+    from management.services.binotel_runtime import is_binotel_ai_enabled
+
+    if not gcid or not is_binotel_ai_enabled():
         return
     with transaction.atomic():
         record, created = CallRecord.objects.select_for_update().get_or_create(
