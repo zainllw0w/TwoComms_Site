@@ -863,6 +863,99 @@ class RestockVariantSaveAndAdminTests(TestCase):
             self.assertEqual(action.description, descriptions[0])
             self.assertEqual(action.plural_description, descriptions[1])
 
+    def test_view_only_staff_cannot_use_mutating_admin_actions(self):
+        from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+        from django.contrib.auth.models import Permission
+        from django.urls import reverse
+
+        self.staff.user_permissions.add(Permission.objects.get(
+            content_type__app_label="storefront",
+            codename="view_restocksubscription",
+        ))
+        model_admin = RestockSubscriptionAdmin(RestockSubscription, admin.site)
+        request = RequestFactory().get("/admin/storefront/restocksubscription/")
+        request.user = self.staff
+        action_names = {
+            "retry_notifications",
+            "close_subscriptions",
+            "reopen_subscriptions",
+        }
+
+        for action_location in (
+            admin.ActionLocation.CHANGE_LIST,
+            admin.ActionLocation.CHANGE_FORM,
+        ):
+            self.assertTrue(action_names.isdisjoint(model_admin.get_actions(
+                request,
+                action_location=action_location,
+            )))
+
+        subscriptions = {
+            "retry_notifications": RestockSubscription.objects.create(
+                product=self.product,
+                color_variant=self.variant,
+                size="M",
+                channel=RestockSubscription.Channel.EMAIL,
+                status=RestockSubscription.Status.FAILED,
+                normalized_contact="retry@example.com",
+                fingerprint="view-only-retry",
+                notification_attempts=8,
+            ),
+            "close_subscriptions": RestockSubscription.objects.create(
+                product=self.product,
+                color_variant=self.variant,
+                size="L",
+                channel=RestockSubscription.Channel.PHONE,
+                status=RestockSubscription.Status.ACTIVE,
+                normalized_contact="+380501112233",
+                fingerprint="view-only-close",
+            ),
+            "reopen_subscriptions": RestockSubscription.objects.create(
+                product=self.product,
+                color_variant=self.variant,
+                size="XL",
+                channel=RestockSubscription.Channel.EMAIL,
+                status=RestockSubscription.Status.CLOSED,
+                normalized_contact="reopen@example.com",
+                fingerprint="view-only-reopen",
+            ),
+        }
+        expected_state = {
+            action_name: (subscription.status, subscription.next_attempt_at)
+            for action_name, subscription in subscriptions.items()
+        }
+
+        changelist_response = self.client.get(reverse(
+            "admin:storefront_restocksubscription_changelist"
+        ))
+        change_response = self.client.get(reverse(
+            "admin:storefront_restocksubscription_change",
+            args=[subscriptions["retry_notifications"].pk],
+        ))
+        self.assertEqual(changelist_response.status_code, 200)
+        self.assertEqual(change_response.status_code, 200)
+        self.assertIsNone(changelist_response.context["action_form"])
+        self.assertIsNone(change_response.context["action_form"])
+
+        for action_name, subscription in subscriptions.items():
+            with self.subTest(action=action_name):
+                response = self.client.post(
+                    reverse(
+                        "admin:storefront_restocksubscription_change",
+                        args=[subscription.pk],
+                    ),
+                    {
+                        "CHANGE_FORM-action": action_name,
+                        ACTION_CHECKBOX_NAME: str(subscription.pk),
+                    },
+                )
+                self.assertEqual(response.status_code, 403)
+                subscription.refresh_from_db()
+                self.assertEqual(
+                    (subscription.status, subscription.next_attempt_at),
+                    expected_state[action_name],
+                )
+
     def test_admin_changelist_auto_selects_product_without_n_plus_one(self):
         self.staff.is_superuser = True
         self.staff.save(update_fields=["is_superuser"])

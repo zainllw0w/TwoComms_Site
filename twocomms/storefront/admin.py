@@ -72,6 +72,7 @@ class RestockSubscriptionAdmin(admin.ModelAdmin):
         )
 
     @admin.action(
+        permissions=['change'],
         description='Поставити повідомлення в чергу',
         description_plural='Поставити вибрані повідомлення в чергу',
         location=(
@@ -96,6 +97,7 @@ class RestockSubscriptionAdmin(admin.ModelAdmin):
         )
 
     @admin.action(
+        permissions=['change'],
         description='Закрити заявку',
         description_plural='Закрити вибрані заявки',
         location=(
@@ -114,6 +116,7 @@ class RestockSubscriptionAdmin(admin.ModelAdmin):
         self._action_message(request, f'Закрито заявок: {closed}.')
 
     @admin.action(
+        permissions=['change'],
         description='Повторно відкрити заявку',
         description_plural='Повторно відкрити вибрані заявки',
         location=(
