@@ -28,6 +28,7 @@ from management.management.commands.run_instagram_bot import (
     HB_KEY,
     MANAGE_PY_PATH,
     PROJECT_ROOT,
+    RELOAD_LOCK_WAIT_SECONDS,
     Command,
     _daemon_alive,
     _ai_reply_recovery_worker,
@@ -297,13 +298,39 @@ print(json.dumps({
 
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
+    @patch("management.management.commands.run_instagram_bot._daemon_alive", return_value=True)
     @patch("management.management.commands.run_instagram_bot._daemon_code_current", return_value=True)
-    def test_ensure_does_not_spawn_over_current_process_lock(self, _current, _held, popen):
+    def test_ensure_does_not_spawn_over_current_process_lock(self, _current, _alive, _held, popen):
         command = Command()
         with patch.object(command, "stdout") as stdout:
             command._ensure()
         popen.assert_not_called()
         stdout.write.assert_called_with("daemon alive — ok")
+
+    @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
+    @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
+    @patch("management.management.commands.run_instagram_bot._daemon_alive", return_value=False)
+    @patch("management.management.commands.run_instagram_bot._daemon_code_current", return_value=True)
+    def test_ensure_restarts_when_current_code_has_stale_heartbeat(
+        self, _current, _alive, _held, wait, popen
+    ):
+        command = Command()
+
+        with patch.object(command, "stdout"):
+            command._ensure()
+
+        self.assertEqual(wait.call_args_list[0].args, (DAEMON_LOCK_FILE,))
+        self.assertEqual(wait.call_args_list[0].kwargs, {
+            "held": False,
+            "timeout": RELOAD_LOCK_WAIT_SECONDS,
+        })
+        self.assertEqual(wait.call_args_list[1].args, (DAEMON_LOCK_FILE,))
+        self.assertEqual(wait.call_args_list[1].kwargs, {
+            "held": True,
+            "timeout": DAEMON_START_WAIT_SECONDS,
+        })
+        popen.assert_called_once()
 
     def test_process_lock_is_exclusive_across_real_processes(self):
         with tempfile.TemporaryDirectory() as temp_dir:

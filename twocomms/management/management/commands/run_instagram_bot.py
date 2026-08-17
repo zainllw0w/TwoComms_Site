@@ -570,7 +570,11 @@ class Command(BaseCommand):
                 self.stdout.write("maintenance active — watchdog skip")
                 return
             if _process_lock_held(DAEMON_LOCK_FILE):
-                if _daemon_code_current():
+                # A held singleton lock only proves that a process exists. A
+                # hung worker can keep the lock while its heartbeat is stale;
+                # let the bounded reload path recover it instead of reporting
+                # a false healthy daemon to cron.
+                if _daemon_code_current() and _daemon_alive():
                     self.stdout.write("daemon alive — ok")
                     return
                 # Old code sees restart.txt and exits within at most one idle
