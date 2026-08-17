@@ -15,12 +15,13 @@ from itertools import product as option_product
 
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError
+from django.db.models import Prefetch
 from django.shortcuts import render, get_object_or_404
 from django.http import Http404, HttpResponsePermanentRedirect, JsonResponse
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from ..models import Product
+from ..models import CatalogOption, CatalogOptionValue, Product
 from ..services.catalog_helpers import (
     build_product_image_alt,
     get_active_fit_options,
@@ -383,7 +384,27 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         Product.objects.select_related('category', 'catalog', 'size_grid', 'size_grid__catalog').prefetch_related(
             'images',
             'catalog__size_grids',
-            'catalog__options__values',
+            Prefetch(
+                'catalog__options',
+                queryset=(
+                    CatalogOption.objects
+                    # ``additional_cost`` is a legacy DecimalField that is
+                    # not part of the public size-selector contract. Avoid
+                    # fetching it on every PDP request: under the affected
+                    # MariaDB connector it is the first DECIMAL converter
+                    # touched by this otherwise integer/string path.
+                    .only('id', 'catalog_id', 'option_type', 'order')
+                    .prefetch_related(
+                        Prefetch(
+                            'values',
+                            queryset=CatalogOptionValue.objects.only(
+                                'id', 'option_id', 'value', 'display_name', 'order'
+                            ).order_by('order', 'id'),
+                        )
+                    )
+                    .order_by('order', 'id')
+                ),
+            ),
             'fit_options',
             'faqs',
             'audience_assignments__tag',

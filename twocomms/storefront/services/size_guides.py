@@ -206,6 +206,9 @@ def _resolve_catalog_size_option(product):
 
     return (
         catalog.options.filter(option_type=CatalogOption.OptionType.SIZE)
+        # The public resolver only needs identity, type and ordering. Keep
+        # the legacy DecimalField (additional_cost) out of this read path.
+        .only("id", "catalog_id", "option_type", "order")
         .order_by("order", "id")
         .first()
     )

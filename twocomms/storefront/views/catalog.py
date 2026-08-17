@@ -17,7 +17,8 @@ from urllib.parse import urlencode
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
 from django.core.paginator import Paginator, EmptyPage, InvalidPage
-from django.db.models import Case, Count, ExpressionWrapper, F, IntegerField, Min, Prefetch, Q, Value, When
+from django.db.models import Case, Count, F, IntegerField, Min, Prefetch, Q, Value, When
+from django.db.models.functions import Cast
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.translation import get_language
@@ -731,7 +732,10 @@ def _apply_smart_selector_sort(product_queryset, selected_sort):
     if selected_sort not in ('price-asc', 'price-desc'):
         return product_queryset
 
-    discounted_price = ExpressionWrapper(
+    # MariaDB returns raw division as DECIMAL even when Django's
+    # ``output_field`` is IntegerField. Cast at SQL level so the cursor
+    # metadata is integer too; this preserves Product.final_price truncation.
+    discounted_price = Cast(
         F('price') * (Value(100) - F('discount_percent')) / Value(100),
         output_field=IntegerField(),
     )

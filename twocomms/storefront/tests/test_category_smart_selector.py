@@ -19,6 +19,7 @@ from product_catalog.models import (
     VariantSizeRule,
 )
 from storefront.models import Category, CategoryColorLanding, Product, ProductFitOption
+from storefront.views.catalog import _apply_smart_selector_sort
 
 
 class SmartSelectorCategoryTests(TestCase):
@@ -874,6 +875,24 @@ class SmartSelectorCategoryTests(TestCase):
             ascending,
             'data-next-page-url="?sort=price-asc&amp;page=2"',
         )
+
+    def test_price_sort_casts_mariadb_division_to_integer_in_sql(self):
+        product = self.create_product(
+            category=self.tshirts,
+            slug="casted-price-sort",
+            price=1800,
+            discount_percent=50,
+        )
+
+        query = _apply_smart_selector_sort(
+            Product.objects.filter(pk=product.pk),
+            "price-asc",
+        )
+
+        # ``output_field=IntegerField`` alone does not change MariaDB's
+        # DECIMAL result metadata for ``/ 100``. The SQL CAST is the contract
+        # that prevents the DECIMAL connector path from being exercised.
+        self.assertIn("CAST(", str(query.query).upper())
 
     def test_price_sort_uses_visible_variant_minimum_before_pagination(self):
         base_cheapest = self.create_product(

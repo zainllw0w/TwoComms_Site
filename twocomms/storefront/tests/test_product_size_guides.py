@@ -1,6 +1,9 @@
+from decimal import Decimal
 from unittest.mock import patch
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from storefront.models import (
@@ -129,6 +132,41 @@ class ProductSizeGuideResolverTests(TestCase):
         self.assertEqual(size_context["sizes"], ["S", "M", "L", "XL", "XXL"])
         self.assertEqual(size_context["selected_size"], "XXL")
         self.assertEqual(size_context["display_labels"]["XXL"], "2XL")
+
+    def test_catalog_size_option_projection_does_not_read_legacy_decimal_surcharge(self):
+        option = CatalogOption.objects.create(
+            catalog=self.tshirt_catalog,
+            name="Розмір",
+            option_type=CatalogOption.OptionType.SIZE,
+            additional_cost=Decimal("17.25"),
+            order=0,
+        )
+        CatalogOptionValue.objects.create(
+            option=option,
+            value="M",
+            display_name="M",
+            order=0,
+        )
+        product = Product.objects.create(
+            title="Projection guard tee",
+            slug="projection-guard-tee",
+            category=self.tshirt_category,
+            catalog=self.tshirt_catalog,
+            price=1200,
+            status=ProductStatus.PUBLISHED,
+        )
+
+        with CaptureQueriesContext(connection) as captured:
+            context = resolve_product_size_context(product, requested_size="M")
+
+        option_sql = [
+            query["sql"].lower()
+            for query in captured.captured_queries
+            if CatalogOption._meta.db_table.lower() in query["sql"].lower()
+        ]
+        self.assertTrue(option_sql)
+        self.assertTrue(all("additional_cost" not in sql for sql in option_sql))
+        self.assertEqual(context["selected_size"], "M")
 
     def test_preset_detection_without_size_grid_falls_back_to_generic_guidance(self):
         product = Product.objects.create(

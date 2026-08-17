@@ -527,7 +527,13 @@ def build_size_grid_comparison(product, variants=None, lang: str = "uk") -> list
         size_options = [
             option for option in (cached_options or [])
             if option.option_type == "size"
-        ] if cached_options is not None else catalog.options.filter(option_type="size").order_by("order", "id")
+        ] if cached_options is not None else (
+            catalog.options
+            .filter(option_type="size")
+            # Size-grid resolution never reads the option surcharge.
+            .only("id", "catalog_id", "option_type", "order")
+            .order_by("order", "id")
+        )
         if cached_options is not None:
             size_options.sort(key=lambda option: (option.order, option.id))
         size_option = size_options[0] if size_options else None
