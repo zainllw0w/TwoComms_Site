@@ -62,7 +62,9 @@ staff с одним `view_restocksubscription`. Исправление доба�
 - [x] 24 Python-файла diff `ORM-004..012`/`ADMIN-001` скомпилированы;
   вместе с ранее выпущенными `ORM-001..003` Stage 2 охватывает 28 уникальных
   Python-файлов.
-- [x] `git diff --check origin/main...HEAD`: clean.
+- [x] Immutable code-range `git diff --check
+  c8e6b13bd2d7cd72301a5031513e60adfb1fb639..505458e919064205113aeb9b88e2e471ac2488ef`:
+  clean; current documentation working-tree `git diff --check`: clean.
 - [x] Изменённых DTF paths: `0`.
 - [x] Production fetch-mode overrides: `0`.
 

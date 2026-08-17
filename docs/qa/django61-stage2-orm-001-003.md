@@ -34,18 +34,25 @@ commit `c8e6b13bd2d7cd72301a5031513e60adfb1fb639`.
 - [x] Migration drift: `No changes detected` через
   `test_settings_migrations_non_dtf`.
 - [x] Changed-file compilation и `git diff --check`: clean.
-- [x] Production SHA: `c8e6b13bd2d7cd72301a5031513e60adfb1fb639`.
-- [x] Production CPython `3.14.6`, Django `6.1`.
-- [x] Production check: только четыре ранее известные `DJ6-BASE-004` warnings.
-- [x] Storefront, management, storage и finance probes: HTTP `200`.
+- [x] Historical ORM-001..003 release SHA:
+  `c8e6b13bd2d7cd72301a5031513e60adfb1fb639`.
+- [x] Historical production runtime: CPython `3.14.6`, Django `6.1`.
+- [x] Historical production check: только четыре ранее известные
+  `DJ6-BASE-004` warnings.
+- [x] Historical storefront, management, storage и finance probes: HTTP `200`.
+- [x] Current combined Stage 2 release SHA:
+  `505458e919064205113aeb9b88e2e471ac2488ef`; current post-deploy matrix
+  прошла 10 non-DTF probes: 8 ожидаемых `200` и 2 ожидаемых `302` login redirects.
 
 ## MariaDB evidence и ограничение
 
 На 10 production заказах old/new payment projection имеют одинаковый
 `EXPLAIN`; меняется только выбранная колонка, access plan не ухудшен.
 
-Production `finance_consignmentitem` сейчас содержит `0` строк, поэтому live
-old/new `EXPLAIN` сообщает `Impossible WHERE noticed after reading const tables`.
+На исходном production read-only probe от 2026-08-16 `finance_consignmentitem`
+содержала `0` строк, поэтому live old/new `EXPLAIN` сообщал `Impossible WHERE
+noticed after reading const tables`. Это historical baseline, а не disposable
+fixture и не новый release proof.
 Data-bearing proof выполнен отдельно на disposable MariaDB `11.4.12` после
 полного migration graph и `ANALYZE TABLE`: 10 целевых consignment rows,
 1 non-consignment row и 500 rows другой компании.
@@ -61,3 +68,4 @@ Data-bearing proof выполнен отдельно на disposable MariaDB `11
 
 Live `EXPLAIN` следует повторить после появления production consignment rows,
 но data-bearing exit gate Stage 2 закрыт без использования production как fixture.
+Current release/runtime proof находится в `docs/qa/django61-stage2-completion-report.md`.
