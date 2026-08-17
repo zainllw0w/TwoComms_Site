@@ -956,6 +956,67 @@ class RestockVariantSaveAndAdminTests(TestCase):
                     expected_state[action_name],
                 )
 
+    def test_view_only_staff_cannot_forge_changelist_mutating_actions(self):
+        from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+        from django.contrib.auth.models import Permission
+        from django.urls import reverse
+
+        self.staff.user_permissions.add(Permission.objects.get(
+            content_type__app_label="storefront",
+            codename="view_restocksubscription",
+        ))
+        action_cases = (
+            (
+                "retry_notifications",
+                RestockSubscription.Status.FAILED,
+                RestockSubscription.Channel.EMAIL,
+                "retry-list@example.com",
+            ),
+            (
+                "close_subscriptions",
+                RestockSubscription.Status.ACTIVE,
+                RestockSubscription.Channel.PHONE,
+                "+380501112234",
+            ),
+            (
+                "reopen_subscriptions",
+                RestockSubscription.Status.CLOSED,
+                RestockSubscription.Channel.EMAIL,
+                "reopen-list@example.com",
+            ),
+        )
+        changelist_url = reverse(
+            "admin:storefront_restocksubscription_changelist"
+        )
+
+        with patch("storefront.services.restock.send_claimed_subscription") as send:
+            for index, (action_name, status, channel, contact) in enumerate(
+                action_cases
+            ):
+                subscription = RestockSubscription.objects.create(
+                    product=self.product,
+                    color_variant=self.variant,
+                    size=f"list-{index}",
+                    channel=channel,
+                    status=status,
+                    normalized_contact=contact,
+                    fingerprint=f"view-only-list-{action_name}",
+                    notification_attempts=8,
+                )
+
+                with self.subTest(action=action_name):
+                    self.client.post(changelist_url, {
+                        "action": action_name,
+                        "index": "0",
+                        ACTION_CHECKBOX_NAME: str(subscription.pk),
+                    })
+                    subscription.refresh_from_db()
+                    self.assertEqual(subscription.status, status)
+                    self.assertIsNone(subscription.next_attempt_at)
+                    self.assertEqual(subscription.notification_attempts, 8)
+
+            send.assert_not_called()
+
     def test_admin_changelist_auto_selects_product_without_n_plus_one(self):
         self.staff.is_superuser = True
         self.staff.save(update_fields=["is_superuser"])
