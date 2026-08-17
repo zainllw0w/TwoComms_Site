@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_instagram_bot_watchdog_cron.sh"
 BEGIN_MARKER = "# BEGIN TWOCOMMS INSTAGRAM BOT WATCHDOG"
 END_MARKER = "# END TWOCOMMS INSTAGRAM BOT WATCHDOG"
+LEGACY_MARKER = "# codex:instagram-bot-watchdog"
 
 
 class InstallInstagramBotWatchdogCronTests(unittest.TestCase):
@@ -103,3 +104,22 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         result = self._run("--install")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.crontab_file.read_bytes(), before)
+
+    def test_install_replaces_valid_legacy_marker_block(self):
+        legacy = (
+            f"* * * * * cd {self.django_root} && {self.python} manage.py "
+            "run_instagram_bot --ensure >> "
+            f"{self.django_root}/tmp/ig_bot_cron.log 2>&1"
+        )
+        self.crontab_file.write_text(
+            f"{LEGACY_MARKER}\n{legacy}\n",
+            encoding="utf-8",
+        )
+
+        result = self._run("--install")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        content = self.crontab_file.read_text(encoding="utf-8")
+        self.assertEqual(content.count(BEGIN_MARKER), 1)
+        self.assertEqual(content.count(LEGACY_MARKER), 1)
+        self.assertNotIn(f"{LEGACY_MARKER}\n{legacy}", content)

@@ -59,6 +59,10 @@ legacy_line_count="$(grep -Fxc "$legacy_line" "$current" || true)"
   echo "[instagram-watchdog-cron] ERROR: duplicate legacy watchdog lines" >&2
   exit 65
 }
+if [ "$begin_count" -eq 1 ] && [ "$legacy_line_count" -ne 0 ]; then
+  echo "[instagram-watchdog-cron] ERROR: legacy watchdog line coexists with managed block" >&2
+  exit 65
+fi
 if [ "$begin_count" -eq 1 ] && [ "$legacy_marker_count" -ne 1 ]; then
   echo "[instagram-watchdog-cron] ERROR: managed block must contain exactly one job marker" >&2
   exit 65
@@ -66,6 +70,13 @@ fi
 if [ "$begin_count" -eq 0 ] && [ "$legacy_marker_count" -gt 1 ]; then
   echo "[instagram-watchdog-cron] ERROR: duplicate legacy job markers" >&2
   exit 65
+fi
+if [ "$begin_count" -eq 0 ] && [ "$legacy_marker_count" -eq 1 ]; then
+  legacy_marker_command="$(awk -v marker="$LEGACY_MARKER" '$0 == marker { getline; print; exit }' "$current")"
+  [ "$legacy_marker_command" = "$legacy_line" ] || {
+    echo "[instagram-watchdog-cron] ERROR: legacy marker is followed by an unknown command" >&2
+    exit 65
+  }
 fi
 
 if [ "$mode" = "--check" ]; then
@@ -99,6 +110,12 @@ while IFS= read -r line || [ -n "$line" ]; do
   if [ "$begin_count" -eq 0 ] && [ "$line" = "$legacy_line" ]; then
     cat "$expected" >> "$candidate"
     inserted=1
+    continue
+  fi
+  if [ "$begin_count" -eq 0 ] && [ "$line" = "$LEGACY_MARKER" ]; then
+    cat "$expected" >> "$candidate"
+    inserted=1
+    skip_legacy_command=1
     continue
   fi
   printf '%s\n' "$line" >> "$candidate"
