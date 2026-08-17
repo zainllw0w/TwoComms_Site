@@ -48,6 +48,9 @@ class FakeRunner:
             )
             (worktree / "twocomms" / "manage.py").write_text("", encoding="utf-8")
             (worktree / "scripts" / "verify_locked_requirements.py").write_text("", encoding="utf-8")
+            (worktree / "scripts" / "verify_production_database.py").write_text(
+                "", encoding="utf-8"
+            )
         if "-m" in command and "venv" in command:
             venv = Path(command[-1])
             bin_dir = venv / "bin"
@@ -168,6 +171,13 @@ class StagedReleaseTests(unittest.TestCase):
         self.assertFalse(any(call[:2] == ("git", "fetch") for call in self.runner.calls))
         self.assertFalse(self.release_root.exists())
 
+    def test_default_reviewed_lock_digest_matches_repository_lock(self):
+        repository_root = Path(deploy_release.__file__).resolve().parents[1]
+        requirements = repository_root / "twocomms" / "requirements.lock"
+        expected = hashlib.sha256(requirements.read_bytes()).hexdigest()
+
+        self.assertEqual(deploy_release.REVIEWED_LOCK_SHA256, expected)
+
     def test_target_must_be_origin_main_and_fast_forward_of_live_sha(self):
         self._manifest()
         self.runner.outputs[("git", "rev-parse", "origin/main")] = f"{'c' * 40}\n"
@@ -237,6 +247,45 @@ class StagedReleaseTests(unittest.TestCase):
         self.assertNotIn("PYTHONPATH", environment)
         self.assertNotIn("__PYVENV_LAUNCHER__", environment)
         self.assertEqual(environment["PATH"], "/usr/bin")
+
+    def test_staged_environment_removes_inherited_mariadb_preload(self):
+        environment = deploy_release._staged_environment(
+            self.config,
+            self.release_root / "static" / self.target_sha,
+            {"LD_PRELOAD": "/tmp/unreviewed-client.so"},
+        )
+
+        self.assertNotIn("LD_PRELOAD", environment)
+
+    def test_maintenance_environment_removes_inherited_mariadb_preload(self):
+        with patch.dict(os.environ, {"LD_PRELOAD": "/tmp/unreviewed-client.so"}):
+            environment = deploy_release._maintenance_environment(self.config)
+
+        self.assertNotIn("LD_PRELOAD", environment)
+
+    def test_prepare_runs_typed_database_probe_before_django_checks(self):
+        self._manifest()
+
+        deploy_release.prepare(self.config, self.target_sha, run=self.runner)
+
+        probes = [
+            command
+            for command in self.runner.calls
+            if any(part.endswith("verify_production_database.py") for part in command)
+        ]
+        self.assertEqual(len(probes), 1)
+        probe = probes[0]
+        self.assertEqual(
+            probe[probe.index("--iterations") + 1],
+            str(self.config.database_probe_iterations),
+        )
+        self.assertNotIn("LD_PRELOAD", self.runner.environments[probe])
+        deploy_check = next(
+            command for command in self.runner.calls if "check" in command and "--deploy" in command
+        )
+        migration_check = next(command for command in self.runner.calls if "migrate" in command)
+        self.assertLess(self.runner.calls.index(probe), self.runner.calls.index(deploy_check))
+        self.assertLess(self.runner.calls.index(probe), self.runner.calls.index(migration_check))
 
     def test_install_uses_manifest_bound_install_lock(self):
         self._manifest()
@@ -828,6 +877,9 @@ class SwitchTests(unittest.TestCase):
         (self.live / "requirements.lock").write_bytes(b"locked\n")
         (self.live / "scripts").mkdir()
         (self.live / "scripts" / "verify_locked_requirements.py").write_text("", encoding="utf-8")
+        (self.live / "scripts" / "verify_production_database.py").write_text(
+            "", encoding="utf-8"
+        )
         self.release_root = root / "releases"
         self.active_venv = root / "3.14"
         self.active_static = root / "active-static"
@@ -900,6 +952,50 @@ class SwitchTests(unittest.TestCase):
             deploy_release.ReleaseConfig().bot_health_url,
             "https://management.twocomms.shop/bot/health/",
         )
+
+    def test_post_start_database_probe_keeps_loader_environment_clean(self):
+        runner = SwitchRunner(self.config)
+        runner.prepared_worktree = self.worktree
+
+        with patch.dict(os.environ, {"LD_PRELOAD": "/tmp/inherited-client.so"}):
+            deploy_release.switch(self.config, self.prepared, run=runner)
+
+        probes = [
+            command
+            for command in runner.calls
+            if any(part.endswith("verify_production_database.py") for part in command)
+        ]
+        self.assertEqual(len(probes), 3)
+        for probe in probes:
+            self.assertNotIn("LD_PRELOAD", runner.environments[probe])
+            self.assertEqual(
+                probe[probe.index("--iterations") + 1],
+                str(self.config.database_probe_iterations),
+            )
+
+    def test_active_database_probe_runs_before_passenger_start(self):
+        runner = SwitchRunner(self.config)
+        runner.prepared_worktree = self.worktree
+
+        deploy_release.switch(self.config, self.prepared, run=runner)
+
+        first_probe_index = next(
+            index
+            for index, command in enumerate(runner.calls)
+            if any(part.endswith("verify_production_database.py") for part in command)
+        )
+        merge_index = next(
+            index
+            for index, command in enumerate(runner.calls)
+            if command[:3] == ("git", "merge", "--ff-only")
+        )
+        start_index = next(
+            index
+            for index, command in enumerate(runner.calls)
+            if command[:2] == ("cloudlinux-selector", "start")
+        )
+        self.assertLess(merge_index, first_probe_index)
+        self.assertLess(first_probe_index, start_index)
 
     def test_cloudlinux_lifecycle_commands_request_json_mode(self):
         for action in ("stop", "start"):

@@ -33,7 +33,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 HEX_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 LEASE_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 LEASE_RECEIPT_RE = re.compile(r"(?:^|\s)lease_id=([A-Za-z0-9._:-]{1,128})(?:\s|$)")
-REVIEWED_LOCK_SHA256 = "e7d03c919785fe20991a3b27d3228d50ffeafda6a8abbfd36419007f267bd575"
+REVIEWED_LOCK_SHA256 = "b14d7a834c815ce4fff8fa08f784323fb506063990520a46020fbbf1bf5eaad0"
 MAX_MAINTENANCE_WAIT_SECONDS = 300
 MAINTENANCE_TIMEOUT_GRACE_SECONDS = 15
 LIVE_BRANCH = "main"
@@ -93,6 +93,7 @@ class ReleaseConfig:
     system_python: Path = Path("/opt/alt/python314/bin/python3.14")
     cloudlinux_python_wrapper: Path = Path("/usr/share/l.v.e-manager/utils/python_wrapper")
     cloudlinux_set_env_helper: Path = Path("/usr/share/l.v.e-manager/utils/set_env_vars.py")
+    database_probe_iterations: int = 100
     deploy_lock: Path = Path("/home/qlknpodo/TWC/TwoComms_Site/releases/deploy.lock")
     evidence_root: Path = Path("/home/qlknpodo/TWC/TwoComms_Site/releases/evidence")
     wheelhouse_root: Path = Path("/home/qlknpodo/TWC/TwoComms_Site/releases/wheelhouse")
@@ -320,6 +321,10 @@ def _staged_environment(
     command_env["DJANGO_SETTINGS_MODULE"] = "twocomms.production_settings"
     command_env["DJANGO_ENV"] = "production"
     command_env["TWC_RELEASE_STATIC_ROOT"] = os.fspath(static_root)
+    # The release wheel carries its own hash-pinned Connector/C.  Inheriting
+    # or injecting CloudLinux's system provider would load two libmariadb
+    # implementations into one worker and reintroduce MySQLdb 2006 failures.
+    command_env.pop("LD_PRELOAD", None)
     return command_env
 
 
@@ -623,6 +628,20 @@ def prepare(
         manage = worktree / "twocomms" / "manage.py"
         if not manage.is_file():
             manage = worktree / "manage.py"
+        database_probe = _database_probe_path(worktree)
+        _run(
+            run,
+            (
+                str(python),
+                os.fspath(database_probe),
+                "--iterations",
+                str(_database_probe_iterations(config)),
+            ),
+            cwd=worktree,
+            env=command_env,
+            label="typed production database probe",
+            timeout=config.command_timeout_seconds,
+        )
         _run(
             run,
             (str(python), str(manage), "test", "--settings=test_settings", "management.tests_dependency_runtime"),
@@ -748,6 +767,7 @@ def _maintenance_environment(config: ReleaseConfig) -> dict[str, str]:
             "TWC_IG_RUNTIME_ROOT": os.fspath(_runtime_root(config)),
         }
     )
+    environment.pop("LD_PRELOAD", None)
     return environment
 
 
@@ -1288,6 +1308,44 @@ def _verifier_path(checkout: Path) -> Path:
     return direct if direct.is_file() else checkout.parent / "scripts" / "verify_locked_requirements.py"
 
 
+def _database_probe_path(checkout: Path) -> Path:
+    probe = checkout / "scripts" / "verify_production_database.py"
+    if probe.is_symlink() or not probe.is_file():
+        raise ReleaseError("production database probe is missing")
+    return probe
+
+
+def _database_probe_iterations(config: ReleaseConfig) -> int:
+    value = config.database_probe_iterations
+    if not isinstance(value, int) or isinstance(value, bool) or not (1 <= value <= 1000):
+        raise ReleaseError("database probe iterations must be between 1 and 1000")
+    return value
+
+
+def _cloudlinux_probe_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    environment.pop("LD_PRELOAD", None)
+    environment["DJANGO_SETTINGS_MODULE"] = "twocomms.production_settings"
+    environment["DJANGO_ENV"] = "production"
+    return environment
+
+
+def _run_active_database_probe(config: ReleaseConfig, *, run: Runner) -> None:
+    _run(
+        run,
+        (
+            os.fspath(config.active_venv / "bin" / "python"),
+            os.fspath(_database_probe_path(config.live_checkout)),
+            "--iterations",
+            str(_database_probe_iterations(config)),
+        ),
+        cwd=config.live_checkout,
+        env=_cloudlinux_probe_environment(),
+        label="active production database probe",
+        timeout=config.command_timeout_seconds,
+    )
+
+
 def _http_health_command(
     config: ReleaseConfig,
     url: str,
@@ -1357,6 +1415,7 @@ def _verify_release_health(
         label="active lock verification",
         timeout=config.command_timeout_seconds,
     )
+    _run_active_database_probe(config, run=run)
     _run(
         run,
         (os.fspath(python), os.fspath(manage), "check", "--deploy"),
@@ -1553,6 +1612,7 @@ def switch(
         switched_paths.append(
             _atomic_switch_path(config.active_static, static_root, retained_root / "static")
         )
+        _run_active_database_probe(config, run=run)
         failure_phase = "passenger_start"
         start_attempted = True
         _start_passenger(

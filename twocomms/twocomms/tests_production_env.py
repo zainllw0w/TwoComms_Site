@@ -18,6 +18,9 @@ class ProductionEnvironmentLoadingTests(SimpleTestCase):
                 "DJANGO_SETTINGS_MODULE": "twocomms.production_settings",
                 "SECRET_KEY": "test-secret",
                 "TWC_RELEASE_STATIC_ROOT": static_root,
+                "DB_ENGINE": "mysql",
+                "DB_NAME": "test_database",
+                "DB_USER": "test_user",
             }
         )
         env.pop("DJANGO_ENV_FILE", None)
@@ -58,6 +61,9 @@ class ProductionEnvironmentLoadingTests(SimpleTestCase):
                 {
                     "DJANGO_ENV_FILE": str(env_path),
                     "IG_APP_SECRET": "secret-from-cpanel",
+                    "DB_ENGINE": "mysql",
+                    "DB_NAME": "test_database",
+                    "DB_USER": "test_user",
                 },
                 clear=True,
             ):
@@ -100,3 +106,154 @@ class ProductionEnvironmentLoadingTests(SimpleTestCase):
                 result = self._load_production_static_settings(unsafe_root)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("TWC_RELEASE_STATIC_ROOT", result.stderr)
+
+    def test_selected_production_env_without_database_fails_closed(self):
+        django_root = Path(__file__).resolve().parents[1]
+        with TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env.production"
+            env_path.write_text("SECRET_KEY=test-secret\n", encoding="utf-8")
+            env = os.environ.copy()
+            env.update(
+                {
+                    "DJANGO_SETTINGS_MODULE": "twocomms.production_settings",
+                    "DJANGO_ENV": "production",
+                    "DJANGO_ENV_FILE": str(env_path),
+                    "SECRET_KEY": "test-secret",
+                }
+            )
+            for key in (
+                "DB_ENGINE",
+                "DB_NAME",
+                "DB_USER",
+                "DB_PASSWORD",
+                "DB_HOST",
+                "DB_PORT",
+            ):
+                env.pop(key, None)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "from django.conf import settings; "
+                        "print(settings.DATABASES['default']['ENGINE'])"
+                    ),
+                ],
+                cwd=django_root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("production database", result.stderr.lower())
+
+    def test_production_settings_module_without_env_file_fails_closed(self):
+        django_root = Path(__file__).resolve().parents[1]
+        env = os.environ.copy()
+        env.update(
+            {
+                "DJANGO_SETTINGS_MODULE": "twocomms.production_settings",
+                "DJANGO_ENV_FILE": str(django_root / "missing-production.env"),
+                "SECRET_KEY": "test-secret",
+            }
+        )
+        env.pop("DJANGO_ENV", None)
+        for key in ("DB_ENGINE", "DB_NAME", "DB_USER"):
+            env.pop(key, None)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from django.conf import settings; "
+                    "print(settings.DATABASES['default']['ENGINE'])"
+                ),
+            ],
+            cwd=django_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("production database", result.stderr.lower())
+
+    def test_production_sqlite_engine_is_rejected_even_with_database_names(self):
+        django_root = Path(__file__).resolve().parents[1]
+        with TemporaryDirectory() as temp_dir:
+            env_path = Path(temp_dir) / ".env.production"
+            env_path.write_text(
+                "DB_ENGINE=sqlite\nDB_NAME=/tmp/production.sqlite3\nDB_USER=ignored\n",
+                encoding="utf-8",
+            )
+            env = os.environ.copy()
+            env.update(
+                {
+                    "DJANGO_SETTINGS_MODULE": "twocomms.production_settings",
+                    "DJANGO_ENV": "production",
+                    "DJANGO_ENV_FILE": str(env_path),
+                    "SECRET_KEY": "test-secret",
+                }
+            )
+            for key in ("DB_ENGINE", "DB_NAME", "DB_USER"):
+                env.pop(key, None)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "from django.conf import settings; "
+                        "print(settings.DATABASES['default']['ENGINE'])"
+                    ),
+                ],
+                cwd=django_root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("mysql", result.stderr.lower())
+
+    def test_base_settings_module_in_production_fails_closed(self):
+        django_root = Path(__file__).resolve().parents[1]
+        env = os.environ.copy()
+        env.update(
+            {
+                "DJANGO_SETTINGS_MODULE": "twocomms.settings",
+                "DJANGO_ENV": "production",
+                "SECRET_KEY": "test-secret",
+            }
+        )
+        for key in ("DB_ENGINE", "DB_NAME", "DB_USER"):
+            env.pop(key, None)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from django.conf import settings; "
+                    "print(settings.DATABASES['default']['ENGINE'])"
+                ),
+            ],
+            cwd=django_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("production database", result.stderr.lower())

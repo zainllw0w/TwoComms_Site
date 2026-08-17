@@ -52,3 +52,21 @@ Three retained `/cart/` errors called a removed `storefront.views.process_guest_
 - Migration and static/compressor readiness are gates, not post-deploy repair.
 - All workers report the same revision after deployment.
 - Rollback is documented and rehearsed without destructive Git commands.
+
+## Runtime recovery safeguards (2026-08-17)
+
+The production recovery work adds the following gates to the release path:
+
+- production settings fail closed when the selected production environment does
+  not provide a MySQL/MariaDB database; SQLite is not an implicit fallback;
+- release preparation verifies the reviewed `requirements.lock` digest, the
+  immutable wheelhouse manifest, CloudLinux runtime bindings, and a typed
+  MariaDB probe before activation;
+- the `mysqlclient` artifact is built against the pinned MariaDB Connector/C
+  3.3.19 source and the wheel gate proves DECIMAL/CHAR/field metadata plus one
+  uniquely loaded bundled connector without `LD_PRELOAD`;
+- release pruning is dry-run by default, runs under the deploy lock, and
+  rejects both active venv and active static targets (including their parents
+  and descendants);
+- recovery and rollback preserve the authoritative MariaDB schema and data;
+  no database reset or destructive migration is part of this path.

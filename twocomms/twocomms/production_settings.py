@@ -5,6 +5,7 @@ Production settings for TwoComms project on PythonAnywhere.
 from pathlib import Path
 from urllib.parse import urlparse
 import os
+from django.core.exceptions import ImproperlyConfigured
 try:
     from dotenv import load_dotenv
 except Exception:
@@ -36,6 +37,29 @@ if not _loaded_env:
             load_dotenv(candidate, override=False)
             os.environ['DJANGO_ENV_FILE'] = str(candidate)
             break
+
+_selected_env_file = Path(os.environ.get('DJANGO_ENV_FILE', '')).name
+_production_context = (
+    str(globals().get('__name__', '')).endswith('.production_settings')
+    or os.environ.get('DJANGO_ENV', '').strip().lower() == 'production'
+    or _selected_env_file == '.env.production'
+)
+if _production_context:
+    _missing_database_settings = [
+        key
+        for key in ('DB_ENGINE', 'DB_NAME', 'DB_USER')
+        if not os.environ.get(key, '').strip()
+    ]
+    if _missing_database_settings:
+        raise ImproperlyConfigured(
+            'Production database is not configured; missing '
+            + ', '.join(_missing_database_settings)
+        )
+    if not os.environ.get('DB_ENGINE', '').strip().lower().startswith('mysql'):
+        raise ImproperlyConfigured(
+            'Production database must use the MySQL/MariaDB backend; '
+            'set DB_ENGINE=mysql'
+        )
 
 from .settings import *
 from .cache_headers import add_cache_headers, is_immutable_static_url
@@ -202,7 +226,8 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
 
 # Логирование наследуем из базовых настроек и используем ротацию файлов
 
-# База данных: выбираем по DB_ENGINE (mysql | postgresql), иначе SQLite как фолбэк
+# База данных: production_context выше обязан выбрать MariaDB/MySQL;
+# SQLite остаётся только для явно непроизводственных настроек.
 DB_ENGINE = os.environ.get('DB_ENGINE', '').lower()
 if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
     if DB_ENGINE.startswith('mysql'):

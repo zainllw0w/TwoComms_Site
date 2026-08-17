@@ -14,6 +14,8 @@ from pathlib import Path
 import os
 import warnings
 
+from django.core.exceptions import ImproperlyConfigured
+
 from .cache_headers import is_immutable_static_url
 
 # Build paths inside the project
@@ -683,6 +685,33 @@ DB_USER = os.environ.get('DB_USER')
 DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
 DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_PORT = os.environ.get('DB_PORT')
+
+_production_database_context = (
+    os.environ.get('DJANGO_ENV', '').strip().lower() == 'production'
+    or os.environ.get('DJANGO_SETTINGS_MODULE', '').rsplit('.', 1)[-1]
+    == 'production_settings'
+    or Path(os.environ.get('DJANGO_ENV_FILE', '')).name == '.env.production'
+)
+if _production_database_context:
+    _missing_database_settings = [
+        key
+        for key, value in (
+            ('DB_ENGINE', DB_ENGINE),
+            ('DB_NAME', DB_NAME),
+            ('DB_USER', DB_USER),
+        )
+        if not str(value or '').strip()
+    ]
+    if _missing_database_settings:
+        raise ImproperlyConfigured(
+            'Production database is not configured; missing '
+            + ', '.join(_missing_database_settings)
+        )
+    if not DB_ENGINE.startswith('mysql'):
+        raise ImproperlyConfigured(
+            'Production database must use the MySQL/MariaDB backend; '
+            'set DB_ENGINE=mysql'
+        )
 
 # Для локальной разработки используем SQLite, для продакшена - MySQL
 if DEBUG:

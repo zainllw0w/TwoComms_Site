@@ -14,9 +14,6 @@ from unittest.mock import patch
 from scripts import build_release_wheelhouse as builder
 from scripts.build_release_wheelhouse import (
     CFFI_SDIST_SHA256,
-    MARIADB_CONNECTOR_C_CONFIG_VERSION,
-    MARIADB_CONNECTOR_C_DEVEL_VERSION,
-    MARIADB_CONNECTOR_C_VERSION,
     MYSQLCLIENT_SDIST_SHA256,
     build_manifest,
     replace_package_hashes,
@@ -24,6 +21,21 @@ from scripts.build_release_wheelhouse import (
 
 
 class ReleaseWheelhouseTests(unittest.TestCase):
+    def test_connector_c_source_and_library_are_pinned_to_fixed_3319_artifact(self):
+        self.assertEqual(builder.MARIADB_CONNECTOR_C_VERSION, "3.3.19")
+        self.assertEqual(
+            builder.MARIADB_CONNECTOR_C_SOURCE_SHA256,
+            "672bec76cfbb2fdb46ad4f681cd1e63c80721d7a07316e5849dc63e69d6ecdf7",
+        )
+        self.assertEqual(
+            builder.MARIADB_CONNECTOR_C_LIBRARY_SHA256,
+            "5395b9398e16b3313ed3d799771ec33a4661beb91833648b457a0bfdb0fb36ee",
+        )
+        self.assertEqual(
+            builder.MARIADB_CONNECTOR_C_ROOT,
+            Path("/opt/mariadb-connector-c-3.3.19"),
+        )
+
     def test_cffi_install_hash_replaces_published_artifacts_without_version_drift(self):
         source_hash = CFFI_SDIST_SHA256
         wheel_hash = "a" * 64
@@ -170,24 +182,40 @@ class ReleaseWheelhouseTests(unittest.TestCase):
             def fake_tool_version(command):
                 if command[:3] == ["rpm", "-q", "libffi-devel"]:
                     return builder.EXPECTED_LIBFFI_DEVEL
-                if command[:3] == ["rpm", "-q", "mariadb-connector-c"]:
-                    return MARIADB_CONNECTOR_C_VERSION
-                if command[:3] == ["rpm", "-q", "mariadb-connector-c-devel"]:
-                    return MARIADB_CONNECTOR_C_DEVEL_VERSION
-                if command[:3] == ["rpm", "-q", "mariadb-connector-c-config"]:
-                    return MARIADB_CONNECTOR_C_CONFIG_VERSION
                 return "tool 1"
+
+            connector_evidence = {
+                "mariadb_connector_c_library_sha256": builder.MARIADB_CONNECTOR_C_LIBRARY_SHA256,
+                "mariadb_connector_c_soname": "libmariadb.so.3",
+                "mariadb_connector_c_source_sha256": builder.MARIADB_CONNECTOR_C_SOURCE_SHA256,
+                "mariadb_connector_c_source_url": builder.MARIADB_CONNECTOR_C_SOURCE_URL,
+                "mariadb_connector_c_version": "3.3.19",
+            }
+            bundled_evidence = {
+                "mysqlclient_bundled_library_name": "mysqlclient.libs/libmariadb-deadbeef.so.3",
+                "mysqlclient_bundled_library_sha256": "b" * 64,
+                "mysqlclient_bundled_library_soname": "libmariadb-deadbeef.so.3",
+            }
 
             with (
                 patch.object(builder, "_assert_builder_environment", return_value={}),
                 patch.object(builder, "_tool_version", side_effect=fake_tool_version),
+                patch.object(
+                    builder,
+                    "_validate_mariadb_connector_c",
+                    return_value=connector_evidence,
+                ) as validate_connector,
                 patch.object(builder, "_download_verified", side_effect=fake_download),
                 patch.object(builder, "_validate_cffi_source"),
                 patch.object(builder, "_build_cffi_once", return_value=cffi_wheel) as build_cffi,
                 patch.object(builder, "_validate_cffi_wheel"),
                 patch.object(builder, "_validate_mysqlclient_source"),
                 patch.object(builder, "_build_mysqlclient_once", return_value=mysqlclient_wheel) as build_mysqlclient,
-                patch.object(builder, "_validate_mysqlclient_wheel"),
+                patch.object(
+                    builder,
+                    "_validate_mysqlclient_wheel",
+                    return_value=bundled_evidence,
+                ),
                 patch.object(builder, "build_http_ece_main", return_value=0) as build_http_ece,
                 patch.object(builder, "_run", side_effect=fake_run),
             ):
@@ -201,6 +229,7 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                 )
 
             self.assertEqual(result, wheelhouse)
+            validate_connector.assert_called_once_with(builder.MARIADB_CONNECTOR_C_ROOT)
             self.assertEqual(build_cffi.call_count, 2)
             self.assertEqual(build_mysqlclient.call_count, 2)
             for call in build_cffi.call_args_list:
@@ -224,6 +253,141 @@ class ReleaseWheelhouseTests(unittest.TestCase):
             self.assertIn("verify-venv/bin/python", mysqlclient_smoke[0])
             self.assertIn("MySQLdb.version_info", mysqlclient_smoke[-1])
             self.assertTrue((wheelhouse / "manifest.sha256").is_file())
+            evidence = json.loads(
+                (wheelhouse / "builder-evidence.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(evidence["mariadb_connector_c_version"], "3.3.19")
+            self.assertEqual(
+                evidence["mariadb_connector_c_source_url"],
+                builder.MARIADB_CONNECTOR_C_SOURCE_URL,
+            )
+            self.assertEqual(
+                evidence["mysqlclient_bundled_library_sha256"],
+                "b" * 64,
+            )
+
+    def test_mysqlclient_build_uses_the_pinned_connector_tree(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sdist = root / "mysqlclient-2.2.8.tar.gz"
+            sdist.write_bytes(b"source")
+            (root / "build").mkdir()
+            environments: list[dict[str, str]] = []
+
+            def fake_run(command, *, cwd=None, env=None):
+                environments.append(dict(env or {}))
+                rendered = tuple(str(part) for part in command)
+                output = Path(rendered[rendered.index("--wheel-dir") + 1])
+                name = (
+                    "mysqlclient-2.2.8-cp314-cp314-manylinux_2_28_x86_64.whl"
+                    if "repair" in rendered
+                    else "mysqlclient-2.2.8-cp314-cp314-linux_x86_64.whl"
+                )
+                (output / name).write_bytes(b"wheel")
+
+            with (
+                patch.object(builder, "_run", side_effect=fake_run),
+                patch.object(builder, "_normalize_wheel"),
+            ):
+                builder._build_mysqlclient_once(
+                    root / "python",
+                    "auditwheel",
+                    sdist,
+                    root / "build",
+                    label="one",
+                )
+
+            build_env = environments[0]
+            self.assertEqual(
+                build_env["MYSQLCLIENT_CFLAGS"],
+                "-I/opt/mariadb-connector-c-3.3.19/include/mariadb",
+            )
+            self.assertEqual(
+                build_env["MYSQLCLIENT_LDFLAGS"],
+                "-L/opt/mariadb-connector-c-3.3.19/lib/mariadb -lmariadb",
+            )
+
+    def test_connector_tree_validation_records_version_hash_and_soname(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            include = root / "include" / "mariadb"
+            library_dir = root / "lib" / "mariadb"
+            include.mkdir(parents=True)
+            library_dir.mkdir(parents=True)
+            (include / "mariadb_version.h").write_text(
+                '#define MARIADB_PACKAGE_VERSION "3.3.19"\n',
+                encoding="utf-8",
+            )
+            library = library_dir / "libmariadb.so.3"
+            library.write_bytes(b"pinned connector")
+            archive = root / "connector.tar.gz"
+            archive.write_bytes(b"pinned source")
+
+            with (
+                patch.object(
+                    builder,
+                    "sha256",
+                    side_effect=lambda path: (
+                        builder.MARIADB_CONNECTOR_C_SOURCE_SHA256
+                        if Path(path) == archive
+                        else builder.MARIADB_CONNECTOR_C_LIBRARY_SHA256
+                    ),
+                ),
+                patch.object(builder, "_read_elf_soname", return_value="libmariadb.so.3"),
+            ):
+                evidence = builder._validate_mariadb_connector_c(
+                    root,
+                    source_archive=archive,
+                )
+
+            self.assertEqual(evidence["mariadb_connector_c_version"], "3.3.19")
+            self.assertEqual(
+                evidence["mariadb_connector_c_library_sha256"],
+                builder.MARIADB_CONNECTOR_C_LIBRARY_SHA256,
+            )
+            self.assertEqual(evidence["mariadb_connector_c_soname"], "libmariadb.so.3")
+
+    def test_mysqlclient_wheel_records_one_bundled_mariadb_library(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wheel = Path(directory) / (
+                "mysqlclient-2.2.8-cp314-cp314-manylinux_2_28_x86_64.whl"
+            )
+            bundled_name = "mysqlclient.libs/libmariadb-deadbeef.so.3"
+            with zipfile.ZipFile(wheel, "w") as archive:
+                archive.writestr(
+                    "mysqlclient-2.2.8.dist-info/METADATA",
+                    "Name: mysqlclient\nVersion: 2.2.8\n",
+                )
+                archive.writestr(
+                    "mysqlclient-2.2.8.dist-info/WHEEL",
+                    "Tag: cp314-cp314-manylinux_2_28_x86_64\n",
+                )
+                archive.writestr(
+                    "MySQLdb/_mysql.cpython-314-x86_64-linux-gnu.so",
+                    b"binary",
+                )
+                archive.writestr(bundled_name, b"bundled connector")
+
+            with patch.object(
+                builder,
+                "_read_wheel_elf_soname",
+                return_value="libmariadb-deadbeef.so.3",
+            ), patch.object(
+                builder,
+                "_read_wheel_elf_dynamic",
+                return_value=(None, ("libmariadb-deadbeef.so.3",)),
+            ):
+                evidence = builder._validate_mysqlclient_wheel(wheel)
+
+            self.assertEqual(evidence["mysqlclient_bundled_library_name"], bundled_name)
+            self.assertEqual(
+                evidence["mysqlclient_bundled_library_sha256"],
+                hashlib.sha256(b"bundled connector").hexdigest(),
+            )
+            self.assertEqual(
+                evidence["mysqlclient_bundled_library_soname"],
+                "libmariadb-deadbeef.so.3",
+            )
 
     def test_cffi_validator_accepts_auditwheel_dual_platform_tag(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -263,8 +427,28 @@ class ReleaseWheelhouseTests(unittest.TestCase):
                     "MySQLdb/_mysql.cpython-314-x86_64-linux-gnu.so",
                     b"binary",
                 )
+                archive.writestr(
+                    "mysqlclient.libs/libmariadb-deadbeef.so.3",
+                    b"bundled connector",
+                )
 
-            builder._validate_mysqlclient_wheel(wheel)
+            with (
+                patch.object(
+                    builder,
+                    "_read_wheel_elf_soname",
+                    return_value="libmariadb-deadbeef.so.3",
+                ),
+                patch.object(
+                    builder,
+                    "_read_wheel_elf_dynamic",
+                    return_value=(None, ("libmariadb-deadbeef.so.3",)),
+                ),
+            ):
+                evidence = builder._validate_mysqlclient_wheel(wheel)
+            self.assertEqual(
+                evidence["mysqlclient_bundled_library_name"],
+                "mysqlclient.libs/libmariadb-deadbeef.so.3",
+            )
 
     def test_auditwheel_output_normalization_removes_archive_nondeterminism(self):
         with tempfile.TemporaryDirectory() as directory:

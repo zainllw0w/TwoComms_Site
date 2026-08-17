@@ -6,6 +6,7 @@ on:
     paths:
       - "scripts/build_release_wheelhouse.py"
       - "scripts/build_http_ece_wheel.py"
+      - "scripts/verify_mysqlclient_wheel_runtime.py"
       - "scripts/verify_locked_requirements.py"
       - "twocomms/requirements.lock"
       - ".github/workflows/immutable-release-wheelhouse.yml"
@@ -20,6 +21,20 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: quay.io/pypa/manylinux_2_28_x86_64@sha256:fdb9a9c223b215604dc7b6f7e8fff4b39bfea5fbaa7777a2e5544a60dfa437f8
+    services:
+      mariadb:
+        image: mariadb:11.4.12@sha256:67873d30a17f6a9c331f06363b2fa15f38abca415529966d67c84f87f82439fe
+        env:
+          MARIADB_DATABASE: wheelhouse
+          MARIADB_USER: wheelhouse
+          MARIADB_PASSWORD: wheelhouse
+          MARIADB_ROOT_PASSWORD: wheelhouse-root
+          MARIADB_ROOT_HOST: "%"
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
     steps:
       - name: Check out the exact release revision
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -37,6 +52,7 @@ jobs:
           test "$("$python" -c 'import sysconfig; print(sysconfig.get_config_var("SOABI"))')" = "cpython-314-x86_64-linux-gnu"
           test "$(ldd --version 2>&1 | head -n 1)" = "ldd (GNU libc) 2.28"
           command -v auditwheel >/dev/null
+          command -v readelf >/dev/null
           auditwheel --version
 
       - name: Install hash-pinned libffi build headers
@@ -57,36 +73,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base_url="https://repo.almalinux.org/almalinux/8/AppStream/x86_64/os/Packages"
-          config_name="mariadb-connector-c-config-3.1.11-2.el8_3.noarch.rpm"
-          runtime_name="mariadb-connector-c-3.1.11-2.el8_3.x86_64.rpm"
-          devel_name="mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64.rpm"
-          config_path="/tmp/$config_name"
-          runtime_path="/tmp/$runtime_name"
-          devel_path="/tmp/$devel_name"
-          curl --fail --silent --show-error --location "$base_url/$config_name" --output "$config_path"
-          curl --fail --silent --show-error --location "$base_url/$runtime_name" --output "$runtime_path"
-          curl --fail --silent --show-error --location "$base_url/$devel_name" --output "$devel_path"
-          printf '%s  %s\n' \
-            'eca6eb7026bfbb5ff51825587af1376bd6bd957dea4ec89cc7e9971a32983b0f' "$config_path" \
-            '85c37e356ca0e8114acfbe5fd5043ce1a95c35354851cc91b4066104e11dd658' "$runtime_path" \
-            'e7f9b90bb970c95179842fce9edf84ec943bc19b4bdd7029645e05d1e6a2e295' "$devel_path" \
-            | sha256sum --check --strict -
-          rpm -Uvh --replacepkgs "$config_path" "$runtime_path"
-          # The manylinux runtime image deliberately omits openssl-devel,
-          # which is metadata-only for this C extension build. Keep the
-          # exception scoped to the verified development RPM; runtime package
-          # dependencies remain installed and checked normally.
-          rpm -Uvh --replacepkgs --nodeps "$devel_path"
-          ldconfig
-          test "$(rpm -q mariadb-connector-c-config)" = "mariadb-connector-c-config-3.1.11-2.el8_3.noarch"
-          test "$(rpm -q mariadb-connector-c)" = "mariadb-connector-c-3.1.11-2.el8_3.x86_64"
-          test "$(rpm -q mariadb-connector-c-devel)" = "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64"
-          test -f /etc/my.cnf
-          test -f /usr/include/mysql/mysql.h
-          test -f /usr/lib64/libmariadb.so.3
-          ldd_output="$(ldd /usr/lib64/libmariadb.so.3)"
+          connector_archive=/opt/mariadb-connector-c-3.3.19-rhel8-amd64.tar.gz
+          connector_root=/opt/mariadb-connector-c-3.3.19
+          connector_url="https://dlm.mariadb.com/4751094/Connectors/c/connector-c-3.3.19/mariadb-connector-c-3.3.19-rhel8-amd64.tar.gz"
+          connector_sha256=672bec76cfbb2fdb46ad4f681cd1e63c80721d7a07316e5849dc63e69d6ecdf7
+          connector_library_sha256=5395b9398e16b3313ed3d799771ec33a4661beb91833648b457a0bfdb0fb36ee
+          curl --fail --silent --show-error --location "$connector_url" --output "$connector_archive"
+          printf '%s  %s\n' "$connector_sha256" "$connector_archive" | sha256sum --check --strict -
+          test ! -e "$connector_root"
+          mkdir -m 0755 "$connector_root"
+          tar --extract --gzip --file "$connector_archive" --directory "$connector_root" --strip-components=1
+          connector_header="$connector_root/include/mariadb/mariadb_version.h"
+          connector_library="$connector_root/lib/mariadb/libmariadb.so.3"
+          test -f "$connector_header"
+          test -f "$connector_library"
+          grep -Fx '#define MARIADB_PACKAGE_VERSION "3.3.19"' "$connector_header"
+          printf '%s  %s\n' "$connector_library_sha256" "$connector_library" | sha256sum --check --strict -
+          test "$(readelf -d "$connector_library" | sed -n 's/.*SONAME.*\[\([^]]*\)\].*/\1/p')" = "libmariadb.so.3"
+          ldd_output="$(ldd "$connector_library")"
           if grep -F "not found" <<<"$ldd_output"; then
+            exit 1
+          fi
+          # The connector must retain TLS support in the immutable artifact;
+          # an import-only gate would allow a build linked without OpenSSL.
+          connector_needed="$(readelf -d "$connector_library")"
+          if ! grep -Eq 'Shared library: \[libssl[^]]*\.so' <<<"$connector_needed"; then
+            echo "TLS/OpenSSL libssl dependency is missing" >&2
+            exit 1
+          fi
+          if ! grep -Eq 'Shared library: \[libcrypto[^]]*\.so' <<<"$connector_needed"; then
+            echo "TLS/OpenSSL libcrypto dependency is missing" >&2
             exit 1
           fi
 
@@ -102,6 +118,32 @@ jobs:
             --python "$python" \
             --auditwheel auditwheel \
             --image-digest "sha256:fdb9a9c223b215604dc7b6f7e8fff4b39bfea5fbaa7777a2e5544a60dfa437f8"
+
+      - name: Run the bundled mysqlclient MariaDB gate
+        shell: bash
+        env:
+          MYSQLCLIENT_GATE_HOST: mariadb
+          MYSQLCLIENT_GATE_PORT: "3306"
+          MYSQLCLIENT_GATE_USER: wheelhouse
+          MYSQLCLIENT_GATE_PASSWORD: wheelhouse
+          MYSQLCLIENT_GATE_DATABASE: wheelhouse
+        run: |
+          set -euo pipefail
+          python=/opt/python/cp314-cp314/bin/python
+          artifact="wheelhouse/${{ github.sha }}"
+          gate_venv=/tmp/mysqlclient-wheel-gate
+          "$python" -m venv "$gate_venv"
+          "$gate_venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --no-index \
+            --find-links "$artifact" \
+            --only-binary :all: \
+            --require-hashes \
+            -r "$artifact/requirements.install.lock"
+          env -u LD_PRELOAD "$gate_venv/bin/python" scripts/verify_mysqlclient_wheel_runtime.py \
+            --evidence "$artifact/builder-evidence.json" \
+            --expected-server-version 11.4.12 \
+            --iterations 100
 
       - name: Assert artifact provenance
         shell: bash
@@ -139,12 +181,22 @@ jobs:
               raise SystemExit("builder image provenance mismatch")
           if evidence["libffi_devel"] != "libffi-devel-3.1-24.el8.x86_64":
               raise SystemExit("libffi build dependency provenance mismatch")
-          if evidence["mariadb_connector_c"] != "mariadb-connector-c-3.1.11-2.el8_3.x86_64":
-              raise SystemExit("MariaDB Connector/C provenance mismatch")
-          if evidence["mariadb_connector_c_devel"] != "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64":
-              raise SystemExit("MariaDB Connector/C development provenance mismatch")
-          if evidence["mariadb_connector_c_config"] != "mariadb-connector-c-config-3.1.11-2.el8_3.noarch":
-              raise SystemExit("MariaDB Connector/C configuration provenance mismatch")
+          if evidence["mariadb_connector_c_version"] != "3.3.19":
+              raise SystemExit("MariaDB Connector/C version provenance mismatch")
+          if evidence["mariadb_connector_c_source_sha256"] != "672bec76cfbb2fdb46ad4f681cd1e63c80721d7a07316e5849dc63e69d6ecdf7":
+              raise SystemExit("MariaDB Connector/C source provenance mismatch")
+          if evidence["mariadb_connector_c_source_url"] != "https://dlm.mariadb.com/4751094/Connectors/c/connector-c-3.3.19/mariadb-connector-c-3.3.19-rhel8-amd64.tar.gz":
+              raise SystemExit("MariaDB Connector/C source URL provenance mismatch")
+          if evidence["mariadb_connector_c_library_sha256"] != "5395b9398e16b3313ed3d799771ec33a4661beb91833648b457a0bfdb0fb36ee":
+              raise SystemExit("MariaDB Connector/C library provenance mismatch")
+          if evidence["mariadb_connector_c_soname"] != "libmariadb.so.3":
+              raise SystemExit("MariaDB Connector/C SONAME provenance mismatch")
+          if not re.fullmatch(r"mysqlclient\.libs/libmariadb-[0-9a-f]+\.so\.3", evidence["mysqlclient_bundled_library_name"]):
+              raise SystemExit("mysqlclient bundled library mapping mismatch")
+          if not re.fullmatch(r"[0-9a-f]{64}", evidence["mysqlclient_bundled_library_sha256"]):
+              raise SystemExit("mysqlclient bundled library hash mismatch")
+          if evidence["mysqlclient_bundled_library_soname"] != pathlib.PurePosixPath(evidence["mysqlclient_bundled_library_name"]).name:
+              raise SystemExit("mysqlclient bundled library SONAME mismatch")
           PY
 
       - name: Upload immutable wheelhouse artifact

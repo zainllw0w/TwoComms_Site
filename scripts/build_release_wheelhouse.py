@@ -56,9 +56,24 @@ MYSQLCLIENT_SDIST_URL = (
     "9df076488cb2e536d40ce6dbd4273c1f20a386e31ffe6e7cb613902b3c2a/"
     "mysqlclient-2.2.8.tar.gz"
 )
-MARIADB_CONNECTOR_C_VERSION = "mariadb-connector-c-3.1.11-2.el8_3.x86_64"
-MARIADB_CONNECTOR_C_DEVEL_VERSION = "mariadb-connector-c-devel-3.1.11-2.el8_3.x86_64"
-MARIADB_CONNECTOR_C_CONFIG_VERSION = "mariadb-connector-c-config-3.1.11-2.el8_3.noarch"
+MARIADB_CONNECTOR_C_VERSION = "3.3.19"
+MARIADB_CONNECTOR_C_SOURCE_URL = (
+    "https://dlm.mariadb.com/4751094/Connectors/c/connector-c-3.3.19/"
+    "mariadb-connector-c-3.3.19-rhel8-amd64.tar.gz"
+)
+MARIADB_CONNECTOR_C_SOURCE_SHA256 = (
+    "672bec76cfbb2fdb46ad4f681cd1e63c80721d7a07316e5849dc63e69d6ecdf7"
+)
+MARIADB_CONNECTOR_C_ARCHIVE = Path(
+    "/opt/mariadb-connector-c-3.3.19-rhel8-amd64.tar.gz"
+)
+MARIADB_CONNECTOR_C_ROOT = Path("/opt/mariadb-connector-c-3.3.19")
+MARIADB_CONNECTOR_C_INCLUDE = MARIADB_CONNECTOR_C_ROOT / "include" / "mariadb"
+MARIADB_CONNECTOR_C_LIBRARY = MARIADB_CONNECTOR_C_ROOT / "lib" / "mariadb" / "libmariadb.so.3"
+MARIADB_CONNECTOR_C_LIBRARY_SHA256 = (
+    "5395b9398e16b3313ed3d799771ec33a4661beb91833648b457a0bfdb0fb36ee"
+)
+MARIADB_CONNECTOR_C_SONAME = "libmariadb.so.3"
 SOURCE_DATE_EPOCH = 315532800
 EXPECTED_PYTHON = (3, 14, 6)
 EXPECTED_SOABI = "cpython-314-x86_64-linux-gnu"
@@ -468,8 +483,8 @@ def _build_mysqlclient_once(
             "CFLAGS": "-O2 -g0 -ffile-prefix-map=/tmp=.",
             "CXXFLAGS": "-O2 -g0 -ffile-prefix-map=/tmp=.",
             "LDFLAGS": "-Wl,--build-id=sha1",
-            "MYSQLCLIENT_CFLAGS": "-I/usr/include/mysql",
-            "MYSQLCLIENT_LDFLAGS": "-L/usr/lib64 -lmariadb",
+            "MYSQLCLIENT_CFLAGS": f"-I{MARIADB_CONNECTOR_C_INCLUDE}",
+            "MYSQLCLIENT_LDFLAGS": f"-L{MARIADB_CONNECTOR_C_LIBRARY.parent} -lmariadb",
             "PYTHONHASHSEED": "0",
             "SOURCE_DATE_EPOCH": str(SOURCE_DATE_EPOCH),
         }
@@ -513,7 +528,94 @@ def _build_mysqlclient_once(
     return wheel
 
 
-def _validate_mysqlclient_wheel(wheel: Path) -> None:
+def _read_elf_dynamic(path: Path) -> tuple[str | None, tuple[str, ...]]:
+    try:
+        result = subprocess.run(
+            ["readelf", "-d", os.fspath(path)],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        raise ValueError(f"ELF dynamic metadata is unreadable: {path}") from exc
+    soname = None
+    needed: list[str] = []
+    for line in result.stdout.splitlines():
+        if "(SONAME)" in line:
+            match = re.search(r"\[([^]]+)\]", line)
+            if match:
+                soname = match.group(1)
+        elif "(NEEDED)" in line:
+            match = re.search(r"\[([^]]+)\]", line)
+            if match:
+                needed.append(match.group(1))
+    return soname, tuple(needed)
+
+
+def _read_elf_soname(path: Path) -> str:
+    soname, _ = _read_elf_dynamic(path)
+    if not soname:
+        raise ValueError(f"ELF library has no SONAME: {path}")
+    return soname
+
+
+def _read_wheel_elf_dynamic(wheel: Path, member_name: str) -> tuple[str | None, tuple[str, ...]]:
+    with tempfile.TemporaryDirectory(prefix="wheel-elf-") as directory:
+        extracted = Path(directory) / Path(member_name).name
+        try:
+            with zipfile.ZipFile(wheel) as archive:
+                extracted.write_bytes(archive.read(member_name))
+        except (KeyError, OSError, zipfile.BadZipFile) as exc:
+            raise ValueError(f"wheel ELF member is unreadable: {member_name}") from exc
+        return _read_elf_dynamic(extracted)
+
+
+def _read_wheel_elf_soname(wheel: Path, member_name: str) -> str:
+    soname, _ = _read_wheel_elf_dynamic(wheel, member_name)
+    if not soname:
+        raise ValueError(f"wheel library has no SONAME: {member_name}")
+    return soname
+
+
+def _validate_mariadb_connector_c(
+    root: Path,
+    *,
+    source_archive: Path = MARIADB_CONNECTOR_C_ARCHIVE,
+) -> dict[str, str]:
+    root = Path(root)
+    archive = Path(source_archive)
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("MariaDB Connector/C root is not a regular directory")
+    if archive.is_symlink() or not archive.is_file():
+        raise ValueError("MariaDB Connector/C source archive is missing")
+    if sha256(archive) != MARIADB_CONNECTOR_C_SOURCE_SHA256:
+        raise ValueError("MariaDB Connector/C source archive hash mismatch")
+    header = root / "include" / "mariadb" / "mariadb_version.h"
+    library = root / "lib" / "mariadb" / "libmariadb.so.3"
+    if header.is_symlink() or not header.is_file():
+        raise ValueError("MariaDB Connector/C version header is missing")
+    if library.is_symlink() or not library.is_file():
+        raise ValueError("MariaDB Connector/C shared library is missing")
+    header_text = header.read_text(encoding="ascii")
+    if f'#define MARIADB_PACKAGE_VERSION "{MARIADB_CONNECTOR_C_VERSION}"' not in header_text:
+        raise ValueError("MariaDB Connector/C version header mismatch")
+    library_hash = sha256(library)
+    if library_hash != MARIADB_CONNECTOR_C_LIBRARY_SHA256:
+        raise ValueError("MariaDB Connector/C shared library hash mismatch")
+    soname = _read_elf_soname(library)
+    if soname != MARIADB_CONNECTOR_C_SONAME:
+        raise ValueError("MariaDB Connector/C shared library SONAME mismatch")
+    return {
+        "mariadb_connector_c_library_sha256": library_hash,
+        "mariadb_connector_c_soname": soname,
+        "mariadb_connector_c_source_sha256": MARIADB_CONNECTOR_C_SOURCE_SHA256,
+        "mariadb_connector_c_source_url": MARIADB_CONNECTOR_C_SOURCE_URL,
+        "mariadb_connector_c_version": MARIADB_CONNECTOR_C_VERSION,
+    }
+
+
+def _validate_mysqlclient_wheel(wheel: Path) -> dict[str, str]:
     prefix = f"mysqlclient-{MYSQLCLIENT_VERSION}-cp314-cp314-"
     platform_tags = (
         wheel.name[len(prefix) : -4].split(".")
@@ -533,12 +635,33 @@ def _validate_mysqlclient_wheel(wheel: Path) -> None:
                 for name in archive.namelist()
                 if Path(name).name.startswith("_mysql") and name.endswith(".so")
             ]
+            bundled_libraries = [
+                name
+                for name in archive.namelist()
+                if re.fullmatch(r"mysqlclient\.libs/libmariadb-[0-9a-f]+\.so\.3", name)
+            ]
     except (KeyError, OSError, UnicodeError, zipfile.BadZipFile) as exc:
         raise ValueError("mysqlclient wheel contents are invalid") from exc
     if metadata.get("Name", "").lower() != "mysqlclient" or metadata.get("Version") != MYSQLCLIENT_VERSION:
         raise ValueError("mysqlclient wheel metadata name/version mismatch")
     if f"Tag: cp314-cp314-{EXPECTED_PLATFORM}" not in wheel_metadata or len(extension_names) != 1:
         raise ValueError("mysqlclient wheel contents or tag are invalid")
+    if len(bundled_libraries) != 1:
+        raise ValueError("mysqlclient wheel must contain exactly one bundled MariaDB library")
+    bundled_name = bundled_libraries[0]
+    bundled_soname = _read_wheel_elf_soname(wheel, bundled_name)
+    if bundled_soname != Path(bundled_name).name:
+        raise ValueError("bundled MariaDB library SONAME does not match its wheel name")
+    _, extension_needed = _read_wheel_elf_dynamic(wheel, extension_names[0])
+    if bundled_soname not in extension_needed:
+        raise ValueError("mysqlclient extension is not mapped to the bundled MariaDB library")
+    with zipfile.ZipFile(wheel) as archive:
+        bundled_hash = hashlib.sha256(archive.read(bundled_name)).hexdigest()
+    return {
+        "mysqlclient_bundled_library_name": bundled_name,
+        "mysqlclient_bundled_library_sha256": bundled_hash,
+        "mysqlclient_bundled_library_soname": bundled_soname,
+    }
 
 
 def _tool_version(command: list[str]) -> str:
@@ -567,23 +690,13 @@ def build_wheelhouse(
     libffi_devel = _tool_version(["rpm", "-q", "libffi-devel"])
     if libffi_devel != EXPECTED_LIBFFI_DEVEL:
         raise ValueError("builder libffi-devel package mismatch")
-    mariadb_connector_c = _tool_version(["rpm", "-q", "mariadb-connector-c"])
-    if mariadb_connector_c != MARIADB_CONNECTOR_C_VERSION:
-        raise ValueError("MariaDB Connector/C package mismatch")
-    mariadb_connector_c_devel = _tool_version(["rpm", "-q", "mariadb-connector-c-devel"])
-    if mariadb_connector_c_devel != MARIADB_CONNECTOR_C_DEVEL_VERSION:
-        raise ValueError("MariaDB Connector/C development package mismatch")
-    mariadb_connector_c_config = _tool_version(["rpm", "-q", "mariadb-connector-c-config"])
-    if mariadb_connector_c_config != MARIADB_CONNECTOR_C_CONFIG_VERSION:
-        raise ValueError("MariaDB Connector/C configuration package mismatch")
+    connector_evidence = _validate_mariadb_connector_c(MARIADB_CONNECTOR_C_ROOT)
     metadata.update(
         {
             "auditwheel": _tool_version([auditwheel, "--version"]),
             "libffi_devel": libffi_devel,
             "pip": _tool_version([str(python), "-m", "pip", "--version"]),
-            "mariadb_connector_c": mariadb_connector_c,
-            "mariadb_connector_c_devel": mariadb_connector_c_devel,
-            "mariadb_connector_c_config": mariadb_connector_c_config,
+            **connector_evidence,
         }
     )
     source_lock_sha256 = sha256(lock_path)
@@ -654,8 +767,10 @@ def build_wheelhouse(
         mysqlclient_second = _build_mysqlclient_once(
             build_python, auditwheel, mysqlclient_sdist, build, label="two"
         )
-        _validate_mysqlclient_wheel(mysqlclient_first)
-        _validate_mysqlclient_wheel(mysqlclient_second)
+        first_mysqlclient_evidence = _validate_mysqlclient_wheel(mysqlclient_first)
+        second_mysqlclient_evidence = _validate_mysqlclient_wheel(mysqlclient_second)
+        if first_mysqlclient_evidence != second_mysqlclient_evidence:
+            raise ValueError("mysqlclient wheel metadata is not reproducible")
         if (
             mysqlclient_first.name != mysqlclient_second.name
             or mysqlclient_first.read_bytes() != mysqlclient_second.read_bytes()
@@ -751,6 +866,7 @@ def build_wheelhouse(
                 "cffi_wheel_sha256": sha256(cffi_wheel),
                 "mysqlclient_sdist_sha256": MYSQLCLIENT_SDIST_SHA256,
                 "mysqlclient_wheel_sha256": sha256(mysqlclient_wheel),
+                **first_mysqlclient_evidence,
                 "setuptools_version": SETUPTOOLS_VERSION,
                 "setuptools_wheel_sha256": SETUPTOOLS_WHEEL_SHA256,
                 "source_lock_sha256": source_lock_sha256,
