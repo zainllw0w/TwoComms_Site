@@ -22,6 +22,110 @@ TaskID = int | str | UUID
 Result = TypeVar("Result")
 
 
+class HeavyTaskBackendUnavailable(RuntimeError):
+    """Raised when heavy work has no proven durable task backend."""
+
+
+_DURABLE_CAPABILITY_ATTR = "supports_durable_enqueue"
+
+
+def _backend_path(backend: object) -> str:
+    backend_type = backend if isinstance(backend, type) else type(backend)
+    return f"{backend_type.__module__}.{backend_type.__qualname__}"
+
+
+def _resolve_task_backend(alias: str) -> object:
+    """Resolve a configured Django Tasks backend, failing closed on errors."""
+
+    try:
+        from django.tasks import task_backends
+
+        return task_backends[alias]
+    except Exception as exc:  # pragma: no cover - exercised by integration setup
+        raise HeavyTaskBackendUnavailable(
+            f"Cannot verify durable backend alias {alias!r}; "
+            "heavy task enqueue is blocked"
+        ) from exc
+
+
+def require_durable_task_backend(
+    backend: object | None = None,
+    *,
+    alias: str = "default",
+    task_name: str | None = None,
+) -> object:
+    """Return a backend only when it explicitly proves durable enqueue.
+
+    Django's built-in ``ImmediateBackend`` and ``DummyBackend`` are useful for
+    development, but neither provides a worker-backed queue.  Unknown backend
+    implementations also fail closed until their adapter exposes the explicit
+    ``supports_durable_enqueue = True`` capability marker after infrastructure
+    validation.
+    """
+
+    if backend is None:
+        backend = _resolve_task_backend(alias)
+
+    backend_path = _backend_path(backend)
+    task_label = f" {task_name!r}" if task_name else ""
+
+    try:
+        from django.tasks.backends.dummy import DummyBackend
+        from django.tasks.backends.immediate import ImmediateBackend
+
+        builtin_non_durable = isinstance(backend, (ImmediateBackend, DummyBackend))
+    except Exception:  # pragma: no cover - Django 6.1 always provides both
+        builtin_non_durable = backend_path in {
+            "django.tasks.backends.immediate.ImmediateBackend",
+            "django.tasks.backends.dummy.DummyBackend",
+        }
+
+    if builtin_non_durable or getattr(backend, _DURABLE_CAPABILITY_ATTR, False) is not True:
+        raise HeavyTaskBackendUnavailable(
+            f"Heavy task enqueue{task_label} is blocked: backend "
+            f"{backend_path!r} is not proven durable; configure a worker-backed "
+            f"adapter with {_DURABLE_CAPABILITY_ATTR}=True"
+        )
+
+    return backend
+
+
+def enqueue_heavy_task(task: object, *args: object, **kwargs: object) -> object:
+    """Enqueue a Django 6.1 Task only after the durable-backend gate."""
+
+    try:
+        backend = task.get_backend()  # type: ignore[attr-defined]
+    except Exception as exc:
+        raise HeavyTaskBackendUnavailable(
+            "Cannot inspect the heavy task backend; enqueue is blocked"
+        ) from exc
+
+    require_durable_task_backend(
+        backend,
+        alias=getattr(task, "backend", "default"),
+        task_name=getattr(task, "name", None),
+    )
+    return task.enqueue(*args, **kwargs)  # type: ignore[attr-defined]
+
+
+async def aenqueue_heavy_task(task: object, *args: object, **kwargs: object) -> object:
+    """Async counterpart of :func:`enqueue_heavy_task`."""
+
+    try:
+        backend = task.get_backend()  # type: ignore[attr-defined]
+    except Exception as exc:
+        raise HeavyTaskBackendUnavailable(
+            "Cannot inspect the heavy task backend; enqueue is blocked"
+        ) from exc
+
+    require_durable_task_backend(
+        backend,
+        alias=getattr(task, "backend", "default"),
+        task_name=getattr(task, "name", None),
+    )
+    return await task.aenqueue(*args, **kwargs)  # type: ignore[attr-defined]
+
+
 def _validate_task_id(value: object) -> TaskID:
     """Return a supported task identifier, rejecting ORM state at the edge."""
 
