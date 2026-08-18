@@ -17,7 +17,7 @@
   <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
   <meta name="color-scheme" content="dark">
   <meta name="csrf-token" content="">
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     (function () {
       function getCookie(name) {
         var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
@@ -61,7 +61,7 @@
       }
     })();
   </script>
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     // W3-2 (TECH-041): клієнтські JS-помилки → /api/client-error/.
     // До цього window.onerror не було ніде — фронтові падіння (зламаний
     // кошик, мертві кнопки) були невидимі. Ліміт: 5 звітів на сторінку,
@@ -301,7 +301,7 @@
   <link rel="dns-prefetch" href="https://analytics.tiktok.com">
   <link rel="dns-prefetch" href="https://www.clarity.ms">
   <link rel="dns-prefetch" href="https://www.google-analytics.com">
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     // ADS-1: Meta Pixel — init+PageView СРАЗУ в <head> на ВСЕХ страницах
     // (включая home — главный landing рекламы), не дожидаясь первого user
     // interaction. Раньше пиксель жил только внутри analytics-loader.js
@@ -331,7 +331,7 @@
 
   {% if not debug %}
   <!-- Ahrefs Web Analytics: defer to interaction/quiet window, same as other non-critical analytics. -->
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     (function () {
       var loaded = false;
       var docEl = document.documentElement;
@@ -455,7 +455,7 @@
        Unified device-class detector (Phase 3.1): sets data-device-class="low|mid|high"
        AND backward-compatible classes (effects-lite / effects-high / perf-lite) that
        существующие JS-модули и CSS-правила уже используют. -->
-  <script{% csp_nonce_attr %}>(function () {
+  <script {% csp_nonce_attr %}>(function () {
       try {
         var docEl = document.documentElement;
         var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
@@ -502,7 +502,7 @@
     })();</script>
 
   <!-- Client-side sync hints: avoid binding cached anonymous HTML to per-session state. -->
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     (function () {
       var isAuthenticated = {% if request.user.is_authenticated %}true{% else %}false{% endif %};
       function readSyncHint(key) {
@@ -1020,7 +1020,7 @@
   заменяет стаб на реальную функцию и дренирует очередь
   (см. setupGlobalEventBridge).
   {% endcomment %}
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     (function (w) {
       if (typeof w.trackEvent === 'function') return;
       var q = w._trackEventQueue = w._trackEventQueue || [];
@@ -1031,7 +1031,7 @@
   </script>
   <!-- Google Tag Manager - AGGRESSIVE deferred loading for PageSpeed -->
   {% if not debug %}
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     // Initialize dataLayer immediately for event buffering
     window.dataLayer = window.dataLayer || [];
     // Defer GTM load until user interaction OR long timeout
@@ -1141,7 +1141,7 @@
   во время критического окна, поэтому удержание в HTTP-кэше через
   preload только тратит bandwidth на Lighthouse-like ботах).
   {% endcomment %}
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     (function () {
       var src = "{% static 'js/analytics-loader.js' %}?v=12";
       var loaded = false;
@@ -1522,7 +1522,7 @@
 
   {% comment %}
   <!-- Service Worker for PWA - ОТКЛЮЧЕН -->
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('/sw.js')
@@ -1542,7 +1542,7 @@
     Locale gate preflight: keep a stale hashed language-suggestion asset from
     opening the old prompt on acquisition landings while staticfiles catches up.
   -->
-  <script{% csp_nonce_attr %}>
+  <script {% csp_nonce_attr %}>
     (function () {
       var root = document.getElementById('language-suggestion');
       if (!root) return;

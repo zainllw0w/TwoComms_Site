@@ -19,7 +19,7 @@ class Django61CSPTests(SimpleTestCase):
     @staticmethod
     def render_response(request):
         template = engines["django"].from_string(
-            "<script{% csp_nonce_attr %}>window.test = true;</script>"
+            "<script {% csp_nonce_attr %}>window.test = true;</script>"
         )
         return HttpResponse(template.render({}, request=request))
 
@@ -37,7 +37,7 @@ class Django61CSPTests(SimpleTestCase):
         policy = response["Content-Security-Policy-Report-Only"]
         nonce = re.search(r"'nonce-([^']+)'", policy).group(1)
 
-        self.assertIn(f'nonce="{nonce}"', response.content.decode())
+        self.assertIn(f'<script nonce="{nonce}">', response.content.decode())
         self.assertIn("report-uri /csp-report/", policy)
         self.assertIn("https://*.google.com.ua", policy)
         self.assertIn("'unsafe-inline'", policy)
@@ -62,6 +62,8 @@ class Django61CSPTests(SimpleTestCase):
             / "base.html"
         )
         source = template_path.read_text(encoding="utf-8")
+        self.assertNotIn("<script{% csp_nonce_attr %}", source)
+        self.assertIn("<script {% csp_nonce_attr %}>", source)
         inline_script_tags = [
             match.group(0)
             for match in re.finditer(r"<script[^>]*>", source)
