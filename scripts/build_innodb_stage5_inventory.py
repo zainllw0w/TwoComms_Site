@@ -55,6 +55,33 @@ def _clean_table(raw: dict[str, Any]) -> dict[str, Any]:
         raise ValueError(f"missing engine for {name!r}")
     data_length = _nonnegative_int(raw.get("data_length", 0), "data_length")
     index_length = _nonnegative_int(raw.get("index_length", 0), "index_length")
+    orphan_scan_complete = raw.get("orphan_scan_complete", False)
+    if not isinstance(orphan_scan_complete, bool):
+        raise ValueError("orphan_scan_complete must be a boolean")
+    orphan_count = (
+        _nonnegative_int(raw.get("orphan_count", 0), "orphan_count")
+        if orphan_scan_complete
+        else None
+    )
+    writer_audit_complete = raw.get("writer_audit_complete", False)
+    if not isinstance(writer_audit_complete, bool):
+        raise ValueError("writer_audit_complete must be a boolean")
+    writers = (
+        _nonnegative_int(raw.get("writers", 0), "writers")
+        if writer_audit_complete
+        else None
+    )
+    supplied_risk = str(raw.get("risk", "")).strip()
+    if engine.casefold() == "myisam" and not orphan_scan_complete:
+        risk = "unmeasured_orphan_risk"
+    elif engine.casefold() == "myisam" and not writer_audit_complete:
+        risk = "unmeasured_writer_risk"
+    elif supplied_risk:
+        risk = supplied_risk
+    elif engine.casefold() == "myisam":
+        risk = "unclassified"
+    else:
+        risk = "not_target"
     return {
         "name": name,
         "model": model,
@@ -64,11 +91,12 @@ def _clean_table(raw: dict[str, Any]) -> dict[str, Any]:
         "index_length": index_length,
         "size_bytes": data_length + index_length,
         "criticality": str(raw.get("criticality", "unknown")),
-        "writers": _nonnegative_int(raw.get("writers", 0), "writers"),
+        "writer_audit_complete": writer_audit_complete,
+        "writers": writers,
         "triggers": _nonnegative_int(raw.get("triggers", 0), "triggers"),
-        "orphan_count": _nonnegative_int(
-            raw.get("orphan_count", 0), "orphan_count"
-        ),
+        "orphan_scan_complete": orphan_scan_complete,
+        "orphan_count": orphan_count,
+        "risk": risk,
         "fulltext_indexes": _nonnegative_int(
             raw.get("fulltext_indexes", 0), "fulltext_indexes"
         ),
@@ -152,8 +180,10 @@ def build_report(payload: dict[str, Any]) -> dict[str, Any]:
         and row["size_bytes"] <= MAX_CANARY_BYTES
         and row["criticality"].casefold() == "low"
         and row["model"].casefold() != "unknown"
+        and row["writer_audit_complete"]
         and row["writers"] == 0
         and row["triggers"] == 0
+        and row["orphan_scan_complete"]
         and row["orphan_count"] == 0
         and row["fulltext_indexes"] == 0
         and row["name"] not in linked

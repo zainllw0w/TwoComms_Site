@@ -1,0 +1,3215 @@
+{
+  "captured_at": "2026-08-18T23:48:07+03:00",
+  "dtf_scope": "excluded",
+  "matrix": [
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 4,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 144
+      },
+      "model": "accounts.FavoriteProduct",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5265,
+      "table": "accounts_favoriteproduct",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 11,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 143
+      },
+      "model": "accounts.PointsHistory",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 4272,
+      "table": "accounts_pointshistory",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 19,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 159
+      },
+      "model": "accounts.TelegramVerificationSession",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 16304,
+      "table": "accounts_telegramverificationsession",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 20,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 151
+      },
+      "model": "accounts.UserCart",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6712,
+      "table": "accounts_usercart",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 68,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 148
+      },
+      "model": "accounts.UserPoints",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5860,
+      "table": "accounts_userpoints",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 68,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 161
+      },
+      "model": "accounts.UserProfile",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 19372,
+      "table": "accounts_userprofile",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 154
+      },
+      "model": "auth.Group",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 8248,
+      "table": "auth_group",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 168
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "auth_group_permissions",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 1276,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 165
+      },
+      "model": "auth.Permission",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 177768,
+      "table": "auth_permission",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 68,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 160
+      },
+      "model": "auth.User",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 19320,
+      "table": "auth_user",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 176
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 5154,
+      "table": "auth_user_groups",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 169
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "auth_user_user_permissions",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 1
+      },
+      "model": "admin.LogEntry",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "django_admin_log",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 319,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 8
+      },
+      "model": "contenttypes.ContentType",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 38124,
+      "table": "django_content_type",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 472,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 177
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 40264,
+      "table": "django_migrations",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 38,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 6
+      },
+      "model": "redirects.Redirect",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 16996,
+      "table": "django_redirect",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "medium",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 12
+      },
+      "model": "sites.Site",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5152,
+      "table": "django_site",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 6,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 158
+      },
+      "model": "finance.Account",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 13252,
+      "table": "finance_account",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 126
+      },
+      "model": "finance.Attachment",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_attachment",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 586,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 167
+      },
+      "model": "finance.AuditLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 292412,
+      "table": "finance_auditlog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 141
+      },
+      "model": "finance.AutomationRule",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3844,
+      "table": "finance_automationrule",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 127
+      },
+      "model": "finance.BudgetPlan",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_budgetplan",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 32,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 149
+      },
+      "model": "finance.Category",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6216,
+      "table": "finance_category",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 136
+      },
+      "model": "finance.Company",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2100,
+      "table": "finance_company",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 128
+      },
+      "model": "finance.ConsignmentItem",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_consignmentitem",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 129
+      },
+      "model": "finance.ConsignmentSale",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_consignmentsale",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 150
+      },
+      "model": "finance.ConsignmentShipment",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6272,
+      "table": "finance_consignmentshipment",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 170
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "finance_consignmentshipment_attachments",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 7,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 140
+      },
+      "model": "finance.Counterparty",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3568,
+      "table": "finance_counterparty",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 4,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 155
+      },
+      "model": "finance.CounterpartyCard",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 8508,
+      "table": "finance_counterpartycard",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 130
+      },
+      "model": "finance.CurrencyRate",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_currencyrate",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 131
+      },
+      "model": "finance.FinancialMetric",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_financialmetric",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 171
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "finance_financialmetric_expense_categories",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 172
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "finance_financialmetric_income_categories",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 152
+      },
+      "model": "finance.IntegrationConnection",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 7020,
+      "table": "finance_integrationconnection",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 132
+      },
+      "model": "finance.Invoice",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_invoice",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 133
+      },
+      "model": "finance.InvoiceItem",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_invoiceitem",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 171,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 163
+      },
+      "model": "finance.NotificationLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 83656,
+      "table": "finance_notification_logs",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 12,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 157
+      },
+      "model": "finance.ObligationSettlement",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 10252,
+      "table": "finance_obligationsettlement",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 5,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 139
+      },
+      "model": "finance.Project",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3316,
+      "table": "finance_project",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 145
+      },
+      "model": "finance.PushSubscription",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5472,
+      "table": "finance_push_subscriptions",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 5,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 153
+      },
+      "model": "finance.RecurrenceRule",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 7944,
+      "table": "finance_recurrencerule",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 146
+      },
+      "model": "finance.Reseller",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5476,
+      "table": "finance_reseller",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 134
+      },
+      "model": "finance.ResellerPayment",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "finance_resellerpayment",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 39,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 162
+      },
+      "model": "finance.RuleApplication",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 19412,
+      "table": "finance_ruleapplication",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 4,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 138
+      },
+      "model": "finance.Tag",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3228,
+      "table": "finance_tag",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 268,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 166
+      },
+      "model": "finance.Transaction",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 211868,
+      "table": "finance_transaction",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 173
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "finance_transaction_attachments",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 174
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "finance_transaction_tags",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 137
+      },
+      "model": "finance.UserSettings",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3196,
+      "table": "finance_user_settings",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 98
+      },
+      "model": "management.AdminAuditLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 21652,
+      "table": "management_adminauditlog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 8,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 100
+      },
+      "model": "management.BinotelWebhookEvent",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 23992,
+      "table": "management_binotelwebhookevent",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 48
+      },
+      "model": "management.BotAdCampaign",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 4096,
+      "table": "management_botadcampaign",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 90
+      },
+      "model": "management.BotDataDeletionRequest",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 16900,
+      "table": "management_botdatadeletionrequest",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 19,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 77
+      },
+      "model": "management.BotInstruction",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 11592,
+      "table": "management_botinstruction",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 55
+      },
+      "model": "management.BotQuickLink",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5440,
+      "table": "management_botquicklink",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 4,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 105
+      },
+      "model": "management.CallAIAnalysis",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 51520,
+      "table": "management_callaianalysis",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 13
+      },
+      "model": "management.CallQAReview",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_callqareview",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 88
+      },
+      "model": "management.CallRecord",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 16400,
+      "table": "management_callrecord",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 93
+      },
+      "model": "management.CallSession",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 17824,
+      "table": "management_callsession",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 14
+      },
+      "model": "management.ClientCPLink",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_clientcplink",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 208,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 108
+      },
+      "model": "management.ClientFollowUp",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 78612,
+      "table": "management_clientfollowup",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 12,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 91
+      },
+      "model": "management.ClientInteractionAttempt",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 17000,
+      "table": "management_clientinteractionattempt",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 411,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 107
+      },
+      "model": "management.ClientPhone",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 71532,
+      "table": "management_clientphone",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 12,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 97
+      },
+      "model": "management.ClientStageEvent",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 21152,
+      "table": "management_clientstageevent",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1574,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 117
+      },
+      "model": "management.CommandRunLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 421628,
+      "table": "management_commandrunlog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 16,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 118
+      },
+      "model": "management.CommercialOfferEmailLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 424484,
+      "table": "management_commercialofferemaillog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 4,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 52
+      },
+      "model": "management.CommercialOfferEmailSettings",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 4596,
+      "table": "management_commercialofferemailsettings",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 8,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 62
+      },
+      "model": "management.ComponentReadiness",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6524,
+      "table": "management_componentreadiness",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 15
+      },
+      "model": "management.ContractRejectionReasonRequest",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_contractrejectionreasonrequest",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 44
+      },
+      "model": "management.ContractSequence",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3097,
+      "table": "management_contractsequence",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 37
+      },
+      "model": "management.ContractTemplate",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2048,
+      "table": "management_contracttemplate",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 16
+      },
+      "model": "management.DayReportAudit",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_dayreportaudit",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 76
+      },
+      "model": "management.DtfBridgeSnapshot",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 11384,
+      "table": "management_dtfbridgesnapshot",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 74
+      },
+      "model": "management.DuplicateReview",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 10656,
+      "table": "management_duplicatereview",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 285,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 114
+      },
+      "model": "management.FollowUpEvent",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 138288,
+      "table": "management_followupevent",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 54
+      },
+      "model": "management.InvoiceRejectionReasonRequest",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5162,
+      "table": "management_invoicerejectionreasonrequest",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 112,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 123
+      },
+      "model": "management.LeadAICheck",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1972576,
+      "table": "management_leadaicheck",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 41
+      },
+      "model": "management.LeadCheckerSettings",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2076,
+      "table": "management_leadcheckersettings",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 6,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 71
+      },
+      "model": "management.LeadCheckJob",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 9976,
+      "table": "management_leadcheckjob",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 43
+      },
+      "model": "management.LeadCheckRuntimeLock",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3091,
+      "table": "management_leadcheckruntimelock",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 256,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 106
+      },
+      "model": "management.LeadNetwork",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 52444,
+      "table": "management_leadnetwork",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 726,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 116
+      },
+      "model": "management.LeadParsingQueryState",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 348072,
+      "table": "management_leadparsingquerystate",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 65
+      },
+      "model": "management.ManagementContract",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 7840,
+      "table": "management_managementcontract",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 85,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 87
+      },
+      "model": "management.ManagementDailyActivity",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 16368,
+      "table": "management_managementdailyactivity",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 49
+      },
+      "model": "management.ManagementStatsAdviceDismissal",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 4096,
+      "table": "management_managementstatsadvicedismissal",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 46
+      },
+      "model": "management.ManagementStatsConfig",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3588,
+      "table": "management_managementstatsconfig",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 68
+      },
+      "model": "management.ManagerCommissionAccrual",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 9372,
+      "table": "management_managercommissionaccrual",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 17
+      },
+      "model": "management.ManagerCompensationSettings",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_managercompensationsettings",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 290,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 111
+      },
+      "model": "management.ManagerDayFact",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 101816,
+      "table": "management_managerdayfact",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 18
+      },
+      "model": "management.ManagerDayStatus",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_managerdaystatus",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 19
+      },
+      "model": "management.ManagerDocument",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_managerdocument",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 38
+      },
+      "model": "management.ManagerEarningsLedger",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2048,
+      "table": "management_managerearningsledger",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 20
+      },
+      "model": "management.ManagerLevel",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_managerlevel",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 21
+      },
+      "model": "management.ManagerLevelHistory",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_managerlevelhistory",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 83
+      },
+      "model": "management.ManagerNotification",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 12956,
+      "table": "management_managernotification",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 22
+      },
+      "model": "management.ManagerOnboardingConsent",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_manageronboardingconsent",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 80
+      },
+      "model": "management.ManagerPayoutRequest",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 12468,
+      "table": "management_managerpayoutrequest",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 23
+      },
+      "model": "management.ManagerPersonalData",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_managerpersonaldata",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 4,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 73
+      },
+      "model": "management.ManagerWeeklyReview",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 10480,
+      "table": "management_managerweeklyreview",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 558,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 109
+      },
+      "model": "management.NetworkAlias",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 85520,
+      "table": "management_networkalias",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 480,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 124
+      },
+      "model": "management.NightlyScoreSnapshot",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5229704,
+      "table": "management_nightlyscoresnapshot",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 24
+      },
+      "model": "management.OwnershipChangeLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_ownershipchangelog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 25
+      },
+      "model": "management.PayoutRejectionReasonRequest",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_payoutrejectionreasonrequest",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 96
+      },
+      "model": "management.ReasonSignal",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 20700,
+      "table": "management_reasonsignal",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 28,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 82
+      },
+      "model": "management.ReminderRead",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 12488,
+      "table": "management_reminderread",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 67,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 85
+      },
+      "model": "management.ReminderSent",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 13752,
+      "table": "management_remindersent",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 22,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 53
+      },
+      "model": "management.Report",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5016,
+      "table": "management_report",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 50
+      },
+      "model": "management.ScoreAmendment",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 4096,
+      "table": "management_scoreamendment",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 26
+      },
+      "model": "management.ScoreAppeal",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_scoreappeal",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 66
+      },
+      "model": "management.Shop",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 9116,
+      "table": "management_shop",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 27
+      },
+      "model": "management.ShopCommunication",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_shopcommunication",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 5,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 67
+      },
+      "model": "management.ShopInventoryMovement",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 9220,
+      "table": "management_shopinventorymovement",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 51
+      },
+      "model": "management.ShopPhone",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 4220,
+      "table": "management_shopphone",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 84
+      },
+      "model": "management.ShopShipment",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 13656,
+      "table": "management_shopshipment",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 28
+      },
+      "model": "management.SupervisorActionLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_supervisoractionlog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 69
+      },
+      "model": "management.TelephonyHealthSnapshot",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 9460,
+      "table": "management_telephonyhealthsnapshot",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 39
+      },
+      "model": "management.TelephonyWebhookLog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2048,
+      "table": "management_telephonywebhooklog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 12,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 95
+      },
+      "model": "management.VerifiedWorkEvent",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 19472,
+      "table": "management_verifiedworkevent",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 29
+      },
+      "model": "management.WeeklySalaryAccrual",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_weeklysalaryaccrual",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 30
+      },
+      "model": "management.WorkingCalendarAssignment",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_workingcalendarassignment",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 31
+      },
+      "model": "management.WorkingCalendarException",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_workingcalendarexception",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 32
+      },
+      "model": "management.WorkingCalendarProfile",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "management_workingcalendarprofile",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 8,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 156
+      },
+      "model": "orders.DropshipperOrder",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 8556,
+      "table": "orders_dropshipperorder",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 8,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 147
+      },
+      "model": "orders.DropshipperOrderItem",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 5776,
+      "table": "orders_dropshipperorderitem",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 135
+      },
+      "model": "orders.DropshipperPayout",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "orders_dropshipperpayout",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "unknown",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 175
+      },
+      "model": "unknown",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmapped_model_or_through_table",
+      "size_bytes": 1024,
+      "table": "orders_dropshipperpayout_included_orders",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 10,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 142
+      },
+      "model": "orders.DropshipperStats",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3912,
+      "table": "orders_dropshipperstats",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "critical",
+      "engine": "MyISAM",
+      "estimated_rows": 20,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 164
+      },
+      "model": "orders.WholesaleInvoice",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 85232,
+      "table": "orders_wholesaleinvoice",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 8,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 45
+      },
+      "model": "productcolors.Color",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 3400,
+      "table": "productcolors_color",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 85,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 89
+      },
+      "model": "productcolors.ProductColorImage",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 16692,
+      "table": "productcolors_productcolorimage",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 81,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 112
+      },
+      "model": "productcolors.ProductColorVariant",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 102472,
+      "table": "productcolors_productcolorvariant",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "medium",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 10
+      },
+      "model": "reviews.Review",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2048,
+      "table": "reviews_review",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "medium",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 9
+      },
+      "model": "reviews.ReviewImage",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "reviews_reviewimage",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "medium",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 11
+      },
+      "model": "reviews.ReviewVote",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2048,
+      "table": "reviews_reviewvote",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 2
+      },
+      "model": "social_django.Association",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "social_auth_association",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 3
+      },
+      "model": "social_django.Code",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "social_auth_code",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 4
+      },
+      "model": "social_django.Nonce",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "social_auth_nonce",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 5
+      },
+      "model": "social_django.Partial",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "social_auth_partial",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "low",
+      "engine": "MyISAM",
+      "estimated_rows": 40,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 7
+      },
+      "model": "social_django.UserSocialAuth",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 28796,
+      "table": "social_auth_usersocialauth",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 63
+      },
+      "model": "storefront.AnalyticsExclusion",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 7224,
+      "table": "storefront_analyticsexclusion",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 7,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 102
+      },
+      "model": "storefront.BlogCategory",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 34952,
+      "table": "storefront_blogcategory",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 33
+      },
+      "model": "storefront.BlogMediaAsset",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "storefront_blogmediaasset",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 12,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 110
+      },
+      "model": "storefront.BlogPost",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 95172,
+      "table": "storefront_blogpost",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 109,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 120
+      },
+      "model": "storefront.BlogPostBlock",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 854376,
+      "table": "storefront_blogpostblock",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 806,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 119
+      },
+      "model": "storefront.BlogPostView",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 428388,
+      "table": "storefront_blogpostview",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 34
+      },
+      "model": "storefront.BlogPromoCampaign",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "storefront_blogpromocampaign",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 35
+      },
+      "model": "storefront.BlogPromoClaim",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "storefront_blogpromoclaim",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 78
+      },
+      "model": "storefront.Catalog",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 11656,
+      "table": "storefront_catalog",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 40
+      },
+      "model": "storefront.CatalogColorSeoOverride",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2048,
+      "table": "storefront_catalogcolorseooverride",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 81
+      },
+      "model": "storefront.CatalogOption",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 12484,
+      "table": "storefront_catalogoption",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 16,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 79
+      },
+      "model": "storefront.CatalogOptionValue",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 11864,
+      "table": "storefront_catalogoptionvalue",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 3,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 113
+      },
+      "model": "storefront.Category",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 104420,
+      "table": "storefront_category",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 4,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 103
+      },
+      "model": "storefront.CategoryColorLanding",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 35688,
+      "table": "storefront_categorycolorlanding",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 12,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 56
+      },
+      "model": "storefront.CategorySeoBlock",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6120,
+      "table": "storefront_categoryseoblock",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 219,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 104
+      },
+      "model": "storefront.CategorySeoBlockItem",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 35928,
+      "table": "storefront_categoryseoblockitem",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 30,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 61
+      },
+      "model": "storefront.CustomPrintLeadAttachment",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6480,
+      "table": "storefront_customprintleadattachment",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1060,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 115
+      },
+      "model": "storefront.GoogleIndexingSubmission",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 232568,
+      "table": "storefront_googleindexingsubmission",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 42
+      },
+      "model": "storefront.OfflineStore",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 2136,
+      "table": "storefront_offlinestore",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 207146,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 125
+      },
+      "model": "storefront.PageView",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 31639604,
+      "table": "storefront_pageview",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 0,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 36
+      },
+      "model": "storefront.PrintProposal",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1024,
+      "table": "storefront_printproposal",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 77,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 122
+      },
+      "model": "storefront.Product",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1297944,
+      "table": "storefront_product",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 238,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 121
+      },
+      "model": "storefront.ProductFAQ",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 1146432,
+      "table": "storefront_productfaq",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 70,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 101
+      },
+      "model": "storefront.ProductFitOption",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 24452,
+      "table": "storefront_productfitoption",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 36,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 72
+      },
+      "model": "storefront.ProductImage",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 10472,
+      "table": "storefront_productimage",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 5,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 64
+      },
+      "model": "storefront.PushNotificationCampaign",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 7440,
+      "table": "storefront_pushnotificationcampaign",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 5,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 86
+      },
+      "model": "storefront.PushNotificationDelivery",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 15656,
+      "table": "storefront_pushnotificationdelivery",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 13,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 70
+      },
+      "model": "storefront.QrDeviceGrant",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 9612,
+      "table": "storefront_qrdevicegrant",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 5,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 94
+      },
+      "model": "storefront.SizeGrid",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 18224,
+      "table": "storefront_sizegrid",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 11,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 60
+      },
+      "model": "storefront.StoreInvoice",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6344,
+      "table": "storefront_storeinvoice",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 20,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 47
+      },
+      "model": "storefront.StoreOrder",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 4032,
+      "table": "storefront_storeorder",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 26,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 59
+      },
+      "model": "storefront.StoreOrderItem",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6280,
+      "table": "storefront_storeorderitem",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 57
+      },
+      "model": "storefront.StoreProduct",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6216,
+      "table": "storefront_storeproduct",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 2,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 58
+      },
+      "model": "storefront.StoreSale",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 6256,
+      "table": "storefront_storesale",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 8,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 99
+      },
+      "model": "storefront.SurveySession",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 21976,
+      "table": "storefront_surveysession",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 8,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 75
+      },
+      "model": "storefront.UserPromoCode",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 10868,
+      "table": "storefront_userpromocode",
+      "triggers": 0,
+      "writer_audit_complete": false
+    },
+    {
+      "criticality": "high",
+      "engine": "MyISAM",
+      "estimated_rows": 1,
+      "fulltext_indexes": 0,
+      "migration_order": {
+        "ddl_status": "blocked_pending_writer_orphan_and_domain_preflight",
+        "preflight_sequence": 92
+      },
+      "model": "storefront.WebPushDeviceSubscription",
+      "orphan_scan_complete": false,
+      "physical_fk_degree": 0,
+      "risk": "blocked_unmeasured_writer_and_orphan_risk",
+      "size_bytes": 17252,
+      "table": "storefront_webpushdevicesubscription",
+      "triggers": 0,
+      "writer_audit_complete": false
+    }
+  ],
+  "schema": 1,
+  "scope": "production_default_alias_read_only_non_dtf_myisam_targets",
+  "semantics": {
+    "estimated_rows": "MariaDB information_schema.TABLES.TABLE_ROWS; exact for neither engine is implied.",
+    "orphan_scan_complete": "False means no orphan-free claim is made from this snapshot.",
+    "preflight_sequence": "Review order only. It is not production DDL authorization.",
+    "writer_audit_complete": "False means no source/runtime writer inventory was claimed from this snapshot."
+  },
+  "server": {
+    "default_alias": "default",
+    "vendor": "MariaDB",
+    "version": "11.4.12"
+  },
+  "summary": {
+    "base_tables": 320,
+    "innodb": 143,
+    "matrix_rows": 177,
+    "myisam": 177,
+    "myisam_canary_candidates_approved": 0,
+    "myisam_ddl_targets_approved": 0,
+    "physical_foreign_key_edges": 39,
+    "tables_with_triggers": 13
+  }
+}

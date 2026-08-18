@@ -1,9 +1,11 @@
 # Django 6.1 Stage 5: non-DTF MyISAM to InnoDB roadmap (DJ6-SRV-003)
 
 Дата: 2026-08-18
-Статус: planning/read-only; production acceptance не заявляется. Tooling и
-disposable rehearsal contract добавлены, но production inventory/canary ещё не
-подтверждены.
+Статус: roadmap/rehearsal gate закрыт; production engine conversion и
+production acceptance не заявляются. Актуальная read-only matrix и локальный
+MariaDB 11.4.12 canary зафиксированы в
+[`django61-stage5-srv003.md`](django61-stage5-srv003.md) и
+[`django61-stage5-srv003-matrix.json`](django61-stage5-srv003-matrix.json).
 
 ## Scope and evidence boundary
 
@@ -12,10 +14,11 @@ production MariaDB для non-DTF части проекта. Этот докум
 `ALTER TABLE`, не применяет migrations и не является разрешением на изменение
 production.
 
-В checkout нет свежего per-table `information_schema` dump: поэтому размер,
-точный текущий engine, строки, индексы, orphan count и FK graph для отдельных
-таблиц ниже помечены `unknown`, если их нельзя подтвердить tracked evidence.
-Единственный текущий sanitized aggregate из Stage 0:
+Новый sanitized per-table production snapshot приложен отдельным matrix
+artifact. Он подтверждает engine, estimated row count, data/index size,
+physical FK degree, triggers и FULLTEXT metadata, но намеренно не подменяет
+неизмеренные writer/orphan facts нулями. Исторический aggregate из Stage 0
+оставлен ниже для происхождения roadmap:
 
 | Scope | Tables | InnoDB | MyISAM | Triggers | Routines/events |
 | --- | ---: | ---: | ---: | ---: | ---: |

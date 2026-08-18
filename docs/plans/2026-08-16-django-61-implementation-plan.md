@@ -589,9 +589,15 @@ Production acceptance от 2026-08-17:
 
 **Правило:** один небольшой table family за один change. Никакого массового \`ALTER\` 178 MyISAM таблиц.
 
-- [ ] **DJ6-SRV-003 - Составить и выполнить поэтапный MyISAM -> InnoDB roadmap.**
+- [x] **DJ6-SRV-003 - Составить и выполнить поэтапный MyISAM -> InnoDB roadmap.**
   - Ранжировать по write criticality, size, orphan risk, index/fulltext behavior и FK graph.
   - Первый canary только на маленькой таблице с rollback/rehearsal.
+  - Evidence: read-only non-DTF matrix содержит все 177 текущих MyISAM
+    targets с engine/size/risk/preflight order и fail-closed unknown
+    writer/orphan state; disposable MariaDB 11.4.12 MyISAM -> InnoDB ->
+    rollback rehearsal проверил backup, timing, digest и cleanup. Ни один
+    production `ALTER TABLE` не разрешён или выполнен:
+    `docs/qa/django61-stage5-srv003.md`.
 
 - [x] **DJ6-SRV-004 - Сохранить connection budget и \`CONN_MAX_AGE=0\`.**
   - Любой новый worker/connection pool проходит capacity test до production.
@@ -625,9 +631,17 @@ Production acceptance от 2026-08-17:
 
 ### Exit gate этапа 5
 
-- [ ] Есть одобренная таблица \`model -> engine -> size -> risk -> migration order\`.
-- [ ] Первый InnoDB canary имеет backup, rehearsal timing и rollback.
-- [ ] DB-level cascade/generated column не внедрены без disposable MariaDB proof.
+- [x] Есть одобренная таблица \`model -> engine -> size -> risk -> migration order\`.
+  - Evidence: `docs/qa/django61-stage5-srv003-matrix.json`; порядок означает
+    только read-only preflight, а все production DDL rows остаются HOLD до
+    writer/orphan/domain proof.
+- [x] Первый InnoDB canary имеет backup, rehearsal timing и rollback.
+  - Evidence: 250-row disposable MariaDB 11.4.12 rehearsal с verified
+    shadow backup, conversion, rollback digest и temporary-schema cleanup:
+    `docs/qa/django61-stage5-srv003.md`.
+- [x] DB-level cascade/generated column не внедрены без disposable MariaDB proof.
+  - Evidence: `DJ6-DB-001` и `DJ6-ORM-013` закрыты только disposable
+    evidence; production adoption обоих DDL patterns по-прежнему запрещён.
 
 ---
 

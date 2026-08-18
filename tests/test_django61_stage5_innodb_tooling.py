@@ -16,8 +16,25 @@ class Stage5InventoryTests(unittest.TestCase):
             {
                 "database": "default",
                 "tables": [
-                    {"name": "storefront_promocodegroup", "model": "storefront.PromoCodeGroup", "engine": "MyISAM", "rows": 7, "data_length": 512, "criticality": "low", "writers": 0},
-                    {"name": "storefront_product", "model": "storefront.Product", "engine": "MyISAM", "rows": 10, "criticality": "high", "writers": 1},
+                    {
+                        "name": "storefront_promocodegroup",
+                        "model": "storefront.PromoCodeGroup",
+                        "engine": "MyISAM",
+                        "rows": 7,
+                        "data_length": 512,
+                        "criticality": "low",
+                        "writers": 0,
+                        "orphan_scan_complete": True,
+                        "writer_audit_complete": True,
+                    },
+                    {
+                        "name": "storefront_product",
+                        "model": "storefront.Product",
+                        "engine": "MyISAM",
+                        "rows": 10,
+                        "criticality": "high",
+                        "writers": 1,
+                    },
                 ],
                 "foreign_keys": [],
                 "rollback": {"method": "maintenance_window", "backup_verified": True, "write_freeze": True},
@@ -82,6 +99,63 @@ class Stage5InventoryTests(unittest.TestCase):
             with self.subTest(unsafe=unsafe):
                 with self.assertRaises(ValueError):
                     MODULE.build_report(unsafe)
+
+    def test_unmeasured_orphan_risk_cannot_select_a_canary(self):
+        report = MODULE.build_report(
+            {
+                "database": "default",
+                "tables": [
+                    {
+                        "name": "small_legacy_table",
+                        "model": "app.SmallLegacy",
+                        "engine": "MyISAM",
+                        "rows": 1,
+                        "criticality": "low",
+                        "writers": 0,
+                        "orphan_scan_complete": False,
+                    }
+                ],
+                "foreign_keys": [],
+                "rollback": {
+                    "method": "maintenance_window",
+                    "backup_verified": True,
+                    "write_freeze": True,
+                },
+            }
+        )
+
+        self.assertIsNone(report["selected_canary"])
+        self.assertEqual(report["canary_status"], "blocked_no_proven_candidate")
+        self.assertEqual(report["tables"][0]["risk"], "unmeasured_orphan_risk")
+
+    def test_unmeasured_writer_risk_cannot_select_a_canary(self):
+        report = MODULE.build_report(
+            {
+                "database": "default",
+                "tables": [
+                    {
+                        "name": "small_legacy_table",
+                        "model": "app.SmallLegacy",
+                        "engine": "MyISAM",
+                        "rows": 1,
+                        "criticality": "low",
+                        "writers": 0,
+                        "orphan_scan_complete": True,
+                        "writer_audit_complete": False,
+                    }
+                ],
+                "foreign_keys": [],
+                "rollback": {
+                    "method": "maintenance_window",
+                    "backup_verified": True,
+                    "write_freeze": True,
+                },
+            }
+        )
+
+        self.assertIsNone(report["selected_canary"])
+        self.assertEqual(report["canary_status"], "blocked_no_proven_candidate")
+        self.assertEqual(report["tables"][0]["risk"], "unmeasured_writer_risk")
 
 
 if __name__ == "__main__":
