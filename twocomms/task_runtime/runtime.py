@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from datetime import timedelta
 from uuid import uuid4
@@ -8,7 +7,7 @@ from uuid import uuid4
 from django.db import IntegrityError, close_old_connections, connection, models, transaction
 from django.tasks.backends.base import BaseTaskBackend
 from django.tasks.base import Task, TaskError, TaskResult, TaskResultStatus
-from django.tasks.exceptions import TaskResultDoesNotExist
+from django.tasks.exceptions import InvalidTask, TaskResultDoesNotExist
 from django.utils import timezone
 from django.utils.json import normalize_json
 
@@ -24,14 +23,27 @@ class TaskNotOwned(RuntimeError):
 
 
 ALLOWED_TASKS: dict[str, object] = {}
+NO_SIDE_EFFECT_TASKS: set[str] = set()
 
 
-def register_task(task_name: str, callback):
+def register_task(task_name: str, callback, *, no_side_effect=False):
+    """Allow a callback, optionally for the canary-only worker contract.
+
+    This initial runtime deliberately executes only explicit no-side-effect
+    callbacks. A future production rollout must introduce a side-effect and
+    lease-renewal contract before enabling durable external work.
+    """
     if not isinstance(task_name, str) or not task_name or len(task_name) > 255:
         raise InvalidTaskPayload("task name must be a non-empty string")
     if not isinstance(callback, Task) and not callable(callback):
         raise InvalidTaskPayload("callback must be a callable or Django Task")
+    if not isinstance(no_side_effect, bool):
+        raise InvalidTaskPayload("no_side_effect must be a boolean")
     ALLOWED_TASKS[task_name] = callback
+    if no_side_effect:
+        NO_SIDE_EFFECT_TASKS.add(task_name)
+    else:
+        NO_SIDE_EFFECT_TASKS.discard(task_name)
     return callback
 
 
@@ -60,6 +72,10 @@ def _bounded_limit(value: int, *, maximum: int) -> int:
 def enqueue_durable_task(task_name: str, payload: object, idempotency_key: str, *, available_at=None):
     if task_name not in ALLOWED_TASKS:
         raise InvalidTaskPayload(f"task {task_name!r} is not allowlisted")
+    if task_name not in NO_SIDE_EFFECT_TASKS:
+        raise InvalidTaskPayload(
+            f"task {task_name!r} is not approved for the no-side-effect worker"
+        )
     if not isinstance(idempotency_key, str) or not idempotency_key or len(idempotency_key) > 180:
         raise InvalidTaskPayload("idempotency_key must be a non-empty string")
     normalized = _json_payload(payload)
@@ -83,27 +99,30 @@ def reclaim_expired_tasks(*, limit=100):
     limit = _bounded_limit(limit, maximum=1000)
     now = timezone.now()
     with transaction.atomic():
-        jobs = (
+        jobs = list(
             DurableTask.objects.filter(
                 status=DurableTask.Status.RUNNING,
                 lease_expires_at__lt=now,
             )
-            .order_by("id")[:limit]
+            .order_by("id")
+            .values("id", "lease_token")[:limit]
         )
-        ids = list(jobs.values_list("id", flat=True))
-        if not ids:
-            return 0
-        return DurableTask.objects.filter(
-            id__in=ids,
-            status=DurableTask.Status.RUNNING,
-        ).update(
-            status=DurableTask.Status.PENDING,
-            lease_token="",
-            lease_expires_at=None,
-            worker_id="",
-            last_error="lease expired; reclaimed",
-            completed_at=None,
-        )
+        reclaimed = 0
+        for job in jobs:
+            reclaimed += DurableTask.objects.filter(
+                pk=job["id"],
+                status=DurableTask.Status.RUNNING,
+                lease_token=job["lease_token"],
+                lease_expires_at__lt=now,
+            ).update(
+                status=DurableTask.Status.PENDING,
+                lease_token="",
+                lease_expires_at=None,
+                worker_id="",
+                last_error="lease expired; reclaimed",
+                completed_at=None,
+            )
+        return reclaimed
 
 
 def claim_due_tasks(*, limit=25, lease_seconds=60, worker_id):
@@ -192,24 +211,42 @@ def run_bounded_worker(*, limit=25, lease_seconds=60, worker_id="cron"):
             lease_seconds=lease_seconds,
             worker_id=worker_id,
         )
-        completed = failed = 0
+        completed = failed = lost = 0
         for row in rows:
             callback = ALLOWED_TASKS.get(row.task_name)
             try:
                 if callback is None:
                     raise InvalidTaskPayload(f"task {row.task_name!r} is not registered")
+                if row.task_name not in NO_SIDE_EFFECT_TASKS:
+                    raise InvalidTaskPayload(
+                        f"task {row.task_name!r} is not approved for the no-side-effect worker"
+                    )
                 value = _invoke(callback, row.payload)
-                finish_task(row.pk, row.lease_token, success=True, result=value)
-                completed += 1
             except Exception as exc:
-                finish_task(
-                    row.pk,
-                    row.lease_token,
-                    success=False,
-                    error=f"{type(exc).__name__}: {exc}",
-                )
-                failed += 1
-        return {"claimed": len(rows), "completed": completed, "failed": failed}
+                try:
+                    finish_task(
+                        row.pk,
+                        row.lease_token,
+                        success=False,
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
+                except TaskNotOwned:
+                    lost += 1
+                else:
+                    failed += 1
+            else:
+                try:
+                    finish_task(row.pk, row.lease_token, success=True, result=value)
+                except TaskNotOwned:
+                    lost += 1
+                else:
+                    completed += 1
+        return {
+            "claimed": len(rows),
+            "completed": completed,
+            "failed": failed,
+            "lost": lost,
+        }
     finally:
         close_old_connections()
 
@@ -220,6 +257,11 @@ class DurableTaskBackend(BaseTaskBackend):
     supports_durable_enqueue = True
     supports_defer = True
     supports_get_result = True
+
+    def validate_task(self, task):
+        super().validate_task(task)
+        if task.takes_context:
+            raise InvalidTask("DurableTaskBackend does not support tasks with context.")
 
     def enqueue(self, task, args, kwargs):
         self.validate_task(task)
@@ -233,17 +275,10 @@ class DurableTaskBackend(BaseTaskBackend):
             raise InvalidTaskPayload("Django task arguments must be JSON-safe") from exc
         if task.module_path not in ALLOWED_TASKS:
             raise InvalidTaskPayload(f"task {task.module_path!r} is not allowlisted")
-        digest = hashlib.sha256(
-            json.dumps(
-                {"task": task.module_path, **payload},
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode()
-        ).hexdigest()
         row = enqueue_durable_task(
             task.module_path,
             payload,
-            digest,
+            uuid4().hex,
             available_at=task.run_after,
         )
         return self._result(task, row)
