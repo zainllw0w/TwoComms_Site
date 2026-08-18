@@ -695,7 +695,8 @@ Production acceptance от 2026-08-17:
 
 ### Exit gate этапа 7
 
-- [ ] Template changes имеют response parity и browser smoke.
+- [x] Template changes имеют response parity и browser smoke.
+  - Evidence: `docs/qa/django61-stage7-browser-smoke.md`.
 - [x] Current docs не предлагают старый runtime или unsupported deploy scripts.
   - Evidence: `docs/qa/django61-stage7-docs-runtime.md`; current-facing architecture/deploy docs reviewed after integration.
 - [ ] Parallelization ускоряет CI без flaky/race роста.
