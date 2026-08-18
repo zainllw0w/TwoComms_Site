@@ -25,5 +25,7 @@ class Command(BaseCommand):
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
         self.stdout.write(
-            "claimed={claimed} completed={completed} failed={failed}".format(**outcome)
+            "claimed={claimed} completed={completed} failed={failed} lost={lost}".format(
+                **outcome
+            )
         )

@@ -9,4 +9,4 @@ def no_send_canary(*, marker):
     return {"external_io": False, "marker": str(marker)}
 
 
-register_task(no_send_canary.module_path, no_send_canary)
+register_task(no_send_canary.module_path, no_send_canary, no_side_effect=True)

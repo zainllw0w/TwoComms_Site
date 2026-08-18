@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.tasks import Task
+from django.tasks.exceptions import InvalidTask
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
@@ -9,15 +10,21 @@ from task_runtime.runtime import (
     ALLOWED_TASKS,
     DurableTaskBackend,
     InvalidTaskPayload,
+    NO_SIDE_EFFECT_TASKS,
     TaskNotOwned,
     claim_due_tasks,
     enqueue_durable_task,
     finish_task,
     reclaim_expired_tasks,
+    run_bounded_worker,
 )
 
 
 def canary_task(*, object_id):
+    return {"object_id": object_id}
+
+
+def context_task(context, *, object_id):
     return {"object_id": object_id}
 
 
@@ -27,7 +34,9 @@ CANARY_NAME = f"{canary_task.__module__}.{canary_task.__qualname__}"
 class DurableTaskContractTests(SimpleTestCase):
     def setUp(self):
         ALLOWED_TASKS[CANARY_NAME] = canary_task
+        NO_SIDE_EFFECT_TASKS.add(CANARY_NAME)
         self.addCleanup(ALLOWED_TASKS.pop, CANARY_NAME)
+        self.addCleanup(NO_SIDE_EFFECT_TASKS.discard, CANARY_NAME)
 
     def test_allowlist_rejects_unknown_task_and_non_json_payload(self):
         with self.assertRaises(InvalidTaskPayload):
@@ -39,7 +48,9 @@ class DurableTaskContractTests(SimpleTestCase):
 class DurableTaskDatabaseTests(TestCase):
     def setUp(self):
         ALLOWED_TASKS[CANARY_NAME] = canary_task
+        NO_SIDE_EFFECT_TASKS.add(CANARY_NAME)
         self.addCleanup(ALLOWED_TASKS.pop, CANARY_NAME)
+        self.addCleanup(NO_SIDE_EFFECT_TASKS.discard, CANARY_NAME)
 
     def test_idempotency_and_bounded_claim(self):
         first = enqueue_durable_task(CANARY_NAME, {"object_id": 7}, "same-key")
@@ -70,5 +81,37 @@ class DurableTaskDatabaseTests(TestCase):
         backend = DurableTaskBackend(alias="durable", params={})
         self.assertTrue(backend.supports_durable_enqueue)
         task = Task(func=canary_task, backend="durable")
-        result = backend.enqueue(task, (), {"object_id": 7})
-        self.assertEqual(result.id, str(DurableTask.objects.get(pk=result.id).pk))
+        first = backend.enqueue(task, (), {"object_id": 7})
+        second = backend.enqueue(task, (), {"object_id": 7})
+        self.assertNotEqual(first.id, second.id)
+        self.assertEqual(DurableTask.objects.count(), 2)
+
+    def test_context_tasks_fail_closed_before_enqueue(self):
+        with self.assertRaises(InvalidTask):
+            Task(func=context_task, backend="durable", takes_context=True)
+
+    def test_fenced_task_is_lost_and_does_not_abort_batch(self):
+        def lose_lease(*, object_id):
+            DurableTask.objects.filter(pk=object_id).update(lease_token="new-owner")
+            return {"object_id": object_id}
+
+        lose_name = f"{lose_lease.__module__}.{lose_lease.__qualname__}"
+        success_name = f"{canary_task.__module__}.{canary_task.__qualname__}.second"
+        ALLOWED_TASKS[lose_name] = lose_lease
+        ALLOWED_TASKS[success_name] = canary_task
+        NO_SIDE_EFFECT_TASKS.add(lose_name)
+        NO_SIDE_EFFECT_TASKS.add(success_name)
+        self.addCleanup(ALLOWED_TASKS.pop, lose_name)
+        self.addCleanup(ALLOWED_TASKS.pop, success_name)
+        self.addCleanup(NO_SIDE_EFFECT_TASKS.discard, lose_name)
+        self.addCleanup(NO_SIDE_EFFECT_TASKS.discard, success_name)
+
+        first = enqueue_durable_task(lose_name, {"object_id": 0}, "lost-key")
+        DurableTask.objects.filter(pk=first.pk).update(payload={"object_id": first.pk})
+        second = enqueue_durable_task(success_name, {"object_id": 2}, "second-key")
+
+        outcome = run_bounded_worker(limit=2, lease_seconds=30, worker_id="worker-a")
+
+        self.assertEqual(outcome, {"claimed": 2, "completed": 1, "failed": 0, "lost": 1})
+        self.assertEqual(DurableTask.objects.get(pk=second.pk).status, DurableTask.Status.DONE)
+        self.assertEqual(DurableTask.objects.get(pk=first.pk).status, DurableTask.Status.RUNNING)
