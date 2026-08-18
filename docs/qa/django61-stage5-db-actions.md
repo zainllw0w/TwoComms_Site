@@ -24,6 +24,10 @@ incident-файлы не изменялись.
 - Для каждого relation фиксируются исходный `on_delete`, `db_constraint`,
   engine/FK placeholders, soft-delete поля обеих моделей, `delete()` override,
   `pre_delete`/`post_delete` receivers, orphan count и hash `SHOW CREATE TABLE`.
+  В каждой строке также есть `companion_action_design`: read-only план
+  перехода sibling-полей на `DB_CASCADE`/`DB_SET_NULL`/`DB_SET_DEFAULT`,
+  проверка `null`/default prerequisites, явные `models.E050` blockers и
+  обратимый порядок `AlterField` с восстановлением захваченных FK.
 - Два wildcard receiver-а проекта не считаются обязательными для аналитических
   моделей, потому что их собственные guarded maps не содержат `PageView`:
   `storefront.signals.cancel_deleted_image_optimization` и
@@ -37,8 +41,17 @@ incident-файлы не изменялись.
 соседний relation `user:SET_NULL`. Django 6.1 запрещает смешивать
 database-level и Python-level actions в одной модели (`models.E050`). Поэтому
 перевод только `session` на `DB_CASCADE` сейчас получает однозначный
-`NO-GO`; companion relation пришлось бы отдельно проектировать как
-`DB_SET_NULL`, что выходит за этот безопасный experiment.
+`NO-GO`. Inventory теперь фиксирует companion design: `user` должен стать
+`DB_SET_NULL` (поле nullable), затем `session` — `DB_CASCADE`; rollback идёт в
+обратном порядке по захваченным FK/`SHOW CREATE TABLE`. Этот design только
+показывает, как устранить E050, и не является одобрением миграции.
+
+Для sibling с `PROTECT`, `RESTRICT`, `DO_NOTHING` или неизвестным действием
+design остаётся `blocked`, потому что в Django 6.1 нет соответствующего
+database-level action для автоматического сохранения Python semantics.
+Ненулевое поле для `DB_SET_NULL` и поле без default для `DB_SET_DEFAULT` также
+fail-closed блокируют план. Ни одна из этих проверок не выполняет DDL или не
+меняет данные.
 
 Soft-delete полей у `PageView` и `SiteSession` не обнаружено, `delete()` override
 нет, обязательных delete receivers нет. Это не отменяет E050 и требования

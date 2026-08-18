@@ -52,6 +52,11 @@ SOFT_DELETE_FIELD_NAMES = frozenset(
 DATABASE_ON_DELETE_NAMES = frozenset(
     {"DB_CASCADE", "DB_SET_DEFAULT", "DB_SET_NULL"}
 )
+PYTHON_TO_DATABASE_ACTION = {
+    "CASCADE": "DB_CASCADE",
+    "SET_NULL": "DB_SET_NULL",
+    "SET_DEFAULT": "DB_SET_DEFAULT",
+}
 
 
 def _model_label(model: Any) -> str:
@@ -174,6 +179,84 @@ def _python_on_delete_siblings(model: Any, current_field: Any) -> list[str]:
     return sorted(siblings)
 
 
+def _database_action_for_python(action_name: str) -> str | None:
+    return PYTHON_TO_DATABASE_ACTION.get(str(action_name))
+
+
+def build_companion_action_design(
+    relation: Mapping[str, Any],
+    relations_by_label: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Describe a reversible sibling conversion required to avoid Django E050.
+
+    Django's model check rejects mixing a database-level ``on_delete`` action
+    with Python-level actions on the same child model.  This helper is purely
+    descriptive: it never alters model metadata or executes SQL.  A plan is
+    ``ready`` only when the target and every sibling have a supported database
+    action and the field-level prerequisites (nullable/default) are explicit.
+    Missing sibling metadata fails closed rather than guessing from a label.
+    """
+
+    relation_map = relations_by_label or {}
+    target_action = _database_action_for_python(str(relation.get("on_delete", "")))
+    blockers: list[str] = []
+    if target_action is None:
+        blockers.append(
+            f"target_{relation.get('on_delete', 'UNKNOWN')}_has_no_database_action"
+        )
+
+    companions: list[dict[str, Any]] = []
+    sibling_labels = list(relation.get("python_on_delete_siblings") or [])
+    for sibling_label in sorted(str(value) for value in sibling_labels):
+        field_label, separator, current_action = sibling_label.rpartition(":")
+        sibling = relation_map.get(field_label)
+        if not separator or not field_label or sibling is None:
+            blockers.append(f"companion_metadata_missing:{sibling_label}")
+            continue
+        proposed_action = _database_action_for_python(current_action)
+        companion = {
+            "field_label": field_label,
+            "current_action": current_action,
+            "proposed_action": proposed_action,
+            "null": bool(sibling.get("null", False)),
+            "has_default": bool(sibling.get("has_default", False)),
+        }
+        companions.append(companion)
+        if proposed_action is None:
+            blockers.append(
+                f"companion_{current_action}_has_no_database_action"
+            )
+        elif proposed_action == "DB_SET_NULL" and not companion["null"]:
+            blockers.append("companion_SET_NULL_requires_nullable_field")
+        elif proposed_action == "DB_SET_DEFAULT" and not companion["has_default"]:
+            blockers.append("companion_SET_DEFAULT_requires_field_default")
+
+    ready = not blockers
+    return {
+        "status": "ready" if ready else "blocked",
+        "required": bool(sibling_labels),
+        "e050_safe": ready,
+        "target_action": target_action,
+        "companions": companions,
+        "blockers": sorted(set(blockers)),
+        "migration_order": [
+            "capture_show_create_and_fk_metadata",
+            "alter_companion_fields_to_database_actions",
+            "alter_target_field_to_database_action",
+            "verify_engines_constraints_delete_rules_and_orphans",
+        ],
+        "rollback": {
+            "strategy": "reverse_alter_fields_and_restore_captured_foreign_keys",
+            "order": "reverse_migration_order",
+            "required_evidence": [
+                "captured_show_create",
+                "backup_or_restore_point",
+                "post_change_orphan_scan",
+            ],
+        },
+    }
+
+
 def collect_static_inventory() -> list[dict[str, Any]]:
     """Collect every non-DTF local FK/OneToOne relation from Django's graph."""
 
@@ -208,6 +291,8 @@ def collect_static_inventory() -> list[dict[str, Any]]:
                     "child_app": str(child_model._meta.app_label),
                     "child_table": _table_name(child_model),
                     "child_column": str(field.column),
+                    "null": bool(getattr(field, "null", False)),
+                    "has_default": bool(field.has_default()),
                     "parent_model": _model_label(parent_model),
                     "parent_app": str(parent_model._meta.app_label),
                     "parent_table": _table_name(parent_model),
@@ -230,6 +315,11 @@ def collect_static_inventory() -> list[dict[str, Any]]:
                     **signal_contract,
                 }
             )
+    relations_by_label = {row["field_label"]: row for row in rows}
+    for row in rows:
+        row["companion_action_design"] = build_companion_action_design(
+            row, relations_by_label
+        )
     return rows
 
 
@@ -319,6 +409,11 @@ def enrich_inventory(
 def assess_db_cascade(relation: Mapping[str, Any]) -> dict[str, Any]:
     database = dict(relation.get("database") or {})
     blockers: list[str] = []
+    companion_design = relation.get("companion_action_design")
+    if companion_design is None and relation.get("python_on_delete_siblings"):
+        companion_design = build_companion_action_design(relation)
+    if companion_design and companion_design.get("status") != "ready":
+        blockers.append("companion_action_design_blocked")
     if relation.get("on_delete") != "CASCADE":
         blockers.append("source_on_delete_is_not_CASCADE")
     if not relation.get("db_constraint", False):
@@ -362,6 +457,7 @@ def assess_db_cascade(relation: Mapping[str, Any]) -> dict[str, Any]:
         ),
         "blockers": sorted(set(blockers)),
         "database": database,
+        "companion_action_design": dict(companion_design or {}),
         "rollback": rollback,
     }
 

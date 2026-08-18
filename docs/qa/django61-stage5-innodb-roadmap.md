@@ -68,6 +68,34 @@ python scripts/build_innodb_stage5_inventory.py inventory.json \
   --output stage5-inventory-report.json
 ```
 
+### Reusable disposable canary gate
+
+`scripts/run_stage5_innodb_canary.py` supplies the separate, programmatic
+rehearsal used after an approved local MariaDB fixture has been prepared.  It
+does not expose a CLI with host/user/password/database arguments: the caller
+must pass a connection factory and explicitly set `allow_disposable=True`.
+Before creating anything it rejects a non-`default` alias, non-loopback host,
+missing local socket/host, SQLite/non-MariaDB connections, unavailable InnoDB
+and an out-of-budget row count.
+
+Inside a randomly named disposable schema, the gate:
+
+1. creates a small deterministic MyISAM source table;
+2. creates and verifies a logical shadow-table backup by engine, count and
+   SHA-256 digest;
+3. times `ALTER TABLE ... ENGINE=InnoDB` and verifies engine/count/digest;
+4. times rollback by replacing the converted table with the verified backup,
+   then verifies restored MyISAM engine/count/digest;
+5. drops the generated schema and fails instead of reporting success if cleanup
+   cannot be proved.
+
+Its focused regression contract is
+`tests/test_django61_stage5_innodb_canary.py`.  This demonstrates the exact
+backup/conversion/rollback mechanics without touching a tracked project table,
+production MariaDB, DTF, migrations or DDL.  It is intentionally not evidence
+that backup-only restoration is safe for production writes: the production
+rollback requirements below still apply.
+
 ## Recommended execution gates
 
 1. **Inventory gate (read-only):** on the approved production SSH path, export

@@ -96,6 +96,85 @@ class Django61DbActionsTests(unittest.TestCase):
             blocked["database"][key] = value
             self.assertIn(expected, db_actions.assess_db_cascade(blocked)["blockers"])
 
+    def test_companion_design_is_structured_and_e050_safe_only_after_siblings_map(self):
+        relation = {
+            "field_label": "sample.Event.session",
+            "on_delete": "CASCADE",
+            "python_on_delete_siblings": ["sample.Event.owner:SET_NULL"],
+        }
+        sibling = {
+            "field_label": "sample.Event.owner",
+            "on_delete": "SET_NULL",
+            "null": True,
+            "has_default": False,
+        }
+
+        design = db_actions.build_companion_action_design(
+            relation,
+            {sibling["field_label"]: sibling},
+        )
+
+        self.assertEqual(design["status"], "ready")
+        self.assertTrue(design["e050_safe"])
+        self.assertEqual(design["target_action"], "DB_CASCADE")
+        self.assertEqual(
+            design["companions"],
+            [
+                {
+                    "field_label": "sample.Event.owner",
+                    "current_action": "SET_NULL",
+                    "proposed_action": "DB_SET_NULL",
+                    "null": True,
+                    "has_default": False,
+                }
+            ],
+        )
+        self.assertEqual(
+            design["rollback"]["strategy"],
+            "reverse_alter_fields_and_restore_captured_foreign_keys",
+        )
+
+    def test_companion_design_blocks_unsupported_or_non_nullable_siblings(self):
+        relation = {
+            "field_label": "sample.Event.session",
+            "on_delete": "CASCADE",
+            "python_on_delete_siblings": [
+                "sample.Event.owner:SET_NULL",
+                "sample.Event.guard:PROTECT",
+            ],
+        }
+        siblings = {
+            "sample.Event.owner": {
+                "field_label": "sample.Event.owner",
+                "on_delete": "SET_NULL",
+                "null": False,
+                "has_default": False,
+            },
+            "sample.Event.guard": {
+                "field_label": "sample.Event.guard",
+                "on_delete": "PROTECT",
+                "null": False,
+                "has_default": False,
+            },
+        }
+
+        design = db_actions.build_companion_action_design(relation, siblings)
+
+        self.assertEqual(design["status"], "blocked")
+        self.assertFalse(design["e050_safe"])
+        self.assertIn("companion_SET_NULL_requires_nullable_field", design["blockers"])
+        self.assertIn("companion_PROTECT_has_no_database_action", design["blockers"])
+
+    def test_static_inventory_exposes_companion_design_for_retention_candidate(self):
+        design = self.retention["companion_action_design"]
+
+        self.assertEqual(design["target_action"], "DB_CASCADE")
+        self.assertTrue(design["required"])
+        self.assertTrue(design["e050_safe"])
+        self.assertEqual(
+            design["companions"][0]["proposed_action"], "DB_SET_NULL"
+        )
+
     def test_disposable_endpoint_accepts_only_local_socket(self):
         db_actions.validate_disposable_endpoint(host=None, unix_socket="/private/tmp/db.sock")
         db_actions.validate_disposable_endpoint(host="127.0.0.1", unix_socket=None)

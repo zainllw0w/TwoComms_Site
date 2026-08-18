@@ -22,7 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +46,141 @@ SENSITIVE_ENV_MARKERS = (
 
 class GateFailure(RuntimeError):
     """A deterministic, user-actionable gate failure."""
+
+
+MARIADB_VENDORS = frozenset({"mysql", "mariadb"})
+
+
+def _require_mapping(value: Any, name: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise GateFailure(f"{name}_missing")
+    return value
+
+
+def _require_sha256(value: Any, name: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if len(normalized) != 64 or any(
+        character not in "0123456789abcdef" for character in normalized
+    ):
+        raise GateFailure(f"{name}_missing_or_invalid")
+    return normalized
+
+
+def _require_int(value: Any, name: str, *, minimum: int | None = None) -> int:
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError) as exc:
+        raise GateFailure(f"{name}_missing_or_invalid") from exc
+    if minimum is not None and normalized < minimum:
+        raise GateFailure(f"{name}_missing_or_invalid")
+    return normalized
+
+
+def validate_authoritative_applied_history(
+    evidence: Mapping[str, Any],
+) -> None:
+    """Validate sanitized, read-only migration history from the authority.
+
+    The gate intentionally accepts facts, not credentials or a live connection.
+    ``authoritative`` and ``read_only`` are explicit so a copied local SQLite
+    report cannot be mistaken for production history.
+    """
+
+    evidence = _require_mapping(evidence, "authoritative_applied_history")
+    if evidence.get("status") != "passed":
+        raise GateFailure("authoritative_applied_history_not_passed")
+    if evidence.get("authoritative") is not True:
+        raise GateFailure("authoritative_applied_history_not_authoritative")
+    if evidence.get("read_only") is not True:
+        raise GateFailure("authoritative_applied_history_not_read_only")
+    vendor = str(evidence.get("database_vendor") or "").strip().casefold()
+    if vendor not in MARIADB_VENDORS:
+        raise GateFailure("authoritative_applied_history_requires_mariadb")
+    if str(evidence.get("database_alias") or "").strip() != "default":
+        raise GateFailure("authoritative_applied_history_alias_violation")
+    if evidence.get("non_dtf_only") is not True:
+        raise GateFailure("authoritative_applied_history_scope_violation")
+    if not str(evidence.get("source") or "").strip():
+        raise GateFailure("authoritative_applied_history_source_missing")
+    if not str(evidence.get("captured_at") or "").strip():
+        raise GateFailure("authoritative_applied_history_timestamp_missing")
+    if _require_int(evidence.get("pending", -1), "authoritative_pending") != 0:
+        raise GateFailure("authoritative_applied_history_pending")
+    _require_int(
+        evidence.get("applied_history_count", 0),
+        "authoritative_applied_history_count",
+        minimum=1,
+    )
+    _require_sha256(
+        evidence.get("applied_history_hash"),
+        "authoritative_applied_history_hash",
+    )
+    _require_sha256(
+        evidence.get("graph_fingerprint"), "authoritative_graph_fingerprint"
+    )
+
+
+def validate_restore_drill_evidence(evidence: Mapping[str, Any]) -> None:
+    """Validate backup, restore-parity and rollback facts for a disposable DB."""
+
+    evidence = _require_mapping(evidence, "restore_drill")
+    if evidence.get("status") != "passed":
+        raise GateFailure("restore_drill_not_passed")
+    if evidence.get("disposable") is not True:
+        raise GateFailure("restore_drill_must_be_disposable")
+    backup = _require_mapping(evidence.get("backup"), "backup_evidence")
+    if backup.get("status") != "passed":
+        raise GateFailure("backup_evidence_not_passed")
+    if not str(backup.get("artifact_id") or "").strip():
+        raise GateFailure("backup_artifact_missing")
+    _require_sha256(backup.get("sha256"), "backup_sha256")
+    restore = _require_mapping(evidence.get("restore"), "restore_evidence")
+    if restore.get("status") != "passed":
+        raise GateFailure("restore_evidence_not_passed")
+    if restore.get("integrity_check") is not True:
+        raise GateFailure("restore_integrity_evidence_missing")
+    if restore.get("schema_hash_matches") is not True:
+        raise GateFailure("restore_schema_parity_missing")
+    if restore.get("applied_history_matches") is not True:
+        raise GateFailure("restore_history_parity_missing")
+    rollback = _require_mapping(evidence.get("rollback"), "rollback_evidence")
+    if rollback.get("status") != "passed" or rollback.get("verified") is not True:
+        raise GateFailure("rollback_evidence_missing")
+
+
+def validate_mariadb_rehearsal_evidence(
+    evidence: Mapping[str, Any],
+) -> None:
+    """Validate clean-install/replay facts on a production-compatible MariaDB."""
+
+    evidence = _require_mapping(evidence, "mariadb_rehearsal")
+    if evidence.get("status") != "passed":
+        raise GateFailure("mariadb_rehearsal_not_passed")
+    vendor = str(evidence.get("database_vendor") or "").strip().casefold()
+    if vendor not in MARIADB_VENDORS:
+        raise GateFailure("mariadb_rehearsal_requires_mariadb")
+    if evidence.get("production_compatible") is not True:
+        raise GateFailure("mariadb_rehearsal_compatibility_missing")
+    server_version = str(evidence.get("server_version") or "").strip()
+    if not server_version:
+        raise GateFailure("mariadb_rehearsal_version_missing")
+    if "mariadb" not in server_version.casefold():
+        raise GateFailure("mariadb_rehearsal_requires_mariadb_server")
+    if evidence.get("disposable") is not True:
+        raise GateFailure("mariadb_rehearsal_must_be_disposable")
+    clean_install = _require_mapping(
+        evidence.get("clean_install"), "mariadb_clean_install"
+    )
+    if clean_install.get("status") != "passed" or _require_int(
+        clean_install.get("pending", -1), "mariadb_clean_install_pending"
+    ) != 0:
+        raise GateFailure("mariadb_clean_install_pending")
+    replay = _require_mapping(evidence.get("replay"), "mariadb_replay")
+    if replay.get("status") != "passed" or _require_int(
+        replay.get("pending", -1), "mariadb_replay_pending"
+    ) != 0:
+        raise GateFailure("mariadb_replay_pending")
+    validate_restore_drill_evidence(evidence.get("restore_drill") or {})
 
 
 def assert_local_only_environment(environment: dict[str, str] | None = None) -> None:
@@ -603,18 +738,43 @@ def build_decision(
     authoritative_applied_history: bool,
     mariadb_clean_install: bool,
     approved_ranges: bool,
+    authoritative_evidence: Mapping[str, Any] | None = None,
+    mariadb_evidence: Mapping[str, Any] | None = None,
+    restore_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     blocking_conditions: list[str] = []
     if not authoritative_applied_history:
         blocking_conditions.append("authoritative_applied_history_missing")
+    elif authoritative_evidence is None:
+        blocking_conditions.append("authoritative_applied_history_evidence_missing")
+    else:
+        try:
+            validate_authoritative_applied_history(authoritative_evidence)
+        except GateFailure:
+            blocking_conditions.append("authoritative_applied_history_invalid")
     if not mariadb_clean_install:
         blocking_conditions.append("mariadb_clean_install_missing")
+    elif mariadb_evidence is None:
+        blocking_conditions.append("mariadb_clean_install_evidence_missing")
+    else:
+        try:
+            validate_mariadb_rehearsal_evidence(mariadb_evidence)
+        except GateFailure:
+            blocking_conditions.append("mariadb_clean_install_evidence_invalid")
     if not approved_ranges:
         blocking_conditions.append("approved_squash_ranges_missing")
     if not sqlite_clean_install:
         blocking_conditions.append("sqlite_clean_install_failed")
     if not sqlite_restore:
         blocking_conditions.append("sqlite_restore_rehearsal_failed")
+    if authoritative_applied_history and mariadb_clean_install and approved_ranges:
+        if restore_evidence is None:
+            blocking_conditions.append("backup_restore_evidence_missing")
+        else:
+            try:
+                validate_restore_drill_evidence(restore_evidence)
+            except GateFailure:
+                blocking_conditions.append("backup_restore_evidence_invalid")
     go = not blocking_conditions
     return {
         "decision": "go" if go else "no-go",
@@ -742,6 +902,13 @@ def run_gate(*, python: str, evidence_path: Path) -> dict[str, Any]:
                 == restored_probe["schema_hash"],
                 "applied_history_matches": migrated["applied_history_hash"]
                 == restored_probe["applied_history_hash"],
+                "migration_check": "pending=0",
+            },
+            "replay": {
+                "status": "passed",
+                "database_vendor": "sqlite",
+                "pending": restored_check["pending"],
+                "applied_history_hash": restored_check["applied_history_hash"],
                 "migration_check": "pending=0",
             },
             "candidates": candidates,

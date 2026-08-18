@@ -180,6 +180,96 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
         self.assertFalse(decision["historical_migrations_may_be_deleted"])
         self.assertFalse(decision["squash_may_run"])
 
+    def test_authoritative_history_rejects_sqlite_and_requires_read_only_mariadb(
+        self,
+    ):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        history = {
+            "status": "passed",
+            "authoritative": True,
+            "read_only": True,
+            "database_vendor": "sqlite",
+            "database_alias": "default",
+            "non_dtf_only": True,
+            "source": "local-rehearsal",
+            "captured_at": "2026-08-18T12:00:00Z",
+            "pending": 0,
+            "applied_history_count": 450,
+            "applied_history_hash": "a" * 64,
+            "graph_fingerprint": "b" * 64,
+        }
+        with self.assertRaisesRegex(
+            gate.GateFailure, "requires_mariadb"
+        ):
+            gate.validate_authoritative_applied_history(history)
+
+        history["database_vendor"] = "mariadb"
+        gate.validate_authoritative_applied_history(history)
+
+    def test_mariadb_rehearsal_requires_clean_replay_and_restore_drill(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        rehearsal = {
+            "status": "passed",
+            "database_vendor": "mysql",
+            "production_compatible": True,
+            "server_version": "11.4.12-MariaDB",
+            "disposable": True,
+            "clean_install": {"status": "passed", "pending": 0},
+            "replay": {"status": "passed", "pending": 0},
+            "restore_drill": {
+                "status": "passed",
+                "disposable": True,
+                "backup": {
+                    "status": "passed",
+                    "artifact_id": "mariadb-fixture-1",
+                    "sha256": "c" * 64,
+                },
+                "restore": {
+                    "status": "passed",
+                    "integrity_check": True,
+                    "schema_hash_matches": True,
+                    "applied_history_matches": True,
+                },
+                "rollback": {"status": "passed", "verified": True},
+            },
+        }
+        gate.validate_mariadb_rehearsal_evidence(rehearsal)
+
+        rehearsal["server_version"] = "8.0.36"
+        with self.assertRaisesRegex(
+            gate.GateFailure, "requires_mariadb_server"
+        ):
+            gate.validate_mariadb_rehearsal_evidence(rehearsal)
+        rehearsal["server_version"] = "11.4.12-MariaDB"
+        rehearsal["replay"] = {"status": "passed", "pending": 1}
+        with self.assertRaisesRegex(gate.GateFailure, "mariadb_replay_pending"):
+            gate.validate_mariadb_rehearsal_evidence(rehearsal)
+
+    def test_go_claim_fails_closed_without_external_evidence(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        decision = gate.build_decision(
+            sqlite_clean_install=True,
+            sqlite_restore=True,
+            authoritative_applied_history=True,
+            mariadb_clean_install=True,
+            approved_ranges=True,
+        )
+        self.assertEqual(decision["decision"], "no-go")
+        self.assertIn(
+            "authoritative_applied_history_evidence_missing",
+            decision["blocking_conditions"],
+        )
+        self.assertIn(
+            "mariadb_clean_install_evidence_missing",
+            decision["blocking_conditions"],
+        )
+        self.assertIn(
+            "backup_restore_evidence_missing", decision["blocking_conditions"]
+        )
+
     def test_sqlite_restore_uses_backup_api_and_preserves_content(self):
         from scripts import run_django61_migration_squash_gate as gate
 

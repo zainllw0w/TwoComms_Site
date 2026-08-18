@@ -41,6 +41,29 @@ SQLite alias. Он отказывается работать при явном `
 `.env.production`, не принимает путь базы вне своего temporary directory и
 требует явного флага локальной rehearsal.
 
+### Внешние доказательства для будущего GO
+
+Локальный runner дополнительно предоставляет переиспользуемые валидаторы
+`validate_authoritative_applied_history`, `validate_mariadb_rehearsal_evidence`
+и `validate_restore_drill_evidence`. Они принимают только обезличенный JSON с
+фактами и fail-closed отклоняют неполные или неподходящие артефакты:
+
+- authoritative history должна быть `read_only=true`, `authoritative=true`,
+  `database_vendor=mysql|mariadb`, alias `default`, область `non_dtf_only=true`,
+  `pending=0`, непустой источник/временная отметка и SHA-256 graph/history;
+- MariaDB rehearsal должна быть `disposable=true`, с явной
+  `production_compatible=true`, версией сервера с маркером `MariaDB`,
+  `clean_install.pending=0` и
+  отдельным `replay.pending=0`;
+- restore drill должна содержать backup artifact + SHA-256, integrity check,
+  parity schema/history и подтверждённый rollback.
+
+Даже если вызывающий код передаст все boolean-флаги как `true`,
+`build_decision()` оставляет `NO-GO` без этих трёх внешних evidence-объектов.
+SQLite никогда не проходит authoritative/MariaDB валидатор. Такой JSON не
+содержит credentials и должен создаваться только владельцем утверждённой
+копии базы; production подключение или миграция из этого runner не выполняются.
+
 | Проверка | Результат |
 |---|---|
 | Graph fingerprint одинаков до/после install и после restore | PASS: `95ef0304cc909e83f31d80b8a739d41627863db0a007abcbe48f2d2756ca55db` |
@@ -48,6 +71,8 @@ SQLite alias. Он отказывается работать при явном `
 | Clean install на disposable SQLite | PASS, `pending=0`, 1836 schema objects |
 | Restore (`sqlite.Connection.backup`) | PASS, integrity check и schema совпали |
 | Applied migration history после restore | PASS, `pending=0`, hash совпал |
+| Replay после restore (`migrate --check`) | PASS, `pending=0`, history hash совпал |
+| MariaDB authoritative history / clean replay / backup-restore | НЕ ПРЕДОСТАВЛЕНО; валидаторы fail-closed |
 | Model migration drift | PASS (`makemigrations --check --dry-run`) |
 | Реальный DTF app / migrations / tables | PASS: не загружены, real modules `[]`, tables `[]` |
 | Production MariaDB mutation | НЕ выполнялась |
