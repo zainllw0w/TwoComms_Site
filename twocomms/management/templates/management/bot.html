@@ -136,7 +136,7 @@
 .gemini-health-segment.is-success{border-color:#2cae81;background:#34c995;}
 .gemini-health-segment.is-recovered{border-color:#d8a63e;background:#edb94f;}
 .gemini-health-segment.is-terminal{border-color:#d9675d;background:#e4776c;}
-.gemini-health-segment.is-not_needed{border-color:#354052;background:#222b38;}
+.gemini-health-segment.is-not_needed{border-color:#3f6f9e;background:#18334d;}
 .gemini-health-segment:hover,.gemini-health-segment:focus-visible{filter:brightness(1.12);outline:0;transform:translateY(-1px);}
 .gemini-health-model-meta{min-width:0;width:var(--gemini-health-meta-width);max-width:100%;min-height:32px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;color:#7f8da1;font-size:9px;font-variant-numeric:tabular-nums;line-height:1.35;text-align:right;}
 .gemini-health-model-meta strong,.gemini-health-model-detail{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -151,7 +151,7 @@
 .gemini-health-legend{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;color:#8795a8;font-size:9.5px;font-weight:700;}
 .gemini-health-legend span{display:inline-flex;align-items:center;gap:5px;}
 .gemini-health-legend i{width:8px;height:8px;border-radius:2px;background:#222b38;}
-.gemini-health-legend .success{background:#34c995}.gemini-health-legend .recovered{background:#edb94f}.gemini-health-legend .terminal{background:#e4776c}.gemini-health-legend .empty{border:1px solid #354052;background:#222b38;}
+.gemini-health-legend .success{background:#34c995}.gemini-health-legend .recovered{background:#edb94f}.gemini-health-legend .terminal{background:#e4776c}.gemini-health-legend .empty{border:1px solid #354052;background:#222b38;}.gemini-health-legend .not-needed{border:1px solid #3f6f9e;background:#18334d;}
 .gemini-health-feedback{min-height:16px;color:#7f8da1;font-size:10px;line-height:1.4;text-align:right;}
 .gemini-health-feedback.stale{color:#d6ad5d}.gemini-health-feedback.error{color:#ef8b82}.gemini-health-feedback.success{color:#69d7ae;}
 @media(max-width:1280px){
@@ -1503,7 +1503,7 @@ body.bot-drawer-open{overflow:hidden;}
       <header class="gemini-health-header">
         <div class="gemini-health-heading">
           <h2>Gemini API</h2>
-          <p>Пасивний зріз за 24 години: <strong>LIVE</strong> означає реальну генерацію, а <strong>READY</strong> — лише погодинну metadata-перевірку. Зовнішній запит до Gemini виконується тільки явною кнопкою «Перевірити».</p>
+          <p>Пасивний зріз за 24 години: <strong>LIVE</strong> означає лише реальну генерацію, а <strong>ПЕРЕВІРЕНО</strong> означає token-free metadata GET без генерації відповіді. Зовнішній запит до Gemini виконується тільки явною кнопкою «Перевірити».</p>
         </div>
         <div class="gemini-health-header-actions">
           <span class="gemini-health-freshness" id="gemini-health-freshness">Ще не оновлено</span>
@@ -1520,7 +1520,7 @@ body.bot-drawer-open{overflow:hidden;}
       <div class="gemini-health-summary" id="gemini-health-summary" aria-label="Зведення стану Gemini API">
         <div class="gemini-health-summary-item"><strong>—</strong><span>Налаштовано</span></div>
         <div class="gemini-health-summary-item"><strong>—</strong><span>LIVE</span></div>
-        <div class="gemini-health-summary-item"><strong>—</strong><span>READY</span></div>
+        <div class="gemini-health-summary-item"><strong>—</strong><span>ПЕРЕВІРЕНО</span></div>
         <div class="gemini-health-summary-item"><strong>—</strong><span>Проблеми</span></div>
       </div>
       <div class="gemini-health-fallback" id="gemini-health-fallback" role="status" aria-live="polite" hidden></div>
@@ -1532,7 +1532,8 @@ body.bot-drawer-open{overflow:hidden;}
           <span><i class="success"></i>Успішне</span>
           <span><i class="recovered"></i>Відновлено</span>
           <span><i class="terminal"></i>Помилка</span>
-          <span><i class="empty"></i>Немає даних / 3.6 не потрібна</span>
+          <span><i class="empty"></i>Немає даних</span>
+          <span><i class="not-needed"></i>Не перевірялась: 3.7 успішна</span>
         </div>
         <div class="gemini-health-feedback" id="gemini-health-feedback" role="status" aria-live="polite"></div>
       </footer>
@@ -1887,9 +1888,9 @@ body.bot-drawer-open{overflow:hidden;}
       {id:'gemini-3.6-flash',short:'3.6'},
     ];
     const stateLabels={available:'Доступний у пулі',busy:'Зайнятий у пулі',cooldown:'Cooldown у пулі',unconfigured:'Не налаштовано',unavailable:'Недоступний у пулі'};
-    const liveStateLabels={LIVE:'LIVE',READY:'READY',DEGRADED:'DEGRADED',OFFLINE:'OFFLINE',STALE:'STALE',NOT_CONFIGURED:'NOT CONFIGURED'};
+    const liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО',DEGRADED:'DEGRADED',OFFLINE:'OFFLINE',STALE:'STALE',NOT_CONFIGURED:'NOT CONFIGURED'};
     const liveStateDescriptions={LIVE:'Нещодавня реальна генерація успішна',READY:'Погодинний metadata GET успішний; генерацію не доведено',DEGRADED:'3.7 не пройшла, але 3.6 підтверджена',OFFLINE:'Жоден маршрут не підтверджено',STALE:'Немає свіжого спостереження',NOT_CONFIGURED:'Секрет для alias не налаштовано'};
-    const observationLabels={success:'Успішне',recovered:'Відновлено після збою',terminal:'Помилка',no_observation:'Немає даних',not_needed:'Не перевірялась: 3.7 доступна'};
+    const observationLabels={success:'Успішне',recovered:'Відновлено після збою',terminal:'Помилка',no_observation:'Немає даних',not_needed:'Не перевірялась: 3.7 успішна'};
     const fallbackReasons={'3.7 timed out':'3.7 не відповіла вчасно','provider overload':'Провайдер перевантажений','network transport failure':'Помилка мережевого з’єднання','quota cooldown':'Ключ на cooldown','model unavailable':'Модель тимчасово недоступна','invalid key':'Ключ відхилено','invalid response':'Некоректна відповідь'};
     const allowedObservationStates=new Set(['success','recovered','terminal','no_observation','not_needed']);
     let lastSnapshot=null;
@@ -2046,7 +2047,7 @@ body.bot-drawer-open{overflow:hidden;}
       lastSnapshot=data;const source=Array.isArray(data.keys)?data.keys:[];renderSummary(data.summary||{},source);renderFallback(data.fallback||null);
       if(keys){keys.replaceChildren();for(let index=1;index<=6;index+=1)keys.appendChild(renderKey(source[index-1]||{},index));keys.setAttribute('aria-busy','false');}
       if(freshness){freshness.textContent='Оновлено '+formatDate(data.generated_at);freshness.title=String(data.generated_at||'');}
-      if(!passive){const observations=integer((data.summary||{}).observations);setFeedback(observations?'На графіку лише збережені спроби, без фонових запитів.':'За 24 години ще немає спостережень.','');}
+      if(!passive){const summaryData=data.summary||{};const observations=integer(summaryData.observations)+integer(summaryData.metadata_observations);setFeedback(observations?'На графіку лише збережені спроби, без фонових запитів.':'За 24 години ще немає спостережень.','');}
       const rootNextAt=data&&Object.prototype.hasOwnProperty.call(data,'next_check_at')?data.next_check_at:null;
       const rootSeconds=data&&Object.prototype.hasOwnProperty.call(data,'seconds_until_next_check')?data.seconds_until_next_check:null;
       const keySource=source[0]&&typeof source[0]==='object'?source[0]:{};

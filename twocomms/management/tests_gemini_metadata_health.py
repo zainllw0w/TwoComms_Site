@@ -2,6 +2,7 @@ import datetime
 import json
 import threading
 import time
+from concurrent.futures import Future
 from io import StringIO
 from unittest.mock import Mock, patch
 
@@ -278,6 +279,60 @@ class GeminiMetadataHealthTests(TestCase):
         self.assertEqual(result["provider_requests"], len(gemini_metadata_health.gemini_keys.ALL_KEYS))
 
     @patch("management.services.gemini_metadata_health._record")
+    @patch("management.services.gemini_metadata_health.check_alias")
+    def test_fast_later_aliases_survive_a_slow_first_alias_deadline(
+        self,
+        check_alias,
+        record,
+    ):
+        aliases = list(gemini_metadata_health.gemini_keys.ALL_KEYS)
+        fast_aliases_finished = threading.Event()
+        finished_fast_aliases = set()
+        lock = threading.Lock()
+
+        def fake_check_alias(alias, **kwargs):
+            self.assertFalse(kwargs["record"])
+            if alias == aliases[0]:
+                self.assertTrue(fast_aliases_finished.wait(timeout=1))
+                time.sleep(0.25)
+            else:
+                with lock:
+                    finished_fast_aliases.add(alias)
+                    if len(finished_fast_aliases) == len(aliases) - 1:
+                        fast_aliases_finished.set()
+            return [
+                {
+                    "model": gemini_metadata_health.MODELS[0],
+                    "status": "metadata_ok",
+                },
+                {
+                    "model": gemini_metadata_health.MODELS[1],
+                    "status": "not_needed",
+                },
+            ]
+
+        check_alias.side_effect = fake_check_alias
+
+        results = gemini_metadata_health._run_alias_checks(
+            batch_id="metadata-deadline-order",
+            now=self.now,
+            deadline=time.monotonic() + 0.15,
+        )
+
+        self.assertEqual(
+            [row["status"] for row in results[0]],
+            ["deadline_skipped", "deadline_skipped"],
+        )
+        self.assertEqual(
+            [[row["status"] for row in result] for result in results[1:]],
+            [["metadata_ok", "not_needed"]] * (len(aliases) - 1),
+        )
+        self.assertEqual(
+            {call.kwargs["alias"] for call in record.call_args_list},
+            set(aliases[1:]),
+        )
+
+    @patch("management.services.gemini_metadata_health._record")
     @patch("management.services.gemini_metadata_health.check_alias", side_effect=RuntimeError("unexpected worker failure"))
     def test_hourly_surfaces_a_worker_failure_before_writing_partial_ledger(self, _check_alias, record):
         with self.assertRaisesRegex(RuntimeError, r"Gemini metadata health worker failed for aliases: GEMINI_API"):
@@ -312,28 +367,20 @@ class GeminiMetadataHealthTests(TestCase):
 
     @patch("management.services.gemini_metadata_health.ThreadPoolExecutor")
     def test_hourly_joins_provider_workers_before_returning(self, executor_type):
-        class ImmediateFuture:
-            def __init__(self, value):
-                self.value = value
-
-            def result(self, timeout=None):
-                return self.value
-
-            def done(self):
-                return True
-
-            def exception(self):
-                return None
-
         class TrackingExecutor:
             def __init__(self, *args, **kwargs):
                 self.shutdown_calls = []
 
             def submit(self, function, alias, **kwargs):
-                return ImmediateFuture([
-                    {"model": gemini_metadata_health.MODELS[0], "status": "metadata_ok"},
-                    {"model": gemini_metadata_health.MODELS[1], "status": "not_needed"},
-                ])
+                future = Future()
+                future.set_result((
+                    [
+                        {"model": gemini_metadata_health.MODELS[0], "status": "metadata_ok"},
+                        {"model": gemini_metadata_health.MODELS[1], "status": "not_needed"},
+                    ],
+                    time.monotonic(),
+                ))
+                return future
 
             def shutdown(self, **kwargs):
                 self.shutdown_calls.append(kwargs)

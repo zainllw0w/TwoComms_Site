@@ -127,6 +127,31 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         for legend_label in ("Успішне", "Відновлено", "Помилка", "Немає даних"):
             self.assertIn(legend_label, self.template)
 
+    def test_api_checker_explains_metadata_ready_and_not_needed_states(self):
+        start = self.template.index("const GeminiHealth=(function(){")
+        end = self.template.index("/* ============", start + 32)
+        source = self.template[start:end]
+
+        self.assertIn("liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО'", source)
+        self.assertIn("not_needed:'Не перевірялась: 3.7 успішна'", source)
+        self.assertIn(".gemini-health-segment.is-not_needed", self.template)
+        self.assertIn(".gemini-health-legend .not-needed", self.template)
+        self.assertIn("metadata_observations", source)
+        self.assertIn(
+            "integer(summaryData.observations)+integer(summaryData.metadata_observations)",
+            source,
+        )
+
+    def test_visible_checker_copy_distinguishes_live_from_verified_metadata(self):
+        panel_start = self.template.index('data-panel="api"')
+        panel_end = self.template.index("{% endif %}", panel_start)
+        panel = self.template[panel_start:panel_end]
+
+        self.assertIn("<strong>LIVE</strong> означає лише реальну генерацію", panel)
+        self.assertIn("<strong>ПЕРЕВІРЕНО</strong> означає token-free metadata GET", panel)
+        self.assertIn("<span>ПЕРЕВІРЕНО</span>", panel)
+        self.assertNotIn("<span>READY</span>", panel)
+
     def test_rails_merge_generation_before_metadata_per_bucket(self):
         start = self.template.index("const GeminiHealth=(function(){")
         end = self.template.index("/* ============", start + 32)

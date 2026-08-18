@@ -6,7 +6,7 @@ import json
 import socket
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from concurrent.futures import ThreadPoolExecutor, wait
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -198,6 +198,24 @@ def _record_alias_results(
         )
 
 
+def _run_alias_check_worker(
+    alias: str,
+    *,
+    now: dt.datetime,
+    request_id: str,
+    deadline: float,
+) -> tuple[list[dict], float]:
+    """Run one provider read and timestamp completion in its worker thread."""
+    result = check_alias(
+        alias,
+        now=now,
+        request_id=request_id,
+        deadline=deadline,
+        record=False,
+    )
+    return result, time.monotonic()
+
+
 def _run_alias_checks(
     *,
     batch_id: str,
@@ -219,32 +237,34 @@ def _run_alias_checks(
     try:
         for alias in aliases:
             futures[alias] = executor.submit(
-                check_alias,
+                _run_alias_check_worker,
                 alias,
                 now=now,
                 request_id=f"{batch_id}-{alias[-1]}",
                 deadline=deadline,
-                record=False,
             )
-        for alias in aliases:
-            future = futures[alias]
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
+        # Observe all workers as one batch. Never block on futures in
+        # canonical alias order: a slow first key must not hide later keys.
+        done, _ = wait(
+            futures.values(),
+            timeout=max(0.0, deadline - time.monotonic()),
+        )
+        for alias, future in futures.items():
+            if future not in done:
                 timed_out.add(alias)
                 continue
             try:
-                result = future.result(timeout=remaining)
-            except FutureTimeoutError:
-                timed_out.add(alias)
+                payload = future.result()
             except Exception as error:
                 failures[alias] = error
+                continue
+            result, finished_at = payload
+            # The coordinator's deadline is a logical evidence boundary. A
+            # worker that finishes after it is joined is still not evidence.
+            if finished_at <= deadline:
+                finished[alias] = result
             else:
-                # Do not turn a completion after the shared deadline into
-                # evidence, even if it raced the coordinator's check.
-                if time.monotonic() <= deadline:
-                    finished[alias] = result
-                else:
-                    timed_out.add(alias)
+                timed_out.add(alias)
     finally:
         # Retain command ownership until every worker is reconciled. Active
         # slow-drip reads remain the documented IMP-044 limitation.

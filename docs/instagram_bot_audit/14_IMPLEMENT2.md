@@ -1127,7 +1127,7 @@ then reported `OK` for install and check, with exactly one hourly
 `check_ig_gemini_metadata_health` owner using the per-hour lock and 90-second
 external timeout.
 
-**API Checker alignment and coverage follow-up (2026-08-19, production verified):**
+**API Checker alignment and coverage follow-up (2026-08-19, local verified; production pending):**
 
 - [x] The hourly metadata scheduler submits all six configured aliases to one
   six-worker batch, preventing a slow earlier alias from starving API keys
@@ -1139,7 +1139,8 @@ external timeout.
   before releasing the hourly owner, so a slow-drip HTTP read can still extend
   process lifetime beyond that logical deadline; hard wall-clock cancellation
   remains explicitly open under `IMP-044`. This adds no generation request,
-  prompt, customer context or duplicate provider check.
+  prompt, customer context or duplicate provider check. Production deployment
+  and natural hourly-run evidence remain pending.
 - [x] Desktop model rows use a fixed 320 px statistics/evidence track. The
   3.7 and 3.6 rails therefore share the same geometry for all six keys even
   when latency/evidence labels differ. Evidence is constrained to stable
@@ -1149,7 +1150,7 @@ external timeout.
 
 **Local evidence (2026-08-19):** RED reproduced sequential scheduling
 (`peak_active=1`) and the missing fixed rail-statistics CSS track. The final
-focused Gemini/API gate passed `121/121`; the cron installer contract passed
+focused Gemini/API gate passed `28/28`; the cron installer contract passed
 `18/18`; Django `check`, migration drift, scoped `compileall`, shell syntax and
 `git diff --check` were clean. Browser QA covers 1920, 1280, 640 and 375 px
 with intentionally mixed long/short evidence: all 12 rails retain identical
@@ -1159,16 +1160,11 @@ JavaScript errors; the only console entries were the known report-only CSP
 `upgrade-insecure-requests` warning. Local SQLite remains only a fast
   deterministic layer.
 
-**Production proof (2026-08-19, MariaDB checkout):** commit `c64dc224b` was
-pushed to `main` and pulled with the approved `git pull --ff-only origin main`.
-The server reports exact SHA `c64dc224b`, branch `main`, Python `3.14.6`,
-Django `6.1` and a clean tracked tree. `manage.py check` has only the four
-pre-existing MariaDB compatibility warnings and the known stale compression
-manifest warning; the managed cron installer reports
-`[instagram-periodic-cron] OK: managed block matches`. A read-only
-`build_snapshot()` returned six key rows and two model rows per key, while
-`GeminiRequestAttempt` stayed `89 -> 89` and `GeminiKeyState` stayed `6 -> 6`.
-No provider probe, customer message, fixture or generation request was issued.
+**Production proof (2026-08-19):** deployment of this alignment follow-up is
+still pending. Do not infer a production SHA, SSH pull, cron execution, or
+MariaDB ledger result from the local evidence below. After the approved pull,
+record the exact server SHA and read-only checks here; after one natural hourly
+run, record the observed batch prefix and six-alias ledger rows separately.
 `IMP-044` remains **PARTIAL** for slow-drip hard cancellation, typed worker
 telemetry, bounded jitter and disposable MariaDB competition/reclaim proof.
 

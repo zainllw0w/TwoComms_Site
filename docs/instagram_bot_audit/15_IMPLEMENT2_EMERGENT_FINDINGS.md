@@ -238,10 +238,11 @@ status uses the same rolling 24-hour bucket boundary as the visual rail.
 These are telemetry correctness guards, not a closure of the broader Gemini
 lease/timeout work. Manual probes remain opt-in, one alias/model at a time, and
 their persisted record is redacted (`role=health_probe`) with no provider body,
-customer prompt or secret. At this pre-hourly snapshot, no hourly checker or
-background provider probe had been introduced. MariaDB lock/race behavior and
-the production GET/no-new-attempt proof remain release-gate evidence rather
-than local SQLite assumptions.
+customer prompt or secret. This paragraph is a **historical pre-hourly
+snapshot**: at that point no hourly checker or background provider probe had
+been introduced. It must not be read as the current implementation status.
+MariaDB lock/race behavior and any production GET/no-new-attempt proof remain
+separate release-gate evidence rather than local SQLite assumptions.
 
 Post-deploy proof for the slice is recorded in `14_IMPLEMENT2.md` at
 `4d1d622517204d89f1f826d7810110fd510c1353`: the passive GET returned six rows
@@ -289,10 +290,13 @@ filling only missing observations; merged history is the source for its
 counters, status, latency and evidence label.
 
 The hourly command is a single managed cron owner with a per-hour cache lock,
-heartbeat and 70-second shared logical evidence deadline. It performs
-model-resource GETs and records only normalized, redacted outcomes. It avoids
-a secondary 3.6 request when 3.7 succeeds, and it reports/counts deadline skips
-without writing a provider-failure attempt. Once that deadline is reached, the
+heartbeat and 70-second shared logical evidence deadline. It starts all six
+configured aliases together; each alias performs a 3.7 model-resource GET and
+only checks 3.6 when that 3.7 metadata check fails. A successful token-free 3.7
+GET records 3.6 as `not_needed` without issuing a second provider request. The
+command records only normalized, redacted outcomes. It reports/counts deadline
+skips to the summary without recording a provider-failure
+`GeminiRequestAttempt`. Once that deadline is reached, the
 coordinator retains ownership and joins already-started workers before releasing
 the hourly owner; it does not claim a hard cancellation of a slow-drip HTTP
 read. `pool_status(read_only=True)` keeps the passive GET from creating key-state
@@ -324,24 +328,23 @@ title/DOM text; all 3.7/3.6 rails therefore occupy the same columns. The
 375 px layout retains its deliberate horizontal rail scroller without page
 overflow.
 
-The underlying coverage issue was independent of rendering: the hourly batch
-walked aliases serially under one 70-second deadline, allowing a slow early
-alias to make API keys at the tail look stale. Alias jobs now start together,
-while the existing primary-first policy remains scoped inside each job: 3.6 is
-requested only after that alias's 3.7 metadata check fails. Provider work is
-concurrent, while finished results are written by one coordinator transaction;
-a failed ledger write cannot publish part of an hourly batch. The coordinator
-also joins workers if a later submission fails. This improves coverage without
-spending generation tokens or adding an otherwise unnecessary 3.6 request. The
-remaining slow-drip hard-cancellation limitation is still part of `IMP-044`;
-parallel scheduling does not claim to solve it.
+The underlying coverage issue was independent of rendering: all alias jobs were
+submitted to a worker pool, but the coordinator consumed futures sequentially
+under one 70-second deadline. A slow first future could therefore cause already
+finished later aliases to be misclassified as skipped. The fix waits once for
+the whole batch, preserves each worker's actual completion time, accepts every
+result completed before the shared deadline, and writes results in canonical
+alias order in one coordinator transaction. Each alias still keeps the
+3.7-first policy and requests 3.6 only after that alias's 3.7 metadata check
+fails. The coordinator joins workers if submission fails; this improves
+coverage without spending generation tokens or adding an unnecessary 3.6
+request. The remaining slow-drip hard-cancellation limitation is still part of
+`IMP-044`; parallel scheduling does not claim to solve it.
 
-The fresh local gate for this follow-up passed `121/121` focused Gemini/API
-tests and `18/18` cron-installer tests. Django system checks, migration-drift,
-scoped compilation, shell syntax and whitespace checks were clean. Browser
-evidence at 1920, 1280, 640 and 375 px rendered all six rows and 12 rails with
-zero document overflow; narrow rails scroll only inside their own viewport.
-Production MariaDB proof is recorded in `14_IMPLEMENT2.md` and `09_DEPLOYMENT_LOG.md`:
-exact SHA `c64dc224b`, six keys with two model rows each, and unchanged attempt
-and key-state counts across the passive read. No live provider probe is part of
-that proof.
+Historical local evidence for the preceding release was `121/121` focused
+Gemini/API tests and `18/18` cron-installer tests; browser evidence at 1920,
+1280, 640 and 375 px rendered six rows and 12 rails with zero document
+overflow. The current local focused gate is `28/28` after the latest
+documentation/UI edits. Production deployment, exact SHA, natural
+hourly-run evidence and any MariaDB ledger proof are pending; no live provider
+probe is part of the current local evidence.

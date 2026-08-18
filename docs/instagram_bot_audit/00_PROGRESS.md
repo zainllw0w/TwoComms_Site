@@ -187,7 +187,9 @@ competition/reclaim gates.
 
 ## Implement2 W2.4 API Checker alignment follow-up (2026-08-19)
 
-Commit `c64dc224b` is in local `main`, `origin/main` and production. The
+The API Checker alignment follow-up is implemented in the local `main`
+worktree; production deployment and the approved SSH pull remain pending for
+this slice. No docs-only push/pull or new production SHA is claimed here. The
 hourly metadata checker now starts all six aliases concurrently, keeps the
 3.7-first/conditional-3.6 order inside each alias, rejects late evidence at
 the shared logical deadline, joins workers before releasing the hourly owner,
@@ -196,15 +198,14 @@ executor submission failure is also joined safely. The dashboard model rows
 use a fixed desktop evidence track and preserve local rail scrolling at narrow
 widths.
 
-Fresh local evidence is `121/121` focused Gemini/API tests plus `18/18` cron
-installer tests; Django check, migration drift, compile, shell syntax and
-whitespace checks are clean. Browser QA at 1920/1280/640/375 px rendered all
-six rows and 12 rails with zero document overflow. The approved SSH pull placed
-exact SHA `c64dc224b` on production `main`; server checks reported Python
-3.14.6/Django 6.1, a clean tracked tree, matching managed cron, six snapshot
-keys with two model rows each, and unchanged `GeminiRequestAttempt=89` and
-`GeminiKeyState=6` counts across the passive MariaDB snapshot. No provider
-probe, customer message or fixture was created.
+Historical local evidence for the preceding UI/runtime release was `121/121`
+focused Gemini/API tests plus `18/18` cron-installer tests, with browser QA at
+1920/1280/640/375 px rendering six rows and 12 rails without document
+overflow. The current local focused gate is `28/28` after the UI copy
+alignment; no current production check, exact SHA, natural hourly batch, provider
+probe, customer message or fixture is claimed for this follow-up. A successful
+token-free 3.7 metadata GET intentionally records the corresponding 3.6 row as
+`not_needed` rather than issuing a second provider request.
 
 `IMP-044` remains PARTIAL: hard wall-clock cancellation for slow-drip reads,
 typed worker telemetry, bounded jitter and disposable MariaDB competition/
