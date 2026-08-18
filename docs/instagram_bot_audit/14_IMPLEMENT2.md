@@ -1153,7 +1153,8 @@ external timeout.
   `Остання автоматична перевірка: 6/6 ключів`, so a page refresh cannot make a
   partial ledger look like a completed hourly run. `ПЕРЕВІРЕНО` means the
   token-free scheduled metadata GET; `LIVE` remains reserved for recent real
-  generation evidence. No new provider request or migration was introduced.
+  generation evidence. The additive snapshot contract is `schema_version=3`;
+  no new provider request or migration was introduced.
 
 **Local evidence (2026-08-19):** RED reproduced sequential scheduling
 (`peak_active=1`), the missing fixed rail-statistics CSS track and the absent
