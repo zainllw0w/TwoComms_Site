@@ -9,9 +9,9 @@ import hashlib
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
+from django.core.exceptions import MiddlewareNotUsed
 from django.http import HttpResponse, FileResponse
 from django.utils.deprecation import MiddlewareMixin
-from django.conf import settings
 from PIL import Image
 
 logger = logging.getLogger(__name__)
@@ -23,19 +23,13 @@ class ImageOptimizationMiddleware(MiddlewareMixin):
     """
 
     def __init__(self, get_response):
-        super().__init__(get_response)
-        self.enabled = getattr(settings, "IMAGE_OPTIMIZATION_MIDDLEWARE_ENABLED", False)
-        self.allow_on_demand = getattr(settings, "IMAGE_OPTIMIZATION_ALLOW_ON_DEMAND", False)
-        self.executor = ThreadPoolExecutor(max_workers=2)
-        self._pending_paths = set()
-        self._pending_lock = threading.Lock()
-        self.SMALL_IMAGE_THRESHOLD = 200 * 1024  # 200KB — можно оптимизировать синхронно
-        if self.enabled:
-            self.cache_dir = os.path.join(settings.MEDIA_ROOT, 'optimized_cache')
-            if not os.path.exists(self.cache_dir):
-                os.makedirs(self.cache_dir, exist_ok=True)
-        else:
-            self.cache_dir = None
+        # Enabling this requires a reviewed redesign, not an environment toggle:
+        # the dormant implementation still uses process-local work and media writes.
+        raise MiddlewareNotUsed(
+            "DJ6-BG-010: ImageOptimizationMiddleware is disabled until durable "
+            "worker execution, atomic media writes, and browser asset verification "
+            "are proven"
+        )
 
     def process_request(self, request):
         """

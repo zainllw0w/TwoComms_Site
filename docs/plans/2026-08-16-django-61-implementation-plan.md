@@ -686,7 +686,13 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-BG-008 - Решить судьбу durable QR alert.**
   - Сначала измерить volume/value; не строить queue для малополезного сигнала.
 
-- [ ] **DJ6-BG-010 - Оставить ImageOptimizationMiddleware выключенным до pre-generation proof.**
+- [x] **DJ6-BG-010 - Оставить ImageOptimizationMiddleware выключенным до pre-generation proof.**
+  - `MiddlewareNotUsed` блокирует middleware до thread pool и media writes;
+    legacy settings flags не могут обойти guard.
+  - Evidence: `twocomms/twocomms/image_middleware.py`,
+    `twocomms/twocomms/tests_image_middleware_guard.py`,
+    `docs/qa/django61-stage6-bg010-image-middleware-guard.md`; focused `2/2`,
+    adjacent middleware suite `5/5`.
   - Включение возможно только после worker, atomic media и browser asset verification.
 
 ### Exit gate этапа 6
