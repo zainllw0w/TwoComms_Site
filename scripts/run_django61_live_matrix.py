@@ -43,6 +43,19 @@ ALLOWED_HTTP_HOSTS = frozenset(
     }
 )
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+EXPECTED_MAX_CONNECTIONS = 150
+EXPECTED_MAX_USER_CONNECTIONS = 20
+CONNECTION_GATE_SQL = """
+SELECT @@character_set_database,
+    @@collation_database,
+    @@character_set_connection,
+    @@character_set_client,
+    @@character_set_results,
+    @@collation_connection,
+    @@default_storage_engine,
+    @@max_connections,
+    @@max_user_connections
+"""
 
 
 class MatrixFailure(RuntimeError):
@@ -204,6 +217,114 @@ def default_database_snapshot(*, connections_registry=None) -> dict[str, str]:
         "alias": "default",
         "server": "MariaDB",
         "version": ".".join(str(part) for part in version_tuple),
+    }
+
+
+def connection_gate_snapshot(
+    connection,
+    *,
+    expected_max_connections: int = EXPECTED_MAX_CONNECTIONS,
+    expected_max_user_connections: int = EXPECTED_MAX_USER_CONNECTIONS,
+) -> dict[str, object]:
+    """Validate the read-only MariaDB connection policy used by production.
+
+    The probe deliberately performs one ``SELECT`` only. It does not issue
+    DDL, migration commands, writes, or global/session ``SET`` statements.
+    """
+
+    settings = getattr(connection, "settings_dict", None)
+    if not isinstance(settings, Mapping):
+        raise MatrixFailure("database_connection_config_invalid")
+    if settings.get("ENGINE") != "django.db.backends.mysql":
+        raise MatrixFailure("database_backend_invalid")
+
+    conn_max_age = settings.get("CONN_MAX_AGE")
+    if isinstance(conn_max_age, bool) or conn_max_age != 0:
+        raise MatrixFailure("database_conn_max_age_invalid")
+    if settings.get("CONN_HEALTH_CHECKS") is not True:
+        raise MatrixFailure("database_health_checks_invalid")
+
+    options = settings.get("OPTIONS")
+    if not isinstance(options, Mapping):
+        raise MatrixFailure("database_charset_config_invalid")
+    if str(options.get("charset", "")).casefold() != "utf8mb4":
+        raise MatrixFailure("database_charset_config_invalid")
+    init_command = str(options.get("init_command", ""))
+    if not re.search(
+        r"\bdefault_storage_engine\s*=\s*['\"]?innodb\b",
+        init_command,
+        flags=re.IGNORECASE,
+    ):
+        raise MatrixFailure("database_storage_engine_config_invalid")
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(CONNECTION_GATE_SQL)
+            row = cursor.fetchone()
+    except Exception as exc:
+        raise MatrixFailure("database_connection_gate_failed") from exc
+
+    if not isinstance(row, (tuple, list)) or len(row) != 9:
+        raise MatrixFailure("database_connection_gate_invalid")
+    (
+        schema_charset,
+        schema_collation,
+        session_charset,
+        client_charset,
+        results_charset,
+        session_collation,
+        storage_engine,
+        max_connections,
+        max_user_connections,
+    ) = row
+    charset_values = (
+        schema_charset,
+        session_charset,
+        client_charset,
+        results_charset,
+    )
+    if any(str(value).casefold() != "utf8mb4" for value in charset_values):
+        raise MatrixFailure("database_charset_invalid")
+    if any(
+        not str(value).casefold().startswith("utf8mb4_")
+        for value in (schema_collation, session_collation)
+    ):
+        raise MatrixFailure("database_charset_invalid")
+    if str(storage_engine).casefold() != "innodb":
+        raise MatrixFailure("database_storage_engine_invalid")
+
+    try:
+        max_user_connections = int(max_user_connections)
+        max_connections = int(max_connections)
+    except (TypeError, ValueError) as exc:
+        raise MatrixFailure("database_connection_budget_invalid") from exc
+    if (
+        not isinstance(expected_max_connections, int)
+        or isinstance(expected_max_connections, bool)
+        or expected_max_connections <= 0
+        or max_connections != expected_max_connections
+        or not isinstance(expected_max_user_connections, int)
+        or isinstance(expected_max_user_connections, bool)
+        or expected_max_user_connections <= 0
+        or max_user_connections != expected_max_user_connections
+    ):
+        raise MatrixFailure("database_connection_budget_invalid")
+    if max_user_connections > max_connections:
+        raise MatrixFailure("database_connection_budget_invalid")
+    return {
+        "conn_max_age": 0,
+        "conn_health_checks": True,
+        "charset": "utf8mb4",
+        "schema_charset": "utf8mb4",
+        "schema_collation": str(schema_collation),
+        "session_charset": "utf8mb4",
+        "client_charset": "utf8mb4",
+        "results_charset": "utf8mb4",
+        "session_collation": str(session_collation),
+        "storage_engine": "InnoDB",
+        "max_connections": max_connections,
+        "max_user_connections": max_user_connections,
+        "status": "ok",
     }
 
 
@@ -397,6 +518,7 @@ def run_server_matrix(*, phase: str, expected_sha: str | None = None) -> dict[st
         from django.db import connections
 
         database = default_database_snapshot(connections_registry=connections)
+        connection_gate = connection_gate_snapshot(connections["default"])
         check = django_database_check()
         migrations = migration_snapshot(connections["default"])
         aliases = ensure_only_default_alias(opened_aliases)
@@ -412,6 +534,7 @@ def run_server_matrix(*, phase: str, expected_sha: str | None = None) -> dict[st
         "git": git,
         "runtime": runtime,
         "database": database,
+        "connection_gate": connection_gate,
         "database_check": check,
         "migrations": migrations,
         "opened_database_aliases": aliases,

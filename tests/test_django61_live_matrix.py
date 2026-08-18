@@ -175,6 +175,117 @@ class RuntimeAndDatabaseTests(unittest.TestCase):
         self.assertNotIn("dtf", repr(invoked).casefold())
 
 
+class ConnectionGateTests(unittest.TestCase):
+    def _connection(self, *, settings=None, row=None):
+        class Cursor:
+            def __init__(self):
+                self.statements = []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def execute(self, statement):
+                self.statements.append(statement)
+
+            def fetchone(self):
+                return row or (
+                    "utf8mb4",
+                    "utf8mb4_unicode_ci",
+                    "utf8mb4",
+                    "utf8mb4",
+                    "utf8mb4",
+                    "utf8mb4_unicode_ci",
+                    "InnoDB",
+                    150,
+                    20,
+                )
+
+        class Connection:
+            vendor = "mysql"
+
+            def __init__(self):
+                self.settings_dict = settings or {
+                    "ENGINE": "django.db.backends.mysql",
+                    "CONN_MAX_AGE": 0,
+                    "CONN_HEALTH_CHECKS": True,
+                    "OPTIONS": {
+                        "charset": "utf8mb4",
+                        "init_command": "SET SESSION default_storage_engine=INNODB",
+                    },
+                }
+                self.cursor_instance = Cursor()
+
+            def cursor(self):
+                return self.cursor_instance
+
+        return Connection()
+
+    def test_connection_gate_proves_settings_session_schema_engine_and_budget(self):
+        connection = self._connection()
+
+        snapshot = matrix.connection_gate_snapshot(connection)
+
+        self.assertEqual(snapshot["conn_max_age"], 0)
+        self.assertTrue(snapshot["conn_health_checks"])
+        self.assertEqual(snapshot["charset"], "utf8mb4")
+        self.assertEqual(snapshot["schema_charset"], "utf8mb4")
+        self.assertEqual(snapshot["session_charset"], "utf8mb4")
+        self.assertEqual(snapshot["storage_engine"], "InnoDB")
+        self.assertEqual(snapshot["max_connections"], 150)
+        self.assertEqual(snapshot["max_user_connections"], 20)
+        self.assertEqual(len(connection.cursor_instance.statements), 1)
+        self.assertTrue(connection.cursor_instance.statements[0].lstrip().startswith("SELECT"))
+        self.assertFalse(
+            any(
+                statement.lstrip().upper().startswith(
+                    ("ALTER", "CREATE", "DELETE", "DROP", "INSERT", "SET", "UPDATE")
+                )
+                for statement in connection.cursor_instance.statements
+            )
+        )
+
+    def test_connection_gate_fails_closed_for_unsafe_settings_and_server_values(self):
+        cases = (
+            ({"CONN_MAX_AGE": 60}, "database_conn_max_age_invalid"),
+            ({"CONN_HEALTH_CHECKS": False}, "database_health_checks_invalid"),
+            ({"OPTIONS": {"charset": "latin1"}}, "database_charset_config_invalid"),
+            ({"OPTIONS": {"init_command": "SET NAMES utf8mb4"}}, "database_storage_engine_config_invalid"),
+        )
+        for override, failure in cases:
+            safe_options = {
+                "charset": "utf8mb4",
+                "init_command": "SET SESSION default_storage_engine=INNODB",
+            }
+            settings = {
+                "ENGINE": "django.db.backends.mysql",
+                "CONN_MAX_AGE": 0,
+                "CONN_HEALTH_CHECKS": True,
+                "OPTIONS": safe_options,
+            }
+            settings.update(override)
+            if "OPTIONS" in override:
+                settings["OPTIONS"] = {**safe_options, **override["OPTIONS"]}
+            with self.subTest(failure=failure), self.assertRaisesRegex(
+                matrix.MatrixFailure, failure
+            ):
+                matrix.connection_gate_snapshot(self._connection(settings=settings))
+
+        for row, failure in (
+            (("latin1", "latin1_swedish_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20), "database_charset_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "latin1", "latin1", "latin1", "latin1_swedish_ci", "InnoDB", 150, 20), "database_charset_invalid"),
+            (("utf8mb4", "latin1_swedish_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20), "database_charset_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "MyISAM", 150, 20), "database_storage_engine_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 40), "database_connection_budget_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 100, 20), "database_connection_budget_invalid"),
+        ):
+            with self.subTest(failure=failure), self.assertRaisesRegex(
+                matrix.MatrixFailure, failure
+            ):
+                matrix.connection_gate_snapshot(self._connection(row=row))
+
 class MigrationAndPassengerTests(unittest.TestCase):
     def test_pending_plan_excludes_dtf_targets_and_migrations(self):
         captured_targets = []
