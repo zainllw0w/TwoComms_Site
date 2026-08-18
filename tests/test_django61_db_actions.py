@@ -107,6 +107,21 @@ class Django61DbActionsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "socket or loopback"):
             db_actions.validate_disposable_endpoint(host=None, unix_socket=None)
 
+    def test_destructive_experiment_has_no_public_cli(self):
+        with self.assertRaises(SystemExit) as raised:
+            db_actions._build_parser().parse_args(
+                ["experiment", "--host", "127.0.0.1", "--user", "local"]
+            )
+        self.assertEqual(raised.exception.code, 2)
+
+    def test_live_inventory_accepts_only_normalized_default_alias(self):
+        self.assertEqual(db_actions.validate_live_database_alias(" default "), "default")
+        self.assertEqual(db_actions.validate_live_database_alias("DEFAULT"), "default")
+        for alias in ("dtf", " DTF ", "replica", "default-readonly", ""):
+            with self.subTest(alias=alias):
+                with self.assertRaisesRegex(ValueError, "default"):
+                    db_actions.validate_live_database_alias(alias)
+
     def test_report_is_russian_machine_readable_and_explicit_no_go(self):
         enriched = db_actions.enrich_inventory([self.retention], FakeInspector())[0]
         decision = db_actions.assess_db_cascade(enriched)

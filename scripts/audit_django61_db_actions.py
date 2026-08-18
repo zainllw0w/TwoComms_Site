@@ -6,10 +6,12 @@ The command has two deliberately separate paths:
 * ``inventory`` inspects the non-DTF Django relation graph and, when an
   explicitly configured MariaDB connection is supplied, adds read-only facts
   about engines, real foreign keys, orphans, and reversible DDL evidence.
-* ``experiment`` owns a generated, local-only MariaDB schema.  It compares a
-  Python-side retention delete with an equivalent ``ON DELETE CASCADE`` delete
-  and rehearses transactional/DDL rollback.  It never accepts production
-  credentials or a remote endpoint.
+* ``run_disposable_experiment`` is a programmatic, gate-owned helper for a
+  generated local-only MariaDB schema.  It compares a Python-side retention
+  delete with an equivalent ``ON DELETE CASCADE`` delete and rehearses
+  transactional/DDL rollback.  It is intentionally not exposed as a CLI:
+  arbitrary command-line credentials/endpoints must never be able to create
+  or drop a database.
 
 No project model or migration is changed by this tool.  A report can therefore
 prove a candidate and still return ``NO-GO`` when the current model graph (for
@@ -386,6 +388,21 @@ def validate_disposable_endpoint(
         raise ValueError("disposable experiment requires local MariaDB")
 
 
+def validate_live_database_alias(alias: str | None) -> str:
+    """Return the only alias allowed for live, read-only inventory.
+
+    The inventory must never be able to inspect DTF or another configured
+    database by accepting a caller-selected Django connection alias.  Case
+    and surrounding whitespace are harmless; every other value fails before
+    Django's ``connections`` registry is touched.
+    """
+
+    normalized = str(alias or "").strip().casefold()
+    if normalized != "default":
+        raise ValueError("live inventory requires the literal default database alias")
+    return normalized
+
+
 def render_json_report(
     *,
     inventory: Sequence[Mapping[str, Any]],
@@ -680,32 +697,6 @@ def _load_django() -> None:
     django.setup()
 
 
-def _mysql_factory_from_args(args: argparse.Namespace) -> Callable[[str | None], Any]:
-    validate_disposable_endpoint(host=args.host, unix_socket=args.socket)
-    try:
-        import MySQLdb
-    except ImportError as exc:  # pragma: no cover - environment dependent
-        raise RuntimeError("mysqlclient/MySQLdb is required for the experiment") from exc
-
-    def factory(database: str | None) -> Any:
-        kwargs: dict[str, Any] = {
-            "user": args.user,
-            "passwd": os.environ.get("TWC_DJ61_DISPOSABLE_DB_PASSWORD", ""),
-            "charset": "utf8mb4",
-            "autocommit": False,
-        }
-        if database:
-            kwargs["db"] = database
-        if args.socket:
-            kwargs["unix_socket"] = args.socket
-        else:
-            kwargs["host"] = args.host
-            kwargs["port"] = int(args.port)
-        return MySQLdb.connect(**kwargs)
-
-    return factory
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -717,15 +708,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="read-only MariaDB information_schema facts from the configured alias",
     )
     inventory.add_argument("--output", type=Path)
-    experiment = subparsers.add_parser("experiment")
-    experiment.add_argument("--socket")
-    experiment.add_argument("--host")
-    experiment.add_argument("--port", default="3306")
-    experiment.add_argument("--user", required=True)
-    experiment.add_argument("--sessions", type=int, default=250)
-    experiment.add_argument("--events-per-session", type=int, default=8)
-    experiment.add_argument("--batch-size", type=int, default=50)
-    experiment.add_argument("--output", type=Path)
     return parser
 
 
@@ -735,12 +717,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         _load_django()
         relations = collect_static_inventory()
         if args.live:
-            if args.database_alias == "dtf":
-                raise ValueError("DTF database inventory is forbidden")
+            database_alias = validate_live_database_alias(args.database_alias)
             from django.db import connections
 
             relations = enrich_inventory(
-                relations, MariaDBInspector(connections[args.database_alias])
+                relations, MariaDBInspector(connections[database_alias])
             )
         target = next(
             row for row in relations if row["field_label"] == RETENTION_FIELD_LABEL
@@ -758,21 +739,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.output:
                 output.close()
         return 0
-    factory = _mysql_factory_from_args(args)
-    result = run_disposable_experiment(
-        factory,
-        sessions=args.sessions,
-        events_per_session=args.events_per_session,
-        batch_size=args.batch_size,
-    )
-    output = args.output.open("w", encoding="utf-8") if args.output else sys.stdout
-    try:
-        json.dump(result, output, ensure_ascii=False, indent=2, sort_keys=True)
-        output.write("\n")
-    finally:
-        if args.output:
-            output.close()
-    return 0
+    raise AssertionError(f"unsupported command: {args.command}")
 
 
 if __name__ == "__main__":  # pragma: no cover

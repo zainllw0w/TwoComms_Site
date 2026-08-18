@@ -100,10 +100,10 @@ alias и после отдельной координации:
 ... scripts/audit_django61_db_actions.py inventory --live --database-alias default
 ```
 
-Disposable experiment принимает только Unix socket или loopback host; remote
-host, hostname production и отсутствие endpoint завершаются ошибкой. Пароль
-если нужен, передаётся только через `TWC_DJ61_DISPOSABLE_DB_PASSWORD`, а не
-через аргумент командной строки.
+Disposable experiment намеренно не доступен через CLI. Его запускает только
+gate-owned programmatic harness с переданной им фабрикой соединений к временной
+локальной MariaDB; операторские `host`/`socket`/`user`/password параметры
+скрипт не принимает. CLI инструмента предоставляет только `inventory`.
 
 ## Rollback contract
 
