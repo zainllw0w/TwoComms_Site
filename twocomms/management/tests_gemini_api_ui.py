@@ -15,10 +15,11 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
             / "bot.html"
         ).read_text(encoding="utf-8")
 
-    def test_checker_is_admin_only_and_embedded_in_settings(self):
+    def test_api_tab_and_checker_panel_are_admin_only_siblings(self):
         self.assertIn("{% if bot_is_admin %}", self.template)
-        self.assertNotIn('data-tab="api"', self.template)
-        self.assertNotIn('data-panel="api"', self.template)
+        self.assertIn('data-tab="api">API</button>', self.template)
+        self.assertNotIn('data-tab="api">API-ключі</button>', self.template)
+        self.assertIn('data-panel="api"', self.template)
         for element_id in (
             "gemini-health-summary",
             "gemini-health-fallback",
@@ -27,16 +28,28 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(f'id="{element_id}"', self.template)
         self.assertIn("'API key '+String(index)", self.template)
+        self.assertIn("for(let index=1;index<=6;index+=1)", self.template)
 
+        tab_start = self.template.index('data-tab="api"')
+        tab_guard_start = self.template.rindex("{% if bot_is_admin %}", 0, tab_start)
+        tab_guard_end = self.template.index("{% endif %}", tab_start)
+        self.assertLess(tab_guard_start, tab_start)
+        self.assertLess(tab_start, tab_guard_end)
         settings_start = self.template.index('data-panel="settings"')
         settings_end = self.template.index("</section>", settings_start)
+        panel_start = self.template.index('data-panel="api"')
+        panel_guard_start = self.template.rindex("{% if bot_is_admin %}", 0, panel_start)
+        panel_guard_end = self.template.index("{% endif %}", panel_start)
         checker_start = self.template.index('class="bot-card gemini-health-card"')
-        self.assertLess(settings_start, checker_start)
-        self.assertLess(checker_start, settings_end)
-        self.assertIn("function geminiHealthIsActive()", self.template)
-        self.assertNotIn("apiIsActive", self.template)
+        panel_end = self.template.index("</section>", panel_start)
+        self.assertLess(settings_start, settings_end)
+        self.assertLess(settings_end, panel_guard_start)
+        self.assertLess(panel_guard_start, panel_start)
+        self.assertLess(panel_start, checker_start)
+        self.assertLess(checker_start, panel_end)
+        self.assertLess(panel_end, panel_guard_end)
 
-    def test_read_snapshot_is_lazy_manual_and_never_provider_polled(self):
+    def test_read_snapshot_is_api_lazy_passively_refreshed_and_never_provider_polled(self):
         start = self.template.index("const GeminiHealth=(function(){")
         end = self.template.index("/* ============", start + 32)
         source = self.template[start:end]
@@ -44,10 +57,21 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         self.assertIn("{% url \"management_bot_gemini_health_api\" %}", source)
         self.assertIn("fetch(healthUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}})", source)
         self.assertIn("document.hidden", source)
-        self.assertIn("if(btn.dataset.tab==='settings'&&!loaded.geminiHealth)", self.template)
-        self.assertNotIn("setInterval", source)
+        self.assertIn("function apiIsActive()", source)
+        self.assertIn("active.dataset.tab==='api'", source)
+        self.assertIn("if(btn.dataset.tab==='api'&&!loaded.geminiHealth)", self.template)
+        self.assertIn("GeminiHealth.syncTimers()", self.template)
+        self.assertIn("setInterval", source)
+        self.assertIn("60000", source)
+        self.assertIn("visibilitychange", source)
+        self.assertIn("seconds_until_next_check", source)
+        self.assertIn("gemini-health-countdown", self.template)
         self.assertNotIn("setTimeout", source)
+        self.assertIn("load({passive:true})", source)
         self.assertNotIn("probe_key", source)
+
+        timer_source = source[source.index("setInterval"):]
+        self.assertNotIn("fetch(probeUrl", timer_source)
 
     def test_probe_is_an_explicit_click_and_uses_allowlisted_form_fields(self):
         start = self.template.index("const GeminiHealth=(function(){")
@@ -79,13 +103,37 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
             "recovered",
             "terminal",
             "no_observation",
+            "not_needed",
             "insufficient_observations",
             "stale",
             "error",
+            "data.http_code",
         ):
             self.assertIn(contract, source)
         for legend_label in ("Успішне", "Відновлено", "Помилка", "Немає даних"):
             self.assertIn(legend_label, self.template)
+
+    def test_rails_merge_generation_before_metadata_per_bucket(self):
+        start = self.template.index("const GeminiHealth=(function(){")
+        end = self.template.index("/* ============", start + 32)
+        source = self.template[start:end]
+
+        for contract in (
+            "function mergeEvidence(generation,metadata)",
+            "const mergedHistory=Array.from({length:24}",
+            "const generationStatus=normalizeObservation(generationBucket.status)",
+            "if(generationStatus!=='no_observation')",
+            "const metadataStatus=normalizeObservation(metadataBucket.status)",
+            "if(metadataStatus!=='no_observation')",
+            "return metadataBucket;",
+            "history:mergedHistory",
+            "const evidenceData=mergeEvidence(generation,metadata)",
+        ):
+            self.assertIn(contract, source)
+        self.assertLess(
+            source.index("if(generationStatus!=='no_observation')"),
+            source.index("if(metadataStatus!=='no_observation')"),
+        )
 
     def test_api_styles_stack_narrow_and_honor_reduced_motion(self):
         for contract in (
@@ -99,6 +147,9 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
-    def test_legacy_api_section_query_opens_settings(self):
-        self.assertIn("initialQuery.get('section')==='api'", self.template)
-        self.assertIn("initialTab='settings'", self.template)
+    def test_api_section_query_opens_the_api_tab(self):
+        self.assertIn(
+            "if(initialQuery.get('section')==='api') initialTab='api';",
+            self.template,
+        )
+        self.assertNotIn("if(initialTab==='api'", self.template)

@@ -868,13 +868,19 @@ def primary_role_of(key_name: str) -> str:
     return ""
 
 
-def pool_status(now: datetime.datetime | None = None) -> list[dict]:
+def pool_status(now: datetime.datetime | None = None, *, read_only: bool = False) -> list[dict]:
     now = now or timezone.now()
     today_pt = now.astimezone(PT).date()
-    states = {key_name: GeminiKeyState.get(key_name) for key_name in ALL_KEYS}
+    if read_only:
+        states = {
+            state.key_name: state
+            for state in GeminiKeyState.objects.filter(key_name__in=ALL_KEYS)
+        }
+    else:
+        states = {key_name: GeminiKeyState.get(key_name) for key_name in ALL_KEYS}
     out = []
     for key_name in ALL_KEYS:
-        st = states[key_name]
+        st = states.get(key_name) or GeminiKeyState(key_name=key_name)
         present = bool(_key_value(key_name))
         # ``available`` is a legacy cooldown-only field.  Consumers that need
         # the current configured/leased truth must use ``health_state`` below.

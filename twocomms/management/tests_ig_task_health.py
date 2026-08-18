@@ -95,6 +95,7 @@ class TaskHeartbeatTests(TestCase):
                 "order_telegram_reconcile",
                 "nova_poshta_tracking",
                 "binotel_call_ai_analyses",
+                "ig_gemini_metadata_health",
             },
         )
 

@@ -43,14 +43,15 @@ class GeminiHealthSnapshotTests(TestCase):
             for key_name in gemini_health.KEY_ALIASES
         ]
 
-    def _attempt(self, *, request_id, key_name, model, outcome, at, failure_kind="", **kwargs):
+    def _attempt(self, *, request_id, key_name, model, outcome, at, failure_kind="", role="chat", **kwargs):
         row = GeminiRequestAttempt.objects.create(
             request_id=request_id,
-            role="chat",
+            role=role,
             key_name=key_name,
             model=model,
             outcome=outcome,
             failure_kind=failure_kind,
+            http_code=kwargs.get("http_code"),
             provider_reason=kwargs.get("provider_reason", ""),
             decision=kwargs.get("decision", ""),
             latency_ms=kwargs.get("latency_ms", 0),
@@ -313,7 +314,7 @@ class GeminiHealthSnapshotTests(TestCase):
     def test_empty_pool_is_stable_six_rows_with_gray_24_bucket_histories(self):
         snapshot = self._build()
 
-        self.assertEqual(snapshot["schema_version"], 1)
+        self.assertEqual(snapshot["schema_version"], 2)
         self.assertEqual(snapshot["window"]["hours"], 24)
         self.assertEqual(snapshot["window"]["bucket_count"], 24)
         self.assertEqual([row["alias"] for row in snapshot["keys"]], [
@@ -396,6 +397,7 @@ class GeminiHealthSnapshotTests(TestCase):
             model="gemini-3.7-flash",
             outcome="failed",
             failure_kind="read_timeout",
+            http_code=503,
             provider_reason="provider secret detail must not escape",
             at=at,
         )
@@ -420,6 +422,7 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(fallback["from_model"], "gemini-3.7-flash")
         self.assertEqual(fallback["to_model"], "gemini-3.6-flash")
         self.assertEqual(fallback["reason"], "3.7 timed out")
+        self.assertEqual(fallback["http_code"], 503)
         serialized = json.dumps(snapshot)
         self.assertNotIn("provider secret detail", serialized)
         self.assertNotIn("read_timeout", serialized)
@@ -518,9 +521,148 @@ class GeminiHealthSnapshotTests(TestCase):
             2,
         )
 
+    def test_runtime_query_cap_cannot_evict_fresh_metadata_evidence(self):
+        self._attempt(
+            request_id="metadata-ready-before-chat-burst",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="succeeded",
+            role="health_metadata",
+            at=self.now - datetime.timedelta(minutes=10),
+        )
+        for index in range(3):
+            self._attempt(
+                request_id=f"newer-runtime-{index}",
+                key_name="GEMINI_API2",
+                model="gemini-3.7-flash",
+                outcome="succeeded",
+                at=self.now - datetime.timedelta(minutes=index + 1),
+            )
+
+        with patch.object(gemini_health, "ATTEMPT_QUERY_CAP", 2):
+            snapshot = self._build()
+
+        key = snapshot["keys"][0]
+        self.assertEqual(key["live_state"], "READY")
+        self.assertEqual(
+            key["metadata_models"]["gemini-3.7-flash"]["observations"],
+            1,
+        )
+
     def test_snapshot_is_json_safe_and_pool_state_is_not_secret_bearing(self):
         snapshot = self._build()
         json.dumps(snapshot)
         serialized = json.dumps(snapshot)
         self.assertNotIn("key_value", serialized)
         self.assertNotIn("api_key", serialized.lower())
+
+    def test_metadata_failure_then_secondary_success_is_degraded(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="metadata-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="timeout",
+            role="health_metadata",
+            at=at,
+        )
+        self._attempt(
+            request_id="metadata-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="succeeded",
+            role="health_metadata",
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        row = self._build()["keys"][0]
+
+        self.assertEqual(row["live_state"], "DEGRADED")
+        self.assertEqual(row["active_model"], "gemini-3.6-flash")
+        self.assertEqual(row["models"]["gemini-3.7-flash"]["observations"], 0)
+        self.assertEqual(row["models"]["gemini-3.6-flash"]["observations"], 0)
+        self.assertEqual(row["metadata_models"]["gemini-3.7-flash"]["observations"], 1)
+        self.assertEqual(row["metadata_models"]["gemini-3.6-flash"]["observations"], 1)
+        self.assertFalse(row["generation_quota_proven"])
+
+    def test_runtime_primary_failure_then_secondary_success_is_degraded(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="runtime-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            at=at,
+        )
+        self._attempt(
+            request_id="runtime-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="succeeded",
+            role="chat",
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        row = self._build()["keys"][0]
+
+        self.assertEqual(row["live_state"], "DEGRADED")
+        self.assertEqual(row["active_model"], "gemini-3.6-flash")
+        self.assertTrue(row["generation_quota_proven"])
+
+    def test_metadata_primary_failure_without_observed_fallback_is_stale(self):
+        self._attempt(
+            request_id="metadata-partial-deadline",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="timeout",
+            role="health_metadata",
+            at=self.now - datetime.timedelta(minutes=4),
+        )
+
+        row = self._build()["keys"][0]
+
+        self.assertEqual(row["live_state"], "STALE")
+        self.assertIsNone(row["active_model"])
+        self.assertFalse(row["generation_quota_proven"])
+
+    def test_not_needed_is_gray_and_not_a_failure(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="metadata-primary-ok",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="skipped",
+            failure_kind="not_needed",
+            role="health_metadata",
+            at=at,
+        )
+
+        row = self._build()["keys"][0]
+        model = row["metadata_models"]["gemini-3.6-flash"]
+
+        self.assertEqual(model["status"], "not_needed")
+        self.assertEqual(model["failures"], 0)
+        self.assertEqual(model["skipped"], 1)
+        self.assertEqual(set(bucket["status"] for bucket in model["history"]), {"no_observation", "not_needed"})
+
+    def test_metadata_success_is_ready_and_not_generation_evidence(self):
+        self._attempt(
+            request_id="metadata-ready",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="succeeded",
+            role="health_metadata",
+            at=self.now - datetime.timedelta(minutes=4),
+        )
+
+        row = self._build()["keys"][0]
+
+        self.assertEqual(row["live_state"], "READY")
+        self.assertEqual(row["active_model"], "gemini-3.7-flash")
+        self.assertEqual(row["models"]["gemini-3.7-flash"]["observations"], 0)
+        self.assertEqual(row["metadata_models"]["gemini-3.7-flash"]["observations"], 1)
+        self.assertFalse(row["generation_quota_proven"])

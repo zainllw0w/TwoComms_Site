@@ -849,7 +849,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   demand-driven CTA/lifecycle guards, manager UX and migrations `0157`–`0166`
   уже в current `main`/production; consented Graph capability probe,
   auto-award calibration, privacy retention and biometric policy remain open.
-- [ ] **IMP-044 (P1) — PARTIAL (`a6dd2882`).** Generic/background
+- [ ] **IMP-044 (P1) — PARTIAL (`a6dd2882` + current bounded API checker slice).** Generic/background
   `_run_with_pool` теперь получает atomic project-key lease прямо перед
   provider I/O, пропускает занятый ключ, освобождает точный token в `finally`
   и ограничивает timeout/backoff/новые попытки общим deadline и 70-секундным
@@ -859,6 +859,12 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   makes the checker fail closed. Остаток: bounded jitter и общий model
   allowlist/UI (F-AI-003/004); data-migration невалидного `gemini_model` +
   предупреждение о расхождении и полный allowlist в селекте (F-AI-013).
+  The current admin-only `API` tab adds six-key live/readiness visibility with
+  independent 3.7/3.6 24-hour rails. An hourly token-free model metadata
+  command is deadline-bounded, heartbeat-supervised and deduplicated in the
+  managed cron block; passive UI reads use a strict read-only pool projection.
+  This does not close the remaining timeout/lease boundary or typed
+  F-AI-018 worker telemetry.
   Дополнительно F-AI-018: при текущем
   analysis lease 180 секунд и management deadline 75 секунд сохранять typed
   attempt telemetry (phase, alias/model, start/end, deadline, daemon heartbeat),

@@ -226,7 +226,7 @@ retire/archive inactive scripts. Contract tests must reject stale interpreters,
 old hosts, destructive resets, runtime migration generation, direct SCP overlays
 and unbounded restarts.
 
-## API dashboard implementation notes (2026-08-18)
+## API dashboard implementation notes (2026-08-18, pre-hourly historical snapshot)
 
 The bounded Gemini health slice exposed three aggregation edge cases during
 independent review and closed them before release: a recovery crossing an hour
@@ -238,9 +238,10 @@ status uses the same rolling 24-hour bucket boundary as the visual rail.
 These are telemetry correctness guards, not a closure of the broader Gemini
 lease/timeout work. Manual probes remain opt-in, one alias/model at a time, and
 their persisted record is redacted (`role=health_probe`) with no provider body,
-customer prompt or secret. No hourly checker or background provider probe was
-introduced. MariaDB lock/race behavior and the production GET/no-new-attempt
-proof remain release-gate evidence rather than local SQLite assumptions.
+customer prompt or secret. At this pre-hourly snapshot, no hourly checker or
+background provider probe had been introduced. MariaDB lock/race behavior and
+the production GET/no-new-attempt proof remain release-gate evidence rather
+than local SQLite assumptions.
 
 Post-deploy proof for the slice is recorded in `14_IMPLEMENT2.md` at
 `4d1d622517204d89f1f826d7810110fd510c1353`: the passive GET returned six rows
@@ -271,5 +272,37 @@ slice:
   invisible to an administrator.
 
 These are queued telemetry/read-contract work, not blockers for the passive
-settings UI. No provider probe, customer message or synthetic production row
+admin-only `API` UI. No provider probe, customer message or synthetic production row
 was used to identify them.
+
+## Hourly readiness and live-state follow-up (2026-08-18)
+
+The next review pass closed the bounded operator-visibility gaps without
+expanding the customer reply path. The card now distinguishes three evidence
+levels: fresh real generation (`LIVE`), token-free hourly model metadata
+(`READY`), and a real or scheduled fallback (`DEGRADED`). A stale record cannot
+keep a key green after the evidence window expires, and a not-needed 3.6 check
+is gray rather than a failure. The front end's one-minute passive refresh and
+countdown only read the local snapshot; they do not poll Gemini. Each 24-hour
+rail now merges generation buckets before metadata buckets, with metadata
+filling only missing observations; merged history is the source for its
+counters, status, latency and evidence label.
+
+The hourly command is a single managed cron owner with a per-hour cache lock,
+heartbeat and 70-second shared deadline. It performs model-resource GETs and
+records only normalized, redacted outcomes. It avoids a secondary 3.6 request
+when 3.7 succeeds, and it reports/counts deadline skips without writing a
+provider-failure attempt or hanging the cron past its external timeout.
+`pool_status(read_only=True)` keeps the passive GET from creating key-state
+rows. These safeguards are part of the current release slice; slow-drip
+cancellation, typed worker telemetry and MariaDB lease-race proof remain open
+under `IMP-044`.
+
+The follow-up also preserves failure provenance in the same bounded ledger:
+provider HTTP 408 is `http_408`, a local or wrapped socket timeout is `timeout`,
+and a DNS/TLS/other connection problem remains `transport_error`; provider HTTP
+codes are retained in the redacted attempt row and shown with the latest proven
+fallback when present. An absent secret appears as `NOT CONFIGURED` in the
+returned snapshot but writes neither a provider request nor an attempt row.
+This keeps the graph diagnostic without turning the passive read path into a
+telemetry writer.

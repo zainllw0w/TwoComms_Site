@@ -61,7 +61,7 @@ class GeminiHealthApiTests(TestCase):
 
     def test_get_returns_snapshot_and_never_calls_provider(self):
         snapshot = {
-            "schema_version": 1,
+            "schema_version": 2,
             "generated_at": "2026-08-18T12:00:00+00:00",
             "window": {"hours": 24},
             "summary": {"configured": 0},

@@ -34,6 +34,7 @@ TASK_SPECS = (
     TaskSpec("order_telegram_reconcile", "відновлення Telegram-карток замовлень", 120, 480),
     TaskSpec("nova_poshta_tracking", "оновлення статусів Нової Пошти", 300, 900),
     TaskSpec("binotel_call_ai_analyses", "Автоаналіз дзвінків", 300, 900),
+    TaskSpec("ig_gemini_metadata_health", "перевірка Gemini API metadata", 3600, 7500),
 )
 _SPECS_BY_KEY = {spec.key: spec for spec in TASK_SPECS}
 _CALL_AUTO_ANALYSIS_TASK_KEY = "binotel_call_ai_analyses"

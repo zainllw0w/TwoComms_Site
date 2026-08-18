@@ -994,12 +994,10 @@ cherry-picked wholesale.
 
 **Bounded Gemini API dashboard follow-up (2026-08-18, release slice):**
 
-- [x] Add an admin-only Gemini Checker card inside the existing `Налаштування`
-  panel (the earlier standalone `API` navigation was consolidated here). It
+- [x] Add a dedicated admin-only `API` tab and sibling Gemini Checker panel. It
   shows six stable aliases (`API key 1` … `API key 6`), current derived
   state, and independent 24-segment rails for `gemini-3.7-flash` and
-  `gemini-3.6-flash`; legacy `?section=api` links still open
-  `Налаштування`.
+  `gemini-3.6-flash`; `?section=api` opens the dedicated panel directly.
 - [x] Make the read path passive: `GET /bot/api/gemini-health/` only reads the
   bounded, redacted `GeminiRequestAttempt` ledger plus `pool_status()`. It has
   no cron, polling loop, provider call, customer context, secret or raw
@@ -1047,23 +1045,75 @@ fresh focused local gate passed `51/51`; Django check, migration drift,
 compileall and `git diff --check` were clean. At that historical revision, the
 production render smoke used `twocomms.urls_management` and returned HTTP
 `200` with the then-separate admin-only `data-tab="api"` control and
-`data-panel="api"` content. That markup was subsequently consolidated into
-the `Налаштування` panel by the settings-placement follow-up below; the old
-render observation is retained for audit history and is not the current UI
-contract. No provider probe, customer message, test fixture or production
-database write was performed.
+`data-panel="api"` content. That markup was temporarily consolidated into the
+`Налаштування` panel and later restored by the dedicated-placement follow-up
+below; the observation is retained as historical render evidence. No provider
+probe, customer message, test fixture or production database write was
+performed.
 
-**UI copy follow-up:** the standalone administrator `API` tab was retired in
+**Superseded UI copy follow-up:** the standalone administrator `API` tab was retired in
 favour of a compact Checker card inside `Налаштування`; the template contract
 guards the admin-only boundary, six stable key rows, two model rails, passive
 lazy loading and the legacy `section=api` URL alias.
 
-**Settings placement follow-up (2026-08-18):** the separate navigation item and
+**Superseded settings placement follow-up (2026-08-18):** the separate navigation item and
 `data-panel="api"` were removed so the status surface is discoverable with
 the rest of the bot controls. The card remains admin-only, loads only when
 `Налаштування` is opened, and performs no background polling or provider
 request. This is a UI-only follow-up; the broader `IMP-044` checkbox above
 stays open.
+
+**Dedicated API placement follow-up (2026-08-18, current UI contract):** the
+admin-only `data-tab="api"` control and sibling `data-panel="api"` are restored.
+The snapshot loads lazily only after the `API` tab becomes active; its
+one-minute passive database refresh and local countdown stop while the panel or
+document is inactive. `?section=api` opens the panel directly. Provider I/O
+remains limited to the explicit manual probe button, and `IMP-044` stays open.
+
+**Live/metadata checker follow-up (2026-08-18, current release slice):**
+
+- [x] The dedicated `API` tab shows a compact live capsule for every one of the
+  six aliases. `LIVE` is reserved for fresh real generation evidence; a fresh
+  hourly model-resource check is shown as `READY`, and a proven 3.7 failure with
+  a 3.6 recovery is shown as `DEGRADED`. An unrecovered latest failure is
+  `OFFLINE`; missing or expired evidence stays gray (`STALE`/`NOT_CONFIGURED`).
+- [x] Each model has its own fixed 24-hour rail. `skipped/not_needed` samples
+  remain gray and do not inflate the failure rate. Fallback grouping includes
+  the API alias and request ID, so attempts from different keys cannot be
+  merged into one false recovery. The UI merges rails per bucket with
+  generation-first priority; metadata fills only `no_observation` gaps, so a
+  newer metadata snapshot cannot hide an older runtime fallback. The merged
+  history drives the displayed counters, status, latency and evidence source.
+  The card exposes the evidence source and a small countdown to the next
+  hourly refresh; the latest proven 3.7 -> 3.6 fallback also exposes a retained
+  HTTP status code when present. Passive refresh is throttled and never calls
+  Gemini.
+- [x] `check_ig_gemini_metadata_health` is installed by the managed cron block
+  at the top of every hour. It uses one shared 70-second deadline, a per-hour
+  lock, a task heartbeat, and token-free `GET /v1beta/models/{model}` calls. It
+  checks 3.6 only when the same key's 3.7 metadata request is not successful;
+  a missing key is returned as `NOT CONFIGURED` without network I/O or a
+  telemetry-ledger row. Provider HTTP 408, local timeout, and non-timeout
+  transport failures remain separately normalized in the ledger. The installer
+  removes a loose legacy owner and rejects duplicates.
+- [x] The passive snapshot path calls `pool_status(read_only=True)`, so opening
+  or refreshing the card does not create `GeminiKeyState` rows, append attempt
+  telemetry, or spend provider generation tokens. Manual probes remain an
+  explicit admin action with the existing lock/cooldown/redaction guards.
+- [ ] `IMP-044` remains **PARTIAL**. A hard wall-clock cancellation boundary
+  for slow-drip provider responses, typed worker/lease telemetry, bounded
+  jitter, migration `0169`, and disposable MariaDB competition/reclaim proof
+  remain open. This release slice is limited to operator visibility and
+  token-free hourly model readiness.
+
+**Current local verification (pre-deploy):** the focused Gemini/API Django gate
+passed `70/70`, including the red-green regression for provider HTTP 408 and a
+wrapped socket timeout; the cron-installer gate passed `18/18`. `manage.py
+check`, migration-drift, scoped `compileall`, shell syntax, and `git diff
+--check` were clean. Desktop and 375 px browser QA confirmed all six rows, both
+model rails, a decreasing countdown and a passive `/bot/api/gemini-health/`
+read with no provider request. Production proof is appended after the approved
+SSH pull; no live generation probe is part of that proof.
 
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 

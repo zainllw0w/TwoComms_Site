@@ -12,10 +12,12 @@ from management.models import GeminiRequestAttempt
 from management.services import gemini_keys
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 WINDOW_HOURS = 24
 BUCKET_COUNT = 24
 ATTEMPT_QUERY_CAP = 2000
+METADATA_ATTEMPT_QUERY_CAP = 512
+FRESH_EVIDENCE_SECONDS = 7500
 DISPLAY_MODELS = ("gemini-3.7-flash", "gemini-3.6-flash")
 MODELS = DISPLAY_MODELS
 KEY_ALIASES = (
@@ -65,6 +67,13 @@ def _attempt_succeeded(row: dict[str, Any]) -> bool:
     return str(row.get("outcome") or "").strip().lower() in _SUCCESS_OUTCOMES
 
 
+def _attempt_not_needed(row: dict[str, Any]) -> bool:
+    return (
+        str(row.get("outcome") or "").strip().lower() in {"skipped", "not_needed"}
+        or str(row.get("failure_kind") or "").strip().lower() == "not_needed"
+    )
+
+
 def _bucket_index(created_at: dt.datetime, window_start: dt.datetime) -> int:
     seconds = (_as_utc(created_at) - window_start).total_seconds()
     return min(BUCKET_COUNT - 1, max(0, int(seconds // 3600)))
@@ -79,10 +88,13 @@ def _status_for_attempts(
     *,
     window_start: dt.datetime | None = None,
 ) -> str:
+    meaningful_rows = [row for row in rows if not _attempt_not_needed(row)]
+    if not meaningful_rows:
+        return "not_needed" if rows else "no_observation"
     if not rows:
         return "no_observation"
 
-    ordered = sorted(rows, key=_attempt_sort_key)
+    ordered = sorted(meaningful_rows, key=_attempt_sort_key)
     latest = ordered[-1]
     if not _attempt_succeeded(latest):
         return "terminal"
@@ -119,6 +131,7 @@ def _empty_model_snapshot(window_start: dt.datetime) -> dict[str, Any]:
         "observations": 0,
         "successes": 0,
         "failures": 0,
+        "skipped": 0,
         "recovered": 0,
         "last_observation_at": None,
         "last_latency_ms": 0,
@@ -136,6 +149,8 @@ def _has_ordered_recovery(rows: list[dict[str, Any]]) -> bool:
     """Return whether a failure is followed by a success in one request."""
     saw_failure = False
     for row in sorted(rows, key=_attempt_sort_key):
+        if _attempt_not_needed(row):
+            continue
         if _attempt_succeeded(row):
             if saw_failure:
                 return True
@@ -151,6 +166,8 @@ def _ordered_recovery_row_ids(rows: list[dict[str, Any]]) -> tuple[set[int], set
     for request_rows in _group_by_request(rows).values():
         pending_failures: list[dict[str, Any]] = []
         for row in request_rows:
+            if _attempt_not_needed(row):
+                continue
             if _attempt_succeeded(row):
                 if pending_failures:
                     recovered_failures.update(id(item) for item in pending_failures)
@@ -164,7 +181,7 @@ def _ordered_recovery_row_ids(rows: list[dict[str, Any]]) -> tuple[set[int], set
 def _history_statuses(
     rows: list[dict[str, Any]],
     window_start: dt.datetime,
-) -> list[dict[str, str]]:
+) -> list[dict[str, str | None]]:
     """Build bucket statuses while retaining recovery evidence across buckets."""
     ordered = sorted(rows, key=_attempt_sort_key)
     by_bucket: dict[int, list[dict[str, Any]]] = defaultdict(list)
@@ -172,12 +189,21 @@ def _history_statuses(
         by_bucket[_bucket_index(row["created_at"], window_start)].append(row)
 
     recovered_failures, recovered_successes = _ordered_recovery_row_ids(ordered)
-    history: list[dict[str, str]] = []
+    history: list[dict[str, str | None]] = []
     for index in range(BUCKET_COUNT):
         bucket_rows = by_bucket.get(index, [])
         status = _status_for_attempts(bucket_rows, window_start=window_start)
         if bucket_rows:
-            latest = max(bucket_rows, key=_attempt_sort_key)
+            meaningful_bucket_rows = [
+                row for row in bucket_rows if not _attempt_not_needed(row)
+            ]
+            if not meaningful_bucket_rows:
+                history.append({
+                    "bucket_start": _iso(window_start + dt.timedelta(hours=index)),
+                    "status": "not_needed",
+                })
+                continue
+            latest = max(meaningful_bucket_rows, key=_attempt_sort_key)
             latest_is_unrecovered_failure = (
                 not _attempt_succeeded(latest)
                 and id(latest) not in recovered_failures
@@ -202,8 +228,10 @@ def _model_snapshot(rows: list[dict[str, Any]], window_start: dt.datetime) -> di
     rows = sorted(rows, key=_attempt_sort_key)
     history = _history_statuses(rows, window_start)
 
-    success_count = sum(1 for row in rows if _attempt_succeeded(row))
-    failure_count = len(rows) - success_count
+    meaningful_rows = [row for row in rows if not _attempt_not_needed(row)]
+    success_count = sum(1 for row in meaningful_rows if _attempt_succeeded(row))
+    failure_count = len(meaningful_rows) - success_count
+    skipped_count = len(rows) - len(meaningful_rows)
     recovered_count = sum(
         1
         for request_rows in _group_by_request(rows).values()
@@ -215,6 +243,7 @@ def _model_snapshot(rows: list[dict[str, Any]], window_start: dt.datetime) -> di
         "observations": len(rows),
         "successes": success_count,
         "failures": failure_count,
+        "skipped": skipped_count,
         "recovered": recovered_count,
         "last_observation_at": _iso(last["created_at"]),
         "last_latency_ms": max(0, int(last.get("latency_ms") or 0)),
@@ -223,15 +252,15 @@ def _model_snapshot(rows: list[dict[str, Any]], window_start: dt.datetime) -> di
     return snapshot
 
 
-def _group_by_request(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+def _group_by_request(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         if str(row.get("key_name") or "") not in KEY_ALIASES:
             continue
         request_id = str(row.get("request_id") or "").strip()
         if not request_id:
             continue
-        grouped[request_id].append(row)
+        grouped[(str(row.get("key_name") or ""), request_id)].append(row)
     for request_rows in grouped.values():
         request_rows.sort(
             key=lambda row: (
@@ -242,8 +271,8 @@ def _group_by_request(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, An
     return grouped
 
 
-def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | None] | None:
-    latest: tuple[tuple[dt.datetime, int], dict[str, str | None]] | None = None
+def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | int | None] | None:
+    latest: tuple[tuple[dt.datetime, int], dict[str, str | int | None]] | None = None
     for request_rows in _group_by_request(rows).values():
         for index, row in enumerate(request_rows):
             if row.get("model") != "gemini-3.7-flash" or _attempt_succeeded(row):
@@ -258,6 +287,7 @@ def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | None] | None
                     "from_model": "gemini-3.7-flash",
                     "to_model": "gemini-3.6-flash",
                     "reason": _FAILURE_REASON_LABELS.get(failure_kind, "3.7 request failed"),
+                    "http_code": int(row.get("http_code") or 0) or None,
                     "observed_at": _iso(next_row["created_at"]),
                 }
                 observed_at = _attempt_sort_key(next_row)
@@ -265,6 +295,76 @@ def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | None] | None
                     latest = (observed_at, fallback)
                 break
     return latest[1] if latest else None
+
+
+def _latest_request_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return the rows belonging to the most recently observed request."""
+    if not rows:
+        return []
+    latest = max(rows, key=_attempt_sort_key)
+    request_id = str(latest.get("request_id") or "").strip()
+    if not request_id:
+        return [latest]
+    return sorted(
+        [row for row in rows if str(row.get("request_id") or "").strip() == request_id],
+        key=_attempt_sort_key,
+    )
+
+
+def _fresh(rows: list[dict[str, Any]], generated_at: dt.datetime) -> bool:
+    if not rows:
+        return False
+    latest = max(rows, key=_attempt_sort_key)
+    age = (generated_at - _as_utc(latest["created_at"])).total_seconds()
+    return 0 <= age <= FRESH_EVIDENCE_SECONDS
+
+
+def _runtime_live_state(
+    rows: list[dict[str, Any]], generated_at: dt.datetime,
+) -> tuple[str, str | None] | None:
+    """Classify fresh real generation evidence without metadata inference."""
+    request_rows = [row for row in _latest_request_rows(rows) if not _attempt_not_needed(row)]
+    if not _fresh(request_rows, generated_at):
+        return None
+    latest = request_rows[-1]
+    if _attempt_succeeded(latest):
+        model = str(latest.get("model") or "")
+        if model == DISPLAY_MODELS[1]:
+            primary_failed = any(
+                row.get("model") == DISPLAY_MODELS[0]
+                and not _attempt_succeeded(row)
+                and not _attempt_not_needed(row)
+                for row in request_rows[:-1]
+            )
+            if primary_failed:
+                return "DEGRADED", model
+        return "LIVE", model if model in DISPLAY_MODELS else None
+    return "OFFLINE", None
+
+
+def _metadata_live_state(
+    rows: list[dict[str, Any]], generated_at: dt.datetime,
+) -> tuple[str, str | None] | None:
+    """Classify one fresh scheduled 3.7 -> conditional 3.6 observation."""
+    request_rows = _latest_request_rows(rows)
+    if not _fresh(request_rows, generated_at):
+        return None
+    by_model = {
+        str(row.get("model") or ""): row
+        for row in request_rows
+        if str(row.get("model") or "") in DISPLAY_MODELS
+    }
+    primary = by_model.get(DISPLAY_MODELS[0])
+    secondary = by_model.get(DISPLAY_MODELS[1])
+    if primary and _attempt_succeeded(primary):
+        return "READY", DISPLAY_MODELS[0]
+    if primary and not _attempt_succeeded(primary):
+        if secondary and _attempt_succeeded(secondary):
+            return "DEGRADED", DISPLAY_MODELS[1]
+        if secondary and not _attempt_not_needed(secondary):
+            return "OFFLINE", None
+        return None
+    return None
 
 
 def _pool_row_by_key(pool_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -301,15 +401,18 @@ def _summary(
                 "observations": 0,
                 "successes": 0,
                 "failures": 0,
+                "skipped": 0,
                 "last_observation_at": None,
             }
             continue
-        successes = sum(1 for row in model_rows if _attempt_succeeded(row))
+        meaningful_rows = [row for row in model_rows if not _attempt_not_needed(row)]
+        successes = sum(1 for row in meaningful_rows if _attempt_succeeded(row))
         models[model] = {
             "status": _status_for_attempts(model_rows, window_start=window_start),
             "observations": len(model_rows),
             "successes": successes,
-            "failures": len(model_rows) - successes,
+            "failures": len(meaningful_rows) - successes,
+            "skipped": len(model_rows) - len(meaningful_rows),
             "last_observation_at": _iso(
                 max(model_rows, key=_attempt_sort_key)["created_at"]
             ),
@@ -332,35 +435,77 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
     """
     generated_at = _as_utc(now or timezone.now())
     window_start = generated_at - dt.timedelta(hours=WINDOW_HOURS)
-    attempt_rows = list(
-        GeminiRequestAttempt.objects.filter(
-            created_at__gte=window_start,
-            created_at__lte=generated_at,
-            key_name__in=KEY_ALIASES,
-            model__in=DISPLAY_MODELS,
-        )
-        .order_by("-created_at", "-id")
-        .values(
-            "id",
-            "request_id",
-            "key_name",
-            "model",
-            "outcome",
-            "failure_kind",
-            "latency_ms",
-            "created_at",
-        )[:ATTEMPT_QUERY_CAP]
+    query = GeminiRequestAttempt.objects.filter(
+        created_at__gte=window_start,
+        created_at__lte=generated_at,
+        key_name__in=KEY_ALIASES,
+        model__in=DISPLAY_MODELS,
     )
+    fields = (
+        "id",
+        "request_id",
+        "key_name",
+        "model",
+        "outcome",
+        "failure_kind",
+        "http_code",
+        "role",
+        "latency_ms",
+        "created_at",
+    )
+    runtime_rows = list(
+        query.exclude(role="health_metadata")
+        .order_by("-created_at", "-id")
+        .values(*fields)[:ATTEMPT_QUERY_CAP]
+    )
+    metadata_rows = list(
+        query.filter(role="health_metadata")
+        .order_by("-created_at", "-id")
+        .values(*fields)[:METADATA_ATTEMPT_QUERY_CAP]
+    )
+    attempt_rows = runtime_rows + metadata_rows
     # Newest rows are selected under the cap, then restored to chronological
     # order so fallback and retry classification are deterministic.
     attempt_rows.sort(key=lambda row: (_as_utc(row["created_at"]), int(row.get("id") or 0)))
 
-    pool_rows = list(gemini_keys.pool_status(now=generated_at))
+    pool_rows = list(gemini_keys.pool_status(now=generated_at, read_only=True))
+    runtime_attempts = [
+        row for row in attempt_rows if row.get("role") != "health_metadata"
+    ]
+    metadata_attempts = [
+        row for row in attempt_rows if row.get("role") == "health_metadata"
+    ]
+    next_check = generated_at.replace(
+        minute=0,
+        second=0,
+        microsecond=0,
+    ) + dt.timedelta(hours=1)
     pool_by_key = _pool_row_by_key(pool_rows)
     keys = []
     for key_name in KEY_ALIASES:
         pool_row = pool_by_key.get(key_name, {})
         row_attempts = [row for row in attempt_rows if row.get("key_name") == key_name]
+        metadata_rows = [row for row in row_attempts if row.get("role") == "health_metadata"]
+        runtime_rows = [row for row in row_attempts if row.get("role") != "health_metadata"]
+        latest_metadata = max(metadata_rows, key=_attempt_sort_key, default=None)
+        latest_runtime = max(runtime_rows, key=_attempt_sort_key, default=None)
+        latest_evidence = max(
+            [row for row in (latest_metadata, latest_runtime) if row is not None],
+            key=_attempt_sort_key,
+            default=None,
+        )
+        evidence_source = "none"
+        if not pool_row.get("present"):
+            live_state, active_model = "NOT_CONFIGURED", None
+        else:
+            classified = _runtime_live_state(runtime_rows, generated_at)
+            evidence_source = "generation" if classified else ""
+            if classified is None:
+                classified = _metadata_live_state(metadata_rows, generated_at)
+                evidence_source = "scheduled_metadata" if classified else "none"
+            live_state, active_model = classified or ("STALE", None)
+        if not pool_row.get("present"):
+            evidence_source = "none"
         keys.append({
             "alias": DISPLAY_ALIASES[key_name],
             "state": str(
@@ -373,25 +518,43 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             "available": bool(pool_row.get("available")),
             "role": str(pool_row.get("role") or ""),
             "project_identity_known": bool(pool_row.get("project_identity_known")),
-            "models": {
-                model: _model_snapshot(
-                    [row for row in row_attempts if row.get("model") == model],
-                    window_start,
-                )
-                for model in DISPLAY_MODELS
-            },
+            "live_state": live_state,
+            "active_model": active_model,
+            "source": evidence_source,
+            "evidence_kind": "generation" if evidence_source == "generation" else ("metadata_only" if evidence_source == "scheduled_metadata" else "none"),
+            "checked_at": _iso(latest_evidence["created_at"]) if latest_evidence else None,
+            "last_check_at": _iso(latest_metadata["created_at"]) if latest_metadata else None,
+            "last_generation_at": _iso(latest_runtime["created_at"]) if latest_runtime else None,
+            "next_check_at": _iso(next_check),
+            "seconds_until_next_check": max(0, int((next_check - generated_at).total_seconds())),
+            "freshness": "fresh" if evidence_source != "none" else "stale",
+            "generation_quota_proven": (
+                evidence_source == "generation"
+                and live_state in {"LIVE", "DEGRADED"}
+            ),
+            "generation_models": {model: _model_snapshot([row for row in runtime_rows if row.get("model") == model], window_start) for model in DISPLAY_MODELS},
+            "metadata_models": {model: _model_snapshot([row for row in metadata_rows if row.get("model") == model], window_start) for model in DISPLAY_MODELS},
+            "models": {model: _model_snapshot([row for row in runtime_rows if row.get("model") == model], window_start) for model in DISPLAY_MODELS},
         })
 
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso(generated_at),
+        "next_check_at": _iso(next_check),
+        "seconds_until_next_check": max(
+            0,
+            int((next_check - generated_at).total_seconds()),
+        ),
         "window": {
             "start": _iso(window_start),
             "end": _iso(generated_at),
             "hours": WINDOW_HOURS,
             "bucket_count": BUCKET_COUNT,
         },
-        "summary": _summary(pool_rows, attempt_rows, window_start=window_start),
-        "fallback": _latest_fallback(attempt_rows),
+        "summary": {
+            **_summary(pool_rows, runtime_attempts, window_start=window_start),
+            "metadata_observations": len(metadata_attempts),
+        },
+        "fallback": _latest_fallback(runtime_attempts),
         "keys": keys,
     }

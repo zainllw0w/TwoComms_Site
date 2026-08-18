@@ -2,9 +2,13 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Ship a discoverable `API` tab in the Instagram bot that reports six-key Gemini health, model observations, and proven 3.7 -> 3.6 fallbacks without background provider polling.
+**Goal:** Ship a discoverable Gemini health surface in the Instagram bot that reports six-key health, model observations, and proven 3.7 -> 3.6 fallbacks without background generation/token polling from the UI. A separate low-cost hourly metadata check may establish readiness without consuming generation tokens.
 
-**Architecture:** Keep the existing redacted `GeminiRequestAttempt` ledger as the only history source. Add a small `gemini_health` service that performs bounded aggregation and fallback-sequence classification, admin-only GET/POST bot endpoints, and a lazy tab module that reads the GET endpoint only while visible. A manual probe uses the existing probe client with a minimal budget, records a redacted `health_probe` attempt, and is protected by model/key allowlists and cache locks; no migration is needed.
+**Architecture:** Keep the existing redacted `GeminiRequestAttempt` ledger as the only history source. Add a small `gemini_health` service that performs bounded aggregation and fallback-sequence classification, admin-only GET/POST bot endpoints, and a lazy admin-only `API` panel that reads the GET endpoint only while visible. A manual probe uses the existing probe client with a minimal budget, records a redacted `health_probe` attempt, and is protected by model/key allowlists and cache locks. A separate hourly command performs token-free `GET /v1beta/models/{model}` metadata checks with a shared deadline, per-hour cache lock, and heartbeat; it checks 3.6 only when 3.7 is not ready. No migration is needed.
+
+**Release-slice status (2026-08-18):** implemented in the isolated IMP-044 follow-up. The checker is a dedicated admin-only `API` tab, renders six stable key rows with independent 24-hour rails for 3.7/3.6, and exposes `LIVE` only from fresh real generation evidence. Hourly metadata evidence is rendered as `READY`/`DEGRADED` and never claims generation-token proof. The passive GET uses `pool_status(read_only=True)` and cannot create key-state rows or provider attempts. The countdown is a presentation timer; it never starts provider I/O. Broader timeout/lease cancellation and typed worker telemetry remain out of scope and stay `PARTIAL`.
+
+The hourly ledger preserves provider HTTP 408, local timeout, and generic transport failure as separate normalized outcomes; a retained HTTP status code is shown for the latest proven fallback when available. A missing secret is returned as `NOT CONFIGURED` without a provider call or ledger row.
 
 **Tech Stack:** Django 6.1, Python 3.14, existing management services/models, server-rendered Django template, vanilla JavaScript/CSS, Django TestCase.
 
@@ -216,7 +220,11 @@ git diff --check
 
 Run one desktop and one narrow browser check of `/bot/?section=api` (or the
 stored tab state), verifying six rows, no secret values, no provider request
-on read refresh, and a usable no-data/error state.
+on read refresh, a usable no-data/error state, and a stable live countdown.
+Verify the installed cron block contains exactly one hourly metadata owner and
+that the checker records a heartbeat while respecting its 70-second internal
+deadline. The hourly metadata request is a model-resource GET only; do not run
+a live generation probe during deployment verification.
 
 Push the scoped branch to GitHub, fast-forward `main` as required by the
 project workflow, and deploy only with the approved SSH `git pull --ff-only

@@ -126,6 +126,7 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             "reconcile_ig_order_fulfillment",
             "poll_ig_deal_payments",
             "run_call_ai_analyses",
+            "check_ig_gemini_metadata_health",
         ):
             self.assertEqual(
                 sum(
@@ -142,6 +143,11 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             "/bin/sh -c ",
             first_content,
         )
+        gemini_lines = [line for line in first_content.splitlines() if "manage.py check_ig_gemini_metadata_health" in line]
+        self.assertEqual(len(gemini_lines), 1)
+        self.assertTrue(gemini_lines[0].startswith("0 * * * * "))
+        self.assertIn("tmp/check_ig_gemini_metadata_health.lock", gemini_lines[0])
+        self.assertIn("timeout", gemini_lines[0])
         self.assertIn(
             f"exec {self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 240s "
             f"{self.python} manage.py run_call_ai_analyses --limit 1",
@@ -423,15 +429,35 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             if " manage.py " in line
         ]
 
-        self.assertEqual(len(managed_lines), 5)
+        self.assertEqual(len(managed_lines), 6)
         for line in managed_lines:
             self.assertIn(f"{self.fake_bin / 'flock'} -n -E 75", line)
             self.assertIn(f"{self.fake_bin / 'timeout'} --signal=TERM", line)
             self.assertIn("--kill-after=15s", line)
-            self.assertIn("--limit", line)
+            if "check_ig_gemini_metadata_health" not in line:
+                self.assertIn("--limit", line)
         self.assertIn("timeout --signal=TERM --kill-after=15s 90s", content)
         self.assertIn("timeout --signal=TERM --kill-after=15s 180s", content)
         self.assertIn("timeout --signal=TERM --kill-after=15s 240s", content)
+
+    def test_install_removes_loose_gemini_metadata_owner(self):
+        loose = (
+            "# codex:ig-gemini-metadata-health\n"
+            f"0 * * * * cd {self.django_root} && /usr/bin/flock -n -E 75 "
+            f"{self.django_root}/tmp/check_ig_gemini_metadata_health.lock "
+            f"/usr/bin/timeout --signal=TERM --kill-after=15s 90s {self.python} "
+            "manage.py check_ig_gemini_metadata_health >> "
+            f"{self.django_root}/logs/check_ig_gemini_metadata_health.log 2>&1\n"
+        )
+        self.crontab_file.write_text("MAILTO=ops@example.test\n" + loose, encoding="utf-8")
+
+        result = self._run("--install")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        content = self.crontab_file.read_text(encoding="utf-8")
+        self.assertEqual(content.count("manage.py check_ig_gemini_metadata_health"), 1)
+        self.assertEqual(content.count("# codex:ig-gemini-metadata-health"), 1)
+        self.assertEqual(content.splitlines()[1], BEGIN_MARKER)
 
     def test_check_detects_missing_and_drifted_block(self):
         self.assertNotEqual(self._run("--check").returncode, 0)
