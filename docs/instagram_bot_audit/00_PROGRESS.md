@@ -185,6 +185,31 @@ This slice improves operator visibility only and does not close the broader
 `IMP-044` slow-drip cancellation, typed worker telemetry, jitter or MariaDB
 competition/reclaim gates.
 
+## Implement2 W2.4 API Checker alignment follow-up (2026-08-19)
+
+Commit `c64dc224b` is in local `main`, `origin/main` and production. The
+hourly metadata checker now starts all six aliases concurrently, keeps the
+3.7-first/conditional-3.6 order inside each alias, rejects late evidence at
+the shared logical deadline, joins workers before releasing the hourly owner,
+and writes the completed ledger batch in one coordinator transaction. A rare
+executor submission failure is also joined safely. The dashboard model rows
+use a fixed desktop evidence track and preserve local rail scrolling at narrow
+widths.
+
+Fresh local evidence is `121/121` focused Gemini/API tests plus `18/18` cron
+installer tests; Django check, migration drift, compile, shell syntax and
+whitespace checks are clean. Browser QA at 1920/1280/640/375 px rendered all
+six rows and 12 rails with zero document overflow. The approved SSH pull placed
+exact SHA `c64dc224b` on production `main`; server checks reported Python
+3.14.6/Django 6.1, a clean tracked tree, matching managed cron, six snapshot
+keys with two model rows each, and unchanged `GeminiRequestAttempt=89` and
+`GeminiKeyState=6` counts across the passive MariaDB snapshot. No provider
+probe, customer message or fixture was created.
+
+`IMP-044` remains PARTIAL: hard wall-clock cancellation for slow-drip reads,
+typed worker telemetry, bounded jitter and disposable MariaDB competition/
+reclaim proof are still open.
+
 ## W1.4 reviewer/operator PII technical boundary (2026-08-08)
 
 Source commit `71498170` находится в локальном `main`, `origin/main` и на

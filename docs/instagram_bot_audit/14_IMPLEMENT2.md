@@ -1127,7 +1127,7 @@ then reported `OK` for install and check, with exactly one hourly
 `check_ig_gemini_metadata_health` owner using the per-hour lock and 90-second
 external timeout.
 
-**API Checker alignment and coverage follow-up (2026-08-19, pending production proof):**
+**API Checker alignment and coverage follow-up (2026-08-19, production verified):**
 
 - [x] The hourly metadata scheduler submits all six configured aliases to one
   six-worker batch, preventing a slow earlier alias from starving API keys
@@ -1157,8 +1157,20 @@ geometry at each width, while at 640/375 the 309 px rail scrolls inside its
 local viewport and document overflow remains `0`. The browser run produced no
 JavaScript errors; the only console entries were the known report-only CSP
 `upgrade-insecure-requests` warning. Local SQLite remains only a fast
-deterministic layer; production proof must verify the exact SHA, six-alias
-hourly result and read-only snapshot on MariaDB after the approved SSH pull.
+  deterministic layer.
+
+**Production proof (2026-08-19, MariaDB checkout):** commit `c64dc224b` was
+pushed to `main` and pulled with the approved `git pull --ff-only origin main`.
+The server reports exact SHA `c64dc224b`, branch `main`, Python `3.14.6`,
+Django `6.1` and a clean tracked tree. `manage.py check` has only the four
+pre-existing MariaDB compatibility warnings and the known stale compression
+manifest warning; the managed cron installer reports
+`[instagram-periodic-cron] OK: managed block matches`. A read-only
+`build_snapshot()` returned six key rows and two model rows per key, while
+`GeminiRequestAttempt` stayed `89 -> 89` and `GeminiKeyState` stayed `6 -> 6`.
+No provider probe, customer message, fixture or generation request was issued.
+`IMP-044` remains **PARTIAL** for slow-drip hard cancellation, typed worker
+telemetry, bounded jitter and disposable MariaDB competition/reclaim proof.
 
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 

@@ -341,6 +341,7 @@ tests and `18/18` cron-installer tests. Django system checks, migration-drift,
 scoped compilation, shell syntax and whitespace checks were clean. Browser
 evidence at 1920, 1280, 640 and 375 px rendered all six rows and 12 rails with
 zero document overflow; narrow rails scroll only inside their own viewport.
-Production MariaDB proof is intentionally appended after the approved
-`git pull --ff-only origin main`, and no live provider probe is part of that
-proof.
+Production MariaDB proof is recorded in `14_IMPLEMENT2.md` and `09_DEPLOYMENT_LOG.md`:
+exact SHA `c64dc224b`, six keys with two model rows each, and unchanged attempt
+and key-state counts across the passive read. No live provider probe is part of
+that proof.

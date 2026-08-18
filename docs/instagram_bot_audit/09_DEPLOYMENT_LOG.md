@@ -4,6 +4,24 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W2.4 API Checker alignment follow-up (2026-08-19)
+
+Commit `c64dc224b` was pushed to GitHub `main` and pulled with the approved
+`git pull --ff-only origin main`. Production reports exact SHA
+`c64dc224b`, branch `main`, Python `3.14.6`, Django `6.1` and no tracked
+worktree changes. `manage.py check` completed with only the four pre-existing
+MariaDB compatibility warnings plus the known stale compression-manifest
+runtime warning. The managed periodic-cron contract returned
+`[instagram-periodic-cron] OK: managed block matches`.
+
+Read-only MariaDB proof called `build_snapshot()` once and returned six key
+rows with exactly two displayed model rows per key. `GeminiRequestAttempt`
+stayed at `89 -> 89` and `GeminiKeyState` at `6 -> 6`; no provider probe,
+generation request, customer message or fixture was created. This proves the
+parallel hourly orchestration is deployed and the passive checker read remains
+non-mutating. The release does not close `IMP-044` slow-drip hard cancellation,
+typed worker telemetry, bounded jitter or MariaDB competition/reclaim proof.
+
 ## Implement2 W2.4 Gemini API Checker (2026-08-18)
 
 The feature release `7372f0b6b`, countdown follow-ups `8bfb6c5ea`/`7fde498fb`,
