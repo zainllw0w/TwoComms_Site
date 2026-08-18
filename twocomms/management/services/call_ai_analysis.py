@@ -68,6 +68,8 @@ GEMINI_TIMEOUT = (10, 90)  # (connect, read) — аудіо-аналіз мож�
 CHAT_TIMEOUT = (8, 25)      # діалоговий бот: коротка відповідь — не висимо на завислій моделі
 MANAGEMENT_TEXT_TIMEOUT = (8, 25)  # допоміжні text-виклики IG-бота, не аудіо
 BACKOFF_BASE = 2.0          # секунди, експоненційно між ретраями transient
+BACKGROUND_LEASE_SAFETY_SECONDS = 1.0
+BACKGROUND_MIN_CALL_SECONDS = 0.2
 # Жорсткий стеля часу на ВЕСЬ перебір пулу для чату: краще швидко впасти у фолбек/
 # ретрай повідомлення, ніж тримати клієнта (і чергу) у «processing» хвилинами.
 CHAT_DEADLINE_SECONDS = 75.0
@@ -402,9 +404,47 @@ def _payload_for_model(
     return normalized
 
 
+def _bounded_pool_timeout(
+    configured: tuple,
+    *,
+    remaining_deadline: float | None,
+    tracked_key: bool,
+) -> tuple[float, float] | None:
+    """Fit connect+read inside the job deadline and project-key lease."""
+    allowance = float(sum(configured))
+    if remaining_deadline is not None:
+        allowance = min(allowance, max(0.0, float(remaining_deadline)))
+    if tracked_key:
+        allowance = min(
+            allowance,
+            float(gemini_keys.KEY_LEASE_SECONDS) - BACKGROUND_LEASE_SAFETY_SECONDS,
+        )
+    if allowance < BACKGROUND_MIN_CALL_SECONDS:
+        return None
+    configured_total = max(float(sum(configured)), 0.001)
+    connect = min(float(configured[0]), allowance * float(configured[0]) / configured_total)
+    connect = max(0.05, connect)
+    read = allowance - connect
+    if read <= 0:
+        return None
+    return connect, read
+
+
+def _deadline_sleep(delay: float, *, deadline: float | None) -> bool:
+    """Sleep no longer than the remaining overall budget."""
+    bounded = max(0.0, float(delay))
+    if deadline is not None:
+        bounded = min(bounded, max(0.0, deadline - time.monotonic()))
+    if bounded <= 0:
+        return False
+    time.sleep(bounded)
+    return True
+
+
 def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 n_attempts: int, grounded: bool, log: list, parse: bool = True,
-                timeout: tuple | None = None, log_cb=None) -> tuple[str, dict | None]:
+                timeout: tuple | None = None, log_cb=None, *, role: str,
+                deadline: float | None) -> tuple[str, dict | None]:
     """Один (key, model) кандидат із ретраями на transient.
 
     Повертає ('ok', result) | ('key_429', None) | ('model_skip', None).
@@ -421,15 +461,33 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 pass
 
     for attempt in range(n_attempts):
+        if deadline is not None and time.monotonic() >= deadline:
+            return ("model_skip", None)
         t0 = time.monotonic()
+        lease_token = None
+        retry_delay = None
         try:
             policy = reasoning_policy(payload.get("_reasoning_task", "customer_chat"))
             request_payload = _payload_for_model(
                 model, payload, reasoning_task=policy["task"]
             )
             request_payload.pop("_reasoning_task", None)
+            if track:
+                lease_token = gemini_keys.acquire_key_lease(key_name, role=role)
+                if not lease_token:
+                    log.append(f"{key_name}/{model}: lease_busy")
+                    _emit(f"{key_name}/{model}: lease busy")
+                    return ("model_skip", None)
+            remaining = None if deadline is None else deadline - time.monotonic()
+            effective_timeout = _bounded_pool_timeout(
+                timeout or (CHAT_TIMEOUT if role == "chat" else GEMINI_TIMEOUT),
+                remaining_deadline=remaining,
+                tracked_key=track,
+            )
+            if effective_timeout is None:
+                return ("model_skip", None)
             parsed, usage = _gemini_call_once(
-                model, request_payload, key_value, parse=parse, timeout=timeout
+                model, request_payload, key_value, parse=parse, timeout=effective_timeout
             )
         except _GeminiTransient as exc:
             dt = time.monotonic() - t0
@@ -444,15 +502,13 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 gemini_keys.mark_model_overloaded(model)
             _emit(f"{key_name}/{model}: ⚠ {kind} ({dt:.1f}с) → інша модель")
             if attempt < n_attempts - 1:
-                time.sleep(BACKOFF_BASE * (2 ** attempt))
-            continue
+                retry_delay = BACKOFF_BASE * (2 ** attempt)
         except _GeminiEmpty as exc:
             dt = time.monotonic() - t0
             log.append(f"{key_name}/{model}: empty {exc} (#{attempt + 1})")
             _emit(f"{key_name}/{model}: ⚠ порожня відповідь ({dt:.1f}с)")
             if attempt < n_attempts - 1:
-                time.sleep(BACKOFF_BASE)
-            continue
+                retry_delay = BACKOFF_BASE
         except _Gemini429 as exc:
             dt = time.monotonic() - t0
             if gemini_keys.is_key_level_429(model, grounded):
@@ -508,6 +564,16 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                     "latency_ms": max(0, int((time.monotonic() - t0) * 1000)),
                 },
             })
+        finally:
+            if lease_token:
+                try:
+                    gemini_keys.release_key_lease(key_name, lease_token)
+                except Exception:
+                    logger.warning(
+                        "gemini background key lease release failed", exc_info=True
+                    )
+        if retry_delay is not None:
+            _deadline_sleep(retry_delay, deadline=deadline)
     return ("model_skip", None)  # transient вичерпано
 
 
@@ -543,6 +609,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     if deadline_seconds is None:
         deadline_seconds = CHAT_DEADLINE_SECONDS if role == "chat" else None
     t_start = time.monotonic()
+    deadline = None if deadline_seconds is None else t_start + deadline_seconds
 
     def _over_deadline() -> bool:
         return deadline_seconds is not None and (time.monotonic() - t_start) >= deadline_seconds
@@ -572,9 +639,13 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                     continue
                 attempted_this_round = True
                 status, res = _call_combo("(manual)", manual_key, model, payload,
-                                          n_attempts, grounded, log, parse, call_timeout, log_cb)
+                                          n_attempts, grounded, log, parse, call_timeout,
+                                          log_cb, role=role, deadline=deadline)
                 if status == "ok":
                     return res
+                if _over_deadline():
+                    aborted = True
+                    break
                 if status == "key_429":
                     break
             if aborted:
@@ -588,9 +659,13 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                 break
             attempted_this_round = True
             status, res = _call_combo(key_name, key_value, model, payload,
-                                      n_attempts, grounded, log, parse, call_timeout, log_cb)
+                                      n_attempts, grounded, log, parse, call_timeout,
+                                      log_cb, role=role, deadline=deadline)
             if status == "ok":
                 return res
+            if _over_deadline():
+                aborted = True
+                break
         if aborted:
             break
 
@@ -601,7 +676,12 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
 
         if round_idx < rounds - 1:
             gemini_keys.clear_model_overload()
-            time.sleep(gemini_keys.ROUND_BACKOFF_BASE * (2 ** round_idx))
+            if not _deadline_sleep(
+                gemini_keys.ROUND_BACKOFF_BASE * (2 ** round_idx),
+                deadline=deadline,
+            ) and deadline is not None:
+                aborted = True
+                break
 
     if aborted:
         _emit(f"⏱ дедлайн {deadline_seconds:.0f}с вичерпано — припиняю перебір")

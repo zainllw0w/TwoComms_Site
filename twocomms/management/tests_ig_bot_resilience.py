@@ -2,7 +2,7 @@
 логування перебору ключів/моделей у консоль бота.
 """
 from datetime import timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
@@ -270,6 +270,95 @@ class PoolDeadlineTests(SimpleTestCase):
                 manual_key="K", deadline_seconds=0,
             )
         mock_once.assert_not_called()
+
+
+class BackgroundPoolLeaseTests(SimpleTestCase):
+    def test_busy_key_is_skipped_and_provider_exception_releases_bounded_lease(self):
+        with patch.object(gk, "model_chain", return_value=["gemini-test"]), \
+             patch.object(gk, "iter_attempts", return_value=iter([
+                 ("GEMINI_API3", "busy-key", "gemini-test"),
+                 ("GEMINI_API4", "available-key", "gemini-test"),
+             ])), \
+             patch.object(gk, "attempts_per_model", return_value=1), \
+             patch.object(gk, "max_rounds", return_value=1), \
+             patch.object(
+                 gk, "acquire_key_lease", side_effect=[None, "lease-token"]
+             ) as acquire, \
+             patch.object(gk, "release_key_lease", return_value=True) as release, \
+             patch.object(ai.time, "monotonic", return_value=10.0), \
+             patch.object(
+                 ai, "_gemini_call_once",
+                 side_effect=ai._GeminiFatal("HTTP 400 INVALID_ARGUMENT"),
+             ) as invoke:
+            with self.assertRaises(ai.CallAIAnalysisError):
+                ai._run_with_pool(
+                    "management",
+                    {"contents": []},
+                    deadline_seconds=5,
+                    reasoning_task="conversation_reanalysis",
+                )
+
+        self.assertEqual(
+            acquire.call_args_list,
+            [
+                call("GEMINI_API3", role="management"),
+                call("GEMINI_API4", role="management"),
+            ],
+        )
+        invoke.assert_called_once()
+        self.assertEqual(invoke.call_args.args[2], "available-key")
+        effective_timeout = invoke.call_args.kwargs["timeout"]
+        self.assertLessEqual(sum(effective_timeout), 5)
+        self.assertLess(sum(effective_timeout), gk.KEY_LEASE_SECONDS)
+        release.assert_called_once_with("GEMINI_API4", "lease-token")
+
+    def test_retry_releases_lease_before_deadline_clipped_backoff(self):
+        events = []
+        clock = {"now": 10.0}
+
+        def monotonic():
+            return clock["now"]
+
+        def release(key_name, token):
+            events.append(("release", key_name, token))
+            return True
+
+        def sleep(seconds):
+            events.append(("sleep", seconds))
+            clock["now"] += seconds
+
+        with patch.object(gk, "model_chain", return_value=["gemini-test"]), \
+             patch.object(gk, "iter_attempts", return_value=iter([
+                 ("GEMINI_API3", "available-key", "gemini-test"),
+             ])), \
+             patch.object(gk, "attempts_per_model", return_value=2), \
+             patch.object(gk, "max_rounds", return_value=1), \
+             patch.object(
+                 gk, "acquire_key_lease", return_value="lease-1"
+             ), \
+             patch.object(gk, "release_key_lease", side_effect=release), \
+             patch.object(ai.time, "monotonic", side_effect=monotonic), \
+             patch.object(ai.time, "sleep", side_effect=sleep), \
+             patch.object(
+                 ai, "_gemini_call_once",
+                 side_effect=ai._GeminiTransient("timeout: simulated"),
+             ) as invoke:
+            with self.assertRaisesRegex(ai.CallAIAnalysisError, "дедлайн"):
+                ai._run_with_pool(
+                    "management",
+                    {"contents": []},
+                    deadline_seconds=1,
+                    reasoning_task="conversation_reanalysis",
+                )
+
+        invoke.assert_called_once()
+        self.assertEqual(
+            events,
+            [
+                ("release", "GEMINI_API3", "lease-1"),
+                ("sleep", 1.0),
+            ],
+        )
 
 
 class AdaptiveChatIncidentRegressionTests(TestCase):
