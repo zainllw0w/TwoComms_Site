@@ -10,10 +10,10 @@ from urllib.parse import urlparse
 
 import requests
 from django.core.cache import cache
-from django.db import transaction
+from django.db import DEFAULT_DB_ALIAS, connections, transaction
 from django.utils import timezone
 
-from twocomms.db_resilience import retry_mysql_read
+from twocomms.db_resilience import is_mysql_disconnect_error, retry_mysql_read
 
 from .lead_services import split_terms
 from .models import (
@@ -1516,17 +1516,23 @@ def _apply_step_error(
 
 
 def parser_dashboard_job(job_id: int | str | None = None) -> LeadParsingJob | None:
-    def load_dashboard_job():
+    def load_dashboard_state():
+        now = timezone.now()
         if job_id:
-            return LeadParsingJob.objects.filter(id=job_id).first()
+            job = LeadParsingJob.objects.filter(id=job_id).first()
+            return job, bool(job and _job_is_stale(job, now))
 
         lock = (
             LeadParsingRuntimeLock.objects.select_related("active_job")
             .filter(singleton_key=RUNTIME_LOCK_KEY)
             .first()
         )
-        if lock and lock.active_job and lock.active_job.status in ACTIVE_STATUSES:
-            return lock.active_job
+        if lock and lock.active_job:
+            if lock.active_job.status in ACTIVE_STATUSES:
+                return lock.active_job, _job_is_stale(lock.active_job, now)
+            # A dangling lock is uncommon, but clear it through the existing
+            # serialized reconciliation path instead of writing during polling.
+            return lock.active_job, True
 
         active_job = (
             LeadParsingJob.objects.filter(status__in=ACTIVE_STATUSES)
@@ -1534,12 +1540,41 @@ def parser_dashboard_job(job_id: int | str | None = None) -> LeadParsingJob | No
             .first()
         )
         if active_job:
-            return active_job
+            # An active job without a matching runtime lock needs one-time
+            # reconciliation; healthy subsequent polls stay read-only.
+            return active_job, True
+        return LeadParsingJob.objects.order_by("-started_at", "-id").first(), False
+
+    job, needs_reconciliation = retry_mysql_read(load_dashboard_state)
+    if not needs_reconciliation:
+        return job
+
+    # Only stale or inconsistent state enters the mutating path. In normal
+    # status polling the hot runtime-lock row is never updated, which avoids
+    # needless contention and the cursor-close failure seen under LSAPI.
+    active_job_id = None
+    try:
+        with transaction.atomic():
+            lock = _runtime_lock_for_update()
+            active_job = _normalize_active_jobs_locked(lock, now=timezone.now())
+            active_job_id = active_job.pk if active_job else None
+    except Exception as exc:
+        if not is_mysql_disconnect_error(exc):
+            raise
+        try:
+            connections[DEFAULT_DB_ALIAS].close()
+        except Exception:
+            pass
+        logger.warning("Dropped MySQL connection while reconciling parser dashboard; reading fresh state")
+
+    def load_reconciled_job():
+        if job_id:
+            return LeadParsingJob.objects.filter(id=job_id).first()
+        if active_job_id:
+            return LeadParsingJob.objects.filter(id=active_job_id).first()
         return LeadParsingJob.objects.order_by("-started_at", "-id").first()
 
-    # Polling is read-only. State reconciliation remains in the serialized
-    # start/pause/resume/stop/worker paths that already own the runtime lock.
-    return retry_mysql_read(load_dashboard_job)
+    return retry_mysql_read(load_reconciled_job)
 
 
 def create_parsing_job(

@@ -1,7 +1,9 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+import MySQLdb
 from django.db import OperationalError
+from django.db.transaction import TransactionManagementError
 from django.contrib.auth import get_user_model
 from django.test import Client, TransactionTestCase, override_settings
 from django.urls import reverse
@@ -70,6 +72,40 @@ class ParserStatusDatabaseResilienceTests(TransactionTestCase):
         lock.refresh_from_db()
         self.assertEqual(result.pk, job.pk)
         self.assertEqual(lock.updated_at, previous_updated_at)
+
+    def test_dashboard_job_poll_reconciles_conflicting_active_jobs(self):
+        older = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="старий",
+            cities_raw="Харків",
+            keywords=["старий"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=timezone.now(),
+        )
+        newer = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="новий",
+            cities_raw="Київ",
+            keywords=["новий"],
+            cities=["Київ"],
+            request_limit=10,
+            heartbeat_at=timezone.now(),
+        )
+
+        result = parser_service.parser_dashboard_job()
+
+        older.refresh_from_db()
+        newer.refresh_from_db()
+        lock = parser_service.LeadParsingRuntimeLock.objects.get(
+            singleton_key=parser_service.RUNTIME_LOCK_KEY
+        )
+        self.assertEqual(result.pk, newer.pk)
+        self.assertEqual(older.status, parser_service.LeadParsingJob.Status.STOPPED)
+        self.assertEqual(older.stop_reason_code, "session_superseded")
+        self.assertEqual(lock.active_job_id, newer.pk)
 
     def test_status_api_retries_payload_read_after_disconnect(self):
         calls = 0
@@ -157,6 +193,25 @@ class ParserStatusDatabaseResilienceTests(TransactionTestCase):
             "error": "Временно не вдалося отримати стан парсера. Спробуйте ще раз.",
         })
         self.assertEqual(calls, 2)
+
+    def test_status_api_returns_retryable_json_for_raw_driver_disconnect_context(self):
+        raw_disconnect = MySQLdb.OperationalError(2006, "")
+        transaction_error = TransactionManagementError("broken transaction")
+        transaction_error.__cause__ = raw_disconnect
+
+        with patch.object(
+            parsing_views,
+            "_lead_queue_payload",
+            side_effect=transaction_error,
+        ):
+            response = self.client.get(
+                reverse("management_parser_status_api"),
+                HTTP_HOST=HOST,
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertTrue(response.json()["retryable"])
 
     def test_status_api_catches_disconnect_from_optional_usage_read(self):
         with patch.object(
