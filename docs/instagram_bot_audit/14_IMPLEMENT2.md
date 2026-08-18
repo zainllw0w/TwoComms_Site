@@ -1051,6 +1051,10 @@ by invoking the shell with the storefront default URL configuration. No
 provider probe, customer message, test fixture or production database write
 was performed.
 
+**UI copy follow-up:** the visible administrator tab label is intentionally
+exactly `API` (rather than `API-ключі`) to match the approved navigation name;
+the template contract now guards this label.
+
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 
 After `G-EPOCH`, implement only the chosen policy: validate before first chunk

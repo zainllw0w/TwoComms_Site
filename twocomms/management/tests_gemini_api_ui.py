@@ -18,6 +18,8 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
     def test_api_tab_is_admin_only_and_has_six_key_mount(self):
         self.assertIn("{% if bot_is_admin %}", self.template)
         self.assertIn('data-tab="api"', self.template)
+        self.assertIn('data-tab="api">API</button>', self.template)
+        self.assertNotIn('data-tab="api">API-ключі</button>', self.template)
         self.assertIn('data-panel="api"', self.template)
         for element_id in (
             "gemini-health-summary",
@@ -95,3 +97,7 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
             "min-width:10px",
         ):
             self.assertIn(contract, self.template)
+
+    def test_api_section_query_opens_the_api_tab(self):
+        self.assertIn("initialQuery.get('section')==='api'", self.template)
+        self.assertIn("initialTab='api'", self.template)

@@ -1307,7 +1307,7 @@ body.bot-drawer-open{overflow:hidden;}
     <button class="bot-tab active" role="tab" aria-selected="true" data-tab="overview">Огляд<span class="badge" id="badge-pending" style="display:none;"></span></button>
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="settings">Налаштування</button>
     {% if bot_is_admin %}
-    <button class="bot-tab" role="tab" aria-selected="false" data-tab="api">API-ключі</button>
+    <button class="bot-tab" role="tab" aria-selected="false" data-tab="api">API</button>
     {% endif %}
     {% if not meta_bot_reviewer_mode %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="kb">Інструкції</button>
@@ -4096,7 +4096,8 @@ body.bot-drawer-open{overflow:hidden;}
   let initialTab='overview';
   try{ initialTab=localStorage.getItem('bot_tab')||'overview'; }catch(e){}
   const initialQuery=new URLSearchParams(window.location.search);
-  if(initialQuery.get('section')==='orders'||initialQuery.get('review')||initialQuery.get('payment_review')) initialTab='orders';
+  if(initialQuery.get('section')==='api') initialTab='api';
+  else if(initialQuery.get('section')==='orders'||initialQuery.get('review')||initialQuery.get('payment_review')) initialTab='orders';
   else if(initialQuery.get('section')==='clients'&&initialQuery.get('client_id')) initialTab='clients';
   activate(initialTab, false);
 
