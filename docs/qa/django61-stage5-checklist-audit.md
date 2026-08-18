@@ -2,8 +2,9 @@
 
 Дата аудита: 2026-08-18
 Проверенная текущая ревизия `origin/main`: `b633b5567`.
-Stage 5 publish-кандидат: `130fe8a6e`, построен поверх `f6914ba38` и перед
-публикацией должен быть rebased на указанную текущую ревизию `origin/main`.
+Reviewed Stage 5 code tip: `217e27d34`, построен непосредственно поверх
+`b633b5567`; rebase на текущую цель интеграции завершён. Документационный
+follow-up входит в текущий publish-кандидат.
 Scope: только non-DTF MariaDB/Django evidence. Production schema, данные,
 migrations, storefront и parser в рамках этого документа не изменялись.
 
@@ -20,9 +21,9 @@ migrations, storefront и parser в рамках этого документа �
 DDL-дизайн или обратимый rollout отсутствует либо есть блокирующее
 несоответствие. Для таких пунктов чекбокс плана оставляется пустым.
 
-Указанные ниже commit SHA находятся в publish-кандидате `130fe8a6e`; они ещё
-не присутствуют в текущем `origin/main` `b633b5567` и требуют rebase перед
-интеграцией.
+Указанные ниже commit SHA являются provenance исходных evidence-срезов,
+перенесённых в reviewed code tip `217e27d34`. Сам publish-кандидат ещё не заявляется
+как опубликованный в `main` или развернутый на production.
 
 ## Матрица
 
@@ -54,8 +55,8 @@ evidence-пунктов выше не снимают этот запрет.
 
 ## Provenance
 
-- Current integration target: `origin/main` `b633b5567`; publish candidate:
-  `130fe8a6e` (base `f6914ba38`, rebase required before publish).
+- Current integration target / code-tip parent: `origin/main` `b633b5567`;
+  reviewed code tip: `217e27d34` (rebase completed; push/deploy не заявляются).
 - Connection/charset evidence: `85c9d90fa`, `90debf557`, `5735f4727`.
 - InnoDB roadmap/tooling evidence: `578ecd3d1`, `e5b6aba4c`.
 - DB actions evidence: `6c2197af3`.
