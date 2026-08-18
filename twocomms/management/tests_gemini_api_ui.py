@@ -15,12 +15,10 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
             / "bot.html"
         ).read_text(encoding="utf-8")
 
-    def test_api_tab_is_admin_only_and_has_six_key_mount(self):
+    def test_checker_is_admin_only_and_embedded_in_settings(self):
         self.assertIn("{% if bot_is_admin %}", self.template)
-        self.assertIn('data-tab="api"', self.template)
-        self.assertIn('data-tab="api">API</button>', self.template)
-        self.assertNotIn('data-tab="api">API-ключі</button>', self.template)
-        self.assertIn('data-panel="api"', self.template)
+        self.assertNotIn('data-tab="api"', self.template)
+        self.assertNotIn('data-panel="api"', self.template)
         for element_id in (
             "gemini-health-summary",
             "gemini-health-fallback",
@@ -30,10 +28,13 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
             self.assertIn(f'id="{element_id}"', self.template)
         self.assertIn("'API key '+String(index)", self.template)
 
-        tab_start = self.template.index('data-tab="api"')
-        panel_start = self.template.index('data-panel="api"')
-        self.assertLess(tab_start, panel_start)
-        self.assertNotIn("data-tab=\"api\"", self.template[panel_start:])
+        settings_start = self.template.index('data-panel="settings"')
+        settings_end = self.template.index("</section>", settings_start)
+        checker_start = self.template.index('class="bot-card gemini-health-card"')
+        self.assertLess(settings_start, checker_start)
+        self.assertLess(checker_start, settings_end)
+        self.assertIn("function geminiHealthIsActive()", self.template)
+        self.assertNotIn("apiIsActive", self.template)
 
     def test_read_snapshot_is_lazy_manual_and_never_provider_polled(self):
         start = self.template.index("const GeminiHealth=(function(){")
@@ -43,7 +44,7 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         self.assertIn("{% url \"management_bot_gemini_health_api\" %}", source)
         self.assertIn("fetch(healthUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}})", source)
         self.assertIn("document.hidden", source)
-        self.assertIn("if(btn.dataset.tab==='api'&&!loaded.api)", self.template)
+        self.assertIn("if(btn.dataset.tab==='settings'&&!loaded.geminiHealth)", self.template)
         self.assertNotIn("setInterval", source)
         self.assertNotIn("setTimeout", source)
         self.assertNotIn("probe_key", source)
@@ -98,6 +99,6 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
-    def test_api_section_query_opens_the_api_tab(self):
+    def test_legacy_api_section_query_opens_settings(self):
         self.assertIn("initialQuery.get('section')==='api'", self.template)
-        self.assertIn("initialTab='api'", self.template)
+        self.assertIn("initialTab='settings'", self.template)

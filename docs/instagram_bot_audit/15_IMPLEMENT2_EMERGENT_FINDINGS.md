@@ -249,3 +249,27 @@ was denied. The external visual evaluator was unavailable twice with an
 upstream HTTP 503; the local template contract, extracted JavaScript syntax
 check, responsive CSS contract and 217-test release gate remain the available
 UI evidence. No provider probe was run during deployment verification.
+
+## Gemini Checker backend follow-ups (2026-08-18)
+
+The settings-placement review confirmed four backend/telemetry gaps that are
+outside the bounded UI move and must remain visible for the next `IMP-044`
+slice:
+
+- The snapshot read calls `pool_status()`, which may create the six
+  `GeminiKeyState` rows on first access. It spends no provider tokens, but the
+  GET is not strictly database-read-only until that initialization is split
+  from the read path.
+- A request skipped because the `gemini-3.7-flash` circuit is already open is
+  not surfaced as a switch reason, so a later 3.6 success can look like a
+  normal result.
+- `GeminiRequestAttempt` covers live-chat and manual probes, but not the
+  generic `_call_combo` checker workload; the graph therefore has a bounded
+  coverage statement rather than a whole-workload guarantee.
+- The API response includes `role` and `project_identity_known`, but the
+  compact UI does not expose them, leaving shared-project quota ambiguity
+  invisible to an administrator.
+
+These are queued telemetry/read-contract work, not blockers for the passive
+settings UI. No provider probe, customer message or synthetic production row
+was used to identify them.

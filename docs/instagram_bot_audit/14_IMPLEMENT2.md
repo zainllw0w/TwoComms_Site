@@ -994,10 +994,12 @@ cherry-picked wholesale.
 
 **Bounded Gemini API dashboard follow-up (2026-08-18, release slice):**
 
-- [x] Add a separate admin-only `API` tab to the Instagram bot panel. It shows
-  six stable aliases (`API key 1` … `API key 6`), current derived state, and
-  independent 24-segment rails for `gemini-3.7-flash` and
-  `gemini-3.6-flash`.
+- [x] Add an admin-only Gemini Checker card inside the existing `Налаштування`
+  panel (the earlier standalone `API` navigation was consolidated here). It
+  shows six stable aliases (`API key 1` … `API key 6`), current derived
+  state, and independent 24-segment rails for `gemini-3.7-flash` and
+  `gemini-3.6-flash`; legacy `?section=api` links still open
+  `Налаштування`.
 - [x] Make the read path passive: `GET /bot/api/gemini-health/` only reads the
   bounded, redacted `GeminiRequestAttempt` ledger plus `pool_status()`. It has
   no cron, polling loop, provider call, customer context, secret or raw
@@ -1036,24 +1038,32 @@ account received HTTP 403. No live provider probe, customer message or
 synthetic production row was created. Pre-existing untracked operational files
 on the server were left untouched.
 
-**Canonical-main/render follow-up (2026-08-18):** local `main`, GitHub
+**Superseded canonical-main/render evidence (2026-08-18):** local `main`, GitHub
 `origin/main` and the production checkout were reconciled at
 `ea25655ae8d7702aa158f39f0f124adf8fa6536d`; both dashboard commits
 `4d1d62251` and `ea25655ae` are ancestors of that ref. The prescribed
 production `git pull --ff-only origin main` returned `Already up to date`. A
 fresh focused local gate passed `51/51`; Django check, migration drift,
-compileall and `git diff --check` were clean. The production render smoke was
-repeated with the actual management URL configuration
-`twocomms.urls_management` and returned HTTP `200` with both the admin-only
-`data-tab="api"` control and `data-panel="api"` content present. This closes
-the earlier diagnostic `NoReverseMatch` false negative, which was caused only
-by invoking the shell with the storefront default URL configuration. No
-provider probe, customer message, test fixture or production database write
-was performed.
+compileall and `git diff --check` were clean. At that historical revision, the
+production render smoke used `twocomms.urls_management` and returned HTTP
+`200` with the then-separate admin-only `data-tab="api"` control and
+`data-panel="api"` content. That markup was subsequently consolidated into
+the `Налаштування` panel by the settings-placement follow-up below; the old
+render observation is retained for audit history and is not the current UI
+contract. No provider probe, customer message, test fixture or production
+database write was performed.
 
-**UI copy follow-up:** the visible administrator tab label is intentionally
-exactly `API` (rather than `API-ключі`) to match the approved navigation name;
-the template contract now guards this label.
+**UI copy follow-up:** the standalone administrator `API` tab was retired in
+favour of a compact Checker card inside `Налаштування`; the template contract
+guards the admin-only boundary, six stable key rows, two model rails, passive
+lazy loading and the legacy `section=api` URL alias.
+
+**Settings placement follow-up (2026-08-18):** the separate navigation item and
+`data-panel="api"` were removed so the status surface is discoverable with
+the rest of the bot controls. The card remains admin-only, loads only when
+`Налаштування` is opened, and performs no background polling or provider
+request. This is a UI-only follow-up; the broader `IMP-044` checkbox above
+stays open.
 
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 

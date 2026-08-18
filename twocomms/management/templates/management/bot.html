@@ -69,7 +69,7 @@
 @media(max-width:360px){.bot-metrics{grid-template-columns:minmax(0,1fr);}}
 
 /* ---- Gemini API health ---- */
-.gemini-health-card{padding:0;border-radius:8px;overflow:hidden;}
+.gemini-health-card{padding:0;margin-top:16px;border-radius:8px;overflow:hidden;}
 .gemini-health-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid #202938;background:#0d131c;}
 .gemini-health-heading{min-width:0;}
 .gemini-health-heading h2{margin:0;color:#e5edf6;font-size:15px;font-weight:800;text-transform:none;}
@@ -1306,9 +1306,6 @@ body.bot-drawer-open{overflow:hidden;}
   <nav class="bot-tabs" id="bot-tabs" role="tablist" aria-label="Розділи Instagram-бота">
     <button class="bot-tab active" role="tab" aria-selected="true" data-tab="overview">Огляд<span class="badge" id="badge-pending" style="display:none;"></span></button>
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="settings">Налаштування</button>
-    {% if bot_is_admin %}
-    <button class="bot-tab" role="tab" aria-selected="false" data-tab="api">API</button>
-    {% endif %}
     {% if not meta_bot_reviewer_mode %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="kb">Інструкції</button>
     {% endif %}
@@ -1459,11 +1456,8 @@ body.bot-drawer-open{overflow:hidden;}
         <span class="bot-hint" id="bot-save-hint" style="margin-left:10px;"></span>
       </form>
     </div>
-  </section>
-
-  {% if bot_is_admin %}
-  <!-- ===== Gemini API ===== -->
-  <section class="bot-panel" data-panel="api">
+    {% if bot_is_admin %}
+    <!-- ===== Gemini API Checker ===== -->
     <div class="bot-card gemini-health-card">
       <header class="gemini-health-header">
         <div class="gemini-health-heading">
@@ -1483,7 +1477,7 @@ body.bot-drawer-open{overflow:hidden;}
       </div>
       <div class="gemini-health-fallback" id="gemini-health-fallback" role="status" aria-live="polite" hidden></div>
       <div class="gemini-health-keys" id="gemini-health-keys" aria-live="polite" aria-busy="true">
-        <div class="bot-empty">Зріз завантажиться після відкриття вкладки.</div>
+        <div class="bot-empty">Зріз завантажиться після відкриття налаштувань.</div>
       </div>
       <footer class="gemini-health-footer">
         <div class="gemini-health-legend" aria-label="Позначення історії API">
@@ -1495,8 +1489,8 @@ body.bot-drawer-open{overflow:hidden;}
         <div class="gemini-health-feedback" id="gemini-health-feedback" role="status" aria-live="polite"></div>
       </footer>
     </div>
+    {% endif %}
   </section>
-  {% endif %}
 
   {% if not meta_bot_reviewer_mode %}
   <!-- ===== Інструкції ===== -->
@@ -1852,7 +1846,7 @@ body.bot-drawer-open{overflow:hidden;}
     function integer(value){const parsed=Number(value);return Number.isFinite(parsed)?Math.max(0,Math.round(parsed)):0;}
     function setFeedback(message,kind=''){if(!feedback)return;feedback.textContent=message||'';feedback.className='gemini-health-feedback'+(kind?(' '+kind):'');}
     function formatDate(value){if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
-    function apiIsActive(){const active=document.querySelector('.bot-tab.active');return Boolean(active&&active.dataset.tab==='api');}
+    function geminiHealthIsActive(){const active=document.querySelector('.bot-tab.active');return Boolean(active&&active.dataset.tab==='settings');}
     function normalizeState(value){const state=String(value||'unconfigured');return Object.prototype.hasOwnProperty.call(stateLabels,state)?state:'unavailable';}
     function normalizeObservation(value){const state=String(value||'no_observation');return allowedObservationStates.has(state)?state:'no_observation';}
     function renderSummary(data){
@@ -1922,7 +1916,7 @@ body.bot-drawer-open{overflow:hidden;}
       const observations=integer((data.summary||{}).observations);setFeedback(observations?'На графіку лише збережені спроби, без фонових запитів.':'За 24 години ще немає спостережень.','');
     }
     async function load(){
-      if(loading||document.hidden||!apiIsActive())return false;loading=true;if(refreshButton)refreshButton.disabled=true;if(keys)keys.setAttribute('aria-busy','true');setFeedback(lastSnapshot?'Оновлюємо збережений зріз…':'Завантажуємо збережений зріз…');
+      if(loading||document.hidden||!geminiHealthIsActive())return false;loading=true;if(refreshButton)refreshButton.disabled=true;if(keys)keys.setAttribute('aria-busy','true');setFeedback(lastSnapshot?'Оновлюємо збережений зріз…':'Завантажуємо збережений зріз…');
       try{
         const response=await fetch(healthUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}});
         const raw=await response.json().catch(()=>({}));const data=raw&&raw.snapshot&&typeof raw.snapshot==='object'?raw.snapshot:raw;
@@ -1967,7 +1961,7 @@ body.bot-drawer-open{overflow:hidden;}
     centerActiveBotTab(btn);
     if(save){ try{ localStorage.setItem('bot_tab', btn.dataset.tab); }catch(e){} }
     {% if bot_is_admin %}
-    if(btn.dataset.tab==='api'&&!loaded.api){loaded.api=true;GeminiHealth.load();}
+    if(btn.dataset.tab==='settings'&&!loaded.geminiHealth){loaded.geminiHealth=true;GeminiHealth.load();}
     {% endif %}
     if(btn.dataset.tab==='clients' && !loaded.clients){ loaded.clients=true; Clients.load(''); }
     if(btn.dataset.tab==='kb' && !loaded.kb){ loaded.kb=true; KB.load(); }
@@ -4096,7 +4090,7 @@ body.bot-drawer-open{overflow:hidden;}
   let initialTab='overview';
   try{ initialTab=localStorage.getItem('bot_tab')||'overview'; }catch(e){}
   const initialQuery=new URLSearchParams(window.location.search);
-  if(initialQuery.get('section')==='api') initialTab='api';
+  if(initialTab==='api'||initialQuery.get('section')==='api') initialTab='settings';
   else if(initialQuery.get('section')==='orders'||initialQuery.get('review')||initialQuery.get('payment_review')) initialTab='orders';
   else if(initialQuery.get('section')==='clients'&&initialQuery.get('client_id')) initialTab='clients';
   activate(initialTab, false);
