@@ -447,7 +447,7 @@ def dropshipper_statistics(request):
 
     template_name = 'pages/dropshipper_statistics.html'
     if request.GET.get('partial'):
-        template_name = 'partials/dropshipper_statistics_panel.html'
+        template_name += '#statistics_panel'
 
     return render(request, template_name, context)
 
