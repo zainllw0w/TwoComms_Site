@@ -529,7 +529,7 @@ Production acceptance от 2026-08-17:
   - Этап B: nonce для собственных inline scripts.
   - Enforce и удаление \`unsafe-inline\`/\`unsafe-eval\` только после browser matrix checkout/analytics.
 
-- [ ] **DJ6-SEC-003 - Провести contract-аудит 26 \`csrf_exempt\` endpoints.**
+- [x] **DJ6-SEC-003 - Провести contract-аудит 26 \`csrf_exempt\` endpoints.**
   - Для каждого: auth/signature, replay, rate limit, origin/host, idempotency и negative tests.
   - Массово снимать exemption запрещено.
 
@@ -560,7 +560,7 @@ Production acceptance от 2026-08-17:
 ### Exit gate этапа 4
 
 - [ ] CSP report-only не ломает GTM/Meta/TikTok/Clarity/checkout на desktop/mobile.
-- [ ] Каждый \`csrf_exempt\` endpoint имеет записанный security contract.
+- [x] Каждый \`csrf_exempt\` endpoint имеет записанный security contract.
 - [ ] Cache, temp tables, DB connections и FDs имеют измеримые dashboards/reports.
 - [ ] MariaDB warnings больше не воспринимаются как работающие constraints.
 
