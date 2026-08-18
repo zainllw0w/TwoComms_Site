@@ -95,6 +95,12 @@ def load_manifest(path: Path) -> dict[str, Any]:
             _fail(f"jobs[{index}].timeout_required must be boolean")
         if job["timeout_required"] and not job["timeout"].strip():
             _fail(f"jobs[{index}] requires a bounded timeout")
+        if "environment" in job and (
+            not isinstance(job["environment"], list)
+            or not job["environment"]
+            or any(not isinstance(item, str) or not item.strip() for item in job["environment"])
+        ):
+            _fail(f"jobs[{index}].environment must be a non-empty list of assignments")
     return data
 
 
@@ -135,8 +141,15 @@ def validate_crontab(manifest: dict[str, Any], crontab: str, *, repo_root: Path)
     rollback_target = repo_root / rollback["path"]
     if not rollback_target.is_file():
         _fail(f"rollback path is absent from repository: {rollback_target}")
+    known_markers = {job["managed_block"] for job in manifest["jobs"]}
+    unknown_markers = sorted(set(blocks) - known_markers)
+    if unknown_markers:
+        _fail(f"unknown TWOCOMMS managed block: {unknown_markers}")
     results: list[dict[str, Any]] = []
     for job in manifest["jobs"]:
+        owner_target = repo_root / job["owner_path"]
+        if not owner_target.is_file():
+            _fail(f"owner script is absent from repository for {job['id']}: {owner_target}")
         marker = job["managed_block"]
         if marker not in blocks:
             _fail(f"managed block missing for {job['id']}: {marker}")
@@ -155,6 +168,9 @@ def validate_crontab(manifest: dict[str, Any], crontab: str, *, repo_root: Path)
             _fail(f"{job['id']} lacks required bounded timeout")
         if job["lock_path"] not in owner_line:
             _fail(f"{job['id']} lock path is missing")
+        for assignment in job.get("environment", []):
+            if assignment not in owner_line:
+                _fail(f"{job['id']} production environment contract is missing")
         owner_count = sum(job["command"] in line for line in block if not line.lstrip().startswith("#"))
         if owner_count != 1:
             _fail(f"{job['id']} has duplicate managed owners")

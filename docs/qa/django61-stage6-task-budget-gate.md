@@ -10,15 +10,26 @@ read-only host snapshot against the policy in
 per-account MariaDB connection count; global MariaDB counters are rejected as
 a substitute. It also requires concrete FD and process measurements.
 
-The proposed worker is bounded to one process, one MariaDB connection and 32
-FDs. The gate retains one database connection, 64 FDs and one process as
-headroom. These values are an admission ceiling, not proof that the host has
-capacity: a fresh CloudLinux-bound snapshot remains mandatory.
+The cron shell uses `exec flock`, so the launcher budget is bounded to three OS
+processes (`flock`, `timeout`, and one Python worker), one MariaDB connection
+and 32 FDs. The gate retains one
+database connection, 64 FDs and one process as headroom. These values are an
+admission ceiling, not proof that the host has capacity: a fresh
+CloudLinux-bound snapshot remains mandatory.
+
+Every snapshot must include a timezone-aware `captured_at` no older than 24
+hours, provenance `{ "source": "cloudlinux-bound-python", "kind":
+"read-only" }`, `runtime.cloudlinux_bound=true`, and
+`database.engine="django.db.backends.mysql"` with
+`database.conn_max_age=0`. SQLite, a missing wrapper proof, or a stale
+snapshot fails closed.
 
 The canary is inspected statically. It must remain
-`task_runtime.tasks.no_send_canary`, marker-only and `external_io=false`; the
-source may not import common network clients or call enqueue/persistence APIs.
-The validator does not enqueue or execute the canary.
+`task_runtime.tasks.no_send_canary`, with only a keyword-only `marker`
+argument and a docstring plus one pure return of
+`{"external_io": false, "marker": marker}`. Helper calls, assignments,
+provider/network imports, enqueue, persistence, or context-aware execution
+fail closed. The validator does not enqueue or execute the canary.
 
 ## Invocation
 

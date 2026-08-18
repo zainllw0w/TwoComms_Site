@@ -9,6 +9,21 @@
   },
   "jobs": [
     {
+      "id": "django61_durable_tasks",
+      "cadence": "* * * * *",
+      "command": "manage.py run_durable_tasks --limit 25 --lease-seconds 60 --worker-id=cron-no-send",
+      "managed_block": "# BEGIN TWOCOMMS DJANGO61 DURABLE TASKS",
+      "owner_path": "scripts/install_django61_durable_tasks_cron.sh",
+      "lock_path": "tmp/django61_durable_tasks.lock",
+      "flock": "exec /usr/bin/flock -n",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 240s",
+      "timeout_required": true,
+      "environment": [
+        "DJANGO_ENV=production",
+        "DJANGO_SETTINGS_MODULE=twocomms.production_settings"
+      ]
+    },
+    {
       "id": "instagram_watchdog",
       "cadence": "* * * * *",
       "command": "manage.py run_instagram_bot --ensure",

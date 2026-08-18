@@ -11,8 +11,13 @@ import argparse
 import ast
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+
+MIN_LAUNCHER_PROCESSES = 3
+MAX_SNAPSHOT_AGE = timedelta(hours=24)
 
 
 class GateError(ValueError):
@@ -67,9 +72,68 @@ def _assert_no_send_canary(policy: dict[str, Any], repo_root: Path) -> None:
         elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             if node.func.attr in forbidden_calls:
                 raise GateError("canary source calls forbidden network, enqueue, or persistence API")
-    matching = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "no_send_canary"]
+    matching = [
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "no_send_canary"
+    ]
     if len(matching) != 1 or isinstance(matching[0], ast.AsyncFunctionDef):
         raise GateError("canary source must define exactly one synchronous no_send_canary")
+    function = matching[0]
+    args = function.args
+    if (
+        args.posonlyargs
+        or args.args
+        or args.vararg
+        or args.kwarg
+        or len(args.kwonlyargs) != 1
+        or args.kwonlyargs[0].arg != "marker"
+        or args.kw_defaults != [None]
+    ):
+        raise GateError("canary source must use only a keyword-only marker argument")
+    body = list(function.body)
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+        body.pop(0)
+    if len(body) != 1 or not isinstance(body[0], ast.Return) or not isinstance(body[0].value, ast.Dict):
+        raise GateError("canary body must be a strict pure marker return")
+    returned = body[0].value
+    keys = [key.value if isinstance(key, ast.Constant) else None for key in returned.keys]
+    if keys != ["external_io", "marker"] or len(returned.values) != 2:
+        raise GateError("canary body must return only external_io and marker")
+    external_io, marker = returned.values
+    if not isinstance(external_io, ast.Constant) or external_io.value is not False:
+        raise GateError("canary body must return external_io=false")
+    if not isinstance(marker, ast.Name) or marker.id != "marker":
+        raise GateError("canary body must return the marker without helpers")
+
+
+def _assert_snapshot_metadata(snapshot: dict[str, Any]) -> None:
+    captured_at = snapshot.get("captured_at")
+    if not isinstance(captured_at, str) or not captured_at.strip():
+        raise GateError("snapshot.captured_at is required")
+    try:
+        parsed = datetime.fromisoformat(captured_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise GateError("snapshot.captured_at must be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise GateError("snapshot.captured_at must include a timezone")
+    age = datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)
+    if age < timedelta(minutes=-5) or age > MAX_SNAPSHOT_AGE:
+        raise GateError("snapshot.captured_at is outside the 24-hour freshness window")
+
+    provenance = _required_object(snapshot.get("provenance"), "snapshot.provenance")
+    if provenance.get("source") != "cloudlinux-bound-python" or provenance.get("kind") != "read-only":
+        raise GateError("snapshot.provenance must identify a CloudLinux-bound read-only probe")
+    runtime = _required_object(snapshot.get("runtime"), "snapshot.runtime")
+    if runtime.get("cloudlinux_bound") is not True:
+        raise GateError("snapshot.runtime must prove cloudlinux_bound=true")
+    if runtime.get("python") != "3.14.6" or runtime.get("django") != "6.1":
+        raise GateError("snapshot.runtime must prove Python 3.14.6 and Django 6.1")
+    database = _required_object(snapshot.get("database"), "snapshot.database")
+    if database.get("engine") != "django.db.backends.mysql":
+        raise GateError("snapshot.database must use the Django MySQL backend")
+    if isinstance(database.get("conn_max_age"), bool) or database.get("conn_max_age") != 0:
+        raise GateError("snapshot.database must prove CONN_MAX_AGE=0")
 
 
 def verify(policy: dict[str, Any], snapshot: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
@@ -79,6 +143,7 @@ def verify(policy: dict[str, Any], snapshot: dict[str, Any], *, repo_root: Path)
         raise GateError("policy must declare schema_version=1 and scope=non-dtf")
     if snapshot.get("schema_version") != 1 or snapshot.get("scope") != "non-dtf":
         raise GateError("snapshot must declare schema_version=1 and scope=non-dtf")
+    _assert_snapshot_metadata(snapshot)
 
     worker = _required_object(policy.get("worker"), "policy.worker")
     reserve = _required_object(policy.get("reserve"), "policy.reserve")
@@ -90,6 +155,8 @@ def verify(policy: dict[str, Any], snapshot: dict[str, Any], *, repo_root: Path)
     reserve_processes = _integer(reserve.get("processes"), "policy.reserve.processes")
     if min(worker_connections, worker_fds, worker_processes) < 1:
         raise GateError("worker budget must reserve at least one connection, FD, and process")
+    if worker_processes < MIN_LAUNCHER_PROCESSES:
+        raise GateError("worker budget must reserve three processes for flock, timeout, and Python")
 
     mysql = _required_object(snapshot.get("mysql"), "snapshot.mysql")
     fd = _required_object(snapshot.get("fd"), "snapshot.fd")

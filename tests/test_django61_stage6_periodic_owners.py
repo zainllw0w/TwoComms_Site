@@ -25,9 +25,15 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
             lines.append(marker)
             for job in jobs:
                 timeout = f" {job['timeout']}" if job["timeout_required"] else ""
+                command = job["command"]
+                if " --" not in command:
+                    command = f"{command} --limit 1"
+                environment = " ".join(job.get("environment", []))
+                if environment:
+                    environment += " "
                 lines.append(
-                    f"{job['cadence']} cd /srv/twocomms && {job['flock']} /srv/twocomms/{job['lock_path']}"
-                    f"{timeout} /srv/twocomms/.venv/bin/python {job['command']} --limit 1"
+                    f"{job['cadence']} cd /srv/twocomms && {environment}{job['flock']} /srv/twocomms/{job['lock_path']}"
+                    f"{timeout} /srv/twocomms/.venv/bin/python {command}"
                 )
             lines.append(marker.replace("# BEGIN", "# END"))
         return "\n".join(lines) + "\n"
@@ -50,6 +56,15 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(len(payload["jobs"]), len(self.jobs))
+        durable_line = next(line for line in self.crontab().splitlines() if "run_durable_tasks" in line)
+        self.assertIn("# BEGIN TWOCOMMS DJANGO61 DURABLE TASKS", self.crontab())
+        self.assertIn("tmp/django61_durable_tasks.lock", durable_line)
+        self.assertIn("exec /usr/bin/flock -n", durable_line)
+        self.assertIn("/usr/bin/flock -n", durable_line)
+        self.assertIn("/usr/bin/timeout --signal=TERM --kill-after=15s 240s", durable_line)
+        self.assertIn("--worker-id=cron-no-send", durable_line)
+        self.assertIn("DJANGO_ENV=production", durable_line)
+        self.assertIn("DJANGO_SETTINGS_MODULE=twocomms.production_settings", durable_line)
 
     def test_duplicate_loose_owner_fails_closed(self):
         result = self.invoke_validator(self.crontab() + self.crontab().splitlines()[1] + "\n")
@@ -68,10 +83,29 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("bounded timeout", result.stderr)
 
+    def test_durable_owner_requires_the_proven_production_environment(self):
+        crontab = self.crontab().replace(
+            "DJANGO_ENV=production DJANGO_SETTINGS_MODULE=twocomms.production_settings ",
+            "",
+        )
+        result = self.invoke_validator(crontab)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("environment contract", result.stderr)
+
     def test_dtf_is_rejected(self):
         result = self.invoke_validator(self.crontab() + "# DTF must remain excluded\n")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("DTF", result.stderr)
+
+    def test_unknown_twocomms_managed_block_is_rejected(self):
+        unknown = (
+            "# BEGIN TWOCOMMS UNKNOWN JOB\n"
+            "* * * * * /srv/unknown\n"
+            "# END TWOCOMMS UNKNOWN JOB\n"
+        )
+        result = self.invoke_validator(unknown + self.crontab())
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown", result.stderr.lower())
 
     def test_rollback_path_is_required(self):
         broken = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -85,6 +119,19 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
             path.unlink()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("rollback path", result.stderr)
+
+    def test_owner_script_is_required(self):
+        broken = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        broken["jobs"][0]["owner_path"] = "scripts/does-not-exist.sh"
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as handle:
+            json.dump(broken, handle)
+            path = Path(handle.name)
+        try:
+            result = self.invoke_validator(self.crontab(), manifest=path)
+        finally:
+            path.unlink()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("owner script", result.stderr)
 
 
 if __name__ == "__main__":

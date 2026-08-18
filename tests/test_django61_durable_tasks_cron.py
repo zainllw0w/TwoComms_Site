@@ -21,10 +21,33 @@ class InstallDjango61DurableTasksCronTests(unittest.TestCase):
         self.django_root = self.root / "TwoComms_Site" / "twocomms"
         self.django_root.mkdir(parents=True)
         (self.django_root / "manage.py").write_text("#!/bin/sh\n", encoding="utf-8")
+        self.cloudlinux_wrapper = self.root / "lve-manager" / "utils" / "python_wrapper"
+        self.cloudlinux_wrapper.parent.mkdir(parents=True)
+        self.cloudlinux_wrapper.write_text(
+            """#!/usr/bin/env bash
+set -eu
+if [ "${TWC_FAKE_PYTHON_FAIL:-0}" = 1 ]; then
+  echo 'private DB_PASSWORD=must-not-leak' >&2
+  exit 19
+fi
+if [ "${1:-}" = "-c" ]; then
+  case "${2:-}" in
+    *"SELECT VERSION()"*) ;;
+    *) exit 23 ;;
+  esac
+  if [ "${TWC_FAKE_PYTHON_ENGINE:-mysql}" = "sqlite" ]; then
+    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.sqlite3","mariadb":false}'
+  else
+    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.mysql","mariadb":true}'
+  fi
+fi
+""",
+            encoding="utf-8",
+        )
+        self.cloudlinux_wrapper.chmod(0o700)
         self.python = self.root / "venv" / "bin" / "python"
         self.python.parent.mkdir(parents=True)
-        self.python.write_text("", encoding="utf-8")
-        self.python.chmod(0o700)
+        self.python.symlink_to(self.cloudlinux_wrapper)
         self.flock = self.root / "flock"
         self.timeout = self.root / "timeout"
         for path in (self.flock, self.timeout):
@@ -59,6 +82,7 @@ cp "$1" "$FAKE_CRONTAB_FILE"
                 "FAKE_CRONTAB_FILE": str(self.crontab_file),
                 "TWC_DJANGO_ROOT": str(self.django_root),
                 "TWC_PYTHON": str(self.python),
+                "TWC_CLOUDLINUX_PYTHON_WRAPPER": str(self.cloudlinux_wrapper),
                 "TWC_CRONTAB_BIN": "crontab",
             }
         )
@@ -91,6 +115,55 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertIn(str(self.django_root / "manage.py"), first_content)
         self.assertIn("flock", first_content)
         self.assertIn("timeout", first_content)
+        self.assertIn("--kill-after=15s", first_content)
+        self.assertIn("DJANGO_ENV=production", first_content)
+        self.assertIn("DJANGO_SETTINGS_MODULE=twocomms.production_settings", first_content)
+        self.assertIn(" exec ", first_content)
+
+    def test_preflight_rejects_sqlite_without_writing_crontab(self):
+        original = "17 4 * * * /opt/other-job\n"
+        self.crontab_file.write_text(original, encoding="utf-8")
+        env = self._env()
+        env["TWC_FAKE_PYTHON_ENGINE"] = "sqlite"
+
+        result = self._run("--install", env=env)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MySQL", result.stderr)
+        self.assertEqual(self.crontab_file.read_text(encoding="utf-8"), original)
+
+    def test_preflight_failure_is_sanitized_and_runs_for_check(self):
+        original = "17 4 * * * /opt/other-job\n"
+        self.crontab_file.write_text(original, encoding="utf-8")
+        env = self._env()
+        env["TWC_FAKE_PYTHON_FAIL"] = "1"
+
+        result = self._run("--check", env=env)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("preflight", result.stderr.lower())
+        self.assertNotIn("DB_PASSWORD", result.stderr)
+        self.assertEqual(self.crontab_file.read_text(encoding="utf-8"), original)
+
+    def test_selected_python_must_be_cloudlinux_wrapper_symlink(self):
+        self.python.unlink()
+        self.python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.python.chmod(0o700)
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CloudLinux", result.stderr)
+
+    def test_existing_durable_owner_outside_managed_block_is_rejected(self):
+        original = "* * * * * /srv/twocomms/manage.py run_durable_tasks --limit 1\n"
+        self.crontab_file.write_text(original, encoding="utf-8")
+
+        result = self._run("--install")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("outside", result.stderr)
+        self.assertEqual(self.crontab_file.read_text(encoding="utf-8"), original)
 
     def test_check_detects_missing_or_drifted_block(self):
         self.assertNotEqual(self._run("--check").returncode, 0)

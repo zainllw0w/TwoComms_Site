@@ -5,19 +5,26 @@
 ## Что добавлено
 
 `docs/qa/django61-stage6-periodic-owners.json` является машинным inventory
-контрактом. В нём перечислены девять non-DTF owners, включая guarded
-auto-analysis и image optimization. Для каждого owner зафиксированы cadence,
+контрактом. В нём перечислены десять non-DTF owners, включая bounded durable
+task canary, guarded auto-analysis и image optimization. Для каждого owner зафиксированы cadence,
 команда, managed marker, lock path, `flock` и bounded timeout. Это не меняет
 crontab и не утверждает, что live production snapshot уже соответствует
 контракту.
+
+Для будущего durable owner зафиксированы тот же CloudLinux production settings
+context, что проверяет preflight (`DJANGO_ENV=production` и
+`DJANGO_SETTINGS_MODULE=twocomms.production_settings`), и `exec flock`: shell
+cron заменяется launcher-ом, поэтому budget из трёх процессов не занижен.
 
 `scripts/verify_django61_stage6_periodic_owners.py` принимает manifest и
 санитизированный crontab snapshot (`--crontab PATH` или `--stdin`) и завершает
 работу с ошибкой при любом из условий:
 
 - объявлен DTF scope или DTF встречается в evidence;
+- встречается неизвестный `# BEGIN TWOCOMMS ...` managed block;
 - отсутствует или дублируется managed block/owner;
 - owner находится вне своего managed block;
+- owner installer отсутствует в repository;
 - cadence, lock, `flock` или bounded timeout не совпадают;
 - отсутствует явный repository rollback path и rollback owner/action.
 
