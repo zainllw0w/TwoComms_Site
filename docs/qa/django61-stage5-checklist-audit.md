@@ -2,9 +2,10 @@
 
 Дата аудита: 2026-08-18
 Проверенная текущая ревизия `origin/main`: `55f7082ae`.
-Stage 5 code tip: `e3a89c83e`, построен поверх `b633b5567` и отстаёт от
-текущей цели на один непересекающийся parser-commit. Rebase/push/deploy
-отложены до явного SAFE-сигнала владельца production-инцидента.
+Stage 5 release candidate rebased на эту цель; code commits включают
+`b345648e3`, provenance history начинается с `2d55c5089` и дополнена этим
+release-документом. Review blocker disposable helpers закрыт в `8ece82452`;
+итоговый push/deploy будет заявлен только после свежего scoped gate.
 Scope: только non-DTF MariaDB/Django evidence. Production schema, данные,
 migrations, storefront и parser в рамках этого документа не изменялись.
 
@@ -22,8 +23,8 @@ DDL-дизайн или обратимый rollout отсутствует либ
 несоответствие. Для таких пунктов чекбокс плана оставляется пустым.
 
 Указанные ниже commit SHA являются provenance исходных evidence-срезов,
-перенесённых в Stage 5 code tip `e3a89c83e`. Сам publish-кандидат ещё не
-заявляется как опубликованный в `main` или развернутый на production.
+перенесённых в Stage 5 release candidate. Кандидат до отдельного safety gate
+не заявляется как опубликованный в `main` или развернутый на production.
 
 ## Матрица
 
@@ -55,9 +56,9 @@ evidence-пунктов выше не снимают этот запрет.
 
 ## Provenance
 
-- Current integration target: `origin/main` `55f7082ae`; code-tip parent:
-  `b633b5567`; Stage 5 code tip: `e3a89c83e` (rebase/push/deploy на hold).
-- Latest fail-closed Stage 5 gates: `e3a89c83e`.
+- Current integration target: `origin/main` `55f7082ae`; code commits through
+  `8ece82452`; provenance baseline at `2d55c5089`, extended by this audit.
+- Latest fail-closed Stage 5 gates: `8ece82452`.
 - Connection/charset evidence: `85c9d90fa`, `90debf557`, `5735f4727`.
 - InnoDB roadmap/tooling evidence: `578ecd3d1`, `e5b6aba4c`.
 - DB actions evidence: `6c2197af3`.

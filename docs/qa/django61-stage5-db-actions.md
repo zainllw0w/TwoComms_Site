@@ -114,9 +114,15 @@ alias и после отдельной координации:
 ```
 
 Disposable experiment намеренно не доступен через CLI. Его запускает только
-gate-owned programmatic harness с переданной им фабрикой соединений к временной
-локальной MariaDB; операторские `host`/`socket`/`user`/password параметры
-скрипт не принимает. CLI инструмента предоставляет только `inventory`.
+gate-owned programmatic harness с переданной фабрикой соединений к временной
+локальной MariaDB и двумя обязательными interlock-ами: точным
+`DJ6-DISPOSABLE-MARIADB-LOCAL-ONLY-v1` и identity proof с окружением
+`disposable`, ролью `temporary`, именованным временным socket/loopback endpoint
+и пользователем с prefix `twc_dj61_disposable_`. Перед первым `CREATE DATABASE`
+скрипт сверяет фактические `VERSION()`, `@@hostname`, `@@port` и
+`CURRENT_USER()` с этим proof. Операторские `host`/`socket`/`user`/password
+параметры скрипт не принимает; CLI инструмента предоставляет только
+`inventory`.
 
 ## Rollback contract
 

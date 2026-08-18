@@ -73,8 +73,13 @@ python scripts/build_innodb_stage5_inventory.py inventory.json \
 `scripts/run_stage5_innodb_canary.py` supplies the separate, programmatic
 rehearsal used after an approved local MariaDB fixture has been prepared.  It
 does not expose a CLI with host/user/password/database arguments: the caller
-must pass a connection factory and explicitly set `allow_disposable=True`.
-Before creating anything it rejects a non-`default` alias, non-loopback host,
+must pass a connection factory, explicitly set `allow_disposable=True`, pass
+the exact `DJ6-INNODB-CANARY-MARIADB-LOCAL-ONLY-v1` interlock and provide an
+identity proof for a disposable environment, temporary role and
+`twc_dj61_disposable_` database user. The endpoint must be loopback or an
+explicitly named temporary socket. Before creating anything the gate verifies
+the live MariaDB `VERSION()`, `@@hostname`, `@@port` and `CURRENT_USER()`
+against that proof, then rejects a non-`default` alias, non-loopback host,
 missing local socket/host, SQLite/non-MariaDB connections, unavailable InnoDB
 and an out-of-budget row count.
 
