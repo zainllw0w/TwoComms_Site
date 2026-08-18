@@ -306,3 +306,7 @@ fallback when present. An absent secret appears as `NOT CONFIGURED` in the
 returned snapshot but writes neither a provider request nor an attempt row.
 This keeps the graph diagnostic without turning the passive read path into a
 telemetry writer.
+
+The UI countdown is also deadline-stable: passive one-minute reads update the
+remaining seconds but do not reset the ring's original hourly duration. This
+keeps the visual progress honest while preserving the no-provider-I/O boundary.

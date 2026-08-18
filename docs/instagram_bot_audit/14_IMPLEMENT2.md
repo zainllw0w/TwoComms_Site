@@ -1085,9 +1085,10 @@ remains limited to the explicit manual probe button, and `IMP-044` stays open.
   newer metadata snapshot cannot hide an older runtime fallback. The merged
   history drives the displayed counters, status, latency and evidence source.
   The card exposes the evidence source and a small countdown to the next
-  hourly refresh; the latest proven 3.7 -> 3.6 fallback also exposes a retained
-  HTTP status code when present. Passive refresh is throttled and never calls
-  Gemini.
+  hourly refresh; its ring keeps the same hourly duration across passive
+  database refreshes instead of jumping back to a full circle every minute.
+  The latest proven 3.7 -> 3.6 fallback also exposes a retained HTTP status
+  code when present. Passive refresh is throttled and never calls Gemini.
 - [x] `check_ig_gemini_metadata_health` is installed by the managed cron block
   at the top of every hour. It uses one shared 70-second deadline, a per-hour
   lock, a task heartbeat, and token-free `GET /v1beta/models/{model}` calls. It
