@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "scope": "non-dtf",
+  "rollback": {
+    "owner": "TwoComms release operator",
+    "path": "scripts/install_instagram_periodic_jobs_cron.sh",
+    "action": "restore the last known-good managed cron snapshot and run each installer with --check",
+    "evidence_required": "live crontab snapshot plus release SHA"
+  },
+  "jobs": [
+    {
+      "id": "instagram_watchdog",
+      "cadence": "* * * * *",
+      "command": "manage.py run_instagram_bot --ensure",
+      "managed_block": "# BEGIN TWOCOMMS INSTAGRAM BOT WATCHDOG",
+      "owner_path": "scripts/install_instagram_bot_watchdog_cron.sh",
+      "lock_path": "tmp/ig_bot_watchdog.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 75s",
+      "timeout_required": true
+    },
+    {
+      "id": "order_telegram_reconcile",
+      "cadence": "*/2 * * * *",
+      "command": "manage.py reconcile_order_telegram_notifications",
+      "managed_block": "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v1",
+      "owner_path": "scripts/install_instagram_periodic_jobs_cron.sh",
+      "lock_path": "tmp/order_telegram_reconcile.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 90s",
+      "timeout_required": true
+    },
+    {
+      "id": "ig_checkout_reconcile",
+      "cadence": "*/2 * * * *",
+      "command": "manage.py reconcile_ig_checkout",
+      "managed_block": "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v1",
+      "owner_path": "scripts/install_instagram_periodic_jobs_cron.sh",
+      "lock_path": "tmp/ig_checkout_reconcile.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 90s",
+      "timeout_required": true
+    },
+    {
+      "id": "ig_order_fulfillment",
+      "cadence": "*/2 * * * *",
+      "command": "manage.py reconcile_ig_order_fulfillment",
+      "managed_block": "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v1",
+      "owner_path": "scripts/install_instagram_periodic_jobs_cron.sh",
+      "lock_path": "tmp/ig_order_fulfillment.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 90s",
+      "timeout_required": true
+    },
+    {
+      "id": "ig_deal_payments",
+      "cadence": "*/4 * * * *",
+      "command": "manage.py poll_ig_deal_payments",
+      "managed_block": "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v1",
+      "owner_path": "scripts/install_instagram_periodic_jobs_cron.sh",
+      "lock_path": "tmp/poll_ig_deal_payments.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 180s",
+      "timeout_required": true
+    },
+    {
+      "id": "call_auto_analysis",
+      "cadence": "*/5 * * * *",
+      "command": "manage.py run_call_ai_analyses",
+      "managed_block": "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v1",
+      "owner_path": "scripts/install_instagram_periodic_jobs_cron.sh",
+      "lock_path": "tmp/run_call_ai_analyses.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 240s",
+      "timeout_required": true
+    },
+    {
+      "id": "ig_gemini_metadata_health",
+      "cadence": "0 * * * *",
+      "command": "manage.py check_ig_gemini_metadata_health",
+      "managed_block": "# BEGIN TWOCOMMS INSTAGRAM PERIODIC JOBS v1",
+      "owner_path": "scripts/install_instagram_periodic_jobs_cron.sh",
+      "lock_path": "tmp/check_ig_gemini_metadata_health.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 90s",
+      "timeout_required": true
+    },
+    {
+      "id": "nova_poshta_tracking",
+      "cadence": "*/5 * * * *",
+      "command": "manage.py update_tracking_statuses",
+      "managed_block": "# BEGIN TWOCOMMS NOVA POSHTA TRACKING",
+      "owner_path": "scripts/install_nova_poshta_tracking_cron.sh",
+      "lock_path": "tmp/nova_poshta_tracking.lock",
+      "flock": "/usr/bin/flock -n -E 75",
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=15s 240s",
+      "timeout_required": true
+    },
+    {
+      "id": "product_catalog_image_jobs",
+      "cadence": "* * * * *",
+      "command": "manage.py reconcile_image_optimization_jobs",
+      "managed_block": "# BEGIN TWOCOMMS PRODUCT CATALOG IMAGE JOBS",
+      "owner_path": "scripts/install_product_catalog_image_jobs_cron.sh",
+      "lock_path": "tmp/product_catalog_image_jobs.lock",
+      "flock": "/usr/bin/flock -n",
+      "timeout": "",
+      "timeout_required": false
+    }
+  ]
+}
