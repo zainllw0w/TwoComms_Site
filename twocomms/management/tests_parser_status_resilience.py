@@ -1,9 +1,11 @@
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.db import OperationalError
 from django.contrib.auth import get_user_model
 from django.test import Client, TransactionTestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from management import parser_service, parser_usage, parsing_views
 
@@ -27,7 +29,7 @@ class ParserStatusDatabaseResilienceTests(TransactionTestCase):
         self.client = Client()
         self.client.force_login(self.user)
 
-    def test_dashboard_job_does_not_repeat_mutating_normalization_after_disconnect(self):
+    def test_dashboard_job_poll_never_enters_mutating_normalization(self):
         job = parser_service.LeadParsingJob.objects.create(
             created_by=self.user,
             status=parser_service.LeadParsingJob.Status.STOPPED,
@@ -37,18 +39,37 @@ class ParserStatusDatabaseResilienceTests(TransactionTestCase):
             cities=["Харків"],
             request_limit=10,
         )
-        calls = 0
-
-        def flaky_lock_loader():
-            nonlocal calls
-            calls += 1
-            raise OperationalError(2006, "server has gone away")
-
-        with patch.object(parser_service, "_runtime_lock_for_update", side_effect=flaky_lock_loader):
+        with patch.object(parser_service, "_runtime_lock_for_update") as lock_loader:
             result = parser_service.parser_dashboard_job()
 
         self.assertEqual(result.pk, job.pk)
-        self.assertEqual(calls, 1)
+        lock_loader.assert_not_called()
+
+    def test_dashboard_job_poll_does_not_write_runtime_lock(self):
+        job = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=timezone.now(),
+        )
+        lock = parser_service.LeadParsingRuntimeLock.objects.create(
+            singleton_key=parser_service.RUNTIME_LOCK_KEY,
+            active_job=job,
+        )
+        previous_updated_at = timezone.now() - timedelta(days=1)
+        parser_service.LeadParsingRuntimeLock.objects.filter(pk=lock.pk).update(
+            updated_at=previous_updated_at,
+        )
+
+        result = parser_service.parser_dashboard_job()
+
+        lock.refresh_from_db()
+        self.assertEqual(result.pk, job.pk)
+        self.assertEqual(lock.updated_at, previous_updated_at)
 
     def test_status_api_retries_payload_read_after_disconnect(self):
         calls = 0

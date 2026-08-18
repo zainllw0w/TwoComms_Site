@@ -10,10 +10,10 @@ from urllib.parse import urlparse
 
 import requests
 from django.core.cache import cache
-from django.db import DEFAULT_DB_ALIAS, connections, transaction
+from django.db import transaction
 from django.utils import timezone
 
-from twocomms.db_resilience import is_mysql_disconnect_error, retry_mysql_read
+from twocomms.db_resilience import retry_mysql_read
 
 from .lead_services import split_terms
 from .models import (
@@ -1516,33 +1516,29 @@ def _apply_step_error(
 
 
 def parser_dashboard_job(job_id: int | str | None = None) -> LeadParsingJob | None:
-    # Status polling historically performed this normalization write inside a
-    # transaction and retried the whole unit.  A disconnect during COMMIT can
-    # leave the commit outcome unknown, so repeating the write is unsafe.  Run
-    # it once; if the connection drops, discard it and continue with a fresh
-    # read.  The next poll can safely reconcile any state left before rollback.
-    active_job_id = None
-    try:
-        with transaction.atomic():
-            lock = _runtime_lock_for_update()
-            active_job = _normalize_active_jobs_locked(lock, now=timezone.now())
-            active_job_id = active_job.pk if active_job else None
-    except Exception as exc:
-        if not is_mysql_disconnect_error(exc):
-            raise
-        try:
-            connections[DEFAULT_DB_ALIAS].close()
-        except Exception:
-            pass
-        logger.warning("Dropped MySQL connection while normalizing parser dashboard; reading fresh state")
-
     def load_dashboard_job():
         if job_id:
             return LeadParsingJob.objects.filter(id=job_id).first()
-        if active_job_id:
-            return LeadParsingJob.objects.filter(id=active_job_id).first()
+
+        lock = (
+            LeadParsingRuntimeLock.objects.select_related("active_job")
+            .filter(singleton_key=RUNTIME_LOCK_KEY)
+            .first()
+        )
+        if lock and lock.active_job and lock.active_job.status in ACTIVE_STATUSES:
+            return lock.active_job
+
+        active_job = (
+            LeadParsingJob.objects.filter(status__in=ACTIVE_STATUSES)
+            .order_by("-started_at", "-id")
+            .first()
+        )
+        if active_job:
+            return active_job
         return LeadParsingJob.objects.order_by("-started_at", "-id").first()
 
+    # Polling is read-only. State reconciliation remains in the serialized
+    # start/pause/resume/stop/worker paths that already own the runtime lock.
     return retry_mysql_read(load_dashboard_job)
 
 
