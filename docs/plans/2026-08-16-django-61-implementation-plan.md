@@ -668,10 +668,10 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-TPL-002 - Использовать \`{% querystring %}\` в pagination templates.**
   - Тесты: empty query, repeated params, page replacement, escaped values.
 
-- [ ] **DJ6-DOC-001 - Обновить current architecture docs на Python 3.14.6/Django 6.1.**
+- [x] **DJ6-DOC-001 - Обновить current architecture docs на Python 3.14.6/Django 6.1.**
   - Исторические incident/plans не переписывать.
 
-- [ ] **DJ6-DOC-002 - Удалить current-facing инструкции с bare Python/Django 5.2.**
+- [x] **DJ6-DOC-002 - Удалить current-facing инструкции с bare Python/Django 5.2.**
   - Acceptance: README/runbook ведет к exact project runtime и supported deploy path.
 
 - [ ] **DJ6-TEST-001 - Включать forkserver/parallel tests только для stable shards.**
@@ -680,7 +680,8 @@ Production acceptance от 2026-08-17:
 ### Exit gate этапа 7
 
 - [ ] Template changes имеют response parity и browser smoke.
-- [ ] Current docs не предлагают старый runtime или unsupported deploy scripts.
+- [x] Current docs не предлагают старый runtime или unsupported deploy scripts.
+  - Evidence: `docs/qa/django61-stage7-docs-runtime.md`; current-facing architecture/deploy docs reviewed after integration.
 - [ ] Parallelization ускоряет CI без flaky/race роста.
 
 ---

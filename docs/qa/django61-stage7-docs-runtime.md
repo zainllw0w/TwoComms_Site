@@ -27,7 +27,8 @@ DTF-модели, DTF-миграции и DTF-серверные команды 
   старым Django 5.2/PyMySQL runtime или старым deployment path.
 - Версии сверены с `AGENTS.md`, `.python-version`,
   `twocomms/requirements.in` и `docs/qa/django61-compatibility-matrix.md`.
-- `git diff --check` должен быть выполнен перед интеграцией.
+- `git diff --check` прошёл перед интеграцией candidate; после rebase на
+  актуальный `origin/main` повторяется тем же release gate.
 
 Чекбоксы implementation plan отмечаются только после интеграции этого
 коммита в `main` и разрешённого deployment proof; локальная документационная
