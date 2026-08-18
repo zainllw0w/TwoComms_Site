@@ -1,5 +1,6 @@
 import datetime
 import json
+import threading
 import time
 from io import StringIO
 from unittest.mock import Mock, patch
@@ -239,3 +240,131 @@ class GeminiMetadataHealthTests(TestCase):
             worst_case_seconds,
             gemini_metadata_health.CHECK_DEADLINE_SECONDS - 5,
         )
+
+    @patch.dict("os.environ", {alias: f"secret-{alias.lower()}" for alias in gemini_metadata_health.gemini_keys.ALL_KEYS}, clear=False)
+    @patch("management.services.gemini_metadata_health._record")
+    @patch("management.services.gemini_metadata_health.check_alias")
+    def test_hourly_alias_checks_overlap_without_worker_ledger_writes(self, check_alias, record):
+        active = 0
+        peak_active = 0
+        lock = threading.Lock()
+        coordinator_thread_id = threading.get_ident()
+        record_thread_ids = []
+
+        def fake_check_alias(*args, **kwargs):
+            self.assertFalse(kwargs["record"])
+            nonlocal active, peak_active
+            with lock:
+                active += 1
+                peak_active = max(peak_active, active)
+            time.sleep(0.05)
+            with lock:
+                active -= 1
+            return [
+                {"model": gemini_metadata_health.MODELS[0], "status": "metadata_ok"},
+                {"model": gemini_metadata_health.MODELS[1], "status": "not_needed"},
+            ]
+
+        check_alias.side_effect = fake_check_alias
+        record.side_effect = lambda **_kwargs: record_thread_ids.append(threading.get_ident())
+
+        result = gemini_metadata_health.run_hour(now=self.now)
+
+        self.assertEqual(check_alias.call_count, len(gemini_metadata_health.gemini_keys.ALL_KEYS))
+        self.assertGreaterEqual(peak_active, 2)
+        self.assertEqual(record.call_count, len(gemini_metadata_health.MODELS) * len(gemini_metadata_health.gemini_keys.ALL_KEYS))
+        self.assertEqual(record_thread_ids, [coordinator_thread_id] * record.call_count)
+        self.assertEqual(result["checked_aliases"], len(gemini_metadata_health.gemini_keys.ALL_KEYS))
+        self.assertEqual(result["provider_requests"], len(gemini_metadata_health.gemini_keys.ALL_KEYS))
+
+    @patch("management.services.gemini_metadata_health._record")
+    @patch("management.services.gemini_metadata_health.check_alias", side_effect=RuntimeError("unexpected worker failure"))
+    def test_hourly_surfaces_a_worker_failure_before_writing_partial_ledger(self, _check_alias, record):
+        with self.assertRaisesRegex(RuntimeError, r"Gemini metadata health worker failed for aliases: GEMINI_API"):
+            gemini_metadata_health.run_hour(now=self.now)
+
+        record.assert_not_called()
+
+    @patch("management.services.gemini_metadata_health.check_alias")
+    def test_hourly_batch_rolls_back_all_ledger_rows_when_a_write_fails(self, check_alias):
+        check_alias.return_value = [
+            {"model": gemini_metadata_health.MODELS[0], "status": "metadata_ok"},
+            {"model": gemini_metadata_health.MODELS[1], "status": "not_needed"},
+        ]
+        original_record = gemini_metadata_health._record
+        calls = 0
+
+        def fail_second_record(**kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise RuntimeError("ledger unavailable")
+            return original_record(**kwargs)
+
+        with patch(
+            "management.services.gemini_metadata_health._record",
+            side_effect=fail_second_record,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "ledger unavailable"):
+                gemini_metadata_health.run_hour(now=self.now)
+
+        self.assertFalse(GeminiRequestAttempt.objects.exists())
+
+    @patch("management.services.gemini_metadata_health.ThreadPoolExecutor")
+    def test_hourly_joins_provider_workers_before_returning(self, executor_type):
+        class ImmediateFuture:
+            def __init__(self, value):
+                self.value = value
+
+            def result(self, timeout=None):
+                return self.value
+
+            def done(self):
+                return True
+
+            def exception(self):
+                return None
+
+        class TrackingExecutor:
+            def __init__(self, *args, **kwargs):
+                self.shutdown_calls = []
+
+            def submit(self, function, alias, **kwargs):
+                return ImmediateFuture([
+                    {"model": gemini_metadata_health.MODELS[0], "status": "metadata_ok"},
+                    {"model": gemini_metadata_health.MODELS[1], "status": "not_needed"},
+                ])
+
+            def shutdown(self, **kwargs):
+                self.shutdown_calls.append(kwargs)
+
+        executor = TrackingExecutor()
+        executor_type.return_value = executor
+        with patch("management.services.gemini_metadata_health._record"):
+            gemini_metadata_health.run_hour(now=self.now)
+
+        self.assertEqual(executor.shutdown_calls, [{"wait": True, "cancel_futures": True}])
+
+    @patch("management.services.gemini_metadata_health.ThreadPoolExecutor")
+    def test_hourly_joins_submitted_workers_when_later_submission_fails(self, executor_type):
+        class TrackingExecutor:
+            def __init__(self, *args, **kwargs):
+                self.submit_count = 0
+                self.shutdown_calls = []
+
+            def submit(self, *args, **kwargs):
+                self.submit_count += 1
+                if self.submit_count == 2:
+                    raise RuntimeError("executor unavailable")
+                return Mock()
+
+            def shutdown(self, **kwargs):
+                self.shutdown_calls.append(kwargs)
+
+        executor = TrackingExecutor()
+        executor_type.return_value = executor
+
+        with self.assertRaisesRegex(RuntimeError, "executor unavailable"):
+            gemini_metadata_health.run_hour(now=self.now)
+
+        self.assertEqual(executor.shutdown_calls, [{"wait": True, "cancel_futures": True}])

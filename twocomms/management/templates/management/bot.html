@@ -128,7 +128,7 @@
 .gemini-health-state.is-busy::before,.gemini-health-state.is-cooldown::before{background:#f2b84b;}
 .gemini-health-state.is-unavailable::before,.gemini-health-state.is-unconfigured::before{background:#ef7d68;}
 .gemini-health-models{display:grid;gap:9px;min-width:0;}
-.gemini-health-model{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(124px,auto);align-items:center;gap:8px;min-width:0;}
+.gemini-health-model{--gemini-health-meta-width:320px;display:grid;grid-template-columns:34px minmax(0,1fr) var(--gemini-health-meta-width);align-items:center;gap:8px;min-width:0;min-height:32px;}
 .gemini-health-model-label{color:#aebacc;font-size:10px;font-weight:850;}
 .gemini-health-rail-scroll{min-width:0;overflow:hidden;}
 .gemini-health-rail{display:grid;grid-template-columns:repeat(24,minmax(10px,1fr));gap:3px;min-width:309px;}
@@ -138,8 +138,9 @@
 .gemini-health-segment.is-terminal{border-color:#d9675d;background:#e4776c;}
 .gemini-health-segment.is-not_needed{border-color:#354052;background:#222b38;}
 .gemini-health-segment:hover,.gemini-health-segment:focus-visible{filter:brightness(1.12);outline:0;transform:translateY(-1px);}
-.gemini-health-model-meta{min-width:0;color:#7f8da1;font-size:9px;font-variant-numeric:tabular-nums;line-height:1.35;text-align:right;}
-.gemini-health-model-meta strong{display:block;color:#c8d4e2;font-size:9.5px;font-weight:800;}
+.gemini-health-model-meta{min-width:0;width:var(--gemini-health-meta-width);max-width:100%;min-height:32px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;color:#7f8da1;font-size:9px;font-variant-numeric:tabular-nums;line-height:1.35;text-align:right;}
+.gemini-health-model-meta strong,.gemini-health-model-detail{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gemini-health-model-meta strong{min-height:11px;color:#c8d4e2;font-size:9.5px;font-weight:800;line-height:1.2;}
 .gemini-health-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:7px;}
 .gemini-health-actions label{grid-column:1/-1;color:#77869a;font-size:9px;font-weight:750;}
 .gemini-health-model-select{min-width:0;height:32px;border:1px solid #28364a;border-radius:6px;background:#0f1722;color:#cbd6e3;padding:0 8px;font-size:10px;}
@@ -153,10 +154,15 @@
 .gemini-health-legend .success{background:#34c995}.gemini-health-legend .recovered{background:#edb94f}.gemini-health-legend .terminal{background:#e4776c}.gemini-health-legend .empty{border:1px solid #354052;background:#222b38;}
 .gemini-health-feedback{min-height:16px;color:#7f8da1;font-size:10px;line-height:1.4;text-align:right;}
 .gemini-health-feedback.stale{color:#d6ad5d}.gemini-health-feedback.error{color:#ef8b82}.gemini-health-feedback.success{color:#69d7ae;}
-@media(max-width:880px){
+@media(max-width:1280px){
   .gemini-health-row{grid-template-columns:minmax(0,1fr) minmax(170px,.35fr);gap:10px 14px;}
   .gemini-health-models{grid-column:1/-1;grid-row:2;}
   .gemini-health-actions{grid-column:2;grid-row:1;}
+  .gemini-health-model{--gemini-health-meta-width:clamp(190px,28vw,320px);}
+}
+@media(max-width:640px){
+  .gemini-health-rail-scroll{overflow-x:auto;padding-bottom:3px;}
+  .gemini-health-rail{grid-template-columns:repeat(24,10px);width:max-content;}
 }
 @media(max-width:560px){
   .gemini-health-header{align-items:stretch;flex-direction:column;}
@@ -166,10 +172,8 @@
   .gemini-health-row{grid-template-columns:minmax(0,1fr);}
   .gemini-health-actions{grid-column:1;grid-row:auto;}
   .gemini-health-models{grid-column:1;grid-row:auto;}
-  .gemini-health-model{grid-template-columns:28px minmax(0,1fr);}
+  .gemini-health-model{--gemini-health-meta-width:100%;grid-template-columns:28px minmax(0,1fr);}
   .gemini-health-model-meta{grid-column:1/-1;text-align:left;}
-  .gemini-health-rail-scroll{overflow-x:auto;padding-bottom:3px;}
-  .gemini-health-rail{grid-template-columns:repeat(24,10px);width:max-content;}
   .gemini-health-footer{align-items:flex-start;flex-direction:column;}
   .gemini-health-feedback{text-align:left;}
 }
@@ -1992,11 +1996,12 @@ body.bot-drawer-open{overflow:hidden;}
       });
       railScroll.appendChild(rail);row.appendChild(railScroll);
       const observations=integer(data.observations);const successes=integer(data.successes);
-      const meta=make('div','gemini-health-model-meta');
-      if(!observations){meta.dataset.observationState='insufficient_observations';meta.append(make('strong','', 'Недостатньо спостережень'));}
-      else if(normalizeObservation(data.status)==='not_needed'){meta.append(make('strong','', 'Не потрібна'),document.createTextNode('3.7 вже підтверджена · погодинний зріз'));}
-      else{const ratio=Math.round((successes/observations)*100);meta.append(make('strong','',successes+'/'+observations+' · '+ratio+'%'),document.createTextNode((integer(data.last_latency_ms)?integer(data.last_latency_ms)+' ms · ':'')+(observationLabels[normalizeObservation(data.status)]||'Немає даних')));}
-      if(source)meta.append(document.createTextNode(' · '+source));
+      const meta=make('div','gemini-health-model-meta');let headline='';let detail='';
+      if(!observations){meta.dataset.observationState='insufficient_observations';headline='Недостатньо спостережень';}
+      else if(normalizeObservation(data.status)==='not_needed'){headline='Не потрібна';detail='3.7 вже підтверджена · погодинний зріз';}
+      else{const ratio=Math.round((successes/observations)*100);headline=successes+'/'+observations+' · '+ratio+'%';detail=(integer(data.last_latency_ms)?integer(data.last_latency_ms)+' ms · ':'')+(observationLabels[normalizeObservation(data.status)]||'Немає даних');}
+      if(source)detail+=(detail?' · ':'')+source;
+      meta.append(make('strong','',headline));if(detail)meta.append(make('span','gemini-health-model-detail',detail));meta.title=[headline,detail].filter(Boolean).join(' · ');
       row.appendChild(meta);return row;
     }
     function renderKey(item,index){

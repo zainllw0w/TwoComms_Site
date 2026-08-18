@@ -6,9 +6,11 @@ import json
 import socket
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from django.db import transaction
 from django.utils import timezone
 
 from management.services import gemini_keys
@@ -75,6 +77,7 @@ def _check_model(
     request_id: str,
     *,
     deadline: float | None = None,
+    record: bool = True,
 ) -> dict:
     started = time.monotonic()
     if deadline is not None and time.monotonic() >= deadline:
@@ -112,14 +115,15 @@ def _check_model(
     except OSError:
         status = "transport_error"
     latency_ms = max(0, round((time.monotonic() - started) * 1000))
-    _record(
-        request_id=request_id,
-        alias=alias,
-        model=model,
-        status=status,
-        latency_ms=latency_ms,
-        http_code=code,
-    )
+    if record:
+        _record(
+            request_id=request_id,
+            alias=alias,
+            model=model,
+            status=status,
+            latency_ms=latency_ms,
+            http_code=code,
+        )
     return {"model": model, "status": status, "http_code": code, "latency_ms": latency_ms, "evidence_kind": "metadata_only", "generation_quota_proven": False}
 
 def check_alias(
@@ -128,30 +132,168 @@ def check_alias(
     now: dt.datetime | None = None,
     request_id: str | None = None,
     deadline: float | None = None,
+    record: bool = True,
 ) -> list[dict]:
     now = now or timezone.now()
     request_id = request_id or f"meta-{now:%Y%m%d%H}-{uuid.uuid4().hex[:8]}"
     api_key = gemini_keys._key_value(alias)
     if not api_key:
         return [{"model": model, "status": "unconfigured", "evidence_kind": "metadata_only", "generation_quota_proven": False} for model in MODELS]
-    primary = _check_model(alias, api_key, MODELS[0], request_id, deadline=deadline)
+    primary = _check_model(
+        alias,
+        api_key,
+        MODELS[0],
+        request_id,
+        deadline=deadline,
+        record=record,
+    )
     if primary["status"] == "metadata_ok":
         secondary = {"model": MODELS[1], "status": "not_needed", "evidence_kind": "metadata_only", "generation_quota_proven": False}
-        _record(request_id=request_id, alias=alias, model=MODELS[1], status="not_needed")
+        if record:
+            _record(request_id=request_id, alias=alias, model=MODELS[1], status="not_needed")
     else:
-        secondary = _check_model(alias, api_key, MODELS[1], request_id, deadline=deadline)
+        secondary = _check_model(
+            alias,
+            api_key,
+            MODELS[1],
+            request_id,
+            deadline=deadline,
+            record=record,
+        )
     return [primary, secondary]
+
+
+def _deadline_results() -> list[dict]:
+    return [
+        {
+            "model": model,
+            "status": "deadline_skipped",
+            "http_code": None,
+            "latency_ms": 0,
+            "evidence_kind": "metadata_only",
+            "generation_quota_proven": False,
+        }
+        for model in MODELS
+    ]
+
+
+def _record_alias_results(
+    *,
+    alias: str,
+    request_id: str,
+    results: list[dict],
+) -> None:
+    """Write finished alias observations from the coordinator thread only."""
+    for result in results:
+        status = str(result.get("status") or "")
+        if status in {"deadline_skipped", "unconfigured"}:
+            continue
+        _record(
+            request_id=request_id,
+            alias=alias,
+            model=str(result.get("model") or ""),
+            status=status,
+            latency_ms=int(result.get("latency_ms") or 0),
+            http_code=result.get("http_code"),
+        )
+
+
+def _run_alias_checks(
+    *,
+    batch_id: str,
+    now: dt.datetime,
+    deadline: float,
+) -> list[list[dict]]:
+    """Run provider reads concurrently; persist their facts on this thread."""
+    aliases = list(gemini_keys.ALL_KEYS)
+    if not aliases:
+        return []
+    executor = ThreadPoolExecutor(
+        max_workers=len(aliases),
+        thread_name_prefix="gemini-health",
+    )
+    futures = {}
+    finished: dict[str, list[dict]] = {}
+    failures: dict[str, Exception] = {}
+    timed_out: set[str] = set()
+    try:
+        for alias in aliases:
+            futures[alias] = executor.submit(
+                check_alias,
+                alias,
+                now=now,
+                request_id=f"{batch_id}-{alias[-1]}",
+                deadline=deadline,
+                record=False,
+            )
+        for alias in aliases:
+            future = futures[alias]
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                timed_out.add(alias)
+                continue
+            try:
+                result = future.result(timeout=remaining)
+            except FutureTimeoutError:
+                timed_out.add(alias)
+            except Exception as error:
+                failures[alias] = error
+            else:
+                # Do not turn a completion after the shared deadline into
+                # evidence, even if it raced the coordinator's check.
+                if time.monotonic() <= deadline:
+                    finished[alias] = result
+                else:
+                    timed_out.add(alias)
+    finally:
+        # Retain command ownership until every worker is reconciled. Active
+        # slow-drip reads remain the documented IMP-044 limitation.
+        executor.shutdown(wait=True, cancel_futures=True)
+
+    # Inspect all joined futures so an exception cannot be hidden by a prior
+    # deadline branch.
+    for alias, future in futures.items():
+        if alias in failures or not future.done():
+            continue
+        error = future.exception()
+        if error is not None:
+            failures[alias] = error
+
+    if failures:
+        aliases_with_failures = ", ".join(
+            f"{alias} ({type(failures[alias]).__name__})"
+            for alias in aliases
+            if alias in failures
+        )
+        raise RuntimeError(
+            f"Gemini metadata health worker failed for aliases: {aliases_with_failures}"
+        ) from None
+
+    results = [
+        _deadline_results() if alias in timed_out else finished.get(alias, _deadline_results())
+        for alias in aliases
+    ]
+    # Provider reads are complete; commit their coordinated snapshot together
+    # so a transient MariaDB write error cannot expose a partial hourly batch.
+    with transaction.atomic():
+        for alias, result in zip(aliases, results, strict=True):
+            _record_alias_results(
+                alias=alias,
+                request_id=f"{batch_id}-{alias[-1]}",
+                results=result,
+            )
+    return results
+
 
 def run_hour(*, now: dt.datetime | None = None) -> dict:
     now = now or timezone.now()
     batch_id = f"meta-{now:%Y%m%d%H}-{uuid.uuid4().hex[:8]}"
     deadline = time.monotonic() + CHECK_DEADLINE_SECONDS
-    alias_results: list[list[dict]] = []
-    for alias in gemini_keys.ALL_KEYS:
-        alias_id = f"{batch_id}-{alias[-1]}"
-        alias_results.append(
-            check_alias(alias, now=now, request_id=alias_id, deadline=deadline)
-        )
+    alias_results = _run_alias_checks(
+        batch_id=batch_id,
+        now=now,
+        deadline=deadline,
+    )
     statuses = [
         str(model_result.get("status") or "")
         for result in alias_results

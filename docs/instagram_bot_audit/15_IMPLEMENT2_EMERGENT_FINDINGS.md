@@ -289,12 +289,14 @@ filling only missing observations; merged history is the source for its
 counters, status, latency and evidence label.
 
 The hourly command is a single managed cron owner with a per-hour cache lock,
-heartbeat and 70-second shared deadline. It performs model-resource GETs and
-records only normalized, redacted outcomes. It avoids a secondary 3.6 request
-when 3.7 succeeds, and it reports/counts deadline skips without writing a
-provider-failure attempt or hanging the cron past its external timeout.
-`pool_status(read_only=True)` keeps the passive GET from creating key-state
-rows. These safeguards are part of the current release slice; slow-drip
+heartbeat and 70-second shared logical evidence deadline. It performs
+model-resource GETs and records only normalized, redacted outcomes. It avoids
+a secondary 3.6 request when 3.7 succeeds, and it reports/counts deadline skips
+without writing a provider-failure attempt. Once that deadline is reached, the
+coordinator retains ownership and joins already-started workers before releasing
+the hourly owner; it does not claim a hard cancellation of a slow-drip HTTP
+read. `pool_status(read_only=True)` keeps the passive GET from creating key-state
+rows. These safeguards are part of the current release slice; hard wall-clock
 cancellation, typed worker telemetry and MariaDB lease-race proof remain open
 under `IMP-044`.
 
@@ -310,3 +312,35 @@ telemetry writer.
 The UI countdown is also deadline-stable: passive one-minute reads update the
 remaining seconds but do not reset the ring's original hourly duration. This
 keeps the visual progress honest while preserving the no-provider-I/O boundary.
+
+## API checker alignment and coverage follow-up (2026-08-19)
+
+The production screenshot exposed a separate operator-visibility defect: the
+model row used an `auto`-sized evidence column, so a long successful 3.7 label
+made its rail shorter than rows with little evidence. It also made the 3.6
+label appear to drift despite both models being logically aligned. The UI now
+uses a fixed desktop evidence track with clipped visible detail and preserved
+title/DOM text; all 3.7/3.6 rails therefore occupy the same columns. The
+375 px layout retains its deliberate horizontal rail scroller without page
+overflow.
+
+The underlying coverage issue was independent of rendering: the hourly batch
+walked aliases serially under one 70-second deadline, allowing a slow early
+alias to make API keys at the tail look stale. Alias jobs now start together,
+while the existing primary-first policy remains scoped inside each job: 3.6 is
+requested only after that alias's 3.7 metadata check fails. Provider work is
+concurrent, while finished results are written by one coordinator transaction;
+a failed ledger write cannot publish part of an hourly batch. The coordinator
+also joins workers if a later submission fails. This improves coverage without
+spending generation tokens or adding an otherwise unnecessary 3.6 request. The
+remaining slow-drip hard-cancellation limitation is still part of `IMP-044`;
+parallel scheduling does not claim to solve it.
+
+The fresh local gate for this follow-up passed `121/121` focused Gemini/API
+tests and `18/18` cron-installer tests. Django system checks, migration-drift,
+scoped compilation, shell syntax and whitespace checks were clean. Browser
+evidence at 1920, 1280, 640 and 375 px rendered all six rows and 12 rails with
+zero document overflow; narrow rails scroll only inside their own viewport.
+Production MariaDB proof is intentionally appended after the approved
+`git pull --ff-only origin main`, and no live provider probe is part of that
+proof.

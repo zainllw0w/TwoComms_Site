@@ -1127,6 +1127,39 @@ then reported `OK` for install and check, with exactly one hourly
 `check_ig_gemini_metadata_health` owner using the per-hour lock and 90-second
 external timeout.
 
+**API Checker alignment and coverage follow-up (2026-08-19, pending production proof):**
+
+- [x] The hourly metadata scheduler submits all six configured aliases to one
+  six-worker batch, preventing a slow earlier alias from starving API keys
+  5–6. Each alias still performs `3.7 -> conditional 3.6` in its own worker,
+  so a healthy 3.7 result still avoids the second model GET. Results are
+  collected in canonical alias order under one shared 70-second logical
+  evidence deadline; late results are discarded as `deadline_skipped` and are
+  not written as provider failures. The coordinator joins all submitted workers
+  before releasing the hourly owner, so a slow-drip HTTP read can still extend
+  process lifetime beyond that logical deadline; hard wall-clock cancellation
+  remains explicitly open under `IMP-044`. This adds no generation request,
+  prompt, customer context or duplicate provider check.
+- [x] Desktop model rows use a fixed 320 px statistics/evidence track. The
+  3.7 and 3.6 rails therefore share the same geometry for all six keys even
+  when latency/evidence labels differ. Evidence is constrained to stable
+  headline/detail lines with the full redacted text retained in the native
+  title and DOM, while the mobile layout keeps the existing single-column
+  scrollable rail behavior.
+
+**Local evidence (2026-08-19):** RED reproduced sequential scheduling
+(`peak_active=1`) and the missing fixed rail-statistics CSS track. The final
+focused Gemini/API gate passed `121/121`; the cron installer contract passed
+`18/18`; Django `check`, migration drift, scoped `compileall`, shell syntax and
+`git diff --check` were clean. Browser QA covers 1920, 1280, 640 and 375 px
+with intentionally mixed long/short evidence: all 12 rails retain identical
+geometry at each width, while at 640/375 the 309 px rail scrolls inside its
+local viewport and document overflow remains `0`. The browser run produced no
+JavaScript errors; the only console entries were the known report-only CSP
+`upgrade-insecure-requests` warning. Local SQLite remains only a fast
+deterministic layer; production proof must verify the exact SHA, six-alias
+hourly result and read-only snapshot on MariaDB after the approved SSH pull.
+
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 
 After `G-EPOCH`, implement only the chosen policy: validate before first chunk

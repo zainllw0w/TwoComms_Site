@@ -161,6 +161,27 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
+    def test_api_rows_keep_fixed_rail_statistics_columns(self):
+        for contract in (
+            "--gemini-health-meta-width:320px",
+            "grid-template-columns:34px minmax(0,1fr) var(--gemini-health-meta-width)",
+            "min-height:32px",
+            "text-overflow:ellipsis",
+            "gemini-health-model-detail",
+            "--gemini-health-meta-width:clamp(190px,28vw,320px)",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn("minmax(124px,auto)", self.template)
+
+    def test_api_rails_reflow_before_the_medium_width_grid_can_clip_them(self):
+        for contract in (
+            "@media(max-width:1280px)",
+            ".gemini-health-models{grid-column:1/-1;grid-row:2;}",
+            "@media(max-width:640px)",
+            ".gemini-health-rail-scroll{overflow-x:auto;padding-bottom:3px;}",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_api_section_query_opens_the_api_tab(self):
         self.assertIn(
             "if(initialQuery.get('section')==='api') initialTab='api';",
