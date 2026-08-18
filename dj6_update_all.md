@@ -19,11 +19,10 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 ## Подтвержденный baseline
 
 - Исторический baseline старта аудита: `37ced3a4553d4068c6cb1ad93f38e641e3ba41a0`.
-  Актуальная цель интеграции Stage 5: `origin/main` `b633b5567`;
-  reviewed-кодовый tip `217e27d34` построен непосредственно поверх
-  `b633b5567`; rebase завершён. Документационный follow-up находится в
-  текущем publish-кандидате; push в `main` и production deploy этим
-  документом не заявляются.
+  Проверенная цель интеграции Stage 5: `origin/main` `55f7082ae`;
+  publish-кандидат `e3a89c83e` построен поверх `b633b5567` и отстаёт от цели
+  на один непересекающийся parser-commit. Rebase, push в `main` и production
+  deploy отложены до явного SAFE-сигнала владельца production-инцидента.
 - Runtime: Python 3.14.6, Django 6.1, Django REST Framework 3.18.0.
 - DB runtime: локальный `mysqlclient`/`MySQLdb` 2.2.8; production read-only probe подтвердил MariaDB `11.4.12-MariaDB`. В production non-DTF schema насчитывается 305 model tables: 127 InnoDB и 178 MyISAM. Runtime и базы исключенного субдомена в этом аудите не проверяются.
 - После перехода выполнены lock verification, `pip check`, `manage.py check`, `migrate --check`, `collectstatic`, `compress` и Passenger reload marker.
