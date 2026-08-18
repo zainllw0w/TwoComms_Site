@@ -1,0 +1,70 @@
+import importlib.util
+import json
+from pathlib import Path
+import unittest
+
+
+SCRIPT = Path(__file__).parents[1] / "scripts" / "build_innodb_stage5_inventory.py"
+SPEC = importlib.util.spec_from_file_location("stage5_inventory", SCRIPT)
+MODULE = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(MODULE)
+
+
+class Stage5InventoryTests(unittest.TestCase):
+    def test_selects_small_non_dtf_myisam_table_with_no_writers(self):
+        report = MODULE.build_report(
+            {
+                "database": "qlknpodo_MySQL_DB",
+                "tables": [
+                    {"name": "storefront_promocodegroup", "engine": "MyISAM", "rows": 7, "data_length": 512, "criticality": "low", "writers": 0},
+                    {"name": "dtf_order", "engine": "MyISAM", "rows": 1, "criticality": "low", "writers": 0},
+                    {"name": "storefront_product", "engine": "MyISAM", "rows": 10, "criticality": "high", "writers": 1},
+                ],
+                "foreign_keys": [],
+                "rollback": {"method": "maintenance_window", "backup_verified": True, "write_freeze": True},
+            }
+        )
+        self.assertEqual(report["selected_canary"]["name"], "storefront_promocodegroup")
+        self.assertNotIn("dtf_order", [row["name"] for row in report["tables"]])
+
+    def test_dependency_order_comes_from_foreign_keys_not_declared_order(self):
+        report = MODULE.build_report(
+            {
+                "database": "default",
+                "tables": [
+                    {"name": "child", "engine": "MyISAM", "rows": 2, "criticality": "low", "writers": 0},
+                    {"name": "parent", "engine": "MyISAM", "rows": 3, "criticality": "low", "writers": 0},
+                ],
+                "foreign_keys": [{"parent": "parent", "child": "child"}],
+                "rollback": {"method": "dual_write", "backup_verified": True, "reverse_sync": True},
+            }
+        )
+        self.assertEqual(report["dependency_order"], ["parent", "child"])
+
+    def test_backup_alone_is_not_a_safe_rollback(self):
+        with self.assertRaises(ValueError):
+            MODULE.build_report(
+                {
+                    "database": "default",
+                    "tables": [],
+                    "foreign_keys": [],
+                    "rollback": {"method": "backup_restore", "backup_verified": True},
+                }
+            )
+
+    def test_json_output_is_sanitized(self):
+        report = MODULE.build_report(
+            {
+                "database": "default",
+                "tables": [{"name": "small", "engine": "InnoDB", "rows": 1, "criticality": "low", "writers": 0}],
+                "foreign_keys": [],
+                "rollback": {"method": "replica_switchover", "backup_verified": True, "reverse_sync": True},
+            }
+        )
+        encoded = json.dumps(report)
+        self.assertNotIn("password", encoded.lower())
+        self.assertNotIn("secret", encoded.lower())
+
+
+if __name__ == "__main__":
+    unittest.main()
