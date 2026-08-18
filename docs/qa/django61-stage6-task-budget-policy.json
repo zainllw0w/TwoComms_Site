@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "scope": "non-dtf",
+  "worker": {
+    "processes": 1,
+    "connections": 1,
+    "fds": 32
+  },
+  "reserve": {
+    "connections": 1,
+    "fds": 64,
+    "processes": 1
+  },
+  "canary": {
+    "task": "task_runtime.tasks.no_send_canary",
+    "payload_keys": ["marker"],
+    "external_io": false
+  }
+}
