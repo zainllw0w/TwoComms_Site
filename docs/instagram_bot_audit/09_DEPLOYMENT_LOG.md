@@ -25,10 +25,37 @@ heartbeat ages both 1.3 seconds, `last_error` empty, inbound/notification/
 analysis active queues all zero, and 18 pre-existing terminal analysis
 failures. No customer/Meta send and no production database fixture was created.
 
-This is a **PARTIAL** release, not full `IMP-044` closure. Hard cancellation of
-slow-drip HTTP responses, typed `F-AI-018` telemetry/worker heartbeat, derived
-key health, shared model allowlist/UI, bounded jitter, migration `0169` and
-disposable MariaDB competition/reclaim evidence remain open.
+This was a **PARTIAL** release, not full `IMP-044` closure. At that checkpoint,
+hard cancellation of slow-drip HTTP responses, typed `F-AI-018` telemetry/worker
+heartbeat, derived key health, shared model allowlist/UI, bounded jitter,
+migration `0169` and disposable MariaDB competition/reclaim evidence remained
+open; the derived-health follow-up is recorded below.
+
+## Implement2 IMP-044 derived key-health follow-up (2026-08-18)
+
+Code commit `c1dc6e27876a6d4f5e0457349f8e7e76279bf88d` adds additive
+`health_state`/`current_status` fields to `pool_status()`. Their derived states
+are `unconfigured`, `cooldown`, `busy` and `available`, based on current env
+presence, cooldown expiry and active project-group lease; persisted
+`last_status` remains historical diagnostics. The checker consumes the derived
+state, hides expired cooldown metadata, refreshes at the boundary and fails
+closed for unknown values. No migration or provider-path change was made.
+
+The focused local gate covered both touched test modules: `66/66` passed under
+the shared CPython 3.14/Django 6.1 test settings; `manage.py check`,
+`py_compile` and `git diff --check` also passed. The approved SSH
+`git pull --ff-only origin main` fast-forwarded production to exact
+`c1dc6e278`; branch `main` had zero tracked changes. A read-only MariaDB
+`pool_status()` smoke returned six rows, all six currently `available`, with
+matching derived aliases and no key material printed. Runtime remained
+`running=True`, `alive=True`, `provider_transport=instagram_login`,
+`pending=0`, `notification_pending=0`, `analysis_pending=0`, `last_error=''`;
+18 historical terminal analysis failures were unchanged. `manage.py check`
+exited successfully with the four known MariaDB warnings and the existing
+stale compression-manifest warning. No provider/customer event or fixture was
+created. `IMP-044` remains PARTIAL; hard cancellation, typed telemetry,
+allowlist/jitter, migration `0169` and MariaDB competition/reclaim proof are
+still open.
 
 ## Implement2 bounded release reconciliation (2026-08-18)
 

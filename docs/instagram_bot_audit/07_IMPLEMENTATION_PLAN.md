@@ -853,11 +853,13 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   `_run_with_pool` теперь получает atomic project-key lease прямо перед
   provider I/O, пропускает занятый ключ, освобождает точный token в `finally`
   и ограничивает timeout/backoff/новые попытки общим deadline и 70-секундным
-  lease budget. Manual key и live-chat path не изменены. Остаток: bounded jitter
-  и общий model allowlist/UI (F-AI-003/004);
-  UI-состояние ключей вычисляемое вместо хранимого `last_status` (F-DATA-012);
-  data-migration невалидного `gemini_model` + предупреждение о расхождении
-  и полный allowlist в селекте (F-AI-013). Дополнительно F-AI-018: при текущем
+  lease budget. Manual key и live-chat path не изменены. Follow-up
+  `c1dc6e278` derives current key health (`unconfigured/cooldown/busy/available`)
+  from env/cooldown/project lease, keeps legacy `available` compatibility and
+  makes the checker fail closed. Остаток: bounded jitter и общий model
+  allowlist/UI (F-AI-003/004); data-migration невалидного `gemini_model` +
+  предупреждение о расхождении и полный allowlist в селекте (F-AI-013).
+  Дополнительно F-AI-018: при текущем
   analysis lease 180 секунд и management deadline 75 секунд сохранять typed
   attempt telemetry (phase, alias/model, start/end, deadline, daemon heartbeat),
   отличать provider hang от lease reclaim/потери worker и доказать MariaDB races.
@@ -1181,7 +1183,7 @@ continuation остаётся отдельным свежим срезом.
 
 ### Finding coverage matrix — 187 уникальных F-идентификатора
 
-Итог матрицы: **139 `[x]` / 33 `OPEN [ ]` / 1 `BLOCKED [ ]` /
+Итог матрицы: **140 `[x]` / 32 `OPEN [ ]` / 1 `BLOCKED [ ]` /
 14 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
@@ -1247,7 +1249,7 @@ continuation остаётся отдельным свежим срезом.
 | [ ] | F-DATA-009 | OPEN | IMP-046 |
 | [ ] | F-DATA-010 | OPEN | IMP-046 |
 | [x] | F-DATA-011 | FIXED/VERIFIED | IMP-003 |
-| [ ] | F-DATA-012 | OPEN | IMP-044 |
+| [x] | F-DATA-012 | FIXED/VERIFIED (`c1dc6e278`) | IMP-044 |
 | [x] | F-DATA-013 | FIXED/VERIFIED | IMP-013 |
 | [x] | F-DATA-014 | FIXED/VERIFIED | IMP-013 |
 | [ ] | F-DATA-015 | OPEN | IMP-096 |

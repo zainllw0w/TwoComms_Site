@@ -934,9 +934,13 @@ close the unrelated Gemini/lease items in Wave 2.
 `twocomms/management/services/instagram_bot.py`, settings/model admin code,
 `tests_ig_conversation_analysis_jobs.py`, `tests_ig_live_reply_priority.py`.
 
-- [ ] Acquire/release atomic key lease in real generation path and release in
-  `finally`; add bounded jitter and shared model allowlist/UI options.
-- [ ] Derive current key health; do not expose stale `last_status` as truth.
+- [x] Acquire/release atomic key lease in real generation path and release in
+  `finally` (`a6dd2882`); the manual-key and live-chat paths remain separate.
+- [ ] Add bounded jitter and shared model allowlist/UI options.
+- [x] Derive current key health; do not expose stale `last_status` as truth.
+  `pool_status()` now derives `unconfigured`, `cooldown`, `busy` or `available`
+  from current environment presence, cooldown and project-group lease state;
+  `last_status` remains diagnostic history only.
 - [ ] For `F-AI-018`, persist enough typed telemetry to distinguish provider
   timeout/hang, daemon/worker loss and ordinary lease expiry: phase,
   alias/model, attempt start/end, effective deadline and daemon heartbeat.
@@ -960,10 +964,31 @@ tracked tree was clean and the bot was `running/alive` with
 `provider_transport=instagram_login`, empty active queues and no current
 `last_error`.
 
+**Derived key-health follow-up (2026-08-18, `c1dc6e278`):** `pool_status()` now
+returns additive `health_state` and `current_status` fields with the precedence
+`unconfigured > cooldown > busy > available`; an active lease on any configured
+project sibling marks the group busy, while an expired cooldown or lease is
+available again. The legacy cooldown-only `available` field was preserved for
+backward compatibility. The checker renders the derived state, hides stale
+cooldown metadata after expiry, refreshes at the boundary and fails closed for
+unknown states. The focused local gate was `66/66`, with `manage.py check`,
+`py_compile` and `git diff --check` clean; no migration was added.
+
+The prescribed SSH pull then placed exact `c1dc6e278` on production `main`.
+The tracked tree was clean. A read-only MariaDB-backed smoke saw six key rows,
+all six in the allowed derived state set (currently `available`), and matching
+`current_status` aliases without printing key material. The bot was
+`running/alive`, `provider_transport=instagram_login`, `pending=0`,
+`notification_pending=0`, `analysis_pending=0`, `last_error=''`; the 18
+historical terminal analysis failures were unchanged. `manage.py check` exited
+successfully with the four known MariaDB warnings and the existing stale
+compression-manifest warning. No provider call, customer message or fixture
+was created.
+
 `IMP-044` remains **PARTIAL**. A true hard wall-clock cancellation boundary for
-slow-drip HTTP responses, typed `F-AI-018` attempt/worker telemetry, derived
-current key health, shared model allowlist/UI, bounded jitter, migration `0169`
-and disposable MariaDB competition/reclaim proof remain open. The older
+slow-drip HTTP responses, typed `F-AI-018` attempt/worker telemetry, shared model
+allowlist/UI options, bounded jitter, migration `0169` and disposable MariaDB
+competition/reclaim proof remain open. The older
 `79ed12455` branch is preserved only as WIP evidence and must not be
 cherry-picked wholesale.
 
