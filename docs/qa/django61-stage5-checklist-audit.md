@@ -1,24 +1,28 @@
 # Django 6.1 Stage 5: checklist evidence audit
 
 Дата аудита: 2026-08-18
-Базовая ревизия текущего `origin/main`: `e08e3b85a`
+Проверенная текущая ревизия `origin/main`: `b633b5567`.
+Stage 5 publish-кандидат: `130fe8a6e`, построен поверх `f6914ba38` и перед
+публикацией должен быть rebased на указанную текущую ревизию `origin/main`.
 Scope: только non-DTF MariaDB/Django evidence. Production schema, данные,
 migrations, storefront и parser в рамках этого документа не изменялись.
 
 ## Как читать решения
 
 `READ-ONLY/REHEARSAL CLOSED` означает, что соответствующий безопасный
-инвентаризационный или disposable gate имеет tracked evidence. Это не означает,
-что production DDL, migration или rollout разрешены и само по себе не закрывает
-checkbox implementation plan.
+инвентаризационный или disposable gate имеет tracked evidence. Для четырёх
+пунктов, чья формулировка ограничена именно такой проверкой (`DJ6-SRV-004`,
+`DJ6-SRV-006`, `DJ6-DB-001`, `DJ6-ORM-013`), это отражено отметкой `[x]` в
+плане. Эта отметка не означает, что production DDL, migration или rollout
+разрешены либо что закрыт Stage 5 exit gate.
 
 `NO-GO` означает, что обязательное production-доказательство, согласованный
 DDL-дизайн или обратимый rollout отсутствует либо есть блокирующее
 несоответствие. Для таких пунктов чекбокс плана оставляется пустым.
 
-Указанные ниже commit SHA являются кандидатами evidence, подготовленными для
-интеграции поверх `e08e3b85a`; они не должны считаться уже присутствующими в
-`origin/main`, пока родительская интеграционная ветка не включит их явно.
+Указанные ниже commit SHA находятся в publish-кандидате `130fe8a6e`; они ещё
+не присутствуют в текущем `origin/main` `b633b5567` и требуют rebase перед
+интеграцией.
 
 ## Матрица
 
@@ -43,15 +47,17 @@ Stage 5 exit gate **не закрыт**, потому что одновреме�
 3. approved design и live proof для DB-level cascade/generated column;
 4. applied-history и MariaDB restore proof для migration squash.
 
-До выполнения этих условий implementation plan не следует помечать галочками
-по перечисленным ID, а production DDL/migrate/`squashmigrations` запускать
-нельзя.
+До выполнения этих условий нельзя закрывать `DJ6-SRV-003`, `DJ6-BASE-002`,
+`DJ6-MIG-001` или любой пункт Stage 5 exit gate; production
+DDL/migrate/`squashmigrations` запускать нельзя. Отметки четырёх bounded
+evidence-пунктов выше не снимают этот запрет.
 
 ## Provenance
 
-- Base: `origin/main` `e08e3b85a`.
-- Connection/charset candidate: `bc4d0edc1`, document `a34d7589c`/`566102c86`.
-- InnoDB roadmap/tooling candidate: `4a3194471`.
-- DB actions candidate: `19158ec28`.
-- GeneratedField candidate: `f87674bc6`.
-- Migration squash candidate: `847888145`.
+- Current integration target: `origin/main` `b633b5567`; publish candidate:
+  `130fe8a6e` (base `f6914ba38`, rebase required before publish).
+- Connection/charset evidence: `85c9d90fa`, `90debf557`, `5735f4727`.
+- InnoDB roadmap/tooling evidence: `578ecd3d1`, `e5b6aba4c`.
+- DB actions evidence: `6c2197af3`.
+- GeneratedField evidence: `5911e7053`.
+- Migration squash evidence: `babdab194`.

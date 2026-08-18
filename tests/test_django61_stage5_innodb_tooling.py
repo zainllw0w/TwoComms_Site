@@ -14,18 +14,20 @@ class Stage5InventoryTests(unittest.TestCase):
     def test_selects_small_non_dtf_myisam_table_with_no_writers(self):
         report = MODULE.build_report(
             {
-                "database": "qlknpodo_MySQL_DB",
+                "database": "default",
                 "tables": [
-                    {"name": "storefront_promocodegroup", "engine": "MyISAM", "rows": 7, "data_length": 512, "criticality": "low", "writers": 0},
-                    {"name": "dtf_order", "engine": "MyISAM", "rows": 1, "criticality": "low", "writers": 0},
-                    {"name": "storefront_product", "engine": "MyISAM", "rows": 10, "criticality": "high", "writers": 1},
+                    {"name": "storefront_promocodegroup", "model": "storefront.PromoCodeGroup", "engine": "MyISAM", "rows": 7, "data_length": 512, "criticality": "low", "writers": 0},
+                    {"name": "storefront_product", "model": "storefront.Product", "engine": "MyISAM", "rows": 10, "criticality": "high", "writers": 1},
                 ],
                 "foreign_keys": [],
                 "rollback": {"method": "maintenance_window", "backup_verified": True, "write_freeze": True},
             }
         )
         self.assertEqual(report["selected_canary"]["name"], "storefront_promocodegroup")
-        self.assertNotIn("dtf_order", [row["name"] for row in report["tables"]])
+        migration_order = {
+            row["name"]: row["migration_order"] for row in report["tables"]
+        }
+        self.assertEqual(migration_order["storefront_promocodegroup"], 2)
 
     def test_dependency_order_comes_from_foreign_keys_not_declared_order(self):
         report = MODULE.build_report(
@@ -46,7 +48,7 @@ class Stage5InventoryTests(unittest.TestCase):
             MODULE.build_report(
                 {
                     "database": "default",
-                    "tables": [],
+                    "tables": [{"name": "safe", "model": "app.Safe", "engine": "InnoDB"}],
                     "foreign_keys": [],
                     "rollback": {"method": "backup_restore", "backup_verified": True},
                 }
@@ -56,7 +58,7 @@ class Stage5InventoryTests(unittest.TestCase):
         report = MODULE.build_report(
             {
                 "database": "default",
-                "tables": [{"name": "small", "engine": "InnoDB", "rows": 1, "criticality": "low", "writers": 0}],
+                "tables": [{"name": "small", "model": "app.Small", "engine": "InnoDB", "rows": 1, "criticality": "low", "writers": 0}],
                 "foreign_keys": [],
                 "rollback": {"method": "replica_switchover", "backup_verified": True, "reverse_sync": True},
             }
@@ -64,6 +66,22 @@ class Stage5InventoryTests(unittest.TestCase):
         encoded = json.dumps(report)
         self.assertNotIn("password", encoded.lower())
         self.assertNotIn("secret", encoded.lower())
+
+    def test_dtf_scope_and_negative_metrics_fail_closed(self):
+        base = {
+            "database": "default",
+            "tables": [{"name": "safe", "model": "app.Safe", "engine": "MyISAM"}],
+            "foreign_keys": [],
+            "rollback": {"method": "maintenance_window", "backup_verified": True, "write_freeze": True},
+        }
+        for unsafe in (
+            {**base, "database": "dtf"},
+            {**base, "tables": [{"name": "dtf_order", "model": "dtf.Order", "engine": "MyISAM"}]},
+            {**base, "tables": [{"name": "safe", "model": "app.Safe", "engine": "MyISAM", "rows": -1}]},
+        ):
+            with self.subTest(unsafe=unsafe):
+                with self.assertRaises(ValueError):
+                    MODULE.build_report(unsafe)
 
 
 if __name__ == "__main__":

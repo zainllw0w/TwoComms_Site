@@ -591,20 +591,28 @@ Production acceptance от 2026-08-17:
   - Ранжировать по write criticality, size, orphan risk, index/fulltext behavior и FK graph.
   - Первый canary только на маленькой таблице с rollback/rehearsal.
 
-- [ ] **DJ6-SRV-004 - Сохранить connection budget и \`CONN_MAX_AGE=0\`.**
+- [x] **DJ6-SRV-004 - Сохранить connection budget и \`CONN_MAX_AGE=0\`.**
   - Любой новый worker/connection pool проходит capacity test до production.
+  - Закрыт только bounded read-only evidence/rehearsal для текущего guardrail;
+    production rollout нового worker/pool не выполнен и не разрешён.
 
-- [ ] **DJ6-SRV-006 - Защититься от server default latin1.**
+- [x] **DJ6-SRV-006 - Защититься от server default latin1.**
   - Предпочесть явные Django/schema defaults; global server change только с host-owner review.
+  - Закрыт только fail-closed compatibility evidence; production change global
+    charset/default не выполнялся и не разрешён.
 
 - [ ] **DJ6-BASE-002 - Инвентаризировать database-level \`on_delete\` кандидатов.**
   - Проверить engine, real FK, signals, soft delete, orphan data и rollback.
 
-- [ ] **DJ6-DB-001 - Испытать \`DB_CASCADE\` только на retention-графе аналитики.**
+- [x] **DJ6-DB-001 - Испытать \`DB_CASCADE\` только на retention-графе аналитики.**
   - Disposable MariaDB, batch delete benchmark и доказательство отсутствия обязательных delete signals.
+  - Закрыт только disposable benchmark/rollback evidence; production adoption
+    DB-level cascade не выполнен и остаётся запрещённым до отдельного rollout gate.
 
-- [ ] **DJ6-ORM-013 - Испытать \`GeneratedField\` для итоговой цены только в disposable schema.**
+- [x] **DJ6-ORM-013 - Испытать \`GeneratedField\` для итоговой цены только в disposable schema.**
   - Decimal/integer parity, discounts 0/1/33/100, MariaDB refresh/deferred behavior и index plan.
+  - Закрыт только disposable experiment evidence; production `GeneratedField`
+    и DDL rollout не выполнены и остаются запрещёнными до устранения formula drift.
 
 - [ ] **DJ6-MIG-001 - Squash migrations только после стабильного graph и restore drill.**
   - Не удалять historical migrations до applied-history и clean-install proof.

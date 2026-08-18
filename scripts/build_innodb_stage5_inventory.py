@@ -15,7 +15,12 @@ from typing import Any
 
 MAX_CANARY_ROWS = 1_000
 MAX_CANARY_BYTES = 16 * 1024 * 1024
-SAFE_ROLLBACK_METHODS = {"maintenance_window", "dual_write", "replica_switchover", "reverse_sync"}
+SAFE_ROLLBACK_METHODS = {
+    "maintenance_window",
+    "dual_write",
+    "replica_switchover",
+    "reverse_sync",
+}
 
 
 def _is_dtf(name: str) -> bool:
@@ -23,20 +28,50 @@ def _is_dtf(name: str) -> bool:
     return value == "dtf" or value.startswith("dtf_") or value.startswith("dtf.")
 
 
+def _nonnegative_int(value: Any, field: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be a non-negative integer")
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field} must be a non-negative integer") from exc
+    if parsed < 0:
+        raise ValueError(f"{field} must be a non-negative integer")
+    return parsed
+
+
 def _clean_table(raw: dict[str, Any]) -> dict[str, Any]:
     name = str(raw.get("name", "")).strip()
     engine = str(raw.get("engine", "unknown")).strip()
-    if not name or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_." for char in name):
+    model = str(raw.get("model", "unknown")).strip()
+    if not name or any(
+        char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_."
+        for char in name
+    ):
         raise ValueError(f"invalid table name: {name!r}")
+    if _is_dtf(name) or _is_dtf(model):
+        raise ValueError("DTF scope is forbidden")
+    if not engine:
+        raise ValueError(f"missing engine for {name!r}")
+    data_length = _nonnegative_int(raw.get("data_length", 0), "data_length")
+    index_length = _nonnegative_int(raw.get("index_length", 0), "index_length")
     return {
         "name": name,
+        "model": model,
         "engine": engine,
-        "rows": int(raw.get("rows", 0)),
-        "data_length": int(raw.get("data_length", 0)),
-        "index_length": int(raw.get("index_length", 0)),
+        "rows": _nonnegative_int(raw.get("rows", 0), "rows"),
+        "data_length": data_length,
+        "index_length": index_length,
+        "size_bytes": data_length + index_length,
         "criticality": str(raw.get("criticality", "unknown")),
-        "writers": int(raw.get("writers", 0)),
-        "triggers": int(raw.get("triggers", 0)),
+        "writers": _nonnegative_int(raw.get("writers", 0), "writers"),
+        "triggers": _nonnegative_int(raw.get("triggers", 0), "triggers"),
+        "orphan_count": _nonnegative_int(
+            raw.get("orphan_count", 0), "orphan_count"
+        ),
+        "fulltext_indexes": _nonnegative_int(
+            raw.get("fulltext_indexes", 0), "fulltext_indexes"
+        ),
     }
 
 
@@ -81,8 +116,12 @@ def _validate_rollback(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_report(payload: dict[str, Any]) -> dict[str, Any]:
+    database_alias = str(payload.get("database", "")).strip()
+    if database_alias != "default" or _is_dtf(database_alias):
+        raise ValueError("only the sanitized non-DTF default alias is allowed")
     tables = [_clean_table(row) for row in payload.get("tables", [])]
-    tables = [row for row in tables if not _is_dtf(row["name"])]
+    if not tables:
+        raise ValueError("table inventory is empty")
     names = [row["name"] for row in tables]
     if len(names) != len(set(names)):
         raise ValueError("duplicate table name")
@@ -90,23 +129,40 @@ def build_report(payload: dict[str, Any]) -> dict[str, Any]:
         {"parent": str(item.get("parent", "")), "child": str(item.get("child", ""))}
         for item in payload.get("foreign_keys", [])
     ]
-    order = _dependency_order(names, foreign_keys)
-    linked = {name for relation in foreign_keys for name in (relation["parent"], relation["child"])}
+    declared_dependencies = [
+        {
+            "parent": str(item.get("before", "")),
+            "child": str(item.get("after", "")),
+        }
+        for item in payload.get("dependencies", [])
+    ]
+    order = _dependency_order(names, foreign_keys + declared_dependencies)
+    migration_positions = {name: index for index, name in enumerate(order, start=1)}
+    for table in tables:
+        table["migration_order"] = migration_positions[table["name"]]
+    linked = {
+        name
+        for relation in foreign_keys + declared_dependencies
+        for name in (relation["parent"], relation["child"])
+    }
     candidates = [
         row for row in tables
         if row["engine"].casefold() == "myisam"
         and row["rows"] <= MAX_CANARY_ROWS
-        and row["data_length"] + row["index_length"] <= MAX_CANARY_BYTES
+        and row["size_bytes"] <= MAX_CANARY_BYTES
         and row["criticality"].casefold() == "low"
+        and row["model"].casefold() != "unknown"
         and row["writers"] == 0
         and row["triggers"] == 0
+        and row["orphan_count"] == 0
+        and row["fulltext_indexes"] == 0
         and row["name"] not in linked
     ]
-    candidates.sort(key=lambda row: (row["rows"], row["data_length"] + row["index_length"], row["name"]))
+    candidates.sort(key=lambda row: (row["rows"], row["size_bytes"], row["name"]))
     rollback = _validate_rollback(dict(payload.get("rollback", {})))
     return {
         "schema": 1,
-        "database": str(payload.get("database", "unknown")),
+        "database_alias": database_alias,
         "dtf_scope": "excluded",
         "tables": tables,
         "dependency_order": order,
