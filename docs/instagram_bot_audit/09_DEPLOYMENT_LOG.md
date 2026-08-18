@@ -4,6 +4,25 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 W2.4 Gemini API Checker (2026-08-18)
+
+The feature release `7372f0b6b` and production-proof documentation
+`c6ee5697b` are ancestors of the current canonical `main`. The approved SSH
+`git pull --ff-only origin main` was re-run after subsequent main integration;
+production now reports exact SHA `6370b182380057251358bdb5abd8cfca37c5542d`
+and a clean tracked tree. `manage.py check` completes with only the four
+existing MariaDB compatibility warnings, and the managed cron contract returns
+`[instagram-periodic-cron] OK: managed block matches`.
+
+Read-only MariaDB verification of `build_snapshot()` returns six configured key
+rows and two model rows per key, with hourly metadata observations present. A
+passive snapshot leaves `GeminiRequestAttempt` at `75` and `GeminiKeyState` at
+`6` before and after the read. No generation probe, customer message,
+synthetic fixture or other production write was performed. This proves the
+operator surface and token-free read path; it does not close the remaining
+`IMP-044` slow-drip cancellation, typed worker telemetry, jitter or disposable
+MariaDB competition/reclaim gates.
+
 ## Implement2 IMP-044 bounded background lease partial (2026-08-18)
 
 Code commit `a6dd2882f459e67ba085a64e11bbe7ee3ca2f0a8` released the bounded
