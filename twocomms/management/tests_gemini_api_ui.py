@@ -73,6 +73,20 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         timer_source = source[source.index("setInterval"):]
         self.assertNotIn("fetch(probeUrl", timer_source)
 
+    def test_countdown_duration_is_pinned_until_the_hourly_deadline_changes(self):
+        start = self.template.index("const GeminiHealth=(function(){")
+        end = self.template.index("/* ============", start + 32)
+        source = self.template[start:end]
+
+        self.assertIn(
+            "if(nextDeadline!==countdownDeadline){countdownDeadline=nextDeadline;countdownDueReloadedFor=0;countdownDuration=seconds>0?seconds:3600;}",
+            source,
+        )
+        self.assertNotIn(
+            "if(nextDeadline!==countdownDeadline){countdownDeadline=nextDeadline;countdownDueReloadedFor=0;}\n      countdownDuration=seconds>0?seconds:3600;updateCountdown();",
+            source,
+        )
+
     def test_probe_is_an_explicit_click_and_uses_allowlisted_form_fields(self):
         start = self.template.index("const GeminiHealth=(function(){")
         end = self.template.index("/* ============", start + 32)

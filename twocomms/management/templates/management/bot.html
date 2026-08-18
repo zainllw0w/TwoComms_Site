@@ -2049,8 +2049,8 @@ body.bot-drawer-open{overflow:hidden;}
       const rawSeconds=rootSeconds!==null&&rootSeconds!==undefined?rootSeconds:keySource.seconds_until_next_check;
       const parsedNextAt=Date.parse(String(nextAt||''));const secondsNumber=Number(rawSeconds);const seconds=Number.isFinite(secondsNumber)&&secondsNumber>=0?Math.round(secondsNumber):0;
       const nextDeadline=Number.isFinite(parsedNextAt)?parsedNextAt:(seconds>0?Date.now()+seconds*1000:0);
-      if(nextDeadline!==countdownDeadline){countdownDeadline=nextDeadline;countdownDueReloadedFor=0;}
-      countdownDuration=seconds>0?seconds:3600;updateCountdown();
+      if(nextDeadline!==countdownDeadline){countdownDeadline=nextDeadline;countdownDueReloadedFor=0;countdownDuration=seconds>0?seconds:3600;}
+      updateCountdown();
     }
     function formatCountdown(seconds){const value=Math.max(0,Math.round(seconds));const hours=Math.floor(value/3600);const minutes=Math.floor((value%3600)/60);const secs=value%60;return hours?String(hours).padStart(2,'0')+':'+String(minutes).padStart(2,'0')+':'+String(secs).padStart(2,'0'):String(minutes).padStart(2,'0')+':'+String(secs).padStart(2,'0');}
     function updateCountdown(){
