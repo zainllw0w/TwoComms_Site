@@ -10,7 +10,7 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **Implement2 W2.4 Gemini API Checker released and verified; `IMP-044` remains PARTIAL, while `IMP-106` core is already in main/production and its consented Graph capability, incentive calibration and privacy-policy gates remain open** |
+| Текущая фаза | **Implement2 W2.4 Gemini API Checker released and production-verified; `IMP-044` remains PARTIAL, while `IMP-106` core is already in main/production and its consented Graph capability, incentive calibration and privacy-policy gates remain open** |
 | Дата старта / обновления | 2026-08-14 (W2.1 lifecycle release) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
 | База внедрения | Current runtime/code checkpoint — W2.1 commits `51db3058`/`8d8c5d05` в `origin/main` и production; migrations `management.0152`/`0153`/`0154`/`0156` применены. |
@@ -165,15 +165,17 @@ CTA is suppressed.
 The admin-only `API` tab, six-key live capsules, independent 24-hour
 `gemini-3.7-flash`/`gemini-3.6-flash` rails, passive refresh/countdown and
 explicit manual probe are released through `7372f0b6b`, with the stable
-countdown follow-up in `8bfb6c5ea`/`7fde498fb`; production-proof documentation
-is in `c6ee5697b`. The hourly metadata checker is token-free,
+countdown follow-up in `8bfb6c5ea`/`7fde498fb` and the API proof reconciliation
+in `7b289ab05`; production-proof documentation is in `c6ee5697b`. The hourly
+metadata checker is token-free,
 3.7-first with conditional 3.6 fallback, bounded by one shared deadline and a
 single managed cron owner.
 
 Fresh focused evidence: checker/API/metadata tests `53/53`, cron installer
 `18/18`, normal-settings `manage.py check`, management migration drift,
 compileall, shell syntax and `git diff --check` all passed. The current
-canonical local/remote/production checkpoint is `d17e4b636`; a read-only
+canonical local/remote/production checkpoint is `debcef315`; `7b289ab05` is an
+ancestor containing the API proof update. A read-only
 MariaDB snapshot shows six key rows with two model rows each and metadata
 observations present, while `GeminiRequestAttempt` and `GeminiKeyState` counts
 remain unchanged across passive snapshot reads. No provider generation,

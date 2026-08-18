@@ -6,11 +6,11 @@ Production host: `195.191.25.63`, path
 
 ## Implement2 W2.4 Gemini API Checker (2026-08-18)
 
-The feature release `7372f0b6b`, countdown follow-ups `8bfb6c5ea`/`7fde498fb`
-and production-proof documentation `c6ee5697b` are ancestors of the current
-canonical `main`. The approved SSH
+The feature release `7372f0b6b`, countdown follow-ups `8bfb6c5ea`/`7fde498fb`,
+API proof reconciliation `7b289ab05` and production-proof documentation
+`c6ee5697b` are ancestors of the current canonical `main`. The approved SSH
 `git pull --ff-only origin main` was re-run after subsequent main integration;
-production now reports exact SHA `d17e4b636878b2cde85a77d8134020850ebd1461`
+production now reports exact SHA `debcef315876c82b91157ccbf680652facd0b26f`
 and a clean tracked tree. `manage.py check` completes with only the four
 existing MariaDB compatibility warnings, and the managed cron contract returns
 `[instagram-periodic-cron] OK: managed block matches`.
