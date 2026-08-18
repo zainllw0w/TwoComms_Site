@@ -78,11 +78,11 @@
 {% if page.has_other_pages %}
 <div class="flex-gap-8 mt-16">
     {% if page.has_previous %}
-    <a href="?page={{ page.previous_page_number }}{% if filter_reason %}&reason={{ filter_reason }}{% endif %}{% if filter_verified %}&verified={{ filter_verified }}{% endif %}{% if filter_date_from %}&date_from={{ filter_date_from }}{% endif %}{% if filter_date_to %}&date_to={{ filter_date_to }}{% endif %}" class="btn btn--ghost flex-1">← Назад</a>
+    <a href="{% querystring page=page.previous_page_number %}" class="btn btn--ghost flex-1">← Назад</a>
     {% endif %}
     <span class="text-muted text-center flex-1" style="line-height: 44px;">{{ page.number }} / {{ page.paginator.num_pages }}</span>
     {% if page.has_next %}
-    <a href="?page={{ page.next_page_number }}{% if filter_reason %}&reason={{ filter_reason }}{% endif %}{% if filter_verified %}&verified={{ filter_verified }}{% endif %}{% if filter_date_from %}&date_from={{ filter_date_from }}{% endif %}{% if filter_date_to %}&date_to={{ filter_date_to }}{% endif %}" class="btn btn--ghost flex-1">Далі →</a>
+    <a href="{% querystring page=page.next_page_number %}" class="btn btn--ghost flex-1">Далі →</a>
     {% endif %}
 </div>
 {% endif %}
