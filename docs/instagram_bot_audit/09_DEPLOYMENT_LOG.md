@@ -6,13 +6,15 @@ Production host: `195.191.25.63`, path
 
 ## Implement2 W2.4 API Checker alignment follow-up (2026-08-19)
 
-The API Checker alignment follow-up is locally implemented but has not yet been
-committed, pushed, or pulled onto production. The approved SSH deployment path
-and a read-only production verification (exact SHA, branch/worktree, checks,
-cron contract and MariaDB snapshot) are therefore **pending**. A natural
-hourly scheduler run has not been observed in this slice; a passive
-`build_snapshot()` read cannot prove scheduler execution. No provider probe,
-generation request, customer message or fixture is claimed.
+The local follow-up adds a redacted `latest_metadata_batch` summary and an
+explicit `6/6` completion line to the API tab. The page remains passive: it
+reads the saved ledger, while the managed hourly job performs token-free
+metadata GETs in one six-worker batch. Local production proof is not inferred:
+the approved SSH deployment path and read-only verification (exact SHA,
+branch/worktree, checks, cron contract and MariaDB snapshot) remain **pending**
+until the release is pulled. A natural hourly scheduler run has not been
+observed in this slice; no provider probe, generation request, customer
+message or fixture is claimed.
 
 ## Implement2 W2.4 Gemini API Checker (2026-08-18)
 

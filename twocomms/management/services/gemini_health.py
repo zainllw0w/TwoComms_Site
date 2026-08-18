@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -32,6 +33,7 @@ DISPLAY_ALIASES = {
     key_name: f"API key {index}"
     for index, key_name in enumerate(KEY_ALIASES, start=1)
 }
+_METADATA_BATCH_RE = re.compile(r"^(meta-\d{10}-[0-9a-f]{8})-(?:I|[2-6])$")
 
 _SUCCESS_OUTCOMES = frozenset(("success", "succeeded", "ok"))
 _FAILURE_REASON_LABELS = {
@@ -311,6 +313,39 @@ def _latest_request_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     )
 
 
+def _metadata_batch_key(row: dict[str, Any]) -> str:
+    """Group the six alias request IDs emitted by one hourly run."""
+    request_id = str(row.get("request_id") or "").strip()
+    match = _METADATA_BATCH_RE.fullmatch(request_id)
+    return match.group(1) if match else request_id
+
+
+def _latest_metadata_batch(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return redacted completeness evidence for the newest metadata batch."""
+    if not rows:
+        return None
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        groups[_metadata_batch_key(row)].append(row)
+    batch_rows = max(
+        groups.values(),
+        key=lambda batch: _attempt_sort_key(max(batch, key=_attempt_sort_key)),
+    )
+    aliases = {
+        str(row.get("key_name") or "")
+        for row in batch_rows
+        if str(row.get("key_name") or "") in KEY_ALIASES
+    }
+    completed_at = max(batch_rows, key=_attempt_sort_key)["created_at"]
+    expected_aliases = len(KEY_ALIASES)
+    return {
+        "checked_aliases": len(aliases),
+        "expected_aliases": expected_aliases,
+        "complete": len(aliases) == expected_aliases,
+        "completed_at": _iso(completed_at),
+    }
+
+
 def _fresh(rows: list[dict[str, Any]], generated_at: dt.datetime) -> bool:
     if not rows:
         return False
@@ -555,6 +590,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             **_summary(pool_rows, runtime_attempts, window_start=window_start),
             "metadata_observations": len(metadata_attempts),
         },
+        "latest_metadata_batch": _latest_metadata_batch(metadata_attempts),
         "fallback": _latest_fallback(runtime_attempts),
         "keys": keys,
     }

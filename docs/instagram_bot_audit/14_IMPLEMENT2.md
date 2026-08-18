@@ -1147,10 +1147,17 @@ external timeout.
   headline/detail lines with the full redacted text retained in the native
   title and DOM, while the mobile layout keeps the existing single-column
   scrollable rail behavior.
+- [x] The saved snapshot now exposes `latest_metadata_batch` with the number
+  of alias observations, the expected six-alias total, completion flag and
+  redacted completion time. The API tab renders this as an explicit
+  `Остання автоматична перевірка: 6/6 ключів`, so a page refresh cannot make a
+  partial ledger look like a completed hourly run. `ПЕРЕВІРЕНО` means the
+  token-free scheduled metadata GET; `LIVE` remains reserved for recent real
+  generation evidence. No new provider request or migration was introduced.
 
 **Local evidence (2026-08-19):** RED reproduced sequential scheduling
-(`peak_active=1`) and the missing fixed rail-statistics CSS track. The final
-focused Gemini/API gate passed `28/28`; the cron installer contract passed
+(`peak_active=1`), the missing fixed rail-statistics CSS track and the absent
+batch-completeness signal. The focused Gemini/API gate passed `65/65`; the cron installer contract passed
 `18/18`; Django `check`, migration drift, scoped `compileall`, shell syntax and
 `git diff --check` were clean. Browser QA covers 1920, 1280, 640 and 375 px
 with intentionally mixed long/short evidence: all 12 rails retain identical

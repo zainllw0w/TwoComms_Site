@@ -147,10 +147,26 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         panel_end = self.template.index("{% endif %}", panel_start)
         panel = self.template[panel_start:panel_end]
 
-        self.assertIn("<strong>LIVE</strong> означає лише реальну генерацію", panel)
+        self.assertIn("<strong>LIVE</strong> означає реальну генерацію", panel)
         self.assertIn("<strong>ПЕРЕВІРЕНО</strong> означає token-free metadata GET", panel)
+        self.assertIn("Щогодини автоматична перевірка", panel)
+        self.assertIn("Остання автоматична перевірка", panel)
         self.assertIn("<span>ПЕРЕВІРЕНО</span>", panel)
         self.assertNotIn("<span>READY</span>", panel)
+
+    def test_checker_shows_saved_hourly_batch_completeness(self):
+        panel_start = self.template.index('data-panel="api"')
+        panel_end = self.template.index("{% endif %}", panel_start)
+        panel = self.template[panel_start:panel_end]
+        source_start = self.template.index("const GeminiHealth=(function(){")
+        source_end = self.template.index("/* ============", source_start + 32)
+        source = self.template[source_start:source_end]
+
+        self.assertIn('id="gemini-health-batch"', panel)
+        self.assertIn("latest_metadata_batch", source)
+        self.assertIn("checked_aliases", source)
+        self.assertIn("expected_aliases", source)
+        self.assertIn("complete", source)
 
     def test_rails_merge_generation_before_metadata_per_bucket(self):
         start = self.template.index("const GeminiHealth=(function(){")

@@ -666,3 +666,28 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(row["models"]["gemini-3.7-flash"]["observations"], 0)
         self.assertEqual(row["metadata_models"]["gemini-3.7-flash"]["observations"], 1)
         self.assertFalse(row["generation_quota_proven"])
+
+    def test_snapshot_reports_latest_metadata_batch_completeness(self):
+        completed_at = self.now - datetime.timedelta(minutes=3)
+        request_suffixes = ("I", "2", "3", "4", "5", "6")
+        for index, (suffix, key_name) in enumerate(zip(request_suffixes, gemini_health.KEY_ALIASES, strict=True), start=1):
+            self._attempt(
+                request_id=f"meta-2026081812-a1b2c3d4-{suffix}",
+                key_name=key_name,
+                model="gemini-3.7-flash",
+                outcome="succeeded",
+                role="health_metadata",
+                at=completed_at + datetime.timedelta(seconds=index),
+            )
+
+        snapshot = self._build()
+
+        self.assertEqual(
+            snapshot["latest_metadata_batch"],
+            {
+                "checked_aliases": 6,
+                "expected_aliases": 6,
+                "complete": True,
+                "completed_at": (completed_at + datetime.timedelta(seconds=6)).isoformat(),
+            },
+        )
