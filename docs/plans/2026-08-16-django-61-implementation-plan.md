@@ -539,30 +539,41 @@ Production acceptance от 2026-08-17:
 - [x] **DJ6-DB-002 - Сделать реальные MariaDB constraints частью compatibility gate.**
   - Gate должен отличать unsupported conditional constraint от реально созданного DB constraint.
 
-- [ ] **DJ6-SRV-002 - Измерить file cache и запретить считать его durable distributed lock.**
+- [x] **DJ6-SRV-002 - Измерить file cache и запретить считать его durable distributed lock.**
   - Метрики: p50/p95 IO, inode count, cleanup/TTL, concurrent \`cache.add\` semantics.
+  - Evidence: \`docs/qa/django61-stage4-observability.md\`; p50 0.143 ms, p95 0.407 ms, 3265 inodes, TTL 300, \`distributed_lock_safe=false\`.
 
-- [ ] **DJ6-SRV-007 - Исследовать disk temporary tables по query shapes.**
+- [x] **DJ6-SRV-007 - Исследовать disk temporary tables по query shapes.**
   - Не менять global MariaDB variables без rights/neighbor impact review.
+  - Evidence: \`docs/qa/django61-stage4-observability.md\`; temporary tables delta 1, disk temporary tables delta 0, без \`SET GLOBAL\`.
 
-- [ ] **DJ6-SRV-008 - Атрибутировать aborted connections/clients.**
+- [x] **DJ6-SRV-008 - Атрибутировать aborted connections/clients.**
   - Снять дельту, а не только cumulative counter; сопоставить Passenger/cron/daemon lifecycle.
+  - Evidence: \`docs/qa/django61-stage4-observability.md\`; aborted clients/connects delta 0/0.
 
-- [ ] **DJ6-SRV-009 - Добавить file-descriptor budget в concurrency design.**
+- [x] **DJ6-SRV-009 - Добавить file-descriptor budget в concurrency design.**
   - Измерить open FDs под peak и зафиксировать caps.
+  - Evidence: \`docs/qa/django61-stage4-observability.md\`; 5/1024 FDs, utilization 0.488%.
 
-- [ ] **DJ6-CACHE-001 - Учесть Django 6.1 cache-key cold start.**
+- [x] **DJ6-CACHE-001 - Учесть Django 6.1 cache-key cold start.**
   - Добавить warm-up/observability, не смешивать old/new custom cache keys.
+  - Evidence: \`docs/qa/django61-stage4-observability.md\`; cold miss -> warm hit, old-key reads 0.
 
-- [ ] **DJ6-AUTH-001 - Измерить PBKDF2 1,500,000 CPU и rehash rate.**
+- [x] **DJ6-AUTH-001 - Измерить PBKDF2 1,500,000 CPU и rehash rate.**
   - Не ослаблять password hasher без отдельного security решения.
+  - Evidence: \`docs/qa/django61-stage4-observability.md\`; encode 536.72 ms, verify 688.658 ms, current rehash false, legacy rehash true.
 
 ### Exit gate этапа 4
 
 - [ ] CSP report-only не ломает GTM/Meta/TikTok/Clarity/checkout на desktop/mobile.
+  - Browser evidence для desktop/mobile PDP и mini-cart зафиксирована в
+    `docs/qa/django61-stage4-acceptance.md`; checkout оставлен открытым,
+    потому что тестовая сессия не получила checkout-ссылку после добавления.
 - [x] Каждый \`csrf_exempt\` endpoint имеет записанный security contract.
-- [ ] Cache, temp tables, DB connections и FDs имеют измеримые dashboards/reports.
-- [ ] MariaDB warnings больше не воспринимаются как работающие constraints.
+- [x] Cache, temp tables, DB connections и FDs имеют измеримые dashboards/reports.
+  - Evidence: \`docs/qa/django61-stage4-observability.md\`.
+- [x] MariaDB warnings больше не воспринимаются как работающие constraints.
+  - Evidence: \`docs/qa/django61-stage4-base004-db002.md\`; warnings и conditional constraints разделены fail-closed gate.
 
 ---
 
