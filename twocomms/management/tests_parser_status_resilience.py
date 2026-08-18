@@ -144,6 +144,44 @@ class ParserStatusDatabaseResilienceTests(TransactionTestCase):
         self.assertEqual(conflicting.stop_reason_code, "session_superseded")
         self.assertEqual(lock.active_job_id, canonical.pk)
 
+    def test_dashboard_job_does_not_let_stale_lock_stop_fresh_active_job(self):
+        stale_time = timezone.now() - parser_service.SESSION_STALE_AFTER - timedelta(minutes=1)
+        stale = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="застарілий",
+            cities_raw="Харків",
+            keywords=["застарілий"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=stale_time,
+        )
+        fresh = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="свіжий",
+            cities_raw="Київ",
+            keywords=["свіжий"],
+            cities=["Київ"],
+            request_limit=10,
+            heartbeat_at=timezone.now(),
+        )
+        lock = parser_service.LeadParsingRuntimeLock.objects.create(
+            singleton_key=parser_service.RUNTIME_LOCK_KEY,
+            active_job=stale,
+        )
+
+        result = parser_service.parser_dashboard_job()
+
+        stale.refresh_from_db()
+        fresh.refresh_from_db()
+        lock.refresh_from_db()
+        self.assertEqual(result.pk, fresh.pk)
+        self.assertEqual(stale.status, parser_service.LeadParsingJob.Status.STOPPED)
+        self.assertEqual(stale.stop_reason_code, "session_superseded")
+        self.assertEqual(fresh.status, parser_service.LeadParsingJob.Status.RUNNING)
+        self.assertEqual(lock.active_job_id, fresh.pk)
+
     def test_dashboard_job_skips_reconciliation_after_competing_poll_repairs_state(self):
         job = parser_service.LeadParsingJob.objects.create(
             created_by=self.user,

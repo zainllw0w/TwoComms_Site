@@ -1015,9 +1015,14 @@ def _normalize_active_jobs_locked(lock: LeadParsingRuntimeLock, *, now=None) -> 
 
     canonical: LeadParsingJob | None = None
     if lock.active_job_id:
-        canonical = next((job for job in active_jobs if job.id == lock.active_job_id), None)
+        locked_job = next((job for job in active_jobs if job.id == lock.active_job_id), None)
+        if locked_job and not _job_is_stale(locked_job, now):
+            canonical = locked_job
     if canonical is None and active_jobs:
-        canonical = active_jobs[0]
+        # A stale lock must never supersede a newer live session. Keep the
+        # newest non-stale active job, falling back to the newest stale one so
+        # the cleanup below can mark every stale session deterministically.
+        canonical = next((job for job in active_jobs if not _job_is_stale(job, now)), active_jobs[0])
 
     for job in active_jobs:
         if canonical and job.id == canonical.id:
