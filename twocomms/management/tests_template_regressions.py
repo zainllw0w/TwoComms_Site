@@ -101,6 +101,24 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         self.assertIn('id="clients-legend">0<', html)
         self.assertIn("daily-stats", html)
 
+    def test_base_shell_does_not_fail_when_optional_activity_route_is_unavailable(self):
+        source = (
+            PROJECT_ROOT / "management/templates/management/base.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "{% url 'management_activity_pulse' as activity_pulse_url %}",
+            source,
+        )
+        self.assertIn(
+            'data-activity-pulse-url="{{ activity_pulse_url }}"',
+            source,
+        )
+        self.assertNotIn(
+            'data-activity-pulse-url="{% url \'management_activity_pulse\' %}"',
+            source,
+        )
+
     def test_contracts_template_compiles(self):
         template = loader.get_template("management/contracts.html")
         self.assertIsNotNone(template)

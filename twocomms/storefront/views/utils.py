@@ -13,6 +13,7 @@ from django.db import transaction
 from django.utils.encoding import iri_to_uri
 
 from base64_utils import InvalidBase64, strict_b64decode
+from twocomms.db_resilience import retry_mysql_read
 
 
 def _build_query_string(querydict):
@@ -314,10 +315,12 @@ def get_validated_cart_from_session(request):
 
     from productcolors.models import ProductColorVariant
 
-    variants = (
-        ProductColorVariant.objects.order_by()
-        .values('product_id')
-        .in_bulk(variant_ids)
+    variants = retry_mysql_read(
+        lambda: (
+            ProductColorVariant.objects.order_by()
+            .values('product_id')
+            .in_bulk(variant_ids)
+        )
     )
     cart, changed = filter_cart_variant_ownership(cart, variants)
     if changed:
@@ -363,9 +366,13 @@ def calculate_cart_total(cart):
 
     # Получаем все товары одним запросом
     ids = [item['product_id'] for item in cart.values()]
-    products = Product.objects.in_bulk(ids)
     variant_ids = [item.get('color_variant_id') for item in cart.values() if item.get('color_variant_id')]
-    variants = ProductColorVariant.objects.in_bulk(variant_ids)
+    products, variants = retry_mysql_read(
+        lambda: (
+            Product.objects.in_bulk(ids),
+            ProductColorVariant.objects.in_bulk(variant_ids),
+        )
+    )
     cart, _ = filter_cart_variant_ownership(cart, variants)
 
     total = Decimal('0')

@@ -2298,6 +2298,7 @@ def search(request):
 # ==================== COLOR × CATEGORY LANDING ====================
 
 @_catalog_landing_query_policy()
+@retry_mysql_read_view
 def category_color_landing(request, cat_slug, color_slug):
     """Render an indexable colour×category SEO landing page.
 
@@ -2570,6 +2571,7 @@ THEMATIC_LANDINGS_CONFIG = {
         and "page" not in request.GET
     ),
 )
+@retry_mysql_read_view
 def thematic_landing(request, theme_slug):
     """Render an indexable thematic SEO landing.
 

@@ -59,10 +59,11 @@
     <link rel="mask-icon" href="{% static 'img/logo.svg' %}" color="#ff7e29">
 </head>
 
+{% url 'management_activity_pulse' as activity_pulse_url %}
 <body class="management-body"
       data-mgmt-shell="{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' or request.resolver_match.url_name == 'management_parsing' %}1{% else %}0{% endif %}"
       data-url-name="{{ request.resolver_match.url_name }}"
-      data-activity-pulse-url="{% url 'management_activity_pulse' %}">
+      data-activity-pulse-url="{{ activity_pulse_url }}">
     <!-- Глобальный верхний хедер -->
     <header class="global-header">
         <div class="header-left">

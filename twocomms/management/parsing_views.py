@@ -6,6 +6,8 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from twocomms.db_resilience import is_mysql_disconnect_error, retry_mysql_read
+
 from .constants import TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, LeadParsingJob, LeadParsingResult, ManagementLead, normalize_phone
 from .parser_usage import parser_usage_snapshot
@@ -590,20 +592,37 @@ def parser_status_api(request):
         return blocked
     include_usage = _request_flag(request, "include_usage")
     job_id = request.GET.get("job_id")
-    job = parser_dashboard_job(job_id=job_id)
-    moderation, rejected = _lead_queue_payload()
-    return JsonResponse(
-        _maybe_attach_usage(
+    try:
+        job = parser_dashboard_job(job_id=job_id)
+        # Each operation builds fresh querysets on retry; never reuse a lazy
+        # queryset after a dropped MySQL connection.
+        job_payload = retry_mysql_read(lambda: _job_payload(job))
+        moderation, rejected = retry_mysql_read(_lead_queue_payload)
+        counters_payload = retry_mysql_read(_counters_payload)
+        response_payload = _maybe_attach_usage(
             {
                 "success": True,
-                "job": _job_payload(job),
-                "counters": _counters_payload(),
+                "job": job_payload,
+                "counters": counters_payload,
                 "moderation": moderation,
                 "rejected": rejected,
             },
             include_usage=include_usage,
         )
-    )
+    except Exception as exc:
+        if not is_mysql_disconnect_error(exc):
+            raise
+        response = JsonResponse(
+            {
+                "success": False,
+                "retryable": True,
+                "error": "Временно не вдалося отримати стан парсера. Спробуйте ще раз.",
+            },
+            status=503,
+        )
+        response["Retry-After"] = "1"
+        return response
+    return JsonResponse(response_payload)
 
 
 @login_required(login_url="management_login")

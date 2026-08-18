@@ -52,7 +52,6 @@ from storefront.custom_print_config import (
 )
 from storefront.custom_print_notifications import notify_custom_print_moderation_request
 from storefront.services.size_guides import normalize_requested_size
-from twocomms.db_resilience import retry_mysql_read_view
 from .utils import (
     get_validated_cart_from_session,
     save_cart_to_session,
@@ -63,6 +62,7 @@ from .utils import (
     _color_label_from_variant,
 )
 from ..utm_tracking import record_add_to_cart, record_remove_from_cart, record_user_action
+from twocomms.db_resilience import retry_mysql_read
 
 # Logger для корзины
 cart_logger = logging.getLogger('storefront.cart')
@@ -90,6 +90,37 @@ def _normalize_cart_color_hex(value):
     return raw.upper() if _COLOR_HEX_RE.fullmatch(raw) else ''
 
 
+def _load_cart_products(product_ids, *, include_images=False):
+    """Load cart products in one reconnect-safe, read-only operation."""
+    def operation():
+        queryset = Product.objects
+        if include_images:
+            queryset = queryset.select_related('category').prefetch_related(
+                'color_variants__images'
+            )
+        return queryset.in_bulk(product_ids)
+
+    return retry_mysql_read(operation)
+
+
+def _load_cart_variants(variant_ids, *, include_images=False):
+    """Load cart variants in one reconnect-safe, read-only operation."""
+    def operation():
+        queryset = ProductColorVariant.objects.select_related('color')
+        if include_images:
+            queryset = queryset.prefetch_related('images')
+        return queryset.in_bulk(variant_ids)
+
+    return retry_mysql_read(operation)
+
+
+def _load_promo_code(promo_code_id):
+    """Load a promo and its optional group inside the read retry boundary."""
+    return retry_mysql_read(
+        lambda: PromoCode.objects.select_related('group').get(id=promo_code_id)
+    )
+
+
 # ==================== CART VIEWS ====================
 
 
@@ -100,7 +131,9 @@ def _calculate_original_subtotal(cart):
     if not cart:
         return Decimal('0')
     ids = [item.get('product_id') for item in cart.values() if item.get('product_id')]
-    products = Product.objects.values('price').in_bulk(ids)
+    products = retry_mysql_read(
+        lambda: Product.objects.values('price').in_bulk(ids)
+    )
     total = Decimal('0')
     for item in cart.values():
         product = products.get(item.get('product_id'))
@@ -152,9 +185,11 @@ def _effective_item_price(product, item_data, color_variant=None):
         raw_variant_id = item_data.get('color_variant_id') if item_data else None
         if raw_variant_id:
             try:
-                color_variant = ProductColorVariant.objects.get(
-                    pk=int(raw_variant_id),
-                    product_id=product.pk,
+                color_variant = retry_mysql_read(
+                    lambda: ProductColorVariant.objects.get(
+                        pk=int(raw_variant_id),
+                        product_id=product.pk,
+                    )
                 )
             except (ProductColorVariant.DoesNotExist, TypeError, ValueError):
                 color_variant = None
@@ -440,7 +475,12 @@ def _collect_custom_cart_state(request) -> dict:
     leads_map = {}
     lead_ids = [item.get('lead_id') for item in custom_cart_raw.values() if isinstance(item, dict) and item.get('lead_id')]
     if lead_ids:
-        leads_map = {lead.pk: lead for lead in CustomPrintLead.objects.filter(pk__in=lead_ids)}
+        leads_map = retry_mysql_read(
+            lambda: {
+                lead.pk: lead
+                for lead in CustomPrintLead.objects.filter(pk__in=lead_ids)
+            }
+        )
 
     rejected_keys = []
     session_changed = False
@@ -621,12 +661,12 @@ def view_cart(request):
 
     # Optimization: Fetch all products at once to avoid N+1
     product_ids = [item_data.get('product_id') for item_data in cart.values() if item_data.get('product_id')]
-    products_map = Product.objects.select_related('category').prefetch_related('color_variants__images').in_bulk(product_ids)
+    products_map = _load_cart_products(product_ids, include_images=True)
 
     # Optimization: Fetch all color variants at once
     color_variant_ids = [item_data.get('color_variant_id') for item_data in cart.values() if item_data.get('color_variant_id')]
     from productcolors.models import ProductColorVariant
-    color_variants_map = ProductColorVariant.objects.select_related('color').in_bulk(color_variant_ids)
+    color_variants_map = _load_cart_variants(color_variant_ids)
     cart, dropped_variants = filter_cart_variant_ownership(cart, color_variants_map)
     if dropped_variants:
         _reset_monobank_session(request, drop_pending=True)
@@ -712,7 +752,7 @@ def view_cart(request):
 
     if promo_code_id:
         try:
-            promo_code = PromoCode.objects.get(id=promo_code_id)
+            promo_code = _load_promo_code(promo_code_id)
             if promo_code.can_be_used():
                 discount = promo_code.calculate_discount(subtotal)
             else:
@@ -1019,11 +1059,11 @@ def add_to_cart(request):
     item_value = (price * qty).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     ids = [i['product_id'] for i in cart.values()]
-    prods = Product.objects.in_bulk(ids)
+    prods = _load_cart_products(ids)
     total_qty = sum(i['qty'] for i in cart.values())
     total_sum = Decimal('0')
     variant_ids = [i.get('color_variant_id') for i in cart.values() if i.get('color_variant_id')]
-    cart_variants = ProductColorVariant.objects.in_bulk(variant_ids)
+    cart_variants = _load_cart_variants(variant_ids)
     for i in cart.values():
         p = prods.get(i['product_id'])
         if p:
@@ -1114,7 +1154,9 @@ def update_cart(request):
         # ИСПРАВЛЕНО: Получаем цену из Product, а не из сессии (в сессии нет поля 'price')
         product_id = cart[cart_key]['product_id']
         try:
-            product = Product.objects.get(id=product_id)
+            product = retry_mysql_read(
+                lambda: Product.objects.get(id=product_id)
+            )
             price = _effective_item_price(product, cart[cart_key])
         except Product.DoesNotExist:
             return JsonResponse({
@@ -1131,7 +1173,7 @@ def update_cart(request):
         promo_code_id = request.session.get('promo_code_id')
         if promo_code_id:
             try:
-                promo_code = PromoCode.objects.get(id=promo_code_id)
+                promo_code = _load_promo_code(promo_code_id)
                 if promo_code.can_be_used():
                     discount = promo_code.calculate_discount(subtotal)
             except PromoCode.DoesNotExist:
@@ -1212,7 +1254,7 @@ def remove_from_cart(request):
 
     # Пересчёт сводки с использованием Decimal и учетом промокодов
     ids = [i['product_id'] for i in cart.values()]
-    prods = Product.objects.in_bulk(ids)
+    prods = _load_cart_products(ids)
     total_qty = sum(i['qty'] for i in cart.values())
     total_sum = Decimal('0')
     for i in cart.values():
@@ -1227,7 +1269,7 @@ def remove_from_cart(request):
     promo_code_id = request.session.get('promo_code_id')
     if promo_code_id:
         try:
-            promo_code = PromoCode.objects.get(id=promo_code_id)
+            promo_code = _load_promo_code(promo_code_id)
             if promo_code.can_be_used():
                 discount = promo_code.calculate_discount(subtotal)
         except PromoCode.DoesNotExist:
@@ -1245,7 +1287,9 @@ def remove_from_cart(request):
                     product_id_str = removed_key.split(':')[0]
                     try:
                         product_id = int(product_id_str)
-                        product = Product.objects.get(id=product_id)
+                        product = retry_mysql_read(
+                            lambda: Product.objects.get(id=product_id)
+                        )
                         record_remove_from_cart(
                             request,
                             product_id=product.id,
@@ -1351,8 +1395,12 @@ def apply_promo_code(request):
         # Match without changing the stored or user-entered casing. Fetch at most
         # two rows so legacy databases with case-insensitive duplicates fail
         # closed instead of selecting an arbitrary discount/usage record.
-        promo_matches = list(
-            PromoCode.objects.filter(code__iexact=code).order_by('pk')[:2]
+        promo_matches = retry_mysql_read(
+            lambda: list(
+                PromoCode.objects.select_related('group')
+                .filter(code__iexact=code)
+                .order_by('pk')[:2]
+            )
         )
         if not promo_matches:
             return JsonResponse({
@@ -1563,7 +1611,13 @@ def cart_summary(request):
         })
 
     ids = [i['product_id'] for i in cart.values()]
-    prods = Product.objects.in_bulk(ids)
+    prods = _load_cart_products(ids)
+    variant_ids = [
+        item.get('color_variant_id')
+        for item in cart.values()
+        if item.get('color_variant_id')
+    ]
+    variants = _load_cart_variants(variant_ids)
 
     # Проверяем, какие товары найдены
     found_products = set(prods.keys())
@@ -1584,7 +1638,16 @@ def cart_summary(request):
     for i in cart.values():
         p = prods.get(i['product_id'])
         if p:
-            total_sum += Decimal(str(i['qty'])) * _effective_item_price(p, i)
+            raw_variant_id = i.get('color_variant_id')
+            try:
+                variant = variants.get(int(raw_variant_id)) if raw_variant_id else None
+            except (TypeError, ValueError):
+                variant = None
+            total_sum += Decimal(str(i['qty'])) * _effective_item_price(
+                p,
+                i,
+                variant,
+            )
 
     total_sum += custom_total
     total_qty += custom_qty
@@ -1602,11 +1665,11 @@ def cart_mini(request):
     cart_sess = get_validated_cart_from_session(request)
 
     ids = [i['product_id'] for i in cart_sess.values()]
-    prods = Product.objects.in_bulk(ids)
+    prods = _load_cart_products(ids)
 
     # Optimization: Fetch color variants
     variant_ids = [i.get('color_variant_id') for i in cart_sess.values() if i.get('color_variant_id')]
-    variants_map = ProductColorVariant.objects.select_related('color').in_bulk(variant_ids)
+    variants_map = _load_cart_variants(variant_ids)
     cart_sess, dropped_variants = filter_cart_variant_ownership(cart_sess, variants_map)
     if dropped_variants:
         _reset_monobank_session(request, drop_pending=True)
@@ -1757,7 +1820,7 @@ def contact_manager(request):
 
         # Получаем товары из БД
         ids = [item['product_id'] for item in cart.values()]
-        products = Product.objects.in_bulk(ids)
+        products = _load_cart_products(ids)
 
         # Формируем сообщение для Telegram
         message = f"""📞 <b>ЗАПИТ ЗВ'ЯЗКУ З МЕНЕДЖЕРОМ</b>
@@ -1828,7 +1891,6 @@ def contact_manager(request):
 
 
 @never_cache
-@retry_mysql_read_view
 def cart_items_api(request):
     """
     AJAX endpoint для получения списка товаров в корзине (JSON).
@@ -1855,10 +1917,10 @@ def cart_items_api(request):
 
     # Optimization: Fetch all products and variants at once
     product_ids = [item.get('product_id') for item in cart.values() if item.get('product_id')]
-    products_map = Product.objects.select_related('category').prefetch_related('color_variants__images').in_bulk(product_ids)
+    products_map = _load_cart_products(product_ids, include_images=True)
 
     color_variant_ids = [item.get('color_variant_id') for item in cart.values() if item.get('color_variant_id')]
-    variants_map = ProductColorVariant.objects.select_related('color').prefetch_related('images').in_bulk(color_variant_ids)
+    variants_map = _load_cart_variants(color_variant_ids, include_images=True)
 
     for item_key, item_data in cart.items():
         try:
@@ -1941,7 +2003,7 @@ def cart_items_api(request):
 
     if promo_code_id:
         try:
-            promo_code = PromoCode.objects.get(id=promo_code_id)
+            promo_code = _load_promo_code(promo_code_id)
             if promo_code.can_be_used():
                 discount = promo_code.calculate_discount(subtotal)
             else:

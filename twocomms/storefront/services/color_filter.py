@@ -30,6 +30,7 @@ from django.utils.translation import get_language
 from productcolors.color_i18n import translate_color_name
 
 from storefront.utm_utils import PLATFORM_QUERY_PARAMS
+from twocomms.db_resilience import is_mysql_disconnect_error, retry_mysql_read
 
 
 def _translate_color_label(label: str):
@@ -104,16 +105,26 @@ def get_allowed_color_slugs() -> List[str] | None:
     if cached is not None:
         return list(cached)
 
-    try:
-        ProductColorVariant = apps.get_model("productcolors", "ProductColorVariant")
-        slugs = sorted(
-            set(
-                ProductColorVariant.objects.filter(product__status="published")
-                .exclude(slug="")
-                .values_list("slug", flat=True)
+    def load_slugs():
+        try:
+            ProductColorVariant = apps.get_model("productcolors", "ProductColorVariant")
+            slugs = sorted(
+                set(
+                    ProductColorVariant.objects.filter(product__status="published")
+                    .exclude(slug="")
+                    .values_list("slug", flat=True)
+                )
             )
-        )
-    except (LookupError, DatabaseError):
+        except LookupError:
+            return None
+        except DatabaseError as exc:
+            if is_mysql_disconnect_error(exc):
+                raise
+            return None
+        return slugs
+
+    slugs = retry_mysql_read(load_slugs, fallback=None)
+    if slugs is None:
         return None
 
     cache.set(
@@ -200,6 +211,32 @@ def build_available_colors(
     *,
     category=None,
 ) -> List[Dict[str, Any]]:
+    """Build colour chips within a reconnect-safe read boundary."""
+    selected_slugs = list(selected_slugs or [])
+
+    def operation():
+        try:
+            return _build_available_colors(
+                base_queryset,
+                request,
+                selected_slugs,
+                category=category,
+            )
+        except DatabaseError as exc:
+            if is_mysql_disconnect_error(exc):
+                raise
+            return []
+
+    return retry_mysql_read(operation, fallback=[])
+
+
+def _build_available_colors(
+    base_queryset: QuerySet,
+    request,
+    selected_slugs: Iterable[str],
+    *,
+    category=None,
+) -> List[Dict[str, Any]]:
     """Return chip descriptors for every distinct colour slug in ``base_queryset``.
 
     ``base_queryset`` is the *pre-colour-filter* queryset so users can
@@ -222,7 +259,9 @@ def build_available_colors(
 
     try:
         product_ids = list(base_queryset.values_list("id", flat=True))
-    except DatabaseError:
+    except DatabaseError as exc:
+        if is_mysql_disconnect_error(exc):
+            raise
         return []
 
     if not product_ids:
@@ -241,7 +280,9 @@ def build_available_colors(
                 "color__secondary_hex",
             )
         )
-    except DatabaseError:
+    except DatabaseError as exc:
+        if is_mysql_disconnect_error(exc):
+            raise
         return []
 
     # Aggregate by slug. Pick the most common (primary, secondary) hex pair
@@ -286,7 +327,9 @@ def build_available_colors(
                     ):
                         if slug:
                             landing_url_by_slug[slug] = f"/catalog/{cat_slug}/{slug}/"
-            except DatabaseError:
+            except DatabaseError as exc:
+                if is_mysql_disconnect_error(exc):
+                    raise
                 landing_url_by_slug = {}
 
     for slug, entry in bucket.items():
@@ -343,6 +386,24 @@ def build_home_color_chips(
     *,
     limit: int = 12,
 ) -> List[Dict[str, Any]]:
+    """Build homepage colour chips within a reconnect-safe read boundary."""
+    def operation():
+        try:
+            return _build_home_color_chips(base_queryset, target_path, limit=limit)
+        except DatabaseError as exc:
+            if is_mysql_disconnect_error(exc):
+                raise
+            return []
+
+    return retry_mysql_read(operation, fallback=[])
+
+
+def _build_home_color_chips(
+    base_queryset: QuerySet,
+    target_path: str,
+    *,
+    limit: int = 12,
+) -> List[Dict[str, Any]]:
     """Chip descriptors for the homepage that link to ``target_path?color=<slug>``.
 
     Used near the categories block so visitors can jump straight to a
@@ -356,7 +417,9 @@ def build_home_color_chips(
 
     try:
         product_ids = list(base_queryset.values_list("id", flat=True))
-    except DatabaseError:
+    except DatabaseError as exc:
+        if is_mysql_disconnect_error(exc):
+            raise
         return []
 
     if not product_ids:
@@ -375,7 +438,9 @@ def build_home_color_chips(
                 "color__secondary_hex",
             )
         )
-    except DatabaseError:
+    except DatabaseError as exc:
+        if is_mysql_disconnect_error(exc):
+            raise
         return []
 
     bucket: Dict[str, Dict[str, Any]] = defaultdict(lambda: {

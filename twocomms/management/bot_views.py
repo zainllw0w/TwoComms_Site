@@ -26,6 +26,7 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode, urlsplit
 
 from base64_utils import strict_b64decode
+from twocomms.db_resilience import retry_mysql_read
 
 from .bot_access import is_meta_bot_reviewer
 from .models import (
@@ -753,10 +754,13 @@ def bot_status_api(request):
             "log": [],
         })
 
-    rows = InstagramBotLog.objects.all()
-    if after_id:
-        rows = rows.filter(id__gt=after_id)
-    rows = list(rows[:120])
+    def load_rows():
+        rows = InstagramBotLog.objects.all()
+        if after_id:
+            rows = rows.filter(id__gt=after_id)
+        return list(rows[:120])
+
+    rows = retry_mysql_read(load_rows, fallback=[])
     rows.reverse()  # від старіших до новіших для дозапису в консоль
     items = [
         {

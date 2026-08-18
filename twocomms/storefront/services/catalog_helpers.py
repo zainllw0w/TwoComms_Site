@@ -17,6 +17,7 @@ from django.db.models import QuerySet
 from django.utils.translation import gettext as _
 
 from cache_utils import get_cache
+from twocomms.db_resilience import is_mysql_disconnect_error, retry_mysql_read
 from .image_variants import build_optimized_image_payload
 
 logger = logging.getLogger(__name__)
@@ -145,19 +146,21 @@ def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):
     """
     Retrieve ordered categories with caching.
     """
-    if cache_backend is None:
+    if cache_backend is not None:
+        categories = cache_backend.get('categories:ordered')
+        if categories is not None:
+            return categories
+    else:
         logger.warning("No cache backend passed to get_categories_cached; querying DB directly.")
-        Category = apps.get_model('storefront', 'Category')
-        return list(Category.objects.filter(is_active=True).order_by('order', 'name'))
 
-    categories = cache_backend.get('categories:ordered')
-    if categories is not None:
+    def load_categories():
+        Category = apps.get_model('storefront', 'Category')
+        categories = list(Category.objects.filter(is_active=True).order_by('order', 'name'))
+        if cache_backend is not None:
+            cache_backend.set('categories:ordered', categories, timeout)
         return categories
 
-    Category = apps.get_model('storefront', 'Category')
-    categories = list(Category.objects.filter(is_active=True).order_by('order', 'name'))
-    cache_backend.set('categories:ordered', categories, timeout)
-    return categories
+    return retry_mysql_read(load_categories, fallback=[])
 
 
 def apply_public_product_order(queryset: QuerySet) -> QuerySet:
@@ -324,15 +327,16 @@ def _load_product_color_variant_queryset(product_ids: Iterable[int]):
             .order_by('product_id', 'order', 'id')
         )
     except DatabaseError as exc:
+        if is_mysql_disconnect_error(exc):
+            raise
         logger.warning("Failed to load ProductColorVariant rows: %s", exc, exc_info=exc)
         return None
 
 
-def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str, Any]]]:
+def _build_color_preview_map(products: List[Any]) -> Dict[int, List[Dict[str, Any]]]:
     """
     Returns mapping {product_id: [colour preview dicts]} suitable for product cards / featured.
     """
-    products = list(products)
     product_ids = [p.id for p in products if getattr(p, 'id', None)]
     if not product_ids:
         return {}
@@ -434,6 +438,25 @@ def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str,
     return preview_map
 
 
+def build_color_preview_map(products: Iterable[Any]) -> Dict[int, List[Dict[str, Any]]]:
+    """Build card previews inside a reconnect-safe read boundary.
+
+    A lazy QuerySet is cloned on every attempt so a cursor failure during
+    materialization can restart from a fresh iterator.
+    """
+    if isinstance(products, QuerySet):
+        return retry_mysql_read(
+            lambda: _build_color_preview_map(list(products.all())),
+            fallback={},
+        )
+
+    products = list(products)
+    return retry_mysql_read(
+        lambda: _build_color_preview_map(products),
+        fallback={},
+    )
+
+
 def build_color_preview_key(variants: Iterable[Dict[str, Any]]) -> str:
     """
     Compact fragment-cache key for rendered colour controls.
@@ -465,8 +488,11 @@ def get_product_color_variant_rows(product) -> List[Any]:
         return cached
     if not getattr(product, 'id', None):
         return []
-    queryset = _load_product_color_variant_queryset([product.id])
-    rows = list(queryset) if queryset is not None else []
+    def load_rows():
+        queryset = _load_product_color_variant_queryset([product.id])
+        return list(queryset) if queryset is not None else []
+
+    rows = retry_mysql_read(load_rows, fallback=[])
     try:
         product._color_variant_rows_cache = rows
     except Exception:

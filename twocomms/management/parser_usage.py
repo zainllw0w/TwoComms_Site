@@ -15,6 +15,7 @@ import jwt
 import requests
 
 from base64_utils import strict_b64decode
+from twocomms.db_resilience import retry_mysql_read
 
 from .models import LeadParsingJob
 
@@ -270,4 +271,11 @@ class GoogleProjectUsageProvider:
 
 def parser_usage_snapshot() -> ParserUsageSnapshot:
     provider_status, google_project_usage = GoogleProjectUsageProvider().fetch_google_project_usage()
-    return _base_snapshot(provider_status=provider_status, google_project_usage=google_project_usage)
+    # The provider may perform OAuth and Cloud Monitoring requests.  Only the
+    # local aggregate reads are reconnect-safe and may be retried.
+    return retry_mysql_read(
+        lambda: _base_snapshot(
+            provider_status=provider_status,
+            google_project_usage=google_project_usage,
+        )
+    )
