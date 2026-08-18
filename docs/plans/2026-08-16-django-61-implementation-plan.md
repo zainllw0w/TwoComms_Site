@@ -666,12 +666,19 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-TASK-001 - Выбрать production backend для Django Tasks.**
   - Built-in \`ImmediateBackend\` не считать очередью.
   - Начать с no-send canary с durable DB state.
-  - Статус 2026-08-18: **OPEN / BLOCKED**. Production использует
-    `ImmediateBackend`; Celery и отдельный supervised task worker отсутствуют.
-    Следующий implementable candidate - MariaDB-backed durable adapter и
-    bounded cron worker, но пункт остается открытым до реализации, crash/restart
-    proof и connection-budget gate.
-  - Evidence: `docs/qa/django61-stage6-capability-blocker.md`.
+  - [x] Локальный MariaDB-backed adapter реализован как opt-in alias
+    `durable`: allowlist, JSON-only payload, explicit idempotency helper,
+    lease/fencing/reclaim и bounded command `run_durable_tasks`. Обычный
+    `Task.enqueue()` создаёт новый dispatch, а не схлопывает легитимные
+    одинаковые вызовы. Initial runtime пропускает только зарегистрированный
+    no-send canary; `takes_context` и side effects fail-closed.
+  - [ ] Production activation: `task_runtime.0001_initial` ещё не применена
+    к authoritative MariaDB; остаются CloudLinux-bound no-send canary,
+    restart/reclaim proof, connection/FD budget и единственный cron owner.
+  - Статус: **LOCAL IMPLEMENTED / PRODUCTION BLOCKED**. `default` остаётся
+    `ImmediateBackend`, поэтому новый adapter не меняет текущий request path.
+  - Evidence: `docs/qa/django61-stage6-capability-blocker.md`,
+    `docs/qa/django61-stage6-task-runtime.md`.
 
 - [x] **DJ6-TASK-002 - Добавить fail-fast guard против \`ImmediateBackend\` для тяжелых tasks.**
   - Production enqueue тяжелой задачи должен быть невозможен без worker proof.

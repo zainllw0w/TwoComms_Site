@@ -59,10 +59,11 @@ MariaDB writes/DDL, migrations, cache cleanup, process start/restart или
 | `DJ6-SRV-001` | OPEN / BLOCKED | Нужен рабочий endpoint с успешными DNS, TCP, TLS, authenticated `PING`, ACL identity и read-only server metadata probes либо формально согласованный другой backend. |
 | `DJ6-TASK-001` | OPEN / BLOCKED | Нужен выбранный внешний Django Tasks adapter, durable no-send canary, restart/reclaim/duplicate proof и явный перевод ownership только одной периодики. `ImmediateBackend` таким backend не является. |
 
-## Следующий implementable candidate
+## Реализованный локальный candidate
 
-При текущих ограничениях ближайший проверяемый вариант - MariaDB-backed
-durable Django Tasks adapter и bounded cron worker, без Redis/Celery daemon:
+При текущих ограничениях реализован MariaDB-backed durable Django Tasks
+adapter и bounded cron worker, без Redis/Celery daemon. Это ещё не production
+backend и не разрешение на schema/cron mutation:
 
 1. Adapter сохраняет только allowlisted task name, JSON-safe scalar IDs,
    idempotency key, status, attempts, `available_at`, lease token/expiry и
@@ -78,9 +79,13 @@ durable Django Tasks adapter и bounded cron worker, без Redis/Celery daemon:
    worker не превышает лимит `max_user_connections=20` при текущих Passenger,
    daemon и cron owners.
 
-Это только кандидат, не выбранный backend. `DJ6-SRV-001` и `DJ6-TASK-001`
-остаются открыты до реализации adapter, disposable tests и production restart
-canary. Production schema/cron в рамках этой проверки не изменяются.
+Initial adapter intentionally allows only the registered no-send canary.
+Ordinary Django enqueue creates a fresh dispatch; business deduplication must
+be supplied through the explicit durable-row contract rather than inferred
+from task arguments. `DJ6-SRV-001` и `DJ6-TASK-001` остаются открыты до
+production migration, CloudLinux-bound no-send canary, restart/reclaim proof
+и connection-budget evidence. Production schema/cron в рамках этой проверки
+не изменяются.
 
 ## Альтернативный следующий шаг для Redis
 
