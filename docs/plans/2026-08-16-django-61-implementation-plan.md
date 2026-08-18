@@ -671,8 +671,12 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-TPL-001 - Перенести только доказанные full/fragment пары на template partials.**
   - Не заменять общие includes без пользы; начать с 2-3 representative components.
 
-- [ ] **DJ6-TPL-002 - Использовать \`{% querystring %}\` в pagination templates.**
+- [x] **DJ6-TPL-002 - Использовать \`{% querystring %}\` в pagination templates.**
   - Тесты: empty query, repeated params, page replacement, escaped values.
+  - Evidence: `twocomms/warehouse/templates/warehouse/history.html`,
+    `twocomms/warehouse/tests/test_django61_querystring_pagination.py`,
+    `docs/qa/django61-stage7-querystring-pagination.md`; focused pagination
+    suite `5/5`.
 
 - [x] **DJ6-DOC-001 - Обновить current architecture docs на Python 3.14.6/Django 6.1.**
   - Исторические incident/plans не переписывать.

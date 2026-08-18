@@ -730,6 +730,20 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Риск и ограничения: нельзя просто заменить backend на Redis, пока DNS/ACL/права и connection budget не подтверждены. Не удалять cron ownership без canary и rollback.
 - Следующая проверка: capability matrix хостинга и безопасный no-send task contract (`DJ6-BASE-005`, `DJ6-SRV-001`, `DJ6-TASK-001`).
 
+### DJ6-TPL-002 - Использовать `{% querystring %}` для безопасной pagination
+
+- Статус: `реализовано 2026-08-18`; приоритет: `P2`.
+- Область: `twocomms/warehouse/templates/warehouse/history.html`.
+- Что сделано: ручная конкатенация `page` и фильтров заменена на стандартный
+  Django 6.1 template tag `{% querystring page=... %}`.
+- Доказательство: `warehouse.tests.test_django61_querystring_pagination` и
+  `warehouse.tests.test_django61_pagination_ordering` проходят `5/5`; покрыты
+  пустой query, повторяющиеся параметры, замена page и escaping.
+- Что дает: меньше шаблонного кода, корректное сохранение фильтров и единое
+  URL-кодирование без дублирования `page`.
+- Ограничения: внедрен только один изолированный non-DTF pagination surface;
+  остальные шаблоны требуют отдельной parity-проверки.
+
 ### DJ6-CACHE-001 - Учесть одноразовый cache miss после смены Django 6.1 cache keys
 
 - Статус: `подтверждено`; предварительный приоритет: `P2` на deploy-процедуру.
