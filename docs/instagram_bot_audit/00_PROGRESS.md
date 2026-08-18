@@ -164,15 +164,16 @@ CTA is suppressed.
 
 The admin-only `API` tab, six-key live capsules, independent 24-hour
 `gemini-3.7-flash`/`gemini-3.6-flash` rails, passive refresh/countdown and
-explicit manual probe are released through `7372f0b6b`; production-proof
-documentation is in `c6ee5697b`. The hourly metadata checker is token-free,
+explicit manual probe are released through `7372f0b6b`, with the stable
+countdown follow-up in `8bfb6c5ea`/`7fde498fb`; production-proof documentation
+is in `c6ee5697b`. The hourly metadata checker is token-free,
 3.7-first with conditional 3.6 fallback, bounded by one shared deadline and a
 single managed cron owner.
 
-Fresh focused evidence: checker/API/metadata tests `70/70`, cron installer
+Fresh focused evidence: checker/API/metadata tests `53/53`, cron installer
 `18/18`, normal-settings `manage.py check`, management migration drift,
 compileall, shell syntax and `git diff --check` all passed. The current
-canonical local/remote/production checkpoint is `6370b1823`; a read-only
+canonical local/remote/production checkpoint is `d17e4b636`; a read-only
 MariaDB snapshot shows six key rows with two model rows each and metadata
 observations present, while `GeminiRequestAttempt` and `GeminiKeyState` counts
 remain unchanged across passive snapshot reads. No provider generation,
