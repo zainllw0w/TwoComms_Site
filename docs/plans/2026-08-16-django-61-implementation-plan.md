@@ -589,15 +589,14 @@ Production acceptance от 2026-08-17:
 
 **Правило:** один небольшой table family за один change. Никакого массового \`ALTER\` 178 MyISAM таблиц.
 
-- [x] **DJ6-SRV-003 - Составить и выполнить поэтапный MyISAM -> InnoDB roadmap.**
+- [ ] **DJ6-SRV-003 - Составить и выполнить поэтапный MyISAM -> InnoDB roadmap.**
   - Ранжировать по write criticality, size, orphan risk, index/fulltext behavior и FK graph.
   - Первый canary только на маленькой таблице с rollback/rehearsal.
-  - Evidence: read-only non-DTF matrix содержит все 177 текущих MyISAM
-    targets с engine/size/risk/preflight order и fail-closed unknown
-    writer/orphan state; disposable MariaDB 11.4.12 MyISAM -> InnoDB ->
-    rollback rehearsal проверил backup, timing, digest и cleanup. Ни один
-    production `ALTER TABLE` не разрешён или выполнен:
-    `docs/qa/django61-stage5-srv003.md`.
+  - Read-only roadmap, fail-closed matrix и disposable MariaDB 11.4.12
+    rehearsal готовы: `docs/qa/django61-stage5-srv003.md`. Пункт остаётся
+    открытым: все 177 production targets находятся на HOLD до writer/orphan,
+    domain и rollback proof; production `ALTER TABLE` не разрешён и не
+    выполнялся.
 
 - [x] **DJ6-SRV-004 - Сохранить connection budget и \`CONN_MAX_AGE=0\`.**
   - Любой новый worker/connection pool проходит capacity test до production.
@@ -631,14 +630,12 @@ Production acceptance от 2026-08-17:
 
 ### Exit gate этапа 5
 
-- [x] Есть одобренная таблица \`model -> engine -> size -> risk -> migration order\`.
-  - Evidence: `docs/qa/django61-stage5-srv003-matrix.json`; порядок означает
-    только read-only preflight, а все production DDL rows остаются HOLD до
-    writer/orphan/domain proof.
-- [x] Первый InnoDB canary имеет backup, rehearsal timing и rollback.
-  - Evidence: 250-row disposable MariaDB 11.4.12 rehearsal с verified
-    shadow backup, conversion, rollback digest и temporary-schema cleanup:
-    `docs/qa/django61-stage5-srv003.md`.
+- [ ] Есть одобренная таблица \`model -> engine -> size -> risk -> migration order\`.
+  - Read-only matrix существует, но все production DDL rows остаются HOLD до
+    writer/orphan/domain proof: `docs/qa/django61-stage5-srv003-matrix.json`.
+- [ ] Первый InnoDB canary имеет backup, rehearsal timing и rollback.
+  - 250-row disposable MariaDB 11.4.12 rehearsal доказал механику, но не
+    заменяет approved production canary: `docs/qa/django61-stage5-srv003.md`.
 - [x] DB-level cascade/generated column не внедрены без disposable MariaDB proof.
   - Evidence: `DJ6-DB-001` и `DJ6-ORM-013` закрыты только disposable
     evidence; production adoption обоих DDL patterns по-прежнему запрещён.

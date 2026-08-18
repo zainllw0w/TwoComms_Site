@@ -72,7 +72,13 @@ def _clean_table(raw: dict[str, Any]) -> dict[str, Any]:
         else None
     )
     supplied_risk = str(raw.get("risk", "")).strip()
-    if engine.casefold() == "myisam" and not orphan_scan_complete:
+    if (
+        engine.casefold() == "myisam"
+        and not writer_audit_complete
+        and not orphan_scan_complete
+    ):
+        risk = "unmeasured_writer_and_orphan_risk"
+    elif engine.casefold() == "myisam" and not orphan_scan_complete:
         risk = "unmeasured_orphan_risk"
     elif engine.casefold() == "myisam" and not writer_audit_complete:
         risk = "unmeasured_writer_risk"

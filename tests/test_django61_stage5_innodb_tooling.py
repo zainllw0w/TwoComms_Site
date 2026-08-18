@@ -100,7 +100,7 @@ class Stage5InventoryTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     MODULE.build_report(unsafe)
 
-    def test_unmeasured_orphan_risk_cannot_select_a_canary(self):
+    def test_unmeasured_writer_and_orphan_risk_cannot_select_a_canary(self):
         report = MODULE.build_report(
             {
                 "database": "default",
@@ -126,7 +126,9 @@ class Stage5InventoryTests(unittest.TestCase):
 
         self.assertIsNone(report["selected_canary"])
         self.assertEqual(report["canary_status"], "blocked_no_proven_candidate")
-        self.assertEqual(report["tables"][0]["risk"], "unmeasured_orphan_risk")
+        self.assertEqual(
+            report["tables"][0]["risk"], "unmeasured_writer_and_orphan_risk"
+        )
 
     def test_unmeasured_writer_risk_cannot_select_a_canary(self):
         report = MODULE.build_report(

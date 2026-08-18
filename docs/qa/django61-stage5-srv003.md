@@ -2,8 +2,9 @@
 
 Date: 2026-08-18
 
-Status: complete for the roadmap, read-only production inventory, and
-disposable canary gates. This is not a production engine-conversion release.
+Status: read-only roadmap, production inventory, and disposable canary
+rehearsal are complete. The production-conversion acceptance and its Stage 5
+checkboxes remain open; this is not a production engine-conversion release.
 
 ## Scope and safety boundary
 
@@ -16,7 +17,7 @@ base tables, 143 InnoDB tables, 177 MyISAM tables, 39 physical foreign-key
 edges, and 13 tables with triggers. MariaDB `TABLE_ROWS` is an estimate, so the
 matrix does not represent it as an exact count.
 
-## Approved matrix and order
+## Read-only matrix and preflight order
 
 [`django61-stage5-srv003-matrix.json`](django61-stage5-srv003-matrix.json)
 contains every current non-DTF MyISAM target with:
@@ -31,7 +32,7 @@ All 177 MyISAM rows are deliberately marked
 `blocked_pending_writer_orphan_and_domain_preflight`. None has a false
 zero-writer or zero-orphan claim; consequently the matrix approves zero
 production DDL targets and zero production canary candidates. The sequence is
-the approved order for *read-only preflight*, not permission to run DDL:
+the order for *read-only preflight*, not permission to run DDL:
 low-risk/small families are reviewed first, then medium, high, critical, and
 unmapped tables. A table can leave HOLD only after a domain-specific writer,
 orphan, index/FULLTEXT, trigger, and rollback review.
