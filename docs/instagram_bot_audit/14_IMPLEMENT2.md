@@ -1024,6 +1024,18 @@ fast deterministic logic; production MariaDB remains authoritative for the
 post-pull read-only API proof. A read-only GET is explicitly forbidden from
 creating a `GeminiRequestAttempt` or spending provider tokens.
 
+**Post-deploy evidence (2026-08-18, `4d1d622517204d89f1f826d7810110fd510c1353`):**
+the scoped commit was fast-forwarded to GitHub `main` and pulled on the
+production checkout with the approved SSH command. The server checkout reports
+the exact SHA above; `python manage.py check` exits 0 with the four known
+MariaDB model warnings and the existing compression-manifest warning. A
+MariaDB-backed direct admin request to `GET /bot/api/gemini-health/` returned
+HTTP 200, six key rows and both displayed models, with no secret-like fields;
+the `GeminiRequestAttempt` count stayed `61 -> 61`. The existing Meta-reviewer
+account received HTTP 403. No live provider probe, customer message or
+synthetic production row was created. Pre-existing untracked operational files
+on the server were left untouched.
+
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 
 After `G-EPOCH`, implement only the chosen policy: validate before first chunk

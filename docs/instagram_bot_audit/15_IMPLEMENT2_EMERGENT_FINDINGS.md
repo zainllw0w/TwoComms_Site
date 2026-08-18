@@ -241,3 +241,11 @@ their persisted record is redacted (`role=health_probe`) with no provider body,
 customer prompt or secret. No hourly checker or background provider probe was
 introduced. MariaDB lock/race behavior and the production GET/no-new-attempt
 proof remain release-gate evidence rather than local SQLite assumptions.
+
+Post-deploy proof for the slice is recorded in `14_IMPLEMENT2.md` at
+`4d1d622517204d89f1f826d7810110fd510c1353`: the passive GET returned six rows
+and both models without increasing the attempt ledger, while the Meta-reviewer
+was denied. The external visual evaluator was unavailable twice with an
+upstream HTTP 503; the local template contract, extracted JavaScript syntax
+check, responsive CSS contract and 217-test release gate remain the available
+UI evidence. No provider probe was run during deployment verification.
