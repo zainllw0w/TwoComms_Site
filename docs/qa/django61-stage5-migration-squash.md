@@ -1,6 +1,6 @@
 # DJ6-MIG-001: migration squash gate
 
-Дата evidence: 2026-08-18
+Дата evidence: 2026-08-19
 
 Исходный commit: `5000def6f2c1dda7754af7c757717a5ab38f84f4`
 
@@ -10,6 +10,11 @@ Runtime: CPython 3.14.6, Django 6.1
 ## Итоговое решение
 
 **Решение: `NO-GO`. Squash и удаление historical migrations запрещены.**
+
+Read-only applied-history production proof теперь получен, но это не меняет
+решение: обязательная clean-install/replay rehearsal на production-compatible
+MariaDB не завершена. Поэтому migration graph и historical files остаются
+неизменными.
 
 Gate доказывает воспроизводимость текущего graph на disposable SQLite, но это
 не является разрешением менять production history. Разрешение появится только
@@ -72,7 +77,9 @@ SQLite никогда не проходит authoritative/MariaDB валидат
 | Restore (`sqlite.Connection.backup`) | PASS, integrity check и schema совпали |
 | Applied migration history после restore | PASS, `pending=0`, hash совпал |
 | Replay после restore (`migrate --check`) | PASS, `pending=0`, history hash совпал |
-| MariaDB authoritative history / clean replay / backup-restore | НЕ ПРЕДОСТАВЛЕНО; валидаторы fail-closed |
+| Authoritative production applied history (read-only) | PASS: MariaDB `11.4.12`, `461` non-DTF rows, `pending=0`; sanitized artifact: `django61-stage5-mig001-production-history.json` |
+| MariaDB disposable clean install/replay | **PARTIAL PASS / NO-GO**: bounded isolated `management.0021` rehearsal on local MariaDB `11.4.12` passed in `44.268 s`; full graph clean-install/replay and restore evidence are still absent |
+| MariaDB backup/restore/rollback for migration rehearsal | НЕ ПРЕДОСТАВЛЕНО; валидатор fail-closed |
 | Model migration drift | PASS (`makemigrations --check --dry-run`) |
 | Реальный DTF app / migrations / tables | PASS: не загружены, real modules `[]`, tables `[]` |
 | Production MariaDB mutation | НЕ выполнялась |
@@ -82,7 +89,43 @@ Hashes disposable rehearsal:
 
 - schema: `9382be71731a9707632c86e2e1d15d5206ac6f9f76b4a441579f03a6448d753b`;
 - applied non-DTF history: `b0b486b4e98769432343047a56afc678cbd3e3b539406d3f3b0a56ff063ecbc5`;
-- applied migration count после clean install: `450`.
+- applied migration count после clean install: `450` (SQLite-only rehearsal).
+
+## Production history evidence (read-only)
+
+Проверка выполнена через CloudLinux-bound Python 3.14.6 на production checkout
+с явным `twocomms.production_settings`. Она проверила только alias `default`:
+`connection.vendor=mysql`, `SELECT VERSION()`, migration recorder,
+`MigrationLoader` graph и pending plan. Не выполнялись `migrate`, `makemigrations`,
+DDL, запись данных, `collectstatic`, restart или `git pull`.
+
+- Production SHA на момент capture: `c64dc224b171295eed1d98da451e88ef1f70f76d`.
+- MariaDB: `11.4.12-MariaDB-cll-lve`.
+- Non-DTF graph: `441` nodes, `16` leaves; fingerprint совпадает с локальным
+  rehearsal: `95ef0304cc909e83f31d80b8a739d41627863db0a007abcbe48f2d2756ca55db`.
+- Applied non-DTF history: `461` rows, hash
+  `d0b6dbdb164353c467886c79f8f5430173b7b6fe5d4a4069d21e05362bd954dd`.
+- Pending non-DTF migrations: `0`.
+
+Обезличенный JSON с теми же фактами находится в
+`docs/qa/django61-stage5-mig001-production-history.json`.
+
+## MariaDB rehearsal status
+
+Предыдущее наблюдение задержки на операции
+`management.0021_client_is_shared_phone_and_more` не воспроизвелось. На
+отдельной loopback MariaDB `11.4.12` direct InnoDB probe для `ADD COLUMN` и
+`ALTER COLUMN ... DROP DEFAULT`, воспроизведение через historical Django
+schema editor и bounded
+`manage.py migrate management 0021 --settings=test_settings_mariadb` прошли
+успешно. Последняя команда завершилась с `returncode=0` за `44.268 s`.
+Production доступ, schema и данные не затрагивались.
+
+Это снимает именно ложный диагноз несовместимости одной DDL-операции, но не
+является full clean-install/replay proof: полная graph rehearsal не завершена,
+а backup/restore/rollback для migration history ещё не доказаны. Поэтому
+нельзя создавать `replaces` migration, удалять historical files или отмечать
+`DJ6-MIG-001` выполненным.
 
 ## Inventory кандидатов
 

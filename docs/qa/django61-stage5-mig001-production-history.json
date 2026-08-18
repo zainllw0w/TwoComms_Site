@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "authoritative": true,
+  "read_only": true,
+  "database_vendor": "mysql",
+  "database_alias": "default",
+  "non_dtf_only": true,
+  "source": "production-cloudlinux-bound-default-alias",
+  "captured_at": "2026-08-18T21:09:14Z",
+  "server_version": "11.4.12-MariaDB-cll-lve",
+  "production_git_head": "c64dc224b171295eed1d98da451e88ef1f70f76d",
+  "pending": 0,
+  "applied_history_count": 461,
+  "applied_history_hash": "d0b6dbdb164353c467886c79f8f5430173b7b6fe5d4a4069d21e05362bd954dd",
+  "graph_fingerprint": "95ef0304cc909e83f31d80b8a739d41627863db0a007abcbe48f2d2756ca55db",
+  "graph_node_count": 441,
+  "graph_leaf_count": 16,
+  "runtime": {
+    "python": "3.14.6",
+    "django": "6.1"
+  },
+  "scope_note": "Sanitized read-only facts; no credentials, database name, host, DDL, or migration application."
+}
