@@ -254,6 +254,25 @@ migration и Stage 5 exit-gate остаются открытыми.
 
 Новые записи добавлять ниже по мере получения отчетов агентов и production evidence. Дубли объединять по ID, сохраняя все доказательства.
 
+### DJ6-DOC-001/002 - Актуализировать current-facing runtime и deployment docs
+
+- Статус: `реализовано в release candidate`; приоритет: `P2`.
+- Область: `ARCHITECTURE_SUMMARY.md`, `README_ARCHITECTURE.md`,
+  `DEPLOYMENT_INSTRUCTIONS.md`.
+- Доказательство: документы теперь указывают CPython `3.14.6`, Django `6.1`,
+  DRF `3.18.0`, MariaDB `11.4.12`, `mysqlclient 2.2.8`, общий `.venv` и
+  fast-forward SSH pull через `main`; старый Django 5.2, PyMySQL, старый IP,
+  feature-ветка, `pip install`, SCP/release wrappers и автоматические
+  migrations/collectstatic удалены из current-facing пути. QA:
+  `docs/qa/django61-stage7-docs-runtime.md`.
+- Что дает: новые агенты и разработчики видят тот же runtime/deploy contract,
+  поэтому диагностика не уходит в другой Python/Django и не запускает опасный
+  альтернативный deploy.
+- Риск и ограничения: исторические audit/incident docs намеренно не
+  переписаны; документация не заменяет live production proof.
+- Следующая проверка: после push/deploy подтвердить SHA, runtime и чистоту
+  tracked-файлов read-only SSH probe.
+
 ### DJ6-SRV-007 - Destructive Stage 5 helpers должны fail-closed по endpoint и identity
 
 - Статус: `исправлено в release commits 8ece82452 и 54f36a1b7`; приоритет: `P1`.

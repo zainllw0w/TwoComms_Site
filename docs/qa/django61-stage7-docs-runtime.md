@@ -2,7 +2,7 @@
 
 Дата: 2026-08-18  
 Scope: `DJ6-DOC-001`, `DJ6-DOC-002`  
-Worktree: `codex/django61-stage7-candidate-20260818`
+Release candidate: based on `origin/main=7372f0b6b`.
 
 ## Что обновлено
 
@@ -30,6 +30,6 @@ DTF-модели, DTF-миграции и DTF-серверные команды 
 - `git diff --check` прошёл перед интеграцией candidate; после rebase на
   актуальный `origin/main` повторяется тем же release gate.
 
-Чекбоксы implementation plan отмечаются только после интеграции этого
-коммита в `main` и разрешённого deployment proof; локальная документационная
-правка сама по себе не является production evidence.
+Чекбоксы implementation plan отмечены в release candidate после интеграции
+документационного среза; production deployment proof фиксируется отдельно
+после SSH fast-forward.
