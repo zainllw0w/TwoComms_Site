@@ -4,9 +4,15 @@
 [![Security](https://img.shields.io/badge/Security-Excellent-brightgreen)]()
 [![Performance](https://img.shields.io/badge/Performance-Excellent-brightgreen)]()
 [![Test Coverage](https://img.shields.io/badge/Tests-0%25-red)]()
-[![Django](https://img.shields.io/badge/Django-5.2.6-blue)]()
+[![Django](https://img.shields.io/badge/Django-6.1-blue)]()
 
 > **Production-ready E-commerce Platform** с отличной архитектурной основой
+
+> **Current runtime contract (2026-08):** CPython 3.14.6, Django 6.1,
+> Django REST Framework 3.18.0, MariaDB 11.4.12 и `mysqlclient` 2.2.8.
+> Для запуска и деплоя используйте `AGENTS.md` и
+> `docs/operations/django61-stage0-runbook.md`; оценки и roadmap ниже являются
+> историческим архитектурным snapshot и не заменяют operational runbook.
 
 ---
 
@@ -144,10 +150,11 @@ mkdir -p orders/services
 
 #### 4. REST API
 ```bash
-# Django REST Framework
+# Django REST Framework уже входит в текущий lock-файл как 3.18.0.
+# Не устанавливайте зависимости вручную; изменения проходят через
+# twocomms/requirements.in -> requirements.lock и обычный release gate.
 # Время: 30-40 часов
 
-pip install djangorestframework
 mkdir -p api/{serializers,viewsets}
 # ... создать API
 ```
@@ -278,11 +285,12 @@ graph LR
 
 ### Backend
 ```yaml
-Framework:     Django 5.2.6
-Language:      Python 3.x
-Database:      MySQL / PostgreSQL / SQLite
+Framework:     Django 6.1
+Language:      CPython 3.14.6
+Database:      MariaDB 11.4.12 (production; alias default)
+DB Driver:     mysqlclient 2.2.8
 Cache:         Redis 5.2.1
-Task Queue:    (Рекомендуется Celery)
+Task Queue:    Не включать без capability proof (см. Stage 6 плана)
 ```
 
 ### Optimization
@@ -500,8 +508,6 @@ open REFACTORING_PLAN.md
 ---
 
 [![Made with ❤️ by AI Architecture Assistant](https://img.shields.io/badge/Made%20with-%E2%9D%A4%EF%B8%8F-red)]()
-
-
 
 
 

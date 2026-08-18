@@ -1,256 +1,100 @@
-# 🚀 Инструкции по деплою исправлений аудита
+# TwoComms: текущий deployment contract
 
-## Что было исправлено
+Этот файл заменяет старые audit-инструкции. Единственный поддерживаемый
+production-путь для текущего Django 6.1 runtime: commit scoped changes, push в
+GitHub `main`, затем fast-forward pull на сервере через CloudLinux-bound
+virtualenv. Старые feature-ветки, адреса, release wrappers, SCP/source-build и
+ручная установка зависимостей больше не являются deployment contract.
 
-### 🎯 Производительность
-- ✅ Оптимизирован `product_detail` view с использованием `select_related` и `prefetch_related`
-- ✅ Исправлена проблема N+1 запросов в `get_detailed_color_variants`
-- ✅ Ожидаемое улучшение: TTFB страницы товара с 4.2s до <500ms
+## Runtime
 
-### 🔒 Безопасность
-- ✅ `SECRET_KEY` теперь обязателен в production (приложение не запустится без него)
-- ✅ Добавлена поддержка аутентификации Redis с паролем
-- ✅ Добавлен middleware для rate limiting (100 запросов/минуту на IP)
-- ✅ Удален `@csrf_exempt` с пользовательских endpoints (`add_to_cart`, `cart_remove`)
+- CPython `3.14.6` (`.python-version`)
+- Django `6.1`
+- Django REST Framework `3.18.0`
+- MariaDB `11.4.12` на production alias `default`
+- `mysqlclient` `2.2.8`
 
-### 🧹 Качество кода
-- ✅ Удалены все `console.log` и `console.error` из JS файлов
-- ✅ Добавлена зависимость `django-ratelimit==5.0.0`
-
-## 📋 Предварительные требования
-
-1. **sshpass** должен быть установлен:
-   ```bash
-   # macOS
-   brew install hudochenkov/sshpass/sshpass
-   
-   # Linux
-   sudo apt-get install sshpass
-   ```
-
-2. **Git** доступ к репозиторию
-
-3. **SSH** доступ к серверу (уже настроен в скрипте)
-
-## 🚀 Деплой
-
-### Автоматический деплой (рекомендуется)
-
-Просто запустите скрипт:
+Локальные команды Django выполняются только через общий project interpreter,
+а не через `python`/`python3` из `PATH`:
 
 ```bash
-./deploy_fixes.sh
+TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
+test -x "$TWC_PYTHON"
+"$TWC_PYTHON" -c 'import django, sys; assert sys.version_info[:3] == (3, 14, 6); assert django.get_version() == "6.1"; print(sys.executable, django.get_version())'
 ```
 
-Скрипт автоматически:
-1. Подключится к серверу
-2. Скачает последний код из ветки `fix-audit-errors-f88J2`
-3. Установит новые зависимости
-4. Запустит миграции (если есть)
-5. Соберет статические файлы
-6. Перезапустит приложение
-7. Очистит кэш
+Не выполняйте bare `pip`. Для проверки зависимостей используйте `uv pip ...
+--python "$TWC_PYTHON"`.
 
-### Ручной деплой
+## Перед push
 
-Если автоматический скрипт не работает, выполните команды вручную:
+1. Работайте в отдельном worktree от актуального `origin/main`.
+2. Запустите focused tests для измененного блока, `manage.py check`,
+   migration-drift check и `git diff --check`.
+3. Убедитесь, что DTF-код, DTF-модели, DTF-миграции и DTF-серверные команды не
+   затронуты.
+4. Зафиксируйте только scoped files и отправьте commit в `main` обычным
+   non-force push:
 
 ```bash
-# 1. Подключитесь к серверу
-ssh qlknpodo@195.191.24.169
-
-# 2. Перейдите в директорию проекта
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-
-# 3. Скачайте последний код
-git fetch origin
-git checkout fix-audit-errors-f88J2
-git pull origin fix-audit-errors-f88J2
-
-# 4. Активируйте виртуальное окружение
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
-
-# 5. Установите зависимости
-pip install -r requirements.txt
-
-# 6. Запустите миграции
-python manage.py migrate --noinput
-
-# 7. Соберите статику
-python manage.py collectstatic --noinput
-
-# 8. Перезапустите приложение
-touch passenger_wsgi.py
-
-# 9. Очистите кэш
-python manage.py shell
->>> from django.core.cache import cache
->>> cache.clear()
->>> exit()
+git push origin HEAD:main
 ```
 
-## ⚙️ Настройка переменных окружения
+## Разрешенный server pull
 
-### ОБЯЗАТЕЛЬНО: SECRET_KEY
-
-После деплоя убедитесь, что на сервере установлен `SECRET_KEY`:
+Пароль никогда не записывается в команду, вывод или документацию. Загрузите
+его из локального private environment:
 
 ```bash
-# Подключитесь к серверу
-ssh qlknpodo@195.191.24.169
+source /Users/zainllw0w/.config/twocomms/deploy-env.zsh
 
-# Проверьте, есть ли SECRET_KEY в .env файле
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-cat .env | grep SECRET_KEY
+test -n "${TWOCOMMS_DEPLOY_PASSWORD:-}" || {
+  echo "TWOCOMMS_DEPLOY_PASSWORD не загружен" >&2
+  exit 1
+}
 
-# Если нет, сгенерируйте новый ключ
-python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
+SSHPASS="$TWOCOMMS_DEPLOY_PASSWORD" sshpass -e ssh \
+  -o StrictHostKeyChecking=no qlknpodo@195.191.25.63 \
+  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && git pull --ff-only origin main'"
 
-# Добавьте его в .env файл
-echo "SECRET_KEY=<ваш_сгенерированный_ключ>" >> .env
+unset TWOCOMMS_DEPLOY_PASSWORD
 ```
 
-### ОПЦИОНАЛЬНО: Redis Password
+Стандартный pull не выполняет `migrate`, `collectstatic`, очистку release
+артефактов, переключение venv или изменение `LD_PRELOAD`. Любая migration,
+static/runtime mutation или database operation требует отдельного одобренного
+runbook и production evidence; не добавляйте её автоматически к pull.
 
-Если вы хотите защитить Redis паролем:
+## Post-deploy read-only proof
+
+Подставьте SHA, который был отправлен в `main`, и выполните только
+неизменяющие проверки:
 
 ```bash
-# 1. Настройте Redis с паролем
-# Отредактируйте /etc/redis/redis.conf или локальный конфиг
-# Добавьте: requirepass your_secure_password
+EXPECTED_SHA="$(git rev-parse HEAD)"
 
-# 2. Добавьте пароль в .env
-echo "REDIS_PASSWORD=your_secure_password" >> .env
+source /Users/zainllw0w/.config/twocomms/deploy-env.zsh
+test -n "${TWOCOMMS_DEPLOY_PASSWORD:-}" || exit 1
 
-# 3. Перезапустите Redis
-sudo systemctl restart redis
+SSHPASS="$TWOCOMMS_DEPLOY_PASSWORD" sshpass -e ssh \
+  -o StrictHostKeyChecking=no qlknpodo@195.191.25.63 \
+  "bash -lc 'source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate && cd /home/qlknpodo/TWC/TwoComms_Site/twocomms && test \"\$(git rev-parse HEAD)\" = \"$EXPECTED_SHA\" && test \"\$(git branch --show-current)\" = main && test \"\$(python --version)\" = \"Python 3.14.6\" && test \"\$(python -m django --version)\" = \"6.1\" && git status --porcelain=v1 --untracked-files=no'"
+
+unset TWOCOMMS_DEPLOY_PASSWORD
 ```
 
-## 🔍 Проверка после деплоя
+Для release с production-эффектом дополнительно используйте
+`docs/operations/django61-stage0-runbook.md` и соответствующий sanitized
+post-deploy matrix. При любой ошибке остановите release и сохраните только
+sanitized evidence без credentials, DSN, cookies или raw exception.
 
-### 1. Проверьте логи
+## Что не является стандартным deployment path
 
-```bash
-ssh qlknpodo@195.191.24.169
-tail -f /home/qlknpodo/TWC/TwoComms_Site/twocomms/django.log
-```
+- `deploy.sh`, `scripts/deploy_release.py` и произвольные release wrappers;
+- `pip install`/source builds на production;
+- pull из feature-ветки или non-fast-forward reset;
+- автоматические `migrate`, `collectstatic`, cache clear и restart;
+- удаление или пересоздание production MariaDB/venv/release paths.
 
-Убедитесь, что нет ошибок при запуске.
-
-### 2. Проверьте сайт
-
-Откройте в браузере: https://twocomms.shop
-
-Проверьте:
-- ✅ Главная страница загружается
-- ✅ Страница товара загружается быстро (должно быть <1s вместо 4.2s)
-- ✅ Добавление в корзину работает
-- ✅ Удаление из корзины работает
-- ✅ Нет ошибок в консоли браузера
-
-### 3. Проверьте производительность
-
-```bash
-# Проверьте время загрузки страницы товара
-curl -w "@curl-format.txt" -o /dev/null -s "https://twocomms.shop/product/some-product-slug/"
-
-# Где curl-format.txt содержит:
-# time_namelookup:  %{time_namelookup}\n
-# time_connect:  %{time_connect}\n
-# time_starttransfer:  %{time_starttransfer}\n
-# time_total:  %{time_total}\n
-```
-
-### 4. Проверьте rate limiting
-
-```bash
-# Попробуйте сделать много запросов быстро
-for i in {1..110}; do curl -s -o /dev/null -w "%{http_code}\n" https://twocomms.shop/; done
-
-# Должны увидеть 429 (Too Many Requests) после 100 запросов
-```
-
-## 🐛 Решение проблем
-
-### Проблема: Приложение не запускается
-
-**Причина:** Скорее всего не установлен `SECRET_KEY`
-
-**Решение:**
-```bash
-ssh qlknpodo@195.191.24.169
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'
-# Добавьте полученный ключ в .env файл
-echo "SECRET_KEY=<ключ>" >> .env
-touch passenger_wsgi.py
-```
-
-### Проблема: Redis не работает
-
-**Причина:** Redis может быть не запущен или неправильно настроен
-
-**Решение:**
-```bash
-# Проверьте статус Redis
-sudo systemctl status redis
-
-# Если не запущен, запустите
-sudo systemctl start redis
-
-# Проверьте подключение
-redis-cli ping
-# Должно вернуть: PONG
-```
-
-### Проблема: Статические файлы не загружаются
-
-**Решение:**
-```bash
-ssh qlknpodo@195.191.24.169
-cd /home/qlknpodo/TWC/TwoComms_Site/twocomms
-source /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/activate
-python manage.py collectstatic --noinput --clear
-touch passenger_wsgi.py
-```
-
-## 📊 Мониторинг
-
-### Логи для мониторинга
-
-```bash
-# Django логи
-tail -f /home/qlknpodo/TWC/TwoComms_Site/twocomms/django.log
-
-# Ошибки
-tail -f /home/qlknpodo/TWC/TwoComms_Site/twocomms/stderr.log
-
-# Системные логи (если есть доступ)
-sudo tail -f /var/log/nginx/error.log
-sudo tail -f /var/log/nginx/access.log
-```
-
-### Метрики для отслеживания
-
-- **TTFB страницы товара:** должен быть <500ms (было 4.2s)
-- **Количество SQL запросов:** должно уменьшиться на 30-50%
-- **Ошибки 429:** появятся при превышении лимита (это нормально)
-- **Ошибки в консоли браузера:** должны исчезнуть
-
-## 📞 Поддержка
-
-Если возникли проблемы:
-
-1. Проверьте логи (см. выше)
-2. Убедитесь, что все переменные окружения установлены
-3. Проверьте, что Redis работает
-4. Попробуйте перезапустить приложение: `touch passenger_wsgi.py`
-
-## 🎉 Готово!
-
-После успешного деплоя ваш сайт будет:
-- ⚡ Быстрее (страница товара загружается в 8 раз быстрее)
-- 🔒 Безопаснее (обязательный SECRET_KEY, rate limiting, CSRF защита)
-- 🧹 Чище (нет console.log в production)
-- 💪 Надежнее (оптимизированные запросы к БД)
-
+Для истории старых audit-изменений используйте документы в `docs/qa/` и
+`docs/operations/`; они не переопределяют этот current-facing contract.

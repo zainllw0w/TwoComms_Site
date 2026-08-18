@@ -2,6 +2,25 @@
 
 > **TL;DR:** Production-ready Django e-commerce with excellent architecture foundation. Score: **8.0/10**
 
+> **Актуальный runtime (2026-08):** этот документ сохраняет историческую
+> архитектурную оценку. Для текущих версий, локального запуска и production
+> deployment authoritative являются `AGENTS.md`,
+> `docs/operations/django61-stage0-runbook.md` и
+> `docs/qa/django61-compatibility-matrix.md`.
+
+| Компонент | Поддерживаемая версия/контракт |
+| --- | --- |
+| Python | CPython 3.14.6 (`.python-version`) |
+| Django | 6.1 |
+| Django REST Framework | 3.18.0 |
+| Production database | MariaDB 11.4.12, alias `default` |
+| Django DB driver | `mysqlclient` 2.2.8 |
+
+Local Django commands must use the shared `.venv/bin/python`; production
+deployment is a fast-forward `git pull --ff-only origin main` over the
+approved SSH path. Do not infer the supported runtime from older historical
+sections below.
+
 ---
 
 ## 📊 Quick Stats
@@ -366,10 +385,10 @@ Image Optimization: Lazy loading ✅
 
 ### ✅ Good Choices
 
-1. **Django 5.2.6** - Latest stable, good choice
+1. **Django 6.1** - текущий зафиксированный production/runtime contract
 2. **Redis** - Industry standard for caching
 3. **WhiteNoise** - Excellent for static files
-4. **PyMySQL** - Good MySQL adapter
+4. **mysqlclient 2.2.8** - текущий MariaDB/MySQL adapter из lock-файла
 5. **Social Auth** - Battle-tested OAuth
 
 ### 🤔 Consider Alternatives
@@ -474,7 +493,6 @@ Image Optimization: Lazy loading ✅
 **Methodology:** Nx MCP + Django Best Practices  
 **Analyst:** AI Architecture Assistant  
 **Version:** 1.0
-
 
 
 
