@@ -687,8 +687,11 @@ Production acceptance от 2026-08-17:
 - [x] **DJ6-DOC-002 - Удалить current-facing инструкции с bare Python/Django 5.2.**
   - Acceptance: README/runbook ведет к exact project runtime и supported deploy path.
 
-- [ ] **DJ6-TEST-001 - Включать forkserver/parallel tests только для stable shards.**
+- [x] **DJ6-TEST-001 - Включать forkserver/parallel tests только для stable shards.**
+  - `storefront.tests.test_product_video` is the only CI parallel shard: it is
+    no-network, has serial/parallel-2 repeat evidence, and does not write media.
   - Full parallel suite только после устранения shared cache/media/SQLite race.
+  - Evidence: `docs/qa/django61-stage7-test-001.md`.
 
 ### Exit gate этапа 7
 
