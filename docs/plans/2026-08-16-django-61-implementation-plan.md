@@ -683,8 +683,18 @@ Production acceptance от 2026-08-17:
 - [ ] **DJ6-BG-004 - Перенести image optimization jobs во внешний worker.**
   - Только после shared media atomic-write benchmark и lease/recovery tests.
 
-- [ ] **DJ6-BG-008 - Решить судьбу durable QR alert.**
-  - Сначала измерить volume/value; не строить queue для малополезного сигнала.
+- [x] **DJ6-BG-008 - Решить судьбу durable QR alert.**
+  - Решение: убрать request-owned QR Telegram alert. Alert дублировал уже
+    сохраняемый `PageView` и не имел durable owner/retry/
+    reconciliation контракта; queue, cron, model и migration не добавлялись.
+  - `storefront.tests.test_qr_thanks` сохраняет QR promo, signed cookie и два
+    `PageView`, одновременно доказывая отсутствие `qr_scan_notified` и
+    `threading.Thread`; focused non-DTF suite: `1/1 OK`.
+  - Evidence: `twocomms/storefront/views/qr.py`,
+    `twocomms/storefront/tests/test_qr_thanks.py`,
+    `docs/qa/django61-stage6-bg008-qr-alert-removal.md`.
+  - Локальная проверка не заменяет historical volume/value measurement или
+    production smoke; deployment и Stage 6 exit gate остаются открытыми.
 
 - [x] **DJ6-BG-010 - Оставить ImageOptimizationMiddleware выключенным до pre-generation proof.**
   - `MiddlewareNotUsed` блокирует middleware до thread pool и media writes;

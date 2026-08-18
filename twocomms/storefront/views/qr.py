@@ -9,18 +9,15 @@ a personal -5% promo code:
   the account (``UserPromoCode``), so nothing is lost.
 - Authenticated users get/keep one code per account
   (``UserPromoCode`` unique on ``(user, survey_key)``).
-
-Admins get a Telegram alert per scan session with running counters.
 """
 
 import hashlib
-import threading
 
 from datetime import timedelta
 
 from django.conf import settings
 from django.core import signing
-from django.db import IntegrityError, close_old_connections, transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -28,43 +25,9 @@ from django.views.decorators.cache import never_cache
 QR_PROMO_KEY = "qr_thanks_v1"
 QR_PROMO_PERCENT = 5
 QR_PROMO_DAYS = 7
-QR_SESSION_FLAG = "qr_scan_notified"
 QR_COOKIE = "twc_qr_promo"
 QR_COOKIE_SALT = "twc.qr.promo"
 QR_COOKIE_MAX_AGE = 400 * 24 * 3600  # ~13 months
-
-
-def _notify_admins_about_scan(username, promo_code, returning):
-    """Telegram admin alert + running scan counter (owner request)."""
-    try:
-        close_old_connections()
-        from ..models import PageView
-
-        qr_views = PageView.objects.filter(
-            path__in=["/qr/", "/qr", "/uk/qr/", "/ru/qr/", "/en/qr/"], is_bot=False
-        )
-        total = qr_views.count()
-        today = qr_views.filter(when__date=timezone.now().date()).count()
-        unique = qr_views.values("session").distinct().count()
-
-        from orders.telegram_notifications import telegram_notifier
-
-        who = f"<b>{username}</b>" if username else "анонім (без акаунта)"
-        if returning:
-            who += " — повторний візит, той самий пристрій"
-        promo_line = f"\nПромокод: <code>{promo_code}</code>" if promo_code else ""
-        message = (
-            "📲 <b>Відскановано QR-код!</b>\n"
-            f"Хто: {who}{promo_line}\n"
-            f"Сканів сьогодні: <b>{today}</b>\n"
-            f"Всього сканів: <b>{total}</b> (унікальних відвідувачів: {unique})"
-        )
-        telegram_notifier.send_admin_message(message)
-    except Exception:
-        # The thank-you page must never fail because of notifications.
-        pass
-    finally:
-        close_old_connections()
 
 
 def _get_promo_group():
@@ -128,14 +91,13 @@ def _promo_from_cookie(request):
 def _get_or_create_anon_promo(request):
     """Promo for a visitor without an account, bound to the device.
 
-    Returns (promo, returning) — ``returning`` is True when this device
-    has already received a code before.
+    Returning devices keep the promo code they already received.
     """
     from ..models import QrDeviceGrant
 
     promo = _promo_from_cookie(request)
     if promo is not None:
-        return promo, True
+        return promo
 
     dh = _device_hash(request)
     grant = QrDeviceGrant.objects.select_related("promo_code").filter(
@@ -145,7 +107,7 @@ def _get_or_create_anon_promo(request):
         QrDeviceGrant.objects.filter(pk=grant.pk).update(
             visits=grant.visits + 1, last_seen=timezone.now()
         )
-        return grant.promo_code, True
+        return grant.promo_code
 
     with transaction.atomic():
         promo = _create_promo()
@@ -162,8 +124,8 @@ def _get_or_create_anon_promo(request):
             grant = QrDeviceGrant.objects.select_related("promo_code").get(
                 device_hash=dh
             )
-            return grant.promo_code, True
-    return promo, False
+            return grant.promo_code
+    return promo
 
 
 def _get_or_create_qr_promo(request, user):
@@ -206,28 +168,14 @@ def _get_or_create_qr_promo(request, user):
 def qr_thanks(request):
     promo = None
     promo_expired = False
-    returning = False
 
     if request.user.is_authenticated:
         promo = _get_or_create_qr_promo(request, request.user)
     else:
-        promo, returning = _get_or_create_anon_promo(request)
+        promo = _get_or_create_anon_promo(request)
 
     if promo is not None and not promo.is_valid_now():
         promo_expired = True
-
-    # Admin Telegram alert — once per visitor session, never blocking.
-    if not request.session.get(QR_SESSION_FLAG):
-        request.session[QR_SESSION_FLAG] = True
-        threading.Thread(
-            target=_notify_admins_about_scan,
-            args=(
-                request.user.username if request.user.is_authenticated else "",
-                promo.code if promo else "",
-                returning,
-            ),
-            daemon=True,
-        ).start()
 
     response = render(
         request,
