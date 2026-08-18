@@ -374,6 +374,14 @@ class ImageOptimizer:
                     f.flush()
                     os.fsync(f.fileno())
                 os.replace(temporary_path, output_path)
+                # Persist the directory entry as well as file contents. This
+                # keeps a worker restart/power loss from exposing a name whose
+                # replacement was not durable yet.
+                directory_fd = os.open(output_path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
                 temporary_path = None
                 saved_files.append(output_path)
                 logger.info(f"Сохранено оптимизированное изображение: {output_path}")

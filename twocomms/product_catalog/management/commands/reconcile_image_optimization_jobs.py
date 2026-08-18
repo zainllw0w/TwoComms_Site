@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import close_old_connections
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
@@ -101,17 +102,26 @@ class Command(BaseCommand):
                 updated_at=now,
             )
 
-        pending_ids = list(
+        # ``max_jobs`` is a hard per-invocation budget. Requeued stale rows
+        # consume the same budget as fresh pending rows, so one cron tick can
+        # never unexpectedly run 2 * max_jobs optimizations.
+        pending_limit = max(0, max_jobs - len(stale_ids))
+        fresh_pending_ids = list(
             ImageOptimizationJob.objects.filter(
                 status=ImageOptimizationJob.Status.PENDING,
-            )
+            ).exclude(id__in=stale_ids)
             .order_by("created_at", "id")
-            .values_list("id", flat=True)[:max_jobs]
+            .values_list("id", flat=True)[:pending_limit]
         )
+        pending_ids = stale_ids + fresh_pending_ids
 
         if not options["dry_run"]:
             for job_id in pending_ids:
-                run_image_optimization_job(job_id)
+                close_old_connections()
+                try:
+                    run_image_optimization_job(job_id)
+                finally:
+                    close_old_connections()
 
         mode = "would process" if options["dry_run"] else "processed"
         self.stdout.write(

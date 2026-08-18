@@ -1,23 +1,21 @@
 """Durable image optimization jobs used by the catalog editor.
 
 Uploads are intentionally split into two phases: the request persists the
-image and a pending job, then a short-lived background thread performs the
-existing WebP/AVIF optimizer. The persisted row is also recoverable through
-``reconcile_image_optimization_jobs``, so a web-process restart does not leave
-the editor with an orphaned queue entry.
+image and a pending job, then the bounded
+``reconcile_image_optimization_jobs`` management command performs the existing
+WebP/AVIF optimizer. The persisted row is recoverable through the same command,
+so a web-process restart does not leave the editor with an orphaned queue
+entry. Web requests never own an optimizer thread.
 """
 
 from __future__ import annotations
 
-import concurrent.futures
 import logging
 from datetime import timedelta
-from threading import Lock
 from uuid import uuid4
 
 from django.apps import apps
-from django.conf import settings
-from django.db import close_old_connections, transaction
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -30,10 +28,6 @@ ACTIVE_STATUSES = (
     ImageOptimizationJob.Status.RUNNING,
 )
 STALE_JOB_AFTER = timedelta(minutes=30)
-_IMAGE_JOB_EXECUTOR = None
-_IMAGE_JOB_EXECUTOR_LOCK = Lock()
-_IMAGE_JOB_SCHEDULED = set()
-_IMAGE_JOB_SCHEDULED_LOCK = Lock()
 
 
 def _model_label(instance) -> str:
@@ -151,6 +145,8 @@ def enqueue_image_optimization(instance, field_name: str = "image") -> ImageOpti
             stage="queued",
             progress=0,
         )
+        # Preserve the callback API; this compatibility hook is deliberately
+        # a no-op and never starts work in the request process.
         transaction.on_commit(
             lambda job_id=job.pk: schedule_image_optimization(job_id),
             robust=True,
@@ -314,74 +310,25 @@ def run_image_optimization_job(job_id: int) -> None:
     )
 
 
-def _run_scheduled_image_job(job_id: int) -> None:
-    close_old_connections()
-    try:
-        run_image_optimization_job(job_id)
-    finally:
-        with _IMAGE_JOB_SCHEDULED_LOCK:
-            _IMAGE_JOB_SCHEDULED.discard(job_id)
-        close_old_connections()
-
-
-def _image_job_executor():
-    global _IMAGE_JOB_EXECUTOR
-    if _IMAGE_JOB_EXECUTOR is None:
-        with _IMAGE_JOB_EXECUTOR_LOCK:
-            if _IMAGE_JOB_EXECUTOR is None:
-                worker_count = max(
-                    1,
-                    int(getattr(settings, "PRODUCT_CATALOG_IMAGE_WORKERS", 1)),
-                )
-                _IMAGE_JOB_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-                    max_workers=worker_count,
-                    thread_name_prefix="catalog-image",
-                )
-    return _IMAGE_JOB_EXECUTOR
-
-
-def _image_job_submission_capacity() -> int:
-    worker_count = max(
-        1,
-        int(getattr(settings, "PRODUCT_CATALOG_IMAGE_WORKERS", 1)),
-    )
-    queue_capacity = max(
-        0,
-        int(
-            getattr(
-                settings,
-                "PRODUCT_CATALOG_IMAGE_QUEUE_CAPACITY",
-                worker_count,
-            )
-        ),
-    )
-    return worker_count + queue_capacity
-
-
 def schedule_image_optimization(job_id: int) -> None:
-    """Submit work while keeping the executor's internal queue bounded."""
-    if getattr(settings, "TESTING", False):
-        return
-    with _IMAGE_JOB_SCHEDULED_LOCK:
-        if job_id in _IMAGE_JOB_SCHEDULED:
-            return
-        if len(_IMAGE_JOB_SCHEDULED) >= _image_job_submission_capacity():
-            logger.info(
-                "Image optimization job %s remains pending because local capacity is full",
-                job_id,
-            )
-            return
-        _IMAGE_JOB_SCHEDULED.add(job_id)
-    try:
-        _image_job_executor().submit(_run_scheduled_image_job, job_id)
-    except Exception:
-        with _IMAGE_JOB_SCHEDULED_LOCK:
-            _IMAGE_JOB_SCHEDULED.discard(job_id)
-        raise
+    """Compatibility no-op; reconciliation owns all image-job execution.
+
+    Older integrations imported this symbol after commit callbacks were added.
+    Keeping a no-op avoids an import break while ensuring a web process can
+    never execute optimizer work or create a thread pool.
+    """
+    logger.debug(
+        "Image optimization job %s is persisted for reconciliation; no request runner is used",
+        job_id,
+    )
 
 
 def resume_image_optimization(instance, field_name: str = "image") -> ImageOptimizationJob | None:
-    """Recover a persisted pending/stale job when an editor reconnects."""
+    """Recover a persisted pending/stale job when an editor reconnects.
+
+    The editor only observes and repairs durable state. The cron-owned command
+    performs the actual optimization.
+    """
     job = latest_image_job(instance, field_name)
     if job is None:
         return None
@@ -409,7 +356,7 @@ def resume_image_optimization(instance, field_name: str = "image") -> ImageOptim
 
 
 def retry_image_optimization(instance, field_name: str = "image") -> ImageOptimizationJob | None:
-    """Reset the latest job or create one, then schedule one fresh attempt."""
+    """Reset the latest job or create one for the next reconciliation run."""
     job = latest_image_job(instance, field_name)
     if job is None:
         return enqueue_image_optimization(instance, field_name)

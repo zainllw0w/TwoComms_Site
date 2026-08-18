@@ -387,93 +387,12 @@ class ProductCatalogImageJobTests(TestCase):
             content_type="image/png",
         )
 
-    @override_settings(TESTING=True)
-    @patch("concurrent.futures.ThreadPoolExecutor")
-    def test_test_mode_does_not_spawn_detached_image_runner(self, executor_class):
-        from product_catalog.image_jobs import schedule_image_optimization
-
-        schedule_image_optimization(123)
-
-        executor_class.assert_not_called()
-
-    @override_settings(TESTING=False, PRODUCT_CATALOG_IMAGE_WORKERS=1)
-    @patch("product_catalog.image_jobs.run_image_optimization_job")
-    @patch("concurrent.futures.ThreadPoolExecutor")
-    def test_scheduler_reuses_one_bounded_executor(self, executor_class, run_job):
+    def test_request_path_never_starts_an_image_worker(self):
         from product_catalog import image_jobs
 
-        previous_executor = getattr(image_jobs, "_IMAGE_JOB_EXECUTOR", None)
-        previous_scheduled = set(image_jobs._IMAGE_JOB_SCHEDULED)
-        image_jobs._IMAGE_JOB_EXECUTOR = None
-        image_jobs._IMAGE_JOB_SCHEDULED.clear()
-        try:
-            image_jobs.schedule_image_optimization(101)
-            image_jobs.schedule_image_optimization(102)
-        finally:
-            image_jobs._IMAGE_JOB_EXECUTOR = previous_executor
-            image_jobs._IMAGE_JOB_SCHEDULED.clear()
-            image_jobs._IMAGE_JOB_SCHEDULED.update(previous_scheduled)
-
-        executor_class.assert_called_once_with(
-            max_workers=1,
-            thread_name_prefix="catalog-image",
-        )
-        executor = executor_class.return_value
-        self.assertEqual(executor.submit.call_count, 2)
-        self.assertEqual(
-            [call.args[1] for call in executor.submit.call_args_list],
-            [101, 102],
-        )
-        run_job.assert_not_called()
-
-    @override_settings(TESTING=False, PRODUCT_CATALOG_IMAGE_WORKERS=1)
-    @patch("concurrent.futures.ThreadPoolExecutor")
-    def test_scheduler_deduplicates_pending_job_submissions(self, executor_class):
-        from product_catalog import image_jobs
-
-        previous_executor = getattr(image_jobs, "_IMAGE_JOB_EXECUTOR", None)
-        previous_scheduled = set(image_jobs._IMAGE_JOB_SCHEDULED)
-        image_jobs._IMAGE_JOB_EXECUTOR = None
-        image_jobs._IMAGE_JOB_SCHEDULED.clear()
-        try:
-            image_jobs.schedule_image_optimization(901)
-            image_jobs.schedule_image_optimization(901)
-        finally:
-            image_jobs._IMAGE_JOB_EXECUTOR = previous_executor
-            image_jobs._IMAGE_JOB_SCHEDULED.clear()
-            image_jobs._IMAGE_JOB_SCHEDULED.update(previous_scheduled)
-
-        executor_class.return_value.submit.assert_called_once_with(
-            image_jobs._run_scheduled_image_job,
-            901,
-        )
-
-    @override_settings(
-        TESTING=False,
-        PRODUCT_CATALOG_IMAGE_WORKERS=1,
-        PRODUCT_CATALOG_IMAGE_QUEUE_CAPACITY=1,
-    )
-    @patch("concurrent.futures.ThreadPoolExecutor")
-    def test_scheduler_leaves_excess_jobs_for_reconciliation_when_capacity_is_full(
-        self, executor_class
-    ):
-        from product_catalog import image_jobs
-
-        previous_executor = getattr(image_jobs, "_IMAGE_JOB_EXECUTOR", None)
-        previous_scheduled = set(image_jobs._IMAGE_JOB_SCHEDULED)
-        image_jobs._IMAGE_JOB_EXECUTOR = None
-        image_jobs._IMAGE_JOB_SCHEDULED.clear()
-        try:
-            image_jobs.schedule_image_optimization(911)
-            image_jobs.schedule_image_optimization(912)
-            image_jobs.schedule_image_optimization(913)
-
-            self.assertEqual(executor_class.return_value.submit.call_count, 2)
-            self.assertEqual(image_jobs._IMAGE_JOB_SCHEDULED, {911, 912})
-        finally:
-            image_jobs._IMAGE_JOB_EXECUTOR = previous_executor
-            image_jobs._IMAGE_JOB_SCHEDULED.clear()
-            image_jobs._IMAGE_JOB_SCHEDULED.update(previous_scheduled)
+        self.assertFalse(hasattr(image_jobs, "_IMAGE_JOB_EXECUTOR"))
+        self.assertFalse(hasattr(image_jobs, "_IMAGE_JOB_SCHEDULED"))
+        self.assertIsNone(image_jobs.schedule_image_optimization(123))
 
     def test_image_jobs_persist_a_runner_lease(self):
         self.assertIn(

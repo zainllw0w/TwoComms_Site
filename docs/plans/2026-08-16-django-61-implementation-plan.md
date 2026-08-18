@@ -680,8 +680,21 @@ Production acceptance от 2026-08-17:
     `docs/qa/django61-stage6-task-guard.md`; `ImmediateBackend`, `DummyBackend`
     и неизвестные backends блокируются до enqueue.
 
-- [ ] **DJ6-BG-004 - Перенести image optimization jobs во внешний worker.**
-  - Только после shared media atomic-write benchmark и lease/recovery tests.
+- [x] **DJ6-BG-004 - Перенести image optimization jobs во внешний worker.**
+  - Image optimization requests теперь только сохраняют `ImageOptimizationJob`;
+    request-owned `ThreadPoolExecutor` удалён. Единственный исполнитель -
+    bounded `reconcile_image_optimization_jobs` cron/management command с
+    общей квотой `--max-jobs`, stale lease recovery и connection lifecycle
+    hooks.
+  - Media derivatives публикуются через temporary file + `fsync` + atomic
+    `os.replace` + directory `fsync`; частичная публикация переводит job в
+    error и не объявляется успешной.
+  - Evidence: `product_catalog/image_jobs.py`,
+    `product_catalog/management/commands/reconcile_image_optimization_jobs.py`,
+    `image_optimizer.py`, focused editor/image-optimizer tests и
+    `scripts/install_product_catalog_image_jobs_cron.sh`.
+  - Production rollout/cron installation и live media-volume proof остаются
+    отдельным deployment gate.
 
 - [x] **DJ6-BG-008 - Решить судьбу durable QR alert.**
   - Решение: убрать request-owned QR Telegram alert. Alert дублировал уже
