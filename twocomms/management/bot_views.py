@@ -6,6 +6,7 @@ Start/Stop, вибором джерела ключів і онлайн-конс�
 """
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.core.cache import cache
 from django.core import signing
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Count, DecimalField, Exists, ExpressionWrapper, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
@@ -43,6 +44,7 @@ from .models import (
 from .ig_bot_models import IgCheckoutAccessToken, IgCheckoutProposal, IgCheckoutRevision, IgLifecycleEvent, IgFollowUpTask
 from .services import instagram_bot as bot
 from .services import bot_followups
+from .services import gemini_health, gemini_keys, gemini_probe
 from .services.bot_payment_truth import (
     CONFIRMED_ORDER_PAYMENT_STATUSES,
     annotate_confirmed_purchase,
@@ -611,6 +613,183 @@ def _require_admin_json(request):
     return None
 
 
+_GEMINI_HEALTH_PROBE_LOCK_SECONDS = 45
+_GEMINI_HEALTH_PROBE_RATE_SECONDS = 15
+_GEMINI_HEALTH_MAX_LATENCY_MS = 120_000
+_GEMINI_HEALTH_PROBE_STATUSES = frozenset({
+    "ok",
+    "reachable_empty",
+    "reachable_degraded",
+    "blocked",
+    "forbidden",
+    "model_unavailable",
+    "quota",
+    "provider_error",
+    "request_error",
+    "malformed_response",
+    "timeout",
+    "transport_error",
+})
+_GEMINI_HEALTH_FAILURE_KINDS = {
+    "reachable_empty": "empty",
+    "reachable_degraded": "degraded",
+    "blocked": "blocked",
+    "forbidden": "permission_denied",
+    "model_unavailable": "model_not_found",
+    "quota": "quota_429",
+    "provider_error": "provider_error",
+    "request_error": "request_error",
+    "malformed_response": "invalid_payload",
+    "timeout": "read_timeout",
+    "transport_error": "transport",
+}
+_GEMINI_HEALTH_FINISH_REASONS = frozenset({
+    "FINISH_REASON_UNSPECIFIED",
+    "STOP",
+    "MAX_TOKENS",
+    "SAFETY",
+    "RECITATION",
+    "LANGUAGE",
+    "OTHER",
+    "BLOCKLIST",
+    "PROHIBITED_CONTENT",
+    "SPII",
+    "MALFORMED_FUNCTION_CALL",
+    "IMAGE_SAFETY",
+    "IMAGE_PROHIBITED_CONTENT",
+    "NO_IMAGE",
+    "IMAGE_OTHER",
+    "UNEXPECTED_TOOL_CALL",
+    "TOO_MANY_TOOL_CALLS",
+    "MISSING_THOUGHT_SIGNATURE",
+})
+_GEMINI_HEALTH_REACHABLE_STATUSES = frozenset({
+    "ok",
+    "reachable_degraded",
+    "blocked",
+    "reachable_empty",
+})
+
+
+def _gemini_health_cache_key(kind: str, key_name: str, model: str) -> str:
+    return f"management:gemini-health:{kind}:v1:{key_name}:{model}"
+
+
+def _gemini_health_error(code: str, status: int) -> JsonResponse:
+    return JsonResponse(
+        {"success": False, "code": code, "error": code},
+        status=status,
+    )
+
+
+def _normalize_gemini_health_probe(raw_result, model: str) -> dict:
+    """Keep provider output to a small, enum-like, non-sensitive shape."""
+    result = raw_result if isinstance(raw_result, dict) else {}
+    raw_status = result.get("status")
+    status = (
+        raw_status
+        if isinstance(raw_status, str) and raw_status in _GEMINI_HEALTH_PROBE_STATUSES
+        else "provider_error"
+    )
+
+    raw_http_code = result.get("http_code")
+    if isinstance(raw_http_code, bool):
+        http_code = 0
+    else:
+        try:
+            http_code = int(raw_http_code or 0)
+        except (TypeError, ValueError, OverflowError):
+            http_code = 0
+    if http_code < 0 or http_code > 599:
+        http_code = 0
+
+    raw_latency = result.get("latency_ms")
+    if isinstance(raw_latency, bool):
+        latency_ms = 0
+    else:
+        try:
+            latency_ms = int(raw_latency or 0)
+        except (TypeError, ValueError, OverflowError):
+            latency_ms = 0
+    latency_ms = min(_GEMINI_HEALTH_MAX_LATENCY_MS, max(0, latency_ms))
+
+    finish_reason = ""
+    raw_finish_reason = result.get("finish_reason")
+    if isinstance(raw_finish_reason, str):
+        candidate = raw_finish_reason.strip().upper()
+        if candidate in _GEMINI_HEALTH_FINISH_REASONS:
+            finish_reason = candidate
+
+    failure_kind = _GEMINI_HEALTH_FAILURE_KINDS.get(status, "")
+    return {
+        "model": model,
+        "status": status,
+        "http_code": http_code,
+        "finish_reason": finish_reason,
+        "latency_ms": latency_ms,
+        "outcome": "succeeded" if status == "ok" else "failed",
+        "failure_kind": failure_kind,
+    }
+
+
+def _record_gemini_health_probe(
+    *,
+    key_name: str,
+    model: str,
+    request_id: str,
+    observed_at,
+    normalized: dict,
+) -> None:
+    """Persist one redacted attempt and only the dedicated probe fields."""
+    from .models import GeminiKeyState
+
+    with transaction.atomic():
+        gemini_keys.record_attempt(
+            request_id=request_id,
+            role="health_probe",
+            key_name=key_name,
+            model=model,
+            outcome=normalized["outcome"],
+            failure_kind=normalized["failure_kind"],
+            http_code=normalized["http_code"],
+            provider_reason=normalized["finish_reason"],
+            decision="manual_probe",
+            latency_ms=normalized["latency_ms"],
+            remaining_deadline_ms=0,
+            usage={},
+            error_detail="",
+        )
+        state = GeminiKeyState.objects.select_for_update().get(key_name=key_name)
+        state.last_probe_at = observed_at
+        state.last_probe_status = normalized["status"]
+        state.last_probe_model = model
+        state.last_probe_latency_ms = normalized["latency_ms"]
+        state.last_probe_finish_reason = normalized["finish_reason"]
+        state.last_probe_http_code = normalized["http_code"] or None
+        state.last_probe_error = (
+            ""
+            if normalized["status"] in _GEMINI_HEALTH_REACHABLE_STATUSES
+            else normalized["status"]
+        )
+        state.save(update_fields=[
+            "last_probe_at",
+            "last_probe_status",
+            "last_probe_model",
+            "last_probe_latency_ms",
+            "last_probe_finish_reason",
+            "last_probe_http_code",
+            "last_probe_error",
+            "updated_at",
+        ])
+
+
+def _gemini_health_pool_row(key_name: str, now) -> dict:
+    for row in gemini_keys.pool_status(now=now):
+        if row.get("key_name") == key_name:
+            return row
+    return {}
+
+
 def _require_bot_json(request):
     if not _can_use_bot(request.user):
         return JsonResponse({"success": False, "error": "Доступ лише до вкладки бота."}, status=403)
@@ -773,6 +952,128 @@ def bot_status_api(request):
         for r in rows
     ]
     return JsonResponse({"success": True, "status": _reviewer_safe_status(request), "log": items})
+
+
+@login_required(login_url="management_login")
+@require_GET
+def bot_gemini_health_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    # This endpoint is intentionally passive: build_snapshot reads only the
+    # bounded local attempt ledger and key-state projection.
+    return JsonResponse(gemini_health.build_snapshot())
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_gemini_health_probe_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+
+    key_name = request.POST.get("key_name")
+    model = request.POST.get("model")
+    key_values = request.POST.getlist("key_name")
+    model_values = request.POST.getlist("model")
+    if (
+        len(key_values) != 1
+        or len(model_values) != 1
+        or not isinstance(key_name, str)
+        or key_name not in gemini_keys.ALL_KEYS
+        or not isinstance(model, str)
+        or model not in gemini_health.DISPLAY_MODELS
+    ):
+        return _gemini_health_error("invalid_probe_request", 400)
+
+    key_value = (os.environ.get(key_name) or "").strip()
+    if not key_value:
+        return _gemini_health_error("key_unconfigured", 409)
+
+    now = timezone.now()
+    pool_row = _gemini_health_pool_row(key_name, now)
+    health_state = str(pool_row.get("health_state") or "")
+    if health_state == "cooldown" or not pool_row.get("available", True):
+        return _gemini_health_error("key_cooldown", 409)
+    if health_state == "busy":
+        return _gemini_health_error("key_busy", 409)
+
+    lock_key = _gemini_health_cache_key("lock", key_name, model)
+    rate_key = _gemini_health_cache_key("rate", key_name, model)
+    lock_token = secrets.token_hex(16)
+    if not cache.add(
+        lock_key,
+        lock_token,
+        timeout=_GEMINI_HEALTH_PROBE_LOCK_SECONDS,
+    ):
+        return _gemini_health_error("probe_in_progress", 409)
+
+    lease_token = None
+    try:
+        lease_token = gemini_keys.acquire_key_lease(
+            key_name,
+            role="health_probe",
+            seconds=_GEMINI_HEALTH_PROBE_LOCK_SECONDS,
+        )
+        if not lease_token:
+            return _gemini_health_error("key_busy", 409)
+
+        # Recheck cooldown after the atomic lease claim to close the
+        # check-then-claim race with quota/circuit workers.
+        if not gemini_keys.is_available(key_name, now=timezone.now()):
+            return _gemini_health_error("key_cooldown", 409)
+        if not cache.add(
+            rate_key,
+            True,
+            timeout=_GEMINI_HEALTH_PROBE_RATE_SECONDS,
+        ):
+            return _gemini_health_error("probe_rate_limited", 429)
+
+        try:
+            raw_result = gemini_probe.probe_key(
+                model,
+                key_value,
+                timeout=gemini_probe.PROBE_TIMEOUT,
+            )
+        except Exception:
+            # The probe client normally converts transport failures to a
+            # bounded result. Keep the API fail-closed if an unexpected
+            # adapter error escapes, without persisting its text.
+            raw_result = {}
+        normalized = _normalize_gemini_health_probe(raw_result, model)
+        observed_at = timezone.now()
+        request_id = f"health-probe-{secrets.token_hex(12)}"
+        _record_gemini_health_probe(
+            key_name=key_name,
+            model=model,
+            request_id=request_id,
+            observed_at=observed_at,
+            normalized=normalized,
+        )
+        return JsonResponse({
+            "success": True,
+            "probe": {
+                "alias": gemini_health.DISPLAY_ALIASES.get(key_name, "API key"),
+                "model": normalized["model"],
+                "status": normalized["status"],
+                "failure_kind": normalized["failure_kind"],
+                "http_code": normalized["http_code"],
+                "finish_reason": normalized["finish_reason"],
+                "latency_ms": normalized["latency_ms"],
+                "observed_at": observed_at.isoformat(),
+            },
+        })
+    finally:
+        if lease_token:
+            try:
+                gemini_keys.release_key_lease(key_name, lease_token)
+            except Exception:
+                pass
+        try:
+            if cache.get(lock_key) == lock_token:
+                cache.delete(lock_key)
+        except Exception:
+            pass
 
 
 @require_GET

@@ -70,27 +70,47 @@ def _bucket_index(created_at: dt.datetime, window_start: dt.datetime) -> int:
     return min(BUCKET_COUNT - 1, max(0, int(seconds // 3600)))
 
 
-def _status_for_attempts(rows: list[dict[str, Any]]) -> str:
+def _attempt_sort_key(row: dict[str, Any]) -> tuple[dt.datetime, int]:
+    return (_as_utc(row["created_at"]), int(row.get("id") or 0))
+
+
+def _status_for_attempts(
+    rows: list[dict[str, Any]],
+    *,
+    window_start: dt.datetime | None = None,
+) -> str:
     if not rows:
         return "no_observation"
 
-    by_request: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        by_request[str(row.get("request_id") or "")].append(row)
-    has_success = any(_attempt_succeeded(row) for row in rows)
-    has_failure = any(not _attempt_succeeded(row) for row in rows)
-    recovered = any(
-        any(_attempt_succeeded(row) for row in request_rows)
-        and any(not _attempt_succeeded(row) for row in request_rows)
-        for request_rows in by_request.values()
-    )
-    if recovered:
-        return "recovered"
-    if has_success:
-        return "success"
-    if has_failure:
+    ordered = sorted(rows, key=_attempt_sort_key)
+    latest = ordered[-1]
+    if not _attempt_succeeded(latest):
         return "terminal"
-    return "no_observation"
+    latest_request = str(latest.get("request_id") or "").strip()
+    if window_start is None:
+        latest_bucket = _as_utc(latest["created_at"]).replace(
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+    else:
+        latest_bucket = _bucket_index(latest["created_at"], window_start)
+    for previous in ordered[:-1]:
+        if _attempt_succeeded(previous):
+            continue
+        previous_request = str(previous.get("request_id") or "").strip()
+        same_request = bool(latest_request) and previous_request == latest_request
+        if window_start is None:
+            previous_bucket = _as_utc(previous["created_at"]).replace(
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+        else:
+            previous_bucket = _bucket_index(previous["created_at"], window_start)
+        if same_request or previous_bucket == latest_bucket:
+            return "recovered"
+    return "success"
 
 
 def _empty_model_snapshot(window_start: dt.datetime) -> dict[str, Any]:
@@ -112,34 +132,86 @@ def _empty_model_snapshot(window_start: dt.datetime) -> dict[str, Any]:
     }
 
 
+def _has_ordered_recovery(rows: list[dict[str, Any]]) -> bool:
+    """Return whether a failure is followed by a success in one request."""
+    saw_failure = False
+    for row in sorted(rows, key=_attempt_sort_key):
+        if _attempt_succeeded(row):
+            if saw_failure:
+                return True
+        else:
+            saw_failure = True
+    return False
+
+
+def _ordered_recovery_row_ids(rows: list[dict[str, Any]]) -> tuple[set[int], set[int]]:
+    """Return in-memory identities participating in ordered same-request recovery."""
+    recovered_failures: set[int] = set()
+    recovered_successes: set[int] = set()
+    for request_rows in _group_by_request(rows).values():
+        pending_failures: list[dict[str, Any]] = []
+        for row in request_rows:
+            if _attempt_succeeded(row):
+                if pending_failures:
+                    recovered_failures.update(id(item) for item in pending_failures)
+                    recovered_successes.add(id(row))
+                pending_failures = []
+            else:
+                pending_failures.append(row)
+    return recovered_failures, recovered_successes
+
+
+def _history_statuses(
+    rows: list[dict[str, Any]],
+    window_start: dt.datetime,
+) -> list[dict[str, str]]:
+    """Build bucket statuses while retaining recovery evidence across buckets."""
+    ordered = sorted(rows, key=_attempt_sort_key)
+    by_bucket: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for row in ordered:
+        by_bucket[_bucket_index(row["created_at"], window_start)].append(row)
+
+    recovered_failures, recovered_successes = _ordered_recovery_row_ids(ordered)
+    history: list[dict[str, str]] = []
+    for index in range(BUCKET_COUNT):
+        bucket_rows = by_bucket.get(index, [])
+        status = _status_for_attempts(bucket_rows, window_start=window_start)
+        if bucket_rows:
+            latest = max(bucket_rows, key=_attempt_sort_key)
+            latest_is_unrecovered_failure = (
+                not _attempt_succeeded(latest)
+                and id(latest) not in recovered_failures
+            )
+            if not latest_is_unrecovered_failure and any(
+                id(row) in recovered_failures or id(row) in recovered_successes
+                for row in bucket_rows
+            ):
+                status = "recovered"
+        history.append({
+            "bucket_start": _iso(window_start + dt.timedelta(hours=index)),
+            "status": status,
+        })
+    return history
+
+
 def _model_snapshot(rows: list[dict[str, Any]], window_start: dt.datetime) -> dict[str, Any]:
     snapshot = _empty_model_snapshot(window_start)
     if not rows:
         return snapshot
 
-    rows = sorted(rows, key=lambda row: (_as_utc(row["created_at"]), str(row.get("request_id") or "")))
-    by_bucket: dict[int, list[dict[str, Any]]] = defaultdict(list)
-    for row in rows:
-        by_bucket[_bucket_index(row["created_at"], window_start)].append(row)
-
-    history = []
-    for index in range(BUCKET_COUNT):
-        history.append({
-            "bucket_start": _iso(window_start + dt.timedelta(hours=index)),
-            "status": _status_for_attempts(by_bucket.get(index, [])),
-        })
+    rows = sorted(rows, key=_attempt_sort_key)
+    history = _history_statuses(rows, window_start)
 
     success_count = sum(1 for row in rows if _attempt_succeeded(row))
     failure_count = len(rows) - success_count
     recovered_count = sum(
         1
         for request_rows in _group_by_request(rows).values()
-        if any(_attempt_succeeded(row) for row in request_rows)
-        and any(not _attempt_succeeded(row) for row in request_rows)
+        if _has_ordered_recovery(request_rows)
     )
     last = rows[-1]
     snapshot.update({
-        "status": _status_for_attempts(rows),
+        "status": _status_for_attempts(rows, window_start=window_start),
         "observations": len(rows),
         "successes": success_count,
         "failures": failure_count,
@@ -154,14 +226,24 @@ def _model_snapshot(rows: list[dict[str, Any]], window_start: dt.datetime) -> di
 def _group_by_request(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        grouped[str(row.get("request_id") or "")].append(row)
+        if str(row.get("key_name") or "") not in KEY_ALIASES:
+            continue
+        request_id = str(row.get("request_id") or "").strip()
+        if not request_id:
+            continue
+        grouped[request_id].append(row)
     for request_rows in grouped.values():
-        request_rows.sort(key=lambda row: (_as_utc(row["created_at"]), str(row.get("model") or "")))
+        request_rows.sort(
+            key=lambda row: (
+                _as_utc(row["created_at"]),
+                int(row.get("id") or 0),
+            )
+        )
     return grouped
 
 
 def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | None] | None:
-    latest: tuple[dt.datetime, dict[str, str | None]] | None = None
+    latest: tuple[tuple[dt.datetime, int], dict[str, str | None]] | None = None
     for request_rows in _group_by_request(rows).values():
         for index, row in enumerate(request_rows):
             if row.get("model") != "gemini-3.7-flash" or _attempt_succeeded(row):
@@ -178,7 +260,7 @@ def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | None] | None
                     "reason": _FAILURE_REASON_LABELS.get(failure_kind, "3.7 request failed"),
                     "observed_at": _iso(next_row["created_at"]),
                 }
-                observed_at = _as_utc(next_row["created_at"])
+                observed_at = _attempt_sort_key(next_row)
                 if latest is None or observed_at > latest[0]:
                     latest = (observed_at, fallback)
                 break
@@ -193,7 +275,12 @@ def _pool_row_by_key(pool_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any
     }
 
 
-def _summary(pool_rows: list[dict[str, Any]], attempts: list[dict[str, Any]]) -> dict[str, Any]:
+def _summary(
+    pool_rows: list[dict[str, Any]],
+    attempts: list[dict[str, Any]],
+    *,
+    window_start: dt.datetime | None = None,
+) -> dict[str, Any]:
     state_counts = {state: 0 for state in ("available", "busy", "cooldown", "unconfigured")}
     for row in pool_rows:
         state = str(
@@ -219,11 +306,13 @@ def _summary(pool_rows: list[dict[str, Any]], attempts: list[dict[str, Any]]) ->
             continue
         successes = sum(1 for row in model_rows if _attempt_succeeded(row))
         models[model] = {
-            "status": _status_for_attempts(model_rows),
+            "status": _status_for_attempts(model_rows, window_start=window_start),
             "observations": len(model_rows),
             "successes": successes,
             "failures": len(model_rows) - successes,
-            "last_observation_at": _iso(max(model_rows, key=lambda row: _as_utc(row["created_at"]))["created_at"]),
+            "last_observation_at": _iso(
+                max(model_rows, key=_attempt_sort_key)["created_at"]
+            ),
         }
 
     return {
@@ -247,6 +336,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         GeminiRequestAttempt.objects.filter(
             created_at__gte=window_start,
             created_at__lte=generated_at,
+            key_name__in=KEY_ALIASES,
             model__in=DISPLAY_MODELS,
         )
         .order_by("-created_at", "-id")
@@ -301,7 +391,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             "hours": WINDOW_HOURS,
             "bucket_count": BUCKET_COUNT,
         },
-        "summary": _summary(pool_rows, attempt_rows),
+        "summary": _summary(pool_rows, attempt_rows, window_start=window_start),
         "fallback": _latest_fallback(attempt_rows),
         "keys": keys,
     }

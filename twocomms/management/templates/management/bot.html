@@ -67,6 +67,85 @@
 @media(max-width:880px){.bot-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:560px){.bot-overview-diagnostics{grid-template-columns:1fr;}}
 @media(max-width:360px){.bot-metrics{grid-template-columns:minmax(0,1fr);}}
+
+/* ---- Gemini API health ---- */
+.gemini-health-card{padding:0;border-radius:8px;overflow:hidden;}
+.gemini-health-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid #202938;background:#0d131c;}
+.gemini-health-heading{min-width:0;}
+.gemini-health-heading h2{margin:0;color:#e5edf6;font-size:15px;font-weight:800;text-transform:none;}
+.gemini-health-heading p{max-width:760px;margin:5px 0 0;color:#8492a6;font-size:11px;line-height:1.45;}
+.gemini-health-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
+.gemini-health-freshness{color:#8190a4;font-size:10px;font-weight:700;white-space:nowrap;}
+.gemini-health-refresh{display:grid;place-items:center;width:32px;height:32px;border:1px solid #2a394d;border-radius:6px;background:#101925;color:#c8d5e3;font-size:17px;line-height:1;cursor:pointer;transition:background .16s ease,border-color .16s ease;}
+.gemini-health-refresh:hover,.gemini-health-refresh:focus-visible{border-color:#4b6380;background:#162334;color:#fff;outline:0;}
+.gemini-health-refresh:disabled{opacity:.45;cursor:wait;}
+.gemini-health-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;border-bottom:1px solid #202938;background:#202938;}
+.gemini-health-summary-item{display:grid;gap:4px;min-width:0;padding:12px 14px;background:#0a1017;}
+.gemini-health-summary-item strong{color:#edf3f8;font-size:20px;font-weight:850;font-variant-numeric:tabular-nums;line-height:1;}
+.gemini-health-summary-item span{color:#8190a4;font-size:9px;font-weight:750;text-transform:uppercase;}
+.gemini-health-fallback{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 14px 0;border:1px solid #3b3422;border-radius:7px;background:#15130d;padding:10px 12px;color:#c5af79;font-size:10.5px;line-height:1.45;}
+.gemini-health-fallback[hidden]{display:none;}
+.gemini-health-fallback[data-state=neutral]{border-color:#293647;background:#0e151e;color:#8fa0b5;}
+.gemini-health-fallback strong{color:#f0d594;font-size:11px;}
+.gemini-health-fallback[data-state=neutral] strong{color:#b8c6d7;}
+.gemini-health-keys{display:grid;gap:1px;margin:12px 14px;border:1px solid #202938;border-radius:7px;background:#202938;overflow:hidden;}
+.gemini-health-row{display:grid;grid-template-columns:minmax(130px,.65fr) minmax(420px,2fr) minmax(180px,.75fr);align-items:center;gap:14px;min-width:0;background:#0b1119;padding:11px 12px;}
+.gemini-health-key-meta{display:grid;gap:5px;min-width:0;}
+.gemini-health-key-title{color:#e5edf6;font-size:12px;font-weight:800;}
+.gemini-health-state{display:inline-flex;align-items:center;gap:6px;width:max-content;max-width:100%;color:#8d9bad;font-size:9.5px;font-weight:750;}
+.gemini-health-state::before{content:'';flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:#596679;}
+.gemini-health-state.is-available::before{background:#34d399;}
+.gemini-health-state.is-busy::before,.gemini-health-state.is-cooldown::before{background:#f2b84b;}
+.gemini-health-state.is-unavailable::before,.gemini-health-state.is-unconfigured::before{background:#ef7d68;}
+.gemini-health-models{display:grid;gap:9px;min-width:0;}
+.gemini-health-model{display:grid;grid-template-columns:34px minmax(0,1fr) minmax(124px,auto);align-items:center;gap:8px;min-width:0;}
+.gemini-health-model-label{color:#aebacc;font-size:10px;font-weight:850;}
+.gemini-health-rail-scroll{min-width:0;overflow:hidden;}
+.gemini-health-rail{display:grid;grid-template-columns:repeat(24,minmax(10px,1fr));gap:3px;min-width:309px;}
+.gemini-health-segment{display:block;min-width:10px;height:20px;border:1px solid #2b3544;border-radius:2px;background:#222b38;transition:filter .14s ease,transform .14s ease;}
+.gemini-health-segment.is-success{border-color:#2cae81;background:#34c995;}
+.gemini-health-segment.is-recovered{border-color:#d8a63e;background:#edb94f;}
+.gemini-health-segment.is-terminal{border-color:#d9675d;background:#e4776c;}
+.gemini-health-segment:hover,.gemini-health-segment:focus-visible{filter:brightness(1.12);outline:0;transform:translateY(-1px);}
+.gemini-health-model-meta{min-width:0;color:#7f8da1;font-size:9px;font-variant-numeric:tabular-nums;line-height:1.35;text-align:right;}
+.gemini-health-model-meta strong{display:block;color:#c8d4e2;font-size:9.5px;font-weight:800;}
+.gemini-health-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:7px;}
+.gemini-health-actions label{grid-column:1/-1;color:#77869a;font-size:9px;font-weight:750;}
+.gemini-health-model-select{min-width:0;height:32px;border:1px solid #28364a;border-radius:6px;background:#0f1722;color:#cbd6e3;padding:0 8px;font-size:10px;}
+.gemini-health-probe{height:32px;border:1px solid #315070;border-radius:6px;background:#12243a;color:#c9def3;padding:0 10px;font-size:10px;font-weight:800;cursor:pointer;}
+.gemini-health-probe:hover,.gemini-health-probe:focus-visible{border-color:#52779d;background:#18304a;outline:0;}
+.gemini-health-probe:disabled{opacity:.42;cursor:not-allowed;}
+.gemini-health-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0 14px 14px;}
+.gemini-health-legend{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;color:#8795a8;font-size:9.5px;font-weight:700;}
+.gemini-health-legend span{display:inline-flex;align-items:center;gap:5px;}
+.gemini-health-legend i{width:8px;height:8px;border-radius:2px;background:#222b38;}
+.gemini-health-legend .success{background:#34c995}.gemini-health-legend .recovered{background:#edb94f}.gemini-health-legend .terminal{background:#e4776c}.gemini-health-legend .empty{border:1px solid #354052;background:#222b38;}
+.gemini-health-feedback{min-height:16px;color:#7f8da1;font-size:10px;line-height:1.4;text-align:right;}
+.gemini-health-feedback.stale{color:#d6ad5d}.gemini-health-feedback.error{color:#ef8b82}.gemini-health-feedback.success{color:#69d7ae;}
+@media(max-width:880px){
+  .gemini-health-row{grid-template-columns:minmax(0,1fr) minmax(170px,.35fr);gap:10px 14px;}
+  .gemini-health-models{grid-column:1/-1;grid-row:2;}
+  .gemini-health-actions{grid-column:2;grid-row:1;}
+}
+@media(max-width:560px){
+  .gemini-health-header{align-items:stretch;flex-direction:column;}
+  .gemini-health-header-actions{justify-content:space-between;}
+  .gemini-health-summary{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .gemini-health-fallback{align-items:flex-start;flex-direction:column;}
+  .gemini-health-row{grid-template-columns:minmax(0,1fr);}
+  .gemini-health-actions{grid-column:1;grid-row:auto;}
+  .gemini-health-models{grid-column:1;grid-row:auto;}
+  .gemini-health-model{grid-template-columns:28px minmax(0,1fr);}
+  .gemini-health-model-meta{grid-column:1/-1;text-align:left;}
+  .gemini-health-rail-scroll{overflow-x:auto;padding-bottom:3px;}
+  .gemini-health-rail{grid-template-columns:repeat(24,10px);width:max-content;}
+  .gemini-health-footer{align-items:flex-start;flex-direction:column;}
+  .gemini-health-feedback{text-align:left;}
+}
+@media(prefers-reduced-motion:reduce){
+  .gemini-health-refresh,.gemini-health-segment{transition:none!important;}
+  .gemini-health-segment:hover,.gemini-health-segment:focus-visible{transform:none;}
+}
 /* ---- Sales statistics ---- */
 @property --attribution-confirmed-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
 @property --attribution-partial-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
@@ -1227,6 +1306,9 @@ body.bot-drawer-open{overflow:hidden;}
   <nav class="bot-tabs" id="bot-tabs" role="tablist" aria-label="Розділи Instagram-бота">
     <button class="bot-tab active" role="tab" aria-selected="true" data-tab="overview">Огляд<span class="badge" id="badge-pending" style="display:none;"></span></button>
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="settings">Налаштування</button>
+    {% if bot_is_admin %}
+    <button class="bot-tab" role="tab" aria-selected="false" data-tab="api">API-ключі</button>
+    {% endif %}
     {% if not meta_bot_reviewer_mode %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="kb">Інструкції</button>
     {% endif %}
@@ -1378,6 +1460,43 @@ body.bot-drawer-open{overflow:hidden;}
       </form>
     </div>
   </section>
+
+  {% if bot_is_admin %}
+  <!-- ===== Gemini API ===== -->
+  <section class="bot-panel" data-panel="api">
+    <div class="bot-card gemini-health-card">
+      <header class="gemini-health-header">
+        <div class="gemini-health-heading">
+          <h2>Gemini API</h2>
+          <p>Пасивний зріз реальних спроб за 24 години. Оновлення читає вже збережені дані; зовнішній запит до Gemini виконується лише кнопкою «Перевірити».</p>
+        </div>
+        <div class="gemini-health-header-actions">
+          <span class="gemini-health-freshness" id="gemini-health-freshness">Ще не оновлено</span>
+          <button type="button" class="gemini-health-refresh" id="gemini-health-refresh" aria-label="Оновити збережений зріз API" title="Оновити збережений зріз">↻</button>
+        </div>
+      </header>
+      <div class="gemini-health-summary" id="gemini-health-summary" aria-label="Зведення стану Gemini API">
+        <div class="gemini-health-summary-item"><strong>—</strong><span>Налаштовано</span></div>
+        <div class="gemini-health-summary-item"><strong>—</strong><span>Доступні</span></div>
+        <div class="gemini-health-summary-item"><strong>—</strong><span>Зайняті / cooldown</span></div>
+        <div class="gemini-health-summary-item"><strong>—</strong><span>Недоступні</span></div>
+      </div>
+      <div class="gemini-health-fallback" id="gemini-health-fallback" role="status" aria-live="polite" hidden></div>
+      <div class="gemini-health-keys" id="gemini-health-keys" aria-live="polite" aria-busy="true">
+        <div class="bot-empty">Зріз завантажиться після відкриття вкладки.</div>
+      </div>
+      <footer class="gemini-health-footer">
+        <div class="gemini-health-legend" aria-label="Позначення історії API">
+          <span><i class="success"></i>Успішне</span>
+          <span><i class="recovered"></i>Відновлено</span>
+          <span><i class="terminal"></i>Помилка</span>
+          <span><i class="empty"></i>Немає даних</span>
+        </div>
+        <div class="gemini-health-feedback" id="gemini-health-feedback" role="status" aria-live="polite"></div>
+      </footer>
+    </div>
+  </section>
+  {% endif %}
 
   {% if not meta_bot_reviewer_mode %}
   <!-- ===== Інструкції ===== -->
@@ -1708,6 +1827,118 @@ body.bot-drawer-open{overflow:hidden;}
   const mediaLabels={receipt:'Чек з переписки',payment_candidate:'Ймовірний чек — потрібна звірка',product:'Зображення товару',custom_reference:'Референс для custom print',other:'Невизначене зображення',manager_reference:'Зображення менеджера'};
   function humanLabel(map,value,fallback='Невідомо'){ return map[value]||fallback; }
 
+  {% if bot_is_admin %}
+  const GeminiHealth=(function(){
+    const healthUrl='{% url "management_bot_gemini_health_api" %}';
+    const probeUrl='{% url "management_bot_gemini_health_probe_api" %}';
+    const summary=document.getElementById('gemini-health-summary');
+    const fallback=document.getElementById('gemini-health-fallback');
+    const keys=document.getElementById('gemini-health-keys');
+    const feedback=document.getElementById('gemini-health-feedback');
+    const freshness=document.getElementById('gemini-health-freshness');
+    const refreshButton=document.getElementById('gemini-health-refresh');
+    const models=[
+      {id:'gemini-3.7-flash',short:'3.7'},
+      {id:'gemini-3.6-flash',short:'3.6'},
+    ];
+    const stateLabels={available:'Доступний',busy:'Зайнятий',cooldown:'Cooldown',unconfigured:'Не налаштовано',unavailable:'Недоступний'};
+    const observationLabels={success:'Успішне',recovered:'Відновлено',terminal:'Помилка',no_observation:'Немає даних'};
+    const fallbackReasons={'3.7 timed out':'3.7 не відповіла вчасно','provider overload':'Провайдер перевантажений','network transport failure':'Помилка мережевого з’єднання','quota cooldown':'Ключ на cooldown','model unavailable':'Модель тимчасово недоступна','invalid key':'Ключ відхилено','invalid response':'Некоректна відповідь'};
+    const allowedObservationStates=new Set(['success','recovered','terminal','no_observation']);
+    let lastSnapshot=null;
+    let loading=false;
+
+    function make(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
+    function integer(value){const parsed=Number(value);return Number.isFinite(parsed)?Math.max(0,Math.round(parsed)):0;}
+    function setFeedback(message,kind=''){if(!feedback)return;feedback.textContent=message||'';feedback.className='gemini-health-feedback'+(kind?(' '+kind):'');}
+    function formatDate(value){if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?'—':date.toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
+    function apiIsActive(){const active=document.querySelector('.bot-tab.active');return Boolean(active&&active.dataset.tab==='api');}
+    function normalizeState(value){const state=String(value||'unconfigured');return Object.prototype.hasOwnProperty.call(stateLabels,state)?state:'unavailable';}
+    function normalizeObservation(value){const state=String(value||'no_observation');return allowedObservationStates.has(state)?state:'no_observation';}
+    function renderSummary(data){
+      if(!summary)return;const values=[integer(data.configured),integer(data.available),integer(data.busy)+integer(data.cooldown),integer(data.unconfigured)];
+      Array.from(summary.querySelectorAll('strong')).forEach((element,index)=>{element.textContent=String(values[index]||0);});
+    }
+    function renderFallback(data){
+      if(!fallback)return;fallback.replaceChildren();fallback.hidden=false;
+      if(!data){fallback.dataset.state='neutral';fallback.append(make('strong','', 'Перемикання не зафіксовано'),make('span','', 'За останні 24 години немає доведеного переходу з 3.7 на 3.6.'));return;}
+      fallback.dataset.state='fallback';
+      const from=models.some(item=>item.id===data.from_model)?data.from_model:'gemini-3.7-flash';
+      const to=models.some(item=>item.id===data.to_model)?data.to_model:'gemini-3.6-flash';
+      const reason=fallbackReasons[String(data.reason||'')]||'Причину нормалізовано сервером';
+      fallback.append(make('strong','',from+' → '+to),make('span','',reason+' · '+formatDate(data.observed_at)));
+    }
+    function renderModel(modelConfig,modelData,keyLabel){
+      const data=modelData&&typeof modelData==='object'?modelData:{};
+      const row=make('div','gemini-health-model');
+      row.appendChild(make('span','gemini-health-model-label',modelConfig.short));
+      const railScroll=make('div','gemini-health-rail-scroll');
+      const rail=make('div','gemini-health-rail');
+      rail.setAttribute('role','img');rail.setAttribute('aria-label',keyLabel+', модель '+modelConfig.short+': історія спроб за 24 години');
+      const history=Array.isArray(data.history)?data.history:[];
+      Array.from({length:24},(_,slot)=>{
+        const bucket=history[slot]&&typeof history[slot]==='object'?history[slot]:{};
+        const status=normalizeObservation(bucket.status);
+        const title=modelConfig.short+' · '+formatDate(bucket.bucket_start)+' · '+observationLabels[status];
+        const segment=make('span','gemini-health-segment is-'+status);
+        segment.tabIndex=0;segment.title=title;segment.setAttribute('aria-label',title);rail.appendChild(segment);
+      });
+      railScroll.appendChild(rail);row.appendChild(railScroll);
+      const observations=integer(data.observations);const successes=integer(data.successes);
+      const meta=make('div','gemini-health-model-meta');
+      if(!observations){meta.dataset.observationState='insufficient_observations';meta.append(make('strong','', 'Недостатньо спостережень'));}
+      else{const ratio=Math.round((successes/observations)*100);meta.append(make('strong','',successes+'/'+observations+' · '+ratio+'%'),document.createTextNode((integer(data.last_latency_ms)?integer(data.last_latency_ms)+' ms · ':'')+(observationLabels[normalizeObservation(data.status)]||'Немає даних')));}
+      row.appendChild(meta);return row;
+    }
+    function renderKey(item,index){
+      const data=item&&typeof item==='object'?item:{};const label='API key '+String(index);const state=normalizeState(data.state);
+      const row=make('article','gemini-health-row');
+      const meta=make('div','gemini-health-key-meta');meta.append(make('div','gemini-health-key-title',label),make('span','gemini-health-state is-'+state,stateLabels[state]));row.appendChild(meta);
+      const modelRows=make('div','gemini-health-models');models.forEach(model=>modelRows.appendChild(renderModel(model,(data.models||{})[model.id],label)));row.appendChild(modelRows);
+      const actions=make('div','gemini-health-actions');const actionLabel=make('label','', 'Ручна перевірка');
+      const select=make('select','gemini-health-model-select');select.setAttribute('aria-label','Модель для ручної перевірки '+label);
+      models.forEach(model=>{const option=make('option','',model.short);option.value=model.id;select.appendChild(option);});
+      const probeButton=make('button','gemini-health-probe','Перевірити');probeButton.type='button';probeButton.disabled=!Boolean(data.configured);probeButton.title=data.configured?'Виконати одну коротку перевірку вибраної моделі':'Ключ не налаштовано';
+      const keyName='GEMINI_API'+(index===1?'':String(index));
+      probeButton.addEventListener('click',async()=>{
+        if(probeButton.disabled)return;probeButton.disabled=true;select.disabled=true;setFeedback('Перевіряємо '+label+' · '+select.options[select.selectedIndex].text+'…');
+        const body=new FormData();body.append('key_name',keyName);body.append('model',select.value);
+        try{
+          const response=await fetch(probeUrl,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body});
+          const result=await response.json().catch(()=>({}));if(!response.ok||result.success===false)throw new Error('probe_failed');
+          const refreshed=await load();
+          if(refreshed&&result.probe&&result.probe.status==='ok')setFeedback('Ручну перевірку завершено; ключ відповів.','success');
+          else if(refreshed)setFeedback('Результат ручної перевірки зафіксовано у зрізі.','stale');
+          else setFeedback('Перевірку завершено, але новий зріз поки недоступний.','stale');
+        }catch(_){setFeedback('Ручна перевірка не завершилася. Спробуйте пізніше.','error');}
+        finally{select.disabled=false;probeButton.disabled=!Boolean(data.configured);}
+      });
+      actions.append(actionLabel,select,probeButton);row.appendChild(actions);return row;
+    }
+    function render(data){
+      lastSnapshot=data;renderSummary(data.summary||{});renderFallback(data.fallback||null);
+      if(keys){keys.replaceChildren();const source=Array.isArray(data.keys)?data.keys:[];for(let index=1;index<=6;index+=1)keys.appendChild(renderKey(source[index-1]||{},index));keys.setAttribute('aria-busy','false');}
+      if(freshness){freshness.textContent='Оновлено '+formatDate(data.generated_at);freshness.title=String(data.generated_at||'');}
+      const observations=integer((data.summary||{}).observations);setFeedback(observations?'На графіку лише збережені спроби, без фонових запитів.':'За 24 години ще немає спостережень.','');
+    }
+    async function load(){
+      if(loading||document.hidden||!apiIsActive())return false;loading=true;if(refreshButton)refreshButton.disabled=true;if(keys)keys.setAttribute('aria-busy','true');setFeedback(lastSnapshot?'Оновлюємо збережений зріз…':'Завантажуємо збережений зріз…');
+      try{
+        const response=await fetch(healthUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+        const raw=await response.json().catch(()=>({}));const data=raw&&raw.snapshot&&typeof raw.snapshot==='object'?raw.snapshot:raw;
+        if(!response.ok||!data||!Array.isArray(data.keys))throw new Error('invalid_schema');render(data);return true;
+      }catch(_){
+        if(keys)keys.setAttribute('aria-busy','false');
+        if(lastSnapshot){setFeedback('Новий зріз недоступний; показано останні успішно завантажені дані.','stale');}
+        else{if(keys)keys.replaceChildren(make('div','bot-empty','Дані API тимчасово недоступні. Оновіть зріз пізніше.'));setFeedback('Не вдалося завантажити зріз.','error');}
+        return false;
+      }finally{loading=false;if(refreshButton)refreshButton.disabled=false;}
+    }
+    if(refreshButton)refreshButton.addEventListener('click',()=>load());
+    return {load:load};
+  })();
+  {% endif %}
+
   /* ============ Tabs ============ */
   const tabs = Array.from(document.querySelectorAll('.bot-tab'));
   const panels = Array.from(document.querySelectorAll('.bot-panel'));
@@ -1735,6 +1966,9 @@ body.bot-drawer-open{overflow:hidden;}
     moveInd(btn);
     centerActiveBotTab(btn);
     if(save){ try{ localStorage.setItem('bot_tab', btn.dataset.tab); }catch(e){} }
+    {% if bot_is_admin %}
+    if(btn.dataset.tab==='api'&&!loaded.api){loaded.api=true;GeminiHealth.load();}
+    {% endif %}
     if(btn.dataset.tab==='clients' && !loaded.clients){ loaded.clients=true; Clients.load(''); }
     if(btn.dataset.tab==='kb' && !loaded.kb){ loaded.kb=true; KB.load(); }
     if(btn.dataset.tab==='stats'){ Stats.load(); }

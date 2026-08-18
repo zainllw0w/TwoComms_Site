@@ -62,6 +62,254 @@ class GeminiHealthSnapshotTests(TestCase):
         with patch.object(gemini_health.gemini_keys, "pool_status", return_value=self.pool):
             return gemini_health.build_snapshot(now=self.now)
 
+    def _status_row(self, *, row_id, request_id, outcome, at):
+        return {
+            "id": row_id,
+            "request_id": request_id,
+            "key_name": "GEMINI_API",
+            "model": "gemini-3.7-flash",
+            "outcome": outcome,
+            "failure_kind": "read_timeout" if outcome == "failed" else "",
+            "latency_ms": 10,
+            "created_at": at,
+        }
+
+    def test_status_is_terminal_when_a_later_failure_follows_success(self):
+        rows = [
+            self._status_row(
+                row_id=1,
+                request_id="first-success",
+                outcome="succeeded",
+                at=self.now - datetime.timedelta(minutes=10),
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="later-failure",
+                outcome="failed",
+                at=self.now - datetime.timedelta(minutes=5),
+            ),
+        ]
+
+        self.assertEqual(gemini_health._status_for_attempts(rows), "terminal")
+
+    def test_success_then_failure_in_one_request_is_terminal(self):
+        rows = [
+            self._status_row(
+                row_id=1,
+                request_id="same-request",
+                outcome="succeeded",
+                at=self.now - datetime.timedelta(minutes=10),
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="same-request",
+                outcome="failed",
+                at=self.now - datetime.timedelta(minutes=5),
+            ),
+        ]
+
+        self.assertEqual(gemini_health._status_for_attempts(rows), "terminal")
+
+    def test_failure_then_success_in_one_request_is_recovered(self):
+        rows = [
+            self._status_row(
+                row_id=1,
+                request_id="same-request",
+                outcome="failed",
+                at=self.now - datetime.timedelta(minutes=10),
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="same-request",
+                outcome="succeeded",
+                at=self.now - datetime.timedelta(minutes=5),
+            ),
+        ]
+
+        self.assertEqual(gemini_health._status_for_attempts(rows), "recovered")
+
+    def test_separate_failure_and_success_recover_only_in_observation_order_and_bucket(self):
+        failed_at = self.now - datetime.timedelta(minutes=10)
+        success_at = self.now - datetime.timedelta(minutes=5)
+        recovered_rows = [
+            self._status_row(
+                row_id=1,
+                request_id="failure-request",
+                outcome="failed",
+                at=failed_at,
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="success-request",
+                outcome="succeeded",
+                at=success_at,
+            ),
+        ]
+        self.assertEqual(gemini_health._status_for_attempts(recovered_rows), "recovered")
+
+        reversed_rows = [
+            self._status_row(
+                row_id=1,
+                request_id="success-request",
+                outcome="succeeded",
+                at=failed_at,
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="failure-request",
+                outcome="failed",
+                at=success_at,
+            ),
+        ]
+        self.assertEqual(gemini_health._status_for_attempts(reversed_rows), "terminal")
+
+    def test_failure_and_success_in_different_buckets_are_not_recovery(self):
+        rows = [
+            self._status_row(
+                row_id=1,
+                request_id="old-failure",
+                outcome="failed",
+                at=self.now - datetime.timedelta(hours=2),
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="new-success",
+                outcome="succeeded",
+                at=self.now - datetime.timedelta(hours=1),
+            ),
+        ]
+
+        self.assertEqual(gemini_health._status_for_attempts(rows), "success")
+
+    def test_ordered_recovery_marks_both_cross_bucket_history_segments_amber(self):
+        window_start = self.now - datetime.timedelta(hours=24)
+        rows = [
+            self._status_row(
+                row_id=1,
+                request_id="cross-bucket-request",
+                outcome="failed",
+                at=window_start + datetime.timedelta(hours=10, minutes=59),
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="cross-bucket-request",
+                outcome="succeeded",
+                at=window_start + datetime.timedelta(hours=11, minutes=1),
+            ),
+        ]
+
+        snapshot = gemini_health._model_snapshot(rows, window_start)
+
+        self.assertEqual(snapshot["status"], "recovered")
+        self.assertEqual(snapshot["history"][10]["status"], "recovered")
+        self.assertEqual(snapshot["history"][11]["status"], "recovered")
+
+    def test_blank_request_ids_cannot_prove_a_fallback_sequence(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            at=at,
+        )
+        self._attempt(
+            request_id="",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="succeeded",
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        self.assertIsNone(self._build()["fallback"])
+
+    def test_summary_uses_the_same_rolling_bucket_boundaries_as_history(self):
+        window_start = datetime.datetime(2026, 8, 17, 12, 30, tzinfo=UTC)
+        rows = [
+            self._status_row(
+                row_id=1,
+                request_id="separate-failure",
+                outcome="failed",
+                at=window_start + datetime.timedelta(hours=10, minutes=15),
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="separate-success",
+                outcome="succeeded",
+                at=window_start + datetime.timedelta(hours=10, minutes=45),
+            ),
+        ]
+
+        summary = gemini_health._summary([], rows, window_start=window_start)
+
+        self.assertEqual(summary["models"]["gemini-3.7-flash"]["status"], "recovered")
+
+    def test_model_recovered_count_requires_failure_before_success_with_id_tiebreak(self):
+        at = self.now - datetime.timedelta(minutes=5)
+        rows = [
+            self._status_row(
+                row_id=10,
+                request_id="success-then-failure",
+                outcome="succeeded",
+                at=at,
+            ),
+            self._status_row(
+                row_id=11,
+                request_id="success-then-failure",
+                outcome="failed",
+                at=at,
+            ),
+            self._status_row(
+                row_id=20,
+                request_id="failure-then-success",
+                outcome="failed",
+                at=at,
+            ),
+            self._status_row(
+                row_id=21,
+                request_id="failure-then-success",
+                outcome="succeeded",
+                at=at,
+            ),
+        ]
+
+        snapshot = gemini_health._model_snapshot(
+            rows,
+            self.now - datetime.timedelta(hours=24),
+        )
+
+        self.assertEqual(snapshot["recovered"], 1)
+
+    def test_summary_latest_observation_uses_attempt_sort_key(self):
+        first_at = datetime.datetime(2026, 8, 18, 11, 0, tzinfo=UTC)
+        second_at = datetime.datetime(2026, 8, 18, 11, 0, tzinfo=UTC)
+        rows = [
+            self._status_row(
+                row_id=1,
+                request_id="lower-id",
+                outcome="succeeded",
+                at=first_at,
+            ),
+            self._status_row(
+                row_id=2,
+                request_id="higher-id",
+                outcome="succeeded",
+                at=second_at,
+            ),
+        ]
+
+        def marker(value):
+            return "higher-id" if value is second_at else "lower-id"
+
+        with patch.object(gemini_health, "_iso", side_effect=marker):
+            summary = gemini_health._summary([], rows)
+
+        self.assertEqual(
+            summary["models"]["gemini-3.7-flash"]["last_observation_at"],
+            "higher-id",
+        )
+
     def test_empty_pool_is_stable_six_rows_with_gray_24_bucket_histories(self):
         snapshot = self._build()
 
@@ -177,6 +425,68 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertNotIn("read_timeout", serialized)
         self.assertNotIn("GEMINI_API", serialized)
         self.assertNotIn("secret", serialized)
+
+    def test_fallback_tie_break_uses_persisted_attempt_id_order(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="tie-break",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            at=at,
+        )
+        self._attempt(
+            request_id="tie-break",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="succeeded",
+            at=at,
+        )
+
+        self._attempt(
+            request_id="later-tie-break",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="quota_429",
+            at=at,
+        )
+        self._attempt(
+            request_id="later-tie-break",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="succeeded",
+            at=at,
+        )
+
+        snapshot = self._build()
+        self.assertEqual(snapshot["fallback"]["reason"], "quota cooldown")
+
+    def test_manual_key_attempts_are_excluded_from_all_six_key_evidence(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="manual-fallback",
+            key_name="(manual)",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            at=at,
+        )
+        self._attempt(
+            request_id="manual-fallback",
+            key_name="(manual)",
+            model="gemini-3.6-flash",
+            outcome="succeeded",
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        snapshot = self._build()
+        self.assertEqual(snapshot["summary"]["observations"], 0)
+        self.assertIsNone(snapshot["fallback"])
+        for row in snapshot["keys"]:
+            for model in gemini_health.DISPLAY_MODELS:
+                self.assertEqual(row["models"][model]["observations"], 0)
 
     def test_window_and_query_cap_ignore_old_and_excess_rows(self):
         self._attempt(

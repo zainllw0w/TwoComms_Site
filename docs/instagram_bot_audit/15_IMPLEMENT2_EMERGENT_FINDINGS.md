@@ -225,3 +225,19 @@ redirect supported entry points to the canonical target-SHA orchestrator or
 retire/archive inactive scripts. Contract tests must reject stale interpreters,
 old hosts, destructive resets, runtime migration generation, direct SCP overlays
 and unbounded restarts.
+
+## API dashboard implementation notes (2026-08-18)
+
+The bounded Gemini health slice exposed three aggregation edge cases during
+independent review and closed them before release: a recovery crossing an hour
+bucket now marks both affected rail segments amber; blank `request_id` values
+cannot prove a fallback or retry sequence; and equal-timestamp fallback events
+use the persisted attempt ID as the deterministic tie-break. Model summary
+status uses the same rolling 24-hour bucket boundary as the visual rail.
+
+These are telemetry correctness guards, not a closure of the broader Gemini
+lease/timeout work. Manual probes remain opt-in, one alias/model at a time, and
+their persisted record is redacted (`role=health_probe`) with no provider body,
+customer prompt or secret. No hourly checker or background provider probe was
+introduced. MariaDB lock/race behavior and the production GET/no-new-attempt
+proof remain release-gate evidence rather than local SQLite assumptions.

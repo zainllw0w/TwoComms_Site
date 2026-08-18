@@ -992,6 +992,38 @@ competition/reclaim proof remain open. The older
 `79ed12455` branch is preserved only as WIP evidence and must not be
 cherry-picked wholesale.
 
+**Bounded Gemini API dashboard follow-up (2026-08-18, release slice):**
+
+- [x] Add a separate admin-only `API` tab to the Instagram bot panel. It shows
+  six stable aliases (`API key 1` … `API key 6`), current derived state, and
+  independent 24-segment rails for `gemini-3.7-flash` and
+  `gemini-3.6-flash`.
+- [x] Make the read path passive: `GET /bot/api/gemini-health/` only reads the
+  bounded, redacted `GeminiRequestAttempt` ledger plus `pool_status()`. It has
+  no cron, polling loop, provider call, customer context, secret or raw
+  provider body.
+- [x] Make provider I/O explicit and bounded: `POST
+  /bot/api/gemini-health/probe/` accepts one allowlisted alias/model pair,
+  uses the existing minimal `Reply exactly OK.` probe, a short timeout, cache
+  lock and per-pair cooldown, and persists only normalized redacted telemetry.
+  Non-admins and Meta reviewers receive `403`.
+- [x] Keep the graph fail-closed: green means an observed success, amber means
+  an ordered recovery, red means the latest unrecovered failure, and gray means
+  no observation. A fallback callout is rendered only for a proven nonblank
+  request sequence `3.7 failure -> 3.6 success`.
+- [ ] This slice does not close the broader IMP-044 timeout/lease boundary,
+  typed worker telemetry, bounded jitter, migration `0169`, or disposable
+  MariaDB competition/reclaim proof.
+
+**Pre-deploy evidence for this slice:** the isolated worktree gate passed
+`217/217` focused Django tests covering the aggregator, probe client, API
+authorization/locks/redaction, UI contracts and reviewer isolation;
+`manage.py check`, `makemigrations --check --dry-run`, `compileall` and
+`git diff --check` were clean. The focused suite uses local SQLite only for
+fast deterministic logic; production MariaDB remains authoritative for the
+post-pull read-only API proof. A read-only GET is explicitly forbidden from
+creating a `GeminiRequestAttempt` or spending provider tokens.
+
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 
 After `G-EPOCH`, implement only the chosen policy: validate before first chunk
