@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -5,8 +6,9 @@ import MySQLdb
 from django.db import OperationalError
 from django.db.transaction import TransactionManagementError
 from django.contrib.auth import get_user_model
-from django.test import Client, TransactionTestCase, override_settings
+from django.test import Client, RequestFactory, TransactionTestCase, override_settings
 from django.urls import reverse
+from django.utils.functional import SimpleLazyObject
 from django.utils import timezone
 
 from management import parser_service, parser_usage, parsing_views
@@ -251,6 +253,63 @@ class ParserStatusDatabaseResilienceTests(TransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["success"])
         self.assertEqual(calls, 2)
+
+    def test_status_api_retries_disconnect_during_lazy_authentication(self):
+        calls = 0
+
+        def flaky_get_user(request):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise OperationalError(2006, "server has gone away")
+            return self.user
+
+        request = RequestFactory().get(
+            reverse("management_parser_status_api"),
+            HTTP_HOST=HOST,
+        )
+        request.user = SimpleLazyObject(lambda: flaky_get_user(request))
+
+        with patch.object(
+            parsing_views,
+            "parser_dashboard_job",
+            return_value=None,
+        ), patch.object(
+            parsing_views,
+            "_lead_queue_payload",
+            return_value=([], []),
+        ), patch.object(
+            parsing_views,
+            "_counters_payload",
+            return_value={
+                "moderation": 0,
+                "base": 0,
+                "converted": 0,
+                "rejected": 0,
+                "unprocessed": 0,
+            },
+        ):
+            response = parsing_views.parser_status_api(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(json.loads(response.content)["success"])
+        self.assertEqual(calls, 2)
+
+    def test_status_api_returns_retryable_json_after_lazy_auth_disconnect(self):
+        request = RequestFactory().get(
+            reverse("management_parser_status_api"),
+            HTTP_HOST=HOST,
+        )
+
+        def broken_get_user(_request):
+            raise OperationalError(2006, "server has gone away")
+
+        request.user = SimpleLazyObject(lambda: broken_get_user(request))
+        response = parsing_views.parser_status_api(request)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response["Retry-After"], "1")
+        self.assertTrue(json.loads(response.content)["retryable"])
 
     def test_usage_retry_does_not_repeat_external_provider_call(self):
         provider_calls = 0

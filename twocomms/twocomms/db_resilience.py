@@ -68,6 +68,36 @@ def retry_mysql_read(operation, *, fallback=_NO_FALLBACK, using=DEFAULT_DB_ALIAS
             raise
 
 
+def retry_mysql_auth_view(*, fallback=None, using=DEFAULT_DB_ALIAS):
+    """Retry only lazy authentication for safe HTTP methods.
+
+    AuthenticationMiddleware resolves ``request.user`` lazily. A dropped
+    connection at that boundary happens before a view's own read retry can
+    run. Resolve it once through the reconnect-safe helper, then invoke the
+    view exactly once so a GET with conditional reconciliation is never
+    replayed after it has started.
+    """
+    def decorator(view):
+        @wraps(view)
+        def wrapped(request, *args, **kwargs):
+            if request.method not in {"GET", "HEAD"}:
+                return view(request, *args, **kwargs)
+            try:
+                retry_mysql_read(
+                    lambda: bool(request.user.is_authenticated),
+                    using=using,
+                )
+            except Exception as exc:
+                if not is_mysql_disconnect_error(exc) or fallback is None:
+                    raise
+                return fallback(request, *args, **kwargs)
+            return view(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
 def retry_mysql_read_view(view):
     """Apply the read retry only to GET/HEAD views with no write contract."""
     @wraps(view)

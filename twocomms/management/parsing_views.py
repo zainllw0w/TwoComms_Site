@@ -6,7 +6,11 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
-from twocomms.db_resilience import is_mysql_disconnect_error, retry_mysql_read
+from twocomms.db_resilience import (
+    is_mysql_disconnect_error,
+    retry_mysql_auth_view,
+    retry_mysql_read,
+)
 
 from .constants import TARGET_CLIENTS_DAY, TARGET_POINTS_DAY
 from .models import Client, LeadParsingJob, LeadParsingResult, ManagementLead, normalize_phone
@@ -364,6 +368,19 @@ def _maybe_attach_usage(payload: dict, *, include_usage: bool) -> dict:
     return payload
 
 
+def _parser_status_retryable_response(request, *args, **kwargs):
+    response = JsonResponse(
+        {
+            "success": False,
+            "retryable": True,
+            "error": "Временно не вдалося отримати стан парсера. Спробуйте ще раз.",
+        },
+        status=503,
+    )
+    response["Retry-After"] = "1"
+    return response
+
+
 @login_required(login_url="management_login")
 def parsing_dashboard(request):
     if not request.user.is_staff:
@@ -584,6 +601,7 @@ def parser_stop_api(request):
     return JsonResponse(_maybe_attach_usage({"success": True, "job": _job_payload(job)}, include_usage=True))
 
 
+@retry_mysql_auth_view(fallback=_parser_status_retryable_response)
 @login_required(login_url="management_login")
 @require_GET
 def parser_status_api(request):
@@ -612,16 +630,7 @@ def parser_status_api(request):
     except Exception as exc:
         if not is_mysql_disconnect_error(exc):
             raise
-        response = JsonResponse(
-            {
-                "success": False,
-                "retryable": True,
-                "error": "Временно не вдалося отримати стан парсера. Спробуйте ще раз.",
-            },
-            status=503,
-        )
-        response["Retry-After"] = "1"
-        return response
+        return _parser_status_retryable_response(request)
     return JsonResponse(response_payload)
 
 
