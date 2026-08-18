@@ -8,7 +8,7 @@ incident-файлы не изменялись.
 
 | Пункт | Результат | Решение |
 | --- | --- | --- |
-| `DJ6-BASE-002` | Добавлен воспроизводимый static/live inventory relations, который собирает engine, фактический FK, `DELETE_RULE`, orphan count, delete receivers, soft-delete поля и rollback evidence. Static graph содержит 554 non-DTF FK/OneToOne relations. | Inventory-артефакт готов. Финальный live факт именно production-схемы должен запускаться отдельно read-only; до него rollout не разрешён. |
+| `DJ6-BASE-002` | Production read-only inventory проверил engine, фактический FK, `DELETE_RULE`, orphan count, delete receivers, soft-delete поля и rollback evidence для 554 non-DTF FK/OneToOne relations. | Инвентаризация закрыта; retention-кандидат получил `NO-GO`. Production `DB_CASCADE` и любое DDL по-прежнему запрещены. |
 | `DJ6-DB-001` | Disposable MariaDB benchmark и rollback rehearsal пройдены. | Эксперимент доказан; изменение project models не выполнялось. |
 
 Команда не меняет модели, миграции, таблицы или данные. `DB_CASCADE` не считается
@@ -56,6 +56,51 @@ fail-closed блокируют план. Ни одна из этих прове�
 Soft-delete полей у `PageView` и `SiteSession` не обнаружено, `delete()` override
 нет, обязательных delete receivers нет. Это не отменяет E050 и требования
 проверить реальную схему.
+
+## Production read-only inventory
+
+Evidence снят 2026-08-18 через CloudLinux-bound Python на production SHA
+`f8c0656d03710d53679b02d48b59f344056fd7cc`. Runtime: CPython `3.14.6`,
+Django `6.1`, MariaDB `11.4.12-MariaDB-cll-lve`; default storage engine
+`InnoDB`, SQL mode содержит `STRICT_TRANS_TABLES` и `NO_ENGINE_SUBSTITUTION`.
+Использовался только alias `default`; DTF relations в отчёте: `0`.
+
+Команда выполнила только `SELECT` по `information_schema`, orphan-count и
+`SHOW CREATE TABLE`. На production не выполнялись `CREATE`, `DROP`, `ALTER`,
+`DELETE`, migration либо запись report-файла.
+
+| Факт | Значение |
+| --- | ---: |
+| Проверено non-DTF relations | `554` |
+| Relations без engine facts | `0` |
+| Relations без orphan scan | `0` |
+| Relations без `SHOW CREATE` hash | `0` |
+| Реальные FK с `DELETE_RULE=RESTRICT` | `39` |
+| Relations без реального FK/delete rule | `515` |
+| Engine pair `MyISAM -> MyISAM` | `249` |
+| Engine pair `MyISAM -> InnoDB` | `23` |
+| Engine pair `InnoDB -> MyISAM` | `91` |
+| Engine pair `InnoDB -> InnoDB` | `191` |
+| Orphans во всём relation graph | `1` |
+
+Единственный orphan найден у retention-кандидата
+`storefront.PageView.session`. Его live schema facts:
+
+- child `storefront_pageview`: `MyISAM`;
+- parent `storefront_sitesession`: `InnoDB`;
+- реальный FK и `DELETE_RULE`: отсутствуют;
+- `orphan_count=1`;
+- `SHOW CREATE TABLE` SHA-256:
+  `7d653eba52f34641ac18960ec0e00e35348713918a36ec9344e77e098d764adb`;
+- обязательных delete signals, soft-delete contract и `delete()` override нет;
+- соседний `user:SET_NULL` требует отдельного `DB_SET_NULL` design из-за
+  `models.E050`.
+
+Итог retention decision: **NO-GO**. Блокеры:
+`child_engine_not_innodb`, `real_fk_missing`, `orphan_rows_present`,
+`mixed_on_delete_models.E050`, `rollback_evidence_missing`. Инвентаризация
+закрывает `DJ6-BASE-002`, но не разрешает исправлять orphan, менять engine,
+создавать FK или внедрять database-level action без отдельного rollout.
 
 ## Disposable MariaDB evidence
 
@@ -136,5 +181,5 @@ gate-owned programmatic harness с переданной фабрикой сое�
    фактического FK rule после reverse.
 
 Ни один из этих шагов не выполнялся на production в рамках данного commit.
-До свежего live inventory и отдельного approved migration design статус
-production rollout остаётся **NO-GO**.
+Свежий live inventory доказал существующие блокеры; до их устранения и
+отдельного approved migration design production rollout остаётся **NO-GO**.

@@ -603,8 +603,12 @@ Production acceptance от 2026-08-17:
   - Закрыт только fail-closed compatibility evidence; production change global
     charset/default не выполнялся и не разрешён.
 
-- [ ] **DJ6-BASE-002 - Инвентаризировать database-level \`on_delete\` кандидатов.**
+- [x] **DJ6-BASE-002 - Инвентаризировать database-level \`on_delete\` кандидатов.**
   - Проверить engine, real FK, signals, soft delete, orphan data и rollback.
+  - Production read-only inventory закрыт без DDL/migrations: `554` non-DTF
+    relations проверены; retention-кандидат получил fail-closed `NO-GO` из-за
+    MyISAM child, отсутствующего FK, одного orphan и `models.E050`. Evidence:
+    `docs/qa/django61-stage5-db-actions.md`.
 
 - [x] **DJ6-DB-001 - Испытать \`DB_CASCADE\` только на retention-графе аналитики.**
   - Disposable MariaDB, batch delete benchmark и доказательство отсутствия обязательных delete signals.
