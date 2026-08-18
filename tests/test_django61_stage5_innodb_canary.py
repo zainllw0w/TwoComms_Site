@@ -23,8 +23,14 @@ class _Cursor:
     def execute(self, sql, params=()):
         normalized = " ".join(sql.strip().split())
         lower = normalized.casefold()
-        if lower.startswith("select version(), @@hostname, @@port, current_user()"):
-            self.rows = [("11.4.12-MariaDB", "localhost", 3306, "twc_dj61_disposable_test@localhost")]
+        if lower.startswith("select version(), @@hostname, @@port, current_user(), database()"):
+            self.rows = [(
+                "11.4.12-MariaDB",
+                "localhost",
+                3307,
+                "twc_dj61_disposable_test@localhost",
+                self.connection.selected_database,
+            )]
         elif lower == "select version()":
             self.rows = [("11.4.12-MariaDB",)]
         elif lower == "show engines":
@@ -97,8 +103,9 @@ class _Cursor:
 class _Connection:
     vendor = "mysql"
 
-    def __init__(self, admin):
+    def __init__(self, admin, selected_database=None):
         self.admin = admin
+        self.selected_database = selected_database
         self.tables = {}
         self.closed = False
 
@@ -126,7 +133,7 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
             "database_role": "temporary",
             "server_vendor": "mariadb",
             "server_hostname": "localhost",
-            "server_port": 3306,
+            "server_port": 3307,
             "db_user": "twc_dj61_disposable_test",
         }
         identity.update(overrides)
@@ -160,6 +167,17 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
         self.assertTrue(report["cleanup_verified"])
         self.assertFalse(admin.created)
 
+        selected = _Admin()
+        selected.selected_database = "production_db"
+        with self.assertRaisesRegex(RuntimeError, "selects a database"):
+            MODULE.run_disposable_innodb_canary(
+                lambda _database: selected,
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(),
+            )
+        self.assertFalse(selected.created)
+
     def test_safety_interlocks_fail_before_connection(self):
         def forbidden(_database):
             raise AssertionError("connection factory must not be called")
@@ -169,6 +187,13 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "interlock missing"):
             MODULE.run_disposable_innodb_canary(
                 forbidden, allow_disposable=True
+            )
+        with self.assertRaisesRegex(RuntimeError, "dedicated disposable port"):
+            MODULE.run_disposable_innodb_canary(
+                forbidden,
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(server_port=3306),
             )
         with self.assertRaisesRegex(ValueError, "local MariaDB"):
             MODULE.run_disposable_innodb_canary(

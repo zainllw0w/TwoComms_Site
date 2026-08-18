@@ -111,6 +111,8 @@ def validate_disposable_connection_contract(
         raise RuntimeError("InnoDB canary server port missing") from exc
     if server_port <= 0:
         raise RuntimeError("InnoDB canary server port missing")
+    if not unix_socket and server_port == 3306:
+        raise RuntimeError("InnoDB canary requires a dedicated disposable port")
     database_user = str(identity.get("db_user") or "").strip()
     if not database_user.startswith("twc_dj61_disposable_"):
         raise RuntimeError("InnoDB canary requires a disposable database user")
@@ -123,11 +125,17 @@ def verify_disposable_connection_identity(
     """Verify the opened MariaDB identity before CREATE/DROP is permitted."""
 
     with connection.cursor() as cursor:
-        _execute(cursor, "SELECT VERSION(), @@hostname, @@port, CURRENT_USER()")
+        _execute(
+            cursor,
+            "SELECT VERSION(), @@hostname, @@port, CURRENT_USER(), DATABASE()",
+        )
         row = cursor.fetchone()
-    if not row or len(row) < 4:
+    if not row or len(row) < 5:
         raise RuntimeError("InnoDB canary connection identity unavailable")
     version, hostname, port, current_user = (str(value or "") for value in row[:4])
+    selected_database = row[4]
+    if selected_database not in (None, ""):
+        raise RuntimeError("InnoDB canary admin connection selects a database")
     if "mariadb" not in version.casefold():
         raise RuntimeError("InnoDB canary requires MariaDB connection")
     if hostname.strip() != str(expected["server_hostname"]).strip():
