@@ -52,6 +52,7 @@ from storefront.custom_print_config import (
 )
 from storefront.custom_print_notifications import notify_custom_print_moderation_request
 from storefront.services.size_guides import normalize_requested_size
+from twocomms.db_resilience import retry_mysql_read_view
 from .utils import (
     get_validated_cart_from_session,
     save_cart_to_session,
@@ -1827,6 +1828,7 @@ def contact_manager(request):
 
 
 @never_cache
+@retry_mysql_read_view
 def cart_items_api(request):
     """
     AJAX endpoint для получения списка товаров в корзине (JSON).

@@ -6,10 +6,12 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import connection
+from django.db import OperationalError
 from django.test.utils import CaptureQueriesContext
 from django.test import SimpleTestCase, TestCase
 from django.test import override_settings
@@ -251,6 +253,32 @@ class ViewCartTests(CartViewTestCase):
         self.assertEqual(response.context["items"][0]["key"], cart_key)
         self.assertEqual(response.context["items"][0]["qty"], 2)
         self.assertEqual(response.context["subtotal"], Decimal("200.00"))
+
+    def test_cart_items_api_retries_once_after_dropped_mysql_connection(self):
+        self.set_cart(qty=1)
+        product_queryset = MagicMock()
+        product_queryset.prefetch_related.return_value = product_queryset
+        product_queryset.in_bulk.side_effect = [
+            OperationalError(2006, "server has gone away"),
+            {self.product.pk: self.product},
+        ]
+
+        with (
+            patch("twocomms.db_resilience.connections") as connections,
+            patch.object(
+                Product.objects,
+                "select_related",
+                return_value=product_queryset,
+            ),
+        ):
+            connections.__getitem__.return_value.in_atomic_block = False
+            response = self.client.get(reverse("cart_items_api"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+        self.assertEqual(response.json()["items"][0]["product_id"], self.product.pk)
+        self.assertEqual(product_queryset.in_bulk.call_count, 2)
+        connections.__getitem__.return_value.close.assert_called_once_with()
 
     def test_cart_and_mini_drop_malformed_rows_without_losing_valid_items(self):
         valid_key = f"{self.product.id}:M:default"
