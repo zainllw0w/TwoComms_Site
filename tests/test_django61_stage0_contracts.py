@@ -175,8 +175,8 @@ class ManagementCommandSmokeContractTests(unittest.TestCase):
     def test_command_inventory_requires_exact_baseline_count(self):
         from scripts.check_management_commands import validate_command_count
 
-        self.assertEqual(validate_command_count(138), [])
-        for count in (137, 139):
+        self.assertEqual(validate_command_count(140), [])
+        for count in (138, 139, 141):
             with self.subTest(count=count):
                 failures = validate_command_count(count)
                 self.assertEqual(failures[0]["error"], "CommandCountMismatch")
@@ -236,7 +236,7 @@ class ManagementCommandSmokeContractTests(unittest.TestCase):
             payload = json.loads(evidence.read_text(encoding="utf-8"))
 
         self.assertEqual(payload["status"], "ok")
-        self.assertEqual(payload["command_count"], 138)
+        self.assertEqual(payload["command_count"], 140)
         self.assertEqual(payload["failed"], [])
         self.assertFalse(any("dtf" in module.casefold() for module in payload["modules"]))
         self.assertEqual(evidence.name, "commands.json")

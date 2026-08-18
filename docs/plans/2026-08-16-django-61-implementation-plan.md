@@ -132,7 +132,7 @@ production. Django gate
   - Не использовать отдельный завершившийся monkeypatch process как доказательство.
   - Acceptance: synthetic DNS/direct socket/provider call блокируется внутри тестового процесса; local disposable MariaDB разрешается явно.
 
-- [x] **DJ6-CMD-001 - Закрепить import/parser smoke 138 non-DTF management commands.**
+- [x] **DJ6-CMD-001 - Закрепить import/parser smoke non-DTF management commands.**
   - Не вызывать \`handle()\`.
   - Acceptance: удаленный import или сломанный \`add_arguments()\` ловится без DB/network side effects.
 
@@ -190,9 +190,10 @@ Django 5.2.11 A/B для документационного закрытия н�
   `RemovedInDjango70Warning`, `DeprecationWarning` и
   `PendingDeprecationWarning`, vendor allowlist имеет owner и expiry
   `2026-10-01`.
-- [x] Management-command contracts прошли `3/3`: ровно `138/138` non-DTF
-  commands импортируются и строят parser без вызова `handle()`, DB и внешней
-  сети.
+- [x] Management-command contracts прошли `3/3`: исторический Stage 0 baseline
+  был `138/138`; текущий inventory после двух новых non-DTF команд составляет
+  `140/140`. Все команды импортируются и строят parser без вызова `handle()`,
+  DB и внешней сети.
 - [x] Django 6.1 compatibility contracts прошли `17/17`: кроме import checks,
   отдельно доказаны non-DTF schema generation (`44` operations), POST rate
   limit (`10` разрешенных запросов и `429` на следующем), lazy django-redis и
@@ -214,7 +215,8 @@ Django 5.2.11 A/B для документационного закрытия н�
   DTF database отсутствует.
 - [x] Финальный короткий локальный release gate прошел: `86/86` Stage 0 tests,
   `check --database=default`, реальный `makemigrations --check`, warning gate,
-  `138/138` command parsers, production-like static gate и sanitized inventory.
+  текущие `140/140` command parsers, production-like static gate и sanitized
+  inventory. Исторический artifact Stage 0 сохраняет `138/138`.
 - [x] Schema v2 validation прошла для полного non-DTF и MariaDB A/B artifacts;
   сохраненный Django 6.1 full log повторно совпал с tracked candidate без
   summary/outcome delta. CI выполняет такое же сравнение после fresh smoke.
@@ -639,8 +641,12 @@ Production acceptance от 2026-08-17:
   - Built-in \`ImmediateBackend\` не считать очередью.
   - Начать с no-send canary с durable DB state.
 
-- [ ] **DJ6-TASK-002 - Добавить fail-fast guard против \`ImmediateBackend\` для тяжелых tasks.**
+- [x] **DJ6-TASK-002 - Добавить fail-fast guard против \`ImmediateBackend\` для тяжелых tasks.**
   - Production enqueue тяжелой задачи должен быть невозможен без worker proof.
+  - Evidence: `twocomms/task_boundaries.py`,
+    `twocomms/management/tests_django61_task_backend_guard.py`,
+    `docs/qa/django61-stage6-task-guard.md`; `ImmediateBackend`, `DummyBackend`
+    и неизвестные backends блокируются до enqueue.
 
 - [ ] **DJ6-BG-004 - Перенести image optimization jobs во внешний worker.**
   - Только после shared media atomic-write benchmark и lease/recovery tests.

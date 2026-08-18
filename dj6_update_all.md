@@ -46,9 +46,10 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 - Отдельный schema v2 MariaDB A/B artifact фиксирует 14/14 против 14/14 на
   MariaDB 11.4 с delta `0`.
 - Локальный Stage 0 release gate прошел `86/86` focused tests, exact runtime,
-  no-network system check, реальный migration drift check, warning gate,
-  `138/138` management command parsers, static/compressor/WhiteNoise pipeline и
-  sanitized non-DTF inventory.
+  no-network system check, реальный migration drift check, warning gate и
+  исторический `138/138` management-command baseline. После добавления двух
+  новых non-DTF команд текущий exact-count smoke обновлен до `140/140`;
+  static/compressor/WhiteNoise pipeline и sanitized inventory также проходят.
 - Локальный MariaDB snapshot default alias совпал с production table+engine
   hash. Исторический MariaDB A/B дал `14/14` на обеих версиях и delta `0`; DTF
   test identifiers отсутствуют, но setup этих старых logs применял DTF
@@ -719,12 +720,15 @@ migration и Stage 5 exit-gate остаются открытыми.
 
 ### DJ6-TASK-002 - Зафиксировать отсутствие production worker для `ImmediateBackend`
 
-- Статус: `подтверждено`; предварительный приоритет: `P1`.
-- Область: `twocomms/twocomms/settings.py:1085-1102`, `twocomms/twocomms/__init__.py:1-10`.
+- Статус: `guard реализован 2026-08-18`; production worker по-прежнему не доказан; приоритет: `P1`.
+- Область: `twocomms/twocomms/task_boundaries.py`,
+  `twocomms/management/tests_django61_task_backend_guard.py`, а также
+  `twocomms/twocomms/settings.py:1085-1102`.
 - Доказательство: в production оставлен только legacy `CELERY_*` конфиг, Celery worker/beat отсутствуют; Django Tasks фактически использует `ImmediateBackend`. `ImmediateBackend` исполняет задачу inline и не является очередью.
-- Что даст: устранит ложную предпосылку при планировании распараллеливания; архитектурный backlog будет разделять enqueue API, внешний worker, scheduler и recovery.
+- Что сделано: sync/async heavy enqueue теперь fail-closed для `ImmediateBackend`, `DummyBackend` и любого backend без явного `supports_durable_enqueue=True`; focused contract `6/6`.
+- Что даст: устраняет ложную предпосылку при планировании распараллеливания и не позволяет случайно выполнить тяжёлую работу inline до доказательства worker.
 - Риск и ограничения: нельзя просто заменить backend на Redis, пока DNS/ACL/права и connection budget не подтверждены. Не удалять cron ownership без canary и rollback.
-- Следующая проверка: capability matrix хостинга и безопасный no-send task contract.
+- Следующая проверка: capability matrix хостинга и безопасный no-send task contract (`DJ6-BASE-005`, `DJ6-SRV-001`, `DJ6-TASK-001`).
 
 ### DJ6-CACHE-001 - Учесть одноразовый cache miss после смены Django 6.1 cache keys
 
@@ -1006,11 +1010,11 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Риск и ограничения: блокировать только test/release-preparation process; production smoke после switch намеренно требует network. Простая замена DNS может не закрыть direct-IP sockets/subprocess clients.
 - Следующая проверка: внедрить reusable no-network settings/test guard внутри целевого process, добавить regression test с попыткой loopback/external socket и allowlist только для disposable local MariaDB при соответствующем gate.
 
-### DJ6-CMD-001 - Нет import/parser smoke для 138 custom management commands
+### DJ6-CMD-001 - Нет import/parser smoke для non-DTF custom management commands
 
 - Статус: `подтверждено как coverage gap`; предварительный приоритет: `P2`.
 - Область: management commands всех не-DTF приложений; строго исключенный bridge command в подсчет не включен.
-- Доказательство: inventory насчитывает 138 command modules после исключения DTF-named/DTF paths (139 файлов, если считать `refresh_dtf_bridge_snapshot.py`, который намеренно исключен). Read-only import/parser smoke импортировал все 138 `Command` classes, построил argparse parser, не вызвал `handle()` и не увидел failures при заблокированной сети. `manage.py check` сам по себе этот contract не проверяет.
+- Доказательство: Stage 0 inventory насчитывал 138 command modules после исключения DTF-named/DTF paths. После добавления `measure_stage4_baseline.py` и `check_ig_gemini_metadata_health.py` текущий inventory насчитывает 140 non-DTF modules; exact-count smoke импортирует все `140/140` `Command` classes, строит argparse parser, не вызывает `handle()` и не видит failures при заблокированной сети. `manage.py check` сам по себе этот contract не проверяет.
 - Что даст: дешево ловит удаленные Django/Python imports, syntax/import-time side effects и сломанные `add_arguments()` до cron/deploy.
 - Риск и ограничения: импорт command module может сам иметь опасный import-time side effect; smoke должен сначала обнаруживать и запрещать такой pattern, не вызывать `handle()` и не обращаться к production DB/network.
 - Следующая проверка: вынести этот allowlist/import-parser smoke в отдельный no-network CI gate, а DTF bridge оставить отдельной исключенной проверкой.
