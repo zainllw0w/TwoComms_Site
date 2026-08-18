@@ -275,7 +275,19 @@ class SecurityHeadersMiddleware(MiddlewareMixin):
 
     def process_response(self, request, response):
         csp = getattr(settings, "CONTENT_SECURITY_POLICY", None)
-        if csp and not response.has_header("Content-Security-Policy"):
+        try:
+            is_dtf = request.get_host().split(":", 1)[0].lower() in {
+                "dtf.twocomms.shop",
+                "www.dtf.twocomms.shop",
+            }
+        except DisallowedHost:
+            is_dtf = False
+
+        if is_dtf:
+            # The built-in middleware runs outside this middleware on response.
+            # Empty the report-only config so the excluded DTF host is unchanged.
+            response._csp_ro_config = {}
+        if is_dtf and csp and not response.has_header("Content-Security-Policy"):
             response["Content-Security-Policy"] = csp
 
         x_xss = getattr(settings, "X_XSS_PROTECTION", None)

@@ -524,7 +524,7 @@ Production acceptance от 2026-08-17:
 
 ## Этап 4. Security, cache и server observability
 
-- [ ] **DJ6-CSP-001 - Перейти на встроенный Django CSP через report-only.**
+- [x] **DJ6-CSP-001 - Перейти на встроенный Django CSP через report-only.**
   - Этап A: эквивалентная policy и сбор violations.
   - Этап B: nonce для собственных inline scripts.
   - Enforce и удаление \`unsafe-inline\`/\`unsafe-eval\` только после browser matrix checkout/analytics.

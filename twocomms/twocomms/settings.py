@@ -15,6 +15,7 @@ import os
 import warnings
 
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.csp import CSP
 
 from .cache_headers import is_immutable_static_url
 
@@ -228,7 +229,8 @@ MIDDLEWARE = [
     "twocomms.middleware.RequestTraceMiddleware",  # Optional per-request tracing (X-DTF-Debug: 1)
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.gzip.GZipMiddleware",  # Gzip compression for dynamic responses
-    "twocomms.middleware.SecurityHeadersMiddleware",  # CSP и дополнительные заголовки
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",  # Django 6.1 CSP report-only
+    "twocomms.middleware.SecurityHeadersMiddleware",  # Legacy DTF/XSS headers
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting (ПОСЛЕ статики!)
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Enabled with caching
@@ -260,6 +262,7 @@ TEMPLATES = [
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.template.context_processors.i18n',
+                'django.template.context_processors.csp',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'storefront.context_processors.orders_processing_count',
@@ -1405,7 +1408,36 @@ _CSP_DEFAULT = (
     # storefront app — see urls.py / views_security.py for the receiver.
     "report-uri /csp-report/"
 )
-CONTENT_SECURITY_POLICY = os.environ.get('CONTENT_SECURITY_POLICY', _CSP_DEFAULT)
+
+def _parse_csp_policy(value):
+    """Convert the existing string policy to Django's structured CSP mapping."""
+    policy = {}
+    for raw_directive in value.split(';'):
+        tokens = raw_directive.strip().split()
+        if tokens:
+            policy[tokens[0]] = tokens[1:] or True
+    return policy
+
+
+_csp_override = os.environ.get('CONTENT_SECURITY_POLICY')
+if _csp_override is None:
+    _csp_report_only = _parse_csp_policy(_CSP_DEFAULT)
+elif _csp_override.strip():
+    _csp_report_only = _parse_csp_policy(_csp_override)
+else:
+    _csp_report_only = {}
+
+if isinstance(_csp_report_only.get('script-src'), list):
+    _csp_report_only['script-src'].append(CSP.NONCE)
+
+# Enforcement intentionally remains disabled until the browser acceptance matrix.
+SECURE_CSP = {}
+SECURE_CSP_REPORT_ONLY = _csp_report_only
+
+# DTF is outside DJ6-CSP-001 and keeps its pre-migration header unchanged.
+CONTENT_SECURITY_POLICY = (
+    _csp_override if _csp_override is not None else _CSP_DEFAULT
+)
 X_XSS_PROTECTION = os.environ.get('X_XSS_PROTECTION', '1; mode=block')
 
 # Дополнительные настройки безопасности
