@@ -15,12 +15,15 @@ import hashlib
 import ipaddress
 import re
 import secrets
+import tempfile
 import time
+from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MAX_ROWS = 5_000
+DISPOSABLE_INNODB_CANARY_INTERLOCK = "DJ6-INNODB-CANARY-MARIADB-LOCAL-ONLY-v1"
 
 
 def _quote_identifier(value: str) -> str:
@@ -32,7 +35,7 @@ def _quote_identifier(value: str) -> str:
 def validate_disposable_endpoint(
     *, host: str | None, unix_socket: str | None, database_alias: str | None
 ) -> None:
-    """Fail closed unless the caller explicitly targets local ``default``."""
+    """Fail closed unless the caller explicitly targets a named temp endpoint."""
 
     if str(database_alias or "").strip().casefold() != "default":
         raise ValueError("InnoDB canary requires the default disposable alias")
@@ -40,6 +43,26 @@ def validate_disposable_endpoint(
     if unix_socket:
         if normalized_host and normalized_host not in {"localhost", "127.0.0.1", "::1"}:
             raise ValueError("InnoDB canary requires local MariaDB")
+        socket_path = Path(unix_socket).expanduser()
+        if not socket_path.is_absolute():
+            raise ValueError("InnoDB canary requires an absolute temporary socket")
+        resolved_socket = socket_path.resolve(strict=False)
+        temp_roots = {
+            Path(tempfile.gettempdir()).resolve(),
+            Path("/tmp").resolve(),
+            Path("/private/tmp").resolve(),
+        }
+        if not any(
+            resolved_socket == root or root in resolved_socket.parents
+            for root in temp_roots
+        ):
+            raise ValueError("InnoDB canary requires a temporary socket")
+        marker_parts = {"twc-dj61", "django61", "stage5", "disposable"}
+        if not any(
+            any(marker in part.casefold() for marker in marker_parts)
+            for part in resolved_socket.parts
+        ):
+            raise ValueError("InnoDB canary requires a named temporary socket")
         return
     if not normalized_host:
         raise ValueError("InnoDB canary requires a socket or loopback host")
@@ -51,6 +74,74 @@ def validate_disposable_endpoint(
         raise ValueError("InnoDB canary requires local MariaDB") from exc
     if not address.is_loopback:
         raise ValueError("InnoDB canary requires local MariaDB")
+
+
+def validate_disposable_connection_contract(
+    *,
+    interlock: str | None,
+    host: str | None,
+    unix_socket: str | None,
+    database_alias: str | None,
+    connection_identity: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Validate the proof required before any destructive canary SQL."""
+
+    if interlock != DISPOSABLE_INNODB_CANARY_INTERLOCK:
+        raise RuntimeError("InnoDB canary interlock missing")
+    validate_disposable_endpoint(
+        host=host, unix_socket=unix_socket, database_alias=database_alias
+    )
+    if not isinstance(connection_identity, Mapping):
+        raise RuntimeError("InnoDB canary connection identity missing")
+    identity = dict(connection_identity)
+    if str(identity.get("environment") or "").casefold() != "disposable":
+        raise RuntimeError("InnoDB canary identity is not disposable")
+    if str(identity.get("database_role") or "").casefold() != "temporary":
+        raise RuntimeError("InnoDB canary identity is not temporary")
+    if str(identity.get("server_vendor") or "").casefold() not in {
+        "mariadb",
+        "mysql",
+    }:
+        raise RuntimeError("InnoDB canary identity requires MariaDB")
+    if not str(identity.get("server_hostname") or "").strip():
+        raise RuntimeError("InnoDB canary server identity missing")
+    try:
+        server_port = int(identity.get("server_port", 0))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("InnoDB canary server port missing") from exc
+    if server_port <= 0:
+        raise RuntimeError("InnoDB canary server port missing")
+    database_user = str(identity.get("db_user") or "").strip()
+    if not database_user.startswith("twc_dj61_disposable_"):
+        raise RuntimeError("InnoDB canary requires a disposable database user")
+    return identity
+
+
+def verify_disposable_connection_identity(
+    connection: Any, expected: Mapping[str, Any]
+) -> None:
+    """Verify the opened MariaDB identity before CREATE/DROP is permitted."""
+
+    with connection.cursor() as cursor:
+        _execute(cursor, "SELECT VERSION(), @@hostname, @@port, CURRENT_USER()")
+        row = cursor.fetchone()
+    if not row or len(row) < 4:
+        raise RuntimeError("InnoDB canary connection identity unavailable")
+    version, hostname, port, current_user = (str(value or "") for value in row[:4])
+    if "mariadb" not in version.casefold():
+        raise RuntimeError("InnoDB canary requires MariaDB connection")
+    if hostname.strip() != str(expected["server_hostname"]).strip():
+        raise RuntimeError("InnoDB canary server hostname mismatch")
+    try:
+        actual_port = int(port)
+        expected_port = int(expected["server_port"])
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("InnoDB canary server port invalid") from exc
+    if actual_port != expected_port:
+        raise RuntimeError("InnoDB canary server port mismatch")
+    expected_user = str(expected["db_user"]).strip()
+    if current_user.split("@", 1)[0] != expected_user:
+        raise RuntimeError("InnoDB canary database user mismatch")
 
 
 def _execute(cursor: Any, sql: str, params: Sequence[Any] = ()) -> None:
@@ -111,23 +202,38 @@ def run_disposable_innodb_canary(
     database_alias: str = "default",
     rows: int = 250,
     allow_disposable: bool = False,
+    disposable_interlock: str | None = None,
+    connection_identity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute and verify the disposable conversion/backup/rollback rehearsal.
 
-    ``allow_disposable`` is an explicit safety interlock.  A false value, a
-    non-loopback endpoint, a non-MariaDB connection, or missing InnoDB support
-    fails before any database is created.
+    ``allow_disposable`` and ``disposable_interlock`` are explicit safety
+    interlocks.  A false value, an incomplete endpoint/identity proof, a
+    non-MariaDB connection, or missing InnoDB support fails before any
+    database is created.
     """
 
     if not allow_disposable:
         raise ValueError("InnoDB canary requires allow_disposable=True")
     if rows < 1 or rows > MAX_ROWS:
         raise ValueError(f"rows must be between 1 and {MAX_ROWS}")
-    validate_disposable_endpoint(
-        host=host, unix_socket=unix_socket, database_alias=database_alias
+    identity = validate_disposable_connection_contract(
+        interlock=disposable_interlock,
+        host=host,
+        unix_socket=unix_socket,
+        database_alias=database_alias,
+        connection_identity=connection_identity,
     )
 
     admin = connection_factory(None)
+    try:
+        verify_disposable_connection_identity(admin, identity)
+    except Exception:
+        try:
+            admin.close()
+        except Exception:
+            pass
+        raise
     database = f"twc_dj61_innodb_canary_{secrets.token_hex(6)}"
     source_table = "stage5_canary_source"
     backup_table = "stage5_canary_backup"

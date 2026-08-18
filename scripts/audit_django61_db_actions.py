@@ -9,7 +9,9 @@ The command has two deliberately separate paths:
 * ``run_disposable_experiment`` is a programmatic, gate-owned helper for a
   generated local-only MariaDB schema.  It compares a Python-side retention
   delete with an equivalent ``ON DELETE CASCADE`` delete and rehearses
-  transactional/DDL rollback.  It is intentionally not exposed as a CLI:
+  transactional/DDL rollback.  It requires an explicit disposable interlock
+  and verifies the opened server identity before any ``CREATE``/``DROP`` SQL.
+  It is intentionally not exposed as a CLI:
   arbitrary command-line credentials/endpoints must never be able to create
   or drop a database.
 
@@ -28,6 +30,7 @@ import os
 import re
 import secrets
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,6 +60,7 @@ PYTHON_TO_DATABASE_ACTION = {
     "SET_NULL": "DB_SET_NULL",
     "SET_DEFAULT": "DB_SET_DEFAULT",
 }
+DISPOSABLE_EXPERIMENT_INTERLOCK = "DJ6-DISPOSABLE-MARIADB-LOCAL-ONLY-v1"
 
 
 def _model_label(model: Any) -> str:
@@ -465,12 +469,32 @@ def assess_db_cascade(relation: Mapping[str, Any]) -> dict[str, Any]:
 def validate_disposable_endpoint(
     *, host: str | None, unix_socket: str | None
 ) -> None:
-    """Reject every endpoint except a local socket or loopback address."""
+    """Reject every endpoint except an explicitly named local temp endpoint."""
 
     normalized_host = (host or "").strip().lower()
     if unix_socket:
         if normalized_host and normalized_host not in {"localhost", "127.0.0.1", "::1"}:
             raise ValueError("disposable experiment requires local MariaDB")
+        socket_path = Path(unix_socket).expanduser()
+        if not socket_path.is_absolute():
+            raise ValueError("disposable experiment requires an absolute temporary socket")
+        resolved_socket = socket_path.resolve(strict=False)
+        temp_roots = {
+            Path(tempfile.gettempdir()).resolve(),
+            Path("/tmp").resolve(),
+            Path("/private/tmp").resolve(),
+        }
+        if not any(
+            resolved_socket == root or root in resolved_socket.parents
+            for root in temp_roots
+        ):
+            raise ValueError("disposable experiment requires a temporary socket")
+        marker_parts = {"twc-dj61", "django61", "stage5", "disposable"}
+        if not any(
+            any(marker in part.casefold() for marker in marker_parts)
+            for part in resolved_socket.parts
+        ):
+            raise ValueError("disposable experiment requires a named temporary socket")
         return
     if not normalized_host:
         raise ValueError("disposable experiment requires a socket or loopback host")
@@ -482,6 +506,82 @@ def validate_disposable_endpoint(
         raise ValueError("disposable experiment requires local MariaDB") from exc
     if not address.is_loopback:
         raise ValueError("disposable experiment requires local MariaDB")
+
+
+def validate_disposable_experiment_contract(
+    *,
+    interlock: str | None,
+    endpoint_host: str | None,
+    endpoint_socket: str | None,
+    connection_identity: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Validate the explicit proof required before destructive experiment SQL.
+
+    This check runs before the connection factory is called.  The identity is
+    deliberately declarative and sanitized; the live connection is verified
+    separately with ``verify_disposable_connection_identity``.
+    """
+
+    if interlock != DISPOSABLE_EXPERIMENT_INTERLOCK:
+        raise RuntimeError("disposable experiment interlock missing")
+    validate_disposable_endpoint(host=endpoint_host, unix_socket=endpoint_socket)
+    if not isinstance(connection_identity, Mapping):
+        raise RuntimeError("disposable experiment connection identity missing")
+    identity = dict(connection_identity)
+    if str(identity.get("environment") or "").casefold() != "disposable":
+        raise RuntimeError("disposable experiment identity is not disposable")
+    if str(identity.get("database_role") or "").casefold() != "temporary":
+        raise RuntimeError("disposable experiment identity is not temporary")
+    if str(identity.get("server_vendor") or "").casefold() not in {
+        "mariadb",
+        "mysql",
+    }:
+        raise RuntimeError("disposable experiment identity requires MariaDB")
+    if not str(identity.get("server_hostname") or "").strip():
+        raise RuntimeError("disposable experiment server identity missing")
+    database_user = str(identity.get("db_user") or "").strip()
+    if not database_user.startswith("twc_dj61_disposable_"):
+        raise RuntimeError("disposable experiment requires a disposable database user")
+    try:
+        server_port = int(identity.get("server_port", 0))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("disposable experiment server port missing") from exc
+    if server_port <= 0:
+        raise RuntimeError("disposable experiment server port missing")
+    return identity
+
+
+def verify_disposable_connection_identity(
+    connection: Any, expected: Mapping[str, Any]
+) -> None:
+    """Verify the opened connection before permitting CREATE/DROP statements."""
+
+    with connection.cursor() as cursor:
+        _execute(
+            cursor,
+            "SELECT VERSION(), @@hostname, @@port, CURRENT_USER(), DATABASE()",
+        )
+        row = cursor.fetchone()
+    if not row or len(row) < 5:
+        raise RuntimeError("disposable experiment connection identity unavailable")
+    version, hostname, port, current_user = (str(value or "") for value in row[:4])
+    selected_database = row[4]
+    if selected_database not in (None, ""):
+        raise RuntimeError("disposable experiment admin connection selects a database")
+    if "mariadb" not in version.casefold():
+        raise RuntimeError("disposable experiment requires MariaDB connection")
+    if hostname.strip() != str(expected["server_hostname"]).strip():
+        raise RuntimeError("disposable experiment server hostname mismatch")
+    try:
+        actual_port = int(port)
+        expected_port = int(expected["server_port"])
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("disposable experiment server port invalid") from exc
+    if actual_port != expected_port:
+        raise RuntimeError("disposable experiment server port mismatch")
+    expected_user = str(expected.get("db_user") or "").strip()
+    if expected_user and not current_user.split("@", 1)[0] == expected_user:
+        raise RuntimeError("disposable experiment database user mismatch")
 
 
 def validate_live_database_alias(alias: str | None) -> str:
@@ -588,12 +688,30 @@ def run_disposable_experiment(
     sessions: int = 250,
     events_per_session: int = 8,
     batch_size: int = 50,
+    disposable_interlock: str | None = None,
+    endpoint_host: str | None = None,
+    endpoint_socket: str | None = None,
+    connection_identity: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Run the retention benchmark in a generated database and clean it up."""
 
     if sessions < 1 or events_per_session < 1 or batch_size < 1:
         raise ValueError("experiment sizes must be positive")
+    identity = validate_disposable_experiment_contract(
+        interlock=disposable_interlock,
+        endpoint_host=endpoint_host,
+        endpoint_socket=endpoint_socket,
+        connection_identity=connection_identity,
+    )
     admin = connection_factory(None)
+    try:
+        verify_disposable_connection_identity(admin, identity)
+    except Exception:
+        try:
+            admin.close()
+        except Exception:
+            pass
+        raise
     database = f"twc_dj61_db_actions_{secrets.token_hex(6)}"
     connection = None
     cleanup_error: Exception | None = None

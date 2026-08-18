@@ -23,7 +23,9 @@ class _Cursor:
     def execute(self, sql, params=()):
         normalized = " ".join(sql.strip().split())
         lower = normalized.casefold()
-        if lower == "select version()":
+        if lower.startswith("select version(), @@hostname, @@port, current_user()"):
+            self.rows = [("11.4.12-MariaDB", "localhost", 3306, "twc_dj61_disposable_test@localhost")]
+        elif lower == "select version()":
             self.rows = [("11.4.12-MariaDB",)]
         elif lower == "show engines":
             self.rows = [("InnoDB", "DEFAULT"), ("MyISAM", "YES")]
@@ -117,6 +119,19 @@ class _Admin(_Connection):
 
 
 class Stage5InnodbCanaryTests(unittest.TestCase):
+    @staticmethod
+    def _identity(**overrides):
+        identity = {
+            "environment": "disposable",
+            "database_role": "temporary",
+            "server_vendor": "mariadb",
+            "server_hostname": "localhost",
+            "server_port": 3306,
+            "db_user": "twc_dj61_disposable_test",
+        }
+        identity.update(overrides)
+        return identity
+
     def test_full_disposable_canary_verifies_backup_conversion_timing_and_rollback(self):
         admin = _Admin()
         connections = {None: admin}
@@ -129,7 +144,11 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
             return connection
 
         report = MODULE.run_disposable_innodb_canary(
-            factory, rows=4, allow_disposable=True
+            factory,
+            rows=4,
+            allow_disposable=True,
+            disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+            connection_identity=self._identity(),
         )
         self.assertEqual(report["status"], "passed")
         self.assertTrue(report["backup"]["verified"])
@@ -147,19 +166,54 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "allow_disposable"):
             MODULE.run_disposable_innodb_canary(forbidden)
+        with self.assertRaisesRegex(RuntimeError, "interlock missing"):
+            MODULE.run_disposable_innodb_canary(
+                forbidden, allow_disposable=True
+            )
         with self.assertRaisesRegex(ValueError, "local MariaDB"):
             MODULE.run_disposable_innodb_canary(
-                forbidden, host="195.191.25.63", allow_disposable=True
+                forbidden,
+                host="195.191.25.63",
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(),
             )
         with self.assertRaisesRegex(ValueError, "default disposable alias"):
             MODULE.run_disposable_innodb_canary(
-                forbidden, database_alias="dtf", allow_disposable=True
+                forbidden,
+                database_alias="dtf",
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(),
             )
+
+        with self.assertRaisesRegex(ValueError, "temporary socket"):
+            MODULE.run_disposable_innodb_canary(
+                forbidden,
+                unix_socket="/var/lib/mysql/mysql.sock",
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(),
+            )
+
+        admin = _Admin()
+        with self.assertRaisesRegex(RuntimeError, "hostname mismatch"):
+            MODULE.run_disposable_innodb_canary(
+                lambda _database: admin,
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(server_hostname="wrong-host"),
+            )
+        self.assertFalse(admin.created)
 
     def test_row_limit_and_non_mariadb_fail_closed(self):
         with self.assertRaisesRegex(ValueError, "between"):
             MODULE.run_disposable_innodb_canary(
-                lambda _database: _Admin(), rows=MODULE.MAX_ROWS + 1, allow_disposable=True
+                lambda _database: _Admin(),
+                rows=MODULE.MAX_ROWS + 1,
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(),
             )
 
         class SQLiteConnection(_Admin):
@@ -167,7 +221,10 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "MariaDB/MySQL"):
             MODULE.run_disposable_innodb_canary(
-                lambda _database: SQLiteConnection(), allow_disposable=True
+                lambda _database: SQLiteConnection(),
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(),
             )
 
 

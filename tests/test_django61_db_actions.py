@@ -176,7 +176,9 @@ class Django61DbActionsTests(unittest.TestCase):
         )
 
     def test_disposable_endpoint_accepts_only_local_socket(self):
-        db_actions.validate_disposable_endpoint(host=None, unix_socket="/private/tmp/db.sock")
+        db_actions.validate_disposable_endpoint(
+            host=None, unix_socket="/private/tmp/twc-dj61-disposable/db.sock"
+        )
         db_actions.validate_disposable_endpoint(host="127.0.0.1", unix_socket=None)
 
         for host in ("195.191.25.63", "db.twocomms.shop", "10.0.0.5"):
@@ -185,6 +187,125 @@ class Django61DbActionsTests(unittest.TestCase):
                     db_actions.validate_disposable_endpoint(host=host, unix_socket=None)
         with self.assertRaisesRegex(ValueError, "socket or loopback"):
             db_actions.validate_disposable_endpoint(host=None, unix_socket=None)
+        with self.assertRaisesRegex(ValueError, "temporary socket"):
+            db_actions.validate_disposable_endpoint(
+                host=None, unix_socket="/var/lib/mysql/mysql.sock"
+            )
+
+    def test_destructive_experiment_requires_explicit_disposable_interlock(self):
+        calls = []
+
+        def factory(_database):
+            calls.append(_database)
+            raise AssertionError("connection factory must not be reached")
+
+        with self.assertRaisesRegex(RuntimeError, "interlock missing"):
+            db_actions.run_disposable_experiment(
+                factory,
+                endpoint_host="127.0.0.1",
+                connection_identity={
+                    "environment": "disposable",
+                    "database_role": "temporary",
+                    "server_vendor": "mariadb",
+                    "server_hostname": "localhost",
+                    "server_port": 3306,
+                    "db_user": "twc_dj61_disposable_test",
+                },
+            )
+        self.assertEqual(calls, [])
+
+    def test_destructive_experiment_rejects_remote_endpoint_before_factory(self):
+        calls = []
+
+        def factory(_database):
+            calls.append(_database)
+            raise AssertionError("connection factory must not be reached")
+
+        identity = {
+            "environment": "disposable",
+            "database_role": "temporary",
+            "server_vendor": "mariadb",
+            "server_hostname": "prod-db",
+            "server_port": 3306,
+            "db_user": "twc_dj61_disposable_test",
+        }
+        with self.assertRaisesRegex(ValueError, "local MariaDB"):
+            db_actions.run_disposable_experiment(
+                factory,
+                disposable_interlock=db_actions.DISPOSABLE_EXPERIMENT_INTERLOCK,
+                endpoint_host="195.191.25.63",
+                connection_identity=identity,
+            )
+        self.assertEqual(calls, [])
+
+    def test_disposable_contract_accepts_only_complete_proof(self):
+        identity = {
+            "environment": "disposable",
+            "database_role": "temporary",
+            "server_vendor": "mariadb",
+            "server_hostname": "localhost",
+            "server_port": 3306,
+            "db_user": "twc_dj61_disposable_test",
+        }
+        self.assertEqual(
+            db_actions.validate_disposable_experiment_contract(
+                interlock=db_actions.DISPOSABLE_EXPERIMENT_INTERLOCK,
+                endpoint_host="127.0.0.1",
+                endpoint_socket=None,
+                connection_identity=identity,
+            ),
+            identity,
+        )
+        for key, value in (
+            ("environment", "production"),
+            ("database_role", "persistent"),
+            ("server_vendor", "sqlite"),
+            ("server_hostname", ""),
+        ):
+            invalid = dict(identity)
+            invalid[key] = value
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                db_actions.validate_disposable_experiment_contract(
+                    interlock=db_actions.DISPOSABLE_EXPERIMENT_INTERLOCK,
+                    endpoint_host="127.0.0.1",
+                    endpoint_socket=None,
+                    connection_identity=invalid,
+                )
+
+    def test_disposable_connection_identity_is_verified_before_destructive_sql(self):
+        class Cursor:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def execute(self, _sql, _params=()):
+                return None
+
+            def fetchone(self):
+                return (
+                    "11.4.12-MariaDB",
+                    "localhost",
+                    3306,
+                    "twc_dj61_disposable_test@localhost",
+                    None,
+                )
+
+        class Connection:
+            def cursor(self):
+                return Cursor()
+
+        expected = {
+            "server_hostname": "localhost",
+            "server_port": 3306,
+            "db_user": "twc_dj61_disposable_test",
+        }
+        db_actions.verify_disposable_connection_identity(Connection(), expected)
+        with self.assertRaisesRegex(RuntimeError, "hostname mismatch"):
+            db_actions.verify_disposable_connection_identity(
+                Connection(), {**expected, "server_hostname": "other-host"}
+            )
 
     def test_destructive_experiment_has_no_public_cli(self):
         with self.assertRaises(SystemExit) as raised:
