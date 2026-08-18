@@ -3,7 +3,7 @@
 > **Канонический per-ID статус; активный порядок выполнения после 2026-08-07
 > находится в `14_IMPLEMENT2.md`, полный остаток — в
 > `13_UNCLOSED_FINDINGS_RAW.md`.** Всего 105 уникальных `IMP-*`:
-> **80 закрыты, 15 открыты, 10 partial** (`IMP-028`, `IMP-043`, `IMP-081`,
+> **80 закрыты, 14 открыты, 11 partial** (`IMP-028`, `IMP-043`, `IMP-044`, `IMP-081`,
 > `IMP-082`, `IMP-083`, `IMP-084`, `IMP-085`, `IMP-086`, `IMP-087`,
 > `IMP-088`). Решения — в `04_DECISION_LOG.md`, находки и evidence — в
 > `03_FINDINGS_REGISTER.md`, общий вход — в `00_PROGRESS.md`. Ниже находятся
@@ -849,7 +849,12 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   demand-driven CTA/lifecycle guards, manager UX and migrations `0157`–`0166`
   уже в current `main`/production; consented Graph capability probe,
   auto-award calibration, privacy retention and biometric policy remain open.
-- [ ] **IMP-044 (P1) — открыта.** Atomic lease Gemini-ключей + jitter (F-AI-003/004);
+- [ ] **IMP-044 (P1) — PARTIAL (`a6dd2882`).** Generic/background
+  `_run_with_pool` теперь получает atomic project-key lease прямо перед
+  provider I/O, пропускает занятый ключ, освобождает точный token в `finally`
+  и ограничивает timeout/backoff/новые попытки общим deadline и 70-секундным
+  lease budget. Manual key и live-chat path не изменены. Остаток: bounded jitter
+  и общий model allowlist/UI (F-AI-003/004);
   UI-состояние ключей вычисляемое вместо хранимого `last_status` (F-DATA-012);
   data-migration невалидного `gemini_model` + предупреждение о расхождении
   и полный allowlist в селекте (F-AI-013). Дополнительно F-AI-018: при текущем
@@ -1176,8 +1181,8 @@ continuation остаётся отдельным свежим срезом.
 
 ### Finding coverage matrix — 187 уникальных F-идентификатора
 
-Итог матрицы: **139 `[x]` / 35 `OPEN [ ]` / 1 `BLOCKED [ ]` /
-12 `PARTIAL [ ]`**. Статус
+Итог матрицы: **139 `[x]` / 33 `OPEN [ ]` / 1 `BLOCKED [ ]` /
+14 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1185,8 +1190,8 @@ continuation остаётся отдельным свежим срезом.
 |---|---|---|---|
 | [x] | F-AI-001 | FIXED/VERIFIED | IMP-011 |
 | [x] | F-AI-002 | FIXED/VERIFIED | IMP-011 |
-| [ ] | F-AI-003 | OPEN | IMP-044 |
-| [ ] | F-AI-004 | OPEN | IMP-044 |
+| [ ] | F-AI-003 | PARTIAL (`a6dd2882`: bounded generic/background key lease; jitter/live-chat proof open) | IMP-044 |
+| [ ] | F-AI-004 | PARTIAL (`a6dd2882`: deadline-clipped background attempts; hard slow-drip boundary open) | IMP-044 |
 | [x] | F-AI-005 | FIXED/VERIFIED | IMP-029 |
 | [x] | F-AI-006 | FIXED/VERIFIED | IMP-029 |
 | [x] | F-AI-007 | FIXED/VERIFIED | IMP-029 |

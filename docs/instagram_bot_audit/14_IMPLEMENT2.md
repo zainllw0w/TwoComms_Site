@@ -946,15 +946,26 @@ close the unrelated Gemini/lease items in Wave 2.
 - [ ] MariaDB competition/reclaim tests; failed analysis must not mutate
   operational state and must not block live customer reply delivery.
 
-**Open closeout note (2026-08-18):** `IMP-044` was reviewed but deliberately
-excluded from this release. The preserved branch
-`codex/imp044-analysis-key-lease-20260818` (`79ed12455`) still has an
-unfinished `tests_ig_bot_resilience.py` WIP; the Requests tuple timeout does
-not impose a hard wall-clock stop on a slow-drip response, the draft fixture
-calls `self.assertEqual` outside a test case, and its migration
-`0168_analysis_provider_attempt_evidence.py` conflicts with the current
-`0168_call_auto_analysis_enabled.py` and must become `0169`. These items
-remain the next bounded implementation slice.
+**Partial release evidence (2026-08-18, `a6dd2882`):** the generic/background
+`_run_with_pool` path now acquires an atomic project-key lease immediately
+before provider I/O, skips a busy key and releases the exact lease token in
+`finally` before any retry pause. Effective connect/read timeouts and retry/
+round pauses are clipped to the remaining overall deadline and the 70-second
+lease budget; once that budget is exhausted, no new provider attempt starts.
+The manual key remains outside the database lease and the latency-sensitive
+live-chat `_run_chat_with_pool` path is intentionally unchanged. Focused
+lease/deadline regressions passed `3/3`; the prescribed SSH pull placed exact
+`a6dd2882f459e67ba085a64e11bbe7ee3ca2f0a8` on production `main`, where the
+tracked tree was clean and the bot was `running/alive` with
+`provider_transport=instagram_login`, empty active queues and no current
+`last_error`.
+
+`IMP-044` remains **PARTIAL**. A true hard wall-clock cancellation boundary for
+slow-drip HTTP responses, typed `F-AI-018` attempt/worker telemetry, derived
+current key health, shared model allowlist/UI, bounded jitter, migration `0169`
+and disposable MariaDB competition/reclaim proof remain open. The older
+`79ed12455` branch is preserved only as WIP evidence and must not be
+cherry-picked wholesale.
 
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 

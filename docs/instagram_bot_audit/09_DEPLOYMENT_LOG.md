@@ -4,6 +4,32 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Implement2 IMP-044 bounded background lease partial (2026-08-18)
+
+Code commit `a6dd2882f459e67ba085a64e11bbe7ee3ca2f0a8` released the bounded
+generic/background Gemini pool slice: atomic project-key lease acquisition
+immediately before provider I/O, busy-key skip, exact-token release in
+`finally`, and provider timeout/backoff/new-attempt clipping to the overall
+deadline and 70-second lease budget. It does not alter the manual-key or
+live-chat `_run_chat_with_pool` path. The focused background lease/deadline gate
+passed `3/3`; local `manage.py check`, `compileall` and `git diff --check` also
+completed successfully before release.
+
+The prescribed SSH `git pull` fast-forwarded production `main` from
+`816445af` to exact `a6dd2882`; the tracked production tree was clean. A fresh
+read-only production check completed without errors and reported four existing
+MariaDB compatibility warnings plus a stale compression-manifest runtime
+warning. Runtime snapshot: `is_enabled=True`, `running=True`, `alive=True`,
+`state=running`, `provider_transport=instagram_login`, database and daemon
+heartbeat ages both 1.3 seconds, `last_error` empty, inbound/notification/
+analysis active queues all zero, and 18 pre-existing terminal analysis
+failures. No customer/Meta send and no production database fixture was created.
+
+This is a **PARTIAL** release, not full `IMP-044` closure. Hard cancellation of
+slow-drip HTTP responses, typed `F-AI-018` telemetry/worker heartbeat, derived
+key health, shared model allowlist/UI, bounded jitter, migration `0169` and
+disposable MariaDB competition/reclaim evidence remain open.
+
 ## Implement2 bounded release reconciliation (2026-08-18)
 
 The CSRF source-enumeration blocker was released in
