@@ -13,7 +13,7 @@ from management.models import GeminiRequestAttempt
 from management.services import gemini_keys
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 WINDOW_HOURS = 24
 BUCKET_COUNT = 24
 ATTEMPT_QUERY_CAP = 2000
