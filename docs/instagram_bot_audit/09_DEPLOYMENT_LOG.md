@@ -11,8 +11,8 @@ explicit `6/6` completion line to the API tab. The page remains passive: it
 reads the saved ledger, while the managed hourly job performs token-free
 metadata GETs in one six-worker batch. Local production proof is not inferred:
 GitHub `main` currently contains commits `1a4e68f21` and `6ef3e0a85` for this
-slice (snapshot schema version `3`).
-the approved SSH deployment path and read-only verification (exact SHA,
+slice (snapshot schema version `3`), but the approved SSH deployment path and
+read-only verification (exact SHA,
 branch/worktree, checks, cron contract and MariaDB snapshot) remain **pending**
 until the release is pulled. A natural hourly scheduler run has not been
 observed in this slice; no provider probe, generation request, customer
