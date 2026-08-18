@@ -565,13 +565,16 @@ Production acceptance от 2026-08-17:
 
 ### Exit gate этапа 4
 
-- [ ] CSP report-only не ломает GTM/Meta/TikTok/Clarity/checkout на desktop/mobile.
-  - Desktop browser evidence закрывает PDP, analytics, `cart/add`, mini-cart и
-    открытие cart/checkout page; заказ и платёж не отправлялись.
-  - Mobile остаётся открытым: видимая sticky add-to-cart не отправила
-    `/cart/add/`. Найденный параллельно read-only `/cart/items/` 500 исправлен
-    локально в `6fed63c9e`, но ещё требует integration/deploy/live-повтора.
-    Детали: `docs/qa/django61-stage4-acceptance.md`.
+- [x] CSP report-only не ломает GTM/Meta/TikTok/Clarity/checkout на desktop/mobile.
+  - Production SHA `4f18e625563f57fb2d1d887a5405294a4798c6a9` подтверждён
+    после `git pull`, `collectstatic` и Passenger restart.
+  - Desktop и mobile browser evidence закрывает PDP, analytics, `cart/add`,
+    mini-cart и открытие cart/checkout page; заказ и платёж не отправлялись.
+  - Mobile web-push prompt больше не перекрывает sticky CTA (live CSS asset,
+    bottom `90px`, CTA top `760px`, overlap `false`, hit-test в CTA).
+  - Read-only `/cart/items/` после deploy вернул `200`; retry ограничен
+    безопасными GET/HEAD disconnect-кодами. Детали:
+    `docs/qa/django61-stage4-acceptance.md`.
 - [x] Каждый \`csrf_exempt\` endpoint имеет записанный security contract.
 - [x] Cache, temp tables, DB connections и FDs имеют измеримые dashboards/reports.
   - Evidence: \`docs/qa/django61-stage4-observability.md\`.

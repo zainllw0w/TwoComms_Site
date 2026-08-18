@@ -5,7 +5,7 @@
 
 ## Выпущенный runtime
 
-- Проверенный production SHA CSP hotfix: `f94f324cf34eabd21c48786d4d76cde79e696dc4`.
+- Проверенный production SHA Stage 4: `4f18e625563f57fb2d1d887a5405294a4798c6a9`.
 - `GET https://twocomms.shop/` вернул `200`.
 - В live HTML главной: 10 корректных `<script nonce="...">`, 0 слитных
   `<scriptnonce="...">`; заголовок CSP остался `Content-Security-Policy-Report-Only`.
@@ -20,27 +20,32 @@ evaluation, без отправки заказа и без изменения pr
 | Каталог | Реальная ссылка категории `/catalog/tshirts/` открылась; карточки товаров и ссылки PDP присутствуют. |
 | Desktop PDP | `/product/futbolka-pravyl-nemaie/`, viewport `1280px`: заголовок и галерея отрисованы, `script[nonce] = 14`, `scriptnonce = 0`, сырого JS в видимом тексте нет, `scrollWidth = clientWidth = 1280`. |
 | Desktop cart/checkout | Для размера `M` запрос `POST /cart/add/` вернул `200`, `ok=true`, `count=1`; `GET /cart/mini/` вернул `200` и строку товара; `/cart/` открылся с `200` и ссылкой checkout. Заказ и платёж не отправлялись. |
-| Mobile PDP | Тот же PDP при `390x844`: `scrollWidth = clientWidth = 390`, сырого JS в видимом тексте нет. |
-| Mobile mini-cart | Кнопка «Відкрити міні-корзину» открывает `mobile-mini-cart` (`aria-hidden=false`); empty state отображается, горизонтального overflow нет. |
+| Mobile PDP | PDP при `390x844`: `scrollWidth = clientWidth = 390`, sticky CTA видима и кликабельна; после открытия web-push prompt его нижняя граница `754px`, CTA начинается с `760px`, overlap отсутствует, hit-test попадает в CTA. |
+| Mobile mini-cart | После sticky add-to-cart `GET /cart/mini/` вернул `200`, mini-cart содержит добавленный товар и checkout link; горизонтального overflow нет. |
 | Console | Fatal console/page errors не обнаружены. Остались только информационные сообщения и предупреждение Clarity о настройках проекта. |
 | Analytics/network | Meta `fbevents.js`, TikTok pixel/events, Google Tag Manager/gtag и Clarity загружены с `200`; GA collect получил `204`; CSP reports получили `204`. |
 
-Desktop-сценарий `PDP -> add-to-cart -> mini-cart -> cart/checkout page`
-подтверждён без создания production order. Mobile-сценарий пока не закрыт:
-после прокрутки sticky-кнопка добавления стала видимой, но её нажатие не
-отправило запрос `/cart/add/`, а mini-cart остался пустым. Это пользовательский
-дефект mobile add-to-cart, поэтому считать mobile checkout проверенным нельзя.
+Desktop- и mobile-сценарии `PDP -> add-to-cart -> mini-cart -> cart/checkout
+page` подтверждены без создания production order или платежа. В mobile smoke
+после прокрутки и выбора размера sticky CTA отправила `POST /cart/add/` (200),
+затем `/cart/mini/`, `/cart/items/` и `/cart/summary/` (все 200). Open prompt
+не перехватил CTA после исправления stacking/inset.
 
 В том же desktop-прогоне `GET /cart/items/` один раз вернул `500` с
-`OperationalError(2006)` на read-only `Product.in_bulk()`. Локальный commit
+`OperationalError(2006)` на read-only `Product.in_bulk()`. Commit
 `6fed63c9e269b019a0b919f0351519ec2d25e67f` применяет существующий
-однократный MySQL reconnect только к GET/HEAD этого endpoint. Focused gate из
-8 cart tests прошёл, но этот commit ещё не интегрирован, не задеплоен и не
-подтверждён live-повтором, поэтому production-исправление здесь не заявляется.
+однократный MySQL reconnect только к GET/HEAD этого endpoint. После pull,
+`collectstatic` и Passenger restart на production live mobile smoke повторно
+получил `GET /cart/items/` = `200`; POST/transaction retry не добавлялся.
 
-Инструмент screenshot в текущем browser profile не вернул файл даже при
-абсолютном пути; acceptance основан на сохраненных live URL, snapshot и DOM
-метриках выше.
+Web-push overlap fix также проверен на опубликованной static asset
+`web-push.cdf77172a0b5.css`: при видимом `#productStickyMobile.is-visible`
+prompt получает `bottom: 90px`, sticky CTA остаётся с `top: 760px`,
+`elementFromPoint()` возвращает кнопку CTA, overlap = `false`.
+
+Скриншот финального mobile prompt/CTA smoke сохранён в
+`/tmp/stage4-live-final-mobile-prompt.png`; acceptance основан на live URL,
+network log и DOM-метриках выше.
 
 ## Stage 4 observability baseline
 
@@ -77,9 +82,7 @@ legacy DTF-заголовка.
 
 ## Решение по выходу
 
-Шесть observability/auth пунктов и два независимых exit-gate отмечены в
+Шесть observability/auth пунктов и общий CSP/checkout exit gate отмечены в
 implementation plan. CSP browser proof закрывает desktop/mobile PDP, загрузку
-analytics и desktop cart/checkout-page flow. Общий CSP/checkout gate оставлен
-открытым: mobile sticky add-to-cart не отправил запрос, а локальный retry для
-найденного `/cart/items/` 500 ещё требует интеграции, deploy и одного live
-повтора.
+analytics, mobile/desktop cart flow и live retry для read-only `/cart/items/`.
+Заказ, платёж и DTF-поверхности в проверку не включались.
