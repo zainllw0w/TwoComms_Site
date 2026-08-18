@@ -71,6 +71,85 @@ DTF-субдомен и его код, страницы, задачи, мигр�
   probes зелёные, Passenger перезапущен через `tmp/restart.txt`, DTF scope
   остаётся `excluded`. Полный отчёт: `docs/qa/django61-stage2-completion-report.md`.
 
+## Статус проверки Stage 5 на 2026-08-18
+
+Stage 5 пока не означает применение новых DDL-решений в production. В этом
+срезе завершены безопасные non-DTF audits и disposable experiments, а опасные
+кандидаты получили явное решение `NO-GO` до снятия перечисленных блокеров.
+Production schema, модели и historical migrations не менялись; DTF не
+открывался и не затрагивался.
+
+### Выполненные audits и experiments
+
+- `DJ6-SRV-004` и `DJ6-SRV-006`: read-only production baseline подтвердил
+  MariaDB `11.4.12`, `max_connections=150`, `max_user_connections=20`,
+  `wait_timeout=60`, эффективные `CONN_MAX_AGE=0` и
+  `CONN_HEALTH_CHECKS=True`. Django client/session, schema и проверенные tables
+  используют `utf8mb4`; session default равен `INNODB`. Глобальный server
+  default остаётся `latin1` и намеренно не менялся. Полный fail-closed контракт:
+  `docs/qa/django61-stage5-connection-budget.md`.
+- `DJ6-SRV-003`: подготовлены sanitized inventory/ranking tooling и безопасный
+  план поэтапного MyISAM -> InnoDB rollout. Это завершённый planning/audit
+  artifact, но не production conversion: свежий per-table inventory и canary
+  ещё не выполнены. Подробности: `docs/qa/django61-stage5-innodb-roadmap.md`.
+- `DJ6-ORM-013`: на disposable MariaDB `11.4.12` доказана работоспособность
+  persisted `GeneratedField`: canonical parity `29/29`, корректные
+  INSERT/UPDATE/refresh/deferred fetch и индексные range/order plans на `4126`
+  строках. Temporary schema, user и datadir удалены; production модель и schema
+  не менялись. Evidence: `docs/qa/django61-stage5-generated-field.md`.
+- `DJ6-BASE-002` и `DJ6-DB-001`: static inventory охватил `554` non-DTF
+  `ForeignKey`/`OneToOneField` relations. Synthetic MariaDB benchmark использовал
+  `2000` parents и по `10` children: Python delete занял `0.070519 s`,
+  database cascade — `0.068915 s`; orphan/remaining counts равны нулю, rollback
+  восстановил counts `(1, 1)`, обратный DDL вернул `RESTRICT`. Evidence:
+  `docs/qa/django61-stage5-db-actions.md`.
+- `DJ6-MIG-001`: disposable SQLite gate доказал воспроизводимость non-DTF
+  migration graph: `441` nodes, `16` leaves, clean install и restore прошли с
+  `pending=0`, `1836` schema objects и одинаковым graph fingerprint. Model drift
+  отсутствует, DTF app/migrations/tables не загружались. Evidence:
+  `docs/qa/django61-stage5-migration-squash.md`.
+
+### Решения NO-GO для production adoption
+
+- `GeneratedField` для итоговой цены сейчас не внедрять. Старая catalog
+  аннотация с `CAST` округляет иначе, чем canonical truncation и проверенный
+  GeneratedField. Доказаны четыре расхождения: `1/1` даёт `1` вместо `0`,
+  `1/33` — `1` вместо `0`, `1091/33` — `731` вместо `730`,
+  `2147483647/1` (max-int/1) — `2126008811` вместо `2126008810`. Сначала нужно
+  унифицировать формулу во всех consumers и повторить matrix/`EXPLAIN`.
+- `DB_CASCADE` не внедрять в project models только по результату synthetic
+  benchmark. Первый retention candidate `storefront.PageView.session` имеет
+  соседний `user:SET_NULL`; смешивание database-level и Python-level actions в
+  одной модели блокируется Django check `models.E050`.
+- Migration squash и удаление historical migrations запрещены. SQLite rehearsal
+  доказывает целостность текущего graph, но не MariaDB/production history.
+- MyISAM -> InnoDB conversion не начинать по planning artifact. Ни одна таблица
+  не получила production acceptance, а backup-only rollback не считается
+  безопасным при продолжающихся записях.
+
+### Остающиеся блокеры Stage 5
+
+- `DJ6-SRV-003`: снять свежий sanitized production per-table
+  `information_schema` inventory с engines, sizes, rows, indexes, triggers, FK,
+  orphan и writer dependencies; затем выполнить approved backup/restore
+  rehearsal и один low-risk canary с проверенным rollback. Production inventory
+  и canary на 2026-08-18 **не завершены**.
+- `DJ6-BASE-002`/`DJ6-DB-001`: нужен отдельный read-only live inventory
+  фактических engines/FK/`DELETE_RULE`/orphans и approved design, который
+  устраняет `models.E050`, учитывает delete signals и имеет обратимую migration.
+- `DJ6-ORM-013`: заменить catalog `CAST` на единую MariaDB-safe integer
+  semantics, проверить все price consumers и значения `discount_percent > 100`,
+  затем повторить disposable parity/index gate и подготовить отдельный
+  lock/rollback план DDL.
+- `DJ6-MIG-001`: остаются ровно три независимых blocker-а:
+  `authoritative_applied_history_missing`, `mariadb_clean_install_missing`,
+  `approved_squash_ranges_missing`. До снятия всех трёх `squashmigrations` не
+  запускать и historical files не удалять.
+- `DJ6-SRV-004`: текущий connection budget подтверждён, но любой новый
+  worker/daemon/pool требует отдельного bounded capacity test с peak usage и
+  connection errors; наличие свободных соединений в одном snapshot не является
+  разрешением на расширение concurrency.
+
 ## Правила записи находок
 
 Каждая запись должна содержать:
