@@ -21,6 +21,10 @@ const cargoStyles = fs.readFileSync(
   path.join(root, 'twocomms', 'twocomms_django_theme', 'static', 'css', 'product-detail.css'),
   'utf8'
 );
+const webPushStyles = fs.readFileSync(
+  path.join(root, 'twocomms', 'twocomms_django_theme', 'static', 'css', 'web-push.css'),
+  'utf8'
+);
 
 test('live product triggers expose cargo scenes without replacing their existing labels', () => {
   assert.match(pdpTemplate, /class="tc-add-btn"[\s\S]*data-add-to-cart=/);
@@ -79,4 +83,13 @@ test('reduced motion uses the same success gate without forcing a long animation
   assert.match(mainSource, /prefers-reduced-motion/);
   assert.match(mainSource, /isCargoReducedMotion/);
   assert.match(mainSource, /cargoReducedMotion/);
+});
+
+test('mobile PDP keeps the web-push prompt above the visible sticky CTA', () => {
+  assert.match(cargoStyles, /@media \(max-width: 640px\)[\s\S]*?\.tc-sticky-mobile \{[\s\S]*?z-index:\s*1031;/);
+  assert.match(webPushStyles, /\.web-push-prompt \{[\s\S]*?z-index:\s*1060;/);
+  assert.match(
+    webPushStyles,
+    /body:has\(#productStickyMobile\.is-visible\) \.web-push-prompt \{[\s\S]*?bottom:\s*calc\(90px \+ env\(safe-area-inset-bottom,\s*0px\)\);/
+  );
 });
