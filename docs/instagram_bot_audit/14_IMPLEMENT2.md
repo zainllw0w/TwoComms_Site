@@ -1115,6 +1115,17 @@ model rails, a decreasing countdown and a passive `/bot/api/gemini-health/`
 read with no provider request. Production proof is appended after the approved
 SSH pull; no live generation probe is part of that proof.
 
+**Production proof (2026-08-18, MariaDB checkout):** the approved
+`git pull --ff-only origin main` advanced the server checkout to
+`7372f0b6bdbff6b785ab214d3f1a47b789c3e99c`. `manage.py check` completed with
+only the repository's pre-existing MariaDB compatibility warnings. The
+read-only `build_snapshot()` returned six key rows with two model rows each;
+the metadata-attempt ledger stayed `0 -> 0` and `GeminiKeyState` stayed `6 -> 6`.
+No generation probe or customer message was issued. The managed cron installer
+then reported `OK` for install and check, with exactly one hourly
+`check_ig_gemini_metadata_health` owner using the per-hour lock and 90-second
+external timeout.
+
 ### W2.5 Chosen epoch policy — `F-CORE-005`, `IMP-098.B2`
 
 After `G-EPOCH`, implement only the chosen policy: validate before first chunk
