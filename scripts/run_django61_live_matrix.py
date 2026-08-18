@@ -54,8 +54,29 @@ SELECT @@character_set_database,
     @@collation_connection,
     @@default_storage_engine,
     @@max_connections,
-    @@max_user_connections
+    @@max_user_connections,
+    @@wait_timeout,
+    @@character_set_server,
+    @@collation_server
 """
+CONNECTION_USAGE_SQL = """
+SHOW GLOBAL STATUS
+WHERE Variable_name IN ('Threads_connected', 'Max_used_connections')
+"""
+NON_DTF_TABLE_INVENTORY_SQL = r"""
+SELECT tables.TABLE_NAME,
+    tables.ENGINE,
+    tables.TABLE_COLLATION,
+    collations.CHARACTER_SET_NAME
+FROM information_schema.tables AS tables
+LEFT JOIN information_schema.collations AS collations
+    ON collations.COLLATION_NAME = tables.TABLE_COLLATION
+WHERE tables.TABLE_SCHEMA = DATABASE()
+    AND tables.TABLE_TYPE = 'BASE TABLE'
+    AND tables.TABLE_NAME NOT LIKE 'dtf\_%' ESCAPE '\\'
+ORDER BY tables.TABLE_NAME
+"""
+NON_DTF_TABLE_EXCLUSION_PREFIX = "dtf_"
 
 
 class MatrixFailure(RuntimeError):
@@ -228,8 +249,10 @@ def connection_gate_snapshot(
 ) -> dict[str, object]:
     """Validate the read-only MariaDB connection policy used by production.
 
-    The probe deliberately performs one ``SELECT`` only. It does not issue
-    DDL, migration commands, writes, or global/session ``SET`` statements.
+    The probe performs read-only ``SELECT``/``SHOW`` statements only. Django's
+    configured ``init_command`` may execute a session ``SET`` when opening the
+    connection; this probe does not issue any ``SET`` itself. It never issues
+    DDL, migration commands, or writes.
     """
 
     settings = getattr(connection, "settings_dict", None)
@@ -261,10 +284,12 @@ def connection_gate_snapshot(
         with connection.cursor() as cursor:
             cursor.execute(CONNECTION_GATE_SQL)
             row = cursor.fetchone()
+            cursor.execute(CONNECTION_USAGE_SQL)
+            usage_rows = cursor.fetchall()
     except Exception as exc:
         raise MatrixFailure("database_connection_gate_failed") from exc
 
-    if not isinstance(row, (tuple, list)) or len(row) != 9:
+    if not isinstance(row, (tuple, list)) or len(row) != 12:
         raise MatrixFailure("database_connection_gate_invalid")
     (
         schema_charset,
@@ -276,6 +301,9 @@ def connection_gate_snapshot(
         storage_engine,
         max_connections,
         max_user_connections,
+        wait_timeout,
+        character_set_server,
+        collation_server,
     ) = row
     charset_values = (
         schema_charset,
@@ -292,6 +320,17 @@ def connection_gate_snapshot(
         raise MatrixFailure("database_charset_invalid")
     if str(storage_engine).casefold() != "innodb":
         raise MatrixFailure("database_storage_engine_invalid")
+
+    try:
+        wait_timeout = int(wait_timeout)
+    except (TypeError, ValueError) as exc:
+        raise MatrixFailure("database_wait_timeout_invalid") from exc
+    if wait_timeout != 60:
+        raise MatrixFailure("database_wait_timeout_invalid")
+    if str(character_set_server).casefold() != "latin1":
+        raise MatrixFailure("database_host_charset_invalid")
+    if not str(collation_server).casefold().startswith("latin1_"):
+        raise MatrixFailure("database_host_charset_invalid")
 
     try:
         max_user_connections = int(max_user_connections)
@@ -311,6 +350,32 @@ def connection_gate_snapshot(
         raise MatrixFailure("database_connection_budget_invalid")
     if max_user_connections > max_connections:
         raise MatrixFailure("database_connection_budget_invalid")
+
+    usage: dict[str, int] = {}
+    if not isinstance(usage_rows, (tuple, list)):
+        raise MatrixFailure("database_connection_usage_invalid")
+    for usage_row in usage_rows:
+        if not isinstance(usage_row, (tuple, list)) or len(usage_row) != 2:
+            raise MatrixFailure("database_connection_usage_invalid")
+        variable, value = usage_row
+        normalized_variable = str(variable).casefold()
+        if normalized_variable not in {"threads_connected", "max_used_connections"}:
+            continue
+        if normalized_variable in usage:
+            raise MatrixFailure("database_connection_usage_invalid")
+        try:
+            parsed_value = int(value)
+        except (TypeError, ValueError) as exc:
+            raise MatrixFailure("database_connection_usage_invalid") from exc
+        if parsed_value < 0:
+            raise MatrixFailure("database_connection_usage_invalid")
+        usage[normalized_variable] = parsed_value
+    if set(usage) != {"threads_connected", "max_used_connections"}:
+        raise MatrixFailure("database_connection_usage_invalid")
+    if usage["threads_connected"] > usage["max_used_connections"]:
+        raise MatrixFailure("database_connection_usage_invalid")
+    if usage["max_used_connections"] > max_connections:
+        raise MatrixFailure("database_connection_usage_invalid")
     return {
         "conn_max_age": 0,
         "conn_health_checks": True,
@@ -324,6 +389,66 @@ def connection_gate_snapshot(
         "storage_engine": "InnoDB",
         "max_connections": max_connections,
         "max_user_connections": max_user_connections,
+        "wait_timeout": wait_timeout,
+        "character_set_server": str(character_set_server),
+        "collation_server": str(collation_server),
+        "threads_connected": usage["threads_connected"],
+        "max_used_connections": usage["max_used_connections"],
+        "connection_usage": {
+            "threads_connected": usage["threads_connected"],
+            "max_used_connections": usage["max_used_connections"],
+        },
+        "status": "ok",
+    }
+
+
+def non_dtf_table_inventory_snapshot(connection) -> dict[str, object]:
+    """Inventory current non-DTF base tables without opening a DTF alias.
+
+    The tracked exclusion contract is the Django app table prefix ``dtf_``.
+    The query is scoped to ``DATABASE()`` and excludes that prefix explicitly;
+    no DTF database, model, or migration is accessed.
+    """
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(NON_DTF_TABLE_INVENTORY_SQL)
+            rows = cursor.fetchall()
+    except Exception as exc:
+        raise MatrixFailure("database_table_inventory_failed") from exc
+    if not isinstance(rows, (tuple, list)) or not rows:
+        raise MatrixFailure("database_table_inventory_invalid")
+
+    tables: list[dict[str, str]] = []
+    for row in rows:
+        if not isinstance(row, (tuple, list)) or len(row) != 4:
+            raise MatrixFailure("database_table_inventory_invalid")
+        table_name, engine, table_collation, character_set = row
+        table_name = str(table_name or "")
+        engine = str(engine or "")
+        table_collation = str(table_collation or "")
+        character_set = str(character_set or "")
+        if (
+            not table_name
+            or table_name.casefold().startswith(NON_DTF_TABLE_EXCLUSION_PREFIX)
+            or not engine
+            or character_set.casefold() != "utf8mb4"
+            or not table_collation.casefold().startswith("utf8mb4_")
+        ):
+            raise MatrixFailure("database_table_inventory_invalid")
+        tables.append(
+            {
+                "table_name": table_name,
+                "engine": engine,
+                "table_collation": table_collation,
+                "character_set": character_set,
+            }
+        )
+    return {
+        "scope": "non-dtf",
+        "excluded_table_prefix": NON_DTF_TABLE_EXCLUSION_PREFIX,
+        "table_count": len(tables),
+        "tables": tables,
         "status": "ok",
     }
 
@@ -519,6 +644,7 @@ def run_server_matrix(*, phase: str, expected_sha: str | None = None) -> dict[st
 
         database = default_database_snapshot(connections_registry=connections)
         connection_gate = connection_gate_snapshot(connections["default"])
+        table_inventory = non_dtf_table_inventory_snapshot(connections["default"])
         check = django_database_check()
         migrations = migration_snapshot(connections["default"])
         aliases = ensure_only_default_alias(opened_aliases)
@@ -535,6 +661,7 @@ def run_server_matrix(*, phase: str, expected_sha: str | None = None) -> dict[st
         "runtime": runtime,
         "database": database,
         "connection_gate": connection_gate,
+        "table_inventory": table_inventory,
         "database_check": check,
         "migrations": migrations,
         "opened_database_aliases": aliases,

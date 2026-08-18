@@ -176,7 +176,7 @@ class RuntimeAndDatabaseTests(unittest.TestCase):
 
 
 class ConnectionGateTests(unittest.TestCase):
-    def _connection(self, *, settings=None, row=None):
+    def _connection(self, *, settings=None, row=None, usage_rows=None, table_rows=None):
         class Cursor:
             def __init__(self):
                 self.statements = []
@@ -201,7 +201,21 @@ class ConnectionGateTests(unittest.TestCase):
                     "InnoDB",
                     150,
                     20,
+                    60,
+                    "latin1",
+                    "latin1_swedish_ci",
                 )
+
+            def fetchall(self):
+                statement = self.statements[-1].upper()
+                if "INFORMATION_SCHEMA.TABLES" in statement:
+                    return table_rows or [
+                        ("orders_order", "InnoDB", "utf8mb4_unicode_ci", "utf8mb4")
+                    ]
+                return usage_rows or [
+                    ("Threads_connected", "3"),
+                    ("Max_used_connections", "12"),
+                ]
 
         class Connection:
             vendor = "mysql"
@@ -236,8 +250,18 @@ class ConnectionGateTests(unittest.TestCase):
         self.assertEqual(snapshot["storage_engine"], "InnoDB")
         self.assertEqual(snapshot["max_connections"], 150)
         self.assertEqual(snapshot["max_user_connections"], 20)
-        self.assertEqual(len(connection.cursor_instance.statements), 1)
+        self.assertEqual(snapshot["wait_timeout"], 60)
+        self.assertEqual(snapshot["character_set_server"], "latin1")
+        self.assertEqual(snapshot["collation_server"], "latin1_swedish_ci")
+        self.assertEqual(snapshot["threads_connected"], 3)
+        self.assertEqual(snapshot["max_used_connections"], 12)
+        self.assertEqual(
+            snapshot["connection_usage"],
+            {"threads_connected": 3, "max_used_connections": 12},
+        )
+        self.assertEqual(len(connection.cursor_instance.statements), 2)
         self.assertTrue(connection.cursor_instance.statements[0].lstrip().startswith("SELECT"))
+        self.assertTrue(connection.cursor_instance.statements[1].lstrip().startswith("SHOW"))
         self.assertFalse(
             any(
                 statement.lstrip().upper().startswith(
@@ -274,17 +298,75 @@ class ConnectionGateTests(unittest.TestCase):
                 matrix.connection_gate_snapshot(self._connection(settings=settings))
 
         for row, failure in (
-            (("latin1", "latin1_swedish_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20), "database_charset_invalid"),
-            (("utf8mb4", "utf8mb4_unicode_ci", "latin1", "latin1", "latin1", "latin1_swedish_ci", "InnoDB", 150, 20), "database_charset_invalid"),
-            (("utf8mb4", "latin1_swedish_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20), "database_charset_invalid"),
-            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "MyISAM", 150, 20), "database_storage_engine_invalid"),
-            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 40), "database_connection_budget_invalid"),
-            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 100, 20), "database_connection_budget_invalid"),
+            (("latin1", "latin1_swedish_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20, 60, "latin1", "latin1_swedish_ci"), "database_charset_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "latin1", "latin1", "latin1", "latin1_swedish_ci", "InnoDB", 150, 20, 60, "latin1", "latin1_swedish_ci"), "database_charset_invalid"),
+            (("utf8mb4", "latin1_swedish_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20, 60, "latin1", "latin1_swedish_ci"), "database_charset_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "MyISAM", 150, 20, 60, "latin1", "latin1_swedish_ci"), "database_storage_engine_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 40, 60, "latin1", "latin1_swedish_ci"), "database_connection_budget_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 100, 20, 60, "latin1", "latin1_swedish_ci"), "database_connection_budget_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20, 30, "latin1", "latin1_swedish_ci"), "database_wait_timeout_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20, 60, "utf8mb4", "utf8mb4_unicode_ci"), "database_host_charset_invalid"),
+            (("utf8mb4", "utf8mb4_unicode_ci", "utf8mb4", "utf8mb4", "utf8mb4", "utf8mb4_unicode_ci", "InnoDB", 150, 20, 60, "latin1", "utf8mb4_unicode_ci"), "database_host_charset_invalid"),
         ):
             with self.subTest(failure=failure), self.assertRaisesRegex(
                 matrix.MatrixFailure, failure
             ):
                 matrix.connection_gate_snapshot(self._connection(row=row))
+
+        for usage_rows, failure in (
+            ([ ("Threads_connected", "3") ], "database_connection_usage_invalid"),
+            ([ ("Threads_connected", "not-an-int"), ("Max_used_connections", "12") ], "database_connection_usage_invalid"),
+            ([ ("Threads_connected", "13"), ("Max_used_connections", "12") ], "database_connection_usage_invalid"),
+        ):
+            with self.subTest(failure=failure), self.assertRaisesRegex(
+                matrix.MatrixFailure, failure
+            ):
+                matrix.connection_gate_snapshot(
+                    self._connection(usage_rows=usage_rows)
+                )
+
+    def test_connection_gate_fails_closed_for_incomplete_host_row(self):
+        with self.assertRaisesRegex(matrix.MatrixFailure, "database_connection_gate_invalid"):
+            matrix.connection_gate_snapshot(
+                self._connection(row=("utf8mb4",) * 9)
+            )
+
+    def test_non_dtf_table_inventory_is_charset_complete_and_excludes_tracked_prefix(self):
+        connection = self._connection(
+            table_rows=[
+                ("orders_order", "InnoDB", "utf8mb4_unicode_ci", "utf8mb4"),
+                ("storefront_product", "MyISAM", "utf8mb4_general_ci", "utf8mb4"),
+            ]
+        )
+
+        snapshot = matrix.non_dtf_table_inventory_snapshot(connection)
+
+        self.assertEqual(snapshot["table_count"], 2)
+        self.assertEqual(snapshot["excluded_table_prefix"], "dtf_")
+        self.assertEqual(snapshot["tables"][0]["table_name"], "orders_order")
+        statements = connection.cursor_instance.statements
+        self.assertEqual(len(statements), 1)
+        self.assertIn("information_schema.tables", statements[0].casefold())
+        self.assertIn("not like", statements[0].casefold())
+
+    def test_non_dtf_table_inventory_fails_closed_for_incomplete_rows(self):
+        connection = self._connection(table_rows=[("orders_order", "InnoDB")])
+        with self.assertRaisesRegex(
+            matrix.MatrixFailure, "database_table_inventory_invalid"
+        ):
+            matrix.non_dtf_table_inventory_snapshot(connection)
+
+    def test_non_dtf_table_inventory_fails_closed_for_untracked_charset_or_prefix(self):
+        for row in (
+            ("orders_order", "InnoDB", "latin1_swedish_ci", "latin1"),
+            ("dtf_order", "InnoDB", "utf8mb4_unicode_ci", "utf8mb4"),
+        ):
+            with self.subTest(row=row), self.assertRaisesRegex(
+                matrix.MatrixFailure, "database_table_inventory_invalid"
+            ):
+                matrix.non_dtf_table_inventory_snapshot(
+                    self._connection(table_rows=[row])
+                )
 
 class MigrationAndPassengerTests(unittest.TestCase):
     def test_pending_plan_excludes_dtf_targets_and_migrations(self):
