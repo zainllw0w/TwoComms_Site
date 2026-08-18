@@ -219,7 +219,17 @@ INSTALLED_APPS = [
 
     # Finance Subdomain App (fin.twocomms.shop)
     "finance.apps.FinanceConfig",
+    # Django 6.1 durable task adapter.  The alias is opt-in; default remains
+    # ImmediateBackend until MariaDB/CloudLinux rollout gates are complete.
+    "task_runtime.apps.TaskRuntimeConfig",
 ]
+
+# Keep request-path task execution unchanged.  The durable alias is available
+# for explicitly migrated/allowlisted work only.
+TASKS = {
+    "default": {"BACKEND": "django.tasks.backends.immediate.ImmediateBackend"},
+    "durable": {"BACKEND": "task_runtime.runtime.DurableTaskBackend"},
+}
 
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
 MIDDLEWARE = [
