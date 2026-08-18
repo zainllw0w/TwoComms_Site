@@ -566,9 +566,12 @@ Production acceptance от 2026-08-17:
 ### Exit gate этапа 4
 
 - [ ] CSP report-only не ломает GTM/Meta/TikTok/Clarity/checkout на desktop/mobile.
-  - Browser evidence для desktop/mobile PDP и mini-cart зафиксирована в
-    `docs/qa/django61-stage4-acceptance.md`; checkout оставлен открытым,
-    потому что тестовая сессия не получила checkout-ссылку после добавления.
+  - Desktop browser evidence закрывает PDP, analytics, `cart/add`, mini-cart и
+    открытие cart/checkout page; заказ и платёж не отправлялись.
+  - Mobile остаётся открытым: видимая sticky add-to-cart не отправила
+    `/cart/add/`. Найденный параллельно read-only `/cart/items/` 500 исправлен
+    локально в `6fed63c9e`, но ещё требует integration/deploy/live-повтора.
+    Детали: `docs/qa/django61-stage4-acceptance.md`.
 - [x] Каждый \`csrf_exempt\` endpoint имеет записанный security contract.
 - [x] Cache, temp tables, DB connections и FDs имеют измеримые dashboards/reports.
   - Evidence: \`docs/qa/django61-stage4-observability.md\`.
