@@ -871,21 +871,42 @@ def primary_role_of(key_name: str) -> str:
 def pool_status(now: datetime.datetime | None = None) -> list[dict]:
     now = now or timezone.now()
     today_pt = now.astimezone(PT).date()
+    states = {key_name: GeminiKeyState.get(key_name) for key_name in ALL_KEYS}
     out = []
     for key_name in ALL_KEYS:
-        st = GeminiKeyState.get(key_name)
+        st = states[key_name]
+        present = bool(_key_value(key_name))
+        # ``available`` is a legacy cooldown-only field.  Consumers that need
+        # the current configured/leased truth must use ``health_state`` below.
         available = (not st.cooldown_until) or st.cooldown_until <= now
+        project_busy = any(
+            sibling.lease_token
+            and sibling.lease_until
+            and sibling.lease_until > now
+            for alias in _project_aliases(key_name)
+            if (sibling := states.get(alias)) is not None
+        )
+        if not present:
+            health_state = "unconfigured"
+        elif not available:
+            health_state = "cooldown"
+        elif project_busy:
+            health_state = "busy"
+        else:
+            health_state = "available"
         secs = 0
         if not available and st.cooldown_until:
             secs = max(0, int((st.cooldown_until - now).total_seconds()))
         requests_today = st.requests_today if st.day_date == today_pt else 0
         out.append({
             "key_name": key_name,
-            "present": bool(_key_value(key_name)),
+            "present": present,
             "role": primary_role_of(key_name),
             "project_group": project_group(key_name),
             "project_identity_known": bool(project_group(key_name)),
             "available": available,
+            "health_state": health_state,
+            "current_status": health_state,
             "cooldown_until": st.cooldown_until.isoformat() if st.cooldown_until else None,
             "cooldown_scope": st.cooldown_scope,
             "seconds_remaining": secs,

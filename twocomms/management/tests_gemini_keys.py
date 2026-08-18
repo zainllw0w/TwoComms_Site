@@ -341,6 +341,139 @@ class PoolStatusTests(TestCase):
         self.assertEqual(by_name["GEMINI_API"]["role"], "chat")
         self.assertIn("project_identity_known", by_name["GEMINI_API"])
 
+    @override_settings(GEMINI_KEY_PROJECT_GROUPS={})
+    def test_expired_cooldown_ignores_stale_last_status(self):
+        from management.services import gemini_keys as gk
+
+        now = timezone.now()
+        state = GeminiKeyState.get("GEMINI_API")
+        state.cooldown_until = now - datetime.timedelta(seconds=1)
+        state.cooldown_scope = "minute"
+        state.last_status = "429:minute"
+        state.save(update_fields=["cooldown_until", "cooldown_scope", "last_status"])
+
+        with patch.dict("os.environ", {"GEMINI_API": "configured-key"}, clear=True):
+            row = {item["key_name"]: item for item in gk.pool_status(now=now)}[
+                "GEMINI_API"
+            ]
+
+        self.assertEqual(row["health_state"], "available")
+        self.assertEqual(row["current_status"], "available")
+
+    @override_settings(GEMINI_KEY_PROJECT_GROUPS={})
+    def test_missing_environment_key_is_unconfigured(self):
+        from management.services import gemini_keys as gk
+
+        now = timezone.now()
+        state = GeminiKeyState.get("GEMINI_API")
+        state.last_status = "ok"
+        state.save(update_fields=["last_status"])
+
+        with patch.dict("os.environ", {}, clear=True):
+            row = {item["key_name"]: item for item in gk.pool_status(now=now)}[
+                "GEMINI_API"
+            ]
+
+        self.assertEqual(row["health_state"], "unconfigured")
+        self.assertEqual(row["current_status"], "unconfigured")
+        self.assertTrue(row["available"])
+
+    @override_settings(GEMINI_KEY_PROJECT_GROUPS={})
+    def test_active_cooldown_is_current_cooldown(self):
+        from management.services import gemini_keys as gk
+
+        now = timezone.now()
+        state = GeminiKeyState.get("GEMINI_API")
+        state.cooldown_until = now + datetime.timedelta(minutes=2)
+        state.cooldown_scope = "minute"
+        state.save(update_fields=["cooldown_until", "cooldown_scope"])
+
+        with patch.dict("os.environ", {"GEMINI_API": "configured-key"}, clear=True):
+            row = {item["key_name"]: item for item in gk.pool_status(now=now)}[
+                "GEMINI_API"
+            ]
+
+        self.assertEqual(row["health_state"], "cooldown")
+        self.assertEqual(row["current_status"], "cooldown")
+
+    @override_settings(GEMINI_KEY_PROJECT_GROUPS={
+        "GEMINI_API": "chat-project",
+        "GEMINI_API2": "chat-project",
+    })
+    def test_active_project_lease_marks_configured_siblings_busy(self):
+        from management.services import gemini_keys as gk
+
+        now = timezone.now()
+        leased = GeminiKeyState.get("GEMINI_API")
+        leased.lease_token = "active-worker"
+        leased.lease_until = now + datetime.timedelta(minutes=1)
+        leased.lease_role = "chat"
+        leased.save(update_fields=["lease_token", "lease_until", "lease_role"])
+
+        env = {"GEMINI_API": "first-key", "GEMINI_API2": "second-key"}
+        with patch.dict("os.environ", env, clear=True):
+            by_name = {item["key_name"]: item for item in gk.pool_status(now=now)}
+
+        self.assertEqual(by_name["GEMINI_API"]["health_state"], "busy")
+        self.assertEqual(by_name["GEMINI_API2"]["health_state"], "busy")
+        self.assertEqual(by_name["GEMINI_API"]["current_status"], "busy")
+        self.assertEqual(by_name["GEMINI_API2"]["current_status"], "busy")
+        self.assertTrue(by_name["GEMINI_API"]["available"])
+        self.assertTrue(by_name["GEMINI_API2"]["available"])
+
+    @override_settings(GEMINI_KEY_PROJECT_GROUPS={
+        "GEMINI_API": "chat-project",
+        "GEMINI_API2": "chat-project",
+    })
+    def test_health_state_precedence_and_lease_boundary(self):
+        from management.services import gemini_keys as gk
+
+        now = timezone.now()
+
+        def save_state(key_name, **values):
+            state = GeminiKeyState.get(key_name)
+            for field, value in values.items():
+                setattr(state, field, value)
+            state.save(update_fields=list(values))
+
+        # Cooldown is authoritative over a simultaneous project lease.
+        save_state(
+            "GEMINI_API",
+            cooldown_until=now + datetime.timedelta(minutes=1),
+            cooldown_scope="minute",
+            lease_token="active-worker",
+            lease_until=now + datetime.timedelta(minutes=1),
+        )
+        # Missing env wins over an active lease while preserving legacy
+        # cooldown-only ``available`` semantics.
+        save_state(
+            "GEMINI_API3",
+            lease_token="other-worker",
+            lease_until=now + datetime.timedelta(minutes=1),
+        )
+        # ``lease_until == now`` is expired by the runtime's strict boundary.
+        save_state(
+            "GEMINI_API4",
+            lease_token="expired-worker",
+            lease_until=now,
+        )
+
+        env = {
+            "GEMINI_API": "first-key",
+            "GEMINI_API2": "second-key",
+            "GEMINI_API4": "fourth-key",
+        }
+        with patch.dict("os.environ", env, clear=True):
+            by_name = {item["key_name"]: item for item in gk.pool_status(now=now)}
+
+        self.assertEqual(by_name["GEMINI_API"]["health_state"], "cooldown")
+        self.assertEqual(by_name["GEMINI_API2"]["health_state"], "busy")
+        self.assertEqual(by_name["GEMINI_API3"]["health_state"], "unconfigured")
+        self.assertEqual(by_name["GEMINI_API4"]["health_state"], "available")
+        self.assertTrue(by_name["GEMINI_API2"]["available"])
+        self.assertTrue(by_name["GEMINI_API3"]["available"])
+        self.assertTrue(by_name["GEMINI_API4"]["available"])
+
 
 class KeyLevel429Tests(SimpleTestCase):
     def test_free_model_429_is_key_level(self):

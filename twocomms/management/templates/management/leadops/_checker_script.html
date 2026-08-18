@@ -307,7 +307,14 @@ function initCheckerPage(){
 
   // ===== Панель ключів Gemini з обратним відліком =====
   const ROLE_LABELS = {chat:'Чат / бот', management:'Менеджмент', checker:'Чекер'};
+  const KNOWN_KEY_HEALTH = ['unconfigured','cooldown','busy','available'];
   let keysData = [];
+  function keyHealth(k){
+    if(!k.present) return 'unconfigured';
+    const raw = k.health_state || k.current_status;
+    if(raw) return KNOWN_KEY_HEALTH.includes(raw) ? raw : 'unknown';
+    return !k.available ? 'cooldown' : 'available';
+  }
   function fmtCountdown(secs){
     secs = Math.max(0, secs|0);
     const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
@@ -319,14 +326,20 @@ function initCheckerPage(){
     const grid = document.getElementById('checker-keys-grid');
     if(!grid) return;
     grid.innerHTML = keysData.map(k=>{
-      let dot='ok', status='Доступний';
-      if(!k.present){ dot='missing'; status='Не задано'; }
-      else if(!k.available && k.needs_topup){ dot='topup'; status='Потрібне поповнення'; }
-      else if(!k.available){ dot='cooldown'; status='Кулдаун до відновлення'; }
-      const cd = (!k.available && k.present && k.seconds_remaining>0)
+      const health = keyHealth(k);
+      const isAvailable = health === 'available';
+      let dot='unknown', status='Стан невідомий';
+      if(health==='unconfigured'){ dot='missing'; status='Не задано'; }
+      else if(health==='busy'){ dot='busy'; status='Зайнятий запитом'; }
+      else if(health==='cooldown' && k.needs_topup){ dot='topup'; status='Потрібне поповнення'; }
+      else if(health==='cooldown'){ dot='cooldown'; status='Кулдаун до відновлення'; }
+      else if(health==='available'){ dot='ok'; status='Доступний'; }
+      const cd = (health==='cooldown' && k.seconds_remaining>0)
         ? `<div class="key-card__cd">↻ ${fmtCountdown(k.seconds_remaining)}</div>` : '';
-      const meta = k.present ? `сьогодні: ${k.requests_today||0} запитів${k.cooldown_scope?(' · '+esc(k.cooldown_scope)):''}` : '';
-      return `<div class="key-card ${k.available?'':'key-card--unavailable'}">
+      const cooldownMeta = health==='cooldown' && k.cooldown_scope
+        ? ' · '+esc(k.cooldown_scope) : '';
+      const meta = k.present ? `сьогодні: ${k.requests_today||0} запитів${cooldownMeta}` : '';
+      return `<div class="key-card ${isAvailable?'':'key-card--unavailable'}">
         <div class="key-card__top"><span class="key-card__name">${esc(k.key_name)}</span><span class="key-dot key-dot--${dot}"></span></div>
         <div class="key-card__role">${esc(ROLE_LABELS[k.role]||k.role||'')}</div>
         <div class="key-card__status">${esc(status)}</div>
@@ -340,9 +353,17 @@ function initCheckerPage(){
     catch(e){ /* тихо */ }
   }
   setInterval(()=>{
-    let changed=false;
-    keysData.forEach(k=>{ if(!k.available && k.seconds_remaining>0){ k.seconds_remaining--; if(k.seconds_remaining<=0){ k.available=true; } changed=true; } });
+    let changed=false, refresh=false;
+    keysData.forEach(k=>{
+      const health = keyHealth(k);
+      if(health==='cooldown' && k.seconds_remaining>0){
+        k.seconds_remaining--;
+        if(k.seconds_remaining<=0) refresh=true;
+        changed=true;
+      }
+    });
     if(changed) renderKeys();
+    if(refresh) loadKeys();
   }, 1000);
   setInterval(loadKeys, 30000);
   loadKeys();

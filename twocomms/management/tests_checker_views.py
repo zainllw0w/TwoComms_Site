@@ -123,6 +123,8 @@ class CheckerApiTests(TestCase):
         self.assertEqual(len(body["keys"]), 6)
         self.assertIn("key_name", body["keys"][0])
         self.assertIn("available", body["keys"][0])
+        self.assertIn("health_state", body["keys"][0])
+        self.assertIn("current_status", body["keys"][0])
 
     def test_settings_api_saves_auto_recheck(self):
         r = self._post("management_checker_settings_api",
