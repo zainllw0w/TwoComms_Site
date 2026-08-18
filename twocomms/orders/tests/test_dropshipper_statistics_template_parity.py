@@ -14,6 +14,10 @@ class DropshipperStatisticsTemplateParityTests(TestCase):
         self.client.force_login(user)
         self.url = reverse("orders:dropshipper_statistics")
 
+    @staticmethod
+    def _normalized_html(response) -> str:
+        return " ".join(response.content.decode().split())
+
     def test_full_page_and_partial_share_statistics_content(self):
         full_response = self.client.get(self.url)
         partial_response = self.client.get(self.url, {"partial": "1"})
@@ -21,26 +25,10 @@ class DropshipperStatisticsTemplateParityTests(TestCase):
         self.assertEqual(full_response.status_code, 200)
         self.assertEqual(partial_response.status_code, 200)
 
-        markers = (
-            "ds-container",
-            "ds-statistics-hero",
-            "Аналітика продажів",
-            "Усього замовлень",
-            "Виручка",
-            "Чистий прибуток",
-            "Середній чек",
-            "Товарів доставлено",
-            "Конверсія у доставку",
-            "ds-statistics-body",
-            "Динаміка по місяцях",
-            "Топ-товари",
-            "Поки немає даних",
-            "Ще немає топів",
-        )
-        for marker in markers:
-            with self.subTest(marker=marker):
-                self.assertContains(full_response, marker)
-                self.assertContains(partial_response, marker)
+        full_html = self._normalized_html(full_response)
+        partial_html = self._normalized_html(partial_response)
+        self.assertIn(partial_html, full_html)
+        self.assertEqual(full_html.count(partial_html), 1)
 
     def test_full_page_keeps_dashboard_shell_around_partial(self):
         full_response = self.client.get(self.url)

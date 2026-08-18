@@ -668,8 +668,11 @@ Production acceptance от 2026-08-17:
 
 ## Этап 7. Низкорисковые Django 6.x улучшения и поддерживаемость
 
-- [ ] **DJ6-TPL-001 - Перенести только доказанные full/fragment пары на template partials.**
-  - Не заменять общие includes без пользы; начать с 2-3 representative components.
+- [x] **DJ6-TPL-001 - Перенести только доказанные full/fragment пары на template partials.**
+  - Перенесена доказанная пара statistics: full page сохраняет shell, а
+    `?partial=1` рендерит `pages/dropshipper_statistics.html#statistics_panel`.
+  - Response-parity contract сравнивает нормализованный HTML полного panel и
+    fragment; focused suite `2/2`, без новых migrations.
 
 - [x] **DJ6-TPL-002 - Использовать \`{% querystring %}\` в pagination templates.**
   - Тесты: empty query, repeated params, page replacement, escaped values.
