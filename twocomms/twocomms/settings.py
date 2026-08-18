@@ -231,7 +231,7 @@ MIDDLEWARE = [
     "django.middleware.gzip.GZipMiddleware",  # Gzip compression for dynamic responses
     "django.middleware.csp.ContentSecurityPolicyMiddleware",  # Django 6.1 CSP report-only
     "twocomms.middleware.SecurityHeadersMiddleware",  # Legacy DTF/XSS headers
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "twocomms.static_middleware.LsapiSafeWhiteNoiseMiddleware",
     "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting (ПОСЛЕ статики!)
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Enabled with caching
     "django.contrib.sessions.middleware.SessionMiddleware",
