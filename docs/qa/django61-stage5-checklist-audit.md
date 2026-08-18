@@ -4,7 +4,8 @@
 Проверенная текущая ревизия `origin/main`: `55f7082ae`.
 Stage 5 release candidate rebased на эту цель; code commits включают
 `b345648e3`, provenance history начинается с `2d55c5089` и дополнена этим
-release-документом. Review blocker disposable helpers закрыт в `8ece82452`;
+release-документом. Review blocker disposable helpers закрыт в `8ece82452`
+и `54f36a1b7`;
 итоговый push/deploy будет заявлен только после свежего scoped gate.
 Scope: только non-DTF MariaDB/Django evidence. Production schema, данные,
 migrations, storefront и parser в рамках этого документа не изменялись.
@@ -57,8 +58,8 @@ evidence-пунктов выше не снимают этот запрет.
 ## Provenance
 
 - Current integration target: `origin/main` `55f7082ae`; code commits through
-  `8ece82452`; provenance baseline at `2d55c5089`, extended by this audit.
-- Latest fail-closed Stage 5 gates: `8ece82452`.
+  `54f36a1b7`; provenance baseline at `2d55c5089`, extended by this audit.
+- Latest fail-closed Stage 5 gates: `54f36a1b7`.
 - Connection/charset evidence: `85c9d90fa`, `90debf557`, `5735f4727`.
 - InnoDB roadmap/tooling evidence: `578ecd3d1`, `e5b6aba4c`.
 - DB actions evidence: `6c2197af3`.

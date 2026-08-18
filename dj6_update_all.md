@@ -21,8 +21,8 @@ DTF-субдомен и его код, страницы, задачи, мигр�
 - Исторический baseline старта аудита: `37ced3a4553d4068c6cb1ad93f38e641e3ba41a0`.
   Проверенная цель интеграции Stage 5: `origin/main` `55f7082ae`;
   release-кандидат перебазирован на эту цель и содержит code commits через
-  `8ece82452`; provenance history начинается с `2d55c5089` и дополнена этим
-  release-документом. Safety gate disposable helpers закрыт этим commit;
+  `54f36a1b7`; provenance history начинается с `2d55c5089` и дополнена этим
+  release-документом. Safety gate disposable helpers закрыт этими commits;
   перед push/deploy выполняется один свежий scoped verification.
 - Runtime: Python 3.14.6, Django 6.1, Django REST Framework 3.18.0.
 - DB runtime: локальный `mysqlclient`/`MySQLdb` 2.2.8; production read-only probe подтвердил MariaDB `11.4.12-MariaDB`. В production non-DTF schema насчитывается 305 model tables: 127 InnoDB и 178 MyISAM. Runtime и базы исключенного субдомена в этом аудите не проверяются.
@@ -256,14 +256,15 @@ migration и Stage 5 exit-gate остаются открытыми.
 
 ### DJ6-SRV-007 - Destructive Stage 5 helpers должны fail-closed по endpoint и identity
 
-- Статус: `исправлено в release commit 8ece82452`; приоритет: `P1`.
+- Статус: `исправлено в release commits 8ece82452 и 54f36a1b7`; приоритет: `P1`.
 - Область: `scripts/audit_django61_db_actions.py::run_disposable_experiment`,
   `scripts/run_stage5_innodb_canary.py::run_disposable_innodb_canary`.
 - Доказательство: review выявил, что programmatic helper мог получить
   production-backed `connection_factory` после проверки только loopback/`allow_disposable`;
   вызов создавал и удалял schema. Исправление требует точный interlock,
-  именованный временный socket, disposable-only DB user и live-проверку
-  `VERSION()`, `@@hostname`, `@@port`, `CURRENT_USER()` до любого DDL.
+  именованный временный socket, disposable-only DB user, dedicated non-3306
+  host port (or named socket) и live-проверку `VERSION()`, `@@hostname`,
+  `@@port`, `CURRENT_USER()` и пустого `DATABASE()` до любого DDL.
 - Что дает: случайный production socket/credential больше не проходит до
   `CREATE DATABASE`; неправильный identity завершается до открытия schema.
 - Риск и ограничения: это только safety gate для disposable harness, не
