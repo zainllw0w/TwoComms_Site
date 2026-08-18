@@ -1034,6 +1034,23 @@ def _normalize_active_jobs_locked(lock: LeadParsingRuntimeLock, *, now=None) -> 
     return canonical
 
 
+def _locked_runtime_state(lock: LeadParsingRuntimeLock, *, now):
+    active_jobs = list(
+        LeadParsingJob.objects.select_for_update()
+        .filter(status__in=ACTIVE_STATUSES)
+        .order_by("-started_at", "-id")[:2]
+    )
+    if not active_jobs:
+        return lock.active_job_id is None, None
+    if (
+        len(active_jobs) == 1
+        and lock.active_job_id == active_jobs[0].pk
+        and not _job_is_stale(active_jobs[0], now)
+    ):
+        return True, active_jobs[0]
+    return False, None
+
+
 def _create_result(
     *,
     job: LeadParsingJob,
@@ -1529,7 +1546,12 @@ def parser_dashboard_job(job_id: int | str | None = None) -> LeadParsingJob | No
         )
         if lock and lock.active_job:
             if lock.active_job.status in ACTIVE_STATUSES:
-                return lock.active_job, _job_is_stale(lock.active_job, now)
+                has_conflict = (
+                    LeadParsingJob.objects.filter(status__in=ACTIVE_STATUSES)
+                    .exclude(pk=lock.active_job_id)
+                    .exists()
+                )
+                return lock.active_job, _job_is_stale(lock.active_job, now) or has_conflict
             # A dangling lock is uncommon, but clear it through the existing
             # serialized reconciliation path instead of writing during polling.
             return lock.active_job, True
@@ -1556,7 +1578,10 @@ def parser_dashboard_job(job_id: int | str | None = None) -> LeadParsingJob | No
     try:
         with transaction.atomic():
             lock = _runtime_lock_for_update()
-            active_job = _normalize_active_jobs_locked(lock, now=timezone.now())
+            now = timezone.now()
+            state_is_healthy, active_job = _locked_runtime_state(lock, now=now)
+            if not state_is_healthy:
+                active_job = _normalize_active_jobs_locked(lock, now=now)
             active_job_id = active_job.pk if active_job else None
     except Exception as exc:
         if not is_mysql_disconnect_error(exc):

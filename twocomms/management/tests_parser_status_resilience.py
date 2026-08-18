@@ -107,6 +107,85 @@ class ParserStatusDatabaseResilienceTests(TransactionTestCase):
         self.assertEqual(older.stop_reason_code, "session_superseded")
         self.assertEqual(lock.active_job_id, newer.pk)
 
+    def test_dashboard_job_poll_reconciles_conflict_behind_active_lock(self):
+        canonical = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="основний",
+            cities_raw="Харків",
+            keywords=["основний"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=timezone.now(),
+        )
+        conflicting = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="конфліктний",
+            cities_raw="Київ",
+            keywords=["конфліктний"],
+            cities=["Київ"],
+            request_limit=10,
+            heartbeat_at=timezone.now(),
+        )
+        lock = parser_service.LeadParsingRuntimeLock.objects.create(
+            singleton_key=parser_service.RUNTIME_LOCK_KEY,
+            active_job=canonical,
+        )
+
+        result = parser_service.parser_dashboard_job()
+
+        canonical.refresh_from_db()
+        conflicting.refresh_from_db()
+        lock.refresh_from_db()
+        self.assertEqual(result.pk, canonical.pk)
+        self.assertEqual(canonical.status, parser_service.LeadParsingJob.Status.RUNNING)
+        self.assertEqual(conflicting.status, parser_service.LeadParsingJob.Status.STOPPED)
+        self.assertEqual(conflicting.stop_reason_code, "session_superseded")
+        self.assertEqual(lock.active_job_id, canonical.pk)
+
+    def test_dashboard_job_skips_reconciliation_after_competing_poll_repairs_state(self):
+        job = parser_service.LeadParsingJob.objects.create(
+            created_by=self.user,
+            status=parser_service.LeadParsingJob.Status.RUNNING,
+            keywords_raw="військторг",
+            cities_raw="Харків",
+            keywords=["військторг"],
+            cities=["Харків"],
+            request_limit=10,
+            heartbeat_at=timezone.now(),
+        )
+        repaired_at = timezone.now() - timedelta(days=1)
+
+        def competing_poll_repair():
+            lock = parser_service.LeadParsingRuntimeLock.objects.create(
+                singleton_key=parser_service.RUNTIME_LOCK_KEY,
+                active_job=job,
+            )
+            parser_service.LeadParsingRuntimeLock.objects.filter(pk=lock.pk).update(
+                updated_at=repaired_at,
+            )
+            lock.refresh_from_db()
+            return lock
+
+        with patch.object(
+            parser_service,
+            "_runtime_lock_for_update",
+            side_effect=competing_poll_repair,
+        ), patch.object(
+            parser_service,
+            "_normalize_active_jobs_locked",
+            wraps=parser_service._normalize_active_jobs_locked,
+        ) as normalize:
+            result = parser_service.parser_dashboard_job()
+
+        lock = parser_service.LeadParsingRuntimeLock.objects.get(
+            singleton_key=parser_service.RUNTIME_LOCK_KEY
+        )
+        self.assertEqual(result.pk, job.pk)
+        normalize.assert_not_called()
+        self.assertEqual(lock.updated_at, repaired_at)
+
     def test_status_api_retries_payload_read_after_disconnect(self):
         calls = 0
 
