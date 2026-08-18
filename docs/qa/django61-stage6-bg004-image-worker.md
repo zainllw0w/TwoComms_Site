@@ -1,6 +1,6 @@
 # Django 6.1 Stage 6: image optimization worker
 
-Scope: `DJ6-BG-004`  
+Scope: `DJ6-BG-004`
 Runtime: CPython `3.14.6`, Django `6.1`
 
 ## Implemented contract
