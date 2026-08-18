@@ -637,13 +637,30 @@ Production acceptance от 2026-08-17:
 
 - [ ] **DJ6-BASE-005 - Повторно проверить Redis/worker capability через host owner.**
   - DNS, TCP, TLS, auth, ACL, process lifetime, cron cadence и DB connection budget.
+  - Статус 2026-08-18: **OPEN / BLOCKED**. Read-only production probe
+    подтвердил Redis DNS `gaierror`, отсутствие доказанного supervisor/worker
+    lifetime и ограничение `max_user_connections=20`; global
+    `Threads_connected=15` не является счетчиком соединений этого account user.
+  - Evidence: `docs/qa/django61-stage6-capability-blocker.md`.
 
 - [ ] **DJ6-SRV-001 - Получить рабочий Redis endpoint или официально выбрать другой backend.**
   - Не менять endpoint/тариф/credentials без согласования.
+  - Статус 2026-08-18: **OPEN / BLOCKED**. Endpoint и auth настроены, но DNS
+    не разрешается; TCP/TLS/PING/ACL поэтому не доказаны. Production endpoint
+    и credentials не изменялись.
+  - Candidate: MariaDB-backed durable adapter с bounded cron worker; это не
+    выбор backend до реализации/restart canary.
+  - Evidence: `docs/qa/django61-stage6-capability-blocker.md`.
 
 - [ ] **DJ6-TASK-001 - Выбрать production backend для Django Tasks.**
   - Built-in \`ImmediateBackend\` не считать очередью.
   - Начать с no-send canary с durable DB state.
+  - Статус 2026-08-18: **OPEN / BLOCKED**. Production использует
+    `ImmediateBackend`; Celery и отдельный supervised task worker отсутствуют.
+    Следующий implementable candidate - MariaDB-backed durable adapter и
+    bounded cron worker, но пункт остается открытым до реализации, crash/restart
+    proof и connection-budget gate.
+  - Evidence: `docs/qa/django61-stage6-capability-blocker.md`.
 
 - [x] **DJ6-TASK-002 - Добавить fail-fast guard против \`ImmediateBackend\` для тяжелых tasks.**
   - Production enqueue тяжелой задачи должен быть невозможен без worker proof.
