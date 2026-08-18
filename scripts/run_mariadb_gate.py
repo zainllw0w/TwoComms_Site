@@ -116,6 +116,10 @@ DATABASE_CHECK_WARNING_ALLOWLIST = {
         "finding": "DJ6-BASE-004",
     },
 }
+DATABASE_CHECK_WARNING_EXPECTED = {
+    (object_name, check_id): int(policy["max_count"])
+    for (object_name, check_id), policy in DATABASE_CHECK_WARNING_ALLOWLIST.items()
+}
 _RELEASE_MIGRATION = "0156_ig_order_event_delivery_receipts"
 _RELEASE_TABLE = "management_igordercustomerevent"
 _FOLLOW_UGC_MIGRATION = "0166_ig_ugc_reward_lifecycle"
@@ -222,9 +226,15 @@ def classify_database_check_warnings(
             blocked.append(rendered)
             continue
         allowed_count += count
+    missing = [
+        f"{key[0]}:{key[1]}"
+        for key, expected_count in sorted(DATABASE_CHECK_WARNING_EXPECTED.items())
+        if counts.get(key, 0) != expected_count
+    ]
     return {
         "allowed_count": allowed_count,
         "blocked": blocked,
+        "missing": missing,
         "policies": DATABASE_CHECK_WARNING_ALLOWLIST,
     }
 
@@ -323,6 +333,16 @@ class AdminClient:
             with connection.cursor() as cursor:
                 cursor.execute(statement)
                 return list(cursor.fetchall())
+        finally:
+            connection.close()
+
+    def _show_create_table(self, database: str, table: str) -> str:
+        connection = self._connect()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(f"SHOW CREATE TABLE `{database}`.`{table}`")
+                row = cursor.fetchone()
+                return "" if not row else str(row[1])
         finally:
             connection.close()
 
@@ -436,6 +456,91 @@ class AdminClient:
             "migration": f"management.{_RELEASE_MIGRATION}",
             "provider_message_id": "varchar(255)",
             "delivery_provider_message_ids": "longtext+json_valid",
+        }
+
+    def verify_database_warning_contract(self, database: str) -> dict[str, str]:
+        """Prove every allowlisted MariaDB warning against the created schema."""
+        if not re.fullmatch(r"test_twocomms_ig_[a-f0-9]{12}", database):
+            raise GateError("MariaDB warning-contract schema name is not gate-owned")
+
+        duplicate_queries = (
+            "SELECT COUNT(*) FROM (SELECT 1 FROM "
+            f"`{database}`.`reviews_reviewvote` WHERE `user_id` IS NOT NULL "
+            "GROUP BY `review_id`, `user_id` HAVING COUNT(*) > 1) AS duplicates",
+            "SELECT COUNT(*) FROM (SELECT 1 FROM "
+            f"`{database}`.`reviews_reviewvote` WHERE `user_id` IS NULL "
+            "AND `anon_key` <> '' GROUP BY `review_id`, `anon_key` "
+            "HAVING COUNT(*) > 1) AS duplicates",
+            "SELECT COUNT(*) FROM (SELECT 1 FROM "
+            f"`{database}`.`storefront_productfitoption` WHERE `is_default` = 1 "
+            "GROUP BY `product_id` HAVING COUNT(*) > 1) AS duplicates",
+            "SELECT COUNT(*) FROM (SELECT 1 FROM "
+            f"`{database}`.`storefront_webpushdevicesubscription` "
+            "GROUP BY `endpoint` HAVING COUNT(*) > 1) AS duplicates",
+        )
+        for statement in duplicate_queries:
+            row = self._query_one(statement)
+            if not row or int(row[0]) != 0:
+                raise GateError("MariaDB warning-contract duplicate scan failed")
+
+        tables = (
+            "reviews_reviewvote",
+            "storefront_productfitoption",
+            "storefront_webpushdevicesubscription",
+        )
+        table_literals = ", ".join(f"'{table}'" for table in tables)
+        unique_rows = self._query_all(
+            "SELECT TABLE_NAME, INDEX_NAME, "
+            "GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') "
+            "FROM information_schema.STATISTICS "
+            f"WHERE TABLE_SCHEMA = '{database}' AND NON_UNIQUE = 0 "
+            f"AND TABLE_NAME IN ({table_literals}) "
+            "GROUP BY TABLE_NAME, INDEX_NAME"
+        )
+        unique_indexes = {
+            (str(table), str(name), tuple(str(columns).split(",")))
+            for table, name, columns in unique_rows
+        }
+        forbidden_names = {
+            "rev_vote_unique_per_user",
+            "rev_vote_unique_per_anon",
+            "uniq_default_fit_per_product",
+        }
+        if any(name in forbidden_names for _table, name, _columns in unique_indexes):
+            raise GateError("MariaDB unsupported conditional constraint was created")
+        forbidden_columns = {
+            ("reviews_reviewvote", ("review_id", "user_id")),
+            ("reviews_reviewvote", ("review_id", "anon_key")),
+            ("storefront_productfitoption", ("product_id",)),
+        }
+        if any((table, columns) in forbidden_columns for table, _name, columns in unique_indexes):
+            raise GateError("MariaDB unsupported conditional constraint was created")
+
+        required_columns = {
+            ("storefront_productfitoption", ("product_id", "code")),
+            ("storefront_webpushdevicesubscription", ("endpoint",)),
+        }
+        actual_columns = {(table, columns) for table, _name, columns in unique_indexes}
+        if not required_columns.issubset(actual_columns):
+            raise GateError("MariaDB real unique constraint is missing")
+
+        create_sql = {table: self._show_create_table(database, table) for table in tables}
+        normalized_create = {
+            table: re.sub(r"\s+", "", sql.lower()).replace("`", "")
+            for table, sql in create_sql.items()
+        }
+        if "rev_vote_user_or_anon_required" not in normalized_create["reviews_reviewvote"]:
+            raise GateError("MariaDB review-vote check constraint is missing")
+        if not all(normalized_create.values()):
+            raise GateError("MariaDB SHOW CREATE TABLE proof is missing")
+        for forbidden_name in forbidden_names:
+            if any(forbidden_name in sql for sql in normalized_create.values()):
+                raise GateError("MariaDB unsupported conditional constraint was created")
+
+        return {
+            "conditional_constraints": "unsupported+duplicate_free",
+            "real_constraints": "verified",
+            "show_create_tables": "verified",
         }
 
     def verify_follow_ugc_schema(self, database: str) -> dict[str, str]:
@@ -950,10 +1055,11 @@ def run_gate(
             f"{check_completed.stdout}\n{check_completed.stderr}"
         )
         blocked_warnings = warning_policy["blocked"]
-        if blocked_warnings:
+        missing_warnings = warning_policy["missing"]
+        if blocked_warnings or missing_warnings:
             output.write(
                 "MariaDB database check blocked warnings: "
-                + ",".join(blocked_warnings)
+                + ",".join(blocked_warnings or missing_warnings)
                 + "\n"
             )
             primary_error = RuntimeError("database check warning policy failed")
@@ -972,6 +1078,18 @@ def run_gate(
             "migration=management.0156_ig_order_event_delivery_receipts "
             "provider_message_id=varchar(255) "
             "delivery_provider_message_ids=longtext+json_valid\n"
+        )
+        verify_warning_contract = getattr(
+            admin, "verify_database_warning_contract", None
+        )
+        if verify_warning_contract is None:
+            raise GateError("MariaDB admin client cannot verify warning contract")
+        warning_evidence = verify_warning_contract(database)
+        output.write(
+            "MariaDB warning contract proof: "
+            f"conditional_constraints={warning_evidence['conditional_constraints']} "
+            f"real_constraints={warning_evidence['real_constraints']} "
+            f"show_create_tables={warning_evidence['show_create_tables']}\n"
         )
         feature_evidence = {}
         if suite == "follow-ugc-concurrency":
@@ -999,6 +1117,7 @@ def run_gate(
                 f"default:passed;allowed_warnings={database_warning_count}"
             ),
             **schema_evidence,
+            **warning_evidence,
             **feature_evidence,
         }
     except BaseException as exc:

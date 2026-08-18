@@ -533,10 +533,10 @@ Production acceptance от 2026-08-17:
   - Для каждого: auth/signature, replay, rate limit, origin/host, idempotency и negative tests.
   - Массово снимать exemption запрещено.
 
-- [ ] **DJ6-BASE-004 - Закрыть MariaDB system-check warnings отдельными contracts.**
+- [x] **DJ6-BASE-004 - Закрыть MariaDB system-check warnings отдельными contracts.**
   - Сначала duplicate scan и \`SHOW CREATE TABLE\`; затем app-level/concurrency protection или DDL plan.
 
-- [ ] **DJ6-DB-002 - Сделать реальные MariaDB constraints частью compatibility gate.**
+- [x] **DJ6-DB-002 - Сделать реальные MariaDB constraints частью compatibility gate.**
   - Gate должен отличать unsupported conditional constraint от реально созданного DB constraint.
 
 - [ ] **DJ6-SRV-002 - Измерить file cache и запретить считать его durable distributed lock.**

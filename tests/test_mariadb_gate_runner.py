@@ -102,6 +102,16 @@ class FakeAdmin:
             "follow_ugc_lifecycle_job": "target_check+5_indexes",
         }
 
+    def verify_database_warning_contract(self, database):
+        self.calls.append(("verify_database_warning_contract", database))
+        if self.fail_at == "verify_database_warning_contract":
+            raise RuntimeError("database warning contract mismatch")
+        return {
+            "conditional_constraints": "unsupported+duplicate_free",
+            "real_constraints": "verified",
+            "show_create_tables": "verified",
+        }
+
     def close(self):
         self.calls.append(("close",))
 
@@ -115,8 +125,16 @@ class FakeCommandRunner:
 
     def __call__(self, args, **kwargs):
         self.calls.append((list(args), kwargs))
+        stderr = self.stderr
+        if self.returncode == 0 and len(self.calls) == 2:
+            stderr = (
+                "reviews.ReviewVote: (models.W036) conditional unique unsupported\n"
+                "reviews.ReviewVote: (models.W036) conditional unique unsupported\n"
+                "storefront.ProductFitOption: (models.W036) conditional unique unsupported\n"
+                "storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char\n"
+            )
         return subprocess.CompletedProcess(
-            args, self.returncode, self.stdout, self.stderr
+            args, self.returncode, self.stdout, stderr
         )
 
 
@@ -216,6 +234,18 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
         )
         self.assertTrue(expired["blocked"])
 
+        missing = self.runner.classify_database_check_warnings(
+            known.replace(
+                "storefront.ProductFitOption: (models.W036) conditional unique unsupported\n",
+                "",
+            ),
+            today=date(2026, 8, 16),
+        )
+        self.assertEqual(
+            missing["missing"],
+            ["storefront.ProductFitOption:models.W036"],
+        )
+
     def test_runner_accepts_only_the_exact_database_warning_allowlist(self):
         known = """WARNINGS:
 reviews.ReviewVote: (models.W036) conditional unique unsupported
@@ -274,6 +304,114 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
             "delivery_provider_message_ids=longtext+json_valid\n",
             evidence.getvalue(),
         )
+        self.assertIn(
+            "MariaDB warning contract proof: "
+            "conditional_constraints=unsupported+duplicate_free "
+            "real_constraints=verified show_create_tables=verified\n",
+            evidence.getvalue(),
+        )
+
+    def test_admin_warning_contract_distinguishes_conditional_and_real_constraints(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        unique_rows = [
+            ("storefront_productfitoption", "fit_product_code_uniq", "product_id,code"),
+            ("storefront_webpushdevicesubscription", "endpoint_uniq", "endpoint"),
+        ]
+        create_rows = {
+            "reviews_reviewvote": (
+                "CREATE TABLE `reviews_reviewvote` ("
+                "CONSTRAINT `rev_vote_user_or_anon_required` CHECK ((`user_id` is not null) or (`anon_key` <> ''))"
+                ") ENGINE=InnoDB"
+            ),
+            "storefront_productfitoption": (
+                "CREATE TABLE `storefront_productfitoption` ("
+                "UNIQUE KEY `fit_product_code_uniq` (`product_id`,`code`)"
+                ") ENGINE=InnoDB"
+            ),
+            "storefront_webpushdevicesubscription": (
+                "CREATE TABLE `storefront_webpushdevicesubscription` ("
+                "UNIQUE KEY `endpoint_uniq` (`endpoint`)"
+                ") ENGINE=InnoDB"
+            ),
+        }
+        query_one = mock.Mock(side_effect=[(0,), (0,), (0,), (0,)])
+        with (
+            mock.patch.object(admin, "_query_one", query_one),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                return_value=unique_rows,
+            ),
+            mock.patch.object(
+                admin,
+                "_show_create_table",
+                side_effect=lambda _database, table: create_rows[table],
+            ),
+        ):
+            proof = admin.verify_database_warning_contract(
+                "test_twocomms_ig_0123456789ab"
+            )
+
+        self.assertEqual(
+            proof,
+            {
+                "conditional_constraints": "unsupported+duplicate_free",
+                "real_constraints": "verified",
+                "show_create_tables": "verified",
+            },
+        )
+        executed_sql = "\n".join(
+            call.args[0] for call in query_one.call_args_list
+        )
+        self.assertIn("GROUP BY `review_id`, `user_id`", executed_sql)
+        self.assertIn("GROUP BY `review_id`, `anon_key`", executed_sql)
+        self.assertIn("GROUP BY `product_id`", executed_sql)
+        self.assertIn("GROUP BY `endpoint`", executed_sql)
+
+    def test_admin_warning_contract_fails_closed_on_duplicate_rows(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        with mock.patch.object(admin, "_query_one", return_value=(1,)):
+            with self.assertRaisesRegex(
+                self.runner.GateError,
+                "duplicate scan failed",
+            ):
+                admin.verify_database_warning_contract(
+                    "test_twocomms_ig_0123456789ab"
+                )
+
+    def test_admin_warning_contract_fails_when_conditional_constraint_is_misreported(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        unique_rows = [
+            ("reviews_reviewvote", "rev_vote_unique_per_user", "review_id,user_id"),
+            ("storefront_productfitoption", "fit_product_code_uniq", "product_id,code"),
+            ("storefront_webpushdevicesubscription", "endpoint_uniq", "endpoint"),
+        ]
+        with (
+            mock.patch.object(admin, "_query_one", side_effect=[(0,), (0,), (0,), (0,)]),
+            mock.patch.object(admin, "_query_all", return_value=unique_rows),
+        ):
+            with self.assertRaisesRegex(
+                self.runner.GateError,
+                "unsupported conditional constraint was created",
+            ):
+                admin.verify_database_warning_contract(
+                    "test_twocomms_ig_0123456789ab"
+                )
 
     def test_release_schema_mismatch_is_red_and_still_cleans_namespace(self):
         admin = FakeAdmin(fail_at="verify_release_schema")
