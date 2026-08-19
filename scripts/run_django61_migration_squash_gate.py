@@ -779,8 +779,162 @@ def build_decision(
     return {
         "decision": "go" if go else "no-go",
         "blocking_conditions": blocking_conditions,
-        "historical_migrations_may_be_deleted": go,
+        "historical_migrations_may_be_deleted": False,
         "squash_may_run": go,
+        "post_squash_requirements": (
+            ["follow_up_release_required"] if go else []
+        ),
+    }
+
+
+def validate_approved_squash_ranges(
+    evidence: Mapping[str, Any], *, graph_fingerprint: str
+) -> list[dict[str, str]]:
+    """Validate owner-approved non-DTF replacement ranges.
+
+    This is intentionally a metadata contract. It never discovers ranges from
+    the graph and never invokes ``squashmigrations``.
+    """
+
+    evidence = _require_mapping(evidence, "approved_squash_ranges")
+    if evidence.get("status") != "approved":
+        raise GateFailure("approved_squash_ranges_not_approved")
+    if evidence.get("scope") != "non_dtf":
+        raise GateFailure("approved_squash_ranges_scope_violation")
+    expected_fingerprint = _require_sha256(
+        graph_fingerprint, "expected_graph_fingerprint"
+    )
+    approved_fingerprint = _require_sha256(
+        evidence.get("graph_fingerprint"), "approved_ranges_graph_fingerprint"
+    )
+    if approved_fingerprint != expected_fingerprint:
+        raise GateFailure("approved_ranges_graph_fingerprint_mismatch")
+    if not str(evidence.get("reviewer") or "").strip():
+        raise GateFailure("approved_squash_ranges_reviewer_missing")
+    if not str(evidence.get("approved_at") or "").strip():
+        raise GateFailure("approved_squash_ranges_timestamp_missing")
+
+    raw_ranges = evidence.get("ranges")
+    if not isinstance(raw_ranges, list) or not raw_ranges:
+        raise GateFailure("approved_squash_ranges_missing")
+    ranges: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for raw_range in raw_ranges:
+        item = _require_mapping(raw_range, "approved_squash_range")
+        normalized = {
+            key: str(item.get(key) or "").strip()
+            for key in ("app", "start", "end", "replacement")
+        }
+        if any(not value for value in normalized.values()):
+            raise GateFailure("approved_squash_range_incomplete")
+        app = normalized["app"]
+        if app.casefold() == "dtf" or app.casefold().startswith("dtf_"):
+            raise GateFailure("approved_squash_ranges_dtf_forbidden")
+        if any(
+            not value.replace("_", "").isalnum()
+            for value in normalized.values()
+        ):
+            raise GateFailure("approved_squash_range_identifier_invalid")
+        identity = (app, normalized["start"], normalized["end"])
+        if identity in seen:
+            raise GateFailure("approved_squash_range_duplicate")
+        seen.add(identity)
+        ranges.append(normalized)
+    return ranges
+
+
+def _evidence_sha256(evidence: Mapping[str, Any]) -> str:
+    rendered = json.dumps(
+        evidence, ensure_ascii=True, sort_keys=True, separators=(",", ":")
+    )
+    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+
+
+def build_squash_artifact_manifest(
+    *,
+    graph_fingerprint: str,
+    authoritative_evidence: Mapping[str, Any],
+    mariadb_evidence: Mapping[str, Any],
+    restore_evidence: Mapping[str, Any],
+    approved_ranges: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build a metadata-only manifest for a separately executed squash.
+
+    A ready manifest allows a replacement migration to be generated in a
+    scoped follow-up. Historical migrations remain mandatory in that release.
+    """
+
+    fingerprint = _require_sha256(graph_fingerprint, "graph_fingerprint")
+    validate_authoritative_applied_history(authoritative_evidence)
+    validate_mariadb_rehearsal_evidence(mariadb_evidence)
+    validate_restore_drill_evidence(restore_evidence)
+
+    authoritative_fingerprint = _require_sha256(
+        authoritative_evidence.get("graph_fingerprint"),
+        "authoritative_graph_fingerprint",
+    )
+    if authoritative_fingerprint != fingerprint:
+        raise GateFailure("authoritative_graph_fingerprint_mismatch")
+    rehearsal_fingerprint = _require_sha256(
+        mariadb_evidence.get("graph_fingerprint"),
+        "mariadb_rehearsal_graph_fingerprint",
+    )
+    if rehearsal_fingerprint != fingerprint:
+        raise GateFailure("mariadb_rehearsal_graph_fingerprint_mismatch")
+    clean_install = _require_mapping(
+        mariadb_evidence.get("clean_install"), "mariadb_clean_install"
+    )
+    replay = _require_mapping(mariadb_evidence.get("replay"), "mariadb_replay")
+    clean_hash = _require_sha256(
+        clean_install.get("applied_history_hash"),
+        "mariadb_clean_install_history_hash",
+    )
+    replay_hash = _require_sha256(
+        replay.get("applied_history_hash"), "mariadb_replay_history_hash"
+    )
+    authoritative_history_hash = _require_sha256(
+        authoritative_evidence.get("applied_history_hash"),
+        "authoritative_applied_history_hash",
+    )
+    if clean_hash != replay_hash:
+        raise GateFailure("mariadb_replay_history_hash_mismatch")
+    if clean_hash != authoritative_history_hash:
+        raise GateFailure("authoritative_applied_history_hash_mismatch")
+    if dict(mariadb_evidence.get("restore_drill") or {}) != dict(restore_evidence):
+        raise GateFailure("restore_drill_evidence_mismatch")
+
+    ranges = validate_approved_squash_ranges(
+        approved_ranges, graph_fingerprint=fingerprint
+    )
+    decision = build_decision(
+        sqlite_clean_install=True,
+        sqlite_restore=True,
+        authoritative_applied_history=True,
+        mariadb_clean_install=True,
+        approved_ranges=True,
+        authoritative_evidence=authoritative_evidence,
+        mariadb_evidence=mariadb_evidence,
+        restore_evidence=restore_evidence,
+    )
+    if decision["decision"] != "go":
+        raise GateFailure("squash_artifact_not_ready")
+    return {
+        "version": 1,
+        "status": "ready",
+        "artifact_type": "metadata_only",
+        "scope": "non_dtf",
+        "dtf_scope": "excluded",
+        "graph_fingerprint": fingerprint,
+        "authoritative_evidence_sha256": _evidence_sha256(
+            authoritative_evidence
+        ),
+        "mariadb_evidence_sha256": _evidence_sha256(mariadb_evidence),
+        "restore_evidence_sha256": _evidence_sha256(restore_evidence),
+        "approved_ranges_evidence_sha256": _evidence_sha256(approved_ranges),
+        "approved_ranges": ranges,
+        "decision": decision,
+        "historical_migrations_deleted": False,
+        "squash_executed": False,
     }
 
 

@@ -151,6 +151,32 @@ data/SQL операций, `atomic=False` или необратимых опер
 `approved_squash_ranges_missing`. Это предотвращает ложное закрытие пункта по
 одному SQLite-проходу.
 
+## Metadata-only readiness artifact
+
+В runner добавлен `build_squash_artifact_manifest()`. Он допускает создание
+только обезличенного metadata-manifest, когда одновременно доказаны:
+
+- один и тот же graph fingerprint в текущем graph, authoritative production
+  history и disposable MariaDB rehearsal;
+- clean-install и replay на production-compatible MariaDB с `pending=0` и
+  applied-history hash, совпадающей между собой и с authoritative history;
+- отдельный backup/restore/rollback artifact с проверенной целостностью;
+- явно утверждённые non-DTF ranges с reviewer и timestamp.
+
+Manifest содержит SHA-256 каждого evidence-объекта, включая утверждение
+ranges, чтобы последующая генерация не могла незаметно использовать другой
+набор доказательств.
+
+Manifest не запускает `squashmigrations`, не создаёт migration-файл и не
+удаляет historical migrations. `build_decision()` намеренно разделяет право
+сформировать replacement migration (`squash_may_run`) и последующее удаление
+старой истории: `historical_migrations_may_be_deleted` всегда `false`, а
+`post_squash_requirements` содержит `follow_up_release_required`. Удаление
+history возможно только в отдельном релизе после deploy/restore proof.
+
+Текущий tracked evidence не удовлетворяет MariaDB full clean-install/replay,
+поэтому metadata-manifest ещё не создан и решение остаётся `NO-GO`.
+
 ## Почему SQLite не закрывает production decision
 
 SQLite подтверждает только то, что текущий Django 6.1 graph можно применить с

@@ -14,6 +14,64 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "scripts" / "run_django61_migration_squash_gate.py"
 
 
+def _valid_restore_drill():
+    return {
+        "status": "passed",
+        "disposable": True,
+        "backup": {
+            "status": "passed",
+            "artifact_id": "mariadb-fixture-1",
+            "sha256": "c" * 64,
+        },
+        "restore": {
+            "status": "passed",
+            "integrity_check": True,
+            "schema_hash_matches": True,
+            "applied_history_matches": True,
+        },
+        "rollback": {"status": "passed", "verified": True},
+    }
+
+
+def _valid_authoritative_history():
+    return {
+        "status": "passed",
+        "authoritative": True,
+        "read_only": True,
+        "database_vendor": "mariadb",
+        "database_alias": "default",
+        "non_dtf_only": True,
+        "source": "approved-read-only-export",
+        "captured_at": "2026-08-19T12:00:00Z",
+        "pending": 0,
+        "applied_history_count": 461,
+        "applied_history_hash": "a" * 64,
+        "graph_fingerprint": "b" * 64,
+    }
+
+
+def _valid_mariadb_rehearsal():
+    return {
+        "status": "passed",
+        "database_vendor": "mariadb",
+        "production_compatible": True,
+        "server_version": "11.4.12-MariaDB",
+        "disposable": True,
+        "graph_fingerprint": "b" * 64,
+        "clean_install": {
+            "status": "passed",
+            "pending": 0,
+            "applied_history_hash": "a" * 64,
+        },
+        "replay": {
+            "status": "passed",
+            "pending": 0,
+            "applied_history_hash": "a" * 64,
+        },
+        "restore_drill": _valid_restore_drill(),
+    }
+
+
 class MigrationSquashGateUnitTests(unittest.TestCase):
     def test_safe_environment_strips_credentials_and_forces_non_dtf_profile(self):
         from scripts import run_django61_migration_squash_gate as gate
@@ -269,6 +327,111 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
         self.assertIn(
             "backup_restore_evidence_missing", decision["blocking_conditions"]
         )
+
+    def test_squash_readiness_never_authorizes_historical_file_deletion(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        decision = gate.build_decision(
+            sqlite_clean_install=True,
+            sqlite_restore=True,
+            authoritative_applied_history=True,
+            mariadb_clean_install=True,
+            approved_ranges=True,
+            authoritative_evidence=_valid_authoritative_history(),
+            mariadb_evidence=_valid_mariadb_rehearsal(),
+            restore_evidence=_valid_restore_drill(),
+        )
+
+        self.assertEqual(decision["decision"], "go")
+        self.assertTrue(decision["squash_may_run"])
+        self.assertFalse(decision["historical_migrations_may_be_deleted"])
+        self.assertIn(
+            "follow_up_release_required",
+            decision["post_squash_requirements"],
+        )
+
+    def test_metadata_manifest_requires_matching_graph_and_preserves_history(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        manifest = gate.build_squash_artifact_manifest(
+            graph_fingerprint="b" * 64,
+            authoritative_evidence=_valid_authoritative_history(),
+            mariadb_evidence=_valid_mariadb_rehearsal(),
+            restore_evidence=_valid_restore_drill(),
+            approved_ranges={
+                "status": "approved",
+                "scope": "non_dtf",
+                "graph_fingerprint": "b" * 64,
+                "reviewer": "db-owner",
+                "approved_at": "2026-08-19T12:00:00Z",
+                "ranges": [
+                    {
+                        "app": "accounts",
+                        "start": "0001_initial",
+                        "end": "0030_latest",
+                        "replacement": "0001_squashed_0030_latest",
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(manifest["status"], "ready")
+        self.assertEqual(manifest["artifact_type"], "metadata_only")
+        self.assertEqual(manifest["graph_fingerprint"], "b" * 64)
+        self.assertFalse(manifest["historical_migrations_deleted"])
+        self.assertFalse(manifest["squash_executed"])
+        self.assertEqual(len(manifest["approved_ranges_evidence_sha256"]), 64)
+
+        with self.assertRaisesRegex(gate.GateFailure, "graph_fingerprint_mismatch"):
+            gate.build_squash_artifact_manifest(
+                graph_fingerprint="c" * 64,
+                authoritative_evidence=_valid_authoritative_history(),
+                mariadb_evidence=_valid_mariadb_rehearsal(),
+                restore_evidence=_valid_restore_drill(),
+                approved_ranges={
+                    "status": "approved",
+                    "scope": "non_dtf",
+                    "graph_fingerprint": "b" * 64,
+                    "reviewer": "db-owner",
+                    "approved_at": "2026-08-19T12:00:00Z",
+                    "ranges": [
+                        {
+                            "app": "accounts",
+                            "start": "0001_initial",
+                            "end": "0030_latest",
+                            "replacement": "0001_squashed_0030_latest",
+                        }
+                    ],
+                },
+            )
+
+        mismatched_history = _valid_mariadb_rehearsal()
+        mismatched_history["clean_install"]["applied_history_hash"] = "d" * 64
+        mismatched_history["replay"]["applied_history_hash"] = "d" * 64
+        with self.assertRaisesRegex(
+            gate.GateFailure, "authoritative_applied_history_hash_mismatch"
+        ):
+            gate.build_squash_artifact_manifest(
+                graph_fingerprint="b" * 64,
+                authoritative_evidence=_valid_authoritative_history(),
+                mariadb_evidence=mismatched_history,
+                restore_evidence=_valid_restore_drill(),
+                approved_ranges={
+                    "status": "approved",
+                    "scope": "non_dtf",
+                    "graph_fingerprint": "b" * 64,
+                    "reviewer": "db-owner",
+                    "approved_at": "2026-08-19T12:00:00Z",
+                    "ranges": [
+                        {
+                            "app": "accounts",
+                            "start": "0001_initial",
+                            "end": "0030_latest",
+                            "replacement": "0001_squashed_0030_latest",
+                        }
+                    ],
+                },
+            )
 
     def test_sqlite_restore_uses_backup_api_and_preserves_content(self):
         from scripts import run_django61_migration_squash_gate as gate
