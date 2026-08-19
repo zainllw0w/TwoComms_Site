@@ -1,12 +1,13 @@
 # Django 6.1 Stage 5: checklist evidence audit
 
-Дата аудита: 2026-08-18 (матрица захвачена `2026-08-18T23:48:07+03:00`).
-Это audit tracked evidence для Stage 5, а не заявление о публикации или
-production rollout. Актуальная sanitized matrix и disposable rehearsal
-зафиксированы в этом release candidate; origin/main проверяется отдельно
-при интеграции и здесь намеренно не подменяется старым SHA.
-Scope: только non-DTF MariaDB/Django evidence. Production schema, данные,
-migrations, storefront и parser в рамках этого документа не изменялись.
+Дата аудита: 2026-08-18; production addendum: 2026-08-19.
+Историческая matrix захвачена `2026-08-18T23:48:07+03:00`. Актуальный
+production canary и storefront migration записаны в
+`django61-stage5-production-canary-2026-08-19.{md,json}` и имеют SHA
+`3de4c6a7d499aa3d701409ef14950747b0f36c82`.
+Scope: только non-DTF MariaDB/Django evidence. DTF и parser не затрагивались;
+production изменения ограничены отдельно одобренными `reviews_reviewvote`
+canary и `storefront.0097`.
 
 ## Как читать решения
 
@@ -29,7 +30,7 @@ DDL-дизайн или обратимый rollout отсутствует либ
 
 | ID | Evidence и что реально проверено | Решение сейчас | Что нельзя утверждать / следующий обязательный gate |
 | --- | --- | --- | --- |
-| `DJ6-SRV-003` | `docs/qa/django61-stage5-srv003-matrix.json` содержит свежую sanitized read-only матрицу: `320` non-DTF base tables, `143` InnoDB, `177` MyISAM targets, `39` physical FK edges и `13` tables with triggers. Все `177` строк заблокированы до writer/orphan/domain preflight; `167` имеют риск `blocked_unmeasured_writer_and_orphan_risk`, `10` являются unmapped/through-table blockers, `0` production DDL targets и `0` canary candidates approved. `scripts/run_stage5_innodb_canary.py` отдельно прошёл disposable MariaDB 11.4.12 rehearsal с backup, conversion, rollback и cleanup. | **READ-ONLY/REHEARSAL CLOSED**, но **NO-GO** для production migration. | Нельзя считать матрицу разрешением на DDL или production canary. Для снятия HOLD нужны подтверждённые writer/orphan/domain facts, approved table order и отдельный production-compatible canary с backup/rollback evidence. |
+| `DJ6-SRV-003` | Историческая matrix содержит `320` non-DTF base tables и `177` MyISAM targets; отдельный production artifact закрывает approved `reviews.ReviewVote` (backup, controlled write freeze, duplicate/schema preflight, InnoDB after-proof, disposable reverse) и сохраняет HOLD для остальных `176` targets. `storefront.0097` также применена после duplicate/schema preflight. | **PRODUCTION CANARY CLOSED / BULK PROGRAM HOLD**. | Нельзя считать один canary разрешением на массовый `ALTER TABLE`; для каждой следующей таблицы нужны собственные writer/orphan/domain/rollback facts. Lock census ограничен правами production account и явно записан в artifact. |
 | `DJ6-SRV-004` | `docs/qa/django61-stage5-connection-budget.md` (candidate `a34d7589c`/`566102c86`) и connection gate в `scripts/run_django61_live_matrix.py` (candidate `bc4d0edc1`). Read-only baseline: MariaDB `11.4.12`, `max_connections=150`, `max_user_connections=20`, `wait_timeout=60`, effective `CONN_MAX_AGE=0`, `CONN_HEALTH_CHECKS=True`; gate также проверяет usage counters и запрещает DTF alias. | **READ-ONLY/REHEARSAL CLOSED** для текущего connection-policy guard; **NO-GO** для расширения worker/pool capacity. | Нельзя утверждать, что любой новый async/worker backend безопасен или что есть unlimited connection headroom. Для каждого нового процесса нужны bounded capacity/load evidence, peak attribution и сохранение budget `20/150`; нельзя повышать `CONN_MAX_AGE` по одному green snapshot. |
 | `DJ6-SRV-006` | Тот же connection/charset evidence document и live-matrix gate: client/session/schema/table values проверяются как `utf8mb4`, session `default_storage_engine=InnoDB`, global server default наблюдается как `latin1`/`latin1_swedish_ci` и намеренно не изменяется. | **READ-ONLY/REHEARSAL CLOSED** для fail-closed compatibility gate; **NO-GO** для global charset change. | Нельзя утверждать, что server default уже исправлен, что raw SQL/manual table creation автоматически безопасны или что существующие таблицы преобразованы. Любой `ALTER DATABASE`, `SET GLOBAL` или charset migration требует host-owner review, отдельного backup/rollback и проверки соседних приложений. |
 | `DJ6-BASE-002` | `docs/qa/django61-stage5-db-actions.md`, static inventory `554` non-DTF FK/OneToOne relations, DTF app/table prefix fail-closed, engine/FK/`DELETE_RULE`/orphan/signal/soft-delete/rollback fields. Reusable `companion_action_design` теперь описывает E050-safe sibling conversion: для `storefront.PageView` сначала `user -> DB_SET_NULL`, затем `session -> DB_CASCADE`, с обратным rollback order. | **READ-ONLY/REHEARSAL CLOSED** для static inventory/design; **NO-GO** для изменения `on_delete` в production. | Нельзя утверждать, что static graph равен live schema, что реальные FK/orphans готовы или что delete signals сохранятся. Нужны свежий production read-only FK/orphan inventory, review design и отдельная обратимая migration. |
@@ -39,22 +40,25 @@ DDL-дизайн или обратимый rollout отсутствует либ
 
 ## Exit-gate Stage 5
 
-По этой сверке закрыты только bounded read-only/evidence и disposable
-rehearsal подэтапы. Полный Stage 5 exit gate **не закрыт**, потому что
-production acceptance всё ещё отсутствует:
+По этой сверке закрыты bounded read-only/evidence, disposable rehearsal и
+первый production canary. Оставшиеся ограничения Stage 5 не расширяют его
+на массовую конверсию:
 
 1. утверждённая live таблица `model -> engine -> size -> risk -> migration
-   order`;
-2. production-compatible InnoDB canary с backup, rehearsal timing и rollback;
+   order` для `reviews.ReviewVote` — **закрыто** в новом artifact;
+2. production-compatible InnoDB canary с backup, rehearsal timing и rollback
+   — **закрыто** в новом artifact;
 3. production adoption proof для DB-level cascade/generated column (оба
    disposable эксперимента сами по себе production rollout не разрешают);
 4. applied-history и MariaDB restore proof для migration squash.
 
-До выполнения условий 1 и 2 нельзя закрывать `DJ6-SRV-003` или два
-соответствующих exit-gate чекбокса; `DJ6-BASE-002` и disposable
-`DJ6-DB-001`/`DJ6-ORM-013` отражают только заявленный bounded evidence.
-`DJ6-MIG-001` остаётся открытым до authoritative applied-history и restore
-proof. Production DDL, `migrate` и `squashmigrations` запускать нельзя.
+Условия 1 и 2 закрыты только для одного кандидата; `DJ6-SRV-003` и два
+соответствующих exit-gate чекбокса отмечены в canonical plan с этой границей.
+`DJ6-BASE-002` и disposable `DJ6-DB-001`/`DJ6-ORM-013` отражают только
+заявленный bounded evidence.
+Migration squash остаётся NO-GO до authoritative applied-history and restore
+proof for its own ranges. Production DDL, `migrate` and `squashmigrations`
+запускать нельзя без отдельного scoped gate.
 
 ## Provenance
 
@@ -69,10 +73,10 @@ not the `NO-GO` production decisions above.
 
 - Matrix snapshot: `docs/qa/django61-stage5-srv003-matrix.json`, captured
   `2026-08-18T23:48:07+03:00`; server vendor/version `MariaDB 11.4.12`.
-- This evidence is tracked in the Stage 5 release candidate; integration SHA
-  and production SHA must be recorded only after the parent integration gate.
+- Current production evidence: `docs/qa/django61-stage5-production-canary-2026-08-19.{md,json}`.
 - Latest fail-closed Stage 5 tooling is referenced by the scoped roadmap and
-  focused tests; no production DDL or migration was run for this audit.
+  focused tests; production DDL is limited to the two separately evidenced
+  migrations above.
 - Connection/charset evidence: `85c9d90fa`, `90debf557`, `5735f4727`.
 - InnoDB roadmap/tooling evidence: `578ecd3d1`, `e5b6aba4c`.
 - DB actions evidence: `6c2197af3`.

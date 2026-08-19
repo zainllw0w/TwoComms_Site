@@ -1,0 +1,129 @@
+{
+  "artifact_type": "django61_stage5_production_canary",
+  "captured_on": "2026-08-19",
+  "repo_sha": "3de4c6a7d499aa3d701409ef14950747b0f36c82",
+  "runtime": {
+    "python": "3.14.6",
+    "django": "6.1",
+    "mariadb": "11.4.12",
+    "dtf_scope": "excluded"
+  },
+  "production_identity": {
+    "database_engine": "django.db.backends.mysql",
+    "sql_mode": "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION",
+    "default_storage_engine": "InnoDB",
+    "max_connections": 150,
+    "max_user_connections": 20
+  },
+  "reviewvote_innodb_canary": {
+    "approved_matrix_row": {
+      "model": "reviews.ReviewVote",
+      "table": "reviews_reviewvote",
+      "engine_before": "MyISAM",
+      "engine_after": "InnoDB",
+      "exact_rows_after": 0,
+      "data_bytes_after": 16384,
+      "index_bytes_after": 81920,
+      "criticality": "medium",
+      "risk": "low_volume_review_vote; no_fk_trigger_or_fulltext; controlled_write_freeze",
+      "migration_order": 11
+    },
+    "migration_rows": {
+      "reviews.0002_mariadb_vote_uniqueness": "2026-08-19 15:32:22.397622",
+      "reviews.0003_reviewvote_innodb_canary": "2026-08-19 15:32:23.172999"
+    },
+    "backup": {
+      "artifact": "/home/qlknpodo/db_backups/stage5-reviewvote/reviews_reviewvote-20260819T152619Z.sql.gz",
+      "mode": "0600",
+      "bytes": 914,
+      "sha256": "edbb7b11069a447d875505f9e89471dfd18975efcb5debbf8cbe412f3eb243b2",
+      "gzip_valid": true,
+      "restore_rehearsal": "passed in disposable MariaDB 11.4.12"
+    },
+    "write_freeze": {
+      "marker": "review-write-freeze-v1",
+      "post_canary_state": "marker_missing",
+      "live_write_canary": "503 temporarily_unavailable and zero rows written",
+      "open_tables_after": [],
+      "metadata_lock_visibility": "PROCESS/performance_schema.metadata_locks privileges unavailable; SHOW OPEN TABLES was empty"
+    },
+    "post_proof": {
+      "table": "reviews_reviewvote",
+      "engine": "InnoDB",
+      "rows": 0,
+      "unique_indexes": [
+        "rev_vote_unique_user(review_id,user_id)",
+        "rev_vote_unique_anon(review_id,anon_identity)"
+      ],
+      "check_constraint": "rev_vote_user_or_anon_required",
+      "foreign_keys": 0,
+      "triggers": 0,
+      "fulltext_indexes": 0,
+      "show_create_engine": "InnoDB"
+    },
+    "rollback_rehearsal": {
+      "forward_reverse_empty": true,
+      "write_preservation_reverse": true,
+      "disposable_mariadb": "11.4.12",
+      "production_reverse": "not executed"
+    }
+  },
+  "storefront_0097": {
+    "preflight": {
+      "migration_0096_applied": true,
+      "migration_0097_pending_before_apply": true,
+      "product_fit_rows": 70,
+      "product_fit_default_rows": 34,
+      "duplicate_default_groups": 0,
+      "webpush_rows": 1,
+      "duplicate_endpoint_groups": 0,
+      "endpoint_max_chars": 188,
+      "endpoint_physical_type": "varchar(1000) NOT NULL",
+      "endpoint_unique_index": "endpoint HASH",
+      "endpoint_digest_present": false
+    },
+    "backup": {
+      "artifact": "/home/qlknpodo/db_backups/stage5-storefront-0097/daily/qlknpodo_MySQL_DB-20260819.sql.gz",
+      "created": "2026-08-19T18:52:37+03:00",
+      "mode": "0600",
+      "bytes": 23335186,
+      "sha256": "a7d46ff57316bafd7795669acba0be82d4295d785854862353e087ae7db3f1d9",
+      "gzip_valid": true,
+      "restore_rehearsal": "verified on disposable MariaDB 11.4.12"
+    },
+    "migration_row": "2026-08-19 15:48:34.481905",
+    "post_proof": {
+      "generated_column": "default_product_identity BIGINT STORED GENERATED",
+      "generated_expression": "CASE WHEN is_default = 1 THEN product_id ELSE NULL END",
+      "unique_index": "uniq_default_fit_product(default_product_identity) BTREE",
+      "product_fit_rows": 70,
+      "duplicate_default_groups": 0,
+      "webpush_rows": 1,
+      "duplicate_endpoint_groups": 0,
+      "endpoint_unique_index_preserved": "endpoint HASH",
+      "orm_read": "ProductFitOption and WebPushDeviceSubscription both pass"
+    }
+  },
+  "restore_proof": {
+    "source": "fresh production full logical dump",
+    "destination": "temporary local MariaDB 11.4.12",
+    "table_engine_rows": {
+      "reviews_reviewvote": ["InnoDB", 0],
+      "storefront_productfitoption": ["MyISAM", 70],
+      "storefront_webpushdevicesubscription": ["MyISAM", 1]
+    },
+    "temporary_schema_cleanup": true
+  },
+  "gates": {
+    "migrate_check": "passed",
+    "system_check_fail_level_warning": "passed with 0 issues",
+    "stage5_first_innodb_canary": "closed",
+    "stage5_approved_table_matrix": "closed for reviews_reviewvote canary; remaining MyISAM targets stay HOLD",
+    "bulk_myisam_conversion": "not approved",
+    "sqlite_acceptance": "not used"
+  },
+  "limitations": [
+    "Production account cannot read PROCESS or performance_schema.metadata_locks; lock proof is limited to SHOW OPEN TABLES and bounded maintenance window evidence.",
+    "The remaining non-DTF MyISAM tables are not converted by this canary and require their own writer/orphan/domain/rollback gates."
+  ]
+}

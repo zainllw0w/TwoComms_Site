@@ -2,15 +2,18 @@
 
 Date: 2026-08-19
 
-Status: read-only roadmap, production inventory, and disposable canary
-rehearsal are complete. The production-conversion acceptance and its Stage 5
-checkboxes remain open; this is not a production engine-conversion release.
+Status: the historical read-only roadmap and disposable rehearsal remain the
+baseline for the 176 remaining MyISAM targets. A single approved production
+exception, `reviews_reviewvote`, was subsequently converted and is recorded in
+`django61-stage5-production-canary-2026-08-19.{md,json}`. This document must
+not be read as permission for any other production engine conversion.
 
 ## Scope and safety boundary
 
-This evidence excludes DTF. Production MariaDB was queried read-only through
-the normal SSH environment. No production `ALTER TABLE`, migration, backup,
-restore, write-freeze, or schema/data mutation was performed.
+This evidence excludes DTF. The original inventory below was queried read-only
+through the normal SSH environment and did not authorize DDL. The later
+`reviews_reviewvote` production canary and its backup/write-freeze proof are
+documented separately; no other table in this roadmap was changed.
 
 The captured production default alias reported MariaDB `11.4.12`, 320 non-DTF
 base tables, 143 InnoDB tables, 177 MyISAM tables, 39 physical foreign-key
@@ -28,11 +31,11 @@ contains every current non-DTF MyISAM target with:
 - explicit risk and a deterministic preflight sequence;
 - a separate `writer_audit_complete` and `orphan_scan_complete` state.
 
-All 177 MyISAM rows are deliberately marked
-`blocked_pending_writer_orphan_and_domain_preflight`. None has a false
-zero-writer or zero-orphan claim; consequently the matrix approves zero
-production DDL targets and zero production canary candidates. The sequence is
-the order for *read-only preflight*, not permission to run DDL:
+The historical snapshot marked all 177 MyISAM rows
+`blocked_pending_writer_orphan_and_domain_preflight`. That snapshot predates
+the separately approved `reviews_reviewvote` canary; the remaining 176 targets
+retain that HOLD. The sequence is the order for *read-only preflight*, not
+permission to run DDL:
 low-risk/small families are reviewed first, then medium, high, critical, and
 unmapped tables. A table can leave HOLD only after a domain-specific writer,
 orphan, index/FULLTEXT, trigger, and rollback review.
@@ -95,6 +98,7 @@ TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python
 
 ## Explicit non-goals
 
-- No production MyISAM table was converted.
+- No remaining bulk MyISAM target was converted. The sole exception is the
+  separately evidenced `reviews_reviewvote` canary.
 - No database-level cascade or generated column was introduced by this slice.
 - `DJ6-MIG-001` migration squashing remains independent and open.

@@ -47,6 +47,65 @@ class _HistoricalApps:
         return self.models[(app_label, model_name)]
 
 
+class _EndpointContractCursor:
+    def __init__(self, connection):
+        self.connection = connection
+        self.rows = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+    def execute(self, statement):
+        normalized = " ".join(statement.split())
+        self.connection.statements.append(normalized)
+        if (
+            "information_schema.COLUMNS" in statement
+            and "storefront_webpushdevicesubscription" in statement
+        ):
+            self.rows = self.connection.column_rows
+        elif (
+            "information_schema.STATISTICS" in statement
+            and "storefront_webpushdevicesubscription" in statement
+        ):
+            self.rows = self.connection.index_rows
+        elif normalized.startswith("ALTER TABLE"):
+            raise AssertionError("physical DDL ran before the endpoint contract passed")
+        else:
+            raise AssertionError(f"unexpected SQL: {normalized}")
+
+    def fetchall(self):
+        return list(self.rows)
+
+
+class _EndpointContractConnection:
+    vendor = "mysql"
+    mysql_is_mariadb = True
+
+    def __init__(self, *, column_rows=None, index_rows=None):
+        self.column_rows = (
+            [("endpoint", "varchar", 1000)]
+            if column_rows is None
+            else column_rows
+        )
+        self.index_rows = (
+            [("endpoint", 0, "HASH", "endpoint")]
+            if index_rows is None
+            else index_rows
+        )
+        self.statements = []
+
+    def cursor(self):
+        return _EndpointContractCursor(self)
+
+
+class _EndpointContractSchemaEditor:
+    def __init__(self, **connection_kwargs):
+        self.connection = _EndpointContractConnection(**connection_kwargs)
+
+
 class StorefrontMariaDbConstraintTests(SimpleTestCase):
     def test_default_fit_uses_generated_product_identity_unique_key(self):
         self.assertIn(
@@ -138,8 +197,81 @@ class StorefrontMariaDbConstraintTests(SimpleTestCase):
         self.assertIn("DROP INDEX IF EXISTS", reverse_source)
         self.assertIn("DROP COLUMN IF EXISTS", reverse_source)
         self.assertNotIn("IrreversibleError", module_source)
-        self.assertNotIn("endpoint_digest", module_source)
+        self.assertNotIn(
+            "ALTER TABLE `storefront_webpushdevicesubscription`",
+            module_source,
+        )
         self.assertNotIn("webpushdevicesubscription`", forward_source.casefold())
+
+    def test_migration_accepts_exact_physical_webpush_endpoint_contract(self):
+        migration = importlib.import_module(
+            "storefront.migrations.0097_mariadb_generated_uniqueness"
+        )
+        schema_editor = _EndpointContractSchemaEditor()
+
+        migration._assert_webpush_endpoint_contract(schema_editor)
+
+        self.assertEqual(len(schema_editor.connection.statements), 2)
+
+    def test_migration_rejects_invalid_webpush_endpoint_column_contract(self):
+        migration = importlib.import_module(
+            "storefront.migrations.0097_mariadb_generated_uniqueness"
+        )
+        invalid_contracts = (
+            ([("endpoint", "varchar", 767)], "capacity"),
+            ([("endpoint", "text", 1000)], "capacity"),
+            (
+                [
+                    ("endpoint", "varchar", 1000),
+                    ("endpoint_digest", "varchar", 64),
+                ],
+                "endpoint_digest",
+            ),
+        )
+
+        for column_rows, message in invalid_contracts:
+            with self.subTest(column_rows=column_rows):
+                schema_editor = _EndpointContractSchemaEditor(
+                    column_rows=column_rows
+                )
+                with self.assertRaisesRegex(RuntimeError, message):
+                    migration._assert_webpush_endpoint_contract(schema_editor)
+
+    def test_migration_rejects_non_exact_webpush_endpoint_unique_hash(self):
+        migration = importlib.import_module(
+            "storefront.migrations.0097_mariadb_generated_uniqueness"
+        )
+        invalid_indexes = (
+            [],
+            [("endpoint", 1, "HASH", "endpoint")],
+            [("endpoint", 0, "BTREE", "endpoint")],
+            [("endpoint", 0, "HASH", "endpoint,installation_id")],
+            [("other_name", 0, "HASH", "endpoint")],
+        )
+
+        for index_rows in invalid_indexes:
+            with self.subTest(index_rows=index_rows):
+                schema_editor = _EndpointContractSchemaEditor(
+                    index_rows=index_rows
+                )
+                with self.assertRaisesRegex(RuntimeError, "unique HASH"):
+                    migration._assert_webpush_endpoint_contract(schema_editor)
+
+    def test_migration_checks_webpush_contract_before_product_fit_ddl(self):
+        migration = importlib.import_module(
+            "storefront.migrations.0097_mariadb_generated_uniqueness"
+        )
+        schema_editor = _EndpointContractSchemaEditor(index_rows=[])
+
+        with self.assertRaisesRegex(RuntimeError, "unique HASH"):
+            migration.apply_product_fit_schema(None, schema_editor)
+
+        self.assertFalse(
+            any(
+                statement.startswith("ALTER TABLE")
+                for statement in schema_editor.connection.statements
+            )
+        )
 
     def test_migration_rejects_default_fit_duplicates_before_physical_ddl(self):
         migration = importlib.import_module(

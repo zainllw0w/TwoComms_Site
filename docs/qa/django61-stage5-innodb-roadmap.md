@@ -1,9 +1,11 @@
 # Django 6.1 Stage 5: non-DTF MyISAM to InnoDB roadmap (DJ6-SRV-003)
 
-Дата: 2026-08-18
-Статус: roadmap/rehearsal gate закрыт; production engine conversion и
-production acceptance не заявляются. Актуальная read-only matrix и локальный
-MariaDB 11.4.12 canary зафиксированы в
+Дата: 2026-08-18; production addendum: 2026-08-19
+Статус: roadmap/rehearsal gate закрыт. Один approved production canary
+(`reviews_reviewvote`) выполнен и описан в
+[`django61-stage5-production-canary-2026-08-19.md`](django61-stage5-production-canary-2026-08-19.md).
+Остальные MyISAM targets не менялись и остаются HOLD. Актуальная read-only
+matrix и локальный MariaDB 11.4.12 canary зафиксированы в
 [`django61-stage5-srv003.md`](django61-stage5-srv003.md) и
 [`django61-stage5-srv003-matrix.json`](django61-stage5-srv003-matrix.json).
 
@@ -62,10 +64,11 @@ engine contract, while active promo reservation code writes it under
 `select_for_update()`. A small physical size or a stale MyISAM observation is
 therefore not enough to make it a canary.
 
-The production canary remains **blocked** until the sanitized per-table
-inventory reports current `MyISAM`, row/size limits, zero writers, zero
-triggers, no FK links, a completed domain review, and no existing managed-engine
-migration contract. The candidate is never migrated by this change.
+The bulk production canary program remains **blocked** for every target except
+the separately approved `reviews_reviewvote` exception. That exception had a
+fresh exact row/index/engine snapshot, zero duplicate/orphan findings, a
+write-freeze, backup/restore proof and a reversible disposable rehearsal. No
+other candidate is authorized by this document.
 
 Run the read-only tool with a sanitized export:
 
@@ -150,10 +153,12 @@ rollback requirements below still apply.
 
 ## Explicit non-goals
 
-- No DDL, `ALTER TABLE`, migration application, backup, or production SSH was
-  performed for this document.
+- No bulk DDL or migration application was performed for this roadmap. The
+  separately evidenced ReviewVote canary is the only production exception.
 - No table size, per-table engine, row count, orphan count, or FK status is
   inferred from model declarations or local SQLite.
-- No production acceptance, zero-downtime claim, or rollback success is claimed.
+- No bulk production acceptance, zero-downtime claim, or rollback success is
+  claimed for the remaining targets; the ReviewVote exception is covered by
+  the separate production-canary artifact.
 - No fixed migration order is authoritative: the order must be generated from
   the sanitized FK graph and writer dependencies; unresolved nodes block.

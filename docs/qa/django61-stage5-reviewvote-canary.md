@@ -2,9 +2,9 @@
 
 Дата: 2026-08-19
 
-Статус: код и disposable physical rehearsal готовы; production canary не
-выполнялся, а чекбоксы `DJ6-SRV-003` и два связанных exit gate остаются
-открытыми до live after-proof.
+Статус: production canary выполнен 2026-08-19. Код, disposable physical
+rehearsal, backup, write-freeze и live after-proof закрыты. Полная актуальная
+сводка: `django61-stage5-production-canary-2026-08-19.{md,json}`.
 
 ## Scope
 
@@ -49,7 +49,11 @@ production кандидата сначала создайте отдельный
 а не расширяйте этот документ утверждением, что disposable proof равен live
 rollout.
 
-## Production activation checklist (не запускать автоматически)
+## Production activation checklist (исторический runbook)
+
+Ниже сохранён воспроизводимый порядок, использованный для закрытого canary.
+Повторно запускать его на `reviews_reviewvote` не нужно; для следующей
+таблицы требуется новый owner approval и новый evidence artifact.
 
 1. Снять свежий read-only snapshot `SHOW CREATE TABLE`, `information_schema`
    engine/index/FK/trigger/FULLTEXT, exact row count и duplicate scans.
@@ -79,16 +83,26 @@ rollout.
    the `0003` engine canary is reversed, and repeat the full after-proof. Never
    restore an old backup over live writes.
 
-## Evidence placeholders required before checkboxes
+## Closed production evidence
 
-- `production_snapshot_sha256`: `TODO`
-- `backup_artifact_sha256_and_restore_id`: `TODO`
-- `freeze_marker_verified_at`: `TODO`
-- `writer_count_and_window`: `TODO`
-- `forward_migration_started_finished`: `TODO`
-- `post_forward_engine_rows_indexes`: `TODO`
-- `rollback_strategy_and_rehearsal`: `TODO`
-- `production_deployed_sha`: `TODO`
+- `production_snapshot`: `reviews_reviewvote` MyISAM, `0` rows, no FK,
+  trigger or FULLTEXT; duplicate scan `0`.
+- `backup_artifact`: `/home/qlknpodo/db_backups/stage5-reviewvote/`
+  `reviews_reviewvote-20260819T152619Z.sql.gz`, mode `0600`, 914 bytes,
+  SHA-256 `edbb7b11069a447d875505f9e89471dfd18975efcb5debbf8cbe412f3eb243b2`;
+  gzip and disposable MariaDB 11.4.12 restore passed.
+- `freeze_marker`: verified during the window; after-proof state is
+  `marker_missing`; a valid write canary returned `503 temporarily_unavailable`
+  and inserted no row.
+- `forward`: `reviews.0002` applied at `15:32:22.397622`,
+  `reviews.0003` at `15:32:23.172999`.
+- `post_forward`: `reviews_reviewvote` is InnoDB with `0` rows,
+  `rev_vote_unique_user`, `rev_vote_unique_anon`, and
+  `rev_vote_user_or_anon_required`; no FK/trigger/FULLTEXT was introduced.
+- `rollback_rehearsal`: empty forward/reverse, write-preservation reverse and
+  cleanup passed on disposable MariaDB 11.4.12. Production reverse was not
+  run because no rollback was needed.
+- `production_deployed_sha`: `3de4c6a7d499aa3d701409ef14950747b0f36c82`.
 
-Until every placeholder is populated from the live non-DTF canary, do not mark
-the Stage 5 implementation or its exit gates complete.
+These facts close the Stage 5 implementation checkbox and its first-canary
+exit gate. They do not authorize conversion of the remaining MyISAM tables.

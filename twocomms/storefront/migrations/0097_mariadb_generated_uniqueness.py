@@ -40,6 +40,58 @@ def _normalize_expression(value):
     return re.sub(r"[\s`()]+", "", str(value).casefold())
 
 
+def _assert_webpush_endpoint_contract(schema_editor):
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH "
+            "FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'storefront_webpushdevicesubscription' "
+            "AND COLUMN_NAME IN ('endpoint', 'endpoint_digest') "
+            "ORDER BY COLUMN_NAME"
+        )
+        column_rows = list(cursor.fetchall())
+
+    columns = {
+        str(name): (str(data_type).casefold(), maximum_length)
+        for name, data_type, maximum_length in column_rows
+    }
+    if "endpoint_digest" in columns:
+        raise RuntimeError("WebPush endpoint_digest column must not exist")
+    endpoint = columns.get("endpoint")
+    if (
+        endpoint is None
+        or endpoint[0] != "varchar"
+        or endpoint[1] is None
+        or int(endpoint[1]) < 768
+    ):
+        raise RuntimeError("WebPush endpoint varchar capacity is below 768")
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT INDEX_NAME, NON_UNIQUE, INDEX_TYPE, "
+            "GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') "
+            "FROM information_schema.STATISTICS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'storefront_webpushdevicesubscription' "
+            "AND INDEX_NAME = 'endpoint' "
+            "GROUP BY INDEX_NAME, NON_UNIQUE, INDEX_TYPE"
+        )
+        index_rows = list(cursor.fetchall())
+
+    index_contract = [
+        (
+            str(name),
+            str(non_unique),
+            str(index_type).casefold(),
+            str(columns),
+        )
+        for name, non_unique, index_type, columns in index_rows
+    ]
+    if index_contract != [("endpoint", "0", "hash", "endpoint")]:
+        raise RuntimeError("WebPush endpoint unique HASH index does not match")
+
+
 def _assert_column(schema_editor):
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
@@ -81,6 +133,7 @@ def _assert_index(schema_editor):
 def apply_product_fit_schema(apps, schema_editor):
     if not _is_mariadb(schema_editor):
         return
+    _assert_webpush_endpoint_contract(schema_editor)
     statements = (
         (
             "ALTER TABLE `storefront_productfitoption` "

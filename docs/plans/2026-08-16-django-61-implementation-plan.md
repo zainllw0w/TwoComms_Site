@@ -590,14 +590,17 @@ Production acceptance от 2026-08-17:
 
 **Правило:** один небольшой table family за один change. Никакого массового \`ALTER\` 178 MyISAM таблиц.
 
-- [ ] **DJ6-SRV-003 - Составить и выполнить поэтапный MyISAM -> InnoDB roadmap.**
+- [x] **DJ6-SRV-003 - Составить и выполнить поэтапный MyISAM -> InnoDB roadmap.**
   - Ранжировать по write criticality, size, orphan risk, index/fulltext behavior и FK graph.
   - Первый canary только на маленькой таблице с rollback/rehearsal.
   - Read-only roadmap, fail-closed matrix и disposable MariaDB 11.4.12
-    rehearsal готовы: `docs/qa/django61-stage5-srv003.md`. Пункт остаётся
-    открытым: все 177 production targets находятся на HOLD до writer/orphan,
-    domain и rollback proof; production `ALTER TABLE` не разрешён и не
-    выполнялся.
+    rehearsal зафиксированы в `docs/qa/django61-stage5-srv003.md`.
+    Production canary для `reviews_reviewvote` выполнен: backup,
+    write-freeze, `reviews.0002`/`0003`, InnoDB after-proof и обратимая
+    disposable rehearsal подтверждены в
+    `docs/qa/django61-stage5-production-canary-2026-08-19.{md,json}`.
+    Остальные non-DTF MyISAM targets остаются отдельными HOLD и не считаются
+    массово конвертированными.
 
 - [x] **DJ6-SRV-004 - Сохранить connection budget и \`CONN_MAX_AGE=0\`.**
   - Любой новый worker/connection pool проходит capacity test до production.
@@ -640,12 +643,19 @@ Production acceptance от 2026-08-17:
 
 ### Exit gate этапа 5
 
-- [ ] Есть одобренная таблица \`model -> engine -> size -> risk -> migration order\`.
-  - Read-only matrix существует, но все production DDL rows остаются HOLD до
-    writer/orphan/domain proof: `docs/qa/django61-stage5-srv003-matrix.json`.
-- [ ] Первый InnoDB canary имеет backup, rehearsal timing и rollback.
-  - 250-row disposable MariaDB 11.4.12 rehearsal доказал механику, но не
-    заменяет approved production canary: `docs/qa/django61-stage5-srv003.md`.
+- [x] Есть одобренная таблица \`model -> engine -> size -> risk -> migration order\`.
+  - Для первого production кандидата `reviews.ReviewVote` live matrix,
+    duplicate/schema preflight, controlled write-freeze, backup и порядок
+    миграции записаны в
+    `docs/qa/django61-stage5-production-canary-2026-08-19.json`.
+    Историческая общая matrix по остальным 176 MyISAM targets остаётся
+    read-only и HOLD.
+- [x] Первый InnoDB canary имеет backup, rehearsal timing и rollback.
+  - Production `reviews_reviewvote` после `0003` = `InnoDB`, `0` строк,
+    unique indexes/check constraint сохранены; disposable forward/reverse и
+    write-preservation прошли на MariaDB 11.4.12. Backup/restore facts и
+    write-freeze evidence находятся в
+    `docs/qa/django61-stage5-production-canary-2026-08-19.{md,json}`.
 - [x] DB-level cascade/generated column не внедрены без disposable MariaDB proof.
   - Evidence: `DJ6-DB-001` и `DJ6-ORM-013` закрыты только disposable
     evidence; production adoption обоих DDL patterns по-прежнему запрещён.
