@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -76,6 +77,13 @@ def _valid_mariadb_rehearsal():
         "production_compatible": True,
         "server_version": "11.4.12-MariaDB",
         "disposable": True,
+        "cleanup": {
+            "status": "verified",
+            "generated_databases_absent": True,
+            "generated_user_absent": True,
+            "temporary_dump_removed": True,
+            "mariadb_process_closed": True,
+        },
         "graph_fingerprint": "b" * 64,
         "schema_metadata_scope": _valid_mariadb_metadata_scope(),
         "clean_install": {
@@ -322,6 +330,13 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
             "production_compatible": True,
             "server_version": "11.4.12-MariaDB",
             "disposable": True,
+            "cleanup": {
+                "status": "verified",
+                "generated_databases_absent": True,
+                "generated_user_absent": True,
+                "temporary_dump_removed": True,
+                "mariadb_process_closed": True,
+            },
             "schema_metadata_scope": _valid_mariadb_metadata_scope(),
             "clean_install": {
                 "status": "passed",
@@ -601,6 +616,184 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
         source_hash, *_ = gate._mariadb_schema_hash(Connection("data_new"))
         restored_hash, *_ = gate._mariadb_schema_hash(Connection("data"))
         self.assertEqual(source_hash, restored_hash)
+
+    def test_mariadb_lifecycle_evidence_declares_cleanup_only_after_all_resources_are_verified(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        metadata_scope = _valid_mariadb_metadata_scope()
+        worker_result = {
+            "graph_fingerprint": "a" * 64,
+            "graph_node_count": 7,
+            "graph_leaf_count": 2,
+            "schema_object_count": 12,
+            "schema_hash": "b" * 64,
+            "applied_history_hash": "c" * 64,
+            "applied": 7,
+            "pending": 0,
+            "schema_metadata_scope": metadata_scope,
+            "trigger_count": 0,
+            "routine_count": 0,
+            "event_count": 0,
+        }
+
+        class Admin:
+            host = "127.0.0.1"
+            port = 3307
+
+            def __init__(self):
+                self.closed = False
+
+            def server_identity(self):
+                return {"version": "11.4.12-MariaDB", "version_comment": "MariaDB"}
+
+            def ensure_namespace_absent(self, *_args):
+                pass
+
+            def create_database(self, *_args):
+                pass
+
+            def create_user(self, *_args):
+                pass
+
+            def grant_schema(self, *_args):
+                pass
+
+            def drop_user(self, *_args):
+                pass
+
+            def drop_database(self, *_args):
+                pass
+
+            def verify_cleanup(self, *_args):
+                return False, False
+
+            def close(self):
+                self.closed = True
+
+        admin = Admin()
+        components = mock.Mock()
+        components._native_admin.return_value = admin
+        components._validate_server_identity.return_value = ("11.4.12-MariaDB", "MariaDB")
+        components._process_environment.side_effect = lambda source: source
+        observed = {}
+
+        def capture_evidence(_path, payload):
+            observed["payload"] = payload
+            self.assertTrue(admin.closed)
+
+        with tempfile.TemporaryDirectory(prefix="twc-migration-test-") as directory, \
+            mock.patch.object(gate, "_mariadb_components", return_value=components), \
+            mock.patch.object(gate, "_resolve_mariadb_client", return_value="mariadb"), \
+            mock.patch.object(gate, "_run_mariadb_subprocess_worker", return_value=worker_result), \
+            mock.patch.object(gate, "validate_mariadb_probe"), \
+            mock.patch.object(gate, "_mariadb_dump", return_value="d" * 64), \
+            mock.patch.object(gate, "_mariadb_restore"), \
+            mock.patch.object(gate, "assess_authoritative_history_snapshot", return_value={"status": "stale"}), \
+            mock.patch.object(gate, "_repo_sha", return_value="e" * 40), \
+            mock.patch.object(gate, "write_evidence", side_effect=capture_evidence):
+            gate.run_mariadb_lifecycle_gate(
+                python=sys.executable,
+                evidence_path=Path(directory) / "evidence.json",
+                source_environment={"PATH": os.environ.get("PATH", "")},
+            )
+
+        cleanup = observed["payload"]["cleanup"]
+        self.assertEqual(
+            cleanup,
+            {
+                "status": "verified",
+                "generated_databases_absent": True,
+                "generated_user_absent": True,
+                "temporary_dump_removed": True,
+                "mariadb_process_closed": True,
+            },
+        )
+        rendered = json.dumps(cleanup, sort_keys=True)
+        self.assertNotIn("127.0.0.1", rendered)
+        self.assertNotIn("3307", rendered)
+
+    def test_mariadb_lifecycle_does_not_write_evidence_when_cleanup_fails(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        metadata_scope = _valid_mariadb_metadata_scope()
+        worker_result = {
+            "graph_fingerprint": "a" * 64,
+            "graph_node_count": 7,
+            "graph_leaf_count": 2,
+            "schema_object_count": 12,
+            "schema_hash": "b" * 64,
+            "applied_history_hash": "c" * 64,
+            "applied": 7,
+            "pending": 0,
+            "schema_metadata_scope": metadata_scope,
+            "trigger_count": 0,
+            "routine_count": 0,
+            "event_count": 0,
+        }
+
+        class Admin:
+            host = "127.0.0.1"
+            port = 3307
+
+            def server_identity(self):
+                return {"version": "11.4.12-MariaDB", "version_comment": "MariaDB"}
+
+            def ensure_namespace_absent(self, *_args):
+                pass
+
+            def create_database(self, *_args):
+                pass
+
+            def create_user(self, *_args):
+                pass
+
+            def grant_schema(self, *_args):
+                pass
+
+            def drop_user(self, *_args):
+                raise RuntimeError("drop failed")
+
+            def drop_database(self, *_args):
+                pass
+
+            def verify_cleanup(self, *_args):
+                return False, False
+
+            def close(self):
+                pass
+
+        components = mock.Mock()
+        components._native_admin.return_value = Admin()
+        components._validate_server_identity.return_value = ("11.4.12-MariaDB", "MariaDB")
+        components._process_environment.side_effect = lambda source: source
+        write = mock.Mock()
+
+        with tempfile.TemporaryDirectory(prefix="twc-migration-test-") as directory, \
+            mock.patch.object(gate, "_mariadb_components", return_value=components), \
+            mock.patch.object(gate, "_resolve_mariadb_client", return_value="mariadb"), \
+            mock.patch.object(gate, "_run_mariadb_subprocess_worker", return_value=worker_result), \
+            mock.patch.object(gate, "validate_mariadb_probe"), \
+            mock.patch.object(gate, "_mariadb_dump", return_value="d" * 64), \
+            mock.patch.object(gate, "_mariadb_restore"), \
+            mock.patch.object(gate, "assess_authoritative_history_snapshot", return_value={"status": "stale"}), \
+            mock.patch.object(gate, "_repo_sha", return_value="e" * 40), \
+            mock.patch.object(gate, "write_evidence", write):
+            with self.assertRaisesRegex(gate.GateFailure, "mariadb_lifecycle_cleanup_failed"):
+                gate.run_mariadb_lifecycle_gate(
+                    python=sys.executable,
+                    evidence_path=Path(directory) / "evidence.json",
+                    source_environment={"PATH": os.environ.get("PATH", "")},
+                )
+
+        write.assert_not_called()
+
+    def test_mariadb_rehearsal_requires_verified_cleanup_evidence(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        rehearsal = _valid_mariadb_rehearsal()
+        del rehearsal["cleanup"]["temporary_dump_removed"]
+        with self.assertRaisesRegex(gate.GateFailure, "mariadb_cleanup_temporary_dump_removed_missing"):
+            gate.validate_mariadb_rehearsal_evidence(rehearsal)
 
     def test_stale_authoritative_snapshot_is_evidence_but_never_an_approval(self):
         from scripts import run_django61_migration_squash_gate as gate

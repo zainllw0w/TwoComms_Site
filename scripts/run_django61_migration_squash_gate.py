@@ -211,6 +211,17 @@ def validate_mariadb_rehearsal_evidence(
         raise GateFailure("mariadb_rehearsal_requires_mariadb_server")
     if evidence.get("disposable") is not True:
         raise GateFailure("mariadb_rehearsal_must_be_disposable")
+    cleanup = _require_mapping(evidence.get("cleanup"), "mariadb_cleanup")
+    if cleanup.get("status") != "verified":
+        raise GateFailure("mariadb_cleanup_not_verified")
+    for field in (
+        "generated_databases_absent",
+        "generated_user_absent",
+        "temporary_dump_removed",
+        "mariadb_process_closed",
+    ):
+        if cleanup.get(field) is not True:
+            raise GateFailure(f"mariadb_cleanup_{field}_missing")
     metadata_scope = _require_mapping(
         evidence.get("schema_metadata_scope"), "mariadb_schema_metadata_scope"
     )
@@ -1785,6 +1796,13 @@ def run_mariadb_lifecycle_gate(
     cleanup_errors: list[BaseException] = []
     primary_error: BaseException | None = None
     payload: dict[str, Any] | None = None
+    dump_path: Path | None = None
+    cleanup = {
+        "generated_databases_absent": False,
+        "generated_user_absent": False,
+        "temporary_dump_removed": False,
+        "mariadb_process_closed": False,
+    }
     with tempfile.TemporaryDirectory(prefix="twc-django61-mariadb-") as directory:
         dump_path = Path(directory) / "migration-graph.sql"
         try:
@@ -1978,7 +1996,6 @@ def run_mariadb_lifecycle_gate(
                 },
                 "squash_executed": False,
                 "historical_migrations_deleted": False,
-                "cleanup": {"status": "verified"},
                 "duration_seconds": round(time.monotonic() - started, 3),
             }
         except BaseException as exc:
@@ -2004,11 +2021,20 @@ def run_mariadb_lifecycle_gate(
                                 cleanup_errors.append(GateFailure("mariadb_cleanup_residue"))
                         except BaseException as exc:
                             cleanup_errors.append(exc)
+                if user_attempted and not cleanup_errors:
+                    cleanup["generated_user_absent"] = True
+                if all(database_attempted.values()) and not cleanup_errors:
+                    cleanup["generated_databases_absent"] = True
             if server is not None:
                 try:
                     server.close()
+                    cleanup["mariadb_process_closed"] = True
                 except BaseException as exc:
                     cleanup_errors.append(exc)
+    if dump_path is None or dump_path.exists():
+        cleanup_errors.append(GateFailure("mariadb_cleanup_dump_residue"))
+    else:
+        cleanup["temporary_dump_removed"] = True
     if cleanup_errors:
         if primary_error is not None:
             raise GateFailure("mariadb_lifecycle_failed_and_cleanup_failed") from primary_error
@@ -2019,6 +2045,9 @@ def run_mariadb_lifecycle_gate(
         raise GateFailure(f"mariadb_lifecycle_failed:{type(primary_error).__name__}") from primary_error
     if payload is None:
         raise GateFailure("mariadb_lifecycle_evidence_missing")
+    if not all(cleanup.values()):
+        raise GateFailure("mariadb_lifecycle_cleanup_unverified")
+    payload["cleanup"] = {"status": "verified", **cleanup}
     write_evidence(evidence_path, payload)
     return payload
 
