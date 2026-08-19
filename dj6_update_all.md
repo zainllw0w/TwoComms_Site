@@ -130,11 +130,16 @@ migration и Stage 5 exit-gate остаются открытыми.
 
 ### Stage 5 safety hardening release candidate (2026-08-19)
 
-Интеграционные коммиты `b7f84b964` и `d1e834b3f` добавляют fail-closed gates
+Интеграционные коммиты `b7f84b964`, `d1e834b3f` и `67859d912` добавляют
+fail-closed gates
 для pre-DDL InnoDB canary и migration-squash readiness. Свежий focused gate
-под CPython `3.14.6`/Django `6.1` прошёл `25/25` тестов; `git diff --check`
+под CPython `3.14.6`/Django `6.1` прошёл `26/26` тестов; `git diff --check`
 чистый. Эти коммиты не выполняют production DDL, `migrate`,
 `squashmigrations`, удаление historical migrations или любые изменения DTF.
+Inventory теперь требует завершённый domain review и блокирует таблицы с
+существующим managed-engine migration contract; `PromoCodeGroup` исключён из
+canary, потому что его таблица уже управляется migration `0087` и активно
+используется транзакционным `select_for_update()` кодом.
 Чекбоксы `DJ6-SRV-003`, `DJ6-MIG-001` и Stage 5 exit gates остаются открытыми
 до получения соответствующих production-compatible backup/restore и
 authoritative MariaDB evidence.
