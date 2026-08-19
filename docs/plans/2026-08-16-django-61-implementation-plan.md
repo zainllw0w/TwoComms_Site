@@ -834,8 +834,11 @@ implementation checkbox внутри Stage 6 нет; это не равно ак
   - Acceptance: README/runbook ведет к exact project runtime и supported deploy path.
 
 - [x] **DJ6-TEST-001 - Включать forkserver/parallel tests только для stable shards.**
-  - `storefront.tests.test_product_video` is the only CI parallel shard: it is
-    no-network, has serial/parallel-2 repeat evidence, and does not write media.
+  - `storefront.tests.test_product_video` остаётся serial (`--parallel 1`),
+    потому что для 11 тестов parallel database startup медленнее.
+  - Два независимых process-shards (`django-compatibility` и
+    `policy-contracts`) запускаются bounded runner с `--jobs 2`: они
+    no-network, DTF-free и не используют общую SQLite/media state.
   - Full parallel suite только после устранения shared cache/media/SQLite race.
   - Evidence: `docs/qa/django61-stage7-test-001.md`.
 
@@ -845,7 +848,11 @@ implementation checkbox внутри Stage 6 нет; это не равно ак
   - Evidence: `docs/qa/django61-stage7-browser-smoke.md`.
 - [x] Current docs не предлагают старый runtime или unsupported deploy scripts.
   - Evidence: `docs/qa/django61-stage7-docs-runtime.md`; current-facing architecture/deploy docs reviewed after integration.
-- [ ] Parallelization ускоряет CI без flaky/race роста.
+- [x] Parallelization ускоряет CI без flaky/race роста.
+  - Два reviewed process-shards дали `68/68` на каждом serial/parallel
+    повторе; conservative repeat comparison показал снижение wall-clock на
+    `43.5%`, без flaky/race signal. Full suite остаётся serial.
+  - Evidence: `docs/qa/django61-stage7-test-001.md`.
 
 ---
 
