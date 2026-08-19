@@ -11,17 +11,11 @@ from django.db import migrations
 
 TABLE = "reviews_reviewvote"
 EXPECTED_FORWARD_ROWS = 0
-EXPECTED_INDEXES = (
-    ("PRIMARY", 0, "BTREE", "id"),
-    ("reviews_reviewvote_anon_key_9578b8b8", 1, "BTREE", "anon_key"),
-    ("reviews_reviewvote_review_id_0cdb7cab", 1, "BTREE", "review_id"),
-    ("reviews_reviewvote_user_id_595149a6", 1, "BTREE", "user_id"),
-    ("rev_vote_unique_anon", 0, "BTREE", "review_id,anon_identity"),
-    ("rev_vote_unique_user", 0, "BTREE", "review_id,user_id"),
-)
-EXPECTED_INDEX_LAYOUT = tuple(
-    sorted((non_unique, index_type, columns) for _, non_unique, index_type, columns in EXPECTED_INDEXES)
-)
+REQUIRED_INDEXES = {
+    "PRIMARY": (0, "BTREE", "id"),
+    "rev_vote_unique_anon": (0, "BTREE", "review_id,anon_identity"),
+    "rev_vote_unique_user": (0, "BTREE", "review_id,user_id"),
+}
 FRESH_INSTALL_FOREIGN_KEYS = frozenset(
     {
         (TABLE, "review_id", "reviews_review", "id"),
@@ -178,14 +172,18 @@ def _assert_schema_facts(
             f"ReviewVote canary engine mismatch: expected {expected_engine}"
         )
     index_signature = _index_signature(schema_editor, table)
-    index_layout = tuple(
-        sorted(
-            (non_unique, index_type, columns)
-            for _name, non_unique, index_type, columns in index_signature
-        )
-    )
-    if len(index_signature) != len(EXPECTED_INDEXES) or index_layout != EXPECTED_INDEX_LAYOUT:
-        raise RuntimeError("ReviewVote canary index contract mismatch")
+    indexes_by_name = {
+        name: (non_unique, index_type, columns)
+        for name, non_unique, index_type, columns in index_signature
+    }
+    for name, expected in REQUIRED_INDEXES.items():
+        if indexes_by_name.get(name) != expected:
+            raise RuntimeError("ReviewVote canary index contract mismatch")
+    if any(
+        non_unique == 0 and name not in REQUIRED_INDEXES
+        for name, non_unique, _index_type, _columns in index_signature
+    ):
+        raise RuntimeError("ReviewVote canary unexpected unique index")
     generated_extra, generated_expression = _generated_column_signature(
         schema_editor, table
     )

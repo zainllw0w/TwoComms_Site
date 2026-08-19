@@ -141,6 +141,37 @@ class ReviewVoteEngineMigrationUnitTests(SimpleTestCase):
         self.assertEqual(state["rows"], 1)
         self.assertEqual(state["engine"], "MyISAM")
 
+    def test_accepts_mariadb_foreign_key_index_layout(self):
+        migration = self._migration()
+        state = _state(
+            indexes=[
+                ("PRIMARY", 0, "BTREE", "id"),
+                ("reviews_reviewvote_anon_key_9578b8b8", 1, "BTREE", "anon_key"),
+                (
+                    "reviews_reviewvote_user_id_595149a6_fk_auth_user_id",
+                    1,
+                    "BTREE",
+                    "user_id",
+                ),
+                ("rev_vote_unique_anon", 0, "BTREE", "review_id,anon_identity"),
+                ("rev_vote_unique_user", 0, "BTREE", "review_id,user_id"),
+            ]
+        )
+        editor = _SchemaEditor(state)
+
+        with mock.patch.object(migration, "review_write_freeze_verified", return_value=True):
+            migration.convert_reviewvote_to_innodb(None, editor)
+            state["rows"] = 1
+            migration.restore_reviewvote_to_myisam(None, editor)
+
+        self.assertEqual(
+            editor.executed,
+            [
+                "ALTER TABLE `reviews_reviewvote` ENGINE=InnoDB",
+                "ALTER TABLE `reviews_reviewvote` ENGINE=MyISAM",
+            ],
+        )
+
     def test_migration_requires_the_generated_identity_warning_fix(self):
         migration = self._migration()
 
