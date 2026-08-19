@@ -363,18 +363,33 @@ accepted inbound.
   `4` MariaDB/platform-specific tests skipped; Django check, migration drift,
   scoped compile and `git diff --check` are green. This is code/local
   evidence, not production closure.
-- [x] Publish the scoped commit to GitHub `main` (`bee229683`). The approved
-  SSH pull and exact production-SHA proof remain open until the protected
-  deploy environment provides `TWOCOMMS_DEPLOY_PASSWORD`.
-- [ ] On production MariaDB, read the effective `allowed_senders`; reconcile
-  minimal-PII webhook/log or raw-callback evidence around `03:53` with the
-  matching `IgClient`/`InstagramBotMessage` rows (or explicitly record why the
-  historical event cannot be recovered), then verify fresh restricted inbound
-  visibility without a customer-facing send.
-- [ ] Confirm production `webhook_handler_error` telemetry, pending/failed
-  reply, analysis and follow-up queues, daemon heartbeat, migrations and
-  `manage.py check`. Detailed evidence remains in
-  `15_IMPLEMENT2_EMERGENT_FINDINGS.md`; production proof is pending.
+- [x] Publish the scoped commit to GitHub `main` (`bee229683`).
+- [x] Deploy through the approved SSH `git pull` path. On 2026-08-19 the
+  production checkout was clean on exact `main`/`origin/main`
+  `52a311351c546ca3f5fec70621588277e803811b`; the daemon then started at
+  `15:40:21 EEST` from code whose mtime predates that process.
+- [x] Read the production MariaDB configuration and correlate the reported
+  `03:53 EEST` callback without exposing message text or sender identity. The
+  allowlist is currently open (`0` entries). Three retained raw events exist
+  at `03:53:32..35`; the message event maps to an existing client that had
+  been manually hidden since 2026-07-10, and no matching CRM message was
+  persisted. No synthetic inbound or customer-facing send was used.
+- [ ] **Residual P0:** make a new valid inbound from a manually hidden client
+  visible to the operator without silently re-enabling automation. Current
+  `enqueue_inbound()` and the allowlist observation path still return before
+  persistence when `client.hidden_at` is set; this is the production-proven
+  cause of the reported `03:53` episode and is separate from the now-fixed
+  allowlist loss path.
+- [x] Confirm production telemetry, queues, daemon heartbeat, migrations and
+  `manage.py check`. MariaDB is `11.4.12`; no migrations or model drift are
+  pending; the daemon and all seven operational heartbeats are healthy;
+  `/bot/health/` is `200/ok`; dangerous, inbound, reply, notification,
+  analysis and recovery backlog counts are `0`. Two pending follow-ups are
+  future-scheduled, all `29` failed inbound rows predate 2026-07-31, and all
+  `18` terminal analysis failures predate 2026-08-07. No
+  `webhook_handler_error` or failed `sender_action` telemetry exists in the
+  last 24 hours. Detailed evidence remains in
+  `15_IMPLEMENT2_EMERGENT_FINDINGS.md`.
 
 ### W1.2 Delivered-chunk evidence first — `F-CORE-005`, `IMP-098.B1`
 

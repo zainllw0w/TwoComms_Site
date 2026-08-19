@@ -226,7 +226,7 @@ retire/archive inactive scripts. Contract tests must reject stale interpreters,
 old hosts, destructive resets, runtime migration generation, direct SCP overlays
 and unbounded restarts.
 
-## P0 inbound request visibility and durable acknowledgement (2026-08-19, production proof pending)
+## P0 inbound request visibility and durable acknowledgement (2026-08-19, deployed; residual hidden-client P0 open)
 
 An operator reported an Instagram request that remained visible in the native
 Requests folder but had neither a CRM conversation nor a bot reply. Local
@@ -238,6 +238,14 @@ backward tracing found two independent pre-release loss paths:
   turn.
 - A failure in optional conversation-analysis scheduling could propagate from
   a webhook transaction and roll back an otherwise valid inbound record.
+
+The later production correlation established that neither path explains the
+reported `03:53 EEST` callback. The effective allowlist is open. MariaDB retains
+three raw events at `03:53:32..35`; the message event maps to an existing
+client that was manually hidden on 2026-07-10, and there is no corresponding
+`InstagramBotMessage`. The current hidden-client gate still returns success
+without CRM persistence. Preserving operator visibility for that state while
+keeping automation disabled is therefore a separate residual P0.
 
 The current release candidate separates visibility from automation. A valid
 allowlist-excluded sender is persisted as a non-hidden `user/done` CRM message,
@@ -254,29 +262,35 @@ stay silent, and any early terminal branch clears typing before returning. A
 focused regression records the expected order and does not call provider text
 delivery.
 
-Release commit `bee229683` is published to `origin/main`; production pull and
-MariaDB evidence are still pending because the protected deploy credential is
-not available in this environment.
-The public `/bot/health/` check at `2026-08-19T02:39:22Z` returned HTTP 200 with
-`bot_state=running`, `inbound_pending=0`, and `reply_pending=0`; this is only a
-pre-deploy liveness snapshot and does not prove the reported historical event.
-It also reported `analysis_failed=18`; the age, causes and client/message
-correlation of those jobs require the protected MariaDB read-only check before
-they can be classified as stale historical failures or a live regression.
+Release commit `bee229683` is published and deployed as part of exact clean
+production `main`/`origin/main`
+`52a311351c546ca3f5fec70621588277e803811b` through the approved SSH `git pull`
+path. Production `manage.py check`, migration-state and migration-drift checks
+completed without errors or pending work on MariaDB `11.4.12`; Django reports
+the four already-known backend capability warnings. The daemon process started
+at `15:40:21 EEST` after the deployed code mtime, and the public health check at
+`15:42:46 EEST` returned HTTP 200 with `bot_state=running`, seven healthy task
+heartbeats and zero dangerous/inbound/reply/notification/analysis/recovery
+backlog.
+
+The `18` terminal analysis failures are historical: their newest update is
+2026-08-06 and none occurred after this release. The `29` failed inbound rows
+are also historical, with the newest from 2026-07-30. Two pending follow-ups
+are valid future-scheduled work for 2026-08-20. During the last 24 hours there
+were no `webhook_handler_error` rows and no failed `sender_action` rows (the
+latter event records failures only). No production row, provider probe or
+customer message was created for this verification.
 
 Focused local evidence: the signed webhook-to-CRM regression covers an active
 allowlist and asserts exactly one visible `user/done` record with no automation;
 the consolidated ingress, webhook security/observability, Inbox Refresh,
 analysis, follow-up, permission-boundary, recovery and live-priority gate
 discovered `499` tests: `495` passed and `4` platform-specific tests were
-skipped. This is not production proof. Before
-marking the incident closed,
-read-only production verification must inspect the effective allowlist,
-retained raw callbacks/logs around the reported time, matching CRM rows,
-webhook response telemetry, pending/failed queue counts and daemon heartbeat.
-If the allowlist is deliberately active, a business decision is still required:
-visibility is now preserved, but automated replies remain restricted until the
-list is cleared through the operator settings UI.
+skipped. Production now proves deployment and runtime health, but the incident
+must remain open until the hidden-client persistence boundary above is fixed
+and covered by a no-send regression. The production allowlist is open, so no
+temporary configuration mutation was made merely to recreate the already
+covered restricted-sender path.
 
 ## API dashboard implementation notes (2026-08-18, pre-hourly historical snapshot)
 

@@ -723,3 +723,24 @@ server confirmed migration `0134` as applied, `poll_ig_deal_payments
 and `status_snapshot()` reported `is_enabled=True`, `state='running'`,
 daemon_online=True`, heartbeat age about 0.6 seconds, transport
 `instagram_login`, and empty `last_error`.
+
+## W1.1a inbound visibility production checkpoint (2026-08-19)
+
+The approved SSH `git pull` left the clean production checkout on exact
+`main`/`origin/main` `52a311351c546ca3f5fec70621588277e803811b`, which contains
+the `bee229683` allowlist/savepoint ingress fix. `manage.py check`, migration
+state and migration drift completed without errors or pending work on MariaDB
+`11.4.12`; the four reported warnings are the existing MariaDB capability
+warnings. The daemon started at `15:40:21 EEST` after the deployed code mtime.
+`https://management.twocomms.shop/bot/health/` returned HTTP 200 / `ok`, all
+seven task heartbeats were healthy and dangerous/inbound/reply/notification/
+analysis/recovery backlog was zero.
+
+Read-only incident correlation found three retained raw callbacks at
+`03:53:32..35 EEST`. The message callback belongs to a client manually hidden
+since 2026-07-10 and has no matching CRM message. The effective allowlist is
+open, so the hidden-client ingress gate, not the allowlist, explains that
+specific historical episode. This residual P0 remains open in
+`14_IMPLEMENT2.md`; no synthetic production row or provider/customer send was
+used. The 18 terminal analysis failures and 29 failed inbound rows are
+historical, with newest updates on 2026-08-06 and 2026-07-30 respectively.
