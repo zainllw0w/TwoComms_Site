@@ -1,6 +1,8 @@
+import json
 import os
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +10,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_django61_durable_tasks_cron.sh"
+PERIODIC_OWNERS_MANIFEST = REPO_ROOT / "docs" / "qa" / "django61-stage6-periodic-owners.json"
+PERIODIC_OWNERS_VALIDATOR = REPO_ROOT / "scripts" / "verify_django61_stage6_periodic_owners.py"
 BEGIN_MARKER = "# BEGIN TWOCOMMS DJANGO61 DURABLE TASKS"
 
 
@@ -36,9 +40,9 @@ if [ "${1:-}" = "-c" ]; then
     *) exit 23 ;;
   esac
   if [ "${TWC_FAKE_PYTHON_ENGINE:-mysql}" = "sqlite" ]; then
-    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.sqlite3","mariadb":false}'
+    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.sqlite3","mariadb":false,"task_runtime_ready":false}'
   else
-    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.mysql","mariadb":true}'
+    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.mysql","mariadb":true,"task_runtime_ready":'"${TWC_FAKE_TASK_RUNTIME_READY:-true}"'}'
   fi
 fi
 """,
@@ -119,6 +123,48 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertIn("DJANGO_ENV=production", first_content)
         self.assertIn("DJANGO_SETTINGS_MODULE=twocomms.production_settings", first_content)
         self.assertIn(" exec ", first_content)
+
+    def test_installed_cron_block_satisfies_periodic_owner_contract(self):
+        install = self._run("--install")
+
+        self.assertEqual(install.returncode, 0, install.stderr)
+        manifest = json.loads(PERIODIC_OWNERS_MANIFEST.read_text(encoding="utf-8"))
+        durable_job = next(job for job in manifest["jobs"] if job["id"] == "django61_durable_tasks")
+        durable_job["flock"] = f"exec {self.flock} -n"
+        durable_job["timeout"] = f"{self.timeout} --signal=TERM --kill-after=15s 240s"
+        manifest["jobs"] = [durable_job]
+        manifest_path = self.root / "periodic-owners.json"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(PERIODIC_OWNERS_VALIDATOR),
+                "--manifest",
+                str(manifest_path),
+                "--crontab",
+                str(self.crontab_file),
+                "--repo-root",
+                str(REPO_ROOT),
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_preflight_rejects_missing_durable_task_schema_without_writing_crontab(self):
+        original = "17 4 * * * /opt/other-job\\n"
+        self.crontab_file.write_text(original, encoding="utf-8")
+        env = self._env()
+        env["TWC_FAKE_TASK_RUNTIME_READY"] = "false"
+
+        result = self._run("--install", env=env)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("DurableTask", result.stderr)
+        self.assertEqual(self.crontab_file.read_text(encoding="utf-8"), original)
 
     def test_preflight_rejects_sqlite_without_writing_crontab(self):
         original = "17 4 * * * /opt/other-job\n"

@@ -47,21 +47,30 @@ import json
 import django
 django.setup()
 from django.db import connections
+from django.db.migrations.recorder import MigrationRecorder
+from task_runtime.models import DurableTask
 
 database = connections["default"].settings_dict
 if database.get("ENGINE") != "django.db.backends.mysql":
     raise SystemExit("non-mysql backend")
 if database.get("CONN_MAX_AGE") != 0:
     raise SystemExit("persistent database connection")
-with connections["default"].cursor() as cursor:
+connection = connections["default"]
+with connection.cursor() as cursor:
     cursor.execute("SELECT VERSION()")
     version = str(cursor.fetchone()[0])
 if "mariadb" not in version.lower():
     raise SystemExit("non-mariadb server")
+applied_migrations = MigrationRecorder(connection).applied_migrations()
+task_runtime_ready = (
+    ("task_runtime", "0001_initial") in applied_migrations
+    and DurableTask._meta.db_table in connection.introspection.table_names()
+)
 print(json.dumps({
     "conn_max_age": database.get("CONN_MAX_AGE"),
     "engine": database.get("ENGINE"),
     "mariadb": True,
+    "task_runtime_ready": task_runtime_ready,
 }, separators=(",", ":"), sort_keys=True))
 '
   ) 2>/dev/null
@@ -80,6 +89,10 @@ case "$preflight_output" in
   *'"mariadb":true'*) ;;
   *) die "production database preflight did not confirm MariaDB" ;;
 esac
+case "$preflight_output" in
+  *'"task_runtime_ready":true'*) ;;
+  *) die "production database preflight requires task_runtime.0001_initial and DurableTask table" ;;
+esac
 
 shell_quote() {
   printf '%q' "$1"
@@ -93,7 +106,7 @@ log_q="$(shell_quote "$DJANGO_ROOT/logs/django61_durable_tasks_cron.log")"
 flock_q="$(shell_quote "$FLOCK_BIN")"
 timeout_q="$(shell_quote "$TIMEOUT_BIN")"
 
-cron_line="* * * * * cd $root_q && DJANGO_ENV=production DJANGO_SETTINGS_MODULE=twocomms.production_settings exec $flock_q -n $lock_q $timeout_q --signal=TERM --kill-after=15s 240 $python_q $manage_q run_durable_tasks --limit 25 --lease-seconds 60 --worker-id=cron-no-send >> $log_q 2>&1"
+cron_line="* * * * * cd $root_q && DJANGO_ENV=production DJANGO_SETTINGS_MODULE=twocomms.production_settings exec $flock_q -n $lock_q $timeout_q --signal=TERM --kill-after=15s 240s $python_q $manage_q run_durable_tasks --limit 25 --lease-seconds 60 --worker-id=cron-no-send >> $log_q 2>&1"
 
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-django61-task-cron.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT INT TERM
