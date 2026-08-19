@@ -40,12 +40,15 @@ ReviewVote backup: `/home/qlknpodo/db_backups/stage5-reviewvote/`
 `reviews_reviewvote-20260819T152619Z.sql.gz`, mode `0600`, SHA-256
 `edbb7b11069a447d875505f9e89471dfd18975efcb5debbf8cbe412f3eb243b2`.
 
-Свежий full backup для storefront rollout: `/home/qlknpodo/db_backups/`
+Свежий full backup после storefront rollout: `/home/qlknpodo/db_backups/`
 `stage5-storefront-0097/daily/qlknpodo_MySQL_DB-20260819.sql.gz`, mode `0600`,
 23,335,186 bytes, SHA-256
 `a7d46ff57316bafd7795669acba0be82d4295d785854862353e087ae7db3f1d9`.
 Он восстановлен в отдельную локальную MariaDB 11.4.12; engines и row counts
-совпали, временная схема удалена.
+совпали, временная схема удалена. Хронологически он создан после применения
+`storefront.0097`, поэтому это только post-rollout restore/schema proof, а не
+pre-DDL rollback-защита. Stage 5 canary закрывается отдельным ReviewVote
+backup, который был создан и проверен до `reviews.0003`.
 
 ## Граница закрытия
 

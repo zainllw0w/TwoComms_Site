@@ -82,14 +82,15 @@
       "endpoint_unique_index": "endpoint HASH",
       "endpoint_digest_present": false
     },
-    "backup": {
+    "post_rollout_backup": {
       "artifact": "/home/qlknpodo/db_backups/stage5-storefront-0097/daily/qlknpodo_MySQL_DB-20260819.sql.gz",
       "created": "2026-08-19T18:52:37+03:00",
       "mode": "0600",
       "bytes": 23335186,
       "sha256": "a7d46ff57316bafd7795669acba0be82d4295d785854862353e087ae7db3f1d9",
       "gzip_valid": true,
-      "restore_rehearsal": "verified on disposable MariaDB 11.4.12"
+      "restore_rehearsal": "verified on disposable MariaDB 11.4.12",
+      "purpose": "post-rollout restore and schema proof; not pre-DDL rollback protection"
     },
     "migration_row": "2026-08-19 15:48:34.481905",
     "post_proof": {
@@ -124,6 +125,7 @@
   },
   "limitations": [
     "Production account cannot read PROCESS or performance_schema.metadata_locks; lock proof is limited to SHOW OPEN TABLES and bounded maintenance window evidence.",
+    "The storefront.0097 full backup was created after its coordinated migration application and is only post-rollout restore/schema proof; Stage 5 closure relies on the chronologically correct pre-DDL ReviewVote backup and canary evidence.",
     "The remaining non-DTF MyISAM tables are not converted by this canary and require their own writer/orphan/domain/rollback gates."
   ]
 }
