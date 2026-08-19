@@ -10,6 +10,8 @@ admin is explicitly out of scope.
 
 - Audit coverage: 6 of 6 workstreams complete (100%)
 - Confirmed implementation coverage: 0 of 53 work packages (0%)
+- Source foundation: Task 1 is locally implemented and independently reviewed;
+  merge, production deployment, and live browser verification are pending
 - Production database verification: blocked pending safe SSH credential access
 - Source of truth for live browser behavior: public production routes
 
@@ -61,15 +63,16 @@ hybrid, rather than a browser-side translator or a blind database copy:
 5. A locale without reviewed data is treated as a non-owner for indexing and
    sitemap/hreflang publication until its production MariaDB data is complete.
 
-This design is pending implementation approval. It preserves the project's
-existing Django i18n, `reverse`, `json_script`, and sparse i18n-row patterns,
-instead of introducing a second translation framework.
+This design is approved. Its Task 1 foundation preserves the project's existing
+Django i18n, `reverse`, `json_script`, and sparse i18n-row patterns, instead of
+introducing a second translation framework.
 
 ## Release Batches
 
-1. **Foundation:** locale payload, locale-safe URL helper, gettext completeness
-   checks, and tests for UA/RU/EN rendering. This is a dependency for every
-   dynamic P0 surface.
+1. **Foundation:** the minimal locale payload is locally implemented and
+   independently reviewed; it awaits integration and live verification. The
+   remaining locale-safe URL, page-copy, and gettext work belongs to the
+   page-specific tasks below.
 2. **P0 conversion flows:** catalog selector and rail; cart, mini-cart,
    checkout, Monobank, Telegram verification, PWA; and Custom Print
    configurator, errors, dialogs, and redirects.

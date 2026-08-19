@@ -42,7 +42,7 @@ product field is placed in the global payload.
 
 ```bash
 TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
-"$TWC_PYTHON" manage.py test storefront.tests.test_context_processors storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_context_processors storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
 ```
 
 Expected: failure because the service, context payload, and script element do
@@ -58,8 +58,8 @@ one context processor to the existing settings list and render it once with
 **Step 4: Verify GREEN.**
 
 ```bash
-"$TWC_PYTHON" manage.py test storefront.tests.test_context_processors storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
-"$TWC_PYTHON" manage.py check --settings=test_settings
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_context_processors storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py check --settings=test_settings
 git diff --check
 ```
 
@@ -93,7 +93,7 @@ link retain the current locale.
 **Step 2: Prove RED.**
 
 ```bash
-"$TWC_PYTHON" manage.py test storefront.tests.test_category_smart_selector storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_category_smart_selector storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
 ```
 
 **Step 3: Implement the minimum.**
@@ -107,8 +107,8 @@ filter/query semantics.
 **Step 4: Verify GREEN.**
 
 ```bash
-"$TWC_PYTHON" manage.py test storefront.tests.test_category_smart_selector storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
-"$TWC_PYTHON" manage.py compilemessages --settings=test_settings
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_category_smart_selector storefront.tests.test_rendered_locale_matrix --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py compilemessages --settings=test_settings
 node --check twocomms/twocomms_django_theme/static/js/catalog-smart-selector.js
 ```
 
@@ -141,7 +141,7 @@ create an invoice or event.
 **Step 2: Prove RED.**
 
 ```bash
-"$TWC_PYTHON" manage.py test storefront.tests.test_cart storefront.tests.test_cart_locale_contract --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_cart storefront.tests.test_cart_locale_contract --settings=test_settings --verbosity 1
 ```
 
 **Step 3: Implement the minimum.**
@@ -184,7 +184,7 @@ code, localized message, and locale-prefixed profile fallback.
 **Step 2: Prove RED.**
 
 ```bash
-"$TWC_PYTHON" manage.py test storefront.tests.test_conversion_locale_overlays --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_conversion_locale_overlays --settings=test_settings --verbosity 1
 ```
 
 **Step 3: Implement the minimum.**
@@ -222,7 +222,7 @@ language. Test links only; do not submit a lead or invoke notifications.
 **Step 2: Prove RED.**
 
 ```bash
-"$TWC_PYTHON" manage.py test storefront.tests.test_custom_print storefront.tests.test_custom_print_locale_contract --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_custom_print storefront.tests.test_custom_print_locale_contract --settings=test_settings --verbosity 1
 ```
 
 **Step 3: Implement the minimum.**
@@ -263,7 +263,7 @@ locale-controlled money, restock, and selection labels.
 **Step 2: Prove RED.**
 
 ```bash
-"$TWC_PYTHON" manage.py test storefront.tests.test_product storefront.tests.test_locale_publication --settings=test_settings --verbosity 1
+"$TWC_PYTHON" twocomms/manage.py test storefront.tests.test_product storefront.tests.test_locale_publication --settings=test_settings --verbosity 1
 node --test twocomms/twocomms_django_theme/static/js/product-detail.test.js
 ```
 

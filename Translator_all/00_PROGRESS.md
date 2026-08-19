@@ -74,7 +74,19 @@ interface is explicitly out of scope.
 | Confirmed P2 findings fixed | 0 / 7 (0%) |
 | Overall remediation | 0 / 53 (0%) |
 | Production DB content findings verified | 0 (SSH credential unavailable) |
-| Last consolidated update | 2026-08-19: all six audits complete; foundation design proposed, source P0 implementation pending approval; production data inventory remains credential-blocked |
+| Locally reviewed source tasks | 1 / 8 plan tasks (12.5%): shared locale-contract foundation |
+| Last consolidated update | 2026-08-19: Task 1 source implementation passed focused tests, Django check, specification review, and code-quality review; it is not yet merged, deployed, or browser-verified. Production data inventory remains credential-blocked. |
+
+## Current Implementation Checkpoint
+
+| Plan task | Local implementation evidence | Review evidence | Release status |
+| --- | --- | --- | --- |
+| Task 1: shared locale-contract foundation | Commit `25b8768f1`; 11 focused tests, locale normalization matrix, Django check, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Pending scoped integration to `main`, approved SSH pull, and UA/RU/EN production browser verification |
+
+The `0 / 53` remediation figure remains intentional: a customer-visible work
+package is counted only after its focused regression test and a production
+browser check pass. The foundation is an enabling task, not a completed public
+conversion package.
 
 ## Implementation Boundary
 
