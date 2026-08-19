@@ -47,3 +47,13 @@ connection/FD/process exit gate require: a fresh production snapshot yielding
 `status=ok`, a no-send enqueue/restart/reclaim canary executed by one bounded
 owner, and evidence that existing cron remains the rollback path. This commit
 does not run SSH, change cron, create a migration, or execute a task.
+
+## Delivery evidence
+
+SHA `6fd1aa5253209aa8af3b6c57d291a23f2c802e40` was fast-forwarded to the
+production checkout on 2026-08-19. A read-only CloudLinux-bound probe confirmed
+CPython `3.14.6`, Django `6.1`, `django.db.backends.mysql`, MariaDB and
+`CONN_MAX_AGE=0`; the tracked checkout was clean. The probe also confirmed that
+`task_runtime.0001_initial` is not applied and the durable cron marker is
+absent. The deployment therefore delivered dormant guardrails only and did not
+activate a worker, create data, change schema, or install cron.

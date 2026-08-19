@@ -681,6 +681,11 @@ Production acceptance от 2026-08-17:
     `CONN_MAX_AGE=0` до любой записи crontab; budget/owner validators требуют
     свежий CloudLinux-bound read-only snapshot. Это подготовка к activation,
     а не закрытие production checkbox.
+  - [x] Guardrails для будущей activation опубликованы и доставлены без
+    включения worker: SHA `6fd1aa5253209aa8af3b6c57d291a23f2c802e40` на
+    production подтверждён CloudLinux-bound Python 3.14.6/Django 6.1/MariaDB,
+    `CONN_MAX_AGE=0`, чистым tracked checkout, отсутствием
+    `task_runtime.0001_initial` и отсутствием durable cron block.
   - Статус: **LOCAL IMPLEMENTED / PRODUCTION BLOCKED**. `default` остаётся
     `ImmediateBackend`, поэтому новый adapter не меняет текущий request path.
   - Evidence: `docs/qa/django61-stage6-capability-blocker.md`,
