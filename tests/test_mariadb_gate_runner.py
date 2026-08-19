@@ -1,5 +1,6 @@
 import io
 import os
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -160,6 +161,30 @@ class FakeCommandRunner:
         )
 
 
+class MarkerInspectingCommandRunner(FakeCommandRunner):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.marker_snapshots = []
+
+    def __call__(self, args, **kwargs):
+        marker_value = kwargs["env"].get("TEST_REVIEW_WRITE_FREEZE_MARKER")
+        if marker_value:
+            marker = Path(marker_value)
+            marker_stat = os.lstat(marker)
+            self.marker_snapshots.append(
+                {
+                    "path": marker,
+                    "absolute": marker.is_absolute(),
+                    "mode": stat.S_IMODE(marker_stat.st_mode),
+                    "uid": marker_stat.st_uid,
+                    "content": marker.read_bytes(),
+                }
+            )
+        else:
+            self.marker_snapshots.append(None)
+        return super().__call__(args, **kwargs)
+
+
 class MariaDbGateRunnerTests(unittest.TestCase):
     def setUp(self):
         from scripts import run_mariadb_gate
@@ -234,6 +259,55 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             "MariaDB database check: alias=default status=passed",
             evidence.getvalue(),
         )
+
+    def test_child_commands_receive_owned_ephemeral_review_write_freeze_marker(self):
+        command = MarkerInspectingCommandRunner()
+
+        result = self.runner.run_gate(
+            server_mode="external",
+            suite="lifecycle",
+            admin=FakeAdmin(),
+            command_runner=command,
+            environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+            project_root=PROJECT_ROOT,
+            output=io.StringIO(),
+        )
+
+        self.assertEqual(result["status"], "passed")
+        self.assertTrue(command.marker_snapshots)
+        self.assertNotIn(None, command.marker_snapshots)
+        marker_paths = {snapshot["path"] for snapshot in command.marker_snapshots}
+        self.assertEqual(len(marker_paths), 1)
+        for snapshot in command.marker_snapshots:
+            self.assertTrue(snapshot["absolute"])
+            self.assertEqual(snapshot["mode"], 0o600)
+            self.assertEqual(snapshot["uid"], os.geteuid())
+            self.assertEqual(snapshot["content"], b"review-write-freeze-v1\n")
+        self.assertFalse(next(iter(marker_paths)).exists())
+
+    def test_review_write_freeze_marker_is_removed_after_child_failure(self):
+        command = MarkerInspectingCommandRunner(
+            returncode=1,
+            fail_command="test",
+        )
+
+        with self.assertRaises(self.runner.GateError):
+            self.runner.run_gate(
+                server_mode="external",
+                suite="lifecycle",
+                admin=FakeAdmin(),
+                command_runner=command,
+                environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+                project_root=PROJECT_ROOT,
+                output=io.StringIO(),
+            )
+
+        self.assertTrue(command.marker_snapshots)
+        self.assertNotIn(None, command.marker_snapshots)
+        marker_paths = {snapshot["path"] for snapshot in command.marker_snapshots}
+        self.assertEqual(len(marker_paths), 1)
+        self.assertFalse(next(iter(marker_paths)).exists())
+
 
     def test_database_check_requires_zero_warnings(self):
         known = """WARNINGS:

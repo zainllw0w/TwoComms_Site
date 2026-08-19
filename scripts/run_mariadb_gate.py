@@ -14,6 +14,7 @@ import os
 import re
 import secrets
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -70,6 +71,7 @@ PRODUCTION_ENV_NAMES = {
     "DB_PORT_DTF",
 }
 MAX_FAILURE_SUMMARY_CHARS = 2048
+REVIEW_WRITE_FREEZE_MARKER_BYTES = b"review-write-freeze-v1\n"
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 _TEST_RESULT_RE = re.compile(
     r"^(?:Ran \d+ tests? in [0-9.]+s|"
@@ -1008,7 +1010,7 @@ def _process_environment(source: Mapping[str, str]) -> dict[str, str]:
 
 def _child_environment(
     source: Mapping[str, str], *, database: str, username: str, password: str,
-    host: str, port: str,
+    host: str, port: str, review_write_freeze_marker: Path,
 ) -> dict[str, str]:
     environment = _process_environment(source)
     environment.update({
@@ -1018,6 +1020,7 @@ def _child_environment(
         "TEST_MARIADB_PASSWORD": password,
         "TEST_MARIADB_HOST": host,
         "TEST_MARIADB_PORT": str(port),
+        "TEST_REVIEW_WRITE_FREEZE_MARKER": str(review_write_freeze_marker),
         "MANAGER_TG_BOT_TOKEN": "",
         "MANAGEMENT_TG_BOT_TOKEN": "",
         "TELEGRAM_BOT_TOKEN": "",
@@ -1027,6 +1030,27 @@ def _child_environment(
     if not _is_loopback(host) and source.get("TEST_MARIADB_REMOTE_ALLOWED") == "1":
         environment["TEST_MARIADB_REMOTE_ALLOWED"] = "1"
     return environment
+
+
+def _create_review_write_freeze_marker() -> tuple[tempfile.TemporaryDirectory, Path]:
+    """Create a gate-owned marker required by the disposable canary migration."""
+
+    directory = tempfile.TemporaryDirectory(prefix="twc-review-write-freeze-")
+    marker = Path(directory.name) / "review_writes.frozen"
+    try:
+        marker.write_bytes(REVIEW_WRITE_FREEZE_MARKER_BYTES)
+        marker.chmod(0o600)
+        marker_stat = os.lstat(marker)
+        if (
+            not stat.S_ISREG(marker_stat.st_mode)
+            or stat.S_IMODE(marker_stat.st_mode) != 0o600
+            or marker_stat.st_uid != os.geteuid()
+        ):
+            raise GateError("gate-owned review write-freeze marker is invalid")
+        return directory, marker
+    except BaseException:
+        directory.cleanup()
+        raise
 
 
 def _command_runner(args: list[str], **kwargs):
@@ -1216,7 +1240,9 @@ def run_gate(
     user_attempted = False
     version = version_comment = ""
     database_warning_count = 0
+    marker_directory = None
     try:
+        marker_directory, review_write_freeze_marker = _create_review_write_freeze_marker()
         try:
             version, version_comment = _validate_server_identity(admin.server_identity())
         except GateError:
@@ -1237,6 +1263,7 @@ def run_gate(
         child_env = _child_environment(
             source, database=database, username=username, password=password,
             host=host, port=port,
+            review_write_freeze_marker=review_write_freeze_marker,
         )
         for app, migration in (
             ("storefront", "0096"),
@@ -1510,6 +1537,11 @@ def run_gate(
         if close:
             try:
                 close()
+            except BaseException as exc:
+                cleanup_errors.append(exc)
+        if marker_directory is not None:
+            try:
+                marker_directory.cleanup()
             except BaseException as exc:
                 cleanup_errors.append(exc)
         if cleanup_errors:

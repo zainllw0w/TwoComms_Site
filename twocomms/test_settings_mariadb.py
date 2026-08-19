@@ -12,7 +12,9 @@ instance, for example::
 
 import os
 import re
+import stat
 from ipaddress import ip_address
+from pathlib import Path
 
 from test_network_guard import install_external_network_guard
 
@@ -22,6 +24,7 @@ install_external_network_guard()
 
 _TEST_DATABASE_NAME_RE = re.compile(r"test_twocomms_[A-Za-z0-9_]+$")
 _LOOPBACK_HOSTS = {"localhost", "::1"}
+_REVIEW_WRITE_FREEZE_MARKER_BYTES = b"review-write-freeze-v1\n"
 
 
 def _required_environment(name: str) -> str:
@@ -48,6 +51,49 @@ def _canonical_host(value: str) -> str:
     if host in _LOOPBACK_HOSTS:
         return "loopback"
     return host
+
+
+def _review_write_freeze_marker() -> str:
+    value = (os.environ.get("TEST_REVIEW_WRITE_FREEZE_MARKER") or "").strip()
+    if not value:
+        raise RuntimeError(
+            "TEST_REVIEW_WRITE_FREEZE_MARKER must be set for the disposable "
+            "MariaDB test profile."
+        )
+    path = Path(value)
+    try:
+        path_stat = os.lstat(path)
+    except OSError as exc:
+        raise RuntimeError("disposable MariaDB review write-freeze marker is invalid") from exc
+    if (
+        not path.is_absolute()
+        or stat.S_ISLNK(path_stat.st_mode)
+        or not stat.S_ISREG(path_stat.st_mode)
+        or stat.S_IMODE(path_stat.st_mode) != 0o600
+        or path_stat.st_uid != os.geteuid()
+    ):
+        raise RuntimeError("disposable MariaDB review write-freeze marker is invalid")
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        descriptor = os.open(path, flags)
+        try:
+            opened_stat = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(opened_stat.st_mode)
+                or stat.S_IMODE(opened_stat.st_mode) != 0o600
+                or opened_stat.st_uid != os.geteuid()
+                or (opened_stat.st_dev, opened_stat.st_ino)
+                != (path_stat.st_dev, path_stat.st_ino)
+                or os.read(descriptor, len(_REVIEW_WRITE_FREEZE_MARKER_BYTES) + 1)
+                != _REVIEW_WRITE_FREEZE_MARKER_BYTES
+            ):
+                raise RuntimeError("disposable MariaDB review write-freeze marker is invalid")
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        raise RuntimeError("disposable MariaDB review write-freeze marker is invalid") from exc
+    return str(path)
 
 
 def _test_database_configuration() -> tuple[str, str, str, str, str]:
@@ -122,6 +168,7 @@ def _test_database_configuration() -> tuple[str, str, str, str, str]:
 
 
 _NAME, _USER, _PASSWORD, _HOST, _PORT = _test_database_configuration()
+_REVIEW_WRITE_FREEZE_MARKER = _review_write_freeze_marker()
 
 # Keep all no-network test isolation from the normal SQLite profile. This must
 # follow validation: importing the settings with incomplete test credentials is
@@ -174,3 +221,4 @@ MIGRATION_MODULES = {
 DATABASE_ROUTERS = []
 TEST_NETWORK_POLICY = "deny-external-allow-loopback"
 TEST_DTF_SCOPE = "excluded-with-dependency-stub"
+REVIEW_WRITE_FREEZE_MARKER = _REVIEW_WRITE_FREEZE_MARKER
