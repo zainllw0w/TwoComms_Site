@@ -140,9 +140,9 @@ Inventory теперь требует завершённый domain review и б
 существующим managed-engine migration contract; `PromoCodeGroup` исключён из
 canary, потому что его таблица уже управляется migration `0087` и активно
 используется транзакционным `select_for_update()` кодом.
-Чекбоксы `DJ6-SRV-003`, `DJ6-MIG-001` и Stage 5 exit gates остаются открытыми
-до получения соответствующих production-compatible backup/restore и
-authoritative MariaDB evidence.
+Чекбокс `DJ6-MIG-001` закрыт полным disposable MariaDB lifecycle. Чекбокс
+`DJ6-SRV-003` и первые два Stage 5 exit gates остаются открытыми до approved
+production canary с backup, writer/orphan/domain proof, timing и rollback.
 
 ### Решения NO-GO для production adoption
 

@@ -2,7 +2,7 @@
 
 Дата evidence: 2026-08-19
 
-Исходный commit lifecycle: `0dcf2e8e40bf616687e598907da947df25924e76`
+Runner commit lifecycle: `8e131b5209a9d35422355e27ebcacb7a162c40f8`
 
 Runtime: CPython 3.14.6, Django 6.1
 Область: только реальный non-DTF graph. DTF не открывался и не изменялся.
@@ -18,9 +18,9 @@ snapshot относится к предыдущему graph, а свежая ide
 утверждённые ranges отсутствуют. Поэтому migration graph и historical files
 остаются неизменными.
 
-Gate доказывает воспроизводимость текущего graph на disposable SQLite, но это
-не является разрешением менять production history. Разрешение появится только
-после всех трёх независимых доказательств:
+Gate доказывает воспроизводимость текущего graph на disposable SQLite и
+MariaDB, но это не является разрешением менять production history. Для
+фактического squash нужны три независимых доказательства:
 
 1. authoritative applied-history production/non-DTF базы сверена с выбранными
    диапазонами;
@@ -28,8 +28,9 @@ Gate доказывает воспроизводимость текущего gr
    production-compatible версии;
 3. владелец базы утвердил точные ranges и порядок публикации.
 
-Пока любое из условий отсутствует, historical migration-файлы сохраняются, а
-`squashmigrations` не запускается.
+Второе условие закрыто этим lifecycle. Первое и третье остаются открытыми,
+поэтому historical migration-файлы сохраняются, а `squashmigrations` не
+запускается.
 
 ## Что проверено
 
@@ -81,7 +82,7 @@ SQLite никогда не проходит authoritative/MariaDB валидат
 | Replay после restore (`migrate --check`) | PASS, `pending=0`, history hash совпал |
 | Authoritative production applied history (read-only) | PASS: MariaDB `11.4.12`, `461` non-DTF rows, `pending=0`; sanitized artifact: `django61-stage5-mig001-production-history.json` |
 | MariaDB disposable clean install/replay | PASS: полный non-DTF graph на MariaDB `11.4.12`, clean/restore `pending=0`, `451` applied migrations |
-| MariaDB backup/restore/rollback for migration rehearsal | PASS: `mariadb-dump`, SHA-256 `06882ce0160414ee33695811ceea9b9aaec8464b6500d728d4c67efab7e73fa4`, schema/history/count parity, cleanup verified |
+| MariaDB backup/restore/rollback for migration rehearsal | PASS: `mariadb-dump`, SHA-256 `33fee4a0455a464bbeda5852cdb914a5c1c1525b0d2cbc87e2e083aa4903acc6`, schema/history/count parity, cleanup verified |
 | Model migration drift | PASS (`makemigrations --check --dry-run`) |
 | Реальный DTF app / migrations / tables | PASS: не загружены, real modules `[]`, tables `[]` |
 | Production MariaDB mutation | НЕ выполнялась |
@@ -89,9 +90,9 @@ SQLite никогда не проходит authoritative/MariaDB валидат
 
 Hashes disposable rehearsal:
 
-- schema: `9382be71731a9707632c86e2e1d15d5206ac6f9f76b4a441579f03a6448d753b`;
-- applied non-DTF history: `b0b486b4e98769432343047a56afc678cbd3e3b539406d3f3b0a56ff063ecbc5`;
-- applied migration count после clean install: `450` (SQLite-only rehearsal).
+- schema: `2ec6a6a0981cffe1bf0306681fdb379efab1650c0567b8a2e8fb0fcc77637a77`;
+- applied non-DTF history: `e9ee23a5d7922b77c580d54bd1270c47e30d5e3edce4f7bd00adc2df62d18a02`;
+- applied migration count после clean install: `451` (MariaDB rehearsal).
 
 ## Production history evidence (read-only)
 
@@ -118,9 +119,9 @@ Runner создал две случайно именованные disposable б
 пользователя на loopback MariaDB `11.4.12`, применил полный non-DTF graph,
 выполнил `migrate --check`, `makemigrations --check`, `mariadb-dump`, restore во
 вторую базу и повторный `migrate --check`. Результат: schema hash
-`1ef54e1ca1333b1887251dae2440b1886691c3828e47200c8738c1bb4569288d`, history
+`2ec6a6a0981cffe1bf0306681fdb379efab1650c0567b8a2e8fb0fcc77637a77`, history
 hash `e9ee23a5d7922b77c580d54bd1270c47e30d5e3edce4f7bd00adc2df62d18a02`,
-`451` applied migrations и `321` таблица совпали после restore. Обе базы,
+`451` applied migrations и `321` schema objects совпали после restore. Обе базы,
 пользователь, временный dump и локальный server удалены.
 
 MariaDB меняет имена двух автоматически созданных JSON CHECK constraints после
