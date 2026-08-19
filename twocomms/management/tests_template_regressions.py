@@ -123,6 +123,17 @@ class ManagementTemplateRegressionTests(SimpleTestCase):
         template = loader.get_template("management/contracts.html")
         self.assertIsNotNone(template)
 
+    def test_promo_stats_script_has_defined_tab_guard(self):
+        source = (
+            PROJECT_ROOT / "twocomms_django_theme/templates/pages/admin_promocodes.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "const isStatsTab = Boolean(document.getElementById('usageLineChart'));",
+            source,
+        )
+        self.assertIn("if (isStatsTab) {", source)
+
     def test_contracts_template_bootstraps_history_for_js_cache(self):
         template = loader.get_template("management/contracts.html")
         request = self._build_request("/contracts/")

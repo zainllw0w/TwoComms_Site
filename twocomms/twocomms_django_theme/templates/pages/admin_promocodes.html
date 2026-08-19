@@ -2633,6 +2633,7 @@ function createGradient(ctx, color1, color2) {
 }
 
 // Перевірка чи є секція Statistics активною
+const isStatsTab = Boolean(document.getElementById('usageLineChart'));
 
 if (isStatsTab) {
   // ===== 1. LINE CHART: Використання по датах =====
