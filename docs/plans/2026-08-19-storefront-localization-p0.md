@@ -73,6 +73,7 @@ git commit -m "feat: add storefront locale contract"
 ### Task 2: Localize the catalog selector and root SEO rail
 
 **Files:**
+- Modify: `twocomms/storefront/views/catalog.py`
 - Modify: `twocomms/twocomms_django_theme/templates/partials/catalog_smart_selector.html`
 - Modify: `twocomms/twocomms_django_theme/templates/pages/catalog.html`
 - Modify: `twocomms/twocomms_django_theme/static/js/catalog-smart-selector.js`
@@ -85,10 +86,11 @@ git commit -m "feat: add storefront locale contract"
 **Step 1: Write failing tests.**
 
 For `/ru/catalog/`, `/en/catalog/`, `/ru/catalog/tshirts/`, and
-`/en/catalog/tshirts/`, assert selector labels and payload values for apply,
-reset, sort, quick facets, empty results, load-more, and selected-count suffix
-are in the active language. Assert root rail labels and every generated internal
-link retain the current locale.
+`/en/catalog/tshirts/`, assert a selector-specific JSON payload and selector
+labels for apply, reset, sort, quick facets, empty results, load-more, and
+selected-count suffix in the active language. Assert root rail labels and every
+generated internal link retain the current locale. Keep the global
+`#storefront-locale-contract` exact and do not place selector copy in it.
 
 **Step 2: Prove RED.**
 
@@ -98,11 +100,13 @@ link retain the current locale.
 
 **Step 3: Implement the minimum.**
 
-Emit a selector-specific gettext `json_script` payload. Replace JS
-`sheetModes`, quick-facet, count, empty/load states, fixed `uk-UA`, and
-unprefixed fallbacks with its values. Generate rail routes through `reverse()`
-under the active locale. Add reviewed EN/RU gettext entries; do not change
-filter/query semantics.
+Build a selector-specific gettext payload in `_build_smart_selector_context()`
+and emit it with `json_script` from the selector partial. Replace JS
+`sheetModes`, quick-facet defaults, selected-count suffix, and dynamic states
+with its values. Generate rail routes through `reverse()` under the active
+locale. Add reviewed EN/RU gettext entries, including all selector controls and
+the six root-rail labels. Bump the versioned selector asset in `catalog.html`.
+Do not change filter/query semantics or the global locale contract.
 
 **Step 4: Verify GREEN.**
 
