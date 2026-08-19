@@ -1417,6 +1417,15 @@ class ProductFitOption(models.Model):
     icon = models.CharField(max_length=64, blank=True, verbose_name='Іконка')
     order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
     is_default = models.BooleanField(default=False, verbose_name='За замовчуванням')
+    default_product_identity = models.GeneratedField(
+        expression=models.Case(
+            models.When(is_default=True, then=models.F('product_id')),
+            default=models.Value(None),
+            output_field=models.BigIntegerField(),
+        ),
+        output_field=models.BigIntegerField(),
+        db_persist=True,
+    )
     is_active = models.BooleanField(default=True, verbose_name='Активна')
 
     class Meta:
@@ -1431,9 +1440,8 @@ class ProductFitOption(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['product'],
-                condition=models.Q(is_default=True),
-                name='uniq_default_fit_per_product',
+                fields=['default_product_identity'],
+                name='uniq_default_fit_product',
             ),
         ]
 
@@ -2729,9 +2737,8 @@ class WebPushDeviceSubscription(models.Model):
         verbose_name="ID браузерної інсталяції",
     )
     endpoint = models.URLField(
-        # 768 utf8mb4 characters fit MySQL's 3072-byte unique-key limit.
         max_length=768,
-        unique=True,
+        unique=False,
         verbose_name="Push endpoint",
     )
     auth_key = models.CharField(max_length=255, verbose_name="Ключ auth")
@@ -2770,7 +2777,12 @@ class WebPushDeviceSubscription(models.Model):
             models.Index(fields=["user", "is_active"], name="idx_push_subscription_user"),
             models.Index(fields=["device_type", "is_active"], name="idx_push_subscription_device"),
         ]
-
+        constraints = [
+            models.UniqueConstraint(
+                fields=["endpoint"],
+                name="uniq_webpush_endpoint_state",
+            ),
+        ]
     def __str__(self):
         identity = self.installation_id or self.endpoint
         return f"Push subscription {identity}"

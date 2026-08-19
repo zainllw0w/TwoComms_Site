@@ -3,7 +3,6 @@ import os
 import subprocess
 import tempfile
 import unittest
-from datetime import date
 from pathlib import Path
 from unittest import mock
 
@@ -88,6 +87,20 @@ class FakeAdmin:
             "delivery_provider_message_ids": "longtext+json_valid",
         }
 
+    def prepare_database_warning_contract(self, database):
+        self.calls.append(("prepare_database_warning_contract", database))
+        if self.fail_at == "prepare_database_warning_contract":
+            raise RuntimeError("warning contract staging failed")
+        return {"warning_contract_engines": "3_myisam"}
+
+    def verify_database_warning_contract_reverse(self, database):
+        self.calls.append(("verify_database_warning_contract_reverse", database))
+        if self.fail_at == "verify_database_warning_contract_reverse":
+            raise RuntimeError("warning contract reverse mismatch")
+        return {
+            "warning_contract_reverse": "generated_removed+endpoint_hash_preserved"
+        }
+
     def verify_follow_ugc_schema(self, database):
         self.calls.append(("verify_follow_ugc_schema", database))
         if self.fail_at == "verify_follow_ugc_schema":
@@ -107,8 +120,10 @@ class FakeAdmin:
         if self.fail_at == "verify_database_warning_contract":
             raise RuntimeError("database warning contract mismatch")
         return {
-            "conditional_constraints": "unsupported+duplicate_free",
-            "real_constraints": "verified",
+            "engines": "3_myisam",
+            "generated_columns": "2_verified",
+            "unique_indexes": "3_new+1_preserved",
+            "endpoint_unique": "hash_preserved",
             "show_create_tables": "verified",
         }
 
@@ -117,24 +132,31 @@ class FakeAdmin:
 
 
 class FakeCommandRunner:
-    def __init__(self, *, returncode=0, stdout="", stderr="migration failed"):
+    def __init__(
+        self,
+        *,
+        returncode=0,
+        stdout="",
+        stderr="migration failed",
+        fail_command=None,
+    ):
         self.calls = []
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
+        self.fail_command = fail_command
 
     def __call__(self, args, **kwargs):
         self.calls.append((list(args), kwargs))
-        stderr = self.stderr
-        if self.returncode == 0 and len(self.calls) == 2:
-            stderr = (
-                "reviews.ReviewVote: (models.W036) conditional unique unsupported\n"
-                "reviews.ReviewVote: (models.W036) conditional unique unsupported\n"
-                "storefront.ProductFitOption: (models.W036) conditional unique unsupported\n"
-                "storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char\n"
-            )
+        command = args[2] if len(args) > 2 else None
+        returncode = (
+            self.returncode
+            if self.fail_command is None or self.fail_command == command
+            else 0
+        )
+        stderr = "" if returncode == 0 else self.stderr
         return subprocess.CompletedProcess(
-            args, self.returncode, self.stdout, stderr
+            args, returncode, self.stdout, stderr
         )
 
 
@@ -180,15 +202,20 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             ["drop_user", "drop_database", "verify_cleanup", "close"],
         )
         self.assertTrue(command.calls)
+        self.assertEqual(command.calls[0][0][2:5], ["migrate", "storefront", "0096"])
+        self.assertEqual(command.calls[1][0][2:5], ["migrate", "reviews", "0001"])
         self.assertEqual(
-            command.calls[0][0][1],
+            command.calls[2][0][1],
             str(PROJECT_ROOT / "twocomms" / "manage.py"),
         )
-        self.assertTrue(Path(command.calls[0][0][1]).is_file())
-        self.assertEqual(command.calls[0][1]["cwd"], str(PROJECT_ROOT / "twocomms"))
-        self.assertEqual(command.calls[1][0][2], "check")
-        self.assertIn("--database=default", command.calls[1][0])
-        self.assertIn("--fail-level=ERROR", command.calls[1][0])
+        self.assertTrue(Path(command.calls[2][0][1]).is_file())
+        self.assertEqual(command.calls[2][1]["cwd"], str(PROJECT_ROOT / "twocomms"))
+        self.assertEqual(command.calls[3][0][2:5], ["migrate", "reviews", "0001"])
+        self.assertEqual(command.calls[4][0][2:5], ["migrate", "storefront", "0096"])
+        self.assertEqual(command.calls[5][0][2], "migrate")
+        self.assertEqual(command.calls[6][0][2], "check")
+        self.assertIn("--database=default", command.calls[6][0])
+        self.assertIn("--fail-level=WARNING", command.calls[6][0])
         child_env = command.calls[0][1]["env"]
         self.assertEqual(child_env["TEST_MARIADB_NAME"], created_db)
         self.assertNotIn("DB_NAME", child_env)
@@ -208,57 +235,73 @@ class MariaDbGateRunnerTests(unittest.TestCase):
             evidence.getvalue(),
         )
 
-    def test_database_check_warning_policy_is_exact_and_expires(self):
+    def test_database_check_requires_zero_warnings(self):
         known = """WARNINGS:
 reviews.ReviewVote: (models.W036) conditional unique unsupported
 reviews.ReviewVote: (models.W036) conditional unique unsupported
 storefront.ProductFitOption: (models.W036) conditional unique unsupported
 storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
 """
-        classified = self.runner.classify_database_check_warnings(
-            known,
-            today=date(2026, 8, 16),
+        classified = self.runner.classify_database_check_warnings(known)
+        self.assertEqual(classified["allowed_count"], 0)
+        self.assertEqual(
+            classified["blocked"],
+            [
+                "reviews.ReviewVote:models.W036",
+                "storefront.ProductFitOption:models.W036",
+                "storefront.WebPushDeviceSubscription.endpoint:mysql.W003",
+            ],
         )
-        self.assertEqual(classified["allowed_count"], 4)
-        self.assertEqual(classified["blocked"], [])
+        self.assertEqual(classified["missing"], [])
+        self.assertEqual(classified["policies"], {})
 
-        unknown = self.runner.classify_database_check_warnings(
-            known + "storefront.Product: (models.W999) unknown\n",
-            today=date(2026, 8, 16),
+        clean = self.runner.classify_database_check_warnings("")
+        self.assertEqual(clean["allowed_count"], 0)
+        self.assertEqual(clean["blocked"], [])
+        self.assertEqual(clean["missing"], [])
+        self.assertEqual(clean["policies"], {})
+
+        objectless = self.runner.classify_database_check_warnings(
+            "?: (mysql.W002) strict mode warning\n"
         )
-        self.assertEqual(unknown["blocked"], ["storefront.Product:models.W999"])
+        self.assertEqual(objectless["blocked"], ["?:mysql.W002"])
 
-        expired = self.runner.classify_database_check_warnings(
-            known,
-            today=date(2026, 10, 1),
-        )
-        self.assertTrue(expired["blocked"])
+    def test_objectless_warning_is_red_and_cleanup_is_verified(self):
+        class ObjectlessWarningRunner(FakeCommandRunner):
+            def __call__(self, args, **kwargs):
+                self.calls.append((list(args), kwargs))
+                stdout = (
+                    "?: (mysql.W002) strict mode warning\n"
+                    if len(args) > 2 and args[2] == "check"
+                    else ""
+                )
+                return subprocess.CompletedProcess(args, 0, stdout, "")
 
-        missing = self.runner.classify_database_check_warnings(
-            known.replace(
-                "storefront.ProductFitOption: (models.W036) conditional unique unsupported\n",
-                "",
-            ),
-            today=date(2026, 8, 16),
+        admin = FakeAdmin()
+        with self.assertRaises(self.runner.GateError) as raised:
+            self.runner.run_gate(
+                server_mode="external",
+                suite="lifecycle",
+                admin=admin,
+                command_runner=ObjectlessWarningRunner(),
+                project_root=PROJECT_ROOT,
+                environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
+            )
+
+        self.assertEqual(
+            str(raised.exception.primary_error),
+            "database check warning policy failed",
         )
         self.assertEqual(
-            missing["missing"],
-            ["storefront.ProductFitOption:models.W036"],
+            [call[0] for call in admin.calls[-4:]],
+            ["drop_user", "drop_database", "verify_cleanup", "close"],
         )
 
-    def test_runner_accepts_only_the_exact_database_warning_allowlist(self):
-        known = """WARNINGS:
-reviews.ReviewVote: (models.W036) conditional unique unsupported
-reviews.ReviewVote: (models.W036) conditional unique unsupported
-storefront.ProductFitOption: (models.W036) conditional unique unsupported
-storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
-"""
-
+    def test_runner_requires_zero_database_warnings(self):
         class WarningRunner(FakeCommandRunner):
             def __call__(self, args, **kwargs):
                 self.calls.append((list(args), kwargs))
-                stderr = known if len(self.calls) == 2 else ""
-                return subprocess.CompletedProcess(args, 0, "", stderr)
+                return subprocess.CompletedProcess(args, 0, "", "")
 
         evidence = io.StringIO()
         result = self.runner.run_gate(
@@ -273,9 +316,9 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
 
         self.assertEqual(
             result["database_check"],
-            "default:passed;allowed_warnings=4",
+            "default:passed;allowed_warnings=0",
         )
-        self.assertIn("allowed_warnings=4", evidence.getvalue())
+        self.assertIn("allowed_warnings=0", evidence.getvalue())
 
     def test_success_verifies_release_schema_before_cleanup_and_emits_proof(self):
         admin = FakeAdmin()
@@ -306,12 +349,104 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
         )
         self.assertIn(
             "MariaDB warning contract proof: "
-            "conditional_constraints=unsupported+duplicate_free "
-            "real_constraints=verified show_create_tables=verified\n",
+            "engines=3_myisam generated_columns=2_verified "
+            "unique_indexes=3_new+1_preserved endpoint_unique=hash_preserved "
+            "show_create_tables=verified\n",
             evidence.getvalue(),
         )
 
-    def test_admin_warning_contract_distinguishes_conditional_and_real_constraints(self):
+    def test_admin_stages_all_warning_tables_as_myisam_before_target_migrations(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        tables = (
+            "reviews_reviewvote",
+            "storefront_productfitoption",
+            "storefront_webpushdevicesubscription",
+        )
+        statements = []
+        with (
+            mock.patch.object(admin, "_query_one", side_effect=[(0,), (0,)]),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[
+                    [(table, "InnoDB") for table in tables],
+                    [
+                        ("reviews_reviewvote", "reviews_vote_review_fk"),
+                        (
+                            "storefront_pushnotificationdelivery",
+                            "push_delivery_subscription_fk",
+                        ),
+                    ],
+                    [],
+                    [(table, "MyISAM") for table in tables],
+                ],
+            ),
+            mock.patch.object(admin, "_sql", side_effect=statements.append),
+        ):
+            proof = admin.prepare_database_warning_contract(
+                "test_twocomms_ig_0123456789ab"
+            )
+
+        self.assertEqual(proof, {"warning_contract_engines": "3_myisam"})
+        self.assertEqual(len(statements), 5)
+        self.assertTrue(
+            all("DROP FOREIGN KEY" in statement for statement in statements[:2])
+        )
+        self.assertTrue(
+            all("ENGINE=MyISAM" in statement for statement in statements[2:])
+        )
+
+    def test_admin_reverse_proof_preserves_endpoint_hash_and_removes_new_objects(self):
+        admin = self.runner.AdminClient(
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="",
+        )
+        tables = (
+            "reviews_reviewvote",
+            "storefront_productfitoption",
+            "storefront_webpushdevicesubscription",
+        )
+        endpoint_index = [
+            (
+                "storefront_webpushdevicesubscription",
+                "endpoint",
+                "HASH",
+                "endpoint",
+            )
+        ]
+        with (
+            mock.patch.object(admin, "_query_one", side_effect=[(0,), (0,)]),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[
+                    [(table, "MyISAM") for table in tables],
+                    [],
+                    endpoint_index,
+                ],
+            ),
+        ):
+            proof = admin.verify_database_warning_contract_reverse(
+                "test_twocomms_ig_0123456789ab"
+            )
+
+        self.assertEqual(
+            proof,
+            {
+                "warning_contract_reverse": (
+                    "generated_removed+endpoint_hash_preserved"
+                )
+            },
+        )
+
+    def test_admin_warning_contract_proves_generated_columns_and_real_constraints(self):
         admin = self.runner.AdminClient(
             host="127.0.0.1",
             port="3306",
@@ -319,33 +454,63 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
             password="",
         )
         unique_rows = [
-            ("storefront_productfitoption", "fit_product_code_uniq", "product_id,code"),
-            ("storefront_webpushdevicesubscription", "endpoint_uniq", "endpoint"),
+            ("reviews_reviewvote", "rev_vote_unique_user", "BTREE", "review_id,user_id"),
+            ("reviews_reviewvote", "rev_vote_unique_anon", "BTREE", "review_id,anon_identity"),
+            ("storefront_productfitoption", "fit_product_code_uniq", "BTREE", "product_id,code"),
+            ("storefront_productfitoption", "uniq_default_fit_product", "BTREE", "default_product_identity"),
+            ("storefront_webpushdevicesubscription", "endpoint", "HASH", "endpoint"),
+        ]
+        engine_rows = [
+            ("reviews_reviewvote", "MyISAM"),
+            ("storefront_productfitoption", "MyISAM"),
+            ("storefront_webpushdevicesubscription", "MyISAM"),
+        ]
+        generated_rows = [
+            (
+                "reviews_reviewvote",
+                "anon_identity",
+                "STORED GENERATED",
+                "case when `user_id` is null then `anon_key` else NULL end",
+            ),
+            (
+                "storefront_productfitoption",
+                "default_product_identity",
+                "STORED GENERATED",
+                "case when `is_default` = 1 then `product_id` else NULL end",
+            ),
         ]
         create_rows = {
             "reviews_reviewvote": (
                 "CREATE TABLE `reviews_reviewvote` ("
+                "`anon_identity` varchar(64) GENERATED ALWAYS AS (case when `user_id` is null then `anon_key` else NULL end) STORED,"
+                "UNIQUE KEY `rev_vote_unique_user` (`review_id`,`user_id`),"
+                "UNIQUE KEY `rev_vote_unique_anon` (`review_id`,`anon_identity`),"
                 "CONSTRAINT `rev_vote_user_or_anon_required` CHECK ((`user_id` is not null) or (`anon_key` <> ''))"
-                ") ENGINE=InnoDB"
+                ") ENGINE=MyISAM"
             ),
             "storefront_productfitoption": (
                 "CREATE TABLE `storefront_productfitoption` ("
-                "UNIQUE KEY `fit_product_code_uniq` (`product_id`,`code`)"
-                ") ENGINE=InnoDB"
+                "`default_product_identity` bigint GENERATED ALWAYS AS (case when `is_default` = 1 then `product_id` else NULL end) STORED,"
+                "UNIQUE KEY `fit_product_code_uniq` (`product_id`,`code`),"
+                "UNIQUE KEY `uniq_default_fit_product` (`default_product_identity`)"
+                ") ENGINE=MyISAM"
             ),
             "storefront_webpushdevicesubscription": (
                 "CREATE TABLE `storefront_webpushdevicesubscription` ("
-                "UNIQUE KEY `endpoint_uniq` (`endpoint`)"
-                ") ENGINE=InnoDB"
+                "`endpoint` varchar(1000) NOT NULL,"
+                "UNIQUE KEY `endpoint` (`endpoint`) USING HASH"
+                ") ENGINE=MyISAM"
             ),
         }
-        query_one = mock.Mock(side_effect=[(0,), (0,), (0,), (0,)])
+        query_one = mock.Mock(
+            side_effect=[(0,), (0,), (0,), (0,), ("varchar", 1000)]
+        )
         with (
             mock.patch.object(admin, "_query_one", query_one),
             mock.patch.object(
                 admin,
                 "_query_all",
-                return_value=unique_rows,
+                side_effect=[engine_rows, unique_rows, generated_rows],
             ),
             mock.patch.object(
                 admin,
@@ -360,8 +525,10 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
         self.assertEqual(
             proof,
             {
-                "conditional_constraints": "unsupported+duplicate_free",
-                "real_constraints": "verified",
+                "engines": "3_myisam",
+                "generated_columns": "2_verified",
+                "unique_indexes": "3_new+1_preserved",
+                "endpoint_unique": "hash_preserved",
                 "show_create_tables": "verified",
             },
         )
@@ -389,7 +556,7 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
                     "test_twocomms_ig_0123456789ab"
                 )
 
-    def test_admin_warning_contract_fails_when_conditional_constraint_is_misreported(self):
+    def test_admin_warning_contract_fails_when_generated_constraints_are_missing(self):
         admin = self.runner.AdminClient(
             host="127.0.0.1",
             port="3306",
@@ -397,17 +564,26 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
             password="",
         )
         unique_rows = [
-            ("reviews_reviewvote", "rev_vote_unique_per_user", "review_id,user_id"),
-            ("storefront_productfitoption", "fit_product_code_uniq", "product_id,code"),
-            ("storefront_webpushdevicesubscription", "endpoint_uniq", "endpoint"),
+            ("reviews_reviewvote", "rev_vote_unique_per_user", "BTREE", "review_id,user_id"),
+            ("storefront_productfitoption", "fit_product_code_uniq", "BTREE", "product_id,code"),
+            ("storefront_webpushdevicesubscription", "endpoint", "HASH", "endpoint"),
+        ]
+        engine_rows = [
+            ("reviews_reviewvote", "MyISAM"),
+            ("storefront_productfitoption", "MyISAM"),
+            ("storefront_webpushdevicesubscription", "MyISAM"),
         ]
         with (
             mock.patch.object(admin, "_query_one", side_effect=[(0,), (0,), (0,), (0,)]),
-            mock.patch.object(admin, "_query_all", return_value=unique_rows),
+            mock.patch.object(
+                admin,
+                "_query_all",
+                side_effect=[engine_rows, unique_rows],
+            ),
         ):
             with self.assertRaisesRegex(
                 self.runner.GateError,
-                "unsupported conditional constraint was created",
+                "unsupported conditional constraint was created|generated unique constraint is missing",
             ):
                 admin.verify_database_warning_contract(
                     "test_twocomms_ig_0123456789ab"
@@ -729,7 +905,7 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
 
     def test_failure_still_cleans_schema_and_user(self):
         admin = FakeAdmin()
-        command = FakeCommandRunner(returncode=1)
+        command = FakeCommandRunner(returncode=1, fail_command="test")
 
         with self.assertRaises(self.runner.GateError) as raised:
             self.runner.run_gate(
@@ -753,6 +929,7 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
         secret = "super-secret-token"
         command = FakeCommandRunner(
             returncode=1,
+            fail_command="test",
             stdout="customer payload must stay hidden\n",
             stderr=(
                 "Creating test database for alias 'default'...\n"
@@ -937,7 +1114,7 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
 
     def test_cleanup_failure_is_red_without_hiding_primary_error(self):
         admin = FakeAdmin(fail_cleanup=True)
-        command = FakeCommandRunner(returncode=1)
+        command = FakeCommandRunner(returncode=1, fail_command="test")
 
         with self.assertRaises(self.runner.GateError) as raised:
             self.runner.run_gate(
@@ -980,7 +1157,7 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
                 server_mode="external",
                 suite="lifecycle",
                 admin=admin,
-                command_runner=FakeCommandRunner(returncode=1),
+                command_runner=FakeCommandRunner(returncode=1, fail_command="test"),
                 project_root=PROJECT_ROOT,
                 environ={"MARIADB_ADMIN_PASSWORD": "root-secret"},
             )
@@ -1192,6 +1369,14 @@ storefront.WebPushDeviceSubscription.endpoint: (mysql.W003) long unique char
 
     def test_task_6b_advertises_the_narrow_checkout_concurrency_suite(self):
         self.assertEqual(self.runner.DEFAULT_SUITE, "lifecycle")
+        self.assertEqual(
+            self.runner.SUITES["lifecycle"],
+            (
+                "management.tests_ig_mariadb_lifecycle",
+                "storefront.tests.test_mariadb_constraints."
+                "WebPushEndpointUniquenessTests",
+            ),
+        )
         self.assertEqual(
             self.runner.SUITES["checkout-concurrency"],
             (

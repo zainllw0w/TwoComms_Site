@@ -31,10 +31,34 @@ RED перед реализацией: 5 ожидаемых failures/errors из
 минимальной реализации тот же focused-модуль прошёл 43/43. Полный suite не
 повторялся в соответствии с ограниченным Stage 4 scope.
 
-## Ограничения
+## Закрытие временных warnings (2026-08-19)
 
-Gate является fail-closed защитой compatibility/release workflow, а не новым
-production constraint. Для unsupported conditional uniqueness production DDL
-не добавлялся; конкурентные расхождения обнаруживаются duplicate scan в
-disposable MariaDB после выполнения focused concurrency/lifecycle suite. DTF
-не подключается и не проверяется этим изменением.
+Временный allowlist удалён. `ReviewVote` использует обычный unique key для
+зарегистрированных пользователей и nullable stored generated identity для
+гостей. `ProductFitOption` использует nullable generated product identity для
+default-строки. Для web-push Django state больше не объявляет unsupported
+длинный unique field, но `SeparateDatabaseAndState` не меняет production
+column/index: существующий `varchar(1000)` и `UNIQUE endpoint USING HASH`
+сохраняются. State-only `UniqueConstraint(endpoint)` сохраняет ORM validation,
+а digest-колонка не создаётся.
+
+Каждая data migration сначала выполняет fail-closed duplicate scan и не
+исправляет данные автоматически. MyISAM DDL выполняется с
+`Migration.atomic = False`, `IF NOT EXISTS`, exact schema verification после
+каждого шага и повторяемым `DROP ... IF EXISTS` reverse. Disposable MariaDB
+gate требует ноль warnings и доказывает три MyISAM engines, две generated
+columns, три новых unique indexes, сохранённый endpoint HASH index,
+существующий `(product_id, code)` key и `SHOW CREATE TABLE`. DTF не
+подключается.
+
+Финальная проверка на disposable MariaDB `11.4.12`:
+
+```text
+model/migration contracts: focused gate OK
+MariaDB gate runner: focused gate OK
+database check: allowed_warnings=0
+physical proof: engines=3_myisam generated_columns=2_verified
+unique_indexes=3_new+1_preserved endpoint_unique=hash_preserved
+cleanup=verified
+makemigrations --check: No changes detected
+```

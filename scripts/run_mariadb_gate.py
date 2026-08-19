@@ -19,7 +19,6 @@ import sys
 import tempfile
 import time
 import uuid
-from datetime import date
 from ipaddress import ip_address
 from pathlib import Path
 from typing import Callable, Mapping, TextIO
@@ -28,7 +27,10 @@ from typing import Callable, Mapping, TextIO
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUITE = "lifecycle"
 SUITES = {
-    "lifecycle": ("management.tests_ig_mariadb_lifecycle",),
+    "lifecycle": (
+        "management.tests_ig_mariadb_lifecycle",
+        "storefront.tests.test_mariadb_constraints.WebPushEndpointUniquenessTests",
+    ),
     "checkout-concurrency": (
         "management.tests_ig_checkout_models."
         "IgCheckoutProposalConcurrencyTests."
@@ -94,28 +96,9 @@ _DATABASE_ERRNO_RE = re.compile(
     r"\(([1-9]\d{0,4}),"
 )
 _DATABASE_CHECK_WARNING_RE = re.compile(
-    r"^(?P<object>[A-Za-z0-9_.]+): \((?P<check_id>[A-Za-z0-9.]+)\) "
+    r"^(?P<object>[^:]+): \((?P<check_id>[A-Za-z0-9.]+)\) "
 )
-DATABASE_CHECK_WARNING_ALLOWLIST = {
-    ("reviews.ReviewVote", "models.W036"): {
-        "max_count": 2,
-        "owner": "data-integrity",
-        "expires": "2026-10-01",
-        "finding": "DJ6-BASE-004",
-    },
-    ("storefront.ProductFitOption", "models.W036"): {
-        "max_count": 1,
-        "owner": "storefront-data",
-        "expires": "2026-10-01",
-        "finding": "DJ6-BASE-004",
-    },
-    ("storefront.WebPushDeviceSubscription.endpoint", "mysql.W003"): {
-        "max_count": 1,
-        "owner": "storefront-notifications",
-        "expires": "2026-10-01",
-        "finding": "DJ6-BASE-004",
-    },
-}
+DATABASE_CHECK_WARNING_ALLOWLIST = {}
 DATABASE_CHECK_WARNING_EXPECTED = {
     (object_name, check_id): int(policy["max_count"])
     for (object_name, check_id), policy in DATABASE_CHECK_WARNING_ALLOWLIST.items()
@@ -201,10 +184,7 @@ class GateError(RuntimeError):
 
 def classify_database_check_warnings(
     output: str,
-    *,
-    today: date | None = None,
 ) -> dict[str, object]:
-    current_date = date.today() if today is None else today
     counts: dict[tuple[str, str], int] = {}
     for line in output.splitlines():
         match = _DATABASE_CHECK_WARNING_RE.match(line.strip())
@@ -221,8 +201,7 @@ def classify_database_check_warnings(
         if policy is None:
             blocked.append(rendered)
             continue
-        expiry = date.fromisoformat(str(policy["expires"]))
-        if current_date >= expiry or count > int(policy["max_count"]):
+        if count > int(policy["max_count"]):
             blocked.append(rendered)
             continue
         allowed_count += count
@@ -458,8 +437,157 @@ class AdminClient:
             "delivery_provider_message_ids": "longtext+json_valid",
         }
 
+    def prepare_database_warning_contract(self, database: str) -> dict[str, str]:
+        """Stage the warning migrations against production-like MyISAM tables."""
+        if not re.fullmatch(r"test_twocomms_ig_[a-f0-9]{12}", database):
+            raise GateError("MariaDB warning-contract schema name is not gate-owned")
+
+        for app, migration in (
+            ("storefront", "0097_mariadb_generated_uniqueness"),
+            ("reviews", "0002_mariadb_vote_uniqueness"),
+        ):
+            row = self._query_one(
+                f"SELECT COUNT(*) FROM `{database}`.`django_migrations` "
+                f"WHERE app = '{app}' AND name = '{migration}'"
+            )
+            if not row or int(row[0]) != 0:
+                raise GateError(
+                    "MariaDB warning-contract target migration was applied too early"
+                )
+
+        tables = (
+            "reviews_reviewvote",
+            "storefront_productfitoption",
+            "storefront_webpushdevicesubscription",
+        )
+        table_literals = ", ".join(f"'{table}'" for table in tables)
+        existing_rows = self._query_all(
+            "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            f"AND TABLE_NAME IN ({table_literals})"
+        )
+        if {str(row[0]) for row in existing_rows} != set(tables):
+            raise GateError("MariaDB warning-contract staging table is missing")
+
+        foreign_key_query = (
+            "SELECT TABLE_NAME, CONSTRAINT_NAME "
+            "FROM information_schema.KEY_COLUMN_USAGE "
+            f"WHERE CONSTRAINT_SCHEMA = '{database}' "
+            "AND REFERENCED_TABLE_NAME IS NOT NULL "
+            f"AND (TABLE_NAME IN ({table_literals}) "
+            f"OR REFERENCED_TABLE_NAME IN ({table_literals}))"
+        )
+        foreign_key_rows = self._query_all(foreign_key_query)
+        for raw_table, raw_constraint in foreign_key_rows:
+            table = str(raw_table)
+            constraint = str(raw_constraint)
+            if not re.fullmatch(r"[A-Za-z0-9_]+", table) or not re.fullmatch(
+                r"[A-Za-z0-9_]+",
+                constraint,
+            ):
+                raise GateError("MariaDB warning-contract FK name is unsafe")
+            self._sql(
+                f"ALTER TABLE `{database}`.`{table}` "
+                f"DROP FOREIGN KEY `{constraint}`"
+            )
+        if self._query_all(foreign_key_query):
+            raise GateError("MariaDB warning-contract FK staging failed")
+
+        for table in tables:
+            self._sql(f"ALTER TABLE `{database}`.`{table}` ENGINE=MyISAM")
+
+        engine_rows = self._query_all(
+            "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            f"AND TABLE_NAME IN ({table_literals})"
+        )
+        engines = {str(table): str(engine).casefold() for table, engine in engine_rows}
+        if engines != {table: "myisam" for table in tables}:
+            raise GateError("MariaDB warning-contract MyISAM staging failed")
+        return {"warning_contract_engines": "3_myisam"}
+
+    def verify_database_warning_contract_reverse(self, database: str) -> dict[str, str]:
+        """Prove reverse DDL removed only new objects and preserved endpoint."""
+        if not re.fullmatch(r"test_twocomms_ig_[a-f0-9]{12}", database):
+            raise GateError("MariaDB warning-contract schema name is not gate-owned")
+
+        for app, migration in (
+            ("storefront", "0097_mariadb_generated_uniqueness"),
+            ("reviews", "0002_mariadb_vote_uniqueness"),
+        ):
+            row = self._query_one(
+                f"SELECT COUNT(*) FROM `{database}`.`django_migrations` "
+                f"WHERE app = '{app}' AND name = '{migration}'"
+            )
+            if not row or int(row[0]) != 0:
+                raise GateError("MariaDB warning-contract reverse migration remains applied")
+
+        tables = (
+            "reviews_reviewvote",
+            "storefront_productfitoption",
+            "storefront_webpushdevicesubscription",
+        )
+        table_literals = ", ".join(f"'{table}'" for table in tables)
+        engine_rows = self._query_all(
+            "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            f"AND TABLE_NAME IN ({table_literals})"
+        )
+        engines = {str(table): str(engine).casefold() for table, engine in engine_rows}
+        if engines != {table: "myisam" for table in tables}:
+            raise GateError("MariaDB warning-contract reverse changed table engine")
+
+        generated_rows = self._query_all(
+            "SELECT TABLE_NAME, COLUMN_NAME FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            "AND (TABLE_NAME, COLUMN_NAME) IN ("
+            "('reviews_reviewvote', 'anon_identity'),"
+            "('storefront_productfitoption', 'default_product_identity'),"
+            "('storefront_webpushdevicesubscription', 'endpoint_digest'))"
+        )
+        if generated_rows:
+            raise GateError("MariaDB warning-contract reverse left generated columns")
+
+        unique_rows = self._query_all(
+            "SELECT TABLE_NAME, INDEX_NAME, INDEX_TYPE, "
+            "GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') "
+            "FROM information_schema.STATISTICS "
+            f"WHERE TABLE_SCHEMA = '{database}' AND NON_UNIQUE = 0 "
+            f"AND TABLE_NAME IN ({table_literals}) "
+            "GROUP BY TABLE_NAME, INDEX_NAME, INDEX_TYPE"
+        )
+        unique_indexes = {
+            (
+                str(table),
+                str(name),
+                str(index_type).casefold(),
+                tuple(str(columns).split(",")),
+            )
+            for table, name, index_type, columns in unique_rows
+        }
+        if any(
+            name in {
+                "rev_vote_unique_user",
+                "rev_vote_unique_anon",
+                "uniq_default_fit_product",
+                "uniq_webpush_endpoint_digest",
+            }
+            for _table, name, _index_type, _columns in unique_indexes
+        ):
+            raise GateError("MariaDB warning-contract reverse left new unique index")
+        if (
+            "storefront_webpushdevicesubscription",
+            "endpoint",
+            "hash",
+            ("endpoint",),
+        ) not in unique_indexes:
+            raise GateError("MariaDB warning-contract reverse lost endpoint uniqueness")
+        return {
+            "warning_contract_reverse": "generated_removed+endpoint_hash_preserved"
+        }
+
     def verify_database_warning_contract(self, database: str) -> dict[str, str]:
-        """Prove every allowlisted MariaDB warning against the created schema."""
+        """Prove the physical constraints that replaced former warnings."""
         if not re.fullmatch(r"test_twocomms_ig_[a-f0-9]{12}", database):
             raise GateError("MariaDB warning-contract schema name is not gate-owned")
 
@@ -489,40 +617,133 @@ class AdminClient:
             "storefront_webpushdevicesubscription",
         )
         table_literals = ", ".join(f"'{table}'" for table in tables)
+        engine_rows = self._query_all(
+            "SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            f"AND TABLE_NAME IN ({table_literals})"
+        )
+        engines = {str(table): str(engine).casefold() for table, engine in engine_rows}
+        if engines != {table: "myisam" for table in tables}:
+            raise GateError("MariaDB warning-contract table is not MyISAM")
+
         unique_rows = self._query_all(
-            "SELECT TABLE_NAME, INDEX_NAME, "
+            "SELECT TABLE_NAME, INDEX_NAME, INDEX_TYPE, "
             "GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') "
             "FROM information_schema.STATISTICS "
             f"WHERE TABLE_SCHEMA = '{database}' AND NON_UNIQUE = 0 "
             f"AND TABLE_NAME IN ({table_literals}) "
-            "GROUP BY TABLE_NAME, INDEX_NAME"
+            "GROUP BY TABLE_NAME, INDEX_NAME, INDEX_TYPE"
         )
         unique_indexes = {
-            (str(table), str(name), tuple(str(columns).split(",")))
-            for table, name, columns in unique_rows
+            (
+                str(table),
+                str(name),
+                str(index_type).casefold(),
+                tuple(str(columns).split(",")),
+            )
+            for table, name, index_type, columns in unique_rows
         }
         forbidden_names = {
             "rev_vote_unique_per_user",
             "rev_vote_unique_per_anon",
             "uniq_default_fit_per_product",
         }
-        if any(name in forbidden_names for _table, name, _columns in unique_indexes):
+        if any(
+            name in forbidden_names
+            for _table, name, _index_type, _columns in unique_indexes
+        ):
             raise GateError("MariaDB unsupported conditional constraint was created")
         forbidden_columns = {
-            ("reviews_reviewvote", ("review_id", "user_id")),
             ("reviews_reviewvote", ("review_id", "anon_key")),
             ("storefront_productfitoption", ("product_id",)),
         }
-        if any((table, columns) in forbidden_columns for table, _name, columns in unique_indexes):
+        if any(
+            (table, columns) in forbidden_columns
+            for table, _name, _index_type, columns in unique_indexes
+        ):
             raise GateError("MariaDB unsupported conditional constraint was created")
+
+        required_indexes = {
+            (
+                "reviews_reviewvote",
+                "rev_vote_unique_user",
+                ("review_id", "user_id"),
+            ),
+            (
+                "reviews_reviewvote",
+                "rev_vote_unique_anon",
+                ("review_id", "anon_identity"),
+            ),
+            (
+                "storefront_productfitoption",
+                "uniq_default_fit_product",
+                ("default_product_identity",),
+            ),
+        }
+        actual_named_indexes = {
+            (table, name, columns)
+            for table, name, _index_type, columns in unique_indexes
+        }
+        if not required_indexes.issubset(actual_named_indexes):
+            raise GateError("MariaDB generated unique constraint is missing")
+        if (
+            "storefront_webpushdevicesubscription",
+            "endpoint",
+            "hash",
+            ("endpoint",),
+        ) not in unique_indexes:
+            raise GateError("MariaDB endpoint HASH uniqueness was not preserved")
 
         required_columns = {
             ("storefront_productfitoption", ("product_id", "code")),
-            ("storefront_webpushdevicesubscription", ("endpoint",)),
         }
-        actual_columns = {(table, columns) for table, _name, columns in unique_indexes}
+        actual_columns = {
+            (table, columns)
+            for table, _name, _index_type, columns in unique_indexes
+        }
         if not required_columns.issubset(actual_columns):
             raise GateError("MariaDB real unique constraint is missing")
+
+        generated_rows = self._query_all(
+            "SELECT TABLE_NAME, COLUMN_NAME, EXTRA, GENERATION_EXPRESSION "
+            "FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            f"AND TABLE_NAME IN ({table_literals}) "
+            "AND EXTRA LIKE '%GENERATED%'"
+        )
+        generated_columns = {
+            (str(table), str(column)): (
+                str(extra).lower(),
+                re.sub(r"[\s`()]+", "", str(expression).lower()),
+            )
+            for table, column, extra, expression in generated_rows
+        }
+        expected_expressions = {
+            ("reviews_reviewvote", "anon_identity"): (
+                "stored generated",
+                "casewhenuser_idisnullthenanon_keyelsenullend",
+            ),
+            ("storefront_productfitoption", "default_product_identity"): (
+                "stored generated",
+                "casewhenis_default=1thenproduct_idelsenullend",
+            ),
+        }
+        if generated_columns != expected_expressions:
+            raise GateError("MariaDB generated-column contract does not match")
+
+        endpoint_row = self._query_one(
+            "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH "
+            "FROM information_schema.COLUMNS "
+            f"WHERE TABLE_SCHEMA = '{database}' "
+            "AND TABLE_NAME = 'storefront_webpushdevicesubscription' "
+            "AND COLUMN_NAME = 'endpoint'"
+        )
+        if (
+            not endpoint_row
+            or str(endpoint_row[0]).casefold() != "varchar"
+            or int(endpoint_row[1] or 0) < 768
+        ):
+            raise GateError("MariaDB endpoint column capacity is below 768")
 
         create_sql = {table: self._show_create_table(database, table) for table in tables}
         normalized_create = {
@@ -533,13 +754,27 @@ class AdminClient:
             raise GateError("MariaDB review-vote check constraint is missing")
         if not all(normalized_create.values()):
             raise GateError("MariaDB SHOW CREATE TABLE proof is missing")
+        if not all("engine=myisam" in sql for sql in normalized_create.values()):
+            raise GateError("MariaDB SHOW CREATE TABLE engine proof is missing")
         for forbidden_name in forbidden_names:
             if any(forbidden_name in sql for sql in normalized_create.values()):
                 raise GateError("MariaDB unsupported conditional constraint was created")
+        if any("endpoint_digest" in sql for sql in normalized_create.values()):
+            raise GateError("MariaDB endpoint digest must not exist")
+        for required_name in {
+            "rev_vote_unique_user",
+            "rev_vote_unique_anon",
+            "uniq_default_fit_product",
+            "endpoint",
+        }:
+            if not any(required_name in sql for sql in normalized_create.values()):
+                raise GateError("MariaDB required unique constraint is missing")
 
         return {
-            "conditional_constraints": "unsupported+duplicate_free",
-            "real_constraints": "verified",
+            "engines": "3_myisam",
+            "generated_columns": "2_verified",
+            "unique_indexes": "3_new+1_preserved",
+            "endpoint_unique": "hash_preserved",
             "show_create_tables": "verified",
         }
 
@@ -1003,6 +1238,53 @@ def run_gate(
             source, database=database, username=username, password=password,
             host=host, port=port,
         )
+        for app, migration in (
+            ("storefront", "0096"),
+            ("reviews", "0001"),
+        ):
+            pre_migrate_command = [
+                sys.executable,
+                str(manage_path),
+                "migrate",
+                app,
+                migration,
+                "--settings=test_settings_mariadb",
+                "--noinput",
+            ]
+            pre_migrate_completed = command_runner(
+                pre_migrate_command,
+                cwd=str(project_root / "twocomms"),
+                env=child_env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if pre_migrate_completed.returncode:
+                output.write(
+                    _failure_summary(
+                        suite=f"pre-migrate-{app}",
+                        completed=pre_migrate_completed,
+                    )
+                )
+                primary_error = RuntimeError(
+                    f"pre-migrate {app} command failed "
+                    f"({pre_migrate_completed.returncode})"
+                )
+                raise primary_error
+
+        prepare_warning_contract = getattr(
+            admin,
+            "prepare_database_warning_contract",
+            None,
+        )
+        if prepare_warning_contract is None:
+            raise GateError("MariaDB admin client cannot stage warning contract")
+        preparation_evidence = prepare_warning_contract(database)
+        output.write(
+            "MariaDB warning contract staging: "
+            f"engines={preparation_evidence['warning_contract_engines']}\n"
+        )
+
         command = [
             sys.executable,
             str(manage_path),
@@ -1024,13 +1306,88 @@ def run_gate(
             output.write(_failure_summary(suite=suite, completed=completed))
             primary_error = RuntimeError(f"{suite} command failed ({completed.returncode})")
             raise primary_error
+
+        for app, migration in (
+            ("reviews", "0001"),
+            ("storefront", "0096"),
+        ):
+            reverse_command = [
+                sys.executable,
+                str(manage_path),
+                "migrate",
+                app,
+                migration,
+                "--settings=test_settings_mariadb",
+                "--noinput",
+            ]
+            reverse_completed = command_runner(
+                reverse_command,
+                cwd=str(project_root / "twocomms"),
+                env=child_env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if reverse_completed.returncode:
+                output.write(
+                    _failure_summary(
+                        suite=f"reverse-{app}",
+                        completed=reverse_completed,
+                    )
+                )
+                primary_error = RuntimeError(
+                    f"reverse {app} command failed ({reverse_completed.returncode})"
+                )
+                raise primary_error
+
+        verify_warning_reverse = getattr(
+            admin,
+            "verify_database_warning_contract_reverse",
+            None,
+        )
+        if verify_warning_reverse is None:
+            raise GateError("MariaDB admin client cannot verify warning reverse")
+        reverse_evidence = verify_warning_reverse(database)
+        output.write(
+            "MariaDB warning contract reverse: "
+            f"status={reverse_evidence['warning_contract_reverse']}\n"
+        )
+
+        reapply_command = [
+            sys.executable,
+            str(manage_path),
+            "migrate",
+            "--settings=test_settings_mariadb",
+            "--noinput",
+        ]
+        reapply_completed = command_runner(
+            reapply_command,
+            cwd=str(project_root / "twocomms"),
+            env=child_env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if reapply_completed.returncode:
+            output.write(
+                _failure_summary(
+                    suite="reapply-warning-contract",
+                    completed=reapply_completed,
+                )
+            )
+            primary_error = RuntimeError(
+                "warning-contract reapply command failed "
+                f"({reapply_completed.returncode})"
+            )
+            raise primary_error
+
         check_command = [
             sys.executable,
             str(manage_path),
             "check",
             "--settings=test_settings_mariadb",
             "--database=default",
-            "--fail-level=ERROR",
+            "--fail-level=WARNING",
         ]
         check_completed = command_runner(
             check_command,
@@ -1087,8 +1444,10 @@ def run_gate(
         warning_evidence = verify_warning_contract(database)
         output.write(
             "MariaDB warning contract proof: "
-            f"conditional_constraints={warning_evidence['conditional_constraints']} "
-            f"real_constraints={warning_evidence['real_constraints']} "
+            f"engines={warning_evidence['engines']} "
+            f"generated_columns={warning_evidence['generated_columns']} "
+            f"unique_indexes={warning_evidence['unique_indexes']} "
+            f"endpoint_unique={warning_evidence['endpoint_unique']} "
             f"show_create_tables={warning_evidence['show_create_tables']}\n"
         )
         feature_evidence = {}
@@ -1116,6 +1475,8 @@ def run_gate(
             "database_check": (
                 f"default:passed;allowed_warnings={database_warning_count}"
             ),
+            **preparation_evidence,
+            **reverse_evidence,
             **schema_evidence,
             **warning_evidence,
             **feature_evidence,
