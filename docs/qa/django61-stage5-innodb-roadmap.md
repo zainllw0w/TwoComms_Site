@@ -81,9 +81,16 @@ the exact `DJ6-INNODB-CANARY-MARIADB-LOCAL-ONLY-v1` interlock and provide an
 identity proof for a disposable environment, temporary role and
 `twc_dj61_disposable_` database user. The endpoint must be loopback on a
 dedicated non-3306 disposable port or an explicitly named temporary socket.
-Before creating anything the gate verifies the live MariaDB `VERSION()`,
+Before opening that connection, the runner requires an offline, versioned
+`preflight` proof. It validates a real non-symlink backup artifact by actual
+size and SHA-256; exact candidate/backup/rollback row and index contracts;
+complete zero-FULLTEXT, zero-orphan and zero-writer evidence; measured
+conversion/rollback timing within an approved limit; and a tested
+write-loss-safe rollback strategy. Missing or contradictory proof fails before
+the connection factory and therefore before any SQL or DDL. Only after that
+offline gate passes does the runner verify live MariaDB `VERSION()`,
 `@@hostname`, `@@port`, `CURRENT_USER()` and empty `DATABASE()` against that
-proof, then rejects a non-`default` alias, non-loopback host,
+separate connection-identity proof, then rejects a non-`default` alias, non-loopback host,
 missing local socket/host, SQLite/non-MariaDB connections, unavailable InnoDB
 and an out-of-budget row count.
 

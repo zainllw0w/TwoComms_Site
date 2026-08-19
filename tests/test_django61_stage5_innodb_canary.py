@@ -1,4 +1,7 @@
+import copy
+import hashlib
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -126,6 +129,18 @@ class _Admin(_Connection):
 
 
 class Stage5InnodbCanaryTests(unittest.TestCase):
+    def setUp(self):
+        self._temporary_directory = tempfile.TemporaryDirectory(
+            prefix="twc-dj61-stage5-canary-proof-"
+        )
+        self.backup_artifact = (
+            Path(self._temporary_directory.name) / "candidate-backup.sql"
+        )
+        self.backup_artifact.write_bytes(b"verified disposable backup artifact\n")
+
+    def tearDown(self):
+        self._temporary_directory.cleanup()
+
     @staticmethod
     def _identity(**overrides):
         identity = {
@@ -139,6 +154,70 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
         identity.update(overrides)
         return identity
 
+    def _preflight(self, *, rows=4):
+        backup_sha256 = hashlib.sha256(self.backup_artifact.read_bytes()).hexdigest()
+        index_sha256 = hashlib.sha256(
+            b"PRIMARY(id);payload_lookup(payload)"
+        ).hexdigest()
+        return {
+            "schema": 1,
+            "scope": "disposable_non-DTF_canary_only",
+            "candidate": {
+                "table": "storefront_promocodegroup",
+                "source_engine": "MyISAM",
+                "target_engine": "InnoDB",
+                "exact_rows": rows,
+                "index_inventory_complete": True,
+                "index_count": 2,
+                "index_sha256": index_sha256,
+                "fulltext_inventory_complete": True,
+                "fulltext_indexes": 0,
+            },
+            "writer_audit": {
+                "complete": True,
+                "active_writers": 0,
+            },
+            "orphan_scan": {
+                "complete": True,
+                "orphan_count": 0,
+            },
+            "backup": {
+                "artifact_path": str(self.backup_artifact),
+                "verified": True,
+                "size_bytes": self.backup_artifact.stat().st_size,
+                "sha256": backup_sha256,
+                "rows": rows,
+                "index_sha256": index_sha256,
+            },
+            "rehearsal": {
+                "measured": True,
+                "conversion_seconds": 0.05,
+                "rollback_seconds": 0.04,
+                "approved_max_seconds": 1.0,
+            },
+            "rollback": {
+                "rehearsed": True,
+                "verified": True,
+                "write_loss_safe": True,
+                "strategy": "maintenance_window",
+                "write_freeze_verified": True,
+                "restored_rows": rows,
+                "restored_index_sha256": index_sha256,
+                "backup_sha256": backup_sha256,
+            },
+        }
+
+    def _run(self, factory, *, rows=4, preflight=None, **overrides):
+        kwargs = {
+            "rows": rows,
+            "allow_disposable": True,
+            "disposable_interlock": MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+            "connection_identity": self._identity(),
+            "preflight": self._preflight(rows=rows) if preflight is None else preflight,
+        }
+        kwargs.update(overrides)
+        return MODULE.run_disposable_innodb_canary(factory, **kwargs)
+
     def test_full_disposable_canary_verifies_backup_conversion_timing_and_rollback(self):
         admin = _Admin()
         connections = {None: admin}
@@ -150,14 +229,13 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
             connections[database] = connection
             return connection
 
-        report = MODULE.run_disposable_innodb_canary(
-            factory,
-            rows=4,
-            allow_disposable=True,
-            disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
-            connection_identity=self._identity(),
-        )
+        report = self._run(factory)
         self.assertEqual(report["status"], "passed")
+        self.assertEqual(report["preflight"]["status"], "verified")
+        self.assertEqual(
+            report["preflight"]["candidate"], "storefront_promocodegroup"
+        )
+        self.assertNotIn(str(self.backup_artifact), repr(report))
         self.assertTrue(report["backup"]["verified"])
         self.assertEqual(report["conversion"]["to_engine"], "InnoDB")
         self.assertTrue(report["rollback"]["verified"])
@@ -170,13 +248,193 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
         selected = _Admin()
         selected.selected_database = "production_db"
         with self.assertRaisesRegex(RuntimeError, "selects a database"):
+            self._run(lambda _database: selected)
+        self.assertFalse(selected.created)
+
+    def test_preflight_evidence_fails_before_connection_or_ddl(self):
+        def forbidden(_database):
+            raise AssertionError("connection factory must not be called")
+
+        with self.assertRaisesRegex(RuntimeError, "preflight evidence missing"):
             MODULE.run_disposable_innodb_canary(
-                lambda _database: selected,
+                forbidden,
+                rows=4,
                 allow_disposable=True,
                 disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
                 connection_identity=self._identity(),
+                preflight=None,
             )
-        self.assertFalse(selected.created)
+
+        invalid_proofs = []
+
+        def invalid(label, path, value, message):
+            proof = copy.deepcopy(self._preflight())
+            target = proof
+            for part in path[:-1]:
+                target = target[part]
+            target[path[-1]] = value
+            invalid_proofs.append((label, proof, message))
+
+        invalid("boolean schema", ("schema",), True, "preflight scope")
+        invalid("DTF candidate", ("candidate", "table"), "dtf_order", "non-DTF")
+        invalid(
+            "missing backup artifact",
+            ("backup", "artifact_path"),
+            str(self.backup_artifact.with_name("missing.sql")),
+            "backup artifact",
+        )
+        invalid(
+            "unverified backup",
+            ("backup", "verified"),
+            False,
+            "backup verification",
+        )
+        invalid(
+            "backup size mismatch", ("backup", "size_bytes"), 1, "backup size"
+        )
+        invalid(
+            "backup digest mismatch",
+            ("backup", "sha256"),
+            "0" * 64,
+            "backup SHA-256",
+        )
+        invalid(
+            "backup rows mismatch", ("backup", "rows"), 3, "backup row contract"
+        )
+        invalid(
+            "row contract mismatch",
+            ("candidate", "exact_rows"),
+            3,
+            "row contract",
+        )
+        invalid(
+            "index inventory incomplete",
+            ("candidate", "index_inventory_complete"),
+            False,
+            "index inventory",
+        )
+        invalid(
+            "empty index contract",
+            ("candidate", "index_count"),
+            0,
+            "index contract",
+        )
+        invalid(
+            "index contract mismatch",
+            ("backup", "index_sha256"),
+            "1" * 64,
+            "index contract",
+        )
+        invalid(
+            "fulltext inventory incomplete",
+            ("candidate", "fulltext_inventory_complete"),
+            False,
+            "FULLTEXT inventory",
+        )
+        invalid(
+            "fulltext index present",
+            ("candidate", "fulltext_indexes"),
+            1,
+            "FULLTEXT indexes",
+        )
+        invalid(
+            "orphan scan incomplete",
+            ("orphan_scan", "complete"),
+            False,
+            "orphan scan",
+        )
+        invalid(
+            "orphan found", ("orphan_scan", "orphan_count"), 1, "orphans"
+        )
+        invalid(
+            "writer audit incomplete",
+            ("writer_audit", "complete"),
+            False,
+            "writer audit",
+        )
+        invalid(
+            "active writer found",
+            ("writer_audit", "active_writers"),
+            1,
+            "active writers",
+        )
+        invalid(
+            "timing absent",
+            ("rehearsal", "measured"),
+            False,
+            "rehearsal timing",
+        )
+        invalid(
+            "conversion outside limit",
+            ("rehearsal", "conversion_seconds"),
+            2.0,
+            "approved timing limit",
+        )
+        invalid(
+            "rollback outside limit",
+            ("rehearsal", "rollback_seconds"),
+            2.0,
+            "approved timing limit",
+        )
+        invalid(
+            "rollback not rehearsed",
+            ("rollback", "rehearsed"),
+            False,
+            "rollback rehearsal",
+        )
+        invalid(
+            "rollback not verified",
+            ("rollback", "verified"),
+            False,
+            "rollback rehearsal",
+        )
+        invalid(
+            "rollback not write-loss-safe",
+            ("rollback", "write_loss_safe"),
+            False,
+            "write-loss-safe",
+        )
+        invalid(
+            "unsafe rollback strategy",
+            ("rollback", "strategy"),
+            "backup_restore",
+            "rollback strategy",
+        )
+        invalid(
+            "write freeze unverified",
+            ("rollback", "write_freeze_verified"),
+            False,
+            "write freeze",
+        )
+        invalid(
+            "online rollback without reverse sync",
+            ("rollback", "strategy"),
+            "dual_write",
+            "reverse sync",
+        )
+        invalid(
+            "restored rows mismatch",
+            ("rollback", "restored_rows"),
+            3,
+            "rollback row contract",
+        )
+        invalid(
+            "restored indexes mismatch",
+            ("rollback", "restored_index_sha256"),
+            "2" * 64,
+            "rollback index contract",
+        )
+        invalid(
+            "rollback artifact mismatch",
+            ("rollback", "backup_sha256"),
+            "3" * 64,
+            "rollback backup contract",
+        )
+
+        for label, proof, message in invalid_proofs:
+            with self.subTest(label=label):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    self._run(forbidden, preflight=proof)
 
     def test_safety_interlocks_fail_before_connection(self):
         def forbidden(_database):
@@ -228,10 +486,21 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
                 allow_disposable=True,
                 disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
                 connection_identity=self._identity(server_hostname="wrong-host"),
+                preflight=self._preflight(rows=250),
             )
         self.assertFalse(admin.created)
 
     def test_row_limit_and_non_mariadb_fail_closed(self):
+        with self.assertRaisesRegex(ValueError, "between"):
+            MODULE.run_disposable_innodb_canary(
+                lambda _database: _Admin(),
+                rows=4.0,
+                allow_disposable=True,
+                disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
+                connection_identity=self._identity(),
+                preflight=self._preflight(rows=4),
+            )
+
         with self.assertRaisesRegex(ValueError, "between"):
             MODULE.run_disposable_innodb_canary(
                 lambda _database: _Admin(),
@@ -250,6 +519,7 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
                 allow_disposable=True,
                 disposable_interlock=MODULE.DISPOSABLE_INNODB_CANARY_INTERLOCK,
                 connection_identity=self._identity(),
+                preflight=self._preflight(rows=250),
             )
 
 

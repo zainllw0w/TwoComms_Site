@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import ipaddress
+import math
 import re
 import secrets
 import tempfile
@@ -22,14 +23,253 @@ from typing import Any, Callable, Mapping, Sequence
 
 
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+SHA256_DIGEST = re.compile(r"^[0-9a-f]{64}$")
 MAX_ROWS = 5_000
 DISPOSABLE_INNODB_CANARY_INTERLOCK = "DJ6-INNODB-CANARY-MARIADB-LOCAL-ONLY-v1"
+PREFLIGHT_SCOPE = "disposable_non-DTF_canary_only"
+SAFE_ROLLBACK_STRATEGIES = {
+    "maintenance_window",
+    "dual_write",
+    "replica_switchover",
+    "reverse_sync",
+}
 
 
 def _quote_identifier(value: str) -> str:
     if not SAFE_IDENTIFIER.fullmatch(value):
         raise ValueError(f"unsafe SQL identifier: {value!r}")
     return f"`{value}`"
+
+
+def _require_mapping(
+    parent: Mapping[str, Any], field: str, *, message: str
+) -> Mapping[str, Any]:
+    value = parent.get(field)
+    if not isinstance(value, Mapping):
+        raise RuntimeError(message)
+    return value
+
+
+def _require_nonnegative_int(value: Any, *, message: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise RuntimeError(message)
+    return value
+
+
+def _require_positive_seconds(value: Any, *, message: str) -> float:
+    if isinstance(value, bool):
+        raise RuntimeError(message)
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(message) from exc
+    if not math.isfinite(parsed) or parsed <= 0:
+        raise RuntimeError(message)
+    return parsed
+
+
+def _require_sha256(value: Any, *, message: str) -> str:
+    digest = str(value or "").strip().casefold()
+    if not SHA256_DIGEST.fullmatch(digest):
+        raise RuntimeError(message)
+    return digest
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as artifact:
+        for chunk in iter(lambda: artifact.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def validate_pre_ddl_preflight(
+    preflight: Mapping[str, Any] | None, *, expected_rows: int
+) -> dict[str, Any]:
+    """Validate offline evidence before a connection or DDL can be attempted."""
+
+    if not isinstance(preflight, Mapping):
+        raise RuntimeError("InnoDB canary preflight evidence missing")
+    schema = preflight.get("schema")
+    if (
+        not isinstance(schema, int)
+        or isinstance(schema, bool)
+        or schema != 1
+        or preflight.get("scope") != PREFLIGHT_SCOPE
+    ):
+        raise RuntimeError("InnoDB canary preflight scope is invalid")
+
+    candidate = _require_mapping(
+        preflight, "candidate", message="InnoDB canary row/index contract missing"
+    )
+    table = str(candidate.get("table") or "").strip()
+    if (
+        not SAFE_IDENTIFIER.fullmatch(table)
+        or table.casefold() == "dtf"
+        or table.casefold().startswith("dtf_")
+    ):
+        raise RuntimeError("InnoDB canary candidate must be a non-DTF table")
+    if str(candidate.get("source_engine") or "").casefold() != "myisam":
+        raise RuntimeError("InnoDB canary source engine contract requires MyISAM")
+    if str(candidate.get("target_engine") or "").casefold() != "innodb":
+        raise RuntimeError("InnoDB canary target engine contract requires InnoDB")
+    candidate_rows = _require_nonnegative_int(
+        candidate.get("exact_rows"), message="InnoDB canary row contract is invalid"
+    )
+    if candidate_rows != expected_rows:
+        raise RuntimeError("InnoDB canary row contract does not match requested rows")
+    if candidate.get("index_inventory_complete") is not True:
+        raise RuntimeError("InnoDB canary index inventory is incomplete")
+    index_count = _require_nonnegative_int(
+        candidate.get("index_count"), message="InnoDB canary index contract is invalid"
+    )
+    if index_count < 1:
+        raise RuntimeError("InnoDB canary index contract is invalid")
+    index_sha256 = _require_sha256(
+        candidate.get("index_sha256"),
+        message="InnoDB canary index contract is invalid",
+    )
+    if candidate.get("fulltext_inventory_complete") is not True:
+        raise RuntimeError("InnoDB canary FULLTEXT inventory is incomplete")
+    fulltext_indexes = _require_nonnegative_int(
+        candidate.get("fulltext_indexes"),
+        message="InnoDB canary FULLTEXT inventory is invalid",
+    )
+    if fulltext_indexes:
+        raise RuntimeError("InnoDB canary candidate has unsupported FULLTEXT indexes")
+
+    writer_audit = _require_mapping(
+        preflight, "writer_audit", message="InnoDB canary writer audit missing"
+    )
+    if writer_audit.get("complete") is not True:
+        raise RuntimeError("InnoDB canary writer audit is incomplete")
+    active_writers = _require_nonnegative_int(
+        writer_audit.get("active_writers"),
+        message="InnoDB canary active writers evidence is invalid",
+    )
+    if active_writers:
+        raise RuntimeError("InnoDB canary active writers must be zero")
+
+    orphan_scan = _require_mapping(
+        preflight, "orphan_scan", message="InnoDB canary orphan scan missing"
+    )
+    if orphan_scan.get("complete") is not True:
+        raise RuntimeError("InnoDB canary orphan scan is incomplete")
+    orphan_count = _require_nonnegative_int(
+        orphan_scan.get("orphan_count"),
+        message="InnoDB canary orphan evidence is invalid",
+    )
+    if orphan_count:
+        raise RuntimeError("InnoDB canary orphans must be zero")
+
+    backup = _require_mapping(
+        preflight, "backup", message="InnoDB canary backup evidence missing"
+    )
+    if backup.get("verified") is not True:
+        raise RuntimeError("InnoDB canary backup verification is missing")
+    artifact_path = Path(str(backup.get("artifact_path") or "")).expanduser()
+    if (
+        not artifact_path.is_absolute()
+        or artifact_path.is_symlink()
+        or not artifact_path.is_file()
+    ):
+        raise RuntimeError("InnoDB canary backup artifact is missing or unsafe")
+    artifact_size = _require_nonnegative_int(
+        backup.get("size_bytes"), message="InnoDB canary backup size is invalid"
+    )
+    if artifact_size < 1 or artifact_path.stat().st_size != artifact_size:
+        raise RuntimeError("InnoDB canary backup size does not match artifact")
+    backup_sha256 = _require_sha256(
+        backup.get("sha256"), message="InnoDB canary backup SHA-256 is invalid"
+    )
+    if _file_sha256(artifact_path) != backup_sha256:
+        raise RuntimeError("InnoDB canary backup SHA-256 does not match artifact")
+    backup_rows = _require_nonnegative_int(
+        backup.get("rows"), message="InnoDB canary backup row contract is invalid"
+    )
+    backup_index_sha256 = _require_sha256(
+        backup.get("index_sha256"),
+        message="InnoDB canary backup index contract is invalid",
+    )
+    if backup_rows != candidate_rows:
+        raise RuntimeError("InnoDB canary backup row contract does not match candidate")
+    if backup_index_sha256 != index_sha256:
+        raise RuntimeError("InnoDB canary backup index contract does not match candidate")
+
+    rehearsal = _require_mapping(
+        preflight, "rehearsal", message="InnoDB canary rehearsal timing missing"
+    )
+    if rehearsal.get("measured") is not True:
+        raise RuntimeError("InnoDB canary rehearsal timing is not measured")
+    approved_max_seconds = _require_positive_seconds(
+        rehearsal.get("approved_max_seconds"),
+        message="InnoDB canary approved timing limit is invalid",
+    )
+    conversion_seconds = _require_positive_seconds(
+        rehearsal.get("conversion_seconds"),
+        message="InnoDB canary conversion rehearsal timing is invalid",
+    )
+    rollback_seconds = _require_positive_seconds(
+        rehearsal.get("rollback_seconds"),
+        message="InnoDB canary rollback rehearsal timing is invalid",
+    )
+    if (
+        conversion_seconds > approved_max_seconds
+        or rollback_seconds > approved_max_seconds
+    ):
+        raise RuntimeError("InnoDB canary rehearsal exceeds approved timing limit")
+
+    rollback = _require_mapping(
+        preflight, "rollback", message="InnoDB canary rollback rehearsal missing"
+    )
+    if rollback.get("rehearsed") is not True or rollback.get("verified") is not True:
+        raise RuntimeError("InnoDB canary rollback rehearsal is not verified")
+    if rollback.get("write_loss_safe") is not True:
+        raise RuntimeError("InnoDB canary rollback is not write-loss-safe")
+    strategy = str(rollback.get("strategy") or "").strip()
+    if strategy not in SAFE_ROLLBACK_STRATEGIES:
+        raise RuntimeError("InnoDB canary rollback strategy is unsafe")
+    if strategy == "maintenance_window":
+        if rollback.get("write_freeze_verified") is not True:
+            raise RuntimeError("InnoDB canary rollback write freeze is unverified")
+    elif rollback.get("reverse_sync_verified") is not True:
+        raise RuntimeError("InnoDB canary rollback reverse sync is unverified")
+    restored_rows = _require_nonnegative_int(
+        rollback.get("restored_rows"),
+        message="InnoDB canary rollback row contract is invalid",
+    )
+    if restored_rows != candidate_rows:
+        raise RuntimeError("InnoDB canary rollback row contract does not match candidate")
+    restored_index_sha256 = _require_sha256(
+        rollback.get("restored_index_sha256"),
+        message="InnoDB canary rollback index contract is invalid",
+    )
+    if restored_index_sha256 != index_sha256:
+        raise RuntimeError("InnoDB canary rollback index contract does not match candidate")
+    rollback_backup_sha256 = _require_sha256(
+        rollback.get("backup_sha256"),
+        message="InnoDB canary rollback backup contract is invalid",
+    )
+    if rollback_backup_sha256 != backup_sha256:
+        raise RuntimeError("InnoDB canary rollback backup contract does not match artifact")
+
+    return {
+        "status": "verified",
+        "candidate": table,
+        "rows": candidate_rows,
+        "index_count": index_count,
+        "index_sha256": index_sha256,
+        "fulltext_indexes": 0,
+        "active_writers": 0,
+        "orphans": 0,
+        "backup": {"size_bytes": artifact_size, "sha256": backup_sha256},
+        "rehearsal": {
+            "conversion_seconds": conversion_seconds,
+            "rollback_seconds": rollback_seconds,
+            "approved_max_seconds": approved_max_seconds,
+        },
+        "rollback": {"strategy": strategy, "write_loss_safe": True},
+    }
 
 
 def validate_disposable_endpoint(
@@ -212,18 +452,24 @@ def run_disposable_innodb_canary(
     allow_disposable: bool = False,
     disposable_interlock: str | None = None,
     connection_identity: Mapping[str, Any] | None = None,
+    preflight: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute and verify the disposable conversion/backup/rollback rehearsal.
 
     ``allow_disposable`` and ``disposable_interlock`` are explicit safety
-    interlocks.  A false value, an incomplete endpoint/identity proof, a
-    non-MariaDB connection, or missing InnoDB support fails before any
-    database is created.
+    interlocks.  A false value, incomplete pre-DDL evidence, an incomplete
+    endpoint/identity proof, a non-MariaDB connection, or missing InnoDB
+    support fails before any connection is opened or database is created.
     """
 
     if not allow_disposable:
         raise ValueError("InnoDB canary requires allow_disposable=True")
-    if rows < 1 or rows > MAX_ROWS:
+    if (
+        not isinstance(rows, int)
+        or isinstance(rows, bool)
+        or rows < 1
+        or rows > MAX_ROWS
+    ):
         raise ValueError(f"rows must be between 1 and {MAX_ROWS}")
     identity = validate_disposable_connection_contract(
         interlock=disposable_interlock,
@@ -232,6 +478,7 @@ def run_disposable_innodb_canary(
         database_alias=database_alias,
         connection_identity=connection_identity,
     )
+    preflight_report = validate_pre_ddl_preflight(preflight, expected_rows=rows)
 
     admin = connection_factory(None)
     try:
@@ -347,6 +594,7 @@ def run_disposable_innodb_canary(
         return {
             "schema": 1,
             "status": "passed",
+            "preflight": preflight_report,
             "version": version,
             "database": database,
             "rows": rows,

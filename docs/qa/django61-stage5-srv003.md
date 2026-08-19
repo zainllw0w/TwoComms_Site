@@ -1,6 +1,6 @@
 # Django 6.1 Stage 5: MyISAM -> InnoDB roadmap evidence (DJ6-SRV-003)
 
-Date: 2026-08-18
+Date: 2026-08-19
 
 Status: read-only roadmap, production inventory, and disposable canary
 rehearsal are complete. The production-conversion acceptance and its Stage 5
@@ -53,6 +53,28 @@ by engine, row count, and SHA-256 digest.
 | Rollback verification | passed in 0.049011 s |
 | Temporary schema cleanup | verified |
 
+The runner now requires a versioned offline `preflight` proof before it opens
+even the disposable MariaDB connection. The proof is rejected unless all of
+the following agree:
+
+- the selected non-DTF table has exact row evidence, complete index inventory,
+  matching index SHA-256, and a `MyISAM -> InnoDB` engine contract;
+- FULLTEXT inventory is complete and contains zero indexes;
+- writer and orphan audits are complete and both counts are zero;
+- a real, absolute, non-symlink backup artifact exists and its non-zero size
+  and computed SHA-256 match the declared backup evidence;
+- backup row/index evidence matches the selected candidate;
+- conversion and rollback rehearsal timings are positive and do not exceed one
+  declared approved limit;
+- rollback was rehearsed and verified, restores the row/index/backup contract,
+  and is write-loss-safe through either a verified maintenance write freeze or
+  verified reverse synchronization for an approved online strategy.
+
+Missing, malformed, stale, or contradictory evidence fails before
+`connection_factory(None)`, `CREATE DATABASE`, or any other SQL. The validated
+report exposes only sanitized counts, digests, timings, and strategy; it does
+not expose the local backup path.
+
 The shadow-table rollback is valid evidence only for a no-write disposable
 schema. It is not a production rollback strategy: any production conversion
 still requires an approved backup/restore drill plus either a maintenance write
@@ -62,8 +84,9 @@ switchover.
 ## Regression gate
 
 The focused inventory and canary contracts pass with the shared CPython
-3.14.6/Django 6.1 runtime. The inventory now fails closed when writer or orphan
-evidence is absent, preventing an incomplete snapshot from selecting a canary.
+3.14.6/Django 6.1 runtime. The inventory fails closed when writer or orphan
+evidence is absent, and the canary runner independently blocks all connection
+and DDL work until the complete preflight proof above is validated.
 
 ```bash
 TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
