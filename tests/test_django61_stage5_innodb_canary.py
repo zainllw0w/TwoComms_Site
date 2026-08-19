@@ -163,7 +163,7 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
             "schema": 1,
             "scope": "disposable_non-DTF_canary_only",
             "candidate": {
-                "table": "storefront_promocodegroup",
+                "table": "stage5_synthetic_legacy",
                 "source_engine": "MyISAM",
                 "target_engine": "InnoDB",
                 "exact_rows": rows,
@@ -233,7 +233,7 @@ class Stage5InnodbCanaryTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed")
         self.assertEqual(report["preflight"]["status"], "verified")
         self.assertEqual(
-            report["preflight"]["candidate"], "storefront_promocodegroup"
+            report["preflight"]["candidate"], "stage5_synthetic_legacy"
         )
         self.assertNotIn(str(self.backup_artifact), repr(report))
         self.assertTrue(report["backup"]["verified"])

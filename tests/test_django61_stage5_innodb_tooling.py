@@ -11,14 +11,14 @@ SPEC.loader.exec_module(MODULE)
 
 
 class Stage5InventoryTests(unittest.TestCase):
-    def test_selects_small_non_dtf_myisam_table_with_no_writers(self):
+    def test_selects_only_domain_reviewed_non_dtf_myisam_table_with_no_writers(self):
         report = MODULE.build_report(
             {
                 "database": "default",
                 "tables": [
                     {
-                        "name": "storefront_promocodegroup",
-                        "model": "storefront.PromoCodeGroup",
+                        "name": "app_disposable_legacy",
+                        "model": "app.DisposableLegacy",
                         "engine": "MyISAM",
                         "rows": 7,
                         "data_length": 512,
@@ -26,6 +26,7 @@ class Stage5InventoryTests(unittest.TestCase):
                         "writers": 0,
                         "orphan_scan_complete": True,
                         "writer_audit_complete": True,
+                        "domain_review_complete": True,
                     },
                     {
                         "name": "storefront_product",
@@ -40,11 +41,51 @@ class Stage5InventoryTests(unittest.TestCase):
                 "rollback": {"method": "maintenance_window", "backup_verified": True, "write_freeze": True},
             }
         )
-        self.assertEqual(report["selected_canary"]["name"], "storefront_promocodegroup")
+        self.assertEqual(report["selected_canary"]["name"], "app_disposable_legacy")
         migration_order = {
             row["name"]: row["migration_order"] for row in report["tables"]
         }
-        self.assertEqual(migration_order["storefront_promocodegroup"], 2)
+        self.assertEqual(migration_order["app_disposable_legacy"], 1)
+
+    def test_active_or_managed_engine_table_cannot_be_selected_as_canary(self):
+        base = {
+            "database": "default",
+            "foreign_keys": [],
+            "rollback": {
+                "method": "maintenance_window",
+                "backup_verified": True,
+                "write_freeze": True,
+            },
+        }
+        for override in (
+            {"domain_review_complete": False},
+            {"managed_engine_contract": True},
+            {"writers": 1},
+        ):
+            with self.subTest(override=override):
+                report = MODULE.build_report(
+                    {
+                        **base,
+                        "tables": [
+                            {
+                                "name": "storefront_promocodegroup",
+                                "model": "storefront.PromoCodeGroup",
+                                "engine": "MyISAM",
+                                "rows": 7,
+                                "data_length": 512,
+                                "criticality": "low",
+                                "writers": 0,
+                                "orphan_scan_complete": True,
+                                "writer_audit_complete": True,
+                                "domain_review_complete": True,
+                                "managed_engine_contract": False,
+                                **override,
+                            }
+                        ],
+                    }
+                )
+                self.assertIsNone(report["selected_canary"])
+                self.assertEqual(report["canary_status"], "blocked_no_proven_candidate")
 
     def test_dependency_order_comes_from_foreign_keys_not_declared_order(self):
         report = MODULE.build_report(

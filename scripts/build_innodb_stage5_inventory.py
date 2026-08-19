@@ -71,6 +71,12 @@ def _clean_table(raw: dict[str, Any]) -> dict[str, Any]:
         if writer_audit_complete
         else None
     )
+    domain_review_complete = raw.get("domain_review_complete", False)
+    if not isinstance(domain_review_complete, bool):
+        raise ValueError("domain_review_complete must be a boolean")
+    managed_engine_contract = raw.get("managed_engine_contract", False)
+    if not isinstance(managed_engine_contract, bool):
+        raise ValueError("managed_engine_contract must be a boolean")
     supplied_risk = str(raw.get("risk", "")).strip()
     if (
         engine.casefold() == "myisam"
@@ -82,6 +88,10 @@ def _clean_table(raw: dict[str, Any]) -> dict[str, Any]:
         risk = "unmeasured_orphan_risk"
     elif engine.casefold() == "myisam" and not writer_audit_complete:
         risk = "unmeasured_writer_risk"
+    elif engine.casefold() == "myisam" and not domain_review_complete:
+        risk = "unreviewed_domain_risk"
+    elif engine.casefold() == "myisam" and managed_engine_contract:
+        risk = "managed_engine_contract"
     elif supplied_risk:
         risk = supplied_risk
     elif engine.casefold() == "myisam":
@@ -99,6 +109,8 @@ def _clean_table(raw: dict[str, Any]) -> dict[str, Any]:
         "criticality": str(raw.get("criticality", "unknown")),
         "writer_audit_complete": writer_audit_complete,
         "writers": writers,
+        "domain_review_complete": domain_review_complete,
+        "managed_engine_contract": managed_engine_contract,
         "triggers": _nonnegative_int(raw.get("triggers", 0), "triggers"),
         "orphan_scan_complete": orphan_scan_complete,
         "orphan_count": orphan_count,
@@ -188,6 +200,8 @@ def build_report(payload: dict[str, Any]) -> dict[str, Any]:
         and row["model"].casefold() != "unknown"
         and row["writer_audit_complete"]
         and row["writers"] == 0
+        and row["domain_review_complete"]
+        and not row["managed_engine_contract"]
         and row["triggers"] == 0
         and row["orphan_scan_complete"]
         and row["orphan_count"] == 0

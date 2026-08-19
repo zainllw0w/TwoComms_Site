@@ -55,14 +55,17 @@ new read-only `information_schema` result is attached to the release evidence.
 
 ### Canary decision
 
-The only small-table candidate available for a disposable rehearsal is
-`storefront_promocodegroup`: tracked code identifies this legacy table as
-MyISAM-compatible, and the local SQLite production-like copy contains one row.
-That is sufficient to exercise the ranking/tooling contract only; SQLite does
-not prove the current MariaDB engine, lock behavior, triggers, or writers.
-Therefore the production canary remains **blocked** until the sanitized
-per-table inventory reports current `MyISAM`, row/size limits, zero writers,
-zero triggers, and no FK links. The candidate is never migrated by this change.
+The disposable rehearsal uses a synthetic table created inside the temporary
+schema, never a tracked project table. `storefront_promocodegroup` is explicitly
+excluded: migration `storefront.0087_promocodegroup_innodb` already owns its
+engine contract, while active promo reservation code writes it under
+`select_for_update()`. A small physical size or a stale MyISAM observation is
+therefore not enough to make it a canary.
+
+The production canary remains **blocked** until the sanitized per-table
+inventory reports current `MyISAM`, row/size limits, zero writers, zero
+triggers, no FK links, a completed domain review, and no existing managed-engine
+migration contract. The candidate is never migrated by this change.
 
 Run the read-only tool with a sanitized export:
 
