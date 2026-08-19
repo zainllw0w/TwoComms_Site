@@ -130,11 +130,16 @@ def get_geolocation(ip_address: str) -> Dict[str, Optional[str]]:
     if not configured_geoip_path:
         return result
     geoip_path = Path(configured_geoip_path).expanduser()
+    geoip_city = getattr(settings, 'GEOIP_CITY', None) or 'GeoLite2-City.mmdb'
+    geoip_country = getattr(settings, 'GEOIP_COUNTRY', None) or 'GeoLite2-Country.mmdb'
     has_geoip_database = (
         geoip_path.is_file() and geoip_path.suffix.lower() == '.mmdb'
     ) or (
         geoip_path.is_dir()
-        and any(candidate.is_file() for candidate in geoip_path.glob('*.mmdb'))
+        and any(
+            (geoip_path / filename).is_file()
+            for filename in (geoip_city, geoip_country)
+        )
     )
     if not has_geoip_database:
         logger.debug("GeoIP2 path is unavailable; skipping local lookup")
