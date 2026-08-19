@@ -363,9 +363,9 @@ accepted inbound.
   `4` MariaDB/platform-specific tests skipped; Django check, migration drift,
   scoped compile and `git diff --check` are green. This is code/local
   evidence, not production closure.
-- [ ] Publish the scoped commit to GitHub `main`, deploy only through the
-  approved SSH `git pull`, and prove that production `HEAD` equals the exact
-  pushed SHA.
+- [x] Publish the scoped commit to GitHub `main` (`bee229683`). The approved
+  SSH pull and exact production-SHA proof remain open until the protected
+  deploy environment provides `TWOCOMMS_DEPLOY_PASSWORD`.
 - [ ] On production MariaDB, read the effective `allowed_senders`; reconcile
   minimal-PII webhook/log or raw-callback evidence around `03:53` with the
   matching `IgClient`/`InstagramBotMessage` rows (or explicitly record why the

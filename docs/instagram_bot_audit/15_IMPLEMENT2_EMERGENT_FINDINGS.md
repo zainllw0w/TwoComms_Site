@@ -254,6 +254,10 @@ stay silent, and any early terminal branch clears typing before returning. A
 focused regression records the expected order and does not call provider text
 delivery.
 
+Release commit `bee229683` is published to `origin/main`; production pull and
+MariaDB evidence are still pending because the protected deploy credential is
+not available in this environment.
+
 Focused local evidence: the signed webhook-to-CRM regression covers an active
 allowlist and asserts exactly one visible `user/done` record with no automation;
 the consolidated ingress, webhook security/observability, Inbox Refresh,
