@@ -481,7 +481,7 @@ class CommerceWorkerDeliveryTests(TestCase):
                 "",
                 "meta-commerce-field-update",
             ),
-        ):
+        ), patch("management.services.instagram_bot.log") as log:
             self.assertTrue(instagram_bot._process_one(self.settings, row))
 
         decision = IgCommerceTurnDecision.objects.get(source_message=row)
@@ -491,6 +491,10 @@ class CommerceWorkerDeliveryTests(TestCase):
             IgCommerceTurnDecision.DeliveryState.NOT_REQUIRED,
         )
         self.assertEqual(gemini.call_count, 1)
+        self.assertNotIn(
+            "commerce_turn_project",
+            [call.args[1] for call in log.call_args_list if len(call.args) > 1],
+        )
 
     def test_missing_receipt_becomes_unknown_with_one_review_and_no_replay(self):
         from management.services.instagram_bot import ProviderDeliveryReceipt

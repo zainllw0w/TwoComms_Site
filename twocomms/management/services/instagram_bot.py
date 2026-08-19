@@ -11005,7 +11005,6 @@ def _process_one_inside_reply_boundary(
             processed_at=processed_at,
         )
         if row.client_id:
-            from management.models import IgClient
             from management.services.ig_funnel_analytics import (
                 record_first_bot_reply_in_transaction,
             )
