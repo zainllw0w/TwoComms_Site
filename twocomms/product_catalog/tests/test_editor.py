@@ -8,6 +8,7 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -541,6 +542,37 @@ class ProductCatalogImageJobTests(TestCase):
             {call.args[0] for call in run_job.call_args_list},
             {stale.pk, pending.pk},
         )
+
+    @patch("product_catalog.management.commands.reconcile_image_optimization_jobs.run_image_optimization_job")
+    def test_reconcile_command_requires_explicit_production_authorization(self, run_job):
+        pending = ImageOptimizationJob.objects.create(
+            model_label="storefront.product",
+            object_id=self.product.pk,
+            field_name="main_image",
+            status=ImageOptimizationJob.Status.PENDING,
+        )
+        with patch.dict(
+            "os.environ",
+            {
+                "DJANGO_ENV": "production",
+                "DJANGO_SETTINGS_MODULE": "twocomms.production_settings",
+            },
+            clear=True,
+        ):
+            with self.assertRaisesMessage(CommandError, "--allow-production"):
+                call_command(
+                    "reconcile_image_optimization_jobs",
+                    max_jobs=1,
+                    verbosity=0,
+                )
+            call_command(
+                "reconcile_image_optimization_jobs",
+                max_jobs=1,
+                allow_production=True,
+                verbosity=0,
+            )
+
+        run_job.assert_called_once_with(pending.pk)
 
     @patch("product_catalog.image_jobs.schedule_image_optimization")
     def test_editor_poll_does_not_requeue_a_job_before_the_cron_timeout(self, schedule):

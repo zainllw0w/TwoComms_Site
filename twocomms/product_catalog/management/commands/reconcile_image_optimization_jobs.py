@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from datetime import timedelta
+from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
@@ -32,12 +34,32 @@ class Command(BaseCommand):
             help="Maximum terminal history rows to delete per run.",
         )
         parser.add_argument("--dry-run", action="store_true")
+        parser.add_argument(
+            "--allow-production",
+            action="store_true",
+            help="Explicitly authorize media writes in the production runtime.",
+        )
 
     def handle(self, *args, **options):
         max_jobs = options["max_jobs"]
         stale_after = options["stale_after_seconds"]
         retention_days = options["retention_days"]
         cleanup_limit = options["cleanup_limit"]
+        production_context = (
+            os.environ.get("DJANGO_ENV", "").strip().lower() == "production"
+            or os.environ.get("DJANGO_SETTINGS_MODULE", "").rsplit(".", 1)[-1]
+            == "production_settings"
+            or Path(os.environ.get("DJANGO_ENV_FILE", "")).name
+            == ".env.production"
+        )
+        if (
+            production_context
+            and not options["dry_run"]
+            and not options["allow_production"]
+        ):
+            raise CommandError(
+                "--allow-production is required for production image media writes"
+            )
         if max_jobs < 1:
             raise CommandError("--max-jobs must be positive")
         if stale_after < 1:

@@ -20,9 +20,37 @@ class InstallProductCatalogImageJobsCronTests(unittest.TestCase):
         self.crontab_file = self.root / "crontab"
         self.django_root = self.root / "TwoComms_Site" / "twocomms"
         self.django_root.mkdir(parents=True)
-        self.python = self.root / "python"
-        self.python.write_text("", encoding="utf-8")
-        self.python.chmod(0o700)
+        (self.django_root / "manage.py").write_text("#!/bin/sh\n", encoding="utf-8")
+        self.cloudlinux_wrapper = self.root / "lve-manager" / "utils" / "python_wrapper"
+        self.cloudlinux_wrapper.parent.mkdir(parents=True)
+        self.cloudlinux_wrapper.write_text(
+            """#!/usr/bin/env bash
+set -eu
+if [ "${TWC_FAKE_PYTHON_FAIL:-0}" = 1 ]; then
+  echo 'private DB_PASSWORD=must-not-leak' >&2
+  exit 19
+fi
+if [ "${1:-}" = "-c" ]; then
+  case "${2:-}" in *"SELECT VERSION()"*) ;; *) exit 23 ;; esac
+  if [ "${TWC_FAKE_PYTHON_ENGINE:-mysql}" = "sqlite" ]; then
+    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.sqlite3","image_job_schema_ready":false,"mariadb":false}'
+  else
+    printf '%s\\n' '{"conn_max_age":0,"engine":"django.db.backends.mysql","image_job_schema_ready":'"${TWC_FAKE_IMAGE_SCHEMA_READY:-true}"',"mariadb":true}'
+  fi
+fi
+""",
+            encoding="utf-8",
+        )
+        self.cloudlinux_wrapper.chmod(0o700)
+        self.python = self.root / "venv" / "bin" / "python"
+        self.python.parent.mkdir(parents=True)
+        self.python.symlink_to(self.cloudlinux_wrapper)
+        self.flock = self.root / "flock"
+        self.timeout = self.root / "timeout"
+        self.nice = self.root / "nice"
+        for path in (self.flock, self.timeout, self.nice):
+            path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            path.chmod(path.stat().st_mode | stat.S_IXUSR)
         self._write_executable(
             "crontab",
             """#!/usr/bin/env bash
@@ -51,13 +79,18 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             "FAKE_CRONTAB_FILE": str(self.crontab_file),
             "TWC_DJANGO_ROOT": str(self.django_root),
             "TWC_PYTHON": str(self.python),
+            "TWC_CLOUDLINUX_PYTHON_WRAPPER": str(self.cloudlinux_wrapper),
+            "TWC_FLOCK_BIN": str(self.flock),
+            "TWC_TIMEOUT_BIN": str(self.timeout),
+            "TWC_NICE_BIN": str(self.nice),
+            "TWC_CRONTAB_BIN": "crontab",
         })
         return env
 
-    def _run(self, mode):
+    def _run(self, mode, *, env=None):
         return subprocess.run(
             ["bash", str(INSTALL_SCRIPT), mode],
-            env=self._env(),
+            env=env or self._env(),
             text=True,
             capture_output=True,
             timeout=10,
@@ -76,7 +109,13 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertIn("17 4 * * * /opt/other-job", first_content)
         self.assertEqual(first_content.count(BEGIN_MARKER), 1)
         self.assertIn("reconcile_image_optimization_jobs --max-jobs 4", first_content)
-        self.assertIn("/usr/bin/flock -n", first_content)
+        self.assertIn("--allow-production", first_content)
+        self.assertIn("DJANGO_ENV=production", first_content)
+        self.assertIn("DJANGO_SETTINGS_MODULE=twocomms.production_settings", first_content)
+        self.assertIn("--kill-after=30s 1500s", first_content)
+        self.assertIn(str(self.flock), first_content)
+        self.assertIn(str(self.timeout), first_content)
+        self.assertIn(str(self.nice), first_content)
 
     def test_check_detects_missing_or_drifted_block(self):
         self.assertNotEqual(self._run("--check").returncode, 0)
@@ -84,3 +123,55 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertEqual(self._run("--check").returncode, 0)
         self.crontab_file.write_text("# drift\n", encoding="utf-8")
         self.assertNotEqual(self._run("--check").returncode, 0)
+
+    def test_preflight_rejects_sqlite_or_missing_schema_without_crontab_write(self):
+        original = "17 4 * * * /opt/other-job\n"
+        self.crontab_file.write_text(original, encoding="utf-8")
+        for key, value in (
+            ("TWC_FAKE_PYTHON_ENGINE", "sqlite"),
+            ("TWC_FAKE_IMAGE_SCHEMA_READY", "false"),
+        ):
+            with self.subTest(key=key):
+                env = self._env()
+                env[key] = value
+                result = self._run("--install", env=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(
+                    self.crontab_file.read_text(encoding="utf-8"), original
+                )
+
+    def test_preflight_failure_is_sanitized(self):
+        env = self._env()
+        env["TWC_FAKE_PYTHON_FAIL"] = "1"
+
+        result = self._run("--check", env=env)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("preflight", result.stderr.lower())
+        self.assertNotIn("DB_PASSWORD", result.stderr)
+
+    def test_rejects_plain_python_and_duplicate_owner(self):
+        self.python.unlink()
+        self.python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.python.chmod(0o700)
+        plain_python = self._run("--install")
+        self.assertNotEqual(plain_python.returncode, 0)
+        self.assertIn("CloudLinux", plain_python.stderr)
+
+        self.python.unlink()
+        self.python.symlink_to(self.cloudlinux_wrapper)
+        original = "* * * * * /srv/manage.py reconcile_image_optimization_jobs\n"
+        self.crontab_file.write_text(original, encoding="utf-8")
+        duplicate = self._run("--install")
+        self.assertNotEqual(duplicate.returncode, 0)
+        self.assertIn("outside", duplicate.stderr)
+        self.assertEqual(self.crontab_file.read_text(encoding="utf-8"), original)
+
+    def test_missing_explicit_runtime_fails_closed(self):
+        env = self._env()
+        env.pop("TWC_PYTHON")
+
+        result = self._run("--install", env=env)
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("TWC_PYTHON is required", result.stderr)

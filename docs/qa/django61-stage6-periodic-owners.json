@@ -115,13 +115,17 @@
       "id": "product_catalog_image_jobs",
       "active": false,
       "cadence": "* * * * *",
-      "command": "manage.py reconcile_image_optimization_jobs",
+      "command": "manage.py reconcile_image_optimization_jobs --max-jobs 4 --stale-after-seconds 1800 --allow-production",
       "managed_block": "# BEGIN TWOCOMMS PRODUCT CATALOG IMAGE JOBS",
       "owner_path": "scripts/install_product_catalog_image_jobs_cron.sh",
       "lock_path": "tmp/product_catalog_image_jobs.lock",
       "flock": "/usr/bin/flock -n",
-      "timeout": "",
-      "timeout_required": false
+      "timeout": "/usr/bin/timeout --signal=TERM --kill-after=30s 1500s",
+      "timeout_required": true,
+      "environment": [
+        "DJANGO_ENV=production",
+        "DJANGO_SETTINGS_MODULE=twocomms.production_settings"
+      ]
     }
   ]
 }
