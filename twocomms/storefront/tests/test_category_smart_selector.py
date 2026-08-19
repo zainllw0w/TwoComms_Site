@@ -10,6 +10,7 @@ from unittest.mock import patch
 from django.core.cache import cache, caches
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
+from django.utils import translation
 
 from productcolors.models import Color, ProductColorVariant
 from product_catalog.models import (
@@ -27,6 +28,8 @@ from storefront.views.catalog import _apply_smart_selector_sort
 class SmartSelectorCategoryTests(TestCase):
     def setUp(self):
         super().setUp()
+        previous_language = translation.get_language() or "uk"
+        self.addCleanup(translation.activate, previous_language)
         cache.clear()
         caches["fragments"].clear()
         merchant_patcher = patch("storefront.signals.generate_google_merchant_feed_task.apply_async")
