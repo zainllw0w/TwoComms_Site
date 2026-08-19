@@ -50,3 +50,14 @@ class GeoIPFailSoftTests(SimpleTestCase):
         self.assertEqual(result["country"], "UA")
         self.assertEqual(result["city"], "Kyiv")
         geoip.assert_called_once_with(path=temp_dir)
+
+    def test_empty_database_directory_skips_geoip_constructor_without_warning(self):
+        with TemporaryDirectory() as temp_dir:
+            with override_settings(GEOIP_PATH=temp_dir):
+                with patch("django.contrib.gis.geoip2.GeoIP2") as geoip:
+                    with patch("storefront.utm_utils.logger.warning") as warning:
+                        result = get_geolocation("8.8.8.8")
+
+        self.assertEqual(result, EMPTY_GEOLOCATION)
+        geoip.assert_not_called()
+        warning.assert_not_called()

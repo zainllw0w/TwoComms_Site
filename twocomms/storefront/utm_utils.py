@@ -130,7 +130,13 @@ def get_geolocation(ip_address: str) -> Dict[str, Optional[str]]:
     if not configured_geoip_path:
         return result
     geoip_path = Path(configured_geoip_path).expanduser()
-    if not (geoip_path.is_file() or geoip_path.is_dir()):
+    has_geoip_database = (
+        geoip_path.is_file() and geoip_path.suffix.lower() == '.mmdb'
+    ) or (
+        geoip_path.is_dir()
+        and any(candidate.is_file() for candidate in geoip_path.glob('*.mmdb'))
+    )
+    if not has_geoip_database:
         logger.debug("GeoIP2 path is unavailable; skipping local lookup")
         return result
 
