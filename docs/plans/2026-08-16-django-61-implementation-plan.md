@@ -686,6 +686,12 @@ Production acceptance от 2026-08-17:
     production подтверждён CloudLinux-bound Python 3.14.6/Django 6.1/MariaDB,
     `CONN_MAX_AGE=0`, чистым tracked checkout, отсутствием
     `task_runtime.0001_initial` и отсутствием durable cron block.
+  - [x] Свежий per-account budget snapshot получен read-only через
+    CloudLinux-bound MariaDB: `2/20` account connections, `64/1024` FDs,
+    `14` processes; static admission gate даёт `status=ok` с post-worker
+    headroom `17` connections, `928` FDs и `512857` processes. Evidence:
+    `docs/qa/django61-stage6-task-budget-snapshot-2026-08-19.json`. Этот
+    snapshot истекает через 24 часа и не заменяет запущенный canary.
   - Статус: **LOCAL IMPLEMENTED / PRODUCTION BLOCKED**. `default` остаётся
     `ImmediateBackend`, поэтому новый adapter не меняет текущий request path.
   - Evidence: `docs/qa/django61-stage6-capability-blocker.md`,

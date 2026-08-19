@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "scope": "non-dtf",
+  "captured_at": "2026-08-19T00:06:16Z",
+  "provenance": {
+    "source": "cloudlinux-bound-python",
+    "kind": "read-only",
+    "release_sha": "5215acd88fb999cc677a2c47350cad6e41021824"
+  },
+  "runtime": {
+    "cloudlinux_bound": true,
+    "python": "3.14.6",
+    "django": "6.1"
+  },
+  "database": {
+    "engine": "django.db.backends.mysql",
+    "conn_max_age": 0,
+    "server_family": "MariaDB"
+  },
+  "mysql": {
+    "max_user_connections": 20,
+    "account_current_connections": 2
+  },
+  "fd": {
+    "soft_limit": 1024,
+    "account_open_fds": 64
+  },
+  "process": {
+    "soft_limit": 512874,
+    "account_current_processes": 14
+  }
+}

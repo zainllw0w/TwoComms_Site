@@ -31,6 +31,18 @@ argument and a docstring plus one pure return of
 provider/network imports, enqueue, persistence, or context-aware execution
 fail closed. The validator does not enqueue or execute the canary.
 
+## Fresh MariaDB evidence
+
+The sanitized CloudLinux-bound snapshot at
+`docs/qa/django61-stage6-task-budget-snapshot-2026-08-19.json` was collected
+read-only at `2026-08-19T00:06:16Z` from production SHA
+`5215acd88fb999cc677a2c47350cad6e41021824`. It records `2/20` account
+MariaDB connections, `64/1024` open FDs and `14` account processes. The gate
+returned `status=ok` with prospective headroom `17` connections, `928` FDs
+and `512857` processes after one bounded worker chain. The evidence expires
+after 24 hours and proves admission only; it does not authorize migration,
+cron installation or canary execution.
+
 ## Invocation
 
 ```text
