@@ -7,6 +7,7 @@ from django.utils.translation import get_language
 from accounts.models import UserProfile
 from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
 from storefront.services.locale_contract import build_storefront_locale_contract
+from storefront.services.cart_locale import build_cart_locale_config
 from storefront.services.web_push import is_web_push_configured
 
 
@@ -112,7 +113,10 @@ def site_urls(request):
 
 def storefront_locale_contract(request):
     language = getattr(request, "LANGUAGE_CODE", None) or get_language()
-    return {"storefront_locale_contract": build_storefront_locale_contract(language)}
+    return {
+        "storefront_locale_contract": build_storefront_locale_contract(language),
+        "cart_locale_config": build_cart_locale_config(language),
+    }
 
 
 def web_push_settings(request):

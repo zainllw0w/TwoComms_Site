@@ -14,6 +14,22 @@ import { getCookie } from './shared.js';
 import { validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260801a';
 import { syncUkraineCheckoutPhoneField } from './phone.js?v=20260422c';
 
+function getCartLocaleConfig() {
+  try {
+    const node = document.getElementById('cart-locale-config');
+    return node ? JSON.parse(node.textContent || '{}') : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+const CART_LOCALE = getCartLocaleConfig();
+const CART_STRINGS = CART_LOCALE.strings || {};
+const cartText = (key) => {
+  const value = CART_STRINGS[key];
+  return typeof value === 'string' && value ? value : '';
+};
+
 function deps() {
   return window.__twcMono || {};
 }
@@ -159,7 +175,7 @@ function addProductToCartForMono(button) {
 
   const csrfToken = collectMonoCsrf();
 
-  return fetch('/cart/add/', {
+  return fetch(CART_LOCALE.urls?.add, {
     method: 'POST',
     headers: {
       'X-CSRFToken': csrfToken || '',
@@ -169,12 +185,12 @@ function addProductToCartForMono(button) {
     body
   })
     .then(r => {
-      if (!r.ok) throw new Error('Не вдалося додати товар до кошика. Спробуйте ще раз.');
+      if (!r.ok) throw new Error(cartText('addToCartError'));
       return r.json();
     })
     .then(data => {
       if (!(data && data.ok)) {
-        const message = data && data.error ? data.error : 'Не вдалося додати товар до кошика. Спробуйте ще раз.';
+        const message = data && data.error ? data.error : cartText('addToCartError');
         throw new Error(message);
       }
       try { if (typeof data.count === 'number' && window.updateCartBadge) window.updateCartBadge(data.count); } catch (_) { }
@@ -217,7 +233,7 @@ function requestMonoCheckout() {
       email: getAnyVal('email')
     };
   }
-  return fetch('/cart/monobank/quick/', {
+  return fetch(CART_LOCALE.urls?.quickInvoice, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -234,7 +250,7 @@ function requestMonoCheckoutSingleProduct(button) {
   const context = resolveMonoProductContext(button);
 
   if (!context.productId) {
-    return Promise.resolve({ data: { success: false, error: 'Товар недоступний.' }, status: 400, ok: false });
+    return Promise.resolve({ data: { success: false, error: cartText('productUnavailable') }, status: 400, ok: false });
   }
 
   const payload = {
@@ -269,7 +285,7 @@ function requestMonoCheckoutSingleProduct(button) {
     payload.email = getAnyVal('email');
   }
 
-  return fetch('/cart/monobank/quick/', {
+  return fetch(CART_LOCALE.urls?.quickInvoice, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -301,7 +317,7 @@ function startMonoCheckout(button, statusEl, options) {
     .then(result => {
       const data = result.data || {};
       if (result.ok && data.success && data.redirect_url) {
-        setMonoCheckoutStatus(statusEl, 'success', 'Відкриваємо mono checkout…');
+        setMonoCheckoutStatus(statusEl, 'success', cartText('openingMonoCheckout'));
         const analytics = getCheckoutAnalyticsPayload();
         try {
           if (window.trackEvent && analytics) {
@@ -326,9 +342,9 @@ function startMonoCheckout(button, statusEl, options) {
         window.location.href = data.redirect_url;
         return;
       }
-      let message = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
+      let message = (data && data.error) ? data.error : cartText('paymentError');
       if (result.status === 401) {
-        message = 'Увійдіть, щоб скористатися mono checkout.';
+        message = cartText('loginForPayment');
       }
       setMonoCheckoutStatus(statusEl, 'error', message);
       throw new Error(message);
@@ -458,7 +474,7 @@ function requestMonobankPay(retryAttempt = 0) {
     }
   } catch (_) { }
 
-  return fetch('/cart/monobank/create-invoice/', {
+  return fetch(CART_LOCALE.urls?.invoice, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -494,11 +510,11 @@ function startMonobankPay(button, statusEl) {
       const phoneField = sourceForm.querySelector('[name="phone"]');
       if (phoneField && !syncUkraineCheckoutPhoneField(phoneField)) {
         phoneField.focus();
-        throw new Error('Вкажіть коректний український номер. Можна без +380.');
+        throw new Error(cartText('invalidPhone'));
       }
       const isValid = await validateNovaPoshtaSelection(sourceForm, { showErrors: true });
       if (!isValid) {
-        throw new Error('Оберіть місто та пункт доставки зі списку Нової пошти.');
+        throw new Error(cartText('invalidDelivery'));
       }
     })
     .then(() => requestMonobankPay())
@@ -509,7 +525,7 @@ function startMonobankPay(button, statusEl) {
         return;
       }
       if (result.ok && data.success && data.invoice_url) {
-        setMonoCheckoutStatus(statusEl, 'success', 'Відкриваємо платіжну сторінку…');
+        setMonoCheckoutStatus(statusEl, 'success', cartText('openingPayment'));
         const analytics = getCheckoutAnalyticsPayload();
         try {
           if (window.trackEvent && analytics) {
@@ -533,9 +549,9 @@ function startMonobankPay(button, statusEl) {
         window.location.href = data.invoice_url;
         return;
       }
-      let message = (data && data.error) ? data.error : 'Не вдалося створити платіж. Спробуйте ще раз.';
+      let message = (data && data.error) ? data.error : cartText('paymentError');
       if (result.status === 401) {
-        message = 'Увійдіть, щоб скористатися онлайн оплатою.';
+        message = cartText('loginForPayment');
       }
       setMonoCheckoutStatus(statusEl, 'error', message);
       throw new Error(message);

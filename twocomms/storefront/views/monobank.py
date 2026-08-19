@@ -27,6 +27,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.utils.dateparse import parse_datetime
 from django.core.cache import cache
 from django.db import transaction
@@ -90,7 +91,8 @@ def _ambiguous_payment_attempt_response():
         'success': False,
         'provider_ambiguous': True,
         'retry_after_ms': 5000,
-        'error': 'Платіж уже передано банку. Не повторюйте оплату, ми перевіряємо статус.',
+        'error_code': 'provider_ambiguous',
+        'error': _('Платіж уже передано банку. Не повторюйте оплату, ми перевіряємо статус.'),
     }, status=409)
 
 
@@ -104,7 +106,7 @@ def _capi_checkout_source_url(request):
                 return referer
         except ValueError:
             pass
-    return request.build_absolute_uri('/cart/')
+    return request.build_absolute_uri(reverse('cart'))
 
 
 def _schedule_missing_add_payment_info(order, request=None):
@@ -273,7 +275,8 @@ def _existing_checkout_response(request, order, approved_custom_keys, pending_cu
             'success': False,
             'in_progress': True,
             'retry_after_ms': 500,
-            'error': 'Платіж уже створюється. Зачекайте кілька секунд.',
+            'error_code': 'payment_in_progress',
+            'error': _('Платіж уже створюється. Зачекайте кілька секунд.'),
         }, status=409)
 
     request.session['monobank_invoice_id'] = order.payment_invoice_id
@@ -313,7 +316,8 @@ def _existing_payment_attempt_response(attempt, approved_custom_keys, pending_cu
             'success': False,
             'in_progress': True,
             'retry_after_ms': 500,
-            'error': 'Платіж уже створюється. Зачекайте кілька секунд.',
+            'error_code': 'payment_in_progress',
+            'error': _('Платіж уже створюється. Зачекайте кілька секунд.'),
         }, status=409)
     _schedule_missing_add_payment_info(attempt, request)
     return JsonResponse({
@@ -605,21 +609,35 @@ def _create_payment_attempt_invoice(request):
     if missing_price_leads:
         return JsonResponse({
             'success': False,
-            'error': 'Для погодженого кастомного виробу ще не зафіксована фінальна ціна.',
+            'error_code': 'custom_price_required',
+            'error': _('Для погодженого кастомного виробу ще не зафіксована фінальна ціна.'),
         }, status=400)
     if not cart and not approved_leads:
-        return JsonResponse({'success': False, 'error': 'Кошик порожній. Додайте товари перед оплатою.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'cart_empty',
+            'error': _('Кошик порожній. Додайте товари перед оплатою.'),
+        }, status=400)
 
     try:
         delivery = resolve_delivery_selection(body)
     except NovaPoshtaSelectionError as exc:
-        return JsonResponse({'success': False, 'field': exc.field, 'error': exc.message}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'delivery_selection',
+            'field': exc.field,
+            'error': _(exc.message),
+        }, status=400)
 
     if request.user.is_authenticated:
         try:
             profile = request.user.userprofile
         except Exception:
-            return JsonResponse({'success': False, 'error': 'Будь ласка, заповніть профіль доставки.'}, status=400)
+            return JsonResponse({
+                'success': False,
+                'error_code': 'profile_required',
+                'error': _('Будь ласка, заповніть профіль доставки.'),
+            }, status=400)
 
         def value_or_profile(name, fallback=''):
             value = body.get(name)
@@ -641,21 +659,45 @@ def _create_payment_attempt_invoice(request):
     try:
         pay_type = normalize_pay_type(pay_type_raw, default=None)
     except ValueError:
-        return JsonResponse({'success': False, 'field': 'pay_type', 'error': 'Оберіть коректний тип оплати.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'invalid_payment_type',
+            'field': 'pay_type',
+            'error': _('Оберіть коректний тип оплати.'),
+        }, status=400)
     if pay_type == 'cod':
         return JsonResponse({
             'success': False,
+            'error_code': 'cod_unsupported',
             'field': 'pay_type',
-            'error': 'Оплата при отриманні недоступна. Оберіть повну онлайн-оплату або передплату.',
+            'error': _('Оплата при отриманні недоступна. Оберіть повну онлайн-оплату або передплату.'),
         }, status=400)
     if pay_type not in {'online_full', 'prepay_200'}:
-        return JsonResponse({'success': False, 'field': 'pay_type', 'error': 'Оберіть доступний спосіб оплати.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'payment_type_unavailable',
+            'field': 'pay_type',
+            'error': _('Оберіть доступний спосіб оплати.'),
+        }, status=400)
     if approved_leads and pay_type == 'prepay_200':
-        return JsonResponse({'success': False, 'error': 'Передплата 200 грн недоступна для кастомного принта.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'custom_prepay_unsupported',
+            'error': _('Передплата 200 грн недоступна для кастомного принта.'),
+        }, status=400)
     if raw_phone and not phone:
-        return JsonResponse({'success': False, 'field': 'phone', 'error': 'Вкажіть коректний український номер телефону.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'invalid_phone',
+            'field': 'phone',
+            'error': _('Вкажіть коректний український номер телефону. Можна без +380.'),
+        }, status=400)
     if not all([full_name, phone, delivery.city, delivery.np_office]):
-        return JsonResponse({'success': False, 'error': 'Будь ласка, заповніть всі обовʼязкові поля.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'required_fields',
+            'error': _('Будь ласка, заповніть всі обовʼязкові поля.'),
+        }, status=400)
 
     normalized_email = ''
     if email:
@@ -670,7 +712,11 @@ def _create_payment_attempt_invoice(request):
     ids = [int(item['product_id']) for item in cart.values()]
     products = Product.objects.in_bulk(ids)
     if any(not products.get(item['product_id']) for item in cart.values()):
-        return JsonResponse({'success': False, 'error': 'Деякі товари більше недоступні. Оновіть кошик.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'products_unavailable',
+            'error': _('Деякі товари більше недоступні. Оновіть кошик.'),
+        }, status=400)
 
     from productcolors.models import ProductColorVariant
     from product_catalog.services import effective_cart_unit_price, variant_allows_purchase
@@ -687,7 +733,11 @@ def _create_payment_attempt_invoice(request):
                 size=item.get('size') or '', option_values=item.get('option_values') or {},
             )
         ):
-            return JsonResponse({'success': False, 'error': 'Обраний варіант товару більше недоступний.'}, status=400)
+            return JsonResponse({
+                'success': False,
+                'error_code': 'variant_unavailable',
+                'error': _('Обраний варіант товару більше недоступний.'),
+            }, status=400)
         qty = int(item.get('qty') or 1)
         unit = effective_cart_unit_price(
             product, variant, fit_code=item.get('fit_option_code') or item.get('fit') or '',
@@ -710,7 +760,11 @@ def _create_payment_attempt_invoice(request):
         })
     gross += sum((Decimal(str(lead.final_price_value)) for lead in approved_leads), Decimal('0.00'))
     if gross <= 0:
-        return JsonResponse({'success': False, 'error': 'Сума замовлення повинна бути більше 0.'}, status=400)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'invalid_amount',
+            'error': _('Сума замовлення повинна бути більше 0.'),
+        }, status=400)
 
     promo_id = request.session.get('promo_code_id')
     delivery_refs = {
@@ -809,8 +863,9 @@ def _create_payment_attempt_invoice(request):
     except PromoReservationError:
         return JsonResponse({
             'success': False,
+            'error_code': 'promo_invalid',
             'field': 'promo_code',
-            'error': 'Промокод недійсний, неактивний або вже зарезервований.',
+            'error': _('Промокод недійсний, неактивний або вже зарезервований.'),
         }, status=400)
 
     record_initiate_checkout(request, float(payable))
@@ -858,7 +913,11 @@ def _create_payment_attempt_invoice(request):
         )
         if not ambiguous:
             release_payment_attempt_promo(attempt, reason='invoice_creation_failed')
-        return JsonResponse({'success': False, 'error': f'Помилка створення платежу: {exc}'}, status=502)
+        return JsonResponse({
+            'success': False,
+            'error_code': 'provider_error',
+            'error': _('Не вдалося створити платіж. Спробуйте ще раз.'),
+        }, status=200 if isinstance(exc, MonobankAPIError) and not ambiguous else 502)
 
     # Capture the same first-party attribution context used by paid orders:
     # fbp/fbc, click ids, stable external id, client IP and user agent. The

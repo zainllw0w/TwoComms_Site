@@ -859,7 +859,7 @@ msgstr ""
 
 #: management/ig_bot_models.py:1028
 msgid "Знижка"
-msgstr ""
+msgstr "Скидка"
 
 #: management/ig_bot_models.py:1029 management/ig_bot_models.py:1077
 msgid "Інтерес до товару"
@@ -6917,7 +6917,7 @@ msgstr ""
 
 #: storefront/services/catalog_helpers.py:99
 msgid "Товар TwoComms"
-msgstr "Товар TwoComms"
+msgstr "Изделие TwoComms"
 
 #: storefront/services/catalog_helpers.py:104
 #, python-format
@@ -9855,7 +9855,7 @@ msgstr "Укажите корректный украинский номер те
 #: storefront/views/cart.py:576 storefront/views/checkout.py:189
 #: storefront/views/profile.py:169
 msgid "Оберіть коректний тип оплати."
-msgstr ""
+msgstr "Выберите корректный способ оплаты."
 
 #: storefront/views/cart.py:582
 msgid "Дані доставки успішно оновлено!"
@@ -9916,7 +9916,7 @@ msgstr "Товар не найден в корзине"
 
 #: storefront/views/cart.py:1330
 msgid "Забагато спроб. Спробуйте через хвилину."
-msgstr ""
+msgstr "Слишком много попыток. Повторите через минуту."
 
 #: storefront/views/cart.py:1338
 msgid "Введіть промокод"
@@ -10029,7 +10029,7 @@ msgstr "Кастомный принт ещё ожидает проверки м�
 
 #: storefront/views/checkout.py:195
 msgid "Оплата при отриманні недоступна. Оберіть повну онлайн-оплату або передплату."
-msgstr ""
+msgstr "Оплата при получении недоступна. Выберите полную онлайн-оплату или предоплату."
 
 #: storefront/views/checkout.py:205
 msgid "Будь ласка, заповніть всі обов'язкові поля"
@@ -11678,7 +11678,7 @@ msgstr "🎁 Подарок:"
 
 #: twocomms_django_theme/templates/pages/cart.html:202
 msgid "Упаковка + промокод 10%"
-msgstr "Упаковка + промокод 10%"
+msgstr "Подарочная упаковка + промокод на 10%"
 
 #: twocomms_django_theme/templates/pages/cart.html:207
 msgid "B2B знижка:"
@@ -11851,7 +11851,7 @@ msgstr "Телефон *"
 #: twocomms_django_theme/templates/pages/cart.html:416
 #: twocomms_django_theme/templates/pages/cart.html:588
 msgid "Ваш номер телефону"
-msgstr ""
+msgstr "Ваш номер телефона"
 
 #: twocomms_django_theme/templates/pages/cart.html:424
 #: twocomms_django_theme/templates/pages/cart.html:599
@@ -11866,7 +11866,7 @@ msgstr "your@email.com"
 #: twocomms_django_theme/templates/pages/cart.html:431
 #: twocomms_django_theme/templates/pages/cart.html:605
 msgid "Надішлемо на нього квитанцію про оплату з деталями замовлення. Не обовʼязково."
-msgstr ""
+msgstr "Отправим на него квитанцию об оплате с деталями заказа. Необязательно."
 
 #: twocomms_django_theme/templates/pages/cart.html:436
 msgid "Місто *"
@@ -11893,17 +11893,17 @@ msgstr "Тип оплаты *"
 #: twocomms_django_theme/templates/pages/cart.html:485
 #: twocomms_django_theme/templates/pages/cart.html:668
 msgid "Повна оплата онлайн"
-msgstr ""
+msgstr "Полная оплата онлайн"
 
 #: twocomms_django_theme/templates/pages/cart.html:486
 #: twocomms_django_theme/templates/pages/cart.html:669
 msgid "Картка · Apple Pay · Google Pay"
-msgstr ""
+msgstr "Карта · Apple Pay · Google Pay"
 
 #: twocomms_django_theme/templates/pages/cart.html:501
 #: twocomms_django_theme/templates/pages/cart.html:684
 msgid "Решту сплатите при отриманні"
-msgstr ""
+msgstr "Остаток оплатите при получении"
 
 #: twocomms_django_theme/templates/pages/cart.html:508
 #: twocomms_django_theme/templates/pages/cart.html:657
@@ -11931,11 +11931,11 @@ msgstr "Нужна консультация?"
 #: twocomms_django_theme/templates/pages/cart.html:533
 #: twocomms_django_theme/templates/pages/cart.html:719
 msgid "Менеджер допоможе з вибором і розміром"
-msgstr ""
+msgstr "Менеджер поможет с выбором и размером"
 
 #: twocomms_django_theme/templates/pages/cart.html:540
 msgid "Дані збережено"
-msgstr ""
+msgstr "Данные сохранены"
 
 #: twocomms_django_theme/templates/pages/cart.html:559
 msgid "Авторизація"
@@ -12017,11 +12017,11 @@ msgstr[3] "%(counter)s балла"
 
 #: twocomms_django_theme/templates/pages/cart.html:863
 msgid "Обмінюйте на промокоди або донат на ЗСУ"
-msgstr ""
+msgstr "Обменивайте их на промокоды или жертвуйте на поддержку Украины"
 
 #: twocomms_django_theme/templates/pages/cart.html:866
 msgid "Бали за це замовлення не нараховуються"
-msgstr ""
+msgstr "За этот заказ баллы не начисляются"
 
 #: twocomms_django_theme/templates/pages/cart.html:880
 msgid "Доставка оплачується згідно тарифів перевізника."
@@ -12050,15 +12050,15 @@ msgstr "Менеджер уже работает с вашим кастомны�
 
 #: twocomms_django_theme/templates/pages/cart.html:926
 msgid "Оплатити онлайн"
-msgstr ""
+msgstr "Оплатить онлайн"
 
 #: twocomms_django_theme/templates/pages/cart.html:926
 msgid "(без кастомного одягу)"
-msgstr ""
+msgstr "(без кастомной одежды)"
 
 #: twocomms_django_theme/templates/pages/cart.html:929
 msgid "Картка"
-msgstr ""
+msgstr "Карта"
 
 #: twocomms_django_theme/templates/pages/cart.html:933
 #: twocomms_django_theme/templates/pages/cart.html:937
@@ -13142,7 +13142,7 @@ msgstr "Выберите посадку, ткань, цвет и детали. �
 #: twocomms_django_theme/templates/pages/pro_brand.html:1622
 #: twocomms_django_theme/templates/partials/mini_cart.html:65
 msgid "Посадка"
-msgstr "Посадка"
+msgstr "Тип посадки"
 
 #: twocomms_django_theme/templates/pages/custom_print.html:397
 msgid "Як річ сидітиме на тілі."
@@ -14169,7 +14169,7 @@ msgstr "Товары в заказе"
 #: twocomms_django_theme/templates/pages/my_orders.html:444
 #: twocomms_django_theme/templates/pages/my_orders.html:467
 msgid "шт"
-msgstr "шт"
+msgstr "шт."
 
 #: twocomms_django_theme/templates/pages/my_orders.html:464
 #: twocomms_django_theme/templates/pages/order_success.html:1535
@@ -17091,3 +17091,241 @@ msgstr[3] "Показать %(counter)s модели"
 #: twocomms_django_theme/templates/partials/catalog_smart_selector.html
 msgid "Показати підкатегорії: %(label)s"
 msgstr "Показать подкатегории: %(label)s"
+
+# Cart and checkout runtime copy
+msgid "Не вдалося завантажити кошик"
+msgstr "Не удалось загрузить корзину"
+
+msgid "№{number}"
+msgstr "№ {number}"
+
+msgid "Розміщення"
+msgstr "Размещение"
+
+msgid "Режим розмірів"
+msgstr "Режим размеров"
+
+msgid "Послуга"
+msgstr "Услуга"
+
+msgid "Підготовка файлу"
+msgstr "Подготовка файла"
+
+msgid "Додатково"
+msgstr "Дополнительно"
+
+msgid "Коментар до розміщення"
+msgstr "Комментарий к размещению"
+
+msgid "Погоджено — можна оплачувати"
+msgstr "Согласовано — можно оплачивать"
+
+msgid "Коментар менеджера"
+msgstr "Комментарий менеджера"
+
+msgid "Орієнтовно"
+msgstr "Ориентировочно"
+
+msgid "Заробите {points} балів"
+msgstr "Вы получите {points} баллов"
+
+msgid "Товари ({count}):"
+msgstr "Товары ({count}):"
+
+msgid "Ви впевнені, що хочете очистити кошик?"
+msgstr "Вы уверены, что хотите очистить корзину?"
+
+msgid "До сплати зараз:"
+msgstr "К оплате сейчас:"
+
+msgid "Перейти до оплати"
+msgstr "Перейти к оплате"
+
+msgid "Внести передплату 200 грн"
+msgstr "Внести предоплату 200 грн"
+
+msgid "Замовити як гість"
+msgstr "Заказать как гость"
+
+msgid "Відправляємо…"
+msgstr "Отправляем…"
+
+msgid "Дякуємо! Менеджер зв'яжеться з вами найближчим часом."
+msgstr "Спасибо! Менеджер свяжется с вами в ближайшее время."
+
+msgid "Спробуйте ще раз"
+msgstr "Попробуйте ещё раз"
+
+msgid "Помилка з'єднання. Спробуйте ще раз."
+msgstr "Ошибка соединения. Попробуйте ещё раз."
+
+msgid "Невірний промокод. Перевірте код і спробуйте ще раз."
+msgstr "Неверный промокод. Проверьте код и попробуйте ещё раз."
+
+msgid "Промокод застосовано."
+msgstr "Промокод применён."
+
+msgid "Видаляємо промокод…"
+msgstr "Удаляем промокод…"
+
+msgid "Не вдалося видалити промокод."
+msgstr "Не удалось удалить промокод."
+
+msgid "Промокод видалено."
+msgstr "Промокод удалён."
+
+msgid "Не вдалося видалити промокод. Перевірте з'єднання та спробуйте ще раз."
+msgstr "Не удалось удалить промокод. Проверьте соединение и попробуйте ещё раз."
+
+msgid "Введіть промокод, щоб відкрити сейф."
+msgstr "Введите промокод, чтобы открыть сейф."
+
+msgid "Перевіряємо код на сервері…"
+msgstr "Проверяем код на сервере…"
+
+msgid "Код прийнято. Відкриваємо сейф…"
+msgstr "Код принят. Открываем сейф…"
+
+msgid "Перший замок відкрито…"
+msgstr "Первый замок открыт…"
+
+msgid "Другий замок відкрито…"
+msgstr "Второй замок открыт…"
+
+msgid "Усі замки відкрито."
+msgstr "Все замки открыты."
+
+msgid "Відкриваємо двері сейфа…"
+msgstr "Открываем дверь сейфа…"
+
+msgid "Знижку знайдено."
+msgstr "Скидка найдена."
+
+msgid "Знижку знайдено. Закриваємо сейф…"
+msgstr "Скидка найдена. Закрываем сейф…"
+
+msgid "Не вдалося перевірити промокод. Перевірте з'єднання та спробуйте ще раз."
+msgstr "Не удалось проверить промокод. Проверьте соединение и попробуйте ещё раз."
+
+msgid "Це поле обов'язкове"
+msgstr "Это поле обязательно"
+
+msgid "Вкажіть коректний український номер. Можна без +380."
+msgstr "Укажите корректный украинский номер. Можно без +380."
+
+msgid "Не вдалося створити платіж. Спробуйте ще раз."
+msgstr "Не удалось создать платёж. Попробуйте ещё раз."
+
+msgid "Увійдіть, щоб скористатися онлайн оплатою."
+msgstr "Войдите, чтобы использовать онлайн-оплату."
+
+msgid "Відкриваємо платіжну сторінку…"
+msgstr "Открываем страницу оплаты…"
+
+msgid "Відкриваємо mono checkout…"
+msgstr "Открываем Mono checkout…"
+
+msgid "Товар недоступний."
+msgstr "Товар недоступен."
+
+msgid "Не вдалося додати товар до кошика. Спробуйте ще раз."
+msgstr "Не удалось добавить товар в корзину. Попробуйте ещё раз."
+
+msgid "Для погодженого кастомного виробу ще не зафіксована фінальна ціна."
+msgstr "Финальная цена согласованного кастомного изделия ещё не зафиксирована."
+
+msgid "Кошик порожній. Додайте товари перед оплатою."
+msgstr "Корзина пуста. Добавьте товары перед оплатой."
+
+msgid "Будь ласка, заповніть профіль доставки."
+msgstr "Пожалуйста, заполните профиль доставки."
+
+msgid "Оберіть доступний спосіб оплати."
+msgstr "Выберите доступный способ оплаты."
+
+msgid "Передплата 200 грн недоступна для кастомного принта."
+msgstr "Предоплата 200 грн недоступна для кастомного принта."
+
+msgid "Вкажіть коректний український номер телефону."
+msgstr "Укажите корректный украинский номер телефона."
+
+msgid "Будь ласка, заповніть всі обовʼязкові поля."
+msgstr "Пожалуйста, заполните все обязательные поля."
+
+msgid "Деякі товари більше недоступні. Оновіть кошик."
+msgstr "Некоторые товары больше недоступны. Обновите корзину."
+
+msgid "Обраний варіант товару більше недоступний."
+msgstr "Выбранный вариант товара больше недоступен."
+
+msgid "Сума замовлення повинна бути більше 0."
+msgstr "Сумма заказа должна быть больше 0."
+
+msgid "Промокод недійсний, неактивний або вже зарезервований."
+msgstr "Промокод недействителен, неактивен или уже зарезервирован."
+
+msgid "Помилка створення платежу: %(error)s"
+msgstr "Ошибка создания платежа: %(error)s"
+
+msgid "Платіж уже передано банку. Не повторюйте оплату, ми перевіряємо статус."
+msgstr "Платёж уже передан банку. Не повторяйте оплату, мы проверяем статус."
+
+msgid "Оберіть місто зі списку Нової пошти."
+msgstr "Выберите город из списка Новой почты."
+
+msgid "Оберіть відділення або поштомат зі списку Нової пошти."
+msgstr "Выберите отделение или почтомат из списка Новой почты."
+
+msgid "Потрібно повторно обрати місто зі списку Нової пошти."
+msgstr "Повторно выберите город из списка Новой почты."
+
+msgid "Потрібно повторно обрати відділення або поштомат зі списку Нової пошти."
+msgstr "Повторно выберите отделение или почтомат из списка Новой почты."
+
+msgid "Не вдалося підтвердити вибране місто Нової пошти."
+msgstr "Не удалось подтвердить выбранный город Новой почты."
+
+msgid "Не вдалося підтвердити вибране відділення Нової пошти."
+msgstr "Не удалось подтвердить выбранное отделение Новой почты."
+
+msgid "Платіж уже створюється. Зачекайте кілька секунд."
+msgstr "Платёж уже создаётся. Подождите несколько секунд."
+
+msgid "Оберіть місто та пункт доставки зі списку Нової пошти."
+msgstr "Выберите город и пункт доставки из списка Новой почты."
+
+msgid "Помилка: {message}"
+msgstr "Ошибка: {message}"
+
+msgid "Не вказано ID товару."
+msgstr "Не указан ID товара."
+
+msgid "Товар не знайдено."
+msgstr "Товар не найден."
+
+msgid "Помилка при створенні замовлення."
+msgstr "Не удалось создать заказ."
+
+msgid "Не вдалося підготувати дані для платежу. Спробуйте ще раз."
+msgstr "Не удалось подготовить данные для платежа. Попробуйте ещё раз."
+
+msgid "Не вдалося створити замовлення. Спробуйте пізніше."
+msgstr "Не удалось создать заказ. Попробуйте позже."
+
+msgid "ПІБ повинно містити мінімум 3 символи."
+msgstr "ФИО должно содержать минимум 3 символа."
+
+msgid "Невірний формат телефону. Використовуйте формат +380XXXXXXXXX."
+msgstr "Неверный формат телефона. Используйте формат +380XXXXXXXXX."
+
+msgid "Введіть назву міста."
+msgstr "Введите название города."
+
+msgid "Введіть адресу відділення або поштомата."
+msgstr "Введите адрес отделения или почтомата."
+
+msgid "Невідомий тип оплати."
+msgstr "Неизвестный тип оплаты."
+
+msgid "Для онлайн-оплати карткою потрібно обрати «Повна передоплата»."
+msgstr "Для онлайн-оплаты картой выберите «Полную предоплату»."

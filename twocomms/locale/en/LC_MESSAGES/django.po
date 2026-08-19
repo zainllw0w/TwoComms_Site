@@ -859,7 +859,7 @@ msgstr ""
 
 #: management/ig_bot_models.py:1028
 msgid "Знижка"
-msgstr ""
+msgstr "Discount"
 
 #: management/ig_bot_models.py:1029 management/ig_bot_models.py:1077
 msgid "Інтерес до товару"
@@ -9811,7 +9811,7 @@ msgstr "Enter a valid Ukrainian phone number. With or without +380."
 #: storefront/views/cart.py:576 storefront/views/checkout.py:189
 #: storefront/views/profile.py:169
 msgid "Оберіть коректний тип оплати."
-msgstr ""
+msgstr "Choose a valid payment method."
 
 #: storefront/views/cart.py:582
 msgid "Дані доставки успішно оновлено!"
@@ -9872,7 +9872,7 @@ msgstr "Item not found in cart"
 
 #: storefront/views/cart.py:1330
 msgid "Забагато спроб. Спробуйте через хвилину."
-msgstr ""
+msgstr "Too many attempts. Try again in a minute."
 
 #: storefront/views/cart.py:1338
 msgid "Введіть промокод"
@@ -9985,7 +9985,7 @@ msgstr "The custom print is still awaiting manager review. Payment will be avail
 
 #: storefront/views/checkout.py:195
 msgid "Оплата при отриманні недоступна. Оберіть повну онлайн-оплату або передплату."
-msgstr ""
+msgstr "Cash on delivery is unavailable. Choose full online payment or a prepayment."
 
 #: storefront/views/checkout.py:205
 msgid "Будь ласка, заповніть всі обов'язкові поля"
@@ -11807,7 +11807,7 @@ msgstr "Phone *"
 #: twocomms_django_theme/templates/pages/cart.html:416
 #: twocomms_django_theme/templates/pages/cart.html:588
 msgid "Ваш номер телефону"
-msgstr ""
+msgstr "Your phone number"
 
 #: twocomms_django_theme/templates/pages/cart.html:424
 #: twocomms_django_theme/templates/pages/cart.html:599
@@ -11822,7 +11822,7 @@ msgstr "your@email.com"
 #: twocomms_django_theme/templates/pages/cart.html:431
 #: twocomms_django_theme/templates/pages/cart.html:605
 msgid "Надішлемо на нього квитанцію про оплату з деталями замовлення. Не обовʼязково."
-msgstr ""
+msgstr "We'll send the payment receipt with your order details to this address. Optional."
 
 #: twocomms_django_theme/templates/pages/cart.html:436
 msgid "Місто *"
@@ -11849,17 +11849,17 @@ msgstr "Payment method *"
 #: twocomms_django_theme/templates/pages/cart.html:485
 #: twocomms_django_theme/templates/pages/cart.html:668
 msgid "Повна оплата онлайн"
-msgstr ""
+msgstr "Pay in full online"
 
 #: twocomms_django_theme/templates/pages/cart.html:486
 #: twocomms_django_theme/templates/pages/cart.html:669
 msgid "Картка · Apple Pay · Google Pay"
-msgstr ""
+msgstr "Card · Apple Pay · Google Pay"
 
 #: twocomms_django_theme/templates/pages/cart.html:501
 #: twocomms_django_theme/templates/pages/cart.html:684
 msgid "Решту сплатите при отриманні"
-msgstr ""
+msgstr "Pay the remainder on delivery"
 
 #: twocomms_django_theme/templates/pages/cart.html:508
 #: twocomms_django_theme/templates/pages/cart.html:657
@@ -11887,11 +11887,11 @@ msgstr "Need a consultation?"
 #: twocomms_django_theme/templates/pages/cart.html:533
 #: twocomms_django_theme/templates/pages/cart.html:719
 msgid "Менеджер допоможе з вибором і розміром"
-msgstr ""
+msgstr "A manager will help you choose the right item and size"
 
 #: twocomms_django_theme/templates/pages/cart.html:540
 msgid "Дані збережено"
-msgstr ""
+msgstr "Details saved"
 
 #: twocomms_django_theme/templates/pages/cart.html:559
 msgid "Авторизація"
@@ -11971,11 +11971,11 @@ msgstr[1] "%(counter)s points"
 
 #: twocomms_django_theme/templates/pages/cart.html:863
 msgid "Обмінюйте на промокоди або донат на ЗСУ"
-msgstr ""
+msgstr "Exchange them for promo codes or donate to support Ukraine"
 
 #: twocomms_django_theme/templates/pages/cart.html:866
 msgid "Бали за це замовлення не нараховуються"
-msgstr ""
+msgstr "No points are earned for this order"
 
 #: twocomms_django_theme/templates/pages/cart.html:880
 msgid "Доставка оплачується згідно тарифів перевізника."
@@ -12004,15 +12004,15 @@ msgstr "The manager is already handling your custom request. Once moderation fin
 
 #: twocomms_django_theme/templates/pages/cart.html:926
 msgid "Оплатити онлайн"
-msgstr ""
+msgstr "Pay online"
 
 #: twocomms_django_theme/templates/pages/cart.html:926
 msgid "(без кастомного одягу)"
-msgstr ""
+msgstr "(custom clothing excluded)"
 
 #: twocomms_django_theme/templates/pages/cart.html:929
 msgid "Картка"
-msgstr ""
+msgstr "Card"
 
 #: twocomms_django_theme/templates/pages/cart.html:933
 #: twocomms_django_theme/templates/pages/cart.html:937
@@ -17073,3 +17073,241 @@ msgstr[1] "Show %(counter)s products"
 #: twocomms_django_theme/templates/partials/catalog_smart_selector.html
 msgid "Показати підкатегорії: %(label)s"
 msgstr "Show subcategories: %(label)s"
+
+# Cart and checkout runtime copy
+msgid "Не вдалося завантажити кошик"
+msgstr "Could not load the cart"
+
+msgid "№{number}"
+msgstr "No. {number}"
+
+msgid "Розміщення"
+msgstr "Placement"
+
+msgid "Режим розмірів"
+msgstr "Size mode"
+
+msgid "Послуга"
+msgstr "Service"
+
+msgid "Підготовка файлу"
+msgstr "File preparation"
+
+msgid "Додатково"
+msgstr "Additional"
+
+msgid "Коментар до розміщення"
+msgstr "Placement comment"
+
+msgid "Погоджено — можна оплачувати"
+msgstr "Approved - ready to pay"
+
+msgid "Коментар менеджера"
+msgstr "Manager comment"
+
+msgid "Орієнтовно"
+msgstr "Estimated"
+
+msgid "Заробите {points} балів"
+msgstr "You will earn {points} points"
+
+msgid "Товари ({count}):"
+msgstr "Products ({count}):"
+
+msgid "Ви впевнені, що хочете очистити кошик?"
+msgstr "Are you sure you want to clear the cart?"
+
+msgid "До сплати зараз:"
+msgstr "Pay now:"
+
+msgid "Перейти до оплати"
+msgstr "Proceed to payment"
+
+msgid "Внести передплату 200 грн"
+msgstr "Pay a UAH 200 deposit"
+
+msgid "Замовити як гість"
+msgstr "Order as guest"
+
+msgid "Відправляємо…"
+msgstr "Sending..."
+
+msgid "Дякуємо! Менеджер зв'яжеться з вами найближчим часом."
+msgstr "Thank you! A manager will contact you shortly."
+
+msgid "Спробуйте ще раз"
+msgstr "Try again"
+
+msgid "Помилка з'єднання. Спробуйте ще раз."
+msgstr "Connection error. Please try again."
+
+msgid "Невірний промокод. Перевірте код і спробуйте ще раз."
+msgstr "Invalid promo code. Check the code and try again."
+
+msgid "Промокод застосовано."
+msgstr "Promo code applied."
+
+msgid "Видаляємо промокод…"
+msgstr "Removing promo code..."
+
+msgid "Не вдалося видалити промокод."
+msgstr "Could not remove the promo code."
+
+msgid "Промокод видалено."
+msgstr "Promo code removed."
+
+msgid "Не вдалося видалити промокод. Перевірте з'єднання та спробуйте ще раз."
+msgstr "Could not remove the promo code. Check your connection and try again."
+
+msgid "Введіть промокод, щоб відкрити сейф."
+msgstr "Enter a promo code to open the safe."
+
+msgid "Перевіряємо код на сервері…"
+msgstr "Checking the code on the server..."
+
+msgid "Код прийнято. Відкриваємо сейф…"
+msgstr "Code accepted. Opening the safe..."
+
+msgid "Перший замок відкрито…"
+msgstr "First lock opened..."
+
+msgid "Другий замок відкрито…"
+msgstr "Second lock opened..."
+
+msgid "Усі замки відкрито."
+msgstr "All locks opened."
+
+msgid "Відкриваємо двері сейфа…"
+msgstr "Opening the safe door..."
+
+msgid "Знижку знайдено."
+msgstr "Discount found."
+
+msgid "Знижку знайдено. Закриваємо сейф…"
+msgstr "Discount found. Closing the safe..."
+
+msgid "Не вдалося перевірити промокод. Перевірте з'єднання та спробуйте ще раз."
+msgstr "Could not check the promo code. Check your connection and try again."
+
+msgid "Це поле обов'язкове"
+msgstr "This field is required"
+
+msgid "Вкажіть коректний український номер. Можна без +380."
+msgstr "Enter a valid Ukrainian phone number. You may omit +380."
+
+msgid "Не вдалося створити платіж. Спробуйте ще раз."
+msgstr "Could not create the payment. Please try again."
+
+msgid "Увійдіть, щоб скористатися онлайн оплатою."
+msgstr "Sign in to use online payment."
+
+msgid "Відкриваємо платіжну сторінку…"
+msgstr "Opening the payment page..."
+
+msgid "Відкриваємо mono checkout…"
+msgstr "Opening Mono checkout..."
+
+msgid "Товар недоступний."
+msgstr "Product unavailable."
+
+msgid "Не вдалося додати товар до кошика. Спробуйте ще раз."
+msgstr "Could not add the product to the cart. Please try again."
+
+msgid "Для погодженого кастомного виробу ще не зафіксована фінальна ціна."
+msgstr "The final price for the approved custom product has not been set yet."
+
+msgid "Кошик порожній. Додайте товари перед оплатою."
+msgstr "Your cart is empty. Add products before paying."
+
+msgid "Будь ласка, заповніть профіль доставки."
+msgstr "Please complete your delivery profile."
+
+msgid "Оберіть доступний спосіб оплати."
+msgstr "Choose an available payment method."
+
+msgid "Передплата 200 грн недоступна для кастомного принта."
+msgstr "The UAH 200 deposit is unavailable for custom print."
+
+msgid "Вкажіть коректний український номер телефону."
+msgstr "Enter a valid Ukrainian phone number."
+
+msgid "Будь ласка, заповніть всі обовʼязкові поля."
+msgstr "Please complete all required fields."
+
+msgid "Деякі товари більше недоступні. Оновіть кошик."
+msgstr "Some products are no longer available. Refresh your cart."
+
+msgid "Обраний варіант товару більше недоступний."
+msgstr "The selected product variant is no longer available."
+
+msgid "Сума замовлення повинна бути більше 0."
+msgstr "The order amount must be greater than 0."
+
+msgid "Промокод недійсний, неактивний або вже зарезервований."
+msgstr "The promo code is invalid, inactive, or already reserved."
+
+msgid "Помилка створення платежу: %(error)s"
+msgstr "Payment creation error: %(error)s"
+
+msgid "Платіж уже передано банку. Не повторюйте оплату, ми перевіряємо статус."
+msgstr "The payment was already sent to the bank. Do not retry; we are checking its status."
+
+msgid "Оберіть місто зі списку Нової пошти."
+msgstr "Choose a city from the Nova Poshta list."
+
+msgid "Оберіть відділення або поштомат зі списку Нової пошти."
+msgstr "Choose a branch or parcel locker from the Nova Poshta list."
+
+msgid "Потрібно повторно обрати місто зі списку Нової пошти."
+msgstr "Choose the city from the Nova Poshta list again."
+
+msgid "Потрібно повторно обрати відділення або поштомат зі списку Нової пошти."
+msgstr "Choose the branch or parcel locker from the Nova Poshta list again."
+
+msgid "Не вдалося підтвердити вибране місто Нової пошти."
+msgstr "Could not verify the selected Nova Poshta city."
+
+msgid "Не вдалося підтвердити вибране відділення Нової пошти."
+msgstr "Could not verify the selected Nova Poshta branch."
+
+msgid "Платіж уже створюється. Зачекайте кілька секунд."
+msgstr "The payment is already being created. Please wait a few seconds."
+
+msgid "Оберіть місто та пункт доставки зі списку Нової пошти."
+msgstr "Choose a city and delivery point from the Nova Poshta list."
+
+msgid "Помилка: {message}"
+msgstr "Error: {message}"
+
+msgid "Не вказано ID товару."
+msgstr "Product ID is missing."
+
+msgid "Товар не знайдено."
+msgstr "Product not found."
+
+msgid "Помилка при створенні замовлення."
+msgstr "Could not create the order."
+
+msgid "Не вдалося підготувати дані для платежу. Спробуйте ще раз."
+msgstr "Could not prepare payment details. Please try again."
+
+msgid "Не вдалося створити замовлення. Спробуйте пізніше."
+msgstr "Could not create the order. Please try again later."
+
+msgid "ПІБ повинно містити мінімум 3 символи."
+msgstr "Full name must contain at least 3 characters."
+
+msgid "Невірний формат телефону. Використовуйте формат +380XXXXXXXXX."
+msgstr "Invalid phone format. Use +380XXXXXXXXX."
+
+msgid "Введіть назву міста."
+msgstr "Enter a city name."
+
+msgid "Введіть адресу відділення або поштомата."
+msgstr "Enter the branch or parcel locker address."
+
+msgid "Невідомий тип оплати."
+msgstr "Unknown payment type."
+
+msgid "Для онлайн-оплати карткою потрібно обрати «Повна передоплата»."
+msgstr "For online card payment, choose \"Full prepayment\"."

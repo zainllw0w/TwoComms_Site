@@ -312,6 +312,7 @@ _LEGACY_VIEW_NAMES = (
     'get_user_invoices',
     'wholesale_prices_xlsx',
     'api_colors',
+    'monobank_create_checkout',
 )
 
 

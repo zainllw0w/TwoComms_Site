@@ -6,20 +6,47 @@ import {
   syncUkraineCheckoutPhoneHint
 } from './phone.js?v=20260422c';
 
-const CART_EMPTY_TEMPLATE = `
+const getCartLocaleConfig = () => {
+  try {
+    const node = document.getElementById('cart-locale-config');
+    return node ? JSON.parse(node.textContent || '{}') : {};
+  } catch (_) {
+    return {};
+  }
+};
+
+const CART_LOCALE = getCartLocaleConfig();
+const CART_STRINGS = CART_LOCALE.strings || {};
+const cartText = (key) => {
+  const value = CART_STRINGS[key];
+  return typeof value === 'string' && value ? value : '';
+};
+const cartInterpolate = (key, values = {}) => {
+  let text = cartText(key);
+  Object.entries(values).forEach(([name, value]) => {
+    text = text.replaceAll(`{${name}}`, String(value));
+  });
+  return text;
+};
+const cartUrl = (key) => {
+  const value = CART_LOCALE.urls?.[key];
+  return typeof value === 'string' && value ? value : '';
+};
+
+const CART_EMPTY_TEMPLATE = () => `
   <div class="cart-empty">
     <div class="cart-empty-icon">
       <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+        <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.89-2-1.99-2z"/>
       </svg>
     </div>
-    <h2 class="cart-empty-title">Кошик порожній</h2>
-    <p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p>
-    <a href="/" class="cart-empty-btn">
+    <h2 class="cart-empty-title">${cartText('emptyCart')}</h2>
+    <p class="cart-empty-text">${cartText('emptyCartText')}</p>
+    <a href="${cartUrl('home')}" class="cart-empty-btn">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
       </svg>
-      Перейти до покупок
+      ${cartText('continueShopping')}
     </a>
   </div>
 `;
@@ -53,7 +80,9 @@ const formatUAH = (amount) => {
   const options = isInt
     ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
     : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  return `${value.toLocaleString('uk-UA', options)} грн`;
+  const locale = CART_LOCALE.intlLocale || document.documentElement.lang || undefined;
+  const suffix = CART_LOCALE.currency?.suffix || CART_LOCALE.currency?.code || '';
+  return `${value.toLocaleString(locale, options)} ${suffix}`;
 };
 
 // Keep color values safe and predictable before placing them in dynamic markup.
@@ -82,7 +111,7 @@ const renderCartSwatch = (item, colorLabel) => {
     ? ` style="--primary-color:${primary};${secondary ? `--secondary-color:${secondary};` : ''}"`
     : '';
   const label = colorLabel && colorLabel !== '—'
-    ? ` role="img" aria-label="${escapeHtml(`Колір: ${colorLabel}`)}"`
+    ? ` role="img" aria-label="${escapeHtml(`${cartText('color')}: ${colorLabel}`)}"`
     : ' aria-hidden="true"';
 
   return `<span class="${classes.join(' ')}"${dataAttrs}${styleVars}${label}></span>`;
@@ -133,9 +162,9 @@ class CartPageController {
     this.promoAppliedDiscountEl = root.querySelector('.cart-promo-applied-discount');
     this.placeholderImage = this.cartList?.dataset.placeholder || '';
     this.prepayValue = parseNumber(this.payNowAmountEl?.dataset.prepay || 200) || 200;
-    this.itemsEndpoint = root.dataset.cartItemsUrl || '/cart/items/';
-    this.summaryEndpoint = root.dataset.cartSummaryUrl || '/cart/summary/';
-    this.contactUrl = root.dataset.contactUrl || '/cart/contact-manager/';
+    this.itemsEndpoint = root.dataset.cartItemsUrl || cartUrl('items');
+    this.summaryEndpoint = root.dataset.cartSummaryUrl || cartUrl('summary');
+    this.contactUrl = root.dataset.contactUrl || cartUrl('contact');
     this.state = null;
     this.syncTimer = null;
     this.requestController = null;
@@ -213,13 +242,15 @@ class CartPageController {
     let text = '';
     switch (payType) {
       case 'online_full':
-        text = 'Перейти до оплати';
+        text = cartText('paymentCta');
         break;
       case 'prepay_200':
-        text = 'Внести передплату 200 грн';
+        text = cartText('prepayCta');
         break;
       default:
-        text = this.placeOrderBtn ? 'Оформити замовлення' : 'Замовити як гість';
+        text = this.placeOrderBtn
+          ? cartText('orderCta')
+          : cartText('guestCta');
     }
     textSpan.textContent = text;
   }
@@ -233,6 +264,9 @@ class CartPageController {
   }
 
   async sync() {
+    if (!this.itemsEndpoint) {
+      return;
+    }
     if (this.requestController) {
       this.requestController.abort();
     }
@@ -300,7 +334,7 @@ class CartPageController {
     customItems = Array.isArray(customItems) ? customItems : [];
 
     if (!items.length && !customItems.length) {
-      this.cartMainSection.innerHTML = CART_EMPTY_TEMPLATE;
+      this.cartMainSection.innerHTML = CART_EMPTY_TEMPLATE();
       return;
     }
 
@@ -319,88 +353,90 @@ class CartPageController {
   }
 
   renderCustomItem(ci) {
-    const leadNumber = ci.lead_number ? ` · №${escapeHtml(String(ci.lead_number))}` : '';
+    const leadNumber = ci.lead_number
+      ? ` · ${escapeHtml(cartInterpolate('leadNumber', { number: ci.lead_number }))}`
+      : '';
     const placements = ci.placements_display ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Розміщення:</span>
+              <span class="cart-item-label">${cartText('placement')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.placements_display)}</span>
             </div>` : '';
     const productLabel = ci.product_label ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Виріб:</span>
+              <span class="cart-item-label">${cartText('product')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.product_label)}</span>
             </div>` : '';
     const sizeMode = ci.size_mode_label ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Режим розмірів:</span>
+              <span class="cart-item-label">${cartText('sizeMode')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.size_mode_label)}</span>
             </div>` : '';
     const sizeBreakdown = ci.size_breakdown_display ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Розміри:</span>
+              <span class="cart-item-label">${cartText('sizes')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.size_breakdown_display)}</span>
             </div>` : '';
     const color = ci.color ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Колір:</span>
+              <span class="cart-item-label">${cartText('color')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.color)}</span>
             </div>` : '';
     const fit = ci.fit_label ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Крій:</span>
+              <span class="cart-item-label">${cartText('cut')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.fit_label)}</span>
             </div>` : '';
     const fabric = ci.fabric_label ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Тканина:</span>
+              <span class="cart-item-label">${cartText('fabric')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.fabric_label)}</span>
             </div>` : '';
     const serviceKind = ci.service_kind_label ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Послуга:</span>
+              <span class="cart-item-label">${cartText('service')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.service_kind_label)}</span>
             </div>` : '';
     const fileTriage = ci.file_triage_label ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Підготовка файлу:</span>
+              <span class="cart-item-label">${cartText('filePreparation')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.file_triage_label)}</span>
             </div>` : '';
     const addOns = Array.isArray(ci.add_on_labels) && ci.add_on_labels.length ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Додатково:</span>
+              <span class="cart-item-label">${cartText('additional')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.add_on_labels.join(', '))}</span>
             </div>` : '';
     const placementNote = ci.placement_note ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Коментар до розміщення:</span>
+              <span class="cart-item-label">${cartText('placementComment')}:</span>
               <span class="cart-item-value">${escapeHtml(ci.placement_note)}</span>
             </div>` : '';
     const gift = ci.gift_enabled ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">🎁 Подарунок:</span>
-              <span class="cart-item-value">${escapeHtml(ci.gift_text || 'Упаковка + промокод 10%')}</span>
+              <span class="cart-item-label">${cartText('gift')}:</span>
+              <span class="cart-item-value">${escapeHtml(ci.gift_text || cartText('giftText'))}</span>
             </div>` : '';
     const b2bDiscount = parseNumber(ci.b2b_discount_per_unit) > 0 && ci.mode === 'brand' ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">B2B знижка:</span>
-              <span class="cart-item-value">-${formatUAH(parseNumber(ci.b2b_discount_per_unit))} / шт</span>
+              <span class="cart-item-label">${cartText('b2bDiscount')}:</span>
+              <span class="cart-item-value">-${formatUAH(parseNumber(ci.b2b_discount_per_unit))} / ${cartText('perItem')}</span>
             </div>` : '';
 
     let moderationBadge = '';
     if (ci.is_pending) {
-      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--pending"><span class="cart-item-status-spinner" aria-hidden="true"></span>${ci.is_draft ? 'Передаємо менеджеру на перевірку' : 'На перевірці менеджера'}</span>`;
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--pending"><span class="cart-item-status-spinner" aria-hidden="true"></span>${ci.is_draft ? cartText('pendingToManager') : cartText('pendingManager')}</span>`;
     } else if (ci.is_approved) {
-      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--approved">✅ Погоджено — можна оплачувати</span>`;
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--approved">${cartText('approved')}</span>`;
     } else if (ci.is_rejected) {
-      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--rejected">❌ Відхилено менеджером</span>`;
+      moderationBadge = `<span class="cart-item-moderation-badge cart-item-moderation-badge--rejected">${cartText('rejected')}</span>`;
     }
-    const managerNote = ci.manager_note ? `<div class="cart-item-manager-note">Коментар менеджера: ${escapeHtml(ci.manager_note)}</div>` : '';
+    const managerNote = ci.manager_note ? `<div class="cart-item-manager-note">${cartText('managerComment')}: ${escapeHtml(ci.manager_note)}</div>` : '';
     const priceNote = ci.pending_price_note || ci.payment_note || '';
     const totalValue = ci.included_in_payment
       ? `<span class="cart-item-total-value">${formatUAH(parseNumber(ci.line_total))}</span>`
-      : `<span class="cart-item-total-value cart-item-total-value--muted">Після погодження</span>${parseNumber(ci.final_total) > 0 ? `<div class="cart-item-total-note">Орієнтовно ${formatUAH(parseNumber(ci.final_total))}</div>` : ''}`;
+      : `<span class="cart-item-total-value cart-item-total-value--muted">${cartText('afterApproval')}</span>${parseNumber(ci.final_total) > 0 ? `<div class="cart-item-total-note">${cartText('approximately')} ${formatUAH(parseNumber(ci.final_total))}</div>` : ''}`;
     const managerLink = ci.show_manager_contact
-      ? `<a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="cart-item-manager-link" aria-label="Написати менеджеру"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg><span class="cart-action-label">Написати менеджеру</span></a>`
+      ? `<a href="https://t.me/twocomms" target="_blank" rel="noopener noreferrer" class="cart-item-manager-link" aria-label="${cartText('managerContact')}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg><span class="cart-action-label">${cartText('managerContact')}</span></a>`
       : '';
 
     return `
@@ -423,23 +459,23 @@ class CartPageController {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
-            Кастомний друк${leadNumber}
+            ${cartText('customPrint')}${leadNumber}
           </div>
           <div class="cart-item-moderation" data-status="${escapeHtml(ci.moderation_status || '')}">
             ${moderationBadge}
             ${managerNote}
           </div>
-          <h3 class="cart-item-title">${escapeHtml(ci.label || 'Кастомний виріб')}</h3>
+          <h3 class="cart-item-title">${escapeHtml(ci.label || cartText('customProduct'))}</h3>
           <div class="cart-item-details">${productLabel}${placements}
             <div class="cart-item-detail">
-              <span class="cart-item-label">Кількість:</span>
+              <span class="cart-item-label">${cartText('quantity')}:</span>
               <span class="cart-item-value">${Number(ci.quantity || 1)}</span>
             </div>${sizeMode}${sizeBreakdown}${fit}${fabric}${color}${serviceKind}${fileTriage}${addOns}${placementNote}${gift}${b2bDiscount}
           </div>
           <div class="cart-item-price">
-            <span class="cart-item-price-label">${escapeHtml(ci.price_caption || 'Ціна')}:</span>
+            <span class="cart-item-price-label">${escapeHtml(ci.price_caption || cartText('price'))}:</span>
             <span class="cart-item-price-value">
-              <span class="cart-item-price-current">${formatUAH(parseNumber(ci.unit_total))} / шт</span>
+              <span class="cart-item-price-current">${formatUAH(parseNumber(ci.unit_total))} / ${cartText('perItem')}</span>
             </span>
             ${priceNote ? `<div class="cart-item-price-note">${escapeHtml(priceNote)}</div>` : ''}
           </div>
@@ -447,15 +483,15 @@ class CartPageController {
 
         <div class="cart-item-actions">
           <div class="cart-item-total">
-            <span class="cart-item-total-label">Разом:</span>
+            <span class="cart-item-total-label">${cartText('total')}:</span>
             ${totalValue}
           </div>
           ${managerLink}
-          <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}" aria-label="Видалити товар">
+          <button type="button" class="cart-item-remove-btn" data-custom-remove data-key="${escapeHtml(ci.key || '')}" data-lead-id="${escapeHtml(String(ci.lead_id || ''))}" aria-label="${cartText('remove')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            <span class="cart-action-label">Видалити</span>
+            <span class="cart-action-label">${cartText('remove')}</span>
           </button>
         </div>
       </div>
@@ -489,36 +525,36 @@ class CartPageController {
           <div class="cart-item-spark cart-item-spark-3"></div>
         </div>
         <div class="cart-item-image">
-          <img src="${imageUrl}" alt="${escapeHtml(item.product_title || 'Товар TwoComms')}" class="cart-item-img" width="80" height="80">
+          <img src="${imageUrl}" alt="${escapeHtml(item.product_title || cartText('itemProductAlt'))}" class="cart-item-img" width="80" height="80">
           <div class="cart-item-image-glow"></div>
         </div>
         <div class="cart-item-info">
           <h3 class="cart-item-title">${escapeHtml(item.product_title || '')}</h3>
           <div class="cart-item-details">
             <div class="cart-item-detail">
-              <span class="cart-item-label">Розмір:</span>
+              <span class="cart-item-label">${cartText('size')}:</span>
               <span class="cart-item-value">${escapeHtml(size)}</span>
             </div>
             <div class="cart-item-detail cart-item-detail--qty">
-              <span class="cart-item-label">Кількість:</span>
+              <span class="cart-item-label">${cartText('quantity')}:</span>
               <div class="cart-qty-stepper">
-                <button type="button" class="cart-qty-btn" data-qty-dec aria-label="Зменшити кількість"${qty <= 1 ? ' disabled' : ''}>
+                <button type="button" class="cart-qty-btn" data-qty-dec aria-label="${cartText('decrease')}"${qty <= 1 ? ' disabled' : ''}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13H5v-2h14v2z"/></svg>
                 </button>
                 <span class="cart-qty-value" data-qty-value>${qty}</span>
-                <button type="button" class="cart-qty-btn" data-qty-inc aria-label="Збільшити кількість">
+                <button type="button" class="cart-qty-btn" data-qty-inc aria-label="${cartText('increase')}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                 </button>
               </div>
             </div>
             ${fitLabel ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Посадка:</span>
+              <span class="cart-item-label">${cartText('fit')}:</span>
               <span class="cart-item-value">${escapeHtml(fitLabel)}</span>
             </div>` : ''}
             ${hasColor ? `
             <div class="cart-item-detail">
-              <span class="cart-item-label">Колір:</span>
+              <span class="cart-item-label">${cartText('color')}:</span>
               <div class="cart-item-color d-flex align-items-center gap-2">
                 ${colorSwatch}
                 <span class="cart-item-color-name">${escapeHtml(colorLabel)}</span>
@@ -526,7 +562,7 @@ class CartPageController {
             </div>` : ''}
           </div>
           <div class="cart-item-price">
-            <span class="cart-item-price-label">Ціна:</span>
+            <span class="cart-item-price-label">${cartText('price')}:</span>
             <span class="cart-item-price-value">${priceHtml}</span>
           </div>
           ${points > 0 ? `
@@ -536,19 +572,19 @@ class CartPageController {
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
             </div>
-            <span class="cart-item-points-text">Заробите ${points} балів</span>
+            <span class="cart-item-points-text">${cartInterpolate('pointsEarned', { points })}</span>
           </div>` : ''}
         </div>
         <div class="cart-item-actions">
           <div class="cart-item-total">
-            <span class="cart-item-total-label">Разом:</span>
+            <span class="cart-item-total-label">${cartText('total')}:</span>
             <span class="cart-item-total-value">${formatUAH(lineTotal)}</span>
           </div>
-          <button type="button" class="cart-item-remove-btn" data-key="${escapeHtml(item.key)}" aria-label="Видалити товар">
+          <button type="button" class="cart-item-remove-btn" data-key="${escapeHtml(item.key)}" aria-label="${cartText('remove')}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
             </svg>
-            <span class="cart-action-label">Видалити</span>
+            <span class="cart-action-label">${cartText('remove')}</span>
           </button>
         </div>
       </div>
@@ -569,7 +605,7 @@ class CartPageController {
         : 0;
 
     if (this.itemsLabelEl) {
-      this.itemsLabelEl.textContent = `Товари (${itemsCount}):`;
+      this.itemsLabelEl.textContent = cartInterpolate('itemsCount', { count: itemsCount });
     }
 
     const promoDiscount = parseNumber(data.discount);
@@ -580,7 +616,7 @@ class CartPageController {
     if (this.discountValueEl) {
       this.discountValueEl.textContent = hasPromoDiscount
         ? `-${formatUAH(promoDiscount)}`
-        : '-0 грн';
+        : `-${formatUAH(0)}`;
     }
 
     const siteDiscount = parseNumber(data.site_discount_total);
@@ -591,7 +627,7 @@ class CartPageController {
     if (this.siteDiscountValueEl) {
       this.siteDiscountValueEl.textContent = hasSiteDiscount
         ? `-${formatUAH(siteDiscount)}`
-        : '-0 грн';
+        : `-${formatUAH(0)}`;
     }
 
     const totalSavingsRaw = parseNumber(data.total_savings);
@@ -638,7 +674,9 @@ class CartPageController {
     this.payNowAmountEl.textContent = formatUAH(payNow);
 
     if (this.payNowLabelEl) {
-      this.payNowLabelEl.textContent = isPrepay ? 'До сплати зараз:' : 'До сплати:';
+      this.payNowLabelEl.textContent = isPrepay
+        ? cartText('payNowPrepay')
+        : cartText('payNow');
     }
 
     toggleElement(this.prepayRow, isPrepay);
@@ -674,7 +712,7 @@ class CartPageController {
     toggleElement(this.pointsNoneBox, points <= 0);
 
     if (this.pointsAmountEl) {
-      this.pointsAmountEl.textContent = `+${points} балів`;
+      this.pointsAmountEl.textContent = cartInterpolate('pointsEarned', { points: `+${points}` });
     }
   }
 
@@ -711,7 +749,7 @@ class CartPageController {
     }
     const discount = parseNumber(data.discount);
     if (discount > 0) {
-      this.promoAppliedDiscountEl.textContent = `Знижка: -${formatUAH(discount)}`;
+      this.promoAppliedDiscountEl.textContent = `${cartText('discount')}: -${formatUAH(discount)}`;
     } else {
       this.promoAppliedDiscountEl.textContent = '';
     }
@@ -800,7 +838,7 @@ class CartPageController {
 
         if (submitBtn) {
           submitBtn.disabled = true;
-          submitBtn.textContent = 'Відправляємо...';
+          submitBtn.textContent = cartText('contactSending');
         }
 
         try {
@@ -811,7 +849,7 @@ class CartPageController {
           });
           const data = await response.json();
           if (data.success) {
-            alert('✅ Дякуємо! Менеджер зв\'яжеться з вами найближчим часом.');
+            alert(`✅ ${cartText('contactSuccess')}`);
             try {
               if (window.trackEvent) {
                 const eventId = (typeof window.safeGenerateAnalyticsEventId === 'function')
@@ -832,11 +870,11 @@ class CartPageController {
             form.reset();
             closeModal();
           } else {
-            alert(`❌ Помилка: ${data.error || 'Спробуйте ще раз'}`);
+            alert(`❌ ${cartInterpolate('contactError', { message: data.error || cartText('genericError') })}`);
           }
         } catch (error) {
           console.error('Contact manager error:', error);
-          alert('❌ Помилка з\'єднання. Спробуйте ще раз.');
+          alert(`❌ ${cartText('contactConnectionError')}`);
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;
@@ -905,7 +943,7 @@ function initPromoVault() {
     // Force a layout read so repeated invalid attempts replay the reference's jam animation.
     void vault.offsetWidth;
     vault.classList.add('is-error');
-    status.textContent = message || 'Невірний промокод. Перевірте код і спробуйте ще раз.';
+    status.textContent = message || cartText('promoInvalid');
     input.setAttribute('aria-invalid', 'true');
     input.focus({ preventScroll: true });
   };
@@ -926,19 +964,19 @@ function initPromoVault() {
     clearStates();
     vault.classList.add('is-success');
     input.removeAttribute('aria-invalid');
-    status.textContent = 'Промокод застосовано.';
+    status.textContent = cartText('promoApplied');
     applied.classList.remove('d-none');
     if (appliedCode) appliedCode.textContent = data.promo_code || code;
-    if (appliedDiscount) appliedDiscount.textContent = `Знижка: ${formatUAH(parseNumber(data.discount))}`;
+    if (appliedDiscount) appliedDiscount.textContent = `${cartText('discount')}: ${formatUAH(parseNumber(data.discount))}`;
   };
 
   remove.addEventListener('click', async () => {
     if (remove.disabled) return;
     remove.disabled = true;
     remove.setAttribute('aria-busy', 'true');
-    status.textContent = 'Видаляємо промокод…';
+    status.textContent = cartText('promoRemoving');
     try {
-      const response = await fetch(vault.dataset.removeUrl || '/cart/remove-promo/', {
+      const response = await fetch(vault.dataset.removeUrl || cartUrl('promoRemove'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
@@ -949,7 +987,7 @@ function initPromoVault() {
       let data = {};
       try { data = await response.json(); } catch (_error) { data = {}; }
       if (!response.ok || !data.success) {
-        renderError(data.error || 'Не вдалося видалити промокод.');
+        renderError(data.error || cartText('promoRemoveError'));
         return;
       }
       clearStates();
@@ -957,10 +995,10 @@ function initPromoVault() {
       applied.classList.add('d-none');
       if (appliedCode) appliedCode.textContent = '';
       if (appliedDiscount) appliedDiscount.textContent = '';
-      status.textContent = data.message || 'Промокод видалено.';
+      status.textContent = data.message || cartText('promoRemoved');
       document.dispatchEvent(new CustomEvent('cartUpdated'));
     } catch (_error) {
-      renderError('Не вдалося видалити промокод. Перевірте з’єднання та спробуйте ще раз.');
+      renderError(cartText('promoRemoveNetworkError'));
     } finally {
       remove.disabled = false;
       remove.removeAttribute('aria-busy');
@@ -974,14 +1012,14 @@ function initPromoVault() {
     }
     const code = (input.value || '').trim();
     if (!code) {
-      renderError('Введіть промокод, щоб відкрити сейф.');
+      renderError(cartText('promoRequired'));
       return;
     }
 
     clearAnimationTimers();
     clearStates();
     vault.classList.add('is-loading');
-    status.textContent = 'Перевіряємо код на сервері…';
+    status.textContent = cartText('promoChecking');
     input.removeAttribute('aria-invalid');
     input.disabled = true;
     submit.disabled = true;
@@ -990,7 +1028,7 @@ function initPromoVault() {
     requestController = new AbortController();
 
     try {
-      const response = await fetch(vault.dataset.applyUrl || '/cart/apply-promo/', {
+      const response = await fetch(vault.dataset.applyUrl || cartUrl('promoApply'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
@@ -1003,7 +1041,9 @@ function initPromoVault() {
       let data = {};
       try { data = await response.json(); } catch (_error) { data = {}; }
       if (!response.ok || !data.success) {
-        renderError(data.error || data.message || (response.status === 429 ? 'Забагато спроб. Спробуйте через хвилину.' : 'Невірний промокод. Перевірте код і спробуйте ще раз.'));
+        renderError(data.error || data.message || (response.status === 429
+          ? cartText('promoRetryLimit')
+          : cartText('promoInvalid')));
         return;
       }
 
@@ -1011,36 +1051,36 @@ function initPromoVault() {
       document.dispatchEvent(new CustomEvent('cartUpdated'));
       clearStates();
       vault.classList.add('is-unlocking');
-      status.textContent = 'Код прийнято. Відкриваємо сейф…';
+      status.textContent = cartText('promoAccepted');
       if (reduceMotion) {
         finishSuccess(data, code);
       } else {
         scheduleAnimation(animationTimeline.bolt1, () => {
           vault.classList.add('is-bolt-1');
           shiver(1);
-          status.textContent = 'Перший замок відкрито…';
+          status.textContent = cartText('promoFirstLock');
         });
         scheduleAnimation(animationTimeline.bolt2, () => {
           vault.classList.add('is-bolt-2');
           shiver(2);
-          status.textContent = 'Другий замок відкрито…';
+          status.textContent = cartText('promoSecondLock');
         });
         scheduleAnimation(animationTimeline.bolt3, () => {
           vault.classList.add('is-bolt-3');
           shiver(3);
-          status.textContent = 'Усі замки відкрито.';
+          status.textContent = cartText('promoAllLocks');
         });
         scheduleAnimation(animationTimeline.open, () => {
           vault.classList.add('is-open');
-          status.textContent = 'Відкриваємо двері сейфа…';
+          status.textContent = cartText('promoOpeningDoor');
         });
         scheduleAnimation(animationTimeline.reveal, () => {
           vault.classList.add('is-revealing');
-          status.textContent = 'Знижку знайдено.';
+          status.textContent = cartText('promoFound');
         });
         scheduleAnimation(animationTimeline.close, () => {
           vault.classList.add('is-closing');
-          status.textContent = 'Знижку знайдено. Закриваємо сейф…';
+          status.textContent = cartText('promoClosingDoor');
         });
         scheduleAnimation(animationTimeline.relock3, () => {
           vault.classList.remove('is-bolt-3');
@@ -1061,7 +1101,7 @@ function initPromoVault() {
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
-        renderError('Не вдалося перевірити промокод. Перевірте з’єднання та спробуйте ще раз.');
+        renderError(cartText('promoNetworkError'));
       }
     } finally {
       requestController = null;
@@ -1111,14 +1151,14 @@ function setupCartValidation(form) {
     clearError(field);
 
     if (field.hasAttribute('required') && !value) {
-      markError(field, "Це поле обов'язкове");
+      markError(field, cartText('required'));
       return false;
     }
 
     if (value && field.name === 'phone') {
       const normalized = normalizeUkraineCheckoutPhoneValue(value);
       if (!normalized) {
-        markError(field, 'Вкажіть коректний український номер. Можна без +380.');
+        markError(field, cartText('invalidPhone'));
         return false;
       }
       if (field.value !== normalized) {

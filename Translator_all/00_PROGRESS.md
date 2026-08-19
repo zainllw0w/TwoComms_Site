@@ -35,7 +35,7 @@ interface is explicitly out of scope.
 | `01-catalog.md` | Catalog root, category pages, filters, sorting, navigation, mobile catalog | Complete | 3 / 8 source-complete; production verification pending |
 | `02-product-detail.md` | PDP, variants, fits, size grids/advisor, technologies, product schema | Complete | Awaiting approved implementation design and DB inventory |
 | `03-custom-print.md` | Custom Print configurator, form, localized routes, schema | Complete | Awaiting approved implementation design |
-| `04-conversion-and-overlays.md` | Cart, checkout, payment, alerts, toasts, PWA/install and other overlays | Complete | Awaiting approved implementation design |
+| `04-conversion-and-overlays.md` | Cart, checkout, payment, alerts, toasts, PWA/install and other overlays | Complete | 5 / 14 source-complete; production verification pending |
 | `05-static-pages.md` | Home, ProBrand, delivery/payment, support pages, shared customer chrome | Complete | Awaiting approved implementation design |
 | `06-seo-geo-and-data.md` | Cross-cutting head/schema/sitemap ownership and production content coverage | Complete | Awaiting approved implementation design and DB inventory |
 
@@ -73,11 +73,12 @@ interface is explicitly out of scope.
 | Confirmed P1 findings fixed | 0 / 28 (0%) |
 | Confirmed P2 findings fixed | 0 / 7 (0%) |
 | Overall remediation | 0 / 53 (0%) |
-| Source-complete P0 findings | 3 / 18 (16.7%) |
-| Source-complete work packages | 3 / 53 (5.7%) |
+| Source-complete P0 findings | 7 / 18 (38.9%) |
+| Source-complete P1 findings | 1 / 28 (3.6%) |
+| Source-complete work packages | 8 / 53 (15.1%) |
 | Production DB content findings verified | 0 (SSH credential unavailable) |
-| Locally reviewed source tasks | 2 / 8 plan tasks (25%): locale-contract foundation and catalog selector/root rail |
-| Last consolidated update | 2026-08-19: Task 2 source implementation passed 67 focused tests, Django check, gettext compilation, JS syntax, diff check, specification review, and code-quality review. Tasks 1-2 are not yet merged, deployed, or browser-verified. Production data inventory remains credential-blocked. |
+| Locally reviewed source tasks | 3 / 8 plan tasks (37.5%): locale-contract foundation, catalog selector/root rail, and cart/checkout |
+| Last consolidated update | 2026-08-19: Task 3 source implementation passed 65 focused tests, Django check, gettext compilation, four JS syntax checks, diff check, specification review, and code-quality review. Tasks 1-3 are not yet merged, deployed, or browser-verified. Production data inventory remains credential-blocked. |
 
 ## Current Implementation Checkpoint
 
@@ -85,10 +86,11 @@ interface is explicitly out of scope.
 | --- | --- | --- | --- |
 | Task 1: shared locale-contract foundation | Commit `25b8768f1`; 11 focused tests, locale normalization matrix, Django check, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Pending scoped integration to `main`, approved SSH pull, and UA/RU/EN production browser verification |
 | Task 2: catalog selector and root SEO rail | Source-complete; 67 focused tests, Django check, gettext compilation, JS syntax, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Pending catalog commit, scoped integration to `main`, mobile/desktop selector QA, approved SSH pull, and production verification |
+| Task 3: cart, mini-cart, checkout, and Monobank | Source-complete; 65 focused tests, Django check, gettext compilation, four JS syntax checks, and diff check passed. The full Nova/Monobank module has no new regression versus clean `origin/main` (`5F/6E` versus baseline `7F/6E`; all remaining names are shared fixture-contract failures). | Independent specification and code-quality reviews returned `APPROVED` after the EN/RU payment-error regression was fixed | Pending scoped commit/integration, approved SSH pull, and UA/RU/EN desktop/mobile production verification |
 
 The production-confirmed `0 / 53` remediation figure remains intentional: a
 customer-visible work package is counted there only after its focused regression
-test and a production browser check pass. The separate `3 / 53` source-complete
+test and a production browser check pass. The separate `8 / 53` source-complete
 figure exposes real implementation progress without overstating release status.
 
 ## Implementation Boundary

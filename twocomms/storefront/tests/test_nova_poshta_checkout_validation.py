@@ -696,6 +696,7 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
             response.json(),
             {
                 'success': False,
+                'error_code': 'delivery_selection',
                 'field': 'city',
                 'error': 'Оберіть місто зі списку Нової пошти.',
             },
@@ -731,6 +732,7 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
             response.json(),
             {
                 'success': False,
+                'error_code': 'invalid_phone',
                 'field': 'phone',
                 'error': 'Вкажіть коректний український номер телефону. Можна без +380.',
             },
@@ -820,6 +822,135 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
         self.assertFalse(response.json()["success"])
         self.assertFalse(Order.objects.exists())
         self.assertFalse(CheckoutCapture.objects.exists())
+
+    def test_monobank_provider_failure_returns_localized_safe_error_and_keeps_attempt(self):
+        from django.utils.translation import override
+
+        from storefront.views.monobank import MonobankAPIError
+
+        self._set_cart()
+        delivery = self._delivery_payload()
+        provider_detail = 'provider-secret-merchant-diagnostic'
+
+        for language, expected_error in (
+            ('en', 'Could not create the payment. Please try again.'),
+            ('ru', 'Не удалось создать платёж. Попробуйте ещё раз.'),
+        ):
+            with self.subTest(language=language), override(language), patch(
+                'storefront.views.monobank._monobank_api_request',
+                side_effect=MonobankAPIError(provider_detail, ambiguous=False),
+            ), patch('storefront.views.monobank.record_initiate_checkout'):
+                response = self.client.post(
+                    reverse('monobank_create_invoice'),
+                    data=json.dumps(
+                        {
+                            'full_name': 'Guest User',
+                            'phone': '+380991234567',
+                            'np_city_token': delivery['np_city_token'],
+                            'np_warehouse_token': delivery['np_warehouse_token'],
+                            'pay_type': 'online_full',
+                        }
+                    ),
+                    content_type='application/json',
+                    HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+                    secure=True,
+                )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response.json(),
+                {
+                    'success': False,
+                    'error_code': 'provider_error',
+                    'error': expected_error,
+                },
+            )
+            self.assertNotIn(provider_detail, response.content.decode('utf-8'))
+
+            attempt = PaymentAttempt.objects.get()
+            self.assertEqual(attempt.status, PaymentAttempt.Status.FAILED)
+            self.assertEqual(attempt.error_reason, provider_detail)
+            self.assertNotIn('invoice_creation_ambiguous', attempt.event_state)
+            self.assertFalse(Order.objects.exists())
+
+            # A non-ambiguous provider failure is retry-safe: the failed
+            # attempt remains terminal and the next checkout gets a fresh
+            # attempt instead of reusing a poisoned fingerprint.
+            with patch(
+                'storefront.views.monobank._monobank_api_request',
+                side_effect=MonobankAPIError(provider_detail, ambiguous=False),
+            ), patch('storefront.views.monobank.record_initiate_checkout'):
+                retry = self.client.post(
+                    reverse('monobank_create_invoice'),
+                    data=json.dumps(
+                        {
+                            'full_name': 'Guest User',
+                            'phone': '+380991234567',
+                            'np_city_token': delivery['np_city_token'],
+                            'np_warehouse_token': delivery['np_warehouse_token'],
+                            'pay_type': 'online_full',
+                        }
+                    ),
+                    content_type='application/json',
+                    HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+                    secure=True,
+                )
+            self.assertEqual(retry.status_code, 200)
+            self.assertEqual(retry.json()['error_code'], 'provider_error')
+            self.assertNotIn(provider_detail, retry.content.decode('utf-8'))
+            attempts = list(PaymentAttempt.objects.order_by('pk'))
+            self.assertEqual(len(attempts), 2)
+            self.assertEqual(
+                [attempt.status for attempt in attempts],
+                [PaymentAttempt.Status.FAILED, PaymentAttempt.Status.FAILED],
+            )
+            self.assertNotEqual(attempts[0].fingerprint, attempts[1].fingerprint)
+            PaymentAttempt.objects.all().delete()
+
+    def test_monobank_payment_type_validation_is_localized_for_english_and_russian(self):
+        from django.utils.translation import override
+
+        self._set_cart()
+        delivery = self._delivery_payload()
+        cases = (
+            (
+                'invalid-payment-type',
+                'invalid_payment_type',
+                'Оберіть коректний тип оплати.',
+                'Choose a valid payment method.',
+                'Выберите корректный способ оплаты.',
+            ),
+            (
+                'cod',
+                'cod_unsupported',
+                'Оплата при отриманні недоступна. Оберіть повну онлайн-оплату або передплату.',
+                'Cash on delivery is unavailable. Choose full online payment or a prepayment.',
+                'Оплата при получении недоступна. Выберите полную онлайн-оплату или предоплату.',
+            ),
+        )
+        for pay_type, error_code, ukrainian, english, russian in cases:
+            expected = {'en': english, 'ru': russian}
+            for language in ('en', 'ru'):
+                with self.subTest(pay_type=pay_type, language=language), override(language):
+                    response = self.client.post(
+                        reverse('monobank_create_invoice'),
+                        data=json.dumps(
+                            {
+                                'full_name': 'Guest User',
+                                'phone': '+380991234567',
+                                'np_city_token': delivery['np_city_token'],
+                                'np_warehouse_token': delivery['np_warehouse_token'],
+                                'pay_type': pay_type,
+                            }
+                        ),
+                        content_type='application/json',
+                        HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+                        secure=True,
+                    )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()['error_code'], error_code)
+                self.assertEqual(response.json()['error'], expected[language])
+                self.assertNotEqual(response.json()['error'], ukrainian)
 
     def test_guest_prepay_persists_new_session_key_and_tracking(self):
         """F-068/F-073: characterize the current prepay writer with a truly

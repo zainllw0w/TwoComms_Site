@@ -11,6 +11,22 @@ import {
 } from './modules/shared.js';
 import { PerformanceOptimizer, ImageOptimizer, MobileOptimizer } from './modules/optimizers.js';
 
+function getCartLocaleConfig() {
+  try {
+    const node = document.getElementById('cart-locale-config');
+    return node ? JSON.parse(node.textContent || '{}') : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+const CART_LOCALE = getCartLocaleConfig();
+const CART_LOCALE_STRINGS = CART_LOCALE.strings || {};
+const cartLocaleText = (key) => {
+  const value = CART_LOCALE_STRINGS[key];
+  return typeof value === 'string' && value ? value : '';
+};
+
 // Помечаем, что основной JS инициализирован и можно запускать анимации
 document.documentElement.classList.add('js-ready');
 
@@ -343,7 +359,7 @@ function mapGaItemsToEventItems(items) {
 }
 
 function fetchCartAnalyticsSnapshot() {
-  return fetch('/cart/items/', {
+  return fetch(CART_LOCALE.urls?.items, {
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
     cache: 'no-store'
   }).then(response => {
@@ -634,7 +650,7 @@ function setFavoritesSyncEnabled(enabled) {
 window.setFavoritesSyncEnabled = setFavoritesSyncEnabled;
 
 function refreshCartSummary() {
-  return fetch('/cart/summary/', {
+  return fetch(CART_LOCALE.urls?.summary, {
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
     cache: 'no-store'
   })
@@ -959,7 +975,7 @@ function refreshMiniCart() {
   const preservedAction = active && active.dataset ? active.dataset.miniCartQty : '';
   const hadRenderedCart = Boolean(content.querySelector('[data-mini-cart-view]'));
   content.setAttribute('aria-busy', 'true');
-  if (!hadRenderedCart) content.innerHTML = "<div class='text-secondary small'>Завантаження…</div>";
+  if (!hadRenderedCart) content.innerHTML = `<div class='text-secondary small'>${cartLocaleText('loading')}</div>`;
 
   if (typeof AbortController !== 'undefined') {
     if (miniCartFetchController) {
@@ -973,7 +989,7 @@ function refreshMiniCart() {
   const currentSeq = ++miniCartFetchSeq;
   const controller = miniCartFetchController;
 
-  return fetch('/cart/mini/', {
+  return fetch(CART_LOCALE.urls?.mini, {
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
     cache: 'no-store',
     signal: controller ? controller.signal : undefined
@@ -1030,7 +1046,7 @@ function refreshMiniCart() {
     .catch(err => {
       if (controller && err && err.name === 'AbortError') return;
       if (currentSeq !== miniCartFetchSeq) return;
-      content.innerHTML = "<div class='text-danger small'>Не вдалося завантажити кошик</div>";
+      content.innerHTML = `<div class='text-danger small'>${cartLocaleText('loadError')}</div>`;
     })
     .finally(() => {
       content.setAttribute('aria-busy', 'false');
@@ -1054,7 +1070,7 @@ function bindMiniCartQuantity(root) {
       if (next < 1) return;
       row.dataset.miniCartQtyBusy = '1';
       const csrf = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/)?.[1] || '';
-      fetch('/cart/update/', {
+      fetch(CART_LOCALE.urls?.update, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8', 'X-CSRFToken': decodeURIComponent(csrf), 'X-Requested-With': 'XMLHttpRequest' },
         body: new URLSearchParams({ cart_key: row.dataset.key || '', qty: String(next) })
@@ -2051,7 +2067,7 @@ document.addEventListener('click', (e) => {
   } catch (_) { }
 
   // Add с одноразовым self-heal при CSRF 403 (застарілий host-only cookie).
-  const addToCartRequest = (isRetry) => fetch('/cart/add/', {
+  const addToCartRequest = (isRetry) => fetch(CART_LOCALE.urls?.add, {
     method: 'POST',
     headers: {
       'X-CSRFToken': getCookie('csrftoken'),

@@ -24,8 +24,11 @@
 <div class="cart-page-container"
      data-cart-items-url="{% url 'cart_items_api' %}"
      data-cart-summary-url="{% url 'cart_summary' %}"
+     data-cart-update-url="{% url 'update_cart' %}"
      data-cart-clear-url="{% url 'clean_cart' %}"
      data-contact-url="{% url 'contact_manager' %}"
+     data-promo-apply-url="{% url 'apply_promo_code' %}"
+     data-promo-remove-url="{% url 'remove_promo_code' %}"
      data-np-city-search-url="{% url 'cart_np_city_search' %}"
      data-np-warehouse-search-url="{% url 'cart_np_warehouse_search' %}">
   <!-- Заголовок страницы -->
@@ -2383,7 +2386,11 @@ body.contact-modal-open .cart-container::after {
     if (valueEl) valueEl.textContent = String(next);
     setRowBusy(row, true);
 
-    fetch('/cart/update/', {
+    var cartContainer = document.querySelector('.cart-page-container');
+    // The page data attribute is locale-prefixed by Django. The root fallback
+    // is only for degraded contexts where this inline handler is reused alone.
+    var updateUrl = (cartContainer && cartContainer.dataset.cartUpdateUrl) || '/cart/update/';
+    fetch(updateUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',

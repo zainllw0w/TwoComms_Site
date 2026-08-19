@@ -10,6 +10,30 @@
  */
 /* Fallback: глобальные функции, если основной JS не заинициализирован */
 (function () {
+  var cartLocale = {};
+  try {
+    var cartLocaleNode = document.getElementById('cart-locale-config');
+    cartLocale = cartLocaleNode ? JSON.parse(cartLocaleNode.textContent || '{}') : {};
+  } catch (_) { cartLocale = {}; }
+  var cartUrls = cartLocale.urls || {};
+  var cartStrings = cartLocale.strings || {};
+  function cartText(key) {
+    return typeof cartStrings[key] === 'string' && cartStrings[key] ? cartStrings[key] : '';
+  }
+  function cartInterpolate(key, values) {
+    var text = cartText(key);
+    Object.keys(values || {}).forEach(function (name) {
+      text = text.split('{' + name + '}').join(String(values[name]));
+    });
+    return text;
+  }
+  function formatCartAmount(value) {
+    var amount = Number.parseFloat(value);
+    if (!Number.isFinite(amount)) amount = 0;
+    var locale = cartLocale.intlLocale || 'uk-UA';
+    var suffix = cartLocale.currency && cartLocale.currency.suffix || 'грн';
+    return amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + suffix;
+  }
   var dlog = window.dlog || function () {
     if (window.console && console.debug) {
       try { console.debug.apply(console, arguments); } catch (_) { console.log.apply(console, arguments); }
@@ -47,7 +71,7 @@
 
       var body = new URLSearchParams({ key: key });
 
-      fetch('/cart/remove/', {
+      fetch(cartUrls.remove, {
         method: 'POST',
         headers: {
           'X-CSRFToken': csrfToken,
@@ -111,10 +135,10 @@
 
             // Обновляем subtotal (сумма товаров без скидки)
             if (summaryValue && d.subtotal !== undefined) {
-              summaryValue.textContent = parseFloat(d.subtotal).toFixed(2) + ' грн';
+              summaryValue.textContent = formatCartAmount(d.subtotal);
             }
             if (summaryLabel && d.count !== undefined) {
-              summaryLabel.textContent = 'Товари (' + d.count + '):';
+              summaryLabel.textContent = cartInterpolate('productsCount', { count: d.count });
             }
 
             // Обновляем блок скидки промокода если есть
@@ -125,14 +149,14 @@
                 // Находим место для вставки (после суммы товаров, перед итогом)
                 var summaryRows = document.querySelectorAll('.cart-checkout-summary .cart-summary-row');
                 if (summaryRows.length > 0) {
-                  var discountHtml = '<div class="cart-summary-row cart-summary-discount"><span class="cart-summary-label"><div class="cart-discount-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Знижка промокоду</div></span><span class="cart-summary-value">-' + parseFloat(d.discount).toFixed(2) + ' грн</span></div>';
+                  var discountHtml = '<div class="cart-summary-row cart-summary-discount"><span class="cart-summary-label"><div class="cart-discount-label"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>' + cartText('promoDiscount') + '</div></span><span class="cart-summary-value">-' + formatCartAmount(d.discount) + '</span></div>';
                   summaryRows[0].insertAdjacentHTML('afterend', discountHtml);
                 }
               } else {
                 // Обновляем существующий блок
                 var discountValue = discountRow.querySelector('.cart-summary-value');
                 if (discountValue) {
-                  discountValue.textContent = '-' + parseFloat(d.discount).toFixed(2) + ' грн';
+                  discountValue.textContent = '-' + formatCartAmount(d.discount);
                 }
               }
             } else {
@@ -174,12 +198,23 @@
 
             // Если корзина пуста - показываем сообщение
             if (d.count === 0) {
-              setTimeout(function () {
                 var mainSection = document.querySelector('.cart-main-section');
                 if (mainSection) {
-                  mainSection.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg></div><h2 class="cart-empty-title">Кошик порожній</h2><p class="cart-empty-text">Додайте товари до кошика, щоб зробити замовлення</p><a href="/" class="cart-empty-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77л-6.18 3.25Л7 14.14 2 9.27л6.91-1.01L12 2z"/></svg>Перейти до покупок</a></div>';
+                  var emptyTitle = cartText('emptyCart');
+                  var emptyText = cartText('emptyCartText');
+                  var continueLabel = cartText('continueShopping');
+                  var homeUrl = cartUrls.home;
+                  mainSection.innerHTML = '<div class="cart-empty"><div class="cart-empty-icon"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03L21.7 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-.9-2z"/></svg></div><h2 class="cart-empty-title"></h2><p class="cart-empty-text"></p><a class="cart-empty-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></a></div>';
+                  var titleElement = mainSection.querySelector('.cart-empty-title');
+                  var textElement = mainSection.querySelector('.cart-empty-text');
+                  var continueLink = mainSection.querySelector('.cart-empty-btn');
+                  if (titleElement) titleElement.textContent = emptyTitle;
+                  if (textElement) textElement.textContent = emptyText;
+                  if (continueLink) {
+                    continueLink.href = homeUrl;
+                    continueLink.appendChild(document.createTextNode(continueLabel));
+                  }
                 }
-              }, 350);
             }
           }
 
@@ -231,7 +266,7 @@
         body.append('lead_id', leadId);
       }
 
-      fetch('/custom-print/remove/', {
+      fetch(cartUrls.customRemove, {
         method: 'POST',
         headers: {
           'X-CSRFToken': csrfToken,
@@ -307,14 +342,14 @@
 
   if (typeof window.cleanCart !== 'function') {
     window.cleanCart = function () {
-      if (confirm('Ви впевнені, що хочете очистити кошик?')) {
+      if (confirm(cartText('confirmClear'))) {
         var csrfToken = getCookie('csrftoken') ||
           document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
           document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
           getCookie('csrftoken');
 
         var cartContainer = document.querySelector('.cart-page-container');
-        var clearUrl = cartContainer?.dataset.cartClearUrl || '/cart/clean/';
+        var clearUrl = cartContainer?.dataset.cartClearUrl || cartUrls.clear;
 
         fetch(clearUrl, {
           method: 'POST',
@@ -370,7 +405,7 @@
         body.append('fit_option', fitInput.value);
       }
 
-      fetch('/cart/add/', {
+      fetch(cartUrls.add, {
         method: 'POST',
         headers: {
           'X-CSRFToken': csrfToken,
@@ -382,7 +417,7 @@
         if (r.status === 403) {
           // Self-heal застарілого host-only csrftoken і повторна спроба.
           try { document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'; } catch (_) { }
-          return fetch('/cart/add/', {
+          return fetch(cartUrls.add, {
             method: 'POST',
             headers: {
               'X-CSRFToken': getCookie('csrftoken') || csrfToken,
@@ -429,7 +464,7 @@
         }
       }).catch(function (error) {
         console.error('Add to cart error:', error);
-        alert('Помилка при додаванні товару до кошика. Спробуйте ще раз.');
+        alert(cartText('addToCartError'));
       });
       return false;
     };

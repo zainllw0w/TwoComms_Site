@@ -11,18 +11,18 @@
   `TWOCOMMS_DEPLOY_PASSWORD` is unavailable in this environment. No database
   translation is inferred from local SQLite.
 - **Admin:** excluded by design.
-- **Implementation:** no application code or gettext catalog was changed by
-  this workstream. All items below are `audit-confirmed` and await the shared
-  implementation plan.
+- **Implementation:** Task 3 is source-complete and independently reviewed for
+  CONV-P0-01 through CONV-P0-04 and CONV-P1-04. Deployment and the production
+  browser matrix remain pending, so no package is live-confirmed yet.
 
 ## Executive summary
 
 This workstream contains **14 independently testable work packages**:
 
-| Priority | Work packages | Implemented | Main risk |
+| Priority | Work packages | Source-complete | Main risk |
 | --- | ---: | ---: | --- |
-| P0 | 7 | 0 | A shopper can reach a mixed-language cart, payment error, or login flow. |
-| P1 | 5 | 0 | High-visibility prompts and account actions switch back to Ukrainian. |
+| P0 | 7 | 4 | A shopper can reach a mixed-language PWA or Telegram/login flow. |
+| P1 | 5 | 1 | High-visibility prompts and account actions switch back to Ukrainian. |
 | P2 | 2 | 0 | Offline and helper states are inconsistent or locale-blind. |
 
 The highest-value fixes are (1) locale-aware cart and mini-cart requests, (2)
@@ -131,6 +131,24 @@ template-only fix insufficient.
   create real Monobank invoices or send live payment events.
 - **Classification:** backend + JavaScript; production DB is not required for
   the copy fix.
+
+#### 2026-08-19 implementation note: quick Checkout response boundary
+
+- Runtime resolution showed that `monobank_quick_invoice` still dispatched to
+  the redirect-only `legacy_stubs.monobank_create_checkout`; the implementation
+  in `views.py.backup` was not listed in `_LEGACY_VIEW_NAMES` and therefore was
+  never installed into the public route.
+- The local Task 3 slice now activates the existing Checkout implementation,
+  returns JSON with stable error codes, translates validation and payment
+  errors through gettext, and prevents Monobank/provider diagnostics from
+  entering the response body. Payment/order semantics were not redesigned.
+- Added focused EN/RU regressions for empty-cart JSON dispatch and mocked
+  provider failure, plus a locale-aware fallback assertion for the CAPI
+  checkout source URL. These checks use no live invoice, order, analytics
+  event, or production data.
+- **State:** source-complete and independently reviewed. Live verification
+  remains open until the scoped commit is deployed from `main` and the
+  UA/RU/EN production browser matrix passes.
 
 ### CONV-P0-05: PWA install prompt is always Ukrainian
 
@@ -347,7 +365,9 @@ template-only fix insufficient.
 4. **Deferred data:** production MariaDB report and editorial backfill for
    product-owned titles/descriptions/SEO fields, tracked outside this file.
 
-**Current workstream tally:** `0 / 14 work packages implemented (0%)`.
+**Current workstream tally:** `5 / 14 source-complete (35.7%)`; `0 / 14`
+live-confirmed. Source-complete packages are CONV-P0-01 through CONV-P0-04 and
+CONV-P1-04.
 
 An item may move from `audit-confirmed` to `verified locally` only after a
 focused regression test; it may move to `verified live` only after deployment
