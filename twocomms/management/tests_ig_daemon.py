@@ -10,11 +10,12 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.cache import cache
 from django.core.management.base import CommandError
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from management.management.commands.run_instagram_bot import (
@@ -39,6 +40,7 @@ from management.management.commands.run_instagram_bot import (
     _reconcile_commercial_episodes_after_reload,
     _run_work_cycle,
 )
+from management.management.commands import run_instagram_bot as runner
 from management.models import IgClient, InstagramBotSettings
 from management.services import instagram_bot as bot
 from management.services.ig_maintenance import (
@@ -58,6 +60,63 @@ from management.services.ig_reply_boundary import (
 
 
 class DaemonPathTests(SimpleTestCase):
+    @override_settings(DEBUG=False)
+    def test_production_sqlite_refuses_every_execution_mode_before_work(self):
+        with (
+            patch.object(runner, "connection", SimpleNamespace(vendor="sqlite"), create=True),
+            patch.object(bot, "poll_once") as poll_once,
+            patch.object(runner.InstagramBotSettings, "load", return_value=object()),
+            patch.object(Command, "_ensure") as ensure,
+            patch.object(Command, "_forever") as forever,
+            patch.object(runner, "task_heartbeat", return_value=nullcontext()) as heartbeat,
+        ):
+            modes = {
+                "--once": {"once": True},
+                "--ensure": {"ensure": True},
+                "--forever": {"forever": True},
+            }
+            common = {
+                "once": False,
+                "ensure": False,
+                "forever": False,
+                "maintenance_on": None,
+                "maintenance_off": None,
+                "maintenance_lease_id": None,
+                "maintenance_wait_seconds": None,
+            }
+            for option, mode in modes.items():
+                options = {**common, **mode}
+                with self.subTest(option=option), self.assertRaisesMessage(
+                    CommandError,
+                    "SQLite",
+                ):
+                    Command().handle(**options)
+
+        poll_once.assert_not_called()
+        ensure.assert_not_called()
+        forever.assert_not_called()
+        heartbeat.assert_not_called()
+
+    @override_settings(DEBUG=True)
+    def test_debug_sqlite_allows_execution_mode(self):
+        with (
+            patch.object(runner, "connection", SimpleNamespace(vendor="sqlite"), create=True),
+            patch.object(Command, "_ensure") as ensure,
+            patch.object(runner, "task_heartbeat", return_value=nullcontext()) as heartbeat,
+        ):
+            Command().handle(
+                once=False,
+                ensure=True,
+                forever=False,
+                maintenance_on=None,
+                maintenance_off=None,
+                maintenance_lease_id=None,
+                maintenance_wait_seconds=None,
+            )
+
+        ensure.assert_called_once()
+        heartbeat.assert_called_once_with("ig_daemon_watchdog")
+
     def test_watchdog_uses_absolute_project_manage_path(self):
         self.assertTrue(os.path.isabs(MANAGE_PY_PATH))
         self.assertTrue(MANAGE_PY_PATH.endswith(os.path.join("twocomms", "manage.py")))

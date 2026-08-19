@@ -23,9 +23,10 @@ import time
 from pathlib import Path
 from contextlib import contextmanager
 
+from django.conf import settings
 from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
-from django.db import close_old_connections
+from django.db import close_old_connections, connection
 from django.utils import timezone
 
 from management.models import InstagramBotSettings
@@ -440,6 +441,15 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
 class Command(BaseCommand):
     help = "Раннер Instagram-бота (демон / watchdog / одиночний прохід)."
 
+    @staticmethod
+    def _guard_runtime_database() -> None:
+        """Never let a production-like bot silently operate on SQLite."""
+        if not settings.DEBUG and connection.vendor == "sqlite":
+            raise CommandError(
+                "run_instagram_bot refuses SQLite when DEBUG=False; "
+                "configure the CloudLinux-bound MariaDB runtime"
+            )
+
     def add_arguments(self, parser):
         parser.add_argument("--forever", action="store_true", help="Постійний демон.")
         parser.add_argument("--ensure", action="store_true", help="Watchdog: підняти демона, якщо мертвий.")
@@ -499,6 +509,8 @@ class Command(BaseCommand):
                 raise CommandError(str(exc)) from exc
             self.stdout.write("maintenance disabled")
             return
+        if opts["once"] or opts["ensure"] or opts["forever"]:
+            self._guard_runtime_database()
         if opts["once"]:
             if maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 raise CommandError("maintenance active — --once refused")
