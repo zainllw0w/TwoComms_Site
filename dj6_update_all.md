@@ -1136,9 +1136,13 @@ MariaDB/HTTP/process state. Старые cumulative-логи не считают
   В старом `stderr.log` были 1054 на `/`, каталогах и PDP. Read-only probe
   подтвердил физическую generated-колонку, `uniq_default_fit_product` и
   migration `storefront.0097_mariadb_generated_uniqueness`; `SHOW CREATE TABLE`
-  соответствует модели. Свежие GET home/catalog/tshirts/PDP вернули `200`, а
-  после повторного набора запросов в `stderr.log` не добавилось ни одного
-  байта. `ALTER TABLE` и ручной `migrate` не выполнялись.
+  соответствует модели. В access archive и `stderr.log` подтверждены ровно
+  `45` пользовательских HTTP 500 в окне `18:31:48-18:48:24 EEST`
+  (одна и та же причина, `1054 Unknown column`, а не 45 разных дефектов).
+  Последняя запись migration была применена в `18:48:34 EEST`; после этого
+  повторный smoke home/catalog/tshirts/PDP вернул `200`, новых application
+  500 в delta-логе не появилось. В рамках этого аудита `ALTER TABLE` и
+  ручной `migrate` не выполнялись.
 
 - [x] **Schema drift `product_catalog_imageoptimizationjob.lease_token` —
   исторический, не текущий.** Production MariaDB содержит `lease_token`
@@ -1169,25 +1173,35 @@ MariaDB/HTTP/process state. Старые cumulative-логи не считают
   `CACHE/manifest.json` существует, новее всех watched sources, assets
   отдаются `200`, свежий import production settings с `-W error::RuntimeWarning`
   проходит без warning, HTML не содержит неразрешенных compressor tags.
-  Повторяющиеся строки в cron/health-файлах относятся к старому cumulative
-  срезу до обновления manifest; код менять не нужно. В release runbook
-  сохраняется порядок `collectstatic` -> `compress` -> Passenger reload.
+  На границе reload кратко записался stale-manifest warning, но после
+  `collectstatic` -> `compress --force` manifest был создан (`701` байт,
+  mtime `23:35:43 EEST`) и runtime gate снова включил offline mode. Это
+  подтверждает корректность fail-open guard, а не новый 500; код менять не
+  нужно. В release runbook сохраняется порядок `collectstatic` -> `compress`
+  -> Passenger reload.
 
 - [x] **`DisallowedHost` для `mail.*` — внешний шум, не misconfiguration.**
   Не добавлять эти hostnames в `ALLOWED_HOSTS`; DTF и host policy не менять.
 
 - [x] **`Too many connections` и Passenger SIGKILL/SIGTERM — исторические
   записи.** Свежий runtime использует MariaDB, `CONN_MAX_AGE=0`, connection
-  budget в пределах лимита; новые GET не воспроизводят эти ошибки. Новых
-  worker/process или повышения connection limits не внедрять без измерения.
+  budget в пределах лимита; новые GET не воспроизводят эти ошибки. После
+  marker `tmp/restart.txt` (`23:35:44 EEST`) новый LSAPI master продолжил
+  обслуживать запросы, а пачка `SIGKILL` относится к его child recycle/idle
+  reap; host memory свободна, LVE/dmesg недоступны, поэтому OOM не доказан.
+  Новых worker/process или повышения connection limits не внедрять без
+  измерения.
 
 - [x] **Telegram error alerts и periodic jobs — сверены.** В rotated/app
   `stderr.log` найдены исторические алерты на 500 (1054 schema drift),
   GeoIP2, SQLite fallback и `IgClient`, а также старые transport timeout,
   `invalid_parse_entities` и `OSError`; это не новые события текущего
-  runtime. В свежем срезе `order_telegram_reconcile`, IG checkout/fulfillment
-  и durable cron показывают `failed=0`/`errors=0`, а после GET smoke в логах
-  не появилось новых server 500. Telegram-alert handler не отключался и не
+  runtime. Сегодня дополнительно зафиксированы `32` bounded Telegram
+  transport fallback (`timeout`), но ни одного нового `sendMessage`/cron
+  failure: handler намеренно ограничен 2 секундами и пишет fallback в
+  `stderr`, не превращая транспортный таймаут в application 500. В свежем
+  срезе `order_telegram_reconcile`, IG checkout/fulfillment и durable cron
+  показывают `failed=0`/`errors=0`; Telegram-alert handler не отключался и не
   маскировал ошибки.
 
 - [x] **Client-side error inventory — классифицирован.** `client_errors.log`
@@ -1202,6 +1216,44 @@ MariaDB/HTTP/process state. Старые cumulative-логи не считают
   Это не вызвало текущих 500, поэтому runtime не переключался; требуется
   отдельное согласование wheel/CloudLinux binding перед изменением версии.
 
+- [x] **Единственный post-restart `503 /csp-report/` — upstream, не Django.**
+  Access log содержит одну строку `23:42:10 EEST`, размер ответа `3678` байт;
+  `csp_report()` и rate-limit middleware имеют только `204`/`429` ветки,
+  traceback в `django.log`/`stderr.log` отсутствует, а соседние CSP POST
+  получили `204` и каталог `200`. Запрос не дошел до `django.request`, поэтому
+  TelegramAlertHandler его не отправлял; код менять не нужно.
+
+- [x] **Сегодняшние provider errors классифицированы без ложных фиксов.**
+  Gemini `HTTP 400 INVALID_ARGUMENT` и Clarity `429` являются ответами
+  провайдеров с существующим bounded/stale fallback; Nova Poshta timeout-строки
+  оказались историческими (`2026-07-15`), а хвост `2026-08-19` не содержит
+  timeout/error. Ни один класс не дал нового owned traceback или пользовательского
+  500, поэтому внешние API не дергались и код не менялся.
+
+- [x] **Sentry/Telegram error stream за 2026-08-20 сверена.** В production
+  checkout и доступной домашней области нет Sentry/Seder event-файлов или
+  отдельного SDK; фактический канал серверных алертов —
+  `TelegramAlertHandler` (`django.request`) с bounded direct Bot API request.
+  Накопленный `stderr.log` содержит `32` fallback timeout, `134` incident lines
+  и старые 500/503 без timestamp, поэтому эти числа нельзя считать сегодняшним
+  incident count без access-log correlation. Production access/runtime delta
+  после последнего reload не показал нового application 500; `sendMessage` и
+  cron failure не подтверждены. SQLite `no such table` в `ig_bot.log` и три
+  `IgClient` ULE-записи в MariaDB имеют исторические даты до deployed fixes;
+  текущий daemon стартует через CloudLinux Python wrapper и MariaDB, последние
+  события — `gemini_ok`/`reply_sent`/`daemon_start`. Код Telegram-alert handler
+  без доказанного свежего application failure не менялся.
+
+- [x] **Nova Poshta city lookup для Latin/цифровых запросов — исправлено.**
+  `/cart/delivery/cities/` отправлял `boulder`, `new york`, `coral gables` и
+  цифровые значения в legacy API, который отвечал `CityName has invalid
+  characters`; storefront превращал это в HTTP `502`. Сервис теперь до
+  provider call принимает только кириллические буквы, сохраняет aliases
+  `Kyiv/Kiev -> Київ`, а неподдерживаемый ввод возвращает пустой список (200
+  с `items=[]`). Добавлены regression cases, внешние запросы для фикса не
+  выполнялись; свежий Nova cron показывает успешные `No orders with tracking
+  numbers`, а все `ReadTimeout` относятся к историческому запуску 2026-07-15.
+
 - [x] **Cron environment explicitness — реализовано.** Watchdog и все managed
   Instagram periodic commands теперь явно задают `DJANGO_ENV=production` и
   `DJANGO_SETTINGS_MODULE=twocomms.production_settings` до `flock`/Python;
@@ -1214,10 +1266,13 @@ MariaDB/HTTP/process state. Старые cumulative-логи не считают
   UTM) и `26/26` cron installer tests; `bash -n`, `py_compile` и оба
   `git diff --check` завершились без ошибок.
 
-- [ ] **Release gate для этих исправлений.** Осталось интегрировать scoped
-  commits в `main`, выполнить разрешенный SSH pull/reload и повторить
-  deployed-SHA, MariaDB engine/migration, bot runtime, HTTP и delta-log proof.
-  До этого production считается неизмененным на `ba4570df9`.
+- [x] **Release gate для этого log-аудита.** Production, локальный `main` и
+  `origin/main` подтверждены на `30c261306898c666d92cd8bfb098875aa6b344f4`.
+  SSH proof подтвердил Django `6.1`, MariaDB `11.4.12`, `ENGINE=mysql`, strict
+  mode/InnoDB, колонку `default_product_identity`, migration `0097`, manifest
+  и `-W error::RuntimeWarning`; post-restart access delta содержит `0`
+  application 500. Этот чекбокс отражает уже выполненный deploy/reload, а не
+  обещание будущего rollout.
 
 ## Историческая сводка после полной read-only проверки
 

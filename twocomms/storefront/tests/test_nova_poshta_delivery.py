@@ -100,6 +100,16 @@ class NovaPoshtaDirectoryServiceTests(SimpleTestCase):
         self.assertEqual(mock_uncached.call_args.args, ('Київ', 5))
 
     @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_search_settlements_skips_provider_for_unsupported_latin_query(self):
+        service = NovaPoshtaDirectoryService()
+
+        with patch.object(service, '_search_settlements_uncached') as mock_uncached:
+            self.assertEqual(service.search_settlements('boulder'), [])
+            self.assertEqual(service.search_settlements('123'), [])
+
+        mock_uncached.assert_not_called()
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
     def test_search_warehouses_uses_full_directory_for_text_query(self):
         service = NovaPoshtaDirectoryService()
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import unicodedata
 from typing import Any
 
 import requests
@@ -58,6 +59,12 @@ class NovaPoshtaDirectoryService:
         normalized_limit = max(1, min(int(limit or 10), 20))
         if len(normalized_query) < 2:
             return []
+        # The legacy Nova Poshta endpoint rejects Latin/digit city names with
+        # ``CityName has invalid characters`` and the storefront would expose
+        # that provider validation as a 502.  Keep the lookup fail-soft until
+        # the user enters a Cyrillic city name (aliases are normalized above).
+        if not self._is_provider_safe_settlement_query(api_query):
+            return []
 
         cache_key = self._cache_key(
             "settlements",
@@ -71,6 +78,14 @@ class NovaPoshtaDirectoryService:
             lambda: self._search_settlements_uncached(api_query, normalized_limit),
             self.SETTLEMENT_CACHE_TTL,
         )
+
+    @staticmethod
+    def _is_provider_safe_settlement_query(value: str) -> bool:
+        """Return whether a query can be sent to the Cyrillic-first API."""
+        letters = [char for char in value if char.isalpha()]
+        if not letters or any(char.isdigit() for char in value):
+            return False
+        return all("CYRILLIC" in unicodedata.name(char, "") for char in letters)
 
     def search_warehouses(
         self,
