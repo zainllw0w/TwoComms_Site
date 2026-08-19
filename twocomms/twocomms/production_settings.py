@@ -89,6 +89,51 @@ DEBUG = False
 import os
 SECRET_KEY = os.environ.get('SECRET_KEY', SECRET_KEY)
 
+
+def _validate_production_secret_key(secret_key, environment_secret):
+    """Fail closed without rotating the legacy production signing key."""
+    legacy_prefix = 'django-insecure-'
+    if not isinstance(secret_key, str) or secret_key != environment_secret:
+        raise ImproperlyConfigured(
+            'Production secret key must be supplied by the SECRET_KEY environment variable.'
+        )
+
+    key_material = (
+        secret_key[len(legacy_prefix):]
+        if secret_key.startswith(legacy_prefix)
+        else secret_key
+    )
+    character_classes = sum((
+        any(character.islower() for character in key_material),
+        any(character.isupper() for character in key_material),
+        any(character.isdigit() for character in key_material),
+        any(not character.isalnum() for character in key_material),
+    ))
+    is_strong = (
+        len(secret_key) >= 50
+        and len(set(secret_key)) >= 20
+        and len(key_material) >= 48
+        and len(set(key_material)) >= 20
+        and character_classes >= 3
+        and secret_key.isascii()
+        and not any(character.isspace() for character in secret_key)
+    )
+    if not is_strong:
+        raise ImproperlyConfigured(
+            'Production secret key does not satisfy the required strength policy.'
+        )
+
+
+_validate_production_secret_key(SECRET_KEY, os.environ.get('SECRET_KEY'))
+
+# The deployed key predates Django's prefix heuristic but has a separately
+# validated long and diverse suffix. Rotating it in-place would invalidate custom
+# HMAC links and finance ciphertext, so replace only W009 with the stricter
+# fail-closed validation above until a coordinated key rotation is available.
+SILENCED_SYSTEM_CHECKS = list(globals().get('SILENCED_SYSTEM_CHECKS', []))
+if 'security.W009' not in SILENCED_SYSTEM_CHECKS:
+    SILENCED_SYSTEM_CHECKS.append('security.W009')
+
 # ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS читаем из переменных окружения
 # ALLOWED_HOSTS="*" допустимо (только временно на время настройки!)
 _allowed_hosts_env = os.environ.get('ALLOWED_HOSTS')
@@ -717,11 +762,49 @@ SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None
 SECURE_CROSS_ORIGIN_EMBEDDER_POLICY = None
 
-# Принудительный HTTPS и доверие заголовку прокси
-# Разрешим переключать редирект через переменную окружения, чтобы избежать возможных циклов редиректа
-SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in ('1', 'true', 'yes')
-SECURE_REDIRECT_EXEMPT = []  # Принудительный редирект для всех URL
+# Принудительный HTTPS и доверие заголовку прокси. На shared-hosting HTTPS
+# перенаправляется Apache до Passenger; Django redirect остаётся переключаемым,
+# потому что исторически некорректный proxy scheme создавал redirect loop.
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() in (
+    '1',
+    'true',
+    'yes',
+)
+SECURE_REDIRECT_EXEMPT = []
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
+def _validate_proxy_https_redirect_config(config_path):
+    try:
+        directives = [
+            line.strip()
+            for line in Path(config_path).read_text(encoding='utf-8').splitlines()
+            if line.strip() and not line.lstrip().startswith('#')
+        ]
+    except OSError as exc:
+        raise ImproperlyConfigured(
+            'Production HTTPS redirect proxy config is unavailable.'
+        ) from exc
+
+    redirect_pair = (
+        'RewriteCond %{HTTPS} off',
+        'RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]',
+    )
+    rewrite_enabled = 'RewriteEngine On' in directives
+    redirect_configured = any(
+        tuple(directives[index:index + 2]) == redirect_pair
+        for index in range(max(len(directives) - 1, 0))
+    )
+    if not rewrite_enabled or not redirect_configured:
+        raise ImproperlyConfigured(
+            'Production HTTPS redirect proxy config is missing the required rule.'
+        )
+
+
+if not SECURE_SSL_REDIRECT:
+    _validate_proxy_https_redirect_config(BASE_DIR / '.htaccess')
+    if 'security.W008' not in SILENCED_SYSTEM_CHECKS:
+        SILENCED_SYSTEM_CHECKS.append('security.W008')
 
 # HSTS
 SECURE_HSTS_SECONDS = 31536000

@@ -8,6 +8,12 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 
+STRONG_TEST_SECRET = (
+    "production-env-contract-"
+    "A1b2C3d4E5f6G7h8I9j0K!l@M#n$O%p^Q&r*S(t)U_v-W+x=Yz"
+)
+
+
 class ProductionEnvironmentLoadingTests(SimpleTestCase):
     @staticmethod
     def _load_production_static_settings(static_root):
@@ -16,7 +22,7 @@ class ProductionEnvironmentLoadingTests(SimpleTestCase):
         env.update(
             {
                 "DJANGO_SETTINGS_MODULE": "twocomms.production_settings",
-                "SECRET_KEY": "test-secret",
+                "SECRET_KEY": STRONG_TEST_SECRET,
                 "TWC_RELEASE_STATIC_ROOT": static_root,
                 "DB_ENGINE": "mysql",
                 "DB_NAME": "test_database",
