@@ -43,16 +43,10 @@ jobs:
         run: |
           python scripts/verify_project_runtime.py
           python scripts/verify_locked_requirements.py --lock twocomms/requirements.lock
-      - name: Run Stage 0 policy contracts
-        run: |
-          python -m unittest \
-            tests.test_django61_stage0_contracts \
-            tests.test_django61_stage0_tooling \
-            tests.test_django61_warning_prerequisites \
-            tests.test_django61_compatibility \
-            tests.test_ig_baseline_runner \
-            tests.test_requirements_contract \
-            tests.test_verify_locked_requirements -v
+      - name: Run Stage 0 workflow contracts
+        run: python -m unittest tests.test_django61_stage0_contracts -v
+      - name: Run stable Stage 0 policy shards in parallel
+        run: python scripts/run_django61_ci_shards.py --jobs 2
       - name: Run no-network system and migration checks
         working-directory: twocomms
         run: |
@@ -65,7 +59,7 @@ jobs:
       - name: Run stable Django compatibility tests
         working-directory: twocomms
         run: |
-          python manage.py test storefront.tests.test_product_video --settings=test_settings_no_network_non_dtf --noinput --parallel 2
+          python manage.py test storefront.tests.test_product_video --settings=test_settings_no_network_non_dtf --noinput --parallel 1
       - name: Exercise production-like static pipeline
         run: python scripts/run_static_gate.py --output static-gate.json
       - name: Build sanitized non-DTF coverage inventory

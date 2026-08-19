@@ -1,28 +1,35 @@
 # Django 6.1 Stage 7 stable parallel shard
 
-Date: 2026-08-18
+Date: 2026-08-19
 
 Scope: `DJ6-TEST-001`
 
-Source baseline: `90b437e11dcc0c1bd873f4478da8d66409688b3d`
+Source baseline: `b544ea71ea13ded209b5f7b3429544bceb5aff92`
 
 Runtime: CPython `3.14.6`, Django `6.1`
 
 ## CI scope
 
-The existing `storefront.tests.test_product_video` compatibility suite is the
-only Django suite run with `--parallel 2` in `django61-gate.yml`. It uses
-`test_settings_no_network_non_dtf`, has 11 exact test cases, and does not
-include DTF labels.
+The original `storefront.tests.test_product_video --parallel 2` shard was
+stable but slower than serial because two Django worker databases were created
+for only 11 tests. The workflow now runs that suite explicitly with
+`--parallel 1` and parallelizes two larger, process-isolated policy shards via
+`scripts/run_django61_ci_shards.py --jobs 2`:
 
-This is a bounded stability change, not a full-suite parallelization or a
-performance claim. The Stage 7 parallel-speed exit gate remains open: process
-and SQLite setup make this small shard slower in the local measurement.
+- `django-compatibility`: `tests.test_django61_compatibility`;
+- `policy-contracts`: Stage 0 tooling and warning prerequisites, the Instagram
+  baseline runner, requirements contracts, and locked-requirements verifier.
+
+The runner rejects runtime drift from CPython 3.14.6/Django 6.1, removes
+production DB/provider environment values, selects the no-network non-DTF
+settings profile, waits for both child processes, and returns failure if either
+shard fails. `tests.test_django61_stage0_contracts` remains a separate serial
+workflow-contract step; its coverage is not hidden inside the parallel gate.
 
 ## Repeat evidence
 
-Each command completed three consecutive times from `twocomms/` with the
-shared project interpreter:
+The original Django shard was rechecked three times in each mode from
+`twocomms/` with the shared project interpreter:
 
 ```bash
 TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python"
@@ -32,28 +39,47 @@ TWC_PYTHON="$(cd "$(git rev-parse --git-common-dir)/.." && pwd)/.venv/bin/python
   --settings=test_settings_no_network_non_dtf --noinput --parallel 2 -v 1
 ```
 
-| Mode | Runs | Result | Wall-clock range |
+| Original Django shard mode | Runs | Result | Wall-clock range |
 | --- | ---: | --- | --- |
-| Serial (`--parallel 1`) | 3 | `11/11 OK` each | 1.40-1.42 s |
-| Parallel (`--parallel 2`) | 3 | `11/11 OK` each | 2.05-2.11 s |
+| Serial (`--parallel 1`) | 3 | `11/11 OK` each | 2.28-3.41 s |
+| Parallel (`--parallel 2`) | 3 | `11/11 OK` each | 3.46-4.00 s |
 
-The initial direct serial CI command also completed `11/11 OK`. The parallel
-runner created worker databases `default_1.sqlite3` and `default_2.sqlite3`;
-no worker used the base in-memory database as a shared writable file.
+The replacement process shards were measured through the committed runner.
+All 68 selected tests passed on every measured run:
+
+```bash
+"$TWC_PYTHON" scripts/run_django61_ci_shards.py --jobs 1 --verbosity 0
+"$TWC_PYTHON" scripts/run_django61_ci_shards.py --jobs 2 --verbosity 0
+```
+
+| Policy shard mode | Runs | Result | Wall-clock range |
+| --- | ---: | --- | --- |
+| Serial (`--jobs 1`) | 3 | `68/68 OK` each | 17.33-21.25 s |
+| Parallel (`--jobs 2`) | 3 | `68/68 OK` each | 9.70-9.80 s |
+
+Using the conservative fastest-serial/slowest-parallel comparison, local
+wall-clock fell by 43.5%. The critical-path reduction is real even though
+worker startup and OS scheduling vary; no full-suite speed claim is made.
+The exact verbose CI command was also checked once in each mode: `22.71s`
+serial versus `13.99s` parallel, with the same `68/68 OK` result.
 
 ## Shared-state audit
 
-- The no-network settings define the default database as SQLite `:memory:`.
-  Django creates isolated worker clones for `--parallel 2`.
-- Both cache aliases use `LocMemCache`, which is process-local. This shard does
-  not mutate cache state.
-- The selected tests create only ORM `Category` and `Product` rows with URLs;
-  they do not assign an `ImageField` or `FileField`. A before/after filesystem
-  snapshot found zero files under the configured `MEDIA_ROOT` in both states.
-- `test_network_guard` is installed before the base settings load and the
-  profile reports `TEST_NETWORK_POLICY=deny-external`. Feed-task calls in the
-  selected suite are patched.
+- Each policy shard is a separate Python process. Module state, environment
+  mutations and in-memory caches cannot cross the shard boundary.
+- Filesystem-writing contract tests use `TemporaryDirectory`; the shard list
+  contains no media/static collector or shared SQLite database writer.
+- `test_settings_no_network_non_dtf` installs the external network guard and
+  excludes DTF. The runner additionally removes production DB and provider
+  credentials before starting children.
+- Results are captured independently and rendered in deterministic shard
+  order. A failing child cannot be masked by the other shard's success.
+- Focused runner contracts cover the exact module allowlist, credential
+  stripping, DTF rejection, bounded `--jobs 2`, error propagation and the
+  serial `product_video` workflow command.
 
 No production database, runtime, media, DTF surface, deployment command, or
 external provider was used. The full non-DTF suite remains serial because its
-shared cache/media/SQLite race boundary has not been proven safe.
+shared cache/media/SQLite race boundary has not been proven safe. The Stage 7
+parallelization exit gate is supported only by these two reviewed process
+shards and their measured wall-clock reduction.
