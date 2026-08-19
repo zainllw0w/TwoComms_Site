@@ -247,6 +247,15 @@ class ReviewVote(models.Model):
         related_name="review_votes",
     )
     anon_key = models.CharField(max_length=64, blank=True, db_index=True)
+    anon_identity = models.GeneratedField(
+        expression=models.Case(
+            models.When(user__isnull=True, then=models.F("anon_key")),
+            default=models.Value(None),
+            output_field=models.CharField(max_length=64),
+        ),
+        output_field=models.CharField(max_length=64),
+        db_persist=True,
+    )
     value = models.CharField(max_length=10, choices=VOTE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -256,13 +265,11 @@ class ReviewVote(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["review", "user"],
-                condition=models.Q(user__isnull=False),
-                name="rev_vote_unique_per_user",
+                name="rev_vote_unique_user",
             ),
             models.UniqueConstraint(
-                fields=["review", "anon_key"],
-                condition=models.Q(user__isnull=True) & ~models.Q(anon_key=""),
-                name="rev_vote_unique_per_anon",
+                fields=["review", "anon_identity"],
+                name="rev_vote_unique_anon",
             ),
             models.CheckConstraint(
                 condition=(
