@@ -13,10 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = ROOT / "twocomms"
-# Stage 0 recorded 138 commands. Two non-DTF commands were added afterwards
-# (`measure_stage4_baseline` and `check_ig_gemini_metadata_health`); keep the
-# exact-count guard current so additions remain intentional and reviewable.
-EXPECTED_COMMAND_COUNT = 140
+# Stage 0 recorded 138 commands. Three non-DTF commands were added afterwards:
+# `measure_stage4_baseline`, `check_ig_gemini_metadata_health`, and
+# `run_durable_tasks`. Keep the exact-count guard current so additions remain
+# intentional and reviewable.
+EXPECTED_COMMAND_COUNT = 141
 
 
 def validate_command_count(command_count: int) -> list[dict[str, object]]:

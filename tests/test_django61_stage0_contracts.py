@@ -175,8 +175,8 @@ class ManagementCommandSmokeContractTests(unittest.TestCase):
     def test_command_inventory_requires_exact_baseline_count(self):
         from scripts.check_management_commands import validate_command_count
 
-        self.assertEqual(validate_command_count(140), [])
-        for count in (138, 139, 141):
+        self.assertEqual(validate_command_count(141), [])
+        for count in (139, 140, 142):
             with self.subTest(count=count):
                 failures = validate_command_count(count)
                 self.assertEqual(failures[0]["error"], "CommandCountMismatch")
@@ -236,8 +236,14 @@ class ManagementCommandSmokeContractTests(unittest.TestCase):
             payload = json.loads(evidence.read_text(encoding="utf-8"))
 
         self.assertEqual(payload["status"], "ok")
-        self.assertEqual(payload["command_count"], 140)
+        self.assertEqual(payload["command_count"], 141)
         self.assertEqual(payload["failed"], [])
+        self.assertEqual(
+            payload["modules"].count(
+                "task_runtime.management.commands.run_durable_tasks"
+            ),
+            1,
+        )
         self.assertFalse(any("dtf" in module.casefold() for module in payload["modules"]))
         self.assertEqual(evidence.name, "commands.json")
 
@@ -352,9 +358,10 @@ class Django61WorkflowContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn('"--database=default"', runner)
-        # The runner intentionally uses Django's ERROR threshold and applies
-        # its own expiring warning policy after parsing the check output.
-        self.assertIn('"--fail-level=ERROR"', runner)
+        # Django warnings fail the command before the explicit warning-policy
+        # classifier provides its defense-in-depth validation.
+        self.assertIn('"--fail-level=WARNING"', runner)
+        self.assertNotIn('"--fail-level=ERROR"', runner)
         self.assertIn("classify_database_check_warnings", runner)
 
 
