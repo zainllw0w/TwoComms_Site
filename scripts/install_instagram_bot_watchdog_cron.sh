@@ -13,6 +13,7 @@ PYTHON_BIN="${TWC_PYTHON:-/home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3
 CRONTAB_BIN="${TWC_CRONTAB_BIN:-crontab}"
 FLOCK_BIN="${TWC_FLOCK_BIN:-/usr/bin/flock}"
 TIMEOUT_BIN="${TWC_TIMEOUT_BIN:-/usr/bin/timeout}"
+PRODUCTION_ENV_PREFIX="DJANGO_ENV=production DJANGO_SETTINGS_MODULE=twocomms.production_settings"
 
 usage() { echo "Usage: $0 --check|--install" >&2; exit 64; }
 [ "$#" -eq 1 ] || usage
@@ -52,7 +53,7 @@ validate_path "timeout executable" "$TIMEOUT_BIN"
 # --ensure may wait up to 45s for an old daemon to drain and another 15s for
 # the replacement to acquire its singleton lock. Keep the outer timeout above
 # that bound so cron cannot kill a valid reload in its startup window.
-cron_line="* * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 75s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
+cron_line="* * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 75s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 legacy_line="* * * * * cd $DJANGO_ROOT && $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-ig-watchdog-cron.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT INT TERM

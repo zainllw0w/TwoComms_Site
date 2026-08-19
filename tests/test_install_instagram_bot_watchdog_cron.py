@@ -11,6 +11,10 @@ INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_instagram_bot_watchdog_cron.sh
 BEGIN_MARKER = "# BEGIN TWOCOMMS INSTAGRAM BOT WATCHDOG"
 END_MARKER = "# END TWOCOMMS INSTAGRAM BOT WATCHDOG"
 LEGACY_MARKER = "# codex:instagram-bot-watchdog"
+PRODUCTION_ENV_PREFIX = (
+    "DJANGO_ENV=production "
+    "DJANGO_SETTINGS_MODULE=twocomms.production_settings"
+)
 
 
 class InstallInstagramBotWatchdogCronTests(unittest.TestCase):
@@ -94,11 +98,30 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertEqual(content.count(BEGIN_MARKER), 1)
         self.assertIn(f"{self.fake_bin / 'flock'} -n -E 75", content)
         self.assertIn(
+            f"&& {PRODUCTION_ENV_PREFIX} {self.fake_bin / 'flock'}",
+            content,
+        )
+        self.assertIn(
             f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 75s",
             content,
         )
         self.assertIn("--kill-after=15s", content)
         self.assertNotIn(legacy, content)
+
+    def test_managed_watchdog_command_has_explicit_production_settings(self):
+        result = self._run("--install")
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        content = self.crontab_file.read_text(encoding="utf-8")
+        managed_line = next(
+            line
+            for line in content.splitlines()
+            if "manage.py run_instagram_bot --ensure" in line
+        )
+        self.assertIn(
+            f"&& {PRODUCTION_ENV_PREFIX} {self.fake_bin / 'flock'}",
+            managed_line,
+        )
 
     def test_check_detects_missing_block_and_install_rejects_duplicates(self):
         self.assertNotEqual(self._run("--check").returncode, 0)

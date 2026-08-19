@@ -14,6 +14,7 @@ FLOCK_BIN="${TWC_FLOCK_BIN:-/usr/bin/flock}"
 TIMEOUT_BIN="${TWC_TIMEOUT_BIN:-/usr/bin/timeout}"
 CMP_BIN="${TWC_CMP_BIN:-/usr/bin/cmp}"
 FIND_BIN="${TWC_FIND_BIN:-/usr/bin/find}"
+PRODUCTION_ENV_PREFIX="DJANGO_ENV=production DJANGO_SETTINGS_MODULE=twocomms.production_settings"
 CALL_MARKER="$DJANGO_ROOT/tmp/call_auto_analysis.enabled"
 
 usage() {
@@ -84,17 +85,17 @@ fi
 cat >"$expected" <<EOF
 $BEGIN_MARKER
 # codex:order-telegram-reconcile
-*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/order_telegram_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_order_telegram_notifications --max-age-hours 168 --min-age-seconds 60 --limit 50 >> $DJANGO_ROOT/logs/order_telegram_reconcile.log 2>&1
+*/2 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/order_telegram_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_order_telegram_notifications --max-age-hours 168 --min-age-seconds 60 --limit 50 >> $DJANGO_ROOT/logs/order_telegram_reconcile.log 2>&1
 # codex:ig-checkout-reconcile
-*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_checkout_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_checkout --limit 100 >> $DJANGO_ROOT/logs/ig_checkout_reconcile.log 2>&1
+*/2 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_checkout_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_checkout --limit 100 >> $DJANGO_ROOT/logs/ig_checkout_reconcile.log 2>&1
 # codex:ig-order-fulfillment
-*/2 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_order_fulfillment.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_order_fulfillment --limit 100 >> $DJANGO_ROOT/logs/ig_order_fulfillment.log 2>&1
+*/2 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_order_fulfillment.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_order_fulfillment --limit 100 >> $DJANGO_ROOT/logs/ig_order_fulfillment.log 2>&1
 # codex:ig-deal-payments
-*/4 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/poll_ig_deal_payments.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 180s $PYTHON_BIN manage.py poll_ig_deal_payments --limit 50 >> $DJANGO_ROOT/logs/poll_ig_deal_payments.log 2>&1
+*/4 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/poll_ig_deal_payments.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 180s $PYTHON_BIN manage.py poll_ig_deal_payments --limit 50 >> $DJANGO_ROOT/logs/poll_ig_deal_payments.log 2>&1
 # codex:call-auto-analysis
-*/5 * * * * if [ -f "$CALL_MARKER" ] && [ ! -L "$CALL_MARKER" ] && [ "\$("$FIND_BIN" "$CALL_MARKER" -prune -type f -perm 600 -print 2>/dev/null)" = "$CALL_MARKER" ] && { echo call-auto-analysis-enabled-v1 | "$CMP_BIN" -s - "$CALL_MARKER"; }; then cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/run_call_ai_analyses.lock /bin/sh -c 'if [ -f "$CALL_MARKER" ] && [ ! -L "$CALL_MARKER" ] && [ "\$("$FIND_BIN" "$CALL_MARKER" -prune -type f -perm 600 -print 2>/dev/null)" = "$CALL_MARKER" ] && { echo call-auto-analysis-enabled-v1 | "$CMP_BIN" -s - "$CALL_MARKER"; }; then exec $TIMEOUT_BIN --signal=TERM --kill-after=15s 240s $PYTHON_BIN manage.py run_call_ai_analyses --limit 1; fi' >> $DJANGO_ROOT/logs/run_call_ai_analyses.log 2>&1; fi
+*/5 * * * * if [ -f "$CALL_MARKER" ] && [ ! -L "$CALL_MARKER" ] && [ "\$("$FIND_BIN" "$CALL_MARKER" -prune -type f -perm 600 -print 2>/dev/null)" = "$CALL_MARKER" ] && { echo call-auto-analysis-enabled-v1 | "$CMP_BIN" -s - "$CALL_MARKER"; }; then cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/run_call_ai_analyses.lock /bin/sh -c 'if [ -f "$CALL_MARKER" ] && [ ! -L "$CALL_MARKER" ] && [ "\$("$FIND_BIN" "$CALL_MARKER" -prune -type f -perm 600 -print 2>/dev/null)" = "$CALL_MARKER" ] && { echo call-auto-analysis-enabled-v1 | "$CMP_BIN" -s - "$CALL_MARKER"; }; then exec $TIMEOUT_BIN --signal=TERM --kill-after=15s 240s $PYTHON_BIN manage.py run_call_ai_analyses --limit 1; fi' >> $DJANGO_ROOT/logs/run_call_ai_analyses.log 2>&1; fi
 # codex:ig-gemini-metadata-health
-0 * * * * cd $DJANGO_ROOT && $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/check_ig_gemini_metadata_health.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py check_ig_gemini_metadata_health >> $DJANGO_ROOT/logs/check_ig_gemini_metadata_health.log 2>&1
+0 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/check_ig_gemini_metadata_health.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py check_ig_gemini_metadata_health >> $DJANGO_ROOT/logs/check_ig_gemini_metadata_health.log 2>&1
 $END_MARKER
 EOF
 

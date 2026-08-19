@@ -16,6 +16,10 @@ CALL_MARKER_NAME = "call_auto_analysis.enabled"
 CALL_MARKER_TOKEN = b"call-auto-analysis-enabled-v1\n"
 WATCHDOG_BEGIN = "# BEGIN TWOCOMMS INSTAGRAM BOT WATCHDOG"
 TRACKING_BEGIN = "# BEGIN TWOCOMMS NOVA POSHTA TRACKING"
+PRODUCTION_ENV_PREFIX = (
+    "DJANGO_ENV=production "
+    "DJANGO_SETTINGS_MODULE=twocomms.production_settings"
+)
 
 
 class InstallInstagramPeriodicJobsCronTests(unittest.TestCase):
@@ -138,6 +142,25 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertNotIn("run_instagram_bot --ensure", first_content)
         self.assertNotIn("update_tracking_statuses", first_content)
         self.assertIn("# codex:call-auto-analysis", first_content)
+        managed_lines = [
+            line
+            for line in first_content.splitlines()
+            if "manage.py " in line
+            and any(
+                command in line
+                for command in (
+                    "reconcile_order_telegram_notifications",
+                    "reconcile_ig_checkout",
+                    "reconcile_ig_order_fulfillment",
+                    "poll_ig_deal_payments",
+                    "run_call_ai_analyses",
+                    "check_ig_gemini_metadata_health",
+                )
+            )
+        ]
+        self.assertEqual(len(managed_lines), 6)
+        for line in managed_lines:
+            self.assertIn(f"&& {PRODUCTION_ENV_PREFIX} ", line)
         self.assertIn(
             f"{self.django_root}/tmp/run_call_ai_analyses.lock "
             "/bin/sh -c ",
