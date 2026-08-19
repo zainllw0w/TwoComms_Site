@@ -30,18 +30,24 @@ Migration `reviews.0003_reviewvote_innodb_canary` depends on
 
 ## Disposable proof
 
-После интеграции warning-fix branch зарегистрируйте focused suite в shared
-MariaDB runner и выполните local-only native gate на loopback. В этой ветке
-shared runner намеренно не меняется, поэтому команда не доступна до
-интеграции:
+Общий `scripts/run_mariadb_gate.py` остаётся warning/constraint gate и не
+подменяет физический engine-canary; отдельного `stage5-reviewvote-canary`
+suite в нём нет. Не запускайте несуществующий suite и не считайте обычный
+`lifecycle` доказательством этой миграции. Физический disposable lifecycle
+был выполнен отдельным fail-closed harness на loopback MariaDB 11.4.12:
 
-```bash
-scripts/run_mariadb_gate.py --server-mode native --suite stage5-reviewvote-canary
-```
+- `0002` применился без ошибок, затем FK staging перевёл synthetic table в
+  MyISAM;
+- `0003` forward перевёл её в InnoDB, reverse вернул MyISAM, empty reapply
+  снова прошёл, а одна запись сохранилась через forward/reverse;
+- временные database/user и write-freeze marker удалены; production checkout и
+  production DB не использовались.
 
-Она должна создать отдельную временную database/user, запустить
-Django child, выполнить physical MyISAM -> InnoDB -> write -> MyISAM rehearsal
-и подтвердить cleanup. Production checkout/DB не используются.
+Tracked unit contract остаётся `reviews.tests.test_stage5_innodb_canary`; он
+проверяет fail-closed interlocks и тот же migration validator. Для нового
+production кандидата сначала создайте отдельный reviewed harness/evidence,
+а не расширяйте этот документ утверждением, что disposable proof равен live
+rollout.
 
 ## Production activation checklist (не запускать автоматически)
 
