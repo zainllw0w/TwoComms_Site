@@ -626,8 +626,17 @@ Production acceptance от 2026-08-17:
   - Закрыт только disposable experiment evidence; production `GeneratedField`
     и DDL rollout не выполнены и остаются запрещёнными до устранения formula drift.
 
-- [ ] **DJ6-MIG-001 - Squash migrations только после стабильного graph и restore drill.**
-  - Не удалять historical migrations до applied-history и clean-install proof.
+- [x] **DJ6-MIG-001 - Подтвердить migration graph и restore drill перед squash.**
+  - Safety gate закрыт: полный non-DTF graph прошёл clean install, `migrate
+    --check`, `makemigrations --check`, logical dump, restore в отдельную
+    disposable MariaDB 11.4.12 и повторный `migrate --check`; schema/history
+    parity и fail-closed cleanup подтверждены. Evidence:
+    `docs/qa/django61-stage5-mig001-mariadb-lifecycle.json` и
+    `docs/qa/django61-stage5-migration-squash.md`.
+  - Это не означает фактический squash: `squashmigrations`, `replaces` и
+    удаление historical migrations не выполнялись и остаются `NO-GO` до
+    свежей read-only identity-set сверки production history и утверждённых
+    squash ranges.
 
 ### Exit gate этапа 5
 

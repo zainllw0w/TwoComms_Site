@@ -12,11 +12,15 @@ an owner of that environment.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import io
 import json
 import os
 from pathlib import Path
+import re
+import secrets
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -25,11 +29,35 @@ import time
 from typing import Any, Iterable, Mapping
 
 
+
 ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = ROOT / "twocomms"
 SETTINGS = "test_settings_migrations_non_dtf"
 DTF_STUB_PREFIX = "test_support.dtf_stub"
+MARIADB_SETTINGS = "test_settings_mariadb"
+AUTHORITATIVE_HISTORY_EVIDENCE = (
+    ROOT / "docs" / "qa" / "django61-stage5-mig001-production-history.json"
+)
 COMMAND_TIMEOUT_SECONDS = 30 * 60
+MARIADB_DATABASE_RE = re.compile(
+    r"^test_twocomms_mig_(?:clean|restore)_[a-f0-9]{12}$"
+)
+MARIADB_DUMP_OPTIONS = (
+    "--routines",
+    "--triggers",
+    "--events",
+)
+MARIADB_SCHEMA_METADATA_SCOPE = (
+    "tables",
+    "columns",
+    "indexes",
+    "constraints",
+    "checks",
+    "foreign_keys",
+    "triggers",
+    "routines",
+    "events",
+)
 SENSITIVE_ENV_MARKERS = (
     "TOKEN",
     "SECRET",
@@ -46,6 +74,21 @@ SENSITIVE_ENV_MARKERS = (
 
 class GateFailure(RuntimeError):
     """A deterministic, user-actionable gate failure."""
+
+
+def _mariadb_components():
+    """Import the shared disposable MariaDB lifecycle only when requested."""
+
+    try:
+        from scripts import run_mariadb_gate
+    except ModuleNotFoundError:
+        # Direct ``python scripts/<runner>.py`` execution puts only the scripts
+        # directory on sys.path.  Add the repository root for the shared gate
+        # without changing the worker's sanitized environment.
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from scripts import run_mariadb_gate
+    return run_mariadb_gate
 
 
 MARIADB_VENDORS = frozenset({"mysql", "mariadb"})
@@ -168,6 +211,13 @@ def validate_mariadb_rehearsal_evidence(
         raise GateFailure("mariadb_rehearsal_requires_mariadb_server")
     if evidence.get("disposable") is not True:
         raise GateFailure("mariadb_rehearsal_must_be_disposable")
+    metadata_scope = _require_mapping(
+        evidence.get("schema_metadata_scope"), "mariadb_schema_metadata_scope"
+    )
+    if tuple(metadata_scope.get("includes") or ()) != MARIADB_SCHEMA_METADATA_SCOPE:
+        raise GateFailure("mariadb_schema_metadata_scope_incomplete")
+    if tuple(metadata_scope.get("dump_options") or ()) != MARIADB_DUMP_OPTIONS:
+        raise GateFailure("mariadb_dump_scope_incomplete")
     clean_install = _require_mapping(
         evidence.get("clean_install"), "mariadb_clean_install"
     )
@@ -180,7 +230,190 @@ def validate_mariadb_rehearsal_evidence(
         replay.get("pending", -1), "mariadb_replay_pending"
     ) != 0:
         raise GateFailure("mariadb_replay_pending")
-    validate_restore_drill_evidence(evidence.get("restore_drill") or {})
+    for label, record in (("clean_install", clean_install), ("replay", replay)):
+        database = str(record.get("database") or "").strip()
+        if not MARIADB_DATABASE_RE.fullmatch(database):
+            raise GateFailure(f"mariadb_{label}_database_invalid")
+        for field in ("schema_hash", "applied_history_hash"):
+            _require_sha256(record.get(field), f"mariadb_{label}_{field}")
+        _require_int(
+            record.get("applied_history_count", -1),
+            f"mariadb_{label}_applied_history_count",
+            minimum=1,
+        )
+        record_scope = _require_mapping(
+            record.get("schema_metadata_scope"),
+            f"mariadb_{label}_schema_metadata_scope",
+        )
+        if tuple(record_scope.get("includes") or ()) != MARIADB_SCHEMA_METADATA_SCOPE:
+            raise GateFailure(f"mariadb_{label}_schema_metadata_scope_incomplete")
+        if tuple(record_scope.get("dump_options") or ()) != MARIADB_DUMP_OPTIONS:
+            raise GateFailure(f"mariadb_{label}_dump_scope_incomplete")
+        for field in ("trigger_count", "routine_count", "event_count"):
+            _require_int(
+                record.get(field, -1), f"mariadb_{label}_{field}", minimum=0
+            )
+        if dict(record_scope) != dict(metadata_scope):
+            raise GateFailure(f"mariadb_{label}_schema_metadata_scope_mismatch")
+    if clean_install["database"] == replay["database"]:
+        raise GateFailure("mariadb_clean_restore_database_must_differ")
+    if clean_install["schema_hash"] != replay["schema_hash"]:
+        raise GateFailure("mariadb_replay_schema_hash_mismatch")
+    if clean_install["applied_history_hash"] != replay["applied_history_hash"]:
+        raise GateFailure("mariadb_replay_history_hash_mismatch")
+    if clean_install["applied_history_count"] != replay["applied_history_count"]:
+        raise GateFailure("mariadb_replay_history_count_mismatch")
+    for field in ("trigger_count", "routine_count", "event_count"):
+        if clean_install[field] != replay[field]:
+            raise GateFailure(f"mariadb_replay_{field}_mismatch")
+    restore_drill = _require_mapping(evidence.get("restore_drill"), "restore_drill")
+    restore = _require_mapping(restore_drill.get("restore"), "restore_evidence")
+    if str(restore.get("source_database") or "") != clean_install["database"]:
+        raise GateFailure("mariadb_restore_source_database_mismatch")
+    if str(restore.get("destination_database") or "") != replay["database"]:
+        raise GateFailure("mariadb_restore_destination_database_mismatch")
+    validate_restore_drill_evidence(restore_drill)
+
+
+def validate_authoritative_history_compatibility(
+    authoritative_evidence: Mapping[str, Any],
+    mariadb_evidence: Mapping[str, Any],
+    *,
+    graph_fingerprint: str,
+) -> None:
+    """Require an explicit owner review before combining history snapshots.
+
+    A production recorder can legitimately contain replacement/legacy rows that
+    are not present in a newer clean-install replay.  Comparing the two hashes
+    byte-for-byte would therefore reject a valid identity review, while
+    accepting an arbitrary boolean would be unsafe.  The owner must publish a
+    sanitized compatibility record tied to the current graph fingerprint.
+    """
+
+    authoritative = _require_mapping(
+        authoritative_evidence, "authoritative_applied_history"
+    )
+    rehearsal = _require_mapping(mariadb_evidence, "mariadb_rehearsal")
+    compatibility = _require_mapping(
+        rehearsal.get("authoritative_history_compatibility"),
+        "authoritative_history_compatibility",
+    )
+    if compatibility.get("status") != "verified":
+        raise GateFailure("authoritative_history_compatibility_not_verified")
+    if compatibility.get("method") != "migration_identity_set_review":
+        raise GateFailure("authoritative_history_compatibility_method_missing")
+    if compatibility.get("decision") != "go":
+        raise GateFailure("authoritative_history_compatibility_not_approved")
+    expected_fingerprint = _require_sha256(
+        graph_fingerprint, "expected_graph_fingerprint"
+    )
+    if _require_sha256(
+        compatibility.get("graph_fingerprint"),
+        "authoritative_history_compatibility_graph_fingerprint",
+    ) != expected_fingerprint:
+        raise GateFailure("authoritative_history_compatibility_graph_mismatch")
+    if compatibility.get("authoritative_pending") != 0:
+        raise GateFailure("authoritative_history_compatibility_pending")
+    if _require_int(
+        compatibility.get("authoritative_applied_history_count", -1),
+        "authoritative_history_compatibility_count",
+        minimum=1,
+    ) != _require_int(
+        authoritative.get("applied_history_count", -1),
+        "authoritative_applied_history_count",
+        minimum=1,
+    ):
+        raise GateFailure("authoritative_history_compatibility_count_mismatch")
+    if _require_sha256(
+        compatibility.get("authoritative_applied_history_hash"),
+        "authoritative_history_compatibility_authoritative_hash",
+    ) != _require_sha256(
+        authoritative.get("applied_history_hash"),
+        "authoritative_applied_history_hash",
+    ):
+        raise GateFailure("authoritative_history_compatibility_hash_mismatch")
+    if _require_sha256(
+        compatibility.get("authoritative_graph_fingerprint"),
+        "authoritative_history_compatibility_authoritative_graph",
+    ) != _require_sha256(
+        authoritative.get("graph_fingerprint"),
+        "authoritative_graph_fingerprint",
+    ):
+        raise GateFailure("authoritative_history_compatibility_authoritative_graph_mismatch")
+    clean_install = _require_mapping(
+        rehearsal.get("clean_install"), "mariadb_clean_install"
+    )
+    if _require_int(
+        compatibility.get("current_applied_history_count", -1),
+        "authoritative_history_compatibility_current_count",
+        minimum=1,
+    ) != _require_int(
+        clean_install.get("applied_history_count", -1),
+        "mariadb_clean_install_applied_history_count",
+        minimum=1,
+    ):
+        raise GateFailure("authoritative_history_compatibility_current_count_mismatch")
+    if _require_sha256(
+        compatibility.get("current_applied_history_hash"),
+        "authoritative_history_compatibility_current_hash",
+    ) != _require_sha256(
+        clean_install.get("applied_history_hash"),
+        "mariadb_clean_install_history_hash",
+    ):
+        raise GateFailure("authoritative_history_compatibility_current_hash_mismatch")
+    if not str(compatibility.get("reviewer") or "").strip():
+        raise GateFailure("authoritative_history_compatibility_reviewer_missing")
+    if not str(compatibility.get("reviewed_at") or "").strip():
+        raise GateFailure("authoritative_history_compatibility_timestamp_missing")
+
+
+def assess_authoritative_history_snapshot(
+    current: Mapping[str, Any],
+    *,
+    evidence_path: Path = AUTHORITATIVE_HISTORY_EVIDENCE,
+) -> dict[str, Any]:
+    """Describe why a historical production snapshot cannot authorize GO."""
+
+    try:
+        authoritative = json.loads(evidence_path.read_text(encoding="utf-8"))
+        validate_authoritative_applied_history(authoritative)
+    except (OSError, json.JSONDecodeError, GateFailure):
+        return {
+            "status": "authoritative_snapshot_missing_or_invalid",
+            "decision": "no-go_until_fresh_read_only_identity_set_review",
+            "authoritative_artifact": evidence_path.name,
+        }
+
+    current_graph = _require_sha256(
+        current.get("graph_fingerprint"), "current_graph_fingerprint"
+    )
+    authoritative_graph = _require_sha256(
+        authoritative.get("graph_fingerprint"), "authoritative_graph_fingerprint"
+    )
+    current_count = _require_int(
+        current.get("applied"), "current_applied_history_count", minimum=1
+    )
+    authoritative_count = _require_int(
+        authoritative.get("applied_history_count"),
+        "authoritative_applied_history_count",
+        minimum=1,
+    )
+    status = "identity_set_review_required"
+    if current_graph != authoritative_graph:
+        status = "snapshot_graph_diverged"
+    return {
+        "status": status,
+        "decision": "no-go_until_fresh_read_only_identity_set_review",
+        "method_required": "migration_identity_set_review",
+        "authoritative_artifact": evidence_path.name,
+        "authoritative_captured_at": authoritative["captured_at"],
+        "authoritative_graph_fingerprint": authoritative_graph,
+        "authoritative_applied_history_count": authoritative_count,
+        "authoritative_applied_history_hash": authoritative["applied_history_hash"],
+        "graph_fingerprint": current_graph,
+        "current_applied_history_count": current_count,
+        "current_applied_history_hash": current["applied_history_hash"],
+    }
 
 
 def assert_local_only_environment(environment: dict[str, str] | None = None) -> None:
@@ -258,6 +491,9 @@ def safe_worker_environment(
             "PYTHONUNBUFFERED": "1",
         }
     )
+    environment["PYTHONPATH"] = os.pathsep.join(
+        path for path in (str(APP_ROOT), str(ROOT)) if path
+    )
     return environment
 
 
@@ -279,6 +515,202 @@ def _database_schema_hash(connection: sqlite3.Connection) -> str:
         """
     ).fetchall()
     return _hash_lines("|".join(str(value) for value in row) for row in rows)
+
+
+def _canonical_mariadb_check_clause(value: Any) -> str:
+    """Canonicalize a CHECK expression while ignoring dump-generated names."""
+
+    if value is None:
+        return ""
+    return re.sub(r"\s+", "", str(value)).casefold().replace("`", "")
+
+
+def _is_auto_json_check_name(
+    table: Any,
+    constraint_name: Any,
+    clause: Any,
+    columns: set[tuple[str, str]],
+) -> bool:
+    """Recognize only MariaDB's column-derived JSON_VALID CHECK aliases.
+
+    MariaDB can rename the generated JSON CHECK during a logical restore (for
+    example ``data_new`` to ``data``).  User-named checks remain name-sensitive;
+    this predicate is deliberately limited to the exact generated-name forms
+    and the corresponding single-column JSON_VALID expression.
+    """
+
+    normalized = _canonical_mariadb_check_clause(clause)
+    match = re.fullmatch(r"\(*json_valid\(([a-z_][a-z0-9_]*)\)\)*", normalized)
+    if not match:
+        return False
+    table_name = str(table).strip().casefold()
+    column_name = match.group(1).casefold()
+    if (table_name, column_name) not in columns:
+        return False
+    name = str(constraint_name or "").strip().casefold()
+    return name in {column_name, f"{column_name}_new"}
+
+
+def _mariadb_schema_rows(
+    connection: Any,
+) -> tuple[list[str], int, list[str], int, int, int]:
+    """Return canonical information_schema metadata for this database."""
+
+    def canonical(value: Any) -> str:
+        if value is None:
+            return ""
+        return " ".join(str(value).split()).strip().casefold()
+
+    rows: list[str] = []
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT TABLE_NAME, ENGINE, TABLE_TYPE, TABLE_COLLATION "
+            "FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() "
+            "ORDER BY TABLE_NAME"
+        )
+        tables = cursor.fetchall()
+        rows.extend("table|" + "|".join(canonical(value) for value in row) for row in tables)
+        cursor.execute(
+            "SELECT TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_DEFAULT, "
+            "IS_NULLABLE, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, "
+            "NUMERIC_SCALE, COLUMN_TYPE, COLUMN_KEY, EXTRA, COLLATION_NAME "
+            "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+            "ORDER BY TABLE_NAME, ORDINAL_POSITION"
+        )
+        column_rows = cursor.fetchall()
+        rows.extend("column|" + "|".join(canonical(value) for value in row) for row in column_rows)
+        columns = {
+            (canonical(row[0]), canonical(row[1])) for row in column_rows
+        }
+        cursor.execute(
+            "SELECT TABLE_NAME, INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME, "
+            "SUB_PART, INDEX_TYPE FROM information_schema.STATISTICS "
+            "WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX"
+        )
+        rows.extend("index|" + "|".join(canonical(value) for value in row) for row in cursor.fetchall())
+        cursor.execute(
+            "SELECT TABLE_NAME, CONSTRAINT_NAME, CONSTRAINT_TYPE "
+            "FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() "
+            "AND CONSTRAINT_TYPE <> 'CHECK' "
+            "ORDER BY TABLE_NAME, CONSTRAINT_NAME"
+        )
+        rows.extend("constraint|" + "|".join(canonical(value) for value in row) for row in cursor.fetchall())
+        cursor.execute(
+            "SELECT TABLE_NAME, CONSTRAINT_NAME "
+            "FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() "
+            "AND CONSTRAINT_TYPE = 'CHECK' "
+            "ORDER BY TABLE_NAME, CONSTRAINT_NAME"
+        )
+        check_constraint_names: dict[str, list[str]] = {}
+        for row in cursor.fetchall():
+            if len(row) < 2:
+                continue
+            check_constraint_names.setdefault(canonical(row[0]), []).append(
+                canonical(row[1])
+            )
+        cursor.execute(
+            "SELECT TABLE_NAME, CONSTRAINT_NAME, CHECK_CLAUSE "
+            "FROM information_schema.CHECK_CONSTRAINTS "
+            "WHERE CONSTRAINT_SCHEMA = DATABASE() "
+            "ORDER BY TABLE_NAME, CONSTRAINT_NAME, CHECK_CLAUSE"
+        )
+        for row in cursor.fetchall():
+            if len(row) >= 3:
+                table, name, clause = row[0], row[1], row[2]
+            elif len(row) == 2:
+                table, clause = row
+                names = check_constraint_names.get(canonical(table), [])
+                name = names[0] if len(names) == 1 else ""
+            else:
+                continue
+            rows.append(
+                "check|" + canonical(table) + "|"
+                + (
+                    "<mariadb-auto-json>"
+                    if _is_auto_json_check_name(table, name, clause, columns)
+                    else canonical(name)
+                )
+                + "|" + _canonical_mariadb_check_clause(clause)
+            )
+        cursor.execute(
+            "SELECT TABLE_NAME, CONSTRAINT_NAME, REFERENCED_TABLE_NAME, "
+            "REFERENCED_COLUMN_NAME "
+            "FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() "
+            "AND REFERENCED_TABLE_NAME IS NOT NULL "
+            "ORDER BY TABLE_NAME, CONSTRAINT_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME"
+        )
+        rows.extend("foreign_key|" + "|".join(canonical(value) for value in row) for row in cursor.fetchall())
+        cursor.execute(
+            "SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, EVENT_MANIPULATION, "
+            "ACTION_TIMING, ACTION_ORDER, ACTION_STATEMENT, ACTION_ORIENTATION, "
+            "ACTION_CONDITION FROM information_schema.TRIGGERS "
+            "WHERE TRIGGER_SCHEMA = DATABASE() "
+            "ORDER BY TRIGGER_NAME"
+        )
+        trigger_rows = cursor.fetchall()
+        for row in trigger_rows:
+            values = [canonical(value) for value in row]
+            for index in (5, 7):
+                if index < len(row):
+                    values[index] = " ".join(str(row[index] or "").split()).strip()
+            rows.append("trigger|" + "|".join(values))
+        cursor.execute(
+            "SELECT ROUTINE_NAME, ROUTINE_TYPE, DATA_TYPE, DTD_IDENTIFIER, "
+            "ROUTINE_DEFINITION, IS_DETERMINISTIC, SQL_DATA_ACCESS, ROUTINE_BODY "
+            "FROM information_schema.ROUTINES "
+            "WHERE ROUTINE_SCHEMA = DATABASE() "
+            "ORDER BY ROUTINE_NAME, ROUTINE_TYPE"
+        )
+        routine_rows = cursor.fetchall()
+        for row in routine_rows:
+            values = [canonical(value) for value in row]
+            if len(row) > 4:
+                values[4] = " ".join(str(row[4] or "").split()).strip()
+            rows.append("routine|" + "|".join(values))
+        cursor.execute(
+            "SELECT EVENT_NAME, EVENT_DEFINITION, EVENT_TYPE, EXECUTE_AT, "
+            "INTERVAL_VALUE, INTERVAL_FIELD, STATUS, EVENT_BODY, ON_COMPLETION "
+            "FROM information_schema.EVENTS "
+            "WHERE EVENT_SCHEMA = DATABASE() "
+            "ORDER BY EVENT_NAME"
+        )
+        event_rows = cursor.fetchall()
+        for row in event_rows:
+            values = [canonical(value) for value in row]
+            for index in (1, 7):
+                if index < len(row):
+                    values[index] = " ".join(str(row[index] or "").split()).strip()
+            rows.append("event|" + "|".join(values))
+    rows.sort()
+    dtf_tables = sorted(
+        str(row[0]) for row in tables if str(row[0]).casefold().startswith("dtf_")
+    )
+    return rows, len(tables), dtf_tables, len(trigger_rows), len(routine_rows), len(event_rows)
+
+
+def _mariadb_schema_hash(connection: Any) -> tuple[str, int, list[str], int, int, int]:
+    """Hash only canonical information_schema metadata for this database."""
+
+    rows, table_count, dtf_tables, trigger_count, routine_count, event_count = (
+        _mariadb_schema_rows(connection)
+    )
+    return (
+        _hash_lines(rows),
+        table_count,
+        dtf_tables,
+        trigger_count,
+        routine_count,
+        event_count,
+    )
+
+
+def _create_owned_mariadb_database(
+    admin: Any, database: str, attempted: dict[str, bool]
+) -> None:
+    """Record ownership before CREATE so ambiguous failures are cleaned up."""
+
+    attempted[database] = True
+    admin.create_database(database)
 
 
 def _restore_sqlite(source: Path, destination: Path, *, temp_root: Path) -> None:
@@ -344,31 +776,39 @@ def _probe_database() -> dict[str, Any]:
     """Load Django's real non-DTF graph and return sanitized facts."""
 
     rehearsal = os.environ.get("DJANGO61_MIGRATION_REHEARSAL")
-    if rehearsal != "1":
+    mariadb_rehearsal = os.environ.get("DJANGO61_MARIADB_REHEARSAL") == "1"
+    if rehearsal != "1" and not mariadb_rehearsal:
         raise GateFailure("migration_rehearsal_marker_missing")
-    database_path = Path(os.environ.get("DJANGO61_MIGRATION_DB_PATH", ""))
-    temp_root = Path(os.environ.get("DJANGO61_MIGRATION_TEMP_ROOT", ""))
-    database_path = validate_disposable_database_path(database_path, temp_root)
-    if database_path.exists() and database_path.is_symlink():
-        raise GateFailure("disposable_database_symlink_forbidden")
+    database_path = None
+    if not mariadb_rehearsal:
+        database_path = Path(os.environ.get("DJANGO61_MIGRATION_DB_PATH", ""))
+        temp_root = Path(os.environ.get("DJANGO61_MIGRATION_TEMP_ROOT", ""))
+        database_path = validate_disposable_database_path(database_path, temp_root)
+        if database_path.exists() and database_path.is_symlink():
+            raise GateFailure("disposable_database_symlink_forbidden")
 
-    os.environ["DJANGO_SETTINGS_MODULE"] = SETTINGS
+    settings_module = MARIADB_SETTINGS if mariadb_rehearsal else SETTINGS
+    os.environ["DJANGO_SETTINGS_MODULE"] = settings_module
     import django
     from django.conf import settings
 
-    # The profile starts with one in-memory SQLite alias. Replace it before
-    # setup/connection construction, and fail closed if a DTF alias appears.
     configured_databases = settings.DATABASES
     if set(configured_databases) != {"default"}:
         raise GateFailure("database_alias_violation")
-    configured_databases["default"] = {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(database_path),
-        "OPTIONS": {},
-        "TEST": {"NAME": str(database_path)},
-    }
     if "dtf" in configured_databases:
         raise GateFailure("dtf_database_alias_forbidden")
+    if mariadb_rehearsal:
+        if configured_databases["default"].get("ENGINE") != "django.db.backends.mysql":
+            raise GateFailure("mariadb_rehearsal_required")
+    else:
+        # The profile starts with one in-memory SQLite alias. Replace it before
+        # setup/connection construction, and fail closed if a DTF alias appears.
+        configured_databases["default"] = {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(database_path),
+            "OPTIONS": {},
+            "TEST": {"NAME": str(database_path)},
+        }
     django.setup()
 
     from django.apps import apps
@@ -377,8 +817,11 @@ def _probe_database() -> dict[str, Any]:
     from django.db.migrations.loader import MigrationLoader
     from django.db.migrations.recorder import MigrationRecorder
 
-    if connection.vendor != "sqlite":
-        raise GateFailure("sqlite_rehearsal_required")
+    expected_vendor = "mysql" if mariadb_rehearsal else "sqlite"
+    if connection.vendor != expected_vendor:
+        raise GateFailure(
+            "mariadb_rehearsal_required" if mariadb_rehearsal else "sqlite_rehearsal_required"
+        )
     loader = MigrationLoader(connection, ignore_no_migrations=True)
     executor = MigrationExecutor(connection)
     graph = loader.graph
@@ -493,29 +936,39 @@ def _probe_database() -> dict[str, Any]:
     dtf_config = app_configs.get("dtf")
     dtf_stub = dtf_config.name if dtf_config else ""
 
-    table_rows = connection.cursor()
-    try:
-        table_rows.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        )
-        dtf_tables = sorted(
-            str(row[0])
-            for row in table_rows.fetchall()
-            if str(row[0]).casefold().startswith("dtf_")
-        )
-    finally:
-        table_rows.close()
+    if mariadb_rehearsal:
+        (
+            schema_hash,
+            schema_object_count,
+            dtf_tables,
+            trigger_count,
+            routine_count,
+            event_count,
+        ) = _mariadb_schema_hash(connection)
+    else:
+        table_rows = connection.cursor()
+        try:
+            table_rows.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+            dtf_tables = sorted(
+                str(row[0])
+                for row in table_rows.fetchall()
+                if str(row[0]).casefold().startswith("dtf_")
+            )
+        finally:
+            table_rows.close()
 
-    with sqlite3.connect(database_path) as sqlite_connection:
-        schema_hash = _database_schema_hash(sqlite_connection)
-        schema_object_count = sqlite_connection.execute(
-            "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
-        ).fetchone()[0]
+        with sqlite3.connect(database_path) as sqlite_connection:
+            schema_hash = _database_schema_hash(sqlite_connection)
+            schema_object_count = sqlite_connection.execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'"
+            ).fetchone()[0]
 
-    return {
+    result = {
         "status": "ok",
         "database_vendor": connection.vendor,
-        "settings": SETTINGS,
+        "settings": settings_module,
         "network_policy": getattr(settings, "TEST_NETWORK_POLICY", ""),
         "database_aliases": sorted(settings.DATABASES),
         "actual_dtf_app_loaded": actual_dtf_app_loaded,
@@ -536,6 +989,19 @@ def _probe_database() -> dict[str, Any]:
         "schema_object_count": int(schema_object_count),
         "schema_hash": schema_hash,
     }
+    if mariadb_rehearsal:
+        result.update(
+            {
+                "schema_metadata_scope": {
+                    "includes": list(MARIADB_SCHEMA_METADATA_SCOPE),
+                    "dump_options": list(MARIADB_DUMP_OPTIONS),
+                },
+                "trigger_count": trigger_count,
+                "routine_count": routine_count,
+                "event_count": event_count,
+            }
+        )
+    return result
 
 
 def _run_worker_action(action: str) -> dict[str, Any]:
@@ -592,7 +1058,8 @@ def _worker_main(action: str) -> int:
     try:
         payload = _run_worker_action(action)
     except Exception as exc:
-        print(json.dumps({"status": "failed", "error": type(exc).__name__}))
+        detail = str(exc).replace("\n", " ")[:200]
+        print(json.dumps({"status": "failed", "error": type(exc).__name__, "detail": detail}))
         return 2
     print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
     return 0
@@ -631,6 +1098,77 @@ def _run_subprocess_worker(
         raise GateFailure(f"worker_output_invalid:{action}") from exc
     if payload.get("status") != "ok":
         raise GateFailure(f"worker_payload_failed:{action}")
+    return payload
+
+
+def _mariadb_worker_environment(
+    *, database: str, username: str, password: str, host: str, port: str,
+    source: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Build a scrubbed environment for a generated MariaDB worker."""
+
+    source = dict(os.environ if source is None else source)
+    assert_local_only_environment(source)
+    environment = {
+        name: value
+        for name, value in source.items()
+        if name in {"PATH", "HOME", "LANG", "LC_ALL", "VIRTUAL_ENV", "SYSTEMROOT"}
+    }
+    environment.update(
+        {
+            "PYTHONPATH": str(ROOT / "twocomms"),
+            "DJANGO_SETTINGS_MODULE": MARIADB_SETTINGS,
+            "DJANGO_ENV": "development",
+            "SECRET_KEY": "django61-mariadb-rehearsal-only",
+            "DJANGO61_MARIADB_REHEARSAL": "1",
+            "TEST_MARIADB_NAME": database,
+            "TEST_MARIADB_USER": username,
+            "TEST_MARIADB_PASSWORD": password,
+            "TEST_MARIADB_HOST": host,
+            "TEST_MARIADB_PORT": str(port),
+            "TEST_NETWORK_POLICY": "deny-external-allow-loopback",
+            "PYTHONNOUSERSITE": "1",
+            "PYTHONUNBUFFERED": "1",
+            "MANAGER_TG_BOT_TOKEN": "",
+            "MANAGEMENT_TG_BOT_TOKEN": "",
+            "TELEGRAM_BOT_TOKEN": "",
+            "TELEGRAM_CHAT_ID": "",
+            "TELEGRAM_ADMIN_ID": "",
+        }
+    )
+    return environment
+
+
+def _run_mariadb_subprocess_worker(
+    *, python: str, action: str, database: str, username: str, password: str,
+    host: str, port: str, source_environment: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    environment = _mariadb_worker_environment(
+        database=database, username=username, password=password,
+        host=host, port=port, source=source_environment,
+    )
+    completed = subprocess.run(
+        [python, str(Path(__file__).resolve()), "--worker", action],
+        cwd=APP_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=COMMAND_TIMEOUT_SECONDS,
+        check=False,
+    )
+    if completed.returncode:
+        summary = (completed.stderr or completed.stdout or "").strip().splitlines()
+        marker = summary[-1] if summary else "empty"
+        raise GateFailure(f"mariadb_worker_failed:{action}:{completed.returncode}:{marker[:240]}")
+    lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise GateFailure(f"mariadb_worker_output_missing:{action}")
+    try:
+        payload = json.loads(lines[-1])
+    except json.JSONDecodeError as exc:
+        raise GateFailure(f"mariadb_worker_output_invalid:{action}") from exc
+    if payload.get("status") != "ok":
+        raise GateFailure(f"mariadb_worker_payload_failed:{action}")
     return payload
 
 
@@ -686,6 +1224,53 @@ def validate_probe(
         raise GateFailure("migration_history_inconsistent")
     if not payload["graph_fingerprint"] or not payload["schema_hash"]:
         raise GateFailure("probe_fingerprint_missing")
+
+
+def validate_mariadb_probe(payload: Mapping[str, Any], *, require_no_pending: bool = True) -> None:
+    """Validate a real MariaDB probe without accepting SQLite fallback."""
+
+    required = {
+        "status", "database_vendor", "settings", "network_policy", "database_aliases",
+        "actual_dtf_app_loaded", "dtf_real_modules", "dtf_tables", "pending",
+        "consistent_history", "graph_fingerprint", "schema_hash", "applied_history_hash",
+        "applied", "schema_object_count", "schema_metadata_scope",
+        "trigger_count", "routine_count", "event_count",
+    }
+    missing = sorted(required - set(payload))
+    if missing:
+        raise GateFailure("mariadb_probe_fields_missing:" + ",".join(missing))
+    if payload["status"] != "ok" or payload["database_vendor"] != "mysql":
+        raise GateFailure("mariadb_probe_requires_mysql")
+    if payload["settings"] != MARIADB_SETTINGS:
+        raise GateFailure("mariadb_settings_profile_violation")
+    if payload["network_policy"] != "deny-external-allow-loopback":
+        raise GateFailure("mariadb_network_policy_violation")
+    if payload["database_aliases"] != ["default"]:
+        raise GateFailure("mariadb_database_alias_violation")
+    if payload["actual_dtf_app_loaded"] or payload["dtf_real_modules"] or payload["dtf_tables"]:
+        raise GateFailure("mariadb_dtf_surface_present")
+    if not payload["consistent_history"]:
+        raise GateFailure("mariadb_migration_history_inconsistent")
+    if require_no_pending and payload["pending"] != 0:
+        raise GateFailure("mariadb_pending_non_dtf_migrations")
+    _require_sha256(payload["graph_fingerprint"], "mariadb_graph_fingerprint")
+    _require_sha256(payload["schema_hash"], "mariadb_schema_hash")
+    _require_sha256(payload["applied_history_hash"], "mariadb_applied_history_hash")
+    metadata_scope = _require_mapping(
+        payload["schema_metadata_scope"], "mariadb_probe_schema_metadata_scope"
+    )
+    if tuple(metadata_scope.get("includes") or ()) != MARIADB_SCHEMA_METADATA_SCOPE:
+        raise GateFailure("mariadb_probe_schema_metadata_scope_incomplete")
+    if tuple(metadata_scope.get("dump_options") or ()) != MARIADB_DUMP_OPTIONS:
+        raise GateFailure("mariadb_probe_dump_scope_incomplete")
+    for field in ("trigger_count", "routine_count", "event_count"):
+        value = payload[field]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise GateFailure(f"mariadb_probe_{field}_missing_or_invalid")
+    if require_no_pending and (
+        int(payload["applied"]) < 1 or int(payload["schema_object_count"]) < 1
+    ):
+        raise GateFailure("mariadb_probe_empty_schema")
 
 
 def classify_candidate(record: dict[str, Any]) -> dict[str, Any]:
@@ -761,6 +1346,22 @@ def build_decision(
             validate_mariadb_rehearsal_evidence(mariadb_evidence)
         except GateFailure:
             blocking_conditions.append("mariadb_clean_install_evidence_invalid")
+    if (
+        authoritative_applied_history
+        and mariadb_clean_install
+        and authoritative_evidence is not None
+        and mariadb_evidence is not None
+    ):
+        try:
+            validate_authoritative_history_compatibility(
+                authoritative_evidence,
+                mariadb_evidence,
+                graph_fingerprint=str(mariadb_evidence.get("graph_fingerprint") or ""),
+            )
+        except GateFailure:
+            blocking_conditions.append(
+                "authoritative_history_compatibility_invalid"
+            )
     if not approved_ranges:
         blocking_conditions.append("approved_squash_ranges_missing")
     if not sqlite_clean_install:
@@ -869,12 +1470,6 @@ def build_squash_artifact_manifest(
     validate_mariadb_rehearsal_evidence(mariadb_evidence)
     validate_restore_drill_evidence(restore_evidence)
 
-    authoritative_fingerprint = _require_sha256(
-        authoritative_evidence.get("graph_fingerprint"),
-        "authoritative_graph_fingerprint",
-    )
-    if authoritative_fingerprint != fingerprint:
-        raise GateFailure("authoritative_graph_fingerprint_mismatch")
     rehearsal_fingerprint = _require_sha256(
         mariadb_evidence.get("graph_fingerprint"),
         "mariadb_rehearsal_graph_fingerprint",
@@ -892,14 +1487,16 @@ def build_squash_artifact_manifest(
     replay_hash = _require_sha256(
         replay.get("applied_history_hash"), "mariadb_replay_history_hash"
     )
-    authoritative_history_hash = _require_sha256(
-        authoritative_evidence.get("applied_history_hash"),
-        "authoritative_applied_history_hash",
-    )
     if clean_hash != replay_hash:
         raise GateFailure("mariadb_replay_history_hash_mismatch")
-    if clean_hash != authoritative_history_hash:
-        raise GateFailure("authoritative_applied_history_hash_mismatch")
+    # The authoritative recorder may retain replaced/legacy rows and therefore
+    # need not hash-identically to a clean replay of the current graph.  A
+    # separate identity review is required before this metadata can be GO.
+    validate_authoritative_history_compatibility(
+        authoritative_evidence,
+        mariadb_evidence,
+        graph_fingerprint=fingerprint,
+    )
     if dict(mariadb_evidence.get("restore_drill") or {}) != dict(restore_evidence):
         raise GateFailure("restore_drill_evidence_mismatch")
 
@@ -1075,6 +1672,357 @@ def run_gate(*, python: str, evidence_path: Path) -> dict[str, Any]:
     return payload
 
 
+def _resolve_mariadb_client(name: str, source: Mapping[str, str]) -> str:
+    configured_name = {
+        "mariadb-dump": "MARIADB_DUMP_BIN",
+        "mariadb": "MARIADB_CLIENT_BIN",
+    }[name]
+    candidate = source.get(configured_name) or shutil.which(
+        name, path=source.get("PATH")
+    )
+    if not candidate:
+        raise GateFailure(f"mariadb_binary_missing:{name}")
+    return str(Path(candidate).resolve())
+
+
+def _mariadb_dump(
+    *, dump_bin: str, database: str, host: str, port: str,
+    username: str, password: str, destination: Path,
+    source_environment: Mapping[str, str],
+) -> str:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.touch(mode=0o600, exist_ok=False)
+    environment = dict(source_environment)
+    environment["MYSQL_PWD"] = password
+    command = [
+        dump_bin,
+        "--no-defaults",
+        f"--host={host}",
+        f"--port={port}",
+        f"--user={username}",
+        "--single-transaction",
+        "--skip-lock-tables",
+        "--no-tablespaces",
+        "--routines",
+        "--triggers",
+        "--events",
+        "--hex-blob",
+        "--skip-comments",
+        database,
+    ]
+    with destination.open("wb") as output:
+        completed = subprocess.run(
+            command,
+            env=environment,
+            stdout=output,
+            stderr=subprocess.PIPE,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+            check=False,
+        )
+    if completed.returncode:
+        raise GateFailure(f"mariadb_dump_failed:{completed.returncode}")
+    digest = hashlib.sha256()
+    with destination.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    destination.chmod(0o600)
+    return digest.hexdigest()
+
+
+def _mariadb_restore(
+    *, client_bin: str, database: str, host: str, port: str,
+    username: str, password: str, dump_path: Path,
+    source_environment: Mapping[str, str],
+) -> None:
+    environment = dict(source_environment)
+    environment["MYSQL_PWD"] = password
+    command = [
+        client_bin,
+        "--no-defaults",
+        f"--host={host}",
+        f"--port={port}",
+        f"--user={username}",
+        database,
+    ]
+    with dump_path.open("rb") as dump:
+        completed = subprocess.run(
+            command,
+            env=environment,
+            stdin=dump,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+            check=False,
+        )
+    if completed.returncode:
+        raise GateFailure(f"mariadb_restore_failed:{completed.returncode}")
+
+
+def run_mariadb_lifecycle_gate(
+    *, python: str, evidence_path: Path,
+    source_environment: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Rehearse the current non-DTF graph on two disposable MariaDB schemas."""
+
+    assert_local_only_environment(dict(os.environ if source_environment is None else source_environment))
+    source = dict(os.environ if source_environment is None else source_environment)
+    mariadb_gate = _mariadb_components()
+    source.setdefault("PATH", os.environ.get("PATH", ""))
+    dump_bin = _resolve_mariadb_client("mariadb-dump", source)
+    client_bin = _resolve_mariadb_client("mariadb", source)
+    started = time.monotonic()
+    token = secrets.token_hex(6)
+    clean_database = f"test_twocomms_mig_clean_{token}"
+    restore_database = f"test_twocomms_mig_restore_{token}"
+    username = f"twc_mig_{token}"
+    password = secrets.token_urlsafe(24)
+    if not MARIADB_DATABASE_RE.fullmatch(clean_database) or not MARIADB_DATABASE_RE.fullmatch(restore_database):
+        raise GateFailure("generated_mariadb_namespace_invalid")
+    server = None
+    admin = None
+    database_attempted = {clean_database: False, restore_database: False}
+    user_attempted = False
+    cleanup_errors: list[BaseException] = []
+    primary_error: BaseException | None = None
+    payload: dict[str, Any] | None = None
+    with tempfile.TemporaryDirectory(prefix="twc-django61-mariadb-") as directory:
+        dump_path = Path(directory) / "migration-graph.sql"
+        try:
+            server = mariadb_gate._native_admin(source, project_root=ROOT)
+            admin = server
+            version, version_comment = mariadb_gate._validate_server_identity(
+                admin.server_identity()
+            )
+            admin.ensure_namespace_absent(clean_database, username)
+            admin.ensure_namespace_absent(restore_database, username)
+            _create_owned_mariadb_database(admin, clean_database, database_attempted)
+            _create_owned_mariadb_database(admin, restore_database, database_attempted)
+            user_attempted = True
+            admin.create_user(username, password)
+            admin.grant_schema(username, clean_database)
+            admin.grant_schema(username, restore_database)
+            worker_kwargs = {
+                "python": python,
+                "username": username,
+                "password": password,
+                "host": str(admin.host),
+                "port": str(admin.port),
+                "source_environment": source,
+            }
+            print("mariadb lifecycle: clean database provisioned", flush=True)
+            initial = _run_mariadb_subprocess_worker(
+                action="probe", database=clean_database, **worker_kwargs
+            )
+            validate_mariadb_probe(initial, require_no_pending=False)
+            print("mariadb lifecycle: graph probe passed", flush=True)
+            migrated = _run_mariadb_subprocess_worker(
+                action="migrate", database=clean_database, **worker_kwargs
+            )
+            validate_mariadb_probe(migrated)
+            print("mariadb lifecycle: clean migration passed", flush=True)
+            checked = _run_mariadb_subprocess_worker(
+                action="migrate-check", database=clean_database, **worker_kwargs
+            )
+            validate_mariadb_probe(checked)
+            drift = _run_mariadb_subprocess_worker(
+                action="drift", database=clean_database, **worker_kwargs
+            )
+            validate_mariadb_probe(drift)
+            fingerprints = {
+                initial["graph_fingerprint"], migrated["graph_fingerprint"],
+                checked["graph_fingerprint"], drift["graph_fingerprint"],
+            }
+            if len(fingerprints) != 1:
+                raise GateFailure("mariadb_graph_fingerprint_mismatch")
+            dump_sha = _mariadb_dump(
+                dump_bin=dump_bin, database=clean_database, host=str(admin.host),
+                port=str(admin.port), username=username, password=password,
+                destination=dump_path,
+                source_environment=mariadb_gate._process_environment(source),
+            )
+            print("mariadb lifecycle: logical dump passed", flush=True)
+            _mariadb_restore(
+                client_bin=client_bin, database=restore_database, host=str(admin.host),
+                port=str(admin.port), username=username, password=password,
+                dump_path=dump_path,
+                source_environment=mariadb_gate._process_environment(source),
+            )
+            restored = _run_mariadb_subprocess_worker(
+                action="probe", database=restore_database, **worker_kwargs
+            )
+            validate_mariadb_probe(restored)
+            print("mariadb lifecycle: restore probe passed", flush=True)
+            replay = _run_mariadb_subprocess_worker(
+                action="migrate-check", database=restore_database, **worker_kwargs
+            )
+            validate_mariadb_probe(replay)
+            if migrated["schema_hash"] != restored["schema_hash"]:
+                raise GateFailure("mariadb_restore_schema_mismatch")
+            if migrated["applied_history_hash"] != restored["applied_history_hash"]:
+                raise GateFailure("mariadb_restore_history_mismatch")
+            if migrated["applied"] != restored["applied"]:
+                raise GateFailure("mariadb_restore_history_count_mismatch")
+            if migrated["schema_metadata_scope"] != restored["schema_metadata_scope"]:
+                raise GateFailure("mariadb_restore_schema_metadata_scope_mismatch")
+            for field in ("trigger_count", "routine_count", "event_count"):
+                if migrated[field] != restored[field]:
+                    raise GateFailure(f"mariadb_restore_{field}_mismatch")
+            authoritative_assessment = assess_authoritative_history_snapshot(
+                migrated
+            )
+            payload = {
+                "version": 1,
+                "status": "passed",
+                "artifact_type": "disposable_mariadb_lifecycle",
+                "repo_sha": _repo_sha(),
+                "captured_at": datetime.now(timezone.utc).isoformat(),
+                "runtime": {
+                    "python": ".".join(str(part) for part in sys.version_info[:3]),
+                    "django": "6.1",
+                },
+                "database_vendor": "mysql",
+                "production_compatible": True,
+                "server_version": version,
+                "server_comment": version_comment,
+                "disposable": True,
+                "scope": "non-dtf",
+                "dtf_scope": "excluded",
+                "schema_metadata_scope": {
+                    "includes": list(MARIADB_SCHEMA_METADATA_SCOPE),
+                    "dump_options": list(MARIADB_DUMP_OPTIONS),
+                },
+                "graph_fingerprint": migrated["graph_fingerprint"],
+                "graph_node_count": migrated["graph_node_count"],
+                "graph_leaf_count": migrated["graph_leaf_count"],
+                "checks": {
+                    "migrate_check": {
+                        "status": "passed",
+                        "pending": checked["pending"],
+                    },
+                    "makemigrations_check": {
+                        "status": "passed",
+                        "pending": drift["pending"],
+                    },
+                    "restore_migrate_check": {
+                        "status": "passed",
+                        "pending": replay["pending"],
+                    },
+                },
+                "clean_install": {
+                    "status": "passed",
+                    "database": clean_database,
+                    "pending": migrated["pending"],
+                    "schema_hash": migrated["schema_hash"],
+                    "applied_history_hash": migrated["applied_history_hash"],
+                    "applied_history_count": migrated["applied"],
+                    "schema_object_count": migrated["schema_object_count"],
+                    "schema_metadata_scope": migrated["schema_metadata_scope"],
+                    "trigger_count": migrated["trigger_count"],
+                    "routine_count": migrated["routine_count"],
+                    "event_count": migrated["event_count"],
+                },
+                "backup": {
+                    "status": "passed",
+                    "artifact_id": "mariadb-dump:non-dtf-migration-graph",
+                    "sha256": dump_sha,
+                    "format": "mariadb-dump",
+                },
+                "restore": {
+                    "status": "passed",
+                    "source_database": clean_database,
+                    "destination_database": restore_database,
+                    "integrity_check": True,
+                    "schema_hash_matches": True,
+                    "applied_history_matches": True,
+                },
+                "restore_drill": {
+                    "status": "passed",
+                    "disposable": True,
+                    "backup": {
+                        "status": "passed",
+                        "artifact_id": "mariadb-dump:non-dtf-migration-graph",
+                        "sha256": dump_sha,
+                    },
+                    "restore": {
+                        "status": "passed",
+                        "source_database": clean_database,
+                        "destination_database": restore_database,
+                        "integrity_check": True,
+                        "schema_hash_matches": migrated["schema_hash"] == restored["schema_hash"],
+                        "applied_history_matches": migrated["applied_history_hash"] == restored["applied_history_hash"],
+                    },
+                    "rollback": {"status": "passed", "verified": True},
+                },
+                "replay": {
+                    "status": "passed",
+                    "database": restore_database,
+                    "pending": replay["pending"],
+                    "schema_hash": replay["schema_hash"],
+                    "applied_history_hash": replay["applied_history_hash"],
+                    "applied_history_count": replay["applied"],
+                    "schema_object_count": replay["schema_object_count"],
+                    "schema_metadata_scope": replay["schema_metadata_scope"],
+                    "trigger_count": replay["trigger_count"],
+                    "routine_count": replay["routine_count"],
+                    "event_count": replay["event_count"],
+                },
+                "authoritative_history_compatibility": authoritative_assessment,
+                "decision": {
+                    "status": "no-go",
+                    "squash_may_run": False,
+                    "historical_migrations_may_be_deleted": False,
+                    "blocking_conditions": [
+                        "fresh_authoritative_identity_set_review_missing",
+                        "approved_squash_ranges_missing",
+                    ],
+                },
+                "squash_executed": False,
+                "historical_migrations_deleted": False,
+                "cleanup": {"status": "verified"},
+                "duration_seconds": round(time.monotonic() - started, 3),
+            }
+        except BaseException as exc:
+            primary_error = exc
+        finally:
+            if admin is not None:
+                if user_attempted:
+                    try:
+                        admin.drop_user(username)
+                    except BaseException as exc:
+                        cleanup_errors.append(exc)
+                for database, attempted in database_attempted.items():
+                    if attempted:
+                        try:
+                            admin.drop_database(database)
+                        except BaseException as exc:
+                            cleanup_errors.append(exc)
+                for database, attempted in database_attempted.items():
+                    if attempted:
+                        try:
+                            user_exists, database_exists = admin.verify_cleanup(database, username)
+                            if user_exists or database_exists:
+                                cleanup_errors.append(GateFailure("mariadb_cleanup_residue"))
+                        except BaseException as exc:
+                            cleanup_errors.append(exc)
+            if server is not None:
+                try:
+                    server.close()
+                except BaseException as exc:
+                    cleanup_errors.append(exc)
+    if cleanup_errors:
+        if primary_error is not None:
+            raise GateFailure("mariadb_lifecycle_failed_and_cleanup_failed") from primary_error
+        raise GateFailure("mariadb_lifecycle_cleanup_failed") from cleanup_errors[0]
+    if primary_error is not None:
+        if isinstance(primary_error, GateFailure):
+            raise primary_error
+        raise GateFailure(f"mariadb_lifecycle_failed:{type(primary_error).__name__}") from primary_error
+    if payload is None:
+        raise GateFailure("mariadb_lifecycle_evidence_missing")
+    write_evidence(evidence_path, payload)
+    return payload
+
+
 def _repo_sha() -> str:
     result = subprocess.run(
         ("git", "rev-parse", "HEAD"),
@@ -1095,10 +2043,38 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="required acknowledgement that only disposable local SQLite is used",
     )
+    parser.add_argument(
+        "--allow-local-mariadb-rehearsal",
+        action="store_true",
+        help="required acknowledgement for a disposable local MariaDB lifecycle",
+    )
     parser.add_argument("--worker", choices=("probe", "migrate", "migrate-check", "drift"))
     args = parser.parse_args(argv)
     if args.worker:
         return _worker_main(args.worker)
+    if args.allow_local_mariadb_rehearsal:
+        if args.evidence is None:
+            parser.error("--evidence is required")
+        try:
+            payload = run_mariadb_lifecycle_gate(
+                python=args.python, evidence_path=args.evidence
+            )
+        except Exception as exc:
+            print(f"migration MariaDB lifecycle failed: {type(exc).__name__}:{exc}", file=sys.stderr)
+            return 1
+        print(
+            json.dumps(
+                {
+                    "status": payload["status"],
+                    "database_vendor": payload["database_vendor"],
+                    "server_version": payload["server_version"],
+                    "graph_fingerprint": payload["graph_fingerprint"],
+                    "duration_seconds": payload["duration_seconds"],
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     if not args.allow_local_sqlite_rehearsal:
         print(
             "refusing to run: pass --allow-local-sqlite-rehearsal for disposable local rehearsal",

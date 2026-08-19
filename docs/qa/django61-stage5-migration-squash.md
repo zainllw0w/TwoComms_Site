@@ -2,7 +2,7 @@
 
 Дата evidence: 2026-08-19
 
-Исходный commit: `5000def6f2c1dda7754af7c757717a5ab38f84f4`
+Исходный commit lifecycle: `0dcf2e8e40bf616687e598907da947df25924e76`
 
 Runtime: CPython 3.14.6, Django 6.1
 Область: только реальный non-DTF graph. DTF не открывался и не изменялся.
@@ -11,10 +11,12 @@ Runtime: CPython 3.14.6, Django 6.1
 
 **Решение: `NO-GO`. Squash и удаление historical migrations запрещены.**
 
-Read-only applied-history production proof теперь получен, но это не меняет
-решение: обязательная clean-install/replay rehearsal на production-compatible
-MariaDB не завершена. Поэтому migration graph и historical files остаются
-неизменными.
+Полный clean-install/dump/restore/replay текущего non-DTF graph на disposable
+MariaDB `11.4.12` завершён. Это закрывает safety rehearsal самого
+`DJ6-MIG-001`, но не разрешает запускать `squashmigrations`: production history
+snapshot относится к предыдущему graph, а свежая identity-set сверка и
+утверждённые ranges отсутствуют. Поэтому migration graph и historical files
+остаются неизменными.
 
 Gate доказывает воспроизводимость текущего graph на disposable SQLite, но это
 не является разрешением менять production history. Разрешение появится только
@@ -71,15 +73,15 @@ SQLite никогда не проходит authoritative/MariaDB валидат
 
 | Проверка | Результат |
 |---|---|
-| Graph fingerprint одинаков до/после install и после restore | PASS: `95ef0304cc909e83f31d80b8a739d41627863db0a007abcbe48f2d2756ca55db` |
-| Non-DTF graph nodes / leaves | `441 / 16` |
+| Graph fingerprint одинаков до/после install и после restore | PASS: `3318190d6963dd4f12770f86713b9d5822627a8cea3399a8a51ec0f36ad9bbcf` |
+| Non-DTF graph nodes / leaves | `442 / 17` |
 | Clean install на disposable SQLite | PASS, `pending=0`, 1836 schema objects |
 | Restore (`sqlite.Connection.backup`) | PASS, integrity check и schema совпали |
 | Applied migration history после restore | PASS, `pending=0`, hash совпал |
 | Replay после restore (`migrate --check`) | PASS, `pending=0`, history hash совпал |
 | Authoritative production applied history (read-only) | PASS: MariaDB `11.4.12`, `461` non-DTF rows, `pending=0`; sanitized artifact: `django61-stage5-mig001-production-history.json` |
-| MariaDB disposable clean install/replay | **PARTIAL PASS / NO-GO**: bounded isolated `management.0021` rehearsal on local MariaDB `11.4.12` passed in `44.268 s`; full graph clean-install/replay and restore evidence are still absent |
-| MariaDB backup/restore/rollback for migration rehearsal | НЕ ПРЕДОСТАВЛЕНО; валидатор fail-closed |
+| MariaDB disposable clean install/replay | PASS: полный non-DTF graph на MariaDB `11.4.12`, clean/restore `pending=0`, `451` applied migrations |
+| MariaDB backup/restore/rollback for migration rehearsal | PASS: `mariadb-dump`, SHA-256 `06882ce0160414ee33695811ceea9b9aaec8464b6500d728d4c67efab7e73fa4`, schema/history/count parity, cleanup verified |
 | Model migration drift | PASS (`makemigrations --check --dry-run`) |
 | Реальный DTF app / migrations / tables | PASS: не загружены, real modules `[]`, tables `[]` |
 | Production MariaDB mutation | НЕ выполнялась |
@@ -112,20 +114,22 @@ DDL, запись данных, `collectstatic`, restart или `git pull`.
 
 ## MariaDB rehearsal status
 
-Предыдущее наблюдение задержки на операции
-`management.0021_client_is_shared_phone_and_more` не воспроизвелось. На
-отдельной loopback MariaDB `11.4.12` direct InnoDB probe для `ADD COLUMN` и
-`ALTER COLUMN ... DROP DEFAULT`, воспроизведение через historical Django
-schema editor и bounded
-`manage.py migrate management 0021 --settings=test_settings_mariadb` прошли
-успешно. Последняя команда завершилась с `returncode=0` за `44.268 s`.
-Production доступ, schema и данные не затрагивались.
+Runner создал две случайно именованные disposable базы и отдельного
+пользователя на loopback MariaDB `11.4.12`, применил полный non-DTF graph,
+выполнил `migrate --check`, `makemigrations --check`, `mariadb-dump`, restore во
+вторую базу и повторный `migrate --check`. Результат: schema hash
+`1ef54e1ca1333b1887251dae2440b1886691c3828e47200c8738c1bb4569288d`, history
+hash `e9ee23a5d7922b77c580d54bd1270c47e30d5e3edce4f7bd00adc2df62d18a02`,
+`451` applied migrations и `321` таблица совпали после restore. Обе базы,
+пользователь, временный dump и локальный server удалены.
 
-Это снимает именно ложный диагноз несовместимости одной DDL-операции, но не
-является full clean-install/replay proof: полная graph rehearsal не завершена,
-а backup/restore/rollback для migration history ещё не доказаны. Поэтому
-нельзя создавать `replaces` migration, удалять historical files или отмечать
-`DJ6-MIG-001` выполненным.
+MariaDB меняет имена двух автоматически созданных JSON CHECK constraints после
+logical restore (`*_new` -> финальное имя колонки). Gate сравнивает такие CHECK
+по таблице и нормализованному `CHECK_CLAUSE`, сохраняя строгие имена для
+PRIMARY/UNIQUE/FK. Regression-тест фиксирует этот контракт.
+
+Sanitized evidence: `docs/qa/django61-stage5-mig001-mariadb-lifecycle.json`.
+Production доступ, schema и данные не затрагивались.
 
 ## Inventory кандидатов
 
@@ -174,8 +178,11 @@ Manifest не запускает `squashmigrations`, не создаёт migrati
 `post_squash_requirements` содержит `follow_up_release_required`. Удаление
 history возможно только в отдельном релизе после deploy/restore proof.
 
-Текущий tracked evidence не удовлетворяет MariaDB full clean-install/replay,
-поэтому metadata-manifest ещё не создан и решение остаётся `NO-GO`.
+MariaDB full clean-install/replay теперь доказан, но текущий production snapshot
+снят на graph `441/16`, тогда как rehearsal использует `442/17`. Прямое
+равенство history hash между clean install и старым production snapshot не
+является корректным критерием. До свежего read-only identity-set review и
+утверждённых ranges metadata-manifest не создаётся, решение остаётся `NO-GO`.
 
 ## Почему SQLite не закрывает production decision
 
@@ -188,8 +195,8 @@ gate, но не заменяет MariaDB rehearsal и applied-history inventory.
 
 ## Следующий разрешённый шаг
 
-Не менять migration-файлы. Сначала получить read-only applied-history inventory
-из утверждённой non-DTF MariaDB-копии, затем поднять отдельную disposable
-MariaDB той же версии и повторить clean-install/restore. Только после review
-конкретных ranges можно сформировать отдельные `replaces` migrations; старые
-файлы удалять лишь в последующем релизе после deploy/restore proof.
+Не менять migration-файлы. Получить свежую read-only identity-set сверку
+production applied history с graph `442/17`, включая replacements и pending,
+после чего владелец должен утвердить конкретные ranges. Только тогда можно
+сформировать отдельные `replaces` migrations; старые файлы удалять лишь в
+последующем релизе после deploy/restore proof.

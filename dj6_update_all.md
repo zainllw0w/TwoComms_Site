@@ -118,15 +118,15 @@ migration и Stage 5 exit-gate остаются открытыми.
   database cascade — `0.068915 s`; orphan/remaining counts равны нулю, rollback
   восстановил counts `(1, 1)`, обратный DDL вернул `RESTRICT`. Evidence:
   `docs/qa/django61-stage5-db-actions.md`.
-- `DJ6-MIG-001`: disposable SQLite gate доказал воспроизводимость non-DTF
-  migration graph: `441` nodes, `16` leaves, clean install и restore прошли с
-  `pending=0`, `1836` schema objects и одинаковым graph fingerprint. Gate
-  дополнительно требует authoritative MariaDB history, production-compatible
-  clean-install/replay, backup/restore/rollback и reviewer-approved ranges;
-  metadata-only manifest не запускает `squashmigrations` и всегда сохраняет
-  historical migrations. Production history proof пока отсутствует, поэтому
-  решение `NO-GO`. Evidence:
-  `docs/qa/django61-stage5-migration-squash.md`.
+- `DJ6-MIG-001`: safety gate закрыт полным disposable MariaDB lifecycle для
+  non-DTF graph: MariaDB `11.4.12`, graph `442/17`, clean install и restore
+  прошли с `pending=0`, `321` schema objects и одинаковыми schema/history
+  hashes. `migrate --check`, `makemigrations --check`, logical dump с SHA-256,
+  restore/replay и fail-closed cleanup прошли; DTF scope исключён. Evidence:
+  `docs/qa/django61-stage5-mig001-mariadb-lifecycle.json` и
+  `docs/qa/django61-stage5-migration-squash.md`. Фактический squash, создание
+  `replaces` и удаление historical migrations не выполнялись; decision остаётся
+  `NO-GO` до свежей production identity-set сверки и утверждённых ranges.
 
 ### Stage 5 safety hardening release candidate (2026-08-19)
 
@@ -156,8 +156,10 @@ authoritative MariaDB evidence.
   benchmark. Первый retention candidate `storefront.PageView.session` имеет
   соседний `user:SET_NULL`; смешивание database-level и Python-level actions в
   одной модели блокируется Django check `models.E050`.
-- Migration squash и удаление historical migrations запрещены. SQLite rehearsal
-  доказывает целостность текущего graph, но не MariaDB/production history.
+- Migration squash и удаление historical migrations запрещены. MariaDB
+  rehearsal доказал воспроизводимость текущего graph, но production snapshot
+  устарел относительно graph `442/17`; до свежей identity-set сверки и
+  утверждённых ranges нельзя создавать `replaces` или удалять историю.
 - MyISAM -> InnoDB conversion не начинать по planning artifact. Ни одна таблица
   не получила production acceptance, а backup-only rollback не считается
   безопасным при продолжающихся записях.
@@ -176,9 +178,9 @@ authoritative MariaDB evidence.
   semantics, проверить все price consumers и значения `discount_percent > 100`,
   затем повторить disposable parity/index gate и подготовить отдельный
   lock/rollback план DDL.
-- `DJ6-MIG-001`: остаются ровно три независимых blocker-а:
-  `authoritative_applied_history_missing`, `mariadb_clean_install_missing`,
-  `approved_squash_ranges_missing`. До снятия всех трёх `squashmigrations` не
+- `DJ6-MIG-001`: safety rehearsal закрыт, но остаются два blocker-а для
+  фактического squash: `fresh_authoritative_identity_set_review_missing` и
+  `approved_squash_ranges_missing`. До их снятия `squashmigrations` не
   запускать и historical files не удалять.
 - `DJ6-SRV-004`: текущий connection budget подтверждён, но любой новый
   worker/daemon/pool требует отдельного bounded capacity test с peak usage и
@@ -809,14 +811,14 @@ authoritative MariaDB evidence.
 - Риск и ограничения: не использовать `--database default` как замену отдельной compatibility-проверки всех допустимых production aliases; список проверяемых баз должен быть явным и согласованным.
 - Следующая проверка: inventory custom checks, заменить deploy-команды на `check --database default` там, где нужен DB check, и отдельно проверить `--tag models` без сетевых side effects.
 
-### DJ6-MIG-001 - Составить план безопасного squash исторических миграций
+### DJ6-MIG-001 - Подтвердить безопасную процедуру squash исторических миграций
 
-- Статус: `отложено`; предварительный приоритет: `P3`.
+- Статус: `подтверждено как safety gate; фактический squash отложен`; предварительный приоритет: `P3`.
 - Область: non-DTF migration graph: 435 nodes (`management` 168, `storefront` 90, `orders` 52, `accounts` 30, `finance` 21 и системные/vendor chains).
-- Доказательство: Django 6.0 разрешил повторно squash уже squashed migrations до перехода в normal state. Текущий real graph под Django 6.1 успешно строится, но его длина и production history делают squash отдельным high-risk этапом. Источник: <https://docs.djangoproject.com/en/6.0/releases/6.0/#migrations>.
+- Доказательство: Django 6.0 разрешил повторно squash уже squashed migrations до перехода в normal state. Текущий graph под Django 6.1 прошёл полный disposable MariaDB clean/dump/restore/replay lifecycle с parity и cleanup; sanitized evidence: `docs/qa/django61-stage5-mig001-mariadb-lifecycle.json`. Источник: <https://docs.djangoproject.com/en/6.0/releases/6.0/#migrations>.
 - Что даст: меньше времени на создание test DB/проверку migration plan и меньше файлов для сопровождения новых окружений.
 - Риск и ограничения: production уже применил длинные цепочки; неправильное удаление старых migration files ломает deploy/restore и внешние базы. Не смешивать с изменением схемы или DTF.
-- Следующая проверка: построить dependency graph по каждому приложению, проверить applied migration history и rehearsal на чистой MariaDB-копии; удаление файлов не делать в этой фазе.
+- Следующая проверка: получить свежую read-only identity-set сверку applied migration history на production-compatible MariaDB, согласовать конкретные ranges и rollback; удаление файлов не делать до отдельного deploy/restore proof.
 
 ### DJ6-AUTH-001 - Измерить CPU-эффект нового PBKDF2 cost и постепенный rehash
 

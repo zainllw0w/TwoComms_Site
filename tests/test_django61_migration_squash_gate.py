@@ -28,6 +28,8 @@ def _valid_restore_drill():
             "integrity_check": True,
             "schema_hash_matches": True,
             "applied_history_matches": True,
+            "source_database": "test_twocomms_mig_clean_0123456789ab",
+            "destination_database": "test_twocomms_mig_restore_0123456789ab",
         },
         "rollback": {"status": "passed", "verified": True},
     }
@@ -50,6 +52,23 @@ def _valid_authoritative_history():
     }
 
 
+def _valid_mariadb_metadata_scope():
+    return {
+        "includes": [
+            "tables",
+            "columns",
+            "indexes",
+            "constraints",
+            "checks",
+            "foreign_keys",
+            "triggers",
+            "routines",
+            "events",
+        ],
+        "dump_options": ["--routines", "--triggers", "--events"],
+    }
+
+
 def _valid_mariadb_rehearsal():
     return {
         "status": "passed",
@@ -58,17 +77,46 @@ def _valid_mariadb_rehearsal():
         "server_version": "11.4.12-MariaDB",
         "disposable": True,
         "graph_fingerprint": "b" * 64,
+        "schema_metadata_scope": _valid_mariadb_metadata_scope(),
         "clean_install": {
             "status": "passed",
             "pending": 0,
+            "database": "test_twocomms_mig_clean_0123456789ab",
+            "schema_hash": "c" * 64,
             "applied_history_hash": "a" * 64,
+            "applied_history_count": 450,
+            "schema_metadata_scope": _valid_mariadb_metadata_scope(),
+            "trigger_count": 1,
+            "routine_count": 0,
+            "event_count": 0,
         },
         "replay": {
             "status": "passed",
             "pending": 0,
+            "database": "test_twocomms_mig_restore_0123456789ab",
+            "schema_hash": "c" * 64,
             "applied_history_hash": "a" * 64,
+            "applied_history_count": 450,
+            "schema_metadata_scope": _valid_mariadb_metadata_scope(),
+            "trigger_count": 1,
+            "routine_count": 0,
+            "event_count": 0,
         },
         "restore_drill": _valid_restore_drill(),
+        "authoritative_history_compatibility": {
+            "status": "verified",
+            "method": "migration_identity_set_review",
+            "decision": "go",
+            "graph_fingerprint": "b" * 64,
+            "authoritative_graph_fingerprint": "b" * 64,
+            "authoritative_pending": 0,
+            "authoritative_applied_history_count": 461,
+            "authoritative_applied_history_hash": "a" * 64,
+            "current_applied_history_count": 450,
+            "current_applied_history_hash": "a" * 64,
+            "reviewer": "db-owner",
+            "reviewed_at": "2026-08-19T12:00:00Z",
+        },
     }
 
 
@@ -274,8 +322,31 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
             "production_compatible": True,
             "server_version": "11.4.12-MariaDB",
             "disposable": True,
-            "clean_install": {"status": "passed", "pending": 0},
-            "replay": {"status": "passed", "pending": 0},
+            "schema_metadata_scope": _valid_mariadb_metadata_scope(),
+            "clean_install": {
+                "status": "passed",
+                "pending": 0,
+                "database": "test_twocomms_mig_clean_0123456789ab",
+                "schema_hash": "c" * 64,
+                "applied_history_hash": "a" * 64,
+                "applied_history_count": 450,
+                "schema_metadata_scope": _valid_mariadb_metadata_scope(),
+                "trigger_count": 1,
+                "routine_count": 0,
+                "event_count": 0,
+            },
+            "replay": {
+                "status": "passed",
+                "pending": 0,
+                "database": "test_twocomms_mig_restore_0123456789ab",
+                "schema_hash": "c" * 64,
+                "applied_history_hash": "a" * 64,
+                "applied_history_count": 450,
+                "schema_metadata_scope": _valid_mariadb_metadata_scope(),
+                "trigger_count": 1,
+                "routine_count": 0,
+                "event_count": 0,
+            },
             "restore_drill": {
                 "status": "passed",
                 "disposable": True,
@@ -289,6 +360,8 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
                     "integrity_check": True,
                     "schema_hash_matches": True,
                     "applied_history_matches": True,
+                    "source_database": "test_twocomms_mig_clean_0123456789ab",
+                    "destination_database": "test_twocomms_mig_restore_0123456789ab",
                 },
                 "rollback": {"status": "passed", "verified": True},
             },
@@ -304,6 +377,279 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
         rehearsal["replay"] = {"status": "passed", "pending": 1}
         with self.assertRaisesRegex(gate.GateFailure, "mariadb_replay_pending"):
             gate.validate_mariadb_rehearsal_evidence(rehearsal)
+
+    def test_mariadb_rehearsal_requires_two_database_schema_and_history_parity(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        rehearsal = _valid_mariadb_rehearsal()
+        rehearsal["clean_install"].update(
+            {
+                "database": "test_twocomms_mig_clean_0123456789ab",
+                "schema_hash": "a" * 64,
+                "applied_history_hash": "b" * 64,
+                "applied_history_count": 450,
+            }
+        )
+        rehearsal["replay"].update(
+            {
+                "database": "test_twocomms_mig_restore_0123456789ab",
+                "schema_hash": "a" * 64,
+                "applied_history_hash": "b" * 64,
+                "applied_history_count": 450,
+            }
+        )
+        rehearsal["restore_drill"]["restore"].update(
+            {
+                "destination_database": "test_twocomms_mig_restore_0123456789ab",
+                "schema_hash_matches": True,
+                "applied_history_matches": True,
+            }
+        )
+
+        gate.validate_mariadb_rehearsal_evidence(rehearsal)
+
+        del rehearsal["replay"]["schema_hash"]
+        with self.assertRaisesRegex(gate.GateFailure, "mariadb_replay_schema_hash"):
+            gate.validate_mariadb_rehearsal_evidence(rehearsal)
+
+    def test_mariadb_schema_parity_ignores_dump_renamed_check_constraint(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        # MariaDB's JSON alias creates an automatic CHECK whose name follows
+        # the column. A logical dump can restore the same expression under the
+        # final column-derived name, so the expression is the parity identity.
+        source = gate._canonical_mariadb_check_clause(
+            "CHECK (JSON_VALID(`data`))"
+        )
+        restored = gate._canonical_mariadb_check_clause(
+            "check ( json_valid(data) )"
+        )
+        self.assertEqual(source, restored)
+        self.assertEqual(
+            gate._canonical_mariadb_check_clause(
+                "CHECK (JSON_VALID(`extra_data`))"
+            ),
+            gate._canonical_mariadb_check_clause(
+                " check ( json_valid(extra_data) ) "
+            ),
+        )
+
+    def test_schema_hash_ignores_only_auto_json_check_name_drift_and_tracks_rest(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        class FakeCursor:
+            def __init__(self, responses):
+                self.responses = responses
+                self.current = ()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def execute(self, statement):
+                statement = " ".join(statement.split()).casefold()
+                if "from information_schema.tables " in statement:
+                    self.current = self.responses["tables"]
+                elif "from information_schema.columns " in statement:
+                    self.current = self.responses["columns"]
+                elif "from information_schema.statistics " in statement:
+                    self.current = self.responses["indexes"]
+                elif "from information_schema.table_constraints " in statement:
+                    self.current = self.responses["constraints"]
+                elif "from information_schema.check_constraints " in statement:
+                    self.current = self.responses["checks"]
+                elif "from information_schema.key_column_usage " in statement:
+                    self.current = self.responses["foreign_keys"]
+                elif "from information_schema.triggers " in statement:
+                    self.current = self.responses["triggers"]
+                elif "from information_schema.routines " in statement:
+                    self.current = self.responses["routines"]
+                elif "from information_schema.events " in statement:
+                    self.current = self.responses["events"]
+                else:  # pragma: no cover - catches an incomplete metadata contract
+                    raise AssertionError(statement)
+
+            def fetchall(self):
+                return list(self.current)
+
+        class FakeConnection:
+            def __init__(self, responses):
+                self.responses = responses
+
+            def cursor(self):
+                return FakeCursor(self.responses)
+
+        def metadata(check_name, trigger_statement="SET NEW.value = OLD.value"):
+            return {
+                "tables": [("example", "InnoDB", "BASE TABLE", "utf8mb4_unicode_ci")],
+                "columns": [("example", "value", 1, None, "YES", "varchar", 20, None, None, "varchar(20)", "", "", "utf8mb4_unicode_ci")],
+                "indexes": [],
+                "constraints": [],
+                "checks": [("example", check_name, "json_valid(`value`)")],
+                "foreign_keys": [],
+                "triggers": [("example_trigger", "example", "UPDATE", "BEFORE", 1, trigger_statement, "ROW", None, "OLD", "NEW")],
+                "routines": [],
+                "events": [],
+            }
+
+        source = gate._mariadb_schema_hash(FakeConnection(metadata("value_new")))
+        restored = gate._mariadb_schema_hash(FakeConnection(metadata("value")))
+        self.assertEqual(source[0], restored[0])
+
+        renamed_user_check = gate._mariadb_schema_hash(
+            FakeConnection(metadata("renamed_user_check"))
+        )
+        self.assertNotEqual(source[0], renamed_user_check[0])
+
+        changed_trigger = gate._mariadb_schema_hash(
+            FakeConnection(metadata("value_new", "SET NEW.value = 'changed'"))
+        )
+        self.assertNotEqual(source[0], changed_trigger[0])
+
+        self.assertEqual(source[3:], (1, 0, 0))
+
+    def test_database_cleanup_ownership_is_marked_before_ambiguous_create(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        attempted = {}
+
+        class AmbiguousAdmin:
+            def create_database(self, database):
+                raise RuntimeError("connection lost after CREATE DATABASE")
+
+        with self.assertRaisesRegex(RuntimeError, "connection lost"):
+            gate._create_owned_mariadb_database(
+                AmbiguousAdmin(), "test_twocomms_mig_clean_0123456789ab", attempted
+            )
+        self.assertTrue(attempted["test_twocomms_mig_clean_0123456789ab"])
+
+        class Cursor:
+            def __init__(self, check_name):
+                self.check_name = check_name
+                self.rows = []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def execute(self, statement):
+                normalized = statement.casefold()
+                if "information_schema.tables" in normalized:
+                    self.rows = [
+                        (
+                            "social_auth_partial",
+                            "InnoDB",
+                            "BASE TABLE",
+                            "utf8mb4_unicode_ci",
+                        )
+                    ]
+                elif "information_schema.columns" in normalized:
+                    self.rows = [
+                        (
+                            "social_auth_partial",
+                            "data",
+                            1,
+                            None,
+                            "NO",
+                            "longtext",
+                            None,
+                            None,
+                            None,
+                            "longtext",
+                            "",
+                            "",
+                            "utf8mb4_bin",
+                        )
+                    ]
+                elif "information_schema.statistics" in normalized:
+                    self.rows = []
+                elif "information_schema.table_constraints" in normalized:
+                    self.rows = (
+                        []
+                        if "constraint_type <> 'check'" in normalized
+                        else [("social_auth_partial", self.check_name, "CHECK")]
+                    )
+                elif "information_schema.check_constraints" in normalized:
+                    self.rows = [
+                        ("social_auth_partial", "json_valid(`data`)")
+                    ]
+                elif "information_schema.key_column_usage" in normalized:
+                    self.rows = []
+                elif "information_schema.triggers" in normalized:
+                    self.rows = []
+                elif "information_schema.routines" in normalized:
+                    self.rows = []
+                elif "information_schema.events" in normalized:
+                    self.rows = []
+                else:
+                    raise AssertionError(statement)
+
+            def fetchall(self):
+                return self.rows
+
+        class Connection:
+            def __init__(self, check_name):
+                self.check_name = check_name
+
+            def cursor(self):
+                return Cursor(self.check_name)
+
+        source_hash, *_ = gate._mariadb_schema_hash(Connection("data_new"))
+        restored_hash, *_ = gate._mariadb_schema_hash(Connection("data"))
+        self.assertEqual(source_hash, restored_hash)
+
+    def test_stale_authoritative_snapshot_is_evidence_but_never_an_approval(self):
+        from scripts import run_django61_migration_squash_gate as gate
+
+        current = {
+            "graph_fingerprint": "c" * 64,
+            "applied": 470,
+            "applied_history_hash": "d" * 64,
+        }
+        with tempfile.TemporaryDirectory(prefix="twc-migration-test-") as directory:
+            evidence = Path(directory) / "history.json"
+            evidence.write_text(
+                json.dumps(_valid_authoritative_history()), encoding="utf-8"
+            )
+            compatibility = gate.assess_authoritative_history_snapshot(
+                current, evidence_path=evidence
+            )
+
+        self.assertEqual(
+            compatibility["status"], "snapshot_graph_diverged"
+        )
+        self.assertEqual(
+            compatibility["decision"],
+            "no-go_until_fresh_read_only_identity_set_review",
+        )
+        rehearsal = _valid_mariadb_rehearsal()
+        rehearsal["graph_fingerprint"] = "c" * 64
+        rehearsal["clean_install"].update(
+            {"applied_history_count": 470, "applied_history_hash": "d" * 64}
+        )
+        rehearsal["replay"].update(
+            {"applied_history_count": 470, "applied_history_hash": "d" * 64}
+        )
+        rehearsal["authoritative_history_compatibility"] = compatibility
+        decision = gate.build_decision(
+            sqlite_clean_install=True,
+            sqlite_restore=True,
+            authoritative_applied_history=True,
+            mariadb_clean_install=True,
+            approved_ranges=True,
+            authoritative_evidence=_valid_authoritative_history(),
+            mariadb_evidence=rehearsal,
+            restore_evidence=_valid_restore_drill(),
+        )
+        self.assertEqual(decision["decision"], "no-go")
+        self.assertIn(
+            "authoritative_history_compatibility_invalid",
+            decision["blocking_conditions"],
+        )
 
     def test_go_claim_fails_closed_without_external_evidence(self):
         from scripts import run_django61_migration_squash_gate as gate
@@ -405,16 +751,23 @@ class MigrationSquashGateUnitTests(unittest.TestCase):
                 },
             )
 
-        mismatched_history = _valid_mariadb_rehearsal()
-        mismatched_history["clean_install"]["applied_history_hash"] = "d" * 64
-        mismatched_history["replay"]["applied_history_hash"] = "d" * 64
+        stale_snapshot = _valid_mariadb_rehearsal()
+        stale_snapshot["clean_install"]["applied_history_hash"] = "d" * 64
+        stale_snapshot["replay"]["applied_history_hash"] = "d" * 64
+        stale_snapshot["authoritative_history_compatibility"]["current_applied_history_hash"] = "d" * 64
+        stale_snapshot["authoritative_history_compatibility"]["status"] = (
+            "snapshot_graph_diverged"
+        )
+        stale_snapshot["authoritative_history_compatibility"]["decision"] = (
+            "no-go_until_fresh_read_only_identity_set_review"
+        )
         with self.assertRaisesRegex(
-            gate.GateFailure, "authoritative_applied_history_hash_mismatch"
+            gate.GateFailure, "authoritative_history_compatibility_not_verified"
         ):
             gate.build_squash_artifact_manifest(
                 graph_fingerprint="b" * 64,
                 authoritative_evidence=_valid_authoritative_history(),
-                mariadb_evidence=mismatched_history,
+                mariadb_evidence=stale_snapshot,
                 restore_evidence=_valid_restore_drill(),
                 approved_ranges={
                     "status": "approved",
