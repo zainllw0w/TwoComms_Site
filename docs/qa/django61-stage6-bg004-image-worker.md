@@ -31,3 +31,7 @@ The cron installer remains idempotent and protected by `flock`; no production
 cron installation, database migration, media cleanup, or server mutation was
 performed in this slice. Production activation still requires the existing
 deployment window and a short live media-volume smoke.
+
+The 2026-08-19 Stage 6 MariaDB task-backend activation did not change this
+status: `product_catalog_image_jobs` is inventory-only (`active:false`) and
+has no cron owner/block on production. It is not a live image-worker rollout.

@@ -1,9 +1,10 @@
-# Django 6.1 Stage 6: durable task runtime candidate
+# Django 6.1 Stage 6: durable task runtime activation
 
 Дата: 2026-08-19
 
-Scope: `DJ6-TASK-001`, только non-DTF Django 6.1 code. Этот документ
-фиксирует локальный implementation slice, а не production activation.
+Scope: `DJ6-TASK-001`, только non-DTF Django 6.1 code и подтвержденная
+production activation. Исторический локальный implementation slice сохранен
+ниже как часть доказательств, но больше не является текущим status.
 
 ## Что реализовано
 
@@ -23,7 +24,7 @@ Scope: `DJ6-TASK-001`, только non-DTF Django 6.1 code. Этот докум
   side-effect contract не доказаны, runtime разрешает только зарегистрированный
   `no_send_canary`; provider calls и пользовательские записи fail-closed.
 
-## Локальная проверка
+## Предварительная локальная проверка
 
 ```text
 management.tests_django61_task_runtime: 6/6 OK
@@ -34,17 +35,49 @@ git diff --check: OK
 
 Runtime: CPython `3.14.6`, Django `6.1`.
 
-## Что намеренно не сделано
+## Production activation 2026-08-19
 
-- `task_runtime.0001_initial` не применялась к production MariaDB.
-- Production crontab, Redis, Celery, supervisor, venv, database schema/data
-  и DTF не изменялись.
-- `DJ6-TASK-001`, `DJ6-BASE-005`, `DJ6-SRV-001` и все Stage 6 exit gates
-  остаются открытыми.
+- Production SHA: `ba032bbd2030421d2340e9314a921eddabe2f582`.
+- CloudLinux-bound runtime подтвердил CPython `3.14.6`, Django `6.1`, MariaDB
+  через `django.db.backends.mysql` и `CONN_MAX_AGE=0`.
+- Scoped migration `task_runtime.0001_initial` применена; таблица
+  `task_runtime_durabletask` использует `InnoDB`.
+- Separate process получил lease и завершился до финализации. После expiry
+  bounded worker reclaimed ту же запись: один idempotency key завершился
+  `done`, `attempts=2`, `external_io=false`, без duplicate completion.
+- Durable cron имеет ровно один managed marker/owner; installer `--check` и
+  полный periodic-owner validator вернули green/status `ok`. Реальный cron log:
+  `claimed=0 completed=0 failed=0 lost=0`.
+- Fresh budget gate: `1/20` account MariaDB connections, `34/1024` FDs и
+  `7/512874` processes; post-worker headroom: `18` DB connections, `958` FDs
+  и `512864` processes.
 
-## Единственный следующий production gate
+Успешный canary использовал Django Tasks payload
+`{"args": [], "kwargs": {"marker": "<idempotency-key>"}}`. Ранний
+низкоуровневый probe с другой формой payload был корректно отклонен как
+`missing marker`; его diagnostic row удалена и не считается failed canary.
 
-После отдельного согласования schema mutation: применить только
-`task_runtime.0001_initial`, выполнить CloudLinux-bound no-send canary,
-доказать restart/reclaim без duplicate completion и измерить дополнительный
-MariaDB/FD/process budget. До этого cron остаётся rollback path.
+## Что намеренно не включено
+
+- Redis остается DNS NO-GO; endpoint, credentials, TLS/ACL policy и тариф не
+  менялись. Celery/supervisor daemon не добавлялись.
+- `TASKS["default"]` остается `ImmediateBackend`. Durable alias разрешает
+  только allowlisted `no_send_canary`; business/provider side effects и
+  произвольные enqueue fail-closed.
+- `product_catalog_image_jobs` остается inventory-only (`active:false`) без
+  cron owner/block. Это не production rollout image worker.
+- DTF, generic migrations и изменения данных вне scoped no-send canary не
+  выполнялись.
+
+## Статус и следующий scope
+
+`DJ6-TASK-001` закрыт вместе с `DJ6-BASE-005`, `DJ6-SRV-001` и Stage 6
+exit gates: MariaDB durable adapter плюс bounded cron является утвержденным
+production backend для этого ограниченного scope. Cron остается единственным
+managed execution/rollback path.
+
+Следующая domain task требует отдельного allowlist, idempotency/lease contract,
+capacity gate и production evidence. Redis или image-worker rollout являются
+отдельными решениями и не следуют автоматически из этой activation.
+
+Полная production evidence: `docs/qa/django61-stage6-production-activation.md`.

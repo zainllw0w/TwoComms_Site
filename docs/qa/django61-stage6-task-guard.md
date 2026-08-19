@@ -26,9 +26,21 @@ Django Tasks:
 - runtime: CPython `3.14.6`, Django `6.1`;
 - `git diff --check`: OK.
 
-## Ограничения
+## Исторические ограничения
 
 `DJ6-TASK-001`, `DJ6-BASE-005`, `DJ6-SRV-001` и Stage 6 exit gate остаются
 открытыми: production Redis/worker, restart persistence, connection budget и
 no-send canary ещё не подтверждены. До этого существующие cron остаются
 rollback/ownership path, а новые тяжёлые enqueue должны использовать guard.
+
+## Production supersession 2026-08-19
+
+Предыдущий абзац описывает состояние release candidate от 2026-08-18. На SHA
+`ba032bbd2030421d2340e9314a921eddabe2f582` закрыты `DJ6-BASE-005`,
+`DJ6-SRV-001`, `DJ6-TASK-001` и Stage 6 task exit gates через ограниченный
+MariaDB durable backend с bounded cron: migration, no-send restart/reclaim
+canary, single owner и budget подтверждены. Redis/Celery остается NO-GO.
+
+Guard не ослабляется: `TASKS.default` все еще `ImmediateBackend`, а arbitrary
+heavy/provider tasks не входят в active no-send scope. Полная evidence:
+`docs/qa/django61-stage6-production-activation.md`.

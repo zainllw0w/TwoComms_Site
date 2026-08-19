@@ -46,6 +46,11 @@ Result: `Ran 1 test ... OK`; Django system check reported no issues.
 ## Boundaries
 
 This is local source and regression-test evidence only. No historical alert
-volume/value measurement, production smoke, deployment, server access, or
-database migration was performed. Stage 6 worker, task-backend, and exit-gate
-items remain open.
+volume/value measurement or QR-specific production smoke was added by this
+slice. It does not expand the active task backend scope.
+
+The statement about open Stage 6 task-backend gates was true for this
+2026-08-18 local slice only. On 2026-08-19 those gates closed separately for
+the limited MariaDB durable/no-send cron backend; see
+`docs/qa/django61-stage6-production-activation.md`. That activation did not
+introduce a QR worker or alert.

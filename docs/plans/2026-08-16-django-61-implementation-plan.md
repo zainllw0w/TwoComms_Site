@@ -647,24 +647,33 @@ Production acceptance от 2026-08-17:
 
 **Стартовать только после этапов 0, 3 и server capability review.**
 
-- [ ] **DJ6-BASE-005 - Повторно проверить Redis/worker capability через host owner.**
+- [x] **DJ6-BASE-005 - Повторно проверить Redis/worker capability через host owner.**
   - DNS, TCP, TLS, auth, ACL, process lifetime, cron cadence и DB connection budget.
-  - Статус 2026-08-18: **OPEN / BLOCKED**. Read-only production probe
-    подтвердил Redis DNS `gaierror`, отсутствие доказанного supervisor/worker
-    lifetime и ограничение `max_user_connections=20`; global
-    `Threads_connected=15` не является счетчиком соединений этого account user.
-  - Evidence: `docs/qa/django61-stage6-capability-blocker.md`.
+  - Статус 2026-08-19: **ПРОВЕРЕНО / REDIS NO-GO, CRON ALTERNATIVE GREEN**.
+    Повторная проверка через CloudLinux-bound runtime подтвердила, что
+    настроенный Redis hostname по-прежнему не разрешается, а отдельный
+    supervisor/daemon worker не является доступной capability. Это закрывает
+    именно capability review, а не объявляет Redis рабочим.
+  - Production decision: для текущего Stage 6 выбран MariaDB-backed durable
+    adapter с одним bounded cron owner; ownership, restart/reclaim и budget
+    доказаны read-only snapshots плюс строго scoped no-send DB canary без
+    внешних side effects.
+  - Evidence: `docs/qa/django61-stage6-capability-blocker.md` и
+    `docs/qa/django61-stage6-production-activation.md`.
 
-- [ ] **DJ6-SRV-001 - Получить рабочий Redis endpoint или официально выбрать другой backend.**
+- [x] **DJ6-SRV-001 - Получить рабочий Redis endpoint или официально выбрать другой backend.**
   - Не менять endpoint/тариф/credentials без согласования.
-  - Статус 2026-08-18: **OPEN / BLOCKED**. Endpoint и auth настроены, но DNS
-    не разрешается; TCP/TLS/PING/ACL поэтому не доказаны. Production endpoint
-    и credentials не изменялись.
-  - Candidate: MariaDB-backed durable adapter с bounded cron worker; это не
-    выбор backend до реализации/restart canary.
-  - Evidence: `docs/qa/django61-stage6-capability-blocker.md`.
+  - Статус 2026-08-19: **ЗАКРЫТО ЧЕРЕЗ АЛЬТЕРНАТИВУ / REDIS NO-GO**.
+    Redis endpoint и credentials не изменялись: DNS/TCP/TLS/ACL остаются
+    недоказанными и Redis не является production dependency.
+  - Официально выбран MariaDB-backed durable adapter с bounded cron worker;
+    его production activation, migration, canary и resource budget доказаны.
+    Это решение не переключает `default` с `ImmediateBackend` и не включает
+    неразрешенные provider side effects.
+  - Evidence: `docs/qa/django61-stage6-capability-blocker.md` и
+    `docs/qa/django61-stage6-production-activation.md`.
 
-- [ ] **DJ6-TASK-001 - Выбрать production backend для Django Tasks.**
+- [x] **DJ6-TASK-001 - Выбрать production backend для Django Tasks.**
   - Built-in \`ImmediateBackend\` не считать очередью.
   - Начать с no-send canary с durable DB state.
   - [x] Локальный MariaDB-backed adapter реализован как opt-in alias
@@ -673,27 +682,30 @@ Production acceptance от 2026-08-17:
     `Task.enqueue()` создаёт новый dispatch, а не схлопывает легитимные
     одинаковые вызовы. Initial runtime пропускает только зарегистрированный
     no-send canary; `takes_context` и side effects fail-closed.
-  - [ ] Production activation: `task_runtime.0001_initial` ещё не применена
-    к authoritative MariaDB; остаются CloudLinux-bound no-send canary,
-    restart/reclaim proof, connection/FD budget и единственный cron owner.
-  - Локальный activation gate усилен 2026-08-19: installer fail-closed
+  - [x] Production activation: scoped migration `task_runtime.0001_initial`
+    применена к authoritative MariaDB; `task_runtime_durabletask` имеет engine
+    `InnoDB`. CloudLinux-bound no-send canary пережил остановку процесса и был
+    reclaimed после lease expiry без duplicate completion; итоговая строка
+    `done`, `attempts=2`, с одним idempotency key и `external_io=false`.
+  - [x] Durable cron activation: ровно один managed marker/owner, installer
+    `--check` и полный periodic-owner validator дали `status=ok`; реальный
+    cron-log: `claimed=0 completed=0 failed=0 lost=0`.
+  - Historical pre-activation gate был усилен 2026-08-19: installer fail-closed
     проверяет CloudLinux wrapper, `production_settings`, MariaDB и
     `CONN_MAX_AGE=0` до любой записи crontab; budget/owner validators требуют
-    свежий CloudLinux-bound read-only snapshot. Это подготовка к activation,
-    а не закрытие production checkbox.
-  - [x] Guardrails для будущей activation опубликованы и доставлены без
-    включения worker: SHA `6fd1aa5253209aa8af3b6c57d291a23f2c802e40` на
-    production подтверждён CloudLinux-bound Python 3.14.6/Django 6.1/MariaDB,
-    `CONN_MAX_AGE=0`, чистым tracked checkout, отсутствием
-    `task_runtime.0001_initial` и отсутствием durable cron block.
-  - [x] Свежий per-account budget snapshot получен read-only через
-    CloudLinux-bound MariaDB: `2/20` account connections, `64/1024` FDs,
-    `14` processes; static admission gate даёт `status=ok` с post-worker
-    headroom `17` connections, `928` FDs и `512857` processes. Evidence:
-    `docs/qa/django61-stage6-task-budget-snapshot-2026-08-19.json`. Этот
-    snapshot истекает через 24 часа и не заменяет запущенный canary.
-  - Статус: **LOCAL IMPLEMENTED / PRODUCTION BLOCKED**. `default` остаётся
-    `ImmediateBackend`, поэтому новый adapter не меняет текущий request path.
+    свежий CloudLinux-bound read-only snapshot. Он был prerequisite для
+    последующей activation, а не самостоятельным закрытием checkbox.
+  - [x] Guardrails для activation опубликованы и доставлены; production
+    подтверждён CloudLinux-bound Python 3.14.6/Django 6.1/MariaDB,
+    `CONN_MAX_AGE=0`, а deployment SHA `ba032bbd2030421d2340e9314a921eddabe2f582`.
+  - [x] Свежий activation budget snapshot: `1/20` account connections,
+    `34/1024` FDs и `7/512874` processes; после worker headroom `18`, `958`
+    и `512864` соответственно. Полные owner/canary/budget facts:
+    `docs/qa/django61-stage6-production-activation.md`.
+  - Статус: **PRODUCTION ACTIVE / SCOPE LIMITED**. `default` остаётся
+    `ImmediateBackend`; durable alias используется только для allowlisted
+    no-send canary, поэтому существующий request path и provider side effects
+    не переключены.
   - Evidence: `docs/qa/django61-stage6-capability-blocker.md`,
     `docs/qa/django61-stage6-task-runtime.md`.
 
@@ -731,7 +743,8 @@ Production acceptance от 2026-08-17:
     `twocomms/storefront/tests/test_qr_thanks.py`,
     `docs/qa/django61-stage6-bg008-qr-alert-removal.md`.
   - Локальная проверка не заменяет historical volume/value measurement или
-    production smoke; deployment и Stage 6 exit gate остаются открытыми.
+    отдельный QR production smoke; этот пункт не расширяет активированный
+    task-backend scope и не включает новый worker.
 
 - [x] **DJ6-BG-010 - Оставить ImageOptimizationMiddleware выключенным до pre-generation proof.**
   - `MiddlewareNotUsed` блокирует middleware до thread pool и media writes;
@@ -744,10 +757,17 @@ Production acceptance от 2026-08-17:
 
 ### Exit gate этапа 6
 
-- [ ] Есть один owner каждой периодики.
-- [ ] Worker переживает restart и не теряет/не дублирует canary task.
-- [ ] Redis/backend и worker не превышают MariaDB connection/FD/process limits.
-- [ ] Cron остается rollback path до доказанного production health.
+- [x] У каждой **активной** non-DTF периодики есть ровно один owner; для
+  inventory-only `product_catalog_image_jobs` owner намеренно отсутствует и
+  его cron block запрещен validator-ом.
+- [x] Bounded worker переживает restart: отдельный процесс оставил lease,
+  следующий worker выполнил reclaim после expiry, а canary завершился один раз
+  (`done`, `attempts=2`, без внешнего I/O и duplicate completion).
+- [x] Выбранный MariaDB backend/worker не превышает лимиты: activation snapshot
+  `1/20` connections, `34/1024` FDs, `7/512874` processes; post-worker
+  headroom `18/958/512864`. Redis остается NO-GO и в этот gate не включен.
+- [x] Bounded cron остается единственным управляемым execution/rollback path;
+  installer `--check`, periodic-owner validator и production log green.
 
 ---
 

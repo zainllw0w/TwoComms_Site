@@ -182,7 +182,7 @@ migration и Stage 5 exit-gate остаются открытыми.
 | --- | --- | --- |
 | Django 5.2 -> 6.0 -> 6.1 release notes и API | primary + Context7 | проверено локально |
 | ORM, модели, `fetch_mode`, deferred fields, `on_delete`, QuerySet | primary + delegated ORM audit | проверено локально; DB-level часть отложена |
-| Async, Celery, cron, Redis, фоновые задачи и параллелизация | delegated async/server audit | проверено; worker/Redis production заблокированы |
+| Async, Celery, cron, Redis, фоновые задачи и параллелизация | delegated async/server audit + Stage 6 activation | Redis/Celery/daemon NO-GO; MariaDB durable cron active только для allowlisted no-send scope |
 | HTTP, middleware, templates, forms, admin, DRF, security | primary repository sweep | проверено локально; browser/live gaps отмечены |
 | Приложения и субдомены, кроме DTF | primary repository sweep | проверено локально |
 | Production MariaDB, Passenger, права, observability | server audit + Stage 0 release | read-only inventory проверен; `storefront.0096` применена; post-deploy matrix зеленая |
@@ -233,14 +233,14 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Риск: существующие дубли, миграции на больших таблицах, изменение API ошибок и конкурирующие записи.
 - Следующая проверка: read-only duplicate scan, сравнение фактических `SHOW CREATE TABLE` с моделями, затем отдельная миграционная стратегия.
 
-### DJ6-BASE-005 - Celery/Redis capability не доказана production runtime
+### DJ6-BASE-005 - Redis capability повторно проверена; выбран cron alternative
 
-- Статус: `заблокировано правами/окружением`; предварительный приоритет: `P1` для архитектурного решения, не для немедленного включения.
+- Статус: `реализовано 2026-08-19: Redis NO-GO, MariaDB/cron GREEN`; приоритет: `P1` как зафиксированное архитектурное решение.
 - Область: фоновые задачи, cron, management commands, Redis broker, Passenger workers; DTF исключить.
-- Доказательство: live production probe получил `gaierror` для настроенного Redis hostname; `redis-cli`, пакет `celery`, `supervisorctl` и systemd-команды на сервере недоступны, а `TASKS.default` равен `django.tasks.backends.immediate.ImmediateBackend`. Celery/worker capability нельзя считать рабочей только по наличию зависимостей в lock.
-- Что может дать: очереди, retries, параллелизация тяжелых задач и уменьшение request-path latency, если broker/worker реально разрешены хостингом.
-- Риск: shared hosting permissions, отсутствие daemon/supervisor, дубли cron и Passenger, потеря задач, PII в broker, стоимость Redis и отсутствие graceful shutdown.
-- Следующая проверка: read-only DNS/TCP/auth/ACL probe для Redis, инвентаризация cron/Passenger/process limits, затем маленький no-send canary в отдельной очереди.
+- Доказательство: CloudLinux-bound production probe повторно получил `gaierror` для настроенного Redis hostname; `redis-cli`, пакет `celery`, `supervisorctl` и systemd-команды недоступны, а `TASKS.default` равен `django.tasks.backends.immediate.ImmediateBackend`. Redis/Celery не объявлены рабочими и не менялись. Вместо этого MariaDB durable adapter с bounded cron прошел applied migration, no-send reclaim canary, ownership и budget gates.
+- Что дало: отказ от ложного ожидания Redis/daemon на shared hosting и подтвержденный production путь для ограниченного no-send task scope без нового сервиса.
+- Риск и ограничения: это не разрешение переносить произвольные provider side effects в adapter; Redis DNS/TLS/ACL и long-lived worker остаются отдельным будущим вопросом. Один active cron owner и leases обязательны.
+- Следующая проверка: для новой domain task отдельно добавить allowlist, idempotency/lease contract, capacity gate и production evidence. Источник: `docs/qa/django61-stage6-production-activation.md`.
 
 ### DJ6-BASE-006 - Deferred/async access boundaries не проверены по всему сайту
 
@@ -301,7 +301,7 @@ migration и Stage 5 exit-gate остаются открытыми.
 | --- | --- | --- | --- |
 | 5.2 | `CompositePrimaryKey` | Composite PK в non-DTF моделях не найден; текущие связи и admin рассчитаны на обычный `pk`. | Не используется; отдельной миграции не нужно. |
 | 5.2 | Новые ORM/model API и compatibility checks | Весь model graph построен под Django 6.1; фактический DB constraint/engine parity вынесен в отдельные проверки. | `DJ6-SITE-001`, `DJ6-DB-002` - подтверждено. |
-| 6.0 | Django Tasks contract (`@task`, `.enqueue()`) | API доступен, но production backend - `ImmediateBackend`, worker/scheduler отсутствует. | `DJ6-TASK-001`, `DJ6-TASK-002` - подтверждено как архитектурный разрыв. |
+| 6.0 | Django Tasks contract (`@task`, `.enqueue()`) | `TASKS.default` остается `ImmediateBackend`, но для allowlisted no-send scope production-active MariaDB durable adapter с одним bounded cron owner прошел migration/reclaim/budget gates. Redis/Celery остается NO-GO. | `DJ6-TASK-001` - реализовано в ограниченном scope; `DJ6-TASK-002` guard сохраняет запрет тяжелого inline enqueue. |
 | 6.0 | Database-level `on_delete` (`DB_CASCADE` и аналоги) | Нужны InnoDB и реальные FK; production содержит 178 MyISAM и только 39 FK. | `DJ6-BASE-002`, `DJ6-DB-001`, `DJ6-SRV-003` - отложено. |
 | 6.0 | Template partials (`partialdef`/`partial`) | 265 шаблонов распарсились; повторяющиеся full/fragment пары не переведены. | `DJ6-TPL-001` - подтвержденная opportunity. |
 | 6.0 | `{% querystring %}` | Найдены ручные `request.GET.urlencode` и pagination links. | `DJ6-TPL-002` - подтверждено. |
@@ -352,14 +352,14 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Риск и ограничения: на сайте много analytics/pixel/GTM/Clarity/TikTok и inline-кода; немедленное удаление `'unsafe-inline'`/`'unsafe-eval'` может сломать checkout и аналитику. Нужна отдельная инвентаризация реально загружаемых origins и CSP reports по каждому субдомену; DTF не проверять.
 - Следующая проверка: снять текущие headers и browser console violations для storefront/management/warehouse/finance, развернуть эквивалентную `SECURE_CSP_REPORT_ONLY`, добавить nonce context processor и только затем планировать enforce policy.
 
-### DJ6-TASK-001 - Выбрать реальный backend для Django Tasks вместо ложного ощущения работающей очереди
+### DJ6-TASK-001 - Production backend Django Tasks выбран и активирован в ограниченном scope
 
-- Статус: `подтверждено как архитектурный разрыв`; предварительный приоритет: `P1`.
-- Область: `twocomms/twocomms/settings.py:1085-1102`, legacy `storefront/tasks.py`, `orders/tasks.py`, `management/tasks.py`, `warehouse/tasks.py`, cron-команды и тяжелые внешние вызовы; DTF исключить.
-- Доказательство: настройки прямо называют Celery-конфигурацию мертвой и запрещают добавлять туда задачи; `TASKS` в проекте не настроен. Django 6.0 добавил стандартный task contract (`@task`, `.enqueue()`, validation/result API), но встроенные backend предназначены для разработки/тестов и Django не предоставляет worker. Источник: <https://docs.djangoproject.com/en/6.1/topics/tasks/>.
-- Что даст: единый интерфейс постановки фоновых работ, возможность постепенно отвязать бизнес-код от Celery shim и выбрать подходящий внешний worker/backend после проверки прав хостинга. Снижает request latency только вместе с реально работающим durable worker.
-- Риск и ограничения: `ImmediateBackend` в production не распараллеливает работу, `DummyBackend` ее не выполняет; без daemon/supervisor задачи будут теряться. Нельзя параллельно оставить cron/Celery/Django Tasks владельцами одной периодики без idempotency и lease.
-- Следующая проверка: read-only capability matrix хостинга (Redis DNS/TCP/ACL, долгоживущий процесс, cron granularity, Passenger lifecycle), затем выбрать backend и одну безопасную canary-задачу без пользовательских side effects.
+- Статус: `реализовано 2026-08-19`; приоритет: `P1`.
+- Область: `task_runtime`, `twocomms/twocomms/settings.py`, bounded cron и no-send canary; DTF исключить.
+- Доказательство: Django 6.1 предоставляет task contract, но не worker. В production `TASKS.default` намеренно остается `ImmediateBackend`, а opt-in MariaDB durable alias допускает только allowlisted `no_send_canary`. Scoped `task_runtime.0001_initial` применена к MariaDB/InnoDB; отдельный process lease был reclaimed после expiry без duplicate completion (`done`, `attempts=2`, один idempotency key, `external_io=false`). Один durable cron owner, installer `--check`, periodic-owner `status=ok` и budget `1/20` DB connections, `34/1024` FDs, `7/512874` processes подтверждены на SHA `ba032bbd2030421d2340e9314a921eddabe2f582`.
+- Что дало: реальный durable backend и restart/reclaim путь для безопасного no-send scope без Redis/Celery daemon, без переключения существующего request path.
+- Риск и ограничения: `ImmediateBackend` не стал очередью; произвольная task/provider call/user write продолжает fail-closed. Нельзя добавлять второго owner, Redis/Celery или image worker без отдельного решения и gates.
+- Следующая проверка: каждая новая domain task требует собственного allowlist, payload/idempotency/lease contract, capacity gate и production evidence. Источник: `docs/qa/django61-stage6-production-activation.md`.
 
 ### DJ6-TPL-001 - Использовать Django template partials для повторно рендеримых фрагментов
 
@@ -401,14 +401,14 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Следующая проверка: сохранять permission regression и query-count test при
   добавлении новых admin actions или computed columns.
 
-### DJ6-SRV-001 - Redis endpoint недоступен с production, поэтому не является доступной основой для очереди
+### DJ6-SRV-001 - Redis endpoint остается NO-GO; официально выбран другой backend
 
-- Статус: `подтверждено`; предварительный приоритет: `P1` как блокер задач/распределенного cache, не как немедленный перенос.
-- Область: production `REDIS_URL`/`REDIS_DSN`, `twocomms/twocomms/settings.py:992-1102`, `twocomms/twocomms/production_settings.py:376-498`.
-- Доказательство: read-only probe 2026-08-16 из production Python 3.14/Django 6.1 получил `gaierror` для настроенного Redis Cloud hostname. На сервере нет `redis-cli` и пакета `celery`; `TASKS.default` сейчас `django.tasks.backends.immediate.ImmediateBackend`. Это подтверждает historical comment в settings, а не только повторяет его.
-- Что даст: исключает ложное решение «достаточно включить Celery/Django Tasks» и направляет усилия на сначала DNS/ACL/TLS/Redis-план или другой внешний backend.
-- Риск и ограничения: DNS-сбой не доказывает, что провайдер Redis удален или что нельзя восстановить доступ; не менять endpoint, пароль, firewall или оплачиваемый тариф без отдельного согласования. `ImmediateBackend` в production выполнять тяжелые задачи синхронно.
-- Следующая проверка: получить у Redis/cPanel владельца допустимый hostname/port/TLS/ACL, сделать отдельный read-only `PING` через production runtime и только затем рассматривать Redis для cache, lock или Django Tasks backend.
+- Статус: `реализовано через альтернативу 2026-08-19`; приоритет: `P1`.
+- Область: production `REDIS_URL`/`REDIS_DSN`, `twocomms/twocomms/settings.py`, `twocomms/twocomms/production_settings.py`, MariaDB durable adapter и bounded cron; DTF исключить.
+- Доказательство: read-only production probe получил `gaierror` для Redis Cloud hostname; DNS/TCP/TLS/PING/ACL не доказаны. Endpoint, credentials, firewall и тариф не менялись. Формально выбран MariaDB-backed durable adapter с bounded cron; его scoped schema activation, reclaim canary, single owner и resource budget green.
+- Что дало: production backend не зависит от неподтвержденного Redis и не требует Celery/supervisor на shared hosting, сохраняя контролируемый cron rollback path.
+- Риск и ограничения: Redis не следует считать пригодным для cache, lock или tasks до отдельного green DNS/TCP/TLS/auth/ACL probe и новой capacity/migration оценки. `ImmediateBackend` не используется для тяжелой работы.
+- Следующая проверка: Redis owner может отдельно предоставить валидный endpoint/TLS/ACL contract; это будет новая архитектурная задача, а не prerequisite текущего MariaDB/cron backend.
 
 ### DJ6-SRV-002 - Текущий production cache file-based: крупное файловое хранилище и неготовый distributed lock
 
@@ -651,6 +651,9 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Статус: `отложено`; предварительный приоритет: `P1`.
 - Область: `twocomms/product_catalog/image_jobs.py:123-380`, recovery `product_catalog/management/commands/reconcile_image_optimization_jobs.py:15+`.
 - Доказательство: DB-job уже содержит supersede, lease token, conditional updates и reconciliation, но ускорение выполняется per-process `ThreadPoolExecutor`.
+- Уточнение после Stage 6 activation: общий MariaDB durable backend не включал
+  image worker. В production manifest `product_catalog_image_jobs` имеет
+  `active:false`; cron block и owner отсутствуют. Это не live rollout.
 - Что даст: общую очередь между Passenger-процессами, устойчивость к reload и контролируемую CPU/IO concurrency; пользовательский upload перестанет зависеть от локального executor.
 - Риск и ограничения: worker и Passenger должны видеть один `MEDIA_ROOT`; нельзя потерять lease/supersede или создать две оптимизированные версии. Бенчмарк Pillow и лимиты памяти обязательны.
 - Следующая проверка: dry-run job на копии media, конкурентный lease test и сравнение с текущей reconciliation-командой.
@@ -718,17 +721,17 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Риск и ограничения: если нужен async endpoint, оборачивать цельную sync-функцию через `sync_to_async(thread_sensitive=True)`, закрывать connections и передавать PK. Не использовать async как замену durable worker.
 - Следующая проверка: targeted async boundary tests с intentional deferred access и connection accounting.
 
-### DJ6-TASK-002 - Зафиксировать отсутствие production worker для `ImmediateBackend`
+### DJ6-TASK-002 - Сохранить fail-fast guard для `ImmediateBackend`
 
-- Статус: `guard реализован 2026-08-18`; production worker по-прежнему не доказан; приоритет: `P1`.
+- Статус: `guard реализован и сохраняется`; приоритет: `P1`.
 - Область: `twocomms/twocomms/task_boundaries.py`,
   `twocomms/management/tests_django61_task_backend_guard.py`, а также
   `twocomms/twocomms/settings.py:1085-1102`.
-- Доказательство: в production оставлен только legacy `CELERY_*` конфиг, Celery worker/beat отсутствуют; Django Tasks фактически использует `ImmediateBackend`. `ImmediateBackend` исполняет задачу inline и не является очередью.
+- Доказательство: Redis/Celery worker/beat по-прежнему отсутствуют, а `TASKS.default` остается `ImmediateBackend`. Отдельно production-active MariaDB durable adapter работает только для allowlisted no-send scope через один bounded cron owner. `ImmediateBackend` исполняет задачу inline и не является очередью.
 - Что сделано: sync/async heavy enqueue теперь fail-closed для `ImmediateBackend`, `DummyBackend` и любого backend без явного `supports_durable_enqueue=True`; focused contract `6/6`.
-- Что даст: устраняет ложную предпосылку при планировании распараллеливания и не позволяет случайно выполнить тяжёлую работу inline до доказательства worker.
-- Риск и ограничения: нельзя просто заменить backend на Redis, пока DNS/ACL/права и connection budget не подтверждены. Не удалять cron ownership без canary и rollback.
-- Следующая проверка: capability matrix хостинга и безопасный no-send task contract (`DJ6-BASE-005`, `DJ6-SRV-001`, `DJ6-TASK-001`).
+- Что даст: устраняет ложную предпосылку при планировании распараллеливания и не позволяет случайно выполнить тяжёлую работу inline вне явного durable contract.
+- Риск и ограничения: нельзя просто заменить backend на Redis, пока DNS/ACL/права и connection budget не подтверждены. Не добавлять произвольные task/provider side effects к active no-send scope и не дублировать cron owner.
+- Следующая проверка: новая domain task может быть добавлена только через allowlist, idempotency/lease, capacity и production evidence; `DJ6-BASE-005`, `DJ6-SRV-001`, `DJ6-TASK-001` уже закрыты для текущего ограниченного backend scope.
 
 ### DJ6-TPL-002 - Использовать `{% querystring %}` для безопасной pagination
 
@@ -1097,7 +1100,7 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Следующая проверка: обновить README/runbook и проверить ссылки на production Python 3.14 virtualenv; исторические incident reports не переписывать.
 
 
-## Сводка статусов после полной read-only проверки
+## Историческая сводка после полной read-only проверки
 
 - Всего записей: 83 уникальных ID; дублей нет.
 - Реализовано или подтверждено с уточненным типом сигнала/границы: 72 записи.
@@ -1106,11 +1109,19 @@ migration и Stage 5 exit-gate остаются открытыми.
 - Неактуально для текущего runtime: 1 запись (`DJ6-BASE-006`, async-кода нет).
 - Статус `кандидат` после этой проверки не оставлен: каждая исходная гипотеза переведена в доказанный backlog, отложенный пункт, блокер или неактуальный пункт.
 - Не все 83 улучшения внедрены: реализованные Stage 0-2 отмечены выше, остальные остаются подтвержденным backlog, отложенными, заблокированными или неактуальными пунктами.
+- Эта числовая сводка относится к исходному audit snapshot. После нее Stage 6
+  закрыл `DJ6-BASE-005`, `DJ6-SRV-001` и `DJ6-TASK-001` через ограниченный
+  MariaDB/cron backend; актуальная evidence указана в
+  `docs/qa/django61-stage6-production-activation.md`.
 
 ## Отдельный список блокеров и неизвестных
 
 - Повторный live SSH probe перед следующим release обязателен; текущий read-only снимок уже подтвержден (`DJ6-LIVE-001`), но он не заменяет post-deploy проверку.
-- Redis DNS/ACL и worker/supervisor capability остаются неподтвержденными: hostname не разрешается, `redis-cli`/Celery/Supervisor/systemd недоступны (`DJ6-BASE-005`, `DJ6-SRV-001`, `DJ6-TASK-002`).
+- Redis DNS/ACL и worker/supervisor capability остаются NO-GO: hostname не
+  разрешается, `redis-cli`/Celery/Supervisor/systemd недоступны. Это больше не
+  блокирует текущий MariaDB durable cron backend, но остается отдельным
+  вопросом для будущего Redis/Celery rollout; `ImmediateBackend` guard
+  сохраняется (`DJ6-TASK-002`).
 - Какие модели и таблицы безопасно перевести на InnoDB и где допустимы DB-level actions; MyISAM нельзя считать транзакционно безопасным (`DJ6-SRV-003`, `DJ6-BASE-002`, `DJ6-DB-001`).
 - Production engine/version/FK graph и connection budget подтверждены текущим read-only снимком; любые schema/engine изменения требуют отдельной репетиции на копии, локальный SQLite остается только быстрым тестовым слоем.
 - Browser-поверхность платежей, checkout, webhooks, CSP violations, email delivery и внешние provider calls требует отдельной staging/live matrix; текущий import/static/schema smoke не заменяет эти сценарии.

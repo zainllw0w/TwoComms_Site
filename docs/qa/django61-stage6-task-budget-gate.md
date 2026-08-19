@@ -52,13 +52,13 @@ cron installation or canary execution.
   --repo-root .
 ```
 
-## Exit-gate boundary
+## Historical exit-gate boundary
 
-This implementation leaves Stage 6 exit gates open. `DJ6-TASK-001` and the
-connection/FD/process exit gate require: a fresh production snapshot yielding
-`status=ok`, a no-send enqueue/restart/reclaim canary executed by one bounded
-owner, and evidence that existing cron remains the rollback path. This commit
-does not run SSH, change cron, create a migration, or execute a task.
+Before production activation, this implementation left Stage 6 exit gates
+open. It required a fresh production snapshot yielding `status=ok`, a no-send
+enqueue/restart/reclaim canary executed by one bounded owner, and evidence
+that existing cron remained the rollback path. This early commit did not run
+SSH, change cron, create a migration, or execute a task.
 
 ## Delivery evidence
 
@@ -69,3 +69,14 @@ CPython `3.14.6`, Django `6.1`, `django.db.backends.mysql`, MariaDB and
 `task_runtime.0001_initial` is not applied and the durable cron marker is
 absent. The deployment therefore delivered dormant guardrails only and did not
 activate a worker, create data, change schema, or install cron.
+
+## Production supersession 2026-08-19
+
+Later production activation at
+`ba032bbd2030421d2340e9314a921eddabe2f582` completed the gates that were
+open in the historical sections above: scoped `task_runtime.0001_initial` is
+applied, the no-send task survived lease reclaim without duplicate completion,
+one durable cron owner is installed, and the fresh measured budget is
+`1/20` DB connections, `34/1024` FDs and `7/512874` processes (post-worker
+headroom `18/958/512864`). Redis/Celery remain NO-GO and are not part of this
+backend. See `docs/qa/django61-stage6-production-activation.md`.

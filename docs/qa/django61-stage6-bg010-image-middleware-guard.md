@@ -58,6 +58,12 @@ skipped.
 
 ## Boundaries
 
-No settings capability, task backend, Redis, Stage 5, Stage 7, migration,
-production database, server, push, or deployment path changed. `DJ6-BG-004`,
-the worker/backend decisions, and every Stage 6 exit-gate item remain open.
+No settings capability, Redis, image-worker migration, media rollout, or
+request-path enablement changed in this slice. `DJ6-BG-004` remains a separate
+image-worker deployment gate.
+
+The reference to open Stage 6 backend/exit gates is historical to this
+2026-08-18 guard slice. They closed separately on 2026-08-19 for the limited
+MariaDB durable/no-send cron backend; that activation did not enable this
+middleware or image optimization. See
+`docs/qa/django61-stage6-production-activation.md`.

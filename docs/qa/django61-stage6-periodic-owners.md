@@ -31,7 +31,7 @@ cron заменяется launcher-ом, поэтому budget из трёх п�
 Validator только читает файлы: он не устанавливает cron, не запускает Django,
 не выполняет SSH, migration, DDL, cleanup или worker.
 
-## Как закрываются чекбоксы
+## Historical criteria for closing checkboxes
 
 `DJ6-SRV-005` и Stage 6 exit gate «one owner» можно отмечать только после
 передачи свежего production `crontab -l` snapshot в этот validator с
@@ -41,7 +41,18 @@ manifest или green synthetic test недостаточно.
 Exit gate «cron remains rollback path» можно отмечать только когда тот же
 snapshot, manifest и rollback runbook принадлежат одному release SHA; operator
 должен быть явно указан, а rollback script/path доступен в checkout. Этот
-commit намеренно оставляет оба production gate открытыми.
+commit сам по себе намеренно оставлял оба production gate открытыми.
+
+## Production supersession 2026-08-19
+
+На production SHA `ba032bbd2030421d2340e9314a921eddabe2f582` свежий crontab
+snapshot прошел полный validator со `status=ok`: у каждой активной non-DTF
+периодики ровно один owner, durable cron имеет ровно один managed marker/owner,
+а bounded cron сохраняется как execution/rollback path. Installer `--check`
+также green. `product_catalog_image_jobs` остается inventory-only
+(`active:false`): block и owner отсутствуют, поэтому это не image-worker
+rollout. Полная activation evidence:
+`docs/qa/django61-stage6-production-activation.md`.
 
 ## Проверка
 
