@@ -27,6 +27,7 @@ from storefront.models import Product
 from .forms import ReviewForm
 from .models import Review, ReviewImage, ReviewStatus, ReviewVote
 from .services.permissions import has_paid_order_with_product
+from .write_freeze import review_writes_frozen
 
 
 log = logging.getLogger(__name__)
@@ -102,6 +103,19 @@ def _redirect_back(request: HttpRequest, product: Product) -> HttpResponseRedire
     )
 
 
+def _write_freeze_response() -> JsonResponse:
+    response = JsonResponse(
+        {
+            "ok": False,
+            "error": "temporarily_unavailable",
+            "message": "Відгуки тимчасово недоступні. Спробуйте за хвилину.",
+        },
+        status=503,
+    )
+    response["Retry-After"] = "60"
+    return response
+
+
 @require_POST
 def submit_review(request: HttpRequest, product_slug: str):
     """Public endpoint — anyone can POST. Auth users get
@@ -112,6 +126,9 @@ def submit_review(request: HttpRequest, product_slug: str):
         JsonResponse for AJAX (``X-Requested-With == XMLHttpRequest``),
         or a 302 to the PDP otherwise.
     """
+    if review_writes_frozen():
+        return _write_freeze_response()
+
     product = get_object_or_404(
         Product.objects.filter(status="published"),
         slug=product_slug,
@@ -188,6 +205,9 @@ def submit_review(request: HttpRequest, product_slug: str):
 @require_POST
 def vote_review(request: HttpRequest, review_id: int):
     """Helpful / unhelpful vote. JSON-only (called from PDP JS)."""
+    if review_writes_frozen():
+        return _write_freeze_response()
+
     try:
         review = Review.objects.get(pk=review_id, status=ReviewStatus.APPROVED)
     except Review.DoesNotExist:

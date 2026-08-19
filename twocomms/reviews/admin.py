@@ -13,19 +13,52 @@ Workflow:
 from __future__ import annotations
 
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 
 from .models import Review, ReviewImage, ReviewStatus, ReviewVote
+from .write_freeze import review_writes_frozen
 
 
-class ReviewImageInline(admin.TabularInline):
+class ReviewWriteFreezeAdminMixin:
+    def has_add_permission(self, request):
+        return False if review_writes_frozen() else super().has_add_permission(request)
+
+    def has_change_permission(self, request, obj=None):
+        return False if review_writes_frozen() else super().has_change_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        return False if review_writes_frozen() else super().has_delete_permission(request, obj)
+
+    def get_actions(self, request):
+        return {} if review_writes_frozen() else super().get_actions(request)
+
+    @staticmethod
+    def _require_writable():
+        if review_writes_frozen():
+            raise PermissionDenied("Review writes are temporarily frozen.")
+
+    def save_model(self, request, obj, form, change):
+        self._require_writable()
+        return super().save_model(request, obj, form, change)
+
+    def delete_model(self, request, obj):
+        self._require_writable()
+        return super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        self._require_writable()
+        return super().delete_queryset(request, queryset)
+
+
+class ReviewImageInline(ReviewWriteFreezeAdminMixin, admin.TabularInline):
     model = ReviewImage
     extra = 0
     fields = ("image", "order")
 
 
 @admin.register(Review)
-class ReviewAdmin(admin.ModelAdmin):
+class ReviewAdmin(ReviewWriteFreezeAdminMixin, admin.ModelAdmin):
     list_display = (
         "id",
         "product",
@@ -86,6 +119,7 @@ class ReviewAdmin(admin.ModelAdmin):
 
     @admin.action(description="Опублікувати вибрані відгуки")
     def approve_selected(self, request, queryset):
+        self._require_writable()
         now = timezone.now()
         updated = queryset.exclude(status=ReviewStatus.APPROVED).update(
             status=ReviewStatus.APPROVED,
@@ -96,6 +130,7 @@ class ReviewAdmin(admin.ModelAdmin):
 
     @admin.action(description="Відхилити вибрані відгуки")
     def reject_selected(self, request, queryset):
+        self._require_writable()
         now = timezone.now()
         updated = queryset.exclude(status=ReviewStatus.REJECTED).update(
             status=ReviewStatus.REJECTED,
@@ -106,7 +141,7 @@ class ReviewAdmin(admin.ModelAdmin):
 
 
 @admin.register(ReviewVote)
-class ReviewVoteAdmin(admin.ModelAdmin):
+class ReviewVoteAdmin(ReviewWriteFreezeAdminMixin, admin.ModelAdmin):
     list_display = ("id", "review", "user", "anon_key", "value", "created_at")
     list_filter = ("value", "created_at")
     search_fields = ("review__id", "user__username", "anon_key")
