@@ -5,6 +5,9 @@ from django.db import migrations, models
 
 def assert_no_generated_unique_duplicates(apps, schema_editor):
     ProductFitOption = apps.get_model("storefront", "ProductFitOption")
+    WebPushDeviceSubscription = apps.get_model(
+        "storefront", "WebPushDeviceSubscription"
+    )
     default_duplicate = (
         ProductFitOption.objects.filter(is_default=True)
         .values("product_id")
@@ -14,6 +17,14 @@ def assert_no_generated_unique_duplicates(apps, schema_editor):
     )
     if default_duplicate:
         raise RuntimeError("duplicate default ProductFitOption")
+    endpoint_duplicate = (
+        WebPushDeviceSubscription.objects.values("endpoint")
+        .annotate(row_count=models.Count("pk"))
+        .filter(row_count__gt=1)
+        .exists()
+    )
+    if endpoint_duplicate:
+        raise RuntimeError("duplicate WebPushDeviceSubscription endpoint")
 
 
 def _is_mariadb(schema_editor):

@@ -29,12 +29,17 @@ class _DuplicateQuery:
 
 
 class _HistoricalApps:
-    def __init__(self, *, fit_duplicate=False):
+    def __init__(self, *, fit_duplicate=False, endpoint_duplicate=False):
         self.models = {
             ("storefront", "ProductFitOption"): type(
                 "HistoricalProductFitOption",
                 (),
                 {"objects": _DuplicateQuery(fit_duplicate)},
+            ),
+            ("storefront", "WebPushDeviceSubscription"): type(
+                "HistoricalWebPushDeviceSubscription",
+                (),
+                {"objects": _DuplicateQuery(endpoint_duplicate)},
             ),
         }
 
@@ -146,6 +151,19 @@ class StorefrontMariaDbConstraintTests(SimpleTestCase):
         ):
             migration.assert_no_generated_unique_duplicates(
                 _HistoricalApps(fit_duplicate=True),
+                schema_editor=None,
+            )
+
+    def test_migration_rejects_endpoint_duplicates_before_state_only_change(self):
+        migration = importlib.import_module(
+            "storefront.migrations.0097_mariadb_generated_uniqueness"
+        )
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "duplicate WebPushDeviceSubscription endpoint",
+        ):
+            migration.assert_no_generated_unique_duplicates(
+                _HistoricalApps(endpoint_duplicate=True),
                 schema_editor=None,
             )
 
