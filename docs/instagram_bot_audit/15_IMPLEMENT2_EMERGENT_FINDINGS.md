@@ -257,6 +257,9 @@ delivery.
 Release commit `bee229683` is published to `origin/main`; production pull and
 MariaDB evidence are still pending because the protected deploy credential is
 not available in this environment.
+The public `/bot/health/` check at `2026-08-19T02:37:36Z` returned HTTP 200 with
+`bot_state=running`, `inbound_pending=0`, and `reply_pending=0`; this is only a
+pre-deploy liveness snapshot and does not prove the reported historical event.
 
 Focused local evidence: the signed webhook-to-CRM regression covers an active
 allowlist and asserts exactly one visible `user/done` record with no automation;
