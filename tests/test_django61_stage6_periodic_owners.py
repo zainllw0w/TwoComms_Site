@@ -55,16 +55,18 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
             crontab_path.unlink()
 
     def test_valid_non_dtf_contract(self):
-        result = self.invoke_validator(self.crontab())
+        active_jobs = [job for job in self.jobs if job.get("active", True)]
+        active_crontab = self.crontab(active_jobs)
+        result = self.invoke_validator(active_crontab)
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(
             len(payload["jobs"]),
-            len([job for job in self.jobs if job.get("active", True)]),
+            len(active_jobs),
         )
-        durable_line = next(line for line in self.crontab().splitlines() if "run_durable_tasks" in line)
-        self.assertIn("# BEGIN TWOCOMMS DJANGO61 DURABLE TASKS", self.crontab())
+        durable_line = next(line for line in active_crontab.splitlines() if "run_durable_tasks" in line)
+        self.assertIn("# BEGIN TWOCOMMS DJANGO61 DURABLE TASKS", active_crontab)
         self.assertIn("tmp/django61_durable_tasks.lock", durable_line)
         self.assertIn("exec /usr/bin/flock -n", durable_line)
         self.assertIn("/usr/bin/flock -n", durable_line)
@@ -101,6 +103,23 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
             [job["id"] for job in payload["jobs"]],
             [job["id"] for job in active_jobs],
         )
+
+    def test_inactive_job_block_or_owner_fails_closed(self):
+        active_jobs = [job for job in self.jobs if job.get("active", True)]
+        inactive_job = next(job for job in self.jobs if not job.get("active", True))
+
+        with self.subTest("managed block"):
+            result = self.invoke_validator(self.crontab())
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("inactive", result.stderr.lower())
+
+        with self.subTest("loose owner line"):
+            crontab = self.crontab(active_jobs) + (
+                f"* * * * * /srv/twocomms/.venv/bin/python {inactive_job['command']}\n"
+            )
+            result = self.invoke_validator(crontab)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("inactive", result.stderr.lower())
 
     def test_duplicate_loose_owner_fails_closed(self):
         result = self.invoke_validator(self.crontab() + self.crontab().splitlines()[1] + "\n")

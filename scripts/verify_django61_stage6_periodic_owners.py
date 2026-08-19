@@ -145,7 +145,20 @@ def validate_crontab(manifest: dict[str, Any], crontab: str, *, repo_root: Path)
         _fail(f"rollback path is absent from repository: {rollback_target}")
     jobs = manifest["jobs"]
     active_jobs = [job for job in jobs if job.get("active", True)]
-    known_markers = {job["managed_block"] for job in jobs}
+    for job in jobs:
+        if job.get("active", True):
+            continue
+        marker = job["managed_block"]
+        if marker in blocks:
+            _fail(f"inactive job has a managed block: {job['id']}")
+        matching = [
+            line
+            for line in lines
+            if job["command"] in line and not line.lstrip().startswith("#")
+        ]
+        if matching:
+            _fail(f"inactive job has an owner line: {job['id']}")
+    known_markers = {job["managed_block"] for job in active_jobs}
     unknown_markers = sorted(set(blocks) - known_markers)
     if unknown_markers:
         _fail(f"unknown TWOCOMMS managed block: {unknown_markers}")
