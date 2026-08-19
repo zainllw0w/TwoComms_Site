@@ -887,7 +887,7 @@ def _create_payment_attempt_invoice(request):
     payload = {
         'amount': int(payment_amount * 100), 'ccy': 980,
         'merchantPaymInfo': {'reference': attempt.reference, 'destination': description, 'basketOrder': basket},
-        'redirectUrl': request.build_absolute_uri('/payments/monobank/return/'),
+        'redirectUrl': request.build_absolute_uri(reverse('monobank_return')),
         'webHookUrl': request.build_absolute_uri('/payments/monobank/webhook/'),
     }
     try:
@@ -2333,7 +2333,7 @@ def monobank_return(request):
     attempt = _get_payment_attempt_by_refs(invoice_id=invoice_id, attempt_ref=attempt_ref, attempt_id=attempt_id)
     if attempt:
         if not _request_owns_payment_attempt(request, attempt):
-            messages.error(request, 'Платіж не знайдено. Спробуйте ще раз.')
+            messages.error(request, _('Платіж не знайдено. Спробуйте ще раз.'))
             return redirect('cart')
         try:
             proposal = attempt.instagram_checkout_proposal
@@ -2346,7 +2346,7 @@ def monobank_return(request):
             attempt, invoice_id or attempt.monobank_invoice_id,
         )
         if status_value:
-            order, _ = _apply_payment_attempt_status(
+            order, _created = _apply_payment_attempt_status(
                 attempt, status_value, payload=status_payload, source='return'
             )
             if order:
@@ -2357,7 +2357,7 @@ def monobank_return(request):
                 if proposal_id:
                     return redirect("ig_checkout_proposal", proposal_id=proposal_id)
                 return redirect('order_success', order_id=order.pk)
-        messages.info(request, 'Оплату ще не підтверджено. Спробуйте ще раз після завершення платежу.')
+        messages.info(request, _('Платіж ще не підтверджено. Спробуйте ще раз після завершення оплати.'))
         if proposal_id:
             return redirect("ig_checkout_proposal", proposal_id=proposal_id)
         return redirect('cart')
@@ -2367,7 +2367,7 @@ def monobank_return(request):
 
     order = _get_order_by_payment_refs(invoice_id=invoice_id, order_ref=order_ref, order_id=order_id)
     if not order:
-        messages.error(request, 'Замовлення не знайдено. Спробуйте ще раз.')
+        messages.error(request, _('Замовлення не знайдено. Спробуйте ще раз.'))
         return redirect('cart')
 
     # W1-3 (CRO-043): статус берём ТОЛЬКО из pull-истины (invoice/status API)
@@ -2400,14 +2400,14 @@ def monobank_return(request):
 
     if applied_status in MONOBANK_SUCCESS_STATUSES:
         _cleanup_after_success(request)
-        messages.success(request, 'Оплату успішно отримано!')
+        messages.success(request, _('Оплата успішно пройшла!'))
         return redirect('order_success', order_id=order.id)
 
     if applied_status in MONOBANK_PENDING_STATUSES:
-        messages.info(request, 'Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження.')
+        messages.info(request, _('Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження.'))
         return redirect('order_success', order_id=order.id)
 
-    messages.error(request, 'Оплату не завершено. Ви можете повторити спробу або обрати інший спосіб оплати.')
+    messages.error(request, _('Платіж не пройшов. Спробуйте ще раз або оберіть інший спосіб оплати.'))
     return redirect('cart')
 
 

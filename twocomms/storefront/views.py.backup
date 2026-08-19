@@ -5157,7 +5157,7 @@ def _build_monobank_checkout_payload(order, amount_decimal, total_qty, request, 
     callback_url = getattr(settings, 'MONOBANK_CHECKOUT_CALLBACK_URL', '')
     return_url = getattr(settings, 'MONOBANK_CHECKOUT_RETURN_URL', '')
     default_callback = request.build_absolute_uri('/payments/monobank/webhook/').replace('http://', 'https://', 1)
-    default_return = request.build_absolute_uri('/payments/monobank/return/').replace('http://', 'https://', 1)
+    default_return = request.build_absolute_uri(reverse('monobank_return')).replace('http://', 'https://', 1)
     payload['callback_url'] = callback_url or default_callback
     payload['return_url'] = return_url or default_return
     

@@ -17335,3 +17335,19 @@ msgstr "Applied promo code"
 
 msgid "Видалити промокод"
 msgstr "Remove promo code"
+
+#: storefront/views/monobank.py:2336
+msgid "Платіж не знайдено. Спробуйте ще раз."
+msgstr "Payment not found. Please try again."
+
+#: storefront/views/monobank.py:2360
+msgid "Платіж ще не підтверджено. Спробуйте ще раз після завершення оплати."
+msgstr "The payment hasn't been confirmed yet. Please try again once the payment is complete."
+
+#: storefront/views/monobank.py:2370
+msgid "Замовлення не знайдено. Спробуйте ще раз."
+msgstr "Order not found. Please try again."
+
+#: storefront/views/monobank.py:2407
+msgid "Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження."
+msgstr "Payment is being processed. We will notify you as soon as it is confirmed."
