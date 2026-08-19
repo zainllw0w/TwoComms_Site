@@ -69,8 +69,9 @@ Django child, выполнить physical MyISAM -> InnoDB -> write -> MyISAM re
    only after a coordinated decision to reopen review writes; verify marker
    removal and a successful controlled write separately.
 7. For rollback, use the same marker and a tested write-freeze or reverse-sync
-   strategy, then run `migrate reviews 0001_initial` (or the migration reverse)
-   and repeat the full after-proof. Never restore an old backup over live writes.
+   strategy, then run `migrate reviews 0002_mariadb_vote_uniqueness` so only
+   the `0003` engine canary is reversed, and repeat the full after-proof. Never
+   restore an old backup over live writes.
 
 ## Evidence placeholders required before checkboxes
 
