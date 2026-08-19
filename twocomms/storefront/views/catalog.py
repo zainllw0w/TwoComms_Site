@@ -21,7 +21,7 @@ from django.db.models import Case, Count, F, IntegerField, Min, Prefetch, Q, Val
 from django.db.models.functions import Cast
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils.translation import get_language
+from django.utils.translation import get_language, gettext
 from django.utils.translation import gettext_lazy as _
 
 from ..models import (
@@ -704,6 +704,40 @@ ROOT_CATALOG_CATEGORY_LABELS = {
 }
 
 
+def _smart_selector_locale_config():
+    """Return page-owned copy for the Smart Selector runtime states."""
+    return {
+        'sheetModes': {
+            'all': {
+                'eyebrow': gettext('Каталог'),
+                'title': gettext('Підібрати модель'),
+            },
+            'theme': {
+                'eyebrow': gettext('Швидкий вибір'),
+                'title': gettext('Оберіть тему'),
+            },
+            'fit': {
+                'eyebrow': gettext('Швидкий вибір'),
+                'title': gettext('Оберіть крій'),
+            },
+            'color': {
+                'eyebrow': gettext('Швидкий вибір'),
+                'title': gettext('Оберіть колір'),
+            },
+            'sort': {
+                'eyebrow': gettext('Каталог'),
+                'title': gettext('Сортування'),
+            },
+        },
+        'quickFacetDefaults': {
+            'theme': gettext('Усі'),
+            'fit': gettext('Будь-який'),
+            'color': gettext('Усі'),
+        },
+        'selectedCount': gettext('{count} обрано'),
+    }
+
+
 def _smart_selector_fit_codes(category, product_queryset):
     if category.slug == 'long-sleeve':
         return ['standard']
@@ -1154,6 +1188,7 @@ def _build_smart_selector_context(
         'smart_selector_selected_theme': selected_themes[0] if selected_themes else '',
         'smart_selector_selected_fit': selected_fits[0] if selected_fits else '',
         'smart_selector_selected_sort': selected_sort,
+        'smart_selector_locale_config': _smart_selector_locale_config(),
     }
 
 

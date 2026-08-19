@@ -202,6 +202,7 @@ class RenderedLocaleMatrixTests(TestCase):
                     "Сначала дешевле",
                     "Сначала дороже",
                     "Закрыть фильтры",
+                    "Показать товары",
                 ),
                 "slogan": (
                     "Не точка, а продолжение. Украинский streetwear из Харькова."
@@ -217,6 +218,7 @@ class RenderedLocaleMatrixTests(TestCase):
                     "Price: low to high",
                     "Price: high to low",
                     "Close filters",
+                    "Show products",
                 ),
                 "slogan": (
                     "Not a full stop, but a continuation. Ukrainian streetwear from Kharkiv."
@@ -231,6 +233,7 @@ class RenderedLocaleMatrixTests(TestCase):
             "Від дешевих",
             "Від дорогих",
             "Закрити фільтри",
+            "Показати товари",
         )
 
         for locale, expected in matrix.items():
@@ -252,6 +255,51 @@ class RenderedLocaleMatrixTests(TestCase):
                 self.assertEqual(schema["name"], "TwoComms")
                 self.assertEqual(schema["slogan"], expected["slogan"])
                 self.assertNotIn("Не крапка, а продовження", schema["slogan"])
+
+    def test_root_catalog_seo_rail_keeps_labels_and_urls_in_active_locale(self):
+        matrix = {
+            "ru": {
+                "path": "/ru/catalog/",
+                "prefix": "/ru/",
+                "labels": (
+                    "Милитари-стритвир",
+                    "Стритвир с кодом",
+                    "Патриотическая одежда",
+                    "Харьковская линейка",
+                    "Кастомная DTF-печать",
+                    "Сотрудничество с брендами",
+                ),
+            },
+            "en": {
+                "path": "/en/catalog/",
+                "prefix": "/en/",
+                "labels": (
+                    "Military streetwear",
+                    "Streetwear with a code",
+                    "Patriotic clothing",
+                    "Kharkiv line",
+                    "Custom DTF printing",
+                    "Brand collaborations",
+                ),
+            },
+        }
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode("utf-8")
+                panel = re.search(
+                    r'<div[^>]+id="seo-tab-panel-top_menu".*?<ul[^>]*>(.*?)</ul>',
+                    body,
+                    flags=re.DOTALL,
+                )
+                self.assertIsNotNone(panel)
+                hrefs = re.findall(r'<a class="seo-tab-link" href="([^"]+)"', panel.group(1))
+                self.assertGreater(len(hrefs), 6)
+                self.assertTrue(all(href.startswith(expected["prefix"]) for href in hrefs))
+                for label in expected["labels"]:
+                    self.assertIn(label, panel.group(1))
 
     def test_homepage_english_copy_and_tracking_parameters_keep_locale(self):
         response = self.client.get("/en/?utm_source=google&srsltid=free-listing-click")

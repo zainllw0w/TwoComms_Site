@@ -7087,23 +7087,23 @@ msgstr "Donate to AFU merch"
 
 #: storefront/services/general_catalog_seo.py:113
 msgid "Військовий streetwear"
-msgstr ""
+msgstr "Military streetwear"
 
 #: storefront/services/general_catalog_seo.py:114
 msgid "Стрітвір з кодом"
-msgstr ""
+msgstr "Streetwear with a code"
 
 #: storefront/services/general_catalog_seo.py:115
 msgid "Патріотичний одяг"
-msgstr ""
+msgstr "Patriotic clothing"
 
 #: storefront/services/general_catalog_seo.py:116
 msgid "Харківська лінія"
-msgstr ""
+msgstr "Kharkiv line"
 
 #: storefront/services/general_catalog_seo.py:120
 msgid "Кастомний DTF-друк"
-msgstr ""
+msgstr "Custom DTF printing"
 
 #: storefront/services/general_catalog_seo.py:125
 #: storefront/support_content.py:402 storefront/support_content.py:533
@@ -7157,7 +7157,7 @@ msgstr "Wholesale & dropshipping"
 
 #: storefront/services/general_catalog_seo.py:136
 msgid "Співпраця з брендами"
-msgstr ""
+msgstr "Brand collaborations"
 
 #: storefront/services/general_catalog_seo.py:137
 #: twocomms_django_theme/templates/pages/pro_brand.html:29
@@ -16938,3 +16938,138 @@ msgstr "Price: low to high"
 #: twocomms_django_theme/templates/partials/catalog_smart_selector.html:388
 msgid "Від дорогих"
 msgstr "Price: high to low"
+
+#: storefront/views/catalog.py
+msgid "Оберіть тему"
+msgstr "Choose a theme"
+
+#: storefront/views/catalog.py
+msgid "Оберіть крій"
+msgstr "Choose a fit"
+
+#: storefront/views/catalog.py
+msgid "Оберіть колір"
+msgstr "Choose a color"
+
+#: storefront/views/catalog.py
+msgid "{count} обрано"
+msgstr "{count} selected"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Категорії одягу"
+msgstr "Clothing categories"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Навігаційний шлях"
+msgstr "Breadcrumb"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Фільтри каталогу"
+msgstr "Catalog filters"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Швидкий вибір"
+msgstr "Quick selection"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Для кого"
+msgstr "For whom"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Доступність"
+msgstr "Availability"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Крій"
+msgstr "Fit"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Доступні посадки вказані у картках товарів."
+msgstr "Available fits are listed on the product cards."
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Технологія"
+msgstr "Technology"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Сортування"
+msgstr "Sort"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Усі"
+msgstr "All"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Будь-який"
+msgstr "Any"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Обрані фільтри"
+msgstr "Selected filters"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Не знайшли точного збігу"
+msgstr "No exact match found"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Схоже, разом обрані параметри не зустрічаються. Приберіть один фільтр або поверніться до всіх моделей."
+msgstr "It looks like the selected parameters do not occur together. Remove one filter or return to all products."
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Показати всі моделі"
+msgstr "Show all products"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Завантажуємо наступні моделі…"
+msgstr "Loading more products..."
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Нові моделі додано"
+msgstr "New products added"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Усі моделі вже показано"
+msgstr "All products are already shown"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Не вдалося завантажити ще товари. Скористайтеся сторінками нижче."
+msgstr "Could not load more products. Use the pages below."
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Сторінки каталогу"
+msgstr "Catalog pages"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Підібрати модель"
+msgstr "Find your style"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Показати всі"
+msgstr "Show all"
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Будь-який крій"
+msgstr "Any fit"
+
+#: twocomms_django_theme/templates/pages/catalog.html
+msgid "Показати товари"
+msgstr "Show products"
+
+#, python-format
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "%(counter)s модель"
+msgid_plural "%(counter)s моделей"
+msgstr[0] "%(counter)s product"
+msgstr[1] "%(counter)s products"
+
+#, python-format
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Показати %(counter)s модель"
+msgid_plural "Показати %(counter)s моделей"
+msgstr[0] "Show %(counter)s product"
+msgstr[1] "Show %(counter)s products"
+
+#, python-format
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html
+msgid "Показати підкатегорії: %(label)s"
+msgstr "Show subcategories: %(label)s"

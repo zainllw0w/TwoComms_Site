@@ -4,6 +4,15 @@
   const root = document.querySelector("[data-smart-selector]");
   if (!root) return;
 
+  const localeConfigNode = document.getElementById("catalog-smart-selector-locale");
+  let localeConfig = null;
+  try {
+    localeConfig = localeConfigNode ? JSON.parse(localeConfigNode.textContent || "{}") : null;
+  } catch (_) {
+    localeConfig = null;
+  }
+  if (!localeConfig?.sheetModes || !localeConfig?.quickFacetDefaults || !localeConfig?.selectedCount) return;
+
   const grid = root.querySelector("[data-smart-product-grid]");
   const overlay = root.querySelector("[data-smart-filter-sheet]");
   const sheet = overlay?.querySelector(".smart-selector__sheet");
@@ -48,13 +57,7 @@
   let sheetHistoryActive = false;
   let navWasInert = false;
   let sheetMode = "all";
-  const sheetModes = {
-    all: { eyebrow: "Каталог", title: "Підібрати модель" },
-    theme: { eyebrow: "Швидкий вибір", title: "Оберіть тему" },
-    fit: { eyebrow: "Швидкий вибір", title: "Оберіть крій" },
-    color: { eyebrow: "Швидкий вибір", title: "Оберіть колір" },
-    sort: { eyebrow: "Каталог", title: "Сортування" },
-  };
+  const sheetModes = localeConfig.sheetModes;
 
   const emitCatalogAnalytics = (eventName, payload = {}) => {
     if (!eventName) return;
@@ -307,7 +310,7 @@
   };
 
   const updateQuickFacetValues = () => {
-    const labels = { theme: "Усі", fit: "Будь-який", color: "Усі" };
+    const labels = { ...localeConfig.quickFacetDefaults };
     const themeControls = root.querySelectorAll(
       '[data-smart-filter="theme"][aria-pressed="true"], [data-smart-filter="collection"][aria-pressed="true"]'
     );
@@ -317,7 +320,9 @@
         .map((control) => control.querySelector("span:not([aria-hidden])")?.childNodes?.[0]?.textContent?.trim() || control.textContent.trim())
         .filter(Boolean);
       const unique = Array.from(new Set(values));
-      return unique.length > 1 ? `${unique.length} обрано` : unique[0] || fallback;
+      return unique.length > 1
+        ? localeConfig.selectedCount.replace("{count}", String(unique.length))
+        : unique[0] || fallback;
     };
     labels.theme = labelFor(themeControls, labels.theme);
     labels.fit = labelFor(fitControls, labels.fit);

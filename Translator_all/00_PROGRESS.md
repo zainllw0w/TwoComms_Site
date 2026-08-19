@@ -32,7 +32,7 @@ interface is explicitly out of scope.
 
 | File | Scope | Audit state | Implementation state |
 | --- | --- | --- | --- |
-| `01-catalog.md` | Catalog root, category pages, filters, sorting, navigation, mobile catalog | Complete | Awaiting approved implementation design |
+| `01-catalog.md` | Catalog root, category pages, filters, sorting, navigation, mobile catalog | Complete | 3 / 8 source-complete; production verification pending |
 | `02-product-detail.md` | PDP, variants, fits, size grids/advisor, technologies, product schema | Complete | Awaiting approved implementation design and DB inventory |
 | `03-custom-print.md` | Custom Print configurator, form, localized routes, schema | Complete | Awaiting approved implementation design |
 | `04-conversion-and-overlays.md` | Cart, checkout, payment, alerts, toasts, PWA/install and other overlays | Complete | Awaiting approved implementation design |
@@ -73,20 +73,23 @@ interface is explicitly out of scope.
 | Confirmed P1 findings fixed | 0 / 28 (0%) |
 | Confirmed P2 findings fixed | 0 / 7 (0%) |
 | Overall remediation | 0 / 53 (0%) |
+| Source-complete P0 findings | 3 / 18 (16.7%) |
+| Source-complete work packages | 3 / 53 (5.7%) |
 | Production DB content findings verified | 0 (SSH credential unavailable) |
-| Locally reviewed source tasks | 1 / 8 plan tasks (12.5%): shared locale-contract foundation |
-| Last consolidated update | 2026-08-19: Task 1 source implementation passed focused tests, Django check, specification review, and code-quality review; it is not yet merged, deployed, or browser-verified. Production data inventory remains credential-blocked. |
+| Locally reviewed source tasks | 2 / 8 plan tasks (25%): locale-contract foundation and catalog selector/root rail |
+| Last consolidated update | 2026-08-19: Task 2 source implementation passed 67 focused tests, Django check, gettext compilation, JS syntax, diff check, specification review, and code-quality review. Tasks 1-2 are not yet merged, deployed, or browser-verified. Production data inventory remains credential-blocked. |
 
 ## Current Implementation Checkpoint
 
 | Plan task | Local implementation evidence | Review evidence | Release status |
 | --- | --- | --- | --- |
 | Task 1: shared locale-contract foundation | Commit `25b8768f1`; 11 focused tests, locale normalization matrix, Django check, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Pending scoped integration to `main`, approved SSH pull, and UA/RU/EN production browser verification |
+| Task 2: catalog selector and root SEO rail | Source-complete; 67 focused tests, Django check, gettext compilation, JS syntax, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Pending catalog commit, scoped integration to `main`, mobile/desktop selector QA, approved SSH pull, and production verification |
 
-The `0 / 53` remediation figure remains intentional: a customer-visible work
-package is counted only after its focused regression test and a production
-browser check pass. The foundation is an enabling task, not a completed public
-conversion package.
+The production-confirmed `0 / 53` remediation figure remains intentional: a
+customer-visible work package is counted there only after its focused regression
+test and a production browser check pass. The separate `3 / 53` source-complete
+figure exposes real implementation progress without overstating release status.
 
 ## Implementation Boundary
 

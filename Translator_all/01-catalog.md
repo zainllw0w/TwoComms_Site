@@ -3,8 +3,9 @@
 ## Scope and Audit Status
 
 - Owner: catalog workstream.
-- Status: audit complete for public catalog routes; no application code,
-  gettext catalog, test, or production data was changed in this phase.
+- Status: audit complete. CATALOG-P0-01 through CATALOG-P0-03 are source-complete
+  in Task 2 with focused tests and independent reviews; deployment and live
+  browser verification remain pending. Production data was not changed.
 - Safe live GET checks covered: /catalog/, /en/catalog/, /ru/catalog/,
   /catalog/tshirts/, /en/catalog/tshirts/, /ru/catalog/tshirts/,
   /en/catalog/theme/military/, /ru/catalog/theme/military/,
@@ -18,6 +19,11 @@
 ## Confirmed P0
 
 ### CATALOG-P0-01: Smart Selector is mixed-language before and after interaction
+
+- Source status: complete. The page-owned locale payload now supplies dynamic
+  selector copy, EN/RU gettext entries cover static controls and runtime states,
+  and the selector asset version is bumped. Production mobile/desktop interaction
+  proof remains required.
 
 - Locales: en, ru; routes: category catalog pages for T-shirts, hoodies, and
   longsleeves.
@@ -45,6 +51,9 @@
 
 ### CATALOG-P0-02: root catalog filter CTA remains Ukrainian in EN/RU
 
+- Source status: complete. Reviewed gettext entries render `Show products` and
+  `Показать товары`; production browser proof remains required.
+
 - Locales: en, ru; routes: /en/catalog/ and /ru/catalog/.
 - Live evidence: the root filter dialog is otherwise localized, but its submit
   button is Показати товари on both pages.
@@ -56,6 +65,10 @@
   action and reset continue to use reverse('catalog').
 
 ### CATALOG-P0-03: root catalog SEO rail loses both language and locale route
+
+- Source status: complete. All synthetic rail targets use named `reverse()`
+  routes under the active locale, and the six missing labels have reviewed EN/RU
+  translations. Exact live link-target proof remains required.
 
 - Locales: en, ru; route: root catalog pages.
 - Live evidence: /en/catalog/ and /ru/catalog/ emit six Ukrainian labels:

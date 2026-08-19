@@ -18,6 +18,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Sequence
 
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 
@@ -72,36 +73,41 @@ def _build_top_menu_items(categories) -> List[SimpleNamespace]:
     # 1. Базовые категории (все активные).
     for c in categories or []:
         if getattr(c, "is_active", True) and getattr(c, "slug", ""):
-            items.append(_item(label=c.name, url=f"/catalog/{c.slug}/"))
+            items.append(
+                _item(
+                    label=c.name,
+                    url=reverse("catalog_by_cat", kwargs={"cat_slug": c.slug}),
+                )
+            )
 
     # 2. Тематические landings (US-5).
     items.extend([
-        _item(label=str(_("Військовий streetwear")), url="/catalog/theme/military/"),
-        _item(label=str(_("Стрітвір з кодом")), url="/catalog/theme/streetwear/"),
-        _item(label=str(_("Патріотичний одяг")), url="/catalog/theme/patriotic/"),
-        _item(label=str(_("Харківська лінія")), url="/catalog/theme/kharkiv-edition/"),
+        _item(label=str(_("Військовий streetwear")), url=reverse("catalog_theme_landing", kwargs={"theme_slug": "military"})),
+        _item(label=str(_("Стрітвір з кодом")), url=reverse("catalog_theme_landing", kwargs={"theme_slug": "streetwear"})),
+        _item(label=str(_("Патріотичний одяг")), url=reverse("catalog_theme_landing", kwargs={"theme_slug": "patriotic"})),
+        _item(label=str(_("Харківська лінія")), url=reverse("catalog_theme_landing", kwargs={"theme_slug": "kharkiv-edition"})),
     ])
 
     # 3. Кастомний друк (high-intent commercial route).
-    items.append(_item(label=str(_("Кастомний DTF-друк")), url="/custom-print/"))
+    items.append(_item(label=str(_("Кастомний DTF-друк")), url=reverse("custom_print")))
 
     # 4. Сервісні сторінки — keyword-rich anchors під FAQ /
     # «<page> + brand» інтенти.
     items.extend([
-        _item(label=str(_("Доставка і оплата")), url="/delivery/"),
-        _item(label=str(_("Розмірна сітка")), url="/rozmirna-sitka/"),
-        _item(label=str(_("Догляд за одягом")), url="/doglyad-za-odyagom/"),
-        _item(label=str(_("Повернення та обмін")), url="/povernennya-ta-obmin/"),
-        _item(label=str(_("FAQ")), url="/faq/"),
-        _item(label=str(_("Допомога")), url="/dopomoga/"),
+        _item(label=str(_("Доставка і оплата")), url=reverse("delivery")),
+        _item(label=str(_("Розмірна сітка")), url=reverse("size_guide")),
+        _item(label=str(_("Догляд за одягом")), url=reverse("care_guide")),
+        _item(label=str(_("Повернення та обмін")), url=reverse("returns")),
+        _item(label=str(_("FAQ")), url=reverse("faq")),
+        _item(label=str(_("Допомога")), url=reverse("help_center")),
     ])
 
     # 5. B2B + бренд + контакт.
     items.extend([
-        _item(label=str(_("Опт і дропшипінг")), url="/wholesale/"),
-        _item(label=str(_("Співпраця з брендами")), url="/cooperation/"),
-        _item(label=str(_("Про бренд TwoComms")), url="/pro-brand/"),
-        _item(label=str(_("Контакти")), url="/contacts/"),
+        _item(label=str(_("Опт і дропшипінг")), url=reverse("wholesale_page")),
+        _item(label=str(_("Співпраця з брендами")), url=reverse("cooperation")),
+        _item(label=str(_("Про бренд TwoComms")), url=reverse("about")),
+        _item(label=str(_("Контакти")), url=reverse("contacts")),
     ])
 
     # Дедуп по url, на випадок якщо адмін зареєстрував категорію зі

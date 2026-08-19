@@ -9,9 +9,10 @@ admin is explicitly out of scope.
 ## Status
 
 - Audit coverage: 6 of 6 workstreams complete (100%)
-- Confirmed implementation coverage: 0 of 53 work packages (0%)
-- Source foundation: Task 1 is locally implemented and independently reviewed;
-  merge, production deployment, and live browser verification are pending
+- Source-complete coverage: 3 of 53 work packages (5.7%)
+- Production-confirmed coverage: 0 of 53 work packages (0%)
+- Source foundation and catalog Task 2 are locally implemented and independently
+  reviewed; merge, production deployment, and live browser verification are pending
 - Production database verification: blocked pending safe SSH credential access
 - Source of truth for live browser behavior: public production routes
 
@@ -19,7 +20,7 @@ admin is explicitly out of scope.
 
 | Workstream | Audit | Confirmed packages | Implementation |
 | --- | --- | ---: | --- |
-| Catalog | Complete | 4 P0, 3 P1, 1 P2 | 0% |
+| Catalog | Complete | 4 P0, 3 P1, 1 P2 | 3 / 8 source-complete (37.5%); 0 / 8 live-confirmed |
 | PDP, fit, technology, and size | Complete | 2 P0, 4 P1, 1 P2 | 0% |
 | Custom Print | Complete | 4 P0, 4 P1 | 0% |
 | Cart, checkout, overlays, and PWA | Complete | 7 P0, 5 P1, 2 P2 | 0% |
@@ -29,6 +30,10 @@ admin is explicitly out of scope.
 Final total: **53 independently verifiable packages**: **18 P0**, **28 P1**,
 and **7 P2**. A package is not counted as implemented until its focused
 regression test and production browser check both pass.
+
+The separate source-complete figure records reviewed fixes before deployment.
+Task 2 closes the source work for CATALOG-P0-01, CATALOG-P0-02, and
+CATALOG-P0-03; CATALOG-P0-04 and the catalog P1/P2 packages remain open.
 
 ## Priority Order
 

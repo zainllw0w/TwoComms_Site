@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import re
 from unittest.mock import patch
 
 from django.core.cache import cache, caches
@@ -155,6 +157,71 @@ class SmartSelectorCategoryTests(TestCase):
         self.assertContains(response, "Футболки з щільної бавовни")
         self.assertContains(response, reverse("product", kwargs={"slug": product.slug}))
         self.assertContains(response, 'class="catalog-pagination"')
+
+    def test_smart_selector_locale_payload_owns_dynamic_copy(self):
+        self.create_product(category=self.tshirts, slug="locale-payload-product")
+        matrix = {
+            "uk": {
+                "path": "/catalog/tshirts/",
+                "payload": {
+                    "sheetModes": {
+                        "all": {"eyebrow": "Каталог", "title": "Підібрати модель"},
+                        "theme": {"eyebrow": "Швидкий вибір", "title": "Оберіть тему"},
+                        "fit": {"eyebrow": "Швидкий вибір", "title": "Оберіть крій"},
+                        "color": {"eyebrow": "Швидкий вибір", "title": "Оберіть колір"},
+                        "sort": {"eyebrow": "Каталог", "title": "Сортування"},
+                    },
+                    "quickFacetDefaults": {"theme": "Усі", "fit": "Будь-який", "color": "Усі"},
+                    "selectedCount": "{count} обрано",
+                },
+                "prefix": "",
+            },
+            "ru": {
+                "path": "/ru/catalog/tshirts/",
+                "payload": {
+                    "sheetModes": {
+                        "all": {"eyebrow": "Каталог", "title": "Подобрать модель"},
+                        "theme": {"eyebrow": "Быстрый выбор", "title": "Выберите тему"},
+                        "fit": {"eyebrow": "Быстрый выбор", "title": "Выберите посадку"},
+                        "color": {"eyebrow": "Быстрый выбор", "title": "Выберите цвет"},
+                        "sort": {"eyebrow": "Каталог", "title": "Сортировка"},
+                    },
+                    "quickFacetDefaults": {"theme": "Все", "fit": "Любая", "color": "Все"},
+                    "selectedCount": "Выбрано: {count}",
+                },
+                "prefix": "/ru",
+            },
+            "en": {
+                "path": "/en/catalog/tshirts/",
+                "payload": {
+                    "sheetModes": {
+                        "all": {"eyebrow": "Catalog", "title": "Find your style"},
+                        "theme": {"eyebrow": "Quick selection", "title": "Choose a theme"},
+                        "fit": {"eyebrow": "Quick selection", "title": "Choose a fit"},
+                        "color": {"eyebrow": "Quick selection", "title": "Choose a color"},
+                        "sort": {"eyebrow": "Catalog", "title": "Sort"},
+                    },
+                    "quickFacetDefaults": {"theme": "All", "fit": "Any", "color": "All"},
+                    "selectedCount": "{count} selected",
+                },
+                "prefix": "/en",
+            },
+        }
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode("utf-8")
+                match = re.search(
+                    r'<script id="catalog-smart-selector-locale" type="application/json">(.*?)</script>',
+                    body,
+                    flags=re.DOTALL,
+                )
+                self.assertIsNotNone(match)
+                self.assertEqual(json.loads(match.group(1)), expected["payload"])
+                category_href = f'{expected["prefix"]}/catalog/hoodie/' if expected["prefix"] else "/catalog/hoodie/"
+                self.assertIn(f'href="{category_href}"', body)
 
     def test_supported_category_uses_variant_3_product_card_markup(self):
         product = self.create_product(category=self.tshirts, slug="variant-3-card")
@@ -1174,6 +1241,25 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
         self.assertIn("smart-product-card", source)
         self.assertIn("CatalogSelectItem", source)
 
+    def test_smart_selector_reads_dynamic_copy_from_page_locale_payload(self):
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "catalog-smart-selector.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("catalog-smart-selector-locale", source)
+        for ukrainian_literal in (
+            'title: "Підібрати модель"',
+            'eyebrow: "Швидкий вибір"',
+            'theme: "Усі"',
+            'fit: "Будь-який"',
+            'обрано',
+        ):
+            self.assertNotIn(ukrainian_literal, source)
+
     def test_smart_selector_bumps_assets_after_interaction_contract_change(self):
         template = (
             Path(__file__).resolve().parents[2]
@@ -1183,5 +1269,5 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
             / "catalog.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("catalog-smart-selector.css' %}?v=20260808-v16", template)
-        self.assertIn("catalog-smart-selector.js' %}?v=20260808-v16", template)
+        self.assertIn("catalog-smart-selector.css' %}?v=20260819-locale-v17", template)
+        self.assertIn("catalog-smart-selector.js' %}?v=20260819-locale-v17", template)
