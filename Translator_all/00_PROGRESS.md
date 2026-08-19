@@ -32,10 +32,10 @@ interface is explicitly out of scope.
 
 | File | Scope | Audit state | Implementation state |
 | --- | --- | --- | --- |
-| `01-catalog.md` | Catalog root, category pages, filters, sorting, navigation, mobile catalog | Complete | 3 / 8 source-complete; production verification pending |
+| `01-catalog.md` | Catalog root, category pages, filters, sorting, navigation, mobile catalog | Complete | 3 / 8 source-complete; 3 / 8 live-confirmed (37.5%) |
 | `02-product-detail.md` | PDP, variants, fits, size grids/advisor, technologies, product schema | Complete | Awaiting approved implementation design and DB inventory |
 | `03-custom-print.md` | Custom Print configurator, form, localized routes, schema | Complete | Awaiting approved implementation design |
-| `04-conversion-and-overlays.md` | Cart, checkout, payment, alerts, toasts, PWA/install and other overlays | Complete | 5 / 14 source-complete; production verification pending |
+| `04-conversion-and-overlays.md` | Cart, checkout, payment, alerts, toasts, PWA/install and other overlays | Complete | 5 / 14 source-complete; 5 / 14 live-confirmed (35.7%) |
 | `05-static-pages.md` | Home, ProBrand, delivery/payment, support pages, shared customer chrome | Complete | Awaiting approved implementation design |
 | `06-seo-geo-and-data.md` | Cross-cutting head/schema/sitemap ownership and production content coverage | Complete | Awaiting approved implementation design and DB inventory |
 
@@ -46,10 +46,8 @@ interface is explicitly out of scope.
 - The primary checkout has extensive pre-existing untracked files. All
   localization commits must stage exact paths only; unrelated files are never
   included.
-- `TWOCOMMS_DEPLOY_PASSWORD` is not present in the current environment, so
-  public HTTPS checks can proceed but SSH/MariaDB evidence is currently
-  pending a secret-safe credential source. Never use a password copied from
-  chat or commit one to the repository.
+- SSH deployment and MariaDB checks use the local secret-safe credential
+  loader; no password is copied into this repository or its ledgers.
 
 ## Acceptance Checks Per Released Batch
 
@@ -69,29 +67,29 @@ interface is explicitly out of scope.
 | --- | --- |
 | Workstreams audited | 6 / 6 complete (100%) |
 | Confirmed work packages | 53 final: 18 P0, 28 P1, 7 P2 |
-| Confirmed P0 findings fixed | 0 / 18 (0%) |
-| Confirmed P1 findings fixed | 0 / 28 (0%) |
+| Confirmed P0 findings fixed | 7 / 18 (38.9%) |
+| Confirmed P1 findings fixed | 1 / 28 (3.6%) |
 | Confirmed P2 findings fixed | 0 / 7 (0%) |
-| Overall remediation | 0 / 53 (0%) |
+| Overall remediation | 8 / 53 (15.1%) |
 | Source-complete P0 findings | 7 / 18 (38.9%) |
 | Source-complete P1 findings | 1 / 28 (3.6%) |
 | Source-complete work packages | 8 / 53 (15.1%) |
-| Production DB content findings verified | 0 (SSH credential unavailable) |
+| Production DB content findings verified | 0 (SSH used for schema/counters only; no translation inventory or writes) |
 | Locally reviewed source tasks | 3 / 8 plan tasks (37.5%): locale-contract foundation, catalog selector/root rail, and cart/checkout |
-| Last consolidated update | 2026-08-19: Task 3 source implementation passed 65 focused tests, Django check, gettext compilation, four JS syntax checks, diff check, specification review, and code-quality review. Tasks 1-3 are not yet merged, deployed, or browser-verified. Production data inventory remains credential-blocked. |
+| Last consolidated update | 2026-08-19: final localization runtime SHA `3de4c6a7d`; later `main` commits do not change this localization code. The historical `f239538c6` matrix covered 24 catalog and 12 cart/mini-cart UA/RU/EN desktop/mobile probes, then post-fix checks confirmed localized Smart Selector and Monobank return states. Focused tests, Django/gettext/JS checks, and independent reviews passed. Production counters stayed at `orders=64`, `payment_attempts=12`; product DB translation inventory remains deferred. |
 
 ## Current Implementation Checkpoint
 
 | Plan task | Local implementation evidence | Review evidence | Release status |
 | --- | --- | --- | --- |
-| Task 1: shared locale-contract foundation | Commit `25b8768f1`; 11 focused tests, locale normalization matrix, Django check, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Pending scoped integration to `main`, approved SSH pull, and UA/RU/EN production browser verification |
-| Task 2: catalog selector and root SEO rail | Source-complete; 67 focused tests, Django check, gettext compilation, JS syntax, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Pending catalog commit, scoped integration to `main`, mobile/desktop selector QA, approved SSH pull, and production verification |
-| Task 3: cart, mini-cart, checkout, and Monobank | Source-complete; 65 focused tests, Django check, gettext compilation, four JS syntax checks, and diff check passed. The full Nova/Monobank module has no new regression versus clean `origin/main` (`5F/6E` versus baseline `7F/6E`; all remaining names are shared fixture-contract failures). | Independent specification and code-quality reviews returned `APPROVED` after the EN/RU payment-error regression was fixed | Pending scoped commit/integration, approved SSH pull, and UA/RU/EN desktop/mobile production verification |
+| Task 1: shared locale-contract foundation | Commit `25b8768f1`; 11 focused tests, locale normalization matrix, Django check, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Integrated as the deployed contract dependency; exercised by the catalog/cart production matrices (not counted as a separate customer package) |
+| Task 2: catalog selector and root SEO rail | Source-complete; 67 focused tests, Django check, gettext compilation, JS syntax, and diff check passed | Independent specification and code-quality reviews found no blocking issues | Live-confirmed for CATALOG-P0-01..03 through final SHA `3de4c6a7d` across UA/RU/EN, desktop/mobile; thematic landings, hreflang policy, and DB-owned product copy remain open |
+| Task 3: cart, mini-cart, checkout, and Monobank | Source-complete; 65 focused tests, Django check, gettext compilation, four JS syntax checks, and diff check passed. The full Nova/Monobank module has no new regression versus clean `origin/main` (`5F/6E` versus baseline `7F/6E`; all remaining names are shared fixture-contract failures). | Independent specification and code-quality reviews returned `APPROVED` after the EN/RU payment-error regression was fixed | Live-confirmed for CONV-P0-01..04 and CONV-P1-04 through final SHA `3de4c6a7d`; safe missing-reference return messages are UA/RU/EN and no live invoice/payment event was created |
 
-The production-confirmed `0 / 53` remediation figure remains intentional: a
-customer-visible work package is counted there only after its focused regression
-test and a production browser check pass. The separate `8 / 53` source-complete
-figure exposes real implementation progress without overstating release status.
+The production-confirmed `8 / 53` remediation figure counts only the eight
+packages with both focused regression coverage and fresh production browser
+evidence. The source-complete figure is equal for this batch; the remaining
+audited findings are intentionally not promoted by source tests alone.
 
 ## Implementation Boundary
 

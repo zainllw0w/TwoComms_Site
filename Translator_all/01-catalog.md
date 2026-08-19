@@ -3,27 +3,28 @@
 ## Scope and Audit Status
 
 - Owner: catalog workstream.
-- Status: audit complete. CATALOG-P0-01 through CATALOG-P0-03 are source-complete
-  in Task 2 with focused tests and independent reviews; deployment and live
-  browser verification remain pending. Production data was not changed.
+- Status: audit complete. CATALOG-P0-01 through CATALOG-P0-03 are source-complete,
+  independently reviewed, and live-confirmed through final code SHA
+  `3de4c6a7d`. The historical interaction matrix ran on `f239538c6`; the
+  post-fix selector-note asset and route checks ran on `3de4c6a7d`.
+  Production product content was not changed.
 - Safe live GET checks covered: /catalog/, /en/catalog/, /ru/catalog/,
   /catalog/tshirts/, /en/catalog/tshirts/, /ru/catalog/tshirts/,
   /en/catalog/theme/military/, /ru/catalog/theme/military/,
   /en/catalog/tshirts/black/, and /ru/catalog/tshirts/black/.
-- Device surface: desktop HTML and the existing 390x844 mobile selector evidence.
-  No new browser clicks were made, so no analytics/pixel event was deliberately
-  generated.
-- Production MariaDB completeness is pending. TWOCOMMS_DEPLOY_PASSWORD is not
-  available; no password pasted into chat was used.
+- Device surface: desktop HTML and `390x844` mobile selector interaction checks
+  cover UA/RU/EN. No analytics/pixel event was deliberately generated.
+- Production MariaDB was queried read-only for migration/schema/counters only;
+  translation inventory and product-content writes remain deferred. Credentials
+  are loaded locally and never copied into this ledger.
 
 ## Confirmed P0
 
 ### CATALOG-P0-01: Smart Selector is mixed-language before and after interaction
 
-- Source status: complete. The page-owned locale payload now supplies dynamic
-  selector copy, EN/RU gettext entries cover static controls and runtime states,
-  and the selector asset version is bumped. Production mobile/desktop interaction
-  proof remains required.
+- Release status: live-confirmed on `f239538c6` for the selector interaction
+  matrix, then rechecked on `3de4c6a7d` after the localized quick-note fix;
+  the fresh hashed CSS/JS assets returned `200`.
 
 - Locales: en, ru; routes: category catalog pages for T-shirts, hoodies, and
   longsleeves.
@@ -51,8 +52,9 @@
 
 ### CATALOG-P0-02: root catalog filter CTA remains Ukrainian in EN/RU
 
-- Source status: complete. Reviewed gettext entries render `Show products` and
-  `Показать товары`; production browser proof remains required.
+- Release status: live-confirmed on `f239538c6` for the EN/RU root filter CTA;
+  the final SHA retained the locale-owned `Show products` and `Показать товары`
+  strings on desktop and mobile.
 
 - Locales: en, ru; routes: /en/catalog/ and /ru/catalog/.
 - Live evidence: the root filter dialog is otherwise localized, but its submit
@@ -66,9 +68,9 @@
 
 ### CATALOG-P0-03: root catalog SEO rail loses both language and locale route
 
-- Source status: complete. All synthetic rail targets use named `reverse()`
-  routes under the active locale, and the six missing labels have reviewed EN/RU
-  translations. Exact live link-target proof remains required.
+- Release status: live-confirmed on `f239538c6` for all synthetic rail targets;
+  final safe GET probes on `3de4c6a7d` returned `200` for the UA/RU/EN root and
+  T-shirt catalog routes without a new `Unknown column` log entry.
 
 - Locales: en, ru; route: root catalog pages.
 - Live evidence: /en/catalog/ and /ru/catalog/ emit six Ukrainian labels:
@@ -84,8 +86,9 @@
   Ukrainian funnel; anchors and linked content do not match the page language.
 - Required implementation: build every item with Django reverse under the active
   locale and translate the six missing labels. Do not prefix URLs manually.
-- Acceptance: every root SEO rail URL stays inside the active locale; labels,
-  html lang, canonical/hreflang, and linked landing language agree.
+- Acceptance: every root SEO-rail label uses the active language and every
+  target retains the active locale prefix. Editorial language, canonical, and
+  hreflang ownership inside the linked thematic landing remains CATALOG-P0-04.
 
 ### CATALOG-P0-04: thematic catalog landings are Ukrainian on EN/RU routes
 
@@ -189,15 +192,31 @@
 - Smart-card color trigger and color group labels are translated; only fit and
   thermochromic labels above are missing.
 
+## Final Release Evidence
+
+- The historical browser matrix covered 24 UA/RU/EN catalog desktop/mobile
+  probes and the conversion matrix covered six cart plus six mini-cart probes.
+  The final post-fix checks also covered the three localized Monobank return
+  messages and the locale-prefixed cart redirects.
+- Localization runtime evidence is anchored to `3de4c6a7d`; later `main`
+  commits do not alter this localization code. The only schema remediation was
+  the exact `python manage.py migrate storefront 0097 --noinput` command after
+  a read-only duplicate preflight; no broad migration or ReviewVote canary ran.
+- `storefront.0097` is applied. `default_product_identity` is a STORED generated
+  `bigint` with the expected unique BTREE, and the web-push endpoint is
+  `varchar(1000)` with a unique HASH index. Production counters remain
+  `orders=64`, `payment_attempts=12`.
+- A stale in-memory WhiteNoise map required terminating the exact old `lswsgi`
+  master PID after the pull. The fresh runtime returned health, CSS, and JS
+  assets with `200`; no new `Unknown column` error appeared in the resulting
+  `stderr.log` delta.
+
 ## Test Gaps and Required Regression Coverage
 
-1. test_category_smart_selector.py proves selector behavior but does not render
-   it across UA/RU/EN or assert post-JS strings.
-2. test_rendered_locale_matrix.py verifies root filters but omits the
-   Показати товари CTA, so the current leak passes its matrix.
-3. There is no locale matrix for thematic landing H1/title/meta/canonical/JSON-LD
-   ownership or for root SEO rail links retaining the selected locale.
-4. Add direct tests for color-landing EN/RU behavior after product direction is
+1. The thematic landing H1/title/meta/canonical/JSON-LD ownership still lacks a
+   complete locale matrix; the root SEO-rail label and prefixed-URL contract is
+   covered by `test_rendered_locale_matrix.py`.
+2. Add direct tests for color-landing EN/RU behavior after product direction is
    chosen: localized owner or explicit Ukrainian redirect, never a localized URL
    with Ukrainian content.
 
@@ -213,8 +232,9 @@
 4. Verify every synthetic root SEO rail link retains the active locale. Verify
    EN/RU color landings follow the chosen product policy rather than returning a
    mismatched 200 page.
-5. After an approved release, repeat safe live GET checks on production before
-   marking any finding verified live.
+5. After each approved release, repeat safe live GET checks on production before
+   marking any finding verified live; this gate is satisfied for P0-01..03 in
+   the current batch.
 
 ## Implementation Order
 

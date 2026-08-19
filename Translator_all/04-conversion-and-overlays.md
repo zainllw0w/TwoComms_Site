@@ -6,24 +6,28 @@
   surfaces.
 - **Audited:** public UA, EN, and RU storefront routes, with source inspection
   and live browser checks on desktop and `390x844` mobile.
-- **Production evidence:** live HTTPS DOM/network behavior was checked for the
-  EN and RU home/cart flows. Production MariaDB was **not** queried because
-  `TWOCOMMS_DEPLOY_PASSWORD` is unavailable in this environment. No database
-  translation is inferred from local SQLite.
+- **Production evidence:** live HTTPS DOM/network behavior was checked for UA,
+  EN, and RU cart/catalog flows on desktop and `390x844` mobile. Production
+  MariaDB was queried read-only for schema and order/payment-attempt counters;
+  no translation, product, order, or payment-attempt content write was
+  performed, and no local SQLite content was promoted. The separately recorded
+  `storefront.0097` schema migration is not a content-translation claim.
 - **Admin:** excluded by design.
-- **Implementation:** Task 3 is source-complete and independently reviewed for
-  CONV-P0-01 through CONV-P0-04 and CONV-P1-04. Deployment and the production
-  browser matrix remain pending, so no package is live-confirmed yet.
+- **Implementation:** Task 3 is source-complete, independently reviewed, and
+  live-confirmed for CONV-P0-01 through CONV-P0-04 and CONV-P1-04. The initial
+  matrix ran on `f239538c6`; final post-fix evidence runs through `3de4c6a7d`.
+  The remaining PWA, Telegram, account, offline, and helper packages are not
+  claimed complete.
 
 ## Executive summary
 
 This workstream contains **14 independently testable work packages**:
 
-| Priority | Work packages | Source-complete | Main risk |
-| --- | ---: | ---: | --- |
-| P0 | 7 | 4 | A shopper can reach a mixed-language PWA or Telegram/login flow. |
-| P1 | 5 | 1 | High-visibility prompts and account actions switch back to Ukrainian. |
-| P2 | 2 | 0 | Offline and helper states are inconsistent or locale-blind. |
+| Priority | Work packages | Source-complete | Live-confirmed | Main risk |
+| --- | ---: | ---: | ---: | --- |
+| P0 | 7 | 4 | 4 | A shopper can reach a mixed-language PWA or Telegram/login flow. |
+| P1 | 5 | 1 | 1 | High-visibility prompts and account actions switch back to Ukrainian. |
+| P2 | 2 | 0 | 0 | Offline and helper states are inconsistent or locale-blind. |
 
 The highest-value fixes are (1) locale-aware cart and mini-cart requests, (2)
 all cart/Monobank dynamic copy and error paths, (3) PWA/push prompts, and (4)
@@ -34,6 +38,9 @@ template-only fix insufficient.
 ## P0 findings
 
 ### CONV-P0-01: Cart server copy is mixed-language after render
+
+- **Release status:** Live-confirmed on `f239538c6` for UA/RU/EN desktop and
+  mobile cart loads, synchronized empty-cart state, and promo-vault SSR copy.
 
 - **Routes/locales:** `/en/cart/`, `/ru/cart/`; authenticated and guest forms;
   desktop and `390x844`.
@@ -63,6 +70,12 @@ template-only fix insufficient.
 
 ### CONV-P0-02: Cart JavaScript re-renders Ukrainian copy and currency
 
+- **Release status:** Live-confirmed on `f239538c6` for the locale payload,
+  empty-cart/payment copy, UAH formatting, mocked promo apply/remove mutation,
+  and desktop/mobile overflow/error checks. Populated authenticated-cart edge
+  cases remain covered by the focused regression suite and are not a DB-content
+  claim.
+
 - **Routes/locales:** every localized cart route, especially after add, remove,
   quantity change, payment-method change, promo application, or an empty-cart
   transition.
@@ -87,6 +100,10 @@ template-only fix insufficient.
 
 ### CONV-P0-03: Mini-cart AJAX drops the locale prefix
 
+- **Release status:** Live-confirmed on `f239538c6`; `/cart/mini/` was fetched
+  through the locale payload on all three locales and both viewports, returned
+  `200`, and rendered the matching empty-state language.
+
 - **Routes/locales:** EN/RU pages with a header mini-cart, including catalog,
   PDP, and cart transitions.
 - **Live evidence:** EN/RU browser performance logs show a request to
@@ -108,6 +125,12 @@ template-only fix insufficient.
 - **Classification:** JavaScript/template routing; no database dependency.
 
 ### CONV-P0-04: Checkout and Monobank requests/errors are locale-blind
+
+- **Release status:** Live-confirmed on `f239538c6` for locale-prefixed invoice
+  endpoints and safe empty-cart `400 cart_empty` responses in UA/RU/EN, plus
+  mocked promo/provider paths. Post-fix SHA `3de4c6a7d` also returns the exact
+  localized missing-order message on UA/RU/EN and redirects to the matching
+  cart locale. No real invoice or payment event was created.
 
 - **Routes/locales:** cart online payment and quick custom/cart checkout on EN
   and RU routes.
@@ -146,9 +169,10 @@ template-only fix insufficient.
   provider failure, plus a locale-aware fallback assertion for the CAPI
   checkout source URL. These checks use no live invoice, order, analytics
   event, or production data.
-- **State:** source-complete and independently reviewed. Live verification
-  remains open until the scoped commit is deployed from `main` and the
-  UA/RU/EN production browser matrix passes.
+- **State:** source-complete, independently reviewed, deployed, and
+  live-confirmed. Missing-reference return probes ended on `/cart/`,
+  `/en/cart/`, and `/ru/cart/` with the reviewed UA/EN/RU message respectively;
+  no payment reference, invoice, or payment event was created.
 
 ### CONV-P0-05: PWA install prompt is always Ukrainian
 
@@ -266,6 +290,10 @@ template-only fix insufficient.
 
 ### CONV-P1-04: Global `ui-fallback.js` can overwrite the cart with Ukrainian
 
+- **Release status:** Live-confirmed on `f239538c6` as part of the same cart
+  synchronization and mutation matrix; no cross-locale fallback copy or
+  visible overflow/errors appeared on the tested desktop/mobile surfaces.
+
 - **Source:** [`base.html`](../twocomms/twocomms_django_theme/templates/base.html)
   loads `ui-fallback.js` globally at lines 1388-1395. The fallback contains a
   second hard-coded empty-cart renderer at lines 175-183, Ukrainian clean-cart
@@ -365,11 +393,14 @@ template-only fix insufficient.
 4. **Deferred data:** production MariaDB report and editorial backfill for
    product-owned titles/descriptions/SEO fields, tracked outside this file.
 
-**Current workstream tally:** `5 / 14 source-complete (35.7%)`; `0 / 14`
-live-confirmed. Source-complete packages are CONV-P0-01 through CONV-P0-04 and
-CONV-P1-04.
+**Current workstream tally:** `5 / 14 source-complete (35.7%)`; `5 / 14`
+live-confirmed. Live-confirmed packages are CONV-P0-01 through CONV-P0-04 and
+CONV-P1-04. The fresh cart matrix covered six locale/device combinations;
+the mini-cart probe covered another six. Production counters remained
+`orders=64`, `payment_attempts=12` after the final safe return probes.
 
 An item may move from `audit-confirmed` to `verified locally` only after a
 focused regression test; it may move to `verified live` only after deployment
-from `main` and a fresh UA/RU/EN browser check. SSH/MariaDB verification and
-deployment remain pending a secret-safe `TWOCOMMS_DEPLOY_PASSWORD` source.
+from `main` and a fresh UA/RU/EN browser check. This batch satisfies that gate
+for the five package IDs above. SSH/MariaDB remains authoritative for the
+deferred production translation inventory, which is intentionally still open.

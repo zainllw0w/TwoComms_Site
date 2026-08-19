@@ -10,20 +10,21 @@ admin is explicitly out of scope.
 
 - Audit coverage: 6 of 6 workstreams complete (100%)
 - Source-complete coverage: 8 of 53 work packages (15.1%)
-- Production-confirmed coverage: 0 of 53 work packages (0%)
-- Source foundation and Tasks 2-3 are locally implemented and independently
-  reviewed; merge, production deployment, and live browser verification are pending
-- Production database verification: blocked pending safe SSH credential access
+- Production-confirmed coverage: 8 of 53 work packages (15.1%)
+- Tasks 1-3 are integrated on `main`, deployed, and independently reviewed;
+  the eight customer packages listed below also have fresh live browser evidence
+- Production database verification: SSH is available for read-only checks;
+  translation inventory and content writes remain intentionally deferred
 - Source of truth for live browser behavior: public production routes
 
 ## Audit Snapshot (2026-08-19)
 
 | Workstream | Audit | Confirmed packages | Implementation |
 | --- | --- | ---: | --- |
-| Catalog | Complete | 4 P0, 3 P1, 1 P2 | 3 / 8 source-complete (37.5%); 0 / 8 live-confirmed |
+| Catalog | Complete | 4 P0, 3 P1, 1 P2 | 3 / 8 source-complete (37.5%); 3 / 8 live-confirmed (37.5%) |
 | PDP, fit, technology, and size | Complete | 2 P0, 4 P1, 1 P2 | 0% |
 | Custom Print | Complete | 4 P0, 4 P1 | 0% |
-| Cart, checkout, overlays, and PWA | Complete | 7 P0, 5 P1, 2 P2 | 5 / 14 source-complete (35.7%); 0 / 14 live-confirmed |
+| Cart, checkout, overlays, and PWA | Complete | 7 P0, 5 P1, 2 P2 | 5 / 14 source-complete (35.7%); 5 / 14 live-confirmed (35.7%) |
 | Static customer pages | Complete | 8 P1, 2 P2 | 0% |
 | SEO/GEO and database ownership | Complete | 1 P0, 4 P1, 1 P2 | 0% |
 
@@ -32,11 +33,29 @@ and **7 P2**. A package is not counted as implemented until its focused
 regression test and production browser check both pass.
 
 The separate source-complete figure records reviewed fixes before deployment.
-Task 2 closes the source work for CATALOG-P0-01, CATALOG-P0-02, and
-CATALOG-P0-03. Task 3 closes source work for CONV-P0-01 through
-CONV-P0-04 and CONV-P1-04. Their live status remains open until deployment and
-the production browser matrix pass; all other catalog and conversion packages
-remain open.
+Task 2 and Task 3 are now live-confirmed for the same eight customer packages:
+CATALOG-P0-01..03, CONV-P0-01..04, and CONV-P1-04. The historical interaction
+matrix was captured against `f239538c6`; post-fix proof was repeated through
+final code SHA `3de4c6a7d` for the localized Smart Selector note, locale-owned
+cart assets/endpoints, and safe Monobank return messages. The remaining
+catalog, conversion, PDP, Custom Print, static-page, SEO/GEO, and DB-owned
+content packages remain open.
+
+The live matrix also records boundaries rather than hiding them: the UA
+thematic owner is `index, follow`, self-canonical, and publishes UA plus
+`x-default`; non-owner RU/EN thematic routes remain Ukrainian, `noindex,
+follow`, canonicalize to UA, and publish no RU/EN hreflang. Sampled EN product
+cards also expose Ukrainian DB-owned titles/fit or colour values. Those are
+separate SEO/GEO and production-data packages, not regressions claimed fixed
+by this batch.
+
+Production recovery after the code deploy was deliberately narrow. A read-only
+duplicate preflight passed, then only the exact
+`python manage.py migrate storefront 0097 --noinput` command was applied; no
+broad migration or ReviewVote canary ran. The stale
+LiteSpeed `lswsgi` master was terminated by its exact PID so a fresh runtime
+could load the new WhiteNoise manifest. Health and both new hashed assets then
+returned `200`; `orders=64` and `payment_attempts=12` remained unchanged.
 
 ## Priority Order
 
@@ -77,9 +96,8 @@ introducing a second translation framework.
 
 ## Release Batches
 
-1. **Foundation:** the minimal locale payload is locally implemented and
-   independently reviewed; it awaits integration and live verification. The
-   remaining locale-safe URL, page-copy, and gettext work belongs to the
+1. **Foundation:** the minimal locale payload is integrated and live-exercised;
+   the remaining locale-safe URL, page-copy, and gettext work belongs to the
    page-specific tasks below.
 2. **P0 conversion flows:** catalog selector and rail; cart, mini-cart,
    checkout, Monobank, Telegram verification, PWA; and Custom Print
@@ -95,6 +113,11 @@ introducing a second translation framework.
    reviewed and does not block source-code P0 deployment.
 
 ## Confirmed Production Findings
+
+The original mixed-language observations below are the audit baseline. The
+eight package IDs listed above were rechecked after deployment and are now
+closed for their scoped source behavior; unrelated DB/editorial and SEO/GEO
+findings remain open and are called out in their ownership ledgers.
 
 - `/en/catalog/` mobile filters include the Ukrainian CTA `Показати товари`.
 - `/en/cart/` and `/ru/cart/` mix Ukrainian text into the empty-cart and
