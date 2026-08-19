@@ -278,6 +278,7 @@ TEMPLATES = [
                 'storefront.context_processors.orders_processing_count',
                 'storefront.context_processors.analytics_settings',
                 'storefront.context_processors.site_urls',
+                'storefront.context_processors.storefront_locale_contract',
                 'storefront.context_processors.web_push_settings',
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',

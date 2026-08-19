@@ -2,9 +2,11 @@ from cache_utils import get_cache
 from django.conf import settings
 from django.urls import NoReverseMatch, reverse
 from django.templatetags.static import static
+from django.utils.translation import get_language
 
 from accounts.models import UserProfile
 from storefront.custom_print_config import SESSION_CUSTOM_CART_KEY
+from storefront.services.locale_contract import build_storefront_locale_contract
 from storefront.services.web_push import is_web_push_configured
 
 
@@ -106,6 +108,11 @@ def site_urls(request):
     return {
         "site_base_url": (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
     }
+
+
+def storefront_locale_contract(request):
+    language = getattr(request, "LANGUAGE_CODE", None) or get_language()
+    return {"storefront_locale_contract": build_storefront_locale_contract(language)}
 
 
 def web_push_settings(request):

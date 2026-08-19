@@ -290,6 +290,47 @@ class RenderedLocaleMatrixTests(TestCase):
         self.assertEqual(plain.headers.get("Content-Language"), "en")
         self.assertIn("A short adaptive quiz", plain.content.decode("utf-8"))
 
+    def test_global_storefront_locale_contract_is_stable_for_every_language(self):
+        matrix = {
+            "uk": {
+                "path": "/",
+                "payload": {
+                    "language": "uk",
+                    "intlLocale": "uk-UA",
+                    "currency": {"code": "UAH", "suffix": "грн"},
+                },
+            },
+            "ru": {
+                "path": "/ru/",
+                "payload": {
+                    "language": "ru",
+                    "intlLocale": "ru-UA",
+                    "currency": {"code": "UAH", "suffix": "грн"},
+                },
+            },
+            "en": {
+                "path": "/en/",
+                "payload": {
+                    "language": "en",
+                    "intlLocale": "en-UA",
+                    "currency": {"code": "UAH", "suffix": "UAH"},
+                },
+            },
+        }
+
+        for locale, expected in matrix.items():
+            with self.subTest(locale=locale):
+                response = self.client.get(expected["path"])
+                self.assertEqual(response.status_code, 200)
+
+                match = re.search(
+                    r'<script id="storefront-locale-contract" type="application/json">(.*?)</script>',
+                    response.content.decode("utf-8"),
+                    flags=re.DOTALL,
+                )
+                self.assertIsNotNone(match)
+                self.assertEqual(json.loads(match.group(1)), expected["payload"])
+
     def test_standard_pdp_founder_schema_is_locale_owned(self):
         matrix = {
             "ru": {

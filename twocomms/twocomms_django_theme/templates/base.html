@@ -1350,6 +1350,7 @@
   </div>
 
   <!-- Performance optimization: CSS loading enhancement (extracted) -->
+  {{ storefront_locale_contract|json_script:"storefront-locale-contract" }}
   {{ web_push_config|json_script:"web-push-config" }}
   {% if request.resolver_match.url_name != 'home' %}
   <script defer src="{% static 'js/css-loader.js' %}"></script>

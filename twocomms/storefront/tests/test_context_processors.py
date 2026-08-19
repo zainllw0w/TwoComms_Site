@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+from django.conf import settings
 from django.contrib.sessions.backends.db import SessionStore
 from django.test import SimpleTestCase
 
@@ -25,3 +26,13 @@ class UserStateHintTests(SimpleTestCase):
         payload = user_state_hint(request)
 
         self.assertTrue(payload["sync_cart_badge"])
+
+
+class StorefrontLocaleContractConfigurationTests(SimpleTestCase):
+    def test_storefront_locale_contract_context_processor_is_registered(self):
+        context_processors = settings.TEMPLATES[0]["OPTIONS"]["context_processors"]
+
+        self.assertIn(
+            "storefront.context_processors.storefront_locale_contract",
+            context_processors,
+        )
