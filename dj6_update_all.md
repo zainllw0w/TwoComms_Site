@@ -77,7 +77,7 @@ DTF-субдомен и его код, страницы, задачи, мигр�
   probes зелёные, Passenger перезапущен через `tmp/restart.txt`, DTF scope
   остаётся `excluded`. Полный отчёт: `docs/qa/django61-stage2-completion-report.md`.
 
-## Статус проверки Stage 5 на 2026-08-18
+## Статус проверки Stage 5 на 2026-08-19
 
 Stage 5 пока не означает применение новых DDL-решений в production. В этом
 срезе завершены безопасные non-DTF audits и disposable experiments, а опасные
@@ -99,10 +99,14 @@ migration и Stage 5 exit-gate остаются открытыми.
   используют `utf8mb4`; session default равен `INNODB`. Глобальный server
   default остаётся `latin1` и намеренно не менялся. Полный fail-closed контракт:
   `docs/qa/django61-stage5-connection-budget.md`.
-- `DJ6-SRV-003`: подготовлены sanitized inventory/ranking tooling и безопасный
-  план поэтапного MyISAM -> InnoDB rollout. Это завершённый planning/audit
-  artifact, но не production conversion: свежий per-table inventory и canary
-  ещё не выполнены. Подробности: `docs/qa/django61-stage5-innodb-roadmap.md`.
+- `DJ6-SRV-003`: sanitized per-table matrix, ranking tooling и disposable
+  MariaDB 11.4.12 rehearsal зафиксированы. Canary runner теперь требует
+  проверенный backup SHA/размер, полные index/FULLTEXT, zero-writer и
+  zero-orphan audits, измеренные conversion/rollback timings и write-loss-safe
+  rollback proof **до открытия MariaDB-соединения или выполнения любого SQL**.
+  Production targets остаются на HOLD: production `ALTER TABLE` не выполнялся.
+  Подробности: `docs/qa/django61-stage5-innodb-roadmap.md` и
+  `docs/qa/django61-stage5-srv003.md`.
 - `DJ6-ORM-013`: на disposable MariaDB `11.4.12` доказана работоспособность
   persisted `GeneratedField`: canonical parity `29/29`, корректные
   INSERT/UPDATE/refresh/deferred fetch и индексные range/order plans на `4126`
@@ -116,9 +120,24 @@ migration и Stage 5 exit-gate остаются открытыми.
   `docs/qa/django61-stage5-db-actions.md`.
 - `DJ6-MIG-001`: disposable SQLite gate доказал воспроизводимость non-DTF
   migration graph: `441` nodes, `16` leaves, clean install и restore прошли с
-  `pending=0`, `1836` schema objects и одинаковым graph fingerprint. Model drift
-  отсутствует, DTF app/migrations/tables не загружались. Evidence:
+  `pending=0`, `1836` schema objects и одинаковым graph fingerprint. Gate
+  дополнительно требует authoritative MariaDB history, production-compatible
+  clean-install/replay, backup/restore/rollback и reviewer-approved ranges;
+  metadata-only manifest не запускает `squashmigrations` и всегда сохраняет
+  historical migrations. Production history proof пока отсутствует, поэтому
+  решение `NO-GO`. Evidence:
   `docs/qa/django61-stage5-migration-squash.md`.
+
+### Stage 5 safety hardening release candidate (2026-08-19)
+
+Интеграционные коммиты `b7f84b964` и `d1e834b3f` добавляют fail-closed gates
+для pre-DDL InnoDB canary и migration-squash readiness. Свежий focused gate
+под CPython `3.14.6`/Django `6.1` прошёл `25/25` тестов; `git diff --check`
+чистый. Эти коммиты не выполняют production DDL, `migrate`,
+`squashmigrations`, удаление historical migrations или любые изменения DTF.
+Чекбоксы `DJ6-SRV-003`, `DJ6-MIG-001` и Stage 5 exit gates остаются открытыми
+до получения соответствующих production-compatible backup/restore и
+authoritative MariaDB evidence.
 
 ### Решения NO-GO для production adoption
 

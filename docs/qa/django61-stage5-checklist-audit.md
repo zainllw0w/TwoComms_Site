@@ -58,6 +58,13 @@ proof. Production DDL, `migrate` и `squashmigrations` запускать нел
 
 ## Provenance
 
+Safety hardening commits `b7f84b964` (pre-DDL InnoDB preflight) and
+`d1e834b3f` (migration-squash readiness) add fail-closed validation without
+performing production DDL, migrations, squash, historical-file deletion or
+DTF access. The combined focused Stage 5 gate passed `25/25` under CPython
+`3.14.6`/Django `6.1`; these results close the tooling/evidence substep only,
+not the `NO-GO` production decisions above.
+
 - Matrix snapshot: `docs/qa/django61-stage5-srv003-matrix.json`, captured
   `2026-08-18T23:48:07+03:00`; server vendor/version `MariaDB 11.4.12`.
 - This evidence is tracked in the Stage 5 release candidate; integration SHA
