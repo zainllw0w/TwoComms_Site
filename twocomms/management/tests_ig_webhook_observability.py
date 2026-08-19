@@ -85,6 +85,42 @@ class BadPayloadVisibilityTests(TestCase):
             InstagramBotLog.objects.filter(event="webhook_bad_payload").exists()
         )
 
+    def test_handler_failure_is_visible_without_exception_or_message_text(self):
+        customer_text = "мій номер 0501234567"
+        body = json.dumps(
+            {
+                "object": "instagram",
+                "entry": [
+                    {
+                        "messaging": [
+                            {
+                                "sender": {"id": "diagnostic-user"},
+                                "message": {
+                                    "mid": "diagnostic-mid",
+                                    "text": customer_text,
+                                },
+                            }
+                        ]
+                    }
+                ],
+            }
+        ).encode()
+
+        with patch(
+            "management.bot_webhook.bot.record_raw_event"
+        ), patch(
+            "management.bot_webhook.bot.handle_webhook_payload",
+            side_effect=RuntimeError(customer_text),
+        ):
+            response = self._post(body)
+
+        self.assertEqual(response.status_code, 503)
+        record = InstagramBotLog.objects.get(event="webhook_handler_error")
+        self.assertEqual(record.level, "error")
+        self.assertIn("RuntimeError", record.detail)
+        self.assertNotIn(customer_text, record.detail)
+        self.assertNotIn("0501234567", record.detail)
+
 
 class IgBotLoggerWiringTests(TestCase):
     """F-SEC-007: `logger.warning('ig_bot: bad signature')` уходил в никуда.

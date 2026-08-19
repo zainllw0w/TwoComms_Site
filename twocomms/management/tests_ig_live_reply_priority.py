@@ -141,7 +141,15 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
         client.save(update_fields=["profile_fetched_at", "updated_at"])
         return client
 
-    def _run(self, client: IgClient, payload: object, *, suffix: str, text: str):
+    def _run(
+        self,
+        client: IgClient,
+        payload: object,
+        *,
+        suffix: str,
+        text: str,
+        prepare=None,
+    ):
         from management.services.instagram_bot import ProviderDeliveryReceipt
 
         source = InstagramBotMessage.objects.create(
@@ -153,6 +161,8 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
             status=InstagramBotMessage.Status.PENDING,
             source="webhook",
         )
+        if prepare is not None:
+            prepare(source)
         with patch(
             "management.services.instagram_bot._persist_commerce_turn",
             return_value=(None, None),
@@ -182,6 +192,51 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
         ) as send_text:
             handled = instagram_bot.process_pending(self.settings, max_items=1)
         return source, handled, send_text.call_args.args[2]
+
+    def test_unapproved_phone_number_is_replaced_before_customer_send(self):
+        client = self._client("phone-disclosure-blocked")
+        _source, handled, delivered = self._run(
+            client,
+            {
+                "reply_text": "Зателефонуйте нам: +380 50 123 45 67",
+                "controls": [],
+            },
+            suffix="phone-disclosure-blocked",
+            text="Could you give me your phone number?",
+        )
+
+        self.assertEqual(handled, 1)
+        self.assertNotIn("+380 50 123 45 67", delivered)
+        self.assertNotIn("0501234567", delivered.replace(" ", ""))
+
+    def test_current_turn_support_policy_routes_to_safe_manager_handoff(self):
+        client = self._client("phone-disclosure-authorized")
+        reply = "Зателефонуйте нам: +380 50 123 45 67"
+
+        def authorize_for_source(source):
+            client.sales_context = {
+                "_phone_contact_policy": {
+                    "schema_version": 1,
+                    "decision": "support_escalation",
+                    "source_message_id": source.pk,
+                    "observed_at": timezone.now().isoformat(),
+                }
+            }
+            client.save(update_fields=["sales_context", "updated_at"])
+
+        _source, handled, delivered = self._run(
+            client,
+            {"reply_text": reply, "controls": []},
+            suffix="phone-disclosure-authorized",
+            text="У товарі брак, дайте ваш номер телефону",
+            prepare=authorize_for_source,
+        )
+
+        self.assertEqual(handled, 1)
+        self.assertNotIn("+380 50 123 45 67", delivered)
+        self.assertIn("менеджер", delivered.lower())
+        client.refresh_from_db()
+        self.assertEqual(client.stage, IgClient.Stage.LEAD_TO_MANAGER)
 
     def test_invalid_and_customer_injected_controls_have_no_worker_effects(self):
         invalid_controls = {
@@ -530,6 +585,80 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
         self.assertEqual(handled, 1)
         create_proposal.assert_called_once()
         self.assertIn(invoice_url, delivered)
+
+    def test_seen_and_typing_start_before_media_capture(self):
+        """The first webhook feedback must not wait for media/CRM work."""
+        from management.services.instagram_bot import ProviderDeliveryReceipt
+
+        client = self._client("early-sender-feedback")
+        source = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Підкажіть, будь ласка, ціну.",
+            mid="w16-worker-early-sender-feedback",
+            status=InstagramBotMessage.Status.PENDING,
+            source="webhook",
+            attachments="[\"https://example.test/image.jpg\"]",
+        )
+        events = []
+
+        def capture_media(_row):
+            events.append("media_capture")
+            return []
+
+        def sender_action(_settings, _sender_id, action):
+            events.append(action)
+            return instagram_bot.SenderActionResult(
+                True,
+                200,
+                "delivered",
+                action,
+            )
+
+        with patch(
+            "management.services.instagram_bot._capture_message_media",
+            side_effect=capture_media,
+        ), patch(
+            "management.services.instagram_bot._persist_commerce_turn",
+            return_value=(None, None),
+        ), patch(
+            "management.services.bot_sales_classifier.ensure_rule_classification",
+            return_value=None,
+        ), patch(
+            "management.services.instagram_bot._repeated_question",
+            return_value=1,
+        ), patch(
+            "management.services.instagram_bot._wait_for_typing_window",
+            return_value="allowed",
+        ), patch(
+            "management.services.instagram_bot.send_sender_action",
+            side_effect=sender_action,
+        ), patch(
+            "management.services.instagram_bot.notify_manager",
+        ), patch(
+            "management.services.instagram_bot.notify_size_gap",
+        ), patch(
+            "management.services.instagram_bot.gemini_generate",
+            return_value={"reply_text": "Зараз підкажу ціну.", "controls": []},
+        ), patch(
+            "management.services.instagram_bot.send_text",
+            return_value=ProviderDeliveryReceipt(
+                True,
+                "",
+                "",
+                "meta-w16-early-sender-feedback",
+            ),
+        ):
+            handled = instagram_bot.process_pending(self.settings, max_items=1)
+
+        self.assertEqual(handled, 1)
+        self.assertEqual(
+            events[:3],
+            ["mark_seen", "typing_on", "media_capture"],
+        )
+        source.refresh_from_db()
+        self.assertEqual(source.status, InstagramBotMessage.Status.DONE)
 
 
 class GeminiFailureRoutingTests(TestCase):

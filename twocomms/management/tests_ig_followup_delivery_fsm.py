@@ -279,6 +279,27 @@ class FollowupDeliveryFsmTests(TestCase):
         self.assertIsNotNone(task.sent_message_id)
         self.assertEqual(task.sent_message.text, "Збережений текст доставки")
 
+    def test_due_followup_for_allowlist_excluded_client_is_skipped_without_send(self):
+        from management.services.bot_followups import process_due_followups
+
+        self.settings.allowed_senders = "permitted-sender"
+        self.settings.save(update_fields=["allowed_senders", "updated_at"])
+        task = self._task()
+
+        with patch(
+            "management.services.instagram_bot.send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "mid-not-allowed"),
+        ) as send_text:
+            self.assertEqual(
+                process_due_followups(self.settings, now=self.now, limit=1),
+                0,
+            )
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SKIPPED)
+        self.assertEqual(task.skip_reason, "sender_not_allowed")
+        send_text.assert_not_called()
+
     def test_receipt_recovery_replays_fulfillment_escalation_once(self):
         from management.services.bot_followups import process_due_followups
 

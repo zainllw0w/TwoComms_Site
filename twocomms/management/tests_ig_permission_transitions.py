@@ -12,7 +12,13 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections, connection, transaction
-from django.test import TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
+from django.test import (
+    RequestFactory,
+    TestCase,
+    TransactionTestCase,
+    override_settings,
+    skipUnlessDBFeature,
+)
 from django.urls import reverse
 from django.utils import timezone
 
@@ -90,6 +96,131 @@ class DurableOptOutReplyBoundaryTests(TestCase):
                 lock_path=os.path.join(temp_dir, "reply.lock"),
             ) as allowed:
                 self.assertTrue(allowed)
+
+
+class AllowlistReplyBoundaryTests(TestCase):
+    def setUp(self):
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = True
+        self.settings.allowed_senders = ""
+        self.settings.save(update_fields=[
+            "is_enabled",
+            "ai_enabled",
+            "allowed_senders",
+        ])
+        self.client_row = IgClient.objects.create(igsid="allowlist-boundary-client")
+
+    def test_excluded_sender_cannot_capture_or_cross_customer_send_boundary(self):
+        self.settings.allowed_senders = "another-sender"
+        self.settings.save(update_fields=["allowed_senders"])
+
+        permission = capture_reply_permission(self.settings.pk, self.client_row.pk)
+
+        self.assertFalse(permission)
+        self.assertEqual(permission.reason, "sender_not_allowed")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with customer_send_boundary(
+                self.settings.pk,
+                self.client_row.pk,
+                permission,
+                lock_path=os.path.join(temp_dir, "reply.lock"),
+            ) as allowed:
+                self.assertFalse(allowed)
+                self.assertEqual(allowed.reason, "sender_not_allowed")
+
+    def test_settings_allowlist_change_invalidates_captured_permission(self):
+        from management.bot_views import bot_settings_save_api
+
+        permission = capture_reply_permission(self.settings.pk, self.client_row.pk)
+        epoch_before = permission.settings_epoch
+        request = RequestFactory().post(
+            "/bot/api/settings/",
+            {
+                "ai_enabled": "1",
+                "allowed_senders": "another-sender",
+            },
+        )
+        request.user = User.objects.create_user(
+            "allowlist-boundary-admin",
+            password="x",
+            is_staff=True,
+        )
+
+        response = bot_settings_save_api(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.allowed_senders, "another-sender")
+        self.assertGreater(self.settings.reply_permission_epoch, epoch_before)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with customer_send_boundary(
+                self.settings.pk,
+                self.client_row.pk,
+                permission,
+                lock_path=os.path.join(temp_dir, "reply.lock"),
+            ) as allowed:
+                self.assertFalse(allowed)
+                self.assertEqual(allowed.reason, "sender_not_allowed")
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot.gemini_generate")
+    def test_pending_sender_restricted_before_claim_skips_all_provider_io(
+        self,
+        generate,
+        send_text,
+        send_sender_action,
+    ):
+        message = InstagramBotMessage.objects.create(
+            sender_id=self.client_row.igsid,
+            client=self.client_row,
+            role=InstagramBotMessage.Role.USER,
+            text="Could you help me?",
+            mid="allowlist-pending-mid",
+            status=InstagramBotMessage.Status.PENDING,
+            source="webhook",
+        )
+        self.settings.allowed_senders = "another-sender"
+        self.settings.save(update_fields=["allowed_senders"])
+
+        with patch.object(instagram_bot, "log") as logs:
+            handled = instagram_bot.process_pending(self.settings, max_items=1)
+
+        self.assertEqual(handled, 0)
+        message.refresh_from_db()
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertIsNotNone(message.processed_at)
+        generate.assert_not_called()
+        send_text.assert_not_called()
+        send_sender_action.assert_not_called()
+        self.assertTrue(any(
+            call.args[:2] == ("info", "observed_skip")
+            and call.args[2].endswith(": sender_not_allowed")
+            for call in logs.call_args_list
+        ))
+
+    def test_restricted_sender_explicit_opt_out_is_applied_before_observation_skip(self):
+        self.settings.allowed_senders = "another-sender"
+        self.settings.save(update_fields=["allowed_senders"])
+
+        created = instagram_bot.enqueue_inbound(
+            self.settings,
+            sender_id=self.client_row.igsid,
+            text="STOP",
+            mid="allowlist-opt-out-mid",
+            source="webhook",
+            persistence_only=True,
+        )
+
+        self.assertTrue(created)
+        self.client_row.refresh_from_db()
+        message = InstagramBotMessage.objects.get(mid="allowlist-opt-out-mid")
+        self.assertEqual(message.client_id, self.client_row.pk)
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertTrue(self.client_row.bot_paused)
+        self.assertIsNotNone(self.client_row.opted_out_at)
+        self.assertEqual(self.client_row.paused_reason, "opt_out")
 
 
 class PermissionTransitionWebhookTests(TestCase):

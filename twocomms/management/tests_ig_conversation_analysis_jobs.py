@@ -117,15 +117,16 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
     def test_order_delete_is_blocked_while_a_deal_owns_it(self, deal_model):
         from management.services.ig_order_truth import publish_order_truth_unlink
 
-        deal_model.objects.filter.return_value.exists.return_value = True
+        deal_model.objects.using.return_value.filter.return_value.exists.return_value = True
         with self.assertRaisesMessage(ValueError, "не можна видалити"):
             publish_order_truth_unlink(
                 sender=Mock(),
                 instance=SimpleNamespace(pk=17),
             )
 
-        deal_model.objects.filter.assert_called_once_with(order_id=17)
-        deal_model.objects.filter.return_value.update.assert_not_called()
+        deal_model.objects.using.assert_called_once_with("default")
+        deal_model.objects.using.return_value.filter.assert_called_once_with(order_id=17)
+        deal_model.objects.using.return_value.filter.return_value.update.assert_not_called()
 
     @patch("management.services.gemini_keys.key_project_groups")
     def test_historical_backfill_requires_explicit_flag_and_complete_mapping(self, groups):
@@ -1224,6 +1225,93 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(job.trigger, "reconcile")
         generate.assert_not_called()
         classify.assert_not_called()
+
+    def test_reconciliation_does_not_queue_or_project_restricted_sender(self):
+        message = self.message("Новий діалог від обмеженого відправника")
+        settings = InstagramBotSettings.load()
+        settings.allowed_senders = "another-sender"
+        settings.analysis_reconcile_after = message.created_at - timedelta(seconds=1)
+        settings.save(update_fields=["allowed_senders", "analysis_reconcile_after"])
+
+        with (
+            patch("management.services.bot_conversation_analysis.schedule_analysis") as schedule,
+            patch(
+                "management.services.bot_sales_classifier.reconcile_rules_projection"
+            ) as project_rules,
+        ):
+            result = analysis.reconcile_analysis_jobs(now=timezone.now())
+
+        self.assertEqual(result["queued"], 0)
+        self.assertFalse(IgConversationAnalysisJob.objects.filter(client=self.client).exists())
+        schedule.assert_not_called()
+        project_rules.assert_not_called()
+
+    def test_direct_schedule_does_not_create_job_for_restricted_sender(self):
+        message = self.message("Імпортований діалог від обмеженого відправника")
+        settings = InstagramBotSettings.load()
+        settings.allowed_senders = "another-sender"
+        settings.save(update_fields=["allowed_senders"])
+
+        job = analysis.schedule_analysis(
+            self.client,
+            message,
+            trigger="poll_backfill",
+            now=timezone.now(),
+        )
+
+        self.assertIsNone(job)
+        self.assertFalse(
+            IgConversationAnalysisJob.objects.filter(client=self.client).exists()
+        )
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    @patch("management.services.bot_conversation_analysis._conversation")
+    def test_due_job_is_skipped_when_sender_becomes_restricted_before_provider_io(
+        self,
+        conversation,
+        generate,
+    ):
+        message = self.message("Підкажіть, будь ласка, розмір")
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+        settings = InstagramBotSettings.load()
+        settings.allowed_senders = "another-sender"
+        settings.save(update_fields=["allowed_senders"])
+        conversation.return_value = (
+            [{"message_id": message.pk, "role": "user", "text": message.text}],
+            {
+                message.pk: {
+                    "message_id": message.pk,
+                    "role": "user",
+                    "text": message.text,
+                },
+            },
+            [],
+        )
+        generate.return_value = {
+            "parsed": {
+                "interaction_type": "product_interest",
+                "score_band": "exploring",
+            },
+            "model": "gemini-test",
+            "meta": {},
+        }
+
+        result = analysis.process_due_analysis(limit=1)
+
+        self.assertEqual(
+            result,
+            {"done": 0, "failed": 0, "skipped": 1, "superseded": 0},
+        )
+        job = IgConversationAnalysisJob.objects.get(client=self.client)
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.SKIPPED)
+        self.assertEqual(job.skip_reason, "sender_not_allowed")
+        self.assertFalse(IgConversationAnalysisSnapshot.objects.filter(client=self.client).exists())
+        conversation.assert_not_called()
+        generate.assert_not_called()
 
     @patch("management.services.ig_payment_review.create_payment_review")
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")

@@ -3547,6 +3547,16 @@ def bot_settings_save_api(request):
     if blocked:
         return blocked
     s = InstagramBotSettings.load()
+    requested_allowed_senders = (
+        (request.POST.get("allowed_senders") or "").strip()
+        if "allowed_senders" in request.POST
+        else s.allowed_senders
+    )
+    allowlist_policy_changed = (
+        not _is_reviewer_only(request.user)
+        and "allowed_senders" in request.POST
+        and requested_allowed_senders != s.allowed_senders
+    )
 
     reviewer_mode = _is_reviewer_only(request.user)
     if not reviewer_mode:
@@ -3629,7 +3639,24 @@ def bot_settings_save_api(request):
         except (TypeError, ValueError):
             pass
 
-    s.save()
+    if allowlist_policy_changed:
+        # The policy edge is short and excludes provider work.  The final
+        # allowlist write is row-locked and bumps the generation so workers
+        # that captured the old policy fail closed at their send boundary.
+        from management.services.ig_reply_boundary import pause_reply_boundary
+
+        with pause_reply_boundary():
+            with transaction.atomic():
+                locked_settings = InstagramBotSettings.objects.select_for_update().get(
+                    pk=s.pk
+                )
+                s.allowed_senders = requested_allowed_senders
+                s.reply_permission_epoch = (
+                    int(locked_settings.reply_permission_epoch or 0) + 1
+                )
+                s.save()
+    else:
+        s.save()
     # Скинути кеш токена/кулдаун, щоб новий токен підхопився одразу.
     try:
         from django.core.cache import cache

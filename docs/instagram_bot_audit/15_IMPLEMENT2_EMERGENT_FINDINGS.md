@@ -226,6 +226,48 @@ retire/archive inactive scripts. Contract tests must reject stale interpreters,
 old hosts, destructive resets, runtime migration generation, direct SCP overlays
 and unbounded restarts.
 
+## P0 inbound request visibility and durable acknowledgement (2026-08-19, production proof pending)
+
+An operator reported an Instagram request that remained visible in the native
+Requests folder but had neither a CRM conversation nor a bot reply. Local
+backward tracing found two independent pre-release loss paths:
+
+- A non-empty `InstagramBotSettings.allowed_senders` caused `enqueue_inbound()`
+  to return before an `IgClient` or `InstagramBotMessage` existed. The webhook
+  still answered Meta with HTTP 200, so no retry could restore that customer
+  turn.
+- A failure in optional conversation-analysis scheduling could propagate from
+  a webhook transaction and roll back an otherwise valid inbound record.
+
+The current release candidate separates visibility from automation. A valid
+allowlist-excluded sender is persisted as a non-hidden `user/done` CRM message,
+updates the inbound timestamp, and intentionally creates no reply, analysis,
+follow-up, provider request or media-capture job. An analysis-scheduling
+failure is isolated in a savepoint, logged with a bounded PII-free reason and
+cannot roll back the durable inbound message; the reply daemon can still claim
+its `pending` message independently.
+
+The same slice now sends the token-free `mark_seen` and `typing_on` actions as
+soon as the enabled/permission/lease/rate-limit gates pass, before media,
+commerce reduction, classification or Gemini. Known terminal/no-reply turns
+stay silent, and any early terminal branch clears typing before returning. A
+focused regression records the expected order and does not call provider text
+delivery.
+
+Focused local evidence: the signed webhook-to-CRM regression covers an active
+allowlist and asserts exactly one visible `user/done` record with no automation;
+the consolidated ingress, webhook security/observability, Inbox Refresh,
+analysis, follow-up, permission-boundary, recovery and live-priority gate
+discovered `499` tests: `495` passed and `4` platform-specific tests were
+skipped. This is not production proof. Before
+marking the incident closed,
+read-only production verification must inspect the effective allowlist,
+retained raw callbacks/logs around the reported time, matching CRM rows,
+webhook response telemetry, pending/failed queue counts and daemon heartbeat.
+If the allowlist is deliberately active, a business decision is still required:
+visibility is now preserved, but automated replies remain restricted until the
+list is cleared through the operator settings UI.
+
 ## API dashboard implementation notes (2026-08-18, pre-hourly historical snapshot)
 
 The bounded Gemini health slice exposed three aggregation edge cases during

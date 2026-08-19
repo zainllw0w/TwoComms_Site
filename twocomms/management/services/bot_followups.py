@@ -553,6 +553,11 @@ def _client_allows_followup(
     kind: str | None = None,
 ) -> tuple[bool, str]:
     is_fulfillment = kind == IgFollowUpTask.Kind.FULFILLMENT
+    from management.services.instagram_bot import allowed_sender_ids
+
+    allowed_senders = allowed_sender_ids(InstagramBotSettings.load())
+    if allowed_senders and client.igsid not in allowed_senders:
+        return False, "sender_not_allowed"
     if client.hidden_at:
         return False, "hidden"
     if client.is_blocked or client.stage == IgClient.Stage.SPAM:

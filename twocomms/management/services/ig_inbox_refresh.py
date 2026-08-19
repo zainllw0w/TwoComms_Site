@@ -678,6 +678,14 @@ def _persist_history(item, fetched, settings_obj, *, now):
             ).first()
             if locked_run is None or locked_item is None:
                 return
+            current_settings = InstagramBotSettings.objects.select_for_update().get(
+                pk=settings_obj.pk
+            )
+            allowed_senders = bot.allowed_sender_ids(current_settings)
+            sender_automation_allowed = bool(
+                not allowed_senders
+                or locked_item.participant_igsid in allowed_senders
+            )
             client = IgClient.objects.select_for_update().filter(
                 igsid=locked_item.participant_igsid
             ).first()
@@ -738,7 +746,8 @@ def _persist_history(item, fetched, settings_obj, *, now):
                         }
                     )
                     if not live_queue_row:
-                        classification_rows.append(existing)
+                        if sender_automation_allowed:
+                            classification_rows.append(existing)
                         newest_row_id = max(newest_row_id, existing.pk)
                     continue
                 text = str(message.get("message") or "").strip()
@@ -762,7 +771,8 @@ def _persist_history(item, fetched, settings_obj, *, now):
                     processed_at=now,
                 )
                 created_rows.append(row)
-                classification_rows.append(row)
+                if sender_automation_allowed:
+                    classification_rows.append(row)
                 newest_row_id = max(newest_row_id, row.pk)
                 if role == InstagramBotMessage.Role.USER:
                     user_times.append(provider_created_at)
@@ -823,7 +833,7 @@ def _persist_history(item, fetched, settings_obj, *, now):
                 "completed_at", "updated_at",
             ])
 
-            if newest_row_id and not client.hidden_at:
+            if newest_row_id and sender_automation_allowed and not client.hidden_at:
                 try:
                     newest = InstagramBotMessage.objects.get(pk=newest_row_id)
                     schedule_analysis(

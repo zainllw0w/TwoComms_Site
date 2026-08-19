@@ -5,9 +5,16 @@ import os
 from unittest.mock import patch
 
 from django.test import Client, SimpleTestCase, TestCase
+from django.utils import timezone
 
 from management.ig_bot_models import IgBotNotification
-from management.models import IgClient, IgConversationAnalysisJob, InstagramBotMessage, InstagramBotSettings
+from management.models import (
+    IgClient,
+    IgConversationAnalysisJob,
+    InstagramBotLog,
+    InstagramBotMessage,
+    InstagramBotSettings,
+)
 from management.services import instagram_bot as bot
 
 
@@ -126,6 +133,62 @@ class WebhookEndpointSecurityTests(TestCase):
         self.assertEqual(InstagramBotMessage.objects.filter(mid="fast-path-mid").count(), 1)
         self.assertEqual(IgConversationAnalysisJob.objects.filter(client=message.client).count(), 1)
 
+    def test_signed_unlisted_inbound_remains_visible_without_automation(self):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.allowed_senders = "permitted-sender"
+        settings_obj.save(update_fields=["allowed_senders"])
+        payload = {
+            "entry": [{
+                "messaging": [{
+                    "sender": {"id": "unlisted-sender"},
+                    "message": {
+                        "mid": "unlisted-webhook-mid",
+                        "text": "Could you share a phone number?",
+                    },
+                }],
+            }],
+        }
+        raw = json.dumps(payload).encode("utf-8")
+        digest = hmac.new(b"test-secret", raw, hashlib.sha256).hexdigest()
+
+        with patch.dict(os.environ, {"IG_APP_SECRET": "test-secret"}, clear=True), \
+             patch("management.bot_webhook.bot.record_raw_event"), \
+             patch("management.services.instagram_bot._schedule_inbound_analysis") as schedule:
+            response = self.client.post(
+                "/bot/webhook/",
+                data=raw,
+                content_type="application/json",
+                HTTP_HOST="management.twocomms.shop",
+                HTTP_X_HUB_SIGNATURE_256=f"sha256={digest}",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        message = InstagramBotMessage.objects.get(mid="unlisted-webhook-mid")
+        client = IgClient.objects.get(igsid="unlisted-sender")
+        self.assertEqual(message.client_id, client.pk)
+        self.assertEqual(message.role, InstagramBotMessage.Role.USER)
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertIsNotNone(message.processed_at)
+        self.assertFalse(client.hidden_at)
+        self.assertIsNotNone(client.last_message_at)
+        self.assertEqual(
+            InstagramBotMessage.objects.filter(
+                client=client,
+                role=InstagramBotMessage.Role.USER,
+                status=InstagramBotMessage.Status.DONE,
+            ).count(),
+            1,
+        )
+        self.assertFalse(
+            InstagramBotMessage.objects.filter(
+                client=client,
+                status=InstagramBotMessage.Status.PENDING,
+            ).exists()
+        )
+        self.assertFalse(IgConversationAnalysisJob.objects.filter(client=client).exists())
+        self.assertTrue(InstagramBotSettings.load().last_inbound_at)
+        schedule.assert_not_called()
+
     def test_signed_manager_echo_pauses_and_queues_without_inline_analysis_or_delivery(self):
         payload = {
             "entry": [{
@@ -195,7 +258,7 @@ class WebhookEndpointSecurityTests(TestCase):
         self.assertEqual(client.reply_permission_epoch, permission_epoch)
         self.assertEqual(client.last_manager_message_at, last_manager_message_at)
 
-    def test_signed_inbound_returns_retry_when_durable_scheduling_fails(self):
+    def test_signed_inbound_persists_and_defers_analysis_when_scheduling_fails(self):
         payload = {
             "entry": [{
                 "messaging": [{
@@ -206,11 +269,22 @@ class WebhookEndpointSecurityTests(TestCase):
         }
         raw = json.dumps(payload).encode("utf-8")
         digest = hmac.new(b"test-secret", raw, hashlib.sha256).hexdigest()
+
+        def partially_schedule_then_fail(client, message, **_kwargs):
+            IgConversationAnalysisJob.objects.create(
+                client=client,
+                watermark_message_id=message.pk,
+                due_at=timezone.now(),
+                next_attempt_at=timezone.now(),
+                required_state_fingerprint="partial-schedule",
+            )
+            raise RuntimeError("analysis queue unavailable")
+
         with patch.dict(os.environ, {"IG_APP_SECRET": "test-secret"}, clear=True), \
              patch("management.bot_webhook.bot.record_raw_event"), \
              patch(
                  "management.services.bot_conversation_analysis.schedule_analysis",
-                 side_effect=RuntimeError("analysis queue unavailable"),
+                 side_effect=partially_schedule_then_fail,
              ):
             response = self.client.post(
                 "/bot/webhook/",
@@ -219,8 +293,13 @@ class WebhookEndpointSecurityTests(TestCase):
                 HTTP_HOST="management.twocomms.shop",
                 HTTP_X_HUB_SIGNATURE_256=f"sha256={digest}",
             )
-        self.assertEqual(response.status_code, 503)
-        self.assertFalse(InstagramBotMessage.objects.filter(mid="durability-mid").exists())
+        self.assertEqual(response.status_code, 200)
+        message = InstagramBotMessage.objects.get(mid="durability-mid")
+        self.assertEqual(message.status, InstagramBotMessage.Status.PENDING)
+        self.assertFalse(IgConversationAnalysisJob.objects.filter(client=message.client).exists())
+        deferred = InstagramBotLog.objects.get(event="analysis_schedule_deferred")
+        self.assertEqual(deferred.level, "warning")
+        self.assertEqual(deferred.detail, "RuntimeError")
 
     def test_signed_manager_echo_returns_retry_without_partial_message_when_scheduling_fails(self):
         payload = {

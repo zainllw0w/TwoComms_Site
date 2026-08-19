@@ -8723,6 +8723,118 @@ def _promote_manual_refresh_message(
 # ---------------------------------------------------------------------------
 # Черга: постановка вхідних
 # ---------------------------------------------------------------------------
+def _schedule_inbound_analysis(client: IgClient, message: InstagramBotMessage) -> None:
+    """Queue non-critical CRM analysis without sacrificing a live inbound turn."""
+    try:
+        # Keep optional analysis writes behind a savepoint.  The ingress
+        # transaction owns the customer message and must still commit if a
+        # scheduler fails after a partial database write.
+        with transaction.atomic():
+            from management.services.bot_conversation_analysis import schedule_analysis
+
+            schedule_analysis(client, message, trigger="webhook_inbound")
+    except Exception as exc:
+        # Live reply processing and durable analysis use separate workers.  A
+        # transient analysis failure is repaired by reconcile_analysis_jobs;
+        # it must not roll back the customer message or make Meta retry it.
+        log("warning", "analysis_schedule_deferred", type(exc).__name__)
+
+
+def _observe_not_allowed_inbound(
+    s: InstagramBotSettings,
+    *,
+    sender_id: str,
+    text: str,
+    mid: str,
+    source: str,
+    attachments: list[str],
+    attachment_metadata: list[dict] | None,
+    received_at: datetime | None,
+    reply_to_provider_message_id: str,
+    quick_reply_payload: str,
+    synthetic_event_key: str,
+    _commercial_lock_held: bool = False,
+) -> bool:
+    """Persist a valid allowlist-excluded turn as CRM history only.
+
+    The allowlist controls automation, not the operator's ability to see a
+    real inbound conversation.  This deliberately never calls classification,
+    analysis, follow-up scheduling, or the reply queue.
+    """
+    client = IgClient.get_or_create_for_sender(sender_id)
+    if not _commercial_lock_held:
+        from management.services.ig_commercial_episodes import commercial_episode_client_lock
+
+        with commercial_episode_client_lock(client.pk):
+            return _observe_not_allowed_inbound(
+                s,
+                sender_id=sender_id,
+                text=text,
+                mid=mid,
+                source=source,
+                attachments=attachments,
+                attachment_metadata=attachment_metadata,
+                received_at=received_at,
+                reply_to_provider_message_id=reply_to_provider_message_id,
+                quick_reply_payload=quick_reply_payload,
+                synthetic_event_key=synthetic_event_key,
+                _commercial_lock_held=True,
+            )
+
+    try:
+        with transaction.atomic():
+            client = IgClient.objects.select_for_update().get(pk=client.pk)
+            if client.hidden_at:
+                return False
+            existing = (
+                InstagramBotMessage.objects.select_for_update().filter(mid=mid).first()
+                if mid
+                else InstagramBotMessage.objects.select_for_update().filter(
+                    synthetic_event_key=synthetic_event_key
+                ).first()
+            )
+            if existing is not None:
+                return False
+            # An allowlist-restricted conversation is visible to the manager,
+            # but is never a live-media ingestion source.  Provider attachment
+            # metadata is deliberately not merged here because it carries
+            # ``live_webhook`` provenance and can be picked up by capture jobs.
+            initial_media = _attachment_media_metadata(
+                attachments,
+                source="allowlist_restricted",
+            )
+            try:
+                with transaction.atomic():
+                    InstagramBotMessage.objects.create(
+                        sender_id=sender_id,
+                        client=client,
+                        role=InstagramBotMessage.Role.USER,
+                        text=text or "(зображення)",
+                        mid=mid or None,
+                        synthetic_event_key=synthetic_event_key or None,
+                        status=InstagramBotMessage.Status.DONE,
+                        source=source,
+                        attachments=json.dumps(attachments) if attachments else "",
+                        attachment_media=initial_media,
+                        media_capture_eligible=False,
+                        provider_created_at=received_at,
+                        reply_to_provider_message_id=reply_to_provider_message_id,
+                        quick_reply_payload=quick_reply_payload,
+                        processed_at=timezone.now(),
+                    )
+            except IntegrityError:
+                return False
+            client.touch_inbound()
+            inbound_at = timezone.now()
+            InstagramBotSettings.objects.filter(pk=s.pk).update(last_inbound_at=inbound_at)
+    except IntegrityError:
+        return False
+
+    s.last_inbound_at = inbound_at
+    log("info", "observed_not_allowed", "allowlist")
+    return True
+
+
 def enqueue_inbound(
     s: InstagramBotSettings, *, sender_id: str, text: str, mid: str,
     source: str = "webhook", attachments: list[str] | None = None,
@@ -8756,9 +8868,6 @@ def enqueue_inbound(
         log("warning", "missing_inbound_identity", f"[{source}] provider timestamp required")
         return False
     if sender_id == s.ig_user_id:
-        return False
-    if not _is_allowed(s, sender_id):
-        log("info", "skip_not_allowed", f"[{source}] {sender_id} поза білим списком")
         return False
     from management.models import IgPermissionTransitionJob
     from management.services import bot_followups, bot_sales_classifier
@@ -8804,6 +8913,23 @@ def enqueue_inbound(
         and client.opted_in_at
         and client.opted_in_at >= provider_event_at
     )
+    if not _is_allowed(s, sender_id) and (
+        not explicit_opt_out or stale_explicit_opt_out
+    ):
+        return _observe_not_allowed_inbound(
+            s,
+            sender_id=sender_id,
+            text=text,
+            mid=mid,
+            source=source,
+            attachments=attachments,
+            attachment_metadata=attachment_metadata,
+            received_at=received_at,
+            reply_to_provider_message_id=reply_to_provider_message_id,
+            quick_reply_payload=quick_reply_payload,
+            synthetic_event_key=synthetic_event_key,
+            _commercial_lock_held=True,
+        )
     if explicit_opt_out and not stale_explicit_opt_out:
         if client.hidden_at:
             log("info", "skip_hidden", f"[{source}] {sender_id}: прихований клієнт")
@@ -9037,18 +9163,14 @@ def enqueue_inbound(
                 except Exception:
                     pass
             if observed_only:
-                from management.services.bot_conversation_analysis import schedule_analysis
-
                 analysis_message = (
                     InstagramBotMessage.objects.filter(client_id=client.pk)
                     .exclude(status=InstagramBotMessage.Status.FAILED)
                     .order_by("-pk")
                     .first()
                 ) or msg
-                schedule_analysis(client, analysis_message, trigger="webhook_inbound")
+                _schedule_inbound_analysis(client, analysis_message)
             elif persistence_only:
-                from management.services.bot_conversation_analysis import schedule_analysis
-
                 if promoted:
                     interaction_type = (
                         msg.analysis_snapshots.filter(analysis_model="rules")
@@ -9095,7 +9217,7 @@ def enqueue_inbound(
                         msg.processed_at = timezone.now()
                         msg.save(update_fields=["status", "processed_at"])
                         reply_eligible = False
-                schedule_analysis(client, msg, trigger="webhook_inbound")
+                _schedule_inbound_analysis(client, msg)
             else:
                 try:
                     if promoted:
@@ -9401,6 +9523,58 @@ def _skip_observed_row(row: InstagramBotMessage, *, reason: str) -> bool:
     return False
 
 
+def _early_reply_suppression_reason(row: InstagramBotMessage) -> str:
+    """Return a known no-reply reason before starting customer feedback."""
+    if not row.client_id:
+        return ""
+    client = row.client
+    if client.stage == IgClient.Stage.SPAM:
+        return "spam_abuse"
+
+    from management.services import bot_sales_classifier
+
+    text = row.text or ""
+    if not row.attachments and bot_sales_classifier.is_reaction_only(text):
+        return "reaction_only"
+    if bot_sales_classifier.is_explicit_opt_out(text):
+        return "opt_out"
+    if bot_sales_classifier.NO_BUY_RE.search(text):
+        return "explicit_no_buy"
+    if not text.strip() and client.primary_objection == IgClient.Objection.NO_REPLY:
+        return "no_reply"
+
+    interaction_type = (
+        row.analysis_snapshots
+        .filter(analysis_model="rules")
+        .order_by("-id")
+        .values_list("interaction_type", flat=True)
+        .first()
+    )
+    if interaction_type in {
+        "reaction_only",
+        "explicit_no_buy",
+        "opt_out",
+        "spam_abuse",
+        "no_reply",
+    }:
+        return str(interaction_type)
+    return ""
+
+
+def _consume_early_reply_suppression(row: InstagramBotMessage, reason: str) -> bool:
+    """Close a terminal no-reply row with the same claim semantics as classify."""
+    processed_at = timezone.now()
+    consumed = _own_processing_claim(row).update(
+        status=InstagramBotMessage.Status.DONE,
+        processed_at=processed_at,
+    )
+    if consumed:
+        row.status = InstagramBotMessage.Status.DONE
+        row.processed_at = processed_at
+        log("info", "early_reply_suppressed", f"{row.sender_id}: {reason}")
+    return bool(consumed)
+
+
 def client_automation_busy(client: IgClient | None, *, now: datetime | None = None) -> bool:
     now = now or timezone.now()
     return bool(
@@ -9588,7 +9762,10 @@ def _process_one_unlocked(s: InstagramBotSettings, row: InstagramBotMessage, lea
 
     with reply_execution_boundary(s.pk, row.client_id) as permission:
         if not permission:
-            return _skip_observed_row(row, reason="reply_paused")
+            return _skip_observed_row(
+                row,
+                reason=getattr(permission, "reason", "") or "reply_paused",
+            )
         return _process_one_inside_reply_boundary(s, row, lease_token, permission)
 
 
@@ -9680,6 +9857,56 @@ def _process_one_inside_reply_boundary(
 
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
+
+    suppression_reason = _early_reply_suppression_reason(row)
+    if suppression_reason:
+        if suppression_reason == "reaction_only":
+            return _consume_early_reply_suppression(row, suppression_reason)
+        return _skip_observed_row(row, reason=suppression_reason)
+
+    # Rate limiting is a no-reply boundary and must precede sender actions.
+    if _rate_exceeded(s, row.sender_id):
+        row.status = InstagramBotMessage.Status.DONE
+        row.processed_at = timezone.now()
+        row.save(update_fields=["status", "processed_at"])
+        log("warning", "rate_limited", f"{row.sender_id}: перевищено ліміт відповідей")
+        if not cache.get(f"ig_bot_rate_notified:{row.sender_id}"):
+            cache.set(f"ig_bot_rate_notified:{row.sender_id}", 1, 3600)
+            from management.services.ig_alerts import (
+                alert_dedupe_key, format_technical_alert,
+            )
+
+            notify_manager(
+                format_technical_alert(
+                    "⚠️ IG бот: перевищено ліміт повідомлень",
+                    event_type="sender_rate_limited",
+                    client_id=row.client_id,
+                    message_id=row.pk,
+                    failure_kind="possible_spam",
+                    instruction_code="sender_rate_limited",
+                ),
+                dedupe_key=alert_dedupe_key(
+                    "sender_rate_limited", client_id=row.client_id,
+                    entity_id=row.pk, window_minutes=60,
+                ),
+                event_type="sender_rate_limited",
+                client=row.client if row.client_id else None,
+            )
+        return False
+
+    if s.ai_enabled:
+        # Permission was captured by reply_execution_boundary; refresh the
+        # client lease immediately before the advisory Meta actions.
+        if not _renew_client_automation_lease(row, lease_token):
+            return False
+        send_sender_action(s, row.sender_id, "mark_seen")
+        typing_on_result = send_sender_action(s, row.sender_id, "typing_on")
+        if isinstance(typing_on_result, SenderActionResult) and typing_on_result.ok:
+            # Record this immediately after Meta accepted typing_on.  Generation
+            # and all later CRM work consume the same monotonic start point.
+            typing_started_at = time.monotonic()
+            typing_active = True
+
     if row.attachments or row.source == "webhook":
         try:
             _capture_message_media(row)
@@ -9717,6 +9944,7 @@ def _process_one_inside_reply_boundary(
             # The reducer has already persisted this exact reply payload. Deliver it
             # before classification or follow-up scheduling can create side effects
             # for the same safe informational turn.
+            clear_typing_indicator()
             return _deliver_durable_commerce_reply(
                 s,
                 row,
@@ -9753,6 +9981,7 @@ def _process_one_inside_reply_boundary(
                     "opt_out",
                     "spam_abuse",
                 }:
+                    clear_typing_indicator()
                     processed_at = timezone.now()
                     consumed = _own_processing_claim(row).update(
                         status=InstagramBotMessage.Status.DONE,
@@ -9779,6 +10008,7 @@ def _process_one_inside_reply_boundary(
             from management.services.bot_sales_classifier import is_reaction_only
 
             if is_reaction_only(row.text):
+                clear_typing_indicator()
                 processed_at = timezone.now()
                 updated = _own_processing_claim(row).update(
                     status=InstagramBotMessage.Status.DONE,
@@ -9798,47 +10028,8 @@ def _process_one_inside_reply_boundary(
             _maybe_capture_phone(row.client, row.text)
         except Exception:
             pass
-    # Анти-спам: ліміт відповідей на одного відправника.
-    if _rate_exceeded(s, row.sender_id):
-        row.status = InstagramBotMessage.Status.DONE
-        row.processed_at = timezone.now()
-        row.save(update_fields=["status", "processed_at"])
-        log("warning", "rate_limited", f"{row.sender_id}: перевищено ліміт відповідей")
-        if not cache.get(f"ig_bot_rate_notified:{row.sender_id}"):
-            cache.set(f"ig_bot_rate_notified:{row.sender_id}", 1, 3600)
-            from management.services.ig_alerts import (
-                alert_dedupe_key, format_technical_alert,
-            )
-
-            notify_manager(
-                format_technical_alert(
-                    "⚠️ IG бот: перевищено ліміт повідомлень",
-                    event_type="sender_rate_limited",
-                    client_id=row.client_id,
-                    message_id=row.pk,
-                    failure_kind="possible_spam",
-                    instruction_code="sender_rate_limited",
-                ),
-                dedupe_key=alert_dedupe_key(
-                    "sender_rate_limited", client_id=row.client_id,
-                    entity_id=row.pk, window_minutes=60,
-                ),
-                event_type="sender_rate_limited",
-                client=row.client if row.client_id else None,
-            )
-        return False
 
     if s.ai_enabled:
-        # Відразу показуємо клієнту, що бот побачив і «друкує» (best practice).
-        if not _renew_client_automation_lease(row, lease_token):
-            return False
-        send_sender_action(s, row.sender_id, "mark_seen")
-        typing_on_result = send_sender_action(s, row.sender_id, "typing_on")
-        if isinstance(typing_on_result, SenderActionResult) and typing_on_result.ok:
-            # Record this immediately after Meta accepted typing_on.  Generation
-            # and all later CRM work consume the same monotonic start point.
-            typing_started_at = time.monotonic()
-            typing_active = True
         # Підвантажуємо профіль клієнта (раз на картку) для CRM.
         if row.client_id and not row.client.profile_fetched_at:
             try:
@@ -10286,8 +10477,6 @@ def _process_one_inside_reply_boundary(
 
     from management.services.ig_reply_boundary import customer_send_boundary
 
-    original_reply_for_delivery = reply
-
     # Product discovery uses a separate media transport. A provider partial or
     # unknown result must never erase the useful text reply or be replayed
     # blindly; the durable message remains visible for operator reconciliation.
@@ -10415,6 +10604,46 @@ def _process_one_inside_reply_boundary(
         return False
     if follow_cancelled_before_io and follow_authorized is None:
         cancel_prepared_follow_before_io()
+
+    # Prompt guidance is advisory. Apply the contact-channel policy only after
+    # any follow CTA has finalized the text and immediately before durable
+    # delivery evidence/Meta I/O, so no generated number can escape this turn.
+    try:
+        from management.services.bot_sales_classifier import enforce_phone_disclosure_policy
+
+        reply, phone_disclosure_blocked, phone_policy_decision = (
+            enforce_phone_disclosure_policy(
+                row.client,
+                reply,
+                source_message_id=row.pk,
+            )
+        )
+    except Exception as exc:
+        # A safety boundary must fail closed if its own check cannot run.
+        log("error", "phone_disclosure_gate", type(exc).__name__)
+        reply = "Підкажіть, будь ласка, для чого потрібен контакт, і я допоможу по суті."
+        phone_disclosure_blocked = True
+        phone_policy_decision = ""
+    if phone_disclosure_blocked:
+        log("warning", "phone_disclosure_gate", "blocked_generated_number")
+        if phone_policy_decision == "support_escalation":
+            needs_manager = True
+            control["manager"] = True
+        if follow_authorized is not None:
+            try:
+                from management.services.ig_follow_cta import finalize_follow_delivery
+
+                finalize_follow_delivery(
+                    follow_authorized.decision_id,
+                    outcome="cancelled_before_io",
+                    lease_token=follow_authorized.lease_token,
+                    now=timezone.now(),
+                )
+                follow_cancelled_before_io = True
+            except Exception as exc:
+                log("warning", "follow_decision_cancel", type(exc).__name__)
+            finally:
+                follow_authorized = None
     original_reply_for_delivery = reply
     planned_chunk_count = len(_split_for_send(reply))
     _persist_reply_delivery_evidence(

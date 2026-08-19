@@ -109,7 +109,7 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             'id="bot-clients-next"',
             "params.set('page', String(currentPage))",
             "currentPage=1;load(searchEl.value.trim())",
-            "currentView=btn.getAttribute('data-client-view')||'all';currentPage=1",
+            "currentView=clearsAdvancedView?'all':requestedView;currentPage=1",
         ):
             self.assertIn(contract, self.template)
 
@@ -450,8 +450,16 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             "function setAdvancedFiltersOpen(open,{restoreFocus=false}={})",
             "event.key!=='Escape'",
             "!filtersEl.contains(event.target)",
-            "syncFilterDisclosure(btn)",
+            "syncFilterDisclosure(activeButton)",
             ".bot-client-filter-primary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_active_advanced_client_filter_can_be_cleared_back_to_all(self):
+        for contract in (
+            "const clearsAdvancedView=Boolean(filterAdvanced&&filterAdvanced.contains(btn)&&btn.classList.contains('active'));",
+            "currentView=clearsAdvancedView?'all':requestedView;currentPage=1;",
+            "syncFilterDisclosure(activeButton);setAdvancedFiltersOpen(false);",
         ):
             self.assertIn(contract, self.template)
 

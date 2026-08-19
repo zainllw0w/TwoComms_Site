@@ -79,7 +79,7 @@ def capture_reply_permission(settings_id: int | None, client_id: int | None) -> 
 
     settings = (
         InstagramBotSettings.objects.filter(pk=settings_id)
-        .only("id", "is_enabled", "reply_permission_epoch")
+        .only("id", "is_enabled", "allowed_senders", "reply_permission_epoch")
         .first()
         if settings_id
         else None
@@ -123,6 +123,7 @@ def capture_reply_permission(settings_id: int | None, client_id: int | None) -> 
         IgClient.objects.filter(pk=client_id)
         .only(
             "id",
+            "igsid",
             "reply_permission_epoch",
             "bot_paused",
             "manager_takeover",
@@ -134,6 +135,18 @@ def capture_reply_permission(settings_id: int | None, client_id: int | None) -> 
         .first()
     )
     client_epoch = int(getattr(client, "reply_permission_epoch", 0) or 0)
+    from management.services.instagram_bot import allowed_sender_ids
+
+    allowed_senders = allowed_sender_ids(settings)
+    if allowed_senders and str(getattr(client, "igsid", "") or "") not in allowed_senders:
+        return ReplyPermission(
+            settings_id=settings_id,
+            settings_epoch=settings_epoch,
+            client_id=client_id,
+            client_epoch=client_epoch,
+            allowed=False,
+            reason="sender_not_allowed",
+        )
     client_allowed, reason = _client_allowed(client)
     return ReplyPermission(
         settings_id=settings_id,

@@ -860,6 +860,18 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
         )
         if not draft:
             return _release_for_retry(job.pk, token, "recovery_generation_failed")
+        from management.services.bot_sales_classifier import (
+            enforce_phone_disclosure_policy,
+        )
+
+        draft, _phone_blocked, _phone_decision = enforce_phone_disclosure_policy(
+            job.client,
+            draft,
+            source_message_id=job.source_message_id,
+        )
+        draft = _ensure_recovery_apology(draft, job.source_message.text)
+        if not draft:
+            return _release_for_retry(job.pk, token, "recovery_generation_failed")
         job, reason = _persist_draft(
             job.pk,
             token,

@@ -503,7 +503,10 @@ class IgAIReplyRecoveryTests(TestCase):
         def inspect_durable_boundary(*_args, **_kwargs):
             job.refresh_from_db()
             self.assertEqual(job.status, job.Status.SENDING)
-            self.assertEqual(job.draft_text, "Вибачте за затримку. Вже відповідаю.")
+            self.assertEqual(
+                job.draft_text,
+                "Вибачте за технічну затримку. Вже відповідаю.",
+            )
             self.assertIsNotNone(job.reply_message_id)
             job.reply_message.refresh_from_db()
             self.assertEqual(job.reply_message.send_state, "sending")
@@ -512,12 +515,39 @@ class IgAIReplyRecoveryTests(TestCase):
         with patch.object(
             self.recovery,
             "_generate_recovery_draft",
-            return_value="Вибачте за затримку. Вже відповідаю.",
+            return_value="Вибачте за технічну затримку. Вже відповідаю.",
         ), patch.object(self.recovery, "send_text", side_effect=inspect_durable_boundary):
             result = self.recovery.process_recovery_job(job.pk)
 
         result.refresh_from_db()
         self.assertEqual(result.status, result.Status.SENT)
+
+    def test_recovery_sanitizes_generated_phone_before_persisting_or_sending(self):
+        job = self.recovery.schedule_recovery(self.source)
+        generated_phone = "+380501234567"
+
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            return_value=(
+                f"Вибачте за технічну затримку. Зателефонуйте нам: {generated_phone}"
+            ),
+        ), patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(
+                True, "", "", "meta-recovery-phone-policy-1"
+            ),
+        ) as send:
+            result = self.recovery.process_recovery_job(job.pk)
+
+        result.refresh_from_db()
+        result.reply_message.refresh_from_db()
+        sent_text = send.call_args.args[2]
+        self.assertNotIn(generated_phone, result.draft_text)
+        self.assertEqual(result.reply_message.text, result.draft_text)
+        self.assertEqual(sent_text, result.draft_text)
+        self.assertTrue(result.draft_text.startswith("Вибачте за технічну затримку."))
 
     def test_stale_sending_job_becomes_ambiguous_without_meta_replay(self):
         job = self.recovery.schedule_recovery(self.source)

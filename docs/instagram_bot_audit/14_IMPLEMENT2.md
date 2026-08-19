@@ -331,6 +331,51 @@ These slices do not wait for white assets, attribution or retention policy.
   Production reports `running`, one daemon, and zero
   pending/processing/failed permission transitions.
 
+### W1.1a Restricted-inbound visibility fail-safe — emergent P0
+
+Root cause: when `InstagramBotSettings.allowed_senders` was non-empty, the
+webhook returned success for an excluded sender before creating `IgClient` and
+`InstagramBotMessage`. Meta therefore had no reason to retry, while the inbound
+remained only in Instagram Requests and was invisible to the CRM. An optional
+conversation-analysis scheduling error could also roll back an otherwise
+accepted inbound.
+
+- [x] Persist every allowlist-excluded inbound as CRM-visible `user/done`
+  before returning; keep the restricted path observation-only, with no reply
+  queue, Meta send, Gemini/token use, classifier, follow-up or media download.
+- [x] Isolate optional analysis scheduling behind a transaction savepoint so
+  its failure cannot roll back the accepted inbound; record only PII-safe
+  `webhook_handler_error` telemetry.
+- [x] Exclude restricted clients from direct analysis scheduling,
+  reconciliation, due-job execution and both follow-up claim checks; manual
+  Inbox Refresh may recover their history only as CRM-visible data and must
+  not start automation.
+- [x] Add the adjacent safety fixes: purpose-first phone disclosure with a
+  last-mile generated-phone guard before Meta I/O, plus the ability to reset
+  an active advanced Inbox filter to `all`.
+- [x] Move `mark_seen`/`typing_on` ahead of media capture, commerce reduction,
+  classifier and Gemini work, after the lease/permission/rate-limit gates.
+  Terminal no-reply paths (spam, opt-out, explicit refusal, reaction-only and
+  known `no_reply`) remain silent, and typing is cleared before durable early
+  exits. The focused ordering regression proves
+  `mark_seen -> typing_on -> media_capture` without provider sends.
+- [x] Focused local no-network gate: `499` tests discovered, `495` passed and
+  `4` MariaDB/platform-specific tests skipped; Django check, migration drift,
+  scoped compile and `git diff --check` are green. This is code/local
+  evidence, not production closure.
+- [ ] Publish the scoped commit to GitHub `main`, deploy only through the
+  approved SSH `git pull`, and prove that production `HEAD` equals the exact
+  pushed SHA.
+- [ ] On production MariaDB, read the effective `allowed_senders`; reconcile
+  minimal-PII webhook/log or raw-callback evidence around `03:53` with the
+  matching `IgClient`/`InstagramBotMessage` rows (or explicitly record why the
+  historical event cannot be recovered), then verify fresh restricted inbound
+  visibility without a customer-facing send.
+- [ ] Confirm production `webhook_handler_error` telemetry, pending/failed
+  reply, analysis and follow-up queues, daemon heartbeat, migrations and
+  `manage.py check`. Detailed evidence remains in
+  `15_IMPLEMENT2_EMERGENT_FINDINGS.md`; production proof is pending.
+
 ### W1.2 Delivered-chunk evidence first — `F-CORE-005`, `IMP-098.B1`
 
 - [x] Ship after or together with W1.4 technical PII minimization: full reply

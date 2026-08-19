@@ -161,6 +161,8 @@ def schedule_analysis(
         or client.stage == IgClient.Stage.SPAM
     ):
         return None
+    if _sender_allowlist_skip_reason(client):
+        return None
     now = now or timezone.now()
     due_at = now + timedelta(seconds=max(0, min(int(delay_seconds), 3600)))
     provisional_fingerprint = _required_state_fingerprint(client, message.pk)
@@ -649,6 +651,9 @@ def _skip_reason(
     watermark: int = 0,
     analyzed_watermark: int = 0,
 ) -> str:
+    allowlist_reason = _sender_allowlist_skip_reason(client)
+    if allowlist_reason:
+        return allowlist_reason
     if client.hidden_at:
         return "hidden"
     if client.is_blocked or client.stage == IgClient.Stage.SPAM:
@@ -662,6 +667,22 @@ def _skip_reason(
         watermark=watermark,
         analyzed_watermark=analyzed_watermark,
     )
+
+
+def _sender_allowlist_skip_reason(
+    client: IgClient,
+    *,
+    settings_obj: InstagramBotSettings | None = None,
+) -> str:
+    """Return a PII-free reason when live automation is locally restricted."""
+    from management.services.instagram_bot import allowed_sender_ids
+
+    settings_obj = settings_obj or InstagramBotSettings.load()
+    allowed = allowed_sender_ids(settings_obj)
+    sender_id = str(getattr(client, "igsid", "") or "").strip()
+    if allowed and sender_id not in allowed:
+        return "sender_not_allowed"
+    return ""
 
 
 def _conversation(
@@ -1693,6 +1714,8 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
         client = IgClient.objects.filter(pk=client_id).first()
         if not client or client.hidden_at:
             hidden_excluded += 1
+            continue
+        if _sender_allowlist_skip_reason(client, settings_obj=settings_obj):
             continue
         message = (
             InstagramBotMessage.objects.filter(

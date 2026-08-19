@@ -324,6 +324,57 @@ class InboxRefreshWorkerTests(TestCase):
         self.assertEqual(item.messages_after_cutoff, 1)
 
     @patch("management.services.ig_inbox_refresh.schedule_analysis")
+    @patch("management.services.bot_followups.cancel_pending")
+    @patch("management.services.bot_sales_classifier.ensure_rule_classification")
+    @patch("management.services.ig_inbox_refresh.bot._fetch_polled_conversation")
+    @patch("management.services.ig_inbox_refresh.bot.get_page_token", return_value="PT")
+    @patch("management.services.ig_inbox_refresh.bot.provider_transport", return_value=bot.INSTAGRAM_LOGIN_TRANSPORT)
+    def test_history_for_restricted_sender_is_visible_without_automation(
+        self,
+        _transport,
+        _token,
+        fetch_history,
+        ensure_rule_classification,
+        cancel_pending,
+        schedule_analysis,
+    ):
+        self.run.status = IgInboxRefreshRun.Status.RUNNING
+        self.run.discovery_complete = True
+        self.run.save(update_fields=["status", "discovery_complete", "updated_at"])
+        item = IgInboxRefreshItem.objects.create(
+            run=self.run,
+            conversation_id="conv-restricted-history",
+            participant_igsid="restricted-history-participant",
+        )
+        self.settings.allowed_senders = "another-participant"
+        self.settings.save(update_fields=["allowed_senders"])
+        created = self.cutoff - timedelta(minutes=1)
+        fetch_history.return_value = {
+            "messages": [
+                _message(
+                    "mid-restricted-history",
+                    item.participant_igsid,
+                    created,
+                    "Please send your number",
+                )
+            ],
+            "requests": 1,
+            "complete": True,
+            "budget_exhausted": False,
+            "reason": "instagram_latest_window",
+        }
+
+        ig_inbox_refresh.process_refresh_slice(now=self.cutoff)
+
+        row = InstagramBotMessage.objects.get(mid="mid-restricted-history")
+        self.assertEqual(row.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(row.source, "manual_refresh")
+        self.assertFalse(row.media_capture_eligible)
+        ensure_rule_classification.assert_not_called()
+        cancel_pending.assert_not_called()
+        schedule_analysis.assert_not_called()
+
+    @patch("management.services.ig_inbox_refresh.schedule_analysis")
     @patch("management.services.ig_inbox_refresh.bot._fetch_polled_conversation")
     @patch("management.services.ig_inbox_refresh.bot.get_page_token", return_value="PT")
     @patch("management.services.ig_inbox_refresh.bot.provider_transport", return_value=bot.INSTAGRAM_LOGIN_TRANSPORT)

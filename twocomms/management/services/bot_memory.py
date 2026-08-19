@@ -12,6 +12,7 @@ import datetime
 import hashlib
 
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from management.models import IgClient, InstagramBotMessage
 from management.services.call_ai_analysis import gemini_generate_text
@@ -28,6 +29,77 @@ SUMMARY_INSTRUCTION = (
     "домовленості, заперечення, поточний етап, важливі факти (ім'я, місто, телефон, "
     "відділення — якщо були). Тільки суть, без вступів і без вигадок."
 )
+
+PHONE_CONTACT_POLICY_KEY = "_phone_contact_policy"
+PHONE_CONTACT_POLICY_SCHEMA_VERSION = 1
+PHONE_CONTACT_POLICY_MAX_AGE = datetime.timedelta(minutes=15)
+
+
+def _phone_contact_policy_note(client) -> str:
+    """Render a fresh classifier policy as private model guidance.
+
+    The classifier replaces this record for every user turn, while the age
+    guard prevents a manually inspected or delayed message from steering a
+    later reply.  No customer text or phone number is persisted here.
+    """
+    context = getattr(client, "sales_context", None)
+    if not isinstance(context, dict):
+        return ""
+    policy = context.get(PHONE_CONTACT_POLICY_KEY)
+    if not isinstance(policy, dict):
+        return ""
+    if policy.get("schema_version") != PHONE_CONTACT_POLICY_SCHEMA_VERSION:
+        return ""
+    try:
+        source_message_id = int(policy.get("source_message_id") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if not source_message_id:
+        return ""
+    latest_user_message_id = (
+        InstagramBotMessage.objects.filter(
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+        )
+        .order_by("-id")
+        .values_list("id", flat=True)
+        .first()
+    )
+    if latest_user_message_id != source_message_id:
+        return ""
+    observed_at = parse_datetime(str(policy.get("observed_at") or ""))
+    if observed_at is None:
+        return ""
+    if timezone.is_naive(observed_at):
+        observed_at = timezone.make_aware(observed_at)
+    now = timezone.now()
+    if observed_at < now - PHONE_CONTACT_POLICY_MAX_AGE or observed_at > now:
+        return ""
+    decision = str(policy.get("decision") or "")
+    if decision == "clarify_purpose":
+        instruction = (
+            "Клієнт просить номер/телефон бренду без підтвердженої сервісної причини. "
+            "Не повідомляй номер і не вигадуй інший канал. Спершу одним природним "
+            "запитанням з'ясуй, для чого потрібен контакт; сформулюй відповідь самостійно "
+            "мовою клієнта, без копіпастного шаблону."
+        )
+    elif decision == "collaboration_callback":
+        instruction = (
+            "Запит номера пов'язаний зі співпрацею. Не повідомляй номер бренду. "
+            "Попроси коротко описати пропозицію та, якщо зручно, залишити контакт "
+            "для зворотного зв'язку менеджера; не обіцяй строків і не вигадуй деталі. "
+            "Пиши природно мовою клієнта, не копіюй заготовлений текст."
+        )
+    elif decision == "support_escalation":
+        instruction = (
+            "Є підтверджений сервісний контекст для замовлення/доставки/проблеми з товаром. "
+            "Не вигадуй і не розкривай номер: передай питання менеджеру через "
+            "доступний системі канал, не обіцяй строків і не вигадуй деталі. "
+            "Сформулюй це самостійно, коротко й природно мовою клієнта."
+        )
+    else:
+        return ""
+    return "[ПОЛІТИКА КОНТАКТУ ДЛЯ ЦЬОГО ХОДУ — службове]\n" + instruction
 
 
 def memory_note(client: IgClient) -> str | None:
@@ -298,6 +370,9 @@ def client_context_note(client) -> str | None:
             )
     except Exception:
         pass
+    phone_policy_note = _phone_contact_policy_note(client)
+    if phone_policy_note:
+        parts.append(phone_policy_note)
     try:
         on = order_status_note(client)
         if on:

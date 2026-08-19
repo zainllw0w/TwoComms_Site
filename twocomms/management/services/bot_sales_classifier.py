@@ -14,6 +14,7 @@ from typing import Iterable
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from management.models import (
     IgClient,
@@ -208,6 +209,129 @@ THIRD_PARTY_RE = re.compile(
     re.I,
 )
 
+# A request for the brand's contact channel is a different fact from a
+# customer handing over their own phone number.  Keep this deliberately narrow
+# so order/TTN numbers and ordinary contact data do not trigger the policy.
+BUSINESS_PHONE_REQUEST_RE = re.compile(
+    r"(?:"
+    r"\b(?:який|какой|what(?:'s|\s+is))\b.{0,32}\b(?:у\s+вас|у\s+тебя|"
+    r"ваш\w*|your|business)\b.{0,24}\b(?:номер\w*|телефон\w*|"
+    r"phone|number|contact)\b|"
+    r"\b(?:ваш\w*|your|business)\b.{0,24}\b(?:номер\w*|телефон\w*|"
+    r"phone|number|contact)\b|"
+    r"\b(?:підкаж(?:іть|и)|подскаж(?:ите|и)|дай(?:те)?|дайте|скинь(?:те)?|"
+    r"надішл(?:іть|и)|пришл(?:ите|и)|можна|можно|send|get|share|"
+    r"can\s+i\s+(?:have|get)|could\s+i\s+(?:have|get))\b.{0,32}\b"
+    r"(?:телефон\w*|phone|contact|номер\s+(?:телефон\w*|для\s+зв['’]?язку|"
+    r"для\s+звонка)|number)\b"
+    r"|\b(?:do\s+you\s+have|is\s+there)\b.{0,24}\b(?:a\s+)?"
+    r"(?:phone|telephone|contact)\s*(?:number|details?)?\b"
+    r"|\b(?:could|can|would)\s+you\b.{0,24}\b"
+    r"(?:give|share|send|provide|tell)\b.{0,16}\b(?:your\s+)?"
+    r"(?:phone|telephone|contact)\s*(?:number|details?)?\b"
+    r"|\bhow\s+(?:can|do)\s+i\s+(?:reach|contact)\s+(?:you|the\s+business)\b"
+    r"(?:.{0,16}\b(?:by\s+)?(?:phone|telephone)\b)?"
+    r")",
+    re.I,
+)
+_ORDER_NUMBER_CONTEXT_RE = re.compile(
+    r"\b(?:номер|number)\b.{0,16}\b(?:замовлен\w*|заказ\w*|order|"
+    r"посилк\w*|посылк\w*|ттн|ttn|tracking)\b",
+    re.I,
+)
+PHONE_CONTACT_POLICY_KEY = "_phone_contact_policy"
+PHONE_CONTACT_POLICY_SCHEMA_VERSION = 1
+PHONE_CONTACT_POLICY_MAX_AGE = 15 * 60
+
+
+def _has_authorized_service_case(client) -> bool:
+    """Return true only for a manager-approved, still durable service case."""
+    if not client or not getattr(client, "pk", None):
+        return False
+    try:
+        from management.ig_bot_models import IgPostSaleCase
+
+        return IgPostSaleCase.objects.filter(
+            client_id=client.pk,
+            status=IgPostSaleCase.Status.APPROVED,
+        ).exists()
+    except Exception:
+        return False
+
+
+def _current_phone_policy_decision(client, *, source_message_id=None) -> str:
+    """Return the current-turn contact policy without retaining customer text."""
+    context = getattr(client, "sales_context", None)
+    if not isinstance(context, dict):
+        return ""
+    policy = context.get(PHONE_CONTACT_POLICY_KEY)
+    if (
+        not isinstance(policy, dict)
+        or policy.get("schema_version") != PHONE_CONTACT_POLICY_SCHEMA_VERSION
+    ):
+        return ""
+    try:
+        if int(policy.get("source_message_id") or 0) != int(source_message_id or 0):
+            return ""
+        observed_at = parse_datetime(str(policy.get("observed_at") or ""))
+        if observed_at is None:
+            return ""
+        if timezone.is_naive(observed_at):
+            observed_at = timezone.make_aware(observed_at)
+        age = (timezone.now() - observed_at).total_seconds()
+        if not 0 <= age <= PHONE_CONTACT_POLICY_MAX_AGE:
+            return ""
+    except (TypeError, ValueError, OverflowError):
+        return ""
+    decision = str(policy.get("decision") or "")
+    return decision if decision in {
+        "clarify_purpose",
+        "collaboration_callback",
+        "support_escalation",
+    } else ""
+
+
+def phone_disclosure_fallback(client, *, decision: str = "") -> str:
+    """Return a safe answer when a model tries to disclose a phone number."""
+    language = str(getattr(client, "language", "") or "").lower()
+    if decision == "support_escalation":
+        if language.startswith("ru"):
+            return "Передам вопрос по заказу менеджеру, чтобы помочь правильно."
+        if language.startswith("en"):
+            return "I will pass your order question to a manager so we can help properly."
+        return "Передам питання щодо замовлення менеджеру, щоб допомогти правильно."
+    if decision == "collaboration_callback":
+        if language.startswith("ru"):
+            return "Коротко опишите предложение, и менеджер вернётся с подходящим способом связи."
+        if language.startswith("en"):
+            return "Please briefly describe the proposal, and a manager will come back through the right channel."
+        return "Коротко опишіть пропозицію, і менеджер повернеться з доречним способом зв'язку."
+    if language.startswith("ru"):
+        return "Подскажите, пожалуйста, для чего нужен контакт, и я помогу по делу."
+    if language.startswith("en"):
+        return "Could you tell me what you need the contact for? I will point you in the right direction."
+    return "Підкажіть, будь ласка, для чого потрібен контакт, і я допоможу по суті."
+
+
+def enforce_phone_disclosure_policy(
+    client: IgClient,
+    reply: str,
+    *,
+    source_message_id=None,
+) -> tuple[str, bool, str]:
+    """Fail closed before delivery when a model generates a phone number."""
+    value = str(reply or "")
+    decision = _current_phone_policy_decision(
+        client,
+        source_message_id=source_message_id,
+    )
+    if not re.search(r"(?<!\d)(?:\+?38[\s().-]*)?0(?:[\s().-]*\d){9}(?!\d)", value):
+        return value, False, decision
+    # No typed, manager-approved brand phone channel exists in the CRM. A
+    # support policy authorizes only the manager handoff, never a model-made
+    # number, so this stays fail-closed until such a channel is modeled.
+    return phone_disclosure_fallback(client, decision=decision), True, decision
+
 
 def phone_is_contact_handover(text: str) -> bool:
     """Whether a phone number in this message is the client's own contact data."""
@@ -217,6 +341,55 @@ def phone_is_contact_handover(text: str) -> bool:
     if THIRD_PARTY_RE.search(value) and not CONTACT_HANDOVER_RE.search(value):
         return False
     return bool(CONTACT_HANDOVER_RE.search(value))
+
+
+def phone_contact_policy(
+    client: IgClient,
+    text: str,
+    *,
+    role: str = "",
+    confirmed_purchase: bool | None = None,
+    post_sale_request: str = "",
+) -> dict:
+    """Return a typed, current-turn rule for requests for the brand's phone.
+
+    This is an instruction for the reply prompt, not a customer-facing script
+    and not a replacement for intent/objection classification.  Empty output
+    means that this turn does not ask for the brand's contact channel.
+    """
+    if role == InstagramBotMessage.Role.MANAGER:
+        return {}
+    value = str(text or "")
+    if not BUSINESS_PHONE_REQUEST_RE.search(value):
+        return {}
+    if _ORDER_NUMBER_CONTEXT_RE.search(value) and not re.search(
+        r"(?:телефон\w*|phone|contact|номер\s+телефон\w*)", value, re.I
+    ):
+        return {}
+
+    service_evidence = bool(SUPPORT_RE.search(value) or post_sale_request)
+    delivery_issue = bool(ORDER_STATUS_RE.search(value) and DELIVERY_RE.search(value))
+    if confirmed_purchase is None and (service_evidence or delivery_issue):
+        from management.services.bot_payment_truth import client_has_confirmed_purchase
+
+        confirmed_purchase = client_has_confirmed_purchase(client)
+    authorized_service = bool(confirmed_purchase)
+    if not authorized_service and (service_evidence or delivery_issue):
+        authorized_service = _has_authorized_service_case(client)
+    if (service_evidence or delivery_issue) and authorized_service:
+        decision = "support_escalation"
+    elif COLLAB_RE.search(value):
+        decision = "collaboration_callback"
+    else:
+        decision = "clarify_purpose"
+    return {
+        "schema_version": PHONE_CONTACT_POLICY_SCHEMA_VERSION,
+        "decision": decision,
+        "source": "deterministic_rule",
+        "observed_at": timezone.now().isoformat(),
+    }
+
+
 QTY_RE = re.compile(r"\b(?:x|х|×)?\s*(\d{1,2})\s*(?:шт|штук|pcs|од)\b", re.I)
 SIZE_TOKEN_RE = re.compile(r"\b(xs|s|m|l|xl|xxl|xxxl|2xl|3xl)\b", re.I)
 # F-PAT-003: клиенты пишут размер кириллицей чаще, чем латиницей (46 токенов
@@ -435,6 +608,11 @@ SUPPORT_RE = re.compile(
     r"(?:товар\w*|замовлен\w*|заказ\w*|посилк\w*|посылк\w*)\b|"
     r"\b(?:товар\w*|замовлен\w*|заказ\w*|посилк\w*|посылк\w*)\s+не\s+"
     r"(?:отриман\w*|получен\w*)\b|"
+    r"\b(?:my\s+)?(?:order|parcel|package)\s+"
+    r"(?:has\s+not|hasn't|did\s+not|didn't|never)\s+"
+    r"(?:arriv\w*|come|been\s+deliver\w*)\b|"
+    r"\b(?:i\s+)?(?:have\s+not|haven't|did\s+not|didn't)\s+"
+    r"receiv\w*\s+(?:my\s+)?(?:order|parcel|package)\b|"
     r"\b(?:принт\w*|друк\w*|печать)\s+"
     r"(?:не\s+то[йяе]|не\s+такий|інш\w*|друг\w*)\b)",
     re.I,
@@ -1156,6 +1334,25 @@ def classify_message(
 
     confirmed_purchase = client_has_confirmed_purchase(client)
     post_sale_request = post_sale_request_type(client, text, role=role)
+    phone_policy = {}
+    if not is_manager:
+        # Contact-channel safety is per user turn, including an opt-out or a
+        # non-commercial message. It must not inherit stale policy from the
+        # previous commercially actionable turn.
+        phone_policy = phone_contact_policy(
+            client,
+            text,
+            role=role,
+            confirmed_purchase=confirmed_purchase,
+            post_sale_request=post_sale_request,
+        )
+        if phone_policy:
+            phone_policy["source_message_id"] = getattr(message, "pk", None)
+            sales_context[PHONE_CONTACT_POLICY_KEY] = phone_policy
+        else:
+            # The rule is current-turn state.  Do not let a previous request
+            # for the business number steer a later, unrelated reply.
+            sales_context.pop(PHONE_CONTACT_POLICY_KEY, None)
     media_intents = {str(item.get("intent") or "") for item in media_context}
     media_roles = {str(item.get("role") or "") for item in media_context}
     if commercially_actionable and "custom_print_request" in media_intents:
@@ -1334,6 +1531,7 @@ def classify_message(
         "opt_out": opt_out,
         "sales_context": sales_context,
         "media_context": media_context,
+        "phone_contact_policy": phone_policy,
     }
     if isinstance(message, InstagramBotMessage) and not is_manager and not reaction_only:
         try:

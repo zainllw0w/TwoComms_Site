@@ -3190,9 +3190,14 @@ body.bot-drawer-open{overflow:hidden;}
     document.addEventListener('click',event=>{if(!filtersEl||!filterAdvanced||filterAdvanced.hidden||!event.target||!filtersEl.contains(event.target))setAdvancedFiltersOpen(false);});
     if(filtersEl) filtersEl.querySelectorAll('[data-client-view]').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        currentView=btn.getAttribute('data-client-view')||'all';currentPage=1;
-        filtersEl.querySelectorAll('[data-client-view]').forEach(b=>{const active=b===btn;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');});
-        syncFilterDisclosure(btn);setAdvancedFiltersOpen(false);
+        const requestedView=btn.getAttribute('data-client-view')||'all';
+        const clearsAdvancedView=Boolean(filterAdvanced&&filterAdvanced.contains(btn)&&btn.classList.contains('active'));
+        currentView=clearsAdvancedView?'all':requestedView;currentPage=1;
+        const activeButton=currentView==='all'
+          ?Array.from(filtersEl.querySelectorAll('[data-client-view]')).find(button=>button.getAttribute('data-client-view')==='all')||btn
+          :btn;
+        filtersEl.querySelectorAll('[data-client-view]').forEach(b=>{const active=b===activeButton;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');});
+        syncFilterDisclosure(activeButton);setAdvancedFiltersOpen(false);
         activeId=null;convId=null;ClientContextDrawer.close(null,{persist:false});conversationEl.replaceChildren(node('div','bot-client-pane-empty','Оберіть клієнта зі списку.'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Комерційний контекст з’явиться після вибору клієнта.'));setMobilePane('list');
         load(searchEl?searchEl.value.trim():'');
       });

@@ -3,7 +3,12 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
+from management.models import (
+    IgClient,
+    InstagramBotLog,
+    InstagramBotMessage,
+    InstagramBotSettings,
+)
 from management.services import instagram_bot
 
 
@@ -93,3 +98,126 @@ class SyntheticInboundDedupeTests(TestCase):
         self.assertFalse(
             InstagramBotMessage.objects.filter(sender_id=self.client.igsid).exists()
         )
+
+
+class AllowlistObservationTests(TestCase):
+    def setUp(self):
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.allowed_senders = "allowed-sender"
+        self.settings.reply_after = None
+        self.settings.save(update_fields=["is_enabled", "allowed_senders", "reply_after"])
+
+    @patch("management.services.instagram_bot._schedule_inbound_analysis")
+    @patch("management.services.bot_sales_classifier.classify_message")
+    @patch("management.services.bot_followups.schedule_after_inbound")
+    def test_valid_nonallowed_inbound_is_observed_without_automation(
+        self,
+        schedule_followup,
+        classify_message,
+        schedule_analysis,
+    ):
+        observed = instagram_bot.enqueue_inbound(
+            self.settings,
+            sender_id="unlisted-sender",
+            text="Please share a phone number",
+            mid="unlisted-inbound-mid",
+            source="webhook",
+        )
+        repeated = instagram_bot.enqueue_inbound(
+            self.settings,
+            sender_id="unlisted-sender",
+            text="Please share a phone number",
+            mid="unlisted-inbound-mid",
+            source="webhook",
+        )
+
+        self.assertTrue(observed)
+        self.assertFalse(repeated)
+        client = IgClient.objects.get(igsid="unlisted-sender")
+        message = InstagramBotMessage.objects.get(mid="unlisted-inbound-mid")
+        self.assertEqual(message.client_id, client.pk)
+        self.assertEqual(message.role, InstagramBotMessage.Role.USER)
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(message.source, "webhook")
+        self.assertIsNotNone(message.processed_at)
+        self.assertIsNotNone(client.first_contact_at)
+        self.assertIsNotNone(client.last_message_at)
+        self.assertEqual(
+            InstagramBotMessage.objects.filter(mid="unlisted-inbound-mid").count(), 1
+        )
+        self.assertFalse(
+            InstagramBotMessage.objects.filter(
+                sender_id="unlisted-sender",
+                status=InstagramBotMessage.Status.PENDING,
+            ).exists()
+        )
+        self.settings.refresh_from_db()
+        self.assertIsNotNone(self.settings.last_inbound_at)
+        record = InstagramBotLog.objects.get(event="observed_not_allowed")
+        self.assertNotIn("unlisted-sender", record.detail)
+        self.assertNotIn("Please share a phone number", record.detail)
+        classify_message.assert_not_called()
+        schedule_analysis.assert_not_called()
+        schedule_followup.assert_not_called()
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_nonallowed_webhook_attachment_is_metadata_only_and_never_captured(
+        self,
+        download_image,
+    ):
+        url = "https://lookaside.example/restricted-ingress.jpg"
+
+        self.assertTrue(
+            instagram_bot.enqueue_inbound(
+                self.settings,
+                sender_id="unlisted-media-sender",
+                text="Ось фото",
+                mid="unlisted-media-inbound-mid",
+                source="webhook",
+                attachments=[url],
+            )
+        )
+
+        message = InstagramBotMessage.objects.get(mid="unlisted-media-inbound-mid")
+        self.assertFalse(message.media_capture_eligible)
+        self.assertEqual(message.attachment_media, [{
+            "url": url,
+            "provenance": "historical_import",
+            "status": "metadata_only",
+        }])
+
+        instagram_bot._capture_message_media(message)
+
+        download_image.assert_not_called()
+
+    @patch("management.services.instagram_bot._schedule_inbound_analysis")
+    @patch("management.services.bot_sales_classifier.classify_message")
+    @patch("management.services.bot_followups.schedule_after_inbound")
+    def test_hidden_nonallowed_client_remains_unobserved(
+        self,
+        schedule_followup,
+        classify_message,
+        schedule_analysis,
+    ):
+        client = IgClient.get_or_create_for_sender("hidden-unlisted-sender")
+        client.hidden_at = datetime.now(timezone.utc)
+        client.save(update_fields=["hidden_at", "updated_at"])
+
+        self.assertFalse(
+            instagram_bot.enqueue_inbound(
+                self.settings,
+                sender_id=client.igsid,
+                text="Do not show this in CRM",
+                mid="hidden-unlisted-inbound-mid",
+                source="webhook",
+            )
+        )
+        self.assertFalse(
+            InstagramBotMessage.objects.filter(mid="hidden-unlisted-inbound-mid").exists()
+        )
+        self.settings.refresh_from_db()
+        self.assertIsNone(self.settings.last_inbound_at)
+        schedule_followup.assert_not_called()
+        classify_message.assert_not_called()
+        schedule_analysis.assert_not_called()

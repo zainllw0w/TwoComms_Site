@@ -92,8 +92,11 @@ def ig_webhook(request):
             except Exception:
                 logger.exception("ig_bot: record_raw_event error")
             bot.handle_webhook_payload(settings_obj, payload, persistence_only=True)
-        except Exception:
+        except Exception as exc:
             logger.exception("ig_bot: webhook handler error")
+            # The server log retains the traceback; the operator console needs
+            # a bounded, PII-free indicator for the same failed callback.
+            bot.log("error", "webhook_handler_error", type(exc).__name__)
             bot.record_webhook_response(503, reason="handler_error")
             return HttpResponse("retry", status=503)
 
