@@ -1236,8 +1236,11 @@ MariaDB/HTTP/process state. Старые cumulative-логи не считают
   `TelegramAlertHandler` (`django.request`) с bounded direct Bot API request.
   Накопленный `stderr.log` содержит `32` fallback timeout, `134` incident lines
   и старые 500/503 без timestamp, поэтому эти числа нельзя считать сегодняшним
-  incident count без access-log correlation. Production access/runtime delta
-  после последнего reload не показал нового application 500; `sendMessage` и
+  incident count без access-log correlation. В access-log окне `00:00-00:15`
+  EEST подтвержден ровно один `503 GET /bot/api/clients/?view=all&page=1`
+  в `00:04:06`, при `0` новых `500/502/504`; upstream-ответ был `3678` байт,
+  traceback/Django view отсутствуют, соседние запросы успешны. Это warm-up/
+  upstream сигнал, а не доказанная application ошибка. `sendMessage` и
   cron failure не подтверждены. SQLite `no such table` в `ig_bot.log` и три
   `IgClient` ULE-записи в MariaDB имеют исторические даты до deployed fixes;
   текущий daemon стартует через CloudLinux Python wrapper и MariaDB, последние
