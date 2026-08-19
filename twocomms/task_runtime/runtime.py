@@ -191,6 +191,7 @@ def finish_task(task_id, lease_token: str, *, success: bool, result=None, error=
         pk=task_id,
         status=DurableTask.Status.RUNNING,
         lease_token=lease_token,
+        lease_expires_at__gte=timezone.now(),
     ).update(**values)
     if changed != 1:
         raise TaskNotOwned(f"task {task_id} lease is no longer owned")

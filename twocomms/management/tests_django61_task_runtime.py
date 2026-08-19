@@ -77,6 +77,20 @@ class DurableTaskDatabaseTests(TestCase):
         finish_task(job.pk, replacement.lease_token, success=True)
         self.assertEqual(DurableTask.objects.get(pk=job.pk).status, DurableTask.Status.DONE)
 
+    def test_expired_lease_cannot_finish_before_reclaim(self):
+        job = enqueue_durable_task(CANARY_NAME, {"object_id": 9}, "expired-key")
+        claimed = claim_due_tasks(limit=1, lease_seconds=30, worker_id="worker-a")[0]
+        DurableTask.objects.filter(pk=job.pk).update(
+            lease_expires_at=timezone.now() - timedelta(seconds=1)
+        )
+
+        with self.assertRaises(TaskNotOwned):
+            finish_task(job.pk, claimed.lease_token, success=True)
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, DurableTask.Status.RUNNING)
+        self.assertEqual(job.lease_token, claimed.lease_token)
+
     def test_backend_is_explicitly_durable_and_enqueues_json(self):
         backend = DurableTaskBackend(alias="durable", params={})
         self.assertTrue(backend.supports_durable_enqueue)
