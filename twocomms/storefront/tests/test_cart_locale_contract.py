@@ -83,6 +83,60 @@ class CartLocaleContractTests(TestCase):
             self.assertNotIn("fetch('/cart/update/'", content)
             self.assertNotIn('fetch("/cart/update/"', content)
 
+    def test_cart_promo_vault_ssr_is_localized_for_english_and_russian(self):
+        template = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "templates"
+            / "pages"
+            / "cart.html"
+        ).read_text(encoding="utf-8")
+        self.assertIn("{% trans 'Секретний доступ' %}", template)
+        self.assertNotIn("{% trans 'Secret access' %}", template)
+
+        expected = {
+            "en": (
+                "Secret access",
+                "Unlock the discount safe",
+                "Enter the promo code — we'll verify it on the server and recalculate your cart.",
+                "Discount activated",
+                "Safe code",
+                "Open",
+            ),
+            "ru": (
+                "Секретный доступ",
+                "Откройте сейф со скидкой",
+                "Введите промокод — мы проверим его на сервере и пересчитаем корзину.",
+                "Скидка активирована",
+                "Код сейфа",
+                "Открыть",
+            ),
+        }
+        source_strings = (
+            "Відкрий сейф зі знижкою",
+            "Введіть промокод — ми перевіримо його на сервері та перерахуємо кошик.",
+            "Знижку активовано",
+            "Відкрити",
+        )
+
+        for language, strings in expected.items():
+            with self.subTest(language=language), override(language):
+                response = self.client.get(reverse("cart"))
+
+            self.assertEqual(response.status_code, 200)
+            content = response.content.decode("utf-8")
+            vault_match = re.search(
+                r'<section\b[^>]*\bdata-promo-vault\b[^>]*>.*?</section>',
+                content,
+                re.DOTALL,
+            )
+            self.assertIsNotNone(vault_match)
+            vault = vault_match.group(0)
+            for string in strings:
+                self.assertIn(string, vault)
+            for source_string in source_strings:
+                self.assertNotIn(source_string, vault)
+
     def test_cart_locale_config_exposes_locale_prefixed_update_url(self):
         for language in ("en", "ru"):
             with self.subTest(language=language), override(language):

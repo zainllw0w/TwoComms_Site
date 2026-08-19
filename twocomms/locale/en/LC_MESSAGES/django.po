@@ -17311,3 +17311,21 @@ msgstr "Unknown payment type."
 
 msgid "Для онлайн-оплати карткою потрібно обрати «Повна передоплата»."
 msgstr "For online card payment, choose \"Full prepayment\"."
+
+msgid "Секретний доступ"
+msgstr "Secret access"
+
+msgid "Відкрий сейф зі знижкою"
+msgstr "Unlock the discount safe"
+
+msgid "Введіть промокод — ми перевіримо його на сервері та перерахуємо кошик."
+msgstr "Enter the promo code — we'll verify it on the server and recalculate your cart."
+
+msgid "Знижку активовано"
+msgstr "Discount activated"
+
+msgid "Код сейфа"
+msgstr "Safe code"
+
+msgid "Відкрити"
+msgstr "Open"
