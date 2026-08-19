@@ -6,7 +6,10 @@
 
 import logging
 import re
+from pathlib import Path
 from typing import Dict, NamedTuple, Optional
+
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -120,10 +123,21 @@ def get_geolocation(ip_address: str) -> Dict[str, Optional[str]]:
     if not ip_address or ip_address == '127.0.0.1' or ip_address.startswith('192.168.'):
         return result
 
+    # GeoIP2 raises when its local MaxMind database is not configured.  Check
+    # the path before importing/constructing it so every request remains
+    # fail-soft on hosts that intentionally do not ship GeoLite data.
+    configured_geoip_path = getattr(settings, 'GEOIP_PATH', None)
+    if not configured_geoip_path:
+        return result
+    geoip_path = Path(configured_geoip_path).expanduser()
+    if not (geoip_path.is_file() or geoip_path.is_dir()):
+        logger.debug("GeoIP2 path is unavailable; skipping local lookup")
+        return result
+
     # Попытка использовать GeoIP2
     try:
         from django.contrib.gis.geoip2 import GeoIP2
-        g = GeoIP2()
+        g = GeoIP2(path=str(geoip_path))
 
         try:
             city_data = g.city(ip_address)
