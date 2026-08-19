@@ -656,6 +656,15 @@ Production acceptance от 2026-08-17:
 
 **Стартовать только после этапов 0, 3 и server capability review.**
 
+**Статус: implementation-пункты завершены 2026-08-19 в ограниченном non-DTF
+scope.** MariaDB-backed durable alias и bounded cron активированы в
+production; Redis/Celery остаётся доказанным NO-GO. Production activation
+относится только к no-send task runtime. Для image path завершён перенос кода
+из request-owned executor в durable rows/command, но image cron намеренно не
+активирован; provider side effects и request-path image middleware также не
+включены. Единая матрица code/test/production evidence:
+`docs/qa/django61-stage6-production-activation.md`.
+
 - [x] **DJ6-BASE-005 - Повторно проверить Redis/worker capability через host owner.**
   - DNS, TCP, TLS, auth, ACL, process lifetime, cron cadence и DB connection budget.
   - Статус 2026-08-19: **ПРОВЕРЕНО / REDIS NO-GO, CRON ALTERNATIVE GREEN**.
@@ -720,6 +729,10 @@ Production acceptance от 2026-08-17:
 
 - [x] **DJ6-TASK-002 - Добавить fail-fast guard против \`ImmediateBackend\` для тяжелых tasks.**
   - Production enqueue тяжелой задачи должен быть невозможен без worker proof.
+  - Guard является обязательной project-level boundary для будущих heavy-task
+    call sites, а не глобальным monkeypatch Django \`Task.enqueue()\`;
+    текущий production source inventory не содержит heavy-task callers,
+    обходящих эту boundary.
   - Evidence: `twocomms/task_boundaries.py`,
     `twocomms/management/tests_django61_task_backend_guard.py`,
     `docs/qa/django61-stage6-task-guard.md`; `ImmediateBackend`, `DummyBackend`
@@ -739,7 +752,9 @@ Production acceptance от 2026-08-17:
     `image_optimizer.py`, focused editor/image-optimizer tests и
     `scripts/install_product_catalog_image_jobs_cron.sh`.
   - Production rollout/cron installation и live media-volume proof остаются
-    отдельным deployment gate.
+    отдельным deployment gate. Этот checkbox закрывает перенос request-path
+    исполнения в durable job + bounded command, но не утверждает, что
+    inventory-only image cron уже активен.
 
 - [x] **DJ6-BG-008 - Решить судьбу durable QR alert.**
   - Решение: убрать request-owned QR Telegram alert. Alert дублировал уже
@@ -777,6 +792,13 @@ Production acceptance от 2026-08-17:
   headroom `18/958/512864`. Redis остается NO-GO и в этот gate не включен.
 - [x] Bounded cron остается единственным управляемым execution/rollback path;
   installer `--check`, periodic-owner validator и production log green.
+
+Все семь implementation checkbox и четыре exit gate выше сопоставлены с
+конкретными source paths, focused contracts и честной границей rollout в
+`docs/qa/django61-stage6-production-activation.md`. Отдельных открытых
+implementation checkbox внутри Stage 6 нет; это не равно активации всех
+периодик. Inventory-only image worker остаётся намеренно неактивным до
+собственного deployment gate.
 
 ---
 
