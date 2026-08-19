@@ -20,7 +20,11 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
             self.blocks.setdefault(job["managed_block"], []).append(job)
 
     def crontab(self, jobs=None):
-        jobs = self.jobs if jobs is None else jobs
+        jobs = (
+            [job for job in self.jobs if job.get("active", True)]
+            if jobs is None
+            else jobs
+        )
         blocks = {}
         for job in jobs:
             blocks.setdefault(job["managed_block"], []).append(job)
@@ -109,7 +113,7 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         inactive_job = next(job for job in self.jobs if not job.get("active", True))
 
         with self.subTest("managed block"):
-            result = self.invoke_validator(self.crontab())
+            result = self.invoke_validator(self.crontab(self.jobs))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("inactive", result.stderr.lower())
 
