@@ -17329,3 +17329,9 @@ msgstr "Safe code"
 
 msgid "Відкрити"
 msgstr "Open"
+
+msgid "Застосований промокод"
+msgstr "Applied promo code"
+
+msgid "Видалити промокод"
+msgstr "Remove promo code"

@@ -102,6 +102,8 @@ class CartLocaleContractTests(TestCase):
                 "Discount activated",
                 "Safe code",
                 "Open",
+                "Applied promo code",
+                "Remove promo code",
             ),
             "ru": (
                 "Секретный доступ",
@@ -110,6 +112,8 @@ class CartLocaleContractTests(TestCase):
                 "Скидка активирована",
                 "Код сейфа",
                 "Открыть",
+                "Применённый промокод",
+                "Удалить промокод",
             ),
         }
         source_strings = (
@@ -117,6 +121,8 @@ class CartLocaleContractTests(TestCase):
             "Введіть промокод — ми перевіримо його на сервері та перерахуємо кошик.",
             "Знижку активовано",
             "Відкрити",
+            "Застосований промокод",
+            "Видалити промокод",
         )
 
         for language, strings in expected.items():
