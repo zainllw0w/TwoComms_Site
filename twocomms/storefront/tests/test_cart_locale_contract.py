@@ -72,6 +72,33 @@ class CartLocaleContractTests(TestCase):
         self.assertNotIn('id="storefront-locale-contract"', rendered.split('id="cart-locale-config"', 1)[1])
         self.assertIn("/en/cart/items/", rendered)
 
+    def test_cart_locale_javascript_chain_uses_one_cache_version(self):
+        project_root = Path(__file__).resolve().parents[2]
+        sources = {
+            "base": (project_root / "twocomms_django_theme/templates/base.html").read_text(encoding="utf-8"),
+            "main": (project_root / "twocomms_django_theme/static/js/main.js").read_text(encoding="utf-8"),
+        }
+        version = "20260819-cart-locale-v1"
+        expected = {
+            "base-main": ("base", f"js/main.js' %}}?v={version}"),
+            "base-ui-fallback": ("base", f"js/ui-fallback.js' %}}?v={version}"),
+            "main-checkout-mono": ("main", f"./modules/checkout-mono.js?v={version}"),
+            "main-cart": ("main", f"./modules/cart.js?v={version}"),
+        }
+        legacy = {
+            "base-main": ("base", "js/main.js' %}?v=20260812-reference-mini-cart-v4"),
+            "base-ui-fallback": ("base", "js/ui-fallback.js' %}?v=20260428-pdp-fit-v2"),
+            "main-checkout-mono": ("main", "./modules/checkout-mono.js?v=20260428-pdp-fit-v2"),
+            "main-cart": ("main", "./modules/cart.js?v=20260812-promo-vault-sequence-a"),
+        }
+
+        for label, (source_name, reference) in expected.items():
+            with self.subTest(reference=label):
+                self.assertIn(reference, sources[source_name])
+        for label, (source_name, reference) in legacy.items():
+            with self.subTest(legacy_reference=label):
+                self.assertNotIn(reference, sources[source_name])
+
     def test_cart_ssr_uses_locale_prefixed_urls_and_no_root_update_endpoint(self):
         for language in ("en", "ru"):
             with self.subTest(language=language), override(language):

@@ -17369,3 +17369,7 @@ msgstr "Заказ не найден. Попробуйте ещё раз."
 #: storefront/views/monobank.py:2407
 msgid "Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження."
 msgstr "Платёж обрабатывается. Мы сообщим, как только получим подтверждение."
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:255
+msgid "Зміни застосовуються миттєво"
+msgstr "Изменения применяются сразу"

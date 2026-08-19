@@ -17351,3 +17351,7 @@ msgstr "Order not found. Please try again."
 #: storefront/views/monobank.py:2407
 msgid "Платіж обробляється. Ми повідомимо, щойно отримаємо підтвердження."
 msgstr "Payment is being processed. We will notify you as soon as it is confirmed."
+
+#: twocomms_django_theme/templates/partials/catalog_smart_selector.html:255
+msgid "Зміни застосовуються миттєво"
+msgstr "Changes apply instantly"

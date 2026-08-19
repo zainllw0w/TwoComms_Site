@@ -226,6 +226,36 @@ class SmartSelectorCategoryTests(TestCase):
                 category_href = f'{expected["prefix"]}/catalog/hoodie/' if expected["prefix"] else "/catalog/hoodie/"
                 self.assertIn(f'href="{category_href}"', body)
 
+    def test_smart_selector_instant_apply_note_is_locale_owned(self):
+        self.create_product(category=self.tshirts, slug="locale-instant-apply-note")
+        matrix = {
+            "/catalog/tshirts/": "Зміни застосовуються миттєво",
+            "/ru/catalog/tshirts/": "Изменения применяются сразу",
+            "/en/catalog/tshirts/": "Changes apply instantly",
+        }
+
+        for path, expected in matrix.items():
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode("utf-8")
+                match = re.search(
+                    r'<span class="smart-selector__quick-note">\s*(.*?)\s*</span>',
+                    body,
+                    flags=re.DOTALL,
+                )
+                self.assertIsNotNone(match)
+                self.assertEqual(match.group(1), expected)
+
+        css = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "css"
+            / "catalog-smart-selector.css"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn('content: "Зміни застосовуються миттєво"', css)
+
     def test_supported_category_uses_variant_3_product_card_markup(self):
         product = self.create_product(category=self.tshirts, slug="variant-3-card")
         response = self.client.get(reverse("catalog_by_cat", kwargs={"cat_slug": "tshirts"}))
@@ -1272,5 +1302,5 @@ class SmartSelectorAnalyticsContractTests(SimpleTestCase):
             / "catalog.html"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("catalog-smart-selector.css' %}?v=20260819-locale-v17", template)
+        self.assertIn("catalog-smart-selector.css' %}?v=20260819-locale-v18", template)
         self.assertIn("catalog-smart-selector.js' %}?v=20260819-locale-v17", template)

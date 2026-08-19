@@ -938,7 +938,7 @@ window.__twcMono = {
 let __monoModulePromise = null;
 function __loadMonoModule() {
   if (!__monoModulePromise) {
-    __monoModulePromise = import('./modules/checkout-mono.js?v=20260428-pdp-fit-v2').catch((err) => {
+    __monoModulePromise = import('./modules/checkout-mono.js?v=20260819-cart-locale-v1').catch((err) => {
       __monoModulePromise = null;
       throw err;
     });
@@ -2357,7 +2357,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   scheduleIdle(() => {
     if (document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')) {
-      import('./modules/cart.js?v=20260812-promo-vault-sequence-a')
+      import('./modules/cart.js?v=20260819-cart-locale-v1')
         .then(({ initCartInteractions }) => initCartInteractions())
         .catch(() => { });
     }
