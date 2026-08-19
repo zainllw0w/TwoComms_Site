@@ -17,6 +17,7 @@
 - DTF-субдомен, DTF URLconf, модели, миграции, команды, статика, процессы и база данных полностью исключены.
 - Production MariaDB является источником истины, но не используется как тестовая или disposable база.
 - Для schema/query/performance работ нужна локальная изолированная MariaDB-копия production non-DTF базы.
+- **Политика доказательств БД:** SQLite разрешена только для быстрых детерминированных unit/AST/parser contracts. Она не является evidence для ORM query-plan, migration/DDL, backend selection, worker/cron, connection budget или production readiness. Каждый такой пункт требует свежего read-only proof через CloudLinux-bound Python, где `default` выбран как `django.db.backends.mysql`, сервер отвечает MariaDB, а `CONN_MAX_AGE=0`; проверка не выполняет DDL и не меняет данные.
 - Redis сейчас недоступен по DNS; Celery, Supervisor и systemd недоступны. До доказательства обратного нельзя проектировать обязательную зависимость от worker.
 - Локальный checkout \`main\` может быть грязным и отставать от \`origin/main\`; реализация начинается только в новом worktree от проверенного \`origin/main\`.
 
@@ -675,6 +676,11 @@ Production acceptance от 2026-08-17:
   - [ ] Production activation: `task_runtime.0001_initial` ещё не применена
     к authoritative MariaDB; остаются CloudLinux-bound no-send canary,
     restart/reclaim proof, connection/FD budget и единственный cron owner.
+  - Локальный activation gate усилен 2026-08-19: installer fail-closed
+    проверяет CloudLinux wrapper, `production_settings`, MariaDB и
+    `CONN_MAX_AGE=0` до любой записи crontab; budget/owner validators требуют
+    свежий CloudLinux-bound read-only snapshot. Это подготовка к activation,
+    а не закрытие production checkbox.
   - Статус: **LOCAL IMPLEMENTED / PRODUCTION BLOCKED**. `default` остаётся
     `ImmediateBackend`, поэтому новый adapter не меняет текущий request path.
   - Evidence: `docs/qa/django61-stage6-capability-blocker.md`,
