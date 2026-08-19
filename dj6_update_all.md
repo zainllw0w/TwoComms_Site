@@ -1126,6 +1126,99 @@ production canary с backup, writer/orphan/domain proof, timing и rollback.
 - Следующая проверка: обновить README/runbook и проверить ссылки на production Python 3.14 virtualenv; исторические incident reports не переписывать.
 
 
+## Live-аудит production-логов 2026-08-19
+
+Ниже зафиксированы только сигналы, подтвержденные свежей read-only сверкой с
+MariaDB/HTTP/process state. Старые cumulative-логи не считаются текущим
+инцидентом без нового воспроизведения.
+
+- [x] **Schema drift `storefront_productfitoption.default_product_identity` — закрыто на сервере.**
+  В старом `stderr.log` были 1054 на `/`, каталогах и PDP. Read-only probe
+  подтвердил физическую generated-колонку, `uniq_default_fit_product` и
+  migration `storefront.0097_mariadb_generated_uniqueness`; `SHOW CREATE TABLE`
+  соответствует модели. Свежие GET home/catalog/tshirts/PDP вернули `200`, а
+  после повторного набора запросов в `stderr.log` не добавилось ни одного
+  байта. `ALTER TABLE` и ручной `migrate` не выполнялись.
+
+- [x] **Schema drift `product_catalog_imageoptimizationjob.lease_token` —
+  исторический, не текущий.** Production MariaDB содержит `lease_token`
+  (`varchar(32) NOT NULL`), InnoDB и индексы; migrations `0013`, `0014`,
+  `0015` применены. Нового 500-воспроизведения нет.
+
+- [x] **`IgClient` `UnboundLocalError` — исправление реализовано.** Повторный
+  локальный импорт внутри `_process_one_inside_reply_boundary` создавал
+  локальную binding и ломал commerce projection. Удален только внутренний
+  импорт, добавлен regression assertion; focused commerce suite зеленый.
+  Коммит: `eabcec27b` (patch-id совпадает с `fb9ee1eaa`, повторно cherry-pick
+  не требуется).
+
+- [x] **SQLite fallback Instagram daemon — предотвращен fail-closed guard.**
+  При `DEBUG=False` и SQLite `run_instagram_bot --once/--ensure/--forever`
+  теперь завершается до polling/spawn с понятным `CommandError`; локальный
+  `DEBUG=True` SQLite режим сохранен. Regression suite `24/24`. Коммит:
+  `b3a1964da` (patch-id совпадает с исходным scoped commit `1565a12a2`).
+
+- [x] **GeoIP2 warning — исправление реализовано.** При отсутствующем или
+  пустом `GEOIP_PATH` конструктор GeoIP2 не вызывается, внешний API не
+  запускается, запрос остается fail-soft. Для валидной `.mmdb` базы путь
+  передается явно. Regression suite покрывает missing/valid/empty cases.
+  Коммиты: `97dc7bab7` + `368f395bf` + `1ac8fb266`; первый patch-id совпадает
+  с агентским `565825ae3`, два последних уточняют проверку имен баз.
+
+- [x] **Compressor stale-manifest — текущего дефекта нет.** На production
+  `CACHE/manifest.json` существует, новее всех watched sources, assets
+  отдаются `200`, свежий import production settings с `-W error::RuntimeWarning`
+  проходит без warning, HTML не содержит неразрешенных compressor tags.
+  Повторяющиеся строки в cron/health-файлах относятся к старому cumulative
+  срезу до обновления manifest; код менять не нужно. В release runbook
+  сохраняется порядок `collectstatic` -> `compress` -> Passenger reload.
+
+- [x] **`DisallowedHost` для `mail.*` — внешний шум, не misconfiguration.**
+  Не добавлять эти hostnames в `ALLOWED_HOSTS`; DTF и host policy не менять.
+
+- [x] **`Too many connections` и Passenger SIGKILL/SIGTERM — исторические
+  записи.** Свежий runtime использует MariaDB, `CONN_MAX_AGE=0`, connection
+  budget в пределах лимита; новые GET не воспроизводят эти ошибки. Новых
+  worker/process или повышения connection limits не внедрять без измерения.
+
+- [x] **Telegram error alerts и periodic jobs — сверены.** В rotated/app
+  `stderr.log` найдены исторические алерты на 500 (1054 schema drift),
+  GeoIP2, SQLite fallback и `IgClient`, а также старые transport timeout,
+  `invalid_parse_entities` и `OSError`; это не новые события текущего
+  runtime. В свежем срезе `order_telegram_reconcile`, IG checkout/fulfillment
+  и durable cron показывают `failed=0`/`errors=0`, а после GET smoke в логах
+  не появилось новых server 500. Telegram-alert handler не отключался и не
+  маскировал ошибки.
+
+- [x] **Client-side error inventory — классифицирован.** `client_errors.log`
+  содержит браузерные/сторонние сигналы (`window.webkit.messageHandlers`,
+  `M_ID`, `Script error`, `readonly property`) без server traceback. Они не
+  доказывают Django/MariaDB дефект. Единственный owned deterministic signal —
+  `isStatsTab` ReferenceError в странице промокодов — исправлен DOM-guard,
+  добавлен regression test; commit `80ced7a04`.
+
+- [ ] **Runtime minor-version drift.** Read-only production wrapper сейчас
+  сообщает CPython `3.14.7`, тогда как project contract фиксирует `3.14.6`.
+  Это не вызвало текущих 500, поэтому runtime не переключался; требуется
+  отдельное согласование wheel/CloudLinux binding перед изменением версии.
+
+- [x] **Cron environment explicitness — реализовано.** Watchdog и все managed
+  Instagram periodic commands теперь явно задают `DJANGO_ENV=production` и
+  `DJANGO_SETTINGS_MODULE=twocomms.production_settings` до `flock`/Python;
+  старые unprefixed loose owner-строки остаются распознаваемыми для безопасной
+  миграции installer. Focused cron suite `26/26`, commit `e0fe8733c`; DTF не
+  затронут.
+
+- [x] **Объединенный локальный gate.** На CPython `3.14.6` / Django `6.1`
+  прошли `127/127` focused Django tests (commerce, daemon, templates, GeoIP,
+  UTM) и `26/26` cron installer tests; `bash -n`, `py_compile` и оба
+  `git diff --check` завершились без ошибок.
+
+- [ ] **Release gate для этих исправлений.** Осталось интегрировать scoped
+  commits в `main`, выполнить разрешенный SSH pull/reload и повторить
+  deployed-SHA, MariaDB engine/migration, bot runtime, HTTP и delta-log proof.
+  До этого production считается неизмененным на `ba4570df9`.
+
 ## Историческая сводка после полной read-only проверки
 
 - Всего записей: 83 уникальных ID; дублей нет.
