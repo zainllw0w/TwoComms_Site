@@ -74,6 +74,8 @@ def load_manifest(path: Path) -> dict[str, Any]:
         if not isinstance(job_id, str) or not re.fullmatch(r"[a-z0-9_]+", job_id) or job_id in seen:
             _fail(f"jobs[{index}].id must be unique lowercase identifier")
         seen.add(job_id)
+        if "active" in job and not isinstance(job["active"], bool):
+            _fail(f"jobs[{index}].active must be boolean")
         cadence = job["cadence"]
         if not isinstance(cadence, str) or len(cadence.split()) != 5 or not all(CRON_FIELD_RE.fullmatch(field) for field in cadence.split()):
             _fail(f"jobs[{index}] has invalid five-field cadence")
@@ -141,12 +143,14 @@ def validate_crontab(manifest: dict[str, Any], crontab: str, *, repo_root: Path)
     rollback_target = repo_root / rollback["path"]
     if not rollback_target.is_file():
         _fail(f"rollback path is absent from repository: {rollback_target}")
-    known_markers = {job["managed_block"] for job in manifest["jobs"]}
+    jobs = manifest["jobs"]
+    active_jobs = [job for job in jobs if job.get("active", True)]
+    known_markers = {job["managed_block"] for job in jobs}
     unknown_markers = sorted(set(blocks) - known_markers)
     if unknown_markers:
         _fail(f"unknown TWOCOMMS managed block: {unknown_markers}")
     results: list[dict[str, Any]] = []
-    for job in manifest["jobs"]:
+    for job in active_jobs:
         owner_target = repo_root / job["owner_path"]
         if not owner_target.is_file():
             _fail(f"owner script is absent from repository for {job['id']}: {owner_target}")

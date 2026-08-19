@@ -113,6 +113,7 @@
     },
     {
       "id": "product_catalog_image_jobs",
+      "active": false,
       "cadence": "* * * * *",
       "command": "manage.py reconcile_image_optimization_jobs",
       "managed_block": "# BEGIN TWOCOMMS PRODUCT CATALOG IMAGE JOBS",

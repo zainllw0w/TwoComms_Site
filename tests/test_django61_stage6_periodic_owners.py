@@ -19,11 +19,15 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         for job in self.jobs:
             self.blocks.setdefault(job["managed_block"], []).append(job)
 
-    def crontab(self):
+    def crontab(self, jobs=None):
+        jobs = self.jobs if jobs is None else jobs
+        blocks = {}
+        for job in jobs:
+            blocks.setdefault(job["managed_block"], []).append(job)
         lines = []
-        for marker, jobs in self.blocks.items():
+        for marker, marker_jobs in blocks.items():
             lines.append(marker)
-            for job in jobs:
+            for job in marker_jobs:
                 timeout = f" {job['timeout']}" if job["timeout_required"] else ""
                 command = job["command"]
                 if " --" not in command:
@@ -55,7 +59,10 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["status"], "ok")
-        self.assertEqual(len(payload["jobs"]), len(self.jobs))
+        self.assertEqual(
+            len(payload["jobs"]),
+            len([job for job in self.jobs if job.get("active", True)]),
+        )
         durable_line = next(line for line in self.crontab().splitlines() if "run_durable_tasks" in line)
         self.assertIn("# BEGIN TWOCOMMS DJANGO61 DURABLE TASKS", self.crontab())
         self.assertIn("tmp/django61_durable_tasks.lock", durable_line)
@@ -65,6 +72,35 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         self.assertIn("--worker-id=cron-no-send", durable_line)
         self.assertIn("DJANGO_ENV=production", durable_line)
         self.assertIn("DJANGO_SETTINGS_MODULE=twocomms.production_settings", durable_line)
+
+    def test_planned_job_does_not_require_owner_or_managed_block(self):
+        planned_manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        planned_job = next(
+            job
+            for job in planned_manifest["jobs"]
+            if job["id"] == "product_catalog_image_jobs"
+        )
+        planned_job["active"] = False
+        active_jobs = [
+            job for job in planned_manifest["jobs"] if job.get("active", True)
+        ]
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", suffix=".json", delete=False
+        ) as handle:
+            json.dump(planned_manifest, handle)
+            manifest_path = Path(handle.name)
+        try:
+            result = self.invoke_validator(
+                self.crontab(active_jobs), manifest=manifest_path
+            )
+        finally:
+            manifest_path.unlink()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(
+            [job["id"] for job in payload["jobs"]],
+            [job["id"] for job in active_jobs],
+        )
 
     def test_duplicate_loose_owner_fails_closed(self):
         result = self.invoke_validator(self.crontab() + self.crontab().splitlines()[1] + "\n")
