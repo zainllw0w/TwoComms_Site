@@ -554,6 +554,52 @@ def _cancel_claim(job_id: int, token: str, reason: str) -> IgAiReplyRecoveryJob:
         return job
 
 
+def cancel_recoveries_for_spam(client_id: int) -> int:
+    """Cancel unsent recovery work after an irreversible spam block.
+
+    A spam-blocked client must never receive a recovery send. Jobs that have
+    already crossed Meta's non-idempotent boundary remain untouched; only
+    pending/failed intents without a provider receipt are terminalized.
+    """
+    cancelled = 0
+    now = timezone.now()
+    with transaction.atomic():
+        jobs = (
+            IgAiReplyRecoveryJob.objects.select_for_update()
+            .filter(
+                client_id=client_id,
+                status__in=(
+                    IgAiReplyRecoveryJob.Status.PENDING,
+                    IgAiReplyRecoveryJob.Status.FAILED,
+                ),
+                provider_message_id="",
+            )
+            .order_by("id")
+        )
+        for job in jobs:
+            job.status = IgAiReplyRecoveryJob.Status.CANCELLED
+            job.last_error = "client_spam"
+            job.lease_token = ""
+            job.lease_until = None
+            job.next_attempt_at = None
+            job.completed_at = job.completed_at or now
+            job.save(update_fields=[
+                "status", "last_error", "lease_token", "lease_until",
+                "next_attempt_at", "completed_at", "updated_at",
+            ])
+            if job.reply_message_id:
+                InstagramBotMessage.objects.filter(
+                    pk=job.reply_message_id,
+                    provider_message_id="",
+                ).update(
+                    status=InstagramBotMessage.Status.DONE,
+                    send_state="cancelled",
+                    send_completed_at=now,
+                )
+            cancelled += 1
+    return cancelled
+
+
 def _recovery_retry_at(*, attempts: int, now):
     exponent = max(0, int(attempts or 1) - 1)
     seconds = min(

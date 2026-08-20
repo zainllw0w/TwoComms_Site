@@ -6,7 +6,12 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 
-from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
+from management.models import (
+    IgAiReplyRecoveryJob,
+    IgClient,
+    InstagramBotMessage,
+    InstagramBotSettings,
+)
 from management.services import instagram_bot as bot
 
 
@@ -170,6 +175,35 @@ class SpamStrikeTests(TestCase):
         self.assertNotIn(c.username, text)
         self.assertIn(f"Клієнт ID: {c.pk}", text)
         self.assertIn(f"?client={c.pk}", text)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_spam_block_cancels_unreplied_recovery(self, _mock_notify):
+        c = IgClient.get_or_create_for_sender("sp-recovery")
+        source = InstagramBotMessage.objects.create(
+            sender_id=c.igsid,
+            client=c,
+            role=InstagramBotMessage.Role.USER,
+            text="Hello",
+            status=InstagramBotMessage.Status.DONE,
+            send_state="sent",
+        )
+        from management.services.ig_ai_reply_recovery import schedule_recovery
+
+        job = schedule_recovery(source)
+        job.status = job.Status.FAILED
+        job.attempts = 3
+        job.last_error = "recovery_generation_failed"
+        job.completed_at = timezone.now()
+        job.save(update_fields=["status", "attempts", "last_error", "completed_at"])
+
+        self.assertFalse(bot._register_spam(c))
+        self.assertFalse(bot._register_spam(c))
+        self.assertTrue(bot._register_spam(c))
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, IgAiReplyRecoveryJob.Status.CANCELLED)
+        self.assertEqual(job.last_error, "client_spam")
+        self.assertFalse(job.provider_message_id)
 
 
 class PhoneCaptureTests(TestCase):

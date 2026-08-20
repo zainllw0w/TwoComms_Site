@@ -680,6 +680,12 @@ def _register_spam(client) -> bool:
             client.set_stage(IgClient.Stage.SPAM, reason="spam")
         except Exception:
             pass
+        try:
+            from management.services.ig_ai_reply_recovery import cancel_recoveries_for_spam
+
+            cancel_recoveries_for_spam(client.pk)
+        except Exception as exc:  # noqa: BLE001 - spam block must still complete.
+            log("warning", "recovery_cancel", repr(exc))
         notify_manager(
             format_operator_alert(
                 "🚫 IG: клієнта заблоковано за spam policy",
