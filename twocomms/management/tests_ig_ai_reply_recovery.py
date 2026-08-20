@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from io import StringIO
 from unittest.mock import patch
@@ -578,6 +579,21 @@ class IgAIReplyRecoveryTests(TestCase):
                 source_message=self.source,
             ).exists()
         )
+
+    def test_command_dry_run_serializes_existing_activation_timestamp(self):
+        job = self.recovery.schedule_recovery(self.source)
+        output = StringIO()
+
+        call_command(
+            "recover_ig_ai_reply",
+            source_message=str(self.source.pk),
+            stdout=output,
+        )
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["mode"], "dry_run")
+        self.assertEqual(payload["job_id"], job.pk)
+        self.assertEqual(payload["activated_at"], job.activated_at.isoformat())
 
     def test_command_requires_explicit_acknowledgement_for_legacy_unreceipted_holding(self):
         holding = InstagramBotMessage.objects.create(

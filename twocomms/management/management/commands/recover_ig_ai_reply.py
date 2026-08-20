@@ -74,6 +74,11 @@ class Command(BaseCommand):
                     if preflight.get("response_window_deadline")
                     else None
                 ),
+                "activated_at": (
+                    preflight["activated_at"].isoformat()
+                    if preflight.get("activated_at")
+                    else None
+                ),
             }
             self.stdout.write(json.dumps(payload, ensure_ascii=True, sort_keys=True))
             return
