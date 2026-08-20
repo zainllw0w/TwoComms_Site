@@ -9331,11 +9331,16 @@ def _build_history(sender_id: str) -> list[dict]:
 
 def _claim_next() -> InstagramBotMessage | None:
     """Atomically claim the oldest row from the freshest active conversation."""
+    claimable_at = timezone.now()
     row = (
         InstagramBotMessage.objects.filter(
             role=InstagramBotMessage.Role.USER,
             status=InstagramBotMessage.Status.PENDING,
             client__hidden_at__isnull=True,
+        )
+        .exclude(
+            client__automation_lease_token__gt="",
+            client__automation_lease_until__gt=claimable_at,
         )
         .annotate(
             conversation_priority_at=Coalesce(

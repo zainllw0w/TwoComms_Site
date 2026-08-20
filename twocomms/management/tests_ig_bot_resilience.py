@@ -139,6 +139,42 @@ class ReclaimStaleProcessingTests(TestCase):
         message.refresh_from_db()
         self.assertEqual(message.status, InstagramBotMessage.Status.PROCESSING)
 
+    def test_claim_skips_conversation_with_an_active_automation_lease(self):
+        now = timezone.now()
+        busy_client = IgClient.get_or_create_for_sender("busy-claim-client")
+        busy_client.last_message_at = now
+        busy_client.automation_lease_token = "working"
+        busy_client.automation_lease_until = now + timedelta(minutes=2)
+        busy_client.save(update_fields=[
+            "last_message_at",
+            "automation_lease_token",
+            "automation_lease_until",
+            "updated_at",
+        ])
+        available_client = IgClient.get_or_create_for_sender("available-claim-client")
+        available_client.last_message_at = now - timedelta(minutes=1)
+        available_client.save(update_fields=["last_message_at", "updated_at"])
+        busy_message = InstagramBotMessage.objects.create(
+            sender_id=busy_client.igsid,
+            client=busy_client,
+            role=InstagramBotMessage.Role.USER,
+            text="busy",
+            status=InstagramBotMessage.Status.PENDING,
+        )
+        available_message = InstagramBotMessage.objects.create(
+            sender_id=available_client.igsid,
+            client=available_client,
+            role=InstagramBotMessage.Role.USER,
+            text="available",
+            status=InstagramBotMessage.Status.PENDING,
+        )
+
+        claimed = bot._claim_next()
+
+        self.assertEqual(claimed.pk, available_message.pk)
+        busy_message.refresh_from_db()
+        self.assertEqual(busy_message.status, InstagramBotMessage.Status.PENDING)
+
     def test_does_not_reclaim_stale_row_while_client_lease_is_active(self):
         client = IgClient.get_or_create_for_sender("stale-with-active-lease")
         client.automation_lease_token = "working"

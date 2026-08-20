@@ -320,10 +320,6 @@ def _claim_due(now) -> tuple[IgConversationAnalysisJob, int, int, str] | None:
                 attempts__lt=MAX_ATTEMPTS,
                 due_at__lte=now,
                 next_attempt_at__lte=now,
-                client__hidden_at__isnull=True,
-                client__is_blocked=False,
-            ).exclude(
-                client__stage=IgClient.Stage.SPAM,
             )
             .order_by("due_at", "id")
             .first()

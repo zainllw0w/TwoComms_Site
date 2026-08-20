@@ -1006,6 +1006,25 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertLess(job.watermark_message_id, hidden_message.pk)
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_due_job_for_client_that_becomes_spam_is_terminally_skipped(self, generate):
+        message = self.message("Потрібен розмір M")
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+        self.client.stage = IgClient.Stage.SPAM
+        self.client.save(update_fields=["stage", "updated_at"])
+
+        result = analysis.process_due_analysis(limit=1)
+
+        self.assertEqual(result, {"done": 0, "failed": 0, "skipped": 1, "superseded": 0})
+        job = IgConversationAnalysisJob.objects.get(client=self.client)
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.SKIPPED)
+        self.assertEqual(job.skip_reason, "spam_or_blocked")
+        generate.assert_not_called()
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_substantive_message_before_reaction_keeps_burst_eligible(self, generate):
         substantive = self.message("Чи є чорна футболка розміру M?")
         reaction = self.message("🔥")
