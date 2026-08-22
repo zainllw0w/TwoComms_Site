@@ -16,9 +16,12 @@ from storefront.models import Category, Product
 from storefront.seo_utils import (
     SEOKeywordGenerator,
     SEOMetaGenerator,
+    StructuredDataGenerator,
     _pick_product_description_source,
+    get_default_social_image_url,
     get_product_schema,
 )
+from storefront.templatetags.i18n_links import localized_social_image_path
 from storefront.views.static_pages import static_sitemap
 
 
@@ -49,6 +52,82 @@ class CanonicalHttpsRegressionTests(TestCase):
         self.assertIn('content="https://twocomms.shop/catalog/"', html)
         self.assertNotIn("http://twocomms.shop", html)
 
+
+@override_settings(SITE_BASE_URL="https://twocomms.shop")
+class SocialImageFallbackTests(TestCase):
+    def test_all_locales_resolve_to_versioned_brand_fallback(self):
+        expected = "img/social-preview-2026-08.jpg"
+
+        self.assertEqual(localized_social_image_path("uk"), expected)
+        self.assertEqual(localized_social_image_path("ru"), expected)
+        self.assertEqual(localized_social_image_path("en"), expected)
+        self.assertEqual(localized_social_image_path("de"), expected)
+
+    def test_default_social_image_is_versioned_across_schema_helpers(self):
+        expected = "https://twocomms.shop/static/img/social-preview-2026-08.jpg"
+
+        self.assertEqual(get_default_social_image_url(), expected)
+        self.assertEqual(StructuredDataGenerator.generate_organization_schema()["image"], expected)
+        self.assertEqual(StructuredDataGenerator.generate_homepage_storefront_schema()["image"], expected)
+
+    def test_default_social_image_uses_staticfiles_manifest_url(self):
+        hashed_path = "/static/img/social-preview-2026-08.316a6439031c.jpg"
+
+        with patch("storefront.seo_utils.static", return_value=hashed_path, create=True):
+            self.assertEqual(
+                get_default_social_image_url(),
+                f"https://twocomms.shop{hashed_path}",
+            )
+
+    def test_homepage_emits_complete_versioned_fallback_descriptor(self):
+        response = self.client.get(reverse("home"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'property="og:image"\n    content="https://twocomms.shop/static/img/social-preview-2026-08.jpg"',
+            html=False,
+        )
+        self.assertContains(response, 'property="og:image:alt"', html=False)
+        self.assertContains(response, 'property="og:image:type" content="image/jpeg"', html=False)
+        self.assertContains(response, 'property="og:image:width" content="1200"', html=False)
+        self.assertContains(response, 'property="og:image:height" content="630"', html=False)
+        self.assertContains(
+            response,
+            'name="twitter:image"\n    content="https://twocomms.shop/static/img/social-preview-2026-08.jpg"',
+            html=False,
+        )
+
+    def test_category_cover_replaces_fallback_without_false_dimensions(self):
+        category = Category.objects.create(
+            name="Social Category",
+            slug="social-category",
+            cover="category_covers/social-category.png",
+            is_active=True,
+        )
+
+        response = self.client.get(
+            reverse("catalog_by_cat", kwargs={"cat_slug": category.slug}),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        self.assertIn(
+            'property="og:image"\n    content="https://twocomms.shop/media/category_covers/social-category.png"',
+            html,
+        )
+        self.assertIn(
+            'name="twitter:image"\n    content="https://twocomms.shop/media/category_covers/social-category.png"',
+            html,
+        )
+        self.assertIn(
+            'property="og:image:alt" content="Social Category — TwoComms"',
+            html,
+        )
+        self.assertNotIn('property="og:image:type"', html)
+        self.assertNotIn('property="og:image:width"', html)
+        self.assertNotIn('property="og:image:height"', html)
 
 class ProductPageSeoRegressionTests(TestCase):
     def setUp(self):
@@ -93,7 +172,7 @@ class ProductPageSeoRegressionTests(TestCase):
         # into rendered HTML (Google ignores the tag and the boilerplate
         # listing creates noise / off-topic keyword stuffing risk).
         self.assertNotContains(response, '<meta name="keywords"', html=False)
-        self.assertContains(response, "social-preview.jpg", html=False)
+        self.assertContains(response, "social-preview-2026-08.jpg", html=False)
         self.assertContains(response, 'property="og:image:alt"', html=False)
 
     def test_footer_renders_canonical_phone(self):

@@ -7,10 +7,12 @@
 {% block og_title %}{{ meta_title }}{% endblock %}
 {% block og_description %}{{ meta_description }}{% endblock %}
 {% block og_image %}{% if post_social_image_url %}{{ post_social_image_url }}{% else %}{{ block.super }}{% endif %}{% endblock %}
-{% block og_image_alt %}{% if post_social_image_url %}{{ post.cover_alt|default:post.title }}{% else %}{{ block.super }}{% endif %}{% endblock %}
-{% block og_image_type %}{% if post_social_image_url %}image/webp{% else %}{{ block.super }}{% endif %}{% endblock %}
-{% block og_image_width %}{% if post_social_image_url %}1600{% else %}{{ block.super }}{% endif %}{% endblock %}
-{% block og_image_height %}{% if post_social_image_url %}1000{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block og_image_properties %}{% if post_social_image_url %}
+  <meta property="og:image:alt" content="{{ post.cover_alt|default:post.title }}">
+  {% if post_social_image_type %}<meta property="og:image:type" content="{{ post_social_image_type }}">{% endif %}
+  {% if post_social_image_width %}<meta property="og:image:width" content="{{ post_social_image_width }}">{% endif %}
+  {% if post_social_image_height %}<meta property="og:image:height" content="{{ post_social_image_height }}">{% endif %}
+{% else %}{{ block.super }}{% endif %}{% endblock %}
 {% block twitter_title %}{{ meta_title }}{% endblock %}
 {% block twitter_description %}{{ meta_description }}{% endblock %}
 {% block twitter_image %}{% if post_social_image_url %}{{ post_social_image_url }}{% else %}{{ block.super }}{% endif %}{% endblock %}

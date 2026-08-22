@@ -14,11 +14,14 @@
 {% block og_type %}website{% endblock %}
 {% block og_title %}{{ landing.seo_title }}{% endblock %}
 {% block og_description %}{{ landing.seo_description }}{% endblock %}
-{% block og_image %}{% if category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
+{% block og_image %}{% if category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block og_image_properties %}{% if category.cover %}<meta property="og:image:alt" content="{{ category.name }} — TwoComms">{% else %}{{ block.super }}{% endif %}{% endblock %}
 
 {% block twitter_url %}{{ canonical_url }}{% endblock %}
 {% block twitter_title %}{{ landing.seo_title }}{% endblock %}
 {% block twitter_description %}{{ landing.seo_description }}{% endblock %}
+{% block twitter_image %}{% if category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ block.super }}{% endif %}{% endblock %}
+{% block twitter_image_alt %}{% if category.cover %}{{ category.name }} — TwoComms{% else %}{{ block.super }}{% endif %}{% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">

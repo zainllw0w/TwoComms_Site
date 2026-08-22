@@ -13,8 +13,16 @@
   <meta property="og:description" content="{% block og_description %}{% trans "Прозорий розрахунок, ручна перевірка макета, доставка Новою Поштою." %}{% endblock %}">
   <meta property="og:locale" content="uk_UA">
   <meta property="og:url" content="{{ request.build_absolute_uri }}">
-  <!-- ASSET_REQUEST | id=og-dtf | type=photo | usage=Open Graph share image | spec=1200x630 | notes=DTF Lab Proof cover -->
-  <meta property="og:image" content="{% static 'dtf/assets/og-dtf.jpg' %}">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'dtf/assets/og-dtf.jpg' %}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1024">
+  <meta property="og:image:height" content="1024">
+  <meta property="og:image:alt" content="{% trans 'TwoComms DTF — друк у рулоні 60 см' %}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{% block twitter_title %}{% trans 'DTF друк у рулоні 60 см' %}{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}{% trans 'Прозорий розрахунок, ручна перевірка макета, доставка Новою Поштою.' %}{% endblock %}">
+  <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'dtf/assets/og-dtf.jpg' %}">
+  <meta name="twitter:image:alt" content="{% trans 'TwoComms DTF — друк у рулоні 60 см' %}">
   <link rel="canonical" href="{{ request.build_absolute_uri }}">
   {% if not debug %}
   <!-- Ahrefs Web Analytics -->

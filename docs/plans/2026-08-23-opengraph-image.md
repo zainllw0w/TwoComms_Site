@@ -152,7 +152,7 @@ Confirm deployed SHA, image HTTP 200, `Content-Type: image/jpeg`, 1200x630 bytes
 
 - fallback pages use the new versioned card;
 - product/category/blog pages keep their owned images;
+- DTF pages keep their dedicated square image with absolute OG/Twitter URLs and truthful 1024x1024 metadata;
 - OG and Twitter URLs match;
 - structured properties describe the selected image truthfully;
 - schema fallbacks use the new versioned URL.
-

@@ -9,6 +9,7 @@
 {% block og_title %}{% seo_title product=product %}{% endblock %}
 {% block og_description %}{% seo_description product=product %}{% endblock %}
 {% block og_image %}{% seo_og_image product=product %}{% endblock %}
+{% block og_image_properties %}<meta property="og:image:alt" content="{{ product.title }}">{% endblock %}
 {% block twitter_title %}{% seo_title product=product %}{% endblock %}
 {% block twitter_description %}{% seo_description product=product %}{% endblock %}
 {% block twitter_image %}{% seo_og_image product=product %}{% endblock %}

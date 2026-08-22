@@ -85,7 +85,15 @@ class _ProductHeroParser(HTMLParser):
             self.preload_image_srcsets.append(attributes.get("imagesrcset", ""))
         if tag == "meta":
             key = attributes.get("property") or attributes.get("name")
-            if key in {"og:image", "og:image:alt", "twitter:image", "twitter:image:alt"}:
+            if key in {
+                "og:image",
+                "og:image:alt",
+                "og:image:type",
+                "og:image:width",
+                "og:image:height",
+                "twitter:image",
+                "twitter:image:alt",
+            }:
                 self.meta_content[key] = attributes.get("content", "")
 
     def handle_endtag(self, tag):
@@ -134,6 +142,32 @@ class ProductViewTestCase(TestCase):
 
     def _image_file(self, name: str) -> SimpleUploadedFile:
         return SimpleUploadedFile(name, PNG_PIXEL, content_type="image/png")
+
+
+class ProductSocialMetadataTests(ProductViewTestCase):
+    @override_settings(**PDP_HERO_RENDER_TEST_SETTINGS)
+    def test_product_social_image_does_not_inherit_fallback_dimensions(self):
+        with self.settings(MEDIA_ROOT=self._media_root):
+            self.product.main_image = self._image_file("product-social.png")
+            self.product.save(update_fields=["main_image"])
+
+            response = self.client.get(
+                reverse("product", kwargs={"slug": self.product.slug}),
+                secure=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        parser = _ProductHeroParser()
+        parser.feed(response.content.decode())
+        self.assertIn("product-social.png", parser.meta_content["og:image"])
+        self.assertEqual(
+            parser.meta_content["og:image:alt"],
+            "Test Product — головне фото товару TwoComms",
+        )
+        self.assertIn("product-social.png", parser.meta_content["twitter:image"])
+        self.assertNotIn("og:image:type", parser.meta_content)
+        self.assertNotIn("og:image:width", parser.meta_content)
+        self.assertNotIn("og:image:height", parser.meta_content)
 
 
 class ProductHomepageImageTests(ProductViewTestCase):

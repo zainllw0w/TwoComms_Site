@@ -230,47 +230,11 @@ def og_locale_alternates(context) -> Dict[str, str]:
 
 @register.simple_tag
 def localized_social_image_path(code: str | None) -> str:
-    """Return the static-relative path to the locale's OG/Twitter image.
+    """Return the approved cache-busting OG/Twitter fallback.
 
-    SEO molecular-upgrade US-17 — localized social previews. Each
-    language gets its own 1200x630 social card so the SERP/Facebook/
-    Twitter previews speak the visitor's language.
-
-    Hotfix 2026-05-17: the three localized JPGs were referenced before
-    they actually existed in ``staticfiles_manifest`` on prod, which
-    raised ``ValueError: Missing staticfiles manifest entry`` and 500'd
-    every page that extended ``base.html``. Until
-    ``scripts/render_social_previews.py`` is run on the server (needs
-    libcairo) we degrade gracefully to the canonical
-    ``img/social-preview.jpg`` — present in every previous build and
-    therefore guaranteed to resolve through ``ManifestStaticFilesStorage``.
-    The locale-specific path is only returned if the storage actually
-    knows about it, so once the JPGs land the locale variant kicks in
-    automatically with no template change.
+    The August 2026 brand card is intentionally shared across locales. Entity
+    pages still override it with their product, category, or article image.
+    One versioned path prevents locale drift and stale social-crawler caches.
     """
 
-    code = (code or _DEFAULT_LANG).lower()
-    mapping = {
-        "uk": "img/social-preview-uk.jpg",
-        "ru": "img/social-preview-ru.jpg",
-        "en": "img/social-preview-en.jpg",
-    }
-    fallback = "img/social-preview.jpg"
-    candidate = mapping.get(code, fallback)
-
-    # Probe the manifest. Only ManifestStaticFilesStorage exposes
-    # ``hashed_files``; ordinary FileSystemStorage tolerates missing
-    # entries already, so we just return the candidate there.
-    try:
-        from django.contrib.staticfiles.storage import staticfiles_storage
-        manifest = getattr(staticfiles_storage, "hashed_files", None)
-        if manifest is None:
-            return candidate
-        if candidate in manifest:
-            return candidate
-        if fallback in manifest:
-            return fallback
-    except Exception:
-        # Defensive: never let this tag crash the whole render.
-        return fallback
-    return candidate
+    return "img/social-preview-2026-08.jpg"

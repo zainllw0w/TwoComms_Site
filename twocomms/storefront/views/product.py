@@ -1252,6 +1252,8 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         except Exception:
             selected_color_variant = None
 
+    social_image_is_fallback = not bool(display_image)
+
     social_image_alt = primary_image_alt
     if not product.main_image:
         # ``seo_og_image`` falls back to ``product.display_image`` on a base
@@ -1288,6 +1290,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         # variant image changes the social card away from ``display_image``.
         if selected_social_image and getattr(selected_social_image, "image", None):
             social_image_alt = initial_hero_image_alt
+            social_image_is_fallback = False
 
     return render(
         request,
@@ -1312,6 +1315,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'initial_hero_image_url': initial_hero_image_url,
             'initial_hero_image_alt': initial_hero_image_alt,
             'social_image_alt': social_image_alt,
+            'social_image_is_fallback': social_image_is_fallback,
             'product_video': product_video,
             'product_faq_items': product_faq_items,
             'available_sizes': available_sizes,

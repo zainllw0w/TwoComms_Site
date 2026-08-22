@@ -263,6 +263,21 @@ class DtfSubdomainIsolationTests(TestCase):
         self.assertIn("/static/dtf/css/dtf.css", html)
         self.assertIn('class="logo-mark">DTF', html)
 
+    def test_dtf_home_emits_absolute_square_social_image_metadata(self):
+        response = self.dtf_client.get("/", secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8", "ignore")
+        image_url = "https://dtf.twocomms.shop/static/dtf/assets/og-dtf.jpg"
+        self.assertIn(f'property="og:image" content="{image_url}"', html)
+        self.assertIn('property="og:image:type" content="image/jpeg"', html)
+        self.assertIn('property="og:image:width" content="1024"', html)
+        self.assertIn('property="og:image:height" content="1024"', html)
+        self.assertIn('property="og:image:alt"', html)
+        self.assertIn('name="twitter:card" content="summary"', html)
+        self.assertIn(f'name="twitter:image" content="{image_url}"', html)
+        self.assertIn('name="twitter:image:alt"', html)
+
     def test_dtf_home_hero_uses_responsive_sources(self):
         response = self.dtf_client.get("/", secure=True)
         self.assertEqual(response.status_code, 200)

@@ -54,7 +54,7 @@ namespace + the legacy og:price aliases for the older social parsers.
 {% block og_description %}{% if variant_page_description %}{{ variant_page_description }}{% else %}{% seo_description product=product %}{% endif %}{% endblock %}
 {# Phase 21 (PR-2 T7.3) — variant-aware OG/Twitter image; see seo_og_image template tag. #}
 {% block og_image %}{% seo_og_image product=product selected_variant=selected_color_variant %}{% endblock %}
-{% block og_image_alt %}{{ social_image_alt|default:product.title }}{% endblock %}
+{% block og_image_properties %}{% if social_image_is_fallback %}{{ block.super }}{% else %}<meta property="og:image:alt" content="{{ social_image_alt|default:product.title }}">{% endif %}{% endblock %}
 {% block twitter_title %}{% if variant_page_title %}{{ variant_page_title }}{% else %}{% seo_title product=product %}{% endif %}{% endblock %}
 {% block twitter_description %}{% if variant_page_description %}{{ variant_page_description }}{% else %}{% seo_description product=product %}{% endif %}{% endblock %}
 {% block twitter_image %}{% seo_og_image product=product selected_variant=selected_color_variant %}{% endblock %}

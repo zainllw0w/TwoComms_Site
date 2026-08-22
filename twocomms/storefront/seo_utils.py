@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import List, Dict, Optional
 from urllib.parse import urljoin
 from django.conf import settings
+from django.templatetags.static import static
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import get_language
@@ -27,7 +28,7 @@ SITE_BASE_URL = getattr(settings, 'SITE_BASE_URL', 'https://twocomms.shop')
 if not SITE_BASE_URL.endswith('/'):
     SITE_BASE_URL += '/'
 
-DEFAULT_SOCIAL_IMAGE_PATH = "static/img/social-preview.jpg"
+DEFAULT_SOCIAL_IMAGE_PATH = "img/social-preview-2026-08.jpg"
 
 
 def _build_absolute_url(path: str) -> str:
@@ -40,7 +41,7 @@ def _build_absolute_url(path: str) -> str:
 
 
 def get_default_social_image_url() -> str:
-    return _build_absolute_url(DEFAULT_SOCIAL_IMAGE_PATH)
+    return _build_absolute_url(static(DEFAULT_SOCIAL_IMAGE_PATH))
 
 
 def _localized_static_text(values: Dict[str, str]) -> str:
@@ -1573,7 +1574,7 @@ class StructuredDataGenerator:
         """
         base_url = _build_absolute_url("")
         logo_url = _build_absolute_url("static/img/logo.svg")
-        social_image = _build_absolute_url(DEFAULT_SOCIAL_IMAGE_PATH)
+        social_image = get_default_social_image_url()
         return {
             "@context": "https://schema.org",
             "@type": ["Organization", "OnlineStore"],
@@ -1735,7 +1736,7 @@ class StructuredDataGenerator:
         Knowledge Graph stays deduplicated.
         """
         base_url = _build_absolute_url("")
-        social_image = _build_absolute_url(DEFAULT_SOCIAL_IMAGE_PATH)
+        social_image = get_default_social_image_url()
         aggregate = _homepage_price_aggregate()
 
         node: Dict[str, object] = {

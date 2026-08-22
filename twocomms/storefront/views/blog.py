@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import mimetypes
 
 from django.conf import settings
 from django.contrib import messages
@@ -316,7 +317,20 @@ def blog_post(request, slug):
     if post.seo_keywords:
         article_schema["keywords"] = post.seo_keywords
     post_social_image_url = _absolute_url(request, post.cover_image.url) if post.cover_image else ""
-    article_schema["image"] = [post_social_image_url or _absolute_url(request, static("img/social-preview.jpg"))]
+    post_social_image_type = ""
+    post_social_image_width = None
+    post_social_image_height = None
+    if post_social_image_url:
+        post_social_image_type = mimetypes.guess_type(post.cover_image.name)[0] or ""
+        try:
+            post_social_image_width = post.cover_image.width
+            post_social_image_height = post.cover_image.height
+        except (AttributeError, FileNotFoundError, OSError, ValueError):
+            pass
+    article_schema["image"] = [
+        post_social_image_url
+        or _absolute_url(request, static("img/social-preview-2026-08.jpg"))
+    ]
     blocks_html, block_schema = render_post_blocks(post, request=request)
     post_cta_url = localize_internal_url(post.cta_url, language_code) if post.cta_url else ""
     if (post.cta_url or "").rstrip("/") == "/custom-print":
@@ -362,6 +376,9 @@ def blog_post(request, slug):
             "meta_description": post.seo_description or post.excerpt,
             "canonical_path": post.get_absolute_url(),
             "post_social_image_url": post_social_image_url,
+            "post_social_image_type": post_social_image_type,
+            "post_social_image_width": post_social_image_width,
+            "post_social_image_height": post_social_image_height,
             "article_schema": _json(article_schema),
             "breadcrumb_schema": _json(
                 {

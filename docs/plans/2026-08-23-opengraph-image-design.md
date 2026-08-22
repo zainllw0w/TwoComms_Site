@@ -19,7 +19,8 @@ The image chosen for a page remains entity-aware:
 1. A self-canonical product/color URL uses that product or color variant's image.
 2. A catalog/category page uses the category cover when it has one.
 3. A blog article uses its optimized WebP cover.
-4. Pages without an owned preview, plus entity pages without an image, use the new fallback.
+4. The DTF subdomain keeps its dedicated square DTF preview.
+5. Pages without an owned preview, plus entity pages without an image, use the new fallback.
 
 The new fallback is shared across UA, RU, and EN because the approved artwork itself is the canonical brand card. Old locale-specific rendered cards are no longer selected.
 
@@ -30,6 +31,7 @@ The new fallback is shared across UA, RU, and EN because the approved artwork it
 - Blog covers retain their known `image/webp`, 1600x1000 metadata.
 - Dynamic product/category images keep their entity URL and alt, but must not inherit the fallback's JPEG MIME type or 1200x630 dimensions when those facts are not guaranteed.
 - Schema.org organization/storefront/homepage/contact fallbacks use the same versioned static path. Blog and product structured data keep their own images.
+- The DTF card uses an absolute URL, truthful JPEG 1024x1024 properties, and a square Twitter summary card rather than pretending to be the 1200x630 brand fallback.
 
 This follows the Open Graph structured-property rule that type, dimensions, and alt describe the immediately preceding image instead of a different fallback asset.
 
@@ -40,4 +42,3 @@ This follows the Open Graph structured-property rule that type, dimensions, and 
 - Run `collectstatic --noinput` locally against an isolated static root to prove the manifest contains the versioned asset.
 - Push the scoped commits directly to `main`.
 - On production, pull `main`, run `collectstatic --noinput`, restart Passenger, then verify HTML metadata and the image response for representative fallback, product, category, and blog URLs.
-

@@ -140,7 +140,10 @@ class BlogPublicTests(TestCase):
         self.assertContains(first, self.post.source_url)
         article_schema = json.loads(first.context["article_schema"])
         self.assertEqual(article_schema["publisher"]["@id"], "https://twocomms.shop/#organization")
-        self.assertEqual(article_schema["image"], ["https://testserver/static/img/social-preview.jpg"])
+        self.assertEqual(
+            article_schema["image"],
+            ["https://testserver/static/img/social-preview-2026-08.jpg"],
+        )
 
     def test_article_page_renders_editorial_source_and_custom_print_cta_blocks_when_attached(self):
         BlogPostBlock.objects.create(
@@ -213,7 +216,22 @@ class BlogPublicTests(TestCase):
             self.assertTrue(post.cover_image.name.endswith(".webp"))
             with Image.open(post.cover_image.path) as optimized:
                 self.assertEqual(optimized.format, "WEBP")
-                self.assertLessEqual(max(optimized.size), 1600)
+                self.assertEqual(optimized.size, (1500, 1000))
+
+            response = self.client.get(
+                reverse("blog_post", kwargs={"slug": post.slug}),
+                secure=True,
+            )
+            self.assertContains(
+                response,
+                'property="og:image:width" content="1500"',
+                html=False,
+            )
+            self.assertContains(
+                response,
+                'property="og:image:height" content="1000"',
+                html=False,
+            )
 
     def test_sitemaps_and_index_targets_include_blog_urls(self):
         post_sitemap = BlogPostSitemap()
