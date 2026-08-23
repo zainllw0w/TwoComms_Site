@@ -31,6 +31,8 @@ class IgDiscountTelegramCallbackTests(TestCase):
             manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.PENDING,
             manager_approval_requested_at=timezone.now(),
         )
+        client.next_followup_at = task.due_at
+        client.save(update_fields=["next_followup_at", "updated_at"])
         notification = IgBotNotification.objects.create(
             client=client,
             dedupe_key=f"discount_approval:{task.pk}",
@@ -122,6 +124,8 @@ class IgDiscountTelegramCallbackTests(TestCase):
             IgFollowUpTask.ManagerApprovalStatus.REJECTED,
         )
         self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
+        task.client.refresh_from_db()
+        self.assertIsNone(task.client.next_followup_at)
         answer.assert_called_once()
         edit.assert_called_once()
 

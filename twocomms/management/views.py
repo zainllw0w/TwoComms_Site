@@ -4227,6 +4227,9 @@ def management_bot_webhook(request, token):
                     'status', 'failure_kind', 'payload', 'updated_at'
                 ])
 
+            from management.services.bot_followups import _update_client_next
+
+            _update_client_next(task.client)
             final_text = str(msg.get('text') or 'Рішення щодо знижки')
             final_text += (
                 f'\n\n✅ Знижку {int(task.discount_percent)}% підтверджено.'
