@@ -92,6 +92,21 @@ class InstagramBotNotificationTests(TestCase):
         self.assertEqual(payload["reply_markup"], keyboard)
         self.assertEqual(IgBotNotification.objects.get(dedupe_key="payment-review-button").payload["reply_markup"], keyboard)
 
+    def test_payment_review_is_explicitly_actionable_for_terminal_monitoring(self):
+        with patch(
+            "management.services.instagram_bot._deliver_manager_notification",
+            return_value=True,
+        ):
+            bot.notify_manager(
+                "Перевірка оплати",
+                dedupe_key="payment-review-actionable",
+                event_type="payment_review",
+                metadata={"requires_human_review": True},
+            )
+
+        row = IgBotNotification.objects.get(dedupe_key="payment-review-actionable")
+        self.assertTrue(row.payload["requires_human_review"])
+
     @patch.dict(
         "os.environ",
         {

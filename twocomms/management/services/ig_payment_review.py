@@ -2176,7 +2176,10 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             event_type="payment_review",
             client=client,
             reply_markup=_review_keyboard(review),
-            metadata={"payment_candidate": payment_confirmation_candidate(review)},
+            metadata={
+                "payment_candidate": payment_confirmation_candidate(review),
+                "requires_human_review": True,
+            },
         )
         return review
 

@@ -347,6 +347,10 @@ class FinalOfferReachabilityTests(FollowupCoreMixin, TestCase):
         self.assertIsNotNone(task)
         self.assertEqual(task.kind, IgFollowUpTask.Kind.FINAL)
         self.assertEqual(task.discount_percent, 10)
+        self.assertEqual(
+            task.manager_approval_status,
+            IgFollowUpTask.ManagerApprovalStatus.PENDING,
+        )
 
     def test_rescue_is_available_at_the_qualifying_stage(self):
         from management.services.bot_followups import schedule_rescue_offer
@@ -359,6 +363,10 @@ class FinalOfferReachabilityTests(FollowupCoreMixin, TestCase):
 
         self.assertIsNotNone(task)
         self.assertEqual(task.discount_percent, 5)
+        self.assertEqual(
+            task.manager_approval_status,
+            IgFollowUpTask.ManagerApprovalStatus.PENDING,
+        )
 
     def test_rescue_stays_unavailable_for_a_cold_client(self):
         from management.services.bot_followups import schedule_rescue_offer

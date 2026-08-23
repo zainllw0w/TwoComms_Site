@@ -4073,6 +4073,186 @@ def management_bot_webhook(request, token):
             _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
             return JsonResponse({'ok': True})
 
+        # Discount decisions use Telegram's callback webhook and therefore do
+        # not depend on the Instagram worker staying alive while a manager
+        # decides. The durable follow-up remains unsendable until this branch
+        # commits APPROVED.
+        if data.startswith('igdisc:'):
+            if not admin_token or token != admin_token or not admin_chat_cfg:
+                _tg_answer_callback(bot_token, cb_id, "Доступ не налаштовано")
+                return JsonResponse({'ok': True})
+            callback_from = callback.get('from') if isinstance(callback.get('from'), dict) else {}
+            telegram_user_id = str(callback_from.get('id') or '')
+            chat_type = str(msg_chat.get('type') or '')
+            actor = None
+            try:
+                profile = UserProfile.objects.select_related('user').filter(
+                    tg_manager_chat_id=telegram_user_id,
+                    user__is_active=True,
+                ).first()
+                candidate_actor = profile.user if profile else None
+                actor = candidate_actor if candidate_actor and user_is_management(candidate_actor) else None
+            except Exception:
+                actor = None
+            if chat_type == 'private':
+                sender_authorized = bool(telegram_user_id and telegram_user_id == str(chat_id))
+            else:
+                configured_user_ids = set(_split_chat_ids(os.environ.get('MANAGEMENT_TG_ADMIN_USER_IDS')))
+                sender_authorized = bool(
+                    telegram_user_id
+                    and (telegram_user_id in configured_user_ids or actor is not None)
+                )
+            if not sender_authorized:
+                _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
+                return JsonResponse({'ok': True})
+            parts = data.split(':', 2)
+            action = parts[1] if len(parts) == 3 else ''
+            if action not in {'approve', 'reject'}:
+                _tg_answer_callback(bot_token, cb_id, 'Невідома дія')
+                return JsonResponse({'ok': True})
+            try:
+                task_id = int(parts[2])
+            except (TypeError, ValueError):
+                _tg_answer_callback(bot_token, cb_id, 'Невірний ID')
+                return JsonResponse({'ok': True})
+
+            from management.models import (
+                IgBotNotification,
+                IgBotNotificationAudit,
+                IgFollowUpTask,
+            )
+
+            desired = (
+                IgFollowUpTask.ManagerApprovalStatus.APPROVED
+                if action == 'approve'
+                else IgFollowUpTask.ManagerApprovalStatus.REJECTED
+            )
+            transitioned = False
+            now = timezone.now()
+            with transaction.atomic():
+                task = (
+                    IgFollowUpTask.objects.select_for_update()
+                    .select_related('client')
+                    .filter(pk=task_id, discount_percent__gt=0)
+                    .first()
+                )
+                notification = (
+                    IgBotNotification.objects.select_for_update()
+                    .filter(dedupe_key=f'discount_approval:{task_id}')
+                    .first()
+                )
+                payload_data = (
+                    notification.payload
+                    if notification and isinstance(notification.payload, dict)
+                    else {}
+                )
+                bound_message_id = str(
+                    payload_data.get('main_delivery_message_id')
+                    or getattr(notification, 'telegram_message_id', '')
+                    or ''
+                )
+                if (
+                    task is None
+                    or notification is None
+                    or notification.event_type != 'discount_approval'
+                    or int(payload_data.get('followup_task_id') or 0) != task_id
+                    or bound_message_id != str(message_id or '')
+                    or (
+                        str(payload_data.get('chat_id') or '')
+                        and str(payload_data.get('chat_id')) != str(chat_id)
+                    )
+                ):
+                    _tg_answer_callback(bot_token, cb_id, 'Ця кнопка не належить цьому рішенню')
+                    return JsonResponse({'ok': True})
+                current = task.manager_approval_status
+                if current not in {
+                    IgFollowUpTask.ManagerApprovalStatus.PENDING,
+                    IgFollowUpTask.ManagerApprovalStatus.NOT_REQUIRED,
+                    desired,
+                }:
+                    _tg_answer_callback(
+                        bot_token,
+                        cb_id,
+                        f'Поточний статус: {task.get_manager_approval_status_display()}',
+                    )
+                    return JsonResponse({'ok': True, 'status': current})
+                if current != desired:
+                    if task.status != IgFollowUpTask.Status.PENDING:
+                        _tg_answer_callback(bot_token, cb_id, 'Follow-up вже не активний')
+                        return JsonResponse({'ok': True, 'status': task.status})
+                    transitioned = True
+                    task.manager_approval_status = desired
+                    task.manager_approval_decided_at = now
+                    task.manager_approval_actor = actor
+                    update_fields = [
+                        'manager_approval_status',
+                        'manager_approval_decided_at',
+                        'manager_approval_actor',
+                        'updated_at',
+                    ]
+                    if desired == IgFollowUpTask.ManagerApprovalStatus.APPROVED:
+                        task.due_at = min(task.due_at, now)
+                        update_fields.append('due_at')
+                    else:
+                        task.status = IgFollowUpTask.Status.CANCELLED
+                        task.skip_reason = 'discount_rejected'
+                        task.claim_token = ''
+                        task.claim_until = None
+                        task.next_attempt_at = None
+                        update_fields.extend([
+                            'status', 'skip_reason', 'claim_token',
+                            'claim_until', 'next_attempt_at',
+                        ])
+                    task.save(update_fields=update_fields)
+                    IgBotNotificationAudit.objects.create(
+                        notification=notification,
+                        actor=actor,
+                        action=(
+                            'discount_approved'
+                            if desired == IgFollowUpTask.ManagerApprovalStatus.APPROVED
+                            else 'discount_rejected'
+                        ),
+                        from_status=notification.status,
+                        to_status=IgBotNotification.Status.RESOLVED,
+                        note=f'followup_task={task.pk}; telegram_user={telegram_user_id}',
+                    )
+                notification.status = IgBotNotification.Status.RESOLVED
+                notification.failure_kind = f'discount_{desired}'
+                notification.payload = {
+                    **payload_data,
+                    'review_status': desired,
+                    'actor_id': getattr(actor, 'pk', None),
+                }
+                notification.save(update_fields=[
+                    'status', 'failure_kind', 'payload', 'updated_at'
+                ])
+
+            final_text = str(msg.get('text') or 'Рішення щодо знижки')
+            final_text += (
+                f'\n\n✅ Знижку {int(task.discount_percent)}% підтверджено.'
+                if desired == IgFollowUpTask.ManagerApprovalStatus.APPROVED
+                else f'\n\n❌ Знижку {int(task.discount_percent)}% відхилено.'
+            )
+            base = getattr(settings, 'MANAGEMENT_BASE_URL', 'https://management.twocomms.shop').rstrip('/')
+            keyboard = {'inline_keyboard': [[{
+                'text': 'Відкрити клієнта',
+                'url': f'{base}/bot/?client={task.client_id}',
+            }]]}
+            _tg_edit_message(
+                bot_token,
+                chat_id,
+                message_id,
+                final_text[:3900],
+                reply_markup=keyboard,
+                parse_mode=None,
+            )
+            _tg_answer_callback(
+                bot_token,
+                cb_id,
+                ('Дію вже виконано' if not transitioned else ('Підтверджено' if action == 'approve' else 'Відхилено')),
+            )
+            return JsonResponse({'ok': True, 'status': desired})
+
         # Instagram payment reviews are confirmed directly from Telegram. The
         # callback is the decision itself; the management URL remains only for
         # the editable order form and audit trail.
@@ -4272,7 +4452,6 @@ def management_bot_webhook(request, token):
                 _tg_answer_callback(bot_token, cb_id, 'Невірний ID')
                 return JsonResponse({'ok': True})
 
-            from django.db import transaction
             from management.models import ManagerPayoutRequest, PayoutRejectionReasonRequest
 
             req = None

@@ -722,6 +722,7 @@ def schedule_followup(
         if already_sent:
             return None
 
+    bounded_discount = max(0, min(10, int(discount_percent or 0)))
     with transaction.atomic():
         if event_key:
             existing = IgFollowUpTask.objects.select_for_update().filter(
@@ -747,7 +748,12 @@ def schedule_followup(
             kind=task_kind,
             level=client.followup_level if level is None else level,
             reason=(task_reason or "")[:120],
-            discount_percent=max(0, min(10, int(discount_percent or 0))),
+            discount_percent=bounded_discount,
+            manager_approval_status=(
+                IgFollowUpTask.ManagerApprovalStatus.PENDING
+                if bounded_discount
+                else IgFollowUpTask.ManagerApprovalStatus.NOT_REQUIRED
+            ),
             meta_window_deadline=deadline,
             message_text=message_text or "",
             event_key=(str(event_key)[:180] if event_key else None),
@@ -2383,6 +2389,88 @@ def _escalate_missing_delivery(task: IgFollowUpTask, client: IgClient) -> bool:
     )
 
 
+def _ensure_discount_approval_request(
+    task_id: int,
+    *,
+    now: datetime,
+) -> bool:
+    """Queue one manager decision and return whether the discount may send."""
+    with transaction.atomic():
+        task = (
+            IgFollowUpTask.objects.select_for_update()
+            .select_related("client", "deal")
+            .filter(
+                pk=task_id,
+                status=IgFollowUpTask.Status.PENDING,
+                due_at__lte=now,
+                discount_percent__gt=0,
+            )
+            .first()
+        )
+        if task is None:
+            return False
+        if task.manager_approval_status == IgFollowUpTask.ManagerApprovalStatus.APPROVED:
+            return True
+        if task.manager_approval_status == IgFollowUpTask.ManagerApprovalStatus.REJECTED:
+            task.status = IgFollowUpTask.Status.CANCELLED
+            task.skip_reason = "discount_rejected"
+            task.save(update_fields=["status", "skip_reason", "updated_at"])
+            return False
+        if task.manager_approval_status == IgFollowUpTask.ManagerApprovalStatus.NOT_REQUIRED:
+            # Fail closed for legacy rows created before the approval field.
+            task.manager_approval_status = IgFollowUpTask.ManagerApprovalStatus.PENDING
+            task.save(update_fields=["manager_approval_status", "updated_at"])
+        if task.manager_approval_requested_at:
+            return False
+
+        from management.services.ig_alerts import client_admin_url, format_alert
+        from management.services.instagram_bot import notify_manager
+
+        amount = str(getattr(task.deal, "amount", "") or "").strip()
+        lines = [
+            f"Клієнт ID: {task.client_id}",
+            f"Follow-up ID: {task.pk}",
+            f"Знижка: {int(task.discount_percent)}%",
+        ]
+        if amount:
+            lines.append(f"Сума до знижки: {amount} грн")
+        queued = notify_manager(
+            format_alert(
+                "🏷️ IG: потрібне рішення щодо знижки",
+                lines=lines,
+                url=client_admin_url(task.client_id),
+                url_label="Клієнт:",
+            ),
+            dedupe_key=f"discount_approval:{task.pk}",
+            event_type="discount_approval",
+            client=task.client,
+            reply_markup={
+                "inline_keyboard": [[
+                    {
+                        "text": f"✅ Підтвердити {int(task.discount_percent)}%",
+                        "callback_data": f"igdisc:approve:{task.pk}",
+                    },
+                    {
+                        "text": "❌ Відхилити",
+                        "callback_data": f"igdisc:reject:{task.pk}",
+                    },
+                ]]
+            },
+            metadata={
+                "followup_task_id": task.pk,
+                "decision_type": "discount",
+                "discount_percent": int(task.discount_percent),
+                "requires_human_review": True,
+            },
+            deliver_immediately=False,
+        )
+        if not queued:
+            return False
+        task.manager_approval_requested_at = now
+        task.save(update_fields=["manager_approval_requested_at", "updated_at"])
+        return False
+
+
 def _claim_due_followup(
     task_id: int, *, now: datetime, automation
 ) -> tuple[IgFollowUpTask, IgClient, str] | None:
@@ -2400,6 +2488,9 @@ def _claim_due_followup(
         Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
     ).filter(
         Q(claim_token="") | Q(claim_until__isnull=True) | Q(claim_until__lte=now),
+    ).filter(
+        Q(discount_percent=0)
+        | Q(manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.APPROVED),
     ).values("client_id").first()
     if not candidate:
         return None
@@ -2437,6 +2528,9 @@ def _claim_due_followup(
         ).filter(
             Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
             Q(claim_token="") | Q(claim_until__isnull=True) | Q(claim_until__lte=now),
+        ).filter(
+            Q(discount_percent=0)
+            | Q(manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.APPROVED),
         ).first()
         if task is not None:
             task.claim_token = claim_token
@@ -2474,6 +2568,9 @@ def _renew_due_followup_claim(
         Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
         claim_token=task_claim_token,
         claim_until__gt=now,
+    ).filter(
+        Q(discount_percent=0)
+        | Q(manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.APPROVED),
     ).first()
     if not task:
         return None
@@ -2496,10 +2593,28 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
     sent = 0
     recover_expired_followup_leases(now=now, limit=limit)
     recover_sent_followup_receipts(now=now, limit=limit)
+    approval_ids = list(
+        IgFollowUpTask.objects.filter(
+            status=IgFollowUpTask.Status.PENDING,
+            due_at__lte=now,
+            discount_percent__gt=0,
+        )
+        .exclude(
+            manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.APPROVED,
+        )
+        .order_by("due_at", "id")
+        .values_list("id", flat=True)[:limit]
+    )
+    for approval_id in approval_ids:
+        _ensure_discount_approval_request(approval_id, now=now)
     task_ids = list(
         IgFollowUpTask.objects
         .filter(status=IgFollowUpTask.Status.PENDING, due_at__lte=now)
         .exclude(kind=IgFollowUpTask.Kind.MANAGER_TASK)
+        .filter(
+            Q(discount_percent=0)
+            | Q(manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.APPROVED)
+        )
         .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
         .order_by("due_at", "id")[:limit]
         .values_list("id", flat=True)

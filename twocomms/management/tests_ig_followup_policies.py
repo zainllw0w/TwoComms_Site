@@ -776,6 +776,7 @@ class FollowupPolicyIntegrationTests(TestCase):
             reason="price_objection",
             level=0,
             discount_percent=5,
+            manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.APPROVED,
             meta_window_deadline=self.now + timedelta(hours=23),
         )
 
@@ -788,6 +789,44 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertEqual(event.evidence["followup_task_id"], task.pk)
         self.assertEqual(event.evidence["provider_message_id"], "meta-discount-1")
         self.assertTrue(event.evidence["delivery_confirmed"])
+
+    @patch("management.services.instagram_bot.send_text")
+    def test_due_discount_waits_for_one_manager_decision_alert(self, send_text):
+        from management.services.bot_followups import process_due_followups
+
+        self.client_record.stage = IgClient.Stage.CHECKOUT
+        self.client_record.primary_objection = IgClient.Objection.PRICE
+        self.client_record.save(update_fields=["stage", "primary_objection", "updated_at"])
+        task = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind=IgFollowUpTask.Kind.RESCUE,
+            reason="price_objection",
+            discount_percent=5,
+            meta_window_deadline=self.now + timedelta(hours=23),
+        )
+
+        self.assertEqual(process_due_followups(self.settings, now=self.now, limit=1), 0)
+        self.assertEqual(process_due_followups(self.settings, now=self.now, limit=1), 0)
+
+        send_text.assert_not_called()
+        task.refresh_from_db()
+        self.assertEqual(
+            task.manager_approval_status,
+            IgFollowUpTask.ManagerApprovalStatus.PENDING,
+        )
+        self.assertIsNotNone(task.manager_approval_requested_at)
+        alert = IgBotNotification.objects.get(dedupe_key=f"discount_approval:{task.pk}")
+        self.assertEqual(alert.event_type, "discount_approval")
+        self.assertTrue(alert.payload["requires_human_review"])
+        buttons = alert.payload["reply_markup"]["inline_keyboard"][0]
+        self.assertEqual(buttons[0]["callback_data"], f"igdisc:approve:{task.pk}")
+        self.assertEqual(buttons[1]["callback_data"], f"igdisc:reject:{task.pk}")
+        self.assertEqual(
+            IgBotNotification.objects.filter(dedupe_key=f"discount_approval:{task.pk}").count(),
+            1,
+        )
 
     def test_restock_event_is_materialized_with_stable_key(self):
         from management.services.bot_followups import materialize_restock

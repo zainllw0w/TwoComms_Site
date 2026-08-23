@@ -4152,6 +4152,12 @@ class IgFollowUpTask(models.Model):
         EVENT = "event", _("Подія")
         REACTIVE = "reactive", _("Реактивно")
 
+    class ManagerApprovalStatus(models.TextChoices):
+        NOT_REQUIRED = "not_required", _("Не потрібне")
+        PENDING = "pending", _("Очікує рішення")
+        APPROVED = "approved", _("Підтверджено")
+        REJECTED = "rejected", _("Відхилено")
+
     client = models.ForeignKey(
         "management.IgClient", on_delete=models.CASCADE, related_name="followup_tasks"
     )
@@ -4164,6 +4170,22 @@ class IgFollowUpTask(models.Model):
     level = models.PositiveSmallIntegerField(default=0)
     reason = models.CharField(max_length=120, blank=True, default="", db_index=True)
     discount_percent = models.PositiveSmallIntegerField(default=0)
+    manager_approval_status = models.CharField(
+        max_length=16,
+        choices=ManagerApprovalStatus.choices,
+        default=ManagerApprovalStatus.NOT_REQUIRED,
+        db_index=True,
+    )
+    manager_approval_requested_at = models.DateTimeField(null=True, blank=True)
+    manager_approval_decided_at = models.DateTimeField(null=True, blank=True)
+    manager_approval_actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ig_followup_approvals",
+        db_constraint=False,
+    )
     meta_window_deadline = models.DateTimeField(null=True, blank=True, db_index=True)
     message_text = models.TextField(blank=True, default="")
     # Durable event identity and two-phase worker claim.  A nullable unique
