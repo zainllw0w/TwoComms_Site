@@ -423,6 +423,26 @@ class InstagramBotNotificationTests(TestCase):
             2,
         )
 
+    def test_obsolete_queued_terminal_monitor_is_resolved_before_delivery(self):
+        monitor = IgBotNotification.objects.create(
+            dedupe_key="ig-notification-terminal:legacy-hour-bucket",
+            event_type="notification_terminal_monitor",
+            payload={"text": "Старий monitor", "requires_human_review": False},
+            status=IgBotNotification.Status.PENDING,
+        )
+
+        self.assertEqual(bot.reconcile_obsolete_terminal_monitors(), 1)
+
+        monitor.refresh_from_db()
+        self.assertEqual(monitor.status, IgBotNotification.Status.RESOLVED)
+        self.assertEqual(monitor.failure_kind, "terminal_monitor_obsolete")
+        self.assertTrue(
+            IgBotNotificationAudit.objects.filter(
+                notification=monitor,
+                action="terminal_monitor_obsolete",
+            ).exists()
+        )
+
     @patch.dict(
         "os.environ",
         {"MANAGEMENT_TG_BOT_TOKEN": "test-token", "MANAGEMENT_TG_ADMIN_CHAT_ID": "123"},

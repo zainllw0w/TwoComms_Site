@@ -4003,6 +4003,93 @@ def reconcile_recovered_system_notifications(*, limit: int = 100) -> int:
     return resolved
 
 
+def _actionable_terminal_notifications():
+    from management.services.ig_alerts import HUMAN_REVIEW_EVENT_CODES
+
+    return IgBotNotification.objects.filter(
+        status__in=[
+            IgBotNotification.Status.UNKNOWN,
+            IgBotNotification.Status.DEAD_LETTER,
+        ],
+    ).filter(
+        Q(payload__requires_human_review=True)
+        | Q(event_type__in=HUMAN_REVIEW_EVENT_CODES)
+    ).exclude(event_type="notification_terminal_monitor")
+
+
+def _terminal_notification_fingerprint(queryset) -> str:
+    fingerprint_rows = list(
+        queryset.order_by("id").values_list("id", "status")
+    )
+    if not fingerprint_rows:
+        return ""
+    return hashlib.sha256(
+        ";".join(
+            f"{row_id}:{status}" for row_id, status in fingerprint_rows
+        ).encode("utf-8")
+    ).hexdigest()[:20]
+
+
+def reconcile_obsolete_terminal_monitors(*, limit: int = 100) -> int:
+    """Cancel queued summaries whose actionable set recovered or changed."""
+    from management.models import IgBotNotificationAudit
+
+    fingerprint = _terminal_notification_fingerprint(
+        _actionable_terminal_notifications()
+    )
+    current_key = f"ig-notification-terminal:{fingerprint}" if fingerprint else ""
+    candidates = IgBotNotification.objects.filter(
+        event_type="notification_terminal_monitor",
+        status__in=[
+            IgBotNotification.Status.PENDING,
+            IgBotNotification.Status.FAILED,
+        ],
+    )
+    if current_key:
+        candidates = candidates.exclude(dedupe_key=current_key)
+    candidate_ids = list(
+        candidates.order_by("id").values_list("id", flat=True)[:
+            max(1, min(int(limit), 500))
+        ]
+    )
+    resolved = 0
+    for notification_id in candidate_ids:
+        with transaction.atomic():
+            row = (
+                IgBotNotification.objects.select_for_update()
+                .filter(
+                    pk=notification_id,
+                    event_type="notification_terminal_monitor",
+                    status__in=[
+                        IgBotNotification.Status.PENDING,
+                        IgBotNotification.Status.FAILED,
+                    ],
+                )
+                .first()
+            )
+            if row is None or (current_key and row.dedupe_key == current_key):
+                continue
+            from_status = row.status
+            payload = row.payload if isinstance(row.payload, dict) else {}
+            row.status = IgBotNotification.Status.RESOLVED
+            row.failure_kind = "terminal_monitor_obsolete"
+            row.next_attempt_at = None
+            row.payload = {**payload, "review_status": "auto_recovered"}
+            row.save(update_fields=[
+                "status", "failure_kind", "next_attempt_at", "payload", "updated_at"
+            ])
+            IgBotNotificationAudit.objects.create(
+                notification=row,
+                actor=None,
+                action="terminal_monitor_obsolete",
+                from_status=from_status,
+                to_status=IgBotNotification.Status.RESOLVED,
+                note="actionable terminal set recovered or changed",
+            )
+            resolved += 1
+    return resolved
+
+
 def drain_manager_notifications(*, limit: int = 20) -> int:
     try:
         from accounts.signals import reconcile_registration_notification_intents
@@ -4015,6 +4102,7 @@ def drain_manager_notifications(*, limit: int = 20) -> int:
             type(exc).__name__,
         )
     reconcile_recovered_system_notifications(limit=limit)
+    reconcile_obsolete_terminal_monitors(limit=limit)
     now = timezone.now()
     stale_before = now - timedelta(seconds=NOTIFICATION_STALE_SENDING_SECONDS)
     stale_ids = list(
@@ -4080,14 +4168,7 @@ def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) ->
         IgBotNotification.Status.UNKNOWN,
         IgBotNotification.Status.DEAD_LETTER,
     ]
-    from management.services.ig_alerts import HUMAN_REVIEW_EVENT_CODES
-
-    actionable = IgBotNotification.objects.filter(
-        status__in=terminal_statuses,
-    ).filter(
-        Q(payload__requires_human_review=True)
-        | Q(event_type__in=HUMAN_REVIEW_EVENT_CODES)
-    ).exclude(event_type="notification_terminal_monitor")
+    actionable = _actionable_terminal_notifications()
     counts = {status: 0 for status in terminal_statuses}
     for item in (
         actionable.values("status")
@@ -4100,12 +4181,7 @@ def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) ->
     )
     if not rows:
         return 0
-    fingerprint_rows = list(
-        actionable.order_by("id").values_list("id", "status")
-    )
-    fingerprint = hashlib.sha256(
-        ";".join(f"{row_id}:{status}" for row_id, status in fingerprint_rows).encode("utf-8")
-    ).hexdigest()[:20]
+    fingerprint = _terminal_notification_fingerprint(actionable)
     from management.services.ig_alerts import ALERT_EVENT_CODES, safe_machine_code
 
     samples = []
