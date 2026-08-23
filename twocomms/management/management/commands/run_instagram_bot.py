@@ -688,9 +688,8 @@ class Command(BaseCommand):
                     return
                 starting_state = _starting_child_state()
                 if starting_state == "current":
-                    raise CommandError(
-                        "daemon initialization pending after singleton lock"
-                    )
+                    self.stdout.write("daemon starting — pending")
+                    return
                 if starting_state == "stale":
                     raise CommandError(
                         "daemon startup exceeded pending window while holding singleton lock"
@@ -752,9 +751,8 @@ class Command(BaseCommand):
                 if not _wait_for_daemon_ready(timeout=DAEMON_READY_WAIT_SECONDS):
                     return_code = child.poll()
                     if return_code is None:
-                        raise CommandError(
-                            "daemon initialization pending after singleton lock"
-                        )
+                        self.stdout.write("daemon starting — pending")
+                        return
                     _clear_starting_child(
                         expected_pid=getattr(child, "pid", None)
                     )

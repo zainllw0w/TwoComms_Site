@@ -508,7 +508,7 @@ print(json.dumps({
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
     @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=False)
-    def test_lock_without_heartbeat_remains_initialization_failure(
+    def test_lock_without_heartbeat_remains_pending_inside_startup_window(
         self, _held, _wait, popen, _ready, log
     ):
         popen.return_value.pid = os.getpid()
@@ -517,9 +517,11 @@ print(json.dumps({
             "management.management.commands.run_instagram_bot.STARTING_FILE",
             os.path.join(temp_dir, "starting.json"),
         ):
-            with self.assertRaisesMessage(CommandError, "initialization pending"):
-                Command()._ensure()
+            command = Command()
+            with patch.object(command, "stdout") as stdout:
+                command._ensure()
             self.assertTrue(os.path.exists(os.path.join(temp_dir, "starting.json")))
+            stdout.write.assert_called_with("daemon starting — pending")
 
         log.assert_not_called()
 
