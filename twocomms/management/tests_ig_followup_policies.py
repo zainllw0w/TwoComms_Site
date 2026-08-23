@@ -832,6 +832,11 @@ class FollowupPolicyIntegrationTests(TestCase):
         from management.models import IgBotNotificationAudit
         from management.services.bot_followups import cancel_pending, process_due_followups
 
+        self.client_record.stage = IgClient.Stage.CHECKOUT
+        self.client_record.primary_objection = IgClient.Objection.PRICE
+        self.client_record.save(update_fields=[
+            "stage", "primary_objection", "updated_at"
+        ])
         task = IgFollowUpTask.objects.create(
             client=self.client_record,
             due_at=self.now,
@@ -871,6 +876,30 @@ class FollowupPolicyIntegrationTests(TestCase):
         from management.services.bot_followups import process_due_followups
 
         self.assertEqual(process_due_followups(self.settings, now=self.now, limit=1), 0)
+        self.assertFalse(
+            IgBotNotification.objects.filter(
+                dedupe_key=f"discount_approval:{task.pk}"
+            ).exists()
+        )
+
+    def test_expired_discount_is_cancelled_before_approval_alert(self):
+        task = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind=IgFollowUpTask.Kind.RESCUE,
+            reason="price_objection",
+            discount_percent=5,
+            manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.PENDING,
+            meta_window_deadline=self.now - timedelta(seconds=1),
+        )
+
+        from management.services.bot_followups import process_due_followups
+
+        self.assertEqual(process_due_followups(self.settings, now=self.now, limit=1), 0)
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.CANCELLED)
+        self.assertEqual(task.skip_reason, "meta_window_closed")
         self.assertFalse(
             IgBotNotification.objects.filter(
                 dedupe_key=f"discount_approval:{task.pk}"

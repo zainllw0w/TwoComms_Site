@@ -19,8 +19,12 @@ from management.views import management_bot_webhook
 class IgDiscountTelegramCallbackTests(TestCase):
     def _task_and_notification(self, *, message_id="501"):
         client = IgClient.get_or_create_for_sender(f"discount-callback-{message_id}")
+        client.stage = IgClient.Stage.CHECKOUT
+        client.primary_objection = IgClient.Objection.PRICE
         client.last_message_at = timezone.now()
-        client.save(update_fields=["last_message_at", "updated_at"])
+        client.save(update_fields=[
+            "stage", "primary_objection", "last_message_at", "updated_at"
+        ])
         task = IgFollowUpTask.objects.create(
             client=client,
             due_at=timezone.now() - timedelta(minutes=1),
@@ -77,6 +81,9 @@ class IgDiscountTelegramCallbackTests(TestCase):
         task, notification = self._task_and_notification()
 
         first = management_bot_webhook(self._request(task, "approve"), "token")
+        task.refresh_from_db()
+        task.status = IgFollowUpTask.Status.SENT
+        task.save(update_fields=["status", "updated_at"])
         second = management_bot_webhook(
             self._request(task, "approve", callback_id="cb-repeat"), "token"
         )
@@ -90,6 +97,7 @@ class IgDiscountTelegramCallbackTests(TestCase):
             IgFollowUpTask.ManagerApprovalStatus.APPROVED,
         )
         self.assertIsNotNone(task.manager_approval_decided_at)
+        self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
         self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
         self.assertEqual(
             IgBotNotificationAudit.objects.filter(
@@ -150,4 +158,32 @@ class IgDiscountTelegramCallbackTests(TestCase):
             IgFollowUpTask.ManagerApprovalStatus.PENDING,
         )
         answer.assert_called_once_with("token", "cb", "Недостатньо прав")
+        edit.assert_not_called()
+
+    @patch.dict(
+        "os.environ",
+        {"MANAGEMENT_TG_ADMIN_CHAT_ID": "777", "MANAGEMENT_TG_BOT_TOKEN": "token"},
+        clear=False,
+    )
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_answer_callback")
+    def test_expired_discount_cannot_be_approved_from_stale_button(self, answer, edit):
+        task, notification = self._task_and_notification(message_id="504")
+        task.meta_window_deadline = timezone.now() - timedelta(seconds=1)
+        task.save(update_fields=["meta_window_deadline", "updated_at"])
+
+        response = management_bot_webhook(
+            self._request(task, "approve", message_id=504), "token"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        task.refresh_from_db()
+        notification.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.CANCELLED)
+        self.assertNotEqual(
+            task.manager_approval_status,
+            IgFollowUpTask.ManagerApprovalStatus.APPROVED,
+        )
+        self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
+        answer.assert_called_once_with("token", "cb", "Follow-up більше не актуальний")
         edit.assert_not_called()

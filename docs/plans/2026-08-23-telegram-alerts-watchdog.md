@@ -41,7 +41,8 @@ exist.
 
 Atomically persist PID/start/sentinel after spawn. Treat a still-live child as a
 pending handoff, reject stale live ownership, clear dead markers, and let only
-the matching child clear the marker after it owns the singleton.
+the matching child clear the marker only after reconciliation and heartbeat/PID
+publication make it genuinely ready.
 
 **Step 4: Update the managed cron contract test first**
 

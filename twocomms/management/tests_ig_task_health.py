@@ -68,14 +68,17 @@ class TaskHeartbeatTests(TestCase):
         with self.assertRaises(CommandError):
             with task_heartbeat("ig_daemon_watchdog"):
                 raise CommandError(
-                    "daemon child still running after 15s without singleton lock"
+                    "daemon initialization pending after singleton lock"
                 )
 
         self.assertEqual(
             notify.call_args.kwargs["metadata"]["task_failure_reason"],
-            "daemon_start_pending",
+            "daemon_initialization_pending",
         )
-        self.assertIn("Причина: daemon_start_pending", notify.call_args.args[0])
+        self.assertIn(
+            "Причина: daemon_initialization_pending",
+            notify.call_args.args[0],
+        )
 
     def test_unobserved_task_has_a_deploy_grace_period_then_degrades(self):
         self.assertTrue(ensure_task_expectations())

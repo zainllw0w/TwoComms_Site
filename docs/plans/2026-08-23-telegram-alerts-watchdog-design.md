@@ -41,11 +41,13 @@ startup takes more than the 15-second handshake but the child is still alive,
 the watchdog reports `daemon starting — pending` instead of a false
 `CommandError`; the next minute sees the marker and cannot spawn a duplicate.
 
-The child clears only its own marker after acquiring the singleton. Dead
-markers are removed automatically; a live marker older than the bounded
-startup window fails closed and does not permit a second child. This preserves
-long-lived conversation/analysis cadences and avoids terminating in-flight
-Telegram, Meta, or MariaDB operations.
+The child clears only its own marker after acquiring the singleton, completing
+commercial reconciliation, and publishing heartbeat/PID. Lock ownership alone
+is therefore `initialization pending`, not healthy. Dead markers are removed
+automatically; a live marker older than the bounded startup window fails closed
+and does not permit a second child. This preserves long-lived
+conversation/analysis cadences and avoids terminating in-flight Telegram,
+Meta, or MariaDB operations.
 
 ## Notification lifecycle
 

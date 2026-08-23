@@ -59,6 +59,7 @@ ANALYSIS_RECONCILE_BATCH = 100
 RELOAD_LOCK_WAIT_SECONDS = 45
 MAX_RELOAD_LOCK_WAIT_SECONDS = 300
 DAEMON_START_WAIT_SECONDS = 15
+DAEMON_READY_WAIT_SECONDS = 8
 DAEMON_START_PENDING_SECONDS = 120
 TASK_HEALTH_CHECK_EVERY = 60
 
@@ -105,6 +106,15 @@ def _wait_for_lock(path: str, *, held: bool, timeout: float = 6.0) -> bool:
             return True
         time.sleep(0.1)
     return _process_lock_held(path) is held
+
+
+def _wait_for_daemon_ready(*, timeout: float = DAEMON_READY_WAIT_SECONDS) -> bool:
+    deadline = time.monotonic() + max(0.0, timeout)
+    while time.monotonic() < deadline:
+        if _daemon_alive() and _daemon_code_current():
+            return True
+        time.sleep(0.1)
+    return _daemon_alive() and _daemon_code_current()
 
 
 def _read_starting_child() -> dict:
@@ -673,8 +683,18 @@ class Command(BaseCommand):
                 # let the bounded reload path recover it instead of reporting
                 # a false healthy daemon to cron.
                 if _daemon_code_current() and _daemon_alive():
+                    _clear_starting_child()
                     self.stdout.write("daemon alive — ok")
                     return
+                starting_state = _starting_child_state()
+                if starting_state == "current":
+                    raise CommandError(
+                        "daemon initialization pending after singleton lock"
+                    )
+                if starting_state == "stale":
+                    raise CommandError(
+                        "daemon startup exceeded pending window while holding singleton lock"
+                    )
                 # Old code sees restart.txt and exits within at most one idle
                 # loop. Never spawn while it still owns the process lock.
                 if not _wait_for_lock(
@@ -729,6 +749,19 @@ class Command(BaseCommand):
                         f"daemon child exited with code {return_code} "
                         "before acquiring singleton lock"
                     )
+                if not _wait_for_daemon_ready(timeout=DAEMON_READY_WAIT_SECONDS):
+                    return_code = child.poll()
+                    if return_code is None:
+                        raise CommandError(
+                            "daemon initialization pending after singleton lock"
+                        )
+                    _clear_starting_child(
+                        expected_pid=getattr(child, "pid", None)
+                    )
+                    raise CommandError(
+                        f"daemon child exited with code {return_code} "
+                        "during initialization"
+                    )
                 _clear_starting_child(
                     expected_pid=getattr(child, "pid", None)
                 )
@@ -748,7 +781,6 @@ class Command(BaseCommand):
             if daemon_lock is None:
                 self.stdout.write("daemon already alive — exit")
                 return
-            _clear_starting_child(expected_pid=os.getpid())
             return self._forever_locked()
 
     def _forever_locked(self):
@@ -767,6 +799,7 @@ class Command(BaseCommand):
                 f.write(str(os.getpid()))
         except Exception:
             pass
+        _clear_starting_child(expected_pid=os.getpid())
         bot.log("success", "daemon_start", f"Демон онлайн (pid {os.getpid()}).")
 
         # Sentinel: запам'ятовуємо mtime tmp/restart.txt (його torkає кожен деплой).

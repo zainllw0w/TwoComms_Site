@@ -4128,6 +4128,7 @@ def management_bot_webhook(request, token):
                 else IgFollowUpTask.ManagerApprovalStatus.REJECTED
             )
             transitioned = False
+            stale_approval = False
             now = timezone.now()
             with transaction.atomic():
                 task = (
@@ -4164,6 +4165,11 @@ def management_bot_webhook(request, token):
                 ):
                     _tg_answer_callback(bot_token, cb_id, 'Ця кнопка не належить цьому рішенню')
                     return JsonResponse({'ok': True})
+                from management.services.bot_followups import (
+                    _resolve_discount_approval_notifications,
+                    discount_approval_eligibility,
+                )
+
                 current = task.manager_approval_status
                 if current not in {
                     IgFollowUpTask.ManagerApprovalStatus.PENDING,
@@ -4177,6 +4183,25 @@ def management_bot_webhook(request, token):
                     )
                     return JsonResponse({'ok': True, 'status': current})
                 if current != desired:
+                    eligible, ineligible_reason = discount_approval_eligibility(
+                        task,
+                        now=now,
+                    )
+                    if not eligible:
+                        task.status = IgFollowUpTask.Status.CANCELLED
+                        task.skip_reason = ineligible_reason
+                        task.claim_token = ''
+                        task.claim_until = None
+                        task.next_attempt_at = None
+                        task.save(update_fields=[
+                            'status', 'skip_reason', 'claim_token', 'claim_until',
+                            'next_attempt_at', 'updated_at',
+                        ])
+                        _resolve_discount_approval_notifications(
+                            [task.pk], reason=ineligible_reason
+                        )
+                        stale_approval = True
+                if not stale_approval and current != desired:
                     if task.status != IgFollowUpTask.Status.PENDING:
                         _tg_answer_callback(bot_token, cb_id, 'Follow-up вже не активний')
                         return JsonResponse({'ok': True, 'status': task.status})
@@ -4216,20 +4241,28 @@ def management_bot_webhook(request, token):
                         to_status=IgBotNotification.Status.RESOLVED,
                         note=f'followup_task={task.pk}; telegram_user={telegram_user_id}',
                     )
-                notification.status = IgBotNotification.Status.RESOLVED
-                notification.failure_kind = f'discount_{desired}'
-                notification.payload = {
-                    **payload_data,
-                    'review_status': desired,
-                    'actor_id': getattr(actor, 'pk', None),
-                }
-                notification.save(update_fields=[
-                    'status', 'failure_kind', 'payload', 'updated_at'
-                ])
+                if not stale_approval:
+                    notification.status = IgBotNotification.Status.RESOLVED
+                    notification.failure_kind = f'discount_{desired}'
+                    notification.payload = {
+                        **payload_data,
+                        'review_status': desired,
+                        'actor_id': getattr(actor, 'pk', None),
+                    }
+                    notification.save(update_fields=[
+                        'status', 'failure_kind', 'payload', 'updated_at'
+                    ])
 
             from management.services.bot_followups import _update_client_next
 
             _update_client_next(task.client)
+            if stale_approval:
+                _tg_answer_callback(
+                    bot_token,
+                    cb_id,
+                    'Follow-up більше не актуальний',
+                )
+                return JsonResponse({'ok': True, 'status': task.status})
             final_text = str(msg.get('text') or 'Рішення щодо знижки')
             final_text += (
                 f'\n\n✅ Знижку {int(task.discount_percent)}% підтверджено.'

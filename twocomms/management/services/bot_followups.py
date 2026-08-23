@@ -2470,6 +2470,22 @@ def _ensure_discount_approval_request(
         )
         if task is None:
             return False
+        eligible, ineligible_reason = discount_approval_eligibility(task, now=now)
+        if not eligible:
+            task.status = IgFollowUpTask.Status.CANCELLED
+            task.skip_reason = ineligible_reason
+            task.claim_token = ""
+            task.claim_until = None
+            task.next_attempt_at = None
+            task.save(update_fields=[
+                "status", "skip_reason", "claim_token", "claim_until",
+                "next_attempt_at", "updated_at",
+            ])
+            _resolve_discount_approval_notifications(
+                [task.pk], reason=ineligible_reason
+            )
+            _update_client_next(task.client)
+            return False
         if task.manager_approval_status == IgFollowUpTask.ManagerApprovalStatus.APPROVED:
             return True
         if task.manager_approval_status == IgFollowUpTask.ManagerApprovalStatus.REJECTED:
@@ -2533,6 +2549,43 @@ def _ensure_discount_approval_request(
         task.manager_approval_requested_at = now
         task.save(update_fields=["manager_approval_requested_at", "updated_at"])
         return False
+
+
+def discount_approval_eligibility(
+    task: IgFollowUpTask,
+    *,
+    now: datetime | None = None,
+) -> tuple[bool, str]:
+    """Revalidate every fact that can make a queued discount stale."""
+    now = now or _now()
+    if task.status != IgFollowUpTask.Status.PENDING:
+        return False, "task_not_pending"
+    if int(task.discount_percent or 0) <= 0:
+        return False, "discount_missing"
+    if task.kind == IgFollowUpTask.Kind.MANAGER_TASK:
+        return False, "manager_task"
+    if task.meta_window_deadline and now > task.meta_window_deadline:
+        return False, "meta_window_closed"
+    allowed, reason = _client_allows_followup(
+        task.client,
+        deal=task.deal,
+        kind=task.kind,
+    )
+    if not allowed:
+        return False, reason
+    policy_step = _policy_step_for_task(task)
+    if policy_step is not None:
+        if policy_step[1].trigger == "event":
+            allowed_event, event_reason = event_followup_fact_guard(task, now=now)
+            if not allowed_event:
+                return False, event_reason
+        elif not _policy_condition_holds(
+            policy_step[1].condition,
+            task.client,
+            deal=task.deal,
+        ):
+            return False, "policy_condition_changed"
+    return True, ""
 
 
 def _claim_due_followup(

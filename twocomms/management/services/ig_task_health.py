@@ -133,6 +133,10 @@ def mark_task_succeeded(task_key: str, *, duration_ms: int = 0, at=None) -> Inst
 def _task_failure_reason_code(exc: Exception) -> str:
     if exc.__class__.__name__ == "CommandError":
         message = str(exc or "").lower()
+        if "initialization pending" in message:
+            return "daemon_initialization_pending"
+        if "startup exceeded" in message:
+            return "daemon_startup_stale"
         if "still running" in message and "singleton lock" in message:
             return "daemon_start_pending"
         if "did not release singleton lock" in message:

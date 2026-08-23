@@ -340,10 +340,11 @@ print(json.dumps({
                 "foreign-replacement",
             )
 
+    @patch("management.management.commands.run_instagram_bot._wait_for_daemon_ready", return_value=True)
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
     @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=False)
-    def test_ensure_spawns_from_project_root_with_absolute_manage_path(self, _held, _wait, popen):
+    def test_ensure_spawns_from_project_root_with_absolute_manage_path(self, _held, _wait, popen, _ready):
         command = Command()
 
         with patch.object(command, "stdout") as stdout:
@@ -360,12 +361,13 @@ print(json.dumps({
         )
         stdout.write.assert_called()
 
+    @patch("management.management.commands.run_instagram_bot._wait_for_daemon_ready", return_value=True)
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
     @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
     @patch("management.management.commands.run_instagram_bot._daemon_code_current", return_value=False)
     def test_ensure_replaces_old_worker_after_restart_sentinel(
-        self, _current, _held, _wait, popen
+        self, _current, _held, _wait, popen, _ready
     ):
         command = Command()
         with patch.object(command, "stdout") as stdout:
@@ -384,13 +386,14 @@ print(json.dumps({
         popen.assert_not_called()
         stdout.write.assert_called_with("daemon alive — ok")
 
+    @patch("management.management.commands.run_instagram_bot._wait_for_daemon_ready", return_value=True)
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
     @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=True)
     @patch("management.management.commands.run_instagram_bot._daemon_alive", return_value=False)
     @patch("management.management.commands.run_instagram_bot._daemon_code_current", return_value=True)
     def test_ensure_restarts_when_current_code_has_stale_heartbeat(
-        self, _current, _alive, _held, wait, popen
+        self, _current, _alive, _held, wait, popen, _ready
     ):
         command = Command()
 
@@ -497,6 +500,58 @@ print(json.dumps({
 
         popen.assert_not_called()
 
+    @patch("management.management.commands.run_instagram_bot.bot.log")
+    @patch(
+        "management.management.commands.run_instagram_bot._wait_for_daemon_ready",
+        return_value=False,
+    )
+    @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
+    @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=False)
+    def test_lock_without_heartbeat_remains_initialization_failure(
+        self, _held, _wait, popen, _ready, log
+    ):
+        popen.return_value.pid = os.getpid()
+        popen.return_value.poll.return_value = None
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "management.management.commands.run_instagram_bot.STARTING_FILE",
+            os.path.join(temp_dir, "starting.json"),
+        ):
+            with self.assertRaisesMessage(CommandError, "initialization pending"):
+                Command()._ensure()
+            self.assertTrue(os.path.exists(os.path.join(temp_dir, "starting.json")))
+
+        log.assert_not_called()
+
+    @patch(
+        "management.management.commands.run_instagram_bot._try_process_lock",
+        return_value=nullcontext(object()),
+    )
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    @patch(
+        "management.management.commands.run_instagram_bot._reconcile_commercial_episodes_after_reload",
+        side_effect=RuntimeError("reconcile unavailable"),
+    )
+    def test_starting_marker_survives_reconciliation_failure(
+        self, _reconcile, _maintenance, _lock
+    ):
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "management.management.commands.run_instagram_bot.STARTING_FILE",
+            os.path.join(temp_dir, "starting.json"),
+        ), patch(
+            "management.management.commands.run_instagram_bot._restart_sentinel_mtime",
+            return_value=5.0,
+        ):
+            runner._record_starting_child(os.getpid())
+
+            with self.assertRaisesMessage(RuntimeError, "reconcile unavailable"):
+                Command()._forever()
+
+            self.assertTrue(os.path.exists(os.path.join(temp_dir, "starting.json")))
+
     @patch("management.management.commands.run_instagram_bot._daemon_alive", return_value=False)
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=False)
@@ -555,7 +610,7 @@ def fake_spawn(*args, **kwargs):
     with open(sys.argv[3], 'a') as marker_file:
         marker_file.write('spawned\\n')
     time.sleep(0.5)
-with patch.object(runner.subprocess, 'Popen', side_effect=fake_spawn), patch.object(runner, '_wait_for_lock', return_value=True), patch.object(runner.bot, 'log'):
+with patch.object(runner.subprocess, 'Popen', side_effect=fake_spawn), patch.object(runner, '_wait_for_lock', return_value=True), patch.object(runner, '_wait_for_daemon_ready', return_value=True), patch.object(runner.bot, 'log'):
     runner.Command()._ensure()
 """
             env = os.environ.copy()
