@@ -59,6 +59,8 @@ RELOAD_LOCK_WAIT_SECONDS = 45
 MAX_RELOAD_LOCK_WAIT_SECONDS = 300
 DAEMON_START_WAIT_SECONDS = 15
 TASK_HEALTH_CHECK_EVERY = 60
+MIN_BOUNDED_WORKER_SECONDS = 5
+MAX_BOUNDED_WORKER_SECONDS = 55
 
 # Cron may invoke manage.py from an arbitrary working directory. Resolve the
 # entry point from this command module and keep the child in the Django root.
@@ -118,6 +120,19 @@ def _bounded_reload_lock_wait(value: int | float | None) -> float:
             f"{MAX_RELOAD_LOCK_WAIT_SECONDS} seconds"
         )
     return wait_seconds
+
+
+def _bounded_worker_seconds(value: int | str | None) -> int:
+    try:
+        seconds = int(value)
+    except (TypeError, ValueError) as exc:
+        raise CommandError("bounded worker duration must be an integer") from exc
+    if not MIN_BOUNDED_WORKER_SECONDS <= seconds <= MAX_BOUNDED_WORKER_SECONDS:
+        raise CommandError(
+            "bounded worker duration must be between "
+            f"{MIN_BOUNDED_WORKER_SECONDS} and {MAX_BOUNDED_WORKER_SECONDS} seconds"
+        )
+    return seconds
 
 
 def _daemon_alive() -> bool:
@@ -452,6 +467,12 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--forever", action="store_true", help="Постійний демон.")
+        parser.add_argument(
+            "--run-for-seconds",
+            type=int,
+            metavar="SECONDS",
+            help="Cron-owned worker that exits cleanly after 5..55 seconds.",
+        )
         parser.add_argument("--ensure", action="store_true", help="Watchdog: підняти демона, якщо мертвий.")
         parser.add_argument("--once", action="store_true", help="Один прохід.")
         parser.add_argument(
@@ -487,6 +508,7 @@ class Command(BaseCommand):
             bool(opts.get(name))
             for name in ("once", "ensure", "forever")
         )
+        selected += int(opts.get("run_for_seconds") is not None)
         selected += int(opts.get("maintenance_on") is not None)
         selected += int(opts.get("maintenance_off") is not None)
         if selected > 1:
@@ -509,24 +531,35 @@ class Command(BaseCommand):
                 raise CommandError(str(exc)) from exc
             self.stdout.write("maintenance disabled")
             return
-        if opts["once"] or opts["ensure"] or opts["forever"]:
+        if (
+            opts.get("once")
+            or opts.get("ensure")
+            or opts.get("forever")
+            or opts.get("run_for_seconds") is not None
+        ):
             self._guard_runtime_database()
-        if opts["once"]:
+        if opts.get("once"):
             if maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 raise CommandError("maintenance active — --once refused")
             res = bot.poll_once(InstagramBotSettings.load())
             self.stdout.write(f"poll_once: {res}")
             return
 
-        if opts["ensure"]:
+        if opts.get("ensure"):
             with task_heartbeat("ig_daemon_watchdog"):
                 return self._ensure()
 
-        if opts["forever"]:
+        if opts.get("run_for_seconds") is not None:
+            duration = _bounded_worker_seconds(opts["run_for_seconds"])
+            with task_heartbeat("ig_daemon_watchdog"):
+                return self._forever(max_runtime_seconds=duration)
+
+        if opts.get("forever"):
             return self._forever()
 
         self.stdout.write(
-            "Вкажіть режим: --forever | --ensure | --once | --maintenance-on | --maintenance-off"
+            "Вкажіть режим: --forever | --run-for-seconds | --ensure | --once | "
+            "--maintenance-on | --maintenance-off"
         )
 
     def _maintenance_on(
@@ -640,7 +673,7 @@ class Command(BaseCommand):
                 raise CommandError(f"daemon spawn failed: {exc!r}") from exc
 
     # ------------------------------------------------------------------
-    def _forever(self):
+    def _forever(self, *, max_runtime_seconds: int | None = None):
         if maintenance_status(path=MAINTENANCE_FILE)["active"]:
             self.stdout.write("maintenance active — daemon exit")
             return
@@ -648,12 +681,17 @@ class Command(BaseCommand):
             if daemon_lock is None:
                 self.stdout.write("daemon already alive — exit")
                 return
-            return self._forever_locked()
+            return self._forever_locked(max_runtime_seconds=max_runtime_seconds)
 
-    def _forever_locked(self):
+    def _forever_locked(self, *, max_runtime_seconds: int | None = None):
         if maintenance_status(path=MAINTENANCE_FILE)["active"]:
             self.stdout.write("maintenance active — daemon exit")
             return
+        worker_deadline = (
+            time.monotonic() + _bounded_worker_seconds(max_runtime_seconds)
+            if max_runtime_seconds is not None
+            else None
+        )
         # This process starts only after the previous daemon released the
         # singleton lock. Reconcile once with the newly deployed code before
         # any notification, analysis, payment, or reply work can run.
@@ -713,6 +751,15 @@ class Command(BaseCommand):
             daemon=True,
         )
         follow_intelligence_worker.start()
+        workers = [
+            refresher,
+            analysis_worker,
+            recovery_worker,
+            permission_transition_worker,
+            inbox_refresh_worker,
+            lifecycle_worker,
+            follow_intelligence_worker,
+        ]
 
         from django.utils import timezone as tz
 
@@ -722,6 +769,9 @@ class Command(BaseCommand):
         try:
             while True:
                 close_old_connections()  # лікує "MySQL server has gone away"
+                if worker_deadline is not None and time.monotonic() >= worker_deadline:
+                    bot.log("info", "daemon_cycle_complete", "bounded worker completed")
+                    break
                 if maintenance_status(path=MAINTENANCE_FILE)["active"]:
                     bot.log("info", "daemon_maintenance", "Maintenance активний — daemon зупинено")
                     break
@@ -750,6 +800,8 @@ class Command(BaseCommand):
                 time.sleep(1.5 if enabled else 5)
         finally:
             stop_event.set()
+            for worker in workers:
+                worker.join(timeout=0.2)
             # Звільняємо heartbeat одразу, щоб watchdog підняв новий демон без
             # очікування TTL (інакше до 45 c простою після деплою).
             try:

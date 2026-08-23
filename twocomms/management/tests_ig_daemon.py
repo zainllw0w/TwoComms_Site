@@ -60,6 +60,34 @@ from management.services.ig_reply_boundary import (
 
 
 class DaemonPathTests(SimpleTestCase):
+    @override_settings(DEBUG=True)
+    def test_bounded_worker_runs_inline_under_watchdog_heartbeat(self):
+        with (
+            patch.object(runner, "connection", SimpleNamespace(vendor="sqlite"), create=True),
+            patch.object(Command, "_forever") as forever,
+            patch.object(runner, "task_heartbeat", return_value=nullcontext()) as heartbeat,
+        ):
+            Command().handle(
+                once=False,
+                ensure=False,
+                forever=False,
+                run_for_seconds=45,
+                maintenance_on=None,
+                maintenance_off=None,
+                maintenance_lease_id=None,
+                maintenance_wait_seconds=None,
+            )
+
+        heartbeat.assert_called_once_with("ig_daemon_watchdog")
+        forever.assert_called_once_with(max_runtime_seconds=45)
+
+    def test_bounded_worker_duration_is_strictly_bounded(self):
+        for value in (0, -1, 56, "bad"):
+            with self.subTest(value=value), self.assertRaises(CommandError):
+                runner._bounded_worker_seconds(value)
+
+        self.assertEqual(runner._bounded_worker_seconds(45), 45)
+
     @override_settings(DEBUG=False)
     def test_production_sqlite_refuses_every_execution_mode_before_work(self):
         with (
@@ -79,6 +107,7 @@ class DaemonPathTests(SimpleTestCase):
                 "once": False,
                 "ensure": False,
                 "forever": False,
+                "run_for_seconds": None,
                 "maintenance_on": None,
                 "maintenance_off": None,
                 "maintenance_lease_id": None,
@@ -108,6 +137,7 @@ class DaemonPathTests(SimpleTestCase):
                 once=False,
                 ensure=True,
                 forever=False,
+                run_for_seconds=None,
                 maintenance_on=None,
                 maintenance_off=None,
                 maintenance_lease_id=None,
@@ -1365,6 +1395,58 @@ class DaemonHeartbeatTests(SimpleTestCase):
                 Command()._forever_locked()
         _reconcile.assert_not_called()
         work_cycle.assert_not_called()
+
+    @patch("management.management.commands.run_instagram_bot.time.sleep")
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch("management.management.commands.run_instagram_bot.check_task_health")
+    @patch("management.management.commands.run_instagram_bot.ensure_task_expectations", return_value=True)
+    @patch("management.management.commands.run_instagram_bot.InstagramBotSettings.load")
+    @patch("management.management.commands.run_instagram_bot._run_work_cycle")
+    @patch("management.management.commands.run_instagram_bot.threading.Thread")
+    @patch("management.management.commands.run_instagram_bot.bot.log")
+    @patch(
+        "management.management.commands.run_instagram_bot._reconcile_commercial_episodes_after_reload"
+    )
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    def test_bounded_worker_exits_normally_at_monotonic_deadline(
+        self,
+        _maintenance,
+        _reconcile,
+        log,
+        thread_cls,
+        work_cycle,
+        settings_load,
+        _expectations,
+        _health,
+        _close,
+        _sleep,
+    ):
+        settings = SimpleNamespace(
+            pk=1,
+            is_enabled=False,
+            heartbeat_at=None,
+            save=lambda **_kwargs: None,
+        )
+        settings_load.return_value = settings
+        work_cycle.return_value = (False, 0.0)
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("management.management.commands.run_instagram_bot.PID_FILE", os.path.join(temp_dir, "daemon.pid")),
+            patch(
+                "management.management.commands.run_instagram_bot.time.monotonic",
+                side_effect=[100.0, 100.0, 100.0, 100.0, 146.0],
+            ),
+        ):
+            Command()._forever_locked(max_runtime_seconds=45)
+
+        work_cycle.assert_called_once()
+        log.assert_any_call("info", "daemon_cycle_complete", "bounded worker completed")
+        self.assertEqual(thread_cls.return_value.start.call_count, 7)
+        self.assertEqual(thread_cls.return_value.join.call_count, 7)
 
 
 class DaemonStatusTests(TestCase):

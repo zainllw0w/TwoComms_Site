@@ -50,10 +50,11 @@ validate_path "timeout executable" "$TIMEOUT_BIN"
 [ -x "$FLOCK_BIN" ] || error "flock is required: $FLOCK_BIN"
 [ -x "$TIMEOUT_BIN" ] || error "timeout is required: $TIMEOUT_BIN"
 
-# --ensure may wait up to 45s for an old daemon to drain and another 15s for
-# the replacement to acquire its singleton lock. Keep the outer timeout above
-# that bound so cron cannot kill a valid reload in its startup window.
-cron_line="* * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 75s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
+# CloudLinux repeatedly terminates detached long-lived workers. Keep ownership
+# with cron: the worker runs for 45 seconds, exits normally, and leaves ten
+# seconds for thread/database cleanup before timeout escalates.
+cron_line="* * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM --kill-after=10s 55s $PYTHON_BIN manage.py run_instagram_bot --run-for-seconds 45 >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
+previous_cron_line="* * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 75s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 legacy_line="* * * * * cd $DJANGO_ROOT && $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-ig-watchdog-cron.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT INT TERM
@@ -133,9 +134,9 @@ while IFS= read -r line || [ -n "$line" ]; do
   trimmed="${line#"${line%%[![:space:]]*}"}"
   case "$trimmed" in
     ""|\#*) continue ;;
-    *"manage.py run_instagram_bot --ensure"*)
+    *"manage.py run_instagram_bot --ensure"*|*"manage.py run_instagram_bot --run-for-seconds"*)
       outside_owner_count=$((outside_owner_count + 1))
-      if [ "$line" = "$legacy_line" ] || [ "$line" = "$cron_line" ]; then
+      if [ "$line" = "$legacy_line" ] || [ "$line" = "$previous_cron_line" ] || [ "$line" = "$cron_line" ]; then
         supported_outside_owner_count=$((supported_outside_owner_count + 1))
       fi
       ;;
@@ -182,7 +183,7 @@ while IFS= read -r line || [ -n "$line" ]; do
     skip_managed=1
     continue
   fi
-  if [ "$begin_count" -eq 0 ] && { [ "$line" = "$legacy_line" ] || [ "$line" = "$cron_line" ]; }; then
+  if [ "$begin_count" -eq 0 ] && { [ "$line" = "$legacy_line" ] || [ "$line" = "$previous_cron_line" ] || [ "$line" = "$cron_line" ]; }; then
     cat "$expected" >> "$candidate"
     inserted=1
     continue
