@@ -828,6 +828,55 @@ class FollowupPolicyIntegrationTests(TestCase):
             1,
         )
 
+    def test_cancelled_discount_resolves_queued_approval_before_delivery(self):
+        from management.models import IgBotNotificationAudit
+        from management.services.bot_followups import cancel_pending, process_due_followups
+
+        task = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind=IgFollowUpTask.Kind.RESCUE,
+            reason="price_objection",
+            discount_percent=5,
+            meta_window_deadline=self.now + timedelta(hours=23),
+        )
+        self.assertEqual(process_due_followups(self.settings, now=self.now, limit=1), 0)
+        alert = IgBotNotification.objects.get(dedupe_key=f"discount_approval:{task.pk}")
+        self.assertEqual(alert.status, IgBotNotification.Status.PENDING)
+
+        self.assertEqual(cancel_pending(self.client_record, reason="client_reply"), 1)
+
+        alert.refresh_from_db()
+        self.assertEqual(alert.status, IgBotNotification.Status.RESOLVED)
+        self.assertEqual(alert.payload["review_status"], "cancelled")
+        self.assertTrue(
+            IgBotNotificationAudit.objects.filter(
+                notification=alert,
+                action="discount_auto_cancelled",
+            ).exists()
+        )
+
+    def test_manager_only_discount_task_does_not_request_automatic_approval(self):
+        task = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="meta_window_closed",
+            discount_percent=5,
+            manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.PENDING,
+        )
+
+        from management.services.bot_followups import process_due_followups
+
+        self.assertEqual(process_due_followups(self.settings, now=self.now, limit=1), 0)
+        self.assertFalse(
+            IgBotNotification.objects.filter(
+                dedupe_key=f"discount_approval:{task.pk}"
+            ).exists()
+        )
+
     def test_restock_event_is_materialized_with_stable_key(self):
         from management.services.bot_followups import materialize_restock
 

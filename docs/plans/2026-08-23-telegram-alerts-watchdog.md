@@ -2,15 +2,15 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Stop repeated unresolved-alert spam, make system incidents self-healing, gate discount offers on an explicit manager decision, and replace the unstable detached production daemon with a bounded cron-owned worker.
+**Goal:** Stop repeated unresolved-alert spam, make system incidents self-healing, gate discount offers on an explicit manager decision, and make slow Instagram daemon starts idempotent without interrupting in-flight work.
 
-**Architecture:** The existing Instagram work loop gains a bounded inline mode used by the repository-owned cron block, while `--forever` remains available elsewhere. Operational alerts are queued outside failing cron I/O, reconciled from durable task truth, and monitored once only when a payload explicitly requires a human. Discount follow-ups use the existing authenticated Telegram callback webhook and durable task fields for approve/reject state.
+**Architecture:** The existing `--ensure` watchdog records a durable starting-child marker so a slow Django import cannot produce a false failure or duplicate worker. Operational alerts are queued outside failing cron I/O, reconciled from durable task truth, and monitored once per stable set under a centralized human-review policy. Discount follow-ups use the existing authenticated Telegram callback webhook and durable task fields for approve/reject state.
 
 **Tech Stack:** Python 3.14.6, Django 6.1, MariaDB production / SQLite tests, Telegram Bot API callbacks, POSIX `flock` and `timeout`, Django TestCase and unittest.
 
 ---
 
-### Task 1: Bounded cron-owned Instagram worker
+### Task 1: Idempotent slow-start watchdog handoff
 
 **Files:**
 - Modify: `twocomms/management/management/commands/run_instagram_bot.py`
@@ -20,9 +20,9 @@
 
 **Step 1: Write the failing command tests**
 
-Add tests proving `--run-for-seconds` is mutually exclusive with other modes,
-rejects an unsafe duration, records the watchdog task heartbeat, exits the work
-loop at its monotonic deadline, and performs heartbeat/thread cleanup.
+Add tests proving a live child that has not acquired the daemon lock is recorded
+as `starting`, the next watchdog cannot spawn another child, dead markers are
+recoverable, and an over-age live marker fails closed.
 
 **Step 2: Run the focused command tests and verify RED**
 
@@ -34,33 +34,31 @@ cd twocomms
 "$TWC_PYTHON" manage.py test --settings=test_settings management.tests_ig_daemon -v 1
 ```
 
-Expected: new bounded-mode assertions fail because the option and deadline do
-not exist.
+Expected: new marker assertions fail because the durable startup state does not
+exist.
 
-**Step 3: Implement the bounded mode**
+**Step 3: Implement the durable startup marker**
 
-Parse an integer duration within a conservative range, run `_forever()` inline
-under `task_heartbeat("ig_daemon_watchdog")`, pass a monotonic deadline into
-`_forever_locked()`, and break normally when the deadline is reached. Keep
-`--ensure` and `--forever` behavior backward compatible.
+Atomically persist PID/start/sentinel after spawn. Treat a still-live child as a
+pending handoff, reject stale live ownership, clear dead markers, and let only
+the matching child clear the marker after it owns the singleton.
 
 **Step 4: Update the managed cron contract test first**
 
-Change the expected managed line to invoke the bounded mode beneath one outer
-timeout, then run:
+Keep the repository-owned `--ensure` line beneath its existing outer timeout,
+then run:
 
 ```bash
 "$TWC_PYTHON" -m unittest tests.test_install_instagram_bot_watchdog_cron -v
 ```
 
-Expected before the script change: FAIL because the installer still emits
-`--ensure`.
+Expected: the managed cron contract remains unchanged and green.
 
-**Step 5: Change the installer and verify GREEN**
+**Step 5: Verify the installer and daemon suite GREEN**
 
-Make the managed block call the bounded mode, retain explicit production
-settings and non-overlap locking, and leave enough timeout margin for cleanup.
-Re-run both focused suites; expected result is zero failures.
+Retain explicit production settings, non-overlap locking, and enough timeout
+margin for reload/startup. Re-run both focused suites; expected result is zero
+failures.
 
 ### Task 2: Self-healing and one-shot Telegram alert lifecycle
 
@@ -176,7 +174,8 @@ Expected: exit 0 and no pending migration.
 ```bash
 "$TWC_PYTHON" manage.py test --settings=test_settings \
   management.tests_ig_daemon management.tests_ig_notifications \
-  management.tests_ig_task_health management.tests_ig_followups \
+  management.tests_ig_task_health management.tests_ig_followup_core \
+  management.tests_ig_followup_policies management.tests_ig_discount_approval \
   management.tests_ig_payment_review -v 1
 ```
 
@@ -197,12 +196,12 @@ the dirty primary checkout.
 
 On production: pull `main`, apply the new migration, run Django `check`, install
 and verify the repository-owned watchdog cron block, touch `tmp/restart.txt`,
-and launch/observe the new bounded worker contract.
+and launch/observe the durable starting-marker handoff.
 
 **Step 6: Repair and verify production state**
 
 Run the notification reconciler/drain so recovered alert `#145` becomes
 `RESOLVED`. Verify deployed SHA, migration state, no unresolved system alert,
-one-shot monitor behavior, task heartbeat freshness, no detached
-`run_instagram_bot --forever` process, bounded cron ownership, and fresh logs.
+one-shot monitor behavior, task heartbeat freshness, exactly one live
+`run_instagram_bot --forever` process, watchdog ownership, and fresh logs.
 Use only a small sequential HTTP smoke set; do not crawl the storefront.

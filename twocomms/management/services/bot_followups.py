@@ -388,19 +388,69 @@ def _update_client_next(client: IgClient) -> None:
     client.save(update_fields=["next_followup_at", "updated_at"])
 
 
+def _resolve_discount_approval_notifications(
+    task_ids,
+    *,
+    reason: str,
+) -> int:
+    from management.models import IgBotNotification, IgBotNotificationAudit
+
+    normalized_ids = sorted({int(task_id) for task_id in task_ids if int(task_id) > 0})
+    if not normalized_ids:
+        return 0
+    rows = list(
+        IgBotNotification.objects.select_for_update().filter(
+            dedupe_key__in=[f"discount_approval:{task_id}" for task_id in normalized_ids],
+        )
+    )
+    resolved = 0
+    for row in rows:
+        if row.status == IgBotNotification.Status.RESOLVED:
+            continue
+        from_status = row.status
+        payload = row.payload if isinstance(row.payload, dict) else {}
+        row.status = IgBotNotification.Status.RESOLVED
+        row.failure_kind = "discount_task_cancelled"
+        row.next_attempt_at = None
+        row.payload = {
+            **payload,
+            "review_status": "cancelled",
+            "cancel_reason": str(reason or "cancelled")[:64],
+        }
+        row.save(update_fields=[
+            "status", "failure_kind", "next_attempt_at", "payload", "updated_at"
+        ])
+        IgBotNotificationAudit.objects.get_or_create(
+            notification=row,
+            action="discount_auto_cancelled",
+            defaults={
+                "actor": None,
+                "from_status": from_status,
+                "to_status": IgBotNotification.Status.RESOLVED,
+                "note": f"follow-up cancelled: {str(reason or 'cancelled')[:120]}",
+            },
+        )
+        resolved += 1
+    return resolved
+
+
 def cancel_pending(client: IgClient, *, reason: str = "") -> int:
     if not client:
         return 0
-    count = IgFollowUpTask.objects.filter(
-        client=client, status=IgFollowUpTask.Status.PENDING
-    ).exclude(
-        kind=IgFollowUpTask.Kind.MANAGER_TASK,
-        reason="followup_delivery_review",
-    ).update(
-        status=IgFollowUpTask.Status.CANCELLED,
-        skip_reason=(reason or "cancelled")[:255],
-        updated_at=_now(),
-    )
+    with transaction.atomic():
+        queryset = IgFollowUpTask.objects.select_for_update().filter(
+            client=client, status=IgFollowUpTask.Status.PENDING
+        ).exclude(
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="followup_delivery_review",
+        )
+        task_ids = list(queryset.values_list("id", flat=True))
+        count = queryset.update(
+            status=IgFollowUpTask.Status.CANCELLED,
+            skip_reason=(reason or "cancelled")[:255],
+            updated_at=_now(),
+        )
+        _resolve_discount_approval_notifications(task_ids, reason=reason or "cancelled")
     if count:
         _update_client_next(client)
     return count
@@ -409,16 +459,22 @@ def cancel_pending(client: IgClient, *, reason: str = "") -> int:
 def cancel_pending_for_deal(deal: IgDeal, *, reason: str = "") -> int:
     if not deal:
         return 0
-    count = IgFollowUpTask.objects.filter(
-        deal=deal, status=IgFollowUpTask.Status.PENDING
-    ).exclude(
-        kind=IgFollowUpTask.Kind.MANAGER_TASK,
-        reason="followup_delivery_review",
-    ).update(
-        status=IgFollowUpTask.Status.CANCELLED,
-        skip_reason=(reason or "deal_cancelled")[:255],
-        updated_at=_now(),
-    )
+    with transaction.atomic():
+        queryset = IgFollowUpTask.objects.select_for_update().filter(
+            deal=deal, status=IgFollowUpTask.Status.PENDING
+        ).exclude(
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="followup_delivery_review",
+        )
+        task_ids = list(queryset.values_list("id", flat=True))
+        count = queryset.update(
+            status=IgFollowUpTask.Status.CANCELLED,
+            skip_reason=(reason or "deal_cancelled")[:255],
+            updated_at=_now(),
+        )
+        _resolve_discount_approval_notifications(
+            task_ids, reason=reason or "deal_cancelled"
+        )
     if count and deal.client_id:
         _update_client_next(deal.client)
     return count
@@ -730,16 +786,19 @@ def schedule_followup(
             ).first()
             if existing is not None:
                 return existing
-        IgFollowUpTask.objects.filter(
+        replaced = IgFollowUpTask.objects.select_for_update().filter(
             client=client,
             status=IgFollowUpTask.Status.PENDING,
             kind=kind,
             level=client.followup_level if level is None else level,
-        ).update(
+        )
+        replaced_ids = list(replaced.values_list("id", flat=True))
+        replaced.update(
             status=IgFollowUpTask.Status.CANCELLED,
             skip_reason="replaced",
             updated_at=_now(),
         )
+        _resolve_discount_approval_notifications(replaced_ids, reason="replaced")
         task = IgFollowUpTask.objects.create(
             client=client,
             deal=deal,
@@ -1926,6 +1985,8 @@ def _mark_skipped(task: IgFollowUpTask, reason: str) -> None:
         "status", "skip_reason", "claim_token", "claim_until",
         "next_attempt_at", "updated_at",
     ])
+    with transaction.atomic():
+        _resolve_discount_approval_notifications([task.pk], reason=reason or "skipped")
     _update_client_next(task.client)
 
 
@@ -2415,6 +2476,9 @@ def _ensure_discount_approval_request(
             task.status = IgFollowUpTask.Status.CANCELLED
             task.skip_reason = "discount_rejected"
             task.save(update_fields=["status", "skip_reason", "updated_at"])
+            _resolve_discount_approval_notifications(
+                [task.pk], reason="discount_rejected"
+            )
             return False
         if task.manager_approval_status == IgFollowUpTask.ManagerApprovalStatus.NOT_REQUIRED:
             # Fail closed for legacy rows created before the approval field.
@@ -2599,6 +2663,7 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
             due_at__lte=now,
             discount_percent__gt=0,
         )
+        .exclude(kind=IgFollowUpTask.Kind.MANAGER_TASK)
         .exclude(
             manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.APPROVED,
         )

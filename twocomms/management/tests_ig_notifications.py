@@ -316,6 +316,34 @@ class InstagramBotNotificationTests(TestCase):
             ).exists()
         )
 
+    def test_terminal_monitor_keeps_legacy_actionable_events_visible(self):
+        IgBotNotification.objects.create(
+            dedupe_key="legacy-delivery-unknown",
+            event_type="delivery_unknown",
+            payload={"text": "Перевірити Meta Inbox"},
+            status=IgBotNotification.Status.UNKNOWN,
+        )
+
+        self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
+        monitor = IgBotNotification.objects.get(
+            event_type="notification_terminal_monitor"
+        )
+        self.assertIn("delivery_unknown", monitor.payload["text"])
+
+    def test_actionable_event_policy_is_applied_by_notifier(self):
+        with patch(
+            "management.services.instagram_bot._deliver_manager_notification",
+            return_value=True,
+        ):
+            bot.notify_manager(
+                "Потрібна ручна відповідь",
+                dedupe_key="shipment-policy",
+                event_type="shipment_human_review",
+            )
+
+        row = IgBotNotification.objects.get(dedupe_key="shipment-policy")
+        self.assertTrue(row.payload["requires_human_review"])
+
     def test_terminal_monitor_reports_full_backlog_beyond_sample_limit(self):
         IgBotNotification.objects.bulk_create([
             IgBotNotification(

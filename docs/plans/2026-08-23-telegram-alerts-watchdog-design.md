@@ -22,29 +22,30 @@ signal-9 worker termination, and storefront 503 responses.
 1. Suppress the hourly terminal monitor only. This stops the visible spam but
    leaves false watchdog failures, unresolved system rows, and unstable orphan
    workers.
-2. Keep the detached daemon and add a longer startup wait/marker. This reduces
-   duplicate startup attempts, but a long-lived orphan process remains a poor
-   fit for the observed LVE lifecycle and still competes with cron workers.
-3. Run the worker for a bounded interval owned by cron, and make alert
-   lifecycle decisions explicit. This removes the orphan process, preserves
-   low-latency polling for most of every minute, releases resources
-   deterministically, and lets `flock`/`timeout` own the complete process.
+2. Keep the detached daemon, but make its slow-start handoff durable and
+   idempotent. This preserves the current low-latency worker and long-lived
+   cadences while preventing duplicate children and false startup failures.
+3. Run the full worker for a bounded interval owned by cron. Review rejected
+   this option because provider calls and seven background loops cannot all be
+   drained safely inside a short shared-hosting timeout, and process-local
+   cadences would restart every minute.
 
-Approach 3 is selected.
+Approach 2 is selected together with the explicit alert-lifecycle changes.
 
 ## Worker architecture
 
-Add a production mode that runs the existing daemon work loop inline for a
-bounded number of seconds. The managed crontab invokes it once per minute under
-the existing OS lock and a timeout longer than the worker budget. The process
-acquires the daemon singleton, publishes heartbeat/PID, runs the same durable
-work and background services, then exits normally before the cron timeout.
+The existing `--ensure` watchdog retains OS `flock`, the daemon singleton, and
+the 75-second outer timeout. When it launches a child it atomically writes a
+starting marker containing PID, start time, and deploy sentinel. If Django
+startup takes more than the 15-second handshake but the child is still alive,
+the watchdog reports `daemon starting — pending` instead of a false
+`CommandError`; the next minute sees the marker and cannot spawn a duplicate.
 
-`--forever` remains available for environments with a real service manager.
-The production installer switches only the managed watchdog block to the
-bounded mode. A bounded exit is recorded separately from a deploy reload or an
-error. No detached child survives the cron owner, so its result is observable
-and cleanup runs deterministically.
+The child clears only its own marker after acquiring the singleton. Dead
+markers are removed automatically; a live marker older than the bounded
+startup window fails closed and does not permit a second child. This preserves
+long-lived conversation/analysis cadences and avoids terminating in-flight
+Telegram, Meta, or MariaDB operations.
 
 ## Notification lifecycle
 
@@ -59,11 +60,12 @@ alerts when durable task state proves a later successful run. It creates an
 immutable audit row with an automatic actor. This also repairs legacy alert
 `#145`, whose task identity can be derived from its typed dedupe key.
 
-Terminal monitoring considers only notifications explicitly marked
-`requires_human_review`. Its dedupe key is a stable fingerprint of the current
-unresolved set, not an hourly time bucket. An unchanged incident therefore
-produces one Telegram message, while a genuinely new or changed review set
-produces a new one.
+Terminal monitoring uses a central typed policy for human-only event types and
+also honors explicit `requires_human_review`. This keeps legacy actionable rows
+visible. Its dedupe key is a stable fingerprint of the current unresolved set,
+not an hourly time bucket. An unchanged incident therefore produces one
+Telegram message, while a genuinely new or changed review set produces a new
+one.
 
 ## Manager decisions
 
@@ -89,8 +91,9 @@ process ownership, and fresh logs.
 
 ## Failure handling
 
-- A bounded worker that exceeds its budget is terminated by the outer timeout
-  and recorded as a task failure; alert delivery happens later.
+- A child that is alive but still importing Django after the initial handshake
+  remains a single durable startup attempt rather than a false failure or a
+  duplicate process.
 - Telegram ambiguous delivery remains non-retryable, but only actionable
   business decisions enter the human-review monitor.
 - A recovered system incident is auto-resolved; it never becomes manager debt.
@@ -101,7 +104,7 @@ process ownership, and fresh logs.
 
 ## Test strategy
 
-Regression tests cover bounded worker exit and cleanup, the managed cron
+Regression tests cover durable startup-marker ownership, the managed cron
 contract, deferred task-failure delivery, typed reason metadata, automatic
 recovery of legacy and new system alerts, stable one-shot terminal monitoring,
 discount approval/rejection authorization and idempotency, and the guarantee

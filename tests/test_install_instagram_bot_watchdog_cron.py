@@ -102,10 +102,10 @@ cp "$1" "$FAKE_CRONTAB_FILE"
             content,
         )
         self.assertIn(
-            f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=10s 55s",
+            f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 75s",
             content,
         )
-        self.assertIn("--kill-after=10s", content)
+        self.assertIn("--kill-after=15s", content)
         self.assertNotIn(legacy, content)
 
     def test_managed_watchdog_command_has_explicit_production_settings(self):
@@ -116,21 +116,12 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         managed_line = next(
             line
             for line in content.splitlines()
-            if "manage.py run_instagram_bot --run-for-seconds 45" in line
+            if "manage.py run_instagram_bot --ensure" in line
         )
         self.assertIn(
             f"&& {PRODUCTION_ENV_PREFIX} {self.fake_bin / 'flock'}",
             managed_line,
         )
-
-    def test_managed_watchdog_is_bounded_and_cron_owned(self):
-        result = self._run("--install")
-
-        self.assertEqual(result.returncode, 0, result.stderr)
-        content = self.crontab_file.read_text(encoding="utf-8")
-        self.assertIn("manage.py run_instagram_bot --run-for-seconds 45", content)
-        self.assertIn("--kill-after=10s 55s", content)
-        self.assertNotIn("manage.py run_instagram_bot --ensure", content)
 
     def test_check_detects_missing_block_and_install_rejects_duplicates(self):
         self.assertNotEqual(self._run("--check").returncode, 0)

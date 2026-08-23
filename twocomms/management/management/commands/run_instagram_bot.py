@@ -14,6 +14,7 @@
 навіть якщо FileBasedCache очищений або недоступний. Кожна ітерація викликає close_old_connections() — інакше на
 shared-MySQL (wait_timeout=60) з'являється "MySQL server has gone away".
 """
+import json
 import os
 import fcntl
 import subprocess
@@ -58,9 +59,8 @@ ANALYSIS_RECONCILE_BATCH = 100
 RELOAD_LOCK_WAIT_SECONDS = 45
 MAX_RELOAD_LOCK_WAIT_SECONDS = 300
 DAEMON_START_WAIT_SECONDS = 15
+DAEMON_START_PENDING_SECONDS = 120
 TASK_HEALTH_CHECK_EVERY = 60
-MIN_BOUNDED_WORKER_SECONDS = 5
-MAX_BOUNDED_WORKER_SECONDS = 55
 
 # Cron may invoke manage.py from an arbitrary working directory. Resolve the
 # entry point from this command module and keep the child in the Django root.
@@ -69,6 +69,7 @@ MANAGE_PY_PATH = str(Path(PROJECT_ROOT) / "manage.py")
 PID_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot.pid")
 SPAWN_LOCK_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_spawn.lock")
 DAEMON_LOCK_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_daemon.lock")
+STARTING_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_starting.json")
 
 
 @contextmanager
@@ -106,6 +107,85 @@ def _wait_for_lock(path: str, *, held: bool, timeout: float = 6.0) -> bool:
     return _process_lock_held(path) is held
 
 
+def _read_starting_child() -> dict:
+    try:
+        with open(STARTING_FILE, encoding="utf-8") as marker:
+            payload = json.load(marker)
+    except (OSError, TypeError, ValueError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _clear_starting_child(*, expected_pid: int | None = None) -> None:
+    if expected_pid is not None:
+        try:
+            if int(_read_starting_child().get("pid") or 0) != int(expected_pid):
+                return
+        except (TypeError, ValueError):
+            return
+    try:
+        os.unlink(STARTING_FILE)
+    except FileNotFoundError:
+        pass
+
+
+def _record_starting_child(pid) -> None:
+    try:
+        pid = int(pid)
+    except (TypeError, ValueError):
+        return
+    if pid <= 0:
+        return
+    os.makedirs(os.path.dirname(STARTING_FILE), exist_ok=True)
+    temporary = f"{STARTING_FILE}.tmp.{os.getpid()}"
+    payload = {
+        "pid": pid,
+        "started_at": time.time(),
+        "sentinel": _restart_sentinel_mtime(),
+    }
+    try:
+        with open(temporary, "w", encoding="utf-8") as marker:
+            json.dump(payload, marker, separators=(",", ":"))
+            marker.flush()
+            os.fsync(marker.fileno())
+        os.replace(temporary, STARTING_FILE)
+    finally:
+        try:
+            os.unlink(temporary)
+        except FileNotFoundError:
+            pass
+
+
+def _starting_child_state(*, now: float | None = None) -> str:
+    payload = _read_starting_child()
+    try:
+        pid = int(payload.get("pid") or 0)
+        started_at = float(payload.get("started_at"))
+        sentinel = float(payload.get("sentinel"))
+    except (TypeError, ValueError):
+        _clear_starting_child()
+        return "absent"
+    if pid <= 0:
+        _clear_starting_child()
+        return "absent"
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        _clear_starting_child(expected_pid=pid)
+        return "absent"
+    except PermissionError:
+        # Same-account production should not hit this, but never spawn over a
+        # process whose liveness cannot be disproved.
+        return "stale"
+    age = (time.time() if now is None else now) - started_at
+    if (
+        0 <= age <= DAEMON_START_PENDING_SECONDS
+        and sentinel == _restart_sentinel_mtime()
+    ):
+        return "current"
+    return "stale"
+
+
 def _bounded_reload_lock_wait(value: int | float | None) -> float:
     """Validate the operator-controlled drain wait without allowing infinity."""
     if value is None:
@@ -120,19 +200,6 @@ def _bounded_reload_lock_wait(value: int | float | None) -> float:
             f"{MAX_RELOAD_LOCK_WAIT_SECONDS} seconds"
         )
     return wait_seconds
-
-
-def _bounded_worker_seconds(value: int | str | None) -> int:
-    try:
-        seconds = int(value)
-    except (TypeError, ValueError) as exc:
-        raise CommandError("bounded worker duration must be an integer") from exc
-    if not MIN_BOUNDED_WORKER_SECONDS <= seconds <= MAX_BOUNDED_WORKER_SECONDS:
-        raise CommandError(
-            "bounded worker duration must be between "
-            f"{MIN_BOUNDED_WORKER_SECONDS} and {MAX_BOUNDED_WORKER_SECONDS} seconds"
-        )
-    return seconds
 
 
 def _daemon_alive() -> bool:
@@ -467,12 +534,6 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--forever", action="store_true", help="Постійний демон.")
-        parser.add_argument(
-            "--run-for-seconds",
-            type=int,
-            metavar="SECONDS",
-            help="Cron-owned worker that exits cleanly after 5..55 seconds.",
-        )
         parser.add_argument("--ensure", action="store_true", help="Watchdog: підняти демона, якщо мертвий.")
         parser.add_argument("--once", action="store_true", help="Один прохід.")
         parser.add_argument(
@@ -508,7 +569,6 @@ class Command(BaseCommand):
             bool(opts.get(name))
             for name in ("once", "ensure", "forever")
         )
-        selected += int(opts.get("run_for_seconds") is not None)
         selected += int(opts.get("maintenance_on") is not None)
         selected += int(opts.get("maintenance_off") is not None)
         if selected > 1:
@@ -535,7 +595,6 @@ class Command(BaseCommand):
             opts.get("once")
             or opts.get("ensure")
             or opts.get("forever")
-            or opts.get("run_for_seconds") is not None
         ):
             self._guard_runtime_database()
         if opts.get("once"):
@@ -549,17 +608,11 @@ class Command(BaseCommand):
             with task_heartbeat("ig_daemon_watchdog"):
                 return self._ensure()
 
-        if opts.get("run_for_seconds") is not None:
-            duration = _bounded_worker_seconds(opts["run_for_seconds"])
-            with task_heartbeat("ig_daemon_watchdog"):
-                return self._forever(max_runtime_seconds=duration)
-
         if opts.get("forever"):
             return self._forever()
 
         self.stdout.write(
-            "Вкажіть режим: --forever | --run-for-seconds | --ensure | --once | "
-            "--maintenance-on | --maintenance-off"
+            "Вкажіть режим: --forever | --ensure | --once | --maintenance-on | --maintenance-off"
         )
 
     def _maintenance_on(
@@ -630,6 +683,12 @@ class Command(BaseCommand):
                     timeout=RELOAD_LOCK_WAIT_SECONDS,
                 ):
                     raise CommandError("stale daemon did not release singleton lock during reload")
+            starting_state = _starting_child_state()
+            if starting_state == "current":
+                self.stdout.write("daemon starting — pending")
+                return
+            if starting_state == "stale":
+                raise CommandError("daemon startup exceeded pending window without singleton lock")
             log_dir = os.path.join(PROJECT_ROOT, "tmp")
             os.makedirs(log_dir, exist_ok=True)
             log_path = os.path.join(log_dir, "ig_bot_daemon.log")
@@ -644,6 +703,7 @@ class Command(BaseCommand):
                         cwd=PROJECT_ROOT,
                         env=os.environ.copy(),
                     )
+                _record_starting_child(getattr(child, "pid", 0))
                 if not _wait_for_lock(
                     DAEMON_LOCK_FILE,
                     held=True,
@@ -653,18 +713,25 @@ class Command(BaseCommand):
                     # our child exits normally. Reconcile lock + heartbeat once
                     # more before reporting failure.
                     if _process_lock_held(DAEMON_LOCK_FILE) and _daemon_alive():
+                        _clear_starting_child(
+                            expected_pid=getattr(child, "pid", None)
+                        )
                         self.stdout.write("daemon alive — ok")
                         return
                     return_code = child.poll()
                     if return_code is None:
-                        raise CommandError(
-                            "daemon child still running after "
-                            f"{DAEMON_START_WAIT_SECONDS}s without singleton lock"
-                        )
+                        self.stdout.write("daemon starting — pending")
+                        return
+                    _clear_starting_child(
+                        expected_pid=getattr(child, "pid", None)
+                    )
                     raise CommandError(
                         f"daemon child exited with code {return_code} "
                         "before acquiring singleton lock"
                     )
+                _clear_starting_child(
+                    expected_pid=getattr(child, "pid", None)
+                )
                 bot.log("info", "daemon_spawn", "watchdog підняв демона")
                 self.stdout.write("daemon spawned")
             except CommandError:
@@ -673,7 +740,7 @@ class Command(BaseCommand):
                 raise CommandError(f"daemon spawn failed: {exc!r}") from exc
 
     # ------------------------------------------------------------------
-    def _forever(self, *, max_runtime_seconds: int | None = None):
+    def _forever(self):
         if maintenance_status(path=MAINTENANCE_FILE)["active"]:
             self.stdout.write("maintenance active — daemon exit")
             return
@@ -681,17 +748,13 @@ class Command(BaseCommand):
             if daemon_lock is None:
                 self.stdout.write("daemon already alive — exit")
                 return
-            return self._forever_locked(max_runtime_seconds=max_runtime_seconds)
+            _clear_starting_child(expected_pid=os.getpid())
+            return self._forever_locked()
 
-    def _forever_locked(self, *, max_runtime_seconds: int | None = None):
+    def _forever_locked(self):
         if maintenance_status(path=MAINTENANCE_FILE)["active"]:
             self.stdout.write("maintenance active — daemon exit")
             return
-        worker_deadline = (
-            time.monotonic() + _bounded_worker_seconds(max_runtime_seconds)
-            if max_runtime_seconds is not None
-            else None
-        )
         # This process starts only after the previous daemon released the
         # singleton lock. Reconcile once with the newly deployed code before
         # any notification, analysis, payment, or reply work can run.
@@ -751,15 +814,6 @@ class Command(BaseCommand):
             daemon=True,
         )
         follow_intelligence_worker.start()
-        workers = [
-            refresher,
-            analysis_worker,
-            recovery_worker,
-            permission_transition_worker,
-            inbox_refresh_worker,
-            lifecycle_worker,
-            follow_intelligence_worker,
-        ]
 
         from django.utils import timezone as tz
 
@@ -769,9 +823,6 @@ class Command(BaseCommand):
         try:
             while True:
                 close_old_connections()  # лікує "MySQL server has gone away"
-                if worker_deadline is not None and time.monotonic() >= worker_deadline:
-                    bot.log("info", "daemon_cycle_complete", "bounded worker completed")
-                    break
                 if maintenance_status(path=MAINTENANCE_FILE)["active"]:
                     bot.log("info", "daemon_maintenance", "Maintenance активний — daemon зупинено")
                     break
@@ -800,8 +851,6 @@ class Command(BaseCommand):
                 time.sleep(1.5 if enabled else 5)
         finally:
             stop_event.set()
-            for worker in workers:
-                worker.join(timeout=0.2)
             # Звільняємо heartbeat одразу, щоб watchdog підняв новий демон без
             # очікування TTL (інакше до 45 c простою після деплою).
             try:

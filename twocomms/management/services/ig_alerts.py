@@ -110,6 +110,40 @@ _ALERT_TITLE_TEXT = {
     "discount_approval": "🏷️ IG: потрібне рішення щодо знижки",
 }
 ALERT_EVENT_CODES = frozenset(_ALERT_TITLE_TEXT) | {"generic", "notification_terminal_monitor"}
+HUMAN_REVIEW_EVENT_CODES = frozenset({
+    "ai_reply_fallback",
+    "ai_reply_recovery_exhausted",
+    "ambiguous_order_status",
+    "data_deletion_request",
+    "delivery_unknown",
+    "delivery_validation_review",
+    "discount_approval",
+    "escalation",
+    "fulfillment_missing_delivery",
+    "generation_failed",
+    "ig_lifecycle_delivery_review",
+    "ig_lifecycle_permission_review",
+    "ig_lifecycle_window_review",
+    "inventory_overbooked_review",
+    "partial_delivery",
+    "payment_link_delivery_review",
+    "payment_review",
+    "payment_reversed_review",
+    "paylink_failed",
+    "paylink_inventory_unavailable",
+    "paylink_item_gate",
+    "paylink_no_candidate",
+    "paylink_prepay_gate",
+    "paylink_price_gate",
+    "send_gave_up",
+    "shipment_human_review",
+    "size_gap",
+    "superseded_invoice_payment",
+})
+
+
+def alert_requires_human_review(event_type: str) -> bool:
+    return str(event_type or "").strip() in HUMAN_REVIEW_EVENT_CODES
 
 
 def management_base_url() -> str:

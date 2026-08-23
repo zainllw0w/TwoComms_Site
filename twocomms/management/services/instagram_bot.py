@@ -4080,9 +4080,13 @@ def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) ->
         IgBotNotification.Status.UNKNOWN,
         IgBotNotification.Status.DEAD_LETTER,
     ]
+    from management.services.ig_alerts import HUMAN_REVIEW_EVENT_CODES
+
     actionable = IgBotNotification.objects.filter(
         status__in=terminal_statuses,
-        payload__requires_human_review=True,
+    ).filter(
+        Q(payload__requires_human_review=True)
+        | Q(event_type__in=HUMAN_REVIEW_EVENT_CODES)
     ).exclude(event_type="notification_terminal_monitor")
     counts = {status: 0 for status in terminal_statuses}
     for item in (
@@ -4174,6 +4178,12 @@ def notify_manager(
             for key, value in metadata.items()
             if isinstance(key, str)
         })
+    from management.services.ig_alerts import alert_requires_human_review
+
+    payload.setdefault(
+        "requires_human_review",
+        alert_requires_human_review(event_type),
+    )
     if isinstance(reply_markup, dict):
         payload["reply_markup"] = reply_markup
     if isinstance(media, list):

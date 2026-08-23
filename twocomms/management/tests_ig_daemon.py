@@ -60,34 +60,6 @@ from management.services.ig_reply_boundary import (
 
 
 class DaemonPathTests(SimpleTestCase):
-    @override_settings(DEBUG=True)
-    def test_bounded_worker_runs_inline_under_watchdog_heartbeat(self):
-        with (
-            patch.object(runner, "connection", SimpleNamespace(vendor="sqlite"), create=True),
-            patch.object(Command, "_forever") as forever,
-            patch.object(runner, "task_heartbeat", return_value=nullcontext()) as heartbeat,
-        ):
-            Command().handle(
-                once=False,
-                ensure=False,
-                forever=False,
-                run_for_seconds=45,
-                maintenance_on=None,
-                maintenance_off=None,
-                maintenance_lease_id=None,
-                maintenance_wait_seconds=None,
-            )
-
-        heartbeat.assert_called_once_with("ig_daemon_watchdog")
-        forever.assert_called_once_with(max_runtime_seconds=45)
-
-    def test_bounded_worker_duration_is_strictly_bounded(self):
-        for value in (0, -1, 56, "bad"):
-            with self.subTest(value=value), self.assertRaises(CommandError):
-                runner._bounded_worker_seconds(value)
-
-        self.assertEqual(runner._bounded_worker_seconds(45), 45)
-
     @override_settings(DEBUG=False)
     def test_production_sqlite_refuses_every_execution_mode_before_work(self):
         with (
@@ -107,7 +79,6 @@ class DaemonPathTests(SimpleTestCase):
                 "once": False,
                 "ensure": False,
                 "forever": False,
-                "run_for_seconds": None,
                 "maintenance_on": None,
                 "maintenance_off": None,
                 "maintenance_lease_id": None,
@@ -137,7 +108,6 @@ class DaemonPathTests(SimpleTestCase):
                 once=False,
                 ensure=True,
                 forever=False,
-                run_for_seconds=None,
                 maintenance_on=None,
                 maintenance_off=None,
                 maintenance_lease_id=None,
@@ -175,6 +145,7 @@ print(json.dumps({
     'notification_lock': maintenance.NOTIFICATION_SEND_LOCK_FILE,
     'daemon_lock': runner.DAEMON_LOCK_FILE,
     'spawn_lock': runner.SPAWN_LOCK_FILE,
+    'starting': runner.STARTING_FILE,
     'pid': runner.PID_FILE,
 }))
 """
@@ -198,9 +169,26 @@ print(json.dumps({
                     os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_notification_send.lock")),
                     os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_daemon.lock")),
                     os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_spawn.lock")),
+                    os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot_starting.json")),
                     os.path.realpath(os.path.join(runtime_root, "tmp", "ig_bot.pid")),
                 },
             )
+
+    def test_starting_marker_distinguishes_current_and_stale_child(self):
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "management.management.commands.run_instagram_bot.STARTING_FILE",
+            os.path.join(temp_dir, "starting.json"),
+        ), patch(
+            "management.management.commands.run_instagram_bot._restart_sentinel_mtime",
+            return_value=5.0,
+        ), patch(
+            "management.management.commands.run_instagram_bot.time.time",
+            return_value=100.0,
+        ):
+            runner._record_starting_child(os.getpid())
+
+            self.assertEqual(runner._starting_child_state(now=110.0), "current")
+            self.assertEqual(runner._starting_child_state(now=221.0), "stale")
 
     def test_release_runtime_root_rejects_relative_paths(self):
         env = os.environ.copy()
@@ -467,11 +455,47 @@ print(json.dumps({
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=False)
     @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=False)
-    def test_ensure_fails_when_child_never_acquires_daemon_lock(self, _held, _wait, popen):
+    def test_ensure_records_live_child_as_starting_instead_of_false_failure(self, _held, _wait, popen):
+        popen.return_value.pid = 4321
         popen.return_value.poll.return_value = None
-        with self.assertRaisesMessage(CommandError, "still running after"):
-            Command()._ensure()
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "management.management.commands.run_instagram_bot.STARTING_FILE",
+            os.path.join(temp_dir, "starting.json"),
+        ):
+            command = Command()
+            with patch.object(command, "stdout") as stdout:
+                command._ensure()
+            stdout.write.assert_called_with("daemon starting — pending")
         popen.assert_called_once()
+
+    @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
+    @patch(
+        "management.management.commands.run_instagram_bot._starting_child_state",
+        return_value="current",
+    )
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=False)
+    def test_ensure_does_not_duplicate_a_live_starting_child(self, _held, _state, popen):
+        command = Command()
+
+        with patch.object(command, "stdout") as stdout:
+            command._ensure()
+
+        popen.assert_not_called()
+        stdout.write.assert_called_with("daemon starting — pending")
+
+    @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
+    @patch(
+        "management.management.commands.run_instagram_bot._starting_child_state",
+        return_value="stale",
+    )
+    @patch("management.management.commands.run_instagram_bot._process_lock_held", return_value=False)
+    def test_ensure_fails_without_duplicate_when_starting_child_is_stale(
+        self, _held, _state, popen
+    ):
+        with self.assertRaisesMessage(CommandError, "startup exceeded"):
+            Command()._ensure()
+
+        popen.assert_not_called()
 
     @patch("management.management.commands.run_instagram_bot._daemon_alive", return_value=False)
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
@@ -1396,57 +1420,6 @@ class DaemonHeartbeatTests(SimpleTestCase):
         _reconcile.assert_not_called()
         work_cycle.assert_not_called()
 
-    @patch("management.management.commands.run_instagram_bot.time.sleep")
-    @patch("management.management.commands.run_instagram_bot.close_old_connections")
-    @patch("management.management.commands.run_instagram_bot.check_task_health")
-    @patch("management.management.commands.run_instagram_bot.ensure_task_expectations", return_value=True)
-    @patch("management.management.commands.run_instagram_bot.InstagramBotSettings.load")
-    @patch("management.management.commands.run_instagram_bot._run_work_cycle")
-    @patch("management.management.commands.run_instagram_bot.threading.Thread")
-    @patch("management.management.commands.run_instagram_bot.bot.log")
-    @patch(
-        "management.management.commands.run_instagram_bot._reconcile_commercial_episodes_after_reload"
-    )
-    @patch(
-        "management.management.commands.run_instagram_bot.maintenance_status",
-        return_value={"active": False},
-    )
-    def test_bounded_worker_exits_normally_at_monotonic_deadline(
-        self,
-        _maintenance,
-        _reconcile,
-        log,
-        thread_cls,
-        work_cycle,
-        settings_load,
-        _expectations,
-        _health,
-        _close,
-        _sleep,
-    ):
-        settings = SimpleNamespace(
-            pk=1,
-            is_enabled=False,
-            heartbeat_at=None,
-            save=lambda **_kwargs: None,
-        )
-        settings_load.return_value = settings
-        work_cycle.return_value = (False, 0.0)
-
-        with (
-            tempfile.TemporaryDirectory() as temp_dir,
-            patch("management.management.commands.run_instagram_bot.PID_FILE", os.path.join(temp_dir, "daemon.pid")),
-            patch(
-                "management.management.commands.run_instagram_bot.time.monotonic",
-                side_effect=[100.0, 100.0, 100.0, 100.0, 146.0],
-            ),
-        ):
-            Command()._forever_locked(max_runtime_seconds=45)
-
-        work_cycle.assert_called_once()
-        log.assert_any_call("info", "daemon_cycle_complete", "bounded worker completed")
-        self.assertEqual(thread_cls.return_value.start.call_count, 7)
-        self.assertEqual(thread_cls.return_value.join.call_count, 7)
 
 
 class DaemonStatusTests(TestCase):
