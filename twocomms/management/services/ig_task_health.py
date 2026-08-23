@@ -130,16 +130,43 @@ def mark_task_succeeded(task_key: str, *, duration_ms: int = 0, at=None) -> Inst
         return None
 
 
-def _notify_failure(row: InstagramBotTaskHeartbeat, error_kind: str) -> None:
+def _task_failure_reason_code(exc: Exception) -> str:
+    if exc.__class__.__name__ == "CommandError":
+        message = str(exc or "").lower()
+        if "still running" in message and "singleton lock" in message:
+            return "daemon_start_pending"
+        if "did not release singleton lock" in message:
+            return "daemon_lock_stale"
+        if "child exited with code" in message:
+            return "daemon_child_exited"
+        if "spawn failed" in message:
+            return "daemon_spawn_failed"
+        return "command_error"
+    name = exc.__class__.__name__
+    snake = []
+    for index, char in enumerate(name):
+        if char.isupper() and index:
+            snake.append("_")
+        snake.append(char.lower())
+    return "".join(snake)[:64] or "task_error"
+
+
+def _notify_failure(
+    row: InstagramBotTaskHeartbeat,
+    error_kind: str,
+    exc: Exception,
+) -> None:
     try:
         from management.services.ig_alerts import alert_dedupe_key, format_alert
         from management.services import instagram_bot as bot
 
+        reason_code = _task_failure_reason_code(exc)
         text = format_alert(
             "⚠️ Помилка IG cron-задачі",
             lines=(
                 f"Задача: {row.label}",
                 f"Тип помилки: {error_kind}",
+                f"Причина: {reason_code}",
                 f"Очікуваний інтервал: {row.expected_interval_seconds} с",
             ),
         )
@@ -149,6 +176,13 @@ def _notify_failure(row: InstagramBotTaskHeartbeat, error_kind: str) -> None:
                 "ig_task_failure", entity_id=row.pk, window_minutes=60
             ),
             event_type="ig_task_failure",
+            metadata={
+                "task_key": row.task_key,
+                "task_heartbeat_id": row.pk,
+                "task_failure_reason": reason_code,
+                "requires_human_review": False,
+            },
+            deliver_immediately=False,
         )
     except Exception:
         # A notification problem must not hide the original command failure.
@@ -182,7 +216,7 @@ def mark_task_failed(
         row.refresh_from_db(fields=["consecutive_failures"])
     except (DatabaseError, OperationalError, ProgrammingError):
         return None
-    _notify_failure(row, error_kind)
+    _notify_failure(row, error_kind, exc)
     return row
 
 

@@ -106,6 +106,8 @@ _ALERT_TITLE_TEXT = {
     "ig_checkout_invoice_created": "💳 IG: платіжне посилання створено",
     "ig_lifecycle_window_review": "⚠️ IG: lifecycle-подія потребує відповіді менеджера",
     "ig_lifecycle_delivery_review": "⚠️ IG: не вдалося доставити lifecycle-подію",
+    "ig_task_failure": "⚠️ Помилка IG cron-задачі",
+    "discount_approval": "🏷️ IG: потрібне рішення щодо знижки",
 }
 ALERT_EVENT_CODES = frozenset(_ALERT_TITLE_TEXT) | {"generic", "notification_terminal_monitor"}
 

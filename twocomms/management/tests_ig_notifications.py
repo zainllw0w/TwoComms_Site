@@ -11,7 +11,11 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from management.models import IgBotNotification, IgBotNotificationAudit
+from management.models import (
+    IgBotNotification,
+    IgBotNotificationAudit,
+    InstagramBotTaskHeartbeat,
+)
 from management.services import instagram_bot as bot
 
 
@@ -235,19 +239,19 @@ class InstagramBotNotificationTests(TestCase):
         self.assertEqual(row.failure_kind, "ambiguous_stale_sending")
         http.assert_not_called()
 
-    def test_terminal_notifications_are_proactively_summarized_once_per_hour(self):
+    def test_terminal_notifications_are_summarized_once_per_unresolved_set(self):
         pii_marker = "customer@example.com +380501112233 private-provider-body"
         IgBotNotification.objects.create(
             dedupe_key="terminal-unknown",
             event_type="delivery_unknown",
-            payload={"text": "Невідомий результат"},
+            payload={"text": "Невідомий результат", "requires_human_review": True},
             status=IgBotNotification.Status.UNKNOWN,
             last_error=f"timeout access_token=secret-value {pii_marker}",
         )
         IgBotNotification.objects.create(
             dedupe_key="terminal-dead",
             event_type="send_gave_up",
-            payload={"text": "Вичерпано спроби"},
+            payload={"text": "Вичерпано спроби", "requires_human_review": True},
             status=IgBotNotification.Status.DEAD_LETTER,
             last_error="retry_exhausted",
         )
@@ -263,12 +267,38 @@ class InstagramBotNotificationTests(TestCase):
         self.assertNotIn("customer@example.com", monitor.payload["text"])
         self.assertNotIn("+380501112233", monitor.payload["text"])
 
-        # The same unresolved rows do not produce a second notification inside
-        # the dedupe window.
+        # The same unresolved rows never produce a periodic duplicate.
         self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
         self.assertEqual(
             IgBotNotification.objects.filter(event_type="notification_terminal_monitor").count(),
             1,
+        )
+
+        IgBotNotification.objects.create(
+            dedupe_key="terminal-new-decision",
+            event_type="discount_approval",
+            payload={"text": "Підтвердити", "requires_human_review": True},
+            status=IgBotNotification.Status.UNKNOWN,
+        )
+        self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
+        self.assertEqual(
+            IgBotNotification.objects.filter(event_type="notification_terminal_monitor").count(),
+            2,
+        )
+
+    def test_terminal_monitor_excludes_self_healing_system_alerts(self):
+        IgBotNotification.objects.create(
+            dedupe_key="system-terminal",
+            event_type="ig_task_failure",
+            payload={"text": "Watchdog", "requires_human_review": False},
+            status=IgBotNotification.Status.UNKNOWN,
+        )
+
+        self.assertEqual(bot._monitor_terminal_notifications(force=True), 0)
+        self.assertFalse(
+            IgBotNotification.objects.filter(
+                event_type="notification_terminal_monitor"
+            ).exists()
         )
 
     def test_terminal_monitor_reports_full_backlog_beyond_sample_limit(self):
@@ -276,7 +306,7 @@ class InstagramBotNotificationTests(TestCase):
             IgBotNotification(
                 dedupe_key=f"terminal-backlog-{index}",
                 event_type="delivery_unknown",
-                payload={"text": "Невідомий результат"},
+                payload={"text": "Невідомий результат", "requires_human_review": True},
                 status=IgBotNotification.Status.UNKNOWN,
             )
             for index in range(101)
@@ -293,13 +323,62 @@ class InstagramBotNotificationTests(TestCase):
             event_type=marker,
             status=IgBotNotification.Status.UNKNOWN,
             last_error=marker,
-            payload={"text": marker, "chat_id": "123"},
+            payload={
+                "text": marker,
+                "chat_id": "123",
+                "requires_human_review": True,
+            },
         )
 
         self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
         monitor = IgBotNotification.objects.get(event_type="notification_terminal_monitor")
         self.assertNotIn(marker, monitor.payload["text"])
         self.assertIn("UNKNOWN", monitor.payload["text"])
+
+    def test_recovered_task_failure_auto_resolves_new_and_legacy_alerts(self):
+        now = timezone.now()
+        heartbeat = InstagramBotTaskHeartbeat.objects.create(
+            task_key="ig_daemon_watchdog",
+            label="watchdog Instagram-демона",
+            expected_interval_seconds=60,
+            stale_after_seconds=180,
+            last_failed_at=now,
+            last_error_kind="CommandError",
+        )
+        new_style = IgBotNotification.objects.create(
+            dedupe_key=f"ig_task_failure:e{heartbeat.pk}:w-new",
+            event_type="ig_task_failure",
+            payload={
+                "text": "Watchdog failed",
+                "task_key": heartbeat.task_key,
+                "task_heartbeat_id": heartbeat.pk,
+                "requires_human_review": False,
+            },
+            status=IgBotNotification.Status.UNKNOWN,
+        )
+        legacy = IgBotNotification.objects.create(
+            dedupe_key=f"ig_task_failure:e{heartbeat.pk}:w-legacy",
+            event_type="ig_task_failure",
+            payload={"text": "Legacy watchdog failure"},
+            status=IgBotNotification.Status.UNKNOWN,
+        )
+        heartbeat.last_succeeded_at = now + timedelta(minutes=1)
+        heartbeat.consecutive_failures = 0
+        heartbeat.last_error_kind = ""
+        heartbeat.save(update_fields=[
+            "last_succeeded_at", "consecutive_failures", "last_error_kind", "updated_at"
+        ])
+
+        self.assertEqual(bot.reconcile_recovered_system_notifications(), 2)
+
+        new_style.refresh_from_db()
+        legacy.refresh_from_db()
+        self.assertEqual(new_style.status, IgBotNotification.Status.RESOLVED)
+        self.assertEqual(legacy.status, IgBotNotification.Status.RESOLVED)
+        self.assertEqual(
+            IgBotNotificationAudit.objects.filter(action="auto_recovered").count(),
+            2,
+        )
 
     @patch.dict(
         "os.environ",

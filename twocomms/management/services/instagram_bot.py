@@ -3518,9 +3518,9 @@ def _log_token_error(s: InstagramBotSettings, code, body: str) -> None:
 
 NOTIFICATION_STALE_SENDING_SECONDS = 300
 NOTIFICATION_MAX_ATTEMPTS = 5
-NOTIFICATION_TERMINAL_ALERT_WINDOW_MINUTES = 60
 NOTIFICATION_TERMINAL_MONITOR_CACHE_KEY = "ig_notification_terminal_monitor_due"
 NOTIFICATION_TERMINAL_MONITOR_INTERVAL_SECONDS = 60
+_TASK_FAILURE_DEDUPE_RE = re.compile(r"^ig_task_failure:e(?P<heartbeat_id>\d+)(?::|$)")
 
 
 def _telegram_media_url_candidates(media: dict) -> list[str]:
@@ -3917,6 +3917,92 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
     )
 
 
+def _task_heartbeat_id_for_notification(row: IgBotNotification) -> int | None:
+    payload = row.payload if isinstance(row.payload, dict) else {}
+    raw_id = payload.get("task_heartbeat_id")
+    try:
+        heartbeat_id = int(raw_id)
+    except (TypeError, ValueError):
+        match = _TASK_FAILURE_DEDUPE_RE.match(str(row.dedupe_key or ""))
+        heartbeat_id = int(match.group("heartbeat_id")) if match else 0
+    return heartbeat_id if heartbeat_id > 0 else None
+
+
+def reconcile_recovered_system_notifications(*, limit: int = 100) -> int:
+    """Close system-only alert debt when durable task truth proves recovery."""
+    from management.models import IgBotNotificationAudit, InstagramBotTaskHeartbeat
+
+    candidate_ids = list(
+        IgBotNotification.objects.filter(
+            event_type="ig_task_failure",
+            status__in=[
+                IgBotNotification.Status.PENDING,
+                IgBotNotification.Status.FAILED,
+                IgBotNotification.Status.UNKNOWN,
+                IgBotNotification.Status.DEAD_LETTER,
+            ],
+        )
+        .order_by("created_at", "id")
+        .values_list("id", flat=True)[: max(1, min(int(limit), 500))]
+    )
+    resolved = 0
+    for notification_id in candidate_ids:
+        with transaction.atomic():
+            row = (
+                IgBotNotification.objects.select_for_update()
+                .filter(
+                    pk=notification_id,
+                    event_type="ig_task_failure",
+                    status__in=[
+                        IgBotNotification.Status.PENDING,
+                        IgBotNotification.Status.FAILED,
+                        IgBotNotification.Status.UNKNOWN,
+                        IgBotNotification.Status.DEAD_LETTER,
+                    ],
+                )
+                .first()
+            )
+            if row is None:
+                continue
+            heartbeat_id = _task_heartbeat_id_for_notification(row)
+            heartbeat = (
+                InstagramBotTaskHeartbeat.objects.filter(pk=heartbeat_id).first()
+                if heartbeat_id
+                else None
+            )
+            payload = row.payload if isinstance(row.payload, dict) else {}
+            expected_task_key = str(payload.get("task_key") or "")
+            if (
+                heartbeat is None
+                or (expected_task_key and heartbeat.task_key != expected_task_key)
+                or not heartbeat.last_succeeded_at
+                or heartbeat.last_succeeded_at <= row.created_at
+                or (
+                    heartbeat.last_failed_at
+                    and heartbeat.last_succeeded_at <= heartbeat.last_failed_at
+                )
+            ):
+                continue
+            from_status = row.status
+            row.status = IgBotNotification.Status.RESOLVED
+            row.failure_kind = "task_auto_recovered"
+            row.next_attempt_at = None
+            row.payload = {**payload, "review_status": "auto_recovered"}
+            row.save(update_fields=[
+                "status", "failure_kind", "next_attempt_at", "payload", "updated_at"
+            ])
+            IgBotNotificationAudit.objects.create(
+                notification=row,
+                actor=None,
+                action="auto_recovered",
+                from_status=from_status,
+                to_status=IgBotNotification.Status.RESOLVED,
+                note=f"task={heartbeat.task_key}; later heartbeat succeeded",
+            )
+            resolved += 1
+    return resolved
+
+
 def drain_manager_notifications(*, limit: int = 20) -> int:
     try:
         from accounts.signals import reconcile_registration_notification_intents
@@ -3928,6 +4014,7 @@ def drain_manager_notifications(*, limit: int = 20) -> int:
             "registration_notification_reconcile_failed",
             type(exc).__name__,
         )
+    reconcile_recovered_system_notifications(limit=limit)
     now = timezone.now()
     stale_before = now - timedelta(seconds=NOTIFICATION_STALE_SENDING_SECONDS)
     stale_ids = list(
@@ -3971,12 +4058,11 @@ def drain_manager_notifications(*, limit: int = 20) -> int:
 
 
 def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) -> int:
-    """Queue one bounded operator summary for unresolved terminal deliveries.
+    """Queue one summary for each distinct actionable unresolved set.
 
-    UNKNOWN and DEAD_LETTER rows are deliberately not replayed: the provider
-    outcome may already be visible to Telegram/Meta, or the retry budget is
-    exhausted.  They still need a durable, periodic signal so an operator can
-    reconcile them instead of relying on a dashboard counter.
+    UNKNOWN and DEAD_LETTER rows are deliberately not replayed. Only payloads
+    explicitly marked as requiring a human enter this monitor; system alerts
+    reconcile from durable task truth instead of becoming operator debt.
     """
     if not force:
         try:
@@ -3994,24 +4080,28 @@ def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) ->
         IgBotNotification.Status.UNKNOWN,
         IgBotNotification.Status.DEAD_LETTER,
     ]
+    actionable = IgBotNotification.objects.filter(
+        status__in=terminal_statuses,
+        payload__requires_human_review=True,
+    ).exclude(event_type="notification_terminal_monitor")
     counts = {status: 0 for status in terminal_statuses}
     for item in (
-        IgBotNotification.objects.filter(status__in=terminal_statuses)
-        .exclude(event_type="notification_terminal_monitor")
-        .values("status")
+        actionable.values("status")
         .annotate(total=Count("id"))
     ):
         counts[item["status"]] = item["total"]
     rows = list(
-        IgBotNotification.objects.filter(status__in=terminal_statuses)
-        .exclude(event_type="notification_terminal_monitor")
-        .order_by("updated_at", "id")
+        actionable.order_by("updated_at", "id")
         .values("id", "status", "event_type", "last_error")[:limit]
     )
     if not rows:
         return 0
-    now = timezone.now()
-    bucket = int(now.timestamp() // (NOTIFICATION_TERMINAL_ALERT_WINDOW_MINUTES * 60))
+    fingerprint_rows = list(
+        actionable.order_by("id").values_list("id", "status")
+    )
+    fingerprint = hashlib.sha256(
+        ";".join(f"{row_id}:{status}" for row_id, status in fingerprint_rows).encode("utf-8")
+    ).hexdigest()[:20]
     from management.services.ig_alerts import ALERT_EVENT_CODES, safe_machine_code
 
     samples = []
@@ -4038,9 +4128,13 @@ def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) ->
                 url=f"{management_base_url()}/bot/",
                 url_label="Перевірка:",
             ),
-            dedupe_key=f"ig-notification-terminal:w{bucket}",
+            dedupe_key=f"ig-notification-terminal:{fingerprint}",
             event_type="notification_terminal_monitor",
-            metadata={"terminal_counts": counts, "sample_count": len(samples)},
+            metadata={
+                "terminal_counts": counts,
+                "sample_count": len(samples),
+                "requires_human_review": False,
+            },
             deliver_immediately=False,
         )
     except Exception:

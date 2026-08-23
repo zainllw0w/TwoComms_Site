@@ -54,6 +54,28 @@ class TaskHeartbeatTests(TestCase):
         self.assertNotIn("0501234567", row.last_error_kind)
         self.assertEqual(row.consecutive_failures, 1)
         notify.assert_called_once()
+        self.assertFalse(notify.call_args.kwargs["deliver_immediately"])
+        self.assertEqual(notify.call_args.kwargs["event_type"], "ig_task_failure")
+        self.assertEqual(notify.call_args.kwargs["metadata"], {
+            "task_key": "ig_deal_payments",
+            "task_heartbeat_id": row.pk,
+            "task_failure_reason": "runtime_error",
+            "requires_human_review": False,
+        })
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_watchdog_command_error_has_typed_operator_reason(self, notify):
+        with self.assertRaises(CommandError):
+            with task_heartbeat("ig_daemon_watchdog"):
+                raise CommandError(
+                    "daemon child still running after 15s without singleton lock"
+                )
+
+        self.assertEqual(
+            notify.call_args.kwargs["metadata"]["task_failure_reason"],
+            "daemon_start_pending",
+        )
+        self.assertIn("Причина: daemon_start_pending", notify.call_args.args[0])
 
     def test_unobserved_task_has_a_deploy_grace_period_then_degrades(self):
         self.assertTrue(ensure_task_expectations())
