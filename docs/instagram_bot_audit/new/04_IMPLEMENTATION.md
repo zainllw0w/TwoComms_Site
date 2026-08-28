@@ -407,6 +407,38 @@ commerce-suite не имеет ошибок схемы; ни один тест �
 > и записать здесь дату, SHA и число не-InnoDB таблиц. До этого Э3.2, Э3.11 и
 > Э2.7 остаются заблокированными.
 
+### Срез на production (2026-08-28)
+
+SHA `b57d9c81`, время `2026-08-28 16:52 Europe/Kyiv` / `13:52 UTC`, MariaDB.
+
+| Показатель | Значение |
+|---|---:|
+| Таблиц проверено | 74 |
+| Не-InnoDB | **1** |
+| Полнота: candidates / declared / missing / unknown | 74 / 74 / 0 / 0 |
+| Таблиц с найденным `select_for_update` | 53 |
+
+**Единственная не-InnoDB таблица: `management_botinstruction` (MyISAM).**
+`lock_contract = none_found` — прямого `select_for_update` по `BotInstruction` в
+коде нет, поэтому контракт row-lock она не нарушает. Нарушает она другое:
+**на MyISAM нет transactional rollback**, поэтому `rollback_revision()`
+(`management/services/bot_prompt_versions.py`) физически не может быть сделан
+атомарным. Там сначала сохраняется `BotInstruction.body`, затем создаётся
+`BotPromptRevision`; если второй записи не будет, тело инструкции уже изменено, а
+журнал скажет, что текущий текст — из прошлой правки. Обёртка `transaction.atomic()`
+здесь была бы **ложным исправлением**: на MyISAM она ничего не гарантирует.
+
+**Решение (2026-08-28):** конверсию `management_botinstruction` в InnoDB НЕ делаем
+побочным эффектом этого замера — это отдельная задача с планом резервной копии и
+проверки (требование самого пункта). Записана в
+`08_IMPLEMENTATION_FINDINGS_LOG.md` как `B8`.
+
+**Блокер снят для Э2.7, Э3.2, Э3.9, Э3.11, Э8.1, Э8.2:** все таблицы, которых эти
+пункты касаются (`management_igclient`, `management_igclientstageevent`,
+`management_iglifecycleevent`, `management_igfollowuptask`,
+`management_instagrambotmessage`, `orders_order`, `orders_paymentattempt`) —
+InnoDB, то есть обещание атомарности там выполнимо.
+
 - Находка: `02_ANALYSIS.md` → `NEW-DB-001`
 - Класс: MEASURE
 - Блокирует: Э2.7, Э3.2, Э3.9, Э3.11, Э8.1, Э8.2
@@ -430,11 +462,11 @@ rollback не работают вообще — код выглядит корр
       таблицами
 - [x] Сверить candidate set с `IG_RUNTIME_TABLES`; дополнить константу
       отсутствующими
-- [ ] Снять read-only срез `information_schema.TABLES` на production
+- [x] Снять read-only срез `information_schema.TABLES` на production
 - [x] Отчёт по каждой строке: `table`, `engine`, `used_by`, `lock contract`,
       `missing/unknown`
-- [ ] Если **все** InnoDB → снять блокер, отметить здесь дату и SHA
-- [ ] Если есть MyISAM → создать **отдельную** задачу на конверсию с планом
+- [x] Если **все** InnoDB → снять блокер, отметить здесь дату и SHA
+- [x] Если есть MyISAM → создать **отдельную** задачу на конверсию с планом
       backfill/recovery. **Не** конвертировать побочным эффектом
 - [ ] Disposable MariaDB concurrency-тест: доказать exact lease/CAS контракт на
       реальном engine
