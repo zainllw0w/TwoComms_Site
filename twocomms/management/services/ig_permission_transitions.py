@@ -1,6 +1,7 @@
 """Durable, bounded reply-permission transitions for HTTP ingress."""
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import timedelta
 
@@ -17,6 +18,8 @@ from management.models import (
 )
 from management.services import ig_reply_boundary
 
+
+logger = logging.getLogger("management.ig_permission_transitions")
 
 JOB_LEASE_DURATION = timedelta(minutes=2)
 HTTP_JOB_LEASE_DURATION = timedelta(seconds=5)
@@ -331,6 +334,16 @@ def _cancel_client_automation(
     if client.next_followup_at is not None:
         client.next_followup_at = None
         client.save(update_fields=["next_followup_at", "updated_at"])
+    # Незавершений епізод деградації теж є автоматизацією: після takeover або
+    # opt-out він не має права ані надіслати holding, ані відновити відповідь.
+    try:
+        from management.services.ig_provider_incidents import (
+            cancel_episodes_for_client,
+        )
+
+        cancel_episodes_for_client(client.pk, reason=reason)
+    except Exception:
+        logger.debug("degradation episode cancellation unavailable", exc_info=True)
 
 
 def _cancel_global_automation(*, now, nowait: bool) -> None:

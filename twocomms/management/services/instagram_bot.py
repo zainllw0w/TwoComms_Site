@@ -25,6 +25,7 @@ import logging
 import os
 import re
 import secrets
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -2622,6 +2623,11 @@ _LOG_LEVELS = {
     "info": logging.INFO,
 }
 _INCIDENT_LOGGER = logging.getLogger("ig_bot")
+# `logger` використовувався в двох except-блоках (rate-limit і queue terminal
+# notification monitor), але жодного разу не був визначений у модулі: замість
+# запису попередження ці блоки кидали NameError. Саме ці блоки й існували, щоб
+# «зламаний кеш не робив терминальні нотифікації невидимими».
+logger = logging.getLogger("management.instagram_bot")
 
 
 def log(level: str, event: str, detail: str = "") -> None:
@@ -5253,6 +5259,61 @@ def _reply_permission_is_current(s, row, permission) -> bool:
     )
 
 
+class _TypingPulse:
+    """Тримати індикатор набору живим під час довгої генерації (ЭА.5, рівень L1).
+
+    Meta гасить `typing_on` приблизно через 10 секунд або після відправки
+    повідомлення. Живий хід міг тривати 34–44 секунди, тому клієнт бачив
+    «набирає…» кілька секунд, потім тишину, а потім технічний текст «перепрошую
+    за технічну затримку» — і саме це виглядало як поломка. Клієнт, який бачить
+    індикатор 25 секунд, ботом-поломкою це не вважає.
+
+    Оновлення індикатора — advisory-дія: її збій НІКОЛИ не впливає на исход ходу
+    і не тримає жодних блокувань.
+    """
+
+    INTERVAL_SECONDS = 8.0
+
+    def __init__(self, settings_obj, recipient_id: str):
+        self._settings = settings_obj
+        self._recipient_id = str(recipient_id or "")
+        self._stop = threading.Event()
+        self._thread = None
+
+    def start(self) -> None:
+        from management.services.ig_provider_incidents import flag
+
+        if not self._recipient_id or not flag("IG_QUIET_DEGRADATION"):
+            return
+        self._thread = threading.Thread(
+            target=self._run, name="ig-typing-pulse", daemon=True
+        )
+        self._thread.start()
+
+    def _run(self) -> None:
+        while not self._stop.wait(self.INTERVAL_SECONDS):
+            try:
+                send_sender_action(self._settings, self._recipient_id, "typing_on")
+            except Exception:
+                logger.debug("typing pulse refresh unavailable", exc_info=True)
+                return
+
+    def stop(self) -> None:
+        self._stop.set()
+        thread = self._thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1.0)
+        self._thread = None
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.stop()
+        return False
+
+
 def _stop_typing_indicator(s, row, typing_active: bool) -> None:
     """Best-effort cleanup for a typing action that was successfully started."""
     if typing_active:
@@ -6643,6 +6704,12 @@ def gemini_generate(
     return text
 
 
+def _holding_message_source() -> str:
+    from management.services.ig_provider_incidents import HOLDING_MESSAGE_SOURCE
+
+    return HOLDING_MESSAGE_SOURCE
+
+
 def _persist_generated_reply_message(
     source_message: InstagramBotMessage,
     text: str,
@@ -6653,6 +6720,7 @@ def _persist_generated_reply_message(
     status: str | None = None,
     source: str | None = None,
     send_state: str = "",
+    gemini_request_id: str = "",
 ) -> InstagramBotMessage:
     """Persist an AI-authored transcript row with bounded model provenance."""
     processed_at = processed_at or timezone.now()
@@ -6667,6 +6735,7 @@ def _persist_generated_reply_message(
         processed_at=processed_at,
         send_state=send_state,
         gemini_model=str(provider_model or "").strip()[:80],
+        gemini_request_id=str(gemini_request_id or "").strip()[:40],
     )
 
 
@@ -9970,6 +10039,10 @@ def _process_one_inside_reply_boundary(
     used_ai_failure_fallback = False
     outage_recovery_required = False
     outage_recovery_job = None
+    logical_turn_id = ""
+    live_gemini_request_id = ""
+    outage_gate = None
+    outage_episode_id = 0
     gemini_failure: dict = {}
     typing_started_at: float | None = None
     typing_active = False
@@ -9985,6 +10058,15 @@ def _process_one_inside_reply_boundary(
     follow_cancelled_before_io = False
 
     if row.client_id:
+        # Логічний хід: усі вхідні, що прийшли поки бот ще не відповів, належать
+        # одному ходу. Саме на ході, а не на окремому повідомленні, тримається
+        # правило «сума вибачень ≤ 1».
+        try:
+            from management.services.ig_turn_lineage import resolve_logical_turn_key
+
+            logical_turn_id = resolve_logical_turn_key(row)
+        except Exception as exc:
+            log("warning", "logical_turn", repr(exc))
         try:
             from management.services.ig_follow_cta import (
                 record_follow_refusal_from_inbound,
@@ -10391,13 +10473,29 @@ def _process_one_inside_reply_boundary(
                         )
                 except Exception as exc:
                     log("warning", "follow_opportunity", repr(exc))
-            reply = gemini_generate(
-                s, history, images=images or None, match_hint=match_hint,
-                memory_note=mem_note, context_note=ctx_note, client=row.client if row.client_id else None,
-                media_hint=_media_context_hint(media),
-                turn_note=turn_notes,
-                failure_context=gemini_failure,
-            )
+            # Клієнт бачить безперервний індикатор набору, а не технічний текст,
+            # поки бюджет ходу не вичерпано (рівень L1 лестниці деградації).
+            # Lineage ходу дає можливість зібрати ланцюг «вхідне → спроби →
+            # holding → recovery → receipt» одним запитом.
+            from management.services.ig_turn_lineage import Lane, turn_lineage
+
+            with turn_lineage(
+                lane=Lane.LIVE,
+                client_id=row.client_id,
+                source_message_id=row.pk,
+                logical_turn_id=logical_turn_id,
+            ) as _lineage, _TypingPulse(
+                s, row.sender_id if typing_active else ""
+            ):
+                reply = gemini_generate(
+                    s, history, images=images or None, match_hint=match_hint,
+                    memory_note=mem_note, context_note=ctx_note,
+                    client=row.client if row.client_id else None,
+                    media_hint=_media_context_hint(media),
+                    turn_note=turn_notes,
+                    failure_context=gemini_failure,
+                )
+            live_gemini_request_id = str(_lineage.get("request_id") or "")
     else:
         if (row.text or "").strip() != s.trigger_text:
             row.status = InstagramBotMessage.Status.DONE
@@ -10591,9 +10689,22 @@ def _process_one_inside_reply_boundary(
             )
 
             provider_outage = gemini_failure.get("kind") == "provider_outage"
+            if provider_outage and row.client_id:
+                # ЭА.3: ЄДИНА точка рішення про технічне повідомлення. Жоден
+                # інший шлях не має права надіслати holding. Одиниця «не більше
+                # одного» — пара (інцидент, клієнт), а не source_message: саме
+                # тому старий dedupe по source проходив власний тест і при цьому
+                # давав клієнту три однакові вибачення за 5 хвилин 53 секунди.
+                from management.services import ig_provider_incidents
+
+                outage_gate = ig_provider_incidents.holding_decision(
+                    row, logical_turn_id=logical_turn_id
+                )
+                outage_episode_id = int(outage_gate.episode_id or 0)
             reply, fallback_manager_handoff = build_ai_failure_fallback(
                 row,
                 provider_outage=provider_outage,
+                holding_decision=outage_gate,
             )
             if reply:
                 used_ai_failure_fallback = True
@@ -10610,6 +10721,28 @@ def _process_one_inside_reply_boundary(
                 )
         except Exception as exc:
             log("error", "gemini_fallback", repr(exc))
+
+    if (
+        not reply
+        and outage_gate is not None
+        and not outage_gate.should_send
+    ):
+        # Технічний текст придушено. Клієнт НЕ отримує другого повідомлення про
+        # ту саму проблему, але хід не губиться: якщо він вимагає відповіді,
+        # курсор відновлення відповість на нього після закриття інциденту.
+        from management.services import ig_provider_incidents
+
+        reason = outage_gate.reason
+        needs_answer = reason not in ig_provider_incidents.SUPPRESS_NO_ANSWER_REASONS
+        if needs_answer and row.client_id:
+            try:
+                from management.services.ig_ai_reply_recovery import schedule_recovery
+
+                schedule_recovery(row, activate=True)
+            except Exception as exc:
+                log("error", "recovery_schedule", repr(exc))
+        clear_typing_indicator()
+        return _skip_observed_row(row, reason=f"outage_holding_{reason}")
 
     if not reply:
         # невдача генерації — ретрай або failed
@@ -10647,6 +10780,17 @@ def _process_one_inside_reply_boundary(
         try:
             from management.services.ig_ai_reply_recovery import schedule_recovery
 
+            if outage_episode_id:
+                # Перехід `OPEN → HOLDING_SENT` фіксується ДО сітьового виклику
+                # Meta (outbox): якщо процес помре під час запиту, друге
+                # технічне повідомлення не піде.
+                from management.services.ig_provider_incidents import reserve_holding
+
+                if not reserve_holding(outage_episode_id):
+                    clear_typing_indicator()
+                    return _skip_observed_row(
+                        row, reason="outage_holding_already_reserved"
+                    )
             # The holding response promises an automatic follow-up. Persist its
             # recovery intent before the non-idempotent Meta send boundary.
             outage_recovery_job = schedule_recovery(row, activate=False)
@@ -10655,6 +10799,14 @@ def _process_one_inside_reply_boundary(
             row.send_state = "failed"
             row.processed_at = timezone.now()
             row.save(update_fields=["status", "send_state", "processed_at"])
+            if outage_episode_id:
+                from management.services.ig_provider_incidents import (
+                    release_holding_reservation,
+                )
+
+                release_holding_reservation(
+                    outage_episode_id, reason="recovery_schedule_failed"
+                )
             log("error", "recovery_schedule", repr(exc))
             notify_manager(
                 f"⚠️ IG: не вдалося створити recovery для повідомлення #{row.pk}; "
@@ -11194,7 +11346,18 @@ def _process_one_inside_reply_boundary(
             provider_message_id=provider_message_id,
             provider_model=gemini_failure.get("model", ""),
             processed_at=processed_at,
+            # Технічний holding позначається durable-джерелом, а не пізнішим
+            # співпадінням тексту: інакше «скільки holding надіслано» можна було
+            # б порахувати лише регуляркою по тексту клієнтської історії.
+            source=(
+                _holding_message_source() if outage_recovery_required else None
+            ),
+            gemini_request_id=live_gemini_request_id,
         )
+        if outage_episode_id and outage_recovery_required:
+            from management.services.ig_provider_incidents import confirm_holding_sent
+
+            confirm_holding_sent(outage_episode_id, reply_message, now=processed_at)
         if row.client_id:
             from management.services.ig_funnel_analytics import (
                 record_first_bot_reply_in_transaction,

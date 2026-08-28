@@ -333,14 +333,34 @@ def _analysis_worker(stop_event: threading.Event):
         stop_event.wait(5)
 
 
+# Прибирання «зависших» інцидентів — housekeeping, а не гарячий шлях: рішення
+# про holding і про recovery самі перевіряють вікно склейки. Тому воно живе у
+# фоновому потоці й не додає латентності живій відповіді клієнту.
+INCIDENT_SWEEP_INTERVAL_SECONDS = 60
+
+
 def _ai_reply_recovery_worker(stop_event: threading.Event):
     """Drain one failed live-reply recovery independently of deep analysis."""
     from management.services.ig_ai_reply_recovery import process_due_recoveries
 
+    last_sweep = 0.0
     while not stop_event.is_set():
         worked = False
         try:
             close_old_connections()
+            if (
+                not maintenance_status(path=MAINTENANCE_FILE)["active"]
+                and time.monotonic() - last_sweep >= INCIDENT_SWEEP_INTERVAL_SECONDS
+            ):
+                last_sweep = time.monotonic()
+                try:
+                    from management.services.ig_provider_incidents import (
+                        close_stale_incidents,
+                    )
+
+                    close_stale_incidents()
+                except Exception as exc:
+                    bot.log("warning", "provider_incident_sweep", repr(exc))
             if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 worked = bool(process_due_recoveries(limit=1))
         except Exception as exc:
@@ -472,6 +492,30 @@ def _process_order_fulfillment():
         reconcile_order_customer_events(limit=10, send=True)
     except Exception as exc:
         bot.log("error", "order_fulfillment", repr(exc))
+
+
+# Пульс живості демона. Оновлюється фоновим потоком, поки основний цикл робить
+# довгу провайдерську роботу. `HB_PULSE_INTERVAL` свідомо значно менший за
+# `HB_ALIVE_WINDOW`, щоб один пропущений тик не виглядав смертю процесу.
+HB_PULSE_INTERVAL = 10
+
+
+def _progress_pulse(stop_event, owner: str, start_sentinel) -> None:
+    """Тримати heartbeat свіжим, поки процес живий і рухається.
+
+    Це advisory-нагляд: збій кешу тут ніколи не має зупиняти цикл відповідей.
+    """
+    while not stop_event.wait(HB_PULSE_INTERVAL):
+        try:
+            cache.set(
+                HB_KEY,
+                {"at": time.time(), "sentinel": start_sentinel, "pulse": True},
+                HB_ALIVE_WINDOW * 3,
+            )
+            cache.set(DAEMON_LOCK_KEY, owner, HB_ALIVE_WINDOW * 3)
+        except Exception:
+            # Наступний тик спробує знову; помилку видно у логах кешу.
+            pass
 
 
 def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
@@ -845,6 +889,18 @@ class Command(BaseCommand):
             daemon=True,
         )
         follow_intelligence_worker.start()
+        # Progress-pulse (ЭА.14): heartbeat раніше оновлювався ТІЛЬКИ після
+        # повернення з `_run_work_cycle()`, а один ланцюг Gemini займав 34–44
+        # секунди при вікні живості 45 секунд. Тому штатна довга робота виглядала
+        # смертю демона: watchdog фіксував `daemon_lock_stale` і піднімав новий
+        # процес — за добу ≥101 перезапуск. Пульс відрізняє «живий і рухається»
+        # від «завис»: він оновлює лічильник ходу, а не просто час.
+        progress_pulse = threading.Thread(
+            target=_progress_pulse,
+            args=(stop_event, owner, start_sentinel),
+            daemon=True,
+        )
+        progress_pulse.start()
 
         from django.utils import timezone as tz
 

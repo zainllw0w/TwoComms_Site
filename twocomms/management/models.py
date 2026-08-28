@@ -3938,6 +3938,9 @@ class InstagramBotMessage(models.Model):
     # Exact provider model used for this AI-authored message. Historical and
     # deterministic rows intentionally remain blank.
     gemini_model = models.CharField(max_length=80, blank=True, default="")
+    # Зворотнє посилання на провайдерський запит, що породив цей текст (ЭА.1).
+    # Однієї ссылки достатньо: деталі спроб лежать у `GeminiRequestAttempt`.
+    gemini_request_id = models.CharField(max_length=40, blank=True, default="", db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     # Provider timestamp is separate from the local immutable ingest time.
     # Backfill/recovery may persist old messages today, but the chat must show
@@ -4135,6 +4138,23 @@ class GeminiRequestAttempt(models.Model):
     thoughts_tokens = models.PositiveIntegerField(default=0)
     candidates_tokens = models.PositiveIntegerField(default=0)
     error_detail = models.CharField(max_length=120, blank=True, default="")
+    # Lineage ходу (ЭА.1): без цих полів ланцюг «вхідне → спроби → holding →
+    # recovery → receipt» не побудувати запитом, а значить не довести жодну
+    # правку спаму технічних вибачень. Значення передаються зверху, з шару, що
+    # знає контекст ходу, і НЕ вгадуються тут.
+    logical_turn_id = models.CharField(max_length=64, blank=True, default="")
+    source_message_id = models.PositiveBigIntegerField(null=True, blank=True)
+    client_id = models.PositiveBigIntegerField(null=True, blank=True)
+    # live | holding | recovery | analysis | metadata_probe | followup
+    lane = models.CharField(max_length=16, blank=True, default="")
+    attempt_index = models.PositiveSmallIntegerField(default=0)
+    candidate_index = models.PositiveSmallIntegerField(default=0)
+    # Кандидат, який НЕ викликали, теж має рядок: інакше «шість страхуючих
+    # ключів» не можна ні підтвердити, ні опровергнути.
+    not_attempted_reason = models.CharField(max_length=24, blank=True, default="")
+    incident_id = models.PositiveBigIntegerField(null=True, blank=True)
+    recovery_job_id = models.PositiveBigIntegerField(null=True, blank=True)
+    reply_message_id = models.PositiveBigIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -4142,6 +4162,9 @@ class GeminiRequestAttempt(models.Model):
         indexes = [
             models.Index(fields=["request_id", "-id"], name="gemini_attempt_request"),
             models.Index(fields=["role", "-id"], name="gemini_attempt_role"),
+            models.Index(fields=["source_message_id", "-id"], name="gemini_attempt_source"),
+            models.Index(fields=["client_id", "-id"], name="gemini_attempt_client"),
+            models.Index(fields=["lane", "-id"], name="gemini_attempt_lane"),
         ]
 
     def __str__(self):

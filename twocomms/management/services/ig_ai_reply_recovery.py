@@ -21,6 +21,7 @@ from django.utils import timezone
 from management.models import (
     IgAiReplyRecoveryJob,
     IgClient,
+    IgClientDegradationEpisode,
     InstagramBotMessage,
     InstagramBotSettings,
 )
@@ -45,12 +46,21 @@ JOB_LEASE_DURATION = timedelta(minutes=5)
 MAX_RECOVERY_ATTEMPTS = 3
 RECOVERY_RETRY_BASE_SECONDS = 20
 RECOVERY_RETRY_MAX_SECONDS = 300
+# Пауза між перевірками стану інциденту. Спроба НЕ витрачається: курсор просто
+# чекає, поки провайдер перейде в `RECOVERING`/`CLOSED`.
+RECOVERY_INCIDENT_WAIT_SECONDS = 45
 # ``send_text`` splits at 950 characters. Recovery deliberately fits one
 # customer message into one non-idempotent Meta request.
 MAX_RECOVERY_REPLY_CHARS = 950
-RECOVERY_APOLOGY_UK = "Вибачте за технічну затримку."
-RECOVERY_APOLOGY_RU = "Извините за техническую задержку."
-RECOVERY_APOLOGY_EN = "Sorry for the technical delay."
+# Тексти вибачень і вся семантика «одне вибачення на хід» живуть в одному
+# місці — `ig_apology_policy`. Раніше код і prompt вибачались незалежно, і
+# клієнт отримував два вибачення підряд.
+from management.services.ig_apology_policy import (  # noqa: E402
+    APOLOGY_EN as RECOVERY_APOLOGY_EN,
+    APOLOGY_RU as RECOVERY_APOLOGY_RU,
+    APOLOGY_UK as RECOVERY_APOLOGY_UK,
+    apply_apology_policy,
+)
 
 _TERMINAL_STATUSES = frozenset({
     IgAiReplyRecoveryJob.Status.SENT,
@@ -96,26 +106,90 @@ def _trim_draft(text: str) -> str:
     return f"{shortened or head}..."
 
 
-def _ensure_recovery_apology(draft: str, source_text: str) -> str:
-    """Make the promised recovery apology deterministic, not prompt-dependent."""
+def _ensure_recovery_apology(
+    draft: str,
+    source_text: str,
+    *,
+    apology_already_delivered: bool = False,
+) -> tuple[str, int]:
+    """Сума вибачень у логічному ході ≤ 1 (holding і recovery разом).
+
+    Повертає (текст, число вибачень у цьому тексті), щоб епізод рахував
+    вибачення по факту надісланого тексту, а не по флагах.
+    """
     clean = _trim_draft(draft)
     if not clean:
-        return ""
+        return "", 0
     from management.services.bot_sales_classifier import detect_language
 
     language = detect_language(source_text) or detect_language(clean)
-    prefix = {
-        "ru": RECOVERY_APOLOGY_RU,
-        "en": RECOVERY_APOLOGY_EN,
-    }.get(language, RECOVERY_APOLOGY_UK)
-    prefix_stem = prefix[:-1]
-    suffix = clean[len(prefix_stem):]
-    if (
-        clean.casefold().startswith(prefix_stem.casefold())
-        and suffix[:1] in {".", "!", "?", "…", " ", "\t", "\r", "\n", ""}
-    ):
-        return clean
-    return _trim_draft(f"{prefix} {clean}")
+    if language not in {"uk", "ru", "en"}:
+        language = "uk"
+    normalized, apologies = apply_apology_policy(
+        clean,
+        language=language,
+        apology_already_delivered=apology_already_delivered,
+    )
+    trimmed = _trim_draft(normalized)
+    if not trimmed:
+        return "", 0
+    return trimmed, apologies
+
+
+def _apology_already_delivered(job: IgAiReplyRecoveryJob) -> bool:
+    """Чи витрачене вибачення ходу вже доставленим holding-ом."""
+    episode = getattr(job, "degradation_episode", None)
+    if episode is not None and int(getattr(episode, "apology_count", 0) or 0) >= 1:
+        return True
+    holding = getattr(job, "holding_message", None)
+    return bool(
+        job.holding_message_id
+        and holding is not None
+        and str(getattr(holding, "provider_message_id", "") or "").strip()
+    )
+
+
+def is_episode_cursor(job: IgAiReplyRecoveryJob) -> bool:
+    """Курсор інциденту відповідає на АКТУАЛЬНИЙ хід, а не на перший."""
+    from management.services.ig_provider_incidents import flag
+
+    return bool(job.degradation_episode_id) and flag("IG_RECOVERY_EPISODE_CURSOR")
+
+
+def effective_target_id(job: IgAiReplyRecoveryJob) -> int:
+    """Id вхідного, на яке має відповісти цей job.
+
+    Для курсора епізоду це найновіше вхідне клієнта: у production клієнт спитав
+    «що є в асортименті», потім «я спитав просто щоб знати», і три окремі job'и
+    дали три різні результати. Один курсор має відповісти на останнє питання.
+    """
+    source_id = int(job.source_message_id or 0)
+    if not is_episode_cursor(job):
+        return source_id
+    latest = (
+        InstagramBotMessage.objects.filter(
+            client_id=job.client_id,
+            role=InstagramBotMessage.Role.USER,
+            id__gte=source_id,
+        )
+        .order_by("-id")
+        .values_list("id", flat=True)
+        .first()
+    )
+    return int(latest or source_id)
+
+
+def recovery_target_message(job: IgAiReplyRecoveryJob) -> InstagramBotMessage:
+    target_id = effective_target_id(job)
+    if target_id and target_id != int(job.source_message_id or 0):
+        target = InstagramBotMessage.objects.filter(
+            pk=target_id,
+            client_id=job.client_id,
+            role=InstagramBotMessage.Role.USER,
+        ).first()
+        if target is not None:
+            return target
+    return job.source_message
 
 
 def _build_recovery_history(job: IgAiReplyRecoveryJob) -> list[dict]:
@@ -128,7 +202,7 @@ def _build_recovery_history(job: IgAiReplyRecoveryJob) -> list[dict]:
             client_id=job.client_id,
             sender_id=job.source_message.sender_id,
             id__gte=floor,
-            id__lte=job.source_message_id,
+            id__lte=effective_target_id(job),
         )
         .exclude(status=InstagramBotMessage.Status.FAILED)
         .annotate(event_at=Coalesce("provider_created_at", "created_at"))
@@ -191,14 +265,24 @@ def _guard_reason(
     if not deadline or now > deadline:
         return "response_window_closed"
 
-    # A current inbound is a newer customer intent, so this recovery must not
-    # race it.  A manager message is also authoritative ownership evidence.
-    newer = InstagramBotMessage.objects.filter(
+    # A manager message is authoritative ownership evidence and always wins.
+    if InstagramBotMessage.objects.filter(
         client_id=client.pk,
         id__gt=source.pk,
-        role__in=[InstagramBotMessage.Role.USER, InstagramBotMessage.Role.MANAGER],
-    ).exists()
-    if newer:
+        role=InstagramBotMessage.Role.MANAGER,
+    ).exists():
+        return "newer_inbound_or_manager_reply"
+    # Курсор епізоду свідомо НЕ скасовується новим вхідним: він і є механізмом
+    # «один recovery на клієнта та інцидент». Раніше кожне нове вхідне
+    # скасовувало попередній job і створювало новий, тому за один інцидент
+    # клієнт отримував результати кількох job'ів (у production — cancelled,
+    # sent, failed для одного клієнта). Ціль курсора — найновіше вхідне.
+    cursor_mode = bool(getattr(job, "degradation_episode_id", 0))
+    if not cursor_mode and InstagramBotMessage.objects.filter(
+        client_id=client.pk,
+        id__gt=source.pk,
+        role=InstagramBotMessage.Role.USER,
+    ).exists():
         return "newer_inbound_or_manager_reply"
 
     # A known outage holding reply is explicitly allowed.  Any other confirmed
@@ -207,11 +291,18 @@ def _guard_reason(
     existing_reply_ids = [
         value for value in (job.holding_message_id, job.reply_message_id) if value
     ]
+    from management.services.ig_provider_incidents import HOLDING_MESSAGE_SOURCE
+
     substantive = InstagramBotMessage.objects.filter(
         client_id=client.pk,
         role=InstagramBotMessage.Role.MODEL,
         id__gt=source.pk,
-    ).exclude(pk__in=existing_reply_ids).filter(
+    ).exclude(pk__in=existing_reply_ids).exclude(
+        # Технічний holding за визначенням НЕ є змістовною відповіддю. Раніше
+        # будь-який holding з receipt скасовував recovery, і клієнт залишався
+        # тільки з технічним текстом.
+        source=HOLDING_MESSAGE_SOURCE,
+    ).filter(
         Q(provider_message_id__gt="") | Q(send_state="sent")
     ).exists()
     if substantive:
@@ -225,10 +316,85 @@ def _guard_reason(
         role=InstagramBotMessage.Role.MODEL,
         id__gt=source.pk,
         provider_message_id="",
-    ).exclude(pk__in=existing_reply_ids).exclude(send_state="sending").exists()
+    ).exclude(pk__in=existing_reply_ids).exclude(
+        source=HOLDING_MESSAGE_SOURCE,
+    ).exclude(send_state="sending").exists()
     if unreceipted:
         return "unreceipted_holding_not_acknowledged"
     return ""
+
+
+def _cursor_key(client_id, incident_id) -> str:
+    return f"c{int(client_id or 0)}:i{int(incident_id or 0)}"
+
+
+def active_episode_cursor(
+    client_id: int,
+    episode: IgClientDegradationEpisode,
+) -> IgAiReplyRecoveryJob | None:
+    """Єдиний активний job на пару (клієнт, інцидент)."""
+    if not client_id or episode is None:
+        return None
+    return (
+        IgAiReplyRecoveryJob.objects.select_related(
+            "source_message", "client", "holding_message", "degradation_episode"
+        )
+        .filter(active_cursor_key=_cursor_key(client_id, episode.incident_id))
+        .first()
+    )
+
+
+def _supersede_stale_cursors(
+    *,
+    client_id: int,
+    episode: IgClientDegradationEpisode,
+    keep_job_id: int,
+) -> int:
+    """Позначити зайві job'и одного інциденту як `SUPERSEDED` БЕЗ відправки.
+
+    `SENDING` ніколи не витісняється: межа Meta-запиту пройдена, результат
+    невідомий, повторна відправка заборонена.
+    """
+    now = timezone.now()
+    stale = list(
+        IgAiReplyRecoveryJob.objects.filter(
+            client_id=client_id,
+            degradation_episode_id=episode.pk,
+            status__in=(
+                IgAiReplyRecoveryJob.Status.PENDING,
+                IgAiReplyRecoveryJob.Status.PROCESSING,
+            ),
+        ).exclude(pk=keep_job_id)
+    )
+    superseded = 0
+    for job in stale:
+        with transaction.atomic():
+            locked = (
+                IgAiReplyRecoveryJob.objects.select_for_update()
+                .filter(pk=job.pk)
+                .exclude(status__in=(
+                    IgAiReplyRecoveryJob.Status.SENDING,
+                    *_TERMINAL_STATUSES,
+                ))
+                .first()
+            )
+            if locked is None:
+                continue
+            locked.status = IgAiReplyRecoveryJob.Status.CANCELLED
+            locked.last_error = "superseded_by_episode_cursor"
+            locked.superseded_by_id = keep_job_id
+            locked.active_cursor_key = None
+            locked.lease_token = ""
+            locked.lease_until = None
+            locked.next_attempt_at = None
+            locked.completed_at = now
+            locked.save(update_fields=[
+                "status", "last_error", "superseded_by", "active_cursor_key",
+                "lease_token", "lease_until", "next_attempt_at", "completed_at",
+                "updated_at",
+            ])
+            superseded += 1
+    return superseded
 
 
 def schedule_recovery(
@@ -236,6 +402,7 @@ def schedule_recovery(
     *,
     holding_message: InstagramBotMessage | None = None,
     activate: bool = True,
+    degradation_episode: IgClientDegradationEpisode | None = None,
 ) -> IgAiReplyRecoveryJob:
     """Create exactly one recovery intent for a failed customer inbound.
 
@@ -273,10 +440,46 @@ def schedule_recovery(
                 raise ValueError("Recovery holding message is not a client model message")
         else:
             holding = None
+
+        # Курсор епізоду (ЭА.7): один активний job на пару (клієнт, інцидент).
+        # Якщо курсор уже є — новий вхідний ЛИШЕ оновлює ціль в епізоді, а
+        # другий job не створюється. Раніше три вхідні під час одного інциденту
+        # давали три job'и й кілька повідомлень клієнту.
+        episode = degradation_episode
+        if episode is None:
+            from management.services.ig_provider_incidents import episode_for_client
+
+            episode = episode_for_client(client.pk)
+        cursor_key = None
+        if episode is not None:
+            from management.services.ig_provider_incidents import flag
+
+            if flag("IG_RECOVERY_EPISODE_CURSOR"):
+                cursor_key = _cursor_key(client.pk, episode.incident_id)
+                existing_cursor = (
+                    IgAiReplyRecoveryJob.objects.select_for_update()
+                    .filter(active_cursor_key=cursor_key)
+                    .first()
+                )
+                if existing_cursor is not None and existing_cursor.source_message_id != source.pk:
+                    fields = []
+                    if holding and not existing_cursor.holding_message_id:
+                        existing_cursor.holding_message = holding
+                        fields.append("holding_message")
+                    if activate and not existing_cursor.activated_at:
+                        existing_cursor.activated_at = timezone.now()
+                        existing_cursor.next_attempt_at = timezone.now()
+                        fields += ["activated_at", "next_attempt_at"]
+                    if fields:
+                        existing_cursor.save(update_fields=[*fields, "updated_at"])
+                    return existing_cursor
+
         defaults = {
             "client": client,
             "holding_message": holding,
             "dedupe_key": f"ig-ai-recovery:{source.pk}",
+            "degradation_episode": episode,
+            "active_cursor_key": cursor_key,
             "settings_permission_epoch": int(permission.settings_epoch or 0),
             "client_permission_epoch": int(permission.client_epoch or 0),
             "message_floor": int(current_message_floor(client) or 0),
@@ -297,6 +500,16 @@ def schedule_recovery(
         if holding and not job.holding_message_id:
             job.holding_message = holding
             update_fields.append("holding_message")
+        if episode is not None and not job.degradation_episode_id:
+            job.degradation_episode = episode
+            update_fields.append("degradation_episode")
+        if (
+            cursor_key
+            and job.active_cursor_key != cursor_key
+            and job.status not in _TERMINAL_STATUSES
+        ):
+            job.active_cursor_key = cursor_key
+            update_fields.append("active_cursor_key")
         if activate and not job.activated_at:
             job.activated_at = timezone.now()
             update_fields.append("activated_at")
@@ -306,6 +519,21 @@ def schedule_recovery(
         if update_fields:
             job.save(update_fields=[*update_fields, "updated_at"])
         del created
+        if episode is not None:
+            _supersede_stale_cursors(
+                client_id=client.pk, episode=episode, keep_job_id=job.pk
+            )
+            from management.services.ig_provider_incidents import set_episode_state
+
+            if episode.state in {
+                IgClientDegradationEpisode.State.OPEN,
+                IgClientDegradationEpisode.State.HOLDING_SENT,
+            }:
+                set_episode_state(
+                    episode.pk,
+                    IgClientDegradationEpisode.State.RECOVERY_PENDING,
+                    reason="recovery_scheduled",
+                )
         return job
 
 
@@ -355,13 +583,14 @@ def terminalize_prepared_recovery(
             return job
         job.status = job.Status.AMBIGUOUS if ambiguous else job.Status.CANCELLED
         job.last_error = str(reason or "holding_delivery_unconfirmed")[:1000]
+        job.active_cursor_key = None
         job.lease_token = ""
         job.lease_until = None
         job.next_attempt_at = None
         job.completed_at = timezone.now()
         job.save(update_fields=[
-            "status", "last_error", "lease_token", "lease_until",
-            "next_attempt_at", "completed_at", "updated_at",
+            "status", "last_error", "active_cursor_key", "lease_token",
+            "lease_until", "next_attempt_at", "completed_at", "updated_at",
         ])
     return job
 
@@ -491,13 +720,14 @@ def _claim_job(job_id: int) -> tuple[IgAiReplyRecoveryJob | None, str]:
             # wrote a provider ID.  Never replay an uncertain Meta send.
             job.status = job.Status.AMBIGUOUS
             job.last_error = "stale_sending_without_provider_receipt"
+            job.active_cursor_key = None
             job.lease_token = ""
             job.lease_until = None
             job.next_attempt_at = None
             job.completed_at = now
             job.save(update_fields=[
-                "status", "last_error", "lease_token", "lease_until",
-                "next_attempt_at", "completed_at", "updated_at",
+                "status", "last_error", "active_cursor_key", "lease_token",
+                "lease_until", "next_attempt_at", "completed_at", "updated_at",
             ])
             if job.reply_message_id:
                 InstagramBotMessage.objects.filter(pk=job.reply_message_id).update(
@@ -537,13 +767,14 @@ def _cancel_claim(job_id: int, token: str, reason: str) -> IgAiReplyRecoveryJob:
             now = timezone.now()
             job.status = job.Status.CANCELLED
             job.last_error = reason[:1000]
+            job.active_cursor_key = None
             job.lease_token = ""
             job.lease_until = None
             job.next_attempt_at = None
             job.completed_at = now
             job.save(update_fields=[
-                "status", "last_error", "lease_token", "lease_until",
-                "next_attempt_at", "completed_at", "updated_at",
+                "status", "last_error", "active_cursor_key", "lease_token",
+                "lease_until", "next_attempt_at", "completed_at", "updated_at",
             ])
             if job.reply_message_id:
                 InstagramBotMessage.objects.filter(pk=job.reply_message_id).update(
@@ -579,13 +810,14 @@ def cancel_recoveries_for_spam(client_id: int) -> int:
         for job in jobs:
             job.status = IgAiReplyRecoveryJob.Status.CANCELLED
             job.last_error = "client_spam"
+            job.active_cursor_key = None
             job.lease_token = ""
             job.lease_until = None
             job.next_attempt_at = None
             job.completed_at = job.completed_at or now
             job.save(update_fields=[
-                "status", "last_error", "lease_token", "lease_until",
-                "next_attempt_at", "completed_at", "updated_at",
+                "status", "last_error", "active_cursor_key", "lease_token",
+                "lease_until", "next_attempt_at", "completed_at", "updated_at",
             ])
             if job.reply_message_id:
                 InstagramBotMessage.objects.filter(
@@ -610,14 +842,57 @@ def _recovery_retry_at(*, attempts: int, now):
 
 
 def _notify_recovery_exhausted(job: IgAiReplyRecoveryJob) -> None:
+    """Один кейс менеджеру на інцидент і клієнта; клієнту — НІЧОГО.
+
+    Друге технічне повідомлення не додає клієнту інформації, а підтверджує, що
+    «бот зламаний». Правильний отримувач цієї інформації — менеджер. Тому тут
+    немає жодної customer-facing відправки, а dedupe-ключ береться по парі
+    (інцидент, клієнт), а не по source-повідомленню: інакше один інцидент дав би
+    менеджеру кілька однакових алертів.
+    """
+    episode = getattr(job, "degradation_episode", None)
+    incident_id = int(getattr(episode, "incident_id", 0) or 0)
+    dedupe = (
+        f"ig-ai-recovery-exhausted:incident:{incident_id}:{job.client_id}"
+        if incident_id
+        else f"ig-ai-recovery-exhausted:{job.source_message_id}"
+    )
+    target_id = 0
+    failure_class = ""
+    try:
+        target_id = effective_target_id(job)
+        incident = getattr(episode, "incident", None)
+        failure_class = str(getattr(incident, "failure_class", "") or "")
+    except Exception:
+        pass
+    if episode is not None:
+        try:
+            from management.services.ig_provider_incidents import set_episode_state
+
+            set_episode_state(
+                episode.pk,
+                IgClientDegradationEpisode.State.MANUAL,
+                reason="recovery_exhausted",
+            )
+        except Exception:
+            pass
     try:
         notify_manager(
-            f"⚠️ IG: recovery відповіді для повідомлення #{job.source_message_id} "
-            f"не завершився після {job.attempts} спроб. Потрібна ручна відповідь.",
-            dedupe_key=f"ig-ai-recovery-exhausted:{job.source_message_id}",
+            "⚠️ IG: автоматична відповідь не відновилась. Потрібна ручна "
+            f"відповідь клієнту #{job.client_id} на повідомлення #{target_id or job.source_message_id}"
+            + (f" (клас збою: {failure_class})" if failure_class else "")
+            + f". Спроб: {job.attempts}.",
+            dedupe_key=dedupe,
             event_type="ai_reply_recovery_exhausted",
             client=job.client,
-            metadata={"source_message_id": job.source_message_id, "attempts": job.attempts},
+            metadata={
+                "source_message_id": job.source_message_id,
+                "target_message_id": target_id or job.source_message_id,
+                "attempts": job.attempts,
+                "incident_id": incident_id or None,
+                "failure_class": failure_class,
+                "recovery_job_id": job.pk,
+            },
         )
     except Exception:
         pass
@@ -629,31 +904,64 @@ def _release_for_retry(
     reason: str,
     *,
     consume_attempt: bool = True,
+    retry_at=None,
+    force_exhausted: bool = False,
 ) -> IgAiReplyRecoveryJob:
     exhausted = False
     with transaction.atomic():
-        job = IgAiReplyRecoveryJob.objects.select_for_update().get(pk=job_id)
+        job = (
+            IgAiReplyRecoveryJob.objects.select_for_update()
+            .select_related("client", "degradation_episode", "source_message")
+            .get(pk=job_id)
+        )
         if job.lease_token == token and job.status == job.Status.PROCESSING:
             now = timezone.now()
             if not consume_attempt:
                 job.attempts = max(0, int(job.attempts or 0) - 1)
-            exhausted = int(job.attempts or 0) >= MAX_RECOVERY_ATTEMPTS
+            exhausted = force_exhausted or int(job.attempts or 0) >= MAX_RECOVERY_ATTEMPTS
             job.status = job.Status.FAILED if exhausted else job.Status.PENDING
             job.last_error = reason[:1000]
             job.lease_token = ""
             job.lease_until = None
-            job.next_attempt_at = None if exhausted else _recovery_retry_at(
-                attempts=job.attempts,
-                now=now,
-            )
+            if exhausted:
+                job.next_attempt_at = None
+                # Курсор звільняється: наступний інцидент має право на власний.
+                job.active_cursor_key = None
+            else:
+                job.next_attempt_at = retry_at or _recovery_retry_at(
+                    attempts=job.attempts,
+                    now=now,
+                )
             job.completed_at = now if exhausted else None
             job.save(update_fields=[
-                "status", "attempts", "last_error", "lease_token", "lease_until",
-                "next_attempt_at", "completed_at", "updated_at",
+                "status", "attempts", "last_error", "active_cursor_key",
+                "lease_token", "lease_until", "next_attempt_at", "completed_at",
+                "updated_at",
             ])
     if exhausted:
         _notify_recovery_exhausted(job)
     return job
+
+
+_RECOVERY_TURN_NOTE_WITH_APOLOGY = (
+    "Відновлення відповіді після короткої технічної затримки. "
+    "Почни з одного природного короткого вибачення, а далі одразу дай "
+    "повну корисну відповідь на останнє запитання клієнта. Не згадуй "
+    "ШІ, Gemini, API, ключі, внутрішні системи чи менеджера. Не додавай "
+    "керуючих тегів, посилань на оплату, створення замовлення або інші "
+    "незворотні дії. Відповідай мовою останнього повідомлення клієнта."
+)
+# Клієнт уже отримав одне вибачення в holding. Друге виглядає як поломка, тому
+# prompt тут ПРЯМО забороняє вибачення — інакше модель вибачається сама, а код
+# знімає її вибачення, і хід починається з обрубку.
+_RECOVERY_TURN_NOTE_NO_APOLOGY = (
+    "Відновлення відповіді. Клієнт уже отримав одне повідомлення про технічну "
+    "затримку, тому НЕ вибачайся і не згадуй затримку взагалі. Одразу дай "
+    "повну корисну відповідь на останнє запитання клієнта. Не згадуй "
+    "ШІ, Gemini, API, ключі, внутрішні системи чи менеджера. Не додавай "
+    "керуючих тегів, посилань на оплату, створення замовлення або інші "
+    "незворотні дії. Відповідай мовою останнього повідомлення клієнта."
+)
 
 
 def _generate_recovery_draft(
@@ -661,23 +969,34 @@ def _generate_recovery_draft(
     *,
     model_context: dict | None = None,
 ) -> str:
-    """Generate a safe, substantive response for the original current turn."""
+    """Generate a safe, substantive response for the current customer turn."""
     settings_obj = InstagramBotSettings.load()
     history = _build_recovery_history(job)
-    draft = gemini_generate(
-        settings_obj,
-        history,
-        client=job.client,
-        turn_note=(
-            "Відновлення відповіді після короткої технічної затримки. "
-            "Почни з одного природного короткого вибачення, а далі одразу дай "
-            "повну корисну відповідь на останнє запитання клієнта. Не згадуй "
-            "ШІ, Gemini, API, ключі, внутрішні системи чи менеджера. Не додавай "
-            "керуючих тегів, посилань на оплату, створення замовлення або інші "
-            "незворотні дії. Відповідай мовою останнього повідомлення клієнта."
+    target = recovery_target_message(job)
+    apology_delivered = _apology_already_delivered(job)
+    from management.services.ig_turn_lineage import Lane, turn_lineage
+
+    with turn_lineage(
+        lane=Lane.RECOVERY,
+        client_id=job.client_id,
+        source_message_id=target.pk,
+        logical_turn_id=str(
+            getattr(job.degradation_episode, "logical_turn_id", "") or ""
         ),
-        failure_context=model_context,
-    )
+        incident_id=getattr(job.degradation_episode, "incident_id", None),
+        recovery_job_id=job.pk,
+    ):
+        draft = gemini_generate(
+            settings_obj,
+            history,
+            client=job.client,
+            turn_note=(
+                _RECOVERY_TURN_NOTE_NO_APOLOGY
+                if apology_delivered
+                else _RECOVERY_TURN_NOTE_WITH_APOLOGY
+            ),
+            failure_context=model_context,
+        )
     if isinstance(draft, ValidatedResponse):
         # Recovery may compose customer text but never executes model controls.
         if not draft.valid:
@@ -685,7 +1004,12 @@ def _generate_recovery_draft(
         draft = draft.reply_text
     elif not isinstance(draft, str):
         return ""
-    return _ensure_recovery_apology(draft or "", job.source_message.text)
+    normalized, _apologies = _ensure_recovery_apology(
+        draft or "",
+        target.text,
+        apology_already_delivered=apology_delivered,
+    )
+    return normalized
 
 
 def _persist_draft(
@@ -739,10 +1063,12 @@ def _persist_draft(
                 job.last_error = "reply_delivery_already_started"
             job.lease_token = ""
             job.lease_until = None
+            job.active_cursor_key = None
             job.completed_at = now
             job.save(update_fields=[
-                "status", "provider_message_id", "last_error", "lease_token",
-                "lease_until", "completed_at", "updated_at",
+                "status", "provider_message_id", "last_error",
+                "active_cursor_key", "lease_token", "lease_until",
+                "completed_at", "updated_at",
             ])
             return job, "terminalized_existing_delivery"
         else:
@@ -865,12 +1191,25 @@ def _finish_delivery(
                 "status": InstagramBotMessage.Status.FAILED,
                 "send_state": "unknown",
             })
+        job.active_cursor_key = None
         job.save(update_fields=[
-            "status", "provider_message_id", "last_error", "lease_token",
-            "lease_until", "next_attempt_at", "completed_at", "updated_at",
+            "status", "provider_message_id", "last_error", "active_cursor_key",
+            "lease_token", "lease_until", "next_attempt_at", "completed_at",
+            "updated_at",
         ])
         if job.reply_message_id:
             InstagramBotMessage.objects.filter(pk=job.reply_message_id).update(**reply_update)
+        if job.status == job.Status.SENT and job.degradation_episode_id:
+            from management.services.ig_provider_incidents import (
+                IgClientDegradationEpisode as _Episode,
+                set_episode_state,
+            )
+
+            set_episode_state(
+                job.degradation_episode_id,
+                _Episode.State.RECOVERED,
+                reason="recovery_delivered",
+            )
         return job
 
 
@@ -889,6 +1228,46 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
         if reason:
             return _cancel_claim(job.pk, token, reason)
 
+        # ЭА.8: recovery планується ВІД СТАНУ ІНЦИДЕНТУ, а не від таймера. Під
+        # час відкритого quota-інциденту три повних виклики гарантовано
+        # провальні: у production job 7 витратив три спроби й закінчився
+        # `recovery_generation_failed`, після чого клієнт отримав лише алерт
+        # менеджеру. Тепер спроби не витрачаються, поки провайдер не подав
+        # сигнал відновлення.
+        from management.services.ig_provider_incidents import (
+            RECOVERY_CURSOR_MAX_LIFETIME,
+            incident_blocks_recovery,
+        )
+
+        now = timezone.now()
+        cursor_age = now - (job.activated_at or job.created_at or now)
+        if incident_blocks_recovery(job.degradation_episode, now=now):
+            if cursor_age >= RECOVERY_CURSOR_MAX_LIFETIME:
+                # Курсор не живе вічно: інакше порушується І9 — молчання каналу
+                # довше SLA. Терминальний исход іде менеджеру, не клієнту.
+                return _release_for_retry(
+                    job.pk,
+                    token,
+                    "incident_open_cursor_expired",
+                    consume_attempt=False,
+                    force_exhausted=True,
+                )
+            return _release_for_retry(
+                job.pk,
+                token,
+                "incident_open_wait_for_recovery",
+                consume_attempt=False,
+                retry_at=now + timedelta(seconds=RECOVERY_INCIDENT_WAIT_SECONDS),
+            )
+        if cursor_age >= RECOVERY_CURSOR_MAX_LIFETIME:
+            return _release_for_retry(
+                job.pk,
+                token,
+                "recovery_cursor_expired",
+                consume_attempt=False,
+                force_exhausted=True,
+            )
+
         _leased_client, automation_token = acquire_client_automation_lease(job.client_id)
         if not automation_token:
             return _release_for_retry(
@@ -899,12 +1278,31 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
             )
 
         recovery_model_context: dict = {}
-        draft = (
-            _ensure_recovery_apology(job.draft_text, job.source_message.text)
-            if job.draft_text
-            else _generate_recovery_draft(job, model_context=recovery_model_context)
-        )
+        target_message = recovery_target_message(job)
+        apology_delivered = _apology_already_delivered(job)
+        if job.draft_text:
+            draft, apology_count = _ensure_recovery_apology(
+                job.draft_text,
+                target_message.text,
+                apology_already_delivered=apology_delivered,
+            )
+        else:
+            draft = _generate_recovery_draft(
+                job, model_context=recovery_model_context
+            )
+            apology_count = 0
         if not draft:
+            from management.services.ig_provider_incidents import (
+                recovery_failure_is_retryable,
+            )
+
+            if not recovery_failure_is_retryable(job.pk):
+                return _release_for_retry(
+                    job.pk,
+                    token,
+                    "recovery_failure_not_retryable",
+                    force_exhausted=True,
+                )
             return _release_for_retry(job.pk, token, "recovery_generation_failed")
         from management.services.bot_sales_classifier import (
             enforce_phone_disclosure_policy,
@@ -915,7 +1313,11 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
             draft,
             source_message_id=job.source_message_id,
         )
-        draft = _ensure_recovery_apology(draft, job.source_message.text)
+        draft, apology_count = _ensure_recovery_apology(
+            draft,
+            target_message.text,
+            apology_already_delivered=apology_delivered,
+        )
         if not draft:
             return _release_for_retry(job.pk, token, "recovery_generation_failed")
         job, reason = _persist_draft(
@@ -952,7 +1354,7 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
         ok, kind, hint, provider_message_id = _delivery_result(result)
         if kind == "cancelled":
             return _cancel_claim(job.pk, token, "permission_or_recovery_guard_changed")
-        return _finish_delivery(
+        finished = _finish_delivery(
             job.pk,
             token,
             ok=ok,
@@ -960,6 +1362,17 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
             hint=hint,
             provider_message_id=provider_message_id,
         )
+        if (
+            finished is not None
+            and finished.status == finished.Status.SENT
+            and job.degradation_episode_id
+            and apology_count
+        ):
+            # Вибачення рахується по ФАКТУ надісланого тексту, а не по флагах.
+            from management.services.ig_provider_incidents import note_apology_delivered
+
+            note_apology_delivered(job.degradation_episode_id, count=apology_count)
+        return finished
     except Exception as exc:  # noqa: BLE001 - provider boundary must be durable.
         # If the send boundary was crossed, an exception is indistinguishable
         # from a delivered request.  The current state tells us which side won.

@@ -576,14 +576,27 @@ def record_attempt(
     remaining_deadline_ms: int = 0,
     usage: dict | None = None,
     error_detail: str = "",
+    attempt_index: int = 0,
+    candidate_index: int = 0,
+    not_attempted_reason: str = "",
 ) -> GeminiRequestAttempt:
-    """Persist only bounded classifications, never the supplied raw detail."""
+    """Persist only bounded classifications, never the supplied raw detail.
+
+    Lineage ходу (клієнт, source-повідомлення, logical turn, lane) приходить з
+    контексту, який задає викликаючий шар: він єдиний знає, що це за хід. Тут
+    же реєструється стан деградації провайдера — це єдина точка, куди сходяться
+    ВСІ провайдерські спроби всіх ролей, тому інцидент не можна пропустити.
+    """
     usage = usage if isinstance(usage, dict) else {}
-    return GeminiRequestAttempt.objects.create(
+    from management.services.ig_turn_lineage import current_context
+
+    lineage = current_context()
+    group = project_group(key_name)[:80]
+    attempt = GeminiRequestAttempt.objects.create(
         request_id=str(request_id or "")[:40],
         role=str(role or "")[:20],
         key_name=str(key_name or "")[:40],
-        project_group=project_group(key_name)[:80],
+        project_group=group,
         model=str(model or "")[:80],
         outcome=str(outcome or "")[:24],
         failure_kind=str(failure_kind or "")[:32],
@@ -596,7 +609,60 @@ def record_attempt(
         thoughts_tokens=max(0, int(usage.get("thoughtsTokenCount") or 0)),
         candidates_tokens=max(0, int(usage.get("candidatesTokenCount") or 0)),
         error_detail=str(failure_kind or "")[:120],
+        logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
+        source_message_id=lineage.get("source_message_id") or None,
+        client_id=lineage.get("client_id") or None,
+        lane=str(lineage.get("lane") or "")[:16],
+        attempt_index=max(0, int(attempt_index or 0)),
+        candidate_index=max(0, int(candidate_index or 0)),
+        not_attempted_reason=str(not_attempted_reason or "")[:24],
+        incident_id=lineage.get("incident_id") or None,
+        recovery_job_id=lineage.get("recovery_job_id") or None,
     )
+    _register_provider_state(
+        role=role,
+        outcome=outcome,
+        failure_kind=failure_kind,
+        http_code=http_code,
+        model=model,
+        project_group=group,
+        key_name=key_name,
+        not_attempted_reason=not_attempted_reason,
+    )
+    return attempt
+
+
+def _register_provider_state(
+    *,
+    role: str,
+    outcome: str,
+    failure_kind: str,
+    http_code,
+    model: str,
+    project_group: str,
+    key_name: str,
+    not_attempted_reason: str = "",
+) -> None:
+    """Оновити durable стан деградації; телеметрія ніколи не ламає хід."""
+    if not_attempted_reason:
+        # Кандидат, якого не викликали, не є доказом ані збою, ані здоров'я.
+        return
+    try:
+        from management.services import ig_provider_incidents
+
+        if str(outcome or "") == "succeeded":
+            ig_provider_incidents.register_provider_success(role=role)
+        else:
+            ig_provider_incidents.register_provider_failure(
+                role=role,
+                failure_kind=failure_kind,
+                http_code=http_code,
+                model=model,
+                project_group=project_group,
+                key_name=key_name,
+            )
+    except Exception:
+        logger.debug("provider incident registration unavailable", exc_info=True)
 
 
 def _active_project_cooldown(

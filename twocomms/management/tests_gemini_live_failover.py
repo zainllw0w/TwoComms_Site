@@ -146,7 +146,11 @@ class LiveGeminiFailoverContractsTests(TestCase):
             with self.assertRaises(ai.CallAIAnalysisError):
                 ai.gemini_generate_text({"contents": []}, role="chat")
 
-        attempt = GeminiRequestAttempt.objects.order_by("-id").first()
+        attempt = (
+            GeminiRequestAttempt.objects.filter(outcome="failed")
+            .order_by("-id")
+            .first()
+        )
         self.assertIsNotNone(attempt)
         self.assertEqual(attempt.provider_reason, "PERMISSION_DENIED")
 
@@ -160,7 +164,11 @@ class LiveGeminiFailoverContractsTests(TestCase):
             with self.assertRaises(ai.CallAIAnalysisError):
                 ai.gemini_generate_text({"contents": []}, role="chat")
 
-        attempt = GeminiRequestAttempt.objects.order_by("-id").first()
+        attempt = (
+            GeminiRequestAttempt.objects.filter(outcome="failed")
+            .order_by("-id")
+            .first()
+        )
         self.assertIsNotNone(attempt)
         self.assertEqual(attempt.failure_kind, "invalid_key")
         self.assertEqual(attempt.http_code, 400)
@@ -179,7 +187,11 @@ class LiveGeminiFailoverContractsTests(TestCase):
             with self.assertRaises(ai.CallAIAnalysisError):
                 ai.gemini_generate_text({"contents": []}, role="chat")
 
-        attempt = GeminiRequestAttempt.objects.order_by("-id").first()
+        attempt = (
+            GeminiRequestAttempt.objects.filter(outcome="failed")
+            .order_by("-id")
+            .first()
+        )
         self.assertIsNotNone(attempt)
         self.assertEqual(attempt.failure_kind, "http_408")
         self.assertEqual(attempt.http_code, 408)

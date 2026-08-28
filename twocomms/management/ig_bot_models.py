@@ -48,6 +48,8 @@ __all__ = [
     "IgConversationAnalysisEvent",
     "IgConversationAnalysisJob",
     "IgAiReplyRecoveryJob",
+    "IgProviderIncident",
+    "IgClientDegradationEpisode",
     "IgPermissionTransitionJob",
     "IgMetaEventLog",
     "BotDataDeletionRequest",
@@ -4966,6 +4968,32 @@ class IgAiReplyRecoveryJob(models.Model):
         db_constraint=False,
     )
     dedupe_key = models.CharField(max_length=160, unique=True)
+    # Епізод деградації (ЭА.7): курсор відновлення живе на парі
+    # (клієнт, інцидент), а не на кожному source-повідомленні. Три вхідні під
+    # час одного інциденту раніше давали три job'и й кілька відповідей клієнту.
+    degradation_episode = models.ForeignKey(
+        "management.IgClientDegradationEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recovery_jobs",
+        db_constraint=False,
+    )
+    superseded_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="superseded_jobs",
+        db_constraint=False,
+    )
+    # «Один активний курсор на (клієнт, інцидент)» тримається в БД через
+    # nullable unique-колонку: активний job має ключ, терминальний — NULL.
+    # Часткові unique-індекси MariaDB не підтримує, тому це єдиний портативний
+    # спосіб отримати справжню гарантію, а не перевірку в коді.
+    active_cursor_key = models.CharField(
+        max_length=80, null=True, blank=True, unique=True
+    )
     status = models.CharField(
         max_length=16, choices=Status.choices, default=Status.PENDING, db_index=True
     )
@@ -5488,3 +5516,176 @@ class IgMetaEventLog(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - тривіально
         return f"{self.event_name}:{self.status}"
+
+
+class IgProviderIncident(models.Model):
+    """Одна durable деградація провайдера, а не окремий збій запиту.
+
+    Система вміла бачити окремі збої (`GeminiRequestAttempt`, `GeminiKeyState`),
+    але не вміла відповісти на питання «чи вже триває інцидент?». Через це кожен
+    новий вхідний починав міркування з нуля й отримував власне технічне
+    вибачення. Інцидент — це стан ПРОВАЙДЕРА; стан конкретного клієнта в межах
+    інциденту описує `IgClientDegradationEpisode`.
+
+    Fingerprint — це `role + failure_class`. Область (`scope`: модель, ключ,
+    project-group) свідомо НЕ входить у ключ: клієнту байдуже, який саме ключ
+    впав, йому важливо, що бот молчить. Області накопичуються в
+    `observed_scopes`, щоб інцидент по шести алиасах залишався одним інцидентом.
+    """
+
+    class State(models.TextChoices):
+        OPEN = "open", _("Відкритий")
+        RECOVERING = "recovering", _("Відновлюється")
+        CLOSED = "closed", _("Закритий")
+
+    class FailureClass(models.TextChoices):
+        QUOTA = "quota", _("Квота (429)")
+        UNAVAILABLE = "unavailable", _("Недоступність (5xx)")
+        TIMEOUT = "timeout", _("Таймаут читання")
+        CONNECT = "connect", _("Транспорт/з'єднання")
+        INVALID_PAYLOAD = "invalid_payload", _("Некоректний запит (400)")
+        AUTH = "auth", _("Ключ/доступ (401/403)")
+        EMPTY = "empty", _("Порожня відповідь")
+        UNKNOWN = "unknown", _("Інше")
+
+    role = models.CharField(max_length=20, db_index=True)
+    failure_class = models.CharField(
+        max_length=20, choices=FailureClass.choices, default=FailureClass.UNKNOWN
+    )
+    fingerprint = models.CharField(max_length=120, db_index=True)
+    # MariaDB не підтримує частковий unique-індекс, тому «один відкритий
+    # інцидент на fingerprint» тримається на nullable unique-колонці: активний
+    # інцидент має значення, закритий — NULL (MySQL/MariaDB і SQLite дозволяють
+    # багато NULL у unique-індексі). Це справжня гарантія в БД, а не в коді.
+    active_fingerprint = models.CharField(
+        max_length=120, null=True, blank=True, unique=True
+    )
+    state = models.CharField(
+        max_length=12, choices=State.choices, default=State.OPEN, db_index=True
+    )
+    opened_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_failure_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    first_success_after_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    close_reason = models.CharField(max_length=32, blank=True, default="")
+    observed_scopes = models.JSONField(default=list, blank=True)
+    failure_count = models.PositiveIntegerField(default=0)
+    success_count = models.PositiveIntegerField(default=0)
+    consecutive_success_count = models.PositiveSmallIntegerField(default=0)
+    affected_clients_count = models.PositiveIntegerField(default=0)
+    holding_sent_count = models.PositiveIntegerField(default=0)
+    # Обчислюється для агрегації алертів менеджеру; НЕ використовується для
+    # рішень, видимих клієнту.
+    severity = models.PositiveSmallIntegerField(default=1)
+    manager_alert_sent_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Інцидент провайдера IG")
+        verbose_name_plural = _("Інциденти провайдера IG")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["state", "-last_failure_at"], name="ig_incident_state_recent"),
+            models.Index(fields=["role", "state", "-id"], name="ig_incident_role_state"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"incident:{self.role}:{self.failure_class}:{self.state}"
+
+    @property
+    def is_active(self) -> bool:
+        return self.state in {self.State.OPEN, self.State.RECOVERING}
+
+
+class IgClientDegradationEpisode(models.Model):
+    """Стан одного клієнта в межах одного інциденту провайдера.
+
+    Одиниця «не більше одного технічного повідомлення» — це пара
+    (інцидент, клієнт), а НЕ `source_message_id`. Старий dedupe по source
+    формально проходив власний тест і при цьому давав клієнту три однакові
+    вибачення за 6 хвилин: три різні вхідні — це три різні source_id.
+
+    Діаграма станів:
+        OPEN → HOLDING_SENT → RECOVERY_PENDING → RECOVERED
+    гілки: → MANUAL (takeover/виснаження), → SUPERSEDED (новий інцидент),
+            → CANCELLED (opt-out, hidden, зміна epoch).
+    """
+
+    class State(models.TextChoices):
+        OPEN = "open", _("Відкритий")
+        HOLDING_SENT = "holding_sent", _("Холдинг надіслано")
+        RECOVERY_PENDING = "recovery_pending", _("Готується відновлення")
+        RECOVERED = "recovered", _("Відновлено")
+        MANUAL = "manual", _("Передано менеджеру")
+        SUPERSEDED = "superseded", _("Витіснено")
+        CANCELLED = "cancelled", _("Скасовано")
+
+    _TERMINAL_STATES = frozenset({
+        State.RECOVERED, State.MANUAL, State.SUPERSEDED, State.CANCELLED,
+    })
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.CASCADE,
+        related_name="degradation_episodes",
+        db_constraint=False,
+    )
+    incident = models.ForeignKey(
+        "management.IgProviderIncident",
+        on_delete=models.CASCADE,
+        related_name="client_episodes",
+        db_constraint=False,
+    )
+    state = models.CharField(
+        max_length=20, choices=State.choices, default=State.OPEN, db_index=True
+    )
+    # Рівно один holding на епізод; O2O тримає цю інваріанту в БД.
+    holding_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="degradation_episode_holding",
+        db_constraint=False,
+    )
+    first_source_message_id = models.PositiveBigIntegerField(default=0)
+    latest_source_message_id = models.PositiveBigIntegerField(default=0, db_index=True)
+    logical_turn_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    holding_sent_at = models.DateTimeField(null=True, blank=True)
+    holding_reserved_at = models.DateTimeField(null=True, blank=True)
+    inbound_count = models.PositiveIntegerField(default=0)
+    suppressed_count = models.PositiveIntegerField(default=0)
+    # Фактично надіслані клієнту вибачення в межах цього епізоду. Рахуємо по
+    # факту тексту, а не по флагах: holding і recovery складаються разом.
+    apology_count = models.PositiveSmallIntegerField(default=0)
+    last_decision = models.CharField(max_length=24, blank=True, default="")
+    last_decision_reason = models.CharField(max_length=48, blank=True, default="")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Епізод деградації клієнта IG")
+        verbose_name_plural = _("Епізоди деградації клієнтів IG")
+        ordering = ["-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "incident"], name="ig_degradation_episode_unique"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["client", "state", "-id"], name="ig_degradation_client"),
+            models.Index(fields=["incident", "state"], name="ig_degradation_incident"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"degradation:{self.client_id}:{self.incident_id}:{self.state}"
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.state in self._TERMINAL_STATES
+
+    @property
+    def holding_delivered(self) -> bool:
+        return bool(self.holding_sent_at and self.holding_message_id)

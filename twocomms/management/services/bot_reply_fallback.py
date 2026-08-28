@@ -340,8 +340,15 @@ def build_ai_failure_fallback(
     row,
     *,
     provider_outage: bool = False,
+    holding_decision=None,
 ) -> tuple[str, bool]:
-    """Build one useful response without inventing product, order, or payment facts."""
+    """Build one useful response without inventing product, order, or payment facts.
+
+    ``holding_decision`` — рішення з `ig_provider_incidents.holding_decision()`.
+    Технічний holding відправляється ТІЛЬКИ коли воно дозволяє: раніше цей текст
+    вибирався для будь-якого generic-сбою з `provider_outage`, без перевірок
+    «уже надсилали», «є відкритий інцидент», «є активна recovery», «є takeover».
+    """
     language = _language(row)
     reference = _order_reference(row.text)
     from management.services.bot_sales_classifier import COLLAB_RE, SUPPORT_RE
@@ -369,6 +376,11 @@ def build_ai_failure_fallback(
     if not reference:
         kind = "collaboration" if COLLAB_RE.search(row.text or "") else "generic"
     if kind == "generic" and row.client_id and provider_outage:
+        if holding_decision is not None and not holding_decision.should_send:
+            # Придушено: клієнту не надсилається жодного технічного тексту.
+            # Викликаючий шар терминалізує хід і, якщо він вимагає відповіді,
+            # покладається на єдиний курсор відновлення.
+            return "", False
         return _outage_holding_reply(language), False
     _queue_manager_handoff(row, kind=kind, reference=reference)
     return _handoff_reply(kind, language), True

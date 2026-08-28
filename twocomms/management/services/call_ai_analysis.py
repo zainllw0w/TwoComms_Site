@@ -799,6 +799,16 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         raise CallAIAnalysisError("Не налаштована модель Gemini для live chat.")
     attempts: list[str] = []
     request_id = uuid.uuid4().hex
+    # Ланцюг «вхідне → спроби → holding → recovery → receipt» відновлюється по
+    # цьому id: рядок відповіді зберігає його, а кожна спроба — власний lane та
+    # порядковий номер (ЭА.1).
+    try:
+        from management.services.ig_turn_lineage import bind_request_id
+
+        bind_request_id(request_id)
+    except Exception:
+        logger.debug("turn lineage unavailable", exc_info=True)
+    attempt_counter = [0]
     started_at = time.monotonic()
     deadline = started_at + _chat_deadline_seconds(policy["task"])
 
@@ -819,26 +829,55 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             if not gemini_keys.model_circuit_open(model)
         ] + candidates
 
-    def _call(key_name: str, key_value: str, model: str, *, preserve_fallback: bool):
+    def _audit_not_attempted(key_name: str, model: str, reason: str,
+                             candidate_index: int) -> None:
+        """Кандидат, якого НЕ викликали, теж отримує рядок.
+
+        Без цього «шість страхуючих ключів» неможливо ні підтвердити, ні
+        опровергнути: у телеметрії залишались лише реально виконані запити.
+        """
+        try:
+            gemini_keys.record_attempt(
+                request_id=request_id,
+                role="chat",
+                key_name=key_name,
+                model=model,
+                outcome="not_attempted",
+                decision="skip_candidate",
+                remaining_deadline_ms=max(0, int((deadline - time.monotonic()) * 1000)),
+                candidate_index=candidate_index,
+                not_attempted_reason=reason,
+            )
+        except Exception:
+            logger.debug("gemini attempt audit unavailable", exc_info=True)
+
+    def _call(key_name: str, key_value: str, model: str, *, preserve_fallback: bool,
+              candidate_index: int = 0):
         if gemini_keys.model_circuit_open(model):
             attempts.append(f"{key_name}/{model}: model_circuit_open")
             _emit(f"{key_name}/{model}: model circuit open")
+            _audit_not_attempted(key_name, model, "circuit_open", candidate_index)
             return None, "model_circuit_open"
         remaining = deadline - time.monotonic()
         timeout = _chat_timeout(remaining, preserve_fallback=preserve_fallback)
         if timeout is None:
+            _audit_not_attempted(key_name, model, "deadline", candidate_index)
             return None, "deadline"
         lease_token = None
         if key_name in gemini_keys.ALL_KEYS:
             if not gemini_keys.is_available(key_name):
                 attempts.append(f"{key_name}/{model}: quarantined")
                 _emit(f"{key_name}/{model}: quarantined")
+                _audit_not_attempted(key_name, model, "quarantine", candidate_index)
                 return None, "quarantined"
             lease_token = gemini_keys.acquire_key_lease(key_name, role="chat")
             if not lease_token:
                 attempts.append(f"{key_name}/{model}: lease_busy")
                 _emit(f"{key_name}/{model}: lease busy")
+                _audit_not_attempted(key_name, model, "lease_busy", candidate_index)
                 return None, "lease_busy"
+        attempt_counter[0] += 1
+        attempt_index = attempt_counter[0]
 
         def _release() -> None:
             if lease_token:
@@ -869,6 +908,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     latency_ms=int((time.monotonic() - call_started_at) * 1000),
                     remaining_deadline_ms=max(0, int((deadline - time.monotonic()) * 1000)),
                     usage=usage,
+                    attempt_index=attempt_index,
+                    candidate_index=candidate_index,
                 )
             except Exception:
                 logger.debug("gemini attempt audit unavailable", exc_info=True)
@@ -989,8 +1030,11 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     primary = models[0]
     primary_attempts = [candidate for candidate in candidates if candidate[2] == primary]
     slow_primary_calls = 0
-    for key_name, key_value, model in primary_attempts:
-        result, state = _call(key_name, key_value, model, preserve_fallback=True)
+    for candidate_index, (key_name, key_value, model) in enumerate(primary_attempts, start=1):
+        result, state = _call(
+            key_name, key_value, model,
+            preserve_fallback=True, candidate_index=candidate_index,
+        )
         if result:
             return result
         if state in {"deadline", "model_unavailable", "model_circuit_open"}:
@@ -1005,9 +1049,14 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     # A slow primary-model/transport fault gets one quality fallback phase.  A
     # fast key failure may still walk the full key list below without spending
     # the live budget on six long timeouts.
+    fallback_index = len(primary_attempts)
     for model in models[1:]:
         for key_name, key_value, _ in (candidate for candidate in candidates if candidate[2] == model):
-            result, state = _call(key_name, key_value, model, preserve_fallback=False)
+            fallback_index += 1
+            result, state = _call(
+                key_name, key_value, model,
+                preserve_fallback=False, candidate_index=fallback_index,
+            )
             if result:
                 return result
             if state == "deadline":

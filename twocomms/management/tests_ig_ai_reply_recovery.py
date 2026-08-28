@@ -233,7 +233,13 @@ class IgAIReplyRecoveryTests(TestCase):
 
         self.assertTrue(draft.startswith("Извините за техническую задержку."))
 
-    def test_generated_recovery_prefixes_technical_delay_apology_despite_generic_apology(self):
+    def test_generated_recovery_keeps_exactly_one_apology_for_a_generic_variant(self):
+        """ЭА.6/И2: семантически эквивалентное извинение не дублируется кодом.
+
+        Ранее этот случай давал ровно тот production-дефект, который зафиксирован
+        в `07_…HANDOFF` (строка 2738): модель извинялась своими словами, узкий
+        точный стем её не распознавал, и код добавлял второе извинение подряд.
+        """
         job = self.recovery.schedule_recovery(self.source)
         generated = "Вітаю! Sorry, що відповідь затрималась. Чим можу допомогти?"
 
@@ -244,8 +250,10 @@ class IgAIReplyRecoveryTests(TestCase):
         ):
             draft = self.recovery._generate_recovery_draft(job)
 
-        self.assertTrue(draft.startswith("Вибачте за технічну затримку."))
-        self.assertIn(generated, draft)
+        from management.services.ig_apology_policy import count_apologies
+
+        self.assertEqual(draft, generated)
+        self.assertEqual(count_apologies(draft), 1)
 
     def test_generated_recovery_does_not_duplicate_exact_localized_apology(self):
         self.source.text = "Hello, what sizes do you have?"

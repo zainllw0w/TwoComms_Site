@@ -136,6 +136,25 @@ IG_UGC_AUTO_AWARD_MODE = os.environ.get(
 if IG_UGC_AUTO_AWARD_MODE not in {'auto', 'shadow', 'disabled'}:
     IG_UGC_AUTO_AWARD_MODE = 'shadow'
 
+# ЭА — аварийная стабилизация деградации провайдера Gemini для Instagram-бота.
+# Все флаги по умолчанию ВКЛЮЧЕНЫ: текущее (старое) поведение доказанно вредит
+# клиентам — один клиент получил три одинаковых «технічна затримка» за 5 мин 53 с.
+# Флаг переключает чтение и отправку; он НЕ отменяет уже отправленное сообщение,
+# не удаляет побочный эффект у провайдера и не откатывает схему.
+#
+#   IG_PROVIDER_INCIDENT_TRACKING  — durable состояние инцидента провайдера
+#   IG_OUTAGE_HOLDING_COALESCING   — один holding на пару (инцидент, клиент)
+#   IG_LOW_INTENT_HOLDING_GATE     — не отвечать техтекстом на «Добре»/реакцию
+#   IG_QUIET_DEGRADATION           — индикатор набора вместо текста (уровень L1)
+#   IG_RECOVERY_EPISODE_CURSOR     — один курсор восстановления на клиента
+#   IG_RECOVERY_INCIDENT_SCHEDULING — recovery ждёт сигнала восстановления
+IG_PROVIDER_INCIDENT_TRACKING = _env_bool('IG_PROVIDER_INCIDENT_TRACKING', True)
+IG_OUTAGE_HOLDING_COALESCING = _env_bool('IG_OUTAGE_HOLDING_COALESCING', True)
+IG_LOW_INTENT_HOLDING_GATE = _env_bool('IG_LOW_INTENT_HOLDING_GATE', True)
+IG_QUIET_DEGRADATION = _env_bool('IG_QUIET_DEGRADATION', True)
+IG_RECOVERY_EPISODE_CURSOR = _env_bool('IG_RECOVERY_EPISODE_CURSOR', True)
+IG_RECOVERY_INCIDENT_SCHEDULING = _env_bool('IG_RECOVERY_INCIDENT_SCHEDULING', True)
+
 # W1-10 (NEW-502): лимиты на загрузку файлов — защита shared-хостинга от
 # произвольно больших аплоадов (аватар/УБД-док и другие формы).
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
