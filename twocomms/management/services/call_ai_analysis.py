@@ -44,7 +44,7 @@ from management.models import (
     InstagramBotSettings,
 )
 from management.models import normalize_phone as model_normalize_phone
-from management.services import gemini_keys
+from management.services import gemini_hedge, gemini_keys, gemini_scoreboard
 from management.services.call_ai_queue import METADATA_PENDING, analysis_queue_category
 from management.services.binotel import (
     BinotelClient,
@@ -81,7 +81,13 @@ MANAGEMENT_TEXT_DEADLINE_SECONDS = 75.0
 CHAT_ORDINARY_DEADLINE_SECONDS = 35.0
 CHAT_COMPLEX_DEADLINE_SECONDS = 45.0
 CHAT_MIN_CALL_SECONDS = 2.0
+# Э-HEDGE: більше НЕ обмежує число ключів найкращої моделі. Раніше значення 2
+# виводило хід на слабшу модель після двох повільних спроб, і чотири ключі 3.7
+# не пробувались взагалі. Константа залишена для fallback-фази (моделі нижче
+# первинної), де паралелізм недоречний: там кожен зайвий виклик — це витрата
+# квоти на гіршу відповідь.
 CHAT_PRIMARY_ATTEMPT_LIMIT = 2
+CHAT_FALLBACK_ATTEMPT_LIMIT = 2
 CHAT_COMPLEX_TASKS = frozenset({
     "product_decision",
     "size_fit_decision",
@@ -409,15 +415,19 @@ def _bounded_pool_timeout(
     *,
     remaining_deadline: float | None,
     tracked_key: bool,
+    role: str = "",
 ) -> tuple[float, float] | None:
     """Fit connect+read inside the job deadline and project-key lease."""
     allowance = float(sum(configured))
     if remaining_deadline is not None:
         allowance = min(allowance, max(0.0, float(remaining_deadline)))
     if tracked_key:
+        # Лізинг залежить від ролі: аудіо-аналіз має довший, інакше його
+        # налаштований timeout (10, 90) обрізався б спільним чатовим лізингом
+        # до 62 с read — тобто налаштування виглядало діючим і не діяло.
         allowance = min(
             allowance,
-            float(gemini_keys.KEY_LEASE_SECONDS) - BACKGROUND_LEASE_SAFETY_SECONDS,
+            float(gemini_keys.lease_seconds_for(role)) - BACKGROUND_LEASE_SAFETY_SECONDS,
         )
     if allowance < BACKGROUND_MIN_CALL_SECONDS:
         return None
@@ -483,6 +493,7 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 timeout or (CHAT_TIMEOUT if role == "chat" else GEMINI_TIMEOUT),
                 remaining_deadline=remaining,
                 tracked_key=track,
+                role=role,
             )
             if effective_timeout is None:
                 return ("model_skip", None)
@@ -777,6 +788,72 @@ def _chat_result(*, parsed, usage: dict | None, model: str, key_name: str,
     }
 
 
+def _classify_hedge_error(exc: BaseException) -> tuple:
+    """Перекласти виключення hedged-виклику в (failure_kind, http_code, decision).
+
+    Класифікація живе тут, а не в потоці: усі записи в БД і зміни стану ключів
+    робляться з головного потоку, бо Django-конекшени не поділяються між потоками.
+    """
+    if isinstance(exc, _GeminiTransient):
+        kind, http_code = _transient_failure_details(exc)
+        return kind, http_code, "degrade_model"
+    if isinstance(exc, _GeminiEmpty):
+        return "empty", None, "retry_or_degrade"
+    if isinstance(exc, _Gemini429):
+        return "quota_429", 429, "cooldown_project"
+    if isinstance(exc, _GeminiModelUnavailable):
+        kind = "model_not_found" if "404" in str(exc) else "permission_denied"
+        return kind, 404 if kind == "model_not_found" else 403, (
+            "skip_model" if kind == "model_not_found" else "rotate_key"
+        )
+    if isinstance(exc, _GeminiFatal):
+        kind = "invalid_key" if _chat_key_failure(exc) else "invalid_payload"
+        match = _HTTP_CODE_RE.search(str(exc))
+        code = int(match.group(1)) if match else (401 if kind == "invalid_key" else 400)
+        return kind, code, "rotate_key" if kind == "invalid_key" else "stop_payload"
+    return "transport", None, "degrade_model"
+
+
+def _apply_hedge_key_state(key_name: str, kind: str, http_code, model: str) -> None:
+    """Оновити стан ключа за результатом hedged-спроби (головний потік)."""
+    if key_name not in gemini_keys.ALL_KEYS:
+        return
+    try:
+        if kind == "quota_429":
+            if gemini_keys.is_key_level_429(model, False):
+                gemini_keys.mark_429(key_name, "minute", 0)
+                gemini_keys.record_key_failure(
+                    key_name, failure_kind="quota_429", http_code=429
+                )
+            return
+        if kind == "permission_denied":
+            gemini_keys.quarantine_key(
+                key_name,
+                failure_kind=kind,
+                http_code=403,
+                project_scope=True,
+                seconds=gemini_keys.PERMISSION_PROJECT_QUARANTINE_SECONDS,
+            )
+            return
+        if kind == "invalid_key":
+            gemini_keys.quarantine_key(
+                key_name, failure_kind=kind, http_code=http_code or 401,
+                project_scope=False,
+            )
+            return
+        if kind == "model_not_found":
+            gemini_keys.record_key_failure(key_name, failure_kind=kind, http_code=404)
+            gemini_keys.open_model_circuit(
+                model, reason=kind, project=gemini_keys.project_group(key_name)
+            )
+            return
+        gemini_keys.record_key_failure(
+            key_name, failure_kind=kind, http_code=http_code
+        )
+    except Exception:
+        logger.debug("gemini key state update unavailable", exc_info=True)
+
+
 def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                         parse: bool = False, log_cb=None,
                         model_override: str | None = None,
@@ -1027,30 +1104,145 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             _release()
         return result, "ok"
 
+    def _hedged_primary(primary_candidates: list, primary_model: str):
+        """Хвиля hedged-викликів по ВСІХ ключах найкращої моделі.
+
+        Раніше тут був послідовний перебір із `CHAT_PRIMARY_ATTEMPT_LIMIT = 2`:
+        дві повільні спроби з'їдали 29 с із 35 с бюджету, і решта ключів найкращої
+        моделі не пробувалась взагалі. Тепер усі ключі йдуть однією хвилею зі
+        сходинковим старом: швидкий ключ виграє до старту наступного (і зайвої
+        квоти не витрачається), а повільність моделі виявляється паралельно, а не
+        ціною бюджету.
+        """
+        if not primary_candidates:
+            return None
+        leased: list = []
+        prepared: list = []
+        for key_name, key_value, model in primary_candidates:
+            if key_name in gemini_keys.ALL_KEYS:
+                if not gemini_keys.is_available(key_name):
+                    attempts.append(f"{key_name}/{model}: quarantined")
+                    _audit_not_attempted(key_name, model, "quarantine", 0)
+                    continue
+                token = gemini_keys.acquire_key_lease(key_name, role="chat")
+                if not token:
+                    attempts.append(f"{key_name}/{model}: lease_busy")
+                    _audit_not_attempted(key_name, model, "lease_busy", 0)
+                    continue
+                leased.append((key_name, token))
+            prepared.append((key_name, key_value, model))
+        if not prepared:
+            return None
+
+        def call_one(key_name: str, key_value: str, model: str, timeout):
+            request_payload = _payload_for_model(
+                model, working_payload, reasoning_task=policy["task"]
+            )
+            request_payload.pop("_reasoning_task", None)
+            return _gemini_call_once(
+                model, request_payload, key_value, parse=parse, timeout=timeout
+            )
+
+        try:
+            wave = gemini_hedge.run_hedged(
+                prepared,
+                call_one=call_one,
+                deadline_monotonic=deadline,
+                expected_latency_ms=lambda key, model: (
+                    gemini_scoreboard.expected_latency_ms(key, model, role="chat")
+                ),
+                # 404/403 по моделі не зникнуть від іншого ключа: така хвиля
+                # гасне одразу, щоб не палити квоту на відомий результат.
+                aborts_wave=lambda exc: isinstance(exc, _GeminiModelUnavailable),
+            )
+        finally:
+            for key_name, token in leased:
+                try:
+                    gemini_keys.release_key_lease(key_name, token)
+                except Exception:
+                    logger.debug("gemini lease release unavailable", exc_info=True)
+
+        # Телеметрія і стан ключів — тільки з головного потоку.
+        winner_payload = None
+        for outcome in wave.outcomes:
+            attempt_counter[0] += 1
+            if outcome.skipped_reason:
+                _audit_not_attempted(
+                    outcome.key_name, outcome.model,
+                    outcome.skipped_reason, outcome.candidate_index,
+                )
+                continue
+            remaining_ms = max(0, int((deadline - time.monotonic()) * 1000))
+            if outcome.succeeded:
+                parsed, usage = outcome.result
+                if key_in_pool := outcome.key_name in gemini_keys.ALL_KEYS:
+                    gemini_keys.record_key_success(
+                        outcome.key_name, latency_ms=outcome.latency_ms
+                    )
+                del key_in_pool
+                gemini_keys.record_model_success(outcome.model)
+                gemini_keys.record_attempt(
+                    request_id=request_id, role="chat", key_name=outcome.key_name,
+                    model=outcome.model, outcome="succeeded",
+                    latency_ms=outcome.latency_ms,
+                    remaining_deadline_ms=remaining_ms, usage=usage,
+                    attempt_index=attempt_counter[0],
+                    candidate_index=outcome.candidate_index,
+                )
+                attempts.append(f"{outcome.key_name}/{outcome.model}: ok")
+                _emit(
+                    f"{outcome.key_name}/{outcome.model}: ok "
+                    f"({outcome.latency_ms / 1000:.1f}с, hedged)"
+                )
+                if wave.winner is outcome:
+                    winner_payload = _chat_result(
+                        parsed=parsed, usage=usage, model=outcome.model,
+                        key_name=outcome.key_name, attempts=attempts,
+                        policy=policy, started_at=started_at,
+                    )
+                continue
+            kind, http_code, decision = _classify_hedge_error(outcome.error)
+            _apply_hedge_key_state(outcome.key_name, kind, http_code, outcome.model)
+            gemini_keys.record_attempt(
+                request_id=request_id, role="chat", key_name=outcome.key_name,
+                model=outcome.model, outcome="failed", failure_kind=kind,
+                http_code=http_code,
+                provider_reason=_bounded_provider_reason(outcome.error),
+                decision=decision, latency_ms=outcome.latency_ms,
+                remaining_deadline_ms=remaining_ms,
+                attempt_index=attempt_counter[0],
+                candidate_index=outcome.candidate_index,
+            )
+            attempts.append(f"{outcome.key_name}/{outcome.model}: {kind}")
+            _emit(f"{outcome.key_name}/{outcome.model}: {kind} (hedged)")
+        # Скорборд читає свіжу телеметрію: наступний хід уже знає, хто відповів.
+        try:
+            gemini_scoreboard.invalidate("chat")
+        except Exception:
+            pass
+        return winner_payload
+
     primary = models[0]
     primary_attempts = [candidate for candidate in candidates if candidate[2] == primary]
-    slow_primary_calls = 0
-    for candidate_index, (key_name, key_value, model) in enumerate(primary_attempts, start=1):
-        result, state = _call(
-            key_name, key_value, model,
-            preserve_fallback=True, candidate_index=candidate_index,
+    # Э-HEDGE: порядок кандидатів беремо зі скорборда — він знає, який ключ
+    # нещодавно відповідав швидко, і не карає ключ за повільність САМОЇ моделі.
+    try:
+        primary_attempts = gemini_scoreboard.order_candidates(
+            primary_attempts, role="chat"
         )
-        if result:
-            return result
-        if state in {"deadline", "model_unavailable", "model_circuit_open"}:
-            break
-        if state not in {
-            "invalid_key", "model_unavailable", "quota", "lease_busy", "quarantined",
-        }:
-            slow_primary_calls += 1
-            if slow_primary_calls >= CHAT_PRIMARY_ATTEMPT_LIMIT:
-                break
+    except Exception:
+        logger.debug("gemini scoreboard unavailable", exc_info=True)
+
+    hedged_result = _hedged_primary(primary_attempts, primary)
+    if hedged_result is not None:
+        return hedged_result
 
     # A slow primary-model/transport fault gets one quality fallback phase.  A
     # fast key failure may still walk the full key list below without spending
     # the live budget on six long timeouts.
     fallback_index = len(primary_attempts)
     for model in models[1:]:
+        slow_fallback_calls = 0
         for key_name, key_value, _ in (candidate for candidate in candidates if candidate[2] == model):
             fallback_index += 1
             result, state = _call(
@@ -1066,6 +1258,14 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 )
             if state in {"model_unavailable", "model_circuit_open"}:
                 break
+            # На fallback-моделях паралелізм недоречний: кожен зайвий виклик —
+            # це витрата безкоштовної квоти на гіршу відповідь. Але дві повільні
+            # спроби підряд означають, що і ця модель зараз не відповідає, тому
+            # йдемо до наступної, а не тримаємо клієнта.
+            if state not in {"invalid_key", "quota", "lease_busy", "quarantined"}:
+                slow_fallback_calls += 1
+                if slow_fallback_calls >= CHAT_FALLBACK_ATTEMPT_LIMIT:
+                    break
 
     raise CallAIAnalysisError(
         "Усі Gemini-кандидати для live chat недоступні. Спроби: "

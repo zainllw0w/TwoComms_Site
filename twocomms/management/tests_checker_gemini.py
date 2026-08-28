@@ -367,7 +367,15 @@ class AdaptiveChatPlannerTests(TestCase):
         self.assertEqual(primary, list(ENV6))
         sleep.assert_not_called()
 
-    def test_slow_transients_degrade_after_at_most_two_primary_calls(self):
+    def test_slow_transients_try_every_key_before_degrading_the_model(self):
+        """Э-HEDGE: усі шість ключів найкращої моделі, а не два.
+
+        Раніше тут стояла межа «не більше двох спроб 3.7», і саме вона в
+        production вивела хід на слабшу 3.6, коли чотири ключі 3.7 навіть не
+        питали. `read_timeout` означає повільну МОДЕЛЬ, а не зламаний ключ, тому
+        дізнатись, чи вона повільна на всіх ключах, можна лише спитавши всі.
+        Hedged-хвиля робить це паралельно, тому бюджет ходу це витримує.
+        """
         seen = []
 
         def fake(model, payload, key, *, parse=True, timeout=None):
@@ -378,12 +386,17 @@ class AdaptiveChatPlannerTests(TestCase):
 
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(caa, "_gemini_call_once", side_effect=fake), \
+             patch.object(caa.gemini_hedge, "HEDGE_STAGGER_SECONDS", 0.01), \
              patch.object(caa.time, "sleep") as sleep:
             out = self._runner()({"contents": []}, reasoning_task="customer_chat")
 
         first_fallback = seen.index("gemini-3.6-flash")
+        primary_calls = seen[:first_fallback].count("gemini-3.7-flash")
         self.assertEqual(out["parsed"], "fallback")
-        self.assertLessEqual(seen[:first_fallback].count("gemini-3.7-flash"), 2)
+        self.assertGreater(
+            primary_calls, 2,
+            "усі доступні ключі найкращої моделі мусять бути спробовані",
+        )
         sleep.assert_not_called()
 
 

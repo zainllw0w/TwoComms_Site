@@ -116,6 +116,27 @@ MODEL_OVERLOAD_SECONDS = 60    # 503 → модель «перевантажен
 DEFAULT_MINUTE_COOLDOWN = 60   # per-minute 429 без retryDelay
 TOPUP_COOLDOWN_SECONDS = 6 * 3600  # платний проект без коштів
 KEY_LEASE_SECONDS = 70
+# Аудіо-аналіз (роль `management`) свідомо має довший бюджет за чат: розбір
+# телефонної розмови триває десятки секунд. Спільний лізинг 70 с обрізав його до
+# 62 с read, тому `GEMINI_TIMEOUT = (10, 90)` фізично не міг бути виданий —
+# налаштування виглядало діючим і не діяло. Лізинг для довгих ролей береться
+# окремою константою, інакше зміна одного числа тихо ламає інше.
+LONG_JOB_LEASE_SECONDS = 120
+LONG_JOB_ROLES = frozenset({"management", "checker"})
+
+
+def lease_seconds_for(role: str) -> int:
+    """Тривалість лізингу ключа для ролі.
+
+    Чат тримає ключ коротко — його бюджет ходу 35–45 с, і довгий лізинг
+    блокував би ключ для інших клієнтів. Фонові ролі з довгими викликами
+    (аудіо) потребують більшого, інакше їхній timeout обрізається лізингом.
+    """
+    return (
+        LONG_JOB_LEASE_SECONDS
+        if str(role or "") in LONG_JOB_ROLES
+        else KEY_LEASE_SECONDS
+    )
 AUTH_KEY_QUARANTINE_SECONDS = 6 * 3600
 PERMISSION_PROJECT_QUARANTINE_SECONDS = 6 * 3600
 
@@ -373,11 +394,13 @@ def acquire_key_lease(
     *,
     role: str,
     now: datetime.datetime | None = None,
-    seconds: int = KEY_LEASE_SECONDS,
+    seconds: int | None = None,
 ) -> str | None:
     """Claim a key or its known Google-project siblings without provider I/O."""
     if key_name not in ALL_KEYS or not _key_value(key_name):
         return None
+    if seconds is None:
+        seconds = lease_seconds_for(role)
     now = now or timezone.now()
     aliases = _project_aliases(key_name)
     token = secrets.token_hex(16)

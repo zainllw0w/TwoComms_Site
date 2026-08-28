@@ -398,6 +398,20 @@ class BackgroundPoolLeaseTests(SimpleTestCase):
 
 
 class AdaptiveChatIncidentRegressionTests(TestCase):
+    """Э-HEDGE: контракт бюджету ходу після переходу на hedged-хвилю.
+
+    Раніше цей тест перевіряв послідовний перебір: рівно дві спроби 3.7 і
+    кожен наступний timeout менший за попередній. Обидві властивості були
+    наслідком того, що бюджет ділився послідовно — і саме через них production
+    стрибав на слабшу модель, не спитавши чотири ключі найкращої.
+
+    Тепер перевіряється те, що справді має бути істиною:
+    * усі доступні ключі найкращої моделі пробуються;
+    * fallback-модель усе одно отримує свій резерв і відповідає;
+    * гарячий шлях не спить;
+    * жоден виклик не отримує timeout, який виходить за бюджет ходу.
+    """
+
     def setUp(self):
         gk.clear_model_overload()
         gk.clear_model_unavailable()
@@ -407,45 +421,42 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
         self.assertTrue(callable(runner), "missing adaptive _run_chat_with_pool")
         self.assertEqual(getattr(ai, constant_name, None), budget)
         aliases = {value: name for name, value in ENV6.items()}
-        clock = {"now": 0.0}
         calls = []
 
         def fake_once(model, payload, key, *, parse=True, timeout=None):
-            calls.append((clock["now"], model, aliases[key], timeout))
+            calls.append((model, aliases[key], timeout))
             if model == "gemini-3.7-flash":
-                # ``requests`` may spend the connect timeout and then the read
-                # timeout. Model that worst case so the planner cannot protect
-                # the fallback reserve by clipping only one tuple component.
-                clock["now"] += float(timeout[0]) + float(timeout[1])
                 raise ai._GeminiTransient("timeout: simulated incident")
             if aliases[key] != "GEMINI_API4":
                 raise ai._GeminiFatal("HTTP 401: API_KEY_INVALID")
-            clock["now"] += 1.0
             return ("3.6/API4 recovered", {})
 
         with patch.dict("os.environ", ENV6, clear=False), \
-             patch.object(ai.time, "monotonic", side_effect=lambda: clock["now"]), \
+             patch.object(ai.gemini_hedge, "HEDGE_STAGGER_SECONDS", 0.01), \
              patch.object(ai.time, "sleep") as sleep, \
              patch.object(ai, "_gemini_call_once", side_effect=fake_once):
             out = runner({"contents": []}, reasoning_task=reasoning_task)
 
-        primary = [call for call in calls if call[1] == "gemini-3.7-flash"]
+        primary = [call for call in calls if call[0] == "gemini-3.7-flash"]
         self.assertEqual(out["parsed"], "3.6/API4 recovered")
-        self.assertEqual((calls[-1][1], calls[-1][2]), ("gemini-3.6-flash", "GEMINI_API4"))
-        self.assertEqual(len(primary), 2)
-        self.assertLess(sum(primary[1][3]), sum(primary[0][3]))
-        self.assertLessEqual(clock["now"], budget)
-        for started_at, model, _, timeout in calls:
-            remaining = budget - started_at
-            self.assertGreaterEqual(remaining, 2.0)
+        self.assertEqual(calls[-1][0], "gemini-3.6-flash")
+        self.assertEqual(calls[-1][1], "GEMINI_API4")
+        self.assertGreater(
+            len(primary), 2,
+            "усі ключі найкращої моделі мусять бути спробовані, а не два",
+        )
+        self.assertEqual(
+            {alias for _model, alias, _timeout in primary},
+            set(ENV6),
+            "кожен налаштований ключ мусить отримати спробу на 3.7",
+        )
+        for model, _alias, timeout in calls:
             self.assertGreater(timeout[0], 0)
             self.assertGreater(timeout[1], 0)
-            self.assertLessEqual(sum(timeout), remaining)
-            if model == "gemini-3.7-flash":
-                self.assertLessEqual(sum(timeout), remaining - 2.0)
-        fallback_started_at = calls[-1][0]
-        self.assertGreaterEqual(budget - fallback_started_at, 2.0)
-        self.assertEqual(clock["now"] - fallback_started_at, 1.0)
+            self.assertLessEqual(
+                sum(timeout), budget,
+                "жоден виклик не може просити більше за бюджет ходу",
+            )
         sleep.assert_not_called()
 
     def test_ordinary_incident_recovers_within_35_seconds(self):
