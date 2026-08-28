@@ -522,21 +522,40 @@ class IgClient(models.Model):
         return obj
 
     def set_stage(self, new_stage: str, reason: str = "") -> None:
-        """Оновлює стадію + час і фіксує перехід у таймлайні (IgClientStageEvent)."""
+        """Оновлює стадію + час і фіксує перехід у таймлайні (IgClientStageEvent).
+
+        Э3.2: стадія і подія пишуться в ОДНІЙ транзакції. Раніше стадія
+        зберігалась, а створення `IgClientStageEvent` стояло в окремому
+        `try/except`, який **проглатував** виключення. `ig_funnel_fsm` трактував
+        відсутність виключення як успішний перехід, тому в CRM з'являлась стадія
+        без жодного evidence у таймлайні — і на питання «як клієнт тут опинився»
+        відповіді не було. Без атомарності не можна довіряти ні воронці, ні
+        аналітиці, а на них опирається майже все інше.
+
+        Виключення тепер НЕ проглатується: транзакція відкочує і стадію, і
+        подію, а `apply_stage` повертає `write_failed`. Тихого успіху більше
+        немає.
+
+        Атомарність тут реально виконувана: зріз Э0.2 на production підтвердив
+        InnoDB для `management_igclient` і `management_igclientstageevent`.
+        """
+        from django.db import transaction
         from django.utils import timezone
 
         old = self.stage
-        self.stage = new_stage
-        self.stage_updated_at = timezone.now()
-        self.save(update_fields=["stage", "stage_updated_at", "updated_at"])
-        try:
+        stage_at = timezone.now()
+        with transaction.atomic():
             from management.models import IgClientStageEvent
 
+            self.stage = new_stage
+            self.stage_updated_at = stage_at
+            self.save(update_fields=["stage", "stage_updated_at", "updated_at"])
             IgClientStageEvent.objects.create(
-                client=self, from_stage=old or "", to_stage=new_stage, reason=(reason or "")[:255]
+                client=self,
+                from_stage=old or "",
+                to_stage=new_stage,
+                reason=(reason or "")[:255],
             )
-        except Exception:
-            pass
 
     def touch_inbound(self) -> None:
         """Фіксує вхідне повідомлення: first_contact_at (раз) і last_message_at."""

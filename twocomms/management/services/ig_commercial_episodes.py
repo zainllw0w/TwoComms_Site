@@ -1316,6 +1316,17 @@ def start_repeat_episode(
                 client.stage = IgClient.Stage.QUALIFYING
                 client.stage_updated_at = timezone.now()
                 client.save(update_fields=["stage", "stage_updated_at", "updated_at"])
+                # Э3.2: журнал эпизода — не замена таймлайну клиента. Раньше
+                # событие писалось только в журнал эпизода, поэтому в карточке
+                # клиента стадия менялась без evidence.
+                from management.models import IgClientStageEvent
+
+                IgClientStageEvent.objects.create(
+                    client=client,
+                    from_stage=previous_stage or "",
+                    to_stage=IgClient.Stage.QUALIFYING,
+                    reason=f"episode_started:{episode.pk}",
+                )
                 append_episode_event(
                     episode,
                     dedupe_key=f"episode:{episode.pk}:stage:{client.stage}:start",

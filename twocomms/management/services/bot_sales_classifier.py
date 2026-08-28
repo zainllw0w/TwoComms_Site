@@ -1313,10 +1313,24 @@ def classify_message(
 
         # A buyer who declines the next offer is not a cold lead.
         if not client_has_confirmed_purchase(client):
-            try:
-                client.set_stage(IgClient.Stage.COLD, reason="no_buy")
-            except Exception:
-                client.stage = IgClient.Stage.COLD
+            # Э3.2: раньше здесь стоял `except: client.stage = COLD` — прямая
+            # запись стадии в обход FSM, которая ОТМЕНЯЛА бы атомарность
+            # `set_stage`: событие не записалось, а стадия всё равно менялась.
+            # Если переход не удался, стадия не меняется, и это видно в логе.
+            from management.services.ig_funnel_fsm import apply_stage
+
+            transition = apply_stage(
+                client, IgClient.Stage.COLD, reason="no_buy", actor="classifier"
+            )
+            if not transition.changed and transition.refused not in {
+                "same_stage",
+                "regress_not_allowed",
+            }:
+                logger.warning(
+                    "cold stage transition refused for client %s: %s",
+                    client.pk,
+                    transition.refused,
+                )
     if opt_out:
         opted_out_at = message_event_at
         client.opted_out_at = opted_out_at

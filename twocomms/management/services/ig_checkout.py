@@ -860,9 +860,21 @@ def create_or_update_proposal(
         IgClient.Stage.ORDER_CREATED,
         IgClient.Stage.DONE,
     }:
+        # Э3.2: прямая запись стадии обязана нести evidence в таймлайне клиента.
+        # Раньше здесь стадия менялась без `IgClientStageEvent`, и на вопрос
+        # «как клиент попал в checkout» ответа в CRM не было.
+        from management.models import IgClientStageEvent
+
+        stage_before = locked_client.stage
         locked_client.stage = IgClient.Stage.CHECKOUT
         locked_client.stage_updated_at = timezone.now()
         locked_client.save(update_fields=["stage", "stage_updated_at", "updated_at"])
+        IgClientStageEvent.objects.create(
+            client=locked_client,
+            from_stage=stage_before or "",
+            to_stage=IgClient.Stage.CHECKOUT,
+            reason="checkout_proposal_created",
+        )
     from management.services.bot_followups import schedule_proposal_expiry_event
 
     schedule_proposal_expiry_event(proposal)
