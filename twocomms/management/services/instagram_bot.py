@@ -4452,7 +4452,12 @@ def ensure_instagram_subscription(s: InstagramBotSettings) -> dict[str, object]:
     token = get_page_token(s)
     if not token:
         return {"ok": False, "http": 0, "state": "missing_credentials"}
-    body = urlencode({"subscribed_fields": "messages"}).encode("utf-8")
+    # `messaging_postbacks` обов'язковий для кнопок карточок: без цього поля Meta
+    # взагалі не доставляє натискання, і карточка з кнопкою виглядає для клієнта
+    # як непрацююча.
+    body = urlencode(
+        {"subscribed_fields": "messages,messaging_postbacks"}
+    ).encode("utf-8")
     code, response_body = _provider_http(
         s,
         _provider_url(s, f"/{account_id}/subscribed_apps"),
@@ -5438,6 +5443,23 @@ def _mark_sending_after_typing_off(s, row, typing_active: bool, mark_callable):
     return mark_callable()
 
 
+def _quick_reply_payload(quick_replies) -> list:
+    """Привести кнопки швидкої відповіді до лімітів Meta (13 шт., 20 символів)."""
+    from management.services.ig_message_templates import (
+        MAX_QUICK_REPLIES,
+        MAX_QUICK_REPLY_TITLE_CHARS,
+    )
+
+    items = []
+    for reply in list(quick_replies)[:MAX_QUICK_REPLIES]:
+        title = str(getattr(reply, "title", "") or "").strip()[:MAX_QUICK_REPLY_TITLE_CHARS]
+        payload = str(getattr(reply, "payload", "") or "").strip()
+        if not title or not payload:
+            continue
+        items.append({"content_type": "text", "title": title, "payload": payload})
+    return items
+
+
 def _split_for_send(text: str, limit: int = 950, max_chunks: int = 4) -> list[str]:
     """Ріже текст на частини ≤limit байт (UTF-8). Send API дозволяє 1000 байт."""
     text = (text or "").strip()
@@ -5915,6 +5937,7 @@ def send_text(
     allow_url_fallback: bool = False,
     alert_link_restriction: bool = True,
     return_receipt: bool = False,
+    quick_replies=(),
 ) -> tuple[bool, str, str] | ProviderDeliveryReceipt:
     """Повертає (ok, kind, hint/delivered_text).
 
@@ -6099,6 +6122,14 @@ def send_text(
                     "recipient": {"id": recipient_id},
                     "message": {"text": part},
                 }
+                # Кнопки швидкої відповіді чіпляються тільки до ПОСЛІДНЬОГО
+                # чанка: інакше клієнт побачив би той самий набір кнопок кілька
+                # разів, а натискання на застарілий чанк дало б дію, якої вже
+                # немає на екрані.
+                if quick_replies and chunk_index == len(parts) - 1:
+                    quick_reply_items = _quick_reply_payload(quick_replies)
+                    if quick_reply_items:
+                        payload["message"]["quick_replies"] = quick_reply_items
                 if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
                     payload["messaging_type"] = "RESPONSE"
                 body = json.dumps(payload).encode("utf-8")
@@ -10041,6 +10072,9 @@ def _process_one_inside_reply_boundary(
     outage_recovery_job = None
     logical_turn_id = ""
     live_gemini_request_id = ""
+    reply = ""
+    postback_outcome = None
+    postback_quick_replies: tuple = ()
     outage_gate = None
     outage_episode_id = 0
     gemini_failure: dict = {}
@@ -10302,7 +10336,29 @@ def _process_one_inside_reply_boundary(
         except Exception:
             pass
 
-    if s.ai_enabled:
+    # Натискання кнопки — точне однозначне твердження клієнта про вибір, а не
+    # текст, схожий на намір. Проганяти його через модель означало б додати
+    # ймовірність там, де її немає, і витратити провайдерський бюджет на відомий
+    # заздалегідь результат. Невідома кнопка повертає None — хід іде звичайним
+    # шляхом, а не ламається.
+    if row.client_id and str(getattr(row, "quick_reply_payload", "") or "").strip():
+        try:
+            from management.services.ig_postback_router import dispatch_postback
+
+            postback_outcome = dispatch_postback(row)
+        except Exception as exc:
+            log("warning", "postback_router", repr(exc))
+            postback_outcome = None
+        if postback_outcome is not None:
+            reply = postback_outcome.reply_text
+            postback_quick_replies = tuple(postback_outcome.quick_replies or ())
+            log(
+                "info",
+                "postback_handled",
+                f"{row.sender_id}: {postback_outcome.action} ({postback_outcome.reason})",
+            )
+
+    if not reply and s.ai_enabled:
         # Підвантажуємо профіль клієнта (раз на картку) для CRM.
         if row.client_id and not row.client.profile_fetched_at:
             try:
@@ -10496,7 +10552,7 @@ def _process_one_inside_reply_boundary(
                     failure_context=gemini_failure,
                 )
             live_gemini_request_id = str(_lineage.get("request_id") or "")
-    else:
+    elif not reply:
         if (row.text or "").strip() != s.trigger_text:
             row.status = InstagramBotMessage.Status.DONE
             row.processed_at = timezone.now()
@@ -11041,6 +11097,9 @@ def _process_one_inside_reply_boundary(
             # a false promise, so payment delivery stays fail-closed for a
             # manager.
             allow_url_fallback=_allows_linkless_fallback(reply, control, row.client),
+            # Кнопки детермінованої дії (натискання по карточці) їдуть разом з
+            # відповіддю: клієнт відповідає натисканням, а не переписуванням.
+            quick_replies=postback_quick_replies,
             # A blocked payment link produces its own manager task with the
             # exact invoice. It is the one actionable alert for that failed
             # send, so do not also emit the generic link-circuit Telegram alert.
@@ -11671,6 +11730,12 @@ def _iter_events(payload: dict):
                 raw_referral = event.get("referral")
                 postback = event.get("postback")
                 postback_referral = postback.get("referral") if isinstance(postback, dict) else None
+                if isinstance(postback, dict) and not raw_message:
+                    # Натискання кнопки карточки — це хід клієнта, а не сервісна
+                    # подія. Раніше з postback знімався тільки `referral`, тому
+                    # подія доходила до `enqueue_inbound` без тексту й вкладень і
+                    # там відкидалась: кнопка була декорацією.
+                    message.update(_postback_message_fields(postback))
                 message["_event_created_at"] = _provider_event_datetime(
                     event.get("timestamp") or entry.get("time")
                 )
@@ -11703,6 +11768,29 @@ def _iter_events(payload: dict):
             recipient = value.get("recipient") if isinstance(value.get("recipient"), dict) else {}
             ref = value.get("referral") if isinstance(value.get("referral"), dict) else {}
             yield (sender.get("id", ""), recipient.get("id", ""), message, ref)
+
+
+def _postback_message_fields(postback: dict) -> dict:
+    """Перекласти натискання кнопки в поля повідомлення клієнта.
+
+    `title` стає текстом ходу: саме його бачив клієнт на екрані, тому в історії
+    для моделі й для оператора має стояти воно, а не внутрішній payload.
+    Сам payload зберігається окремо й читається детермінованим роутером до
+    будь-якого звернення до моделі.
+    """
+    payload = str(postback.get("payload") or "").strip()[:1000]
+    title = str(postback.get("title") or "").strip()[:200]
+    fields: dict = {}
+    if payload:
+        fields["quick_reply"] = {"payload": payload}
+    if title:
+        fields["text"] = title
+    elif payload:
+        fields["text"] = "(натиснуто кнопку)"
+    mid = str(postback.get("mid") or "").strip()
+    if mid:
+        fields["mid"] = mid
+    return fields
 
 
 def _provider_event_datetime(raw) -> datetime | None:

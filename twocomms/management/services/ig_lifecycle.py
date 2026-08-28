@@ -51,7 +51,8 @@ STANDARD_RESPONSE_WINDOW_CLOSED = "standard_response_window_closed"
 LIFECYCLE_PROJECTION_STAGE = {
     IgLifecycleEvent.Kind.PAYMENT_VERIFIED: 1,
     IgLifecycleEvent.Kind.TTN_CREATED: 2,
-    IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED: 3,
+    IgLifecycleEvent.Kind.PARCEL_ARRIVED: 3,
+    IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED: 4,
 }
 VERIFIED_PAYMENT_TRUTHS = {
     IgDeal.PaymentTruth.CONFIRMED,
@@ -273,6 +274,10 @@ def _event_key(order, kind, payload):
         return f"payment:{payload['attempt_id']}:verified"
     if kind == IgLifecycleEvent.Kind.TTN_CREATED:
         return f"ttn:{order.pk}:{_tracking_digest(payload['tracking_number'])}"
+    if kind == IgLifecycleEvent.Kind.PARCEL_ARRIVED:
+        # Одне нагадування на ТТН: якщо перевізник повторно віддасть код 7 (а він
+        # віддає його на кожному опитуванні), другого повідомлення клієнту не буде.
+        return f"arrived:{order.pk}:{_tracking_digest(payload.get('tracking_number') or '')}"
     return f"delivered:{order.pk}"
 
 
@@ -313,6 +318,38 @@ def _message_for(kind, locale, order, payload) -> str:
             "uk": f"Ваше замовлення #{order.order_number} підготовлено до відправлення.\nТТН: {ttn}\nВідстежити: {track_url}",
             "ru": f"Ваш заказ #{order.order_number} подготовлен к отправке.\nТТН: {ttn}\nОтследить: {track_url}",
             "en": f"Your order #{order.order_number} is ready for shipment.\nTracking number: {ttn}\nTrack it: {track_url}",
+        }
+        return copies[locale]
+    if kind == IgLifecycleEvent.Kind.PARCEL_ARRIVED:
+        ttn = str(payload.get("tracking_number") or "").strip()
+        office = str(order.np_office or "").strip()
+        city = str(order.city or "").strip()
+        where = ", ".join(part for part in (city, office) if part)
+        # Строк зберігання СВІДОМО не називається: він залежить від типу
+        # відправлення, і назвати неперевірену дату гірше, ніж не називати
+        # жодної. Повідомляємо факт і пропонуємо нагадати.
+        copies = {
+            "uk": (
+                f"Ваша посилка із замовленням #{order.order_number} вже у відділенні"
+                + (f" ({where})" if where else "")
+                + f".\nТТН: {ttn}"
+                "\nЯкщо забрали — напишіть «забрав», і я закрию замовлення. "
+                "Якщо ще ні — можу нагадати пізніше, щоб посилка не поїхала назад."
+            ),
+            "ru": (
+                f"Ваша посылка с заказом #{order.order_number} уже в отделении"
+                + (f" ({where})" if where else "")
+                + f".\nТТН: {ttn}"
+                "\nЕсли забрали — напишите «забрал», и я закрою заказ. "
+                "Если ещё нет — могу напомнить позже, чтобы посылка не уехала назад."
+            ),
+            "en": (
+                f"Your parcel for order #{order.order_number} has arrived at the branch"
+                + (f" ({where})" if where else "")
+                + f".\nTracking number: {ttn}"
+                "\nIf you already picked it up, reply \"picked up\" and I will close the order. "
+                "If not yet, I can remind you later so the parcel is not returned."
+            ),
         }
         return copies[locale]
     copies = {
@@ -1060,10 +1097,27 @@ def _business_truth_cancellation_reason(
     order,
     assignment_matches: bool,
 ) -> str:
-    if payment_truth not in VERIFIED_PAYMENT_TRUTHS:
+    # «Посилка у відділенні» — фізичний факт, він не залежить від того, чи
+    # підтверджена оплата. Вимагати тут verified payment означало б відключити
+    # нагадування саме для наложки, тобто для випадку, де незабрана посилка
+    # коштує найдорожче. Прив'язка замовлення до цього клієнта нижче
+    # (`assignment_matches`) залишається обов'язковою.
+    if (
+        kind != IgLifecycleEvent.Kind.PARCEL_ARRIVED
+        and payment_truth not in VERIFIED_PAYMENT_TRUTHS
+    ):
         return PAYMENT_NOT_VERIFIED_ERROR
     if order is None:
         return "order_missing"
+    if kind == IgLifecycleEvent.Kind.PARCEL_ARRIVED:
+        # Гонка між оновленням трекінгу і відправкою: якщо клієнт уже забрав,
+        # нагадування скасовується БЕЗ звернення до провайдера.
+        if nova_poshta_order_fulfillment_confirmed(order):
+            return "parcel_already_received"
+        if str(order.tracking_number or "").strip() != str(
+            payload.get("tracking_number") or ""
+        ).strip():
+            return "tracking_number_changed"
     if (
         kind == IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED
         and not nova_poshta_order_fulfillment_confirmed(order)
@@ -1078,6 +1132,20 @@ def _business_truth_cancellation_reason(
     if not assignment_matches:
         return STALE_ASSIGNMENT_ERROR
     return ""
+
+
+def _lifecycle_quick_replies(event: IgLifecycleEvent) -> tuple:
+    if event.kind != IgLifecycleEvent.Kind.PARCEL_ARRIVED:
+        return ()
+    try:
+        from management.services.ig_postback_router import parcel_quick_replies
+
+        return parcel_quick_replies(event.order_id)
+    except Exception:
+        logger.exception(
+            "Unable to build parcel quick replies for lifecycle event %s", event.pk
+        )
+        return ()
 
 
 def _preflight_cancellation_reason(event: IgLifecycleEvent) -> str:
@@ -1818,6 +1886,12 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                 settings,
                 event.client.igsid,
                 event.final_text or _base_message(event),
+                # «Посилка у відділенні» — єдина подія, де від клієнта потрібна
+                # ДІЯ, а не інформація. Кнопка «Забрав» / «Нагадати пізніше»
+                # робить відповідь одним натисканням і, головне, саме натискання
+                # переоткриває 24-годинне вікно Meta — тому наступне нагадування
+                # легальне без окремого протоколу згоди.
+                quick_replies=_lifecycle_quick_replies(event),
                 permission_boundary_factory=lambda: customer_send_boundary(
                     settings.pk, event.client_id, permission
                 ),

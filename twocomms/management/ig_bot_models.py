@@ -2817,6 +2817,11 @@ class IgLifecycleEvent(models.Model):
     class Kind(models.TextChoices):
         PAYMENT_VERIFIED = "payment_verified", _("Оплату підтверджено")
         TTN_CREATED = "ttn_created", _("ТТН створено")
+        # Код 7 Нової Пошти — «прибуло у відділення». До цього між «ТТН створено»
+        # і «отримано» у бота не було жодної події, хоча незабрана посилка — це
+        # прямий збиток: зворотна доставка плюс замерзлий товар плюс майже
+        # гарантована втрата повторної продажі, а для наложки ще й втрата виручки.
+        PARCEL_ARRIVED = "parcel_arrived", _("Посилка у відділенні")
         DELIVERED_REVIEW_REQUESTED = (
             "delivered_review_requested",
             _("Замовлення отримано, запит відгуку"),

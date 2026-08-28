@@ -566,6 +566,12 @@ class NovaPoshtaService:
                 status_code=status_code,
                 shipment_status=full_status,
             )
+        else:
+            self._dispatch_ig_parcel_arrived_lifecycle(
+                order,
+                status_code=status_code,
+                shipment_status=full_status,
+            )
 
         if not decision['notify']:
             return decision['changed']
@@ -593,6 +599,46 @@ class NovaPoshtaService:
             self._send_status_notification(order, decision['old_shipment_status'], full_status)
 
         return True
+
+    # Код 7 Нової Пошти — «прибуло у відділення». Це єдина точка між «ТТН
+    # створено» і «отримано», на якій ще можна запобігти поверненню посилки.
+    NP_ARRIVED_AT_BRANCH_CODES = frozenset({7})
+
+    @classmethod
+    def _dispatch_ig_parcel_arrived_lifecycle(cls, order, *, status_code=None, shipment_status=''):
+        """Project a branch arrival into Instagram Direct exactly once per TTN."""
+        try:
+            code = int(status_code)
+        except (TypeError, ValueError):
+            return
+        if code not in cls.NP_ARRIVED_AT_BRANCH_CODES:
+            return
+        tracking_number = str(getattr(order, 'tracking_number', '') or '').strip()
+        if not tracking_number:
+            return
+        try:
+            from management.ig_bot_models import IgLifecycleEvent
+            from management.services.ig_lifecycle import (
+                dispatch_lifecycle_event,
+                ensure_lifecycle_event,
+            )
+
+            event, _created = ensure_lifecycle_event(
+                order,
+                IgLifecycleEvent.Kind.PARCEL_ARRIVED,
+                payload={
+                    'tracking_number': tracking_number,
+                    'status_code': str(code),
+                    'status': str(shipment_status or '')[:300],
+                },
+            )
+            if event is not None:
+                dispatch_lifecycle_event(event.pk)
+        except Exception:
+            logger.exception(
+                'Failed to project parcel arrival Instagram lifecycle for order %s',
+                getattr(order, 'pk', None),
+            )
 
     @staticmethod
     def _dispatch_ig_delivery_lifecycle(order, *, status_code=None, shipment_status=''):
