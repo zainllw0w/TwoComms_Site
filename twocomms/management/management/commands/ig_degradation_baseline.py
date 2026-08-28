@@ -33,6 +33,13 @@ HOLDING_SUBSTRINGS = {
     "en": "technical delay",
 }
 
+# Классы строк телеметрии, которые не являются отказом провайдера.
+# Пустой `failure_kind` СОЗНАТЕЛЬНО не исключается: лучше пересчитать, чем
+# спрятать настоящий отказ, у которого класс не проставлен.
+NON_FAILURE_KINDS = ("not_needed", "deadline_skipped", "unconfigured")
+# Роли, которые не влияют на путь клиента: hourly metadata probe.
+NON_CUSTOMER_ROLES = ("health_metadata",)
+
 APOLOGY_STEMS = (
     "вибач", "перепрош", "извин", "прощен", "sorry", "apolog"
 )
@@ -134,11 +141,23 @@ def _compute_metrics(days: int, incident_window_minutes: int):
         holding_per_day[day] += 1
         holding_per_client[row["client_id"]] += 1
 
-    # Failed attempts
+    # Реальные отказы провайдера. Исключаются три класса строк, которые отказом
+    # НЕ являются и раньше искажали и числитель, и знаменатель:
+    #   * outcome="succeeded" — успех;
+    #   * outcome="not_attempted" — кандидат, которого не вызывали (ЭА.1 волна 2);
+    #   * failure_kind="not_needed" / role="health_metadata" — hourly metadata
+    #     probe: он сознательно не доказывает generation health и не является
+    #     деградацией. Без этого фильтра 180 из 206 «инцидентов» были пробами.
     failed_attempts = list(
         GeminiRequestAttempt.objects.filter(
             created_at__gte=start_dt,
-        ).exclude(outcome="succeeded").order_by("created_at").iterator(chunk_size=500)
+        ).exclude(
+            outcome__in=("succeeded", "not_attempted")
+        ).exclude(
+            failure_kind__in=NON_FAILURE_KINDS
+        ).exclude(
+            role__in=NON_CUSTOMER_ROLES
+        ).order_by("created_at").iterator(chunk_size=500)
     )
 
     incidents = _group_failures_into_incidents(failed_attempts, incident_window_minutes)
