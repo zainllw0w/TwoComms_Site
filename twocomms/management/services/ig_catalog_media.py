@@ -53,6 +53,9 @@ class CatalogMediaSelection:
     items: tuple[CatalogMediaItem, ...] = ()
     requested_product_ids: tuple[int, ...] = ()
     missing_product_ids: tuple[int, ...] = ()
+    # Почему пришлось взять не точные ассеты варианта. Пустая строка = взяты
+    # точные. Оператор должен видеть причину, а не догадываться (Э3.7).
+    fallback_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -139,14 +142,40 @@ def _product_assets(product) -> list[tuple[str, str, int]]:
     return assets
 
 
-def select_catalog_media(product_ids, *, limit: int = MAX_CATALOG_MEDIA) -> CatalogMediaSelection:
+def select_catalog_media(
+    product_ids,
+    *,
+    limit: int = MAX_CATALOG_MEDIA,
+    color_variant_id: int | None = None,
+    fit_code: str = "",
+    size: str = "",
+    selection_revision: str = "",
+    expected_revision: str = "",
+) -> CatalogMediaSelection:
     """Return up to four real images for published products.
 
-    Variant images are preferred and only stocked variants are considered for
-    automated discovery. Missing imagery is represented explicitly so callers
-    can keep the text response and surface an operator-review state without
-    inventing a URL.
+    Э3.7 (`NEW-CAT-002`). Раньше медиа выбиралось независимым запросом
+    `filter(stock__gt=0)` по одному только `product_ids`. Поэтому клиент мог
+    увидеть фото чёрного варианта, нажать «беру» и получить белый: фото и
+    resolved variant приходили из двух разных источников истины.
+
+    Теперь при известном `color_variant_id` берутся **только** ассеты именно
+    этого варианта. Generic-медиа (фото товара без привязки к варианту)
+    разрешается только когда точных ассетов нет, и это фиксируется в
+    `fallback_reason`, чтобы оператор видел причину, а не догадывался.
+
+    `selection_revision` / `expected_revision`: устаревшая генерация выбора не
+    отправляет медиа вообще. Медиа, относящееся к отменённому выбору, хуже
+    отсутствия медиа.
     """
+    if (
+        expected_revision
+        and str(selection_revision or "") != str(expected_revision or "")
+    ):
+        return CatalogMediaSelection(
+            CatalogMediaState.AMBIGUOUS,
+            fallback_reason="stale_selection_revision",
+        )
     try:
         requested = tuple(dict.fromkeys(int(value) for value in (product_ids or ())))
     except (TypeError, ValueError):
@@ -173,20 +202,42 @@ def select_catalog_media(product_ids, *, limit: int = MAX_CATALOG_MEDIA) -> Cata
     missing = [product_id for product_id in requested if product_id not in by_id]
     selected: list[CatalogMediaItem] = []
     seen: set[str] = set()
+    fallback_reason = ""
     for product_id in requested:
         product = by_id.get(product_id)
         if product is None:
             continue
         candidates: list[tuple[str, str, int]] = []
-        variants = list(
-            ProductColorVariant.objects.filter(product_id=product_id, stock__gt=0)
-            .prefetch_related("images")
-            .order_by("order", "id")
-        )
-        for variant in variants:
-            candidates.extend(_variant_assets(variant))
+        exact_variant = None
+        if color_variant_id and len(requested) == 1:
+            exact_variant = next(
+                (
+                    variant
+                    for variant in product.color_variants.all()
+                    if variant.pk == int(color_variant_id)
+                ),
+                None,
+            )
+        if exact_variant is not None:
+            candidates = list(_variant_assets(exact_variant))
+            if not candidates:
+                # Точных ассетов у выбранного варианта нет. Generic-фото
+                # допустимо, но причина обязана быть видимой.
+                fallback_reason = "variant_assets_missing"
+        else:
+            if color_variant_id and len(requested) == 1:
+                fallback_reason = "variant_not_found"
+            variants = list(
+                ProductColorVariant.objects.filter(product_id=product_id, stock__gt=0)
+                .prefetch_related("images")
+                .order_by("order", "id")
+            )
+            for variant in variants:
+                candidates.extend(_variant_assets(variant))
         if not candidates:
             candidates = _product_assets(product)
+            if not fallback_reason:
+                fallback_reason = "product_assets_only"
         for url, mime_type, size_bytes in candidates:
             if url in seen:
                 continue
@@ -217,6 +268,7 @@ def select_catalog_media(product_ids, *, limit: int = MAX_CATALOG_MEDIA) -> Cata
         items=tuple(selected),
         requested_product_ids=requested,
         missing_product_ids=tuple(missing),
+        fallback_reason=fallback_reason,
     )
 
 

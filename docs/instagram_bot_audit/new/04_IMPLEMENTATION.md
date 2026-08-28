@@ -4016,6 +4016,41 @@ fingerprint и набор revision. Оператор видит, что инст
 
 ## Э3.7 — Единый resolver варианта, наличия и медиа
 
+> **Статус 2026-08-28 — закрыто; блокер Э1.5 снят.**
+>
+> Новый `management/services/ig_offer_resolver.py` даёт один авторитетный статус
+> уровня `product + variant + fit + size + quantity`:
+> `in_stock / made_to_order / unavailable / unknown`. Он не заменяет
+> `ig_availability.resolve_allocation` (там точная аллокация склада), а переводит
+> её решение в **одну** формулировку для клиента, которой пользуются все три
+> потребителя.
+>
+> Ключевые правила отображения, которых раньше не было в одном месте:
+> нулевой остаток при отслеживаемом учёте → `made_to_order` («відшиваємо 1-3
+> дні»), потому что checkout это разрешает; отключённый размер или
+> неподдерживаемый фасон → `unavailable`, потому что «отшить за 1-3 дня» его
+> нельзя; отсутствие политики учёта → `made_to_order`, ровно как обещает витрина;
+> всё остальное → `unknown`, и клиенту не говорится ничего.
+> `unknown` — fail-closed, а не разрешение сказать «є в наявності».
+>
+> `bot_catalog` больше **не** суммирует `ProductColorVariant.stock` для решения:
+> формулировку даёт resolver, а агрегированный остаток печатается рядом только
+> как диагностика. Именно самостоятельное суммирование и создавало расхождение с
+> checkout.
+>
+> `select_catalog_media()` принимает `color_variant_id`, `fit_code`, `size` и пару
+> `selection_revision` / `expected_revision`. При известном варианте берутся
+> **только** его ассеты; generic-фото допускается лишь когда точных нет, и
+> причина записывается в `fallback_reason` и в лог
+> (`catalog_media_fallback`) — оператор видит причину, а не догадывается.
+> Устаревшая генерация выбора не отправляет медиа вообще.
+>
+> **Отдельное решение по сопоставлению цвета.** `IgClient` хранит цвет текстом
+> (`current_color`), ссылки на вариант там нет. Поэтому
+> `resolve_client_color_variant()` сопоставляет вариант только при **однозначном**
+> совпадении: два подходящих варианта дают `color_match_ambiguous` и generic-фото
+> с честной причиной. Показать фото не того цвета хуже, чем показать generic.
+
 - Находка: `NEW-CAT-001`, затем `NEW-CAT-002`
 - Класс: DEFECT
 - **Блокирует Э1.5** (карточка каталога): в карточке расхождение фото и варианта
@@ -4029,24 +4064,24 @@ fingerprint и набор revision. Оператор видит, что инст
 
 **Шаги — единый resolver (`NEW-CAT-001`):**
 
-- [ ] RED-тест: zero-stock made-to-order, disabled `VariantSizeRule` и thermo
+- [x] RED-тест: zero-stock made-to-order, disabled `VariantSizeRule` и thermo
       fixture → сейчас дают разные статусы в разных потребителях
-- [ ] Один authoritative resolver уровня
+- [x] Один authoritative resolver уровня
       `product + variant + fit + size + quantity` со статусами
       `in_stock / made_to_order / unavailable / unknown`
-- [ ] Медиа получать **из того же** resolved variant
-- [ ] Агрегированный `stock` оставить диагностикой, не источником решений
-- [ ] `unknown`/error — fail-closed и видно оператору
-- [ ] Модель **никогда** не объявляет наличие сама
+- [x] Медиа получать **из того же** resolved variant
+- [x] Агрегированный `stock` оставить диагностикой, не источником решений
+- [x] `unknown`/error — fail-closed и видно оператору
+- [x] Модель **никогда** не объявляет наличие сама
 
 **Шаги — привязка медиа (`NEW-CAT-002`):**
 
-- [ ] `select_catalog_media()` принимает `color_variant_id`, fit, size и selection
+- [x] `select_catalog_media()` принимает `color_variant_id`, fit, size и selection
       revision, а не только `product_ids`
-- [ ] Generic-медиа разрешать **только** при отсутствии exact evidence, с записью
+- [x] Generic-медиа разрешать **только** при отсутствии exact evidence, с записью
       fallback reason в CRM
-- [ ] Stale generation не отправляет медиа
-- [ ] Тест: выбранный `color_variant_id + fit + size` возвращает только
+- [x] Stale generation не отправляет медиа
+- [x] Тест: выбранный `color_variant_id + fit + size` возвращает только
       принадлежащие ему assets
 
 **Готово когда:** три потребителя дают одинаковый статус на одинаковых данных; фото

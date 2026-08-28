@@ -10230,7 +10230,12 @@ def _renew_client_automation_lease(row: InstagramBotMessage, token: str) -> bool
 
 
 def _catalog_media_selection_for_control(control: dict, client):
-    """Resolve an explicit SHOW_PRODUCTS control into trusted catalog media."""
+    """Resolve an explicit SHOW_PRODUCTS control into trusted catalog media.
+
+    Э3.7: если у клиента уже выбран конкретный вариант, медиа берётся **из того
+    же** resolved variant, а не независимым запросом по одному product_id. Иначе
+    клиент видел фото чёрного, нажимал «беру» и получал белый.
+    """
     if not isinstance(control, dict) or "show_products" not in control:
         return None
     from management.services.ig_catalog_media import parse_product_ids, select_catalog_media
@@ -10242,7 +10247,35 @@ def _catalog_media_selection_for_control(control: dict, client):
         product_ids = (int(current_id),) if current_id else ()
     if not product_ids:
         return select_catalog_media(())
-    return select_catalog_media(product_ids)
+    color_variant_id = None
+    fit_code = ""
+    size = ""
+    variant_reason = ""
+    if len(product_ids) == 1 and client is not None:
+        current_product_id = getattr(client, "current_product_id", None)
+        if current_product_id and int(current_product_id) == int(product_ids[0]):
+            # Вариант берём только когда он относится ИМЕННО к этому товару:
+            # иначе фото прилетит от предыдущего товара разговора.
+            from management.services.ig_offer_resolver import (
+                resolve_client_color_variant,
+            )
+
+            color_variant_id, variant_reason = resolve_client_color_variant(
+                client, int(product_ids[0])
+            )
+            fit_code = str(getattr(client, "current_fit_code", "") or "")
+            size = str(getattr(client, "current_size", "") or "")
+    selection = select_catalog_media(
+        product_ids,
+        color_variant_id=color_variant_id,
+        fit_code=fit_code,
+        size=size,
+    )
+    if variant_reason and not selection.fallback_reason:
+        from dataclasses import replace
+
+        selection = replace(selection, fallback_reason=variant_reason)
+    return selection
 
 
 def release_client_automation_lease(client_id: int | None, token: str) -> None:
@@ -11138,6 +11171,14 @@ def _process_one_inside_reply_boundary(
     # blindly; the durable message remains visible for operator reconciliation.
     catalog_media_selection = _catalog_media_selection_for_control(control, row.client)
     if catalog_media_selection and not control.get("paylink"):
+        if getattr(catalog_media_selection, "fallback_reason", ""):
+            # Э3.7: причина, по которой отправлено не точное фото варианта,
+            # обязана быть видимой оператору, а не догадкой по переписке.
+            log(
+                "warning",
+                "catalog_media_fallback",
+                f"{row.sender_id}: {catalog_media_selection.fallback_reason}",
+            )
         if not control.get("catalog_link"):
             reply = _strip_customer_urls(reply)
         try:

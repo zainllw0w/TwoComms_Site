@@ -178,10 +178,12 @@ def _build(*, compact: bool = False) -> str:
 
         cat = getattr(p.category, "name", "") or ""
         stock = stock_by_product.get(p.id, 0)
-        # «Під замовлення» — не заглушка, а факт: речі відшиваються, і чекаут це
-        # дозволяє. Нульовий `stock` означає «облік по варіанту не ведеться»,
-        # тому казати клієнту «немає» через нього не можна.
-        avail = f", на складі: {stock} шт" if stock > 0 else ", під замовлення (відшиваємо 1-3 дні)"
+        # Э3.7: формулировку наличия даёт ЕДИНЫЙ resolver, а не самостоятельное
+        # суммирование `stock` здесь. Иначе каталог и checkout снова начнут
+        # расходиться, и клиент прочитает «під замовлення» там, где checkout
+        # считает вариант доступным (или наоборот). Агрегированный `stock`
+        # остаётся диагностикой для оператора.
+        avail = _availability_label(p.id, aggregate_stock=stock)
         fp_s = (" | принт: " + "; ".join(fps[:3])) if fps else ""
         # `stock` у рядку варіанта показуємо лише коли він додатний: нуль у цьому
         # проєкті означає «облік не ведеться», і модель читала його як «немає».
@@ -199,6 +201,38 @@ def _build(*, compact: bool = False) -> str:
         "спершу уточни параметри; не підмінюй ціну товару базовою. Не вигадуй "
         "variant_id, фасон або розмір; використовуй тільки значення з каталогу."
     )
+
+
+def _availability_label(product_id: int, *, aggregate_stock: int) -> str:
+    """Формулировка наличия для строки каталога — из единого resolver (Э3.7).
+
+    Агрегированный `stock` показывается только как диагностика рядом с
+    авторитетным статусом. Он больше не решает сам: раньше нулевой остаток здесь
+    означал «під замовлення», тогда как checkout по тому же варианту мог сказать
+    «недоступно» — и клиент читал взаимно противоречивые вещи.
+    """
+    try:
+        from management.services.ig_offer_resolver import (
+            OfferStatus,
+            resolve_product_presentation,
+        )
+
+        resolution = resolve_product_presentation(product_id)
+    except Exception:
+        logger.debug("offer resolver unavailable for product %s", product_id, exc_info=True)
+        return ", наявність уточнюємо"
+    if resolution.status == OfferStatus.IN_STOCK:
+        return (
+            f", на складі: {aggregate_stock} шт"
+            if aggregate_stock > 0
+            else ", в наявності"
+        )
+    if resolution.status == OfferStatus.MADE_TO_ORDER:
+        return ", під замовлення (відшиваємо 1-3 дні)"
+    if resolution.status == OfferStatus.UNAVAILABLE:
+        return ", зараз недоступно"
+    # `unknown` — fail-closed: ничего не утверждаем клиенту.
+    return ", наявність уточнюємо"
 
 
 def _log_catalog_truncation(dropped: int, total: int, limit: int) -> None:
