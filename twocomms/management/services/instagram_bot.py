@@ -4442,6 +4442,44 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
     return ""
 
 
+# Поля вебхука, без яких задеплоєний код не працює.
+#   messages            — вхідні повідомлення (працювало й раніше)
+#   messaging_postbacks — натискання кнопок карточок (Э1.4)
+REQUIRED_SUBSCRIPTION_FIELDS = ("messages", "messaging_postbacks")
+
+
+def instagram_subscription_fields(s: InstagramBotSettings) -> tuple:
+    """Прочитати поточну підписку, нічого не змінюючи."""
+    account_id = _provider_account_id(s)
+    token = get_page_token(s)
+    if not account_id or not token:
+        return ()
+    try:
+        code, response_body = _provider_http(
+            s,
+            _provider_url(s, f"/{account_id}/subscribed_apps"),
+            token=token,
+            timeout=HTTP_TIMEOUT,
+        )
+    except Exception:
+        return ()
+    if code != 200:
+        return ()
+    try:
+        entries = json.loads(response_body).get("data") or []
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return ()
+    fields: list = []
+    for entry in entries if isinstance(entries, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        for value in entry.get("subscribed_fields") or []:
+            name = str(value or "").strip()
+            if name and name not in fields:
+                fields.append(name)
+    return tuple(fields)
+
+
 def ensure_instagram_subscription(s: InstagramBotSettings) -> dict[str, object]:
     """Install the Instagram Login app on the configured professional account."""
     if provider_transport(s) != INSTAGRAM_LOGIN_TRANSPORT:
@@ -4452,12 +4490,15 @@ def ensure_instagram_subscription(s: InstagramBotSettings) -> dict[str, object]:
     token = get_page_token(s)
     if not token:
         return {"ok": False, "http": 0, "state": "missing_credentials"}
-    # `messaging_postbacks` обов'язковий для кнопок карточок: без цього поля Meta
-    # взагалі не доставляє натискання, і карточка з кнопкою виглядає для клієнта
-    # як непрацююча.
-    body = urlencode(
-        {"subscribed_fields": "messages,messaging_postbacks"}
-    ).encode("utf-8")
+    # Meta ЗАМІНЮЄ весь набір полів, а не додає до нього. Тому спочатку читаємо
+    # поточну підписку і об'єднуємо: сліпий запис зняв би поля, підписані
+    # раніше вручну (referral, optins, реакції), і зламав би шляхи, які зараз
+    # працюють. `messaging_postbacks` обов'язковий для кнопок карточок: без
+    # нього Meta взагалі не доставляє натискання, і кнопка виглядає для клієнта
+    # непрацюючою.
+    current = instagram_subscription_fields(s)
+    fields = sorted(set(current) | set(REQUIRED_SUBSCRIPTION_FIELDS))
+    body = urlencode({"subscribed_fields": ",".join(fields)}).encode("utf-8")
     code, response_body = _provider_http(
         s,
         _provider_url(s, f"/{account_id}/subscribed_apps"),
