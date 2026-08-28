@@ -17,6 +17,11 @@ from django.conf import settings
 
 
 MAX_CATALOG_MEDIA = 4
+# Скільки товарів має сенс показати фото, перш ніж це перестає бути допомогою.
+# Понад цю межу клієнту краще дати підбірку каталогу одним посиланням, ніж
+# висипати десять картинок: у production на запит «футболку з Харковом» підходило
+# 4 футболки з 10 позицій колекції, і три надіслані фото виглядали як «це все».
+CATALOG_LINK_THRESHOLD = MAX_CATALOG_MEDIA
 MAX_CATALOG_MEDIA_BYTES = 10 * 1024 * 1024
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 _IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
@@ -56,6 +61,15 @@ class CatalogMediaSelection:
     # Почему пришлось взять не точные ассеты варианта. Пустая строка = взяты
     # точные. Оператор должен видеть причину, а не догадываться (Э3.7).
     fallback_reason: str = ""
+    # Скільки товарів модель просила показати і скільки з них реально отримали
+    # фото. Різниця — це те, про що клієнту треба сказати словами, інакше
+    # надіслані фото читаються як «це весь асортимент».
+    requested_count: int = 0
+    shown_product_count: int = 0
+
+    @property
+    def truncated_product_count(self) -> int:
+        return max(0, int(self.requested_count) - int(self.shown_product_count))
 
 
 @dataclass(frozen=True)
@@ -269,6 +283,8 @@ def select_catalog_media(
         requested_product_ids=requested,
         missing_product_ids=tuple(missing),
         fallback_reason=fallback_reason,
+        requested_count=len(requested),
+        shown_product_count=len({item.product_id for item in selected}),
     )
 
 

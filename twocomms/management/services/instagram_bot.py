@@ -409,6 +409,90 @@ _AUTHORITY_CLAIM_FALLBACK = {
     "ru": "Спасибо! Проверю это по системным данным и сразу уточню ответ 🙌",
     "en": "Thank you! I will verify this against our records and get right back to you 🙌",
 }
+# Заміна тексту вище. Стара фраза мала три вади одночасно: вона **обіцяла** те,
+# чого система не планувала («перевірю й одразу уточню» — жодного follow-up не
+# ставилось), вона **розкривала внутрішній устрій** («системні дані»), і вона
+# **викидала корисну відповідь цілком**. У production клієнт отримав її двічі
+# підряд на звичайне питання про асортимент.
+#
+# Правильна поведінка: прибрати НЕДОКАЗАНЕ твердження і залишити решту відповіді.
+# Якщо змістовного тексту не лишилось — коротке чесне уточнення без згадки
+# внутрішніх механізмів і без обіцянки, яку ніхто не виконає.
+_UNPROVEN_CLAIM_REPLACEMENT = {
+    "payment": {
+        "uk": "Оплату ще не бачу підтвердженою.",
+        "ru": "Оплату пока не вижу подтверждённой.",
+        "en": "I do not see the payment confirmed yet.",
+    },
+    "stock": {
+        "uk": "Наявність цієї позиції зараз уточнюю.",
+        "ru": "Наличие этой позиции сейчас уточняю.",
+        "en": "I am double-checking availability for this item.",
+    },
+    "order": {
+        "uk": "Замовлення ще не оформлене.",
+        "ru": "Заказ ещё не оформлен.",
+        "en": "The order is not placed yet.",
+    },
+    "consent": {
+        "uk": "Підтвердження ще не зафіксовано.",
+        "ru": "Подтверждение ещё не зафиксировано.",
+        "en": "The confirmation is not recorded yet.",
+    },
+    "manager": {
+        "uk": "Це питання передам менеджеру — він відповість тут.",
+        "ru": "Этот вопрос передам менеджеру — он ответит здесь.",
+        "en": "I will pass this to a manager, who will reply here.",
+    },
+}
+_CLAIM_STRIPPED_FALLBACK = {
+    "uk": "Підкажіть, будь ласка, який саме крій і розмір вас цікавить — і я одразу дам точну відповідь.",
+    "ru": "Подскажите, пожалуйста, какой именно крой и размер вас интересует — и я сразу дам точный ответ.",
+    "en": "Could you tell me which cut and size you are after? Then I can give you an exact answer.",
+}
+_SENTENCE_BOUNDARY_RE = re.compile(r"(?<=[.!?…])\s+|\n+")
+
+
+def _reply_without_unproven_claims(
+    reply: str, claim_failures, *, locale: str = "uk"
+) -> str:
+    """Прибрати речення з недоказаним твердженням, зберігши корисну відповідь.
+
+    Раніше весь текст замінювався однією технічною фразою, тому клієнт втрачав і
+    перелік товарів, і ціни, і питання-CTA. Тепер вирізаються тільки ті речення,
+    які містять саме недоказане твердження; решта відповіді доходить як є.
+    """
+    locale = locale if locale in {"uk", "ru", "en"} else "uk"
+    failures = tuple(claim_failures or ())
+    patterns = [
+        _AUTHORITATIVE_REPLY_CLAIMS[kind]
+        for kind in failures
+        if kind in _AUTHORITATIVE_REPLY_CLAIMS
+    ]
+    sentences = [
+        part.strip()
+        for part in _SENTENCE_BOUNDARY_RE.split(str(reply or "").strip())
+        if part.strip()
+    ]
+    kept = [
+        sentence
+        for sentence in sentences
+        if not any(_positive_authority_claim(pattern, sentence) for pattern in patterns)
+    ]
+    replacements = [
+        _UNPROVEN_CLAIM_REPLACEMENT[kind][locale]
+        for kind in failures
+        if kind in _UNPROVEN_CLAIM_REPLACEMENT
+    ]
+    body = " ".join(kept).strip()
+    if len(body) < 20:
+        # Нічого змістовного не лишилось: коротке чесне уточнення замість
+        # технічної фрази й замість обіцянки, яку ніхто не виконає.
+        body = ""
+    parts = [part for part in (body, *replacements) if part]
+    if not parts:
+        return _CLAIM_STRIPPED_FALLBACK[locale]
+    return " ".join(parts).strip()
 _AUTHORITY_NEGATION_SUFFIX_RE = re.compile(
     r"\b(?:не|нет|немає|not|no|isn['’]?t|is\s+not|hasn['’]?t|has\s+not|"
     r"doesn['’]?t|does\s+not)\b"
@@ -440,6 +524,61 @@ def _positive_authority_claim(pattern: re.Pattern, reply: str) -> bool:
             continue
         return True
     return False
+
+
+def _catalog_presentation_backs_stock_claim(client, control: dict, reply: str) -> bool:
+    """Чи спирається твердження про наявність на НАШ ЖЕ каталог.
+
+    Це виправлення production-дефекту: клієнт спитав «хочу футболку з Харковом»,
+    модель перелічила підходящі футболки, і в цьому тексті співпало
+    `футболк... є`. Точного варіанта на цьому ході ще НЕ вибрано (клієнт лише
+    спитав), тому `_has_exact_stock_evidence` повертав False, і вся корисна
+    відповідь замінювалась технічною фразою про «системні дані», а діалог їхав
+    менеджеру. За два ходи клієнт отримав це двічі підряд.
+
+    Перегляд ходу: перелічити асортимент — це **презентація каталогу**, а не
+    операційне твердження про конкретну одиницю складу. Каталог — наші власні
+    авторитетні дані, і після Э3.7 у нас є resolver, який дає по ним статус.
+    Тому доказом тут виступає саме resolver: якщо згадані товари резолвяться в
+    `in_stock` або `made_to_order`, твердження про наявність підтверджене.
+
+    Fail-closed зберігається: якщо жодного товару в ході ідентифікувати не
+    вдалось або resolver дає `unknown`/`unavailable` — доказу немає.
+    """
+    product_ids: list = []
+    raw = control.get("show_products") if isinstance(control, dict) else None
+    if isinstance(raw, str):
+        from management.services.ig_catalog_media import parse_product_ids
+
+        parsed = parse_product_ids(raw)
+        if parsed:
+            product_ids.extend(parsed)
+    pinned = _control_product_id(control) or getattr(client, "current_product_id", None)
+    try:
+        pinned = int(pinned or 0)
+    except (TypeError, ValueError):
+        pinned = 0
+    if pinned:
+        product_ids.append(pinned)
+    if not product_ids:
+        return False
+    try:
+        from management.services.ig_offer_resolver import OfferStatus, resolve_offer
+    except Exception:
+        return False
+    backed = 0
+    for product_id in dict.fromkeys(product_ids):
+        try:
+            resolution = resolve_offer(product_id=product_id)
+        except Exception:
+            return False
+        if resolution.status in {OfferStatus.IN_STOCK, OfferStatus.MADE_TO_ORDER}:
+            backed += 1
+        else:
+            # Хоча б один згаданий товар недоступний або невідомий — не
+            # підтверджуємо весь набір.
+            return False
+    return backed > 0
 
 
 def _has_exact_stock_evidence(client, control: dict) -> bool:
@@ -503,7 +642,12 @@ def _authoritative_reply_claim_failures(client, reply: str, control: dict) -> tu
                 failures.discard("payment")
         except Exception:
             pass
-    if "stock" in claimed and _has_exact_stock_evidence(client, control):
+    if "stock" in claimed and (
+        _has_exact_stock_evidence(client, control)
+        # Презентація каталогу підтверджується нашими ж даними через resolver
+        # (Э3.7). Без цього будь-який перегляд асортименту втрачав відповідь.
+        or _catalog_presentation_backs_stock_claim(client, control, reply)
+    ):
         failures.discard("stock")
     if "order" in claimed:
         try:
@@ -7201,7 +7345,7 @@ def record_shown_products(client, sender_id: str, selection, delivery) -> list[d
                 role=InstagramBotMessage.Role.MODEL,
                 text=f"(фото товару: {entry['title']})",
                 status=InstagramBotMessage.Status.DONE,
-                source="catalog_media",
+                source=CATALOG_MEDIA_SOURCE,
                 attachments=json.dumps([entry["url"]], ensure_ascii=False),
                 provider_message_id=entry["provider_message_id"],
                 processed_at=timezone.now(),
@@ -9993,7 +10137,30 @@ def reclaim_stale_processing(max_age_seconds: int = STALE_PROCESSING_SECONDS) ->
                 )
                 continue
             if confirmed_commerce_decision_id is None:
-                if locked.attempts >= MAX_ATTEMPTS:
+                # Э-DUP: хід міг уже віддати клієнту текст або фото, а потім
+                # демон перезапустився (їх на добу ≥100). Тоді рядок «завис» у
+                # processing без `send_state`, повертався в чергу і виконувався
+                # ЗАНОВО — клієнт отримував ту саму відповідь і ті самі фото
+                # вдруге. У production 28.08 це дало два однакові повідомлення й
+                # два однакові набори фото з різницею 6 хвилин.
+                already_answered = InstagramBotMessage.objects.filter(
+                    client_id=locked.client_id,
+                    role=InstagramBotMessage.Role.MODEL,
+                    id__gt=locked.pk,
+                ).filter(
+                    Q(provider_message_id__gt="") | Q(send_state="sent")
+                ).exists() if locked.client_id else False
+                if already_answered:
+                    locked.status = InstagramBotMessage.Status.DONE
+                    locked.processed_at = timezone.now()
+                    locked.save(update_fields=["status", "processed_at"])
+                    log(
+                        "warning",
+                        "stale_already_answered",
+                        f"{locked.sender_id}: хід уже мав відповідь клієнту — "
+                        "не повторюю обробку",
+                    )
+                elif locked.attempts >= MAX_ATTEMPTS:
                     locked.status = InstagramBotMessage.Status.FAILED
                     locked.processed_at = timezone.now()
                     locked.save(update_fields=["status", "processed_at"])
@@ -10227,6 +10394,99 @@ def _renew_client_automation_lease(row: InstagramBotMessage, token: str) -> bool
     if state == "blocked" and client:
         return _skip_blocked_row(row, client)
     return _requeue_for_active_lease(row)
+
+
+# Вікно, у якому та сама відповідь або та сама підборка фото вважається дублем.
+DUPLICATE_REPLY_WINDOW = timedelta(minutes=15)
+CATALOG_MEDIA_SOURCE = "catalog_media"
+
+
+def _normalized_outgoing(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip().casefold()
+
+
+def _recent_identical_reply_exists(row: InstagramBotMessage, reply: str) -> bool:
+    """Чи вже надсилали цьому клієнту рівно цей текст щойно.
+
+    Production 28.08: клієнт двічі підряд отримав байт-у-байт однакове
+    повідомлення, бо хід переобробився після перезапуску демона. Навіть якщо
+    першопричина усунена, ця перевірка — останній бар'єр перед відправкою:
+    однаковий текст двічі виглядає як поломка, і жодна логіка вище не має права
+    його пропустити.
+    """
+    if not row.client_id:
+        return False
+    normalized = _normalized_outgoing(reply)
+    if not normalized:
+        return False
+    since = timezone.now() - DUPLICATE_REPLY_WINDOW
+    recent = InstagramBotMessage.objects.filter(
+        client_id=row.client_id,
+        role=InstagramBotMessage.Role.MODEL,
+        created_at__gte=since,
+    ).filter(
+        Q(provider_message_id__gt="") | Q(send_state="sent")
+    ).order_by("-id").values_list("text", flat=True)[:12]
+    return any(_normalized_outgoing(text) == normalized for text in recent)
+
+
+def _identical_media_recently_sent(row: InstagramBotMessage, selection) -> bool:
+    """Чи вже пішла цьому клієнту рівно ця підборка фото."""
+    if not row.client_id or selection is None:
+        return False
+    product_ids = {
+        int(item.product_id) for item in getattr(selection, "items", ()) if item.product_id
+    }
+    if not product_ids:
+        return False
+    since = timezone.now() - DUPLICATE_REPLY_WINDOW
+    recent_titles = list(
+        InstagramBotMessage.objects.filter(
+            client_id=row.client_id,
+            role=InstagramBotMessage.Role.MODEL,
+            source=CATALOG_MEDIA_SOURCE,
+            created_at__gte=since,
+        ).order_by("-id").values_list("text", flat=True)[:12]
+    )
+    if not recent_titles:
+        return False
+    expected = {
+        _normalized_outgoing(item.title) for item in selection.items if item.title
+    }
+    seen = {_normalized_outgoing(title) for title in recent_titles}
+    return bool(expected) and expected.issubset(seen)
+
+
+_MORE_PRODUCTS_HINT = {
+    "uk": "У нас є більше моделей із цим принтом — ось повна підбірка: {url}",
+    "ru": "У нас есть больше моделей с этим принтом — вот полная подборка: {url}",
+    "en": "We have more models with this print — here is the full selection: {url}",
+}
+
+
+def _append_more_products_hint(reply: str, selection, client) -> str:
+    """Сказати словами, що показане — не весь асортимент.
+
+    Production 28.08: на запит «футболку з Харковом» підходило 4 футболки (а вся
+    колекція — 10 позицій), клієнт отримав 3 фото і прочитав це як «це все».
+    Висипати десять картинок — не рішення: краще показати межу і дати підбірку
+    каталогу одним посиланням.
+    """
+    truncated = int(getattr(selection, "truncated_product_count", 0) or 0)
+    if truncated <= 0:
+        return reply
+    locale = _assisted_checkout_locale(client) if client is not None else "uk"
+    locale = locale if locale in _MORE_PRODUCTS_HINT else "uk"
+    url = f"{_site_base_url()}/catalog/"
+    hint = _MORE_PRODUCTS_HINT[locale].format(url=url)
+    if url in str(reply or ""):
+        return reply
+    return f"{str(reply or '').strip()}\n{hint}".strip()
+
+
+def _site_base_url() -> str:
+    base = str(getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop")
+    return base.rstrip("/")
 
 
 def _catalog_media_selection_for_control(control: dict, client):
@@ -10887,9 +11147,10 @@ def _process_one_inside_reply_boundary(
         if claim_failures:
             needs_manager = True
             control["manager"] = True
-            reply = _AUTHORITY_CLAIM_FALLBACK.get(
-                _assisted_checkout_locale(row.client),
-                _AUTHORITY_CLAIM_FALLBACK["uk"],
+            reply = _reply_without_unproven_claims(
+                reply,
+                claim_failures,
+                locale=_assisted_checkout_locale(row.client),
             )
             log(
                 "warning",
@@ -11171,6 +11432,16 @@ def _process_one_inside_reply_boundary(
     # blindly; the durable message remains visible for operator reconciliation.
     catalog_media_selection = _catalog_media_selection_for_control(control, row.client)
     if catalog_media_selection and not control.get("paylink"):
+        if _identical_media_recently_sent(row, catalog_media_selection):
+            # Э-DUP: та сама підборка фото вже пішла цьому клієнту хвилини тому.
+            # Повторний набір читається як збій, а не як допомога.
+            log(
+                "warning",
+                "catalog_media_duplicate",
+                f"{row.sender_id}: identical media set already delivered — skipping",
+            )
+            catalog_media_selection = None
+    if catalog_media_selection and not control.get("paylink"):
         if getattr(catalog_media_selection, "fallback_reason", ""):
             # Э3.7: причина, по которой отправлено не точное фото варианта,
             # обязана быть видимой оператору, а не догадкой по переписке.
@@ -11181,6 +11452,11 @@ def _process_one_inside_reply_boundary(
             )
         if not control.get("catalog_link"):
             reply = _strip_customer_urls(reply)
+        # Підказку про повну підбірку додаємо ПІСЛЯ зняття URL: інакше
+        # `_strip_customer_urls` прибрав би саме те посилання, яке ми щойно дали.
+        # Клієнт мусить дізнатись словами, що показане — не весь асортимент:
+        # без цього три фото читаються як «це все, що є».
+        reply = _append_more_products_hint(reply, catalog_media_selection, row.client)
         try:
             from management.services.ig_catalog_media import (
                 CatalogMediaDeliveryState,
@@ -11376,6 +11652,21 @@ def _process_one_inside_reply_boundary(
                 follow_authorized,
                 now=timezone.now(),
             )
+
+    # Э-DUP: останній бар'єр перед відправкою. Якщо та сама відповідь вже пішла
+    # щойно, пропустити цей хід: навіть якби всі вищі перевірки дозволили, дублікат
+    # виглядає як технічний збій, а не корисна допомога.
+    if reply and _recent_identical_reply_exists(row, reply):
+        log(
+            "warning",
+            "duplicate_reply_suppressed",
+            f"{row.sender_id}: identical text sent recently — skipping turn",
+        )
+        row.status = InstagramBotMessage.Status.DONE
+        row.processed_at = timezone.now()
+        row.save(update_fields=["status", "processed_at"])
+        clear_typing_indicator()
+        return True
 
     delivery = _send_with_typing_off(
         s,
