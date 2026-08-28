@@ -8122,17 +8122,58 @@ def _provider_attachment_metadata(msg: dict) -> list[dict]:
     return result[:8]
 
 
+def _stable_attachment_identity(
+    attachments: list[str], attachment_metadata: list[dict] | None
+) -> tuple:
+    """Ідентичність вкладень для синтетичного ключа (Э2.11).
+
+    Підписані media URL провайдера одноразові — код це сам документує. Тому той
+    самий об'єкт з новим підписом хешувався інакше, з'являлась друга
+    pending-строка і клієнт отримував другу відповідь на те саме фото.
+
+    Порядок: native provider object id → нормалізований URL БЕЗ query, і лише
+    якщо ні того, ні іншого — сирий URL. Query відкидається саме тут, для
+    provider-вкладень з відомим контрактом підпису, а НЕ для довільних
+    клієнтських URL: там відкидання query склеїло б різні посилання.
+    """
+    object_ids = []
+    for item in attachment_metadata or []:
+        if not isinstance(item, dict):
+            continue
+        for key in ("provider_object_id", "object_id", "attachment_id", "asset_id"):
+            value = str(item.get(key) or "").strip()
+            if value:
+                object_ids.append(f"object:{value}")
+                break
+    if object_ids:
+        return tuple(sorted(set(object_ids)))
+    stable = set()
+    for url in _attachment_urls(json.dumps(attachments or [])):
+        text = str(url or "").strip()
+        if not text:
+            continue
+        try:
+            parsed = urlsplit(text)
+        except ValueError:
+            stable.add(text)
+            continue
+        if parsed.scheme and parsed.netloc and parsed.path:
+            stable.add(f"path:{parsed.netloc.lower()}{parsed.path}")
+        else:
+            stable.add(text)
+    return tuple(sorted(stable))
+
+
 def _synthetic_inbound_event_key(
-    *, sender_id: str, text: str, attachments: list[str], received_at
+    *, sender_id: str, text: str, attachments: list[str], received_at,
+    attachment_metadata: list[dict] | None = None,
 ) -> str:
     """Build a stable identity only for provider events that lack Meta ``mid``."""
     if not received_at:
         return ""
     timestamp = received_at.isoformat()
     normalized_text = " ".join(str(text or "").split()).casefold()
-    stable_attachments = tuple(
-        sorted({url for url in _attachment_urls(json.dumps(attachments or []))})
-    )
+    stable_attachments = _stable_attachment_identity(attachments, attachment_metadata)
     if not normalized_text and not stable_attachments:
         return ""
     material = "\x1f".join(
@@ -9266,6 +9307,7 @@ def enqueue_inbound(
         text=text,
         attachments=attachments,
         received_at=received_at,
+        attachment_metadata=attachment_metadata,
     ) if not mid else ""
     if not mid and not synthetic_event_key:
         log("warning", "missing_inbound_identity", f"[{source}] provider timestamp required")
@@ -9507,6 +9549,18 @@ def enqueue_inbound(
                     reply_eligible = promoted
             if not observed_only:
                 client.touch_inbound()
+                # Э0.6: хід клієнта фіксується на вході, ще до будь-якої обробки.
+                # Записуємо його одразу, щоб `messages-per-turn` стало
+                # вимірюваним; перехід воркера на хід як одиницю виконання — це
+                # окремий крок (Э2.2) за власним флагом.
+                try:
+                    from management.services.ig_customer_turns import (
+                        ensure_turn_for_inbound,
+                    )
+
+                    ensure_turn_for_inbound(msg)
+                except Exception as exc:
+                    log("warning", "customer_turn", repr(exc))
                 from management.services.ig_funnel_analytics import (
                     record_client_step_event_in_transaction,
                 )

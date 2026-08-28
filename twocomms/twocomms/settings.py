@@ -155,6 +155,12 @@ IG_QUIET_DEGRADATION = _env_bool('IG_QUIET_DEGRADATION', True)
 IG_RECOVERY_EPISODE_CURSOR = _env_bool('IG_RECOVERY_EPISODE_CURSOR', True)
 IG_RECOVERY_INCIDENT_SCHEDULING = _env_bool('IG_RECOVERY_INCIDENT_SCHEDULING', True)
 
+# Э0.6: запись хода клиента (`IgCustomerTurn`). Само по себе только наблюдение —
+# порядок обработки очереди не меняется, поэтому включено по умолчанию: без записи
+# метрику messages-per-turn нельзя ни снять, ни опровергнуть. Переход воркера на
+# ход как единицу выполнения — отдельный шаг Э2.2 со своим флагом.
+IG_CUSTOMER_TURNS = _env_bool('IG_CUSTOMER_TURNS', True)
+
 # W1-10 (NEW-502): лимиты на загрузку файлов — защита shared-хостинга от
 # произвольно больших аплоадов (аватар/УБД-док и другие формы).
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB

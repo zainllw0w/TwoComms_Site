@@ -340,6 +340,15 @@ def _compute_metrics(days: int, incident_window_minutes: int):
         Decimal(durable_holdings) / Decimal(max(1, durable_pairs))
     )
 
+    # Э0.6: сколько сообщений в одном логическом ходе клиента. Отдельно
+    # распределение, а не только среднее: burst-ы редки, и среднее их прячет.
+    try:
+        from management.services.ig_customer_turns import messages_per_turn
+
+        turn_metric = messages_per_turn(days=days)
+    except Exception:
+        turn_metric = {"turns": 0, "messages": 0, "avg": 0.0, "distribution": {}}
+
     return {
         "holding_rows": {
             "total": len(holding_rows),
@@ -372,6 +381,7 @@ def _compute_metrics(days: int, incident_window_minutes: int):
             "holding_per_incident_client": float(durable_holding_per_incident_client),
             "episodes_with_more_than_one_apology": durable_double_apology,
         },
+        "messages_per_turn": turn_metric,
     }
 
 
@@ -471,5 +481,13 @@ class Command(BaseCommand):
                 "  Episodes with more than one apology (TARGET 0): "
                 f"{durable['episodes_with_more_than_one_apology']}"
             )
+            self.stdout.write("")
+
+            turn_metric = metrics["messages_per_turn"]
+            self.stdout.write("Messages per customer turn (EA0.6, empty before deploy):")
+            self.stdout.write(f"  Turns: {turn_metric['turns']}")
+            self.stdout.write(f"  Messages: {turn_metric['messages']}")
+            self.stdout.write(f"  Average: {turn_metric['avg']}")
+            self.stdout.write(f"  Distribution: {turn_metric['distribution']}")
             self.stdout.write("")
             self.stdout.write("=" * 80)

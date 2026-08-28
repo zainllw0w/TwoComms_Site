@@ -50,6 +50,8 @@ __all__ = [
     "IgAiReplyRecoveryJob",
     "IgProviderIncident",
     "IgClientDegradationEpisode",
+    "IgCustomerTurn",
+    "IgTurnMessage",
     "IgPermissionTransitionJob",
     "IgMetaEventLog",
     "BotDataDeletionRequest",
@@ -5722,3 +5724,123 @@ class IgClientDegradationEpisode(models.Model):
     @property
     def holding_delivered(self) -> bool:
         return bool(self.holding_sent_at and self.holding_message_id)
+
+
+class IgCustomerTurn(models.Model):
+    """Один логічний хід клієнта — спільне поняття для трьох механізмів (Э0.6).
+
+    Три різні механізми потребують поняття «один логічний хід»: склейка burst-у
+    (Э2.2), дедуплікація webhook без `mid` (Э2.11) і provenance відповіді (Э3.6).
+    Роздільні реалізації дали б три неузгоджені механізми дедуплікації, а
+    найгірший випадок — burst із двох повідомлень, де одне задубльоване
+    провайдером, — не обробив би жоден з них правильно.
+
+    **Обмеження схеми, яке не можна обійти.** `IgCommerceSelectionTransition` і
+    `IgCommerceTurnDecision` тримають `OneToOneField(source_message)`. Якщо хід
+    об'єднує кілька повідомлень, а decision вимагає ОДНУ строку, схема стала б
+    суперечливою. Тому `primary_source_message` обов'язковий: він зберігає
+    сумісність з наявними OneToOne, поки вони не переведені на хід.
+    """
+
+    class ClaimState(models.TextChoices):
+        OPEN = "open", _("Відкритий")
+        CLAIMED = "claimed", _("Захоплений")
+        PROCESSED = "processed", _("Опрацьований")
+        SUPERSEDED = "superseded", _("Витіснений")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.CASCADE,
+        related_name="customer_turns",
+        db_constraint=False,
+    )
+    episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="customer_turns",
+        db_constraint=False,
+    )
+    # Перше повідомлення ходу. Саме воно підставляється в наявні OneToOne-контракти.
+    primary_source_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        on_delete=models.CASCADE,
+        related_name="primary_customer_turn",
+        db_constraint=False,
+    )
+    window_started_at = models.DateTimeField(default=timezone.now, db_index=True)
+    # Дедлайн фіксується від ПЕРШОГО повідомлення і не продовжується наступними:
+    # інакше клієнт, який продовжує писати, ніколи не отримав би відповіді.
+    window_deadline = models.DateTimeField(db_index=True)
+    claim_state = models.CharField(
+        max_length=12, choices=ClaimState.choices, default=ClaimState.OPEN, db_index=True
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    claim_token = models.CharField(max_length=40, blank=True, default="")
+    message_count = models.PositiveIntegerField(default=1)
+    # Ключі ідентичності повідомлень ходу: native `mid`, provider object id
+    # вкладення, або синтетичний ключ. Кілька типів свідомо в одному списку —
+    # дедуплікація мусить працювати по будь-якому доступному.
+    dedupe_keys = models.JSONField(default=list, blank=True)
+    # Postback і quick reply обходять debounce: кнопка — завершена дія, а не
+    # частина набору тексту. Це поле, а не комментар у коді.
+    bypass_debounce = models.BooleanField(default=False)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Хід клієнта IG")
+        verbose_name_plural = _("Ходи клієнтів IG")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["client", "claim_state", "-id"], name="ig_turn_client_state"),
+            models.Index(fields=["claim_state", "window_deadline"], name="ig_turn_due"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"turn:{self.client_id}:{self.pk}:{self.claim_state}"
+
+    @property
+    def is_open(self) -> bool:
+        return self.claim_state == self.ClaimState.OPEN
+
+
+class IgTurnMessage(models.Model):
+    """Append-only зв'язок «хід → повідомлення».
+
+    Сирі повідомлення НЕ видаляються і не зливаються: кожна строка лишається як
+    evidence у CRM. Хід лише групує їх.
+    """
+
+    turn = models.ForeignKey(
+        "management.IgCustomerTurn",
+        on_delete=models.CASCADE,
+        related_name="turn_messages",
+        db_constraint=False,
+    )
+    # Одне повідомлення належить рівно одному ходу. Унікальність у БД — це і є
+    # захист від того, що дублюючий webhook додасть другу строку.
+    message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        on_delete=models.CASCADE,
+        related_name="turn_membership",
+        db_constraint=False,
+    )
+    ordinal = models.PositiveSmallIntegerField(default=1)
+    role = models.CharField(max_length=8, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Повідомлення ходу IG")
+        verbose_name_plural = _("Повідомлення ходів IG")
+        ordering = ["turn_id", "ordinal", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["turn", "ordinal"], name="ig_turn_message_ordinal_unique"
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"turn_message:{self.turn_id}:{self.ordinal}"
