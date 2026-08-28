@@ -1076,7 +1076,7 @@ def _ugc_delivery_gate(*, settings_obj, client, now) -> tuple[bool, str]:
         "send_blocked",
     }:
         return False, f"meta_{delivery_status}"
-    if not client.last_message_at or now > client.last_message_at + UGC_DELIVERY_RESPONSE_WINDOW:
+    if not client.meta_window_anchor or now > client.meta_window_anchor + UGC_DELIVERY_RESPONSE_WINDOW:
         return False, "response_window_closed"
     return True, ""
 

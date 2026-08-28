@@ -369,7 +369,7 @@ def _next_window_start(local: datetime, start: time) -> datetime:
 
 
 def meta_window_deadline(client: IgClient) -> datetime | None:
-    base = client.last_message_at or client.first_contact_at
+    base = client.meta_window_anchor
     if not base:
         return None
     return base + META_REPLY_WINDOW

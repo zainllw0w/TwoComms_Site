@@ -446,6 +446,9 @@ def _apply_claimed_job(
                 if client.first_contact_at is None:
                     client.first_contact_at = now
                 client.last_message_at = now
+                # Opt-out приходит входящим сообщением клиента, поэтому якорь
+                # окна Meta двигается вместе с ним (Э2.6).
+                client.last_user_message_at = now
                 client.save(update_fields=[
                     "opted_out_at",
                     "opt_out_message_id",
@@ -455,6 +458,7 @@ def _apply_claimed_job(
                     "paused_at",
                     "first_contact_at",
                     "last_message_at",
+                    "last_user_message_at",
                     "updated_at",
                 ])
                 _cancel_client_automation(

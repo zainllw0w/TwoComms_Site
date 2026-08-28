@@ -2050,8 +2050,8 @@ def notify_shipped_deals(limit: int = 50) -> int:
             )
             continue
         response_deadline = (
-            deal.client.last_message_at + SHIPMENT_RESPONSE_WINDOW
-            if deal.client.last_message_at
+            deal.client.meta_window_anchor + SHIPMENT_RESPONSE_WINDOW
+            if deal.client.meta_window_anchor
             else None
         )
         if not response_deadline or timezone.now() > response_deadline:
@@ -2149,8 +2149,8 @@ def notify_shipped_deals(limit: int = 50) -> int:
             )
             continue
         response_deadline = (
-            episode.client.last_message_at + SHIPMENT_RESPONSE_WINDOW
-            if episode.client.last_message_at
+            episode.client.meta_window_anchor + SHIPMENT_RESPONSE_WINDOW
+            if episode.client.meta_window_anchor
             else None
         )
         if not response_deadline or timezone.now() > response_deadline:

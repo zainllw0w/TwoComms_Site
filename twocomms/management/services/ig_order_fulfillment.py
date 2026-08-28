@@ -429,8 +429,8 @@ def _active_opt_out(client) -> bool:
 
 def _inside_response_window(client, *, now) -> bool:
     return bool(
-        client.last_message_at
-        and now <= client.last_message_at + RESPONSE_WINDOW
+        client.meta_window_anchor
+        and now <= client.meta_window_anchor + RESPONSE_WINDOW
     )
 
 

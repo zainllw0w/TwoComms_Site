@@ -816,7 +816,13 @@ class SendApiBoundedRetryTests(TestCase):
     def test_rate_limit_after_partial_chunk_delivery_is_not_replayed(
         self, provider_http, _token, _account
     ):
-        reply = "Перша частина. " * 500
+        # Текст должен быть длинным И без повторов: после Э2.1 план доставки
+        # снимает дублирующиеся предложения, поэтому 500 одинаковых фраз
+        # сжались бы в одну и партиального сценария не получилось бы вообще.
+        reply = " ".join(
+            f"Частина номер {index} про замовлення та деталі доставки."
+            for index in range(400)
+        )
         self.assertGreater(len(bot._split_for_send(reply)), 1)
         provider_http.side_effect = [
             (200, "{}"),

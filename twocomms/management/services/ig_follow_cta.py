@@ -221,7 +221,7 @@ def _post_delivery_truth(*, episode, order, source_message) -> bool:
 def _window_is_open(client, *, source_message=None, now) -> bool:
     if getattr(client, "delivery_status", "") == IgClient.DeliveryStatus.WINDOW_CLOSED:
         return False
-    latest = getattr(client, "last_message_at", None)
+    latest = getattr(client, "meta_window_anchor", None)
     source_timestamp = _timestamp_for_message(source_message) if source_message is not None else None
     if latest is None or (source_timestamp is not None and source_timestamp > latest):
         latest = source_timestamp

@@ -717,8 +717,11 @@ def ensure_lifecycle_event(order, kind, *, payload=None, due_at=None):
 
 
 def _response_window_open(client, now):
-    last_message_at = getattr(client, "last_message_at", None)
-    return bool(last_message_at and now <= last_message_at + RESPONSE_WINDOW)
+    # Э2.6: вікно відкриває тільки повідомлення КЛІЄНТА. `last_message_at`
+    # змішує вхідні й вихідні, тому власне повідомлення бота «відкривало» вікно,
+    # якого не було, і відправка отримувала відмову провайдера.
+    anchor = getattr(client, "meta_window_anchor", None)
+    return bool(anchor and now <= anchor + RESPONSE_WINDOW)
 
 
 def _queue_manager_task(event: IgLifecycleEvent) -> None:

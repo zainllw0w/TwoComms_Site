@@ -20,6 +20,12 @@ from django.db.models import Sum
 CACHE_KEY = "ig_bot_catalog_ctx"
 CACHE_COMPACT_KEY = "ig_bot_catalog_ctx_compact"
 CACHE_TTL = 600          # 10 хв
+# Збій build-у кешується на дуже короткий час: знімок мусить швидко оновитись
+# після відновлення, а не жити ті самі 10 хвилин, що й валідний каталог.
+CATALOG_ERROR_TTL = 45
+# Останній добрий знімок живе довше за звичайний кеш: він потрібен саме тоді,
+# коли build падає підряд кілька разів.
+CACHE_LAST_KNOWN_GOOD_TTL = 6 * 60 * 60
 MAX_PRODUCTS = 250
 # Бюджет підвищено після прод-перевірки 02.08.2026. При 16 000 символів каталог
 # важив 15 977 і в промпт потрапляли **48 товарів із 71**: сортування
@@ -244,14 +250,76 @@ def truncate_catalog_lines(lines: list[str], *, limit: int = MAX_CHARS) -> tuple
 
 
 def get_catalog_context(force: bool = False, *, compact: bool = False) -> str:
+    """Э3.8: технічний збій НЕ кешується як валідний порожній каталог.
+
+    Раніше будь-яке виключення `_build()` перетворювалось у порожній рядок і
+    кешувалось на 600 секунд. Зовнішній `_prompt_section()` бачив звичайний
+    порожній результат, тому в логах не було навіть `error/prompt_context`. Один
+    транзиентний збій позбавляв усі наступні відповіді каталогу, цін і розмірів
+    на десять хвилин — і робив це тихо.
+
+    Тепер: успішний build кешується як завжди і додатково зберігається як
+    last-known-good; збій НЕ кешується, а віддає останній добрий знімок зі
+    штампом віку. Якщо доброго знімка немає — повертається порожній рядок, але з
+    видимим alert-ом, а не як нормальний стан.
+    """
     cache_key = CACHE_COMPACT_KEY if compact else CACHE_KEY
+    good_key = f"{cache_key}:last_known_good"
     if not force:
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
     try:
         text = _build(compact=compact)
+    except Exception as exc:
+        logger.exception("Catalog context build failed")
+        fallback = None
+        try:
+            fallback = cache.get(good_key)
+        except Exception:
+            fallback = None
+        _alert_catalog_build_failure(exc, has_fallback=bool(fallback))
+        if fallback:
+            stale = (
+                "[КАТАЛОГ — ОСТАННІЙ ВІДОМИЙ ЗНІМОК] Дані могли змінитись; якщо "
+                "клієнт питає про наявність конкретного товару — уточни в менеджера, "
+                "не стверджуй.\n" + str(fallback)
+            )
+            # Короткий кеш, щоб не бити по БД на кожному ході, але значно менший
+            # за CACHE_TTL: знімок мусить швидко оновитись після відновлення.
+            try:
+                cache.set(cache_key, stale, CATALOG_ERROR_TTL)
+            except Exception:
+                pass
+            return stale
+        return ""
+    try:
+        cache.set(cache_key, text, CACHE_TTL)
+        if text:
+            cache.set(good_key, text, CACHE_LAST_KNOWN_GOOD_TTL)
     except Exception:
-        text = ""
-    cache.set(cache_key, text, CACHE_TTL)
+        logger.debug("catalog cache unavailable", exc_info=True)
     return text
+
+
+def _alert_catalog_build_failure(exc: Exception, *, has_fallback: bool) -> None:
+    """Один дедуплікований алерт: агент не має лишатись без каталогу молча."""
+    try:
+        from management.services.ig_alerts import alert_dedupe_key, format_technical_alert
+        from management.services.instagram_bot import notify_manager
+
+        notify_manager(
+            format_technical_alert(
+                "⚠️ IG: не вдалося зібрати контекст каталогу",
+                event_type="catalog_build_failed",
+                failure_kind=type(exc).__name__,
+                instruction_code=(
+                    "catalog_stale_snapshot" if has_fallback else "catalog_unavailable"
+                ),
+            ),
+            dedupe_key=alert_dedupe_key("catalog_build_failed", window_minutes=30),
+            event_type="catalog_build_failed",
+            deliver_immediately=False,
+        )
+    except Exception:
+        logger.debug("catalog build alert unavailable", exc_info=True)

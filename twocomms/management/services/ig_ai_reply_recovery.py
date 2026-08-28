@@ -83,7 +83,7 @@ def _source_event_at(source: InstagramBotMessage):
 
 
 def _window_deadline(source: InstagramBotMessage, client: IgClient):
-    anchor = client.last_message_at or _source_event_at(source)
+    anchor = client.meta_window_anchor or _source_event_at(source)
     return anchor + RESPONSE_WINDOW if anchor else None
 
 

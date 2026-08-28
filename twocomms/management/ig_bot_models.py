@@ -477,6 +477,11 @@ class IgClient(models.Model):
     # Тайминги
     first_contact_at = models.DateTimeField(null=True, blank=True)
     last_message_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Окно Meta считается ТОЛЬКО от этого поля. `last_message_at` смешивает
+    # входящие и исходящие (у него четыре писателя, включая backfill без фильтра
+    # по роли) и остаётся для сортировки списка и отображения — там смешивание
+    # удобно. Разделение полей дешевле, чем дисциплинировать четырёх писателей.
+    last_user_message_at = models.DateTimeField(null=True, blank=True, db_index=True)
     last_bot_reply_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -536,12 +541,35 @@ class IgClient(models.Model):
         from django.utils import timezone
 
         now = timezone.now()
-        fields = ["last_message_at", "updated_at"]
+        fields = ["last_message_at", "last_user_message_at", "updated_at"]
         if not self.first_contact_at:
             self.first_contact_at = now
             fields.append("first_contact_at")
         self.last_message_at = now
+        # Вікно Meta відкриває ТІЛЬКИ повідомлення клієнта. `last_message_at`
+        # має чотирьох писателів, один з них — backfill з `Max("created_at")`
+        # без фільтра по ролі, тому вихідне повідомлення бота потрапляло в поле
+        # і «відкривало» вікно, якого не було (Э2.6).
+        self.last_user_message_at = now
         self.save(update_fields=fields)
+
+    @property
+    def meta_window_anchor(self):
+        """Єдина точка істини для початку відліку 24-годинного вікна Meta.
+
+        Читати вікно напряму з `last_message_at` не можна: у нього пишуть і
+        вихідні повідомлення, тому власне повідомлення бота «відкривало» вікно,
+        якого не було.
+
+        Перехідний dual-read: якщо нове поле ще NULL (клієнт створений до
+        міграції `0172` і не потрапив у backfill), падаємо назад на
+        `last_message_at`. Це expand-фаза: для таких рядків ми просто не маємо
+        інформації, а вважати вікно закритим для всієї історії означало б
+        замовкнути для реальних клієнтів. Для всіх рядків з заповненим полем
+        (увесь новий трафік і backfill) діє строгий контракт. Прибрати fallback
+        можна тільки після перевірки backfill на production — це contract-фаза.
+        """
+        return self.last_user_message_at or self.last_message_at or self.first_contact_at
 
     def funnel_progress(self) -> list[dict]:
         """Прогрес по основних стадіях воронки (для кружечків у картці)."""

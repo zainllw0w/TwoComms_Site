@@ -783,7 +783,19 @@ def _persist_history(item, fetched, settings_obj, *, now):
                     client.first_contact_at = first_time
                 if not client.last_message_at or last_time > client.last_message_at:
                     client.last_message_at = last_time
-                client.save(update_fields=["first_contact_at", "last_message_at", "updated_at"])
+                # `user_times` уже отфильтрован по role=USER, поэтому это
+                # корректный якорь окна Meta (Э2.6).
+                if (
+                    not client.last_user_message_at
+                    or last_time > client.last_user_message_at
+                ):
+                    client.last_user_message_at = last_time
+                client.save(update_fields=[
+                    "first_contact_at",
+                    "last_message_at",
+                    "last_user_message_at",
+                    "updated_at",
+                ])
 
             from management.services import bot_followups, bot_sales_classifier
 
