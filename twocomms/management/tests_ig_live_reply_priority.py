@@ -2163,7 +2163,9 @@ class QuietDegradationTests(TestCase):
 
         generate.side_effect = typed_provider_outage
         self._pending(
-            "",
+            # Текст-заполнитель из production-строки 2793: пустым он не был, и
+            # именно поэтому обошёл прежний gate «вложение без текста».
+            "(зображення)",
             "story-repost",
             media=[{
                 "media_type": "story_mention",

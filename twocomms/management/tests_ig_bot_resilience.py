@@ -289,8 +289,10 @@ class PoolLoggingTests(TestCase):
             role="chat", manual_key="K", log_cb=lines.append,
         )
         self.assertEqual(out.get("parsed"), "привіт")
+        # ЭБ.4: в логе стоит модель, которую выбрал тир задачи, а не первая
+        # модель роли: обычная реплика живёт на lite, а не на 3.7.
         self.assertTrue(
-            any(gk.role_model_chains()["chat"][0] in line for line in lines),
+            any(gk.task_model_chain("chat", "customer_chat")[0] in line for line in lines),
             lines,
         )
 
@@ -422,14 +424,19 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
         self.assertEqual(getattr(ai, constant_name, None), budget)
         aliases = {value: name for name, value in ENV6.items()}
         calls = []
+        # ЭБ.4: первая и резервная модель зависят от ТИРА задачи, а не заданы
+        # константой. Проверяемое свойство прежнее: инцидент на первой модели
+        # разрешается внутри бюджета хода, перебрав все ключи, без sleep.
+        chain = gk.task_model_chain("chat", reasoning_task)
+        primary_model, fallback_model = chain[0], chain[1]
 
         def fake_once(model, payload, key, *, parse=True, timeout=None):
             calls.append((model, aliases[key], timeout))
-            if model == "gemini-3.7-flash":
+            if model == primary_model:
                 raise ai._GeminiTransient("timeout: simulated incident")
             if aliases[key] != "GEMINI_API4":
                 raise ai._GeminiFatal("HTTP 401: API_KEY_INVALID")
-            return ("3.6/API4 recovered", {})
+            return ("fallback/API4 recovered", {})
 
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(ai.gemini_hedge, "HEDGE_STAGGER_SECONDS", 0.01), \
@@ -437,9 +444,9 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
              patch.object(ai, "_gemini_call_once", side_effect=fake_once):
             out = runner({"contents": []}, reasoning_task=reasoning_task)
 
-        primary = [call for call in calls if call[0] == "gemini-3.7-flash"]
-        self.assertEqual(out["parsed"], "3.6/API4 recovered")
-        self.assertEqual(calls[-1][0], "gemini-3.6-flash")
+        primary = [call for call in calls if call[0] == primary_model]
+        self.assertEqual(out["parsed"], "fallback/API4 recovered")
+        self.assertEqual(calls[-1][0], fallback_model)
         self.assertEqual(calls[-1][1], "GEMINI_API4")
         self.assertGreater(
             len(primary), 2,
@@ -448,7 +455,7 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
         self.assertEqual(
             {alias for _model, alias, _timeout in primary},
             set(ENV6),
-            "кожен налаштований ключ мусить отримати спробу на 3.7",
+            "кожен налаштований ключ мусить отримати спробу на першій моделі",
         )
         for model, _alias, timeout in calls:
             self.assertGreater(timeout[0], 0)

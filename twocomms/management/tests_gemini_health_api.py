@@ -73,7 +73,7 @@ class GeminiHealthApiTests(TestCase):
                 "management.services.gemini_health.build_snapshot",
                 return_value=snapshot,
             ) as build_snapshot,
-            patch("management.services.gemini_probe.probe_key") as probe_key,
+            patch("management.services.gemini_probe.probe_key_metadata") as probe_key,
         ):
             response = self.client.get(self._health_url())
 
@@ -84,7 +84,7 @@ class GeminiHealthApiTests(TestCase):
 
     def test_get_uses_redacted_snapshot_without_configured_key(self):
         self._configure()
-        with patch("management.services.gemini_probe.probe_key") as probe_key:
+        with patch("management.services.gemini_probe.probe_key_metadata") as probe_key:
             response = self.client.get(self._health_url())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()["keys"]), 6)
@@ -95,7 +95,7 @@ class GeminiHealthApiTests(TestCase):
         self._configure()
         with (
             patch("management.services.gemini_health.build_snapshot") as build_snapshot,
-            patch("management.services.gemini_probe.probe_key") as probe_key,
+            patch("management.services.gemini_probe.probe_key_metadata") as probe_key,
         ):
             for user in (self.user, self.reviewer):
                 with self.subTest(username=user.username):
@@ -119,7 +119,7 @@ class GeminiHealthApiTests(TestCase):
             {"key_name": "GEMINI_API", "model": "gemini-3.5-flash"},
             {"key_name": "GEMINI_API", "model": "gemini-3.7-flash "},
         )
-        with patch("management.services.gemini_probe.probe_key") as probe_key:
+        with patch("management.services.gemini_probe.probe_key_metadata") as probe_key:
             for payload in invalid_requests:
                 with self.subTest(payload=payload):
                     self.assertEqual(self.client.post(self._probe_url(), payload).status_code, 400)
@@ -127,7 +127,7 @@ class GeminiHealthApiTests(TestCase):
         self.assertFalse(GeminiRequestAttempt.objects.exists())
 
     def test_probe_rejects_unconfigured_cooldown_and_busy_key(self):
-        with patch("management.services.gemini_probe.probe_key") as probe_key:
+        with patch("management.services.gemini_probe.probe_key_metadata") as probe_key:
             self.assertEqual(self._post_probe().status_code, 409)
             state = self._configure()
             state.cooldown_until = timezone.now() + datetime.timedelta(minutes=5)
@@ -151,7 +151,7 @@ class GeminiHealthApiTests(TestCase):
         self._configure()
         with (
             patch("management.bot_views.cache.add", return_value=False),
-            patch("management.services.gemini_probe.probe_key") as probe_key,
+            patch("management.services.gemini_probe.probe_key_metadata") as probe_key,
         ):
             response = self._post_probe()
         self.assertEqual(response.status_code, 409)
@@ -162,7 +162,7 @@ class GeminiHealthApiTests(TestCase):
         self._configure()
         with (
             patch("management.services.gemini_keys.acquire_key_lease", return_value=None),
-            patch("management.services.gemini_probe.probe_key") as probe_key,
+            patch("management.services.gemini_probe.probe_key_metadata") as probe_key,
         ):
             response = self._post_probe()
         self.assertEqual(response.status_code, 409)
@@ -174,7 +174,7 @@ class GeminiHealthApiTests(TestCase):
             "status": "ok", "http_code": 200, "finish_reason": "STOP",
             "latency_ms": 12, "model": "gemini-3.7-flash",
         }
-        with patch("management.services.gemini_probe.probe_key", return_value=result) as probe_key:
+        with patch("management.services.gemini_probe.probe_key_metadata", return_value=result) as probe_key:
             first = self._post_probe()
             repeated = self._post_probe()
             other_model = self._post_probe(model="gemini-3.6-flash")
@@ -196,7 +196,7 @@ class GeminiHealthApiTests(TestCase):
             "error": self.secret_value,
         }
         with patch(
-            "management.services.gemini_probe.probe_key", return_value=provider_result
+            "management.services.gemini_probe.probe_key_metadata", return_value=provider_result
         ) as probe_key:
             response = self._post_probe()
         self.assertEqual(response.status_code, 200)
@@ -256,7 +256,7 @@ class GeminiHealthApiTests(TestCase):
             "finish_reason": self.secret_value, "latency_ms": 999999999,
             "thoughts_tokens": 123, "raw_error": self.secret_value,
         }
-        with patch("management.services.gemini_probe.probe_key", return_value=provider_result):
+        with patch("management.services.gemini_probe.probe_key_metadata", return_value=provider_result):
             response = self._post_probe()
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -284,7 +284,7 @@ class GeminiHealthApiTests(TestCase):
     def test_unexpected_probe_exception_is_redacted_and_rate_limited(self):
         self._configure()
         with patch(
-            "management.services.gemini_probe.probe_key",
+            "management.services.gemini_probe.probe_key_metadata",
             side_effect=RuntimeError(self.secret_value),
         ) as probe_key:
             first = self._post_probe()

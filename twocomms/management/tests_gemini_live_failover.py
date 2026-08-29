@@ -62,9 +62,12 @@ class LiveGeminiFailoverContractsTests(TestCase):
             result = ai.gemini_generate_text({"contents": []}, role="chat")
 
         self.assertEqual(result["parsed"], "recovered")
+        # ЭБ.4: модель обычного ответа задаёт тир задачи; проверяемое свойство —
+        # переход на ДРУГОЙ известный проект, а не конкретное имя модели.
+        primary = gemini_keys.task_model_chain("chat", "customer_chat")[0]
         self.assertEqual(calls[:2], [
-            ("gemini-3.7-flash", "GEMINI_API"),
-            ("gemini-3.7-flash", "GEMINI_API3"),
+            (primary, "GEMINI_API"),
+            (primary, "GEMINI_API3"),
         ])
 
     @override_settings(GEMINI_KEY_PROJECT_GROUPS={
@@ -101,7 +104,8 @@ class LiveGeminiFailoverContractsTests(TestCase):
         self.assertFalse(gemini_keys.is_available("GEMINI_API2"))
 
     def test_open_durable_model_circuit_skips_primary_for_live_chat(self):
-        gemini_keys.open_model_circuit("gemini-3.7-flash", reason="transport")
+        primary = gemini_keys.task_model_chain("chat", "customer_chat")[0]
+        gemini_keys.open_model_circuit(primary, reason="transport")
         seen_models = []
 
         def fake_once(model, payload, key, *, parse=True, timeout=None):
@@ -113,15 +117,19 @@ class LiveGeminiFailoverContractsTests(TestCase):
         ):
             result = ai.gemini_generate_text({"contents": []}, role="chat")
 
-        self.assertEqual(result["model"], "gemini-3.6-flash")
-        self.assertEqual(seen_models, ["gemini-3.6-flash"])
+        fallback = gemini_keys.task_model_chain("chat", "customer_chat")[1]
+        self.assertEqual(result["model"], fallback)
+        self.assertEqual(seen_models, [fallback])
 
     def test_404_opens_circuit_and_does_not_try_the_same_model_on_next_key(self):
         calls = []
 
+        chain = gemini_keys.task_model_chain("chat", "customer_chat")
+        primary, fallback = chain[0], chain[1]
+
         def fake_once(model, payload, key, *, parse=True, timeout=None):
             calls.append((model, key))
-            if model == "gemini-3.7-flash":
+            if model == primary:
                 raise ai._GeminiModelUnavailable("HTTP 404: NOT_FOUND")
             return "fallback", {}
 
@@ -130,9 +138,9 @@ class LiveGeminiFailoverContractsTests(TestCase):
         ):
             result = ai.gemini_generate_text({"contents": []}, role="chat")
 
-        self.assertEqual(result["model"], "gemini-3.6-flash")
+        self.assertEqual(result["model"], fallback)
         self.assertEqual(
-            [model for model, _key in calls].count("gemini-3.7-flash"),
+            [model for model, _key in calls].count(primary),
             1,
         )
 

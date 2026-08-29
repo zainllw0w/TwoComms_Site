@@ -115,3 +115,58 @@ def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
     result["latency_ms"] = max(0, int((time.monotonic() - started) * 1000))
     result["model"] = model
     return result
+
+
+def probe_key_metadata(model: str, key: str, timeout: tuple | None = None) -> dict:
+    """Проверка доступности пары БЕЗ расхода генерационной квоты (ЭБ.4).
+
+    `probe_key()` выше отправляет настоящий `generateContent`. При лимите free-tier
+    20 запросов в сутки на пару (проект, модель) одна такая проверка стоит 5%
+    дневного бюджета, а шесть ключей на двух моделях — 10% всего дня. Ради строки
+    «работает» в админке это неприемлемо: именно эти перепроверки и съедали
+    квоту, из-за которой клиент затем получал техническое извинение.
+
+    Здесь — `GET /models/{model}`: он подтверждает, что ключ валиден, модель
+    существует и поддерживает `generateContent`, и НЕ тратит запросов генерации.
+    Чего он не доказывает — что квота генерации ещё не исчерпана; это видно из
+    локального учёта (`gemini_quota`) и из реальных отказов, а не из проверки.
+    """
+    started = time.monotonic()
+    read_timeout = float((timeout or PROBE_TIMEOUT)[1])
+    status = "transport_error"
+    http_code = 0
+    try:
+        response = requests.get(
+            f"{GENAI_BASE}/models/{model}",
+            headers={"x-goog-api-key": key},
+            timeout=timeout or PROBE_TIMEOUT,
+        )
+        http_code = int(response.status_code or 0)
+        if http_code == 200:
+            try:
+                methods = (response.json() or {}).get("supportedGenerationMethods")
+            except (TypeError, ValueError):
+                methods = None
+            supports = isinstance(methods, list) and "generateContent" in methods
+            status = "metadata_ok" if supports else "unsupported_generation"
+        else:
+            status = {
+                403: "forbidden",
+                404: "model_unavailable",
+                429: "quota",
+            }.get(http_code, "provider_error" if http_code >= 500 else "request_error")
+    except requests.Timeout:
+        status = "timeout"
+    except requests.RequestException:
+        status = "transport_error"
+    return {
+        "status": status,
+        "http_code": http_code,
+        "finish_reason": "",
+        "thoughts_tokens": 0,
+        "candidates_tokens": 0,
+        "latency_ms": max(0, int((time.monotonic() - started) * 1000)),
+        "model": model,
+        "evidence_kind": "metadata_only",
+        "read_timeout": read_timeout,
+    }

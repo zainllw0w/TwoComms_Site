@@ -4068,6 +4068,54 @@ class LeadCheckerSettings(models.Model):
         return "LeadCheckerSettings"
 
 
+class GeminiModelQuotaUsage(models.Model):
+    """Локальний облік квоти пари (ключ, модель) за добу Pacific (ЭБ.4).
+
+    **Навіщо власний рахівник.** У free-tier ліміти оголошені на пару
+    (проєкт, модель): 3.7-flash — 5 RPM / 250K TPM / **20 RPD**, 3.6-flash і
+    3.5-flash так само, 3.5-flash-lite — 15 RPM / 250K TPM / **500 RPD**. Кожен
+    ключ — окремий проєкт, тобто шість незалежних наборів цих бюджетів.
+
+    До цього пул дізнавався про виснаження **тільки з 429**, тобто ціною
+    провального ходу: клієнт чекав, ключ ішов у кулдаун, і лише тоді бралася
+    наступна пара. Двадцять запитів на добу означають, що на найкращій моделі
+    таких «дізнавань» за день може бути більше, ніж самих корисних відповідей.
+
+    Рахівник — **дорадчий**, провайдер завжди головніший: квоту може витратити
+    інший процес або інша сесія, тому реальний 429 закриває пару незалежно від
+    локальних цифр. Зворотна помилка дешева: ми лише раніше перейдемо на іншу
+    пару.
+    """
+
+    key_name = models.CharField(max_length=40, db_index=True)
+    model = models.CharField(max_length=80, db_index=True)
+    # Доба Pacific: саме за нею Google скидає RPD (див. `next_midnight_pt`).
+    day_date = models.DateField(db_index=True)
+    requests = models.PositiveIntegerField(default=0)
+    tokens = models.PositiveBigIntegerField(default=0)
+    # Ковзне вікно хвилини для RPM/TPM.
+    minute_started_at = models.DateTimeField(null=True, blank=True)
+    minute_requests = models.PositiveIntegerField(default=0)
+    minute_tokens = models.PositiveBigIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Витрата квоти Gemini")
+        verbose_name_plural = _("Витрати квоти Gemini")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["key_name", "model", "day_date"],
+                name="gemini_quota_pair_day",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["day_date", "model"], name="gemini_quota_day_model"),
+        ]
+
+    def __str__(self):
+        return f"GeminiModelQuotaUsage({self.key_name}/{self.model}@{self.day_date})"
+
+
 class GeminiKeyState(models.Model):
     """Стан одного Gemini-ключа (проекту) для менеджера пулів: кулдаун за квотою,
     лічильники, причина. Квота в Gemini рахується на проект, тож трекаємо per-key."""

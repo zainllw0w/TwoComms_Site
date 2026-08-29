@@ -73,16 +73,25 @@ class ReplyExpectationTests(TestCase):
         self.igc = IgClient.get_or_create_for_sender("expectation-sender")
 
     def test_story_repost_owes_an_answer_but_nobody_waits_for_it(self):
-        row = _inbound(self.igc, media=STORY_MENTION_MEDIA)
+        # "(зображення)" — ровно тот текст-заполнитель, который стоял в
+        # production-строке 2793 (репост 29.08 10:31:13, ответ «Вибачте за
+        # технічну затримку» в 10:31:56). Он и обошёл прежний gate:
+        # `reaction_or_sticker` требует ПУСТОГО текста, а заполнитель не пустой
+        # и не похож на «Добре», поэтому ход считался требующим ответа.
+        for text in ("", "(зображення)", "(медіа)"):
+            with self.subTest(text=text):
+                row = _inbound(self.igc, text, media=STORY_MENTION_MEDIA)
 
-        expectation = classify(row, ugc_turn=True)
+                expectation = classify(row, ugc_turn=True)
 
-        self.assertFalse(expectation.waiting, "за репост никто не ждёт квитанции")
-        self.assertTrue(
-            expectation.substantive_reply_owed,
-            "благодарность мы всё равно должны — просто не срочно",
-        )
-        self.assertEqual(expectation.reason, "ugc_turn")
+                self.assertFalse(
+                    expectation.waiting, "за репост никто не ждёт квитанции"
+                )
+                self.assertTrue(
+                    expectation.substantive_reply_owed,
+                    "благодарность мы всё равно должны — просто не срочно",
+                )
+                self.assertEqual(expectation.reason, "ugc_turn")
 
     def test_story_repost_after_a_bot_question_is_still_not_an_answer(self):
         """Тот самый путь: исключение «бот задал вопрос» снимало gate."""

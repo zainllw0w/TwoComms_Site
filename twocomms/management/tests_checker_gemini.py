@@ -93,7 +93,7 @@ class GeminiJsonPoolTests(TestCase):
 
         self.assertEqual(out["parsed"], {"ok": True})
         self.assertEqual(out["meta"]["key"], "GEMINI_API5")
-        exhausted_model = gk.model_chain("management")[0]
+        exhausted_model = gk.task_model_chain("management", "reporting_summary")[0]
         self.assertFalse(
             gk.is_available("GEMINI_API6", model=exhausted_model),
             "пара (ключ, исчерпанная модель) должна быть в кулдауне",
@@ -103,13 +103,16 @@ class GeminiJsonPoolTests(TestCase):
             "сам ключ остаётся рабочим: у младших моделей своя квота",
         )
         self.assertTrue(
-            gk.is_available("GEMINI_API6", model=gk.model_chain("management")[-1]),
+            gk.is_available(
+                "GEMINI_API6",
+                model=gk.task_model_chain("management", "reporting_summary")[-1],
+            ),
             "младшая модель на том же ключе обязана остаться доступной",
         )
         self.assertTrue(gk.is_available("GEMINI_API5", model=exhausted_model))
 
     def test_503_falls_back_to_next_model_same_key(self):
-        failed_model = gk.model_chain("management")[0]
+        failed_model = gk.task_model_chain("management", "reporting_summary")[0]
 
         def fake(model, payload, key, *, parse=True, timeout=None):
             if model == failed_model:
@@ -163,8 +166,12 @@ class GeminiTextPoolTests(TestCase):
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(caa, "_gemini_call_once", side_effect=fake):
             caa.gemini_generate_text(payload, role="chat")
-        # перший ключ chat-пулу = GEMINI_API, перша модель = gemini-3.7-flash
-        self.assertEqual(seen[0], ("key-val-1", "gemini-3.7-flash"))
+        # ЭБ.4: первый ключ chat-пула тот же, а модель — модель тира задачи.
+        # Обычный ответ живёт на lite (500 запросов в сутки на ключ), потому что
+        # на 3.7 их всего 20 и они нужны решениям, а не каждой реплике.
+        self.assertEqual(
+            seen[0], ("key-val-1", gk.task_model_chain("chat", "customer_chat")[0])
+        )
 
     def test_chat_manual_key_first(self):
         seen = []
@@ -197,8 +204,10 @@ class GeminiTextPoolTests(TestCase):
              patch.object(caa, "_gemini_call_once", side_effect=fake):
             out = caa.gemini_generate_text(payload, role="chat")
         self.assertEqual(out["parsed"], "ok-text")
-        # перший доступний — позичений management-ключ, модель найновіша gen-3
-        self.assertEqual(seen[0], ("key-val-3", "gemini-3.7-flash"))
+        # перший доступний — позичений management-ключ; модель — з тира задачі
+        self.assertEqual(
+            seen[0], ("key-val-3", gk.task_model_chain("chat", "customer_chat")[0])
+        )
 
 
 class GeminiEmptyResponseTests(TestCase):
@@ -384,7 +393,10 @@ class AdaptiveChatPlannerTests(TestCase):
             with self.assertRaises(caa.CallAIAnalysisError):
                 self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-        primary = [alias for alias, model in seen if model == "gemini-3.7-flash"]
+        # ЭБ.4: модель обычного ответа определяет тир задачи, а не константа в
+        # тесте. Проверяемое свойство прежнее: все шесть ключей ПЕРВОЙ модели.
+        primary_model = gk.task_model_chain("chat", "customer_chat")[0]
+        primary = [alias for alias, model in seen if model == primary_model]
         self.assertEqual(primary, list(ENV6))
         sleep.assert_not_called()
 
@@ -399,9 +411,12 @@ class AdaptiveChatPlannerTests(TestCase):
         """
         seen = []
 
+        chain = gk.task_model_chain("chat", "customer_chat")
+        primary_model, fallback_model = chain[0], chain[1]
+
         def fake(model, payload, key, *, parse=True, timeout=None):
             seen.append(model)
-            if model == "gemini-3.7-flash":
+            if model == primary_model:
                 raise caa._GeminiTransient("timeout/transport/HTTP 503")
             return ("fallback", {})
 
@@ -411,8 +426,8 @@ class AdaptiveChatPlannerTests(TestCase):
              patch.object(caa.time, "sleep") as sleep:
             out = self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-        first_fallback = seen.index("gemini-3.6-flash")
-        primary_calls = seen[:first_fallback].count("gemini-3.7-flash")
+        first_fallback = seen.index(fallback_model)
+        primary_calls = seen[:first_fallback].count(primary_model)
         self.assertEqual(out["parsed"], "fallback")
         self.assertGreater(
             primary_calls, 2,
@@ -452,7 +467,7 @@ class ChatHedgeDisciplineTests(TestCase):
         }
 
     def test_quota_pressure_skips_the_hedged_wave(self):
-        primary = gk.model_chain("chat")[0]
+        primary = gk.task_model_chain("chat", "customer_chat")[0]
         gk.mark_429("GEMINI_API", "minute", 60, model=primary)
 
         def fake(model, payload, key, *, parse=True, timeout=None):

@@ -936,19 +936,30 @@ def iter_attempts(role: str, model_chain_override: list[str] | None = None):
     present = [(kn, _key_value(kn)) for kn in ordered_keys]
     present = [(kn, kv) for kn, kv in present if kv]
     overloaded_at_start = {m for m in models if is_model_overloaded(m, timezone.now())}
+    from management.services import gemini_quota
+
     for model in models:
         if model in overloaded_at_start:
             continue
         if is_model_unavailable(model, timezone.now()):
             continue  # платна/недоступна модель — пропускаємо повністю
-        for key_name, kv in present:
+        # ЭБ.4: у пари (ключ, модель) є денний ліміт (20 на старших моделях), тому
+        # ключі беремо в порядку ЗАЛИШКУ квоти — інакше перший ключ вичерпується
+        # до нуля, а решта проєктів стоїть невикористаною.
+        by_remaining = gemini_quota.order_keys_by_remaining(
+            [kn for kn, _kv in present], model
+        )
+        values = dict(present)
+        for key_name in by_remaining:
             # Платну модель, виявлену ПІД ЧАС цього проходу (на попередньому ключі),
             # одразу припиняємо пробувати на решті ключів — економимо час/квоту.
             if is_model_unavailable(model, timezone.now()):
                 break
             if not is_available(key_name, timezone.now(), model=model):
                 continue  # пара (ключ, модель) у кулдауні → пропускаємо
-            yield (key_name, kv, model)
+            if not gemini_quota.has_capacity(key_name, model):
+                continue  # локальний облік каже: денна/хвилинна квота пари вичерпана
+            yield (key_name, values[key_name], model)
 
 
 def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
@@ -959,6 +970,8 @@ def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
         else model_chain("chat")
     )
     keys = ordered_key_candidates("chat")
+    from management.services import gemini_quota
+
     for model in models:
         if (
             is_model_overloaded(model)
@@ -966,10 +979,45 @@ def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
             or model_circuit_open(model)
         ):
             continue
-        for key_name in keys:
+        # ЭБ.4: спочатку ключі з найбільшим залишком денної квоти цієї моделі.
+        for key_name in gemini_quota.order_keys_by_remaining(keys, model):
             key_value = _key_value(key_name)
-            if key_value and is_available(key_name, model=model):
-                yield key_name, key_value, model
+            if not key_value or not is_available(key_name, model=model):
+                continue
+            if not gemini_quota.has_capacity(key_name, model):
+                continue
+            yield key_name, key_value, model
+
+
+def task_model_chain(
+    role: str,
+    reasoning_task: str = "",
+    model_override: str | None = None,
+) -> list:
+    """Цепочка моделей для КОНКРЕТНОЙ задачи, а не для роли целиком (ЭБ.4).
+
+    Прежняя цепочка чата начиналась с 3.7 на каждом ходе. При лимите 20 запросов
+    в сутки на пару (проект, модель) это означало, что дневной бюджет лучшей
+    модели выгорал на обычных «яка ціна?» до обеда, а сложные решения и разбор
+    диалога оставались без неё вообще.
+
+    Квота принадлежит паре (проект, модель), поэтому ВЫБОР МОДЕЛИ и есть средство
+    изоляции: обычный ответ живёт на 3.5-flash-lite (500/сутки на ключ), решения —
+    на 3.7-flash, разбор — на 3.6-flash, общий резерв — 3.5-flash. Потребители
+    физически не могут съесть бюджет друг друга.
+
+    Явный `model_override` уважаем без изменений: он приходит от оператора.
+    """
+    if model_override:
+        return model_chain(role, model_override)
+    from management.services import gemini_quota
+
+    chain = [
+        model
+        for model in gemini_quota.chain_for_task(reasoning_task, role=role)
+        if role != "chat" or is_allowed_chat_model(model)
+    ]
+    return chain or model_chain(role)
 
 
 def model_quota_pressure(role: str, model: str, now: datetime.datetime | None = None) -> bool:

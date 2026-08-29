@@ -629,6 +629,9 @@ _GEMINI_HEALTH_PROBE_STATUSES = frozenset({
     "malformed_response",
     "timeout",
     "transport_error",
+    # ЭБ.4: исходы проверки БЕЗ расхода генерационной квоты (`GET /models/{id}`).
+    "metadata_ok",
+    "unsupported_generation",
 })
 _GEMINI_HEALTH_FAILURE_KINDS = {
     "reachable_empty": "empty",
@@ -1030,7 +1033,12 @@ def bot_gemini_health_probe_api(request):
             return _gemini_health_error("probe_rate_limited", 429)
 
         try:
-            raw_result = gemini_probe.probe_key(
+            # ЭБ.4: проверка НЕ тратит генерационную квоту. Прежний probe_key()
+            # отправлял настоящий generateContent, то есть 1 запрос из 20
+            # суточных для этой пары; шесть ключей на двух моделях — десятая
+            # часть дня. Ключ считается рабочим, пока реальный трафик не вернёт
+            # ошибку; кнопка лишь подтверждает валидность ключа и модели.
+            raw_result = gemini_probe.probe_key_metadata(
                 model,
                 key_value,
                 timeout=gemini_probe.PROBE_TIMEOUT,

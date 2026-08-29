@@ -44,7 +44,7 @@ from management.models import (
     InstagramBotSettings,
 )
 from management.models import normalize_phone as model_normalize_phone
-from management.services import gemini_hedge, gemini_keys, gemini_scoreboard
+from management.services import gemini_hedge, gemini_keys, gemini_quota, gemini_scoreboard
 from management.services.call_ai_queue import METADATA_PENDING, analysis_queue_category
 from management.services.binotel import (
     BinotelClient,
@@ -497,9 +497,21 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             )
             if effective_timeout is None:
                 return ("model_skip", None)
+            # ЭБ.4: занимаем запрос пары (ключ, модель) ДО вызова. Иначе два
+            # потока демона израсходуют один и тот же последний из двадцати.
+            if key_name in gemini_keys.ALL_KEYS and not gemini_quota.try_reserve(
+                key_name, model
+            ):
+                log.append(f"{key_name}/{model}: денна квота пари вичерпана (облік)")
+                _emit(f"{key_name}/{model}: 🚫 квота пари вичерпана (локальний облік)")
+                return ("model_skip", None)
             parsed, usage = _gemini_call_once(
                 model, request_payload, key_value, parse=parse, timeout=effective_timeout
             )
+            if key_name in gemini_keys.ALL_KEYS:
+                gemini_quota.settle(
+                    key_name, model, int((usage or {}).get("totalTokenCount") or 0)
+                )
         except _GeminiTransient as exc:
             dt = time.monotonic() - t0
             log.append(f"{key_name}/{model}: transient {exc} (#{attempt + 1})")
@@ -617,7 +629,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     log: list[str] = []
     n_attempts = gemini_keys.attempts_per_model(role)
     rounds = gemini_keys.max_rounds(role)
-    models = gemini_keys.model_chain(role, model_override)
+    models = gemini_keys.task_model_chain(role, task, model_override)
     call_timeout = timeout or (CHAT_TIMEOUT if role == "chat" else GEMINI_TIMEOUT)
     if deadline_seconds is None:
         deadline_seconds = CHAT_DEADLINE_SECONDS if role == "chat" else None
@@ -873,7 +885,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     if manual_key and not gemini_keys.manual_key_allowed("chat", manual_key):
         manual_key = None
 
-    models = gemini_keys.model_chain("chat", model_override)
+    models = gemini_keys.task_model_chain("chat", policy["task"], model_override)
     if not models:
         raise CallAIAnalysisError("Не налаштована модель Gemini для live chat.")
     attempts: list[str] = []
@@ -993,10 +1005,24 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             except Exception:
                 logger.debug("gemini attempt audit unavailable", exc_info=True)
 
+        if key_name in gemini_keys.ALL_KEYS and not gemini_quota.try_reserve(
+            key_name, model
+        ):
+            # ЭБ.4: пара исчерпана по локальному учёту — не тратим ход на 429,
+            # который провайдер вернул бы через несколько сотен миллисекунд.
+            attempts.append(f"{key_name}/{model}: quota_exhausted_local")
+            _emit(f"{key_name}/{model}: квота пари вичерпана (локальний облік)")
+            _audit_not_attempted(key_name, model, "quota_exhausted", candidate_index)
+            _release()
+            return None, "quota"
         try:
             parsed, usage = _gemini_call_once(
                 model, request_payload, key_value, parse=parse, timeout=timeout
             )
+            if key_name in gemini_keys.ALL_KEYS:
+                gemini_quota.settle(
+                    key_name, model, int((usage or {}).get("totalTokenCount") or 0)
+                )
         except _GeminiTransient as exc:
             kind, transient_http_code = _transient_failure_details(exc)
             attempts.append(f"{key_name}/{model}: {kind}: {exc}")
@@ -1143,9 +1169,18 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 model, working_payload, reasoning_task=policy["task"]
             )
             request_payload.pop("_reasoning_task", None)
-            return _gemini_call_once(
+            if key_name in gemini_keys.ALL_KEYS and not gemini_quota.try_reserve(
+                key_name, model
+            ):
+                raise _Gemini429("local quota ledger: pair exhausted")
+            parsed, usage = _gemini_call_once(
                 model, request_payload, key_value, parse=parse, timeout=timeout
             )
+            if key_name in gemini_keys.ALL_KEYS:
+                gemini_quota.settle(
+                    key_name, model, int((usage or {}).get("totalTokenCount") or 0)
+                )
+            return parsed, usage
 
         try:
             wave = gemini_hedge.run_hedged(
@@ -1242,8 +1277,16 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     # через 1.5 с и получает тот же 429 — один ход остужает несколько ключей, и
     # следующий клиент начинает с меньшим пулом. Если по этой модели уже есть
     # остывшая пара (ключ, модель), волну не открываем: идём одним кандидатом.
+    #
+    # ЭБ.4 усиливает правило арифметикой квот. Волна из трёх ключей стоит 3 из 20
+    # суточных запросов сильной модели — двадцать таких ходов съедают половину
+    # дневного бюджета ради двадцати ответов. На lite (500/сутки на ключ) та же
+    # волна стоит 0.6% бюджета. Поэтому hedging допустим ТОЛЬКО на дешёвом тире.
+    primary_budget = gemini_quota.budget_for(primary)
+    primary_rpd = int((primary_budget or {}).get("rpd") or 0)
+    hedging_affordable = primary_rpd >= gemini_quota.HEDGE_MIN_RPD
     quota_pressure = gemini_keys.model_quota_pressure("chat", primary)
-    if quota_pressure:
+    if quota_pressure or not hedging_affordable:
         # Под квотой идём по кандидатам ПОСЛЕДОВАТЕЛЬНО. Первый же 429 закрывает
         # пару (ключ, модель), и мы честно спускаемся по лестнице, не потратив
         # на это разоблачение три параллельных запроса.
