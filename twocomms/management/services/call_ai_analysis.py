@@ -525,7 +525,9 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             if gemini_keys.is_key_level_429(model, grounded):
                 if track:
                     scope, secs = gemini_keys.parse_429(str(exc))
-                    gemini_keys.mark_429(key_name, scope, secs, error=str(exc))
+                    gemini_keys.mark_429(
+                        key_name, scope, secs, error=str(exc), model=model
+                    )
                     log.append(f"{key_name}/{model}: 429 → кулдаун ключа ({scope})")
                     _emit(f"{key_name}/{model}: 🚫 429 квота → кулдаун ключа ({scope}, {dt:.1f}с)")
                 else:
@@ -821,7 +823,7 @@ def _apply_hedge_key_state(key_name: str, kind: str, http_code, model: str) -> N
     try:
         if kind == "quota_429":
             if gemini_keys.is_key_level_429(model, False):
-                gemini_keys.mark_429(key_name, "minute", 0)
+                gemini_keys.mark_429(key_name, "minute", 0, model=model)
                 gemini_keys.record_key_failure(
                     key_name, failure_kind="quota_429", http_code=429
                 )
@@ -942,7 +944,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             return None, "deadline"
         lease_token = None
         if key_name in gemini_keys.ALL_KEYS:
-            if not gemini_keys.is_available(key_name):
+            if not gemini_keys.is_available(key_name, model=model):
                 attempts.append(f"{key_name}/{model}: quarantined")
                 _emit(f"{key_name}/{model}: quarantined")
                 _audit_not_attempted(key_name, model, "quarantine", candidate_index)
@@ -1023,7 +1025,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         except _Gemini429 as exc:
             if key_name in gemini_keys.ALL_KEYS and gemini_keys.is_key_level_429(model, False):
                 scope, seconds = gemini_keys.parse_429(str(exc))
-                gemini_keys.mark_429(key_name, scope, seconds, error=str(exc))
+                gemini_keys.mark_429(
+                    key_name, scope, seconds, error=str(exc), model=model
+                )
                 gemini_keys.record_key_failure(key_name, failure_kind="quota_429", http_code=429)
             _audit(
                 "failed", failure_kind="quota_429", http_code=429,
@@ -1120,7 +1124,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         prepared: list = []
         for key_name, key_value, model in primary_candidates:
             if key_name in gemini_keys.ALL_KEYS:
-                if not gemini_keys.is_available(key_name):
+                if not gemini_keys.is_available(key_name, model=model):
                     attempts.append(f"{key_name}/{model}: quarantined")
                     _audit_not_attempted(key_name, model, "quarantine", 0)
                     continue
@@ -1233,9 +1237,34 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     except Exception:
         logger.debug("gemini scoreboard unavailable", exc_info=True)
 
-    hedged_result = _hedged_primary(primary_attempts, primary)
-    if hedged_result is not None:
-        return hedged_result
+    # ЭБ.2: hedging лечит РАЗБРОС ЛАТЕНТНОСТИ, а не исчерпанную квоту. Под
+    # квотой он вредит: 429 приходит за ~0.3 с, а следующий ключ волны стартует
+    # через 1.5 с и получает тот же 429 — один ход остужает несколько ключей, и
+    # следующий клиент начинает с меньшим пулом. Если по этой модели уже есть
+    # остывшая пара (ключ, модель), волну не открываем: идём одним кандидатом.
+    quota_pressure = gemini_keys.model_quota_pressure("chat", primary)
+    if quota_pressure:
+        # Под квотой идём по кандидатам ПОСЛЕДОВАТЕЛЬНО. Первый же 429 закрывает
+        # пару (ключ, модель), и мы честно спускаемся по лестнице, не потратив
+        # на это разоблачение три параллельных запроса.
+        for index, (key_name, key_value, _model) in enumerate(primary_attempts, start=1):
+            result, state = _call(
+                key_name, key_value, primary,
+                preserve_fallback=True, candidate_index=index,
+            )
+            if result:
+                return result
+            if state == "deadline":
+                raise CallAIAnalysisError(
+                    "Перебір Gemini перервано по live дедлайну. Спроби: "
+                    + "; ".join(attempts)
+                )
+            if state in {"model_unavailable", "model_circuit_open"}:
+                break
+    else:
+        hedged_result = _hedged_primary(primary_attempts, primary)
+        if hedged_result is not None:
+            return hedged_result
 
     # A slow primary-model/transport fault gets one quality fallback phase.  A
     # fast key failure may still walk the full key list below without spending

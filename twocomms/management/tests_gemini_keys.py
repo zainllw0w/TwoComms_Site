@@ -243,7 +243,8 @@ class IterAttemptsTests(TestCase):
         for key_name, _, _ in combos:
             if key_name not in key_order:
                 key_order.append(key_name)
-        self.assertEqual(key_order[:2], ["GEMINI_API5", "GEMINI_API6"])
+        # ЭБ.2: фон идёт навстречу чату — от последнего ключа пула к первому.
+        self.assertEqual(key_order[:2], ["GEMINI_API6", "GEMINI_API5"])
         self.assertEqual(
             set(key_order),
             {"GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"},
@@ -258,7 +259,8 @@ class IterAttemptsTests(TestCase):
         for key_name, _, _ in combos:
             if key_name not in key_order:
                 key_order.append(key_name)
-        self.assertEqual(key_order[:2], ["GEMINI_API3", "GEMINI_API4"])
+        # ЭБ.2: первое заимствование чата (API3) — последний резерв фона.
+        self.assertEqual(key_order[:2], ["GEMINI_API6", "GEMINI_API5"])
         self.assertEqual(
             set(key_order),
             {"GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"},
@@ -728,3 +730,90 @@ class ModelUnavailableSkipTests(TestCase):
             rest = list(gen)
         # після позначення 3.7-flash вона більше не пробується на інших ключах
         self.assertEqual([(k, m) for k, _, m in rest if m == "gemini-3.7-flash"], [])
+
+
+class PerModelQuotaCooldownTests(TestCase):
+    """ЭБ.2 — квота free-tier принадлежит паре (проект, модель), а не проекту.
+
+    Зафиксированная цена прежнего поведения: 429 по дневному лимиту самой
+    дефицитной модели (3.7-flash) закрывал ключ целиком — вместе с 3.6, 3.5 и
+    lite, у которых лимит в разы больше. Шесть ключей исчерпывались за день по
+    худшей модели, и живой ответ клиенту оставался без ключа вообще.
+    """
+
+    def setUp(self):
+        from management.services import gemini_keys as gk
+
+        self.gk = gk
+        self.now = timezone.now()
+
+    def test_day_quota_on_one_model_leaves_the_other_models_of_that_key(self):
+        self.gk.mark_429(
+            "GEMINI_API", "day", 0, now=self.now, model="gemini-3.7-flash"
+        )
+
+        self.assertFalse(
+            self.gk.is_available("GEMINI_API", self.now, model="gemini-3.7-flash")
+        )
+        self.assertTrue(
+            self.gk.is_available("GEMINI_API", self.now, model="gemini-3.5-flash-lite")
+        )
+        self.assertTrue(self.gk.is_available("GEMINI_API", self.now))
+
+    def test_minute_quota_expires_for_the_pair_only(self):
+        self.gk.mark_429(
+            "GEMINI_API2", "minute", 40, now=self.now, model="gemini-3.7-flash"
+        )
+        later = self.now + datetime.timedelta(seconds=41)
+
+        self.assertFalse(
+            self.gk.is_available("GEMINI_API2", self.now, model="gemini-3.7-flash")
+        )
+        self.assertTrue(
+            self.gk.is_available("GEMINI_API2", later, model="gemini-3.7-flash")
+        )
+
+    def test_topup_still_closes_the_whole_key(self):
+        """Кончились деньги проекта — это действительно про все модели сразу."""
+        self.gk.mark_429("GEMINI_API3", "topup", 3600, now=self.now, model="gemini-3.7-flash")
+
+        self.assertFalse(self.gk.is_available("GEMINI_API3", self.now))
+        self.assertFalse(
+            self.gk.is_available("GEMINI_API3", self.now, model="gemini-2.5-flash-lite")
+        )
+
+    def test_call_without_a_model_keeps_the_old_key_level_behaviour(self):
+        self.gk.mark_429("GEMINI_API4", "day", 0, now=self.now)
+
+        self.assertFalse(self.gk.is_available("GEMINI_API4", self.now))
+
+    def test_expired_pairs_do_not_accumulate_in_the_row(self):
+        self.gk.mark_429(
+            "GEMINI_API5", "minute", 30, now=self.now - datetime.timedelta(hours=2),
+            model="gemini-3.6-flash",
+        )
+        self.gk.mark_429(
+            "GEMINI_API5", "minute", 30, now=self.now, model="gemini-3.7-flash"
+        )
+
+        state = GeminiKeyState.get("GEMINI_API5")
+        self.assertEqual(list(state.model_cooldowns), ["gemini-3.7-flash"])
+
+    def test_exhausted_model_is_skipped_but_the_ladder_continues_on_that_key(self):
+        from management.services import gemini_keys as gk
+
+        env = {f"GEMINI_API{n}": f"key-val-{n or '1'}" for n in ("", "2", "3", "4", "5", "6")}
+        gk.mark_429("GEMINI_API", "day", 0, now=self.now, model="gemini-3.7-flash")
+
+        with patch.dict("os.environ", env, clear=False):
+            combos = list(gk.iter_live_chat_attempts())
+
+        self.assertNotIn(
+            ("GEMINI_API", "gemini-3.7-flash"),
+            [(key, model) for key, _, model in combos],
+        )
+        self.assertIn(
+            ("GEMINI_API", "gemini-3.6-flash"),
+            [(key, model) for key, _, model in combos],
+            "младшая модель того же ключа обязана остаться в переборе",
+        )

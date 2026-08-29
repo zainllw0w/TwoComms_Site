@@ -4075,6 +4075,12 @@ class GeminiKeyState(models.Model):
     role_hint = models.CharField(max_length=20, blank=True)
     cooldown_until = models.DateTimeField(null=True, blank=True, db_index=True)
     cooldown_scope = models.CharField(max_length=10, blank=True)  # minute|day|topup
+    # ЭБ.2: квота free-tier считается на пару (проект, МОДЕЛЬ), а не на проект.
+    # До этого 429 по дневному лимиту 3.7-flash закрывал ключ целиком — вместе с
+    # 3.6, 3.5 и lite, у которых на том же проекте лимит в разы больше. Шесть
+    # ключей исчерпывались за день по самой дефицитной модели, и живой ответ
+    # оставался без ключа. Здесь — {model: iso-timestamp} до конца кулдауна.
+    model_cooldowns = models.JSONField(default=dict, blank=True)
     last_status = models.CharField(max_length=20, blank=True)
     last_429_at = models.DateTimeField(null=True, blank=True)
     last_ok_at = models.DateTimeField(null=True, blank=True)

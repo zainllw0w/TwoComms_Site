@@ -1514,6 +1514,35 @@ class DeterministicReplyFallbackTests(TestCase):
             source="webhook",
         )
 
+    def _waiting_outage_source(self, text, suffix):
+        """Ход, который ПО ПРАВУ получает техническое сообщение (ЭБ.1).
+
+        После ЭБ.1 техтекст требует четырёх условий вместе: клиент ждёт ответа,
+        заявленный бюджет хода истрачен, деградация провайдера подтверждена и
+        бюджет извинений не израсходован. Прежде этим тестам хватало «генерация
+        упала» — то есть они проверяли границу holding→recovery на ходе, который
+        техтекста получать не должен. Граница важна и остаётся под тестом, но
+        собрать её надо на честных условиях.
+        """
+        from management.services import ig_provider_incidents
+        from management.services.ig_turn_budget import (
+            customer_notice_threshold_seconds,
+        )
+
+        row = self._pending(text, suffix)
+        waited = timezone.now() - timedelta(
+            seconds=customer_notice_threshold_seconds() + 60
+        )
+        InstagramBotMessage.objects.filter(pk=row.pk).update(
+            created_at=waited, provider_created_at=waited
+        )
+        row.refresh_from_db()
+        ig_provider_incidents.register_provider_failure(
+            role="chat", failure_kind="quota_429", http_code=429,
+            model="gemini-3.7-flash",
+        )
+        return row
+
     @patch("management.services.instagram_bot._deliver_manager_notification", return_value=False)
     @patch("management.services.instagram_bot.send_sender_action")
     @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
@@ -1861,7 +1890,9 @@ class DeterministicReplyFallbackTests(TestCase):
         from management.models import IgAiReplyRecoveryJob
         from management.services.instagram_bot import ProviderDeliveryReceipt
 
-        source = self._pending("Can you help me choose a T-shirt?", "generic-outage")
+        source = self._waiting_outage_source(
+            "Can you help me choose a T-shirt?", "generic-outage"
+        )
 
         def typed_provider_outage(*_args, **kwargs):
             kwargs["failure_context"]["kind"] = "provider_outage"
@@ -1911,7 +1942,9 @@ class DeterministicReplyFallbackTests(TestCase):
     ):
         from management.models import IgAiReplyRecoveryJob
 
-        source = self._pending("Can you help me choose a T-shirt?", "permission-typing")
+        source = self._waiting_outage_source(
+            "Can you help me choose a T-shirt?", "permission-typing"
+        )
 
         def typed_provider_outage(*_args, **kwargs):
             kwargs["failure_context"]["kind"] = "provider_outage"
@@ -1951,7 +1984,9 @@ class DeterministicReplyFallbackTests(TestCase):
     ):
         from management.models import IgAiReplyRecoveryJob
 
-        source = self._pending("Can you help me choose a T-shirt?", "permission-send")
+        source = self._waiting_outage_source(
+            "Can you help me choose a T-shirt?", "permission-send"
+        )
 
         def typed_provider_outage(*_args, **kwargs):
             kwargs["failure_context"]["kind"] = "provider_outage"
@@ -1984,7 +2019,9 @@ class DeterministicReplyFallbackTests(TestCase):
     ):
         from management.models import IgAiReplyRecoveryJob
 
-        source = self._pending("Can you help me choose a T-shirt?", "lease-retry")
+        source = self._waiting_outage_source(
+            "Can you help me choose a T-shirt?", "lease-retry"
+        )
 
         def typed_provider_outage(*_args, **kwargs):
             kwargs["failure_context"]["kind"] = "provider_outage"
@@ -2012,7 +2049,9 @@ class DeterministicReplyFallbackTests(TestCase):
         send_text.assert_not_called()
 
     def test_recovery_schedule_failure_is_terminal_with_known_unsent_state(self):
-        source = self._pending("Can you help me choose a T-shirt?", "recovery-schedule-failed")
+        source = self._waiting_outage_source(
+            "Can you help me choose a T-shirt?", "recovery-schedule-failed"
+        )
 
         def typed_provider_outage(*_args, **kwargs):
             kwargs["failure_context"]["kind"] = "provider_outage"
@@ -2054,6 +2093,100 @@ class DeterministicReplyFallbackTests(TestCase):
         )
         self.assertIn("manager", send_text.call_args.args[2].lower())
         self.assertEqual(self.client.stage, IgClient.Stage.LEAD_TO_MANAGER)
+
+
+class QuietDegradationTests(TestCase):
+    """ЭБ.1 — сбой генерации по умолчанию НЕ виден клиенту как текст."""
+
+    def setUp(self):
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = True
+        self.settings.allowed_senders = ""
+        self.settings.save(update_fields=[
+            "is_enabled", "ai_enabled", "allowed_senders",
+        ])
+        self.client = IgClient.get_or_create_for_sender("quiet-degradation-client")
+        self.client.profile_fetched_at = timezone.now()
+        self.client.save(update_fields=["profile_fetched_at", "updated_at"])
+
+    def _pending(self, text, suffix, *, media=None):
+        return InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text=text,
+            mid=f"quiet-{suffix}",
+            status=InstagramBotMessage.Status.PENDING,
+            source="webhook",
+            media_capture_eligible=bool(media),
+            attachment_media=media or [],
+        )
+
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    def test_fresh_outage_sends_nothing_and_answers_later(
+        self, send_text, generate, _sender_action
+    ):
+        """Клиент, который ждёт 5 секунд, видит индикатор набора, а не извинение."""
+        from management.models import IgAiReplyRecoveryJob
+
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        generate.side_effect = typed_provider_outage
+        source = self._pending("Can you help me choose a T-shirt?", "fresh-outage")
+
+        instagram_bot.process_pending(self.settings, max_items=1)
+
+        send_text.assert_not_called()
+        job = IgAiReplyRecoveryJob.objects.get(source_message=source)
+        self.assertIsNotNone(
+            job.activated_at, "ход не потерян: ответ придёт из восстановления"
+        )
+
+    # Захват медиа проверяется своими тестами; здесь важно решение об ответе,
+    # поэтому подготовленное `attachment_media` не должно перезаписываться.
+    @patch("management.services.instagram_bot._capture_message_media")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    def test_story_repost_gets_thanks_not_an_apology(
+        self, send_text, generate, _sender_action, _capture
+    ):
+        """Зафиксированный случай: репост истории с отметкой бренда."""
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        generate.side_effect = typed_provider_outage
+        self._pending(
+            "",
+            "story-repost",
+            media=[{
+                "media_type": "story_mention",
+                "provenance": "live_webhook",
+                "provider_native_mention": True,
+                "target_username": "twocomms",
+                "status": "owned",
+                "storage_name": "ugc/story-quiet.jpg",
+                "provider_object_key": "story_mention:quiet-1",
+                "provider_media_id": "quiet-media-1",
+            }],
+        )
+
+        instagram_bot.process_pending(self.settings, max_items=1)
+
+        self.assertTrue(send_text.called, "за отметку надо поблагодарить")
+        reply = send_text.call_args.args[2].casefold()
+        for marker in ("затримк", "задержк", "delay"):
+            self.assertNotIn(marker, reply, reply)
+        self.assertTrue(
+            any(anchor in reply for anchor in ("дяку", "спасиб", "thank")),
+            reply,
+        )
 
 
 class LiveReplyReceiptTests(TestCase):

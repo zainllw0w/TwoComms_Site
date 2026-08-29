@@ -11392,7 +11392,32 @@ def _process_one_inside_reply_boundary(
                 is_generic_provider_outage,
             )
 
-            provider_outage = gemini_failure.get("kind") == "provider_outage"
+            if ugc_turn and row.client_id:
+                # ЭБ.1, рівень L3 драбини: «intent детермінований → відповідь без
+                # моделі». Подяка за відмітку не вимагає Gemini взагалі —
+                # `safe_ugc_acknowledgement` і в успішному ході приводить текст до
+                # соціального, некомерційного вигляду. Тому провайдерський збій на
+                # репості історії дає клієнту саме подяку, а не технічний текст.
+                #
+                # Це і був зафіксований випадок: клієнт зробив репост, відмітив
+                # бренд і отримав «Вибачте за технічну затримку» замість подяки.
+                from management.services.ig_ugc_assessment import (
+                    safe_ugc_acknowledgement,
+                )
+
+                reply = safe_ugc_acknowledgement(
+                    row.client, "", assessment=ugc_assessment
+                )
+                if reply:
+                    used_ai_failure_fallback = True
+                    log(
+                        "warning",
+                        "ugc_deterministic_reply",
+                        f"{row.sender_id}: подяка за відмітку без моделі",
+                    )
+            provider_outage = (
+                not reply and gemini_failure.get("kind") == "provider_outage"
+            )
             if provider_outage and row.client_id:
                 # ЭА.3: ЄДИНА точка рішення про технічне повідомлення. Жоден
                 # інший шлях не має права надіслати holding. Одиниця «не більше
@@ -11400,17 +11425,58 @@ def _process_one_inside_reply_boundary(
                 # тому старий dedupe по source проходив власний тест і при цьому
                 # давав клієнту три однакові вибачення за 5 хвилин 53 секунди.
                 from management.services import ig_provider_incidents
+                from management.services.ig_turn_budget import (
+                    customer_notice_threshold_seconds,
+                )
 
+                # ЭБ.1: рівень L1 драбини нарешті досяжний. До цієї правки
+                # `budget_remaining_ms` не передавався взагалі, тому перевірка
+                # «бюджет ходу ще не вичерпано» була недосяжним кодом, і будь-який
+                # збій генерації давав клієнту технічний текст через 5–10 секунд
+                # після його повідомлення. Саме це виглядало як спам вибачень.
+                #
+                # Міряємо справжнє очікування клієнта — від його повідомлення за
+                # міткою провайдера, а не від початку нашої роботи. Якщо рядок
+                # пролежав у черзі (restart демона, stale requeue), клієнт справді
+                # чекав довго, і поріг має це врахувати.
+                waited_since = (
+                    getattr(row, "provider_created_at", None)
+                    or getattr(row, "created_at", None)
+                )
+                waited_ms = 0
+                if waited_since:
+                    waited_ms = max(
+                        0,
+                        int((timezone.now() - waited_since).total_seconds() * 1000),
+                    )
+                threshold_ms = int(customer_notice_threshold_seconds() * 1000)
                 outage_gate = ig_provider_incidents.holding_decision(
-                    row, logical_turn_id=logical_turn_id
+                    row,
+                    logical_turn_id=logical_turn_id,
+                    budget_remaining_ms=max(0, threshold_ms - waited_ms),
+                    ugc_turn=bool(ugc_turn),
+                    recovery_expected=is_generic_provider_outage(
+                        row, failure_kind=gemini_failure.get("kind", "")
+                    ),
                 )
                 outage_episode_id = int(outage_gate.episode_id or 0)
-            reply, fallback_manager_handoff = build_ai_failure_fallback(
-                row,
-                provider_outage=provider_outage,
-                holding_decision=outage_gate,
-            )
-            if reply:
+                # Решение о техтексте должно объяснять себя: одна строка с
+                # входными данными избавляет от догадок «почему клиент это
+                # получил» при следующем разборе.
+                log(
+                    "info",
+                    "holding_decision",
+                    f"{row.sender_id}: {outage_gate.action}/{outage_gate.reason} "
+                    f"waited={waited_ms}ms threshold={threshold_ms}ms "
+                    f"ugc={bool(ugc_turn)}",
+                )
+            if not reply:
+                reply, fallback_manager_handoff = build_ai_failure_fallback(
+                    row,
+                    provider_outage=provider_outage,
+                    holding_decision=outage_gate,
+                )
+            if reply and not ugc_turn:
                 used_ai_failure_fallback = True
                 outage_recovery_required = bool(
                     row.client_id and is_generic_provider_outage(

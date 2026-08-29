@@ -149,6 +149,41 @@ def _apology_already_delivered(job: IgAiReplyRecoveryJob) -> bool:
     )
 
 
+def _recovery_apology_warranted(job, target, *, apology_delivered: bool) -> bool:
+    """Чи доречне вибачення у відновленій відповіді (ЭБ.1).
+
+    Раніше умова була одна: «якщо holding не доставлено — вибачся». Після того як
+    holding перестав надсилатись за кожним поодиноким збоєм, ця умова почала
+    вибачатись майже завжди: відповідь приходила через 20–30 секунд і починалась
+    з «Вибачте за технічну затримку», хоча клієнт жодної затримки не бачив —
+    індикатор набору весь цей час був живий.
+
+    Правило тепер таке саме, як для holding: вибачення — це реакція на **довге**
+    очікування того, хто відповіді **чекав**. Якщо ми вклались у заявлений бюджет
+    ходу, клієнт отримує просто відповідь.
+    """
+    if apology_delivered:
+        return False
+    from management.services.ig_reply_expectation import classify
+    from management.services.ig_turn_budget import customer_notice_threshold_seconds
+
+    try:
+        expectation = classify(target)
+    except Exception:  # noqa: BLE001 - без класифікації не вибачаємось
+        return False
+    if not expectation.waiting:
+        # Репост історії, реакція, «дякую»: вибачатись нема за що.
+        return False
+    waited_since = (
+        getattr(target, "provider_created_at", None)
+        or getattr(target, "created_at", None)
+    )
+    if not waited_since:
+        return False
+    waited = (timezone.now() - waited_since).total_seconds()
+    return waited > customer_notice_threshold_seconds()
+
+
 def is_episode_cursor(job: IgAiReplyRecoveryJob) -> bool:
     """Курсор інциденту відповідає на АКТУАЛЬНИЙ хід, а не на перший."""
     from management.services.ig_provider_incidents import flag
@@ -974,6 +1009,9 @@ def _generate_recovery_draft(
     history = _build_recovery_history(job)
     target = recovery_target_message(job)
     apology_delivered = _apology_already_delivered(job)
+    apology_warranted = _recovery_apology_warranted(
+        job, target, apology_delivered=apology_delivered
+    )
     from management.services.ig_turn_lineage import Lane, turn_lineage
 
     with turn_lineage(
@@ -991,9 +1029,9 @@ def _generate_recovery_draft(
             history,
             client=job.client,
             turn_note=(
-                _RECOVERY_TURN_NOTE_NO_APOLOGY
-                if apology_delivered
-                else _RECOVERY_TURN_NOTE_WITH_APOLOGY
+                _RECOVERY_TURN_NOTE_WITH_APOLOGY
+                if apology_warranted
+                else _RECOVERY_TURN_NOTE_NO_APOLOGY
             ),
             failure_context=model_context,
         )
@@ -1007,7 +1045,9 @@ def _generate_recovery_draft(
     normalized, _apologies = _ensure_recovery_apology(
         draft or "",
         target.text,
-        apology_already_delivered=apology_delivered,
+        # «Вже доставлено» для політики означає «вибачення в цьому тексті не
+        # потрібне»: або воно вже витрачене holding-ом, або клієнт не чекав довго.
+        apology_already_delivered=not apology_warranted,
     )
     return normalized
 

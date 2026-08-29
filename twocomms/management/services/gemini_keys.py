@@ -40,8 +40,13 @@ DEFAULT_ROLE_KEY_POOLS = {
     # key. Background CRM/checker work must never consume the two chat-reserved
     # aliases and leave a live Instagram message without an answer.
     "chat": {"own": ["GEMINI_API", "GEMINI_API2"], "borrow": ["GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"]},
-    "management": {"own": ["GEMINI_API3", "GEMINI_API4"], "borrow": ["GEMINI_API5", "GEMINI_API6"]},
-    "checker": {"own": ["GEMINI_API5", "GEMINI_API6"], "borrow": ["GEMINI_API3", "GEMINI_API4"]},
+    # ЭБ.2: фоновые роли идут по пулу НАВСТРЕЧУ чату — от последнего ключа к
+    # первому. Прежде `management` владел API3/API4, то есть ровно тем, что чат
+    # занимает первым после своих двух: под нагрузкой они сталкивались сразу.
+    # Теперь встреча происходит в середине пула и только под реальным давлением,
+    # а первое заимствование чата (API3) — последний резерв фона.
+    "management": {"own": ["GEMINI_API6", "GEMINI_API5"], "borrow": ["GEMINI_API4", "GEMINI_API3"]},
+    "checker": {"own": ["GEMINI_API6", "GEMINI_API5"], "borrow": ["GEMINI_API4", "GEMINI_API3"]},
 }
 
 # Цепочки моделей за ролями — ЛИШЕ безкоштовні моделі, з деградацією до меншої.
@@ -364,12 +369,39 @@ def _roll_day(st: GeminiKeyState, now: datetime.datetime) -> None:
         st.requests_today = 0
 
 
-def is_available(key_name: str, now: datetime.datetime | None = None) -> bool:
+def _model_cooldown_until(state: GeminiKeyState, model: str):
+    """Кулдаун пары (ключ, модель), если он ещё действует."""
+    raw = (getattr(state, "model_cooldowns", None) or {}).get(str(model or ""))
+    if not raw:
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(str(raw))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed
+
+
+def is_available(
+    key_name: str, now: datetime.datetime | None = None, *, model: str = ""
+) -> bool:
+    """Доступен ли ключ — и, если модель названа, доступна ли эта пара.
+
+    ЭБ.2: без `model` поведение прежнее (кулдаун всего ключа). С моделью
+    учитывается ещё и кулдаун пары: 429 по дневной квоте 3.7-flash больше не
+    закрывает 3.5-flash-lite на том же ключе, потому что у Google лимит free-tier
+    объявлен на модель, а не на проект целиком.
+    """
     now = now or timezone.now()
     st = GeminiKeyState.get(key_name)
-    if not st.cooldown_until:
-        return True
-    return st.cooldown_until <= now
+    if st.cooldown_until and st.cooldown_until > now:
+        return False
+    if model:
+        until = _model_cooldown_until(st, model)
+        if until and until > now:
+            return False
+    return True
 
 
 def _project_aliases(key_name: str) -> list[str]:
@@ -735,13 +767,29 @@ def _apply_429_state(
     seconds: int,
     now: datetime.datetime,
     error: str = "",
+    model: str = "",
 ) -> GeminiKeyState:
     _roll_day(st, now)
     if scope == "day" and not seconds:
         proposed_until = next_midnight_pt(now)
     else:
         proposed_until = now + datetime.timedelta(seconds=max(1, int(seconds)))
-    if not st.cooldown_until or proposed_until > st.cooldown_until:
+    # ЭБ.2: минутный и дневной лимиты free-tier объявлены на пару (проект,
+    # модель). Кулдаун всего ключа оставляем для `topup`: там закончились деньги
+    # проекта, и это действительно про все модели сразу.
+    if model and scope in {"day", "minute"}:
+        cooldowns = dict(getattr(st, "model_cooldowns", None) or {})
+        current = _model_cooldown_until(st, model)
+        if not current or proposed_until > current:
+            cooldowns[str(model)] = proposed_until.isoformat()
+        # Заодно выбрасываем истёкшие записи: словарь не должен расти вечно.
+        st.model_cooldowns = {
+            name: value
+            for name, value in cooldowns.items()
+            if name == str(model)
+            or (_model_cooldown_until(st, name) or now) > now
+        }
+    elif not st.cooldown_until or proposed_until > st.cooldown_until:
         st.cooldown_until = proposed_until
         st.cooldown_scope = scope
     st.last_status = f"429:{scope}"
@@ -753,14 +801,16 @@ def _apply_429_state(
 
 
 def mark_429(key_name: str, scope: str, seconds: int,
-             now: datetime.datetime | None = None, error: str = "") -> GeminiKeyState:
+             now: datetime.datetime | None = None, error: str = "",
+             model: str = "") -> GeminiKeyState:
+    """Записать 429. С `model` кулдаун получает пара (ключ, модель) — см. ЭБ.2."""
     now = now or timezone.now()
     aliases = _project_aliases(key_name)
     with transaction.atomic():
         states = _locked_key_states(aliases)
         by_name = {state.key_name: state for state in states}
         for state in states:
-            _apply_429_state(state, scope, seconds, now, error=error)
+            _apply_429_state(state, scope, seconds, now, error=error, model=model)
         return by_name[key_name]
 
 
@@ -896,8 +946,8 @@ def iter_attempts(role: str, model_chain_override: list[str] | None = None):
             # одразу припиняємо пробувати на решті ключів — економимо час/квоту.
             if is_model_unavailable(model, timezone.now()):
                 break
-            if not is_available(key_name, timezone.now()):
-                continue  # ключ у кулдауні (429) → пропускаємо для цієї моделі
+            if not is_available(key_name, timezone.now(), model=model):
+                continue  # пара (ключ, модель) у кулдауні → пропускаємо
             yield (key_name, kv, model)
 
 
@@ -918,8 +968,25 @@ def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
             continue
         for key_name in keys:
             key_value = _key_value(key_name)
-            if key_value and is_available(key_name):
+            if key_value and is_available(key_name, model=model):
                 yield key_name, key_value, model
+
+
+def model_quota_pressure(role: str, model: str, now: datetime.datetime | None = None) -> bool:
+    """Есть ли по этой модели хотя бы один остывший ключ пула роли (ЭБ.2).
+
+    Признак того, что мы упёрлись в квоту, а не в медленную модель. Проверяем
+    именно состояние пула, а не список выживших кандидатов: кандидаты остывшую
+    пару уже отфильтровали, и по ним давление невидимо.
+    """
+    now = now or timezone.now()
+    pool = role_key_pools().get(role, {"own": [], "borrow": []})
+    for key_name in list(pool.get("own", [])) + list(pool.get("borrow", [])):
+        if not _key_value(key_name):
+            continue
+        if not is_available(key_name, now, model=model):
+            return True
+    return False
 
 
 def has_available_key(role: str, now: datetime.datetime | None = None) -> bool:

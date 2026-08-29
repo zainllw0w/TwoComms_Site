@@ -30,6 +30,19 @@ class IgAIReplyRecoveryTests(TestCase):
             send_state="sent",
         )
 
+    def _age_source(self, seconds: float = 300.0):
+        """Клиент ждёт уже `seconds` — извинение становится оправданным (ЭБ.1).
+
+        Порог берётся из объявленного бюджета хода, а не задаётся в тесте: иначе
+        тест пришлось бы править при каждом изменении дедлайна генерации.
+        """
+        older = timezone.now() - timedelta(seconds=seconds)
+        InstagramBotMessage.objects.filter(pk=self.source.pk).update(
+            created_at=older, provider_created_at=older
+        )
+        self.source.refresh_from_db()
+        return self.source
+
     def test_schedule_is_one_durable_intent(self):
         first = self.recovery.schedule_recovery(self.source)
         second = self.recovery.schedule_recovery(self.source)
@@ -156,7 +169,9 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertIsNone(result.next_attempt_at)
         notify_manager.assert_called_once()
 
-    def test_generated_recovery_always_includes_technical_delay_apology(self):
+    def test_generated_recovery_apologises_after_a_long_wait(self):
+        """ЭБ.1: извинение — реакция на ДОЛГОЕ ожидание, а не на сам факт сбоя."""
+        self._age_source()
         job = self.recovery.schedule_recovery(self.source)
 
         with patch.object(
@@ -222,6 +237,7 @@ class IgAIReplyRecoveryTests(TestCase):
     def test_generated_recovery_uses_russian_apology_for_russian_turn(self):
         self.source.text = "Привет, нужна футболка"
         self.source.save(update_fields=["text"])
+        self._age_source()
         job = self.recovery.schedule_recovery(self.source)
 
         with patch.object(
@@ -258,6 +274,7 @@ class IgAIReplyRecoveryTests(TestCase):
     def test_generated_recovery_does_not_duplicate_exact_localized_apology(self):
         self.source.text = "Hello, what sizes do you have?"
         self.source.save(update_fields=["text"])
+        self._age_source()
         job = self.recovery.schedule_recovery(self.source)
         generated = "Sorry for the technical delay. I can help you choose a size."
 
@@ -271,6 +288,7 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertEqual(draft, generated)
 
     def test_generated_recovery_does_not_duplicate_localized_apology_with_punctuation(self):
+        self._age_source()
         job = self.recovery.schedule_recovery(self.source)
         generated = "Вибачте за технічну затримку! Підкажу по наявності."
 
@@ -284,6 +302,7 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertEqual(draft, generated)
 
     def test_generated_recovery_with_apology_stays_in_one_meta_chunk(self):
+        self._age_source()
         job = self.recovery.schedule_recovery(self.source)
         generated = "Підкажу по наявності. " * 200
 

@@ -3,6 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from management.services import call_ai_analysis as caa
+from management.services import gemini_hedge
 from management.services import gemini_keys as gk
 
 ENV6 = {f"GEMINI_API{n}": f"key-val-{n or '1'}" for n in ("", "2", "3", "4", "5", "6")}
@@ -70,11 +71,19 @@ class GeminiJsonPoolTests(TestCase):
     def setUp(self):
         gk.clear_model_overload()
 
-    def test_free_model_429_cools_key_and_moves_to_next(self):
-        """429 на free-моделі (3.5-flash, non-grounded) = вичерпана квота ПРОЕКТУ →
-        кулдаун ключа, перехід на наступний ключ пулу."""
+    def test_free_model_429_cools_the_pair_key_model_not_the_whole_key(self):
+        """ЭБ.2: 429 по дневной квоте закрывает пару (ключ, модель), а не ключ.
+
+        Прежняя формулировка теста — «429 на free-модели = исчерпана квота
+        ПРОЕКТА → кулдаун ключа» — была неверна: у Google лимиты free-tier
+        объявлены на модель в проекте. Из-за кулдауна ключа целиком 429 по самой
+        дефицитной модели (3.7-flash) выбивал ключ вместе с 3.6, 3.5 и lite, у
+        которых лимит в разы больше. Шесть ключей исчерпывались за день по
+        худшей модели, и живой ответ оставался без ключа.
+        """
+        # Первый ключ фонового пула после ЭБ.2 — API6 (фон идёт навстречу чату).
         def fake(model, payload, key, *, parse=True, timeout=None):
-            if key == "key-val-3":
+            if key == "key-val-6":
                 raise caa._Gemini429("PerDay quota exceeded, check your plan and billing")
             return ({"ok": True}, {})
 
@@ -83,9 +92,21 @@ class GeminiJsonPoolTests(TestCase):
             out = caa.gemini_generate_json("SYS", "USER", role="management")
 
         self.assertEqual(out["parsed"], {"ok": True})
-        self.assertEqual(out["meta"]["key"], "GEMINI_API4")
-        self.assertFalse(gk.is_available("GEMINI_API3"))  # ключ у кулдауні
-        self.assertTrue(gk.is_available("GEMINI_API4"))
+        self.assertEqual(out["meta"]["key"], "GEMINI_API5")
+        exhausted_model = gk.model_chain("management")[0]
+        self.assertFalse(
+            gk.is_available("GEMINI_API6", model=exhausted_model),
+            "пара (ключ, исчерпанная модель) должна быть в кулдауне",
+        )
+        self.assertTrue(
+            gk.is_available("GEMINI_API6"),
+            "сам ключ остаётся рабочим: у младших моделей своя квота",
+        )
+        self.assertTrue(
+            gk.is_available("GEMINI_API6", model=gk.model_chain("management")[-1]),
+            "младшая модель на том же ключе обязана остаться доступной",
+        )
+        self.assertTrue(gk.is_available("GEMINI_API5", model=exhausted_model))
 
     def test_503_falls_back_to_next_model_same_key(self):
         failed_model = gk.model_chain("management")[0]
@@ -410,3 +431,51 @@ class StickyKeyOrderTests(TestCase):
         # перший own-ключ — GEMINI_API2 (sticky), borrow-ключі — після own
         own_keys = [k for k in order if k in ("GEMINI_API", "GEMINI_API2")]
         self.assertEqual(own_keys[0], "GEMINI_API2")
+
+
+class ChatHedgeDisciplineTests(TestCase):
+    """ЭБ.2 — hedging лечит разброс латентности, а не исчерпанную квоту.
+
+    Под квотой волна вредна: 429 приходит за доли секунды, следующий ключ волны
+    стартует через 1.5 с и получает тот же отказ. Один ход остужает несколько
+    ключей, и следующий клиент начинает с меньшим пулом — ровно тот эффект,
+    из-за которого «улучшение» ухудшало доступность.
+    """
+
+    def setUp(self):
+        gk.clear_model_overload()
+
+    def _payload(self):
+        return {
+            "contents": [{"role": "user", "parts": [{"text": "хай"}]}],
+            "generationConfig": {"temperature": 0.6, "maxOutputTokens": 700},
+        }
+
+    def test_quota_pressure_skips_the_hedged_wave(self):
+        primary = gk.model_chain("chat")[0]
+        gk.mark_429("GEMINI_API", "minute", 60, model=primary)
+
+        def fake(model, payload, key, *, parse=True, timeout=None):
+            return ("ok-text", {})
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(caa, "_gemini_call_once", side_effect=fake), \
+             patch.object(
+                 caa.gemini_hedge, "run_hedged", side_effect=AssertionError("волна не должна открываться")
+             ):
+            out = caa.gemini_generate_text(self._payload(), role="chat")
+        self.assertEqual(out["parsed"], "ok-text")
+
+    def test_healthy_pool_still_opens_the_wave(self):
+        def fake(model, payload, key, *, parse=True, timeout=None):
+            return ("ok-text", {})
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(caa, "_gemini_call_once", side_effect=fake), \
+             patch.object(caa.gemini_hedge, "run_hedged") as run_hedged:
+            run_hedged.return_value = gemini_hedge.HedgeWave(
+                winner=None, outcomes=[], elapsed_seconds=0.0
+            )
+            caa.gemini_generate_text(self._payload(), role="chat")
+
+        run_hedged.assert_called_once()

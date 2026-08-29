@@ -26,7 +26,6 @@ recovery для цього `source_message`?» (і відповідала пра
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -368,130 +367,41 @@ def active_incident(role: str = "chat", *, now=None) -> IgProviderIncident | Non
 # Це НЕ класифікатор інтенту через модель — модель як раз недоступна. Це дешеве
 # детерміноване правило, що застосовується ТІЛЬКИ до рішення «чи надсилати
 # технічний текст». На змістовний шлях (L0–L2) воно не впливає.
-_LOW_INTENT_ACK_RE = re.compile(
-    r"^(?:"
-    r"добре|добре!|ок|окей|окей!|ok|okay|k|гаразд|зрозуміло|зрозумів|зрозуміла|"
-    r"понятно|понял|поняла|ясно|дякую|дяки|спасибо|спасибі|thanks|thank\s+you|"
-    r"thx|ty|супер|класно|класс|клас|топ|норм|нормально|good|great|nice|cool|"
-    r"так|да|yes|yep|ага|угу|ні|нет|no|nope|пока|бувай|bye|вітаю|привіт|hi|hello"
-    r")[\s.!)…]*$",
-    re.I,
-)
-# Тільки емодзі/пунктуація. Цифри свідомо НЕ включені: «5» може бути відповіддю
-# на питання бота про кількість, і придушити її означало б втратити хід клієнта.
-_EMOJI_ONLY_RE = re.compile(
-    r"^(?:(?![\d\w])[\s\W])+$",
-    re.UNICODE,
-)
-
-
-def _has_question(text: str) -> bool:
-    return "?" in str(text or "")
-
-
 def is_low_intent_turn(row, *, logical_turn_id: str = "") -> bool:
     """Хід, що не вимагає ані змістовної, ані технічної відповіді.
 
     Клієнт, який написав «Добре» і отримав «Перепрошую за технічну затримку.
     Я відновлюю деталі…», отримує повідомлення ГІРШЕ, ніж тишина: воно
     беззмістовне й виглядає як поломка.
+
+    ЭБ.1: саме правило переїхало в `ig_reply_expectation` — одне джерело істини
+    на питання «чи чекає клієнт відповіді». Тут лишились сумісна назва (її
+    використовують тести й `holding_decision`) і прапорець вимкнення.
     """
     if not flag("IG_LOW_INTENT_HOLDING_GATE"):
         return False
-    text = str(getattr(row, "text", "") or "").strip()
-    from management.services.bot_sales_classifier import (
-        CONTACT_HANDOVER_RE,
-        DELIVERY_RE,
-        OPT_OUT_RE,
-        ORDER_STATUS_RE,
-        PAYMENT_RE,
-        PRICE_RE,
-        PRODUCT_RE,
-        SIZE_RE,
-        SUPPORT_RE,
-    )
+    from management.services.ig_reply_expectation import is_low_intent_text_turn
 
-    # Явні сигнали ЗАВЖДИ отримують исход: скарга, оплата, «де замовлення»,
-    # запит менеджера, opt-out, розмір, ціна, доставка, товар.
-    for pattern in (
-        SUPPORT_RE, PAYMENT_RE, ORDER_STATUS_RE, OPT_OUT_RE, PRICE_RE,
-        DELIVERY_RE, PRODUCT_RE, SIZE_RE, CONTACT_HANDOVER_RE,
-    ):
-        if pattern.search(text):
-            return False
-    if _has_question(text):
-        return False
-
-    attachments = str(getattr(row, "attachments", "") or "").strip()
-    has_attachment = bool(attachments and attachments not in {"[]", "{}"})
-    reaction_or_sticker = bool(has_attachment and not text)
-    short_ack = bool(text) and len(text) <= 24 and bool(_LOW_INTENT_ACK_RE.match(text))
-    emoji_only = bool(text) and len(text) <= 12 and bool(_EMOJI_ONLY_RE.match(text))
-    if not (reaction_or_sticker or short_ack or emoji_only):
-        return False
-
-    # Правило НЕ застосовується, якщо в тому ж логічному ході є більш раннє
-    # неотвічене питання: «Добре» після неотвіченого питання — це частина
-    # очікування відповіді, а не завершення розмови.
-    if _turn_has_unanswered_question(row, logical_turn_id=logical_turn_id):
-        return False
-    # Коротка реплика у відповідь на питання бота — це відповідь, а не
-    # завершення. Придушити її означало б втратити хід клієнта назовсім.
-    if _bot_asked_question(row):
-        return False
-    return True
+    return is_low_intent_text_turn(row, logical_turn_id=logical_turn_id)
 
 
-def _bot_asked_question(row) -> bool:
-    client_id = getattr(row, "client_id", None)
-    row_id = getattr(row, "pk", None)
-    if not client_id or not row_id:
-        return False
-    last_outgoing_text = (
-        InstagramBotMessage.objects.filter(
-            client_id=client_id,
-            role__in=(
-                InstagramBotMessage.Role.MODEL,
-                InstagramBotMessage.Role.MANAGER,
-            ),
-            id__lt=row_id,
+def expectation_for(row, *, ugc_turn: bool = False, logical_turn_id: str = ""):
+    """Очікування відповіді з урахуванням прапорця вимкнення.
+
+    Вимкнений `IG_LOW_INTENT_HOLDING_GATE` повертає нас до старої поведінки:
+    будь-який хід вважається таким, що чекає відповіді.
+    """
+    from management.services.ig_reply_expectation import ReplyExpectation, classify
+
+    if not flag("IG_LOW_INTENT_HOLDING_GATE"):
+        return ReplyExpectation(
+            waiting=True,
+            substantive_reply_owed=True,
+            actively_waiting=False,
+            reason="gate_disabled",
         )
-        .order_by("-id")
-        .values_list("text", flat=True)
-        .first()
-    ) or ""
-    return _has_question(last_outgoing_text)
+    return classify(row, ugc_turn=ugc_turn, logical_turn_id=logical_turn_id)
 
-
-def _turn_has_unanswered_question(row, *, logical_turn_id: str = "") -> bool:
-    client_id = getattr(row, "client_id", None)
-    row_id = getattr(row, "pk", None)
-    if not client_id or not row_id:
-        return False
-    last_outgoing = (
-        InstagramBotMessage.objects.filter(
-            client_id=client_id,
-            role__in=(
-                InstagramBotMessage.Role.MODEL,
-                InstagramBotMessage.Role.MANAGER,
-            ),
-            id__lt=row_id,
-        )
-        .order_by("-id")
-        .values_list("id", flat=True)
-        .first()
-    ) or 0
-    earlier_texts = (
-        InstagramBotMessage.objects.filter(
-            client_id=client_id,
-            role=InstagramBotMessage.Role.USER,
-            id__gt=last_outgoing,
-            id__lt=row_id,
-        )
-        .order_by("id")
-        .values_list("text", flat=True)[:20]
-    )
-    return any(_has_question(text) for text in earlier_texts)
 
 
 # --- Епізод клієнта і єдина точка рішення про holding (ЭА.3) -----------------
@@ -607,6 +517,9 @@ def holding_decision(
     incident: IgProviderIncident | None = None,
     logical_turn_id: str = "",
     budget_remaining_ms: int = 0,
+    expectation=None,
+    recovery_expected: bool = False,
+    ugc_turn: bool = False,
     now=None,
 ) -> HoldingDecision:
     """Єдина точка рішення: чи має цей хід отримати технічний текст.
@@ -614,6 +527,19 @@ def holding_decision(
     Жоден інший шлях не має права надіслати holding. Рішення повертає
     `send` / `suppress` / `defer` зі стабільним кодом причини — код потрібен для
     метрики хибних придушень і для алертів.
+
+    ЭБ.1 — чотири умови мусять виконатись РАЗОМ, інакше клієнт бачить тишину, а
+    відповідь приходить пізніше й без вибачення:
+
+    * `expectation.waiting` — клієнт справді чекає відповіді;
+    * `budget_remaining_ms <= 0` — ми вже витратили заявлений бюджет ходу;
+    * відкритий інцидент **або** `expectation.actively_waiting` — тобто ми
+      прогнозуємо довгу паузу, а не один невдалий виклик;
+    * бюджет вибачень (епізод, денний потолок) не витрачений.
+
+    `recovery_expected` каже, що курсор відновлення відповість сам. Тоді
+    поодинокий збій НЕ отримує техтексту: вибачення зараз плюс відповідь через
+    півхвилини — гірше, ніж просто відповідь через півхвилини.
     """
     if not flag("IG_OUTAGE_HOLDING_COALESCING"):
         return HoldingDecision(SEND, "coalescing_disabled")
@@ -632,7 +558,17 @@ def holding_decision(
     opted_in_at = getattr(client, "opted_in_at", None)
     if opted_out_at and (not opted_in_at or opted_in_at < opted_out_at):
         return HoldingDecision(SUPPRESS, "opted_out")
-    if is_low_intent_turn(row, logical_turn_id=logical_turn_id):
+    if expectation is None:
+        expectation = expectation_for(
+            row, ugc_turn=ugc_turn, logical_turn_id=logical_turn_id
+        )
+    if not expectation.waiting:
+        # Розділяємо два різних придушення. Репост історії: змістовну відповідь
+        # (подяку) ми винні, тому хід іде у відновлення — але вибачення не
+        # надсилаємо ніколи. Реакція чи «Добре»: не винні нічого, і тишина тут
+        # правильний исход.
+        if expectation.substantive_reply_owed:
+            return HoldingDecision(SUPPRESS, "no_reply_expected")
         return HoldingDecision(SUPPRESS, "low_intent_turn")
     # L1: поки бюджет ходу не вичерпано, клієнт бачить індикатор набору, а не
     # текст. Технічний текст раніше бюджету — головна причина шкоди для UX.
@@ -641,8 +577,13 @@ def holding_decision(
 
     incident = incident or active_incident(role="chat", now=now)
     if incident is None:
-        # Немає підтвердженої деградації провайдера — це не інцидент, а окремий
-        # збій ходу. Дозволяємо один holding, але денний потолок діє.
+        # Немає підтвердженої деградації провайдера — це поодинокий збій ходу, і
+        # він НЕ прогнозує довгої паузи. Якщо курсор відновлення відповість сам,
+        # техтекст лише додає клієнту зайве повідомлення перед справжньою
+        # відповіддю. Виключення — клієнт уже перепитав: тоді тишина читається
+        # як поломка, і одне коротке повідомлення доречне.
+        if recovery_expected and not expectation.actively_waiting:
+            return HoldingDecision(SUPPRESS, "isolated_failure_recovery_pending")
         if _holdings_today(client_id, now=now) >= MAX_HOLDINGS_PER_CLIENT_PER_DAY:
             return HoldingDecision(SUPPRESS, "daily_cap_reached")
         return HoldingDecision(SEND, "no_open_incident")
