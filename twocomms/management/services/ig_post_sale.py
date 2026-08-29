@@ -131,8 +131,20 @@ def open_service_case(client):
     """
     if not client or not getattr(client, "pk", None):
         return None
+    # Э8.5: сборка промпта спрашивает это четыре раза — стадия, guardrails,
+    # playbook-теги и карточка состояния. Кэш живёт только на время сборки,
+    # поэтому обмен/возврат, открытый позже в этом же ходе, виден сразу.
+    from management.services.ig_turn_snapshot import prompt_cached
+
+    return prompt_cached(
+        f"open_service_case:{client.pk}",
+        lambda: _query_open_service_case(client.pk),
+    )
+
+
+def _query_open_service_case(client_id):
     return (
-        IgPostSaleCase.objects.filter(client_id=client.pk)
+        IgPostSaleCase.objects.filter(client_id=client_id)
         .exclude(status__in=TERMINAL_CASE_STATUSES)
         .order_by("-updated_at", "-id")
         .first()

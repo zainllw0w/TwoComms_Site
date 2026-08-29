@@ -7061,6 +7061,49 @@ def assemble_system_instruction(
     turn_note: str | None = None,
     turn_text: str = "",
 ) -> str:
+    """Собрать system_instruction; на время сборки — один снимок фактов (Э8.5).
+
+    Замер показал 29 SQL-запросов на одну сборку, из них повторных по одной и
+    той же строке: `open_service_case` — 4 раза, `client_has_verified_payment` —
+    3, `client_has_confirmed_purchase` — 2, указатель эпизода — 2. Все повторы
+    происходят **внутри** этой функции: стадия, guardrails, playbook и блок
+    возражений задают один и тот же вопрос независимо друг от друга.
+
+    Область кэша — сборка промпта, а не ход. Ход длится до двух минут, и за это
+    время вебхук в другом процессе может подтвердить оплату; кэш на ход отдал бы
+    `payment_link_allowed` устаревшее «оплаты нет» и выписал второй инвойс уже
+    оплаченному клиенту. Сборка промпта только читает и длится миллисекунды, а
+    промпт по своей природе — срез одного момента.
+
+    Изоляция ошибок по блокам (`_prompt_section`) не меняется: кэшируется
+    источник данных, а не структура сборки.
+    """
+    from management.services.ig_turn_snapshot import prompt_snapshot
+
+    with prompt_snapshot():
+        return _assemble_system_instruction(
+            s,
+            client=client,
+            memory_note=memory_note,
+            context_note=context_note,
+            match_hint=match_hint,
+            media_hint=media_hint,
+            turn_note=turn_note,
+            turn_text=turn_text,
+        )
+
+
+def _assemble_system_instruction(
+    s,
+    *,
+    client=None,
+    memory_note: str | None = None,
+    context_note: str | None = None,
+    match_hint: str | None = None,
+    media_hint: str | None = None,
+    turn_note: str | None = None,
+    turn_text: str = "",
+) -> str:
     """Собрать system_instruction из всех источников.
 
     Вынесено из `gemini_generate`, чтобы промпт можно было проверять тестами.
@@ -10630,8 +10673,14 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
     client, lease_token = _acquire_client_automation_lease(row)
     if row.client_id and not client:
         return False
+    from management.services.ig_turn_snapshot import turn_snapshot
+
     try:
-        return _process_one_unlocked(s, row, lease_token)
+        # Э8.5: область одного хода. Значения, которые физически неизменны внутри
+        # хода (граница эпизода после reset и т.п.), читаются один раз вместо
+        # четырёх. Изоляция ошибок по блокам промпта не меняется.
+        with turn_snapshot():
+            return _process_one_unlocked(s, row, lease_token)
     finally:
         _release_client_automation_lease(row.client_id, lease_token)
 

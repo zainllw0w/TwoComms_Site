@@ -22,6 +22,19 @@ def latest_reset_after_message_id(client_or_id) -> int:
     client_id = getattr(client_or_id, "pk", client_or_id)
     if not client_id:
         return 0
+    # Э8.5: граница сброса физически не может измениться внутри одного хода, а
+    # `current_message_floor` вызывается из истории, языка, памяти и объекций.
+    # Замер показал 4 одинаковых запроса к `management_igfunnelresetaudit` на
+    # сборку одного промпта.
+    from management.services.ig_turn_snapshot import turn_or_prompt_cached
+
+    return turn_or_prompt_cached(
+        f"funnel_reset_floor:{client_id}",
+        lambda: _query_latest_reset_after_message_id(client_id),
+    )
+
+
+def _query_latest_reset_after_message_id(client_id) -> int:
     return int(
         IgFunnelResetAudit.objects.filter(client_id=client_id)
         .order_by("-id")
@@ -272,6 +285,11 @@ def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict
                 reason=reason,
                 actor=actor if getattr(actor, "pk", None) else None,
             )
+    # Э8.5: сброс меняет границу эпизода, поэтому снимок хода обязан её забыть.
+    # Иначе кэш отдал бы старую границу уже после записи новой.
+    from management.services.ig_turn_snapshot import invalidate
+
+    invalidate(f"funnel_reset_floor:{client.pk}")
     return {
         "ok": True,
         "status": 200,

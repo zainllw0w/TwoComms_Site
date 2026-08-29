@@ -221,10 +221,17 @@ def _current_objections(client):
     # no episode. Scope by the persisted pointer so a following message can
     # resolve the objection that was just opened.
     from management.models import IgClient
+    from management.services.ig_turn_snapshot import prompt_cached
 
-    current_client = IgClient.objects.only(
-        "id", "current_commercial_episode"
-    ).filter(pk=getattr(client, "pk", None)).first()
+    # Э8.5: указатель эпизода читается дважды за сборку промпта — из
+    # playbook-тегов и из блока возражений. Кэш на время сборки; вне неё
+    # (в том числе при открытии эпизода в этом же ходе) чтение свежее.
+    current_client = prompt_cached(
+        f"episode_pointer:{getattr(client, 'pk', None)}",
+        lambda: IgClient.objects.only("id", "current_commercial_episode")
+        .filter(pk=getattr(client, "pk", None))
+        .first(),
+    )
     if current_client is None:
         return IgObjection.objects.none()
     qs = IgObjection.objects.filter(

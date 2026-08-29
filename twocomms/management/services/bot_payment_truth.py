@@ -150,7 +150,17 @@ def client_has_verified_payment(client) -> bool:
     prefetched = getattr(client, "_verified_payment_deals", None)
     if prefetched is not None:
         return bool(prefetched)
-    return verified_payment_deals(client.deals.all()).exists()
+    # Э8.5: внутри одной сборки промпта этот вопрос задаётся трижды — стадией,
+    # блоком возражений и через `client_has_confirmed_purchase`. Кэш живёт
+    # только на время сборки: вне неё (в том числе в `payment_link_allowed`
+    # после генерации) запрос выполняется заново, потому что оплату может
+    # подтвердить вебхук в другом процессе.
+    from management.services.ig_turn_snapshot import prompt_cached
+
+    return prompt_cached(
+        f"verified_payment:{client.pk}",
+        lambda: verified_payment_deals(client.deals.all()).exists(),
+    )
 
 
 def client_has_terminal_negative_payment(client) -> bool:
@@ -359,6 +369,18 @@ def client_has_confirmed_purchase(client) -> bool:
     annotated = getattr(client, "has_confirmed_purchase", None)
     if annotated is not None:
         return bool(annotated)
+    # Э8.5: четыре запроса (deal, review, assignment, attribution) на один
+    # ответ, и во время сборки промпта он нужен дважды. Область кэша — сборка,
+    # не ход: см. `assemble_system_instruction`.
+    from management.services.ig_turn_snapshot import prompt_cached
+
+    return prompt_cached(
+        f"confirmed_purchase:{client.pk}",
+        lambda: _query_client_has_confirmed_purchase(client),
+    )
+
+
+def _query_client_has_confirmed_purchase(client) -> bool:
     if client_has_verified_payment(client):
         return True
     if client.payment_confirmation_reviews.filter(manager_confirmed_review_q()).exists():
