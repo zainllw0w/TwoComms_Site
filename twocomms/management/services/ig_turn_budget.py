@@ -1,0 +1,115 @@
+"""Э2.10 — единый объявленный бюджет хода, из которого выводятся все таймауты.
+
+**Проблема, которую это устраняет.** Константы задавались независимо друг от
+друга, и их сумма превышала окно живости демона:
+
+    HB_ALIVE_WINDOW = 45 с
+    бюджет сложного хода = 45 (Gemini) + 3 (typing) + 4×12 (отправка) ≈ 96 с
+
+То есть штатный сложный ответ гарантированно превышал окно вдвое. Ложное
+срабатывание watchdog было не редким случаем, а **ожидаемым поведением**.
+
+Второе следствие серьёзнее шума в логах: restart в середине долгого хода. Если
+процесс перезапускается после провайдерского вызова, но до записи receipt,
+результат отправки становится **неизвестным**. То есть ложное срабатывание
+watchdog способно создать реальную неопределённость доставки для клиента.
+
+**Решение.** Один объявленный бюджет с разложением на фазы. Окно живости
+**выводится** из бюджета, а не задаётся независимо. Тест согласованности ломается,
+если сумма фаз перестаёт укладываться в бюджет — то есть изменить один таймаут и
+не заметить нарушение больше нельзя.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class TurnPhase:
+    """Одна фаза хода с объявленным максимумом в секундах."""
+
+    name: str
+    max_seconds: float
+    note: str = ""
+
+
+# Фазы одного логического хода клиента, худший случай каждой.
+# Числа берутся из фактических констант, а не назначаются здесь: смысл модуля в
+# том, чтобы связать их между собой, а не создать второй источник истины.
+def turn_phases() -> tuple:
+    from management.services.call_ai_analysis import (
+        CHAT_COMPLEX_DEADLINE_SECONDS,
+        CHAT_ORDINARY_DEADLINE_SECONDS,
+    )
+    from management.services.instagram_bot import (
+        HTTP_TIMEOUT,
+        TYPING_MAX_VISIBLE_SECONDS,
+    )
+    from management.services.ig_delivery_plan import DEFAULT_MAX_CHUNKS
+
+    return (
+        TurnPhase(
+            "turn_debounce",
+            _turn_debounce_seconds(),
+            "ожидание burst клиента (Э2.2); ход ещё не начал работу",
+        ),
+        TurnPhase(
+            "generation",
+            float(CHAT_COMPLEX_DEADLINE_SECONDS),
+            f"худший случай: complex-задача; ordinary = {CHAT_ORDINARY_DEADLINE_SECONDS}",
+        ),
+        TurnPhase(
+            "typing_pause",
+            float(TYPING_MAX_VISIBLE_SECONDS),
+            "пауза перед отправкой для естественного ритма",
+        ),
+        TurnPhase(
+            "delivery",
+            float(DEFAULT_MAX_CHUNKS) * float(HTTP_TIMEOUT),
+            f"{DEFAULT_MAX_CHUNKS} чанка × {HTTP_TIMEOUT} с на запрос Meta",
+        ),
+    )
+
+
+def _turn_debounce_seconds() -> float:
+    try:
+        from management.services.ig_customer_turns import MAX_TURN_WAIT
+
+        return float(MAX_TURN_WAIT.total_seconds())
+    except Exception:
+        return 0.0
+
+
+def declared_turn_budget_seconds() -> float:
+    """Сумма максимумов всех фаз — объявленный бюджет одного хода."""
+    return sum(phase.max_seconds for phase in turn_phases())
+
+
+# Запас поверх бюджета: процесс может быть живым и при этом на секунду позже
+# обновить пульс (GC, диск, шум shared-хостинга). Без запаса тест согласованности
+# был бы верным, а поведение — на грани.
+HEARTBEAT_SAFETY_MARGIN_SECONDS = 20.0
+
+
+def heartbeat_alive_window_seconds() -> int:
+    """Окно живости, ВЫВЕДЕННОЕ из бюджета хода, а не заданное независимо.
+
+    Именно это соотношение и было нарушено: окно 45 с при бюджете ~96 с означало,
+    что штатный долгий ход выглядит мёртвым.
+    """
+    return int(declared_turn_budget_seconds() + HEARTBEAT_SAFETY_MARGIN_SECONDS)
+
+
+def budget_report() -> dict:
+    """Читаемый разбор бюджета — для теста согласованности и для оператора."""
+    phases = turn_phases()
+    budget = declared_turn_budget_seconds()
+    return {
+        "phases": [
+            {"name": phase.name, "max_seconds": phase.max_seconds, "note": phase.note}
+            for phase in phases
+        ],
+        "declared_budget_seconds": budget,
+        "heartbeat_alive_window_seconds": heartbeat_alive_window_seconds(),
+        "safety_margin_seconds": HEARTBEAT_SAFETY_MARGIN_SECONDS,
+    }

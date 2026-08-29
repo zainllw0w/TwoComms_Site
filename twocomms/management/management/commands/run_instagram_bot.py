@@ -49,7 +49,32 @@ from management.services.ig_maintenance import (
 )
 
 HB_KEY = "ig_bot_daemon_hb"            # heartbeat демона (epoch seconds)
-HB_ALIVE_WINDOW = 45                   # демон вважається живим, якщо hb свіжіший
+
+
+def _heartbeat_alive_window() -> int:
+    """Окно живості ВИВОДИТЬСЯ з бюджету ходу, а не задається незалежно (Э2.10).
+
+    Було: `HB_ALIVE_WINDOW = 45`, тоді як бюджет складного ходу — близько 116 с
+    (очікування burst + генерація + пауза набору + чотири чанки відправки). Тобто
+    штатна довга відповідь гарантовано виглядала смертю демона, і watchdog піднімав
+    новий процес посеред живої роботи.
+
+    Друге наслідство серйозніше за шум: якщо процес перезапускається ПІСЛЯ
+    провайдерського виклику, але до запису receipt, результат відправки стає
+    невідомим. Тобто хибне срабатывание watchdog створювало реальну
+    невизначеність доставки для клієнта.
+    """
+    try:
+        from management.services.ig_turn_budget import heartbeat_alive_window_seconds
+
+        return heartbeat_alive_window_seconds()
+    except Exception:
+        # Деградація: без модуля бюджету краще взяти явно консервативне значення,
+        # ніж повернутись до 45 с, які й були причиною дефекту.
+        return 150
+
+
+HB_ALIVE_WINDOW = _heartbeat_alive_window()
 SPAWN_LOCK_KEY = "ig_bot_spawn_lock"
 DAEMON_LOCK_KEY = "ig_bot_daemon_lock"
 CONV_REFRESH_EVERY = 120               # фонове оновлення списку тредів, c
