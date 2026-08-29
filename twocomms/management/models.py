@@ -3938,6 +3938,17 @@ class InstagramBotMessage(models.Model):
     # Exact provider model used for this AI-authored message. Historical and
     # deterministic rows intentionally remain blank.
     gemini_model = models.CharField(max_length=80, blank=True, default="")
+    # Э2.2: рядок, поглинутий логічним ходом клієнта. Burst із трьох повідомлень
+    # дає ОДНУ відповідь: одна строка обробляється, решта позначаються
+    # поглинутими. Сирі повідомлення не видаляються — вони лишаються evidence.
+    consumed_by_turn = models.ForeignKey(
+        "management.IgCustomerTurn",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="absorbed_messages",
+        db_constraint=False,
+    )
     # Зворотнє посилання на провайдерський запит, що породив цей текст (ЭА.1).
     # Однієї ссылки достатньо: деталі спроб лежать у `GeminiRequestAttempt`.
     gemini_request_id = models.CharField(max_length=40, blank=True, default="", db_index=True)

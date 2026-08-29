@@ -271,6 +271,93 @@ def turn_message_ids(turn: IgCustomerTurn) -> list:
     )
 
 
+def claimable_row_id(turn: IgCustomerTurn) -> int:
+    """Рядок, який обробляє воркер: НАЙНОВІШЕ вхідне ходу.
+
+    Відповідати треба на актуальний хід клієнта. У production-сценарії «хочу
+    худі» → «чорне» → «розмір L» перше повідомлення вже неповне: відповідь на
+    нього виглядала б так, ніби бот не прочитав решту.
+    """
+    ids = turn_message_ids(turn)
+    return int(ids[-1]) if ids else int(turn.primary_source_message_id or 0)
+
+
+def absorb_turn_messages(turn: IgCustomerTurn, *, keep_message_id: int) -> int:
+    """Позначити решту рядків ходу поглинутими, НЕ видаляючи їх.
+
+    Кожен сирий рядок лишається в CRM як evidence: оператор мусить бачити, що
+    саме написав клієнт, навіть якщо відповідь була одна.
+    """
+    turn_id = getattr(turn, "pk", turn)
+    ids = [value for value in turn_message_ids(turn) if int(value) != int(keep_message_id)]
+    if not ids:
+        return 0
+    now = timezone.now()
+    return InstagramBotMessage.objects.filter(
+        pk__in=ids,
+        role=InstagramBotMessage.Role.USER,
+    ).exclude(
+        # Рядок, який уже перетнув межу відправки, чіпати не можна.
+        send_state__in=("sending", "sent", "unknown"),
+    ).update(
+        status=InstagramBotMessage.Status.DONE,
+        consumed_by_turn_id=turn_id,
+        processed_at=now,
+        processing_started_at=None,
+    )
+
+
+def due_turn_for_claim(*, now=None):
+    """Найсвіжіший готовий хід і рядок, який треба обробити.
+
+    Повертає `(turn, row_id)` або `(None, 0)`. Порядок — за тією ж логікою, що й
+    у старому `_claim_next`: спочатку найактивніша розмова.
+    """
+    if not _flag("IG_TURN_DEBOUNCE", True):
+        return None, 0
+    now = now or timezone.now()
+    from django.db.models import Q
+
+    turn = (
+        IgCustomerTurn.objects.filter(
+            claim_state=IgCustomerTurn.ClaimState.OPEN,
+            client__hidden_at__isnull=True,
+        )
+        .filter(Q(bypass_debounce=True) | Q(window_deadline__lte=now))
+        .exclude(
+            client__automation_lease_token__gt="",
+            client__automation_lease_until__gt=now,
+        )
+        .order_by("-window_started_at", "-id")
+        .first()
+    )
+    if turn is None:
+        return None, 0
+    return turn, claimable_row_id(turn)
+
+
+def has_open_undue_turn(row: InstagramBotMessage, *, now=None) -> bool:
+    """Чи належить рядок ходу, який ще збирає повідомлення.
+
+    Потрібно для деградації: рядок без ходу (запис не вдався) мусить лишатись
+    клеймабельним, інакше збій телеметрії зробив би чергу мертвою.
+    """
+    if not _flag("IG_TURN_DEBOUNCE", True):
+        return False
+    now = now or timezone.now()
+    membership = (
+        IgTurnMessage.objects.filter(message_id=getattr(row, "pk", row))
+        .select_related("turn")
+        .first()
+    )
+    if membership is None:
+        return False
+    turn = membership.turn
+    if turn.claim_state != IgCustomerTurn.ClaimState.OPEN:
+        return False
+    return not turn_is_due(turn, now=now)
+
+
 def messages_per_turn(*, days: int = 7) -> dict:
     """Метрика Э0.6: скільки повідомлень у ході насправді.
 

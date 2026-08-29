@@ -161,6 +161,10 @@ IG_RECOVERY_INCIDENT_SCHEDULING = _env_bool('IG_RECOVERY_INCIDENT_SCHEDULING', T
 # ход как единицу выполнения — отдельный шаг Э2.2 со своим флагом.
 IG_CUSTOMER_TURNS = _env_bool('IG_CUSTOMER_TURNS', True)
 
+# Э2.2: ход клиента как единица обработки. При выключении — одна строка = один
+# ход (прежнее поведение), но записи ходов продолжают вестись.
+IG_TURN_DEBOUNCE = _env_bool('IG_TURN_DEBOUNCE', True)
+
 # W1-10 (NEW-502): лимиты на загрузку файлов — защита shared-хостинга от
 # произвольно больших аплоадов (аватар/УБД-док и другие формы).
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB

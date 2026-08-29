@@ -10007,8 +10007,48 @@ def _build_history(sender_id: str) -> list[dict]:
 
 
 def _claim_next() -> InstagramBotMessage | None:
-    """Atomically claim the oldest row from the freshest active conversation."""
+    """Atomically claim one logical customer turn, not one raw row.
+
+    Э2.2: раніше кожне повідомлення бралось окремо, тому burst «хочу худі» →
+    «чорне» → «розмір L» за десять секунд давав ТРИ виконання моделі на той
+    самий контекст. Найгірше не вартість, а конфліктуючі комерційні дії: перша
+    відповідь створювала proposal, друга йшла іншим шляхом.
+
+    Тепер одиниця роботи — хід (`IgCustomerTurn`, Э0.6). Обробляється найновіше
+    вхідне ходу (відповідати треба на актуальний хід клієнта), решта рядків
+    позначаються поглинутими — але НЕ видаляються: вони лишаються evidence у CRM.
+
+    Деградація свідома: рядок без ходу (запис ходу не вдався) лишається
+    клеймабельним, інакше збій телеметрії зробив би чергу мертвою.
+    """
+    from management.services import ig_customer_turns
+
     claimable_at = timezone.now()
+    turn, turn_row_id = ig_customer_turns.due_turn_for_claim(now=claimable_at)
+    if turn is not None and turn_row_id:
+        row = (
+            InstagramBotMessage.objects.select_related("client")
+            .filter(
+                pk=turn_row_id,
+                role=InstagramBotMessage.Role.USER,
+                status=InstagramBotMessage.Status.PENDING,
+            )
+            .first()
+        )
+        if row is not None:
+            claimed = _claim_exact_row(row)
+            if claimed is not None:
+                # Поглинання — ПІСЛЯ успішного claim: інакше при гонці два
+                # воркери позначили б рядки поглинутими, а відповів би один.
+                ig_customer_turns.absorb_turn_messages(
+                    turn, keep_message_id=claimed.pk
+                )
+                ig_customer_turns.claim_turn(turn.pk, now=claimable_at)
+                return claimed
+        else:
+            # Рядок ходу вже опрацьований або зник — хід не має блокувати чергу.
+            ig_customer_turns.mark_turn_processed(turn.pk)
+
     row = (
         InstagramBotMessage.objects.filter(
             role=InstagramBotMessage.Role.USER,
@@ -10031,6 +10071,14 @@ def _claim_next() -> InstagramBotMessage | None:
     )
     if not row:
         return None
+    if ig_customer_turns.has_open_undue_turn(row, now=claimable_at):
+        # Клієнт ще друкує: хід збирає повідомлення і буде взятий цілком.
+        return None
+    return _claim_exact_row(row)
+
+
+def _claim_exact_row(row: InstagramBotMessage) -> InstagramBotMessage | None:
+    """Conditional claim of exactly this pending row."""
     claimed_at = timezone.now()
     claimed = InstagramBotMessage.objects.filter(
         id=row.id, status=InstagramBotMessage.Status.PENDING
