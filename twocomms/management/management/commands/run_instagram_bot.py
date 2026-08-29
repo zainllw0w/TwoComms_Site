@@ -246,13 +246,34 @@ def _daemon_alive() -> bool:
     return bool(heartbeat_at and (time.time() - heartbeat_at) < HB_ALIVE_WINDOW)
 
 
+# Маркери деплою. Демон стежить за НАЙНОВІШИМ з них.
+#
+# ЭБ.3, знайдено при деплої 2026-08-29. Демон читав лише
+# `<django_root>/tmp/restart.txt`, а `git pull` і cPanel-Passenger торкають
+# `<repo_root>/tmp/restart.txt` — інший файл на рівень вище. Тому задеплоєний
+# код НЕ доходив до живого демона: heartbeat свіжий, `_daemon_code_current()`
+# порівнює pid-файл із маркером, якого деплой не змінював, watchdog бачить
+# «daemon alive — ok» і нічого не робить. Демон міг тижнями виконувати старий
+# код, а виправлення виглядали як «не працюють».
+_RESTART_SENTINELS = (
+    os.path.join(PROJECT_ROOT, "tmp", "restart.txt"),
+    os.path.join(os.path.dirname(PROJECT_ROOT), "tmp", "restart.txt"),
+)
+
+
 def _restart_sentinel_mtime() -> float:
-    """mtime файлу tmp/restart.txt — маркер деплою (його torkає кожен git pull).
-    Демон стежить за ним і перезавантажується, коли код оновлено."""
-    try:
-        return os.path.getmtime(os.path.join(PROJECT_ROOT, "tmp", "restart.txt"))
-    except OSError:
-        return 0.0
+    """Найновіший mtime серед маркерів деплою.
+
+    Максимум, а не перший знайдений: торкання будь-якого з двох файлів мусить
+    призводити до перезавантаження, інакше механізм знову стане тихо неробочим.
+    """
+    newest = 0.0
+    for path in _RESTART_SENTINELS:
+        try:
+            newest = max(newest, os.path.getmtime(path))
+        except OSError:
+            continue
+    return newest
 
 
 def _daemon_code_current() -> bool:
