@@ -2659,7 +2659,17 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
 - [ ] Escalation-хук для сложных «обычных» ходов (первый контакт, возражение)
       заложен, но выключен: сначала смотрим цифры на lite, потом включаем
 - [ ] Показ остатка квоты в админке (`gemini_quota.usage_snapshot()` уже готов)
-- [ ] **Коммит + push + деплой** (миграция `0176` — обязателен `migrate`)
+- [x] **Коммит + push + деплой выполнены 2026-08-30 02:01 EEST.** `760b3095a` на
+      `main`; на production `git pull` → `760b3095`, `migrate management` применил
+      `0176_gemini_model_quota_usage`, `manage.py check` без замечаний, демон
+      перезапущен (pid 1959988, `daemon_spawn` в логе).
+      Живая проверка маршрутизации на production:
+
+          chat/customer_chat -> [lite, 3.5-flash, 3.6-flash]
+          chat/payment       -> [3.7-flash, 3.5-flash, lite]
+          mgmt/intelligence  -> [3.6-flash, 3.5-flash, lite]
+          budget 3.7 -> rpm 5 / tpm 250K / rpd 20
+          budget lite -> rpm 15 / tpm 250K / rpd 500
 
 
 ---
