@@ -2,8 +2,8 @@
 
 Дата фиксации контракта: 2026-08-30.
 
-Статус: **канонический implementation checklist; код V2 ещё не считается
-реализованным**.
+Статус: **runtime S1 задеплоен и подтверждён; routing S2/V2 ещё не задеплоен и
+не считается реализованным**.
 
 Этот документ — единственный подробный контракт для Gemini-маршрутизации,
 учёта квот, event-driven health, API UI, durable CRM-анализа, typed memory и
@@ -19,19 +19,21 @@ production-проверки соответствующего пункта. На�
 
 ## 0. Handoff snapshot
 
-### 0.1 Зафиксированная граница на момент составления
+### 0.1 Текущая граница после production S1
 
 | Область | Наблюдаемое состояние | Что обязательно перепроверить |
 |---|---|---|
-| Локальный checkout | `6f03030e1231fddec4f80499de796d0ed26ae2c8` | `HEAD`, dirty state и активные worktrees перед первым merge |
-| GitHub `main` | `6f03030e1231fddec4f80499de796d0ed26ae2c8` | remote ref непосредственно перед интеграцией |
-| Production checkout | fast-forward до `6f03030e1231fddec4f80499de796d0ed26ae2c8`, tracked-clean | выполняемый daemon SHA всё ещё не доказан |
-| Production migration | `0176_gemini_model_quota_usage` применена; quota-таблица InnoDB, 0 rows | закрыть code gap engine registry при интеграции pending commit `7edaff` |
-| Runtime routing | сохранённый forced `gemini-3.7-flash` способен обходить task-tier policy | фактический route конкретного live-request |
+| Local/GitHub `main` | `e62bedf5df570af9a46fe0e760eb248819cccefa` | повторять parity перед каждым следующим merge |
+| Production checkout | `e62bedf5df570af9a46fe0e760eb248819cccefa`, tracked-clean | не смешивать следующий routing deploy с runtime soak evidence |
+| Running runtime | supervisor и child сообщают SHA `e62bedf5df570af9a46fe0e760eb248819cccefa`; supervisor PID/start-ticks identity совпадает | повторять SHA/PID/start-ticks proof после каждого deploy/reload |
+| Daemon health | `state=running`; process pulse fresh; main progress fresh, `idle`, не stalled | 48-часовой soak и live-reply latency ещё не доказаны |
+| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | новые routing migrations не применять до закрытия S2 review gate |
+| Runtime routing | production остаётся на legacy routing из `e62bedf5`; commits `62070f6eb` и `ec34e1734` не merged и не deployed | исправленный S2 проходит повторный review до merge |
 | Ключи | владелец подтвердил: шесть ключей принадлежат шести отдельным Google-проектам | явный безопасный mapping `project_identity`, без вывода ключей и project IDs |
-| Daemon | за наблюдаемое окно 24 часа было 165 запусков при пяти штатных reload | exit code/signal, PID start ticks, LVE fault и выполняемый SHA |
+| Cron ownership | один stdlib watchdog, один sequential Instagram coordinator; durable tasks и Nova Poshta используют общий heavy-process lock | cadence/LVE steady state подтвердить soak-выборкой |
+| Removed owners | automatic metadata cron = 0; legacy Instagram periodic owner lines = 0 | manual metadata остаётся только явной диагностикой |
 | Shared-host LVE | воспроизводились пики 1,25–1,28 GiB при лимите 1 GiB | 48-часовой soak после runtime-среза |
-| Health cron | hourly metadata GET не расходует generation RPD, но создаёт лишний process fan-out и ложное понятие «проверки квоты» | отсутствие cron/batch после перехода на event-driven health |
+| S1 tests | 68 low-level + 134 Django + 97 deploy tests; local `manage.py check` и migration drift clean | production soak не заменяется локальными тестами |
 
 Эти строки — handoff evidence, а не вечная истина. Каждый implementation-срез
 сначала обновляет таблицу, не подменяя server truth локальными выводами. В
@@ -57,20 +59,44 @@ Markdown запрещено записывать API-ключи, SSH-парол�
 
 ### 0.3 Открытые gates
 
-- [ ] Дождаться integration barrier с другими агентами и повторно проверить
-      пересечение затронутых файлов.
-- [ ] Checkout parity уже подтверждён для local/GitHub/production на
-      `6f03030e`; отдельно доказать `running daemon SHA = 6f03030e`.
-- [ ] Production quota table уже подтверждена как InnoDB с 0 rows; закрыть
-      отсутствующую регистрацию в engine audit после интеграции `7edaff`.
-- [ ] Сначала стабилизировать daemon/process fan-out и пройти 48-часовой LVE gate.
+- [x] S1 integration/deploy parity: local, GitHub, production checkout,
+      supervisor и child совпадают на `e62bedf5df570af9a46fe0e760eb248819cccefa`;
+      production tracked-clean.
+- [x] Runtime ownership conversion подтверждена на production: один stdlib
+      watchdog, один sequential coordinator, общий heavy-process lock для
+      durable/Nova; metadata и legacy periodic owners отсутствуют.
+- [x] Engine-registry code gap закрыт в deployed SHA; S1 не требовал новой
+      migration.
+- [ ] Завершить 48-часовой LVE/PMEM/NPROC/daemon-exit soak и снять live-reply p95.
+- [ ] Закрыть S2 review blockers и повторить независимый review исправленного
+      routing diff; commits `62070f6eb`/`ec34e1734` в текущем виде не деплоить.
 - [ ] Затем внедрять V2 отдельными reversible slices; не смешивать schema,
       enforcement, policy, analysis, funnel и UI.
 
-**Следующий конкретный шаг:** пройти integration barrier по текущим worktrees,
-интегрировать engine-registry gap без потери чужих изменений, доказать SHA
-работающего daemon, после чего начать отдельный runtime stabilization slice.
-Новые analysis workers до runtime gate не добавлять.
+### 0.4 S2 review gate — NO-GO для текущих routing-коммитов
+
+Независимый review `62070f6eb` + `ec34e1734` не разрешил deploy. Перед merge
+исправленный S2 обязан закрыть следующие темы без переноса их в будущий S3:
+
+- один canonical media pass/artifact вместо повторного strong-вызова; рабочий
+  voice/audio path и deterministic UGC acknowledgement при временно недоступных
+  provider-native post/reel bytes;
+- project-aware rotation после 404, deterministic mapping рекламной кампании до
+  3.7 и сохранение исходного complex decision в recovery;
+- multilingual product-switch parsing без утечки старого товара/цены;
+- UGC review end-to-end: notification-bound chat/message/generation,
+  evidence/product context, очередь для реального `needs_manager_review`, запрет
+  actor-less discount и корректный 5%/10% customer snapshot;
+- health по фактической adaptive chain/cross-key request, безопасный fallback для
+  неполного 429 envelope и opaque UI slots вместо env aliases.
+
+Model-scoped permits, rolling/input TPM и полный parent request/attempt FSM
+остаются отдельным S3; ими нельзя оправдывать перечисленные S2-регрессии.
+
+**Следующий конкретный шаг:** продолжать read-only S1 soak, а в изолированном
+worktree подготовить узкий исправленный S2 поверх `e62bedf5`, прогнать
+ingress/gateway/health/UGC regression matrix и отдать новый diff на независимый
+review. До закрытия gate routing migration и customer-visible S2 не деплоить.
 
 ---
 
@@ -972,20 +998,43 @@ Price-objection policy:
 
 ### 9.1 До новых workers
 
-- [ ] Lightweight stdlib supervisor: parent ждёт child и записывает SHA,
+- [x] Lightweight stdlib supervisor: parent ждёт child и записывает SHA,
       PID/start ticks, uptime, exit code/signal и shutdown phase.
 - [ ] Обработать SIGTERM/SIGHUP/SIGINT, outer fatal journal,
-      `threading.excepthook`, bounded rotation и stack dump.
+      `threading.excepthook`, bounded rotation и stack dump. Сигналы, fatal
+      journal, exception hook и bounded files покрыты S1; stack dump ещё не
+      доказан, поэтому составной пункт открыт.
 - [ ] Разделить `process_alive`, `main_progress`, `active_lane` и worker pulses.
-- [ ] Один bounded background coordinator под общим flock.
-- [ ] Не более одного heavy background Django process одновременно.
-- [ ] Каждая lane имеет одного owner; убрать daemon/cron duplicate owners.
+      Process/main разделены и production показывает fresh `idle`; отдельный
+      `active_lane`/worker-pulse contract остаётся открытым.
+- [x] Один bounded background coordinator под общим flock.
+- [x] Не более одного heavy background Django process одновременно обеспечено
+      единым cron admission lock и подтверждённой production crontab topology.
+- [x] Каждая lane имеет одного owner; daemon/cron duplicate owners удалены.
 - [ ] В daemon оставить latency-sensitive inbound/recovery/permission work.
-- [ ] Analysis остаётся durable queue, но не отдельным новым process до gate.
-- [ ] Удалить hourly Gemini metadata job и health expectations.
-- [ ] UI/status/watchdog используют один derived heartbeat contract.
+      Daemon всё ещё содержит существующие bounded threads анализа, discovery,
+      lifecycle и follow intelligence; дальнейшее сужение не доказано.
+- [x] Analysis остаётся durable queue и не вынесен в отдельный новый process.
+- [x] Hourly Gemini metadata job и scheduled health expectation удалены;
+      metadata доступна только как manual diagnostic.
+- [x] UI/status/watchdog используют общий process/main health contract;
+      production snapshot: `running`, main `idle`, fresh, not stalled.
 - [ ] Restart backoff: 1s → 5s → 15s → 60s; три short exits за 10 минут дают
-      один technical alert, не customer message.
+      один technical alert, не customer message. Логика покрыта тестами, но
+      production restart-storm outcome и 48-часовой exit rate ещё не доказаны.
+
+**S1 verification evidence (2026-08-30):**
+
+- local/GitHub/server/supervisor/child SHA:
+  `e62bedf5df570af9a46fe0e760eb248819cccefa`;
+- server tracked-clean; migration set unchanged;
+- supervisor PID/start-ticks identity и supervisor/child release SHA совпадают;
+- production status: process fresh, main fresh/`idle`, `running`, not stalled;
+- crontab: one stdlib watchdog + one sequential coordinator; durable tasks и
+  Nova Poshta используют один heavy lock; automatic metadata и legacy Instagram
+  periodic lines отсутствуют;
+- test evidence: 68 low-level, 134 Django runtime и 97 deploy tests; local
+  `manage.py check` и migration drift clean.
 
 Runtime gate:
 
