@@ -1,4 +1,5 @@
 import hashlib
+import json
 import threading
 from datetime import timedelta
 from decimal import Decimal
@@ -281,19 +282,22 @@ class MaterialityCadenceTests(TestCase):
 
     def test_authority_event_is_immediate_and_same_truth_is_not_polled(self):
         self.job.required_state_fingerprint = "a" * 64
-        self.job.save(update_fields=["required_state_fingerprint"])
+        self.job.revision = 10
+        self.job.save(update_fields=["required_state_fingerprint", "revision"])
         now = timezone.now().replace(microsecond=0)
 
         first = materiality.record_authority_materiality(
             client=self.client,
             job=self.job,
             trigger="payment_truth",
+            source_message_id=self.source.pk,
             now=now,
         )
         duplicate = materiality.record_authority_materiality(
             client=self.client,
             job=self.job,
             trigger="payment_truth",
+            source_message_id=self.source.pk,
             now=now + timedelta(hours=12),
         )
 
@@ -301,8 +305,82 @@ class MaterialityCadenceTests(TestCase):
         self.assertIsNone(duplicate)
         self.job.refresh_from_db()
         self.assertEqual(self.job.materiality_due_at, now)
-        self.assertEqual(self.job.authority_digest, "a" * 64)
+        self.assertEqual(self.job.authority_digest, first.authority_digest)
+        self.assertNotEqual(self.job.authority_digest, "a" * 64)
+        materiality_payload = json.dumps({
+            "event_digest": first.event_digest,
+            "authority_digest": first.authority_digest,
+            "job_authority_digest": self.job.authority_digest,
+            "job_materiality_digest": self.job.materiality_digest,
+        })
+        self.assertNotIn("a" * 64, materiality_payload)
         self.assertEqual(IgAnalysisMaterialityEvent.objects.count(), 1)
+
+    def test_authority_a_to_b_to_a_appends_each_transition_but_dedupes_retry(self):
+        now = timezone.now().replace(microsecond=0)
+        identities = []
+        for offset, (revision, fingerprint) in enumerate((
+            (10, "a" * 64),
+            (11, "b" * 64),
+            (12, "a" * 64),
+        )):
+            self.job.revision = revision
+            self.job.required_state_fingerprint = fingerprint
+            self.job.save(update_fields=["revision", "required_state_fingerprint"])
+            event = materiality.record_authority_materiality(
+                client=self.client,
+                job=self.job,
+                trigger="payment_truth",
+                source_message_id=self.source.pk,
+                now=now + timedelta(minutes=offset),
+            )
+            self.assertIsNotNone(event)
+            identities.append(event.authority_digest)
+            retry = materiality.record_authority_materiality(
+                client=self.client,
+                job=self.job,
+                trigger="payment_truth",
+                source_message_id=self.source.pk,
+                now=now + timedelta(minutes=offset, seconds=30),
+            )
+            self.assertIsNone(retry)
+
+        self.assertEqual(IgAnalysisMaterialityEvent.objects.count(), 3)
+        self.assertEqual(len(set(identities)), 3)
+        self.assertNotEqual(identities[0], identities[2])
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.authority_digest, identities[2])
+        self.assertEqual(self.job.required_state_fingerprint, "a" * 64)
+
+        self.job.status = IgConversationAnalysisJob.Status.DONE
+        self.job.analyzed_watermark_message_id = self.source.pk
+        self.job.analyzed_materiality_event_highwater = (
+            self.job.materiality_event_highwater
+        )
+        self.job.analyzed_materiality_digest = self.job.materiality_digest
+        self.job.save()
+        snapshot = IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            last_analyzed_message=self.source,
+            dedupe_key="authority-a-b-a-current",
+            score_band=IgConversationAnalysisSnapshot.Band.QUALIFIED,
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.PRODUCT_INTEREST
+            ),
+            purchase_probability=Decimal("0.7000"),
+            confidence=Decimal("0.9000"),
+            evidence=[{
+                "message_id": self.source.pk,
+                "source_role": InstagramBotMessage.Role.USER,
+                "quote": self.source.text,
+            }],
+            required_state_fingerprint="a" * 64,
+        )
+        with override_settings(IG_ANALYSIS_CURRENT_SELECTOR_MODE="enforce"):
+            self.assertEqual(
+                materiality.current_analysis_snapshot(self.client).pk,
+                snapshot.pk,
+            )
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_existing_payment_truth_adapter_records_without_provider_polling(
@@ -461,11 +539,14 @@ class CompletedTurnMaterialityTests(TestCase):
         self.assertEqual(self.job.materiality_digest, "")
 
     def test_meaningful_confirmation_records_artifact_identity_without_text(self):
+        media_digest = "b" * 64
         message = _message(
             self.client,
             "Оплатив, дякую",
-            artifact={"schema_version": 2, "media_digest": "b" * 64},
+            artifact={"schema_version": 2, "media_digest": media_digest},
         )
+        message.attachments = '["https://cdn.example/private-customer-image.jpg"]'
+        message.save(update_fields=["attachments"])
         turn = _turn(self.client, message)
         from management.services.ig_customer_turns import mark_turn_processed
 
@@ -477,6 +558,16 @@ class CompletedTurnMaterialityTests(TestCase):
         self.assertEqual(event.source_role, "user")
         self.assertEqual(event.artifact_revision, 2)
         self.assertTrue(event.artifact_digest)
+        self.assertNotEqual(event.artifact_digest, media_digest)
+        self.assertEqual(
+            event.artifact_digest,
+            materiality._sha({
+                "artifacts": [{
+                    "source_message_id": message.pk,
+                    "schema_revision": 2,
+                }],
+            }),
+        )
         self.assertNotIn("Оплатив", event.event_key)
         self.assertNotEqual(
             event.event_digest,
@@ -485,6 +576,19 @@ class CompletedTurnMaterialityTests(TestCase):
         self.assertNotEqual(
             event.event_digest,
             materiality._sha({"value": message.text.casefold()}),
+        )
+        ledger_payload = json.dumps({
+            "event_digest": event.event_digest,
+            "artifact_digest": event.artifact_digest,
+            "materiality_digest": (
+                IgConversationAnalysisJob.objects.get(pk=self.job.pk)
+                .materiality_digest
+            ),
+        })
+        self.assertNotIn(media_digest, ledger_payload)
+        self.assertNotIn(
+            hashlib.sha256(message.text.encode("utf-8")).hexdigest(),
+            ledger_payload,
         )
 
     def test_raw_text_like_digest_is_rejected_before_ledger_write(self):
@@ -545,7 +649,8 @@ class CurrentAnalysisSnapshotTests(TestCase):
         self.job.analyzed_materiality_event_highwater = 7
         self.job.materiality_digest = "c" * 64
         self.job.analyzed_materiality_digest = "c" * 64
-        self.job.authority_digest = "d" * 64
+        self.job.authority_digest = "e" * 64
+        self.job.required_state_fingerprint = "d" * 64
         self.job.save()
 
     def _snapshot(self, *, episode, interaction, probability, evidence=None):

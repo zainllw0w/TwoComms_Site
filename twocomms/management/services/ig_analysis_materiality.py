@@ -72,6 +72,15 @@ def _validated_digest(value) -> str:
     return digest
 
 
+def _validated_optional_digest(value, *, field_name: str) -> str:
+    if not value:
+        return ""
+    try:
+        return _validated_digest(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be content-free SHA-256 identity") from exc
+
+
 def record_materiality_event(
     *,
     client_id: int,
@@ -97,6 +106,14 @@ def record_materiality_event(
         return None
     relevant_at = relevant_at or timezone.now()
     digest = _validated_digest(event_digest)
+    authority_identity = _validated_optional_digest(
+        authority_digest,
+        field_name="authority_digest",
+    )
+    artifact_identity = _validated_optional_digest(
+        artifact_digest,
+        field_name="artifact_digest",
+    )
     kind = str(event_kind or "")[:32]
     event_key = f"materiality:{client_id}:{kind}:{digest}"[:160]
     for attempt in range(3):
@@ -147,9 +164,9 @@ def record_materiality_event(
                     event_kind=kind,
                     event_key=event_key,
                     event_digest=digest,
-                    authority_digest=str(authority_digest or "")[:64],
+                    authority_digest=authority_identity,
                     artifact_revision=max(0, int(artifact_revision or 0)),
-                    artifact_digest=str(artifact_digest or "")[:64],
+                    artifact_digest=artifact_identity,
                     relevant_at=relevant_at,
                 )
                 first_unanalysed_at = min(
@@ -180,10 +197,10 @@ def record_materiality_event(
                     line_id or job.materiality_line_id or ""
                 )[:96]
                 effective_authority_digest = str(
-                    authority_digest or job.authority_digest or ""
+                    authority_identity or job.authority_digest or ""
                 )[:64]
                 effective_artifact_digest = str(
-                    artifact_digest or job.artifact_digest or ""
+                    artifact_identity or job.artifact_digest or ""
                 )[:64]
                 updated = IgConversationAnalysisJob.objects.filter(
                     pk=job.pk,
@@ -210,23 +227,33 @@ def record_materiality_event(
     return None
 
 
+def _artifact_schema_revision(artifact) -> int:
+    try:
+        return max(0, int((artifact or {}).get("schema_version") or 0))
+    except (AttributeError, TypeError, ValueError):
+        return 0
+
+
 def _turn_artifact_identity(rows) -> tuple[int, str]:
     revision = 0
-    digests = []
+    revisions = []
     for row in rows:
         artifact = (
             row.turn_intelligence_artifact
             if isinstance(row.turn_intelligence_artifact, dict)
             else {}
         )
-        try:
-            revision = max(revision, int(artifact.get("schema_version") or 0))
-        except (TypeError, ValueError):
-            pass
-        digest = str(artifact.get("media_digest") or "")
-        if digest:
-            digests.append(digest[:64])
-    return revision, (_sha(digests) if digests else "")
+        schema_revision = _artifact_schema_revision(artifact)
+        revision = max(revision, schema_revision)
+        if artifact:
+            # The artifact is immutable on the source row. Its row identity
+            # plus schema revision is sufficient; media/content hashes are
+            # intentionally excluded from the materiality ledger.
+            revisions.append({
+                "source_message_id": row.pk,
+                "schema_revision": schema_revision,
+            })
+    return revision, (_sha({"artifacts": revisions}) if revisions else "")
 
 
 def record_completed_customer_turn(turn_or_id):
@@ -259,20 +286,24 @@ def record_completed_customer_turn(turn_or_id):
     if not meaningful:
         return None
     artifact_revision, artifact_digest = _turn_artifact_identity(meaningful)
-    event_digest = _sha([
-        {
-            "message_id": row.pk,
-            "event_at": (
-                row.provider_created_at or row.created_at
-            ).isoformat(),
-            "has_quick_reply": bool(row.quick_reply_payload),
-            "has_media": bool(row.attachments or row.attachment_media),
-            "artifact_digest": str(
-                (row.turn_intelligence_artifact or {}).get("media_digest") or ""
-            )[:64],
-        }
-        for row in meaningful
-    ])
+    event_digest = _sha({
+        "event_kind": IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+        "client_id": turn.client_id,
+        "episode_id": turn.episode_id,
+        "customer_turn_id": turn.pk,
+        "source_message_ids": [row.pk for row in meaningful],
+        "artifact_schema_revisions": [
+            {
+                "source_message_id": row.pk,
+                "schema_revision": _artifact_schema_revision(
+                    row.turn_intelligence_artifact
+                ),
+            }
+            for row in meaningful
+            if isinstance(row.turn_intelligence_artifact, dict)
+            and row.turn_intelligence_artifact
+        ],
+    })
     latest = meaningful[-1]
     relevant_at = latest.provider_created_at or latest.created_at or timezone.now()
     return record_materiality_event(
@@ -304,17 +335,25 @@ def record_authority_materiality(
         if "order" in str(trigger or "")
         else IgAnalysisMaterialityEvent.Kind.PAYMENT_TRUTH
     )
-    authority_digest = str(job.required_state_fingerprint or "")[:64]
-    if not authority_digest:
-        return None
+    episode_id = client.current_commercial_episode_id
+    # Job revision is the stable identity of one external truth transition:
+    # exact retries retain it, while A -> B -> A increments it twice and must
+    # append a new event for the returning A state.
+    authority_identity = _sha({
+        "event_kind": kind,
+        "client_id": client.pk,
+        "episode_id": episode_id,
+        "job_revision": int(job.revision or 0),
+        "source_message_id": int(source_message_id or 0),
+    })
     return record_materiality_event(
         client_id=client.pk,
-        episode_id=client.current_commercial_episode_id,
+        episode_id=episode_id,
         source_message_id=source_message_id,
         source_role=IgAnalysisMaterialityEvent.SourceRole.AUTHORITY,
         event_kind=kind,
-        event_digest=authority_digest,
-        authority_digest=authority_digest,
+        event_digest=authority_identity,
+        authority_digest=authority_identity,
         relevant_at=now or timezone.now(),
         authority_immediate=True,
     )
@@ -375,7 +414,7 @@ def current_analysis_snapshot(
     from management.services.ig_funnel_reset import current_message_floor
 
     floor = current_message_floor(client)
-    authority_digest = str(job.authority_digest or "")
+    required_state_fingerprint = str(job.required_state_fingerprint or "")
 
     def has_customer_evidence(snapshot) -> bool:
         evidence = snapshot.evidence if isinstance(snapshot.evidence, list) else []
@@ -407,7 +446,10 @@ def current_analysis_snapshot(
             return False
         if snapshot.commercial_episode_id != client.current_commercial_episode_id:
             return False
-        if authority_digest and snapshot.required_state_fingerprint != authority_digest:
+        if (
+            required_state_fingerprint
+            and snapshot.required_state_fingerprint != required_state_fingerprint
+        ):
             return False
         return True
 
@@ -424,8 +466,10 @@ def current_analysis_snapshot(
                 IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
             )
         )
-    if authority_digest:
-        queryset = queryset.filter(required_state_fingerprint=authority_digest)
+    if required_state_fingerprint:
+        queryset = queryset.filter(
+            required_state_fingerprint=required_state_fingerprint
+        )
     snapshot = queryset.order_by("-id").first()
     return snapshot if snapshot and is_current(snapshot) else None
 
