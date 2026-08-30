@@ -1182,7 +1182,6 @@ class GeminiHealthSnapshotTests(TestCase):
                 role="chat",
                 candidate_index=candidate_index,
                 at=at + datetime.timedelta(seconds=offset),
-                candidate_index=candidate_index,
             )
 
         snapshot = self._build()
