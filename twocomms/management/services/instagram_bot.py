@@ -2794,9 +2794,11 @@ def log(level: str, event: str, detail: str = "") -> None:
     the console may contain a customer-facing reply excerpt.  Warnings/errors
     preserve the diagnostic detail and pass through the global PII filter.
     """
+    from management.services import gemini_health
+
     level = str(level or "info").lower()
-    event = str(event or "unknown")[:120]
-    detail = str(detail or "")[:4000]
+    event = gemini_health.redact_key_aliases(event or "unknown")[:120]
+    detail = gemini_health.redact_key_aliases(detail)[:4000]
     try:
         suffix = f" detail={detail}" if level in {"warning", "error"} and detail else ""
         _INCIDENT_LOGGER.log(

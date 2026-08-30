@@ -69,6 +69,24 @@ _FAILURE_REASON_LABELS = {
 }
 
 
+def public_key_reference(key_name: str) -> str:
+    """Return one stable, non-secret label for an internal credential alias."""
+    alias = str(key_name or "")
+    slot_id = SLOT_BY_ALIAS.get(alias)
+    display_label = DISPLAY_ALIASES.get(alias)
+    if not slot_id or not display_label:
+        return ""
+    return f"{display_label} [{slot_id}]"
+
+
+def redact_key_aliases(value: Any) -> str:
+    """Remove every internal env alias from operator-visible text."""
+    redacted = str(value or "")
+    for alias in sorted(KEY_ALIASES, key=len, reverse=True):
+        redacted = redacted.replace(alias, public_key_reference(alias))
+    return redacted
+
+
 def _as_utc(value: dt.datetime) -> dt.datetime:
     if timezone.is_naive(value):
         return timezone.make_aware(value, dt.timezone.utc)

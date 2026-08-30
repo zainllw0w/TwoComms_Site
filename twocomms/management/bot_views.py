@@ -912,8 +912,10 @@ def _log_items(limit: int = 80):
         {
             "id": r.id,
             "level": r.level,
-            "event": r.event,
-            "detail": r.detail,
+            # Historical rows predate write-boundary redaction.  Never expose
+            # their internal credential aliases through HTML or status JSON.
+            "event": gemini_health.redact_key_aliases(r.event),
+            "detail": gemini_health.redact_key_aliases(r.detail),
             "time": r.created_at.strftime("%H:%M:%S"),
             "date": r.created_at.strftime("%d.%m.%Y"),
         }
@@ -996,8 +998,8 @@ def bot_status_api(request):
         {
             "id": r.id,
             "level": r.level,
-            "event": r.event,
-            "detail": r.detail,
+            "event": gemini_health.redact_key_aliases(r.event),
+            "detail": gemini_health.redact_key_aliases(r.detail),
             "time": r.created_at.strftime("%H:%M:%S"),
         }
         for r in rows

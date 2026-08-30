@@ -14,9 +14,11 @@ from management.bot_access import META_REVIEWER_GROUP_NAME
 from management.models import (
     GeminiKeyState,
     GeminiRequestAttempt,
+    InstagramBotLog,
     InstagramBotSettings,
 )
-from management.services import gemini_health, gemini_keys
+from management import bot_views
+from management.services import gemini_health, gemini_keys, instagram_bot
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
@@ -128,6 +130,45 @@ class GeminiHealthApiTests(TestCase):
 
         settings_obj.refresh_from_db()
         self.assertEqual(settings_obj.last_gemini_key, "GEMINI_API2")
+
+    def test_log_write_boundary_persists_only_opaque_project_references(self):
+        for index, env_alias in enumerate(gemini_keys.ALL_KEYS):
+            instagram_bot.log(
+                "info",
+                "gemini_try" if index % 2 == 0 else "gemini_ok",
+                f"{env_alias}/gemini-3.5-flash-lite: ok",
+            )
+
+        rows = list(InstagramBotLog.objects.order_by("id"))
+        self.assertEqual(len(rows), len(gemini_keys.ALL_KEYS))
+        serialized = json.dumps(
+            [{"event": row.event, "detail": row.detail} for row in rows],
+            sort_keys=True,
+        )
+        for env_alias in gemini_keys.ALL_KEYS:
+            self.assertNotIn(env_alias, serialized)
+            self.assertIn(gemini_health.public_key_reference(env_alias), serialized)
+
+    def test_status_and_dashboard_read_boundaries_redact_legacy_log_rows(self):
+        for index, env_alias in enumerate(gemini_keys.ALL_KEYS):
+            InstagramBotLog.objects.create(
+                level="info",
+                event="gemini_try" if index % 2 == 0 else "gemini_ok",
+                detail=f"winner={env_alias}/gemini-3.5-flash-lite",
+            )
+
+        status_response = self.client.get(reverse("management_bot_status_api"))
+        dashboard_items = bot_views._log_items()
+
+        self.assertEqual(status_response.status_code, 200)
+        status_serialized = json.dumps(status_response.json(), sort_keys=True)
+        dashboard_serialized = json.dumps(dashboard_items, sort_keys=True)
+        for env_alias in gemini_keys.ALL_KEYS:
+            self.assertNotIn(env_alias, status_serialized)
+            self.assertNotIn(env_alias, dashboard_serialized)
+            safe_reference = gemini_health.public_key_reference(env_alias)
+            self.assertIn(safe_reference, status_serialized)
+            self.assertIn(safe_reference, dashboard_serialized)
 
     def test_non_admin_and_meta_reviewer_cannot_read_or_probe(self):
         self._configure()
