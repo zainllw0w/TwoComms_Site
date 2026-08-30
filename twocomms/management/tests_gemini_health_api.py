@@ -11,7 +11,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from management.bot_access import META_REVIEWER_GROUP_NAME
-from management.models import GeminiKeyState, GeminiRequestAttempt
+from management.models import (
+    GeminiKeyState,
+    GeminiRequestAttempt,
+    InstagramBotSettings,
+)
 from management.services import gemini_health, gemini_keys
 
 
@@ -96,8 +100,34 @@ class GeminiHealthApiTests(TestCase):
             response = self.client.get(self._health_url())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()["keys"]), 6)
-        self.assertNotIn(self.secret_value, response.content.decode())
+        serialized = response.content.decode()
+        self.assertNotIn(self.secret_value, serialized)
+        for env_alias in gemini_keys.ALL_KEYS:
+            self.assertNotIn(env_alias, serialized)
+        self.assertEqual(response.json()["keys"][0]["display_label"], "API key 1")
         probe_key.assert_not_called()
+
+    def test_status_endpoint_projects_internal_key_alias_to_opaque_slot(self):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.last_gemini_key = "GEMINI_API2"
+        settings_obj.save(update_fields=["last_gemini_key", "updated_at"])
+
+        response = self.client.get(reverse("management_bot_status_api"))
+
+        self.assertEqual(response.status_code, 200)
+        status = response.json()["status"]
+        self.assertNotIn("last_gemini_key", status)
+        self.assertEqual(
+            status["last_gemini_project_slot"],
+            gemini_health.SLOT_BY_ALIAS["GEMINI_API2"],
+        )
+        self.assertEqual(status["last_gemini_project_label"], "API key 2")
+        serialized = json.dumps(response.json(), sort_keys=True)
+        for env_alias in gemini_keys.ALL_KEYS:
+            self.assertNotIn(env_alias, serialized)
+
+        settings_obj.refresh_from_db()
+        self.assertEqual(settings_obj.last_gemini_key, "GEMINI_API2")
 
     def test_non_admin_and_meta_reviewer_cannot_read_or_probe(self):
         self._configure()

@@ -593,6 +593,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             evidence_source = "none"
         keys.append({
             "slot_id": SLOT_BY_ALIAS[key_name],
+            "display_label": DISPLAY_ALIASES[key_name],
             "alias": DISPLAY_ALIASES[key_name],
             "state": str(
                 pool_row.get("health_state")

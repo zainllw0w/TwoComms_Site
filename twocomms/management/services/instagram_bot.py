@@ -15015,6 +15015,7 @@ def status_snapshot() -> dict:
         analysis_pending = None
         analysis_failed = None
     try:
+        from management.services import gemini_health
         from management.services.gemini_keys import ALL_KEYS, key_project_groups
         from management.services.gemini_routing import (
             ORDINARY_CHAIN,
@@ -15027,12 +15028,22 @@ def status_snapshot() -> dict:
         project_groups = key_project_groups()
         project_mapping_count = len(project_groups)
         project_mapping_complete = all(alias in project_groups for alias in ALL_KEYS)
+        last_project_slot = gemini_health.SLOT_BY_ALIAS.get(
+            str(s.last_gemini_key or ""),
+            "",
+        )
+        last_project_label = gemini_health.DISPLAY_ALIASES.get(
+            str(s.last_gemini_key or ""),
+            "",
+        )
     except Exception:
         pinned_model = ""
         effective_model = "gemini-3.5-flash-lite"
         POLICY_VERSION = ""
         project_mapping_count = 0
         project_mapping_complete = False
+        last_project_slot = ""
+        last_project_label = ""
     return {
         "is_enabled": s.is_enabled,
         # Backwards-compatible alias: only the daemon heartbeat proves a
@@ -15113,7 +15124,11 @@ def status_snapshot() -> dict:
         "gemini_project_mapping_count": project_mapping_count,
         "gemini_project_mapping_complete": project_mapping_complete,
         "last_gemini_model": s.last_gemini_model,
-        "last_gemini_key": s.last_gemini_key,
+        # ``last_gemini_key`` remains an internal runtime field because routing
+        # writers need the credential alias.  JSON consumers receive only the
+        # stable opaque slot and its non-secret display label.
+        "last_gemini_project_slot": last_project_slot,
+        "last_gemini_project_label": last_project_label,
         "last_gemini_at": s.last_gemini_at.isoformat() if s.last_gemini_at else "",
         "last_gemini_reasoning_task": s.last_gemini_reasoning_task,
         "last_gemini_reasoning_level": s.last_gemini_reasoning_level,
