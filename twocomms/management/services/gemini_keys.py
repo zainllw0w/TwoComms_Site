@@ -345,8 +345,8 @@ def parse_429(body: str) -> tuple[str, int]:
     півночі). Тільки за відсутності retryDelay і явного PerDay — кулдаун до
     next_midnight_pt. 'prepayment' → topup (не відновлюється сам).
 
-    scope: 'topup' | 'minute' (now+seconds) | 'day' (seconds>0 → now+seconds,
-    seconds==0 → до півночі PT).
+    scope: 'topup' | 'minute' | 'day' | 'unknown'. Unknown quota accounting is
+    conservatively blocked for that project/model until Pacific reset.
     """
     text = body or ""
     low = text.lower()
@@ -362,7 +362,7 @@ def parse_429(body: str) -> tuple[str, int]:
         return ("day", 0)  # без retryDelay → до півночі PT
     if "perminute" in compact:
         return ("minute", DEFAULT_MINUTE_COOLDOWN)
-    return ("minute", DEFAULT_MINUTE_COOLDOWN)  # безпечний дефолт (не на весь день)
+    return ("unknown", 0)
 
 
 # ---------------------------------------------------------------------------
@@ -792,7 +792,7 @@ def _apply_429_state(
     model: str = "",
 ) -> GeminiKeyState:
     _roll_day(st, now)
-    if scope == "day":
+    if scope in {"day", "unknown"}:
         reset_at = next_midnight_pt(now)
         retry_at = (
             now + datetime.timedelta(seconds=max(1, int(seconds)))
@@ -808,7 +808,7 @@ def _apply_429_state(
     # ЭБ.2: минутный и дневной лимиты free-tier объявлены на пару (проект,
     # модель). Кулдаун всего ключа оставляем для `topup`: там закончились деньги
     # проекта, и это действительно про все модели сразу.
-    if model and scope in {"day", "minute"}:
+    if model and scope in {"day", "minute", "unknown"}:
         cooldowns = dict(getattr(st, "model_cooldowns", None) or {})
         current = _model_cooldown_until(st, model)
         if not current or proposed_until > current:
@@ -823,7 +823,9 @@ def _apply_429_state(
     elif not st.cooldown_until or proposed_until > st.cooldown_until:
         st.cooldown_until = proposed_until
         st.cooldown_scope = scope
-    st.last_status = f"429:{scope}"
+    st.last_status = (
+        "429:accounting_unknown" if scope == "unknown" else f"429:{scope}"
+    )
     st.last_429_at = now
     if error:
         st.last_error = error[:500]

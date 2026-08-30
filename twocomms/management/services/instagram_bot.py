@@ -33,10 +33,12 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Count, F, Q
 from django.db.models.functions import Coalesce
@@ -3731,6 +3733,38 @@ def _telegram_media_url_candidates(media: dict) -> list[str]:
     return result
 
 
+def _telegram_private_media_call(
+    *, token: str, chat: str, media: dict, caption: str, reply_to_message_id: str
+) -> tuple[int, str]:
+    """Upload a private blob directly; it never receives a public URL."""
+    import requests
+
+    storage_name = str(media.get("private_storage_name") or "")
+    mime = _normalized_inline_mime(media.get("mime"))
+    if not storage_name or mime not in (
+        SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES
+    ):
+        return 400, json.dumps({"ok": False, "description": "invalid_private_media"})
+    storage = _private_media_storage()
+    if not storage.exists(storage_name):
+        return 400, json.dumps({"ok": False, "description": "private_media_expired"})
+    is_audio = mime.startswith("audio/")
+    endpoint = "sendAudio" if is_audio else "sendPhoto"
+    field = "audio" if is_audio else "photo"
+    with storage.open(storage_name, "rb") as handle:
+        response = requests.post(
+            f"https://api.telegram.org/bot{token}/{endpoint}",
+            data={
+                "chat_id": chat,
+                "caption": caption[:1000],
+                "reply_to_message_id": str(reply_to_message_id),
+            },
+            files={field: (Path(storage_name).name, handle, mime)},
+            timeout=HTTP_TIMEOUT,
+        )
+    return int(response.status_code), str(response.text or "")
+
+
 def _notification_retry_at(row, now, *, minimum_delay_seconds=0):
     base = min(3600, 30 * (2 ** max(0, int(row.attempts or 1) - 1)))
     jitter = int(hashlib.sha256(row.dedupe_key.encode("utf-8")).hexdigest()[:2], 16) % 16
@@ -3989,8 +4023,9 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
     for media in media_rows[:8]:
         if not isinstance(media, dict) or media.get("delivery_status") == "sent":
             continue
+        private_storage_name = str(media.get("private_storage_name") or "")
         media_urls = _telegram_media_url_candidates(media)
-        if not media_urls:
+        if not private_storage_name and not media_urls:
             media["delivery_status"] = "skipped_invalid_url"
             media["delivery_error"] = "invalid_media_url"
             persist_payload()
@@ -4019,19 +4054,29 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
             caption_parts.append(str(media["product_url"]))
         media_code, media_response_body, media_response = 0, "", {}
         delivered = False
-        for media_url in media_urls:
+        delivery_candidates = [None] if private_storage_name else media_urls
+        for media_url in delivery_candidates:
             try:
-                media_body = json.dumps({
-                    "chat_id": chat,
-                    "photo": media_url,
-                    "caption": "\n".join(caption_parts)[:1000],
-                    "reply_to_message_id": int(main_message_id),
-                }).encode("utf-8")
-                media_code, media_response_body = _http(
-                    f"https://api.telegram.org/bot{token}/sendPhoto",
-                    data=media_body,
-                    timeout=HTTP_TIMEOUT,
-                )
+                if private_storage_name:
+                    media_code, media_response_body = _telegram_private_media_call(
+                        token=token,
+                        chat=chat,
+                        media=media,
+                        caption="\n".join(caption_parts),
+                        reply_to_message_id=main_message_id,
+                    )
+                else:
+                    media_body = json.dumps({
+                        "chat_id": chat,
+                        "photo": media_url,
+                        "caption": "\n".join(caption_parts)[:1000],
+                        "reply_to_message_id": int(main_message_id),
+                    }).encode("utf-8")
+                    media_code, media_response_body = _http(
+                        f"https://api.telegram.org/bot{token}/sendPhoto",
+                        data=media_body,
+                        timeout=HTTP_TIMEOUT,
+                    )
             except Exception as exc:
                 media["delivery_status"] = "unknown"
                 media["delivery_error"] = repr(exc)[:300]
@@ -4460,11 +4505,16 @@ def notify_manager(
                 for key in (
                     "role", "url", "local_url", "message_id", "product_id",
                     "product_title", "product_url", "confidence",
+                    "private_storage_name", "mime", "content_hash",
                 )
                 if item.get(key)
             }
             for item in media[:8]
-            if isinstance(item, dict) and (item.get("url") or item.get("local_url"))
+            if isinstance(item, dict) and (
+                item.get("url")
+                or item.get("local_url")
+                or item.get("private_storage_name")
+            )
         ]
     try:
         with transaction.atomic():
@@ -4492,7 +4542,12 @@ def notify_manager(
                     delivery_by_key = {
                         (
                             str(item.get("role") or ""),
-                            str(item.get("local_url") or item.get("url") or ""),
+                            str(
+                                item.get("private_storage_name")
+                                or item.get("local_url")
+                                or item.get("url")
+                                or ""
+                            ),
                             str(item.get("message_id") or ""),
                         ): item
                         for item in previous_media if isinstance(item, dict)
@@ -4500,7 +4555,12 @@ def notify_manager(
                     for item in payload.get("media") or []:
                         old = delivery_by_key.get((
                             str(item.get("role") or ""),
-                            str(item.get("local_url") or item.get("url") or ""),
+                            str(
+                                item.get("private_storage_name")
+                                or item.get("local_url")
+                                or item.get("url")
+                                or ""
+                            ),
                             str(item.get("message_id") or ""),
                         ))
                         if old:
@@ -4520,7 +4580,12 @@ def notify_manager(
                 media_by_key = {
                     (
                         str(item.get("role") or ""),
-                        str(item.get("local_url") or item.get("url") or ""),
+                        str(
+                            item.get("private_storage_name")
+                            or item.get("local_url")
+                            or item.get("url")
+                            or ""
+                        ),
                         str(item.get("message_id") or ""),
                     ): dict(item)
                     for item in previous_media if isinstance(item, dict)
@@ -4529,7 +4594,12 @@ def notify_manager(
                 for item in payload.get("media") or []:
                     key = (
                         str(item.get("role") or ""),
-                        str(item.get("local_url") or item.get("url") or ""),
+                        str(
+                            item.get("private_storage_name")
+                            or item.get("local_url")
+                            or item.get("url")
+                            or ""
+                        ),
                         str(item.get("message_id") or ""),
                     )
                     if key not in media_by_key:
@@ -6809,6 +6879,7 @@ def live_routing_decision(
     media: list[dict] | None = None,
     commerce_request=None,
     client=None,
+    ad_resolution=None,
     deterministic_action: str = "",
 ):
     """Build the pre-provider route from typed current-turn state."""
@@ -6851,24 +6922,11 @@ def live_routing_decision(
         or getattr(commerce_request, "exchange_requested", False)
         or getattr(commerce_request, "support_requested", False)
     ) else "low"
-    mapped_referral_product_id = None
-    if client is not None and (getattr(client, "ad_id", "") or getattr(client, "ad_ref", "")):
-        try:
-            from management.models import BotAdCampaign
-            from storefront.models import ProductStatus
+    if ad_resolution is None and client is not None:
+        from management.services.ig_ad_referral import resolve_ad_referral
 
-            campaign = BotAdCampaign.match(
-                ad_id=getattr(client, "ad_id", "") or None,
-                ref=getattr(client, "ad_ref", "") or None,
-            )
-            if (
-                campaign is not None
-                and campaign.product_id
-                and campaign.product.status == ProductStatus.PUBLISHED
-            ):
-                mapped_referral_product_id = int(campaign.product_id)
-        except Exception:
-            mapped_referral_product_id = None
+        ad_resolution = resolve_ad_referral(client)
+    referral_status = str(getattr(ad_resolution, "status", "unavailable") or "unavailable")
     ambiguous_referral = bool(
         client is not None
         and (
@@ -6878,7 +6936,7 @@ def live_routing_decision(
         )
         and not getattr(client, "current_product_id", None)
         and not getattr(commerce_request, "exact_product_id", None)
-        and not mapped_referral_product_id
+        and referral_status != "resolved"
     )
     comparison_required = bool(
         getattr(commerce_request, "comparison_requested", False)
@@ -6950,37 +7008,107 @@ def _media_unavailable_reply(client) -> str:
     return f"{text} [MANAGER]"
 
 
-def _build_turn_candidate_set(*, limit: int = 40) -> dict:
-    """Build a bounded, deterministic catalog allowlist without provider I/O."""
-    from management.services.bot_vision import build_match_candidates
+TURN_CANDIDATE_CAP = 200
 
-    candidates = []
-    for raw in build_match_candidates()[: max(1, min(int(limit or 0), 60))]:
-        try:
-            product_id = int(raw.get("id") or 0)
-        except (TypeError, ValueError):
-            continue
-        if product_id <= 0:
-            continue
-        candidates.append({
-            "product_id": product_id,
-            "title": str(raw.get("title") or "")[:160],
-            "fingerprint": str(raw.get("fingerprint") or "")[:300],
-        })
+
+def _turn_candidate_digest(candidates: list[dict]) -> str:
     canonical = json.dumps(
         candidates,
         ensure_ascii=True,
         sort_keys=True,
         separators=(",", ":"),
     )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _turn_candidate_set_valid(candidate_set: dict) -> bool:
+    candidates = candidate_set.get("candidates")
+    if (
+        not isinstance(candidates, list)
+        or len(candidates) > TURN_CANDIDATE_CAP
+        or candidate_set.get("complete") is not True
+        or candidate_set.get("overflow") is True
+    ):
+        return False
+    ids = []
+    for item in candidates:
+        if not isinstance(item, dict):
+            return False
+        try:
+            product_id = int(item.get("product_id") or 0)
+        except (TypeError, ValueError):
+            return False
+        if product_id <= 0:
+            return False
+        ids.append(product_id)
+    return (
+        len(ids) == len(set(ids))
+        and str(candidate_set.get("digest") or "")
+        == _turn_candidate_digest(candidates)
+    )
+
+
+def _build_turn_candidate_set(*, limit: int = TURN_CANDIDATE_CAP) -> dict:
+    """Build the complete published catalog snapshot in at most two reads."""
+    from productcolors.models import ProductColorVariant
+    from storefront.models import Product, ProductStatus
+
+    cap = max(1, min(int(limit or 0), TURN_CANDIDATE_CAP))
+    products = list(
+        Product.objects.filter(status=ProductStatus.PUBLISHED)
+        .order_by("-featured", "-id")
+        .values("id", "title", "slug")[: cap + 1]
+    )
+    if len(products) > cap:
+        return {
+            "version": "catalog-candidates-v2",
+            "digest": "",
+            "candidates": [],
+            "complete": False,
+            "overflow": True,
+            "observed_count": len(products),
+            "cap": cap,
+        }
+    fingerprints: dict[int, list[str]] = {}
+    product_ids = [int(row["id"]) for row in products]
+    if product_ids:
+        for product_id, metadata in (
+            ProductColorVariant.objects.filter(product_id__in=product_ids)
+            .order_by("product_id", "order", "id")
+            .values_list("product_id", "metadata")
+        ):
+            vision = (metadata or {}).get("bot_vision") or {}
+            segment = str(
+                vision.get("summary") or vision.get("print_subject") or ""
+            ).strip()
+            if segment:
+                fingerprints.setdefault(int(product_id), []).append(segment)
+    candidates = [
+        {
+            "product_id": int(raw["id"]),
+            "title": str(raw.get("title") or "")[:160],
+            "fingerprint": "; ".join(
+                dict.fromkeys(fingerprints.get(int(raw["id"]), ()))
+            )[:300],
+        }
+        for raw in products
+    ]
     return {
-        "version": "catalog-candidates-v1",
-        "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        "version": "catalog-candidates-v2",
+        "digest": _turn_candidate_digest(candidates),
         "candidates": candidates,
+        "complete": True,
+        "overflow": False,
+        "observed_count": len(candidates),
+        "cap": cap,
     }
 
 
-def _validated_turn_intelligence(artifact, candidate_set: dict | None = None) -> dict:
+def _validated_turn_intelligence(
+    artifact,
+    candidate_set: dict | None = None,
+    media_binding: dict | None = None,
+) -> dict:
     """Validate model candidates against the published catalog and enrich them."""
     if artifact is None:
         return {}
@@ -7031,15 +7159,48 @@ def _validated_turn_intelligence(artifact, candidate_set: dict | None = None) ->
             candidates[0]["confidence"] - candidates[1]["confidence"] >= 0.1
         ):
             auto_product_id = candidates[0]["product_id"]
+    media_binding = media_binding if isinstance(media_binding, dict) else {}
+    has_audio = any(
+        str(item.get("mime") or "").startswith("audio/")
+        for item in media_binding.get("items") or []
+        if isinstance(item, dict)
+    )
+    transcript = str(getattr(artifact, "transcript", "") or "")[:4000]
+    intent = str(getattr(artifact, "intent", "") or "")[:64]
+    declared_audio_status = str(
+        getattr(artifact, "audio_status", "") or ""
+    ).casefold()
+    if has_audio:
+        if transcript.strip():
+            audio_status = "transcribed"
+        elif declared_audio_status == "unintelligible" or intent in {
+            "audio_unintelligible",
+            "unintelligible_audio",
+            "request_clarification",
+        }:
+            audio_status = "unintelligible"
+        else:
+            return {}
+    else:
+        audio_status = "not_applicable"
     return {
         "schema_version": 1,
         "candidate_set_version": str(candidate_set.get("version") or "")[:40],
         "candidate_set_digest": str(candidate_set.get("digest") or "")[:64],
         "candidate_set_size": len(allowed_ids),
         "catalog_candidates": candidates,
-        "transcript": str(getattr(artifact, "transcript", "") or "")[:4000],
-        "intent": str(getattr(artifact, "intent", "") or "")[:64],
+        "transcript": transcript,
+        "intent": intent,
+        "audio_status": audio_status,
         "confidence": round(float(getattr(artifact, "confidence", 0) or 0), 4),
+        "media_binding_version": str(media_binding.get("version") or "")[:40],
+        "source_message_id": media_binding.get("source_message_id"),
+        "source_message_revision": str(
+            media_binding.get("source_message_revision") or ""
+        )[:64],
+        "media_content_hashes": list(media_binding.get("content_hashes") or []),
+        "media_count": int(media_binding.get("count") or 0),
+        "media_digest": str(media_binding.get("digest") or "")[:64],
         "catalog_resolution": (
             "auto_select"
             if auto_product_id
@@ -7091,6 +7252,16 @@ def _apply_turn_intelligence_resolution(reply: str, control: dict, artifact: dic
             question = f"Уточніть, будь ласка, який варіант ви маєте на увазі: {options}?"
         if options and question.casefold() not in str(reply or "").casefold():
             reply = f"{str(reply or '').strip()}\n{question}".strip()
+    if artifact.get("audio_status") == "unintelligible":
+        language = str(getattr(client, "language", "uk") or "uk").casefold()
+        if language.startswith("ru"):
+            question = "Не удалось разобрать голосовое. Напишите, пожалуйста, главное текстом."
+        elif language.startswith("en"):
+            question = "I could not understand the voice message. Please type the key detail."
+        else:
+            question = "Не вдалося розібрати голосове. Напишіть, будь ласка, головне текстом."
+        if question.casefold() not in str(reply or "").casefold():
+            reply = f"{str(reply or '').strip()}\n{question}".strip()
     return reply, control
 
 
@@ -7123,6 +7294,7 @@ def gemini_generate(
     failure_context: dict | None = None,
     routing_decision=None,
     turn_candidate_set: dict | None = None,
+    turn_media_binding: dict | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -7191,6 +7363,20 @@ def gemini_generate(
             if isinstance(turn_candidate_set, dict)
             else _build_turn_candidate_set()
         )
+        if turn_candidate_set.get("overflow") or not turn_candidate_set.get("complete", True):
+            if failure_context is not None:
+                failure_context["kind"] = "catalog_candidate_overflow"
+            log(
+                "error",
+                "catalog_candidate_overflow",
+                f"published catalog exceeds cap={turn_candidate_set.get('cap')}",
+            )
+            return None
+        if not _turn_candidate_set_valid(turn_candidate_set):
+            if failure_context is not None:
+                failure_context["kind"] = "invalid_candidate_set"
+            log("error", "catalog_candidate_digest", "candidate snapshot integrity failed")
+            return None
     sys_text = assemble_system_instruction(
         s,
         client=client,
@@ -7207,7 +7393,9 @@ def gemini_generate(
             "Return turn_intelligence in the response schema. For product media, "
             "list only catalog product IDs supported by visible evidence with "
             "confidence. For audio, transcribe the customer audio and provide a "
-            "bounded intent. This artifact is evidence, never payment/stock truth. "
+            "bounded intent. If audio is unintelligible, return an empty transcript, "
+            "audio_status=unintelligible and ask for a text clarification. This "
+            "artifact is evidence, never payment/stock truth. "
             "Catalog candidates MUST use only IDs from this deterministic set:\n"
             + json.dumps(
                 (turn_candidate_set or {}).get("candidates") or [],
@@ -7240,6 +7428,38 @@ def gemini_generate(
     payload["generationConfig"]["responseJsonSchema"] = structured_response_schema()
     if sys_text:
         payload["system_instruction"] = {"parts": [{"text": sys_text}]}
+
+    payload, request_trimmed, serialized_request_bytes = _fit_inline_request_budget(
+        payload
+    )
+    if request_trimmed:
+        images = images[: max(0, len(images) - request_trimmed)]
+        if failure_context is not None:
+            failure_context["inline_media_omitted"] = (
+                int(failure_context.get("inline_media_omitted") or 0)
+                + request_trimmed
+            )
+    if serialized_request_bytes > INLINE_REQUEST_MAX_BYTES:
+        if failure_context is not None:
+            failure_context["kind"] = "request_too_large"
+        log("error", "gemini_request_size", "serialized request exceeds provider cap")
+        return None
+    if media_was_requested and not images:
+        if failure_context is not None:
+            failure_context["kind"] = "invalid_media"
+        log("warning", "inline_media_rejected", "request-size guard removed all media")
+        return None
+    normalized_media_binding = _normalize_turn_media_binding(
+        images,
+        turn_media_binding,
+    )
+    if images and normalized_media_binding is None:
+        if failure_context is not None:
+            failure_context["kind"] = "invalid_media_binding"
+        log("error", "inline_media_binding", "owned media binding mismatch")
+        return None
+    if failure_context is not None:
+        failure_context["serialized_request_bytes"] = serialized_request_bytes
 
     # Діалог із клієнтом — найвищий пріоритет (роль 'chat'): пул ключів
     # GEMINI_API/2 → позичання GEMINI_API5/6; selected chat model is primary,
@@ -7321,6 +7541,7 @@ def gemini_generate(
             intelligence = _validated_turn_intelligence(
                 text.turn_intelligence,
                 turn_candidate_set,
+                normalized_media_binding,
             )
     else:
         # Rolling compatibility: old workers/tests may still return free text.
@@ -8506,6 +8727,7 @@ def _inbound_log_detail(source: str, sender_id: str, text: str, extra: str) -> s
 
 
 INLINE_MEDIA_RAW_BUDGET = 12 * 1024 * 1024
+INLINE_REQUEST_MAX_BYTES = 20_000_000
 INLINE_MEDIA_MAX_ITEMS = 3
 INLINE_IMAGE_MAX_BYTES = 6 * 1024 * 1024
 INLINE_AUDIO_MAX_BYTES = 10 * 1024 * 1024
@@ -8564,6 +8786,113 @@ def _bounded_inline_media(media) -> tuple[list[tuple[str, bytes]], int]:
         accepted.append((mime, raw))
         total += len(raw)
     return accepted, omitted
+
+
+def _serialized_request_bytes(payload: dict) -> int:
+    return len(
+        json.dumps(payload, ensure_ascii=True, allow_nan=False).encode("utf-8")
+    )
+
+
+def _fit_inline_request_budget(payload: dict) -> tuple[dict, int, int]:
+    """Trim only the last inline parts until the final JSON is <=20 MB."""
+    trimmed = 0
+    size = _serialized_request_bytes(payload)
+    while size > INLINE_REQUEST_MAX_BYTES:
+        removed = False
+        for content in reversed(payload.get("contents") or []):
+            parts = content.get("parts") if isinstance(content, dict) else None
+            if not isinstance(parts, list):
+                continue
+            for index in range(len(parts) - 1, -1, -1):
+                if isinstance(parts[index], dict) and "inline_data" in parts[index]:
+                    parts.pop(index)
+                    trimmed += 1
+                    removed = True
+                    break
+            if removed:
+                break
+        if not removed:
+            break
+        size = _serialized_request_bytes(payload)
+    return payload, trimmed, size
+
+
+def _source_media_binding(row, images: list[tuple[str, bytes]]) -> dict:
+    items = [
+        {
+            "content_hash": hashlib.sha256(raw).hexdigest(),
+            "mime": str(mime)[:64],
+            "bytes": len(raw),
+        }
+        for mime, raw in images
+    ]
+    source_material = {
+        "source_message_id": int(getattr(row, "pk", 0) or 0),
+        "created_at": getattr(row, "created_at", None).isoformat()
+        if getattr(row, "created_at", None)
+        else "",
+        "provider_created_at": getattr(row, "provider_created_at", None).isoformat()
+        if getattr(row, "provider_created_at", None)
+        else "",
+        "items": items,
+    }
+    source_revision = hashlib.sha256(
+        json.dumps(
+            source_material,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return {
+        "version": "owned-media-v1",
+        "source_message_id": source_material["source_message_id"] or None,
+        "source_message_revision": source_revision,
+        "items": items,
+    }
+
+
+def _normalize_turn_media_binding(
+    images: list[tuple[str, bytes]],
+    supplied: dict | None,
+) -> dict | None:
+    actual_items = [
+        {
+            "content_hash": hashlib.sha256(raw).hexdigest(),
+            "mime": str(mime)[:64],
+            "bytes": len(raw),
+        }
+        for mime, raw in images
+    ]
+    supplied = supplied if isinstance(supplied, dict) else {}
+    supplied_items = supplied.get("items")
+    if supplied_items is not None:
+        supplied_hashes = [
+            str(item.get("content_hash") or "")
+            for item in supplied_items
+            if isinstance(item, dict)
+        ]
+        actual_hashes = [item["content_hash"] for item in actual_items]
+        if supplied_hashes[: len(actual_hashes)] != actual_hashes:
+            return None
+    canonical = json.dumps(
+        actual_items,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return {
+        "version": "owned-media-v1",
+        "source_message_id": supplied.get("source_message_id"),
+        "source_message_revision": str(
+            supplied.get("source_message_revision") or ""
+        )[:64],
+        "items": actual_items,
+        "content_hashes": [item["content_hash"] for item in actual_items],
+        "count": len(actual_items),
+        "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    }
 
 
 def download_image(url: str) -> tuple[str, bytes] | None:
@@ -8825,6 +9154,39 @@ def _media_is_historical(item: dict | None) -> bool:
     )
 
 
+def _private_media_storage():
+    """Return non-public storage for ephemeral customer media."""
+    from django.core.files.storage import FileSystemStorage
+
+    public_root_raw = str(getattr(settings, "MEDIA_ROOT", "") or "").strip()
+    public_root = Path(public_root_raw).resolve() if public_root_raw else None
+    configured = str(getattr(settings, "IG_PRIVATE_MEDIA_ROOT", "") or "").strip()
+    if configured:
+        private_root = Path(configured).expanduser().resolve()
+    else:
+        import tempfile
+
+        instance = hashlib.sha256(
+            str(Path(settings.BASE_DIR).resolve()).encode("utf-8")
+        ).hexdigest()[:12]
+        private_root = (
+            Path(tempfile.gettempdir()) / f"twocomms-private-media-{instance}"
+        ).resolve()
+    if public_root is not None and (
+        private_root == public_root or public_root in private_root.parents
+    ):
+        raise ImproperlyConfigured("IG_PRIVATE_MEDIA_ROOT must be outside MEDIA_ROOT")
+    return FileSystemStorage(location=str(private_root), base_url=None)
+
+
+def _private_media_retention_seconds() -> int:
+    try:
+        configured = int(getattr(settings, "IG_PRIVATE_MEDIA_RETENTION_SECONDS", 259200))
+    except (TypeError, ValueError):
+        configured = 259200
+    return max(3600, min(configured, 7 * 24 * 3600))
+
+
 def _owned_media_bytes(item: dict) -> tuple[str, bytes] | None:
     storage_name = str(item.get("storage_name") or "").strip()
     mime = _normalized_inline_mime(item.get("mime"))
@@ -8834,14 +9196,20 @@ def _owned_media_bytes(item: dict) -> tuple[str, bytes] | None:
     ):
         return None
     try:
-        from django.core.files.storage import default_storage
+        if item.get("private_storage"):
+            storage = _private_media_storage()
+        else:
+            # Rolling compatibility for pre-0177 owned image rows. New live
+            # capture never writes public storage.
+            from django.core.files.storage import default_storage
 
+            storage = default_storage
         limit = (
             INLINE_IMAGE_MAX_BYTES
             if mime.startswith("image/")
             else INLINE_AUDIO_MAX_BYTES
         )
-        with default_storage.open(storage_name, "rb") as handle:
+        with storage.open(storage_name, "rb") as handle:
             raw = handle.read(limit + 1)
         if not raw or len(raw) > limit:
             return None
@@ -9038,7 +9406,20 @@ def _finish_media_capture(message_id: int, url: str, token: str, updates: dict) 
                 item.pop("capture_started_at", None)
                 break
         locked.attachment_media = media
-        locked.save(update_fields=["attachment_media"])
+        update_fields = ["attachment_media"]
+        delete_after_raw = str(updates.get("delete_after") or "").strip()
+        if updates.get("status") == MEDIA_STATUS_OWNED and delete_after_raw:
+            try:
+                locked.private_media_delete_after = datetime.fromisoformat(
+                    delete_after_raw.replace("Z", "+00:00")
+                )
+            except ValueError:
+                locked.private_media_delete_after = (
+                    timezone.now()
+                    + timedelta(seconds=_private_media_retention_seconds())
+                )
+            update_fields.append("private_media_delete_after")
+        locked.save(update_fields=update_fields)
         return media
 
 
@@ -9123,7 +9504,8 @@ def _capture_message_media(
         created_storage_name = ""
         try:
             from django.core.files.base import ContentFile
-            from django.core.files.storage import default_storage
+
+            private_storage = _private_media_storage()
 
             content_hash = hashlib.sha256(raw).hexdigest()
             suffix = {
@@ -9142,28 +9524,33 @@ def _capture_message_media(
                 f"{content_hash[:32]}{suffix}"
             )
             storage_name = path
-            if not default_storage.exists(path):
-                saved_name = default_storage.save(path, ContentFile(raw))
+            if not private_storage.exists(path):
+                saved_name = private_storage.save(path, ContentFile(raw))
                 created_storage_name = saved_name
-                if saved_name != path and default_storage.exists(path):
-                    default_storage.delete(saved_name)
+                if saved_name != path and private_storage.exists(path):
+                    private_storage.delete(saved_name)
                     created_storage_name = ""
                 else:
                     storage_name = saved_name
+            delete_after = (
+                timezone.now()
+                + timedelta(seconds=_private_media_retention_seconds())
+            )
             current = _finish_media_capture(row.pk, url, token, {
                 "status": MEDIA_STATUS_OWNED,
                 "storage_name": storage_name,
-                "local_url": default_storage.url(storage_name),
+                "private_storage": True,
                 "mime": str(mime)[:64],
                 "bytes": len(raw),
                 "content_hash": content_hash,
+                "delete_after": delete_after.isoformat(),
                 "error_kind": "",
                 "capture_next_attempt_at": "",
             })
         except Exception as exc:
             if created_storage_name:
                 try:
-                    default_storage.delete(created_storage_name)
+                    private_storage.delete(created_storage_name)
                 except Exception:
                     pass
             current = _finish_media_capture(row.pk, url, token, {
@@ -9184,6 +9571,86 @@ def _capture_message_media(
             break
     row.attachment_media = current
     return current
+
+
+def purge_expired_private_message_media(*, now=None, limit: int = 100) -> int:
+    """Delete expired private blobs and retain only non-reversible evidence."""
+    now = now or timezone.now()
+    ids = list(
+        InstagramBotMessage.objects.filter(
+            private_media_delete_after__isnull=False,
+            private_media_delete_after__lte=now,
+        )
+        .order_by("private_media_delete_after", "id")
+        .values_list("id", flat=True)[: max(1, min(int(limit or 0), 500))]
+    )
+    storage = _private_media_storage()
+    purged = 0
+    for message_id in ids:
+        with transaction.atomic():
+            row = InstagramBotMessage.objects.select_for_update().filter(
+                pk=message_id,
+                private_media_delete_after__lte=now,
+            ).first()
+            if row is None:
+                continue
+            media = [dict(item) for item in (row.attachment_media or [])]
+            names = [
+                str(item.get("storage_name") or "")
+                for item in media
+                if isinstance(item, dict) and item.get("private_storage")
+            ]
+            try:
+                for name in names:
+                    if name and storage.exists(name):
+                        storage.delete(name)
+            except Exception:
+                continue
+            for item in media:
+                if not isinstance(item, dict) or not item.get("private_storage"):
+                    continue
+                item["status"] = "expired"
+                for key in (
+                    "storage_name", "local_url", "private_storage", "delete_after"
+                ):
+                    item.pop(key, None)
+            row.attachment_media = media
+            row.private_media_delete_after = None
+            row.save(update_fields=["attachment_media", "private_media_delete_after"])
+            purged += 1
+    return purged
+
+
+def delete_private_media_for_messages(queryset) -> int:
+    """Delete private blobs synchronously at the privacy-erasure boundary."""
+    storage = _private_media_storage()
+    names = []
+    for media in queryset.values_list("attachment_media", flat=True).iterator(
+        chunk_size=200
+    ):
+        for item in media or []:
+            if isinstance(item, dict) and item.get("private_storage"):
+                name = str(item.get("storage_name") or "")
+                if name:
+                    names.append(name)
+    deleted = 0
+    for name in dict.fromkeys(names):
+        if storage.exists(name):
+            storage.delete(name)
+            deleted += 1
+    return deleted
+
+
+def _maybe_purge_expired_private_media() -> None:
+    try:
+        if not cache.add("ig_private_media_purge_due", 1, timeout=3600):
+            return
+    except Exception:
+        pass
+    try:
+        purge_expired_private_message_media(limit=100)
+    except Exception as exc:
+        log("warning", "private_media_purge", type(exc).__name__)
 
 
 def _collect_images(
@@ -9690,6 +10157,8 @@ def configuration_warnings(s: InstagramBotSettings) -> list[str]:
         warnings.append("sender_allowlist_open")
     if not s.ai_enabled and (not (s.trigger_text or "").strip() or not (s.reply_text or "").strip()):
         warnings.append("debug_reply_unconfigured")
+    if not str(getattr(settings, "IG_PRIVATE_MEDIA_ROOT", "") or "").strip():
+        warnings.append("private_media_root_uses_ephemeral_tmp")
     return warnings
 
 
@@ -11206,6 +11675,7 @@ def _process_one_inside_reply_boundary(
     follow_cancelled_before_io = False
     routing_decision = None
     media_fail_safe = False
+    ad_resolution = None
 
     if row.client_id:
         # Логічний хід: усі вхідні, що прийшли поки бот ще не відповів, належать
@@ -11572,6 +12042,7 @@ def _process_one_inside_reply_boundary(
             recovered_media = _recover_current_message_media(row)
             media = recovered_media or []
             images = _collect_media_images(media)
+            media_binding = _source_media_binding(row, images)
             if not _renew_client_automation_lease(row, lease_token):
                 clear_typing_indicator()
                 return False
@@ -11605,9 +12076,14 @@ def _process_one_inside_reply_boundary(
             if row.client_id:
                 try:
                     from management.services import bot_memory
+                    from management.services.ig_ad_referral import resolve_ad_referral
 
                     mem_note = bot_memory.memory_note(row.client)
-                    ctx_note = bot_memory.client_context_note(row.client)
+                    ad_resolution = resolve_ad_referral(row.client)
+                    ctx_note = bot_memory.client_context_note(
+                        row.client,
+                        ad_resolution=ad_resolution,
+                    )
                 except Exception:
                     pass
             # Э2.4: нотатки менеджера — окремий блок даних, а не репліка моделі.
@@ -11689,6 +12165,7 @@ def _process_one_inside_reply_boundary(
                     media=media,
                     commerce_request=commerce_request,
                     client=row.client if row.client_id else None,
+                    ad_resolution=ad_resolution,
                 )
                 persist_decision(row, routing_decision)
                 reply = gemini_generate(
@@ -11699,6 +12176,7 @@ def _process_one_inside_reply_boundary(
                     turn_note=turn_notes,
                     failure_context=gemini_failure,
                     routing_decision=routing_decision,
+                    turn_media_binding=media_binding,
                 )
                 _persist_turn_intelligence(
                     row,
@@ -12914,6 +13392,7 @@ def _process_one_inside_reply_boundary(
 
 def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) -> int:
     s = s or InstagramBotSettings.load()
+    _maybe_purge_expired_private_media()
     if not s.is_enabled:
         return 0
     if _send_rate_limit_backoff_active(s):
@@ -14533,6 +15012,7 @@ def status_snapshot() -> dict:
         "provider_token_configured": provider_token_configured(s),
         "gemini_source": s.gemini_source,
         "ai_enabled": s.ai_enabled,
+        "settings_revision": s.settings_revision,
         "gemini_model": s.gemini_model,
         "gemini_effective_model": effective_model,
         "gemini_routing_mode": (

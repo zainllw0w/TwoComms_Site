@@ -3676,6 +3676,7 @@ class InstagramBotSettings(models.Model):
     )
     pinned_chat_model = models.CharField(max_length=80, blank=True, default="")
     pinned_until = models.DateTimeField(null=True, blank=True)
+    settings_revision = models.PositiveBigIntegerField(default=0)
     gemini_model = models.CharField(max_length=80, default="gemini-3.7-flash")
     system_prompt = models.TextField(blank=True, default=DEFAULT_BOT_SYSTEM_PROMPT)
     # Додаткова база знань (правила доставки, оплати, повернень, графік тощо).
@@ -3935,6 +3936,11 @@ class InstagramBotMessage(models.Model):
     # only a post-deploy live webhook (or its exact delayed promotion) enables
     # network capture, including raw-only attachments absent from `attachments`.
     media_capture_eligible = models.BooleanField(default=False)
+    private_media_delete_after = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     attempts = models.PositiveIntegerField(default=0)
     # Delivery boundary state. Once a provider request has started, an
     # ambiguous result must never be retried automatically (Meta has no

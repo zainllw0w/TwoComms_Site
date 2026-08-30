@@ -98,7 +98,7 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         self.assertNotIn("provider_body", source)
         self.assertNotIn("token_count", source)
 
-    def test_rows_render_accessible_two_model_rails_and_semantic_states(self):
+    def test_rows_render_accessible_four_model_rails_and_semantic_states(self):
         start = self.template.index("const GeminiHealth=(function(){")
         end = self.template.index("/* ============", start + 32)
         source = self.template[start:end]
@@ -107,6 +107,8 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
             "Array.from({length:24}",
             "gemini-3.7-flash",
             "gemini-3.6-flash",
+            "gemini-3.5-flash",
+            "gemini-3.5-flash-lite",
             "aria-label",
             "title=",
             "success",

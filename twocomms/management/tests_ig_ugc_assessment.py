@@ -113,6 +113,42 @@ class UGCIngressAssessmentTests(TestCase):
         self.assertEqual(assessment.people_count, 2)
         self.assertEqual(assessment.garment_count, 2)
 
+    def test_manager_review_notification_retries_until_unique_outbox_exists(self):
+        from management.ig_bot_models import IgUgcEvidenceAssessment
+        from management.models import IgBotNotification
+        from management.services import instagram_bot
+        from management.services.ig_ugc_assessment import (
+            reconcile_pending_ugc_media,
+        )
+
+        assessment = self._assessment(customer_created_content=False)
+        assessment.decision = IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW
+        assessment.generation += 1
+        assessment.save(update_fields=["decision", "generation", "updated_at"])
+        original_notify = instagram_bot.notify_manager
+        attempts = {"count": 0}
+
+        def flaky_notify(*args, **kwargs):
+            attempts["count"] += 1
+            if attempts["count"] == 1:
+                return False
+            return original_notify(*args, **kwargs)
+
+        with patch.object(instagram_bot, "notify_manager", side_effect=flaky_notify):
+            first = reconcile_pending_ugc_media(limit=1)
+            second = reconcile_pending_ugc_media(limit=1)
+            third = reconcile_pending_ugc_media(limit=1)
+
+        dedupe = f"ugc_review:{assessment.pk}:{assessment.generation}"
+        self.assertEqual(first["review_queued"], 0)
+        self.assertEqual(second["review_queued"], 1)
+        self.assertEqual(third["review_queued"], 0)
+        self.assertEqual(attempts["count"], 2)
+        self.assertEqual(
+            IgBotNotification.objects.filter(dedupe_key=dedupe).count(),
+            1,
+        )
+
     @patch("management.services.bot_vision.build_match_candidates", return_value=[])
     @patch("management.services.bot_vision.assess_ugc")
     @patch("management.services.instagram_bot.download_image")

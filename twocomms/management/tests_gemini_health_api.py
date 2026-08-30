@@ -62,7 +62,7 @@ class GeminiHealthApiTests(TestCase):
 
     def test_get_returns_snapshot_and_never_calls_provider(self):
         snapshot = {
-            "schema_version": 3,
+            "schema_version": 4,
             "generated_at": "2026-08-18T12:00:00+00:00",
             "window": {"hours": 24},
             "summary": {"configured": 0},
@@ -124,7 +124,7 @@ class GeminiHealthApiTests(TestCase):
             {"slot_id": "gslot_unknown", "model": "gemini-3.7-flash"},
             {"slot_id": "GEMINI_API", "model": "gemini-3.7-flash"},
             {"slot_id": gemini_health.SLOT_IDS[0], "model": ""},
-            {"slot_id": gemini_health.SLOT_IDS[0], "model": "gemini-3.5-flash"},
+            {"slot_id": gemini_health.SLOT_IDS[0], "model": "gemini-2.5-flash"},
             {"slot_id": gemini_health.SLOT_IDS[0], "model": "gemini-3.7-flash "},
         )
         with patch("management.services.gemini_probe.probe_key_metadata") as probe_key:

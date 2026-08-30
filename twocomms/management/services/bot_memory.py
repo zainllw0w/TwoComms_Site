@@ -334,17 +334,21 @@ def order_status_note(client, reference: str = "") -> str | None:
     return msg
 
 
-def client_context_note(client) -> str | None:
+def client_context_note(client, *, ad_resolution=None) -> str | None:
     """Компактний контекст клієнта для швидкої орієнтації бота: атрибуція реклами
     (з мапінгом на товар/тему), статус постійного клієнта і статус останнього
     замовлення. Дає змогу одразу вести по суті, а не питати «дайте фото»."""
     parts = []
     try:
-        from management.models import BotAdCampaign
+        if ad_resolution is None:
+            from management.services.ig_ad_referral import resolve_ad_referral
 
-        camp = None
-        if client.ad_id or client.ad_ref:
-            camp = BotAdCampaign.match(ad_id=client.ad_id or None, ref=client.ad_ref or None)
+            ad_resolution = resolve_ad_referral(client)
+        camp = (
+            getattr(ad_resolution, "campaign", None)
+            if getattr(ad_resolution, "status", "") == "resolved"
+            else None
+        )
         if camp and camp.product_id:
             p = camp.product
             from management.services.ig_catalog_pricing import resolve_product_pricing

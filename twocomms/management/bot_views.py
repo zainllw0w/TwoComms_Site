@@ -81,6 +81,7 @@ _REVIEWER_STATUS_ALLOWED_KEYS = frozenset({
     "running",
     "daemon_online",
     "pending",
+    "settings_revision",
 })
 
 
@@ -241,9 +242,13 @@ def _delete_direct_bot_records(identifier: str) -> dict:
                 Q(sender_id__in=sender_ids) | Q(client__in=clients)
             ).exclude(mid__isnull=True).values_list("mid", flat=True)
         )
-        messages_count, _ = InstagramBotMessage.objects.filter(
+        message_scope = InstagramBotMessage.objects.filter(
             Q(sender_id__in=sender_ids) | Q(client__in=clients)
-        ).delete()
+        )
+        from management.services.instagram_bot import delete_private_media_for_messages
+
+        delete_private_media_for_messages(message_scope)
+        messages_count, _ = message_scope.delete()
         raw_events_count, _ = InstagramBotRawEvent.objects.filter(sender_id__in=sender_ids).delete()
         # Только структурная принадлежность по IGSID, никогда `icontains`
         # по свободному тексту (F-SEC-003).
@@ -3558,48 +3563,48 @@ def bot_settings_save_api(request):
     if blocked:
         return blocked
     s = InstagramBotSettings.load()
+    posted_update_fields: set[str] = set()
     requested_allowed_senders = (
         (request.POST.get("allowed_senders") or "").strip()
         if "allowed_senders" in request.POST
         else s.allowed_senders
     )
-    allowlist_policy_changed = (
-        not _is_reviewer_only(request.user)
-        and "allowed_senders" in request.POST
-        and requested_allowed_senders != s.allowed_senders
-    )
-
     reviewer_mode = _is_reviewer_only(request.user)
     routing_before = {
         "mode": s.gemini_routing_mode,
         "pinned_model": s.pinned_chat_model,
         "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
     }
-    routing_changed = False
     routing_requested = bool(
         not reviewer_mode and "gemini_routing_mode" in request.POST
     )
     if not reviewer_mode:
         direct_source = (request.POST.get("direct_source") or "").strip()
-        if direct_source in InstagramBotSettings.CredSource.values:
+        if "direct_source" in request.POST and direct_source in InstagramBotSettings.CredSource.values:
             s.direct_source = direct_source
+            posted_update_fields.add("direct_source")
         gemini_source = (request.POST.get("gemini_source") or "").strip()
-        if gemini_source in InstagramBotSettings.CredSource.values:
+        if "gemini_source" in request.POST and gemini_source in InstagramBotSettings.CredSource.values:
             s.gemini_source = gemini_source
+            posted_update_fields.add("gemini_source")
 
         try:
             if "custom_direct_token" in request.POST:
                 value = (request.POST.get("custom_direct_token") or "").strip()
                 if value:
                     s.custom_direct_token = value
+                    posted_update_fields.add("custom_direct_token_encrypted")
             if _truthy(request.POST.get("clear_custom_direct_token")):
                 s.custom_direct_token = ""
+                posted_update_fields.add("custom_direct_token_encrypted")
             if "custom_gemini_key" in request.POST:
                 value = (request.POST.get("custom_gemini_key") or "").strip()
                 if value:
                     s.custom_gemini_key = value
+                    posted_update_fields.add("custom_gemini_key_encrypted")
             if _truthy(request.POST.get("clear_custom_gemini_key")):
                 s.custom_gemini_key = ""
+                posted_update_fields.add("custom_gemini_key_encrypted")
         except BotSecretEncryptionUnavailable:
             return JsonResponse(
                 {
@@ -3610,11 +3615,13 @@ def bot_settings_save_api(request):
             )
 
         trigger = (request.POST.get("trigger_text") or "").strip()
-        if trigger:
+        if "trigger_text" in request.POST and trigger:
             s.trigger_text = trigger[:255]
+            posted_update_fields.add("trigger_text")
         reply = (request.POST.get("reply_text") or "").strip()
-        if reply:
+        if "reply_text" in request.POST and reply:
             s.reply_text = reply[:1000]
+            posted_update_fields.add("reply_text")
 
     # AI-режим / модель / правило / білий список.
     # `ai_enabled` залишається доступним reviewer'у: це демонстрація основної
@@ -3622,7 +3629,9 @@ def bot_settings_save_api(request):
     # Читаємо беззастережно: незнятий чекбокс браузер не надсилає, тому
     # умовне читання зламало б саме вимикання ШІ.
     ai_enabled_before = s.ai_enabled
-    s.ai_enabled = (request.POST.get("ai_enabled") or "").strip() in {"1", "true", "on", "yes"}
+    if "ai_enabled" in request.POST:
+        s.ai_enabled = (request.POST.get("ai_enabled") or "").strip() in {"1", "true", "on", "yes"}
+        posted_update_fields.add("ai_enabled")
     if reviewer_mode and s.ai_enabled != ai_enabled_before:
         _audit_reviewer_action(
             request, f"ai_enabled={'on' if s.ai_enabled else 'off'}"
@@ -3630,10 +3639,15 @@ def bot_settings_save_api(request):
     if not reviewer_mode:
         # Транспорт приймання подій — робоча конфігурація продакшену,
         # а не демо-перемикач (F-SEC-004, DR-006).
-        s.receive_via_poll = (request.POST.get("receive_via_poll") or "").strip() in {"1", "true", "on", "yes"}
-        s.meta_feedback_enabled = _truthy(request.POST.get("meta_feedback_enabled"))
+        if "receive_via_poll" in request.POST:
+            s.receive_via_poll = (request.POST.get("receive_via_poll") or "").strip() in {"1", "true", "on", "yes"}
+            posted_update_fields.add("receive_via_poll")
+        if "meta_feedback_enabled" in request.POST:
+            s.meta_feedback_enabled = _truthy(request.POST.get("meta_feedback_enabled"))
+            posted_update_fields.add("meta_feedback_enabled")
         if "meta_feedback_test_event_code" in request.POST:
             s.meta_feedback_test_event_code = (request.POST.get("meta_feedback_test_event_code") or "")[:120]
+            posted_update_fields.add("meta_feedback_test_event_code")
     model = (request.POST.get("gemini_model") or "").strip()
     if model and not reviewer_mode:
         # Зміна робочої моделі Gemini — не демо-дія (F-SEC-004, DR-006).
@@ -3642,6 +3656,7 @@ def bot_settings_save_api(request):
         if not is_allowed_chat_model(model):
             return JsonResponse({"success": False, "error": "Недозволена модель Gemini."}, status=400)
         s.gemini_model = model[:80]
+        posted_update_fields.add("gemini_model")
     if routing_requested:
         requested_mode = str(request.POST.get("gemini_routing_mode") or "").strip()
         if requested_mode not in InstagramBotSettings.GeminiRoutingMode.values:
@@ -3676,36 +3691,45 @@ def bot_settings_save_api(request):
             s.gemini_routing_mode = InstagramBotSettings.GeminiRoutingMode.ADAPTIVE
             s.pinned_chat_model = ""
             s.pinned_until = None
-        routing_changed = routing_before != {
-            "mode": s.gemini_routing_mode,
-            "pinned_model": s.pinned_chat_model,
-            "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
-        }
+        posted_update_fields.update({
+            "gemini_routing_mode", "pinned_chat_model", "pinned_until"
+        })
     if "system_prompt" in request.POST:
         if not reviewer_mode:
             s.system_prompt = (request.POST.get("system_prompt") or "").strip()
+            posted_update_fields.add("system_prompt")
     if "knowledge_base" in request.POST:
         if not reviewer_mode:
             s.knowledge_base = (request.POST.get("knowledge_base") or "").strip()
+            posted_update_fields.add("knowledge_base")
     if "allowed_senders" in request.POST:
         if not reviewer_mode:
             s.allowed_senders = (request.POST.get("allowed_senders") or "").strip()
+            posted_update_fields.add("allowed_senders")
 
-    if not reviewer_mode:
+    if not reviewer_mode and "poll_interval_seconds" in request.POST:
         try:
             interval = int(request.POST.get("poll_interval_seconds") or s.poll_interval_seconds)
             s.poll_interval_seconds = max(2, min(60, interval))
+            posted_update_fields.add("poll_interval_seconds")
         except (TypeError, ValueError):
             pass
 
-    routing_after = {
-        "mode": s.gemini_routing_mode,
-        "pinned_model": s.pinned_chat_model,
-        "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
-    }
-
     class RoutingPolicyConflict(Exception):
         pass
+
+    class SettingsRevisionConflict(Exception):
+        pass
+
+    expected_revision = None
+    if "settings_revision" in request.POST:
+        try:
+            expected_revision = int(request.POST.get("settings_revision"))
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {"success": False, "error": "Некоректна ревізія налаштувань."},
+                status=400,
+            )
 
     def persist_settings_and_audit():
         with transaction.atomic():
@@ -3721,51 +3745,82 @@ def bot_settings_save_api(request):
                     else ""
                 ),
             }
+            if (
+                expected_revision is not None
+                and int(locked_settings.settings_revision or 0) != expected_revision
+            ):
+                raise SettingsRevisionConflict
             if routing_requested and locked_routing != routing_before:
                 raise RoutingPolicyConflict
-            if not routing_requested:
-                s.gemini_routing_mode = locked_settings.gemini_routing_mode
-                s.pinned_chat_model = locked_settings.pinned_chat_model
-                s.pinned_until = locked_settings.pinned_until
-            if allowlist_policy_changed:
-                s.allowed_senders = requested_allowed_senders
-                s.reply_permission_epoch = (
+            allowlist_changed_locked = bool(
+                "allowed_senders" in posted_update_fields
+                and locked_settings.allowed_senders != requested_allowed_senders
+            )
+            for field in posted_update_fields:
+                setattr(locked_settings, field, getattr(s, field))
+            if allowlist_changed_locked:
+                locked_settings.allowed_senders = requested_allowed_senders
+                locked_settings.reply_permission_epoch = (
                     int(locked_settings.reply_permission_epoch or 0) + 1
                 )
-            s.save()
-            if not routing_changed:
-                return
+            save_fields = set(posted_update_fields)
+            if allowlist_changed_locked:
+                save_fields.add("reply_permission_epoch")
+            if save_fields:
+                locked_settings.settings_revision = (
+                    int(locked_settings.settings_revision or 0) + 1
+                )
+                save_fields.update({"settings_revision", "updated_at"})
+                locked_settings.save(update_fields=save_fields)
+            locked_after = {
+                "mode": locked_settings.gemini_routing_mode,
+                "pinned_model": locked_settings.pinned_chat_model,
+                "pinned_until": (
+                    locked_settings.pinned_until.isoformat()
+                    if locked_settings.pinned_until
+                    else ""
+                ),
+            }
+            routing_changed_locked = locked_routing != locked_after
+            if not routing_changed_locked:
+                return locked_settings
             AdminAuditLog.objects.create(
                 actor=request.user,
                 actor_role="staff",
                 action="ig_gemini.routing_policy_changed",
                 entity_type="InstagramBotSettings",
                 entity_id=str(s.pk),
-                before=routing_before,
-                after=routing_after,
+                before=locked_routing,
+                after=locked_after,
                 reason=(
                     "temporary_emergency_pin"
-                    if s.gemini_routing_mode
+                    if locked_settings.gemini_routing_mode
                     == InstagramBotSettings.GeminiRoutingMode.PINNED
                     else "adaptive_routing_restored"
                 ),
                 ip=request.META.get("REMOTE_ADDR") or None,
                 user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:512],
             )
+            return locked_settings
 
     try:
-        if allowlist_policy_changed:
+        if "allowed_senders" in posted_update_fields:
             # Permission generation and routing audit share one row lock and
             # transaction. An audit failure rolls the settings change back.
             from management.services.ig_reply_boundary import pause_reply_boundary
 
             with pause_reply_boundary():
-                persist_settings_and_audit()
+                s = persist_settings_and_audit()
         else:
-            persist_settings_and_audit()
+            s = persist_settings_and_audit()
     except RoutingPolicyConflict:
         return JsonResponse(
             {"success": False, "error": "Політика маршрутизації вже змінилась."},
+            status=409,
+        )
+    except SettingsRevisionConflict:
+        return JsonResponse(
+            {"success": False, "error": "Налаштування вже змінено в іншому вікні."},
             status=409,
         )
     # Скинути кеш токена/кулдаун, щоб новий токен підхопився одразу.

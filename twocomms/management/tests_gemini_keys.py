@@ -76,10 +76,11 @@ class Parse429Tests(SimpleTestCase):
         self.assertEqual(scope, "day")
         self.assertEqual(secs, 0)
 
-    def test_ambiguous_defaults_to_minute_not_day(self):
+    def test_ambiguous_defaults_to_accounting_unknown(self):
         from management.services import gemini_keys as gk
         scope, secs = gk.parse_429('{"error":{"message":"check your plan and billing details"}}')
-        self.assertEqual(scope, "minute")
+        self.assertEqual(scope, "unknown")
+        self.assertEqual(secs, 0)
 
 
 class MarkAndAvailabilityTests(TestCase):

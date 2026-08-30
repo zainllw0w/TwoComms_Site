@@ -2,8 +2,10 @@
 from contextlib import nullcontext
 from datetime import timedelta
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 import json
+import tempfile
 from unittest.mock import Mock, mock_open, patch
 
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -402,6 +404,114 @@ class MediaSemanticsTests(SimpleTestCase):
         self.assertTrue(resolved[0]["uncertain"])
 
 
+class PrivateMessageMediaStorageTests(TestCase):
+    def test_private_root_inside_public_media_is_rejected(self):
+        from django.core.exceptions import ImproperlyConfigured
+        from management.services.instagram_bot import _private_media_storage
+
+        with tempfile.TemporaryDirectory() as public_root, override_settings(
+            MEDIA_ROOT=public_root,
+            IG_PRIVATE_MEDIA_ROOT=str(Path(public_root) / "private"),
+        ):
+            with self.assertRaises(ImproperlyConfigured):
+                _private_media_storage()
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_audio_is_private_has_no_public_url_and_is_purged(self, download):
+        from management.services.instagram_bot import (
+            _capture_message_media,
+            purge_expired_private_message_media,
+        )
+
+        download.return_value = ("audio/ogg", b"private-voice")
+        with tempfile.TemporaryDirectory() as private_root, tempfile.TemporaryDirectory() as public_root:
+            with override_settings(
+                IG_PRIVATE_MEDIA_ROOT=private_root,
+                IG_PRIVATE_MEDIA_RETENTION_SECONDS=3600,
+                MEDIA_ROOT=public_root,
+            ):
+                row = InstagramBotMessage.objects.create(
+                    sender_id="private-audio-client",
+                    role=InstagramBotMessage.Role.USER,
+                    source="webhook",
+                    mid="private-audio-mid",
+                    media_capture_eligible=True,
+                    attachments='["https://lookaside.invalid/voice.ogg"]',
+                    attachment_media=[{
+                        "url": "https://lookaside.invalid/voice.ogg",
+                        "media_type": "audio",
+                        "provenance": "live_webhook",
+                        "status": "pending",
+                    }],
+                )
+
+                _capture_message_media(row)
+
+                row.refresh_from_db()
+                owned = row.attachment_media[0]
+                self.assertTrue(owned["private_storage"])
+                self.assertNotIn("local_url", owned)
+                self.assertTrue((Path(private_root) / owned["storage_name"]).exists())
+                self.assertFalse((Path(public_root) / owned["storage_name"]).exists())
+                self.assertIsNotNone(row.private_media_delete_after)
+
+                purged = purge_expired_private_message_media(
+                    now=row.private_media_delete_after + timedelta(seconds=1),
+                )
+
+                self.assertEqual(purged, 1)
+                row.refresh_from_db()
+                self.assertEqual(row.attachment_media[0]["status"], "expired")
+                self.assertNotIn("storage_name", row.attachment_media[0])
+                self.assertIsNone(row.private_media_delete_after)
+
+    @patch("requests.post")
+    def test_private_audio_is_uploaded_directly_without_public_url(self, post):
+        from management.services.instagram_bot import (
+            _private_media_storage,
+            _telegram_private_media_call,
+        )
+
+        observed = {}
+
+        def send(url, *, data, files, timeout):
+            observed.update({
+                "url": url,
+                "data": data,
+                "field": next(iter(files)),
+                "mime": next(iter(files.values()))[2],
+                "raw": next(iter(files.values()))[1].read(),
+                "timeout": timeout,
+            })
+            return SimpleNamespace(status_code=200, text='{"ok":true}')
+
+        post.side_effect = send
+        with tempfile.TemporaryDirectory() as private_root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=private_root,
+        ):
+            _private_media_storage()
+            name = "ig_message_media/voice.ogg"
+            path = Path(private_root) / name
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"voice")
+            code, body = _telegram_private_media_call(
+                token="redacted-token",
+                chat="777",
+                media={
+                    "private_storage_name": name,
+                    "mime": "audio/ogg",
+                },
+                caption="Voice evidence",
+                reply_to_message_id="10",
+            )
+
+        self.assertEqual((code, body), (200, '{"ok":true}'))
+        self.assertTrue(observed["url"].endswith("/sendAudio"))
+        self.assertEqual(observed["field"], "audio")
+        self.assertEqual(observed["mime"], "audio/ogg")
+        self.assertEqual(observed["raw"], b"voice")
+
+
 class HistoricalAttachmentOwnershipTests(TestCase):
     def setUp(self):
         from management.models import IgClient
@@ -469,13 +579,14 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         "management.services.instagram_bot.download_image",
         return_value=("image/jpeg", b"new-live-image"),
     )
-    @patch("django.core.files.storage.default_storage")
+    @patch("management.services.instagram_bot._private_media_storage")
     def test_history_promotion_downloads_only_the_new_live_attachment(
         self,
         storage,
         download,
     ):
         from management.services import instagram_bot
+        storage = storage.return_value
 
         old_url = "https://lookaside.example/expired-import.jpg"
         live_url = "https://lookaside.example/new-live.jpg"
@@ -528,11 +639,12 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         "management.services.instagram_bot.download_image",
         return_value=("image/jpeg", b"same-url-live-image"),
     )
-    @patch("django.core.files.storage.default_storage")
+    @patch("management.services.instagram_bot._private_media_storage")
     def test_delayed_webhook_promotes_same_historical_url_to_live_owned(
         self, storage, download
     ):
         from management.services import instagram_bot
+        storage = storage.return_value
 
         url = "https://lookaside.example/same-delayed-url.jpg"
         event_at = timezone.now()
@@ -669,7 +781,7 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         self.assertEqual(media, [])
         download.assert_not_called()
 
-    @patch("django.core.files.storage.default_storage")
+    @patch("management.services.instagram_bot._private_media_storage")
     @patch(
         "management.services.instagram_bot.download_image",
         return_value=("image/jpeg", b"fresh-webhook-image"),
@@ -680,10 +792,10 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         storage,
     ):
         from management.services import instagram_bot
+        storage = storage.return_value
 
         storage.exists.return_value = False
         storage.save.return_value = "ig_message_media/1/fresh.jpg"
-        storage.url.return_value = "/media/ig_message_media/1/fresh.jpg"
         storage.open.return_value = mock_open(read_data=b"fresh-webhook-image").return_value
         row = self.message(
             source="webhook",
@@ -706,7 +818,7 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         "management.services.instagram_bot.download_image",
         return_value=("image/jpeg", b"raw-live-image"),
     )
-    @patch("django.core.files.storage.default_storage")
+    @patch("management.services.instagram_bot._private_media_storage")
     def test_raw_only_live_webhook_media_is_captured_before_analysis(
         self,
         storage,
@@ -714,10 +826,10 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         raw_media,
     ):
         from management.services import instagram_bot
+        storage = storage.return_value
 
         storage.exists.return_value = False
         storage.save.return_value = "ig_message_media/raw/raw.jpg"
-        storage.url.return_value = "/media/ig_message_media/raw/raw.jpg"
         raw_media.return_value = {
             "raw-only-mid": [{
                 "url": "https://lookaside.example/raw-live.jpg",
@@ -785,11 +897,12 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         "management.services.instagram_bot.download_image",
         return_value=("image/jpeg", b"unmatched-live-image"),
     )
-    @patch("django.core.files.storage.default_storage")
+    @patch("management.services.instagram_bot._private_media_storage")
     def test_unmatched_raw_live_media_uses_timestamp_bounded_capture(
         self, storage, download, raw_media
     ):
         from management.services import instagram_bot
+        storage = storage.return_value
 
         storage.exists.return_value = False
         storage.save.return_value = "ig_message_media/raw/unmatched.jpg"
@@ -817,9 +930,10 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         "management.services.instagram_bot.download_image",
         return_value=("image/jpeg", b"one-image"),
     )
-    @patch("django.core.files.storage.default_storage")
+    @patch("management.services.instagram_bot._private_media_storage")
     def test_capture_budget_does_not_delete_unacquired_metadata(self, storage, download):
         from management.services import instagram_bot
+        storage = storage.return_value
 
         storage.exists.return_value = False
         storage.save.return_value = "ig_message_media/budget/0.jpg"

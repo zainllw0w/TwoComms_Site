@@ -13,16 +13,21 @@ from management.models import GeminiRequestAttempt
 from management.services import gemini_keys
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 WINDOW_HOURS = 24
 BUCKET_COUNT = 24
 ATTEMPT_QUERY_CAP = 2000
 METADATA_ATTEMPT_QUERY_CAP = 512
 FRESH_EVIDENCE_SECONDS = 7500
-DISPLAY_MODELS = ("gemini-3.7-flash", "gemini-3.6-flash")
+DISPLAY_MODELS = (
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+)
 MODELS = DISPLAY_MODELS
 OTHER_GENERATION_MODELS = ("gemini-3.5-flash", "gemini-3.5-flash-lite")
-GENERATION_MODELS = DISPLAY_MODELS + OTHER_GENERATION_MODELS
+GENERATION_MODELS = tuple(dict.fromkeys(DISPLAY_MODELS + OTHER_GENERATION_MODELS))
 METADATA_ROLES = frozenset(("health_metadata", "health_probe"))
 KEY_ALIASES = (
     "GEMINI_API",

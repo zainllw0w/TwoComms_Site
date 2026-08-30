@@ -314,7 +314,7 @@ class GeminiHealthSnapshotTests(TestCase):
     def test_empty_pool_is_stable_six_rows_with_gray_24_bucket_histories(self):
         snapshot = self._build()
 
-        self.assertEqual(snapshot["schema_version"], 3)
+        self.assertEqual(snapshot["schema_version"], 4)
         self.assertEqual(snapshot["window"]["hours"], 24)
         self.assertEqual(snapshot["window"]["bucket_count"], 24)
         self.assertEqual([row["alias"] for row in snapshot["keys"]], [

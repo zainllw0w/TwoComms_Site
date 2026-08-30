@@ -136,6 +136,17 @@ IG_UGC_AUTO_AWARD_MODE = os.environ.get(
 if IG_UGC_AUTO_AWARD_MODE not in {'auto', 'shadow', 'disabled'}:
     IG_UGC_AUTO_AWARD_MODE = 'shadow'
 
+# Ephemeral customer image/audio ownership. This directory must be outside
+# MEDIA_ROOT (and should be outside the checkout in production); no public URL
+# is ever generated for these blobs.
+IG_PRIVATE_MEDIA_ROOT = os.environ.get('IG_PRIVATE_MEDIA_ROOT', '').strip()
+try:
+    IG_PRIVATE_MEDIA_RETENTION_SECONDS = int(
+        os.environ.get('IG_PRIVATE_MEDIA_RETENTION_SECONDS', '259200')
+    )
+except (TypeError, ValueError):
+    IG_PRIVATE_MEDIA_RETENTION_SECONDS = 259200
+
 # ЭА — аварийная стабилизация деградации провайдера Gemini для Instagram-бота.
 # Все флаги по умолчанию ВКЛЮЧЕНЫ: текущее (старое) поведение доказанно вредит
 # клиентам — один клиент получил три одинаковых «технічна затримка» за 5 мин 53 с.

@@ -198,7 +198,7 @@ class _Gemini429(Exception):
         provider_reason: str = "RESOURCE_EXHAUSTED",
     ):
         super().__init__(message)
-        self.scope = scope if scope in {"minute", "day", "topup"} else ""
+        self.scope = scope if scope in {"minute", "day", "topup", "unknown"} else ""
         self.retry_after_seconds = max(0, int(retry_after_seconds or 0))
         self.provider_reason = str(provider_reason or "RESOURCE_EXHAUSTED")[:80]
 
@@ -207,7 +207,7 @@ def _quota_scope_and_retry(exc: Exception) -> tuple[str, int]:
     """Return typed quota scope, retaining compatibility with older callers."""
     scope = str(getattr(exc, "scope", "") or "")
     seconds = max(0, int(getattr(exc, "retry_after_seconds", 0) or 0))
-    if scope in {"minute", "day", "topup"}:
+    if scope in {"minute", "day", "topup", "unknown"}:
         return scope, seconds
     return gemini_keys.parse_429(str(exc))
 
@@ -1769,10 +1769,8 @@ def _provider_error_details(response) -> dict:
                 quota_scope = "minute"
             if quota_id:
                 parts.append(f"quota={quota_id[:64]}")
-    if not quota_scope and retry_after_seconds:
-        quota_scope = "day" if retry_after_seconds > 3600 else "minute"
     if not quota_scope and status == "RESOURCE_EXHAUSTED":
-        quota_scope = "minute"
+        quota_scope = "unknown"
     summary = ":".join(dict.fromkeys(parts))[:240] or "UNKNOWN"
     return {
         "summary": summary,

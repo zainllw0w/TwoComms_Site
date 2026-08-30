@@ -8,6 +8,7 @@ instead of being replayed.
 """
 from __future__ import annotations
 
+import json
 import secrets
 from contextlib import contextmanager
 from datetime import timedelta
@@ -1050,13 +1051,36 @@ def _generate_recovery_draft(
     )
     model_context = model_context if isinstance(model_context, dict) else {}
 
-    media_expected = bool(
-        str(getattr(target, "attachments", "") or "").strip()
-        or list(getattr(target, "attachment_media", None) or [])
+    existing_intelligence = (
+        target.turn_intelligence_artifact
+        if isinstance(target.turn_intelligence_artifact, dict)
+        else {}
     )
-    recovered_media = _recover_current_message_media(target)
-    media = recovered_media or []
-    images = _collect_media_images(media)
+    if existing_intelligence:
+        media_expected = False
+        media = []
+        images = []
+        artifact_context = json.dumps(
+            {
+                "intent": existing_intelligence.get("intent"),
+                "transcript": existing_intelligence.get("transcript"),
+                "audio_status": existing_intelligence.get("audio_status"),
+                "catalog_candidates": existing_intelligence.get("catalog_candidates") or [],
+                "catalog_resolution": existing_intelligence.get("catalog_resolution"),
+                "media_digest": existing_intelligence.get("media_digest"),
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )[:8000]
+    else:
+        media_expected = bool(
+            str(getattr(target, "attachments", "") or "").strip()
+            or list(getattr(target, "attachment_media", None) or [])
+        )
+        recovered_media = _recover_current_message_media(target)
+        media = recovered_media or []
+        images = _collect_media_images(media)
+        artifact_context = ""
     apology_delivered = _apology_already_delivered(job)
     apology_warranted = _recovery_apology_warranted(
         job, target, apology_delivered=apology_delivered
@@ -1106,8 +1130,20 @@ def _generate_recovery_draft(
             history,
             images=images or None,
             client=job.client,
-            context_note=manager_notes or None,
-            media_hint=_media_context_hint(media),
+            context_note="\n\n".join(
+                value
+                for value in (
+                    manager_notes,
+                    (
+                        "[IMMUTABLE TURN INTELLIGENCE — reuse; do not infer new media facts]\n"
+                        + artifact_context
+                        if artifact_context
+                        else ""
+                    ),
+                )
+                if value
+            ) or None,
+            media_hint=_media_context_hint(media) if media else None,
             turn_note=(
                 _RECOVERY_TURN_NOTE_WITH_APOLOGY
                 if apology_warranted

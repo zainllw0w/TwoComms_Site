@@ -1411,6 +1411,7 @@ body.bot-drawer-open{overflow:hidden;}
       </div>
       {% endif %}
       <form id="bot-settings-form">
+        <input type="hidden" name="settings_revision" value="{{ settings.settings_revision }}">
         {% if not meta_bot_reviewer_mode %}
         <div class="bot-grid2">
           <div class="bot-field">
@@ -1432,8 +1433,10 @@ body.bot-drawer-open{overflow:hidden;}
         <div class="bot-grid2">
           <div class="bot-field">
             <label>Режим відповіді</label>
-            <label class="bot-radio"><input type="checkbox" name="ai_enabled" id="ai_enabled" {% if settings.ai_enabled %}checked{% endif %}> Спілкування зі ШІ (Gemini)</label>
-            <label class="bot-radio"><input type="checkbox" name="receive_via_poll" id="receive_via_poll" {% if settings.receive_via_poll %}checked{% endif %}> Резервне опитування Instagram</label>
+            <input type="hidden" name="ai_enabled" value="0">
+            <label class="bot-radio"><input type="checkbox" name="ai_enabled" id="ai_enabled" value="1" {% if settings.ai_enabled %}checked{% endif %}> Спілкування зі ШІ (Gemini)</label>
+            <input type="hidden" name="receive_via_poll" value="0">
+            <label class="bot-radio"><input type="checkbox" name="receive_via_poll" id="receive_via_poll" value="1" {% if settings.receive_via_poll %}checked{% endif %}> Резервне опитування Instagram</label>
           </div>
           <div class="bot-field">
             <label>Модель для тимчасового pin</label>
@@ -1474,7 +1477,8 @@ body.bot-drawer-open{overflow:hidden;}
         <div class="bot-grid2">
           <div class="bot-field">
             <label>Зворотні події Meta Conversions API</label>
-            <label class="bot-radio"><input type="checkbox" name="meta_feedback_enabled" {% if settings.meta_feedback_enabled %}checked{% endif %}> Увімкнути безпечні зворотні події</label>
+            <input type="hidden" name="meta_feedback_enabled" value="0">
+            <label class="bot-radio"><input type="checkbox" name="meta_feedback_enabled" value="1" {% if settings.meta_feedback_enabled %}checked{% endif %}> Увімкнути безпечні зворотні події</label>
             <div class="bot-hint">За замовчуванням вимкнено. Події лише з Instagram без даних для зіставлення з клієнтом позначаються як пропущені.</div>
           </div>
           <div class="bot-field">
@@ -1878,6 +1882,8 @@ body.bot-drawer-open{overflow:hidden;}
     const models=[
       {id:'gemini-3.7-flash',short:'3.7'},
       {id:'gemini-3.6-flash',short:'3.6'},
+      {id:'gemini-3.5-flash',short:'3.5'},
+      {id:'gemini-3.5-flash-lite',short:'3.5 Lite'},
     ];
     const stateLabels={available:'Доступний у пулі',busy:'Зайнятий у пулі',cooldown:'Cooldown у пулі',unconfigured:'Не налаштовано',unavailable:'Недоступний у пулі'};
     const liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО',DEGRADED:'DEGRADED',OFFLINE:'OFFLINE',STALE:'STALE',NOT_CONFIGURED:'NOT CONFIGURED'};
@@ -1968,9 +1974,21 @@ body.bot-drawer-open{overflow:hidden;}
       batchStatus.classList.add(batch.complete?'is-complete':'is-incomplete');
       batchStatus.title=batch.complete?'Усі ключі цього hourly batch мають збережене спостереження':'Частина ключів цього hourly batch не має збереженого спостереження';
     }
-    function renderFallback(data){
+    function renderFallback(data,latestRoute){
       if(!fallback)return;fallback.replaceChildren();fallback.hidden=false;
-      if(!data){fallback.dataset.state='neutral';fallback.append(make('strong','', 'Перемикання не зафіксовано'),make('span','', 'За останні 24 години немає доведеного переходу з 3.7 на 3.6.'));return;}
+      const route=latestRoute&&typeof latestRoute==='object'?latestRoute:null;
+      const steps=route&&Array.isArray(route.steps)?route.steps.filter(step=>step&&models.some(model=>model.id===step.model)):[];
+      if(steps.length){
+        fallback.dataset.state=data?'fallback':'neutral';
+        const chain=steps.map(step=>{
+          const label=shortModel(step.model)||String(step.model||'');
+          const outcome=String(step.outcome||'');
+          return label+(outcome==='succeeded'?' ✓':outcome==='not_attempted'?' · пропущено':' · '+(outcome||'спроба'));
+        }).join(' → ');
+        const detail=data?(fallbackReasons[String(data.reason||'')]||'Причину нормалізовано сервером'):'Повний фактичний candidate route між проєктами';
+        fallback.append(make('strong','', 'Останній маршрут'),make('span','',chain+' · '+detail));return;
+      }
+      if(!data){fallback.dataset.state='neutral';fallback.append(make('strong','', 'Перемикання не зафіксовано'),make('span','', 'За останні 24 години немає доведеного переходу між моделями.'));return;}
       fallback.dataset.state='fallback';
       const from=models.some(item=>item.id===data.from_model)?data.from_model:'gemini-3.7-flash';
       const to=models.some(item=>item.id===data.to_model)?data.to_model:'gemini-3.6-flash';
@@ -2042,7 +2060,7 @@ body.bot-drawer-open{overflow:hidden;}
       actions.append(actionLabel,select,probeButton);row.appendChild(actions);return row;
     }
     function render(data,{passive=false}={}){
-      lastSnapshot=data;const source=Array.isArray(data.keys)?data.keys:[];renderSummary(data.summary||{},source);renderBatch(data);renderFallback(data.fallback||null);
+      lastSnapshot=data;const source=Array.isArray(data.keys)?data.keys:[];renderSummary(data.summary||{},source);renderBatch(data);renderFallback(data.fallback||null,data.latest_route||null);
       if(keys){keys.replaceChildren();for(let index=1;index<=6;index+=1)keys.appendChild(renderKey(source[index-1]||{},index));keys.setAttribute('aria-busy','false');}
       if(freshness){freshness.textContent='Оновлено '+formatDate(data.generated_at);freshness.title=String(data.generated_at||'');}
       if(!passive){const summaryData=data.summary||{};const observations=integer(summaryData.observations)+integer(summaryData.metadata_observations);setFeedback(observations?'На графіку лише збережені спроби, без фонових запитів.':'За 24 години ще немає спостережень.','');}
@@ -2264,7 +2282,7 @@ body.bot-drawer-open{overflow:hidden;}
     try{
       const response=await fetch('{% url "management_bot_settings_api" %}',{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:new FormData(this)});
       const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося зберегти налаштування.');
-      h.textContent='Збережено';h.style.color='#34d399';render(data.status);
+      h.textContent='Збережено';h.style.color='#34d399';render(data.status);const revision=this.querySelector('[name="settings_revision"]');if(revision&&data.status&&data.status.settings_revision!==undefined)revision.value=String(data.status.settings_revision);
     }catch(error){h.textContent='Помилка: '+(error.message||'Не вдалося зберегти налаштування.');h.style.color='#f87171';}finally{if(submit)submit.disabled=false;}
   });
   let statusTimer=null;

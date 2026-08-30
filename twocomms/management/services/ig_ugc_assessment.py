@@ -15,7 +15,6 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 
-from django.core.files.storage import default_storage
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -115,7 +114,15 @@ def _owned_media_bytes(media: dict) -> tuple[bytes, str] | None:
     ):
         return None
     try:
-        with default_storage.open(storage_name, "rb") as handle:
+        if media.get("private_storage"):
+            from management.services.instagram_bot import _private_media_storage
+
+            storage = _private_media_storage()
+        else:
+            from django.core.files.storage import default_storage
+
+            storage = default_storage
+        with storage.open(storage_name, "rb") as handle:
             raw = handle.read(MAX_OWNED_MEDIA_BYTES + 1)
     except Exception:
         return None
@@ -798,10 +805,12 @@ def queue_ugc_manager_review(assessment) -> bool:
     for item in getattr(source, "attachment_media", None) or []:
         if not isinstance(item, dict) or item.get("status") != OWNED_STATUS:
             continue
-        if item.get("local_url"):
+        if item.get("private_storage") and item.get("storage_name"):
             owned_evidence.append({
                 "role": "ugc_evidence",
-                "local_url": str(item.get("local_url") or "")[:1200],
+                "private_storage_name": str(item.get("storage_name") or "")[:1200],
+                "mime": str(item.get("mime") or "")[:64],
+                "content_hash": str(item.get("content_hash") or "")[:64],
                 "message_id": str(getattr(source, "pk", "") or ""),
             })
     product_context = [
@@ -876,6 +885,34 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
     }
     if bounded == 0:
         return counts
+
+    # A transition to NEEDS_MANAGER_REVIEW and notification creation are
+    # separate durable boundaries. If the outbox insert failed, the assessment
+    # must remain selectable until its unique dedupe row exists.
+    from management.models import IgBotNotification
+
+    review_rows = list(
+        IgUgcEvidenceAssessment.objects.filter(
+            decision=IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+        ).order_by("updated_at", "id")[:bounded]
+    )
+    expected_keys = {
+        row.pk: f"ugc_review:{row.pk}:{int(row.generation or 0)}"
+        for row in review_rows
+    }
+    existing_keys = set(
+        IgBotNotification.objects.filter(
+            dedupe_key__in=list(expected_keys.values())
+        ).values_list("dedupe_key", flat=True)
+    )
+    for review in review_rows:
+        if counts["selected"] >= bounded:
+            break
+        if expected_keys[review.pk] in existing_keys:
+            continue
+        counts["selected"] += 1
+        if queue_ugc_manager_review(review):
+            counts["review_queued"] += 1
 
     candidates = list(
         IgUgcEvidenceAssessment.objects.filter(

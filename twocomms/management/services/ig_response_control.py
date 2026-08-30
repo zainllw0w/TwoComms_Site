@@ -194,6 +194,10 @@ STRUCTURED_RESPONSE_SCHEMA = {
                 },
                 "transcript": {"type": "string", "maxLength": 4000},
                 "intent": {"type": "string", "maxLength": 64},
+                "audio_status": {
+                    "type": "string",
+                    "enum": ["not_applicable", "transcribed", "unintelligible"],
+                },
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1},
             },
             "required": ["catalog_candidates", "transcript", "intent", "confidence"],
@@ -235,6 +239,7 @@ class TurnIntelligenceArtifact:
     catalog_candidates: tuple[TurnCatalogCandidate, ...] = ()
     transcript: str = ""
     intent: str = ""
+    audio_status: str = ""
     confidence: float = 0.0
 
 
@@ -497,9 +502,12 @@ def _parse_follow_candidate(payload: object) -> FollowCtaCandidate | None:
 
 
 def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None:
-    if not isinstance(payload, dict) or set(payload) != {
-        "catalog_candidates", "transcript", "intent", "confidence"
-    }:
+    required = {"catalog_candidates", "transcript", "intent", "confidence"}
+    if (
+        not isinstance(payload, dict)
+        or not required.issubset(payload)
+        or not set(payload).issubset(required | {"audio_status"})
+    ):
         return None
     candidates = payload.get("catalog_candidates")
     if not isinstance(candidates, list) or len(candidates) > 8:
@@ -531,6 +539,7 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
         ))
     transcript = payload.get("transcript")
     intent = payload.get("intent")
+    audio_status = str(payload.get("audio_status") or "").strip().casefold()
     try:
         confidence = float(payload.get("confidence"))
     except (TypeError, ValueError):
@@ -540,6 +549,7 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
         or len(transcript) > 4000
         or not isinstance(intent, str)
         or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", intent.strip().lower())
+        or audio_status not in {"", "not_applicable", "transcribed", "unintelligible"}
         or not 0 <= confidence <= 1
     ):
         return None
@@ -547,6 +557,7 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
         catalog_candidates=tuple(parsed_candidates),
         transcript=_clean_text(transcript)[:4000],
         intent=intent.strip().lower(),
+        audio_status=audio_status,
         confidence=confidence,
     )
 

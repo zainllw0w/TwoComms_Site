@@ -296,6 +296,53 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertEqual(job.routing_decision["task_class"], "complex_live")
         self.assertIn("comparison", job.routing_decision["reason_codes"])
 
+    @patch("management.services.instagram_bot._collect_media_images")
+    @patch("management.services.instagram_bot._recover_current_message_media")
+    def test_recovery_reuses_immutable_artifact_without_resending_owned_media(
+        self,
+        recover_media,
+        collect_images,
+    ):
+        self.source.attachments = '["https://example.invalid/voice.ogg"]'
+        self.source.attachment_media = [{
+            "status": "owned",
+            "mime": "audio/ogg",
+            "storage_name": "private/voice.ogg",
+        }]
+        self.source.turn_intelligence_artifact = {
+            "schema_version": 1,
+            "intent": "product_selection",
+            "transcript": "Хочу чорне худі",
+            "audio_status": "transcribed",
+            "catalog_candidates": [],
+            "catalog_resolution": "no_match",
+            "media_digest": "d" * 64,
+        }
+        self.source.save(update_fields=[
+            "attachments", "attachment_media", "turn_intelligence_artifact",
+        ])
+        job = self.recovery.schedule_recovery(self.source)
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value="Підберу чорне худі.",
+        ) as generate:
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertIn("чорне худі", draft)
+        recover_media.assert_not_called()
+        collect_images.assert_not_called()
+        self.assertIsNone(generate.call_args.kwargs["images"])
+        self.assertIn(
+            "IMMUTABLE TURN INTELLIGENCE",
+            generate.call_args.kwargs["context_note"],
+        )
+        self.assertIn(
+            "Хочу чорне худі",
+            generate.call_args.kwargs["context_note"],
+        )
+
     def test_generated_recovery_rejects_invalid_typed_reply_without_delivery_text(self):
         from management.services.ig_response_control import ValidatedResponse
 

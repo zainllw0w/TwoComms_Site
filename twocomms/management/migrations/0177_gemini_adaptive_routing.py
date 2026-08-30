@@ -30,6 +30,11 @@ class Migration(migrations.Migration):
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
+            model_name="instagrambotsettings",
+            name="settings_revision",
+            field=models.PositiveBigIntegerField(default=0),
+        ),
+        migrations.AddField(
             model_name="instagrambotmessage",
             name="gemini_routing_deadline_ms",
             field=models.PositiveIntegerField(default=0),
@@ -93,5 +98,10 @@ class Migration(migrations.Migration):
             model_name="instagrambotmessage",
             name="turn_intelligence_artifact",
             field=models.JSONField(blank=True, default=dict),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="private_media_delete_after",
+            field=models.DateTimeField(blank=True, db_index=True, null=True),
         ),
     ]
