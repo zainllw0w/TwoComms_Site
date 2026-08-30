@@ -9,6 +9,7 @@ a bounded status backstop checks for a missed webhook after local expiry.
 from __future__ import annotations
 
 import logging
+import secrets
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -28,6 +29,7 @@ logger = logging.getLogger("management.ig_checkout_terminalization")
 LEGACY_NULL_EXPIRY_AGE = timedelta(hours=24)
 LOCAL_PROVIDER_CHECK_WINDOW = timedelta(hours=24)
 LOCAL_PROVIDER_CHECK_INTERVAL = timedelta(minutes=15)
+LOCAL_PROVIDER_CHECK_LEASE = timedelta(minutes=2)
 MAX_DEADLOCK_RETRIES = 3
 ACTIVE_ATTEMPT_STATUSES = frozenset(
     {PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING}
@@ -157,9 +159,26 @@ def _terminalize_payment_attempt_once(
     attempt.error_reason = reason[:500]
     attempt.last_status_at = now
     attempt.event_state = event_state
+    attempt.provider_recheck_state = (
+        PaymentAttempt.ProviderRecheckState.PENDING
+        if needs_provider_backstop
+        else PaymentAttempt.ProviderRecheckState.NONE
+    )
+    attempt.provider_recheck_next_at = now if needs_provider_backstop else None
+    attempt.provider_recheck_until = (
+        now + LOCAL_PROVIDER_CHECK_WINDOW if needs_provider_backstop else None
+    )
+    attempt.provider_recheck_claim_token = ""
+    attempt.provider_recheck_claim_until = None
+    attempt.provider_recheck_attempts = 0
+    attempt.provider_recheck_last_status = ""
     attempt.save(
         update_fields=[
-            "status", "error_reason", "last_status_at", "event_state", "updated"
+            "status", "error_reason", "last_status_at", "event_state",
+            "provider_recheck_state", "provider_recheck_next_at",
+            "provider_recheck_until", "provider_recheck_claim_token",
+            "provider_recheck_claim_until", "provider_recheck_attempts",
+            "provider_recheck_last_status", "updated",
         ]
     )
 
@@ -236,67 +255,174 @@ def terminalize_payment_attempt(
     raise RuntimeError("unreachable terminalization retry state")
 
 
-@transaction.atomic
-def record_local_provider_check(attempt_id: int, *, status: str = "", now=None):
-    """Advance the bounded missed-webhook backstop without changing truth."""
-
-    now = now or timezone.now()
-    attempt, _deal, proposal = _lock_attempt_proposal_graph(attempt_id)
+def _sync_local_recheck_json(attempt, *, now):
     event_state = dict(attempt.event_state or {})
     local = dict(event_state.get("local_terminalization") or {})
-    if not local or local.get("provider_check_state") not in {"pending", "checking"}:
-        return "not_local_pending"
-    check_until = _parse_timestamp(local.get("provider_check_until"), fallback=now)
-    local["provider_check_attempts"] = int(local.get("provider_check_attempts") or 0) + 1
-    local["provider_last_check_at"] = now.isoformat()
-    local["provider_last_status"] = str(status or "")[:32]
-    if now >= check_until:
-        local["provider_check_state"] = "exhausted"
-        local["provider_next_check_at"] = None
-    elif status in {
-        "success", "failure", "rejected", "cancelled", "canceled", "expired", "reversed"
-    }:
-        local["provider_check_state"] = "resolved"
-        local["provider_next_check_at"] = None
-    else:
-        local["provider_check_state"] = "pending"
-        local["provider_next_check_at"] = (
-            now + LOCAL_PROVIDER_CHECK_INTERVAL
-        ).isoformat()
+    if not local:
+        return event_state
+    local.update(
+        {
+            "provider_check_state": attempt.provider_recheck_state,
+            "provider_check_attempts": int(attempt.provider_recheck_attempts or 0),
+            "provider_last_status": attempt.provider_recheck_last_status,
+            "provider_last_check_at": now.isoformat(),
+            "provider_next_check_at": (
+                attempt.provider_recheck_next_at.isoformat()
+                if attempt.provider_recheck_next_at
+                else None
+            ),
+            "provider_check_until": (
+                attempt.provider_recheck_until.isoformat()
+                if attempt.provider_recheck_until
+                else None
+            ),
+        }
+    )
     event_state["local_terminalization"] = local
     history = list(event_state.get("local_terminalization_events") or [])
     if history and history[-1].get("event_key") == local.get("event_key"):
         history[-1] = local
         event_state["local_terminalization_events"] = history[-8:]
-    attempt.event_state = event_state
-    attempt.save(update_fields=["event_state", "updated"])
-    if local["provider_check_state"] == "exhausted":
-        from management.models import IgFollowUpTask
+    return event_state
 
-        if proposal is not None:
-            IgFollowUpTask.objects.get_or_create(
-                event_key=f"local-invoice-status-review:{attempt.pk}",
-                defaults={
-                    "client": proposal.client,
-                    "deal": proposal.deal,
-                    "due_at": now,
-                    "status": IgFollowUpTask.Status.SKIPPED,
-                    "kind": IgFollowUpTask.Kind.MANAGER_TASK,
-                    "reason": "local_invoice_status_review",
-                    "trigger": IgFollowUpTask.Trigger.EVENT,
-                    "event_occurred_at": now,
-                    "event_payload": {
-                        "proposal_id": proposal.pk,
-                        "attempt_id": attempt.pk,
-                    },
-                    "skip_reason": "human_agent_required",
-                    "message_text": (
-                        "Не вдалося підтвердити фінальний статус локально "
-                        "закритого IG invoice протягом 24 годин."
-                    ),
-                },
-            )
-    return local["provider_check_state"]
+
+@transaction.atomic
+def _claim_provider_recheck(attempt_id: int, *, now):
+    attempt, _deal, proposal = _lock_attempt_proposal_graph(attempt_id)
+    is_due = bool(
+        (
+            attempt.provider_recheck_state
+            == PaymentAttempt.ProviderRecheckState.PENDING
+            and attempt.provider_recheck_next_at
+            and attempt.provider_recheck_next_at <= now
+        )
+        or (
+            attempt.provider_recheck_state
+            == PaymentAttempt.ProviderRecheckState.CHECKING
+            and attempt.provider_recheck_claim_until
+            and attempt.provider_recheck_claim_until <= now
+        )
+    )
+    if not is_due:
+        return None
+    if attempt.provider_recheck_until and attempt.provider_recheck_until <= now:
+        attempt.provider_recheck_state = PaymentAttempt.ProviderRecheckState.EXHAUSTED
+        attempt.provider_recheck_next_at = None
+        attempt.provider_recheck_claim_token = ""
+        attempt.provider_recheck_claim_until = None
+        attempt.event_state = _sync_local_recheck_json(attempt, now=now)
+        attempt.save(
+            update_fields=[
+                "provider_recheck_state", "provider_recheck_next_at",
+                "provider_recheck_claim_token", "provider_recheck_claim_until",
+                "event_state", "updated",
+            ]
+        )
+        _create_exhausted_review(attempt, now=now, proposal=proposal)
+        return attempt, ""
+    token = secrets.token_hex(24)
+    attempt.provider_recheck_state = PaymentAttempt.ProviderRecheckState.CHECKING
+    attempt.provider_recheck_claim_token = token
+    attempt.provider_recheck_claim_until = now + LOCAL_PROVIDER_CHECK_LEASE
+    attempt.provider_recheck_attempts = int(attempt.provider_recheck_attempts or 0) + 1
+    attempt.event_state = _sync_local_recheck_json(attempt, now=now)
+    attempt.save(
+        update_fields=[
+            "provider_recheck_state", "provider_recheck_claim_token",
+            "provider_recheck_claim_until", "provider_recheck_attempts",
+            "event_state", "updated",
+        ]
+    )
+    return attempt, token
+
+
+def _create_exhausted_review(attempt, *, now, proposal=None):
+    from management.models import IgCheckoutProposal, IgFollowUpTask
+
+    if proposal is None:
+        proposal = (
+            IgCheckoutProposal.objects.select_related("client", "deal")
+            .filter(payment_attempt_id=attempt.pk)
+            .first()
+        )
+    if proposal is not None:
+        IgFollowUpTask.objects.get_or_create(
+            event_key=f"local-invoice-status-review:{attempt.pk}",
+            defaults={
+                "client": proposal.client,
+                "deal": proposal.deal,
+                "due_at": now,
+                "status": IgFollowUpTask.Status.SKIPPED,
+                "kind": IgFollowUpTask.Kind.MANAGER_TASK,
+                "reason": "local_invoice_status_review",
+                "trigger": IgFollowUpTask.Trigger.EVENT,
+                "event_occurred_at": now,
+                "event_payload": {"proposal_id": proposal.pk, "attempt_id": attempt.pk},
+                "skip_reason": "human_agent_required",
+                "message_text": (
+                    "Не вдалося підтвердити фінальний статус локально "
+                    "закритого IG invoice протягом 24 годин."
+                ),
+            },
+        )
+        return
+    event_state = dict(attempt.event_state or {})
+    event_state["orphan_provider_review"] = {
+        "version": 1,
+        "reason": "provider_recheck_exhausted",
+        "attempt_id": attempt.pk,
+        "observed_at": now.isoformat(),
+    }
+    PaymentAttempt.objects.filter(pk=attempt.pk).update(event_state=event_state)
+
+
+@transaction.atomic
+def _finish_provider_recheck(
+    attempt_id: int,
+    *,
+    token: str,
+    now,
+    status: str,
+    resolved: bool,
+):
+    attempt, _deal, proposal = _lock_attempt_proposal_graph(attempt_id)
+    if (
+        attempt.provider_recheck_state
+        != PaymentAttempt.ProviderRecheckState.CHECKING
+        or attempt.provider_recheck_claim_token != token
+    ):
+        return "lease_lost"
+    attempt.provider_recheck_last_status = str(status or "")[:32]
+    attempt.provider_recheck_claim_token = ""
+    attempt.provider_recheck_claim_until = None
+    exhausted = bool(
+        attempt.provider_recheck_until
+        and now >= attempt.provider_recheck_until
+    )
+    if resolved:
+        attempt.provider_recheck_state = PaymentAttempt.ProviderRecheckState.RESOLVED
+        attempt.provider_recheck_next_at = None
+    elif exhausted:
+        attempt.provider_recheck_state = PaymentAttempt.ProviderRecheckState.EXHAUSTED
+        attempt.provider_recheck_next_at = None
+    else:
+        attempt.provider_recheck_state = PaymentAttempt.ProviderRecheckState.PENDING
+        next_at = now + LOCAL_PROVIDER_CHECK_INTERVAL
+        attempt.provider_recheck_next_at = min(
+            next_at,
+            attempt.provider_recheck_until or next_at,
+        )
+    attempt.event_state = _sync_local_recheck_json(attempt, now=now)
+    attempt.save(
+        update_fields=[
+            "provider_recheck_state", "provider_recheck_next_at",
+            "provider_recheck_claim_token", "provider_recheck_claim_until",
+            "provider_recheck_last_status", "event_state", "updated",
+        ]
+    )
+    if attempt.provider_recheck_state == PaymentAttempt.ProviderRecheckState.EXHAUSTED:
+        _create_exhausted_review(attempt, now=now, proposal=proposal)
+    return attempt.provider_recheck_state
 
 
 def expire_due_assisted_attempts(
@@ -373,4 +499,249 @@ def expire_due_assisted_attempts(
         result["expired_attempts"] += 1
         result["released_inventory"] += outcome.released_inventory
         result["released_promos"] += int(outcome.released_promo)
+    return result
+
+
+@transaction.atomic
+def record_orphan_provider_observation(
+    attempt_id: int,
+    *,
+    status: str,
+    payload=None,
+    source="ig_reconcile",
+):
+    """Persist provider truth for a typed orphan without creating an Order."""
+
+    from management.services.ig_checkout_payment import _paid_amount_from_provider_payload
+
+    attempt = PaymentAttempt.objects.select_for_update().get(pk=attempt_id)
+    normalized = str(status or "").strip().lower()
+    now = timezone.now()
+    event_state = dict(attempt.event_state or {})
+    event_state["orphan_provider_review"] = {
+        "version": 1,
+        "reason": "typed_orphan_provider_observation",
+        "attempt_id": attempt.pk,
+        "provider_status": normalized,
+        "observed_at": now.isoformat(),
+        "requires_human_review": True,
+    }
+    history = list(attempt.payment_history or [])
+    history.append(
+        {
+            "ts": now.isoformat(),
+            "status": normalized,
+            "source": str(source or "ig_reconcile")[:32],
+            "payload": {"invoiceId": attempt.monobank_invoice_id},
+        }
+    )
+    attempt.payment_history = history[-30:]
+    if normalized == "success":
+        paid_amount = _paid_amount_from_provider_payload(attempt, payload)
+        attempt.status = (
+            PaymentAttempt.Status.PREPAID
+            if attempt.pay_type in {
+                PaymentAttempt.PayType.PREPAYMENT,
+                PaymentAttempt.PayType.PREPAY_200,
+            }
+            else PaymentAttempt.Status.PAID
+        )
+        attempt.paid_amount = paid_amount
+        attempt.error_reason = "typed_orphan_payment_review"
+    else:
+        attempt.status = {
+            "failure": PaymentAttempt.Status.FAILED,
+            "rejected": PaymentAttempt.Status.FAILED,
+            "reversed": PaymentAttempt.Status.FAILED,
+            "cancelled": PaymentAttempt.Status.CANCELLED,
+            "canceled": PaymentAttempt.Status.CANCELLED,
+            "expired": PaymentAttempt.Status.EXPIRED,
+        }.get(normalized, attempt.status)
+        attempt.error_reason = f"provider_{normalized or 'unknown'}"[:500]
+    attempt.last_status_at = now
+    attempt.event_state = event_state
+    provider_update_fields = []
+    if not (
+        attempt.provider_recheck_state
+        == PaymentAttempt.ProviderRecheckState.CHECKING
+        and attempt.provider_recheck_claim_token
+    ):
+        attempt.provider_recheck_state = PaymentAttempt.ProviderRecheckState.RESOLVED
+        attempt.provider_recheck_next_at = None
+        attempt.provider_recheck_claim_token = ""
+        attempt.provider_recheck_claim_until = None
+        attempt.provider_recheck_last_status = normalized[:32]
+        provider_update_fields = [
+            "provider_recheck_state", "provider_recheck_next_at",
+            "provider_recheck_claim_token", "provider_recheck_claim_until",
+            "provider_recheck_last_status",
+        ]
+    attempt.save(
+        update_fields=[
+            "status", "paid_amount", "error_reason", "last_status_at",
+            "event_state", "payment_history", *provider_update_fields, "updated",
+        ]
+    )
+
+
+def _provider_apply_is_durable(attempt_id: int, *, status: str, has_proposal: bool):
+    attempt = PaymentAttempt.objects.filter(pk=attempt_id).first()
+    if attempt is None:
+        return False
+    normalized = str(status or "").strip().lower()
+    if not has_proposal:
+        marker = dict((attempt.event_state or {}).get("orphan_provider_review") or {})
+        return marker.get("provider_status") == normalized
+    from management.models import IgPaymentEvent
+
+    if normalized == "success":
+        return bool(
+            attempt.order_id
+            or (
+                attempt.status in {
+                    PaymentAttempt.Status.PAID,
+                    PaymentAttempt.Status.PREPAID,
+                    PaymentAttempt.Status.CONVERTED,
+                }
+                and IgPaymentEvent.objects.filter(
+                    deal__checkout_proposals__payment_attempt_id=attempt.pk,
+                    provider_status="success",
+                ).exists()
+            )
+        )
+    return IgPaymentEvent.objects.filter(
+        deal__checkout_proposals__payment_attempt_id=attempt.pk,
+        provider_status=normalized,
+    ).exists()
+
+
+def reconcile_due_assisted_provider_checks(
+    *,
+    now=None,
+    limit: int = 100,
+    dry_run: bool = False,
+):
+    """PaymentAttempt-owned, leased missed-webhook backstop."""
+
+    now = now or timezone.now()
+    limit = max(1, min(int(limit), 500))
+    due = Q(
+        provider_recheck_state=PaymentAttempt.ProviderRecheckState.PENDING,
+        provider_recheck_next_at__isnull=False,
+        provider_recheck_next_at__lte=now,
+    ) | Q(
+        provider_recheck_state=PaymentAttempt.ProviderRecheckState.CHECKING,
+        provider_recheck_claim_until__lte=now,
+    )
+    candidate_ids = list(
+        PaymentAttempt.objects.filter(due, order__isnull=True)
+        .order_by("provider_recheck_next_at", "id")
+        .values_list("id", flat=True)[:limit]
+    )
+    result = {
+        "late_status_due": len(candidate_ids),
+        "late_status_checked": 0,
+        "late_status_pending": len(candidate_ids) if dry_run else 0,
+        "late_status_resolved": 0,
+        "late_status_exhausted": 0,
+        "late_status_errors": 0,
+    }
+    if dry_run:
+        return result
+
+    from management.models import IgCheckoutProposal
+    from storefront.views.monobank import (
+        _apply_payment_attempt_status,
+        _resolve_attempt_invoice_status,
+    )
+
+    for attempt_id in candidate_ids:
+        claim = _claim_provider_recheck(attempt_id, now=now)
+        if claim is None:
+            continue
+        attempt, token = claim
+        if not token:
+            result["late_status_exhausted"] += 1
+            continue
+        status = ""
+        try:
+            if not attempt.monobank_invoice_id:
+                state = _finish_provider_recheck(
+                    attempt.pk,
+                    token=token,
+                    now=now,
+                    status="invoice_missing",
+                    resolved=False,
+                )
+                result["late_status_exhausted" if state == "exhausted" else "late_status_pending"] += 1
+                continue
+            result["late_status_checked"] += 1
+            status, payload = _resolve_attempt_invoice_status(
+                attempt,
+                attempt.monobank_invoice_id,
+            )
+            normalized = str(status or "").strip().lower()
+            if normalized in {"", "processing", "hold"}:
+                state = _finish_provider_recheck(
+                    attempt.pk,
+                    token=token,
+                    now=now,
+                    status=normalized,
+                    resolved=False,
+                )
+                result["late_status_exhausted" if state == "exhausted" else "late_status_pending"] += 1
+                continue
+            has_proposal = IgCheckoutProposal.objects.filter(
+                payment_attempt_id=attempt.pk
+            ).exists()
+            if has_proposal:
+                _apply_payment_attempt_status(
+                    attempt,
+                    normalized,
+                    payload=payload,
+                    source="ig_reconcile",
+                )
+            else:
+                record_orphan_provider_observation(
+                    attempt.pk,
+                    status=normalized,
+                    payload=payload,
+                    source="ig_reconcile",
+                )
+            durable = _provider_apply_is_durable(
+                attempt.pk,
+                status=normalized,
+                has_proposal=has_proposal,
+            )
+            state = _finish_provider_recheck(
+                attempt.pk,
+                token=token,
+                now=now,
+                status=normalized,
+                resolved=durable,
+            )
+            if state == PaymentAttempt.ProviderRecheckState.RESOLVED:
+                result["late_status_resolved"] += 1
+            elif state == PaymentAttempt.ProviderRecheckState.EXHAUSTED:
+                result["late_status_exhausted"] += 1
+            else:
+                result["late_status_pending"] += 1
+        except Exception:
+            result["late_status_errors"] += 1
+            logger.exception(
+                "Assisted provider recheck failed for attempt %s",
+                attempt_id,
+            )
+            try:
+                state = _finish_provider_recheck(
+                    attempt_id,
+                    token=token,
+                    now=now,
+                    status=status,
+                    resolved=False,
+                )
+                result["late_status_exhausted" if state == "exhausted" else "late_status_pending"] += 1
+            except Exception:
+                # A hard crash leaves CHECKING until the indexed lease expires.
+                pass
     return result

@@ -8,12 +8,14 @@ truth; a later provider-verified success must therefore remain recoverable.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import threading
 from io import StringIO
+from types import SimpleNamespace
 from datetime import timedelta
 from decimal import Decimal
 from unittest import skipUnless
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -614,6 +616,51 @@ class AssistedAttemptTerminalizationTests(TestCase):
         self.assertIn(str(first["attempt"].pk), stderr.getvalue())
         self.assertIn("Expired 1 payment attempts; errors=1", stdout.getvalue())
 
+    def test_provider_recheck_migration_resumes_partial_mariadb_ddl(self):
+        migration = importlib.import_module(
+            "orders.migrations.0057_paymentattempt_provider_recheck"
+        )
+        schema_editor = Mock()
+        schema_editor.connection.vendor = "mysql"
+        schema_editor.quote_name.side_effect = lambda value: f"`{value}`"
+        cursor_context = MagicMock()
+        cursor = Mock()
+        cursor_context.__enter__.return_value = cursor
+        schema_editor.connection.cursor.return_value = cursor_context
+        existing_columns = {
+            "id",
+            "provider_recheck_state",
+            "provider_recheck_next_at",
+            "provider_recheck_until",
+        }
+        schema_editor.connection.introspection.get_table_description.return_value = [
+            SimpleNamespace(name=name) for name in existing_columns
+        ]
+        schema_editor.connection.introspection.get_constraints.side_effect = [
+            {"pay_attempt_recheck_due": {"index": True}},
+            {"pay_attempt_recheck_due": {"index": True}},
+        ]
+
+        migration.ensure_provider_recheck_schema(None, schema_editor)
+
+        statements = [call.args[0] for call in schema_editor.execute.call_args_list]
+        self.assertFalse(any("provider_recheck_state" in sql for sql in statements))
+        self.assertTrue(any("provider_recheck_claim_token" in sql for sql in statements))
+        self.assertTrue(any("pay_attempt_recheck_lease" in sql for sql in statements))
+        self.assertFalse(any("pay_attempt_recheck_due" in sql for sql in statements))
+
+        schema_editor.execute.reset_mock()
+        schema_editor.connection.introspection.get_table_description.return_value = [
+            SimpleNamespace(name=name)
+            for name in {"id", *migration.COLUMNS.keys()}
+        ]
+        schema_editor.connection.introspection.get_constraints.side_effect = [
+            {name: {"index": True} for name in migration.INDEXES},
+            {name: {"index": True} for name in migration.INDEXES},
+        ]
+        migration.ensure_provider_recheck_schema(None, schema_editor)
+        schema_editor.execute.assert_not_called()
+
     def test_late_verified_success_is_accepted_once_and_routes_to_inventory_review(self):
         graph = self._graph(
             invoice_expires_at=self.now,
@@ -698,6 +745,33 @@ class AssistedAttemptTerminalizationTests(TestCase):
         expire_due_assisted_attempts(now=self.now, limit=10)
         graph["promo"].refresh_from_db()
         self.assertEqual(graph["promo"].current_uses, 0)
+        from orders.promo_reservations import reserve_promo_for_checkout
+
+        reissued = reserve_promo_for_checkout(
+            code=graph["promo"].code,
+            user=self.user,
+            total_amount=Decimal("900.00"),
+        )
+        second_attempt = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"promo-reissued-second-attempt").hexdigest(),
+            user=self.user,
+            full_name="Second Promo Buyer",
+            phone="+380501112266",
+            city="Kyiv",
+            np_office="Branch 4",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            discount_amount=reissued.discount,
+            payable_amount=Decimal("900.00") - reissued.discount,
+            payment_amount=Decimal("900.00") - reissued.discount,
+            promo_code=graph["promo"],
+            event_state=reissued.event_state,
+        )
+        self.assertTrue(
+            second_attempt.event_state["promo_reservation"]["reservation_generation"]
+        )
         _apply_payment_attempt_status(
             graph["attempt"],
             "success",
@@ -713,9 +787,14 @@ class AssistedAttemptTerminalizationTests(TestCase):
 
         graph["attempt"].refresh_from_db()
         graph["promo"].refresh_from_db()
+        second_attempt.refresh_from_db()
         self.assertEqual(graph["attempt"].status, PaymentAttempt.Status.PAID)
         self.assertIsNone(graph["attempt"].order_id)
-        self.assertEqual(graph["promo"].current_uses, 0)
+        self.assertEqual(graph["promo"].current_uses, 1)
+        self.assertEqual(
+            second_attempt.event_state["promo_reservation"]["state"],
+            "reserved",
+        )
         self.assertFalse(PromoCodeUsage.objects.filter(promo_code=graph["promo"]).exists())
 
     def test_reconciler_polls_locally_expired_invoice_without_changing_truth(self):
@@ -789,7 +868,12 @@ class AssistedAttemptTerminalizationTests(TestCase):
         local["provider_next_check_at"] = (self.now - timedelta(seconds=1)).isoformat()
         state["local_terminalization"] = local
         graph["attempt"].event_state = state
-        graph["attempt"].save(update_fields=["event_state", "updated"])
+        graph["attempt"].provider_recheck_until = self.now - timedelta(seconds=1)
+        graph["attempt"].provider_recheck_next_at = self.now - timedelta(seconds=1)
+        graph["attempt"].save(update_fields=[
+            "event_state", "provider_recheck_until", "provider_recheck_next_at",
+            "updated",
+        ])
 
         with patch(
             "storefront.views.monobank._resolve_attempt_invoice_status"
@@ -810,6 +894,111 @@ class AssistedAttemptTerminalizationTests(TestCase):
                 event_key=f"local-invoice-status-review:{graph['attempt'].pk}"
             ).exists()
         )
+
+    def test_typed_orphan_backstop_records_success_without_order(self):
+        orphan = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"typed-orphan-backstop").hexdigest(),
+            full_name="Orphan Backstop",
+            phone="+380501112277",
+            city="Kyiv",
+            np_office="Branch 5",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("900.00"),
+            payment_amount=Decimal("900.00"),
+            monobank_invoice_id="typed-orphan-backstop-invoice",
+            invoice_expires_at=self.now,
+        )
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        payload = {
+            "status": "success",
+            "invoiceId": orphan.monobank_invoice_id,
+            "reference": orphan.reference,
+            "ccy": 980,
+            "paidAmount": 90000,
+        }
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status",
+            return_value=("success", payload),
+        ):
+            result = reconcile_ig_checkout(limit=10, pull_ambiguous=True)
+
+        orphan.refresh_from_db()
+        self.assertEqual(result["late_status_resolved"], 1)
+        self.assertEqual(orphan.status, PaymentAttempt.Status.PAID)
+        self.assertIsNone(orphan.order_id)
+        self.assertEqual(
+            orphan.provider_recheck_state,
+            PaymentAttempt.ProviderRecheckState.RESOLVED,
+        )
+        self.assertEqual(
+            orphan.event_state["orphan_provider_review"]["provider_status"],
+            "success",
+        )
+
+    def test_provider_apply_crash_restores_pending_instead_of_resolving(self):
+        graph = self._graph(invoice_expires_at=self.now)
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        payload = {
+            "status": "success",
+            "invoiceId": graph["attempt"].monobank_invoice_id,
+            "reference": graph["attempt"].reference,
+            "ccy": 980,
+            "paidAmount": 90000,
+        }
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status",
+            return_value=("success", payload),
+        ), patch(
+            "storefront.views.monobank._apply_payment_attempt_status",
+            side_effect=RuntimeError("crash between check and apply"),
+        ), patch(
+            "management.services.ig_checkout_terminalization.logger.exception"
+        ):
+            result = reconcile_ig_checkout(limit=10, pull_ambiguous=True)
+
+        graph["attempt"].refresh_from_db()
+        self.assertEqual(result["late_status_errors"], 1)
+        self.assertEqual(
+            graph["attempt"].provider_recheck_state,
+            PaymentAttempt.ProviderRecheckState.PENDING,
+        )
+        self.assertFalse(IgPaymentEvent.objects.filter(deal=graph["deal"]).exists())
+
+    def test_not_yet_due_rechecks_do_not_consume_bounded_page(self):
+        future_one = self._graph(invoice_expires_at=self.now)
+        future_two = self._graph(invoice_expires_at=self.now)
+        due = self._graph(invoice_expires_at=self.now)
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        PaymentAttempt.objects.filter(
+            pk__in=[future_one["attempt"].pk, future_two["attempt"].pk]
+        ).update(provider_recheck_next_at=self.now + timedelta(hours=1))
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status",
+            return_value=("processing", {"status": "processing"}),
+        ) as provider:
+            result = reconcile_ig_checkout(limit=1, pull_ambiguous=True)
+
+        self.assertEqual(result["late_status_due"], 1)
+        checked_attempt = provider.call_args.args[0]
+        self.assertEqual(checked_attempt.pk, due["attempt"].pk)
 
 
 @skipUnless(
@@ -905,3 +1094,111 @@ class AssistedTerminalizationConcurrencyTests(TransactionTestCase):
         deal.refresh_from_db()
         self.assertEqual(attempt.status, PaymentAttempt.Status.EXPIRED)
         self.assertIsNone(deal.active_checkout_proposal_id)
+
+    def test_terminalizer_races_provider_projection_without_duplicate_order(self):
+        client = IgClient.get_or_create_for_sender("terminal-provider-race")
+        deal = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            amount=Decimal("900.00"),
+            requested_payment_amount=Decimal("900.00"),
+        )
+        episode = ensure_episode_for_deal(deal)
+        proposal = IgCheckoutProposal.objects.create_current(
+            deal=deal,
+            commercial_episode=episode,
+            catalog_total=Decimal("900.00"),
+            quoted_total=Decimal("900.00"),
+            requested_payment_amount=Decimal("900.00"),
+            items_digest="d" * 64,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        attempt = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"terminal-provider-race").hexdigest(),
+            full_name="Race Buyer",
+            phone="+380501112288",
+            city="Kyiv",
+            np_office="Branch 6",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={
+                "checkout_surface": "instagram_proposal",
+                "sale_source": "Instagram",
+                "cart": [],
+            },
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("900.00"),
+            payment_amount=Decimal("900.00"),
+            monobank_invoice_id="terminal-provider-race-invoice",
+            invoice_expires_at=timezone.now() - timedelta(seconds=1),
+        )
+        proposal.payment_attempt = attempt
+        proposal.status = IgCheckoutProposal.Status.INVOICE_CREATED
+        proposal.save(update_fields=["payment_attempt", "status", "updated_at"])
+
+        from management.services.ig_checkout_terminalization import (
+            terminalize_payment_attempt,
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        barrier = threading.Barrier(2)
+        errors = []
+        payload = {
+            "status": "success",
+            "invoiceId": attempt.monobank_invoice_id,
+            "reference": attempt.reference,
+            "ccy": 980,
+            "paidAmount": 90000,
+        }
+
+        def expire_worker():
+            close_old_connections()
+            try:
+                barrier.wait(timeout=5)
+                terminalize_payment_attempt(
+                    attempt.pk,
+                    terminal_status=PaymentAttempt.Status.EXPIRED,
+                    reason="invoice_expired",
+                    source="system_expiry",
+                    require_due=True,
+                )
+            except Exception as exc:  # pragma: no cover - MariaDB diagnostic
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        def provider_worker():
+            close_old_connections()
+            try:
+                barrier.wait(timeout=5)
+                _apply_payment_attempt_status(
+                    attempt,
+                    "success",
+                    payload=payload,
+                    source="provider_pull",
+                )
+            except Exception as exc:  # pragma: no cover - MariaDB diagnostic
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        threads = [
+            threading.Thread(target=expire_worker),
+            threading.Thread(target=provider_worker),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        self.assertFalse(errors)
+        self.assertLessEqual(Order.objects.count(), 1)
+        attempt.refresh_from_db()
+        self.assertIn(
+            attempt.status,
+            {
+                PaymentAttempt.Status.EXPIRED,
+                PaymentAttempt.Status.PAID,
+                PaymentAttempt.Status.CONVERTED,
+            },
+        )

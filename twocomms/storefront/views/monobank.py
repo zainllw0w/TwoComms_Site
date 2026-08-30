@@ -2218,6 +2218,21 @@ def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook
 
     attempt, _deal, _proposal = _lock_attempt_proposal_graph(attempt.pk)
     if status in MONOBANK_SUCCESS_STATUSES:
+        local_terminal = dict(
+            (attempt.event_state or {}).get("local_terminalization") or {}
+        )
+        if local_terminal and _proposal is None:
+            from management.services.ig_checkout_terminalization import (
+                record_orphan_provider_observation,
+            )
+
+            record_orphan_provider_observation(
+                attempt.pk,
+                status=status,
+                payload=payload,
+                source=source,
+            )
+            return None, False
         from management.services.ig_checkout_payment import (
             record_late_local_payment_for_review,
         )

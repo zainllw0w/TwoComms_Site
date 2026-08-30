@@ -4,12 +4,11 @@ from __future__ import annotations
 from django.db import transaction
 from django.db.models import Case, Exists, IntegerField, OuterRef, Q, When
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 
 from management.models import IgCheckoutInventoryReservation, IgCheckoutProposal, IgLifecycleEvent
 from management.services.ig_checkout_terminalization import (
     expire_due_assisted_attempts,
-    record_local_provider_check,
+    reconcile_due_assisted_provider_checks,
 )
 from management.services.ig_inventory import release_expired_proposal_inventory, release_proposal_inventory
 from orders.fulfillment_truth import (
@@ -40,9 +39,12 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
         "delivery_events": 0,
         "ambiguous_checked": 0,
         "ambiguous_pending": 0,
+        "late_status_due": 0,
         "late_status_checked": 0,
         "late_status_pending": 0,
+        "late_status_resolved": 0,
         "late_status_exhausted": 0,
+        "late_status_errors": 0,
         "missing_attribution": 0,
         "errors": 0,
     }
@@ -61,6 +63,21 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
     result["expired_attempts"] += attempt_expiry["expired_attempts"]
     result["skipped_attempts"] += attempt_expiry["skipped_attempts"]
     result["errors"] += attempt_expiry["errors"]
+    provider_backstop = reconcile_due_assisted_provider_checks(
+        now=now,
+        limit=limit,
+        dry_run=(dry_run or not pull_ambiguous),
+    )
+    for key in (
+        "late_status_due",
+        "late_status_checked",
+        "late_status_pending",
+        "late_status_resolved",
+        "late_status_exhausted",
+        "late_status_errors",
+    ):
+        result[key] += provider_backstop[key]
+    result["errors"] += provider_backstop["late_status_errors"]
 
     expired = IgCheckoutProposal.objects.filter(
         expires_at__lte=now,
@@ -195,9 +212,6 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                 )
             )
             | Q(payment_attempt__event_state__invoice_creation_ambiguous=True)
-            | Q(
-                payment_attempt__event_state__local_terminalization__provider_check_state="pending",
-            )
         )
         # Repairable rows must be considered before permanent ambiguity. A
         # bounded worker should not let an old provider-timeout row starve a
@@ -206,10 +220,6 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
             Case(
                 When(
                     payment_attempt__event_state__invoice_creation_ambiguous=True,
-                    then=2,
-                ),
-                When(
-                    payment_attempt__event_state__local_terminalization__provider_check_state="pending",
                     then=1,
                 ),
                 default=0,
@@ -226,19 +236,9 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                 attempt
                 and (attempt.event_state or {}).get("invoice_creation_ambiguous")
             )
-            local_terminal = dict(
-                ((attempt.event_state or {}).get("local_terminalization") or {})
-                if attempt
-                else {}
-            )
-            local_check_pending = (
-                local_terminal.get("provider_check_state") == "pending"
-            )
             if dry_run:
                 if ambiguous:
                     result["ambiguous_pending"] += 1
-                if local_check_pending:
-                    result["late_status_pending"] += 1
                 order = attempt.order if attempt and attempt.order_id else None
                 if proposal.status == proposal.Status.PAID and order is not None:
                     if (
@@ -255,60 +255,24 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
             promo_consumption_pending = bool(
                 (attempt.event_state or {}).get("promo_consumption_pending")
             )
-            if local_check_pending:
-                check_until = parse_datetime(
-                    str(local_terminal.get("provider_check_until") or "")
-                )
-                next_check_at = parse_datetime(
-                    str(local_terminal.get("provider_next_check_at") or "")
-                )
-                if check_until and timezone.is_naive(check_until):
-                    check_until = timezone.make_aware(
-                        check_until, timezone.get_current_timezone()
-                    )
-                if next_check_at and timezone.is_naive(next_check_at):
-                    next_check_at = timezone.make_aware(
-                        next_check_at, timezone.get_current_timezone()
-                    )
-                if not check_until or check_until <= now:
-                    record_local_provider_check(attempt.pk, now=now)
-                    result["late_status_exhausted"] += 1
-                    continue
-                if next_check_at and next_check_at > now:
-                    result["late_status_pending"] += 1
-                    continue
             if (
                 pull_ambiguous
-                and (ambiguous or promo_consumption_pending or local_check_pending)
+                and (ambiguous or promo_consumption_pending)
                 and attempt.monobank_invoice_id
             ):
                 if ambiguous:
                     result["ambiguous_checked"] += 1
-                if local_check_pending:
-                    result["late_status_checked"] += 1
                 from storefront.views.monobank import _apply_payment_attempt_status, _resolve_attempt_invoice_status
 
                 status, payload = _resolve_attempt_invoice_status(attempt, attempt.monobank_invoice_id)
-                if local_check_pending:
-                    record_local_provider_check(
-                        attempt.pk,
-                        status=status or "",
-                        now=now,
-                    )
-                if status and not (
-                    local_check_pending and status in {"processing", "hold"}
-                ):
+                if status:
                     _apply_payment_attempt_status(attempt, status, payload=payload, source="ig_reconcile")
                     attempt.refresh_from_db()
                     proposal.refresh_from_db()
-                elif local_check_pending:
-                    result["late_status_pending"] += 1
             elif ambiguous:
                 # A timeout before the response may leave no provider invoice
                 # id. It is unsafe to create a second invoice automatically.
                 result["ambiguous_pending"] += 1
-            elif local_check_pending:
-                result["late_status_pending"] += 1
 
             if attempt.order_id and proposal.status != proposal.Status.PAID:
                 from management.services.ig_checkout_payment import bind_verified_payment

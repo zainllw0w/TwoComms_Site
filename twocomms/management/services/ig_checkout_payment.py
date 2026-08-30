@@ -1022,20 +1022,37 @@ def record_late_local_payment_for_review(
     )
     attempt.payment_history = history[-30:]
     attempt_event_state = dict(attempt.event_state or {})
-    local_terminal["provider_check_state"] = "resolved"
-    local_terminal["provider_last_status"] = "success"
-    local_terminal["provider_last_check_at"] = now.isoformat()
-    local_terminal["provider_next_check_at"] = None
-    attempt_event_state["local_terminalization"] = local_terminal
-    local_history = list(
-        attempt_event_state.get("local_terminalization_events") or []
+    recheck_claimed = bool(
+        attempt.provider_recheck_state
+        == PaymentAttempt.ProviderRecheckState.CHECKING
+        and attempt.provider_recheck_claim_token
     )
-    if (
-        local_history
-        and local_history[-1].get("event_key") == local_terminal.get("event_key")
-    ):
-        local_history[-1] = local_terminal
-        attempt_event_state["local_terminalization_events"] = local_history[-8:]
+    provider_update_fields = []
+    if not recheck_claimed:
+        local_terminal["provider_check_state"] = "resolved"
+        local_terminal["provider_last_status"] = "success"
+        local_terminal["provider_last_check_at"] = now.isoformat()
+        local_terminal["provider_next_check_at"] = None
+        attempt_event_state["local_terminalization"] = local_terminal
+        local_history = list(
+            attempt_event_state.get("local_terminalization_events") or []
+        )
+        if (
+            local_history
+            and local_history[-1].get("event_key") == local_terminal.get("event_key")
+        ):
+            local_history[-1] = local_terminal
+            attempt_event_state["local_terminalization_events"] = local_history[-8:]
+        attempt.provider_recheck_state = PaymentAttempt.ProviderRecheckState.RESOLVED
+        attempt.provider_recheck_next_at = None
+        attempt.provider_recheck_claim_token = ""
+        attempt.provider_recheck_claim_until = None
+        attempt.provider_recheck_last_status = "success"
+        provider_update_fields = [
+            "provider_recheck_state", "provider_recheck_next_at",
+            "provider_recheck_claim_token", "provider_recheck_claim_until",
+            "provider_recheck_last_status",
+        ]
     attempt.event_state = attempt_event_state
     attempt.status = (
         PaymentAttempt.Status.PREPAID
@@ -1052,6 +1069,7 @@ def record_late_local_payment_for_review(
         update_fields=[
             "status", "paid_amount", "last_status_at", "error_reason",
             "payment_history", "event_state", "updated",
+            *provider_update_fields,
         ]
     )
     deal.status = deal.Status.PAID

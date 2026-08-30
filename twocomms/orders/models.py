@@ -399,6 +399,13 @@ class PaymentAttempt(models.Model):
         PREPAYMENT = 'prepayment', _('Передоплата за погодженою сумою')
         PREPAY_200 = 'prepay_200', _('Передплата 200 грн')
 
+    class ProviderRecheckState(models.TextChoices):
+        NONE = '', _('Не потрібна')
+        PENDING = 'pending', _('Очікує перевірки провайдера')
+        CHECKING = 'checking', _('Перевіряється')
+        RESOLVED = 'resolved', _('Підтверджено провайдером')
+        EXHAUSTED = 'exhausted', _('Потрібна ручна перевірка')
+
     fingerprint = models.CharField(max_length=64, unique=True, db_index=True)
     reference = models.CharField(
         max_length=40, unique=True, default=_generate_payment_attempt_reference,
@@ -446,6 +453,18 @@ class PaymentAttempt(models.Model):
     invoice_url = models.URLField(blank=True, default='')
     invoice_payload = models.JSONField(default=dict, blank=True)
     invoice_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    provider_recheck_state = models.CharField(
+        max_length=16,
+        choices=ProviderRecheckState.choices,
+        default=ProviderRecheckState.NONE,
+        blank=True,
+    )
+    provider_recheck_next_at = models.DateTimeField(null=True, blank=True)
+    provider_recheck_until = models.DateTimeField(null=True, blank=True)
+    provider_recheck_claim_token = models.CharField(max_length=64, blank=True, default='')
+    provider_recheck_claim_until = models.DateTimeField(null=True, blank=True)
+    provider_recheck_attempts = models.PositiveSmallIntegerField(default=0)
+    provider_recheck_last_status = models.CharField(max_length=32, blank=True, default='')
     error_reason = models.CharField(max_length=500, blank=True, default='')
     order = models.OneToOneField(
         'Order', null=True, blank=True, on_delete=models.SET_NULL, related_name='payment_attempt'
@@ -460,6 +479,14 @@ class PaymentAttempt(models.Model):
             models.Index(fields=['status', '-created'], name='pay_attempt_status_created'),
             models.Index(fields=['user', '-created'], name='pay_attempt_user_created'),
             models.Index(fields=['invoice_expires_at'], name='pay_attempt_expiry'),
+            models.Index(
+                fields=['provider_recheck_state', 'provider_recheck_next_at', 'id'],
+                name='pay_attempt_recheck_due',
+            ),
+            models.Index(
+                fields=['provider_recheck_claim_until', 'id'],
+                name='pay_attempt_recheck_lease',
+            ),
         ]
 
     @property
