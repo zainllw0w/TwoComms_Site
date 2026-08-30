@@ -2297,6 +2297,49 @@ class QuietDegradationTests(TestCase):
         self.assertEqual(sources[0].send_state, "sent")
         self.assertEqual(sources[1].send_state, "duplicate")
 
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
+    @patch("management.services.instagram_bot.download_image")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text")
+    def test_missing_private_root_routes_manager_before_download_or_gemini(
+        self,
+        send_text,
+        generate,
+        _sender_action,
+        download,
+        _typing_wait,
+        notify_manager,
+    ):
+        from django.test import override_settings
+
+        send_text.return_value = instagram_bot.ProviderDeliveryReceipt(
+            True, "", "", "missing-private-root-reply"
+        )
+        source = self._pending(
+            "(вкладення)",
+            "missing-private-root",
+            media=[{
+                "url": "https://lookaside.invalid/private.jpg",
+                "media_type": "image",
+                "mime": "image/jpeg",
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+
+        with override_settings(DEBUG=False, IG_PRIVATE_MEDIA_ROOT=""):
+            instagram_bot.process_pending(self.settings, max_items=1)
+
+        download.assert_not_called()
+        generate.assert_not_called()
+        send_text.assert_called_once()
+        notify_manager.assert_called()
+        source.refresh_from_db()
+        self.assertEqual(source.gemini_task_class, "no_model")
+        self.assertEqual(source.gemini_routing_reason_codes, ["media_unavailable"])
+
 
 class LiveReplyReceiptTests(TestCase):
     def setUp(self):

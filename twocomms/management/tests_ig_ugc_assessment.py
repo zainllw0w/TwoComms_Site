@@ -149,6 +149,37 @@ class UGCIngressAssessmentTests(TestCase):
             1,
         )
 
+    def test_existing_first_review_cannot_starve_later_missing_notification(self):
+        from management.ig_bot_models import IgUgcEvidenceAssessment
+        from management.models import IgBotNotification
+        from management.services.ig_ugc_assessment import (
+            queue_ugc_manager_review,
+            reconcile_pending_ugc_media,
+        )
+
+        first = IgUgcEvidenceAssessment.objects.create(
+            client=self.client,
+            source_message_id="review-starvation-first",
+            evidence_fingerprint="review-starvation-first",
+            decision=IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+            generation=2,
+        )
+        second = IgUgcEvidenceAssessment.objects.create(
+            client=self.client,
+            source_message_id="review-starvation-second",
+            evidence_fingerprint="review-starvation-second",
+            decision=IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+            generation=3,
+        )
+        self.assertTrue(queue_ugc_manager_review(first))
+
+        result = reconcile_pending_ugc_media(limit=1)
+
+        self.assertEqual(result["review_queued"], 1)
+        self.assertTrue(IgBotNotification.objects.filter(
+            dedupe_key=f"ugc_review:{second.pk}:{second.generation}"
+        ).exists())
+
     @patch("management.services.bot_vision.build_match_candidates", return_value=[])
     @patch("management.services.bot_vision.assess_ugc")
     @patch("management.services.instagram_bot.download_image")

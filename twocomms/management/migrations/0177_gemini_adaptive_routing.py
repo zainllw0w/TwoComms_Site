@@ -104,4 +104,29 @@ class Migration(migrations.Migration):
             name="private_media_delete_after",
             field=models.DateTimeField(blank=True, db_index=True, null=True),
         ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="private_media_state",
+            field=models.CharField(blank=True, default="", max_length=20),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="private_media_delete_token",
+            field=models.CharField(blank=True, default="", max_length=64),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="private_media_delete_claimed_at",
+            field=models.DateTimeField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="private_media_use_token",
+            field=models.CharField(blank=True, default="", max_length=64),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="private_media_use_until",
+            field=models.DateTimeField(blank=True, db_index=True, null=True),
+        ),
     ]

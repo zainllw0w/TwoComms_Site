@@ -226,6 +226,32 @@ def _delete_direct_bot_records(identifier: str) -> dict:
         result["detail"] = "Empty identifier."
         return result
 
+    # Blob erasure is its own committed two-phase boundary. Never delete the
+    # DB row first: a crash would otherwise orphan an untraceable private file.
+    pre_clients = list(
+        IgClient.objects.filter(
+            Q(igsid__iexact=normalized)
+            | Q(username__iexact=normalized)
+            | Q(display_name__iexact=normalized)
+            | Q(phone_normalized__iexact=normalized)
+        ).only("id", "igsid")
+    )
+    pre_sender_ids = {normalized, *(c.igsid for c in pre_clients if c.igsid)}
+    private_message_ids = list(
+        InstagramBotMessage.objects.filter(
+            Q(sender_id__in=pre_sender_ids) | Q(client__in=pre_clients)
+        ).filter(
+            Q(private_media_delete_after__isnull=False)
+            | ~Q(private_media_state="")
+        ).exclude(private_media_state="deleted").values_list("id", flat=True)
+    )
+    if private_message_ids:
+        from management.services.ig_private_media import delete_immediately
+
+        deleted = delete_immediately(private_message_ids)
+        if deleted != len(private_message_ids):
+            raise RuntimeError("private media is in active use; retry privacy erasure")
+
     with transaction.atomic():
         clients = list(
             IgClient.objects.select_for_update().filter(
@@ -245,9 +271,6 @@ def _delete_direct_bot_records(identifier: str) -> dict:
         message_scope = InstagramBotMessage.objects.filter(
             Q(sender_id__in=sender_ids) | Q(client__in=clients)
         )
-        from management.services.instagram_bot import delete_private_media_for_messages
-
-        delete_private_media_for_messages(message_scope)
         messages_count, _ = message_scope.delete()
         raw_events_count, _ = InstagramBotRawEvent.objects.filter(sender_id__in=sender_ids).delete()
         # Только структурная принадлежность по IGSID, никогда `icontains`

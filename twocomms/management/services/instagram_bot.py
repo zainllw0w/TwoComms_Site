@@ -38,7 +38,6 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.core.cache import cache
-from django.core.exceptions import ImproperlyConfigured
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Count, F, Q
 from django.db.models.functions import Coalesce
@@ -3745,24 +3744,44 @@ def _telegram_private_media_call(
         SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES
     ):
         return 400, json.dumps({"ok": False, "description": "invalid_private_media"})
-    storage = _private_media_storage()
-    if not storage.exists(storage_name):
-        return 400, json.dumps({"ok": False, "description": "private_media_expired"})
-    is_audio = mime.startswith("audio/")
-    endpoint = "sendAudio" if is_audio else "sendPhoto"
-    field = "audio" if is_audio else "photo"
-    with storage.open(storage_name, "rb") as handle:
-        response = requests.post(
-            f"https://api.telegram.org/bot{token}/{endpoint}",
-            data={
-                "chat_id": chat,
-                "caption": caption[:1000],
-                "reply_to_message_id": str(reply_to_message_id),
-            },
-            files={field: (Path(storage_name).name, handle, mime)},
-            timeout=HTTP_TIMEOUT,
-        )
-    return int(response.status_code), str(response.text or "")
+    from management.services.ig_private_media import (
+        acquire_blob_use,
+        private_media_storage,
+        release_blob_use,
+    )
+
+    try:
+        message_id = int(media.get("message_id") or 0)
+    except (TypeError, ValueError):
+        message_id = 0
+    lease = acquire_blob_use(message_id, seconds=180)
+    if not lease:
+        return 429, json.dumps({
+            "ok": False,
+            "description": "private_media_busy",
+            "parameters": {"retry_after": 5},
+        })
+    try:
+        storage = private_media_storage()
+        if not storage.exists(storage_name):
+            return 400, json.dumps({"ok": False, "description": "private_media_expired"})
+        is_audio = mime.startswith("audio/")
+        endpoint = "sendAudio" if is_audio else "sendPhoto"
+        field = "audio" if is_audio else "photo"
+        with storage.open(storage_name, "rb") as handle:
+            response = requests.post(
+                f"https://api.telegram.org/bot{token}/{endpoint}",
+                data={
+                    "chat_id": chat,
+                    "caption": caption[:1000],
+                    "reply_to_message_id": str(reply_to_message_id),
+                },
+                files={field: (Path(storage_name).name, handle, mime)},
+                timeout=HTTP_TIMEOUT,
+            )
+        return int(response.status_code), str(response.text or "")
+    finally:
+        release_blob_use(message_id, lease)
 
 
 def _notification_retry_at(row, now, *, minimum_delay_seconds=0):
@@ -7512,6 +7531,23 @@ def gemini_generate(
             failure_context["kind"] = "generation_error"
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {repr(exc)}")
         return None
+    provider_usage = out.get("usage") if isinstance(out.get("usage"), dict) else {}
+    try:
+        provider_inline_count = int(
+            provider_usage.get("_request_inline_count", len(images))
+        )
+    except (TypeError, ValueError):
+        provider_inline_count = len(images)
+    provider_inline_count = max(0, min(provider_inline_count, len(images)))
+    if provider_inline_count != len(images):
+        if failure_context is not None:
+            failure_context["kind"] = "provider_media_binding_mismatch"
+        log("error", "inline_media_binding", "provider inline count changed")
+        return None
+    if failure_context is not None and provider_usage.get("_request_serialized_bytes"):
+        failure_context["serialized_request_bytes"] = int(
+            provider_usage["_request_serialized_bytes"]
+        )
     parsed = out.get("parsed")
     intelligence = {}
     if isinstance(parsed, dict):
@@ -8727,7 +8763,9 @@ def _inbound_log_detail(source: str, sender_id: str, text: str, extra: str) -> s
 
 
 INLINE_MEDIA_RAW_BUDGET = 12 * 1024 * 1024
-INLINE_REQUEST_MAX_BYTES = 20_000_000
+# Leave deterministic headroom for the final model-specific thinking controls;
+# the dispatch layer then exact-serializes and fails closed at 20,000,000.
+INLINE_REQUEST_MAX_BYTES = 19_990_000
 INLINE_MEDIA_MAX_ITEMS = 3
 INLINE_IMAGE_MAX_BYTES = 6 * 1024 * 1024
 INLINE_AUDIO_MAX_BYTES = 10 * 1024 * 1024
@@ -9156,27 +9194,9 @@ def _media_is_historical(item: dict | None) -> bool:
 
 def _private_media_storage():
     """Return non-public storage for ephemeral customer media."""
-    from django.core.files.storage import FileSystemStorage
+    from management.services.ig_private_media import private_media_storage
 
-    public_root_raw = str(getattr(settings, "MEDIA_ROOT", "") or "").strip()
-    public_root = Path(public_root_raw).resolve() if public_root_raw else None
-    configured = str(getattr(settings, "IG_PRIVATE_MEDIA_ROOT", "") or "").strip()
-    if configured:
-        private_root = Path(configured).expanduser().resolve()
-    else:
-        import tempfile
-
-        instance = hashlib.sha256(
-            str(Path(settings.BASE_DIR).resolve()).encode("utf-8")
-        ).hexdigest()[:12]
-        private_root = (
-            Path(tempfile.gettempdir()) / f"twocomms-private-media-{instance}"
-        ).resolve()
-    if public_root is not None and (
-        private_root == public_root or public_root in private_root.parents
-    ):
-        raise ImproperlyConfigured("IG_PRIVATE_MEDIA_ROOT must be outside MEDIA_ROOT")
-    return FileSystemStorage(location=str(private_root), base_url=None)
+    return private_media_storage()
 
 
 def _private_media_retention_seconds() -> int:
@@ -9419,6 +9439,13 @@ def _finish_media_capture(message_id: int, url: str, token: str, updates: dict) 
                     + timedelta(seconds=_private_media_retention_seconds())
                 )
             update_fields.append("private_media_delete_after")
+            locked.private_media_state = "active"
+            locked.private_media_delete_token = ""
+            locked.private_media_delete_claimed_at = None
+            update_fields.extend([
+                "private_media_state", "private_media_delete_token",
+                "private_media_delete_claimed_at",
+            ])
         locked.save(update_fields=update_fields)
         return media
 
@@ -9467,6 +9494,20 @@ def _capture_message_media(
             ):
                 item.pop(key, None)
     current = _persist_media_metadata(row, current)
+    private_storage = None
+    if any(
+        item.get("provenance") == MEDIA_PROVENANCE_LIVE_WEBHOOK
+        and not (
+            item.get("status") == MEDIA_STATUS_OWNED
+            and item.get("storage_name")
+        )
+        for item in current
+        if isinstance(item, dict)
+    ):
+        # Fail before CDN download when production private storage is absent or
+        # unsafe. The caller then takes the deterministic media-unavailable
+        # manager route without crossing Gemini/provider boundaries.
+        private_storage = _private_media_storage()
 
     attempts_used = 0
     for snapshot in list(current):
@@ -9505,7 +9546,7 @@ def _capture_message_media(
         try:
             from django.core.files.base import ContentFile
 
-            private_storage = _private_media_storage()
+            private_storage = private_storage or _private_media_storage()
 
             content_hash = hashlib.sha256(raw).hexdigest()
             suffix = {
@@ -9574,71 +9615,9 @@ def _capture_message_media(
 
 
 def purge_expired_private_message_media(*, now=None, limit: int = 100) -> int:
-    """Delete expired private blobs and retain only non-reversible evidence."""
-    now = now or timezone.now()
-    ids = list(
-        InstagramBotMessage.objects.filter(
-            private_media_delete_after__isnull=False,
-            private_media_delete_after__lte=now,
-        )
-        .order_by("private_media_delete_after", "id")
-        .values_list("id", flat=True)[: max(1, min(int(limit or 0), 500))]
-    )
-    storage = _private_media_storage()
-    purged = 0
-    for message_id in ids:
-        with transaction.atomic():
-            row = InstagramBotMessage.objects.select_for_update().filter(
-                pk=message_id,
-                private_media_delete_after__lte=now,
-            ).first()
-            if row is None:
-                continue
-            media = [dict(item) for item in (row.attachment_media or [])]
-            names = [
-                str(item.get("storage_name") or "")
-                for item in media
-                if isinstance(item, dict) and item.get("private_storage")
-            ]
-            try:
-                for name in names:
-                    if name and storage.exists(name):
-                        storage.delete(name)
-            except Exception:
-                continue
-            for item in media:
-                if not isinstance(item, dict) or not item.get("private_storage"):
-                    continue
-                item["status"] = "expired"
-                for key in (
-                    "storage_name", "local_url", "private_storage", "delete_after"
-                ):
-                    item.pop(key, None)
-            row.attachment_media = media
-            row.private_media_delete_after = None
-            row.save(update_fields=["attachment_media", "private_media_delete_after"])
-            purged += 1
-    return purged
+    from management.services.ig_private_media import purge_due
 
-
-def delete_private_media_for_messages(queryset) -> int:
-    """Delete private blobs synchronously at the privacy-erasure boundary."""
-    storage = _private_media_storage()
-    names = []
-    for media in queryset.values_list("attachment_media", flat=True).iterator(
-        chunk_size=200
-    ):
-        for item in media or []:
-            if isinstance(item, dict) and item.get("private_storage"):
-                name = str(item.get("storage_name") or "")
-                if name:
-                    names.append(name)
-    deleted = 0
-    for name in dict.fromkeys(names):
-        if storage.exists(name):
-            storage.delete(name)
-            deleted += 1
-    return deleted
+    return purge_due(now=now, limit=limit)
 
 
 def _maybe_purge_expired_private_media() -> None:

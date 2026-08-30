@@ -1785,16 +1785,38 @@ def _safe_provider_error_summary(response) -> str:
     return str(_provider_error_details(response)["summary"])
 
 
+PROVIDER_REQUEST_MAX_BYTES = 20_000_000
+
+
+def _inline_part_count(payload: dict) -> int:
+    return sum(
+        1
+        for content in payload.get("contents") or []
+        if isinstance(content, dict)
+        for part in content.get("parts") or []
+        if isinstance(part, dict) and "inline_data" in part
+    )
+
+
+def _final_provider_body(payload: dict) -> tuple[bytes, int, int]:
+    """Serialize the final normalized payload and fail before network if large."""
+    body = json.dumps(payload).encode("utf-8")
+    if len(body) > PROVIDER_REQUEST_MAX_BYTES:
+        raise _GeminiFatal("provider payload exceeds 20,000,000 bytes")
+    return body, _inline_part_count(payload), 0
+
+
 def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True,
                       timeout: tuple | None = None) -> tuple:
     """Один виклик generateContent. Повертає (parsed_json|text, usage) або кидає
     типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal).
     parse=False → повертає сирий текст замість JSON (для діалогового бота)."""
     url = f"{GENAI_BASE}/models/{model}:generateContent"
+    body, request_inline_count, request_trimmed_inline = _final_provider_body(payload)
     try:
         resp = requests.post(
             url,
-            data=json.dumps(payload),
+            data=body,
             headers={"Content-Type": "application/json", "x-goog-api-key": key},
             timeout=timeout or GEMINI_TIMEOUT,
         )
@@ -1852,6 +1874,9 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
         parsed = text
     usage = dict(data.get("usageMetadata") or {})
     usage["_finish_reason"] = str(cand.get("finishReason") or "")[:32]
+    usage["_request_inline_count"] = request_inline_count
+    usage["_request_trimmed_inline"] = request_trimmed_inline
+    usage["_request_serialized_bytes"] = len(body)
     return parsed, usage
 
 

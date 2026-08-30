@@ -103,7 +103,11 @@ def _provider_object_digest(provider_key: str) -> str:
     ).hexdigest()
 
 
-def _owned_media_bytes(media: dict) -> tuple[bytes, str] | None:
+def _owned_media_bytes(
+    media: dict,
+    *,
+    message_id: int | None = None,
+) -> tuple[bytes, str] | None:
     storage_name = str(media.get("storage_name") or "").strip()
     mime = str(media.get("mime") or "").strip().casefold()
     if (
@@ -114,16 +118,28 @@ def _owned_media_bytes(media: dict) -> tuple[bytes, str] | None:
     ):
         return None
     try:
+        lease = None
         if media.get("private_storage"):
-            from management.services.instagram_bot import _private_media_storage
+            from management.services.ig_private_media import (
+                acquire_blob_use,
+                private_media_storage,
+                release_blob_use,
+            )
 
-            storage = _private_media_storage()
+            lease = acquire_blob_use(int(message_id or 0), seconds=120)
+            if not lease:
+                return None
+            storage = private_media_storage()
         else:
             from django.core.files.storage import default_storage
 
             storage = default_storage
-        with storage.open(storage_name, "rb") as handle:
-            raw = handle.read(MAX_OWNED_MEDIA_BYTES + 1)
+        try:
+            with storage.open(storage_name, "rb") as handle:
+                raw = handle.read(MAX_OWNED_MEDIA_BYTES + 1)
+        finally:
+            if lease:
+                release_blob_use(int(message_id or 0), lease)
     except Exception:
         return None
     if not raw or len(raw) > MAX_OWNED_MEDIA_BYTES:
@@ -215,7 +231,7 @@ def _inspect_provenance(message, media: dict) -> dict:
     )
     provider_key = _provider_key(message, {}, media)
     provider_digest = _provider_object_digest(provider_key)
-    owned = _owned_media_bytes(media)
+    owned = _owned_media_bytes(media, message_id=getattr(message, "pk", None))
     target = str(media.get("target_username") or "").strip().lstrip("@").casefold()
     native = bool(media.get("provider_native_mention"))
     media_type = str(media.get("media_type") or "").strip().casefold()
@@ -889,27 +905,35 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
     # A transition to NEEDS_MANAGER_REVIEW and notification creation are
     # separate durable boundaries. If the outbox insert failed, the assessment
     # must remain selectable until its unique dedupe row exists.
+    from django.db.models import CharField, Exists, OuterRef, Value
+    from django.db.models.functions import Cast, Concat
     from management.models import IgBotNotification
 
     review_rows = list(
         IgUgcEvidenceAssessment.objects.filter(
             decision=IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
-        ).order_by("updated_at", "id")[:bounded]
-    )
-    expected_keys = {
-        row.pk: f"ugc_review:{row.pk}:{int(row.generation or 0)}"
-        for row in review_rows
-    }
-    existing_keys = set(
-        IgBotNotification.objects.filter(
-            dedupe_key__in=list(expected_keys.values())
-        ).values_list("dedupe_key", flat=True)
+        )
+        .annotate(
+            _expected_notification_key=Concat(
+                Value("ugc_review:"),
+                Cast("pk", output_field=CharField()),
+                Value(":"),
+                Cast("generation", output_field=CharField()),
+            )
+        )
+        .annotate(
+            _notification_exists=Exists(
+                IgBotNotification.objects.filter(
+                    dedupe_key=OuterRef("_expected_notification_key")
+                )
+            )
+        )
+        .filter(_notification_exists=False)
+        .order_by("updated_at", "id")[:bounded]
     )
     for review in review_rows:
         if counts["selected"] >= bounded:
             break
-        if expected_keys[review.pk] in existing_keys:
-            continue
         counts["selected"] += 1
         if queue_ugc_manager_review(review):
             counts["review_queued"] += 1
@@ -1000,16 +1024,27 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
             if current_assessment is None:
                 counts["skipped"] += 1
                 continue
-            images = _collect_media_images(owned_items)
-            if not images:
+            from management.services import bot_vision
+            from management.services.ig_private_media import (
+                acquire_blob_use,
+                release_blob_use,
+            )
+
+            blob_lease = acquire_blob_use(message.pk, seconds=180)
+            if not blob_lease:
                 counts["waiting"] += 1
                 continue
-            from management.services import bot_vision
-
-            facts = bot_vision.assess_ugc(
-                images,
-                candidates=bot_vision.build_match_candidates(),
-            )
+            try:
+                images = _collect_media_images(owned_items)
+                if not images:
+                    counts["waiting"] += 1
+                    continue
+                facts = bot_vision.assess_ugc(
+                    images,
+                    candidates=bot_vision.build_match_candidates(),
+                )
+            finally:
+                release_blob_use(message.pk, blob_lease)
             if not isinstance(facts, dict) or not facts:
                 # A provider/model outage is retryable; do not turn absent
                 # facts into a terminal rejection.

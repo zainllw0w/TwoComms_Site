@@ -6,4 +6,5 @@ class ManagementConfig(AppConfig):
     name = 'management'
 
     def ready(self):
+        from . import checks  # noqa: F401
         from .services import ig_order_truth  # noqa: F401

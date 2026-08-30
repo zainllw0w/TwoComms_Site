@@ -3941,6 +3941,11 @@ class InstagramBotMessage(models.Model):
         blank=True,
         db_index=True,
     )
+    private_media_state = models.CharField(max_length=20, blank=True, default="")
+    private_media_delete_token = models.CharField(max_length=64, blank=True, default="")
+    private_media_delete_claimed_at = models.DateTimeField(null=True, blank=True)
+    private_media_use_token = models.CharField(max_length=64, blank=True, default="")
+    private_media_use_until = models.DateTimeField(null=True, blank=True, db_index=True)
     attempts = models.PositiveIntegerField(default=0)
     # Delivery boundary state. Once a provider request has started, an
     # ambiguous result must never be retried automatically (Meta has no

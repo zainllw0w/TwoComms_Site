@@ -10,6 +10,9 @@
 3. Текст сообщения клиента не должен попадать в `InstagramBotLog.detail`
    (F-SEC-009) — тогда в логе нечего удалять и нечему утекать.
 """
+import tempfile
+from datetime import timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -180,6 +183,39 @@ class LogDeletionScopeTests(TestCase):
             IgPaymentFollowPreparation.objects.filter(pk=preparation.pk).exists(),
             "optional follow preparation must not retain a deleted client id",
         )
+
+    def test_privacy_erasure_uses_immediate_two_phase_private_blob_delete(self):
+        from django.core.files.base import ContentFile
+        from management.bot_views import _delete_direct_bot_records
+        from management.services.ig_private_media import private_media_storage
+
+        target = IgClient.objects.create(
+            igsid="2000000013",
+            username="private_blob_user",
+        )
+        with tempfile.TemporaryDirectory() as root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(root).resolve()),
+        ):
+            storage = private_media_storage()
+            name = storage.save("privacy/audio.ogg", ContentFile(b"private-audio"))
+            row = InstagramBotMessage.objects.create(
+                sender_id=target.igsid,
+                client=target,
+                role=InstagramBotMessage.Role.USER,
+                private_media_state="active",
+                private_media_delete_after=timezone.now() + timedelta(days=3),
+                attachment_media=[{
+                    "status": "owned",
+                    "private_storage": True,
+                    "storage_name": name,
+                    "mime": "audio/ogg",
+                }],
+            )
+
+            _delete_direct_bot_records(target.username)
+
+            self.assertFalse(storage.exists(name))
+            self.assertFalse(InstagramBotMessage.objects.filter(pk=row.pk).exists())
 
 
 @override_settings(ALLOWED_HOSTS=["management.twocomms.shop", "testserver"])

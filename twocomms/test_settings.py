@@ -1,4 +1,6 @@
 import os
+import tempfile
+from pathlib import Path
 
 """
 Django Test Settings для запуска тестов с SQLite вместо MySQL.
@@ -68,6 +70,10 @@ MIGRATION_MODULES = DisableMigrations()
 
 # Детерминированный профиль тестового окружения.
 DEBUG = False
+IG_PRIVATE_MEDIA_ROOT = str(Path(
+    tempfile.mkdtemp(prefix="twocomms-test-private-media-")
+).resolve())
+os.chmod(IG_PRIVATE_MEDIA_ROOT, 0o700)
 SECURE_SSL_REDIRECT = False
 ALLOWED_HOSTS = [
     'testserver',

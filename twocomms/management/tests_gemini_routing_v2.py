@@ -1306,6 +1306,93 @@ class TypedQuotaErrorTests(SimpleTestCase):
         self.assertEqual(raised.exception.retry_after_seconds, 50)
 
 
+class FinalProviderPayloadBoundaryTests(SimpleTestCase):
+    def _response(self):
+        response = type("Response", (), {})()
+        response.status_code = 200
+        response.text = ""
+        response.json = lambda: {
+            "candidates": [{
+                "content": {"parts": [{"text": "ok"}]},
+                "finishReason": "STOP",
+            }],
+            "usageMetadata": {},
+        }
+        return response
+
+    def _normalized_payload(self):
+        payload = {
+            "contents": [{
+                "role": "user",
+                "parts": [
+                    {"text": "hello"},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": "aaaa"}},
+                    {"inline_data": {"mime_type": "image/png", "data": "bbbb"}},
+                ],
+            }],
+            "generationConfig": {"temperature": 0.2},
+        }
+        return call_ai_analysis._payload_for_model(
+            "gemini-3.7-flash",
+            payload,
+            reasoning_task="media_analysis",
+        )
+
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_exact_final_serialized_boundary_dispatches_normalized_payload(self, post):
+        normalized = self._normalized_payload()
+        exact_size = len(json.dumps(normalized).encode("utf-8"))
+        post.return_value = self._response()
+
+        with patch(
+            "management.services.call_ai_analysis.PROVIDER_REQUEST_MAX_BYTES",
+            exact_size,
+        ):
+            parsed, usage = call_ai_analysis._gemini_call_once(
+                "gemini-3.7-flash",
+                normalized,
+                "redacted",
+                parse=False,
+            )
+
+        self.assertEqual(parsed, "ok")
+        body = post.call_args.kwargs["data"]
+        self.assertEqual(len(body), exact_size)
+        sent = json.loads(body)
+        self.assertEqual(
+            sent["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            "high",
+        )
+        self.assertEqual(usage["_request_inline_count"], 2)
+        self.assertEqual(usage["_request_trimmed_inline"], 0)
+
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_one_byte_over_final_boundary_fails_without_silent_media_trim(self, post):
+        normalized = self._normalized_payload()
+        exact_size = len(json.dumps(normalized).encode("utf-8"))
+
+        with patch(
+            "management.services.call_ai_analysis.PROVIDER_REQUEST_MAX_BYTES",
+            exact_size - 1,
+        ):
+            with self.assertRaises(call_ai_analysis._GeminiFatal):
+                call_ai_analysis._gemini_call_once(
+                    "gemini-3.7-flash",
+                    normalized,
+                    "redacted",
+                    parse=False,
+                )
+
+        post.assert_not_called()
+        self.assertEqual(
+            sum(
+                "inline_data" in part
+                for part in normalized["contents"][0]["parts"]
+            ),
+            2,
+        )
+
+
 class OwnedAudioCaptureTests(SimpleTestCase):
     @patch("management.services.instagram_bot.urllib.request.urlopen")
     def test_audio_is_captured_with_a_bounded_read(self, urlopen):

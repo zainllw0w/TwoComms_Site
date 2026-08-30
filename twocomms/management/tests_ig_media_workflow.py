@@ -5,6 +5,8 @@ from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 import json
+import os
+import stat
 import tempfile
 from unittest.mock import Mock, mock_open, patch
 
@@ -405,6 +407,64 @@ class MediaSemanticsTests(SimpleTestCase):
 
 
 class PrivateMessageMediaStorageTests(TestCase):
+    def _private_row(self, private_root, *, sender):
+        from django.core.files.base import ContentFile
+        from management.services.ig_private_media import private_media_storage
+
+        with override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve())
+        ):
+            storage = private_media_storage()
+            name = storage.save(
+                f"ig_message_media/{sender}/voice.ogg",
+                ContentFile(b"leased-voice"),
+            )
+        row = InstagramBotMessage.objects.create(
+            sender_id=sender,
+            role=InstagramBotMessage.Role.USER,
+            private_media_state="active",
+            private_media_delete_after=timezone.now() + timedelta(hours=1),
+            attachment_media=[{
+                "status": "owned",
+                "private_storage": True,
+                "storage_name": name,
+                "mime": "audio/ogg",
+                "content_hash": "hash",
+            }],
+        )
+        return row, name
+
+    def test_production_missing_private_root_is_a_deploy_error(self):
+        from management.checks import private_instagram_media_check
+
+        with override_settings(DEBUG=False, IG_PRIVATE_MEDIA_ROOT=""):
+            errors = private_instagram_media_check(None)
+
+        self.assertEqual([error.id for error in errors], ["management.E901"])
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_missing_production_root_fails_before_customer_media_download(self, download):
+        from django.core.exceptions import ImproperlyConfigured
+        from management.services.instagram_bot import _capture_message_media
+
+        row = InstagramBotMessage.objects.create(
+            sender_id="missing-private-root",
+            role=InstagramBotMessage.Role.USER,
+            source="webhook",
+            mid="missing-private-root-mid",
+            media_capture_eligible=True,
+            attachment_media=[{
+                "url": "https://lookaside.invalid/private.jpg",
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+        with override_settings(DEBUG=False, IG_PRIVATE_MEDIA_ROOT=""):
+            with self.assertRaises(ImproperlyConfigured):
+                _capture_message_media(row)
+
+        download.assert_not_called()
+
     def test_private_root_inside_public_media_is_rejected(self):
         from django.core.exceptions import ImproperlyConfigured
         from management.services.instagram_bot import _private_media_storage
@@ -416,17 +476,108 @@ class PrivateMessageMediaStorageTests(TestCase):
             with self.assertRaises(ImproperlyConfigured):
                 _private_media_storage()
 
+    def test_private_root_rejects_wrong_mode_and_symlink(self):
+        from django.core.exceptions import ImproperlyConfigured
+        from management.services.instagram_bot import _private_media_storage
+
+        with tempfile.TemporaryDirectory() as root:
+            canonical = Path(root).resolve()
+            os.chmod(canonical, 0o755)
+            with override_settings(IG_PRIVATE_MEDIA_ROOT=str(canonical)):
+                with self.assertRaises(ImproperlyConfigured):
+                    _private_media_storage()
+            os.chmod(canonical, 0o700)
+            link = canonical.parent / f"{canonical.name}-link"
+            link.symlink_to(canonical, target_is_directory=True)
+            self.addCleanup(link.unlink, missing_ok=True)
+            with override_settings(IG_PRIVATE_MEDIA_ROOT=str(link)):
+                with self.assertRaises(ImproperlyConfigured):
+                    _private_media_storage()
+
+    def test_private_root_must_be_owned_by_worker_euid(self):
+        from django.core.exceptions import ImproperlyConfigured
+        from management.services.instagram_bot import _private_media_storage
+
+        with tempfile.TemporaryDirectory() as root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(root).resolve()),
+        ), patch(
+            "management.services.ig_private_media.os.geteuid",
+            return_value=os.geteuid() + 1,
+        ):
+            with self.assertRaises(ImproperlyConfigured):
+                _private_media_storage()
+
+    def test_delete_waits_for_blob_use_lease_then_finalizes(self):
+        from management.services.ig_private_media import (
+            acquire_blob_use,
+            private_media_storage,
+            purge_due,
+            release_blob_use,
+            request_deletion,
+        )
+
+        with tempfile.TemporaryDirectory() as private_root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve()),
+        ):
+            row, name = self._private_row(
+                private_root,
+                sender="private-lease-delete",
+            )
+            token = acquire_blob_use(row.pk, seconds=120)
+            self.assertTrue(token)
+            now = timezone.now()
+            request_deletion([row.pk], now=now, immediate=True)
+
+            self.assertEqual(purge_due(now=now, limit=1), 0)
+            self.assertTrue(private_media_storage().exists(name))
+            release_blob_use(row.pk, token)
+            self.assertEqual(purge_due(now=now, limit=1), 1)
+
+            row.refresh_from_db()
+            self.assertEqual(row.private_media_state, "deleted")
+            self.assertFalse(private_media_storage().exists(name))
+
+    def test_stale_delete_claim_recovers_after_blob_was_already_removed(self):
+        from management.services.ig_private_media import (
+            claim_deletion,
+            private_media_storage,
+            purge_due,
+            request_deletion,
+        )
+
+        with tempfile.TemporaryDirectory() as private_root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve()),
+        ):
+            row, name = self._private_row(
+                private_root,
+                sender="private-crash-delete",
+            )
+            now = timezone.now()
+            request_deletion([row.pk], now=now, immediate=True)
+            claim = claim_deletion(row.pk, now=now)
+            self.assertIsNotNone(claim)
+            private_media_storage().delete(name)
+            InstagramBotMessage.objects.filter(pk=row.pk).update(
+                private_media_delete_claimed_at=now - timedelta(minutes=10),
+            )
+
+            self.assertEqual(purge_due(now=now, limit=1), 1)
+            row.refresh_from_db()
+            self.assertEqual(row.private_media_state, "deleted")
+            self.assertEqual(row.attachment_media[0]["status"], "expired")
+
     @patch("management.services.instagram_bot.download_image")
     def test_audio_is_private_has_no_public_url_and_is_purged(self, download):
         from management.services.instagram_bot import (
             _capture_message_media,
+            _private_media_storage,
             purge_expired_private_message_media,
         )
 
         download.return_value = ("audio/ogg", b"private-voice")
         with tempfile.TemporaryDirectory() as private_root, tempfile.TemporaryDirectory() as public_root:
             with override_settings(
-                IG_PRIVATE_MEDIA_ROOT=private_root,
+                IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve()),
                 IG_PRIVATE_MEDIA_RETENTION_SECONDS=3600,
                 MEDIA_ROOT=public_root,
             ):
@@ -451,8 +602,13 @@ class PrivateMessageMediaStorageTests(TestCase):
                 owned = row.attachment_media[0]
                 self.assertTrue(owned["private_storage"])
                 self.assertNotIn("local_url", owned)
-                self.assertTrue((Path(private_root) / owned["storage_name"]).exists())
+                private_path = Path(private_root) / owned["storage_name"]
+                self.assertTrue(private_path.exists())
                 self.assertFalse((Path(public_root) / owned["storage_name"]).exists())
+                self.assertEqual(stat.S_IMODE(os.stat(private_root).st_mode), 0o700)
+                self.assertEqual(stat.S_IMODE(private_path.stat().st_mode), 0o600)
+                with self.assertRaises(ValueError):
+                    _private_media_storage().url(owned["storage_name"])
                 self.assertIsNotNone(row.private_media_delete_after)
 
                 purged = purge_expired_private_message_media(
@@ -487,8 +643,13 @@ class PrivateMessageMediaStorageTests(TestCase):
 
         post.side_effect = send
         with tempfile.TemporaryDirectory() as private_root, override_settings(
-            IG_PRIVATE_MEDIA_ROOT=private_root,
+            IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve()),
         ):
+            row = InstagramBotMessage.objects.create(
+                sender_id="private-telegram-audio",
+                role=InstagramBotMessage.Role.USER,
+                private_media_state="active",
+            )
             _private_media_storage()
             name = "ig_message_media/voice.ogg"
             path = Path(private_root) / name
@@ -500,6 +661,7 @@ class PrivateMessageMediaStorageTests(TestCase):
                 media={
                     "private_storage_name": name,
                     "mime": "audio/ogg",
+                    "message_id": str(row.pk),
                 },
                 caption="Voice evidence",
                 reply_to_message_id="10",
