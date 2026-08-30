@@ -150,7 +150,11 @@ def _clear_current_generation(proposal, generation, *, terminal_status):
     if proposal.winner_invoice_generation_id:
         return
     proposal.status = (
-        proposal.Status.VIEWED if proposal.viewed_at else proposal.Status.READY
+        proposal.Status.EXPIRED
+        if proposal.expires_at <= timezone.now()
+        else proposal.Status.VIEWED
+        if proposal.viewed_at
+        else proposal.Status.READY
     )
     proposal.save(
         update_fields=[
@@ -318,10 +322,7 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
         locked.public_id,
         generation=generation_number,
     )
-    expires_at = min(
-        locked.expires_at,
-        now + timedelta(seconds=GENERATION_TTL_SECONDS),
-    )
+    expires_at = now + timedelta(seconds=GENERATION_TTL_SECONDS)
     generation = IgCheckoutInvoiceGeneration.objects.create(
         proposal=locked,
         generation=generation_number,
@@ -1083,7 +1084,10 @@ def expire_due_v2_proposals(*, now=None, limit=100, dry_run=False):
                         pk=proposal.current_invoice_generation_id,
                         proposal_id=proposal.pk,
                     )
-                    if generation.payment_attempt_id:
+                    if (
+                        generation.payment_attempt_id
+                        and generation.expires_at <= now
+                    ):
                         attempt = PaymentAttempt.objects.select_for_update().get(
                             pk=generation.payment_attempt_id
                         )

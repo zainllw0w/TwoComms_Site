@@ -1,4 +1,5 @@
 from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -61,6 +62,24 @@ class CheckoutGenerationMigrationContractTests(SimpleTestCase):
                     ("proposal", "active_slot"),
                 ),
             )
+
+    def test_mariadb_harness_is_guarded_and_covers_kill_races_and_reverse(self):
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "scripts"
+            / "run_ig_checkout_generation_s2b_mariadb_retry.py"
+        ).read_text(encoding="utf-8")
+        for value in (
+            "--confirm-disposable is required",
+            "test_twocomms_checkout_s2b_",
+            "KILL_EXIT_CODE = 97",
+            "winner_race_ok",
+            "legacy_unchanged",
+            "event_update_rejected",
+            "event_delete_rejected",
+            "reverse_schema_preserved",
+        ):
+            self.assertIn(value, source)
 
 
 class CheckoutGenerationTriggerTests(TransactionTestCase):

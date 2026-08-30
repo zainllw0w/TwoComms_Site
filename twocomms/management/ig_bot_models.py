@@ -2892,6 +2892,7 @@ class IgCheckoutInvoiceGeneration(models.Model):
         "management.IgCheckoutProposal",
         on_delete=models.PROTECT,
         related_name="invoice_generations",
+        db_constraint=False,
     )
     generation = models.PositiveIntegerField()
     series_key = models.CharField(max_length=64)

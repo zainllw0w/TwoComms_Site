@@ -84,7 +84,7 @@ STATE_OPERATIONS = [
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('payment_attempt', models.OneToOneField(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='instagram_checkout_generation', to='orders.paymentattempt')),
                 ('policy_evidence_message', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='checkout_invoice_generation_policy_evidence', to='management.instagrambotmessage')),
-                ('proposal', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='invoice_generations', to='management.igcheckoutproposal')),
+                ('proposal', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='invoice_generations', to='management.igcheckoutproposal')),
             ],
             options={
                 'ordering': ['proposal_id', 'generation'],
@@ -299,6 +299,13 @@ def _ensure_innodb(schema_editor, table_name):
         )
 
 
+def _flush_deferred_sql(schema_editor):
+    deferred = list(schema_editor.deferred_sql)
+    schema_editor.deferred_sql.clear()
+    for statement in deferred:
+        schema_editor.execute(statement)
+
+
 def _constraints(schema_editor, table_name):
     with schema_editor.connection.cursor() as cursor:
         return schema_editor.connection.introspection.get_constraints(
@@ -351,7 +358,10 @@ def _validate_named_shapes(apps, schema_editor):
             or actual.get("check")
             or actual.get("foreign_key")
         ):
-            raise RuntimeError(f"{index_name} has incompatible index shape")
+            raise RuntimeError(
+                f"{index_name} has incompatible index shape: "
+                f"actual={actual!r}, expected={expected!r}"
+            )
     for app_label, model_name, check_name in CHECK_SPECS:
         model = apps.get_model(app_label, model_name)
         actual = _constraints(schema_editor, model._meta.db_table).get(check_name)
@@ -389,9 +399,11 @@ def ensure_checkout_generation_schema(apps, schema_editor):
     event_existed = EVENT_TABLE in tables
     if not generation_existed:
         schema_editor.create_model(generation_model)
+        _flush_deferred_sql(schema_editor)
     _ensure_innodb(schema_editor, GENERATION_TABLE)
     if not event_existed:
         schema_editor.create_model(event_model)
+        _flush_deferred_sql(schema_editor)
     _ensure_innodb(schema_editor, EVENT_TABLE)
 
     existing_models = {
