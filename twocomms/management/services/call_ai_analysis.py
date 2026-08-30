@@ -1184,9 +1184,16 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         (item["key_name"], item["model"]): int(item["candidate_index"])
         for item in candidate_plan
     }
+    accounting_shadow_active = (
+        str(getattr(settings, "GEMINI_ACCOUNTING_V2_MODE", "off") or "off")
+        .strip()
+        .casefold()
+        == "shadow"
+    )
     try:
         from management.services import gemini_accounting_runtime
 
+        accounting_shadow_active = gemini_accounting_runtime.shadow_runtime_active()
         accounting_observer = gemini_accounting_runtime.begin_request(
             request_id=request_id,
             role="chat",
@@ -1689,10 +1696,15 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     # суточных запросов сильной модели — двадцать таких ходов съедают половину
     # дневного бюджета ради двадцати ответов. На lite (500/сутки на ключ) та же
     # волна стоит 0.6% бюджета. Поэтому hedging допустим ТОЛЬКО на дешёвом тире.
-    # The legacy hedge is forbidden on scarce 20-RPD models.  Only Lite may
-    # use a bounded two-call wave; every stronger model stays sequential.
+    # The legacy hedge is forbidden on scarce 20-RPD models.  It also remains
+    # structurally disabled while accounting V2 shadow is active: the legacy
+    # worker threads do not own RequestObserver boundaries and therefore cannot
+    # produce a canonical parent/winner/late-loser graph.  A future hedge may be
+    # enabled only after that concurrent linkage is implemented explicitly.
     hedging_affordable = bool(
-        ENABLE_LEGACY_CHAT_HEDGE and primary == "gemini-3.5-flash-lite"
+        ENABLE_LEGACY_CHAT_HEDGE
+        and primary == "gemini-3.5-flash-lite"
+        and not accounting_shadow_active
     )
     quota_pressure = gemini_keys.model_quota_pressure("chat", primary)
     if quota_pressure or not hedging_affordable:

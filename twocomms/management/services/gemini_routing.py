@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Iterable
 
+from django.db import transaction
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 
@@ -362,24 +364,111 @@ def persist_decision(message, decision: RoutingDecision) -> None:
         "gemini_routing_mode": payload["routing_mode"],
     }
     try:
-        updated = type(message).objects.filter(
-            pk=message.pk,
-            gemini_routing_policy_version="",
-        ).update(**fields)
-    except Exception:
-        return
-    if not updated:
-        return
-    for field, value in fields.items():
-        setattr(message, field, value)
-    if decision.task_class == TaskClass.NO_MODEL:
-        try:
-            from management.services.gemini_accounting_runtime import (
-                record_no_model_decision,
-            )
+        with transaction.atomic():
+            locked = type(message).objects.select_for_update().get(pk=message.pk)
+            if str(locked.gemini_routing_policy_version or ""):
+                return
 
-            record_no_model_decision(message, decision)
-        except Exception:
-            # Routing truth must remain durable even if optional shadow
-            # observability is unavailable.
-            return
+            if decision.task_class == TaskClass.NO_MODEL:
+                from management.models import GeminiRequest, GeminiRequestAttempt
+
+                # A provider-backed graph is durable ownership of this
+                # source/lane even when a crash left the message route blank.
+                # Locking the inbound row serializes this check with V2 graph
+                # creation, so duplicate suppression cannot win a stale CAS
+                # between graph creation and provider_started settlement.
+                provider_attempt = GeminiRequestAttempt.objects.filter(
+                    request_graph_id=OuterRef("pk"),
+                ).filter(
+                    Q(provider_started_at__isnull=False)
+                    | Q(fsm_state__in=(
+                        GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                        GeminiRequestAttempt.FsmState.SUCCEEDED,
+                        GeminiRequestAttempt.FsmState.FAILED,
+                        GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+                        GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+                    ))
+                )
+                provider_owner = (
+                    GeminiRequest.objects.select_for_update()
+                    .filter(
+                        source_message_id=message.pk,
+                        lane=payload["lane"],
+                    )
+                    .annotate(has_provider_attempt=Exists(provider_attempt))
+                    .filter(
+                        Q(provider_phase_started_at__isnull=False)
+                        | Q(has_provider_attempt=True)
+                        | ~Q(task_class=TaskClass.NO_MODEL.value)
+                    )
+                    .order_by("-provider_phase_started_at", "-id")
+                    .first()
+                )
+                if provider_owner is not None:
+                    if provider_owner.task_class == TaskClass.NO_MODEL.value:
+                        # Historical/corrupt evidence cannot be projected as a
+                        # deterministic route once a provider boundary exists.
+                        # Preserve the graph and leave the blank message route
+                        # fail-closed for operator reconciliation.
+                        return
+                    model_chain: list[str] = []
+                    for item in provider_owner.candidate_plan or ():
+                        model = str(
+                            item.get("model") if isinstance(item, dict) else ""
+                        ).strip()
+                        if model and model not in model_chain:
+                            model_chain.append(model)
+                    provider_fields = {
+                        "gemini_task_class": str(provider_owner.task_class or ""),
+                        "gemini_routing_reason_codes": list(
+                            locked.gemini_routing_reason_codes or []
+                        ),
+                        "gemini_routing_policy_version": str(
+                            provider_owner.routing_policy_version or ""
+                        ),
+                        "gemini_routing_model_chain": model_chain,
+                        "gemini_routing_deadline_ms": int(
+                            provider_owner.deadline_ms or 0
+                        ),
+                        "gemini_routing_lane": str(provider_owner.lane or ""),
+                        "gemini_routing_authority_version": str(
+                            provider_owner.authority_snapshot_version or ""
+                        ),
+                        "gemini_routing_requires_media": bool(
+                            provider_owner.requires_media_reasoning
+                        ),
+                        "gemini_routing_commercial_risk": str(
+                            provider_owner.commercial_risk or ""
+                        ),
+                        "gemini_routing_mode": str(
+                            provider_owner.routing_mode or ""
+                        ),
+                    }
+                    # Some pre-V2 rows may not carry a policy version.  The
+                    # task class still preserves provider ownership; do not
+                    # substitute the incoming NO_MODEL policy.
+                    type(message).objects.filter(pk=locked.pk).update(
+                        **provider_fields
+                    )
+                    for field, value in provider_fields.items():
+                        setattr(message, field, value)
+                    return
+
+            updated = type(message).objects.filter(
+                pk=locked.pk,
+                gemini_routing_policy_version="",
+            ).update(**fields)
+            if not updated:
+                return
+            for field, value in fields.items():
+                setattr(message, field, value)
+            if decision.task_class == TaskClass.NO_MODEL:
+                from management.services.gemini_accounting_runtime import (
+                    record_no_model_decision,
+                )
+
+                record_no_model_decision(message, decision)
+    except Exception:
+        # Routing/business behavior remains fail-soft if optional evidence
+        # persistence is unavailable.
+        return

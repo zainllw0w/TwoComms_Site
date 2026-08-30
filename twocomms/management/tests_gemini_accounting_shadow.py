@@ -427,6 +427,148 @@ class GeminiShadowRuntimeTests(TestCase):
         post.assert_not_called()
         self.assertEqual(GeminiRequestAttempt.objects.count(), 0)
 
+    @override_settings(**SHADOW)
+    def test_no_model_cannot_replace_provider_owned_blank_message_route(self):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services import instagram_bot
+
+        client = IgClient.get_or_create_for_sender("provider-owned-route")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="provider-owned-route-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        ordinary = classify_live_turn(TurnFacts())
+        plan = _raw_plan("gemini-3.5-flash-lite")
+        with turn_lineage(
+            lane=Lane.LIVE,
+            client_id=client.pk,
+            source_message_id=message.pk,
+            logical_turn_id=f"t{client.pk}:{message.pk}",
+        ):
+            observer = runtime.begin_request(
+                request_id="provider-owned-route-request",
+                role="chat",
+                reasoning_task="customer_chat",
+                candidate_plan=plan,
+                deadline_seconds=35,
+                routing_decision=ordinary,
+            )
+        boundary = observer.attempt(
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            candidate_index=1,
+        )
+        boundary.before_provider(serialized_bytes=128)
+
+        # The duplicate barrier runs after reply generation.  A crash may have
+        # left the message route blank, but provider graph ownership is already
+        # durable and must win the atomic source/lane decision.
+        instagram_bot._persist_no_model_route(
+            message,
+            action="duplicate_reply",
+        )
+
+        message.refresh_from_db()
+        graph = GeminiRequest.objects.get()
+        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        self.assertEqual(message.gemini_task_class, "ordinary_live")
+        self.assertEqual(message.gemini_routing_lane, Lane.LIVE)
+        self.assertEqual(
+            message.gemini_routing_model_chain,
+            ["gemini-3.5-flash-lite"],
+        )
+        self.assertEqual(graph.task_class, "ordinary_live")
+        self.assertEqual(attempt.fsm_state, GeminiRequestAttempt.FsmState.PROVIDER_STARTED)
+        self.assertIsNotNone(graph.provider_phase_started_at)
+        self.assertEqual(GeminiRequest.objects.count(), 1)
+        self.assertFalse(GeminiRequest.objects.filter(task_class="no_model").exists())
+
+    @override_settings(**SHADOW)
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "shadow-hedge-key-1",
+            "GEMINI_API2": "shadow-hedge-key-2",
+            "GEMINI_API3": "",
+            "GEMINI_API4": "",
+            "GEMINI_API5": "",
+            "GEMINI_API6": "",
+        },
+        clear=False,
+    )
+    @patch("management.services.call_ai_analysis.ENABLE_LEGACY_CHAT_HEDGE", True)
+    @patch("management.services.call_ai_analysis.gemini_hedge.run_hedged")
+    @patch("management.services.call_ai_analysis.gemini_quota.settle")
+    @patch("management.services.call_ai_analysis.gemini_quota.try_reserve", return_value=True)
+    @patch("management.services.call_ai_analysis.gemini_scoreboard.order_candidates")
+    @patch("management.services.call_ai_analysis._gemini_call_once")
+    def test_enabled_lite_hedge_is_disabled_in_shadow_and_graph_stays_canonical(
+        self,
+        call_once,
+        order,
+        _reserve,
+        _settle,
+        run_hedged,
+    ):
+        order.side_effect = lambda candidates, **_kwargs: list(reversed(candidates))
+
+        def provider(*_args, **kwargs):
+            boundary = kwargs["attempt_boundary"]
+            boundary.before_provider(serialized_bytes=128)
+            boundary.succeeded({})
+            return "ok", {}
+
+        call_once.side_effect = provider
+        out = ai.gemini_generate_text(
+            {"contents": [{"parts": [{"text": "bounded"}]}]},
+            role="chat",
+            model_chain_override=["gemini-3.5-flash-lite"],
+        )
+
+        self.assertEqual(out["parsed"], "ok")
+        run_hedged.assert_not_called()
+        graph = GeminiRequest.objects.get()
+        attempts = list(
+            GeminiRequestAttempt.objects.filter(request_graph=graph).order_by(
+                "attempt_index"
+            )
+        )
+        provider_rows = [row for row in attempts if row.provider_started_at]
+        self.assertEqual(len(provider_rows), 1)
+        winner = provider_rows[0]
+        self.assertEqual(winner.project_identity, "gemini-project-2")
+        self.assertEqual(winner.candidate_index, 1)
+        self.assertTrue(winner.winner_claimed)
+        graph.refresh_from_db()
+        self.assertEqual(graph.winner_attempt_id, winner.pk)
+        self.assertEqual(graph.terminal_resolution, "succeeded")
+        self.assertEqual(graph.terminal_reason, "provider_success")
+        self.assertFalse(
+            GeminiRequestAttempt.objects.filter(
+                request_graph=graph,
+                candidate_index=winner.candidate_index,
+                outcome="not_attempted",
+            ).exists()
+        )
+        losers = [row for row in attempts if row.pk != winner.pk]
+        self.assertTrue(losers)
+        self.assertTrue(all(
+            row.fsm_state == GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH
+            for row in losers
+        ))
+        self.assertTrue(all(row.outcome == "not_attempted" for row in losers))
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(
+                request_id=graph.request_id,
+                request_graph__isnull=True,
+            ).count(),
+            0,
+        )
+
     @override_settings(GEMINI_ACCOUNTING_V2_MODE="off", GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="")
     @patch.dict(os.environ, KEY_ENV, clear=False)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())

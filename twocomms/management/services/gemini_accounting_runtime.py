@@ -24,7 +24,18 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import IntegrityError, OperationalError, transaction
-from django.db.models import Case, Count, F, IntegerField, Min, Sum, When
+from django.db.models import (
+    Case,
+    Count,
+    Exists,
+    F,
+    IntegerField,
+    Min,
+    OuterRef,
+    Q,
+    Sum,
+    When,
+)
 from django.utils import timezone
 
 
@@ -331,7 +342,11 @@ def begin_request(
     if not shadow_runtime_active():
         return NULL_OBSERVER
     try:
-        from management.models import GeminiRequest
+        from management.models import (
+            GeminiRequest,
+            GeminiRequestAttempt,
+            InstagramBotMessage,
+        )
         from management.services.gemini_accounting_contract import (
             canonical_candidate_plan_digest,
         )
@@ -354,32 +369,77 @@ def begin_request(
         )[:24]
         deadline_ms = max(0, int(float(deadline_seconds or 0) * 1000))
         profile_version = _quota_profile_version_for_plan(safe_plan, now=now)
-        graph = GeminiRequest.objects.create(
-            request_id=str(request_id or uuid.uuid4().hex)[:40],
-            lane=resolved_lane,
-            task_class=task_class,
-            reasoning_task=str(reasoning_task or "")[:40],
-            logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
-            source_message_id=lineage.get("source_message_id") or None,
-            client_id=lineage.get("client_id") or None,
-            recovery_job_id=lineage.get("recovery_job_id") or None,
-            routing_policy_version=str(_routing_value(routing_decision, "policy_version", ""))[:32],
-            accounting_policy_version=ACCOUNTING_POLICY_VERSION,
-            quota_profile_version=profile_version,
-            authority_snapshot_version=str(
-                _routing_value(routing_decision, "authority_snapshot_version", "")
-            )[:32],
-            routing_mode=str(_routing_value(routing_decision, "routing_mode", ""))[:12],
-            commercial_risk=str(_routing_value(routing_decision, "commercial_risk", ""))[:16],
-            requires_media_reasoning=bool(
-                _routing_value(routing_decision, "requires_media_reasoning", False)
-            ),
-            candidate_plan=safe_plan,
-            candidate_plan_digest=canonical_candidate_plan_digest(safe_plan),
-            deadline_ms=deadline_ms,
-            deadline_at=(now + dt.timedelta(milliseconds=deadline_ms) if deadline_ms else None),
-            accounting_mode=GeminiRequest.AccountingMode.SHADOW,
-        )
+        source_message_id = lineage.get("source_message_id") or None
+        with transaction.atomic():
+            locked_message = None
+            if source_message_id:
+                locked_message = (
+                    InstagramBotMessage.objects.select_for_update()
+                    .filter(pk=source_message_id)
+                    .only("pk", "gemini_task_class")
+                    .first()
+                )
+                existing = GeminiRequest.objects.select_for_update().filter(
+                    source_message_id=source_message_id,
+                    lane=resolved_lane,
+                )
+                if task_class == "no_model":
+                    provider_attempt = GeminiRequestAttempt.objects.filter(
+                        request_graph_id=OuterRef("pk"),
+                    ).filter(
+                        Q(provider_started_at__isnull=False)
+                        | Q(fsm_state__in=(
+                            GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                            GeminiRequestAttempt.FsmState.SUCCEEDED,
+                            GeminiRequestAttempt.FsmState.FAILED,
+                            GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+                            GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+                        ))
+                    )
+                    provider_owned = existing.annotate(
+                        has_provider_attempt=Exists(provider_attempt)
+                    ).filter(
+                        Q(provider_phase_started_at__isnull=False)
+                        | Q(has_provider_attempt=True)
+                        | ~Q(task_class="no_model")
+                    )
+                    if provider_owned.exists():
+                        return NULL_OBSERVER
+                elif (
+                    (locked_message is not None and locked_message.gemini_task_class == "no_model")
+                    or existing.filter(task_class="no_model").exists()
+                ):
+                    # A deterministic route already owns this source/lane.
+                    # Shadow telemetry must not create a contradictory second
+                    # graph even if an erroneous caller proceeds toward the
+                    # provider after that durable decision.
+                    return NULL_OBSERVER
+            graph = GeminiRequest.objects.create(
+                request_id=str(request_id or uuid.uuid4().hex)[:40],
+                lane=resolved_lane,
+                task_class=task_class,
+                reasoning_task=str(reasoning_task or "")[:40],
+                logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
+                source_message_id=source_message_id,
+                client_id=lineage.get("client_id") or None,
+                recovery_job_id=lineage.get("recovery_job_id") or None,
+                routing_policy_version=str(_routing_value(routing_decision, "policy_version", ""))[:32],
+                accounting_policy_version=ACCOUNTING_POLICY_VERSION,
+                quota_profile_version=profile_version,
+                authority_snapshot_version=str(
+                    _routing_value(routing_decision, "authority_snapshot_version", "")
+                )[:32],
+                routing_mode=str(_routing_value(routing_decision, "routing_mode", ""))[:12],
+                commercial_risk=str(_routing_value(routing_decision, "commercial_risk", ""))[:16],
+                requires_media_reasoning=bool(
+                    _routing_value(routing_decision, "requires_media_reasoning", False)
+                ),
+                candidate_plan=safe_plan,
+                candidate_plan_digest=canonical_candidate_plan_digest(safe_plan),
+                deadline_ms=deadline_ms,
+                deadline_at=(now + dt.timedelta(milliseconds=deadline_ms) if deadline_ms else None),
+                accounting_mode=GeminiRequest.AccountingMode.SHADOW,
+            )
         return RequestObserver(graph_id=graph.pk, request_id=graph.request_id, raw_plan=candidate_plan)
     except Exception:
         return NULL_OBSERVER
