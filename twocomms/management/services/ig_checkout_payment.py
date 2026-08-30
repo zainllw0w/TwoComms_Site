@@ -137,7 +137,10 @@ def _proposal_basket(proposal, *, promo_discount=Decimal("0.00")):
 
 
 def _invoice_payload(request, attempt, proposal, *, payment_amount, promo_discount):
-    if attempt.pay_type == PaymentAttempt.PayType.PREPAYMENT:
+    if attempt.pay_type in {
+        PaymentAttempt.PayType.PREPAYMENT,
+        PaymentAttempt.PayType.PREPAY_200,
+    }:
         description = (
             f"Передоплата замовлення {attempt.reference} на суму {payment_amount:.2f} грн. "
             f"Повна сума після знижок: {attempt.payable_amount:.2f} грн."

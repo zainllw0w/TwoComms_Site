@@ -16,9 +16,17 @@ class InventoryReservationError(ValueError):
         super().__init__(self.reason)
 
 
-def _fingerprint(proposal, allocation_key):
+def _fingerprint(proposal, allocation_key, *, generation=None):
+    generation_identity = (
+        f":generation:{generation.pk}"
+        if generation is not None
+        else ""
+    )
     return hashlib.sha256(
-        f"ig-inventory:v2:{proposal.pk}:{proposal.revision}:{allocation_key}".encode()
+        (
+            f"ig-inventory:v2:{proposal.pk}:{proposal.revision}:"
+            f"{allocation_key}{generation_identity}"
+        ).encode()
     ).hexdigest()
 
 
@@ -68,14 +76,29 @@ def _lock_allocation(allocation):
 
 
 @transaction.atomic
-def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=False):
+def reserve_proposal_inventory(
+    proposal,
+    *,
+    expires_at=None,
+    require_policy=False,
+    generation=None,
+):
     from management.models import IgCheckoutInventoryReservation
     from product_catalog.models import ProductInventoryPolicy
     from warehouse.models import StockItem
     from productcolors.models import ProductColorVariant
 
     proposal = type(proposal).objects.select_for_update().get(pk=proposal.pk)
-    expiry = expires_at or proposal.expires_at
+    if generation is not None:
+        from management.models import IgCheckoutInvoiceGeneration
+
+        generation = IgCheckoutInvoiceGeneration.objects.select_for_update().get(
+            pk=generation.pk,
+            proposal_id=proposal.pk,
+        )
+    expiry = expires_at or (
+        generation.expires_at if generation is not None else proposal.expires_at
+    )
     items = list(proposal.items.select_for_update().order_by("pk"))
 
     groups = {}
@@ -131,7 +154,10 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
             reserved = protected_stock_quantity(
                 stock_item_id=allocation.stock_item_id,
                 at=now,
-                exclude_proposal_id=proposal.pk,
+                exclude_proposal_id=(proposal.pk if generation is None else None),
+                exclude_generation_id=(
+                    generation.pk if generation is not None else None
+                ),
             )
         else:
             variant = locked_target
@@ -148,7 +174,13 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
                     )
                     | Q(state=IgCheckoutInventoryReservation.State.PAID_COMMITTED)
                 )
-                .exclude(proposal_id=proposal.pk)
+                .exclude(
+                    **(
+                        {"invoice_generation_id": generation.pk}
+                        if generation is not None
+                        else {"proposal_id": proposal.pk}
+                    )
+                )
                 .aggregate(total=Sum("quantity"))["total"]
                 or 0
             )
@@ -161,7 +193,11 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
     for group in groups.values():
         allocation = group["allocation"]
         group_items = group["items"]
-        fingerprint = _fingerprint(proposal, group["allocation_key"])
+        fingerprint = _fingerprint(
+            proposal,
+            group["allocation_key"],
+            generation=generation,
+        )
         existing = IgCheckoutInventoryReservation.objects.select_for_update().filter(
             reservation_fingerprint=fingerprint,
         ).first()
@@ -174,6 +210,7 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
             continue
         reservations.append(IgCheckoutInventoryReservation(
             proposal=proposal,
+            invoice_generation=generation,
             item=group_items[0],
             product_id=group_items[0].product_id,
             color_variant_id=group_items[0].color_variant_id,
@@ -207,6 +244,28 @@ def release_proposal_inventory(proposal, *, reason="released"):
 
 
 @transaction.atomic
+def release_generation_inventory(generation, *, reason="released"):
+    from management.models import (
+        IgCheckoutInventoryReservation,
+        IgCheckoutInvoiceGeneration,
+    )
+
+    generation = IgCheckoutInvoiceGeneration.objects.select_for_update().get(
+        pk=generation.pk
+    )
+    now = timezone.now()
+    return IgCheckoutInventoryReservation.objects.filter(
+        invoice_generation_id=generation.pk,
+        state=IgCheckoutInventoryReservation.State.ACTIVE,
+    ).update(
+        state=IgCheckoutInventoryReservation.State.RELEASED,
+        released_at=now,
+        release_reason=str(reason or "released")[:128],
+        updated_at=now,
+    )
+
+
+@transaction.atomic
 def release_attempt_inventory(attempt, *, reason="payment_terminal"):
     """Release only a proposal-backed attempt; retail attempts are untouched."""
     from orders.models import PaymentAttempt
@@ -218,6 +277,12 @@ def release_attempt_inventory(attempt, *, reason="payment_terminal"):
         PaymentAttempt.Status.CANCELLED,
     }:
         return 0
+    try:
+        generation = locked.instagram_checkout_generation
+    except Exception:
+        generation = None
+    if generation is not None:
+        return release_generation_inventory(generation, reason=reason)
     try:
         proposal = locked.instagram_checkout_proposal
     except Exception:
@@ -251,6 +316,7 @@ def _catalog_variant_protected_quantity(
     color_variant_id,
     at,
     exclude_proposal_id=None,
+    exclude_generation_id=None,
 ):
     from management.models import IgCheckoutInventoryReservation
 
@@ -266,6 +332,10 @@ def _catalog_variant_protected_quantity(
     )
     if exclude_proposal_id is not None:
         reservations = reservations.exclude(proposal_id=exclude_proposal_id)
+    if exclude_generation_id is not None:
+        reservations = reservations.exclude(
+            invoice_generation_id=exclude_generation_id
+        )
     return int(reservations.aggregate(total=Sum("quantity"))["total"] or 0)
 
 
@@ -320,6 +390,7 @@ def _payment_review_reason(
     paid_at,
     now,
     required_quantity=None,
+    generation_id=None,
 ):
     from management.models import IgCheckoutInventoryReservation
 
@@ -338,14 +409,20 @@ def _payment_review_reason(
         protected_elsewhere = protected_stock_quantity(
             stock_item_id=reservation.stock_item_id,
             at=now,
-            exclude_proposal_id=reservation.proposal_id,
+            exclude_proposal_id=(
+                reservation.proposal_id if generation_id is None else None
+            ),
+            exclude_generation_id=generation_id,
         )
     else:
         available = int(color_variant.stock or 0) if color_variant is not None else 0
         protected_elsewhere = _catalog_variant_protected_quantity(
             color_variant_id=reservation.color_variant_id,
             at=now,
-            exclude_proposal_id=reservation.proposal_id,
+            exclude_proposal_id=(
+                reservation.proposal_id if generation_id is None else None
+            ),
+            exclude_generation_id=generation_id,
         )
     if protected_elsewhere + required > available:
         return "late_payment_stock_reallocated"
@@ -353,7 +430,13 @@ def _payment_review_reason(
 
 
 @transaction.atomic
-def commit_proposal_inventory(proposal, *, order=None, paid_at=None):
+def commit_proposal_inventory(
+    proposal,
+    *,
+    order=None,
+    paid_at=None,
+    generation=None,
+):
     from management.models import IgCheckoutInventoryReservation
 
     now = timezone.now()
@@ -366,6 +449,13 @@ def commit_proposal_inventory(proposal, *, order=None, paid_at=None):
             IgCheckoutInventoryReservation.State.RELEASED,
         ],
     )
+    generation_id = getattr(generation, "pk", None)
+    if generation_id is not None:
+        candidate_rows = candidate_rows.filter(
+            invoice_generation_id=generation_id
+        )
+    else:
+        candidate_rows = candidate_rows.filter(invoice_generation__isnull=True)
     variants, stock_items = _payment_inventory_targets(candidate_rows)
     reservations = list(
         candidate_rows.select_for_update().order_by("pk")
@@ -388,6 +478,7 @@ def commit_proposal_inventory(proposal, *, order=None, paid_at=None):
             paid_at=paid_at,
             now=now,
             required_quantity=required_by_target[_reservation_target_key(reservation)],
+            generation_id=generation_id,
         )
         if review_reason:
             reservation.state = IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW
@@ -440,6 +531,15 @@ def commit_proposal_inventory(proposal, *, order=None, paid_at=None):
             ],
         ).update(**updates)
     return len(reservations)
+
+
+def commit_generation_inventory(generation, *, order=None, paid_at=None):
+    return commit_proposal_inventory(
+        generation.proposal,
+        order=order,
+        paid_at=paid_at,
+        generation=generation,
+    )
 
 
 @transaction.atomic

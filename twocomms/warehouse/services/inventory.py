@@ -23,6 +23,7 @@ def protected_stock_quantity(
     stock_item_id: int,
     at=None,
     exclude_proposal_id: Optional[int] = None,
+    exclude_generation_id: Optional[int] = None,
     exclude_paid_order_id: Optional[int] = None,
 ) -> int:
     """Return warehouse units protected by live or paid IG commitments.
@@ -47,6 +48,10 @@ def protected_stock_quantity(
     )
     if exclude_proposal_id is not None:
         reservations = reservations.exclude(proposal_id=exclude_proposal_id)
+    if exclude_generation_id is not None:
+        reservations = reservations.exclude(
+            invoice_generation_id=exclude_generation_id
+        )
     if exclude_paid_order_id is not None:
         reservations = reservations.exclude(
             state=IgCheckoutInventoryReservation.State.PAID_COMMITTED,

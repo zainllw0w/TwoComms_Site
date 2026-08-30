@@ -221,6 +221,19 @@
               <small id="ig-warehouse-status" role="status" aria-live="polite" data-np-warehouse-status>{{ copy.warehouse_hint }}</small>
             </div>
 
+            {% if proposal.is_v2 %}
+              <fieldset class="ig-field" data-payment-choice>
+                <legend>{{ copy.payment_method }}</legend>
+                {% for option in payment_options %}
+                  <label>
+                    <input type="radio" name="payment_choice" value="{{ option.value }}"{% if option.selected %} checked{% endif %}>
+                    <span>{{ option.label }}</span>
+                    <strong>{{ option.amount }} {{ proposal.currency }}</strong>
+                  </label>
+                {% endfor %}
+              </fieldset>
+            {% endif %}
+
             {% if proposal.allow_promo %}
               <details class="ig-promo" data-promo-disclosure>
                 <summary>{{ copy.have_promo }}</summary>
@@ -286,7 +299,7 @@
         <span class="ig-sheet-dialog__mark" aria-hidden="true"><svg><use href="#ig-icon-check-badge"></use></svg></span>
         <h2 id="ig-price-title">{{ copy.price_dialog_title }}</h2>
         <p id="ig-price-description">{{ copy.price_dialog_body }}</p>
-        <div class="ig-sheet-dialog__note"><svg aria-hidden="true"><use href="#ig-icon-timer"></use></svg><span>{{ copy.expires_explanation }}</span></div>
+        <div class="ig-sheet-dialog__note"><svg aria-hidden="true"><use href="#ig-icon-timer"></use></svg><span>{{ expires_explanation }}</span></div>
         <button type="submit" class="ig-action ig-action--primary" data-dialog-close>{{ copy.price_dialog_close }}</button>
       </form>
     </dialog>

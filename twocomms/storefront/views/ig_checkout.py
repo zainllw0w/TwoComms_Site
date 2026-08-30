@@ -21,7 +21,7 @@ from management.models import IgCheckoutAccessToken, IgCheckoutProposal
 
 GRANT_SALT = "twocomms.instagram-checkout.grant.v1"
 GRANT_SESSION_PREFIX = "ig_checkout_grant:"
-GRANT_MAX_AGE = 60 * 25
+GRANT_MAX_AGE = 60 * 60 * 12
 INSTAGRAM_DIRECT_URL = "https://www.instagram.com/twocomms/"
 
 CHECKOUT_LANGUAGES = (
@@ -45,6 +45,10 @@ CHECKOUT_COPY = {
         "proposal_label": "Пропозиція",
         "expires_label": "Посилання активне ще",
         "expires_explanation": "Посилання діє 25 хвилин від створення. Його можна передати іншій людині для оплати.",
+        "expires_explanation_v2": "Пропозиція та захищене посилання діють 12 годин. Кожен рахунок Monobank діє 25 хвилин.",
+        "payment_method": "Спосіб оплати",
+        "payment_full": "Повна оплата онлайн",
+        "payment_200_cod": "200 грн зараз, решта — післяплатою",
         "expired_short": "Час завершився",
         "color_label": "Колір",
         "fit_label": "Фасон",
@@ -153,6 +157,10 @@ CHECKOUT_COPY = {
         "proposal_label": "Предложение",
         "expires_label": "Ссылка активна еще",
         "expires_explanation": "Ссылка действует 25 минут с момента создания. Ее можно передать другому человеку для оплаты.",
+        "expires_explanation_v2": "Предложение и защищённая ссылка действуют 12 часов. Каждый счёт Monobank действует 25 минут.",
+        "payment_method": "Способ оплаты",
+        "payment_full": "Полная оплата онлайн",
+        "payment_200_cod": "200 грн сейчас, остальное — наложенным платежом",
         "expired_short": "Время истекло",
         "color_label": "Цвет",
         "fit_label": "Фасон",
@@ -261,6 +269,10 @@ CHECKOUT_COPY = {
         "proposal_label": "Offer",
         "expires_label": "Link available for",
         "expires_explanation": "This link is valid for 25 minutes from creation. You can forward it to someone else to pay.",
+        "expires_explanation_v2": "The offer and secure link are valid for 12 hours. Each Monobank invoice is valid for 25 minutes.",
+        "payment_method": "Payment method",
+        "payment_full": "Pay in full online",
+        "payment_200_cod": "Pay UAH 200 now, balance cash on delivery",
         "expired_short": "Time expired",
         "color_label": "Color",
         "fit_label": "Fit",
@@ -568,7 +580,35 @@ def _checkout_state(proposal):
         return "superseded"
     if proposal.status == proposal.Status.EXPIRED or proposal.is_expired:
         return "expired"
-    attempt = proposal.payment_attempt
+    generation = (
+        proposal.current_invoice_generation
+        if proposal.assisted_checkout_v2
+        else None
+    )
+    attempt = (
+        generation.payment_attempt
+        if generation is not None and generation.payment_attempt_id
+        else proposal.payment_attempt
+    )
+    if generation is not None:
+        if generation.state == generation.State.PAID_WINNER:
+            return "paid"
+        if generation.state == generation.State.RESOURCE_REVIEW:
+            return "cancellation_ambiguous"
+        if generation.state in {
+            generation.State.FAILED,
+            generation.State.EXPIRED,
+            generation.State.CANCELLED,
+        }:
+            return "ready" if proposal.expires_at > timezone.now() else "expired"
+        if generation.state == generation.State.LATE_PAID_REVIEW:
+            return "cancellation_ambiguous"
+        if generation.expires_at <= timezone.now() and generation.state in {
+            generation.State.PLANNED,
+            generation.State.PROVIDER_INFLIGHT,
+            generation.State.INVOICE_CREATED,
+        }:
+            return "ready" if proposal.expires_at > timezone.now() else "expired"
     if attempt is not None and (attempt.event_state or {}).get("invoice_creation_ambiguous"):
         return "cancellation_ambiguous"
     if proposal.status == proposal.Status.CANCELLED:
@@ -619,7 +659,16 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
     language = _checkout_language(request, proposal)
     copy = CHECKOUT_COPY[language]
     state = _checkout_state(proposal)
-    attempt = proposal.payment_attempt
+    generation = (
+        proposal.current_invoice_generation
+        if proposal.assisted_checkout_v2
+        else None
+    )
+    attempt = (
+        generation.payment_attempt
+        if generation is not None and generation.payment_attempt_id
+        else proposal.payment_attempt
+    )
     delivery_locked = bool(proposal.details_locked_at) or state in {
         "locked",
         "pending",
@@ -669,6 +718,30 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         }
         for item in CHECKOUT_LANGUAGES
     ]
+    form_values = form_values or {}
+    selected_payment_choice = str(
+        form_values.get("payment_choice") or "online_full"
+    )
+    payment_options = [
+        {
+            "value": "online_full",
+            "label": copy["payment_full"],
+            "selected": selected_payment_choice != "prepay_200_cod",
+            "amount": _money(proposal.quoted_total),
+        }
+    ]
+    if (
+        proposal.assisted_checkout_v2
+        and proposal.payment_policy
+        == proposal.PaymentPolicy.FULL_OR_200_COD
+        and not proposal.custom_print_full_only
+    ):
+        payment_options.append({
+            "value": "prepay_200_cod",
+            "label": copy["payment_200_cod"],
+            "selected": selected_payment_choice == "prepay_200_cod",
+            "amount": "200.00",
+        })
     return {
         "copy": copy,
         "html_lang": language,
@@ -687,6 +760,7 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
             "total": _money(proposal.quoted_total),
             "charge_now": _money(proposal.requested_payment_amount),
             "is_prepayment": proposal.pay_type == IgCheckoutProposal.PayType.PREPAYMENT,
+            "is_v2": proposal.assisted_checkout_v2,
             "has_discount": proposal.negotiated_discount > 0,
             "allow_promo": proposal.allow_promo,
             "expires_at": proposal.expires_at,
@@ -694,6 +768,12 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
             "created_at_iso": proposal.created_at.isoformat(),
         },
         "items": [_item_context(item) for item in proposal.items.all()],
+        "expires_explanation": (
+            copy["expires_explanation_v2"]
+            if proposal.assisted_checkout_v2
+            else copy["expires_explanation"]
+        ),
+        "payment_options": payment_options,
         "delivery_locked": delivery_locked,
         "masked_delivery": masked_delivery,
         "paid_summary": paid_summary,
@@ -718,7 +798,7 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         "terms_url": reverse("terms_of_service"),
         "form_error": form_error,
         "form_error_field": form_error_field,
-        "form_values": form_values or {},
+        "form_values": form_values,
         "analytics": {
             "view_content_event_id": _analytics_event_id("ViewContent", proposal, grant_id)
             if state in {"ready", "locked", "pending", "paid"}
@@ -794,6 +874,8 @@ def ig_checkout_proposal(request, proposal_id):
             "payment_attempt__order",
             "provider_cancellation_event",
             "deal",
+            "current_invoice_generation",
+            "current_invoice_generation__payment_attempt",
         ).prefetch_related("items"),
         public_id=proposal_id,
     )
@@ -801,13 +883,19 @@ def ig_checkout_proposal(request, proposal_id):
     if request.method == "POST":
         if _rate_limited(request, "submit", identity=str(proposal.public_id), limit=12, window=300):
             return _private_headers(HttpResponse("Спробуйте оформити платіж трохи пізніше.", status=429))
-        from management.services.ig_checkout_payment import (
-            CheckoutPaymentError,
-            create_or_reuse_invoice,
-        )
+        from management.services.ig_checkout_payment import CheckoutPaymentError
+
+        if proposal.assisted_checkout_v2:
+            from management.services.ig_checkout_generation import (
+                create_or_reuse_generation_invoice as create_invoice,
+            )
+        else:
+            from management.services.ig_checkout_payment import (
+                create_or_reuse_invoice as create_invoice,
+            )
 
         try:
-            _attempt, invoice_url, _reused = create_or_reuse_invoice(
+            _attempt, invoice_url, _reused = create_invoice(
                 proposal,
                 request=request,
                 payload=request.POST,
@@ -866,6 +954,12 @@ def ig_checkout_status(request, proposal_id):
         "state": public_state,
         "ui_state": ui_state,
         "revision": proposal.revision,
+        "generation": (
+            proposal.current_invoice_generation.generation
+            if proposal.assisted_checkout_v2
+            and proposal.current_invoice_generation_id
+            else None
+        ),
         "expires_at": proposal.expires_at.isoformat(),
         "redirect": reverse("ig_checkout_proposal", kwargs={"proposal_id": proposal.public_id})
         if public_state == "verified" else "",
