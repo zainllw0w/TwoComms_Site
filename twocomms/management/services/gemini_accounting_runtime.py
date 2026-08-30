@@ -597,28 +597,73 @@ class RequestObserver:
 
     def record_remaining(self, reason: str) -> None:
         try:
-            from management.models import GeminiRequest
+            from management.models import GeminiRequest, GeminiRequestAttempt
 
-            outcomes = GeminiRequest.objects.filter(pk=self.graph_id).values_list(
-                "candidate_outcomes", flat=True
-            ).first() or {}
-            observed = {
-                int(key)
-                for key in outcomes
-                if str(key).isdigit()
-            }
-            for key_name, model, candidate_index in self._plan_candidates:
-                if candidate_index in observed:
-                    continue
-                self.record_not_attempted(
-                    key_name=key_name,
-                    model=model,
-                    candidate_index=candidate_index,
-                    reason=self._plan_skip_reasons.get(
-                        candidate_index, reason
-                    ),
+            now = timezone.now()
+            with transaction.atomic():
+                graph = GeminiRequest.objects.select_for_update().get(pk=self.graph_id)
+                outcomes = dict(graph.candidate_outcomes or {})
+                observed = {
+                    int(key)
+                    for key in outcomes
+                    if str(key).isdigit()
+                }
+                rows = []
+                for key_name, model, candidate_index in self._plan_candidates:
+                    if candidate_index in observed:
+                        continue
+                    boundary = AttemptBoundary(
+                        observer=self,
+                        key_name=key_name,
+                        model=model,
+                        candidate_index=candidate_index,
+                        attempt_index=self._allocate_attempt_index(),
+                    )
+                    bounded_reason = _safe_reason(
+                        self._plan_skip_reasons.get(candidate_index, reason)
+                    )[:24] or "policy_stop"
+                    identity = self._identity_for(boundary)
+                    rows.append(GeminiRequestAttempt(
+                        request_id=self.request_id,
+                        request_graph=graph,
+                        role=self._role_for_graph(graph),
+                        key_name=key_name,
+                        project_group=identity,
+                        project_identity=identity,
+                        model=model,
+                        outcome="not_attempted",
+                        fsm_state=GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+                        accounting_mode="shadow",
+                        shadow_decision=GeminiRequestAttempt.ShadowDecision.UNKNOWN,
+                        shadow_deny_reason="not_dispatched",
+                        decision="skip_candidate",
+                        logical_turn_id=graph.logical_turn_id,
+                        source_message_id=graph.source_message_id,
+                        client_id=graph.client_id,
+                        lane=graph.lane,
+                        attempt_index=boundary.attempt_index,
+                        candidate_index=candidate_index,
+                        not_attempted_reason=bounded_reason,
+                        recovery_job_id=graph.recovery_job_id,
+                        finished_at=now,
+                        settled_at=now,
+                        reservation_released_at=now,
+                        permit_released_at=now,
+                    ))
+                    outcomes[str(candidate_index)] = {
+                        "attempt_index": boundary.attempt_index,
+                        "outcome": "not_attempted",
+                        "failure_kind": "",
+                        "reason": bounded_reason,
+                    }
+                    observed.add(candidate_index)
+                if not rows:
+                    return
+                GeminiRequestAttempt.objects.bulk_create(rows)
+                GeminiRequest.objects.filter(pk=graph.pk).update(
+                    candidate_outcomes=outcomes,
+                    updated_at=now,
                 )
-                observed.add(candidate_index)
         except Exception:
             return None
 

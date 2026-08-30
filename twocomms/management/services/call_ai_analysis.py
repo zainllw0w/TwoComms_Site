@@ -1178,6 +1178,10 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             )
 
     def _audit_remaining(reason: str, *, model: str = "") -> None:
+        if accounting_observer is not None:
+            # Canonical shadow settlement/terminalization owns the batched
+            # remainder. Avoid one duplicate legacy row/query per candidate.
+            return
         for planned in candidate_plan:
             index = int(planned["candidate_index"])
             if planned["skip_reason"] or index in dispatched_candidate_indexes:
