@@ -503,6 +503,29 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         ):
             auditor._read_daemon_pid(self.app_root)
 
+    def test_state_and_pid_fifo_without_writer_never_blocks(self):
+        state_path = self.tmp / "ig_bot_supervisor_state.json"
+        state_path.unlink()
+        os.mkfifo(state_path)
+        started = __import__("time").monotonic()
+        with self.assertRaisesRegex(
+            auditor.AuditInputError,
+            "supervisor_state_not_regular",
+        ):
+            auditor._load_supervisor_state(self.app_root)
+        self.assertLess(__import__("time").monotonic() - started, 1)
+
+        pid_path = self.tmp / "ig_bot.pid"
+        pid_path.unlink()
+        os.mkfifo(pid_path)
+        started = __import__("time").monotonic()
+        with self.assertRaisesRegex(
+            auditor.AuditInputError,
+            "daemon_pid_file_not_regular",
+        ):
+            auditor._read_daemon_pid(self.app_root)
+        self.assertLess(__import__("time").monotonic() - started, 1)
+
     def test_checkout_and_runtime_sha_mismatch_fail(self):
         self._write_git("b" * 40)
         self._write_runtime_state(sha="c" * 40)
@@ -590,7 +613,7 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
 
         result, report = self._invoke("--timeout", "0.5")
 
-        self.assertLess(__import__("time").monotonic() - started, 5)
+        self.assertLess(__import__("time").monotonic() - started, 12)
         self.assertEqual(result.returncode, 2)
         self.assertEqual(report["errors"], ["selector_command_timeout"])
         parent_pid, child_pid = map(int, marker.read_text(encoding="ascii").split())

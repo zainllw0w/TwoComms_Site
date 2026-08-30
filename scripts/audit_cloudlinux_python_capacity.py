@@ -121,7 +121,7 @@ def _validate_app_root(path: Path, *, uid: int, fixture_mode: bool) -> Path:
     return root
 
 
-def _kill_and_wait_process_group(process: subprocess.Popen, *, timeout: float = 3.0) -> bool:
+def _kill_and_wait_process_group(process: subprocess.Popen, *, timeout: float = 8.0) -> bool:
     """Kill the selector's isolated session and wait until the group vanishes."""
     try:
         os.killpg(process.pid, signal.SIGKILL)
@@ -417,7 +417,12 @@ def _regular_nonsymlink_stat(path: Path, *, label: str) -> os.stat_result:
 
 def _read_regular_nofollow(path: Path, *, label: str, max_bytes: int) -> bytes:
     """Open, validate and read one immutable inode through a single FD."""
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
     try:
         descriptor = os.open(path, flags)
     except OSError as exc:
