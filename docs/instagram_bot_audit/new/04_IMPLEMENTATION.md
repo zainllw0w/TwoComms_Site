@@ -2628,10 +2628,11 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
       `reasoning_task → тир` были задеплоены в legacy-срезе
 - [ ] V2 создаёт versioned `RoutingDecision` до provider call; keyword/task label
       без typed ambiguity/media/authority signals недостаточен
-- [x] Учёт в БД (`GeminiModelQuotaUsage`, миграция `0176`): сутки Pacific (так
-      скидывает провайдер) + скользящее окно минуты. Резервирование **атомарное**
-      (`select_for_update`), иначе два потока демона израсходуют один и тот же
-      последний из двадцати
+- [x] Исторический учёт в БД (`GeminiModelQuotaUsage`, миграция `0176`): сутки
+      Pacific + **fixed** minute-window от `minute_started_at`; атомарное
+      резервирование через `select_for_update` задеплоено. Это не выдаётся за
+      требуемый rolling 60-second admission: правильная RPM/TPM-семантика
+      реализуется отдельно в V2 shadow/enforcement по контракту `09`
 - [x] Учёт **дорадчий**: реальный 429 всегда главнее (квоту может потратить другая
       сессия), а при любой проблеме с БД рахівник отвечает «можно» — сбой
       бухгалтерии не должен лишать клиента ответа
@@ -2652,9 +2653,10 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
 - [ ] V2-health строить только из реального трафика: success →
       `confirmed_recent_success`, нет свежего traffic/error →
       `available_assumed`, provider error → typed state пары project/model
-- [ ] Удалить hourly `check_ig_gemini_metadata_health`: он token-free, но создаёт
-      process fan-out и ложное ожидание проверки квоты. Manual metadata GET
-      оставить только по явному admin action
+- [x] Hourly `check_ig_gemini_metadata_health` удалён из production ownership:
+      он token-free, но создавал process fan-out и ложное ожидание проверки
+      квоты. Manual metadata GET требует явного admin action; production S1
+      подтвердил отсутствие automatic metadata owner
 - [ ] При accounting outage разрешать live максимум один emergency Lite call;
       scarce models fail closed. Legacy общий DB fail-open не переносить в V2
 - [x] Тесты: `tests_gemini_quota.py` — 24 теста (бюджеты, тиры, неизвестная задача
@@ -2905,13 +2907,17 @@ Messenger и Instagram. Набор доступных инструментов �
 
 **Шаги — модель и хранение:**
 
-- [!] Создать `IgNotificationOptIn`: `client_id`, `topic`, `token`,
-      `token_expires_at`, `granted_at`, `source_message_id`, `revoked_at`,
-      `send_count`, `last_used_at`, `policy_version`
-- [!] Токен обрабатывать как **секрет**: не в логах, не в промптах, не в
-      Telegram-карточках, redacted в отладочном выводе
-- [!] Тест: попытка записать токен в лог не проходит проверку (или хотя бы
-      явное правило + review-чеклист)
+- [ ] Создать отдельный `IgBusinessConsent`: `client_id`, topic
+      (`order_updates|bonuses`), exact copy/version, `granted_at`,
+      `source_message_id`, `revoked_at`, revision/evidence. В этой таблице нет
+      provider token, и её наличие само по себе не разрешает closed-window send
+- [!] Создать отдельный `IgNotificationTransportCapability` только после
+      подтверждения поддерживаемого Meta-механизма: provider token/capability,
+      scope/topic, expiry, App Review status и source evidence. Этот blocker не
+      останавливает модель внутреннего business consent
+- [!] Любой будущий provider token обрабатывать как **секрет**: не в логах,
+      промптах и Telegram-карточках; redacted в operator/debug output. Нужен
+      автоматический regression-тест redaction до включения capability
 
 **Шаги — приём согласия:**
 
@@ -7190,9 +7196,12 @@ order status, readiness (который сам читает продукт, ва
 
 - [ ] **Коммит + push + деплой**
 
-## Э9.5 — Отложенные пункты (только по решению владельца)
+## Э9.5 — Policy-gated и отложенные пункты
 
-Эти требуют policy- или юридического решения. **Не начинать** без явного указания.
+Большинство пунктов ниже всё ещё требуют отдельного policy/legal решения.
+Исключение — `NEW-UGC-001`: владелец уже утвердил его typed manager-review
+контракт в разделе 8 файла `09`; реализация разрешена, но customer send всё ещё
+зависит от transport/window и legal/platform gates.
 
 - [ ] **`NEW-LTV-002`** — LTV score и реактивация. Расчёт score из фактов можно
       делать после Э6.4 (сообщений не отправляет, риска нет). **Реактивационные
@@ -7200,7 +7209,8 @@ order status, readiness (который сам читает продукт, ва
       consent-модели, **holdout-группы** и frequency cap. Единственные сообщения,
       которых клиент не ждёт вообще. Молчание ≠ согласие; молчание ≠ положительный
       sentiment
-- [ ] **`NEW-UGC-001`** — UGC reward после legal/platform gate. Auto-grant
+- [ ] **`NEW-UGC-001`** — утверждённый UGC reward contract после
+      legal/platform gate. Auto-grant
       запрещён: authenticated manager review проверяет evidence и eligibility.
       Для заранее обещанной qualified positive story допустимы действия
       `10% / отказ`; для unsolicited/borderline UGC без обещания —
