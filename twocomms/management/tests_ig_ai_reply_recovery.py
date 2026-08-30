@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
@@ -49,6 +49,56 @@ class IgAIReplyRecoveryTests(TestCase):
 
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(self.recovery.IgAiReplyRecoveryJob.objects.count(), 1)
+
+    @override_settings(
+        GEMINI_ACCOUNTING_V2_MODE="shadow",
+        GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="2026-08-29T00:00:00-07:00",
+        GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY="recovery-shadow-test-key",
+    )
+    def test_recovery_persists_request_lineage_through_meta_receipt(self):
+        from management.models import GeminiRequest
+        from management.services.ig_turn_lineage import bind_request_id
+
+        request_id = "recovery-shadow-request"
+        graph = GeminiRequest.objects.create(
+            request_id=request_id,
+            lane="recovery",
+            task_class="ordinary_live",
+            reasoning_task="customer_chat",
+            accounting_mode=GeminiRequest.AccountingMode.SHADOW,
+        )
+        job = self.recovery.schedule_recovery(self.source)
+
+        def fake_generate(*_args, **_kwargs):
+            bind_request_id(request_id)
+            return "Вибачте за затримку. Я вже на зв'язку."
+
+        with self.captureOnCommitCallbacks(execute=True), patch.object(
+                self.recovery,
+                "gemini_generate",
+                side_effect=fake_generate,
+            ), patch.object(
+                self.recovery,
+                "send_text",
+                return_value=ProviderDeliveryReceipt(
+                    True, "", "", "meta-recovery-shadow-receipt"
+                ),
+            ):
+                result = self.recovery.process_recovery_job(job.pk)
+
+        result.refresh_from_db()
+        result.reply_message.refresh_from_db()
+        graph.refresh_from_db()
+        self.assertEqual(result.status, result.Status.SENT)
+        self.assertEqual(
+            result.reply_message.gemini_request_id,
+            request_id,
+        )
+        self.assertEqual(
+            result.reply_message.provider_message_id,
+            "meta-recovery-shadow-receipt",
+        )
+        self.assertEqual(graph.reply_message_id, result.reply_message_id)
 
     def test_prepared_recovery_is_inert_until_holding_delivery_is_confirmed(self):
         job = self.recovery.schedule_recovery(self.source, activate=False)

@@ -31,12 +31,6 @@ from django.utils import timezone
 PT = ZoneInfo("America/Los_Angeles")
 ACCOUNTING_POLICY_VERSION = "gemini-accounting-shadow-v1"
 OWNER_PROFILE_VERSION = "owner-observed-2026-08-29.v1"
-PROFILED_MODELS = frozenset({
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-})
 ATTEMPT_PERMIT_SECONDS = 180
 DB_RETRY_DELAYS = (0.0, 0.01, 0.03)
 _SAFE_TOKEN = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
@@ -136,8 +130,14 @@ def sanitize_candidate_plan(candidate_plan) -> list[dict]:
     return result
 
 
-def generic_candidate_plan(*, role: str, models, manual_key: str | None = None) -> list[dict]:
-    """Build an observational plan without changing the executable iterator."""
+def generic_candidate_plan(
+    *,
+    role: str,
+    models,
+    manual_key: str | None = None,
+    execution_candidates=None,
+) -> list[dict]:
+    """Build the exact first-round execution order, manual candidates first."""
     from management.services import gemini_keys
 
     rows: list[dict] = []
@@ -145,82 +145,96 @@ def generic_candidate_plan(*, role: str, models, manual_key: str | None = None) 
     manual_value = str(manual_key or "").strip()
     explicit_identities = gemini_keys.explicit_project_groups()
     manual_fingerprint = gemini_keys.credential_fingerprint(manual_value)
-    manual_identity = ""
-    if manual_value:
-        alias = gemini_keys.configured_alias_for_secret(manual_value)
-        identity = gemini_keys.project_group(alias) if alias else ""
-        manual_identity = identity
-        for model in models:
-            candidate_index += 1
-            rows.append({
-                "candidate_index": candidate_index,
-                "key_name": "(manual)",
-                "model": str(model),
-                "project_identity": identity,
-                "identity_status": (
-                    "known" if alias in explicit_identities else "assumed" if identity else "unknown"
-                ),
-                "skip_reason": "",
-            })
-
     pool = gemini_keys.role_key_pools().get(role, {"own": [], "borrow": []})
     aliases: list[str] = []
     for alias in (*pool.get("own", ()), *pool.get("borrow", ())):
         if alias not in aliases:
             aliases.append(alias)
-    seen_fingerprints_by_model: dict[str, list[bytes]] = {
-        str(model): [manual_fingerprint]
-        for model in models
-        if manual_fingerprint
-    }
-    seen_projects_by_model: dict[str, set[str]] = {
-        str(model): {manual_identity}
-        for model in models
-        if manual_identity
-    }
-    for model in models:
-        seen_fingerprints = seen_fingerprints_by_model.setdefault(str(model), [])
-        seen_projects = seen_projects_by_model.setdefault(str(model), set())
-        for alias in aliases:
-            candidate_index += 1
-            value = gemini_keys._key_value(alias)
-            fingerprint = gemini_keys.credential_fingerprint(value)
-            identity = gemini_keys.project_group(alias)
-            duplicate = bool(
-                (
-                    fingerprint
-                    and any(
-                        secrets.compare_digest(fingerprint, existing)
-                        for existing in seen_fingerprints
-                    )
-                )
-                or (identity and identity in seen_projects)
-            )
-            rows.append({
-                "candidate_index": candidate_index,
-                "key_name": alias,
-                "model": str(model),
-                "project_identity": identity,
-                "identity_status": (
-                    "unconfigured"
-                    if not value
-                    else "duplicate"
-                    if duplicate
-                    else "known"
-                    if alias in explicit_identities
-                    else "assumed"
-                ),
-                "skip_reason": (
-                    "unconfigured" if not value else "duplicate_credential" if duplicate else ""
-                ),
-            })
-            if fingerprint and not any(
+    seen_fingerprints_by_model: dict[str, list[bytes]] = {}
+    seen_projects_by_model: dict[str, set[str]] = {}
+
+    def append_candidate(key_name: str, model: str, *, skip_reason: str = ""):
+        nonlocal candidate_index
+        model = str(model)
+        value = manual_value if key_name == "(manual)" else gemini_keys._key_value(key_name)
+        alias = (
+            gemini_keys.configured_alias_for_secret(manual_value)
+            if key_name == "(manual)" and manual_value
+            else key_name
+        )
+        identity = gemini_keys.project_group(alias) if alias else ""
+        fingerprint = (
+            manual_fingerprint
+            if key_name == "(manual)"
+            else gemini_keys.credential_fingerprint(value)
+        )
+        seen_fingerprints = seen_fingerprints_by_model.setdefault(model, [])
+        seen_projects = seen_projects_by_model.setdefault(model, set())
+        duplicate = bool(
+            fingerprint
+            and any(
                 secrets.compare_digest(fingerprint, existing)
                 for existing in seen_fingerprints
-            ):
-                seen_fingerprints.append(fingerprint)
-            if identity and value:
-                seen_projects.add(identity)
+            )
+        ) or bool(identity and identity in seen_projects)
+        candidate_index += 1
+        rows.append({
+            "candidate_index": candidate_index,
+            "key_name": key_name,
+            "model": model,
+            "project_identity": identity,
+            "identity_status": (
+                "unconfigured"
+                if not value
+                else "duplicate"
+                if duplicate
+                else "known"
+                if alias in explicit_identities
+                else "assumed"
+                if identity
+                else "unknown"
+            ),
+            "skip_reason": skip_reason,
+        })
+        if fingerprint and not any(
+            secrets.compare_digest(fingerprint, existing)
+            for existing in seen_fingerprints
+        ):
+            seen_fingerprints.append(fingerprint)
+        if identity and value:
+            seen_projects.add(identity)
+
+    if manual_value:
+        for model in models:
+            append_candidate("(manual)", str(model))
+
+    executable_pairs: list[tuple[str, str]] = []
+    for raw in execution_candidates or ():
+        try:
+            key_name, _key_value, model = raw
+        except (TypeError, ValueError):
+            continue
+        pair = (str(key_name), str(model))
+        if pair not in executable_pairs:
+            executable_pairs.append(pair)
+            append_candidate(*pair)
+
+    remaining_pairs = [
+        (str(alias), str(model))
+        for model in models
+        for alias in aliases
+        if (str(alias), str(model)) not in executable_pairs
+    ]
+    for alias, model in remaining_pairs:
+        append_candidate(
+            alias,
+            model,
+            skip_reason=(
+                "unconfigured"
+                if not gemini_keys._key_value(alias)
+                else "not_available_plan"
+            ),
+        )
     return rows
 
 
@@ -257,6 +271,9 @@ class NullRequestObserver:
     def candidate_index(self, _key_name: str, _model: str) -> int:
         return 0
 
+    def record_not_attempted(self, **_kwargs):
+        return None
+
 
 NULL_OBSERVER = NullRequestObserver()
 
@@ -264,6 +281,34 @@ NULL_OBSERVER = NullRequestObserver()
 def _routing_value(routing_decision, name: str, default=""):
     value = getattr(routing_decision, name, default) if routing_decision is not None else default
     return getattr(value, "value", value)
+
+
+def _quota_profile_version_for_plan(safe_plan, *, now) -> str:
+    """Return the active model-profile policy version with one bounded read."""
+    from management.models import GeminiQuotaProfile
+
+    if not safe_plan:
+        return ""
+    models = {str(item.get("model") or "") for item in safe_plan if item.get("model")}
+    if not models:
+        return ""
+    active_rows = list(
+        GeminiQuotaProfile.objects.filter(
+            model__in=models,
+            effective_from__lte=now,
+        )
+        .filter(models_Q_effective(now))
+        .order_by("model", "-effective_from", "-id")
+    )
+    active_by_model = {}
+    for profile in active_rows:
+        active_by_model.setdefault(profile.model, profile)
+    if any(model not in active_by_model for model in models):
+        return ""
+    versions = {
+        str(active_by_model[model].profile_version) for model in models
+    }
+    return next(iter(versions)) if len(versions) == 1 else "mixed"
 
 
 def begin_request(
@@ -302,7 +347,7 @@ def begin_request(
             )
         )[:24]
         deadline_ms = max(0, int(float(deadline_seconds or 0) * 1000))
-        models = {str(item.get("model") or "") for item in safe_plan}
+        profile_version = _quota_profile_version_for_plan(safe_plan, now=now)
         graph = GeminiRequest.objects.create(
             request_id=str(request_id or uuid.uuid4().hex)[:40],
             lane=resolved_lane,
@@ -314,7 +359,7 @@ def begin_request(
             recovery_job_id=lineage.get("recovery_job_id") or None,
             routing_policy_version=str(_routing_value(routing_decision, "policy_version", ""))[:32],
             accounting_policy_version=ACCOUNTING_POLICY_VERSION,
-            quota_profile_version=(OWNER_PROFILE_VERSION if models and models <= PROFILED_MODELS else ""),
+            quota_profile_version=profile_version,
             authority_snapshot_version=str(
                 _routing_value(routing_decision, "authority_snapshot_version", "")
             )[:32],
@@ -420,6 +465,8 @@ class RequestObserver:
         self._candidate_indexes: dict[tuple[str, str], int] = {}
         self._candidate_identities: dict[tuple[str, str], str] = {}
         self._candidate_identity_status: dict[tuple[str, str], str] = {}
+        self._plan_candidates: list[tuple[str, str, int]] = []
+        self._plan_skip_reasons: dict[int, str] = {}
         for position, raw in enumerate(raw_plan or (), start=1):
             if not isinstance(raw, dict):
                 continue
@@ -435,14 +482,20 @@ class RequestObserver:
             self._candidate_identity_status.setdefault(
                 key, str(raw.get("identity_status") or "unknown").casefold()
             )
+            self._plan_candidates.append((key[0], key[1], index))
+            initial_skip = _safe_reason(raw.get("skip_reason"))[:24]
+            if initial_skip:
+                self._plan_skip_reasons[index] = initial_skip
 
     def candidate_index(self, key_name: str, model: str) -> int:
         return int(self._candidate_indexes.get((str(key_name), str(model)), 0) or 0)
 
-    def attempt(self, *, key_name: str, model: str, candidate_index: int = 0):
+    def _allocate_attempt_index(self) -> int:
         with self._lock:
             self._counter += 1
-            attempt_index = self._counter
+            return self._counter
+
+    def attempt(self, *, key_name: str, model: str, candidate_index: int = 0):
         return AttemptBoundary(
             observer=self,
             key_name=str(key_name or "")[:40],
@@ -451,8 +504,123 @@ class RequestObserver:
                 0,
                 int(candidate_index or self.candidate_index(key_name, model) or 0),
             ),
-            attempt_index=attempt_index,
+            attempt_index=self._allocate_attempt_index(),
         )
+
+    def record_not_attempted(
+        self,
+        *,
+        key_name: str,
+        model: str,
+        candidate_index: int = 0,
+        reason: str,
+    ):
+        """Persist one considered candidate that never crossed provider I/O."""
+        from management.models import GeminiRequest, GeminiRequestAttempt
+
+        now = timezone.now()
+        boundary = AttemptBoundary(
+            observer=self,
+            key_name=str(key_name or "")[:40],
+            model=str(model or "")[:80],
+            candidate_index=max(
+                0,
+                int(candidate_index or self.candidate_index(key_name, model) or 0),
+            ),
+            attempt_index=self._allocate_attempt_index(),
+        )
+        identity = self._identity_for(boundary)
+        bounded_reason = _safe_reason(reason)[:24] or "policy_stop"
+        try:
+            with transaction.atomic():
+                graph = GeminiRequest.objects.select_for_update().get(pk=self.graph_id)
+                outcomes = dict(graph.candidate_outcomes or {})
+                outcome_key = str(
+                    boundary.candidate_index or boundary.attempt_index
+                )
+                prior = outcomes.get(outcome_key)
+                prior_items = prior if isinstance(prior, list) else [prior]
+                if any(
+                    isinstance(item, dict)
+                    and item.get("outcome") == "not_attempted"
+                    and item.get("reason") == bounded_reason
+                    for item in prior_items
+                ):
+                    return None
+                attempt = GeminiRequestAttempt.objects.create(
+                    request_id=self.request_id,
+                    request_graph=graph,
+                    role=self._role_for_graph(graph),
+                    key_name=boundary.key_name,
+                    project_group=identity,
+                    project_identity=identity,
+                    model=boundary.model,
+                    outcome="not_attempted",
+                    fsm_state=GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+                    accounting_mode="shadow",
+                    shadow_decision=GeminiRequestAttempt.ShadowDecision.UNKNOWN,
+                    shadow_deny_reason="not_dispatched",
+                    decision="skip_candidate",
+                    logical_turn_id=graph.logical_turn_id,
+                    source_message_id=graph.source_message_id,
+                    client_id=graph.client_id,
+                    lane=graph.lane,
+                    attempt_index=boundary.attempt_index,
+                    candidate_index=boundary.candidate_index,
+                    not_attempted_reason=bounded_reason,
+                    recovery_job_id=graph.recovery_job_id,
+                    finished_at=now,
+                    settled_at=now,
+                    reservation_released_at=now,
+                    permit_released_at=now,
+                )
+                existing = outcomes.get(outcome_key)
+                payload = {
+                    "attempt_index": boundary.attempt_index,
+                    "outcome": "not_attempted",
+                    "failure_kind": "",
+                    "reason": bounded_reason,
+                }
+                if existing is None:
+                    outcomes[outcome_key] = payload
+                elif isinstance(existing, list):
+                    outcomes[outcome_key] = [*existing, payload]
+                else:
+                    outcomes[outcome_key] = [existing, payload]
+                GeminiRequest.objects.filter(pk=graph.pk).update(
+                    candidate_outcomes=outcomes,
+                    updated_at=now,
+                )
+                return attempt
+        except Exception:
+            return None
+
+    def record_remaining(self, reason: str) -> None:
+        try:
+            from management.models import GeminiRequest
+
+            outcomes = GeminiRequest.objects.filter(pk=self.graph_id).values_list(
+                "candidate_outcomes", flat=True
+            ).first() or {}
+            observed = {
+                int(key)
+                for key in outcomes
+                if str(key).isdigit()
+            }
+            for key_name, model, candidate_index in self._plan_candidates:
+                if candidate_index in observed:
+                    continue
+                self.record_not_attempted(
+                    key_name=key_name,
+                    model=model,
+                    candidate_index=candidate_index,
+                    reason=self._plan_skip_reasons.get(
+                        candidate_index, reason
+                    ),
+                )
+                observed.add(candidate_index)
+        except Exception:
+            return None
 
     def _identity_for(self, boundary: AttemptBoundary) -> str:
         identity = self._candidate_identities.get(
@@ -548,6 +716,23 @@ class RequestObserver:
                     },
                     )
                 )
+                if (
+                    state.quota_profile_id != profile.pk
+                    and not state.in_flight_count
+                ):
+                    try:
+                        from management.services.gemini_accounting_contract import (
+                            rotate_locked_quota_state_profile,
+                        )
+
+                        state, _audit = rotate_locked_quota_state_profile(
+                            state=state,
+                            new_profile=profile,
+                            reason="shadow_effective_profile_transition",
+                            now=now,
+                        )
+                    except Exception:
+                        pass
                 profile = state.quota_profile
                 self._reconcile_expired_locked(state, now=now)
                 if state.pacific_day != pacific_day(now):
@@ -700,11 +885,19 @@ class RequestObserver:
             )
             boundary.attempt_id = attempt.pk
             outcomes = dict(graph.candidate_outcomes or {})
-            outcomes[str(boundary.candidate_index or boundary.attempt_index)] = {
+            outcome_key = str(boundary.candidate_index or boundary.attempt_index)
+            payload = {
                 "attempt_index": boundary.attempt_index,
                 "outcome": "cancelled_pre_dispatch",
                 "failure_kind": classified["failure_kind"],
             }
+            existing = outcomes.get(outcome_key)
+            if existing is None:
+                outcomes[outcome_key] = payload
+            elif isinstance(existing, list):
+                outcomes[outcome_key] = [*existing, payload]
+            else:
+                outcomes[outcome_key] = [existing, payload]
             GeminiRequest.objects.filter(pk=graph.pk).update(
                 candidate_outcomes=outcomes,
                 updated_at=now,
@@ -791,7 +984,7 @@ class RequestObserver:
             if delay:
                 time.sleep(delay)
             try:
-                return self._finish_once(
+                result = self._finish_once(
                     boundary,
                     succeeded=succeeded,
                     error=error,
@@ -799,6 +992,9 @@ class RequestObserver:
                     http_code=http_code,
                     failure_kind=failure_kind,
                 )
+                if succeeded:
+                    self.record_remaining("winner_found")
+                return result
             except OperationalError as exc:
                 last_error = exc
         if last_error is not None:
@@ -831,6 +1027,7 @@ class RequestObserver:
             attempt = GeminiRequestAttempt.objects.select_for_update().get(
                 pk=boundary.attempt_id
             )
+            permit_was_active = attempt.permit_released_at is None
             late_success = bool(
                 succeeded
                 and attempt.fsm_state == GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS
@@ -878,7 +1075,8 @@ class RequestObserver:
             attempt.latency_ms = latency_ms
             attempt.finished_at = now
             attempt.settled_at = now
-            attempt.permit_released_at = now
+            if permit_was_active:
+                attempt.permit_released_at = now
             attempt.save(update_fields=[
                 "fsm_state", "outcome", "failure_kind", "http_code",
                 "provider_reason", "provider_quota_metric", "provider_quota_id",
@@ -893,7 +1091,10 @@ class RequestObserver:
                 state = GeminiQuotaState.objects.select_for_update().get(
                     pk=boundary.state_id
                 )
-                state.in_flight_count = max(0, int(state.in_flight_count or 0) - 1)
+                if permit_was_active:
+                    state.in_flight_count = max(
+                        0, int(state.in_flight_count or 0) - 1
+                    )
                 if succeeded:
                     state.last_success_at = now
                     state.last_latency_ms = latency_ms
@@ -950,11 +1151,18 @@ class RequestObserver:
             graph = GeminiRequest.objects.select_for_update().get(pk=self.graph_id)
             outcomes = dict(graph.candidate_outcomes or {})
             outcome_key = str(boundary.candidate_index or boundary.attempt_index)
-            outcomes[outcome_key] = {
+            outcome_payload = {
                 "attempt_index": boundary.attempt_index,
                 "outcome": attempt.outcome,
                 "failure_kind": attempt.failure_kind,
             }
+            existing_outcome = outcomes.get(outcome_key)
+            if existing_outcome is None:
+                outcomes[outcome_key] = outcome_payload
+            elif isinstance(existing_outcome, list):
+                outcomes[outcome_key] = [*existing_outcome, outcome_payload]
+            else:
+                outcomes[outcome_key] = [existing_outcome, outcome_payload]
             graph.candidate_outcomes = outcomes
             if succeeded and graph.winner_attempt_id is None:
                 graph.winner_attempt = attempt
@@ -962,7 +1170,11 @@ class RequestObserver:
                 graph.terminal_reason = "provider_success"
                 graph.resolved_at = now
                 attempt.winner_claimed = True
-                attempt.save(update_fields=["winner_claimed"])
+                winner_fields = ["winner_claimed"]
+                if graph.reply_message_id:
+                    attempt.reply_message_id = graph.reply_message_id
+                    winner_fields.append("reply_message_id")
+                attempt.save(update_fields=winner_fields)
             graph.save(update_fields=[
                 "candidate_outcomes", "winner_attempt", "terminal_resolution",
                 "terminal_reason", "resolved_at", "updated_at",
@@ -973,6 +1185,7 @@ class RequestObserver:
             from management.models import GeminiRequest
 
             now = timezone.now()
+            self.record_remaining(reason)
             GeminiRequest.objects.filter(
                 pk=self.graph_id,
                 terminal_resolution="",
@@ -1056,6 +1269,14 @@ def classify_failure(error, *, http_code=None, failure_kind="") -> dict:
     if code == 429:
         now = timezone.now()
         scope = str(getattr(error, "scope", "") or "")
+        if not retry and scope == "minute":
+            from management.services import gemini_keys
+
+            retry = gemini_keys.DEFAULT_MINUTE_COOLDOWN
+        elif not retry and scope == "topup":
+            from management.services import gemini_keys
+
+            retry = gemini_keys.TOPUP_COOLDOWN_SECONDS
         if scope in {"day", "unknown"}:
             local = now.astimezone(PT)
             tomorrow = local.date() + dt.timedelta(days=1)
@@ -1076,28 +1297,73 @@ def classify_failure(error, *, http_code=None, failure_kind="") -> dict:
 
 
 def link_reply_if_present(*, request_id: str, reply_message_id: int) -> bool:
-    """Attach a committed reply without creating any row in off mode."""
+    """Atomically attach null->id or the same id; audit every conflict."""
     if not shadow_runtime_active() or not request_id or not reply_message_id:
         return False
     try:
-        from management.models import GeminiRequest, GeminiRequestAttempt
+        from management.models import AdminAuditLog, GeminiRequest, GeminiRequestAttempt
 
-        graph_id = GeminiRequest.objects.filter(
-            request_id=str(request_id)[:40]
-        ).values_list("id", flat=True).first()
-        if graph_id is None:
-            return False
-        now = timezone.now()
-        GeminiRequest.objects.filter(pk=graph_id).update(
-            reply_message_id=int(reply_message_id),
-            updated_at=now,
-        )
-        # Do not hold the request row while updating its winner attempt: the
-        # provider settlement lock order is attempt -> state -> request.
-        GeminiRequestAttempt.objects.filter(
-            request_graph_id=graph_id,
-            winner_claimed=True,
-        ).update(reply_message_id=int(reply_message_id))
-        return True
+        bounded_request_id = str(request_id)[:40]
+        requested_reply_id = int(reply_message_id)
+        for _retry in range(3):
+            snapshot = GeminiRequest.objects.filter(
+                request_id=bounded_request_id
+            ).values("id", "winner_attempt_id").first()
+            if snapshot is None:
+                return False
+            winner_id = snapshot["winner_attempt_id"]
+            retry = False
+            with transaction.atomic():
+                winner = (
+                    GeminiRequestAttempt.objects.select_for_update().filter(
+                        pk=winner_id
+                    ).first()
+                    if winner_id
+                    else None
+                )
+                graph = GeminiRequest.objects.select_for_update().get(
+                    pk=snapshot["id"]
+                )
+                if graph.winner_attempt_id != winner_id:
+                    retry = True
+                else:
+                    existing_graph_id = int(graph.reply_message_id or 0)
+                    existing_attempt_id = int(
+                        getattr(winner, "reply_message_id", 0) or 0
+                    )
+                    conflict = next(
+                        (
+                            value
+                            for value in (existing_graph_id, existing_attempt_id)
+                            if value and value != requested_reply_id
+                        ),
+                        0,
+                    )
+                    if conflict:
+                        AdminAuditLog.objects.create(
+                            actor=None,
+                            actor_role="system",
+                            action="ig_gemini.reply_link_conflict",
+                            entity_type="GeminiRequest",
+                            entity_id=str(graph.pk),
+                            before={"reply_message_id": conflict},
+                            after={"requested_reply_message_id": requested_reply_id},
+                            reason="immutable_reply_link_conflict",
+                        )
+                        return False
+                    now = timezone.now()
+                    if not existing_graph_id:
+                        GeminiRequest.objects.filter(pk=graph.pk).update(
+                            reply_message_id=requested_reply_id,
+                            updated_at=now,
+                        )
+                    if winner is not None and not existing_attempt_id:
+                        GeminiRequestAttempt.objects.filter(pk=winner.pk).update(
+                            reply_message_id=requested_reply_id
+                        )
+                    return True
+            if not retry:
+                break
+        return False
     except Exception:
         return False

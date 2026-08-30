@@ -1124,7 +1124,7 @@ def _generate_recovery_draft(
         ),
         incident_id=getattr(job.degradation_episode, "incident_id", None),
         recovery_job_id=job.pk,
-    ):
+    ) as lineage:
         draft = gemini_generate(
             settings_obj,
             history,
@@ -1152,6 +1152,9 @@ def _generate_recovery_draft(
             failure_context=model_context,
             routing_decision=routing_decision,
         )
+    model_context["gemini_request_id"] = str(
+        lineage.get("request_id") or ""
+    )[:40]
     _persist_turn_intelligence(
         target,
         model_context.get("turn_intelligence") or {},
@@ -1179,6 +1182,7 @@ def _persist_draft(
     draft: str,
     *,
     provider_model: str = "",
+    gemini_request_id: str = "",
 ) -> tuple[IgAiReplyRecoveryJob, str]:
     """Persist the exact draft and history row before any Meta I/O."""
     with transaction.atomic():
@@ -1208,6 +1212,7 @@ def _persist_draft(
                 status=InstagramBotMessage.Status.PROCESSING,
                 source="ai_recovery",
                 send_state="",
+                gemini_request_id=gemini_request_id,
             )
             job.reply_message = reply_message
         elif job.reply_message.send_state in {"sending", "sent", "unknown"}:
@@ -1234,8 +1239,36 @@ def _persist_draft(
             return job, "terminalized_existing_delivery"
         else:
             job.reply_message.text = job.draft_text
-            job.reply_message.save(update_fields=["text"])
+            update_fields = ["text"]
+            current_request_id = str(
+                job.reply_message.gemini_request_id or ""
+            )
+            if gemini_request_id and not current_request_id:
+                job.reply_message.gemini_request_id = gemini_request_id[:40]
+                update_fields.append("gemini_request_id")
+            elif (
+                gemini_request_id
+                and current_request_id
+                and current_request_id != gemini_request_id
+            ):
+                return job, "gemini_request_conflict"
+            job.reply_message.save(update_fields=update_fields)
         job.save(update_fields=["draft_text", "reply_message", "updated_at"])
+        if gemini_request_id and job.reply_message_id:
+            try:
+                from management.services import gemini_accounting_runtime
+
+                if gemini_accounting_runtime.shadow_runtime_active():
+                    transaction.on_commit(
+                        lambda request_id=gemini_request_id, reply_id=job.reply_message_id: (
+                            gemini_accounting_runtime.link_reply_if_present(
+                                request_id=request_id,
+                                reply_message_id=reply_id,
+                            )
+                        )
+                    )
+            except Exception:
+                pass
         return job, ""
 
 
@@ -1318,7 +1351,11 @@ def _finish_delivery(
     provider_message_id: str,
 ) -> IgAiReplyRecoveryJob:
     with transaction.atomic():
-        job = IgAiReplyRecoveryJob.objects.select_for_update().get(pk=job_id)
+        job = (
+            IgAiReplyRecoveryJob.objects.select_for_update()
+            .select_related("reply_message")
+            .get(pk=job_id)
+        )
         if job.lease_token != token or job.status != job.Status.SENDING:
             return job
         now = timezone.now()
@@ -1360,6 +1397,24 @@ def _finish_delivery(
         ])
         if job.reply_message_id:
             InstagramBotMessage.objects.filter(pk=job.reply_message_id).update(**reply_update)
+            gemini_request_id = str(
+                getattr(job.reply_message, "gemini_request_id", "") or ""
+            )[:40]
+            if gemini_request_id:
+                try:
+                    from management.services import gemini_accounting_runtime
+
+                    if gemini_accounting_runtime.shadow_runtime_active():
+                        transaction.on_commit(
+                            lambda request_id=gemini_request_id, reply_id=job.reply_message_id: (
+                                gemini_accounting_runtime.link_reply_if_present(
+                                    request_id=request_id,
+                                    reply_message_id=reply_id,
+                                )
+                            )
+                        )
+                except Exception:
+                    pass
         if job.status == job.Status.SENT and job.degradation_episode_id:
             from management.services.ig_provider_incidents import (
                 IgClientDegradationEpisode as _Episode,
@@ -1486,6 +1541,9 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
             token,
             draft,
             provider_model=recovery_model_context.get("model", ""),
+            gemini_request_id=recovery_model_context.get(
+                "gemini_request_id", ""
+            ),
         )
         if reason:
             if reason in {

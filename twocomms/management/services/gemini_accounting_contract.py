@@ -267,6 +267,64 @@ def rotate_quota_state_profile(
     return state, audit
 
 
+def rotate_locked_quota_state_profile(
+    *,
+    state,
+    new_profile,
+    reason: str,
+    now=None,
+):
+    """Rotate an already select-for-update locked idle state without new reads."""
+    from management.models import AdminAuditLog, GeminiQuotaState
+
+    now = now or timezone.now()
+    if state.in_flight_count:
+        raise ValidationError({"in_flight_count": "Cannot rotate an in-flight quota state."})
+    if new_profile.model != state.model:
+        raise ValidationError({"quota_profile": "Quota profile model does not match state model."})
+    if new_profile.effective_from > now or (
+        new_profile.effective_until is not None
+        and new_profile.effective_until <= now
+    ):
+        raise ValidationError({"quota_profile": "Quota profile is not currently effective."})
+    if state.quota_profile_id == new_profile.pk:
+        return state, None
+    previous_version = state.quota_profile.profile_version
+    expected_revision = int(state.revision)
+    updated = GeminiQuotaState.objects.filter(
+        pk=state.pk,
+        revision=expected_revision,
+        in_flight_count=0,
+    )._rotate_profile(
+        quota_profile_id=new_profile.pk,
+        revision=F("revision") + 1,
+        updated_at=now,
+    )
+    if updated != 1:
+        raise ValidationError({"revision": "Gemini quota-state rotation lost its revision race."})
+    audit = AdminAuditLog.objects.create(
+        actor=None,
+        actor_role="system",
+        action="ig_gemini.quota_profile_rotated",
+        entity_type="GeminiQuotaState",
+        entity_id=str(state.pk),
+        before={
+            "profile_version": previous_version,
+            "model": state.model,
+            "revision": expected_revision,
+        },
+        after={
+            "profile_version": new_profile.profile_version,
+            "model": state.model,
+            "revision": expected_revision + 1,
+        },
+        reason=str(reason or "shadow_effective_profile_transition")[:1000],
+    )
+    state.quota_profile = new_profile
+    state.revision = expected_revision + 1
+    return state, audit
+
+
 def validate_quota_state_contract(state) -> None:
     """Validate the cross-table pair/profile model relation."""
     errors: dict[str, str] = {}

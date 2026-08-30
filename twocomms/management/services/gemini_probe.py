@@ -105,7 +105,9 @@ def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
         from management.services import gemini_accounting_runtime, gemini_keys
 
         alias = gemini_keys.configured_alias_for_secret(key)
-        identity = gemini_keys.project_group(alias) if alias else ""
+        explicit_identities = gemini_keys.explicit_project_groups()
+        safe_label = gemini_keys.project_group(alias) if alias else ""
+        identity = explicit_identities.get(alias, "") if alias else ""
         observer = gemini_accounting_runtime.begin_request(
             request_id=f"diag-{uuid.uuid4().hex[:32]}",
             role="diagnostic",
@@ -113,8 +115,10 @@ def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
             candidate_plan=[{
                 "candidate_index": 1,
                 "key_name": alias or "(manual)",
-                "project_identity": identity,
-                "identity_status": "known" if identity else "unknown",
+                "project_identity": identity or safe_label,
+                "identity_status": (
+                    "known" if identity else "assumed" if safe_label else "unknown"
+                ),
                 "model": model,
                 "skip_reason": "",
             }],

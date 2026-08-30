@@ -728,26 +728,11 @@ def record_attempt(
             pk=existing_id,
             request_id=str(request_id or "")[:40],
         ).first()
+        # The shadow FSM already owns provider outcome, failure, usage and
+        # timing. Legacy chat audit may enrich only routing/deadline metadata.
         mutable = {
-            "outcome": (
-                "cancelled_pre_dispatch"
-                if attempt is not None
-                and attempt.fsm_state
-                == GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH
-                else str(outcome or "")[:24]
-            ),
-            "failure_kind": str(failure_kind or "")[:32],
-            "http_code": int(http_code) if http_code else None,
-            "provider_reason": str(provider_reason or "")[:80],
             "decision": str(decision or "")[:48],
-            "latency_ms": max(0, int(latency_ms or 0)),
             "remaining_deadline_ms": max(0, int(remaining_deadline_ms or 0)),
-            "prompt_tokens": max(0, int(usage.get("promptTokenCount") or 0)),
-            "thoughts_tokens": max(0, int(usage.get("thoughtsTokenCount") or 0)),
-            "candidates_tokens": max(0, int(usage.get("candidatesTokenCount") or 0)),
-            "total_tokens": max(0, int(usage.get("totalTokenCount") or 0)),
-            "error_detail": str(failure_kind or "")[:120],
-            "not_attempted_reason": str(not_attempted_reason or "")[:24],
         }
         updated = (
             GeminiRequestAttempt.objects.filter(pk=attempt.pk).update(**mutable)
@@ -789,16 +774,26 @@ def record_attempt(
             incident_id=lineage.get("incident_id") or None,
             recovery_job_id=lineage.get("recovery_job_id") or None,
         )
-    _register_provider_state(
-        role=role,
-        outcome=outcome,
-        failure_kind=failure_kind,
-        http_code=http_code,
-        model=model,
-        project_group=group,
-        key_name=key_name,
-        not_attempted_reason=not_attempted_reason,
-    )
+    canonical_runtime_attempt = bool(existing_id and attempt.request_graph_id)
+    if not canonical_runtime_attempt or attempt.provider_started_at is not None:
+        _register_provider_state(
+            role=attempt.role if canonical_runtime_attempt else role,
+            outcome=attempt.outcome if canonical_runtime_attempt else outcome,
+            failure_kind=(
+                attempt.failure_kind if canonical_runtime_attempt else failure_kind
+            ),
+            http_code=attempt.http_code if canonical_runtime_attempt else http_code,
+            model=attempt.model if canonical_runtime_attempt else model,
+            project_group=(
+                attempt.project_group if canonical_runtime_attempt else group
+            ),
+            key_name=attempt.key_name if canonical_runtime_attempt else key_name,
+            not_attempted_reason=(
+                attempt.not_attempted_reason
+                if canonical_runtime_attempt
+                else not_attempted_reason
+            ),
+        )
     return attempt
 
 

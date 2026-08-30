@@ -10,7 +10,7 @@ from unittest import skipUnless
 from django.db import close_old_connections, connection
 from django.test import TransactionTestCase, override_settings
 
-from management.models import GeminiQuotaState, GeminiRequestAttempt
+from management.models import GeminiQuotaProfile, GeminiQuotaState, GeminiRequestAttempt
 from management.services import gemini_accounting_runtime as runtime
 
 
@@ -23,6 +23,28 @@ from management.services import gemini_accounting_runtime as runtime
 )
 class GeminiShadowMariaDbConcurrencyTests(TransactionTestCase):
     reset_sequences = True
+
+    def setUp(self):
+        import datetime as dt
+
+        observed_at = dt.datetime(
+            2026, 8, 29, 17, 18, 56, tzinfo=dt.timezone.utc
+        )
+        GeminiQuotaProfile.objects.get_or_create(
+            profile_version=runtime.OWNER_PROFILE_VERSION,
+            model="gemini-3.7-flash",
+            defaults={
+                "rpm_limit": 5,
+                "input_tpm_limit": 250_000,
+                "rpd_limit": 20,
+                "permit_limit": 1,
+                "estimator_version": "shadow-calibration-required",
+                "source": GeminiQuotaProfile.Source.OWNER_OBSERVED,
+                "source_reference": "maria_test_fixture",
+                "observed_at": observed_at,
+                "effective_from": observed_at,
+            },
+        )
 
     def test_database_is_explicitly_disposable(self):
         self.assertRegex(

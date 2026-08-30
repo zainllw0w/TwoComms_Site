@@ -11,8 +11,12 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from management.models import (
+    AdminAuditLog,
     GeminiQuotaProfile,
     GeminiQuotaState,
+    GeminiKeyState,
+    GeminiModelQuotaUsage,
+    GeminiModelState,
     GeminiRequest,
     GeminiRequestAttempt,
 )
@@ -45,6 +49,33 @@ KEY_ENV = {
     "GEMINI_API5": "",
     "GEMINI_API6": "shadow-key-6",
 }
+
+
+def seed_shadow_profiles():
+    observed_at = dt.datetime(2026, 8, 29, 17, 18, 56, tzinfo=dt.timezone.utc)
+    rows = (
+        ("gemini-3.7-flash", 5, 250_000, 20, 1),
+        ("gemini-3.6-flash", 5, 250_000, 20, 1),
+        ("gemini-3.5-flash", 5, 250_000, 20, 1),
+        ("gemini-3.5-flash-lite", 15, 250_000, 500, 2),
+    )
+    for model, rpm, tpm, rpd, permits in rows:
+        GeminiQuotaProfile.objects.get_or_create(
+            profile_version=runtime.OWNER_PROFILE_VERSION,
+            model=model,
+            defaults={
+                "rpm_limit": rpm,
+                "input_tpm_limit": tpm,
+                "rpd_limit": rpd,
+                "permit_limit": permits,
+                "estimator_version": "shadow-calibration-required",
+                "source": GeminiQuotaProfile.Source.OWNER_OBSERVED,
+                "source_reference": "test_fixture",
+                "observed_at": observed_at,
+                "effective_from": observed_at,
+                "effective_until": None,
+            },
+        )
 
 
 class _Response:
@@ -210,6 +241,10 @@ class GeminiShadowPureContractTests(SimpleTestCase):
 
 
 class GeminiShadowRuntimeTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        seed_shadow_profiles()
+
     def _observer(self, model="gemini-3.7-flash", *, identity="gemini-project-1", lane="analysis"):
         return runtime.begin_request(
             request_id=uuid_for_test(),
@@ -241,11 +276,17 @@ class GeminiShadowRuntimeTests(TestCase):
         )
 
     @override_settings(**SHADOW)
-    def test_begin_request_is_one_write_and_plan_is_sanitized(self):
+    def test_begin_request_profile_reads_are_bounded_and_plan_is_sanitized(self):
         with CaptureQueriesContext(connection) as captured:
             observer = self._observer()
         self.assertTrue(observer.enabled)
-        self.assertLessEqual(len([q for q in captured if q["sql"].lstrip().upper().startswith("SELECT")]), 0)
+        self.assertLessEqual(
+            len([
+                q for q in captured
+                if q["sql"].lstrip().upper().startswith("SELECT")
+            ]),
+            2,
+        )
         graph = GeminiRequest.objects.get(pk=observer.graph_id)
         encoded = json.dumps(graph.candidate_plan, sort_keys=True)
         self.assertNotIn("GEMINI_API", encoded)
@@ -346,6 +387,66 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertEqual(state.in_flight_count, 0)
 
     @override_settings(**SHADOW)
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    @patch(
+        "management.services.call_ai_analysis.requests.post",
+        side_effect=requests.ReadTimeout("live-timeout"),
+    )
+    def test_live_legacy_audit_cannot_overwrite_timeout_fsm(self, _post):
+        with self.assertRaises(ai.CallAIAnalysisError):
+            ai.gemini_generate_text(
+                {"contents": [{"role": "user", "parts": [{"text": "hello"}]}]},
+                role="chat",
+                model_chain_override=["gemini-3.7-flash"],
+            )
+        graph = GeminiRequest.objects.get()
+        provider_rows = GeminiRequestAttempt.objects.filter(
+            request_graph=graph,
+            provider_started_at__isnull=False,
+        )
+        self.assertGreaterEqual(provider_rows.count(), 1)
+        self.assertFalse(
+            provider_rows.exclude(
+                fsm_state=GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+                outcome="timeout_ambiguous",
+                failure_kind="read_timeout",
+            ).exists()
+        )
+        self.assertFalse(
+            GeminiRequestAttempt.objects.filter(
+                request_id=graph.request_id,
+                request_graph__isnull=True,
+            ).exists()
+        )
+
+    @override_settings(**SHADOW)
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_live_legacy_audit_cannot_reclassify_malformed_envelope(self, post):
+        response = _Response()
+        response.json = lambda: ["malformed"]
+        post.return_value = response
+        with self.assertRaises(ai.CallAIAnalysisError):
+            ai.gemini_generate_text(
+                {"contents": [{"role": "user", "parts": [{"text": "hello"}]}]},
+                role="chat",
+                model_chain_override=["gemini-3.7-flash"],
+            )
+        graph = GeminiRequest.objects.get()
+        provider_rows = GeminiRequestAttempt.objects.filter(
+            request_graph=graph,
+            provider_started_at__isnull=False,
+        )
+        self.assertGreaterEqual(provider_rows.count(), 1)
+        self.assertFalse(
+            provider_rows.exclude(
+                fsm_state=GeminiRequestAttempt.FsmState.FAILED,
+                outcome="failed",
+                failure_kind="invalid_response",
+            ).exists()
+        )
+
+    @override_settings(**SHADOW)
     @patch("management.services.call_ai_analysis.requests.post")
     def test_malformed_200_envelope_is_not_transport_ambiguous(self, post):
         response = _Response()
@@ -429,8 +530,10 @@ class GeminiShadowRuntimeTests(TestCase):
                 )
         graph = GeminiRequest.objects.get()
         rows = GeminiRequestAttempt.objects.filter(request_id=graph.request_id)
-        self.assertEqual(rows.count(), 1)
-        attempt = rows.get()
+        attempt = rows.get(
+            fsm_state=GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+            failure_kind="invalid_payload",
+        )
         self.assertEqual(attempt.request_graph_id, graph.pk)
         self.assertEqual(
             attempt.fsm_state,
@@ -438,6 +541,7 @@ class GeminiShadowRuntimeTests(TestCase):
         )
         self.assertEqual(attempt.outcome, "cancelled_pre_dispatch")
         self.assertEqual(graph.terminal_resolution, "failed")
+        self.assertFalse(rows.filter(request_graph__isnull=True).exists())
 
     @override_settings(**SHADOW)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
@@ -532,6 +636,46 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertEqual(state.in_flight_count, 0)
 
     @override_settings(**SHADOW)
+    def test_late_success_does_not_release_a_newer_attempt_permit(self):
+        first = self._observer()
+        first_boundary = first.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        first_boundary.before_provider(serialized_bytes=100, inline_count=0)
+        stale_at = timezone.now() - dt.timedelta(seconds=1)
+        GeminiRequestAttempt.objects.filter(pk=first_boundary.attempt_id).update(
+            permit_expires_at=stale_at,
+            reservation_expires_at=stale_at,
+        )
+
+        second = self._observer()
+        second_boundary = second.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        second_boundary.before_provider(serialized_bytes=100, inline_count=0)
+        state = GeminiQuotaState.objects.get(pk=first_boundary.state_id)
+        self.assertEqual(state.in_flight_count, 1)
+
+        first_boundary.succeeded({"promptTokenCount": 2, "totalTokenCount": 3})
+        state.refresh_from_db()
+        self.assertEqual(state.in_flight_count, 1)
+
+        third = self._observer()
+        third_boundary = third.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        third_boundary.before_provider(serialized_bytes=100, inline_count=0)
+        third_attempt = GeminiRequestAttempt.objects.get(pk=third_boundary.attempt_id)
+        self.assertEqual(
+            third_attempt.shadow_deny_reason,
+            "permit_exhausted",
+        )
+        second_boundary.manual_result(succeeded=True, http_code=200, usage={})
+        third_boundary.manual_result(succeeded=True, http_code=200, usage={})
+        state.refresh_from_db()
+        self.assertEqual(state.in_flight_count, 0)
+
+    @override_settings(**SHADOW)
     def test_cross_midnight_settlement_keeps_original_dispatch_day(self):
         dispatch_at = dt.datetime(2026, 8, 31, 6, 59, tzinfo=dt.timezone.utc)
         finish_at = dt.datetime(2026, 8, 31, 7, 1, tzinfo=dt.timezone.utc)
@@ -594,6 +738,58 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertNotIn("private provider body", json.dumps(state.provider_blocks))
 
     @override_settings(**SHADOW)
+    def test_minute_and_topup_429_without_retryinfo_get_safe_durable_defaults(self):
+        now = timezone.now()
+        cases = (
+            ("minute", ai.gemini_keys.DEFAULT_MINUTE_COOLDOWN),
+            ("topup", ai.gemini_keys.TOPUP_COOLDOWN_SECONDS),
+        )
+        for index, (scope, expected_seconds) in enumerate(cases, start=1):
+            error = ai._Gemini429(scope=scope, retry_after_seconds=0)
+            parsed_scope, seconds = ai._quota_scope_and_retry(error)
+            self.assertEqual((parsed_scope, seconds), (scope, expected_seconds))
+            alias = f"GEMINI_API{index + 2}"
+            ai.gemini_keys.mark_429(
+                alias,
+                parsed_scope,
+                seconds,
+                now=now,
+                model="gemini-3.7-flash",
+            )
+            key_state = ai.gemini_keys.GeminiKeyState.get(alias)
+            if scope == "minute":
+                until = ai.gemini_keys._model_cooldown_until(
+                    key_state, "gemini-3.7-flash"
+                )
+            else:
+                until = key_state.cooldown_until
+            self.assertGreaterEqual(
+                (until - now).total_seconds(), expected_seconds - 1
+            )
+
+            observer = runtime.begin_request(
+                request_id=uuid_for_test(),
+                role="management",
+                reasoning_task="customer_intelligence",
+                candidate_plan=_raw_plan(),
+                lane="analysis",
+            )
+            boundary = observer.attempt(
+                key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+            )
+            boundary.before_provider(serialized_bytes=100, inline_count=0)
+            boundary.failed(error)
+            attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+            self.assertEqual(
+                attempt.provider_retry_after_seconds,
+                expected_seconds,
+            )
+            self.assertGreaterEqual(
+                (attempt.provider_block_until - attempt.finished_at).total_seconds(),
+                expected_seconds - 1,
+            )
+
+    @override_settings(**SHADOW)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
     def test_one_request_has_one_immutable_winner(self, _post):
         plan = _raw_plan()
@@ -626,6 +822,37 @@ class GeminiShadowRuntimeTests(TestCase):
         )
 
     @override_settings(**SHADOW)
+    @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
+    def test_reply_link_rejects_conflict_and_writes_bounded_audit(self, _post):
+        observer = self._observer()
+        boundary = observer.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        ai._gemini_call_once(
+            "gemini-3.7-flash", {"contents": []}, "key", parse=False,
+            attempt_boundary=boundary,
+        )
+        self.assertTrue(runtime.link_reply_if_present(
+            request_id=observer.request_id, reply_message_id=77
+        ))
+        self.assertTrue(runtime.link_reply_if_present(
+            request_id=observer.request_id, reply_message_id=77
+        ))
+        self.assertFalse(runtime.link_reply_if_present(
+            request_id=observer.request_id, reply_message_id=88
+        ))
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+        self.assertEqual(graph.reply_message_id, 77)
+        self.assertEqual(attempt.reply_message_id, 77)
+        audit = AdminAuditLog.objects.get(
+            action="ig_gemini.reply_link_conflict"
+        )
+        self.assertEqual(audit.before, {"reply_message_id": 77})
+        self.assertEqual(audit.after, {"requested_reply_message_id": 88})
+        self.assertNotIn("key", json.dumps(audit.before))
+
+    @override_settings(**SHADOW)
     def test_pre_provider_observer_reads_are_bounded(self):
         observer = self._observer()
         boundary = observer.attempt(
@@ -635,6 +862,110 @@ class GeminiShadowRuntimeTests(TestCase):
             boundary.before_provider(serialized_bytes=120, inline_count=0)
         reads = [q for q in captured if q["sql"].lstrip().upper().startswith("SELECT")]
         self.assertLessEqual(len(reads), 6, [q["sql"] for q in reads])
+
+    @override_settings(**SHADOW)
+    def test_selected_idle_state_rotates_to_newest_effective_profile_bounded(self):
+        now = timezone.now()
+        old_profile = GeminiQuotaProfile.objects.create(
+            profile_version="shadow-profile-old",
+            model="gemini-3.7-flash",
+            rpm_limit=5,
+            input_tpm_limit=250_000,
+            rpd_limit=20,
+            permit_limit=1,
+            estimator_version="old-estimator",
+            source=GeminiQuotaProfile.Source.ADMIN,
+            observed_at=now - dt.timedelta(days=2),
+            effective_from=now - dt.timedelta(days=2),
+        )
+        new_profile = GeminiQuotaProfile.objects.create(
+            profile_version="shadow-profile-new",
+            model="gemini-3.7-flash",
+            rpm_limit=6,
+            input_tpm_limit=260_000,
+            rpd_limit=21,
+            permit_limit=1,
+            estimator_version="new-estimator",
+            source=GeminiQuotaProfile.Source.ADMIN,
+            observed_at=now - dt.timedelta(minutes=2),
+            effective_from=now - dt.timedelta(minutes=1),
+        )
+        state = GeminiQuotaState.objects.create(
+            project_identity="gemini-project-1",
+            model="gemini-3.7-flash",
+            quota_profile=old_profile,
+            pacific_day=now.astimezone(runtime.PT).date(),
+        )
+        observer = self._observer()
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        self.assertEqual(graph.quota_profile_version, new_profile.profile_version)
+        boundary = observer.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        with CaptureQueriesContext(connection) as captured:
+            boundary.before_provider(serialized_bytes=100, inline_count=0)
+        reads = [q for q in captured if q["sql"].lstrip().upper().startswith("SELECT")]
+        self.assertLessEqual(len(reads), 6, [q["sql"] for q in reads])
+        state.refresh_from_db()
+        attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+        self.assertEqual(state.quota_profile_id, new_profile.pk)
+        self.assertEqual(attempt.quota_profile_id, new_profile.pk)
+        self.assertTrue(AdminAuditLog.objects.filter(
+            action="ig_gemini.quota_profile_rotated",
+            entity_id=str(state.pk),
+            before__profile_version=old_profile.profile_version,
+            after__profile_version=new_profile.profile_version,
+        ).exists())
+
+    @override_settings(**SHADOW)
+    def test_inflight_state_keeps_old_profile_while_graph_reports_active_policy(self):
+        now = timezone.now()
+        old_profile = GeminiQuotaProfile.objects.create(
+            profile_version="shadow-inflight-old",
+            model="gemini-3.7-flash",
+            rpm_limit=5,
+            input_tpm_limit=250_000,
+            rpd_limit=20,
+            permit_limit=1,
+            estimator_version="old-estimator",
+            source=GeminiQuotaProfile.Source.ADMIN,
+            observed_at=now - dt.timedelta(days=2),
+            effective_from=now - dt.timedelta(days=2),
+        )
+        new_profile = GeminiQuotaProfile.objects.create(
+            profile_version="shadow-inflight-new",
+            model="gemini-3.7-flash",
+            rpm_limit=6,
+            input_tpm_limit=260_000,
+            rpd_limit=21,
+            permit_limit=1,
+            estimator_version="new-estimator",
+            source=GeminiQuotaProfile.Source.ADMIN,
+            observed_at=now - dt.timedelta(minutes=2),
+            effective_from=now - dt.timedelta(minutes=1),
+        )
+        state = GeminiQuotaState.objects.create(
+            project_identity="gemini-project-1",
+            model="gemini-3.7-flash",
+            quota_profile=old_profile,
+            pacific_day=now.astimezone(runtime.PT).date(),
+            in_flight_count=1,
+        )
+        observer = self._observer()
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        self.assertEqual(graph.quota_profile_version, new_profile.profile_version)
+        boundary = observer.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        boundary.before_provider(serialized_bytes=100, inline_count=0)
+        state.refresh_from_db()
+        attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+        self.assertEqual(state.quota_profile_id, old_profile.pk)
+        self.assertEqual(attempt.quota_profile_id, old_profile.pk)
+        self.assertFalse(AdminAuditLog.objects.filter(
+            action="ig_gemini.quota_profile_rotated",
+            entity_id=str(state.pk),
+        ).exists())
 
     @override_settings(**SHADOW)
     @patch.dict(os.environ, KEY_ENV, clear=False)
@@ -676,7 +1007,10 @@ class GeminiShadowRuntimeTests(TestCase):
             and item["model"] == "gemini-3.5-flash-lite"
             for item in graph.candidate_plan
         ))
-        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        attempt = GeminiRequestAttempt.objects.get(
+            request_graph=graph,
+            provider_started_at__isnull=False,
+        )
         self.assertEqual(attempt.project_identity, "")
         self.assertIsNone(attempt.quota_profile_id)
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
@@ -699,7 +1033,10 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertTrue(any(
             row["identity_status"] == "assumed" for row in graph.candidate_plan
         ))
-        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        attempt = GeminiRequestAttempt.objects.get(
+            request_graph=graph,
+            provider_started_at__isnull=False,
+        )
         self.assertEqual(attempt.project_identity, "")
         self.assertIsNone(attempt.quota_profile_id)
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
@@ -719,9 +1056,105 @@ class GeminiShadowRuntimeTests(TestCase):
             {"memory_summary", "conversation_reanalysis", "customer_intelligence"},
         )
         self.assertEqual(
-            GeminiRequestAttempt.objects.filter(request_graph__isnull=False).count(),
+            GeminiRequestAttempt.objects.filter(
+                request_graph__isnull=False,
+                provider_started_at__isnull=False,
+            ).count(),
             3,
         )
+
+    @override_settings(**SHADOW)
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_generic_manual_plan_is_first_and_all_skips_are_graph_linked(self, post):
+        post.side_effect = [
+            _Response(429, {
+                "error": {
+                    "status": "RESOURCE_EXHAUSTED",
+                    "message": "requests per minute",
+                },
+            }),
+            _Response(),
+        ]
+        out = ai.gemini_generate_text(
+            {"contents": [{"parts": [{"text": "memory"}]}]},
+            role="management",
+            manual_key="unknown-manual-key",
+            reasoning_task="memory_summary",
+        )
+        self.assertEqual(out["parsed"], "ok")
+        graph = GeminiRequest.objects.get()
+        self.assertEqual(
+            [row["model"] for row in graph.candidate_plan[:3]],
+            [
+                "gemini-3.6-flash",
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite",
+            ],
+        )
+        attempts = list(
+            GeminiRequestAttempt.objects.filter(request_graph=graph).order_by(
+                "attempt_index"
+            )
+        )
+        self.assertEqual(attempts[0].key_name, "(manual)")
+        self.assertEqual(attempts[0].candidate_index, 1)
+        self.assertTrue(all(row.request_graph_id == graph.pk for row in attempts))
+        self.assertEqual(
+            {row.candidate_index for row in attempts},
+            {row["candidate_index"] for row in graph.candidate_plan},
+        )
+        self.assertEqual(
+            len(graph.candidate_outcomes),
+            len(graph.candidate_plan),
+        )
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(
+                request_id=graph.request_id,
+                request_graph__isnull=True,
+            ).count(),
+            0,
+        )
+
+    @override_settings(**SHADOW)
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    def test_shadow_manual_failure_keeps_fresh_legacy_env_sequence(self):
+        payload = {"contents": [{"parts": [{"text": "memory"}]}]}
+
+        def run(mode):
+            calls = []
+
+            def fake_once(model, _payload, key, **_kwargs):
+                calls.append((model, key))
+                if key == "manual-key":
+                    raise ai._Gemini429(scope="minute")
+                return "ok", {}
+
+            with override_settings(
+                **{
+                    **SHADOW,
+                    "GEMINI_ACCOUNTING_V2_MODE": mode,
+                }
+            ), patch.object(ai, "_gemini_call_once", side_effect=fake_once):
+                ai.gemini_generate_text(
+                    payload,
+                    role="management",
+                    manual_key="manual-key",
+                    reasoning_task="memory_summary",
+                )
+            return calls
+
+        off_calls = run("off")
+        GeminiRequestAttempt.objects.all().delete()
+        GeminiRequest.objects.all().delete()
+        GeminiQuotaState.objects.all().delete()
+        GeminiModelQuotaUsage.objects.all().delete()
+        GeminiKeyState.objects.all().delete()
+        GeminiModelState.objects.all().delete()
+        ai.gemini_keys.clear_model_overload()
+        ai.gemini_keys.clear_model_unavailable()
+        shadow_calls = run("shadow")
+        self.assertEqual(shadow_calls, off_calls)
 
     @override_settings(**SHADOW)
     @patch.dict(os.environ, KEY_ENV, clear=False)
@@ -737,7 +1170,9 @@ class GeminiShadowRuntimeTests(TestCase):
         out = ai._gemini_analyze(b"bounded-audio", "audio/mpeg", "", "")
         self.assertEqual(out["parsed"]["overall_score"], 1)
         graph = GeminiRequest.objects.get()
-        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        attempt = GeminiRequestAttempt.objects.get(
+            request_graph=graph, provider_started_at__isnull=False
+        )
         self.assertEqual(graph.reasoning_task, "customer_intelligence")
         self.assertEqual(graph.lane, "analysis")
         self.assertIsNotNone(attempt.quota_profile_id)
@@ -756,7 +1191,9 @@ class GeminiShadowRuntimeTests(TestCase):
         })
         ai.gemini_generate_grounded("system", "user")
         graph = GeminiRequest.objects.get()
-        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        attempt = GeminiRequestAttempt.objects.get(
+            request_graph=graph, provider_started_at__isnull=False
+        )
         self.assertEqual(graph.reasoning_task, "conversion_analysis")
         self.assertEqual(attempt.role, "checker")
         self.assertIsNone(attempt.quota_profile_id)
@@ -793,10 +1230,32 @@ class GeminiShadowRuntimeTests(TestCase):
         result = gemini_probe.probe_key("gemini-3.7-flash", "shadow-key-1")
         self.assertEqual(result["status"], "ok")
         graph = GeminiRequest.objects.get()
-        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        attempt = GeminiRequestAttempt.objects.get(
+            request_graph=graph, provider_started_at__isnull=False
+        )
         self.assertEqual(graph.lane, "diagnostic")
         self.assertEqual(attempt.role, "diagnostic")
         self.assertEqual(attempt.fsm_state, GeminiRequestAttempt.FsmState.SUCCEEDED)
+
+    @override_settings(
+        GEMINI_ACCOUNTING_V2_MODE="shadow",
+        GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM=SHADOW_FROM,
+        GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY="probe-shadow-test-key",
+        GEMINI_KEY_PROJECT_GROUPS={},
+    )
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    @patch("management.services.gemini_probe.requests.post", return_value=_Response())
+    def test_probe_default_label_is_assumed_and_creates_no_quota_state(self, _post):
+        result = gemini_probe.probe_key("gemini-3.7-flash", "shadow-key-1")
+        self.assertEqual(result["status"], "ok")
+        graph = GeminiRequest.objects.get()
+        attempt = GeminiRequestAttempt.objects.get(
+            request_graph=graph, provider_started_at__isnull=False
+        )
+        self.assertEqual(graph.candidate_plan[0]["identity_status"], "assumed")
+        self.assertEqual(attempt.project_identity, "")
+        self.assertIsNone(attempt.quota_profile_id)
+        self.assertEqual(GeminiQuotaState.objects.count(), 0)
 
     @override_settings(**SHADOW)
     @patch("management.services.gemini_probe.requests.get")

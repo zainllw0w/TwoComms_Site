@@ -219,6 +219,10 @@ def _quota_scope_and_retry(exc: Exception) -> tuple[str, int]:
     scope = str(getattr(exc, "scope", "") or "")
     seconds = max(0, int(getattr(exc, "retry_after_seconds", 0) or 0))
     if scope in {"minute", "day", "topup", "unknown"}:
+        if not seconds and scope == "minute":
+            seconds = gemini_keys.DEFAULT_MINUTE_COOLDOWN
+        elif not seconds and scope == "topup":
+            seconds = gemini_keys.TOPUP_COOLDOWN_SECONDS
         return scope, seconds
     return gemini_keys.parse_429(str(exc))
 
@@ -510,6 +514,13 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
 
     for attempt in range(n_attempts):
         if deadline is not None and time.monotonic() >= deadline:
+            if accounting_observer is not None:
+                accounting_observer.record_not_attempted(
+                    key_name=key_name,
+                    model=model,
+                    candidate_index=candidate_index,
+                    reason="deadline",
+                )
             return ("model_skip", None)
         t0 = time.monotonic()
         lease_token = None
@@ -525,6 +536,13 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 if not lease_token:
                     log.append(f"{key_name}/{model}: lease_busy")
                     _emit(f"{key_name}/{model}: lease busy")
+                    if accounting_observer is not None:
+                        accounting_observer.record_not_attempted(
+                            key_name=key_name,
+                            model=model,
+                            candidate_index=candidate_index,
+                            reason="lease_busy",
+                        )
                     return ("model_skip", None)
             remaining = None if deadline is None else deadline - time.monotonic()
             effective_timeout = _bounded_pool_timeout(
@@ -534,6 +552,13 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 role=role,
             )
             if effective_timeout is None:
+                if accounting_observer is not None:
+                    accounting_observer.record_not_attempted(
+                        key_name=key_name,
+                        model=model,
+                        candidate_index=candidate_index,
+                        reason="deadline",
+                    )
                 return ("model_skip", None)
             # ЭБ.4: занимаем запрос пары (ключ, модель) ДО вызова. Иначе два
             # потока демона израсходуют один и тот же последний из двадцати.
@@ -543,6 +568,13 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             ):
                 log.append(f"{key_name}/{model}: денна квота пари вичерпана (облік)")
                 _emit(f"{key_name}/{model}: 🚫 квота пари вичерпана (локальний облік)")
+                if accounting_observer is not None:
+                    accounting_observer.record_not_attempted(
+                        key_name=key_name,
+                        model=model,
+                        candidate_index=candidate_index,
+                        reason="quota_exhausted",
+                    )
                 return ("model_skip", None)
             attempt_boundary = (
                 accounting_observer.attempt(
@@ -696,10 +728,14 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
         from management.services import gemini_accounting_runtime
 
         if gemini_accounting_runtime.shadow_runtime_active():
+            planning_candidates = list(
+                gemini_keys.iter_attempts(role, model_chain_override=models)
+            )
             accounting_plan = gemini_accounting_runtime.generic_candidate_plan(
                 role=role,
                 models=models,
                 manual_key=manual_key,
+                execution_candidates=planning_candidates,
             )
             accounting_observer = gemini_accounting_runtime.begin_request(
                 request_id=None,
@@ -738,6 +774,15 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                     aborted = True
                     break
                 if gemini_keys.is_model_overloaded(model):
+                    if accounting_observer is not None:
+                        accounting_observer.record_not_attempted(
+                            key_name="(manual)",
+                            model=model,
+                            candidate_index=accounting_observer.candidate_index(
+                                "(manual)", model
+                            ),
+                            reason="model_overload",
+                        )
                     continue
                 attempted_this_round = True
                 status, res = _call_combo("(manual)", manual_key, model, payload,
@@ -758,6 +803,8 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
             if aborted:
                 break
 
+        # Always execute the fresh legacy iterator after manual attempts.
+        # Shadow planning above is observational and never becomes authority.
         for key_name, key_value, model in gemini_keys.iter_attempts(
             role, model_chain_override=models
         ):
@@ -1042,12 +1089,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             for model in models
             if not gemini_keys.model_circuit_open(model)
         ] + candidates
-    accounting_candidate_plan = list(candidate_plan)
+    accounting_candidate_plan = []
     if manual_key:
-        next_index = max(
-            (int(item.get("candidate_index") or 0) for item in accounting_candidate_plan),
-            default=0,
-        )
+        next_index = 0
         for model in models:
             next_index += 1
             accounting_candidate_plan.append({
@@ -1058,6 +1102,12 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 "identity_status": "unknown",
                 "skip_reason": "",
             })
+    offset = len(accounting_candidate_plan)
+    for item in candidate_plan:
+        accounting_candidate_plan.append({
+            **item,
+            "candidate_index": int(item.get("candidate_index") or 0) + offset,
+        })
     try:
         from management.services import gemini_accounting_runtime
 
@@ -1082,6 +1132,15 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         опровергнути: у телеметрії залишались лише реально виконані запити.
         """
         try:
+            if accounting_observer is not None:
+                return accounting_observer.record_not_attempted(
+                    key_name=key_name,
+                    model=model,
+                    reason=reason,
+                    candidate_index=accounting_observer.candidate_index(
+                        key_name, model
+                    ),
+                )
             gemini_keys.record_attempt(
                 request_id=request_id,
                 role="chat",
@@ -1110,7 +1169,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         audited_candidate_indexes.add(candidate_index)
 
     for planned in candidate_plan:
-        if planned["skip_reason"]:
+        if planned["skip_reason"] and accounting_observer is None:
             _audit_skip(
                 planned["key_name"],
                 planned["model"],
@@ -1213,7 +1272,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 accounting_observer.attempt(
                     key_name=key_name,
                     model=model,
-                    candidate_index=candidate_index,
+                    candidate_index=accounting_observer.candidate_index(
+                        key_name, model
+                    ),
                 )
                 if accounting_observer is not None
                 else None
