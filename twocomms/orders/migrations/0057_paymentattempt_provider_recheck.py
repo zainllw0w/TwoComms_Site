@@ -66,6 +66,8 @@ def _normalized_default(value):
     text = str(value).strip()
     while len(text) >= 2 and text[0] == "(" and text[-1] == ")":
         text = text[1:-1].strip()
+    if text.casefold() in {"null", "none"}:
+        return None
     if text in {"''", '""'}:
         return ""
     try:

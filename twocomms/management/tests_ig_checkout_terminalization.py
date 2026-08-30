@@ -639,7 +639,8 @@ class AssistedAttemptTerminalizationTests(TestCase):
                 type_code=type_code,
                 null_ok=null_ok,
                 internal_size=size,
-                default=default,
+                # MariaDB 11.4 returns SQL NULL text for nullable defaults.
+                default="NULL" if default is None else default,
             )
 
         existing_columns = {
