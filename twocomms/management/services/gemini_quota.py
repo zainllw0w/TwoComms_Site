@@ -328,6 +328,43 @@ def settle(
         return
 
 
+def cancel_reservation(key_name: str, model: str, *, dispatch_at=None) -> None:
+    """Return one local request reservation that never crossed provider I/O."""
+    dispatch_at = dispatch_at or timezone.now()
+    if not budget_for(model):
+        return
+    from management.models import GeminiModelQuotaUsage
+
+    try:
+        with transaction.atomic():
+            row = (
+                GeminiModelQuotaUsage.objects.select_for_update()
+                .filter(
+                    key_name=str(key_name),
+                    model=str(model),
+                    day_date=pacific_day(dispatch_at),
+                )
+                .first()
+            )
+            if row is None:
+                return
+            fields = ["updated_at"]
+            if int(row.requests or 0) > 0:
+                row.requests = int(row.requests) - 1
+                fields.append("requests")
+            minute_started = row.minute_started_at
+            if (
+                minute_started is not None
+                and 0 <= (dispatch_at - minute_started).total_seconds() < 60
+                and int(row.minute_requests or 0) > 0
+            ):
+                row.minute_requests = int(row.minute_requests) - 1
+                fields.append("minute_requests")
+            row.save(update_fields=fields)
+    except DatabaseError:
+        return
+
+
 def order_keys_by_remaining(
     key_names,
     model: str,

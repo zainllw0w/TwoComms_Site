@@ -193,6 +193,25 @@ class LedgerTests(TestCase):
         self.assertEqual(row.requests, 1)
         self.assertEqual(row.tokens, 12_000)
 
+    def test_pre_dispatch_cancellation_returns_request_and_minute_reservation(self):
+        self.assertTrue(
+            quota.try_reserve("GEMINI_API", self.model, now=self.now)
+        )
+        quota.cancel_reservation(
+            "GEMINI_API",
+            self.model,
+            dispatch_at=self.now,
+        )
+
+        row = GeminiModelQuotaUsage.objects.get(
+            key_name="GEMINI_API",
+            model=self.model,
+            day_date=quota.pacific_day(self.now),
+        )
+        self.assertEqual(row.requests, 0)
+        self.assertEqual(row.minute_requests, 0)
+        self.assertTrue(quota.has_capacity("GEMINI_API", self.model, now=self.now))
+
     def test_cross_midnight_settlement_uses_original_dispatch_day(self):
         dispatch_at = datetime.datetime(
             2026, 8, 31, 6, 59, 50, tzinfo=datetime.timezone.utc

@@ -27,12 +27,9 @@ from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import (
     Case,
     Count,
-    Exists,
     F,
     IntegerField,
     Min,
-    OuterRef,
-    Q,
     Sum,
     When,
 )
@@ -252,8 +249,11 @@ def generic_candidate_plan(
 class NullAttemptBoundary:
     attempt_id = None
 
-    def before_provider(self, **_kwargs) -> None:
-        return None
+    def validate_ownership(self) -> bool:
+        return True
+
+    def before_provider(self, **_kwargs) -> bool:
+        return True
 
     def succeeded(self, _usage=None) -> None:
         return None
@@ -270,6 +270,8 @@ class NullAttemptBoundary:
 
 class NullRequestObserver:
     enabled = False
+    provider_blocked = False
+    block_reason = ""
     request_id = ""
     graph_id = None
 
@@ -293,6 +295,28 @@ class NullRequestObserver:
 
 
 NULL_OBSERVER = NullRequestObserver()
+
+
+class RejectedAttemptBoundary(NullAttemptBoundary):
+    def validate_ownership(self) -> bool:
+        return False
+
+    def before_provider(self, **_kwargs) -> bool:
+        return False
+
+
+class BlockedRequestObserver(NullRequestObserver):
+    provider_blocked = True
+
+    def __init__(self, reason: str):
+        self.block_reason = _safe_reason(reason) or "ownership_conflict"
+
+    def attempt(self, **_kwargs):
+        return RejectedAttemptBoundary()
+
+
+def blocked_observer(reason: str = "ownership_conflict") -> BlockedRequestObserver:
+    return BlockedRequestObserver(reason)
 
 
 def _routing_value(routing_decision, name: str, default=""):
@@ -344,7 +368,6 @@ def begin_request(
     try:
         from management.models import (
             GeminiRequest,
-            GeminiRequestAttempt,
             InstagramBotMessage,
         )
         from management.services.gemini_accounting_contract import (
@@ -379,75 +402,34 @@ def begin_request(
                     .only("pk", "gemini_task_class")
                     .first()
                 )
-                existing = GeminiRequest.objects.select_for_update().filter(
-                    source_message_id=source_message_id,
-                    lane=resolved_lane,
+                if locked_message is None:
+                    return blocked_observer("source_message_missing")
+                message_task_class = str(
+                    locked_message.gemini_task_class or ""
                 )
-                if task_class == "no_model":
-                    provider_attempt = GeminiRequestAttempt.objects.filter(
-                        request_graph_id=OuterRef("pk"),
-                    ).filter(
-                        Q(provider_started_at__isnull=False)
-                        | Q(fsm_state__in=(
-                            GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
-                            GeminiRequestAttempt.FsmState.SUCCEEDED,
-                            GeminiRequestAttempt.FsmState.FAILED,
-                            GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
-                            GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
-                        ))
-                        | Q(outcome__in=(
-                            "provider_started",
-                            "succeeded",
-                            "failed",
-                            "timeout_ambiguous",
-                            "succeeded_late",
-                        ))
-                    )
-                    provider_owned = existing.annotate(
-                        has_provider_attempt=Exists(provider_attempt)
-                    ).filter(
-                        Q(provider_phase_started_at__isnull=False)
-                        | Q(has_provider_attempt=True)
-                        | ~Q(task_class="no_model")
-                        | ~Q(candidate_plan=[])
-                    )
-                    unlinked_provider_evidence = (
-                        GeminiRequestAttempt.objects.select_for_update()
-                        .filter(
-                            source_message_id=source_message_id,
-                            lane=resolved_lane,
-                            request_graph_id__isnull=True,
-                        )
-                        .filter(
-                            Q(provider_started_at__isnull=False)
-                            | Q(fsm_state__in=(
-                                GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
-                                GeminiRequestAttempt.FsmState.SUCCEEDED,
-                                GeminiRequestAttempt.FsmState.FAILED,
-                                GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
-                                GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
-                            ))
-                            | Q(outcome__in=(
-                                "provider_started",
-                                "succeeded",
-                                "failed",
-                                "timeout_ambiguous",
-                                "succeeded_late",
-                            ))
-                        )
-                        .exists()
-                    )
-                    if provider_owned.exists() or unlinked_provider_evidence:
-                        return NULL_OBSERVER
-                elif (
-                    (locked_message is not None and locked_message.gemini_task_class == "no_model")
-                    or existing.filter(task_class="no_model").exists()
+                if (
+                    (task_class == "no_model" and message_task_class not in {"", "no_model"})
+                    or (task_class != "no_model" and message_task_class == "no_model")
                 ):
-                    # A deterministic route already owns this source/lane.
-                    # Shadow telemetry must not create a contradictory second
-                    # graph even if an erroneous caller proceeds toward the
-                    # provider after that durable decision.
-                    return NULL_OBSERVER
+                    return blocked_observer("message_route_conflict")
+                existing = list(
+                    GeminiRequest.objects.select_for_update()
+                    .filter(
+                        source_message_id=source_message_id,
+                        lane=resolved_lane,
+                    )
+                    .order_by("id")[:2]
+                )
+                if existing:
+                    # The locked inbound row is the durable mutex for this
+                    # source/lane.  Without a separate lease/token column no
+                    # existing graph is safe to hand to a second caller: even
+                    # an identical request could race the original boundary.
+                    return blocked_observer(
+                        "duplicate_source_lane"
+                        if len(existing) == 1
+                        else "multiple_source_lane"
+                    )
             graph = GeminiRequest.objects.create(
                 request_id=str(request_id or uuid.uuid4().hex)[:40],
                 lane=resolved_lane,
@@ -474,7 +456,15 @@ def begin_request(
                 deadline_at=(now + dt.timedelta(milliseconds=deadline_ms) if deadline_ms else None),
                 accounting_mode=GeminiRequest.AccountingMode.SHADOW,
             )
-        return RequestObserver(graph_id=graph.pk, request_id=graph.request_id, raw_plan=candidate_plan)
+        return RequestObserver(
+            graph_id=graph.pk,
+            request_id=graph.request_id,
+            raw_plan=candidate_plan,
+            source_message_id=source_message_id,
+            lane=resolved_lane,
+        )
+    except IntegrityError:
+        return blocked_observer("request_conflict")
     except Exception:
         return NULL_OBSERVER
 
@@ -548,18 +538,30 @@ class AttemptBoundary:
     attempt_id: int | None = None
     state_id: int | None = None
     started_monotonic: float | None = None
+    admitted: bool = False
 
-    def before_provider(self, *, serialized_bytes: int, inline_count: int = 0) -> None:
+    def validate_ownership(self) -> bool:
         try:
-            self.observer._before_provider(
+            return bool(self.observer._validate_boundary(self))
+        except Exception:
+            return False
+
+    def before_provider(self, *, serialized_bytes: int, inline_count: int = 0) -> bool:
+        try:
+            self.admitted = bool(self.observer._before_provider(
                 self,
                 serialized_bytes=max(0, int(serialized_bytes or 0)),
                 inline_count=max(0, int(inline_count or 0)),
-            )
+            ))
+            return self.admitted
         except Exception:
-            # Shadow accounting never changes a real provider call.
+            # Once accounting shadow owns a source/lane, inability to prove
+            # atomic ownership is a pre-dispatch rejection, never permission
+            # to call the provider without canonical evidence.
             self.attempt_id = None
             self.state_id = None
+            self.admitted = False
+            return False
 
     def succeeded(self, usage=None) -> None:
         try:
@@ -615,10 +617,22 @@ class ManualProviderFailure(Exception):
 
 class RequestObserver:
     enabled = True
+    provider_blocked = False
+    block_reason = ""
 
-    def __init__(self, *, graph_id: int, request_id: str, raw_plan):
+    def __init__(
+        self,
+        *,
+        graph_id: int,
+        request_id: str,
+        raw_plan,
+        source_message_id=None,
+        lane: str = "",
+    ):
         self.graph_id = int(graph_id)
         self.request_id = str(request_id)
+        self.source_message_id = int(source_message_id) if source_message_id else None
+        self.lane = str(lane or "")[:16]
         self._counter = 0
         self._lock = threading.Lock()
         self._candidate_indexes: dict[tuple[str, str], int] = {}
@@ -886,23 +900,126 @@ class RequestObserver:
             .first()
         )
 
+    def _lock_valid_boundary_graph(self, boundary: AttemptBoundary):
+        """Lock message -> canonical graph and validate one planned candidate."""
+        from management.models import (
+            GeminiRequest,
+            GeminiRequestAttempt,
+            InstagramBotMessage,
+        )
+
+        if boundary.attempt_id is not None:
+            return None
+        source_message_id = self.source_message_id
+        lane = self.lane
+        if not lane:
+            identity_row = (
+                GeminiRequest.objects.filter(pk=self.graph_id)
+                .values("source_message_id", "lane")
+                .first()
+            )
+            if identity_row is None:
+                return None
+            source_message_id = identity_row["source_message_id"]
+            lane = str(identity_row["lane"] or "")
+        locked_message = None
+        if source_message_id:
+            locked_message = (
+                InstagramBotMessage.objects.select_for_update()
+                .filter(pk=source_message_id)
+                .only("pk", "gemini_task_class")
+                .first()
+            )
+            if locked_message is None:
+                return None
+            graphs = list(
+                GeminiRequest.objects.select_for_update()
+                .filter(source_message_id=source_message_id, lane=lane)
+                .order_by("id")[:2]
+            )
+            if len(graphs) != 1 or graphs[0].pk != self.graph_id:
+                return None
+            graph = graphs[0]
+        else:
+            graph = (
+                GeminiRequest.objects.select_for_update()
+                .filter(pk=self.graph_id)
+                .first()
+            )
+        if graph is None or graph.request_id != self.request_id:
+            return None
+        if (
+            graph.task_class == "no_model"
+            or not graph.candidate_plan
+            or graph.terminal_resolution
+            or graph.winner_attempt_id is not None
+        ):
+            return None
+        if locked_message is not None:
+            message_task = str(locked_message.gemini_task_class or "")
+            if message_task == "no_model":
+                return None
+
+        matching = [
+            item
+            for item in graph.candidate_plan
+            if isinstance(item, dict)
+            and int(item.get("candidate_index") or 0) == int(boundary.candidate_index)
+        ]
+        if len(matching) != 1:
+            return None
+        planned = matching[0]
+        if (
+            str(planned.get("model") or "") != boundary.model
+            or str(planned.get("initial_skip_reason") or "")
+        ):
+            return None
+        planned_identity = str(planned.get("project_identity") or "")
+        identity_status = str(planned.get("identity_status") or "")
+        actual_identity = self._identity_for(boundary)
+        if (
+            identity_status == "known"
+            and planned_identity
+            and planned_identity != actual_identity
+        ):
+            return None
+        if GeminiRequestAttempt.objects.filter(
+            request_graph=graph,
+            candidate_index=boundary.candidate_index,
+            fsm_state__in=(
+                GeminiRequestAttempt.FsmState.PLANNED,
+                GeminiRequestAttempt.FsmState.RESERVED,
+                GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                GeminiRequestAttempt.FsmState.SUCCEEDED,
+                GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+                GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+                GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+            ),
+        ).exists():
+            return None
+        return graph
+
+    def _validate_boundary(self, boundary: AttemptBoundary) -> bool:
+        with transaction.atomic():
+            return self._lock_valid_boundary_graph(boundary) is not None
+
     def _before_provider(
         self,
         boundary: AttemptBoundary,
         *,
         serialized_bytes: int,
         inline_count: int,
-    ) -> None:
+    ) -> bool:
         last_error = None
         for delay in DB_RETRY_DELAYS:
             if delay:
                 time.sleep(delay)
             try:
-                return self._before_provider_once(
+                return bool(self._before_provider_once(
                     boundary,
                     serialized_bytes=serialized_bytes,
                     inline_count=inline_count,
-                )
+                ))
             except (OperationalError, IntegrityError) as exc:
                 last_error = exc
                 boundary.attempt_id = None
@@ -910,6 +1027,7 @@ class RequestObserver:
                 boundary.started_monotonic = None
         if last_error is not None:
             raise last_error
+        return False
 
     def _before_provider_once(
         self,
@@ -917,7 +1035,7 @@ class RequestObserver:
         *,
         serialized_bytes: int,
         inline_count: int,
-    ) -> None:
+    ) -> bool:
         from management.models import (
             GeminiQuotaState,
             GeminiRequest,
@@ -932,6 +1050,12 @@ class RequestObserver:
         expiry = now + dt.timedelta(seconds=ATTEMPT_PERMIT_SECONDS)
 
         with transaction.atomic():
+            # Canonical admission is revalidated in the same transaction that
+            # records provider_started.  Lock order is always
+            # message -> graph -> quota state.
+            graph = self._lock_valid_boundary_graph(boundary)
+            if graph is None:
+                return False
             state = None
             shadow_decision = GeminiRequestAttempt.ShadowDecision.UNKNOWN
             deny_reason = "unknown_project" if not identity else "missing_profile" if profile is None else ""
@@ -1012,7 +1136,6 @@ class RequestObserver:
                 else:
                     shadow_decision = GeminiRequestAttempt.ShadowDecision.ALLOW
 
-            graph = GeminiRequest.objects.select_for_update().get(pk=self.graph_id)
             attempt = GeminiRequestAttempt.objects.create(
                 request_id=self.request_id,
                 request_graph=graph,
@@ -1074,6 +1197,7 @@ class RequestObserver:
                     pk=graph.pk,
                     provider_phase_started_at__isnull=True,
                 ).update(provider_phase_started_at=now, updated_at=now)
+            return True
 
     def _cancel_pre_dispatch(self, boundary: AttemptBoundary, *, error=None) -> None:
         """Persist a local final-payload failure without any quota state spend."""
@@ -1085,7 +1209,17 @@ class RequestObserver:
         identity = self._identity_for(boundary)
         classified = classify_failure(error, failure_kind="invalid_payload")
         with transaction.atomic():
-            graph = GeminiRequest.objects.select_for_update().get(pk=self.graph_id)
+            graph = self._lock_valid_boundary_graph(boundary)
+            if graph is None:
+                return
+            admission_rejected = (
+                type(error).__name__ == "_GeminiAdmissionRejected"
+            )
+            if admission_rejected:
+                classified = classify_failure(
+                    error,
+                    failure_kind="stale_provider_boundary",
+                )
             attempt = GeminiRequestAttempt.objects.create(
                 request_id=self.request_id,
                 request_graph=graph,
@@ -1098,11 +1232,13 @@ class RequestObserver:
                 fsm_state=GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
                 accounting_mode="shadow",
                 shadow_decision=GeminiRequestAttempt.ShadowDecision.UNKNOWN,
-                shadow_deny_reason="local_payload",
+                shadow_deny_reason=(
+                    "stale_boundary" if admission_rejected else "local_payload"
+                ),
                 failure_kind=classified["failure_kind"],
                 http_code=classified["http_code"],
                 provider_reason=classified["provider_reason"],
-                decision="stop_payload",
+                decision=("policy_stop" if admission_rejected else "stop_payload"),
                 logical_turn_id=graph.logical_turn_id,
                 source_message_id=graph.source_message_id,
                 client_id=graph.client_id,
@@ -1464,6 +1600,8 @@ def classify_failure(error, *, http_code=None, failure_kind="") -> dict:
             code = 404 if kind == "model_not_found" else 403
         elif name == "_GeminiEmpty":
             kind = "empty"
+        elif name == "_GeminiAdmissionRejected":
+            kind = "stale_provider_boundary"
         elif name == "_GeminiFatal":
             kind = "invalid_key" if "API_KEY_INVALID" in detail.upper() or "HTTP 401" in detail.upper() else "invalid_payload"
         elif name == "_GeminiTransient":

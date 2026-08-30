@@ -10,8 +10,17 @@ from unittest import skipUnless
 from django.db import close_old_connections, connection
 from django.test import TransactionTestCase, override_settings
 
-from management.models import GeminiQuotaProfile, GeminiQuotaState, GeminiRequestAttempt
+from management.models import (
+    GeminiQuotaProfile,
+    GeminiQuotaState,
+    GeminiRequest,
+    GeminiRequestAttempt,
+    IgClient,
+    InstagramBotMessage,
+)
 from management.services import gemini_accounting_runtime as runtime
+from management.services.gemini_routing import TurnFacts, classify_live_turn, persist_decision
+from management.services.ig_turn_lineage import Lane, turn_lineage
 
 
 @skipUnless(connection.vendor == "mysql", "Disposable MariaDB-only S3b proof")
@@ -115,6 +124,100 @@ class GeminiShadowMariaDbConcurrencyTests(TransactionTestCase):
             rows.filter(
                 shadow_decision=GeminiRequestAttempt.ShadowDecision.DENY,
                 shadow_deny_reason="permit_exhausted",
+            ).count(),
+            1,
+        )
+
+    def test_two_threads_create_one_source_lane_graph_and_one_dispatch(self):
+        model = "gemini-3.7-flash"
+        client = IgClient.get_or_create_for_sender("maria-source-lane-race")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="maria-source-lane-race-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        decision = classify_live_turn(TurnFacts(has_image=True))
+        persist_decision(message, decision)
+        plan = [{
+            "candidate_index": 1,
+            "key_name": "GEMINI_API",
+            "project_identity": "gemini-project-race",
+            "identity_status": "known",
+            "model": model,
+            "skip_reason": "",
+        }]
+        start = Barrier(2)
+
+        def worker(index: int):
+            close_old_connections()
+            try:
+                with turn_lineage(
+                    lane=Lane.LIVE,
+                    client_id=client.pk,
+                    source_message_id=message.pk,
+                    logical_turn_id=f"t{client.pk}:{message.pk}",
+                ):
+                    start.wait(timeout=10)
+                    observer = runtime.begin_request(
+                        request_id=f"maria-source-lane-race-{index}",
+                        role="chat",
+                        reasoning_task="media_analysis",
+                        candidate_plan=plan,
+                        deadline_seconds=45,
+                        routing_decision=decision,
+                    )
+                boundary = observer.attempt(
+                    key_name="GEMINI_API",
+                    model=model,
+                    candidate_index=1,
+                )
+                if observer.provider_blocked:
+                    return ("blocked", boundary.before_provider(
+                        serialized_bytes=128,
+                        inline_count=1,
+                    ))
+                admitted = boundary.before_provider(
+                    serialized_bytes=128,
+                    inline_count=1,
+                )
+                if admitted:
+                    boundary.manual_result(
+                        succeeded=True,
+                        http_code=200,
+                        usage={
+                            "promptTokenCount": 12,
+                            "candidatesTokenCount": 2,
+                            "totalTokenCount": 14,
+                        },
+                    )
+                return ("canonical", admitted)
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            outcomes = list(executor.map(worker, (1, 2)))
+
+        self.assertEqual(sorted(outcomes), [("blocked", False), ("canonical", True)])
+        self.assertEqual(
+            GeminiRequest.objects.filter(
+                source_message_id=message.pk,
+                lane=Lane.LIVE,
+            ).count(),
+            1,
+        )
+        graph = GeminiRequest.objects.get(
+            source_message_id=message.pk,
+            lane=Lane.LIVE,
+        )
+        self.assertEqual(graph.terminal_resolution, "succeeded")
+        self.assertIsNotNone(graph.winner_attempt_id)
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(
+                request_graph=graph,
+                fsm_state=GeminiRequestAttempt.FsmState.SUCCEEDED,
             ).count(),
             1,
         )

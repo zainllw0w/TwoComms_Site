@@ -180,6 +180,10 @@ class _GeminiTransient(Exception):
     """Тимчасова помилка (503/500/таймаут) — модель перевантажена, ретрай + глобальний overload-кеш."""
 
 
+class _GeminiAdmissionRejected(Exception):
+    """Canonical source/lane ownership changed before provider dispatch."""
+
+
 class _GeminiEmpty(Exception):
     """Порожня відповідь (finishReason=STOP/MAX_TOKENS без тексту) — проблема цього
     конкретного запиту (мало вихідних токенів через thinking), НЕ перевантаження
@@ -525,6 +529,8 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
         t0 = time.monotonic()
         lease_token = None
         retry_delay = None
+        legacy_quota_reserved = False
+        quota_dispatch_at = None
         try:
             policy = reasoning_policy(payload.get("_reasoning_task", "customer_chat"))
             request_payload = _payload_for_model(
@@ -560,6 +566,22 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                         reason="deadline",
                     )
                 return ("model_skip", None)
+            attempt_boundary = (
+                accounting_observer.attempt(
+                    key_name=key_name,
+                    model=model,
+                    candidate_index=candidate_index,
+                )
+                if accounting_observer is not None
+                else None
+            )
+            if (
+                attempt_boundary is not None
+                and attempt_boundary.validate_ownership() is not True
+            ):
+                raise CallAIAnalysisError(
+                    "Gemini provider dispatch rejected: stale request ownership."
+                )
             # ЭБ.4: занимаем запрос пары (ключ, модель) ДО вызова. Иначе два
             # потока демона израсходуют один и тот же последний из двадцати.
             quota_dispatch_at = timezone.now()
@@ -576,15 +598,8 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                         reason="quota_exhausted",
                     )
                 return ("model_skip", None)
-            attempt_boundary = (
-                accounting_observer.attempt(
-                    key_name=key_name,
-                    model=model,
-                    candidate_index=candidate_index,
-                )
-                if accounting_observer is not None
-                else None
-            )
+            if key_name in gemini_keys.ALL_KEYS:
+                legacy_quota_reserved = True
             call_kwargs = {"parse": parse, "timeout": effective_timeout}
             if attempt_boundary is not None:
                 call_kwargs["attempt_boundary"] = attempt_boundary
@@ -598,6 +613,16 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                     int((usage or {}).get("totalTokenCount") or 0),
                     dispatch_at=quota_dispatch_at,
                 )
+        except _GeminiAdmissionRejected as exc:
+            if legacy_quota_reserved:
+                gemini_quota.cancel_reservation(
+                    key_name,
+                    model,
+                    dispatch_at=quota_dispatch_at,
+                )
+            raise CallAIAnalysisError(
+                "Gemini provider dispatch rejected: stale request ownership."
+            ) from exc
         except _GeminiTransient as exc:
             dt = time.monotonic() - t0
             log.append(f"{key_name}/{model}: transient {exc} (#{attempt + 1})")
@@ -727,6 +752,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     t_start = time.monotonic()
     deadline = None if deadline_seconds is None else t_start + deadline_seconds
     accounting_observer = None
+    accounting_ownership_blocked = False
     try:
         from management.services import gemini_accounting_runtime
 
@@ -747,10 +773,17 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                 candidate_plan=accounting_plan,
                 deadline_seconds=deadline_seconds,
             )
+            accounting_ownership_blocked = bool(
+                getattr(accounting_observer, "provider_blocked", False)
+            )
             if not getattr(accounting_observer, "enabled", False):
                 accounting_observer = None
     except Exception:
         accounting_observer = None
+    if accounting_ownership_blocked:
+        raise CallAIAnalysisError(
+            "Gemini provider dispatch rejected: source/lane already owned."
+        )
 
     def _over_deadline() -> bool:
         return deadline_seconds is not None and (time.monotonic() - t_start) >= deadline_seconds
@@ -1190,6 +1223,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         .casefold()
         == "shadow"
     )
+    accounting_ownership_blocked = False
     try:
         from management.services import gemini_accounting_runtime
 
@@ -1202,10 +1236,17 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             deadline_seconds=effective_deadline_seconds,
             routing_decision=routing_decision,
         )
+        accounting_ownership_blocked = bool(
+            getattr(accounting_observer, "provider_blocked", False)
+        )
         if not getattr(accounting_observer, "enabled", False):
             accounting_observer = None
     except Exception:
         accounting_observer = None
+    if accounting_ownership_blocked:
+        raise CallAIAnalysisError(
+            "Gemini provider dispatch rejected: source/lane already owned."
+        )
 
     def _audit_not_attempted(key_name: str, model: str, reason: str,
                              candidate_index: int) -> None:
@@ -1346,7 +1387,27 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             except Exception:
                 logger.debug("gemini attempt audit unavailable", exc_info=True)
 
+        attempt_boundary = (
+            accounting_observer.attempt(
+                key_name=key_name,
+                model=model,
+                candidate_index=accounting_observer.candidate_index(
+                    key_name, model
+                ),
+            )
+            if accounting_observer is not None
+            else None
+        )
+        if (
+            attempt_boundary is not None
+            and attempt_boundary.validate_ownership() is not True
+        ):
+            _release()
+            raise CallAIAnalysisError(
+                "Gemini provider dispatch rejected: stale request ownership."
+            )
         quota_dispatch_at = timezone.now()
+        legacy_quota_reserved = False
         if key_name in gemini_keys.ALL_KEYS and not gemini_quota.try_reserve(
             key_name, model, now=quota_dispatch_at
         ):
@@ -1357,18 +1418,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             _audit_skip(key_name, model, "quota_exhausted", candidate_index)
             _release()
             return None, "quota"
+        if key_name in gemini_keys.ALL_KEYS:
+            legacy_quota_reserved = True
         try:
-            attempt_boundary = (
-                accounting_observer.attempt(
-                    key_name=key_name,
-                    model=model,
-                    candidate_index=accounting_observer.candidate_index(
-                        key_name, model
-                    ),
-                )
-                if accounting_observer is not None
-                else None
-            )
             call_kwargs = {"parse": parse, "timeout": timeout}
             if attempt_boundary is not None:
                 call_kwargs["attempt_boundary"] = attempt_boundary
@@ -1382,6 +1434,17 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     int((usage or {}).get("totalTokenCount") or 0),
                     dispatch_at=quota_dispatch_at,
                 )
+        except _GeminiAdmissionRejected as exc:
+            if legacy_quota_reserved:
+                gemini_quota.cancel_reservation(
+                    key_name,
+                    model,
+                    dispatch_at=quota_dispatch_at,
+                )
+            _release()
+            raise CallAIAnalysisError(
+                "Gemini provider dispatch rejected: stale request ownership."
+            ) from exc
         except _GeminiTransient as exc:
             kind, transient_http_code = _transient_failure_details(exc)
             attempts.append(f"{key_name}/{model}: {kind}: {exc}")
@@ -2124,10 +2187,16 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
             attempt_boundary.cancelled_pre_dispatch(error)
         raise
     if attempt_boundary is not None:
-        attempt_boundary.before_provider(
+        admitted = attempt_boundary.before_provider(
             serialized_bytes=len(body),
             inline_count=request_inline_count,
         )
+        if admitted is not True:
+            error = _GeminiAdmissionRejected(
+                "stale or non-canonical provider boundary"
+            )
+            attempt_boundary.cancelled_pre_dispatch(error)
+            raise error
     try:
         resp = requests.post(
             url,

@@ -532,13 +532,22 @@ class GeminiShadowRuntimeTests(TestCase):
             model="gemini-3.5-flash-lite",
             candidate_index=1,
         )
-        boundary.before_provider(serialized_bytes=128)
+        with patch("management.services.call_ai_analysis.requests.post") as post:
+            with self.assertRaises(ai._GeminiAdmissionRejected):
+                ai._gemini_call_once(
+                    "gemini-3.5-flash-lite",
+                    {"contents": [{"parts": [{"text": "bounded"}]}]},
+                    "private-key",
+                    parse=False,
+                    attempt_boundary=boundary,
+                )
+        post.assert_not_called()
 
         graph = GeminiRequest.objects.get()
-        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
         self.assertEqual(GeminiRequest.objects.count(), 1)
-        self.assertEqual(attempt.fsm_state, GeminiRequestAttempt.FsmState.PROVIDER_STARTED)
-        self.assertIsNotNone(graph.provider_phase_started_at)
+        self.assertFalse(GeminiRequestAttempt.objects.filter(request_graph=graph).exists())
+        self.assertIsNone(graph.provider_phase_started_at)
+        self.assertEqual(GeminiQuotaState.objects.count(), 0)
 
     @override_settings(**SHADOW)
     def test_orphan_legacy_provider_evidence_blocks_no_model_graph(self):
@@ -579,6 +588,266 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertEqual(message.gemini_task_class, "")
         self.assertEqual(GeminiRequest.objects.count(), 0)
         self.assertEqual(GeminiRequestAttempt.objects.count(), 1)
+
+    @override_settings(**SHADOW)
+    @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
+    def test_duplicate_source_lane_begin_is_blocked_and_cannot_send(self, post):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("duplicate-source-lane")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="duplicate-source-lane-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        ordinary = classify_live_turn(TurnFacts())
+        persist_decision(message, ordinary)
+        plan = _raw_plan("gemini-3.5-flash-lite")
+        with turn_lineage(
+            lane=Lane.LIVE,
+            client_id=client.pk,
+            source_message_id=message.pk,
+            logical_turn_id=f"t{client.pk}:{message.pk}",
+        ):
+            canonical = runtime.begin_request(
+                request_id="duplicate-source-lane-canonical",
+                role="chat",
+                reasoning_task="customer_chat",
+                candidate_plan=plan,
+                deadline_seconds=35,
+                routing_decision=ordinary,
+            )
+            duplicate = runtime.begin_request(
+                request_id="duplicate-source-lane-loser",
+                role="chat",
+                reasoning_task="customer_chat",
+                candidate_plan=plan,
+                deadline_seconds=35,
+                routing_decision=ordinary,
+            )
+
+        self.assertTrue(canonical.enabled)
+        self.assertTrue(duplicate.provider_blocked)
+        duplicate_boundary = duplicate.attempt(
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            candidate_index=1,
+        )
+        with self.assertRaises(ai._GeminiAdmissionRejected):
+            ai._gemini_call_once(
+                "gemini-3.5-flash-lite",
+                {"contents": [{"parts": [{"text": "duplicate"}]}]},
+                "private-key",
+                parse=False,
+                attempt_boundary=duplicate_boundary,
+            )
+        post.assert_not_called()
+
+        winner_boundary = canonical.attempt(
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            candidate_index=1,
+        )
+        ai._gemini_call_once(
+            "gemini-3.5-flash-lite",
+            {"contents": [{"parts": [{"text": "canonical"}]}]},
+            "private-key",
+            parse=False,
+            attempt_boundary=winner_boundary,
+        )
+        self.assertEqual(post.call_count, 1)
+        graph = GeminiRequest.objects.get()
+        self.assertEqual(graph.request_id, "duplicate-source-lane-canonical")
+        self.assertEqual(graph.winner_attempt_id, winner_boundary.attempt_id)
+        self.assertEqual(graph.terminal_resolution, "succeeded")
+        self.assertEqual(GeminiRequest.objects.count(), 1)
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(request_graph=graph).count(),
+            1,
+        )
+
+    @override_settings(**SHADOW)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_stale_boundary_after_terminal_no_model_never_calls_provider(self, post):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("terminal-no-model-boundary")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="terminal-no-model-boundary-mid",
+            status=InstagramBotMessage.Status.DONE,
+        )
+        persist_decision(
+            message,
+            classify_live_turn(TurnFacts(deterministic_action="reaction_only")),
+        )
+        graph = GeminiRequest.objects.get()
+        stale_observer = runtime.RequestObserver(
+            graph_id=graph.pk,
+            request_id=graph.request_id,
+            raw_plan=_raw_plan("gemini-3.5-flash-lite"),
+        )
+        boundary = stale_observer.attempt(
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            candidate_index=1,
+        )
+
+        with self.assertRaises(ai._GeminiAdmissionRejected):
+            ai._gemini_call_once(
+                "gemini-3.5-flash-lite",
+                {"contents": [{"parts": [{"text": "stale"}]}]},
+                "private-key",
+                parse=False,
+                attempt_boundary=boundary,
+            )
+
+        post.assert_not_called()
+        graph.refresh_from_db()
+        self.assertEqual(graph.terminal_resolution, "succeeded")
+        self.assertEqual(graph.terminal_reason, "no_model")
+        self.assertIsNone(graph.provider_phase_started_at)
+        self.assertEqual(GeminiRequestAttempt.objects.count(), 0)
+        self.assertEqual(GeminiQuotaState.objects.count(), 0)
+
+    @override_settings(**SHADOW)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_stale_boundary_rejects_historical_competing_source_lane_graph(self, post):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_accounting_contract import (
+            canonical_candidate_plan_digest,
+        )
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("competing-source-lane")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="competing-source-lane-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        ordinary = classify_live_turn(TurnFacts())
+        persist_decision(message, ordinary)
+        raw_plan = _raw_plan("gemini-3.5-flash-lite")
+        with turn_lineage(
+            lane=Lane.LIVE,
+            client_id=client.pk,
+            source_message_id=message.pk,
+            logical_turn_id=f"t{client.pk}:{message.pk}",
+        ):
+            canonical = runtime.begin_request(
+                request_id="competing-source-lane-canonical",
+                role="chat",
+                reasoning_task="customer_chat",
+                candidate_plan=raw_plan,
+                deadline_seconds=35,
+                routing_decision=ordinary,
+            )
+        safe_plan = runtime.sanitize_candidate_plan(raw_plan)
+        GeminiRequest.objects.create(
+            request_id="competing-source-lane-historical",
+            lane=Lane.LIVE,
+            task_class="ordinary_live",
+            reasoning_task="customer_chat",
+            logical_turn_id=f"t{client.pk}:{message.pk}",
+            source_message_id=message.pk,
+            client_id=client.pk,
+            routing_policy_version=ordinary.policy_version,
+            accounting_policy_version=runtime.ACCOUNTING_POLICY_VERSION,
+            authority_snapshot_version=ordinary.authority_snapshot_version,
+            routing_mode=ordinary.routing_mode.value,
+            commercial_risk=ordinary.commercial_risk,
+            candidate_plan=safe_plan,
+            candidate_plan_digest=canonical_candidate_plan_digest(safe_plan),
+            deadline_ms=35_000,
+            accounting_mode=GeminiRequest.AccountingMode.SHADOW,
+        )
+        boundary = canonical.attempt(
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            candidate_index=1,
+        )
+
+        with self.assertRaises(ai._GeminiAdmissionRejected):
+            ai._gemini_call_once(
+                "gemini-3.5-flash-lite",
+                {"contents": [{"parts": [{"text": "stale"}]}]},
+                "private-key",
+                parse=False,
+                attempt_boundary=boundary,
+            )
+
+        post.assert_not_called()
+        self.assertEqual(GeminiRequest.objects.count(), 2)
+        self.assertEqual(GeminiRequestAttempt.objects.count(), 0)
+        self.assertEqual(GeminiQuotaState.objects.count(), 0)
+
+    @override_settings(**SHADOW)
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "admission-cancel-key",
+            "GEMINI_API2": "",
+            "GEMINI_API3": "",
+            "GEMINI_API4": "",
+            "GEMINI_API5": "",
+            "GEMINI_API6": "",
+        },
+        clear=False,
+    )
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_final_admission_rejection_returns_legacy_quota_reservation(self, post):
+        class RejectAtFinalBoundary:
+            attempt_id = None
+
+            def validate_ownership(self):
+                return True
+
+            def before_provider(self, **_kwargs):
+                return False
+
+            def cancelled_pre_dispatch(self, _error=None):
+                return None
+
+        class Observer:
+            enabled = True
+            provider_blocked = False
+            request_id = "admission-cancel-request"
+
+            def candidate_index(self, _key_name, _model):
+                return 1
+
+            def attempt(self, **_kwargs):
+                return RejectAtFinalBoundary()
+
+            def record_remaining(self, *_args, **_kwargs):
+                return None
+
+        with patch.object(runtime, "begin_request", return_value=Observer()):
+            with self.assertRaises(ai.CallAIAnalysisError):
+                ai.gemini_generate_text(
+                    {"contents": [{"parts": [{"text": "bounded"}]}]},
+                    role="chat",
+                    model_chain_override=["gemini-3.5-flash-lite"],
+                )
+
+        post.assert_not_called()
+        usage = GeminiModelQuotaUsage.objects.get(
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+        )
+        self.assertEqual(usage.requests, 0)
+        self.assertEqual(usage.minute_requests, 0)
 
     @override_settings(**SHADOW)
     @patch.dict(
@@ -988,8 +1257,9 @@ class GeminiShadowRuntimeTests(TestCase):
             ("gemini-2.5-flash", "gemini-project-1"),
         ):
             observer = self._observer(model, identity=identity)
+            key_name = "GEMINI_API" if identity else "(manual)"
             boundary = observer.attempt(
-                key_name="(manual)", model=model, candidate_index=1
+                key_name=key_name, model=model, candidate_index=1
             )
             ai._gemini_call_once(
                 model, {"contents": []}, "unknown-custom", parse=False,
@@ -1246,10 +1516,14 @@ class GeminiShadowRuntimeTests(TestCase):
             observer.attempt(key_name=alias, model="gemini-3.7-flash", candidate_index=index)
             for index, alias in ((1, "GEMINI_API"), (2, "GEMINI_API2"))
         ]
-        for boundary in boundaries:
+        ai._gemini_call_once(
+            "gemini-3.7-flash", {"contents": []}, "private-key",
+            parse=False, attempt_boundary=boundaries[0],
+        )
+        with self.assertRaises(ai._GeminiAdmissionRejected):
             ai._gemini_call_once(
                 "gemini-3.7-flash", {"contents": []}, "private-key",
-                parse=False, attempt_boundary=boundary,
+                parse=False, attempt_boundary=boundaries[1],
             )
         graph = GeminiRequest.objects.get(pk=observer.graph_id)
         self.assertEqual(graph.winner_attempt_id, boundaries[0].attempt_id)
@@ -1590,6 +1864,8 @@ class GeminiShadowRuntimeTests(TestCase):
         _reserve,
         _settle,
     ):
+        from management.models import IgClient, InstagramBotMessage
+
         order.side_effect = lambda candidates, **_kwargs: list(reversed(candidates))
 
         def provider(*_args, **kwargs):
@@ -1599,11 +1875,20 @@ class GeminiShadowRuntimeTests(TestCase):
             return "ok", {}
 
         _call_once.side_effect = provider
+        client = IgClient.get_or_create_for_sender("recovery-frozen-order")
+        source = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="recovery-frozen-order-mid",
+            status=InstagramBotMessage.Status.FAILED,
+        )
         with turn_lineage(
             lane=Lane.RECOVERY,
-            client_id=77,
-            source_message_id=88,
-            logical_turn_id="t77:88",
+            client_id=client.pk,
+            source_message_id=source.pk,
+            logical_turn_id=f"t{client.pk}:{source.pk}",
             recovery_job_id=99,
         ):
             out = ai.gemini_generate_text(
@@ -1833,12 +2118,23 @@ class GeminiShadowRuntimeTests(TestCase):
     @patch.dict(os.environ, KEY_ENV, clear=False)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
     def test_recovery_lineage_is_preserved(self, _post):
+        from management.models import IgClient, InstagramBotMessage
+
         decision = classify_live_turn(TurnFacts(), settings_obj=None)
+        client = IgClient.get_or_create_for_sender("recovery-lineage")
+        source = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="recover",
+            mid="recovery-lineage-mid",
+            status=InstagramBotMessage.Status.FAILED,
+        )
         with turn_lineage(
             lane=Lane.RECOVERY,
-            client_id=7,
-            source_message_id=9,
-            logical_turn_id="t7:9",
+            client_id=client.pk,
+            source_message_id=source.pk,
+            logical_turn_id=f"t{client.pk}:{source.pk}",
             recovery_job_id=11,
         ):
             ai.gemini_generate_text(
@@ -1849,8 +2145,8 @@ class GeminiShadowRuntimeTests(TestCase):
             )
         graph = GeminiRequest.objects.get()
         self.assertEqual(graph.lane, "recovery")
-        self.assertEqual(graph.client_id, 7)
-        self.assertEqual(graph.source_message_id, 9)
+        self.assertEqual(graph.client_id, client.pk)
+        self.assertEqual(graph.source_message_id, source.pk)
         self.assertEqual(graph.recovery_job_id, 11)
 
     @override_settings(**SHADOW)
