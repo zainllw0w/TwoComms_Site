@@ -2,6 +2,7 @@ from decimal import Decimal
 import inspect
 import hashlib
 
+from django.db import connection
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
@@ -199,24 +200,33 @@ class AnalysisV2ProjectorTests(TestCase):
             IgAnalysisProposal.ProposalType.UPDATE_PROBABILITY,
             {"probability": "0.7000", "basis": "customer_evidence"},
         )
-        IgConversationAnalysisResult._base_manager.filter(pk=self.result.pk).update(
-            result_digest="0" * 64
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE management_igconversationanalysisresult "
+                "SET result_digest=%s WHERE id=%s",
+                ["0" * 64, self.result.pk],
+            )
         self.result.refresh_from_db()
         valid.refresh_from_db()
         self.assertEqual(validate_proposal(valid).code, "result_digest_invalid")
 
-        IgConversationAnalysisResult._base_manager.filter(pk=self.result.pk).update(
-            result_digest=v2.result_digest_for_instance(self.result)
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE management_igconversationanalysisresult "
+                "SET result_digest=%s WHERE id=%s",
+                [v2.result_digest_for_instance(self.result), self.result.pk],
+            )
         self.result.refresh_from_db()
         forged = self._proposal(
             IgAnalysisProposal.ProposalType.RECORD_OBJECTION,
             {"objection_type": "price"},
         )
-        IgAnalysisProposal._base_manager.filter(pk=forged.pk).update(
-            proposal_key="forged-proposal-key"
-        )
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE management_iganalysisproposal "
+                "SET proposal_key=%s WHERE id=%s",
+                ["forged-proposal-key", forged.pk],
+            )
         forged.refresh_from_db()
         self.assertEqual(validate_proposal(forged).code, "proposal_key_invalid")
 

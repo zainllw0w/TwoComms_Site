@@ -41,7 +41,9 @@ class AnalysisV2MigrationTests(SimpleTestCase):
         self.assertIn("DROP TRIGGER IF EXISTS ig_anres_no_delete", sql)
         self.assertIn("DROP TRIGGER IF EXISTS ig_anprop_no_delete", sql)
         self.assertIn("DROP TRIGGER IF EXISTS ig_anprop_identity_update", sql)
-        self.assertEqual(sql.count("SIGNAL SQLSTATE '45000'"), 4)
+        self.assertIn("DROP TRIGGER IF EXISTS ig_anres_insert_guard", sql)
+        self.assertIn("DROP TRIGGER IF EXISTS ig_anprop_insert_guard", sql)
+        self.assertEqual(sql.count("SIGNAL SQLSTATE '45000'"), 6)
 
     def test_fresh_schema_creates_result_then_proposal_and_verifies_engines(self):
         result_model = SimpleNamespace(_meta=SimpleNamespace(db_table=self.migration.RESULT_TABLE))
@@ -280,6 +282,147 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
         with connection.schema_editor() as editor:
             migration.create_result_append_only_triggers(None, editor)
         try:
+            valid_payloads = (
+                (IgAnalysisProposal.ProposalType.CLOSE_NODE, {}),
+                (IgAnalysisProposal.ProposalType.INVALIDATE_NODE, {}),
+                (IgAnalysisProposal.ProposalType.OPEN_SUBFUNNEL, {}),
+                (IgAnalysisProposal.ProposalType.SWITCH_ACTIVE_LINE, {}),
+                (
+                    IgAnalysisProposal.ProposalType.START_REPEAT_EPISODE,
+                    {"repeat_kind": "reorder"},
+                ),
+                (
+                    IgAnalysisProposal.ProposalType.RECORD_OBJECTION,
+                    {"objection_type": "price"},
+                ),
+                (
+                    IgAnalysisProposal.ProposalType.RECORD_DEFERRED_INTENT,
+                    {
+                        "kind": "payday",
+                        "condition_code": "payday",
+                        "deferred_until": "",
+                    },
+                ),
+                (
+                    IgAnalysisProposal.ProposalType.UPDATE_PROBABILITY,
+                    {"probability": "0.5000", "basis": "customer_evidence"},
+                ),
+            )
+            for ordinal, (proposal_type, typed_value) in enumerate(
+                valid_payloads,
+                start=2,
+            ):
+                IgAnalysisProposal.objects.create(
+                    proposal_key=(
+                        "analysis-proposal:"
+                        + hashlib.sha256(
+                            f"valid-trigger-{proposal_type}".encode()
+                        ).hexdigest()
+                    ),
+                    analysis_result=result,
+                    ordinal=ordinal,
+                    client=client,
+                    proposal_type=proposal_type,
+                    target_scope=IgAnalysisProposal.TargetScope.CLIENT,
+                    typed_value=typed_value,
+                    evidence_message_ids=[1],
+                    confidence="1.0000",
+                    source_result_digest=result.result_digest,
+                    expected_materiality_digest=result.materiality_digest,
+                    expected_state_correlation=result.state_correlation,
+                )
+
+            def raw_clone_insert(instance, **overrides):
+                fields = [
+                    field for field in instance._meta.local_fields
+                    if not field.primary_key
+                ]
+                columns = ", ".join(
+                    connection.ops.quote_name(field.column) for field in fields
+                )
+                values = []
+                for field in fields:
+                    value = overrides.get(
+                        field.attname,
+                        field.value_from_object(instance),
+                    )
+                    values.append(field.get_db_prep_save(value, connection))
+                placeholders = ", ".join(["%s"] * len(values))
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"INSERT INTO {connection.ops.quote_name(instance._meta.db_table)} "
+                        f"({columns}) VALUES ({placeholders})",
+                        values,
+                    )
+
+            pii_snapshot = IgConversationAnalysisSnapshot.objects.create(
+                client=client,
+                dedupe_key="analysis-v2-trigger:pii-snapshot",
+                score_band=IgConversationAnalysisSnapshot.Band.COLD,
+            )
+            with self.assertRaisesRegex(DatabaseError, "insert guard"):
+                raw_clone_insert(
+                    result,
+                    result_key=(
+                        "analysis-v2:"
+                        + hashlib.sha256(b"raw-pii-result").hexdigest()
+                    ),
+                    legacy_snapshot_id=pii_snapshot.pk,
+                    evidence_manifest=[{
+                        "message_id": 1,
+                        "source_role": "user",
+                        "claim_codes": ["interaction"],
+                        "quote": "Call +380501234567 or customer@example.com",
+                    }],
+                    customer_evidence_count=1,
+                )
+            with self.assertRaisesRegex(DatabaseError, "insert guard"):
+                raw_clone_insert(
+                    proposal,
+                    proposal_key=(
+                        "analysis-proposal:"
+                        + hashlib.sha256(b"raw-pii-proposal").hexdigest()
+                    ),
+                    ordinal=12,
+                    typed_value={
+                        "reason_codes": ["product_conflict"],
+                        "phone": "+380501234567",
+                    },
+                )
+            for offset, (basis, interaction, claim) in enumerate((
+                ("deterministic_no_buy", "explicit_no_buy", "explicit_no_buy"),
+                ("deterministic_opt_out", "opt_out", "opt_out"),
+            ), start=3):
+                terminal_snapshot = IgConversationAnalysisSnapshot.objects.create(
+                    client=client,
+                    dedupe_key=f"analysis-v2-trigger:terminal-{offset}",
+                    score_band=IgConversationAnalysisSnapshot.Band.COLD,
+                )
+                with self.assertRaisesRegex(DatabaseError, "insert guard"):
+                    raw_clone_insert(
+                        result,
+                        result_key=(
+                            "analysis-v2:"
+                            + hashlib.sha256(f"raw-{basis}".encode()).hexdigest()
+                        ),
+                        legacy_snapshot_id=terminal_snapshot.pk,
+                        job_revision=offset,
+                        interaction_type=interaction,
+                        score_band=(
+                            IgConversationAnalysisSnapshot.Band.OPTED_OUT
+                            if interaction == "opt_out"
+                            else IgConversationAnalysisSnapshot.Band.LOST
+                        ),
+                        purchase_probability="0.0000",
+                        purchase_confidence="1.0000",
+                        probability_basis=basis,
+                        evidence_manifest=[{
+                            "message_id": offset,
+                            "source_role": "user",
+                            "claim_codes": ["interaction"],
+                        }],
+                        customer_evidence_count=1,
+                    )
             with self.assertRaises(DatabaseError), connection.cursor() as cursor:
                 cursor.execute(
                     f"UPDATE {migration.RESULT_TABLE} SET score_band=%s WHERE id=%s",
@@ -323,5 +466,7 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
                     "ig_anres_no_delete",
                     "ig_anprop_no_delete",
                     "ig_anprop_identity_update",
+                    "ig_anres_insert_guard",
+                    "ig_anprop_insert_guard",
                 ):
                     cursor.execute(f"DROP TRIGGER IF EXISTS {name}")

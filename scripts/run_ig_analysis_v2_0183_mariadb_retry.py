@@ -17,6 +17,7 @@ KILL_EXIT_CODE = 97
 TARGET = ("management", "0183_analysis_v2_result_proposals")
 BEFORE = ("management", "0182_analysis_materiality_ledger")
 PROPOSAL_TABLE = "management_iganalysisproposal"
+RESULT_TABLE = "management_igconversationanalysisresult"
 
 
 def _arguments():
@@ -103,10 +104,12 @@ def _orchestrate(args):
         }
         cursor.execute(
             "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS "
-            "WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN (%s, %s, %s, %s)",
+            "WHERE TRIGGER_SCHEMA=DATABASE() "
+            "AND TRIGGER_NAME IN (%s, %s, %s, %s, %s, %s)",
             [
                 "ig_anres_no_update", "ig_anres_no_delete",
                 "ig_anprop_no_delete", "ig_anprop_identity_update",
+                "ig_anres_insert_guard", "ig_anprop_insert_guard",
             ],
         )
         triggers = sorted(str(row[0]) for row in cursor.fetchall())
@@ -115,6 +118,7 @@ def _orchestrate(args):
     if triggers != sorted([
         "ig_anres_no_update", "ig_anres_no_delete", "ig_anprop_no_delete",
         "ig_anprop_identity_update",
+        "ig_anres_insert_guard", "ig_anprop_insert_guard",
     ]):
         raise RuntimeError(f"unexpected Analysis V2 triggers: {triggers}")
     from django.db import DatabaseError
@@ -164,6 +168,48 @@ def _orchestrate(args):
         expected_materiality_digest=result.materiality_digest,
         expected_state_correlation=result.state_correlation,
     )
+    valid_payloads = (
+        (IgAnalysisProposal.ProposalType.CLOSE_NODE, {}),
+        (IgAnalysisProposal.ProposalType.INVALIDATE_NODE, {}),
+        (IgAnalysisProposal.ProposalType.OPEN_SUBFUNNEL, {}),
+        (IgAnalysisProposal.ProposalType.SWITCH_ACTIVE_LINE, {}),
+        (
+            IgAnalysisProposal.ProposalType.START_REPEAT_EPISODE,
+            {"repeat_kind": "reorder"},
+        ),
+        (
+            IgAnalysisProposal.ProposalType.RECORD_OBJECTION,
+            {"objection_type": "price"},
+        ),
+        (
+            IgAnalysisProposal.ProposalType.RECORD_DEFERRED_INTENT,
+            {"kind": "payday", "condition_code": "payday", "deferred_until": ""},
+        ),
+        (
+            IgAnalysisProposal.ProposalType.UPDATE_PROBABILITY,
+            {"probability": "0.5000", "basis": "customer_evidence"},
+        ),
+    )
+    for ordinal, (proposal_type, typed_value) in enumerate(valid_payloads, start=2):
+        IgAnalysisProposal.objects.create(
+            proposal_key=(
+                "analysis-proposal:"
+                + hashlib.sha256(
+                    f"mariadb-valid-{proposal_type}".encode()
+                ).hexdigest()
+            ),
+            analysis_result=result,
+            ordinal=ordinal,
+            client=client,
+            proposal_type=proposal_type,
+            target_scope=IgAnalysisProposal.TargetScope.CLIENT,
+            typed_value=typed_value,
+            evidence_message_ids=[1],
+            confidence="1.0000",
+            source_result_digest=result.result_digest,
+            expected_materiality_digest=result.materiality_digest,
+            expected_state_correlation=result.state_correlation,
+        )
     decided_at = timezone.now()
     with resumed_connection.cursor() as cursor:
         cursor.execute(
@@ -190,18 +236,156 @@ def _orchestrate(args):
             )
     except DatabaseError:
         identity_update_rejected = True
-    if not mutable_update_ok or not identity_update_rejected:
+    result_update_rejected = False
+    result_delete_rejected = False
+    proposal_delete_rejected = False
+    try:
+        with resumed_connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE {RESULT_TABLE} SET score_band=%s WHERE id=%s",
+                ["qualified", result.pk],
+            )
+    except DatabaseError:
+        result_update_rejected = True
+    try:
+        with resumed_connection.cursor() as cursor:
+            cursor.execute(f"DELETE FROM {RESULT_TABLE} WHERE id=%s", [result.pk])
+    except DatabaseError:
+        result_delete_rejected = True
+    try:
+        with resumed_connection.cursor() as cursor:
+            cursor.execute(
+                f"DELETE FROM {PROPOSAL_TABLE} WHERE id=%s", [proposal.pk]
+            )
+    except DatabaseError:
+        proposal_delete_rejected = True
+
+    def raw_clone_insert(instance, **overrides):
+        fields = [
+            field for field in instance._meta.local_fields
+            if not field.primary_key
+        ]
+        columns = ", ".join(
+            resumed_connection.ops.quote_name(field.column) for field in fields
+        )
+        values = []
+        for field in fields:
+            value = overrides.get(field.attname, field.value_from_object(instance))
+            values.append(field.get_db_prep_save(value, resumed_connection))
+        placeholders = ", ".join(["%s"] * len(values))
+        with resumed_connection.cursor() as cursor:
+            cursor.execute(
+                f"INSERT INTO {resumed_connection.ops.quote_name(instance._meta.db_table)} "
+                f"({columns}) VALUES ({placeholders})",
+                values,
+            )
+
+    pii_snapshot = IgConversationAnalysisSnapshot.objects.create(
+        client=client,
+        dedupe_key="analysis-v2-0183-mariadb-proof:pii-snapshot",
+        score_band=IgConversationAnalysisSnapshot.Band.COLD,
+    )
+    result_insert_rejected = False
+    try:
+        raw_clone_insert(
+            result,
+            result_key=(
+                "analysis-v2:"
+                + hashlib.sha256(b"mariadb-proof-pii-result").hexdigest()
+            ),
+            legacy_snapshot_id=pii_snapshot.pk,
+            evidence_manifest=[{
+                "message_id": 1,
+                "source_role": "user",
+                "claim_codes": ["interaction"],
+                "quote": "Call +380501234567 or customer@example.com",
+            }],
+            customer_evidence_count=1,
+        )
+    except DatabaseError as exc:
+        result_insert_rejected = "insert guard" in str(exc)
+    proposal_insert_rejected = False
+    try:
+        raw_clone_insert(
+            proposal,
+            proposal_key=(
+                "analysis-proposal:"
+                + hashlib.sha256(b"mariadb-proof-pii-proposal").hexdigest()
+            ),
+            ordinal=12,
+            status="pending",
+            decision_code="",
+            projector_version="",
+            decided_at=None,
+            typed_value={
+                "reason_codes": ["product_conflict"],
+                "phone": "+380501234567",
+            },
+        )
+    except DatabaseError as exc:
+        proposal_insert_rejected = "insert guard" in str(exc)
+    terminal_claim_flags = {}
+    for offset, (basis, interaction, expected_claim) in enumerate((
+        ("deterministic_no_buy", "explicit_no_buy", "explicit_no_buy"),
+        ("deterministic_opt_out", "opt_out", "opt_out"),
+    ), start=3):
+        terminal_snapshot = IgConversationAnalysisSnapshot.objects.create(
+            client=client,
+            dedupe_key=f"analysis-v2-0183-mariadb-proof:terminal-{offset}",
+            score_band=IgConversationAnalysisSnapshot.Band.COLD,
+        )
+        rejected = False
+        try:
+            raw_clone_insert(
+                result,
+                result_key=(
+                    "analysis-v2:"
+                    + hashlib.sha256(f"mariadb-{basis}".encode()).hexdigest()
+                ),
+                legacy_snapshot_id=terminal_snapshot.pk,
+                job_revision=offset,
+                interaction_type=interaction,
+                score_band=(
+                    IgConversationAnalysisSnapshot.Band.OPTED_OUT
+                    if interaction == "opt_out"
+                    else IgConversationAnalysisSnapshot.Band.LOST
+                ),
+                purchase_probability="0.0000",
+                purchase_confidence="1.0000",
+                probability_basis=basis,
+                evidence_manifest=[{
+                    "message_id": offset,
+                    "source_role": "user",
+                    "claim_codes": ["interaction"],
+                }],
+                customer_evidence_count=1,
+            )
+        except DatabaseError as exc:
+            rejected = "insert guard" in str(exc)
+        terminal_claim_flags[
+            f"result_insert_guard_requires_{expected_claim}_claim"
+        ] = rejected
+    proof_flags = {
+        "proposal_mutable_update": mutable_update_ok,
+        "proposal_identity_update_rejected": identity_update_rejected,
+        "result_update_rejected": result_update_rejected,
+        "result_delete_rejected": result_delete_rejected,
+        "proposal_delete_rejected": proposal_delete_rejected,
+        "result_insert_guard_rejected_pii": result_insert_rejected,
+        "proposal_insert_guard_rejected_pii": proposal_insert_rejected,
+        **terminal_claim_flags,
+    }
+    if not all(proof_flags.values()):
         raise RuntimeError(
-            "proposal trigger behavior mismatch: "
-            f"mutable={mutable_update_ok}, identity_rejected={identity_update_rejected}"
+            "Analysis V2 trigger behavior mismatch: "
+            + json.dumps(proof_flags, sort_keys=True)
         )
     print("IG_ANALYSIS_V2_0183_MARIADB_RETRY=" + json.dumps({
         "database": database,
         "kill_exit_code": child.returncode,
         "engines": engines,
         "triggers": triggers,
-        "proposal_mutable_update": mutable_update_ok,
-        "proposal_identity_update_rejected": identity_update_rejected,
+        **proof_flags,
     }, sort_keys=True))
 
 

@@ -83,6 +83,651 @@ UNIQUE_SPECS = (
     ),
 )
 
+EVIDENCE_ROLES = ("user", "manager", "model", "system")
+EVIDENCE_CLAIMS = (
+    "interaction", "purchase_intent", "objection", "deferred_intent",
+    "repeat_intent", "injection_risk", "conflict", "explicit_no_buy",
+    "opt_out",
+)
+CONFLICT_CODES = (
+    "product_conflict", "recipient_conflict", "line_conflict",
+    "payment_claim_conflict", "manager_customer_conflict",
+    "artifact_conflict", "live_agent_inconsistency",
+)
+UNCERTAINTY_CODES = (
+    "analysis_v2_missing", "custom_print_user_evidence_missing",
+    "deferred_evidence_missing", "evidence_unverified", "injection_signal",
+    "manager_evidence_not_customer_intent", "payment_unverified",
+    "probability_evidence_missing", "product", "size",
+)
+OBJECTION_TYPES = (
+    "price", "thinking", "size_risk", "prepayment_trust", "defect_risk",
+    "delivery_time", "cheaper_elsewhere", "print_quality", "out_of_stock",
+    "payday", "compare_brand", "ask_partner",
+)
+INTERACTION_TYPES = (
+    "unknown", "reaction_only", "information_only", "product_interest",
+    "size_fit_question", "custom_print", "price_objection", "high_intent",
+    "payment_pending", "paid_order_waiting", "no_reply", "explicit_no_buy",
+    "opt_out", "spam_abuse", "manager_observation", "collaboration",
+    "wholesale_b2b", "support_complaint", "exchange_request",
+    "return_request", "community_casual",
+)
+SCORE_BANDS = (
+    "cold", "exploring", "qualified", "high_intent", "checkout", "paid",
+    "lost", "opted_out",
+)
+PROJECT_SLOTS = (
+    "", "gslot_7f3a", "gslot_c921", "gslot_18de", "gslot_a604",
+    "gslot_52bb", "gslot_e17c",
+)
+PROPOSAL_TYPES = (
+    "close_node", "invalidate_node", "open_subfunnel",
+    "switch_active_line", "start_repeat_episode", "record_objection",
+    "record_deferred_intent", "update_probability", "request_clarification",
+)
+TARGET_SCOPES = ("client", "episode", "line", "funnel_node", "subfunnel")
+REPEAT_KINDS = ("explicit_more", "reorder", "gift", "another_recipient")
+
+
+def _sql_values(values):
+    return ", ".join("'%s'" % value.replace("'", "''") for value in values)
+
+
+def _mysql_typed_code_array_invalid(column, *, allowed, maximum):
+    values = _sql_values(allowed)
+    return f"""(
+        NOT JSON_VALID(NEW.{column})
+        OR COALESCE(JSON_TYPE(NEW.{column}), '') <> 'ARRAY'
+        OR JSON_LENGTH(NEW.{column}) > {maximum}
+        OR EXISTS (
+            SELECT 1 FROM JSON_TABLE(
+                NEW.{column}, '$[*]' COLUMNS(
+                    item_json JSON PATH '$',
+                    item_text VARCHAR(160) PATH '$' NULL ON ERROR
+                )
+            ) AS item
+            WHERE COALESCE(JSON_TYPE(item.item_json), '') <> 'STRING'
+               OR item.item_text NOT IN ({values})
+        )
+        OR JSON_LENGTH(NEW.{column}) <> (
+            SELECT COUNT(DISTINCT item.item_text) FROM JSON_TABLE(
+                NEW.{column}, '$[*]' COLUMNS(
+                    item_text VARCHAR(160) PATH '$' NULL ON ERROR
+                )
+            ) AS item
+        )
+    )"""
+
+
+def _mysql_positive_id_array_invalid(column, *, maximum=40):
+    return f"""(
+        NOT JSON_VALID(NEW.{column})
+        OR COALESCE(JSON_TYPE(NEW.{column}), '') <> 'ARRAY'
+        OR JSON_LENGTH(NEW.{column}) > {maximum}
+        OR EXISTS (
+            SELECT 1 FROM JSON_TABLE(
+                NEW.{column}, '$[*]' COLUMNS(
+                    item_json JSON PATH '$',
+                    item_id BIGINT PATH '$' NULL ON ERROR
+                )
+            ) AS item
+            WHERE COALESCE(JSON_TYPE(item.item_json), '') <> 'INTEGER'
+               OR item.item_id IS NULL OR item.item_id <= 0
+        )
+        OR JSON_LENGTH(NEW.{column}) <> (
+            SELECT COUNT(DISTINCT item.item_id) FROM JSON_TABLE(
+                NEW.{column}, '$[*]' COLUMNS(
+                    item_id BIGINT PATH '$' NULL ON ERROR
+                )
+            ) AS item
+        )
+    )"""
+
+
+def _sqlite_typed_code_array_invalid(column, *, allowed, maximum):
+    values = _sql_values(allowed)
+    return f"""(
+        NOT json_valid(NEW.{column})
+        OR COALESCE(json_type(NEW.{column}), '') <> 'array'
+        OR json_array_length(NEW.{column}) > {maximum}
+        OR EXISTS (
+            SELECT 1 FROM json_each(NEW.{column}) AS item
+            WHERE item.type <> 'text' OR item.value NOT IN ({values})
+        )
+        OR json_array_length(NEW.{column}) <> (
+            SELECT COUNT(DISTINCT item.value) FROM json_each(NEW.{column}) AS item
+        )
+    )"""
+
+
+def _sqlite_positive_id_array_invalid(column, *, maximum=40):
+    return f"""(
+        NOT json_valid(NEW.{column})
+        OR COALESCE(json_type(NEW.{column}), '') <> 'array'
+        OR json_array_length(NEW.{column}) > {maximum}
+        OR EXISTS (
+            SELECT 1 FROM json_each(NEW.{column}) AS item
+            WHERE item.type <> 'integer' OR item.value <= 0
+        )
+        OR json_array_length(NEW.{column}) <> (
+            SELECT COUNT(DISTINCT item.value) FROM json_each(NEW.{column}) AS item
+        )
+    )"""
+
+
+def _mysql_result_insert_invalid():
+    evidence = """JSON_TABLE(
+        NEW.evidence_manifest, '$[*]' COLUMNS(
+            row_json JSON PATH '$',
+            message_id BIGINT PATH '$.message_id' NULL ON EMPTY NULL ON ERROR,
+            source_role VARCHAR(16) PATH '$.source_role' NULL ON EMPTY NULL ON ERROR,
+            claim_codes JSON PATH '$.claim_codes' NULL ON EMPTY NULL ON ERROR
+        )
+    )"""
+    roles = _sql_values(EVIDENCE_ROLES)
+    claims = _sql_values(EVIDENCE_CLAIMS)
+    probability_claim = f"""EXISTS (
+        SELECT 1 FROM {evidence} AS evidence
+        WHERE evidence.source_role = 'user'
+          AND JSON_CONTAINS(evidence.claim_codes, '\"purchase_intent\"') = 1
+    )"""
+    no_buy_claim = f"""EXISTS (
+        SELECT 1 FROM {evidence} AS evidence
+        WHERE evidence.source_role = 'user'
+          AND JSON_CONTAINS(evidence.claim_codes, '\"explicit_no_buy\"') = 1
+    )"""
+    opt_out_claim = f"""EXISTS (
+        SELECT 1 FROM {evidence} AS evidence
+        WHERE evidence.source_role = 'user'
+          AND JSON_CONTAINS(evidence.claim_codes, '\"opt_out\"') = 1
+    )"""
+    evidence_invalid = f"""(
+        NOT JSON_VALID(NEW.evidence_manifest)
+        OR COALESCE(JSON_TYPE(NEW.evidence_manifest), '') <> 'ARRAY'
+        OR JSON_LENGTH(NEW.evidence_manifest) > 40
+        OR EXISTS (
+            SELECT 1 FROM {evidence} AS evidence
+            WHERE COALESCE(JSON_TYPE(evidence.row_json), '') <> 'OBJECT'
+               OR JSON_LENGTH(evidence.row_json) <> 3
+               OR JSON_CONTAINS_PATH(
+                    evidence.row_json, 'all',
+                    '$.message_id', '$.source_role', '$.claim_codes'
+               ) <> 1
+               OR COALESCE(
+                    JSON_TYPE(JSON_EXTRACT(evidence.row_json, '$.message_id')), ''
+               ) <> 'INTEGER'
+               OR evidence.message_id IS NULL OR evidence.message_id <= 0
+               OR evidence.source_role NOT IN ({roles})
+               OR COALESCE(JSON_TYPE(evidence.claim_codes), '') <> 'ARRAY'
+               OR JSON_LENGTH(evidence.claim_codes) NOT BETWEEN 1 AND 9
+               OR EXISTS (
+                    SELECT 1 FROM JSON_TABLE(
+                        COALESCE(evidence.claim_codes, JSON_ARRAY()),
+                        '$[*]' COLUMNS(
+                            claim_json JSON PATH '$',
+                            claim_code VARCHAR(64) PATH '$' NULL ON ERROR
+                        )
+                    ) AS claim
+                    WHERE COALESCE(JSON_TYPE(claim.claim_json), '') <> 'STRING'
+                       OR claim.claim_code NOT IN ({claims})
+               )
+               OR JSON_LENGTH(evidence.claim_codes) <> (
+                    SELECT COUNT(DISTINCT claim.claim_code) FROM JSON_TABLE(
+                        COALESCE(evidence.claim_codes, JSON_ARRAY()),
+                        '$[*]' COLUMNS(
+                            claim_code VARCHAR(64) PATH '$' NULL ON ERROR
+                        )
+                    ) AS claim
+               )
+        )
+        OR JSON_LENGTH(NEW.evidence_manifest) <> (
+            SELECT COUNT(DISTINCT evidence.message_id)
+            FROM {evidence} AS evidence
+        )
+        OR NEW.customer_evidence_count <> (
+            SELECT COUNT(*) FROM {evidence} AS evidence
+            WHERE evidence.source_role = 'user'
+        )
+        OR NEW.manager_evidence_count <> (
+            SELECT COUNT(*) FROM {evidence} AS evidence
+            WHERE evidence.source_role = 'manager'
+        )
+    )"""
+    return f"""(
+        NEW.result_key NOT REGEXP '^analysis-v2:[0-9a-f]{{64}}$'
+        OR NEW.materiality_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.state_correlation NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.result_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR (NEW.authority_digest <> '' AND NEW.authority_digest NOT REGEXP '^[0-9a-f]{{64}}$')
+        OR (NEW.artifact_digest <> '' AND NEW.artifact_digest NOT REGEXP '^[0-9a-f]{{64}}$')
+        OR NEW.result_schema_version <> 'analysis-v2.1'
+        OR NEW.normalizer_version <> 'analysis-v2-normalizer.1'
+        OR NEW.source_kind NOT IN ('ai', 'rules')
+        OR NEW.interaction_type NOT IN ({_sql_values(INTERACTION_TYPES)})
+        OR NEW.score_band NOT IN ({_sql_values(SCORE_BANDS)})
+        OR NEW.detected_language NOT IN ('', 'uk', 'ru', 'en', 'mixed', 'unknown')
+        OR NEW.probability_basis NOT IN (
+            'customer_evidence', 'deterministic_no_buy',
+            'deterministic_opt_out', 'insufficient_evidence'
+        )
+        OR NEW.authority_evidence_count NOT IN (0, 1)
+        OR NEW.active_objection_type NOT IN ('', {_sql_values(OBJECTION_TYPES)})
+        OR NOT (
+            (NEW.deferred_kind = 'none' AND NEW.deferred_condition_code = '' AND NEW.deferred_until IS NULL)
+            OR (NEW.deferred_kind = 'date' AND NEW.deferred_condition_code = 'customer_date' AND NEW.deferred_until IS NOT NULL)
+            OR (NEW.deferred_kind = 'event' AND NEW.deferred_condition_code = 'after_event' AND NEW.deferred_until IS NULL)
+            OR (NEW.deferred_kind = 'payday' AND NEW.deferred_condition_code = 'payday' AND NEW.deferred_until IS NULL)
+            OR (NEW.deferred_kind = 'indefinite' AND NEW.deferred_condition_code = 'indefinite' AND NEW.deferred_until IS NULL)
+        )
+        OR NEW.repeat_intent_kind NOT IN ('', {_sql_values(REPEAT_KINDS)})
+        OR NEW.ltv_signal NOT IN ('unknown', 'first_purchase', 'repeat_customer', 'reactivation')
+        OR NEW.injection_risk NOT IN ('none', 'suspected', 'high')
+        OR NEW.usage_status NOT IN ('accounting_unknown', 'provider_reported', 'estimated')
+        OR NEW.project_slot NOT IN ({_sql_values(PROJECT_SLOTS)})
+        OR (NEW.gemini_request_ref <> '' AND NEW.gemini_request_ref NOT REGEXP '^greq_[0-9a-f]{{20}}$')
+        OR NEW.line_id NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.analysis_model NOT REGEXP '^(|unknown|rules|gemini-[a-z0-9][a-z0-9_.:+-]{{0,71}})$'
+        OR (NEW.prompt_version <> '' AND (
+            NEW.prompt_version NOT REGEXP '^[a-z0-9][a-z0-9_.:+-]{{0,39}}$'
+            OR NEW.prompt_version NOT REGEXP '(^|[._-])v[0-9]+($|[._-])'
+        ))
+        OR (NEW.routing_policy_version <> '' AND (
+            NEW.routing_policy_version NOT REGEXP '^[a-z0-9][a-z0-9_.:+-]{{0,31}}$'
+            OR NEW.routing_policy_version NOT REGEXP '(^|[._-])v[0-9]+($|[._-])'
+        ))
+        OR (NEW.reasoning_policy_version <> '' AND (
+            NEW.reasoning_policy_version NOT REGEXP '^[a-z0-9][a-z0-9_.:+-]{{0,31}}$'
+            OR NEW.reasoning_policy_version NOT REGEXP '(^|[._-])v[0-9]+($|[._-])'
+        ))
+        OR {evidence_invalid}
+        OR {_mysql_positive_id_array_invalid('injection_evidence_message_ids')}
+        OR {_mysql_typed_code_array_invalid('conflict_codes', allowed=CONFLICT_CODES, maximum=20)}
+        OR {_mysql_typed_code_array_invalid('uncertainty_codes', allowed=UNCERTAINTY_CODES, maximum=20)}
+        OR NEW.has_conflicts <> (JSON_LENGTH(NEW.conflict_codes) > 0)
+        OR (NEW.injection_risk = 'none') <> (JSON_LENGTH(NEW.injection_evidence_message_ids) = 0)
+        OR (
+            NEW.probability_basis = 'insufficient_evidence'
+            AND (NEW.purchase_probability IS NOT NULL OR NEW.purchase_confidence IS NOT NULL)
+        )
+        OR (
+            NEW.probability_basis = 'customer_evidence'
+            AND (NEW.purchase_probability IS NULL OR NOT {probability_claim})
+        )
+        OR (
+            NEW.probability_basis = 'deterministic_no_buy'
+            AND NOT (
+                NEW.purchase_probability = 0 AND NEW.purchase_confidence = 1
+                AND NEW.interaction_type = 'explicit_no_buy'
+                AND {no_buy_claim}
+            )
+        )
+        OR (
+            NEW.probability_basis = 'deterministic_opt_out'
+            AND NOT (
+                NEW.purchase_probability = 0 AND NEW.purchase_confidence = 1
+                AND NEW.interaction_type = 'opt_out'
+                AND {opt_out_claim}
+            )
+        )
+    )"""
+
+
+def _mysql_proposal_insert_invalid():
+    reason_codes_invalid = f"""(
+        COALESCE(JSON_TYPE(JSON_EXTRACT(NEW.typed_value, '$.reason_codes')), '') <> 'ARRAY'
+        OR JSON_LENGTH(JSON_EXTRACT(NEW.typed_value, '$.reason_codes')) NOT BETWEEN 1 AND 20
+        OR EXISTS (
+            SELECT 1 FROM JSON_TABLE(
+                JSON_EXTRACT(NEW.typed_value, '$.reason_codes'),
+                '$[*]' COLUMNS(
+                    code_json JSON PATH '$',
+                    code_text VARCHAR(64) PATH '$' NULL ON ERROR
+                )
+            ) AS code
+            WHERE COALESCE(JSON_TYPE(code.code_json), '') <> 'STRING'
+               OR code.code_text NOT IN ({_sql_values(CONFLICT_CODES)})
+        )
+        OR JSON_LENGTH(JSON_EXTRACT(NEW.typed_value, '$.reason_codes')) <> (
+            SELECT COUNT(DISTINCT code.code_text) FROM JSON_TABLE(
+                JSON_EXTRACT(NEW.typed_value, '$.reason_codes'),
+                '$[*]' COLUMNS(code_text VARCHAR(64) PATH '$' NULL ON ERROR)
+            ) AS code
+        )
+    )"""
+    typed_value_valid = f"""(
+        (
+            NEW.proposal_type IN ('close_node', 'invalidate_node', 'open_subfunnel', 'switch_active_line')
+            AND JSON_LENGTH(NEW.typed_value) = 0
+        )
+        OR (
+            NEW.proposal_type = 'update_probability'
+            AND JSON_LENGTH(NEW.typed_value) = 2
+            AND JSON_CONTAINS_PATH(NEW.typed_value, 'all', '$.probability', '$.basis') = 1
+            AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.basis')) = 'customer_evidence'
+            AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.probability'))
+                REGEXP '^(0(\\.[0-9]{{1,4}})?|1(\\.0{{1,4}})?)$'
+        )
+        OR (
+            NEW.proposal_type = 'record_objection'
+            AND JSON_LENGTH(NEW.typed_value) = 1
+            AND JSON_CONTAINS_PATH(NEW.typed_value, 'all', '$.objection_type') = 1
+            AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.objection_type'))
+                IN ({_sql_values(OBJECTION_TYPES)})
+        )
+        OR (
+            NEW.proposal_type = 'start_repeat_episode'
+            AND JSON_LENGTH(NEW.typed_value) = 1
+            AND JSON_CONTAINS_PATH(NEW.typed_value, 'all', '$.repeat_kind') = 1
+            AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.repeat_kind'))
+                IN ({_sql_values(REPEAT_KINDS)})
+        )
+        OR (
+            NEW.proposal_type = 'record_deferred_intent'
+            AND JSON_LENGTH(NEW.typed_value) = 3
+            AND JSON_CONTAINS_PATH(
+                NEW.typed_value, 'all', '$.kind', '$.condition_code', '$.deferred_until'
+            ) = 1
+            AND (
+                (
+                    JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind')) = 'date'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code')) = 'customer_date'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until'))
+                        REGEXP '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T'
+                )
+                OR (
+                    JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind')) = 'event'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code')) = 'after_event'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until')) = ''
+                )
+                OR (
+                    JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind')) = 'payday'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code')) = 'payday'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until')) = ''
+                )
+                OR (
+                    JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind')) = 'indefinite'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code')) = 'indefinite'
+                    AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until')) = ''
+                )
+            )
+        )
+        OR (
+            NEW.proposal_type = 'request_clarification'
+            AND JSON_LENGTH(NEW.typed_value) = 1
+            AND JSON_CONTAINS_PATH(NEW.typed_value, 'all', '$.reason_codes') = 1
+            AND NOT {reason_codes_invalid}
+        )
+    )"""
+    return f"""(
+        NEW.proposal_key NOT REGEXP '^analysis-proposal:[0-9a-f]{{64}}$'
+        OR NEW.ordinal NOT BETWEEN 1 AND 12
+        OR NEW.proposal_type NOT IN ({_sql_values(PROPOSAL_TYPES)})
+        OR NEW.target_scope NOT IN ({_sql_values(TARGET_SCOPES)})
+        OR NEW.line_id NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.target_definition_key NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.target_definition_version NOT REGEXP '^[a-z0-9_.:+-]{{0,32}}$'
+        OR NEW.target_key NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.source_result_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.expected_materiality_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.expected_state_correlation NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR (NEW.expected_authority_digest <> '' AND NEW.expected_authority_digest NOT REGEXP '^[0-9a-f]{{64}}$')
+        OR NEW.status <> 'pending' OR NEW.decision_code <> ''
+        OR NEW.projector_version <> '' OR NEW.decided_at IS NOT NULL
+        OR NOT JSON_VALID(NEW.typed_value)
+        OR COALESCE(JSON_TYPE(NEW.typed_value), '') <> 'OBJECT'
+        OR NOT {typed_value_valid}
+        OR {_mysql_positive_id_array_invalid('evidence_message_ids')}
+    )"""
+
+
+def _sqlite_result_insert_invalid():
+    roles = _sql_values(EVIDENCE_ROLES)
+    claims = _sql_values(EVIDENCE_CLAIMS)
+    evidence_invalid = f"""(
+        NOT json_valid(NEW.evidence_manifest)
+        OR COALESCE(json_type(NEW.evidence_manifest), '') <> 'array'
+        OR json_array_length(NEW.evidence_manifest) > 40
+        OR EXISTS (
+            SELECT 1 FROM json_each(NEW.evidence_manifest) AS evidence
+            WHERE evidence.type <> 'object'
+               OR (SELECT COUNT(*) FROM json_each(evidence.value)) <> 3
+               OR json_type(evidence.value, '$.message_id') <> 'integer'
+               OR json_extract(evidence.value, '$.message_id') <= 0
+               OR json_type(evidence.value, '$.source_role') <> 'text'
+               OR json_extract(evidence.value, '$.source_role') NOT IN ({roles})
+               OR json_type(evidence.value, '$.claim_codes') <> 'array'
+               OR json_array_length(json_extract(evidence.value, '$.claim_codes')) NOT BETWEEN 1 AND 9
+               OR EXISTS (
+                    SELECT 1
+                    FROM json_each(json_extract(evidence.value, '$.claim_codes')) AS claim
+                    WHERE claim.type <> 'text' OR claim.value NOT IN ({claims})
+               )
+               OR json_array_length(json_extract(evidence.value, '$.claim_codes')) <> (
+                    SELECT COUNT(DISTINCT claim.value)
+                    FROM json_each(json_extract(evidence.value, '$.claim_codes')) AS claim
+               )
+        )
+        OR json_array_length(NEW.evidence_manifest) <> (
+            SELECT COUNT(DISTINCT json_extract(evidence.value, '$.message_id'))
+            FROM json_each(NEW.evidence_manifest) AS evidence
+        )
+        OR NEW.customer_evidence_count <> (
+            SELECT COUNT(*) FROM json_each(NEW.evidence_manifest) AS evidence
+            WHERE json_extract(evidence.value, '$.source_role') = 'user'
+        )
+        OR NEW.manager_evidence_count <> (
+            SELECT COUNT(*) FROM json_each(NEW.evidence_manifest) AS evidence
+            WHERE json_extract(evidence.value, '$.source_role') = 'manager'
+        )
+    )"""
+    probability_claim = """EXISTS (
+        SELECT 1 FROM json_each(NEW.evidence_manifest) AS evidence
+        WHERE json_extract(evidence.value, '$.source_role') = 'user'
+          AND EXISTS (
+              SELECT 1 FROM json_each(
+                  json_extract(evidence.value, '$.claim_codes')
+              ) AS claim WHERE claim.value = 'purchase_intent'
+          )
+    )"""
+    no_buy_claim = """EXISTS (
+        SELECT 1 FROM json_each(NEW.evidence_manifest) AS evidence
+        WHERE json_extract(evidence.value, '$.source_role') = 'user'
+          AND EXISTS (
+              SELECT 1 FROM json_each(
+                  json_extract(evidence.value, '$.claim_codes')
+              ) AS claim WHERE claim.value = 'explicit_no_buy'
+          )
+    )"""
+    opt_out_claim = """EXISTS (
+        SELECT 1 FROM json_each(NEW.evidence_manifest) AS evidence
+        WHERE json_extract(evidence.value, '$.source_role') = 'user'
+          AND EXISTS (
+              SELECT 1 FROM json_each(
+                  json_extract(evidence.value, '$.claim_codes')
+              ) AS claim WHERE claim.value = 'opt_out'
+          )
+    )"""
+    return f"""(
+        NEW.result_key NOT REGEXP '^analysis-v2:[0-9a-f]{{64}}$'
+        OR NEW.materiality_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.state_correlation NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.result_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR (NEW.authority_digest <> '' AND NEW.authority_digest NOT REGEXP '^[0-9a-f]{{64}}$')
+        OR (NEW.artifact_digest <> '' AND NEW.artifact_digest NOT REGEXP '^[0-9a-f]{{64}}$')
+        OR NEW.result_schema_version <> 'analysis-v2.1'
+        OR NEW.normalizer_version <> 'analysis-v2-normalizer.1'
+        OR NEW.source_kind NOT IN ('ai', 'rules')
+        OR NEW.interaction_type NOT IN ({_sql_values(INTERACTION_TYPES)})
+        OR NEW.score_band NOT IN ({_sql_values(SCORE_BANDS)})
+        OR NEW.detected_language NOT IN ('', 'uk', 'ru', 'en', 'mixed', 'unknown')
+        OR NEW.probability_basis NOT IN (
+            'customer_evidence', 'deterministic_no_buy',
+            'deterministic_opt_out', 'insufficient_evidence'
+        )
+        OR NEW.authority_evidence_count NOT IN (0, 1)
+        OR NEW.active_objection_type NOT IN ('', {_sql_values(OBJECTION_TYPES)})
+        OR NOT (
+            (NEW.deferred_kind = 'none' AND NEW.deferred_condition_code = '' AND NEW.deferred_until IS NULL)
+            OR (NEW.deferred_kind = 'date' AND NEW.deferred_condition_code = 'customer_date' AND NEW.deferred_until IS NOT NULL)
+            OR (NEW.deferred_kind = 'event' AND NEW.deferred_condition_code = 'after_event' AND NEW.deferred_until IS NULL)
+            OR (NEW.deferred_kind = 'payday' AND NEW.deferred_condition_code = 'payday' AND NEW.deferred_until IS NULL)
+            OR (NEW.deferred_kind = 'indefinite' AND NEW.deferred_condition_code = 'indefinite' AND NEW.deferred_until IS NULL)
+        )
+        OR NEW.repeat_intent_kind NOT IN ('', {_sql_values(REPEAT_KINDS)})
+        OR NEW.ltv_signal NOT IN ('unknown', 'first_purchase', 'repeat_customer', 'reactivation')
+        OR NEW.injection_risk NOT IN ('none', 'suspected', 'high')
+        OR NEW.usage_status NOT IN ('accounting_unknown', 'provider_reported', 'estimated')
+        OR NEW.project_slot NOT IN ({_sql_values(PROJECT_SLOTS)})
+        OR (NEW.gemini_request_ref <> '' AND NEW.gemini_request_ref NOT REGEXP '^greq_[0-9a-f]{{20}}$')
+        OR NEW.line_id NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.analysis_model NOT REGEXP '^(|unknown|rules|gemini-[a-z0-9][a-z0-9_.:+-]{{0,71}})$'
+        OR (NEW.prompt_version <> '' AND (
+            NEW.prompt_version NOT REGEXP '^[a-z0-9][a-z0-9_.:+-]{{0,39}}$'
+            OR NEW.prompt_version NOT REGEXP '(^|[._-])v[0-9]+($|[._-])'
+        ))
+        OR (NEW.routing_policy_version <> '' AND (
+            NEW.routing_policy_version NOT REGEXP '^[a-z0-9][a-z0-9_.:+-]{{0,31}}$'
+            OR NEW.routing_policy_version NOT REGEXP '(^|[._-])v[0-9]+($|[._-])'
+        ))
+        OR (NEW.reasoning_policy_version <> '' AND (
+            NEW.reasoning_policy_version NOT REGEXP '^[a-z0-9][a-z0-9_.:+-]{{0,31}}$'
+            OR NEW.reasoning_policy_version NOT REGEXP '(^|[._-])v[0-9]+($|[._-])'
+        ))
+        OR {evidence_invalid}
+        OR {_sqlite_positive_id_array_invalid('injection_evidence_message_ids')}
+        OR {_sqlite_typed_code_array_invalid('conflict_codes', allowed=CONFLICT_CODES, maximum=20)}
+        OR {_sqlite_typed_code_array_invalid('uncertainty_codes', allowed=UNCERTAINTY_CODES, maximum=20)}
+        OR NEW.has_conflicts <> (json_array_length(NEW.conflict_codes) > 0)
+        OR (NEW.injection_risk = 'none') <> (json_array_length(NEW.injection_evidence_message_ids) = 0)
+        OR (
+            NEW.probability_basis = 'insufficient_evidence'
+            AND (NEW.purchase_probability IS NOT NULL OR NEW.purchase_confidence IS NOT NULL)
+        )
+        OR (
+            NEW.probability_basis = 'customer_evidence'
+            AND (NEW.purchase_probability IS NULL OR NOT {probability_claim})
+        )
+        OR (
+            NEW.probability_basis = 'deterministic_no_buy'
+            AND NOT (
+                NEW.purchase_probability = 0 AND NEW.purchase_confidence = 1
+                AND NEW.interaction_type = 'explicit_no_buy'
+                AND {no_buy_claim}
+            )
+        )
+        OR (
+            NEW.probability_basis = 'deterministic_opt_out'
+            AND NOT (
+                NEW.purchase_probability = 0 AND NEW.purchase_confidence = 1
+                AND NEW.interaction_type = 'opt_out'
+                AND {opt_out_claim}
+            )
+        )
+    )"""
+
+
+def _sqlite_proposal_insert_invalid():
+    reason_codes_invalid = f"""(
+        json_type(NEW.typed_value, '$.reason_codes') <> 'array'
+        OR json_array_length(json_extract(NEW.typed_value, '$.reason_codes')) NOT BETWEEN 1 AND 20
+        OR EXISTS (
+            SELECT 1 FROM json_each(
+                json_extract(NEW.typed_value, '$.reason_codes')
+            ) AS code
+            WHERE code.type <> 'text' OR code.value NOT IN ({_sql_values(CONFLICT_CODES)})
+        )
+        OR json_array_length(json_extract(NEW.typed_value, '$.reason_codes')) <> (
+            SELECT COUNT(DISTINCT code.value) FROM json_each(
+                json_extract(NEW.typed_value, '$.reason_codes')
+            ) AS code
+        )
+    )"""
+    typed_value_valid = f"""(
+        (
+            NEW.proposal_type IN ('close_node', 'invalidate_node', 'open_subfunnel', 'switch_active_line')
+            AND json_array_length(NEW.typed_value) = 0
+        )
+        OR (
+            NEW.proposal_type = 'update_probability'
+            AND (SELECT COUNT(*) FROM json_each(NEW.typed_value)) = 2
+            AND json_type(NEW.typed_value, '$.probability') = 'text'
+            AND json_extract(NEW.typed_value, '$.probability')
+                REGEXP '^(0(\\.[0-9]{{1,4}})?|1(\\.0{{1,4}})?)$'
+            AND json_type(NEW.typed_value, '$.basis') = 'text'
+            AND json_extract(NEW.typed_value, '$.basis') = 'customer_evidence'
+        )
+        OR (
+            NEW.proposal_type = 'record_objection'
+            AND (SELECT COUNT(*) FROM json_each(NEW.typed_value)) = 1
+            AND json_type(NEW.typed_value, '$.objection_type') = 'text'
+            AND json_extract(NEW.typed_value, '$.objection_type')
+                IN ({_sql_values(OBJECTION_TYPES)})
+        )
+        OR (
+            NEW.proposal_type = 'start_repeat_episode'
+            AND (SELECT COUNT(*) FROM json_each(NEW.typed_value)) = 1
+            AND json_type(NEW.typed_value, '$.repeat_kind') = 'text'
+            AND json_extract(NEW.typed_value, '$.repeat_kind')
+                IN ({_sql_values(REPEAT_KINDS)})
+        )
+        OR (
+            NEW.proposal_type = 'record_deferred_intent'
+            AND (SELECT COUNT(*) FROM json_each(NEW.typed_value)) = 3
+            AND json_type(NEW.typed_value, '$.kind') = 'text'
+            AND json_type(NEW.typed_value, '$.condition_code') = 'text'
+            AND json_type(NEW.typed_value, '$.deferred_until') = 'text'
+            AND (
+                (
+                    json_extract(NEW.typed_value, '$.kind') = 'date'
+                    AND json_extract(NEW.typed_value, '$.condition_code') = 'customer_date'
+                    AND json_extract(NEW.typed_value, '$.deferred_until')
+                        REGEXP '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}T'
+                )
+                OR (
+                    json_extract(NEW.typed_value, '$.kind') = 'event'
+                    AND json_extract(NEW.typed_value, '$.condition_code') = 'after_event'
+                    AND json_extract(NEW.typed_value, '$.deferred_until') = ''
+                )
+                OR (
+                    json_extract(NEW.typed_value, '$.kind') = 'payday'
+                    AND json_extract(NEW.typed_value, '$.condition_code') = 'payday'
+                    AND json_extract(NEW.typed_value, '$.deferred_until') = ''
+                )
+                OR (
+                    json_extract(NEW.typed_value, '$.kind') = 'indefinite'
+                    AND json_extract(NEW.typed_value, '$.condition_code') = 'indefinite'
+                    AND json_extract(NEW.typed_value, '$.deferred_until') = ''
+                )
+            )
+        )
+        OR (
+            NEW.proposal_type = 'request_clarification'
+            AND (SELECT COUNT(*) FROM json_each(NEW.typed_value)) = 1
+            AND NOT {reason_codes_invalid}
+        )
+    )"""
+    return f"""(
+        NEW.proposal_key NOT REGEXP '^analysis-proposal:[0-9a-f]{{64}}$'
+        OR NEW.ordinal NOT BETWEEN 1 AND 12
+        OR NEW.proposal_type NOT IN ({_sql_values(PROPOSAL_TYPES)})
+        OR NEW.target_scope NOT IN ({_sql_values(TARGET_SCOPES)})
+        OR NEW.line_id NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.target_definition_key NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.target_definition_version NOT REGEXP '^[a-z0-9_.:+-]{{0,32}}$'
+        OR NEW.target_key NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR NEW.source_result_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.expected_materiality_digest NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR NEW.expected_state_correlation NOT REGEXP '^[0-9a-f]{{64}}$'
+        OR (NEW.expected_authority_digest <> '' AND NEW.expected_authority_digest NOT REGEXP '^[0-9a-f]{{64}}$')
+        OR NEW.status <> 'pending' OR NEW.decision_code <> ''
+        OR NEW.projector_version <> '' OR NEW.decided_at IS NOT NULL
+        OR NOT json_valid(NEW.typed_value)
+        OR COALESCE(json_type(NEW.typed_value), '') <> 'object'
+        OR NOT {typed_value_valid}
+        OR {_sqlite_positive_id_array_invalid('evidence_message_ids')}
+    )"""
+
 
 def _ensure_innodb(schema_editor, table_name):
     if schema_editor.connection.vendor != "mysql":
@@ -172,6 +817,8 @@ def create_result_append_only_triggers(apps, schema_editor):
     delete_name = "ig_anres_no_delete"
     proposal_delete_name = "ig_anprop_no_delete"
     proposal_update_name = "ig_anprop_identity_update"
+    result_insert_name = "ig_anres_insert_guard"
+    proposal_insert_name = "ig_anprop_insert_guard"
     identity_columns = (
         "proposal_key", "analysis_result_id", "ordinal", "client_id",
         "commercial_episode_id", "line_id", "proposal_type", "target_scope",
@@ -185,6 +832,8 @@ def create_result_append_only_triggers(apps, schema_editor):
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {delete_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_delete_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_update_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {result_insert_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_insert_name}")
         schema_editor.execute(
             f"CREATE TRIGGER {update_name} BEFORE UPDATE ON {RESULT_TABLE} "
             "FOR EACH ROW SIGNAL SQLSTATE '45000' "
@@ -210,11 +859,27 @@ def create_result_append_only_triggers(apps, schema_editor):
             "SET MESSAGE_TEXT='IgAnalysisProposal identity is immutable'; "
             "END IF; END"
         )
+        schema_editor.execute(
+            f"CREATE TRIGGER {result_insert_name} BEFORE INSERT ON {RESULT_TABLE} "
+            f"FOR EACH ROW BEGIN IF {_mysql_result_insert_invalid()} THEN "
+            "SIGNAL SQLSTATE '45000' "
+            "SET MESSAGE_TEXT='IgConversationAnalysisResult insert guard'; "
+            "END IF; END"
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_insert_name} BEFORE INSERT ON {PROPOSAL_TABLE} "
+            f"FOR EACH ROW BEGIN IF {_mysql_proposal_insert_invalid()} THEN "
+            "SIGNAL SQLSTATE '45000' "
+            "SET MESSAGE_TEXT='IgAnalysisProposal insert guard'; "
+            "END IF; END"
+        )
     elif schema_editor.connection.vendor == "sqlite":
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {update_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {delete_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_delete_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_update_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {result_insert_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_insert_name}")
         schema_editor.execute(
             f"CREATE TRIGGER {update_name} BEFORE UPDATE ON {RESULT_TABLE} "
             "BEGIN SELECT RAISE(ABORT, 'IgConversationAnalysisResult is append-only'); END"
@@ -234,6 +899,16 @@ def create_result_append_only_triggers(apps, schema_editor):
             f"CREATE TRIGGER {proposal_update_name} BEFORE UPDATE ON {PROPOSAL_TABLE} "
             f"WHEN {changed} BEGIN SELECT RAISE(ABORT, "
             "'IgAnalysisProposal identity is immutable'); END"
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {result_insert_name} BEFORE INSERT ON {RESULT_TABLE} "
+            f"WHEN {_sqlite_result_insert_invalid()} BEGIN SELECT RAISE(ABORT, "
+            "'IgConversationAnalysisResult insert guard'); END"
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_insert_name} BEFORE INSERT ON {PROPOSAL_TABLE} "
+            f"WHEN {_sqlite_proposal_insert_invalid()} BEGIN SELECT RAISE(ABORT, "
+            "'IgAnalysisProposal insert guard'); END"
         )
     elif schema_editor.connection.vendor == "postgresql":
         schema_editor.execute(
