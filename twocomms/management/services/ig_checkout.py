@@ -707,13 +707,27 @@ def create_or_update_proposal(
     locale_code = str(locale or getattr(locked_client, "language", "") or "uk").lower().replace("_", "-").split("-", 1)[0]
     if locale_code not in {"uk", "ru", "en"}:
         locale_code = "uk"
+    from orders.checkout_series import assisted_checkout_v2_new_proposal_enabled
+
+    new_v2_canary = assisted_checkout_v2_new_proposal_enabled(locked_client.pk)
+    custom_print_requested = bool(
+        any(
+            isinstance(row, dict)
+            and row.get("custom_print_lead_id") not in (None, "", 0, "0")
+            for row in item_specs or ()
+        )
+    )
     quote = validate_checkout_items(
         client=locked_client,
         item_specs=item_specs,
         evidence=evidence,
-        pay_type=pay_type,
+        # V2 payment choice is made from persisted policy on the first browser
+        # submit. Model/manager-supplied pay_type cannot pre-authorize 200+COD.
+        pay_type="online_full" if new_v2_canary else pay_type,
         negotiated_total=negotiated_total,
-        requested_payment_amount=requested_payment_amount,
+        requested_payment_amount=(
+            None if new_v2_canary else requested_payment_amount
+        ),
         allow_promo=allow_promo,
     )
     if deal is not None:
@@ -735,6 +749,43 @@ def create_or_update_proposal(
     proposal = None
     if proposal_id:
         proposal = IgCheckoutProposal.objects.select_for_update().get(pk=proposal_id)
+    activate_v2 = bool(
+        proposal.assisted_checkout_v2 if proposal is not None else new_v2_canary
+    )
+    if proposal is not None and not activate_v2 and new_v2_canary:
+        # Canary assignment applies only to a newly-created proposal. An
+        # existing legacy proposal retains its exact original payment inputs.
+        quote = validate_checkout_items(
+            client=locked_client,
+            item_specs=item_specs,
+            evidence=evidence,
+            pay_type=pay_type,
+            negotiated_total=negotiated_total,
+            requested_payment_amount=requested_payment_amount,
+            allow_promo=allow_promo,
+        )
+    if activate_v2 and quote.pay_type != "online_full":
+        quote = validate_checkout_items(
+            client=locked_client,
+            item_specs=item_specs,
+            evidence=evidence,
+            pay_type="online_full",
+            negotiated_total=negotiated_total,
+            requested_payment_amount=None,
+            allow_promo=allow_promo,
+        )
+    payment_policy = None
+    if activate_v2:
+        from management.services.ig_checkout_policy import resolve_payment_policy
+
+        payment_policy = resolve_payment_policy(
+            client=locked_client,
+            evidence_message_ids=quote.evidence_message_ids,
+            custom_print_full_only=(
+                custom_print_requested
+                or bool(getattr(proposal, "custom_print_full_only", False))
+            ),
+        )
     if proposal is not None:
         local_terminal = {}
         if proposal.payment_attempt_id:
@@ -776,12 +827,39 @@ def create_or_update_proposal(
             deal.save(update_fields=["active_checkout_proposal", "updated_at"])
             proposal = None
         elif proposal.items_digest == quote.digest and proposal.allow_promo == bool(allow_promo):
+            policy_fields = []
+            if activate_v2 and payment_policy is not None:
+                for field_name, value in (
+                    ("payment_policy", payment_policy.policy),
+                    (
+                        "payment_policy_evidence_message_id",
+                        payment_policy.evidence_message_id,
+                    ),
+                    ("payment_policy_evidence_kind", payment_policy.evidence_kind),
+                    (
+                        "payment_policy_evidence_revision",
+                        payment_policy.evidence_revision,
+                    ),
+                    (
+                        "payment_policy_evidence_digest",
+                        payment_policy.evidence_digest,
+                    ),
+                    (
+                        "custom_print_full_only",
+                        payment_policy.custom_print_full_only,
+                    ),
+                ):
+                    if getattr(proposal, field_name) != value:
+                        setattr(proposal, field_name, value)
+                        policy_fields.append(field_name)
             if proposal.locale != locale_code and proposal.status in {
                 IgCheckoutProposal.Status.READY,
                 IgCheckoutProposal.Status.VIEWED,
             }:
                 proposal.locale = locale_code
-                proposal.save(update_fields=["locale", "updated_at"])
+                policy_fields.append("locale")
+            if policy_fields:
+                proposal.save(update_fields=[*policy_fields, "updated_at"])
             from management.services.bot_followups import schedule_proposal_expiry_event
 
             schedule_proposal_expiry_event(proposal)
@@ -811,6 +889,25 @@ def create_or_update_proposal(
 
     episode = _sync_deal_and_episode(deal=deal, quote=quote)
     if proposal is None:
+        proposal_values = {}
+        if activate_v2 and payment_policy is not None:
+            from management.services.ig_checkout_policy import PROPOSAL_TTL_SECONDS
+
+            proposal_values = {
+                "assisted_checkout_v2": True,
+                "payment_policy": payment_policy.policy,
+                "payment_policy_evidence_message_id": (
+                    payment_policy.evidence_message_id
+                ),
+                "payment_policy_evidence_kind": payment_policy.evidence_kind,
+                "payment_policy_evidence_revision": (
+                    payment_policy.evidence_revision
+                ),
+                "payment_policy_evidence_digest": payment_policy.evidence_digest,
+                "custom_print_full_only": payment_policy.custom_print_full_only,
+                "expires_at": timezone.now()
+                + timedelta(seconds=PROPOSAL_TTL_SECONDS),
+            }
         proposal = IgCheckoutProposal.objects.create_current(
             deal=deal,
             commercial_episode=episode,
@@ -822,6 +919,7 @@ def create_or_update_proposal(
             allow_promo=bool(allow_promo),
             items_digest=quote.digest,
             locale=locale_code,
+            **proposal_values,
         )
         revision_number = 1
         revision_source = IgCheckoutRevision.Source.BOT_CREATE
@@ -836,18 +934,41 @@ def create_or_update_proposal(
         proposal.items_digest = quote.digest
         proposal.commercial_episode = episode
         proposal.locale = locale_code
+        if activate_v2 and payment_policy is not None:
+            proposal.payment_policy = payment_policy.policy
+            proposal.payment_policy_evidence_message_id = (
+                payment_policy.evidence_message_id
+            )
+            proposal.payment_policy_evidence_kind = payment_policy.evidence_kind
+            proposal.payment_policy_evidence_revision = (
+                payment_policy.evidence_revision
+            )
+            proposal.payment_policy_evidence_digest = payment_policy.evidence_digest
+            proposal.custom_print_full_only = payment_policy.custom_print_full_only
         proposal.full_clean()
         proposal.save(update_fields=[
             "revision", "catalog_total", "negotiated_discount", "quoted_total",
             "requested_payment_amount", "pay_type", "allow_promo", "items_digest",
             "commercial_episode", "locale", "updated_at",
+            *(
+                [
+                    "payment_policy",
+                    "payment_policy_evidence_message",
+                    "payment_policy_evidence_kind",
+                    "payment_policy_evidence_revision",
+                    "payment_policy_evidence_digest",
+                    "custom_print_full_only",
+                ]
+                if activate_v2
+                else []
+            ),
         ])
         revision_number = proposal.revision
         revision_source = IgCheckoutRevision.Source.BOT_UPDATE
 
     _replace_proposal_items(proposal=proposal, quote=quote)
     from product_catalog.models import ProductInventoryPolicy
-    if ProductInventoryPolicy.objects.filter(
+    if not proposal.assisted_checkout_v2 and ProductInventoryPolicy.objects.filter(
         product_id__in={item.product_id for item in proposal.items.all() if item.product_id},
     ).exists():
         try:

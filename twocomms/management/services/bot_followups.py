@@ -940,7 +940,11 @@ def schedule_proposal_expiry_event(
     proposal, *, now: datetime | None = None
 ) -> IgFollowUpTask | None:
     """Register one immutable event for the active first-party proposal revision."""
-    if proposal is None or not getattr(proposal, "deal_id", None) or not getattr(
+    if proposal is None or bool(
+        getattr(proposal, "assisted_checkout_v2", False)
+    ):
+        return None
+    if not getattr(proposal, "deal_id", None) or not getattr(
         proposal, "expires_at", None
     ):
         return None
@@ -1278,6 +1282,8 @@ def event_followup_fact_guard(
         proposal = getattr(deal, "active_checkout_proposal", None)
         if deal is None:
             return False, "deal_missing"
+        if bool(getattr(proposal, "assisted_checkout_v2", False)):
+            return False, "v2_generation_owns_expiry"
         try:
             payload_deal_id = int(payload.get("deal_id") or 0)
             payload_revision = int(payload.get("revision") or 0)
@@ -1702,6 +1708,8 @@ def schedule_after_bot_reply(client: IgClient, *, reply: str = "", control: dict
         proposal.Status.READY,
         proposal.Status.VIEWED,
     }:
+        if bool(getattr(proposal, "assisted_checkout_v2", False)):
+            return None
         delay = max(proposal.expires_at - now, timedelta(0))
         return schedule_policy_followup(
             client,
@@ -1783,6 +1791,24 @@ def _payment_link_status_for_deal(deal: IgDeal, *, now: datetime) -> str:
         return "unknown"
     if proposal.status == proposal.Status.PAID:
         return "paid"
+    if bool(getattr(proposal, "assisted_checkout_v2", False)):
+        generation = getattr(proposal, "current_invoice_generation", None)
+        if generation is None:
+            return "live" if now < proposal.expires_at else "expired"
+        if generation.state in {
+            generation.State.PAID_WINNER,
+            generation.State.WINNER_CLAIMED,
+        }:
+            return "paid"
+        if generation.state in {
+            generation.State.FAILED,
+            generation.State.EXPIRED,
+            generation.State.CANCELLED,
+            generation.State.LATE_PAID_REVIEW,
+            generation.State.RESOURCE_REVIEW,
+        }:
+            return "expired"
+        return "expired" if now >= generation.expires_at else "live"
     return "expired" if now >= proposal.expires_at else "live"
 
 

@@ -36,6 +36,23 @@ def assisted_checkout_v2_enabled() -> bool:
     return assisted_checkout_v2_mode() in {"shadow", "enforced"}
 
 
+def assisted_checkout_v2_new_proposal_enabled(identity) -> bool:
+    """Stable canary gate used only when a new proposal is first created."""
+    if assisted_checkout_v2_mode() != "enforced":
+        return False
+    try:
+        percent = int(
+            getattr(settings, "IG_ASSISTED_CHECKOUT_V2_CANARY_PERCENT", 0) or 0
+        )
+    except (TypeError, ValueError):
+        return False
+    percent = max(0, min(percent, 100))
+    if not percent:
+        return False
+    bucket = int(_sha256(f"ig-assisted-canary-v1:{identity}")[:8], 16) % 100
+    return bucket < percent
+
+
 def _require_enabled() -> None:
     if not assisted_checkout_v2_enabled():
         raise AssistedCheckoutV2Disabled("Assisted Checkout V2 is disabled")
@@ -60,6 +77,16 @@ def stable_order_idempotency_key(series_key: str) -> str:
     _require_enabled()
     normalized = str(series_key or "").strip().casefold()
     if len(normalized) != 64 or any(char not in "0123456789abcdef" for char in normalized):
+        raise ValueError("series_key must be a SHA-256 hex digest")
+    return _sha256(f"{ORDER_KEY_VERSION}:{normalized}")
+
+
+def existing_series_order_idempotency_key(series_key: str) -> str:
+    """Derive an already-issued V2 order key even after rollout is disabled."""
+    normalized = str(series_key or "").strip().casefold()
+    if len(normalized) != 64 or any(
+        char not in "0123456789abcdef" for char in normalized
+    ):
         raise ValueError("series_key must be a SHA-256 hex digest")
     return _sha256(f"{ORDER_KEY_VERSION}:{normalized}")
 

@@ -161,6 +161,16 @@ IG_ANALYSIS_V2_EXTENDED_PROMPT = _env_bool(
     'IG_ANALYSIS_V2_EXTENDED_PROMPT',
     default=False,
 )
+try:
+    IG_ASSISTED_CHECKOUT_V2_CANARY_PERCENT = max(
+        0,
+        min(
+            100,
+            int(os.environ.get("IG_ASSISTED_CHECKOUT_V2_CANARY_PERCENT", "0")),
+        ),
+    )
+except (TypeError, ValueError):
+    IG_ASSISTED_CHECKOUT_V2_CANARY_PERCENT = 0
 
 # Assisted Checkout invoice-series rollout. Slice 2a only exposes dormant
 # schema/identity helpers; no runtime path reads the fields while this is off.
