@@ -502,6 +502,33 @@ def _ensure_unique_shape(apps, schema_editor, spec):
     )
 
 
+def _ensure_check_shape(apps, schema_editor, spec):
+    app_label, model_name, check_name = spec
+    model = apps.get_model(app_label, model_name)
+    existing = _constraints(schema_editor, model._meta.db_table)
+    actual = existing.get(check_name)
+    expected_columns = CHECK_COLUMNS[check_name]
+    if actual is not None:
+        actual_columns = set(actual.get("columns") or ())
+        if (
+            not actual.get("check")
+            or (actual_columns and actual_columns != expected_columns)
+            or actual.get("unique")
+            or actual.get("foreign_key")
+        ):
+            raise RuntimeError(f"{check_name} has incompatible CHECK shape")
+        _validate_check_predicate(
+            schema_editor,
+            model._meta.db_table,
+            check_name,
+        )
+        return
+    constraint = next(
+        row for row in model._meta.constraints if row.name == check_name
+    )
+    schema_editor.add_constraint(model, constraint)
+
+
 def _validate_named_shapes(apps, schema_editor):
     for app_label, model_name, index_name in INDEX_SPECS:
         model = apps.get_model(app_label, model_name)
@@ -593,10 +620,11 @@ def ensure_checkout_generation_schema(apps, schema_editor):
         index_specs=tuple(
             spec for spec in INDEX_SPECS if spec[1] in existing_models
         ),
-        constraint_specs=tuple(
-            spec for spec in CHECK_SPECS if spec[1] in existing_models
-        ),
+        constraint_specs=(),
     )
+    for spec in CHECK_SPECS:
+        if spec[1] in existing_models:
+            _ensure_check_shape(apps, schema_editor, spec)
     for spec in UNIQUE_SPECS:
         model = apps.get_model(spec[0], spec[1])
         if model._meta.db_table in set(

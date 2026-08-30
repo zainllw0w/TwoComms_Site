@@ -31,6 +31,11 @@ def _arguments(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--confirm-disposable", action="store_true")
     parser.add_argument("--phase", choices=("orchestrate", "kill"), default="orchestrate")
+    parser.add_argument(
+        "--kill-point",
+        choices=("generation_table", "proposal_fields", "first_index", "first_check"),
+        default="generation_table",
+    )
     return parser.parse_args(argv)
 
 
@@ -62,15 +67,52 @@ def _kill_phase(args):
     from django.db.migrations.executor import MigrationExecutor
 
     schema_editor_class = connection.SchemaEditorClass
-    original = schema_editor_class.create_model
+    original_create_model = schema_editor_class.create_model
+    original_add_field = schema_editor_class.add_field
+    original_add_index = schema_editor_class.add_index
+    original_add_constraint = schema_editor_class.add_constraint
 
     def kill_after_generation(self, model):
-        result = original(self, model)
-        if model._meta.db_table == "management_igcheckoutinvoicegeneration":
+        result = original_create_model(self, model)
+        if (
+            args.kill_point == "generation_table"
+            and model._meta.db_table == "management_igcheckoutinvoicegeneration"
+        ):
+            os._exit(KILL_EXIT_CODE)
+        return result
+
+    field_count = {"value": 0}
+
+    def kill_after_proposal_fields(self, model, field):
+        result = original_add_field(self, model, field)
+        if (
+            args.kill_point == "proposal_fields"
+            and model._meta.db_table == "management_igcheckoutproposal"
+        ):
+            field_count["value"] += 1
+            if field_count["value"] == 3:
+                os._exit(KILL_EXIT_CODE)
+        return result
+
+    def kill_after_index(self, model, index):
+        result = original_add_index(self, model, index)
+        if args.kill_point == "first_index":
+            os._exit(KILL_EXIT_CODE)
+        return result
+
+    def kill_after_check(self, model, constraint):
+        result = original_add_constraint(self, model, constraint)
+        if (
+            args.kill_point == "first_check"
+            and constraint.__class__.__name__ == "CheckConstraint"
+        ):
             os._exit(KILL_EXIT_CODE)
         return result
 
     schema_editor_class.create_model = kill_after_generation
+    schema_editor_class.add_field = kill_after_proposal_fields
+    schema_editor_class.add_index = kill_after_index
+    schema_editor_class.add_constraint = kill_after_check
     MigrationExecutor(connection).migrate([TARGET])
     raise RuntimeError("kill phase reached migration completion")
 
@@ -83,28 +125,25 @@ def _columns(connection, table):
         }
 
 
-def _race_winner(proposal_id, generation_id, barrier, outcomes):
-    from django.db import close_old_connections, transaction
-    from management.models import IgCheckoutInvoiceGeneration, IgCheckoutProposal
+def _race_apply_payment(attempt_id, barrier, outcomes, errors):
+    from django.db import close_old_connections
+    from management.services.ig_checkout_generation import (
+        apply_verified_generation_payment,
+    )
 
     close_old_connections()
-    barrier.wait()
-    with transaction.atomic():
-        proposal = IgCheckoutProposal.objects.select_for_update().get(pk=proposal_id)
-        generation = IgCheckoutInvoiceGeneration.objects.select_for_update().get(
-            pk=generation_id,
-            proposal_id=proposal.pk,
+    try:
+        barrier.wait()
+        order, created = apply_verified_generation_payment(
+            attempt_id,
+            payload={"paidAmount": 90000},
+            source="provider_pull",
         )
-        if proposal.winner_invoice_generation_id:
-            outcomes.append((generation_id, "loser"))
-        else:
-            generation.winner_slot = 1
-            generation.state = "winner_claimed"
-            generation.save(update_fields=["winner_slot", "state", "updated_at"])
-            proposal.winner_invoice_generation = generation
-            proposal.save(update_fields=["winner_invoice_generation", "updated_at"])
-            outcomes.append((generation_id, "winner"))
-    close_old_connections()
+        outcomes.append((attempt_id, getattr(order, "pk", None), bool(created)))
+    except Exception as exc:
+        errors.append((attempt_id, type(exc).__name__, str(exc)))
+    finally:
+        close_old_connections()
 
 
 def _orchestrate(args):
@@ -156,6 +195,8 @@ def _orchestrate(args):
             "--confirm-disposable",
             "--phase",
             "kill",
+            "--kill-point",
+            args.kill_point,
         ],
         env=os.environ.copy(),
         stdout=subprocess.DEVNULL,
@@ -179,7 +220,10 @@ def _orchestrate(args):
         raise RuntimeError("partial 0184 was recorded")
     if "management_igcheckoutinvoicegeneration" not in partial_tables:
         raise RuntimeError("generation table missing at kill point")
-    if "management_igcheckoutinvoicegenerationevent" in partial_tables:
+    if (
+        args.kill_point == "generation_table"
+        and "management_igcheckoutinvoicegenerationevent" in partial_tables
+    ):
         raise RuntimeError("kill point advanced beyond generation table")
 
     MigrationExecutor(resumed).migrate([TARGET])
@@ -298,24 +342,207 @@ def _orchestrate(args):
     first.save(update_fields=["winner_slot", "state", "updated_at"])
     second.refresh_from_db()
 
-    barrier = threading.Barrier(2)
-    outcomes = []
-    threads = [
-        threading.Thread(
-            target=_race_winner,
-            args=(v2.pk, generation_id, barrier, outcomes),
+    winner_race_ok = winner_slot_rejected
+
+    # Real application race: two provider-verified generations traverse the
+    # canonical winner service, generation-scoped resources, stable Order key,
+    # loser review and replay. No direct winner fields are written here.
+    from management.models import (
+        IgCheckoutInventoryReservation,
+        IgCommercialEpisode,
+        IgDeal,
+    )
+    from orders.models import Order, PaymentAttempt
+    from productcolors.models import Color, ProductColorVariant
+    from storefront.models import Category, Product
+
+    race_client = Client.objects.create(igsid="checkout-s2b-runtime-race")
+    race_deal = IgDeal.objects.create(
+        client_id=race_client.pk,
+        amount="900.00",
+        requested_payment_amount="900.00",
+        status="awaiting_payment",
+    )
+    race_episode = IgCommercialEpisode.objects.create(
+        client_id=race_client.pk,
+        deal=race_deal,
+        sequence=1,
+        open_slot=1,
+        materialization_key="checkout-s2b-runtime-race:episode",
+    )
+    Client.objects.filter(pk=race_client.pk).update(
+        current_commercial_episode_id=race_episode.pk
+    )
+    race_proposal = IgCheckoutProposal.objects.create(
+        client_id=race_client.pk,
+        deal=race_deal,
+        commercial_episode=race_episode,
+        catalog_total="900.00",
+        quoted_total="900.00",
+        requested_payment_amount="900.00",
+        items_digest="d" * 64,
+        assisted_checkout_v2=True,
+        payment_policy="full_only",
+        expires_at=timezone.now() + timedelta(hours=12),
+        status="invoice_created",
+    )
+    IgDeal.objects.filter(pk=race_deal.pk).update(
+        active_checkout_proposal_id=race_proposal.pk
+    )
+    category = Category.objects.create(
+        name="S2b race",
+        slug="s2b-race",
+    )
+    product = Product.objects.create(
+        title="S2b race shirt",
+        slug="s2b-race-shirt",
+        category=category,
+        price=900,
+        status="published",
+    )
+    color = Color.objects.create(name="S2b race black", primary_hex="#111111")
+    variant = ProductColorVariant.objects.create(
+        product=product,
+        color=color,
+        stock=5,
+    )
+    runtime_series = "e" * 64
+    runtime_generations = []
+    runtime_attempts = []
+    for number in (1, 2):
+        attempt = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(f"s2b-runtime-attempt:{number}".encode()).hexdigest(),
+            full_name="Runtime Race",
+            phone="+380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            pay_type="online_full",
+            status="processing",
+            cart_snapshot={
+                "checkout_surface": "instagram_proposal",
+                "sale_source": "Instagram",
+                "proposal_id": str(race_proposal.public_id),
+                "cart": [{
+                    "product_id": product.pk,
+                    "color_variant_id": variant.pk,
+                    "title": product.title,
+                    "qty": 1,
+                    "size": "M",
+                    "unit_price": "900.00",
+                    "line_total": "900.00",
+                }],
+            },
+            gross_amount="900.00",
+            payable_amount="900.00",
+            payment_amount="900.00",
+            monobank_invoice_id=f"s2b-runtime-invoice-{number}",
+            invoice_url=f"https://pay.invalid/s2b-runtime-{number}",
+            invoice_expires_at=timezone.now() + timedelta(minutes=25),
+            checkout_series_key=runtime_series,
+            checkout_generation=number,
         )
-        for generation_id in (first.pk, second.pk)
+        generation_row = IgCheckoutInvoiceGeneration.objects.create(
+            proposal=race_proposal,
+            generation=number,
+            series_key=runtime_series,
+            proposal_revision=1,
+            active_slot=(1 if number == 2 else None),
+            state="invoice_created",
+            payment_amount="900.00",
+            payment_attempt=attempt,
+            provider_invoice_id=attempt.monobank_invoice_id,
+            provider_call_token=hashlib.sha256(
+                f"s2b-runtime-call:{number}".encode()
+            ).hexdigest(),
+            expires_at=attempt.invoice_expires_at,
+        )
+        IgCheckoutInventoryReservation.objects.create(
+            proposal=race_proposal,
+            invoice_generation=generation_row,
+            product=product,
+            color_variant=variant,
+            allocation_source="catalog_variant",
+            allocation_key=f"catalog_variant:variant:{variant.pk}",
+            quantity=1,
+            reservation_fingerprint=hashlib.sha256(
+                f"s2b-runtime-reservation:{number}".encode()
+            ).hexdigest(),
+            state="active",
+            expires_at=attempt.invoice_expires_at,
+        )
+        runtime_generations.append(generation_row)
+        runtime_attempts.append(attempt)
+    race_proposal.current_invoice_generation = runtime_generations[1]
+    race_proposal.payment_attempt = runtime_attempts[1]
+    race_proposal.save(update_fields=[
+        "current_invoice_generation", "payment_attempt", "updated_at",
+    ])
+
+    apply_barrier = threading.Barrier(2)
+    apply_outcomes = []
+    apply_errors = []
+    apply_threads = [
+        threading.Thread(
+            target=_race_apply_payment,
+            args=(attempt.pk, apply_barrier, apply_outcomes, apply_errors),
+        )
+        for attempt in runtime_attempts
     ]
-    for thread in threads:
+    for thread in apply_threads:
         thread.start()
-    for thread in threads:
-        thread.join(timeout=30)
-    if any(thread.is_alive() for thread in threads):
-        raise RuntimeError("winner race threads did not finish")
-    winner_race_ok = sorted(value for _pk, value in outcomes) == ["loser", "winner"]
-    if not winner_race_ok:
-        raise RuntimeError(f"winner race mismatch: {outcomes}")
+    for thread in apply_threads:
+        thread.join(timeout=60)
+    if any(thread.is_alive() for thread in apply_threads):
+        raise RuntimeError("runtime winner race threads did not finish")
+    race_proposal.refresh_from_db()
+    winner_id = race_proposal.winner_invoice_generation_id
+    runtime_winners = [
+        row.pk
+        for row in IgCheckoutInvoiceGeneration.objects.filter(
+            proposal=race_proposal,
+            winner_slot=1,
+        )
+    ]
+    runtime_orders = list(
+        Order.objects.filter(checkout_idempotency_key__isnull=False)
+    )
+    runtime_race_ok = bool(
+        not apply_errors
+        and len(runtime_winners) == 1
+        and runtime_winners[0] == winner_id
+        and len(runtime_orders) == 1
+        and len({order.checkout_idempotency_key for order in runtime_orders}) == 1
+        and sum(1 for _attempt, order_id, _created in apply_outcomes if order_id) == 1
+    )
+    if not runtime_race_ok:
+        raise RuntimeError(
+            "runtime winner race failed: "
+            + json.dumps({
+                "outcomes": apply_outcomes,
+                "errors": apply_errors,
+                "winner_ids": runtime_winners,
+                "orders": [order.pk for order in runtime_orders],
+            }, sort_keys=True)
+        )
+    winner_attempt = PaymentAttempt.objects.get(
+        instagram_checkout_generation__pk=winner_id
+    )
+    from management.services.ig_checkout_generation import (
+        apply_verified_generation_payment,
+    )
+    replay_order, replay_created = apply_verified_generation_payment(
+        winner_attempt.pk,
+        payload={"paidAmount": 90000},
+        source="provider_pull",
+    )
+    runtime_replay_ok = bool(
+        replay_order
+        and replay_order.pk == runtime_orders[0].pk
+        and not replay_created
+        and Order.objects.filter(checkout_idempotency_key__isnull=False).count() == 1
+    )
+    variant.refresh_from_db()
+    runtime_resource_ok = variant.stock == 4
 
     event = IgCheckoutInvoiceGenerationEvent.objects.create(
         event_key="checkout-s2b-mariadb-proof:event",
@@ -356,6 +583,7 @@ def _orchestrate(args):
     proof = {
         "database": database,
         "kill_exit_code": child.returncode,
+        "kill_point": args.kill_point,
         "partial_migration_recorded": partial_recorded,
         "engines": engines,
         "triggers": triggers,
@@ -365,6 +593,9 @@ def _orchestrate(args):
         "winner_slot_rejected": winner_slot_rejected,
         "invalid_checks_rejected": invalid_checks_rejected,
         "winner_race_ok": winner_race_ok,
+        "runtime_winner_race_ok": runtime_race_ok,
+        "runtime_replay_ok": runtime_replay_ok,
+        "runtime_resource_ok": runtime_resource_ok,
         "event_update_rejected": event_update_rejected,
         "event_delete_rejected": event_delete_rejected,
         "migration_recorded": TARGET in MigrationRecorder(resumed).applied_migrations(),
@@ -379,6 +610,7 @@ def _orchestrate(args):
             "legacy_unchanged", "active_slot_rejected", "provider_id_rejected",
             "winner_slot_rejected", "winner_race_ok", "event_update_rejected",
             "event_delete_rejected",
+            "runtime_winner_race_ok", "runtime_replay_ok", "runtime_resource_ok",
             "migration_recorded", "reverse_refused", "reverse_schema_preserved",
         )
     ):

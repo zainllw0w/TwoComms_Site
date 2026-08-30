@@ -2,6 +2,7 @@ from importlib import import_module
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
+from unittest.mock import patch
 
 from django.db import DatabaseError, connection, migrations
 from django.test import SimpleTestCase, TransactionTestCase
@@ -78,6 +79,10 @@ class CheckoutGenerationMigrationContractTests(SimpleTestCase):
             "event_update_rejected",
             "event_delete_rejected",
             "reverse_schema_preserved",
+            "proposal_fields",
+            "first_index",
+            "first_check",
+            "runtime_winner_race_ok",
         ):
             self.assertIn(value, source)
 
@@ -160,3 +165,30 @@ class CheckoutGenerationTriggerTests(TransactionTestCase):
             with connection.cursor() as cursor:
                 cursor.execute("DROP TRIGGER IF EXISTS ig_invgevt_no_update")
                 cursor.execute("DROP TRIGGER IF EXISTS ig_invgevt_no_delete")
+
+    def test_physical_check_predicates_match_truth_tables_and_wrong_same_name_fails(self):
+        migration = import_module(
+            "management.migrations.0184_assisted_checkout_generation_v2"
+        )
+        editor = SimpleNamespace(
+            connection=connection,
+            quote_name=connection.ops.quote_name,
+        )
+        for check_name in migration.CHECK_TRUTH_TABLES:
+            table = (
+                migration.GENERATION_TABLE
+                if check_name.startswith("ig_invgen_")
+                else migration.PROPOSAL_TABLE
+            )
+            migration._validate_check_predicate(editor, table, check_name)
+
+        with patch.object(
+            migration,
+            "_physical_check_clause",
+            return_value="generation >= 0",
+        ), self.assertRaisesRegex(RuntimeError, "incompatible predicate"):
+            migration._validate_check_predicate(
+                editor,
+                migration.GENERATION_TABLE,
+                "ig_invgen_generation_positive",
+            )
