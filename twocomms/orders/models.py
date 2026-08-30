@@ -474,7 +474,10 @@ class PaymentAttempt(models.Model):
         blank=True,
     )
     checkout_generation = models.PositiveIntegerField(null=True, blank=True)
-    checkout_winner_claimed = models.BooleanField(default=False)
+    checkout_winner_claimed = models.BooleanField(
+        default=False,
+        db_default=False,
+    )
     error_reason = models.CharField(max_length=500, blank=True, default='')
     order = models.OneToOneField(
         'Order', null=True, blank=True, on_delete=models.SET_NULL, related_name='payment_attempt'

@@ -9,13 +9,20 @@ from management.migration_operations import (
 
 TABLE = "orders_paymentattempt"
 FIELD_EXPECTATIONS = {
-    "checkout_series_key": ({"CharField"}, True, 64),
+    "checkout_series_key": ({"CharField"}, True, 64, None),
     "checkout_generation": (
         {"PositiveIntegerField", "IntegerField"},
         True,
         None,
+        None,
     ),
-    "checkout_winner_claimed": ({"BooleanField"}, False, None),
+    # MariaDB/MySQL introspection may expose TINYINT(1) as IntegerField.
+    "checkout_winner_claimed": (
+        {"BooleanField", "IntegerField"},
+        False,
+        1,
+        0,
+    ),
 }
 INDEX_EXPECTATIONS = {
     "pay_attempt_series_idx": (
@@ -70,8 +77,24 @@ def _validate_engine(schema_editor):
         raise RuntimeError(f"{TABLE} must use InnoDB")
 
 
+def _normalized_default(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    while len(text) >= 2 and text[0] == "(" and text[-1] == ")":
+        text = text[1:-1].strip()
+    if text.casefold() in {"null", "none"}:
+        return None
+    if text in {"''", '""'}:
+        return ""
+    try:
+        return int(text)
+    except ValueError:
+        return text.strip("'\"")
+
+
 def _validate_field(schema_editor, name, column):
-    allowed_types, nullable, expected_size = FIELD_EXPECTATIONS[name]
+    allowed_types, nullable, expected_size, expected_default = FIELD_EXPECTATIONS[name]
     actual_type = schema_editor.connection.introspection.get_field_type(
         column.type_code,
         column,
@@ -87,6 +110,12 @@ def _validate_field(schema_editor, name, column):
     if expected_size is not None and actual_size not in (None, expected_size):
         raise RuntimeError(
             f"{TABLE}.{name} has length {actual_size}; expected {expected_size}"
+        )
+    actual_default = _normalized_default(getattr(column, "default", None))
+    if actual_default != expected_default:
+        raise RuntimeError(
+            f"{TABLE}.{name} has default {actual_default!r}; "
+            f"expected {expected_default!r}"
         )
 
 
@@ -210,7 +239,7 @@ class Migration(migrations.Migration):
         IdempotentAddField(
             model_name="paymentattempt",
             name="checkout_winner_claimed",
-            field=models.BooleanField(default=False),
+            field=models.BooleanField(db_default=False, default=False),
         ),
         IdempotentAddIndex(
             model_name="paymentattempt",

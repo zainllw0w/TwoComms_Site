@@ -81,7 +81,12 @@ class CheckoutSeriesMigrationTests(SimpleTestCase):
         migration = self.migration
         editor = Mock()
         editor.connection.introspection.get_field_type.return_value = "CharField"
-        column = SimpleNamespace(type_code=1, null_ok=True, internal_size=64)
+        column = SimpleNamespace(
+            type_code=1,
+            null_ok=True,
+            internal_size=64,
+            default=None,
+        )
 
         migration._validate_field(editor, "checkout_series_key", column)
 
@@ -93,11 +98,61 @@ class CheckoutSeriesMigrationTests(SimpleTestCase):
             migration._validate_field(
                 editor,
                 "checkout_series_key",
-                SimpleNamespace(type_code=1, null_ok=False, internal_size=64),
+                SimpleNamespace(
+                    type_code=1,
+                    null_ok=False,
+                    internal_size=64,
+                    default=None,
+                ),
             )
         with self.assertRaisesRegex(RuntimeError, "length"):
             migration._validate_field(
                 editor,
                 "checkout_series_key",
-                SimpleNamespace(type_code=1, null_ok=True, internal_size=32),
+                SimpleNamespace(
+                    type_code=1,
+                    null_ok=True,
+                    internal_size=32,
+                    default=None,
+                ),
             )
+
+    def test_field_validator_normalizes_and_rejects_physical_defaults(self):
+        migration = self.migration
+        editor = Mock()
+        editor.connection.introspection.get_field_type.return_value = "IntegerField"
+
+        migration._validate_field(
+            editor,
+            "checkout_winner_claimed",
+            SimpleNamespace(
+                type_code=1,
+                null_ok=False,
+                internal_size=1,
+                default="((0))",
+            ),
+        )
+        with self.assertRaisesRegex(RuntimeError, "has default"):
+            migration._validate_field(
+                editor,
+                "checkout_winner_claimed",
+                SimpleNamespace(
+                    type_code=1,
+                    null_ok=False,
+                    internal_size=1,
+                    default="1",
+                ),
+            )
+
+    def test_irreversible_validator_is_last_before_any_reverse_ddl(self):
+        operations = self.migration.Migration.operations
+
+        self.assertIsInstance(operations[-1], migrations.RunPython)
+        self.assertFalse(operations[-1].reversible)
+        self.assertTrue(all(
+            isinstance(
+                operation,
+                (IdempotentAddField, IdempotentAddIndex, IdempotentAddConstraint),
+            )
+            for operation in operations[1:-1]
+        ))
