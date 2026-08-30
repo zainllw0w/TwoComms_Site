@@ -268,10 +268,16 @@ class NullRequestObserver:
     def resolve_failure(self, _reason="exhausted") -> None:
         return None
 
+    def resolve_without_provider(self, _reason="no_model") -> None:
+        return None
+
     def candidate_index(self, _key_name: str, _model: str) -> int:
         return 0
 
     def record_not_attempted(self, **_kwargs):
+        return None
+
+    def record_remaining(self, _reason="policy_stop", *, model_filter: str = "") -> None:
         return None
 
 
@@ -375,6 +381,65 @@ def begin_request(
             accounting_mode=GeminiRequest.AccountingMode.SHADOW,
         )
         return RequestObserver(graph_id=graph.pk, request_id=graph.request_id, raw_plan=candidate_plan)
+    except Exception:
+        return NULL_OBSERVER
+
+
+def record_no_model_decision(message, routing_decision):
+    """Persist one idempotent NO_MODEL graph without crossing provider I/O.
+
+    The message already owns the immutable ``RoutingDecision``.  This helper
+    adds the same request-level observability used by provider-backed turns,
+    with an empty candidate plan, no attempt rows and no provider phase.  It is
+    intentionally shadow-gated and fail-soft like the rest of accounting V2.
+    """
+    if str(_routing_value(routing_decision, "task_class", "")) != "no_model":
+        return NULL_OBSERVER
+    message_id = getattr(message, "pk", None)
+    if not message_id or not shadow_runtime_active():
+        return NULL_OBSERVER
+    try:
+        from django.utils.crypto import salted_hmac
+        from management.services.ig_turn_lineage import (
+            current_context,
+            resolve_logical_turn_key,
+            turn_lineage,
+        )
+
+        current = current_context()
+        lane = str(_routing_value(routing_decision, "lane", "live") or "live")[:16]
+        logical_turn_id = str(
+            current.get("logical_turn_id") or resolve_logical_turn_key(message) or ""
+        )[:64]
+        request_material = ":".join((
+            str(message_id),
+            lane,
+            str(_routing_value(routing_decision, "policy_version", "")),
+        ))
+        digest = salted_hmac(
+            "management.gemini-accounting.no-model.v1",
+            request_material,
+        ).hexdigest()[:34]
+        with turn_lineage(
+            lane=lane,
+            client_id=getattr(message, "client_id", None),
+            source_message_id=message_id,
+            logical_turn_id=logical_turn_id,
+            incident_id=current.get("incident_id"),
+            recovery_job_id=current.get("recovery_job_id"),
+        ):
+            observer = begin_request(
+                request_id=f"nm_{digest}",
+                role="chat",
+                reasoning_task="no_model",
+                candidate_plan=[],
+                deadline_seconds=0,
+                routing_decision=routing_decision,
+                lane=lane,
+            )
+        if getattr(observer, "enabled", False):
+            observer.resolve_without_provider("no_model")
+        return observer
     except Exception:
         return NULL_OBSERVER
 
@@ -595,7 +660,7 @@ class RequestObserver:
         except Exception:
             return None
 
-    def record_remaining(self, reason: str) -> None:
+    def record_remaining(self, reason: str, *, model_filter: str = "") -> None:
         try:
             from management.models import GeminiRequest, GeminiRequestAttempt
 
@@ -610,6 +675,8 @@ class RequestObserver:
                 }
                 rows = []
                 for key_name, model, candidate_index in self._plan_candidates:
+                    if model_filter and str(model) != str(model_filter):
+                        continue
                     if candidate_index in observed:
                         continue
                     boundary = AttemptBoundary(
@@ -662,6 +729,32 @@ class RequestObserver:
                 GeminiRequestAttempt.objects.bulk_create(rows)
                 GeminiRequest.objects.filter(pk=graph.pk).update(
                     candidate_outcomes=outcomes,
+                    updated_at=now,
+                )
+        except Exception:
+            return None
+
+    def resolve_without_provider(self, reason: str = "no_model") -> None:
+        """Terminalize an empty graph while proving no provider boundary ran."""
+        try:
+            from management.models import GeminiRequest, GeminiRequestAttempt
+
+            now = timezone.now()
+            bounded_reason = _safe_reason(reason)[:48] or "no_model"
+            with transaction.atomic():
+                graph = GeminiRequest.objects.select_for_update().get(pk=self.graph_id)
+                if graph.terminal_resolution:
+                    return
+                if (
+                    graph.candidate_plan
+                    or graph.provider_phase_started_at is not None
+                    or GeminiRequestAttempt.objects.filter(request_graph=graph).exists()
+                ):
+                    return
+                GeminiRequest.objects.filter(pk=graph.pk).update(
+                    terminal_resolution="succeeded",
+                    terminal_reason=bounded_reason,
+                    resolved_at=now,
                     updated_at=now,
                 )
         except Exception:

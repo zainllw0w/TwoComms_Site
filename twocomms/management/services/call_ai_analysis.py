@@ -1012,6 +1012,99 @@ def _apply_hedge_key_state(
         logger.debug("gemini key state update unavailable", exc_info=True)
 
 
+def _freeze_live_candidate_plan(
+    raw_plan: list[dict],
+    *,
+    models: list[str],
+    manual_key: str | None = None,
+) -> list[dict]:
+    """Freeze the real model-major dispatch order before V2 persistence.
+
+    The legacy scoreboard is allowed to reorder executable candidates of the
+    primary model.  Previously that happened *after* ``GeminiRequest`` stored
+    its immutable plan, so ``candidate_index`` described the pre-scoreboard
+    order rather than the order the gateway actually used.  This helper makes
+    the one adaptive decision up front and then assigns immutable indexes to
+    that exact order.  Known pre-dispatch skips remain in the same model tier
+    after its executable candidates and never reach provider I/O.
+
+    Secret values stay in these short-lived in-process rows.  The accounting
+    sanitizer has an exact allowlist and removes both ``key_name`` and
+    ``key_value`` before persistence.
+    """
+    normalized_models = [str(model or "").strip() for model in models if model]
+    rows: list[dict] = []
+    manual_value = str(manual_key or "").strip()
+
+    for model_position, model in enumerate(normalized_models):
+        executable: list[dict] = []
+        manual_skip_reason = (
+            "circuit_open"
+            if manual_value and gemini_keys.model_circuit_open(model)
+            else ""
+        )
+        if manual_value:
+            executable.append({
+                "key_name": "(manual)",
+                "key_value": manual_value,
+                "model": model,
+                "project_identity": "",
+                "identity_status": "unknown",
+                "skip_reason": manual_skip_reason,
+            })
+        model_rows = [
+            dict(item)
+            for item in raw_plan
+            if str(item.get("model") or "") == model
+        ]
+        executable.extend(
+            item for item in model_rows if not str(item.get("skip_reason") or "")
+        )
+        executable = [
+            item for item in executable if not str(item.get("skip_reason") or "")
+        ]
+
+        if model_position == 0 and executable:
+            original = list(executable)
+            tuples = [
+                (item["key_name"], item["key_value"], item["model"])
+                for item in original
+            ]
+            try:
+                ordered = gemini_scoreboard.order_candidates(tuples, role="chat")
+                lookup = {
+                    (item["key_name"], item["model"]): item
+                    for item in original
+                }
+                ordered_keys = [(item[0], item[2]) for item in ordered]
+                if (
+                    len(ordered_keys) == len(original)
+                    and len(set(ordered_keys)) == len(original)
+                    and set(ordered_keys) == set(lookup)
+                ):
+                    executable = [lookup[key] for key in ordered_keys]
+            except Exception:
+                logger.debug("gemini scoreboard unavailable", exc_info=True)
+
+        rows.extend(executable)
+        if manual_value and manual_skip_reason:
+            rows.append({
+                "key_name": "(manual)",
+                "key_value": manual_value,
+                "model": model,
+                "project_identity": "",
+                "identity_status": "unknown",
+                "skip_reason": "circuit_open",
+            })
+        rows.extend(
+            item for item in model_rows if str(item.get("skip_reason") or "")
+        )
+
+    for candidate_index, item in enumerate(rows, start=1):
+        item["candidate_index"] = candidate_index
+    return rows
+
+
 def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                         parse: bool = False, log_cb=None,
                         model_override: str | None = None,
@@ -1074,8 +1167,13 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             except Exception:
                 pass
 
-    candidate_plan = gemini_keys.live_chat_candidate_plan(
+    raw_candidate_plan = gemini_keys.live_chat_candidate_plan(
         model_chain_override=models
+    )
+    candidate_plan = _freeze_live_candidate_plan(
+        raw_candidate_plan,
+        models=models,
+        manual_key=manual_key,
     )
     candidates = [
         (item["key_name"], item["key_value"], item["model"])
@@ -1086,31 +1184,6 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         (item["key_name"], item["model"]): int(item["candidate_index"])
         for item in candidate_plan
     }
-    if manual_key:
-        candidates = [
-            ("(manual)", manual_key, model)
-            for model in models
-            if not gemini_keys.model_circuit_open(model)
-        ] + candidates
-    accounting_candidate_plan = []
-    if manual_key:
-        next_index = 0
-        for model in models:
-            next_index += 1
-            accounting_candidate_plan.append({
-                "candidate_index": next_index,
-                "key_name": "(manual)",
-                "model": model,
-                "project_identity": "",
-                "identity_status": "unknown",
-                "skip_reason": "",
-            })
-    offset = len(accounting_candidate_plan)
-    for item in candidate_plan:
-        accounting_candidate_plan.append({
-            **item,
-            "candidate_index": int(item.get("candidate_index") or 0) + offset,
-        })
     try:
         from management.services import gemini_accounting_runtime
 
@@ -1118,7 +1191,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             request_id=request_id,
             role="chat",
             reasoning_task=policy["task"],
-            candidate_plan=accounting_candidate_plan,
+            candidate_plan=candidate_plan,
             deadline_seconds=effective_deadline_seconds,
             routing_decision=routing_decision,
         )
@@ -1183,7 +1256,10 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     def _audit_remaining(reason: str, *, model: str = "") -> None:
         if accounting_observer is not None:
             # Canonical shadow settlement/terminalization owns the batched
-            # remainder. Avoid one duplicate legacy row/query per candidate.
+            # remainder. Persist the exact stop reason in one bulk operation;
+            # a model-scoped SLA stop must not be flattened to the later
+            # request-wide ``exhausted`` resolution.
+            accounting_observer.record_remaining(reason, model_filter=model)
             return
         for planned in candidate_plan:
             index = int(planned["candidate_index"])
@@ -1529,15 +1605,18 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         winner_payload = None
         for outcome in wave.outcomes:
             attempt_counter[0] += 1
+            frozen_candidate_index = candidate_indexes.get(
+                (outcome.key_name, outcome.model), outcome.candidate_index
+            )
             if outcome.skipped_reason:
                 _audit_skip(
                     outcome.key_name, outcome.model,
                     outcome.skipped_reason,
-                    candidate_indexes.get(
-                        (outcome.key_name, outcome.model), outcome.candidate_index
-                    ),
+                    frozen_candidate_index,
                 )
                 continue
+            if frozen_candidate_index:
+                dispatched_candidate_indexes.add(frozen_candidate_index)
             remaining_ms = max(0, int((deadline - time.monotonic()) * 1000))
             if outcome.succeeded:
                 parsed, usage = outcome.result
@@ -1553,7 +1632,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     latency_ms=outcome.latency_ms,
                     remaining_deadline_ms=remaining_ms, usage=usage,
                     attempt_index=attempt_counter[0],
-                    candidate_index=outcome.candidate_index,
+                    candidate_index=frozen_candidate_index,
                 )
                 attempts.append(f"{outcome.key_name}/{outcome.model}: ok")
                 _emit(
@@ -1583,7 +1662,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 decision=decision, latency_ms=outcome.latency_ms,
                 remaining_deadline_ms=remaining_ms,
                 attempt_index=attempt_counter[0],
-                candidate_index=outcome.candidate_index,
+                candidate_index=frozen_candidate_index,
             )
             attempts.append(f"{outcome.key_name}/{outcome.model}: {kind}")
             _emit(f"{outcome.key_name}/{outcome.model}: {kind} (hedged)")
@@ -1595,15 +1674,10 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         return winner_payload
 
     primary = models[0]
+    # The adaptive order was frozen before the immutable request graph was
+    # created.  Never ask the scoreboard for a second, potentially different
+    # order after persistence.
     primary_attempts = [candidate for candidate in candidates if candidate[2] == primary]
-    # Э-HEDGE: порядок кандидатів беремо зі скорборда — він знає, який ключ
-    # нещодавно відповідав швидко, і не карає ключ за повільність САМОЇ моделі.
-    try:
-        primary_attempts = gemini_scoreboard.order_candidates(
-            primary_attempts, role="chat"
-        )
-    except Exception:
-        logger.debug("gemini scoreboard unavailable", exc_info=True)
 
     # ЭБ.2: hedging лечит РАЗБРОС ЛАТЕНТНОСТИ, а не исчерпанную квоту. Под
     # квотой он вредит: 429 приходит за ~0.3 с, а следующий ключ волны стартует

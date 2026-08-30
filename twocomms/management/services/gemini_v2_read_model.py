@@ -81,7 +81,7 @@ _PUBLIC_FSM = frozenset(value for value, _label in GeminiRequestAttempt.FsmState
 _PUBLIC_RESOLUTIONS = frozenset({"failed", "succeeded"})
 _PUBLIC_TERMINAL_REASONS = frozenset({
     "deadline", "exhausted", "fatal_payload", "model_terminal",
-    "model_unavailable", "no_candidates", "provider_success",
+    "model_unavailable", "no_candidates", "no_model", "provider_success",
     "quota_cooldown", "quota_exhausted", "sla_model_budget", "winner_found",
 })
 _PUBLIC_SEND_STATES = frozenset({
@@ -307,11 +307,13 @@ def _pair_status(
         return "not_configured"
     if not accounting_active or slot.mapping_state != "explicit" or profile is None:
         return "accounting_unknown"
+    block_metrics = {item["metric"] for item in blocks}
     active_metrics = {item["metric"] for item in blocks if item["active"]}
     # A provider-confirmed block without a recognized quota dimension is
     # stronger evidence than local remaining counters.  Never turn it into an
-    # optimistic availability claim merely because the 429 omitted details.
-    if "unknown" in active_metrics:
+    # optimistic availability claim merely because the 429 omitted details or
+    # its best-effort cooldown timestamp elapsed.
+    if "unknown" in block_metrics:
         return "accounting_unknown"
     if "rpd" in active_metrics:
         return "rpd_exhausted_until_reset"
@@ -321,24 +323,31 @@ def _pair_status(
         return "tpm_limited"
     if state is None:
         return "available_assumed"
-    # BLOCKED is provider truth.  If its structured metric is absent, unknown,
-    # or no longer parseable, fail closed until the accounting writer records a
-    # non-blocked transition from real traffic.
-    if state.accounting_status == GeminiQuotaState.AccountingStatus.BLOCKED:
-        return "provider_degraded"
     if state.in_flight_count:
         return "in_flight"
+    failure = str(state.last_failure_kind or "").casefold()
+    if failure == "invalid_key" or state.last_http_code == 401:
+        return "auth_failed"
+    if failure in {"model_not_found", "permission_denied", "model_unavailable"}:
+        return "model_unavailable_for_project"
+    # A classified RPM/TPM/RPD cooldown is time-bounded provider truth.  Once
+    # every such block is expired, the UI may return to the deliberately weak
+    # ``available_assumed`` state.  Missing/unparseable/unknown blocks above,
+    # and any non-quota failure below, remain fail-closed.
+    if state.accounting_status == GeminiQuotaState.AccountingStatus.BLOCKED:
+        expired_classified_only = bool(block_metrics) and block_metrics.issubset(
+            {"rpm", "tpm", "rpd"}
+        ) and not active_metrics and all(
+            item.get("until") is not None for item in blocks
+        )
+        if not expired_classified_only or failure not in {"", "quota_429"}:
+            return "provider_degraded"
     success_at = _as_utc(state.last_success_at) if state.last_success_at else None
     failure_at = _as_utc(state.last_failure_at) if state.last_failure_at else None
     if success_at and (failure_at is None or success_at >= failure_at):
         age = (now - success_at).total_seconds()
         if 0 <= age <= RECENT_SUCCESS_SECONDS:
             return "confirmed_recent_success"
-    failure = str(state.last_failure_kind or "").casefold()
-    if failure == "invalid_key" or state.last_http_code == 401:
-        return "auth_failed"
-    if failure in {"model_not_found", "permission_denied", "model_unavailable"}:
-        return "model_unavailable_for_project"
     if state.accounting_status == GeminiQuotaState.AccountingStatus.DEGRADED:
         return "provider_degraded"
     return "available_assumed"

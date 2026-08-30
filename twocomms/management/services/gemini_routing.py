@@ -54,8 +54,16 @@ ANALYSIS_ESCALATION_CHAIN = ("gemini-3.7-flash",)
 _ALLOWED_LIVE_MODELS = frozenset(ORDINARY_CHAIN)
 _NO_MODEL_REASONS = frozenset({
     "authoritative_reply",
+    "duplicate_reply",
+    "explicit_no_buy",
+    "manager_takeover",
+    "opt_out",
     "postback",
     "provider_native_ugc",
+    "rate_limited",
+    "reaction_only",
+    "repeat_guard",
+    "spam_abuse",
     "media_unavailable",
 })
 
@@ -364,3 +372,14 @@ def persist_decision(message, decision: RoutingDecision) -> None:
         return
     for field, value in fields.items():
         setattr(message, field, value)
+    if decision.task_class == TaskClass.NO_MODEL:
+        try:
+            from management.services.gemini_accounting_runtime import (
+                record_no_model_decision,
+            )
+
+            record_no_model_decision(message, decision)
+        except Exception:
+            # Routing truth must remain durable even if optional shadow
+            # observability is unavailable.
+            return

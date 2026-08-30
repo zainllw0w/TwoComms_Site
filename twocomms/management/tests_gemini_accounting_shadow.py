@@ -127,6 +127,42 @@ class GeminiShadowPureContractTests(SimpleTestCase):
         self.assertNotIn("must-never", encoded)
         self.assertNotIn("customer-sentinel", encoded)
 
+    @patch("management.services.call_ai_analysis.gemini_scoreboard.order_candidates")
+    def test_live_plan_freezes_scoreboard_order_before_assigning_indexes(self, order):
+        order.side_effect = lambda candidates, **_kwargs: list(reversed(candidates))
+        raw = [
+            {
+                "candidate_index": index,
+                "key_name": alias,
+                "key_value": f"private-{index}",
+                "project_identity": f"project-{index}",
+                "identity_status": "known",
+                "model": "gemini-3.7-flash",
+                "skip_reason": "" if index < 3 else "quota_cooldown",
+            }
+            for index, alias in enumerate(
+                ("GEMINI_API", "GEMINI_API2", "GEMINI_API3"), start=1
+            )
+        ]
+
+        frozen = ai._freeze_live_candidate_plan(
+            raw,
+            models=["gemini-3.7-flash"],
+        )
+
+        self.assertEqual(
+            [row["key_name"] for row in frozen],
+            ["GEMINI_API2", "GEMINI_API", "GEMINI_API3"],
+        )
+        self.assertEqual(
+            [row["candidate_index"] for row in frozen],
+            [1, 2, 3],
+        )
+        self.assertEqual(frozen[-1]["skip_reason"], "quota_cooldown")
+        encoded = json.dumps(runtime.sanitize_candidate_plan(frozen), sort_keys=True)
+        self.assertNotIn("GEMINI_API", encoded)
+        self.assertNotIn("private-", encoded)
+
     @override_settings(**SHADOW)
     @patch.dict(
         os.environ,
@@ -254,6 +290,142 @@ class GeminiShadowRuntimeTests(TestCase):
             candidate_plan=_raw_plan(model, identity=identity),
             lane=lane,
         )
+
+    @override_settings(**SHADOW)
+    @patch("management.services.call_ai_analysis._gemini_call_once")
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_no_model_reason_table_creates_terminal_graphs_with_zero_provider_calls(
+        self,
+        post,
+        provider,
+    ):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("no-model-graph-client")
+        reasons = (
+            "provider_native_ugc",
+            "reaction_only",
+            "repeat_guard",
+            "duplicate_reply",
+            "postback",
+            "opt_out",
+            "manager_takeover",
+            "authoritative_reply",
+        )
+        for index, reason in enumerate(reasons, start=1):
+            with self.subTest(reason=reason):
+                message = InstagramBotMessage.objects.create(
+                    sender_id=client.igsid,
+                    client=client,
+                    role=InstagramBotMessage.Role.USER,
+                    text=f"bounded-{index}",
+                    mid=f"no-model-mid-{index}",
+                    status=InstagramBotMessage.Status.DONE,
+                )
+                decision = classify_live_turn(
+                    TurnFacts(deterministic_action=reason)
+                )
+                persist_decision(message, decision)
+                # A duplicate instrumentation call is idempotent at the
+                # immutable message-route boundary.
+                persist_decision(message, decision)
+
+                graph = GeminiRequest.objects.get(source_message_id=message.pk)
+                self.assertEqual(graph.task_class, "no_model")
+                self.assertEqual(graph.reasoning_task, "no_model")
+                self.assertEqual(graph.candidate_plan, [])
+                self.assertEqual(graph.candidate_outcomes, {})
+                self.assertEqual(graph.terminal_resolution, "succeeded")
+                self.assertEqual(graph.terminal_reason, "no_model")
+                self.assertIsNone(graph.provider_phase_started_at)
+                self.assertIsNotNone(graph.resolved_at)
+                self.assertFalse(
+                    GeminiRequestAttempt.objects.filter(request_graph=graph).exists()
+                )
+                message.refresh_from_db()
+                self.assertEqual(message.gemini_task_class, "no_model")
+                self.assertEqual(message.gemini_routing_reason_codes, [reason])
+
+        self.assertEqual(GeminiRequest.objects.count(), len(reasons))
+        provider.assert_not_called()
+        post.assert_not_called()
+
+    @override_settings(**SHADOW)
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_existing_ingress_no_reply_guards_record_graph_without_provider(
+        self,
+        post,
+        generate,
+    ):
+        from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
+        from management.services import instagram_bot
+
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.is_enabled = True
+        settings_obj.ai_enabled = True
+        settings_obj.allowed_senders = ""
+        settings_obj.save(update_fields=["is_enabled", "ai_enabled", "allowed_senders"])
+
+        cases = (
+            ("reaction", "ingress-reaction", "🔥", "reaction_only"),
+            ("opt_out", "ingress-opt-out", "STOP", "opt_out"),
+        )
+        for name, sender, text_value, reason in cases:
+            with self.subTest(name=name):
+                self.assertTrue(instagram_bot.enqueue_inbound(
+                    settings_obj,
+                    sender_id=sender,
+                    text=text_value,
+                    mid=f"{sender}-mid",
+                    source="webhook",
+                ))
+                message = InstagramBotMessage.objects.get(mid=f"{sender}-mid")
+                self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+                self.assertEqual(message.gemini_task_class, "no_model")
+                self.assertEqual(message.gemini_routing_reason_codes, [reason])
+                graph = GeminiRequest.objects.get(source_message_id=message.pk)
+                self.assertEqual(graph.terminal_reason, "no_model")
+                self.assertIsNone(graph.provider_phase_started_at)
+
+        takeover_client = IgClient.get_or_create_for_sender("ingress-takeover")
+        takeover_client.manager_takeover = True
+        takeover_client.bot_paused = True
+        takeover_client.paused_reason = "manager_takeover"
+        takeover_client.paused_at = timezone.now()
+        takeover_client.last_manager_message_at = timezone.now()
+        takeover_client.save(update_fields=[
+            "manager_takeover",
+            "bot_paused",
+            "paused_reason",
+            "paused_at",
+            "last_manager_message_at",
+            "updated_at",
+        ])
+        self.assertTrue(instagram_bot.enqueue_inbound(
+            settings_obj,
+            sender_id=takeover_client.igsid,
+            text="Ще одне повідомлення",
+            mid="ingress-takeover-mid",
+            source="webhook",
+        ))
+        takeover_message = InstagramBotMessage.objects.get(mid="ingress-takeover-mid")
+        self.assertEqual(takeover_message.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(takeover_message.gemini_task_class, "no_model")
+        self.assertEqual(
+            takeover_message.gemini_routing_reason_codes,
+            ["manager_takeover"],
+        )
+        self.assertEqual(
+            GeminiRequest.objects.get(
+                source_message_id=takeover_message.pk
+            ).terminal_reason,
+            "no_model",
+        )
+        generate.assert_not_called()
+        post.assert_not_called()
+        self.assertEqual(GeminiRequestAttempt.objects.count(), 0)
 
     @override_settings(GEMINI_ACCOUNTING_V2_MODE="off", GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="")
     @patch.dict(os.environ, KEY_ENV, clear=False)
@@ -1019,6 +1191,198 @@ class GeminiShadowRuntimeTests(TestCase):
         encoded = json.dumps(graph.candidate_plan)
         self.assertNotIn("GEMINI_API", encoded)
         self.assertNotIn("shadow-key", encoded)
+
+    @override_settings(**SHADOW)
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "frozen-key-1",
+            "GEMINI_API2": "frozen-key-2",
+            "GEMINI_API3": "frozen-key-3",
+            "GEMINI_API4": "",
+            "GEMINI_API5": "",
+            "GEMINI_API6": "",
+        },
+        clear=False,
+    )
+    @patch("management.services.call_ai_analysis.gemini_quota.settle")
+    @patch("management.services.call_ai_analysis.gemini_quota.try_reserve", return_value=True)
+    @patch("management.services.call_ai_analysis.gemini_scoreboard.order_candidates")
+    @patch("management.services.call_ai_analysis._gemini_call_once")
+    def test_reordered_plan_indexes_match_attempt_and_winner_order(
+        self,
+        call_once,
+        order,
+        _reserve,
+        _settle,
+    ):
+        order.side_effect = lambda candidates, **_kwargs: list(reversed(candidates))
+        outcomes = iter([
+            ai._Gemini429(scope="minute", retry_after_seconds=30),
+            ("ok", {}),
+        ])
+
+        def provider(*_args, **kwargs):
+            boundary = kwargs["attempt_boundary"]
+            boundary.before_provider(serialized_bytes=128)
+            outcome = next(outcomes)
+            if isinstance(outcome, Exception):
+                boundary.failed(outcome)
+                raise outcome
+            boundary.succeeded(outcome[1])
+            return outcome
+
+        call_once.side_effect = provider
+
+        out = ai.gemini_generate_text(
+            {"contents": [{"parts": [{"text": "bounded"}]}]},
+            role="chat",
+            model_chain_override=["gemini-3.5-flash-lite"],
+        )
+
+        self.assertEqual(out["parsed"], "ok")
+        graph = GeminiRequest.objects.get()
+        self.assertEqual(
+            [row["project_identity"] for row in graph.candidate_plan[:3]],
+            ["gemini-project-3", "gemini-project-2", "gemini-project-1"],
+        )
+        attempts = list(
+            GeminiRequestAttempt.objects.filter(request_graph=graph).order_by(
+                "attempt_index"
+            )
+        )
+        provider = [row for row in attempts if row.provider_started_at]
+        self.assertEqual(
+            [(row.project_identity, row.candidate_index) for row in provider],
+            [("gemini-project-3", 1), ("gemini-project-2", 2)],
+        )
+        self.assertEqual(graph.winner_attempt.candidate_index, 2)
+        self.assertEqual(
+            GeminiRequestAttempt.objects.get(
+                request_graph=graph,
+                candidate_index=3,
+            ).not_attempted_reason,
+            "winner_found",
+        )
+        encoded = json.dumps(graph.candidate_plan, sort_keys=True)
+        self.assertNotIn("GEMINI_API", encoded)
+        self.assertNotIn("frozen-key", encoded)
+
+    @override_settings(**SHADOW)
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "sla-key-1",
+            "GEMINI_API2": "sla-key-2",
+            "GEMINI_API3": "sla-key-3",
+            "GEMINI_API4": "",
+            "GEMINI_API5": "",
+            "GEMINI_API6": "",
+        },
+        clear=False,
+    )
+    @patch("management.services.call_ai_analysis.gemini_quota.try_reserve", return_value=True)
+    @patch("management.services.call_ai_analysis.gemini_scoreboard.order_candidates")
+    @patch("management.services.call_ai_analysis._gemini_call_once")
+    def test_reordered_timeout_budget_records_exact_skipped_remainder(
+        self,
+        call_once,
+        order,
+        _reserve,
+    ):
+        order.side_effect = lambda candidates, **_kwargs: list(reversed(candidates))
+        outcomes = iter([
+            ai._GeminiTransient("first slow"),
+            ai._GeminiTransient("second slow"),
+        ])
+
+        def provider(*_args, **kwargs):
+            boundary = kwargs["attempt_boundary"]
+            boundary.before_provider(serialized_bytes=128)
+            outcome = next(outcomes)
+            boundary.failed(outcome)
+            raise outcome
+
+        call_once.side_effect = provider
+
+        with self.assertRaises(ai.CallAIAnalysisError):
+            ai.gemini_generate_text(
+                {"contents": [{"parts": [{"text": "bounded"}]}]},
+                role="chat",
+                model_chain_override=["gemini-3.7-flash"],
+            )
+
+        graph = GeminiRequest.objects.get()
+        attempts = list(
+            GeminiRequestAttempt.objects.filter(request_graph=graph).order_by(
+                "attempt_index"
+            )
+        )
+        provider = [row for row in attempts if row.provider_started_at]
+        self.assertEqual(
+            [(row.project_identity, row.candidate_index) for row in provider],
+            [("gemini-project-3", 1), ("gemini-project-2", 2)],
+        )
+        skipped = GeminiRequestAttempt.objects.get(
+            request_graph=graph,
+            candidate_index=3,
+        )
+        self.assertEqual(skipped.project_identity, "gemini-project-1")
+        self.assertEqual(skipped.not_attempted_reason, "sla_model_budget")
+        self.assertEqual(graph.terminal_reason, "exhausted")
+
+    @override_settings(**SHADOW)
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "recovery-key-1",
+            "GEMINI_API2": "recovery-key-2",
+            "GEMINI_API3": "",
+            "GEMINI_API4": "",
+            "GEMINI_API5": "",
+            "GEMINI_API6": "",
+        },
+        clear=False,
+    )
+    @patch("management.services.call_ai_analysis.gemini_quota.settle")
+    @patch("management.services.call_ai_analysis.gemini_quota.try_reserve", return_value=True)
+    @patch("management.services.call_ai_analysis.gemini_scoreboard.order_candidates")
+    @patch("management.services.call_ai_analysis._gemini_call_once")
+    def test_recovery_graph_uses_same_frozen_execution_order(
+        self,
+        _call_once,
+        order,
+        _reserve,
+        _settle,
+    ):
+        order.side_effect = lambda candidates, **_kwargs: list(reversed(candidates))
+
+        def provider(*_args, **kwargs):
+            boundary = kwargs["attempt_boundary"]
+            boundary.before_provider(serialized_bytes=128)
+            boundary.succeeded({})
+            return "ok", {}
+
+        _call_once.side_effect = provider
+        with turn_lineage(
+            lane=Lane.RECOVERY,
+            client_id=77,
+            source_message_id=88,
+            logical_turn_id="t77:88",
+            recovery_job_id=99,
+        ):
+            out = ai.gemini_generate_text(
+                {"contents": [{"parts": [{"text": "bounded"}]}]},
+                role="chat",
+                model_chain_override=["gemini-3.5-flash-lite"],
+            )
+
+        self.assertEqual(out["parsed"], "ok")
+        graph = GeminiRequest.objects.get()
+        self.assertEqual(graph.lane, Lane.RECOVERY)
+        self.assertEqual(graph.recovery_job_id, 99)
+        self.assertEqual(graph.candidate_plan[0]["project_identity"], "gemini-project-2")
+        self.assertEqual(graph.winner_attempt.candidate_index, 1)
 
     @override_settings(**SHADOW)
     @patch.dict(os.environ, {key: "" for key in KEY_ENV}, clear=False)

@@ -322,6 +322,100 @@ class GeminiV2ReadApiTests(TestCase):
         self.assertEqual(row["status"], "provider_degraded")
         self.assertNotEqual(row["status"], "available_assumed")
 
+    def test_provider_block_state_table_expires_only_classified_quota_blocks(self):
+        active_until = self.now + dt.timedelta(minutes=5)
+        expired_until = self.now - dt.timedelta(seconds=1)
+        state = GeminiQuotaState.objects.create(
+            project_identity=self.groups["GEMINI_API"],
+            model="gemini-3.7-flash",
+            quota_profile=self.profiles["gemini-3.7-flash"],
+            pacific_day=self.now.astimezone(gemini_v2_read_model.PT).date(),
+            accounting_status=GeminiQuotaState.AccountingStatus.BLOCKED,
+            last_failure_at=self.now,
+            last_failure_kind="quota_429",
+            last_http_code=429,
+        )
+
+        cases = (
+            ("active_rpm", "rpm", active_until, "quota_429", 429, "rpm_limited"),
+            ("active_tpm", "tpm", active_until, "quota_429", 429, "tpm_limited"),
+            (
+                "active_rpd",
+                "rpd",
+                active_until,
+                "quota_429",
+                429,
+                "rpd_exhausted_until_reset",
+            ),
+            ("expired_rpm", "rpm", expired_until, "quota_429", 429, "available_assumed"),
+            ("expired_tpm", "tpm", expired_until, "quota_429", 429, "available_assumed"),
+            ("expired_rpd", "rpd", expired_until, "quota_429", 429, "available_assumed"),
+            ("active_unknown", "unknown", active_until, "quota_429", 429, "accounting_unknown"),
+            ("expired_unknown", "unknown", expired_until, "quota_429", 429, "accounting_unknown"),
+            ("expired_then_auth", "rpm", expired_until, "invalid_key", 401, "auth_failed"),
+            (
+                "expired_then_model_failure",
+                "tpm",
+                expired_until,
+                "model_not_found",
+                404,
+                "model_unavailable_for_project",
+            ),
+        )
+        for name, metric, until, failure_kind, http_code, expected in cases:
+            with self.subTest(name=name):
+                GeminiQuotaState.objects.filter(pk=state.pk).update(
+                    provider_blocks={
+                        metric: {
+                            "quota_id": "safe-test-quota",
+                            "dimensions": {"model": "gemini-3.7-flash"},
+                            "retry_after_seconds": 1,
+                            "until": until.isoformat(),
+                        }
+                    },
+                    accounting_status=GeminiQuotaState.AccountingStatus.BLOCKED,
+                    last_failure_at=self.now,
+                    last_failure_kind=failure_kind,
+                    last_http_code=http_code,
+                    last_success_at=None,
+                )
+                payload = gemini_v2_read_model.build_quotas_payload(now=self.now)
+                row = payload["models"][0]["projects"][0]
+                self.assertEqual(row["status"], expected)
+
+        for ambiguous_until in ("", "not-an-iso-timestamp"):
+            with self.subTest(ambiguous_until=ambiguous_until):
+                GeminiQuotaState.objects.filter(pk=state.pk).update(
+                    provider_blocks={
+                        "rpm": {
+                            "quota_id": "safe-test-quota",
+                            "dimensions": {"model": "gemini-3.7-flash"},
+                            "retry_after_seconds": 0,
+                            "until": ambiguous_until,
+                        }
+                    },
+                    accounting_status=GeminiQuotaState.AccountingStatus.BLOCKED,
+                    last_failure_kind="quota_429",
+                    last_http_code=429,
+                )
+                payload = gemini_v2_read_model.build_quotas_payload(now=self.now)
+                self.assertEqual(
+                    payload["models"][0]["projects"][0]["status"],
+                    "provider_degraded",
+                )
+
+        GeminiQuotaState.objects.filter(pk=state.pk).update(
+            provider_blocks={},
+            accounting_status=GeminiQuotaState.AccountingStatus.BLOCKED,
+            last_failure_kind="quota_429",
+            last_http_code=429,
+        )
+        payload = gemini_v2_read_model.build_quotas_payload(now=self.now)
+        self.assertEqual(
+            payload["models"][0]["projects"][0]["status"],
+            "provider_degraded",
+        )
+
     def test_routes_use_executable_policy_and_active_expiring_pin(self):
         pinned_until = self.now + dt.timedelta(minutes=10)
         InstagramBotSettings.objects.create(

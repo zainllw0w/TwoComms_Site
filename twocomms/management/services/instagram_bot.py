@@ -10613,6 +10613,7 @@ def enqueue_inbound(
         )
         if msg is None:
             return False
+        _persist_no_model_route(msg, action="opt_out")
         dedupe_key = f"permission:opt_out:message:{msg.pk}"
         job_existed = IgPermissionTransitionJob.objects.filter(
             dedupe_key=dedupe_key
@@ -10962,6 +10963,37 @@ def enqueue_inbound(
                     pass
     except IntegrityError:
         return False  # вже у черзі/оброблено (mid unique)
+    if (
+        msg.status == InstagramBotMessage.Status.DONE
+        and not str(getattr(msg, "gemini_routing_policy_version", "") or "")
+    ):
+        active_opt_out = bool(
+            client.opted_out_at
+            and (not client.opted_in_at or client.opted_in_at < client.opted_out_at)
+        )
+        action = (
+            "opt_out"
+            if active_opt_out or (explicit_opt_out and not stale_explicit_opt_out)
+            else "manager_takeover"
+            if client.manager_takeover or str(client.paused_reason or "") == "manager_takeover"
+            else ""
+        )
+        if not action:
+            interaction_type = (
+                msg.analysis_snapshots.filter(analysis_model="rules")
+                .order_by("-id")
+                .values_list("interaction_type", flat=True)
+                .first()
+            )
+            if interaction_type in {
+                "reaction_only",
+                "explicit_no_buy",
+                "opt_out",
+                "spam_abuse",
+            }:
+                action = str(interaction_type)
+        if action:
+            _persist_no_model_route(msg, action=action)
     if permission_transition_job_id:
         attempt_permission_transition(permission_transition_job_id)
     inbound_at = timezone.now()
@@ -11330,7 +11362,37 @@ def _own_processing_claim(row: InstagramBotMessage):
     return claim.filter(processing_started_at__isnull=True)
 
 
+def _persist_no_model_route(row: InstagramBotMessage, *, action: str) -> None:
+    """Attach the shared NO_MODEL decision/graph to an existing local exit."""
+    try:
+        from management.services.gemini_routing import persist_decision
+
+        persist_decision(
+            row,
+            live_routing_decision(
+                None,
+                deterministic_action=str(action or "authoritative_reply"),
+            ),
+        )
+    except Exception:
+        # Customer permission and deterministic business handling remain the
+        # authority; optional telemetry may never turn them into a provider call.
+        return
+
+
 def _skip_blocked_row(row: InstagramBotMessage, client: IgClient) -> bool:
+    active_opt_out = bool(
+        client.opted_out_at
+        and (not client.opted_in_at or client.opted_in_at < client.opted_out_at)
+    )
+    action = (
+        "opt_out"
+        if active_opt_out
+        else "manager_takeover"
+        if client.manager_takeover or str(client.paused_reason or "") == "manager_takeover"
+        else "authoritative_reply"
+    )
+    _persist_no_model_route(row, action=action)
     processed_at = timezone.now()
     if _own_processing_claim(row).update(
         status=InstagramBotMessage.Status.DONE,
@@ -11842,12 +11904,14 @@ def _process_one_inside_reply_boundary(
 
     suppression_reason = _early_reply_suppression_reason(row)
     if suppression_reason:
+        _persist_no_model_route(row, action=suppression_reason)
         if suppression_reason == "reaction_only":
             return _consume_early_reply_suppression(row, suppression_reason)
         return _skip_observed_row(row, reason=suppression_reason)
 
     # Rate limiting is a no-reply boundary and must precede sender actions.
     if _rate_exceeded(s, row.sender_id):
+        _persist_no_model_route(row, action="rate_limited")
         row.status = InstagramBotMessage.Status.DONE
         row.processed_at = timezone.now()
         row.save(update_fields=["status", "processed_at"])
@@ -12011,6 +12075,7 @@ def _process_one_inside_reply_boundary(
                     "opt_out",
                     "spam_abuse",
                 }:
+                    _persist_no_model_route(row, action=interaction_type)
                     clear_typing_indicator()
                     processed_at = timezone.now()
                     consumed = _own_processing_claim(row).update(
@@ -12048,7 +12113,7 @@ def _process_one_inside_reply_boundary(
                     row,
                     live_routing_decision(
                         s,
-                        deterministic_action="authoritative_reply",
+                        deterministic_action="reaction_only",
                     ),
                 )
                 clear_typing_indicator()
@@ -12116,7 +12181,7 @@ def _process_one_inside_reply_boundary(
 
             routing_decision = live_routing_decision(
                 s,
-                deterministic_action="authoritative_reply",
+                deterministic_action="repeat_guard",
             )
             persist_decision(row, routing_decision)
             log("info", "repeat_guard", f"{row.sender_id}: повтор #{rep}, без Gemini")
@@ -12833,6 +12898,11 @@ def _process_one_inside_reply_boundary(
     # Э-DUP: this is the last text-only barrier and it runs *before*
     # send_state="sending".  It also closes every prepared side effect.
     if reply and _recent_identical_reply_exists(row, reply):
+        # This only creates a NO_MODEL route when no earlier provider-backed
+        # route exists (for example the static reply path).  An ordinary live
+        # decision is immutable and is never rewritten to pretend that a
+        # provider call did not happen.
+        _persist_no_model_route(row, action="duplicate_reply")
         clear_typing_indicator()
         authorized_follow_cancelled = False
         if follow_authorized is not None:
