@@ -194,6 +194,10 @@ GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM = os.environ.get(
     'GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM',
     '',
 ).strip()
+GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY = os.environ.get(
+    'GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY',
+    '',
+).strip()
 
 # Э0.6: запись хода клиента (`IgCustomerTurn`). Само по себе только наблюдение —
 # порядок обработки очереди не меняется, поэтому включено по умолчанию: без записи

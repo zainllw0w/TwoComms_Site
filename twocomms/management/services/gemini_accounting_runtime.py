@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime as dt
 import math
 import re
+import secrets
 import threading
 import time
 import uuid
@@ -22,7 +23,7 @@ from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import DatabaseError, IntegrityError, transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import Case, Count, F, IntegerField, Min, Sum, When
 from django.utils import timezone
 
@@ -37,6 +38,7 @@ PROFILED_MODELS = frozenset({
     "gemini-3.5-flash-lite",
 })
 ATTEMPT_PERMIT_SECONDS = 180
+DB_RETRY_DELAYS = (0.0, 0.01, 0.03)
 _SAFE_TOKEN = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 _SAFE_REASON = re.compile(r"^[a-z0-9_]{0,32}$")
 _PLAN_FIELDS = frozenset({
@@ -116,7 +118,9 @@ def sanitize_candidate_plan(candidate_plan) -> list[dict]:
         if not model:
             continue
         identity_status = str(raw.get("identity_status") or "").strip().casefold()
-        if identity_status not in {"known", "unknown", "unconfigured", "duplicate"}:
+        if identity_status not in {
+            "known", "assumed", "unknown", "unconfigured", "duplicate",
+        }:
             identity_status = "known" if identity else "unknown"
         item = {
             "candidate_index": candidate_index,
@@ -139,9 +143,13 @@ def generic_candidate_plan(*, role: str, models, manual_key: str | None = None) 
     rows: list[dict] = []
     candidate_index = 0
     manual_value = str(manual_key or "").strip()
+    explicit_identities = gemini_keys.explicit_project_groups()
+    manual_fingerprint = gemini_keys.credential_fingerprint(manual_value)
+    manual_identity = ""
     if manual_value:
         alias = gemini_keys.configured_alias_for_secret(manual_value)
         identity = gemini_keys.project_group(alias) if alias else ""
+        manual_identity = identity
         for model in models:
             candidate_index += 1
             rows.append({
@@ -149,7 +157,9 @@ def generic_candidate_plan(*, role: str, models, manual_key: str | None = None) 
                 "key_name": "(manual)",
                 "model": str(model),
                 "project_identity": identity,
-                "identity_status": "known" if identity else "unknown",
+                "identity_status": (
+                    "known" if alias in explicit_identities else "assumed" if identity else "unknown"
+                ),
                 "skip_reason": "",
             })
 
@@ -158,17 +168,32 @@ def generic_candidate_plan(*, role: str, models, manual_key: str | None = None) 
     for alias in (*pool.get("own", ()), *pool.get("borrow", ())):
         if alias not in aliases:
             aliases.append(alias)
-    seen_values_by_model: dict[str, list[str]] = {}
-    seen_projects_by_model: dict[str, set[str]] = {}
+    seen_fingerprints_by_model: dict[str, list[bytes]] = {
+        str(model): [manual_fingerprint]
+        for model in models
+        if manual_fingerprint
+    }
+    seen_projects_by_model: dict[str, set[str]] = {
+        str(model): {manual_identity}
+        for model in models
+        if manual_identity
+    }
     for model in models:
-        seen_values = seen_values_by_model.setdefault(str(model), [])
+        seen_fingerprints = seen_fingerprints_by_model.setdefault(str(model), [])
         seen_projects = seen_projects_by_model.setdefault(str(model), set())
         for alias in aliases:
             candidate_index += 1
             value = gemini_keys._key_value(alias)
+            fingerprint = gemini_keys.credential_fingerprint(value)
             identity = gemini_keys.project_group(alias)
             duplicate = bool(
-                (value and value in seen_values)
+                (
+                    fingerprint
+                    and any(
+                        secrets.compare_digest(fingerprint, existing)
+                        for existing in seen_fingerprints
+                    )
+                )
                 or (identity and identity in seen_projects)
             )
             rows.append({
@@ -177,14 +202,23 @@ def generic_candidate_plan(*, role: str, models, manual_key: str | None = None) 
                 "model": str(model),
                 "project_identity": identity,
                 "identity_status": (
-                    "unconfigured" if not value else "duplicate" if duplicate else "known"
+                    "unconfigured"
+                    if not value
+                    else "duplicate"
+                    if duplicate
+                    else "known"
+                    if alias in explicit_identities
+                    else "assumed"
                 ),
                 "skip_reason": (
                     "unconfigured" if not value else "duplicate_credential" if duplicate else ""
                 ),
             })
-            if value and value not in seen_values:
-                seen_values.append(value)
+            if fingerprint and not any(
+                secrets.compare_digest(fingerprint, existing)
+                for existing in seen_fingerprints
+            ):
+                seen_fingerprints.append(fingerprint)
             if identity and value:
                 seen_projects.add(identity)
     return rows
@@ -385,6 +419,7 @@ class RequestObserver:
         self._lock = threading.Lock()
         self._candidate_indexes: dict[tuple[str, str], int] = {}
         self._candidate_identities: dict[tuple[str, str], str] = {}
+        self._candidate_identity_status: dict[tuple[str, str], str] = {}
         for position, raw in enumerate(raw_plan or (), start=1):
             if not isinstance(raw, dict):
                 continue
@@ -396,6 +431,9 @@ class RequestObserver:
             self._candidate_indexes.setdefault(key, index)
             self._candidate_identities.setdefault(
                 key, _safe_token(raw.get("project_identity"), limit=80)
+            )
+            self._candidate_identity_status.setdefault(
+                key, str(raw.get("identity_status") or "unknown").casefold()
             )
 
     def candidate_index(self, key_name: str, model: str) -> int:
@@ -420,12 +458,17 @@ class RequestObserver:
         identity = self._candidate_identities.get(
             (boundary.key_name, boundary.model), ""
         )
-        if identity:
+        identity_status = self._candidate_identity_status.get(
+            (boundary.key_name, boundary.model), "unknown"
+        )
+        if identity and identity_status == "known":
             return identity
         if boundary.key_name.startswith("GEMINI_API"):
             from management.services import gemini_keys
 
-            return _safe_token(gemini_keys.project_group(boundary.key_name), limit=80)
+            explicit = gemini_keys.explicit_project_groups()
+            if boundary.key_name in explicit:
+                return _safe_token(explicit[boundary.key_name], limit=80)
         return ""
 
     def _active_profile(self, model: str, now):
@@ -444,6 +487,31 @@ class RequestObserver:
         )
 
     def _before_provider(
+        self,
+        boundary: AttemptBoundary,
+        *,
+        serialized_bytes: int,
+        inline_count: int,
+    ) -> None:
+        last_error = None
+        for delay in DB_RETRY_DELAYS:
+            if delay:
+                time.sleep(delay)
+            try:
+                return self._before_provider_once(
+                    boundary,
+                    serialized_bytes=serialized_bytes,
+                    inline_count=inline_count,
+                )
+            except (OperationalError, IntegrityError) as exc:
+                last_error = exc
+                boundary.attempt_id = None
+                boundary.state_id = None
+                boundary.started_monotonic = None
+        if last_error is not None:
+            raise last_error
+
+    def _before_provider_once(
         self,
         boundary: AttemptBoundary,
         *,
@@ -567,6 +635,11 @@ class RequestObserver:
                     if state.next_permit_expiry_at
                     else expiry
                 )
+                next_status = (
+                    GeminiQuotaState.AccountingStatus.BLOCKED
+                    if active_block
+                    else GeminiQuotaState.AccountingStatus.AVAILABLE
+                )
                 GeminiQuotaState.objects.filter(pk=state.pk).update(
                     pacific_day=state.pacific_day,
                     rpd_reserved=state.rpd_reserved,
@@ -574,7 +647,7 @@ class RequestObserver:
                     rpd_uncertain=state.rpd_uncertain,
                     in_flight_count=int(state.in_flight_count or 0) + 1,
                     next_permit_expiry_at=next_expiry,
-                    accounting_status=GeminiQuotaState.AccountingStatus.AVAILABLE,
+                    accounting_status=next_status,
                     revision=F("revision") + 1,
                     updated_at=now,
                 )
@@ -677,7 +750,8 @@ class RequestObserver:
                 row.fsm_state = GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS
                 row.outcome = "timeout_ambiguous"
                 row.failure_kind = "stale_provider_boundary"
-                uncertain += 1
+                if row.dispatch_pacific_day == state.pacific_day:
+                    uncertain += 1
             else:
                 row.fsm_state = GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH
                 row.outcome = "cancelled_pre_dispatch"
@@ -703,6 +777,34 @@ class RequestObserver:
         state.next_permit_expiry_at = active.get("next_expiry")
 
     def _finish(
+        self,
+        boundary: AttemptBoundary,
+        *,
+        succeeded: bool,
+        error=None,
+        usage=None,
+        http_code: int | None = None,
+        failure_kind: str = "",
+    ) -> None:
+        last_error = None
+        for delay in DB_RETRY_DELAYS:
+            if delay:
+                time.sleep(delay)
+            try:
+                return self._finish_once(
+                    boundary,
+                    succeeded=succeeded,
+                    error=error,
+                    usage=usage,
+                    http_code=http_code,
+                    failure_kind=failure_kind,
+                )
+            except OperationalError as exc:
+                last_error = exc
+        if last_error is not None:
+            raise last_error
+
+    def _finish_once(
         self,
         boundary: AttemptBoundary,
         *,
@@ -800,14 +902,20 @@ class RequestObserver:
                         if not state.latency_ewma_ms
                         else int(state.latency_ewma_ms * 0.7 + latency_ms * 0.3)
                     )
-                    if late_success and state.rpd_uncertain:
+                    same_dispatch_day = (
+                        attempt.dispatch_pacific_day == state.pacific_day
+                    )
+                    if late_success and same_dispatch_day and state.rpd_uncertain:
                         state.rpd_uncertain = max(0, int(state.rpd_uncertain) - 1)
                 else:
                     state.last_failure_at = now
                     state.last_failure_kind = classified["failure_kind"]
                     state.last_http_code = classified["http_code"]
                     state.last_latency_ms = latency_ms
-                    if classified["timeout_ambiguous"]:
+                    if (
+                        classified["timeout_ambiguous"]
+                        and attempt.dispatch_pacific_day == state.pacific_day
+                    ):
                         state.rpd_uncertain = int(state.rpd_uncertain or 0) + 1
                     if classified["http_code"] == 429:
                         metric_key = classified["quota_metric"] or "unknown"
@@ -935,10 +1043,13 @@ def classify_failure(error, *, http_code=None, failure_kind="") -> dict:
     dimensions = getattr(error, "provider_quota_dimensions", {})
     if not isinstance(dimensions, dict):
         dimensions = {}
+    allowed_dimension_names = {"model", "location", "region", "tier"}
     safe_dimensions = {
         _safe_token(key, limit=40): _safe_token(value, limit=80)
         for key, value in list(dimensions.items())[:8]
-        if _safe_token(key, limit=40) and _safe_token(value, limit=80)
+        if str(key).casefold() in allowed_dimension_names
+        and _safe_token(key, limit=40)
+        and _safe_token(value, limit=80)
     }
     retry = max(0, int(getattr(error, "retry_after_seconds", 0) or 0))
     block_until = None
@@ -971,18 +1082,22 @@ def link_reply_if_present(*, request_id: str, reply_message_id: int) -> bool:
     try:
         from management.models import GeminiRequest, GeminiRequestAttempt
 
-        with transaction.atomic():
-            graph = GeminiRequest.objects.select_for_update().filter(
-                request_id=str(request_id)[:40]
-            ).first()
-            if graph is None:
-                return False
-            graph.reply_message_id = int(reply_message_id)
-            graph.save(update_fields=["reply_message_id", "updated_at"])
-            GeminiRequestAttempt.objects.filter(
-                request_graph=graph,
-                winner_claimed=True,
-            ).update(reply_message_id=int(reply_message_id))
-            return True
+        graph_id = GeminiRequest.objects.filter(
+            request_id=str(request_id)[:40]
+        ).values_list("id", flat=True).first()
+        if graph_id is None:
+            return False
+        now = timezone.now()
+        GeminiRequest.objects.filter(pk=graph_id).update(
+            reply_message_id=int(reply_message_id),
+            updated_at=now,
+        )
+        # Do not hold the request row while updating its winner attempt: the
+        # provider settlement lock order is attempt -> state -> request.
+        GeminiRequestAttempt.objects.filter(
+            request_graph_id=graph_id,
+            winner_claimed=True,
+        ).update(reply_message_id=int(reply_message_id))
+        return True
     except Exception:
         return False

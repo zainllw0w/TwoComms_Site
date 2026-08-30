@@ -1891,21 +1891,28 @@ def _provider_error_details(response) -> dict:
                 provider_quota_id = quota_id
             dimensions = violation.get("quotaDimensions")
             if isinstance(dimensions, dict):
+                allowed_dimension_names = {"model", "location", "region", "tier"}
                 provider_quota_dimensions = {
                     str(key)[:40]: str(value)[:80]
                     for key, value in list(dimensions.items())[:8]
-                    if re.fullmatch(r"[A-Za-z0-9_.:-]{1,40}", str(key))
+                    if str(key).casefold() in allowed_dimension_names
+                    and re.fullmatch(r"[A-Za-z0-9_.:-]{1,40}", str(key))
                     and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", str(value))
                 }
             normalized = quota_id.casefold().replace("_", "").replace("-", "")
             if quota_scope != "topup" and "perday" in normalized:
                 quota_scope = "day"
+                provider_quota_metric = provider_quota_metric or "rpd"
             elif quota_scope != "topup" and not quota_scope and (
                 "perminute" in normalized
                 or "tokensperminute" in normalized
                 or "requestsperminute" in normalized
             ):
                 quota_scope = "minute"
+            if "tokensperminute" in normalized:
+                provider_quota_metric = "tpm"
+            elif "requestsperminute" in normalized:
+                provider_quota_metric = "rpm"
             if quota_id:
                 parts.append(f"quota={quota_id[:64]}")
     if not quota_scope and status == "RESOURCE_EXHAUSTED":

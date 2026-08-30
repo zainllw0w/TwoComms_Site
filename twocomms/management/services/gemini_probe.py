@@ -142,7 +142,7 @@ def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
             try:
                 payload = response.json()
                 usage = payload.get("usageMetadata") if isinstance(payload, dict) else {}
-            except (TypeError, ValueError):
+            except (AttributeError, TypeError, ValueError):
                 usage = {}
         if boundary is not None:
             boundary.manual_result(

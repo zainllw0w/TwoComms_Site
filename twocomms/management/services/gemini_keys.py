@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import datetime
 import copy
+import hashlib
+import hmac
 import logging
 import os
 import re
@@ -194,6 +196,50 @@ def key_project_groups() -> dict[str, str]:
         if alias in ALL_KEYS and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", group):
             result[alias] = group
     return result
+
+
+def explicit_project_groups() -> dict[str, str]:
+    """Return only operator-configured mappings, never the safe default labels."""
+    configured = getattr(settings, "GEMINI_KEY_PROJECT_GROUPS", None)
+    if configured is None:
+        configured = os.environ.get("GEMINI_KEY_PROJECT_GROUPS", "")
+    if isinstance(configured, dict):
+        pairs = configured.items()
+    else:
+        pairs = []
+        for part in str(configured or "").split(","):
+            alias, separator, group = part.partition("=")
+            if separator:
+                pairs.append((alias, group))
+    result = {}
+    for alias, group in pairs:
+        alias = str(alias or "").strip()
+        group = str(group or "").strip()
+        if alias in ALL_KEYS and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", group):
+            result[alias] = group
+    return result
+
+
+_CREDENTIAL_HMAC_DOMAIN = b"twocomms/gemini-accounting/credential/v1\0"
+
+
+def credential_fingerprint(key_value: str | None) -> bytes:
+    """Return a domain-separated in-memory HMAC; callers must never persist it."""
+    value = str(key_value or "").strip()
+    if not value:
+        return b""
+    configured = str(
+        getattr(settings, "GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY", "") or ""
+    ).strip()
+    fallback = str(getattr(settings, "SECRET_KEY", "") or "")
+    key = (configured or fallback).encode("utf-8")
+    if not key:
+        return b""
+    return hmac.new(
+        key,
+        _CREDENTIAL_HMAC_DOMAIN + value.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
 
 
 def project_group(key_name: str) -> str:
@@ -377,9 +423,15 @@ def configured_alias_for_secret(key_value: str | None) -> str:
     candidate = str(key_value or "").strip()
     if not candidate:
         return ""
+    candidate_fingerprint = credential_fingerprint(candidate)
     for alias in ALL_KEYS:
         configured = _key_value(alias)
-        if configured and secrets.compare_digest(candidate, configured):
+        configured_fingerprint = credential_fingerprint(configured)
+        if (
+            candidate_fingerprint
+            and configured_fingerprint
+            and secrets.compare_digest(candidate_fingerprint, configured_fingerprint)
+        ):
             return alias
     return ""
 
@@ -1080,6 +1132,7 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
     }
     ordered_aliases = _ordered_role_keys("chat", states=key_states)
     identities = key_project_groups()
+    explicit_identities = explicit_project_groups()
     from management.services import gemini_quota
 
     quota_snapshot = gemini_quota.capacity_snapshot(
@@ -1111,7 +1164,7 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
             snapshot=quota_snapshot,
         )
         seen_projects: set[str] = set()
-        seen_credentials: list[str] = []
+        seen_credentials: list[bytes] = []
         model_skip = ""
         if is_model_overloaded(model):
             model_skip = "model_overload"
@@ -1126,14 +1179,15 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
         for key_name in ordered:
             candidate_index += 1
             key_value = _key_value(key_name)
+            key_fingerprint = credential_fingerprint(key_value)
             identity = str(identities.get(key_name) or "")
             skip_reason = model_skip
             if not key_value:
                 skip_reason = "unconfigured"
             elif any(
-                secrets.compare_digest(key_value, existing)
+                secrets.compare_digest(key_fingerprint, existing)
                 for existing in seen_credentials
-            ):
+            ) if key_fingerprint else False:
                 skip_reason = "duplicate_credential"
             elif identity and identity in seen_projects:
                 skip_reason = "duplicate_project"
@@ -1151,16 +1205,25 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
                 "key_name": key_name,
                 "key_value": key_value,
                 "project_identity": identity,
+                "identity_status": (
+                    "unconfigured"
+                    if not key_value
+                    else "duplicate"
+                    if skip_reason in {"duplicate_credential", "duplicate_project"}
+                    else "known"
+                    if key_name in explicit_identities
+                    else "assumed"
+                ),
                 "model": model,
                 "skip_reason": skip_reason,
             })
             if identity and key_value:
                 seen_projects.add(identity)
-            if key_value and not any(
-                secrets.compare_digest(key_value, existing)
+            if key_fingerprint and not any(
+                secrets.compare_digest(key_fingerprint, existing)
                 for existing in seen_credentials
             ):
-                seen_credentials.append(key_value)
+                seen_credentials.append(key_fingerprint)
     return plan
 
 
@@ -1250,6 +1313,7 @@ def primary_role_of(key_name: str) -> str:
 def pool_status(now: datetime.datetime | None = None, *, read_only: bool = False) -> list[dict]:
     now = now or timezone.now()
     today_pt = now.astimezone(PT).date()
+    explicit_identities = explicit_project_groups()
     if read_only:
         states = {
             state.key_name: state
@@ -1288,7 +1352,7 @@ def pool_status(now: datetime.datetime | None = None, *, read_only: bool = False
             "present": present,
             "role": primary_role_of(key_name),
             "project_group": project_group(key_name),
-            "project_identity_known": bool(project_group(key_name)),
+            "project_identity_known": key_name in explicit_identities,
             "available": available,
             "health_state": health_state,
             "current_status": health_state,

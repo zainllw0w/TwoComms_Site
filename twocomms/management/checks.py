@@ -1,6 +1,8 @@
 """Deployment checks for security-critical Instagram bot configuration."""
 
 from django.conf import settings
+import secrets
+
 from django.core.checks import Error, Tags, Warning, register
 
 
@@ -74,21 +76,38 @@ def gemini_accounting_shadow_check(app_configs=None, **_kwargs):
     configured = [
         alias for alias in gemini_keys.ALL_KEYS if gemini_keys._key_value(alias)
     ]
-    identities = [gemini_keys.project_group(alias) for alias in configured]
+    explicit = gemini_keys.explicit_project_groups()
+    identities = [explicit.get(alias, "") for alias in configured]
     errors = []
     if any(not identity for identity in identities):
         errors.append(Error(
-            "Every configured Gemini alias needs a stable project identity.",
-            id="management.E912",
+            "Every configured Gemini credential needs an explicit project identity mapping.",
+            hint=(
+                "Set GEMINI_KEY_PROJECT_GROUPS for every configured slot. Safe "
+                "gemini-project-N defaults are labels, not proof of Google project identity."
+            ),
+            id="management.E916",
         ))
-    if len(set(identities)) != len(identities):
+    known_identities = [identity for identity in identities if identity]
+    if len(set(known_identities)) != len(known_identities):
         errors.append(Error(
             "Configured Gemini aliases contain duplicate project identities.",
             hint="Shadow accounting requires one explicit identity per independent project.",
             id="management.E913",
         ))
-    values = [gemini_keys._key_value(alias) for alias in configured]
-    if len(set(values)) != len(values):
+    fingerprints = [
+        gemini_keys.credential_fingerprint(gemini_keys._key_value(alias))
+        for alias in configured
+    ]
+    duplicate_credential = any(
+        fingerprint
+        and any(
+            secrets.compare_digest(fingerprint, previous)
+            for previous in fingerprints[:index]
+        )
+        for index, fingerprint in enumerate(fingerprints)
+    )
+    if duplicate_credential:
         errors.append(Warning(
             "Configured Gemini aliases contain duplicate credentials.",
             hint=(
@@ -96,5 +115,16 @@ def gemini_accounting_shadow_check(app_configs=None, **_kwargs):
                 "until credential/project mapping is corrected."
             ),
             id="management.W914",
+        ))
+    if not str(
+        getattr(settings, "GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY", "") or ""
+    ).strip():
+        errors.append(Warning(
+            "Gemini credential identity uses the SECRET_KEY fallback HMAC.",
+            hint=(
+                "Set a dedicated GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY before "
+                "enforcement so Django signing-key rotation cannot change identity checks."
+            ),
+            id="management.W915",
         ))
     return errors

@@ -27,6 +27,15 @@ SHADOW_FROM = "2026-08-29T00:00:00-07:00"
 SHADOW = {
     "GEMINI_ACCOUNTING_V2_MODE": "shadow",
     "GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM": SHADOW_FROM,
+    "GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY": "shadow-test-hmac-key",
+    "GEMINI_KEY_PROJECT_GROUPS": {
+        "GEMINI_API": "gemini-project-1",
+        "GEMINI_API2": "gemini-project-2",
+        "GEMINI_API3": "gemini-project-3",
+        "GEMINI_API4": "gemini-project-4",
+        "GEMINI_API5": "gemini-project-5",
+        "GEMINI_API6": "gemini-project-6",
+    },
 }
 KEY_ENV = {
     "GEMINI_API": "shadow-key-1",
@@ -86,6 +95,37 @@ class GeminiShadowPureContractTests(SimpleTestCase):
         self.assertNotIn("must-never", encoded)
         self.assertNotIn("customer-sentinel", encoded)
 
+    @override_settings(**SHADOW)
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API3": "same-private-credential",
+            "GEMINI_API4": "same-private-credential",
+            "GEMINI_API5": "",
+            "GEMINI_API6": "",
+        },
+        clear=False,
+    )
+    def test_hmac_detects_env_and_manual_duplicates_without_persisting_digest(self):
+        from management.services import gemini_keys
+
+        plan = runtime.generic_candidate_plan(
+            role="management",
+            models=["gemini-3.6-flash"],
+            manual_key="same-private-credential",
+        )
+        duplicate_rows = [
+            row for row in plan if row.get("identity_status") == "duplicate"
+        ]
+        self.assertGreaterEqual(len(duplicate_rows), 2)
+        safe = runtime.sanitize_candidate_plan(plan)
+        encoded = json.dumps(safe, sort_keys=True)
+        fingerprint = gemini_keys.credential_fingerprint("same-private-credential")
+        self.assertTrue(fingerprint)
+        self.assertNotIn("same-private-credential", encoded)
+        self.assertNotIn(fingerprint.hex(), encoded)
+        self.assertFalse(any("key_name" in row for row in safe))
+
     @override_settings(
         GEMINI_ACCOUNTING_V2_MODE="shadow",
         GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="2026-08-29T01:00:00-07:00",
@@ -106,6 +146,68 @@ class GeminiShadowPureContractTests(SimpleTestCase):
             "management/services/gemini_probe.py",
         })
 
+    @override_settings(GEMINI_ACCOUNTING_V2_MODE="enforced")
+    def test_system_check_rejects_non_s3b_mode(self):
+        from management.checks import gemini_accounting_shadow_check
+
+        self.assertEqual(
+            [item.id for item in gemini_accounting_shadow_check()],
+            ["management.E910"],
+        )
+
+    @override_settings(
+        GEMINI_ACCOUNTING_V2_MODE="shadow",
+        GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="2026-08-29T02:00:00-07:00",
+    )
+    def test_system_check_rejects_non_midnight_shadow_gate(self):
+        from management.checks import gemini_accounting_shadow_check
+
+        self.assertEqual(
+            [item.id for item in gemini_accounting_shadow_check()],
+            ["management.E911"],
+        )
+
+    @override_settings(**{
+        **SHADOW,
+        "GEMINI_KEY_PROJECT_GROUPS": {
+            "GEMINI_API": "same-project",
+            "GEMINI_API2": "same-project",
+        },
+    })
+    @patch.dict(os.environ, {"GEMINI_API": "one", "GEMINI_API2": "two"}, clear=False)
+    def test_system_check_rejects_duplicate_project_identity(self):
+        from management.checks import gemini_accounting_shadow_check
+
+        self.assertIn(
+            "management.E913",
+            [item.id for item in gemini_accounting_shadow_check()],
+        )
+
+    @override_settings(
+        GEMINI_ACCOUNTING_V2_MODE="shadow",
+        GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM=SHADOW_FROM,
+        GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY="shadow-test-hmac-key",
+        GEMINI_KEY_PROJECT_GROUPS={},
+    )
+    @patch.dict(os.environ, {key: "" for key in KEY_ENV} | {"GEMINI_API": "one"}, clear=False)
+    def test_system_check_does_not_treat_default_labels_as_explicit_mapping(self):
+        from management.checks import gemini_accounting_shadow_check
+
+        self.assertIn(
+            "management.E916",
+            [item.id for item in gemini_accounting_shadow_check()],
+        )
+
+    @override_settings(**{**SHADOW, "GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY": ""})
+    @patch.dict(os.environ, {key: "" for key in KEY_ENV}, clear=False)
+    def test_system_check_labels_secret_key_hmac_as_shadow_only_fallback(self):
+        from management.checks import gemini_accounting_shadow_check
+
+        self.assertIn(
+            "management.W915",
+            [item.id for item in gemini_accounting_shadow_check()],
+        )
+
 
 class GeminiShadowRuntimeTests(TestCase):
     def _observer(self, model="gemini-3.7-flash", *, identity="gemini-project-1", lane="analysis"):
@@ -121,12 +223,16 @@ class GeminiShadowRuntimeTests(TestCase):
     @patch.dict(os.environ, KEY_ENV, clear=False)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
     def test_default_off_has_absolute_zero_v2_rows(self, _post):
-        out = ai.gemini_generate_text(
-            {"contents": [{"role": "user", "parts": [{"text": "hello"}]}]},
-            role="management",
-            reasoning_task="memory_summary",
-        )
+        with CaptureQueriesContext(connection) as captured:
+            out = ai.gemini_generate_text(
+                {"contents": [{"role": "user", "parts": [{"text": "hello"}]}]},
+                role="management",
+                reasoning_task="memory_summary",
+            )
         self.assertEqual(out["parsed"], "ok")
+        accounting_sql = "\n".join(query["sql"].casefold() for query in captured)
+        self.assertNotIn("management_geminirequest\"", accounting_sql)
+        self.assertNotIn("management_geminiquotastate", accounting_sql)
         self.assertEqual(GeminiRequest.objects.count(), 0)
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
         self.assertEqual(
@@ -145,6 +251,42 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertNotIn("GEMINI_API", encoded)
         self.assertNotIn("must-never", encoded)
         self.assertNotIn("customer-sentinel", encoded)
+
+    @override_settings(**SHADOW)
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API3": "db-private-duplicate",
+            "GEMINI_API4": "db-private-duplicate",
+            "GEMINI_API5": "",
+            "GEMINI_API6": "",
+        },
+        clear=False,
+    )
+    def test_duplicate_hmac_and_raw_credential_never_enter_request_database(self):
+        from management.services import gemini_keys
+
+        plan = runtime.generic_candidate_plan(
+            role="management",
+            models=["gemini-3.6-flash"],
+            manual_key="db-private-duplicate",
+        )
+        observer = runtime.begin_request(
+            request_id=uuid_for_test(),
+            role="management",
+            reasoning_task="memory_summary",
+            candidate_plan=plan,
+            lane="analysis",
+        )
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        encoded = json.dumps(graph.candidate_plan, sort_keys=True)
+        fingerprint = gemini_keys.credential_fingerprint("db-private-duplicate")
+        self.assertNotIn("db-private-duplicate", encoded)
+        self.assertNotIn(fingerprint.hex(), encoded)
+        self.assertGreaterEqual(
+            sum(row["identity_status"] == "duplicate" for row in graph.candidate_plan),
+            2,
+        )
 
     @override_settings(**SHADOW)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
@@ -255,6 +397,28 @@ class GeminiShadowRuntimeTests(TestCase):
         )
 
     @override_settings(**SHADOW)
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    def test_gateway_payload_fatal_updates_same_linked_cancelled_row(self):
+        with patch.object(ai, "PROVIDER_REQUEST_MAX_BYTES", 1):
+            with self.assertRaises(ai.CallAIAnalysisError):
+                ai.gemini_generate_text(
+                    {"contents": [{"parts": [{"text": "too large"}]}]},
+                    role="management",
+                    reasoning_task="memory_summary",
+                )
+        graph = GeminiRequest.objects.get()
+        rows = GeminiRequestAttempt.objects.filter(request_id=graph.request_id)
+        self.assertEqual(rows.count(), 1)
+        attempt = rows.get()
+        self.assertEqual(attempt.request_graph_id, graph.pk)
+        self.assertEqual(
+            attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+        )
+        self.assertEqual(attempt.outcome, "cancelled_pre_dispatch")
+        self.assertEqual(graph.terminal_resolution, "failed")
+
+    @override_settings(**SHADOW)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
     def test_unknown_custom_and_unprofiled_25_never_create_invented_state(self, _post):
         for model, identity in (
@@ -303,6 +467,69 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertEqual(state.rpd_dispatched, profile.rpd_limit + 1)
 
     @override_settings(**SHADOW)
+    def test_stale_provider_boundary_reconciles_and_late_success_is_idempotent(self):
+        first = self._observer()
+        first_boundary = first.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        first_boundary.before_provider(serialized_bytes=100, inline_count=0)
+        stale_at = timezone.now() - dt.timedelta(seconds=1)
+        GeminiRequestAttempt.objects.filter(pk=first_boundary.attempt_id).update(
+            permit_expires_at=stale_at,
+            reservation_expires_at=stale_at,
+        )
+        GeminiQuotaState.objects.filter(pk=first_boundary.state_id).update(
+            next_permit_expiry_at=stale_at,
+        )
+
+        second = self._observer()
+        second_boundary = second.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        second_boundary.before_provider(serialized_bytes=100, inline_count=0)
+        first_attempt = GeminiRequestAttempt.objects.get(pk=first_boundary.attempt_id)
+        self.assertEqual(
+            first_attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+        )
+        second_boundary.manual_result(
+            succeeded=True,
+            http_code=200,
+            usage={"promptTokenCount": 3, "totalTokenCount": 4},
+        )
+        first_boundary.succeeded({"promptTokenCount": 5, "totalTokenCount": 7})
+        first_boundary.succeeded({"promptTokenCount": 5, "totalTokenCount": 7})
+
+        first_attempt.refresh_from_db()
+        state = GeminiQuotaState.objects.get(pk=first_boundary.state_id)
+        self.assertEqual(
+            first_attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+        )
+        self.assertEqual(state.rpd_dispatched, 2)
+        self.assertEqual(state.rpd_uncertain, 0)
+        self.assertEqual(state.in_flight_count, 0)
+
+    @override_settings(**SHADOW)
+    def test_cross_midnight_settlement_keeps_original_dispatch_day(self):
+        dispatch_at = dt.datetime(2026, 8, 31, 6, 59, tzinfo=dt.timezone.utc)
+        finish_at = dt.datetime(2026, 8, 31, 7, 1, tzinfo=dt.timezone.utc)
+        with patch.object(runtime.timezone, "now", return_value=dispatch_at):
+            observer = self._observer()
+            boundary = observer.attempt(
+                key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+            )
+            boundary.before_provider(serialized_bytes=100, inline_count=0)
+        with patch.object(runtime.timezone, "now", return_value=finish_at):
+            boundary.manual_result(
+                succeeded=True,
+                http_code=200,
+                usage={"promptTokenCount": 3, "totalTokenCount": 4},
+            )
+        attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+        self.assertEqual(attempt.dispatch_pacific_day, dt.date(2026, 8, 30))
+
+    @override_settings(**SHADOW)
     @patch("management.services.call_ai_analysis.requests.post")
     def test_structured_429_is_bounded_and_marks_external_drift(self, post):
         post.return_value = _Response(429, {
@@ -314,7 +541,11 @@ class GeminiShadowRuntimeTests(TestCase):
                     "violations": [{
                         "quotaMetric": "rpd",
                         "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
-                        "quotaDimensions": {"model": "gemini-3.7-flash", "location": "global"},
+                        "quotaDimensions": {
+                            "model": "gemini-3.7-flash",
+                            "location": "global",
+                            "project": "real-project-id-must-not-persist",
+                        },
                     }],
                 }],
             },
@@ -336,6 +567,7 @@ class GeminiShadowRuntimeTests(TestCase):
             "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
         )
         self.assertEqual(attempt.provider_quota_dimensions["model"], "gemini-3.7-flash")
+        self.assertNotIn("project", attempt.provider_quota_dimensions)
         self.assertEqual(attempt.provider_retry_after_seconds, 44)
         self.assertTrue(state.external_usage_suspected)
         self.assertNotIn("private provider body", json.dumps(state.provider_blocks))
@@ -428,6 +660,29 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertIsNone(attempt.quota_profile_id)
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
 
+    @override_settings(
+        GEMINI_ACCOUNTING_V2_MODE="shadow",
+        GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM=SHADOW_FROM,
+        GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY="shadow-test-hmac-key",
+        GEMINI_KEY_PROJECT_GROUPS={},
+    )
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
+    def test_default_project_labels_are_assumed_not_quota_identities(self, _post):
+        ai.gemini_generate_text(
+            {"contents": [{"parts": [{"text": "memory"}]}]},
+            role="management",
+            reasoning_task="memory_summary",
+        )
+        graph = GeminiRequest.objects.get()
+        self.assertTrue(any(
+            row["identity_status"] == "assumed" for row in graph.candidate_plan
+        ))
+        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        self.assertEqual(attempt.project_identity, "")
+        self.assertIsNone(attempt.quota_profile_id)
+        self.assertEqual(GeminiQuotaState.objects.count(), 0)
+
     @override_settings(**SHADOW)
     @patch.dict(os.environ, KEY_ENV, clear=False)
     @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
@@ -446,6 +701,26 @@ class GeminiShadowRuntimeTests(TestCase):
             GeminiRequestAttempt.objects.filter(request_graph__isnull=False).count(),
             3,
         )
+
+    @override_settings(**SHADOW)
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_call_audio_wrapper_uses_one_profiled_shadow_attempt(self, post):
+        post.return_value = _Response(payload={
+            "candidates": [{
+                "finishReason": "STOP",
+                "content": {"parts": [{"text": '{"overall_score": 1}'}]},
+            }],
+            "usageMetadata": {"promptTokenCount": 20, "totalTokenCount": 24},
+        })
+        out = ai._gemini_analyze(b"bounded-audio", "audio/mpeg", "", "")
+        self.assertEqual(out["parsed"]["overall_score"], 1)
+        graph = GeminiRequest.objects.get()
+        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        self.assertEqual(graph.reasoning_task, "customer_intelligence")
+        self.assertEqual(graph.lane, "analysis")
+        self.assertIsNotNone(attempt.quota_profile_id)
+        self.assertEqual(attempt.fsm_state, GeminiRequestAttempt.FsmState.SUCCEEDED)
 
     @override_settings(**SHADOW)
     @patch.dict(os.environ, KEY_ENV, clear=False)
