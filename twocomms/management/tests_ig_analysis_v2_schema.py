@@ -196,6 +196,66 @@ class AnalysisV2SchemaTests(TestCase):
         with self.assertRaisesRegex(ValueError, "append-only"):
             result.delete()
 
+    def test_protected_base_managers_reject_raw_pii_bulk_create(self):
+        bad_result = IgConversationAnalysisResult(
+            result_key="analysis-v2:" + hashlib.sha256(b"base-manager-result").hexdigest(),
+            legacy_snapshot=self.snapshot,
+            client=self.client_row,
+            watermark_message_id=10,
+            job_revision=2,
+            materiality_event_highwater=4,
+            materiality_digest="a" * 64,
+            authority_digest="b" * 64,
+            artifact_digest="c" * 64,
+            state_correlation="d" * 64,
+            result_schema_version="analysis-v2.1",
+            normalizer_version="analysis-v2-normalizer.1",
+            interaction_type=self.snapshot.interaction_type,
+            score_band=self.snapshot.score_band,
+            purchase_probability=Decimal("0.5000"),
+            purchase_confidence=Decimal("0.8000"),
+            probability_basis=(
+                IgConversationAnalysisResult.ProbabilityBasis.CUSTOMER_EVIDENCE
+            ),
+            evidence_manifest=[{
+                "message_id": 1,
+                "source_role": "user",
+                "claim_codes": ["purchase_intent"],
+                "quote": "Call +380501234567 or customer@example.com",
+            }],
+            customer_evidence_count=1,
+            result_digest="e" * 64,
+            analyzed_at=timezone.now(),
+        )
+        with self.assertRaises(ValidationError):
+            IgConversationAnalysisResult._base_manager.bulk_create([bad_result])
+
+        result = self._result()
+        bad_proposal = IgAnalysisProposal(
+            proposal_key=(
+                "analysis-proposal:"
+                + hashlib.sha256(b"base-manager-proposal").hexdigest()
+            ),
+            analysis_result=result,
+            ordinal=1,
+            client=self.client_row,
+            proposal_type=IgAnalysisProposal.ProposalType.UPDATE_PROBABILITY,
+            target_scope=IgAnalysisProposal.TargetScope.CLIENT,
+            typed_value={
+                "probability": "0.5000",
+                "basis": "customer_evidence",
+                "phone": "+380501234567",
+            },
+            evidence_message_ids=[10],
+            confidence=Decimal("0.8000"),
+            source_result_digest=result.result_digest,
+            expected_materiality_digest=result.materiality_digest,
+            expected_authority_digest=result.authority_digest,
+            expected_state_correlation=result.state_correlation,
+        )
+        with self.assertRaises(ValidationError):
+            IgAnalysisProposal._base_manager.bulk_create([bad_proposal])
+
     def test_proposal_allows_status_only_mutation_and_rejects_identity_changes(self):
         result = self._result()
         proposal = self._proposal(result)

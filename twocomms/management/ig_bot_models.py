@@ -5416,6 +5416,7 @@ class IgConversationAnalysisResult(models.Model):
     objects = _IgConversationAnalysisResultQuerySet.as_manager()
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["-id"]
         constraints = [
             models.UniqueConstraint(
@@ -5522,7 +5523,17 @@ class _IgAnalysisProposalQuerySet(models.QuerySet):
             raise ValueError("IgAnalysisProposal identity is immutable")
         for obj in objs:
             _validate_analysis_proposal_payload(obj)
-        return super().bulk_update(objs, fields, batch_size=batch_size)
+        # Django implements bulk_update() through QuerySet.update(CASE ...).
+        # Use a plain QuerySet only after validating every object so the
+        # public mutable-value boundary does not mistake internal CASE
+        # expressions for untrusted caller values.
+        plain_queryset = models.QuerySet(
+            model=self.model,
+            query=self.query.chain(),
+            using=self.db,
+            hints=self._hints,
+        )
+        return plain_queryset.bulk_update(objs, fields, batch_size=batch_size)
 
     def bulk_create(self, objs, *args, **kwargs):
         if kwargs.get("update_conflicts") or kwargs.get("update_fields"):
@@ -5635,6 +5646,7 @@ class IgAnalysisProposal(models.Model):
     objects = _IgAnalysisProposalQuerySet.as_manager()
 
     class Meta:
+        base_manager_name = "objects"
         ordering = ["id"]
         constraints = [
             models.UniqueConstraint(

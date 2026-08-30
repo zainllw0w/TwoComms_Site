@@ -342,6 +342,7 @@ STATE_OPERATIONS = [
             ("legacy_snapshot", models.OneToOneField(db_constraint=False, on_delete=django.db.models.deletion.DO_NOTHING, related_name="analysis_v2_result", to="management.igconversationanalysissnapshot")),
         ],
         options={
+            "base_manager_name": "objects",
             "ordering": ["-id"],
             "indexes": [
                 models.Index(fields=["client", "-created_at"], name="ig_anres_client_created"),
@@ -389,6 +390,7 @@ STATE_OPERATIONS = [
             ("commercial_episode", models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name="analysis_v2_proposals", to="management.igcommercialepisode")),
         ],
         options={
+            "base_manager_name": "objects",
             "ordering": ["id"],
             "indexes": [
                 models.Index(fields=["status", "id"], name="ig_anprop_status_id"),
