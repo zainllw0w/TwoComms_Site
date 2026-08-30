@@ -71,9 +71,8 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         )
         durable_line = next(line for line in active_crontab.splitlines() if "run_durable_tasks" in line)
         self.assertIn("# BEGIN TWOCOMMS DJANGO61 DURABLE TASKS", active_crontab)
-        self.assertIn("tmp/django61_durable_tasks.lock", durable_line)
-        self.assertIn("exec /usr/bin/flock -n", durable_line)
-        self.assertIn("/usr/bin/flock -n", durable_line)
+        self.assertIn("tmp/twocomms_heavy_background.lock", durable_line)
+        self.assertIn("exec /usr/bin/flock -w 50 -E 75", durable_line)
         self.assertIn("/usr/bin/timeout --signal=TERM --kill-after=15s 240s", durable_line)
         self.assertIn("--worker-id=cron-no-send", durable_line)
         self.assertIn("DJANGO_ENV=production", durable_line)
@@ -136,8 +135,8 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
 
     def test_missing_timeout_fails_closed(self):
         lines = self.crontab().splitlines()
-        index = next(i for i, line in enumerate(lines) if "reconcile_ig_checkout" in line)
-        lines[index] = lines[index].replace("/usr/bin/timeout --signal=TERM --kill-after=15s 90s", "")
+        index = next(i for i, line in enumerate(lines) if "run_instagram_periodic_jobs" in line)
+        lines[index] = lines[index].replace("/usr/bin/timeout --signal=TERM --kill-after=15s 600s", "")
         result = self.invoke_validator("\n".join(lines) + "\n")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("bounded timeout", result.stderr)
@@ -191,6 +190,33 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
             path.unlink()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("owner script", result.stderr)
+
+    def test_every_heavy_django_owner_shares_one_account_wide_lock(self):
+        heavy_jobs = [
+            job
+            for job in self.jobs
+            if job.get("active", True) and job.get("runtime", "django") == "django"
+        ]
+        self.assertEqual(
+            {job["lock_path"] for job in heavy_jobs},
+            {self.manifest["global_heavy_process_lock"]},
+        )
+
+        broken = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        next(
+            job for job in broken["jobs"] if job["id"] == "nova_poshta_tracking"
+        )["lock_path"] = "tmp/nova_poshta_tracking.lock"
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", suffix=".json", delete=False
+        ) as handle:
+            json.dump(broken, handle)
+            path = Path(handle.name)
+        try:
+            result = self.invoke_validator(self.crontab(), manifest=path)
+        finally:
+            path.unlink()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("global admission lock", result.stderr)
 
 
 if __name__ == "__main__":

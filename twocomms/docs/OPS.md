@@ -62,24 +62,26 @@ retention и задач из snapshot 05.07.2026 этим прогоном не 
 
 ### Единый application cron contract (DJ6-SRV-005)
 
-Три repository installer-а владеют семью application jobs: шесть работают
-постоянно, а `run_call_ai_analyses` запускается только когда администратор
-включил `Автоаналіз дзвінків`. Постоянные строки имеют non-blocking
-`/usr/bin/flock -n -E 75` и внешний `/usr/bin/timeout
---signal=TERM --kill-after=15s`; exit `75` означает, что предыдущий owner
-ещё работает и новый прогон намеренно пропущен. Условная строка сначала
-проверяет приватный runtime-маркер и при выключенном состоянии завершается до
-запуска Python, Django, MariaDB, `flock` и `timeout`.
+Четыре repository installer-а создают три тяжёлых Django owner-а и один лёгкий
+stdlib watchdog. Все тяжёлые cron-команды берут один account-wide admission
+lock `tmp/twocomms_heavy_background.lock` **до** запуска Python/Django. Поэтому
+cron wave не может одновременно держать несколько Django runtime в CloudLinux
+LVE. Ожидание lock ограничено 50 секундами; exit `75` означает осознанный
+defer до следующего cadence.
+
+Instagram payment/checkout/fulfillment/Telegram/call-analysis fan-out собран в
+один `run_instagram_periodic_jobs`: команда одним ORM snapshot определяет due
+lanes и выполняет их последовательно. Каждая business lane сохраняет прежний
+`InstagramBotTaskHeartbeat`; выключенный call analysis не трогает очередь и не
+создаёт ложный heartbeat. Автоматического Gemini metadata check больше нет —
+`check_ig_gemini_metadata_health` остаётся только явной ручной диагностикой.
 
 | Owner | Cadence | Deadline | Ограничение и recovery |
 |---|---:|---:|---|
-| `run_instagram_bot --ensure` | 1 мин | 75 с | heartbeat + внутренние spawn/daemon locks; bounded drain/start |
-| `reconcile_order_telegram_notifications` | 2 мин | 90 с | `--limit 50`, per-order delivery lease и monotonic channel markers |
-| `reconcile_ig_checkout` | 2 мин | 90 с | `--limit 100`, durable checkout state, leases и ambiguous recovery |
-| `reconcile_ig_order_fulfillment` | 2 мин | 90 с | `--limit 100`, event key, lease, provider receipt и retry due time |
-| `poll_ig_deal_payments` | 4 мин | 180 с | `--limit 50`, projection/invoice lifecycle и bounded provider polling |
+| `instagram_bot_supervisor.py --ensure` | 1 мин | 20 с | stdlib-only ensure; supervisor lock + child SHA/PID/start ticks/exit attribution |
+| `run_instagram_periodic_jobs` | 1 мин | 600 с | один последовательный owner для пяти lanes; per-lane cadence 2/2/2/4/5 мин |
+| `run_durable_tasks` | 1 мин | 240 с | allowlisted batch, global heavy-process admission lock |
 | `update_tracking_statuses` | 5 мин | 240 с | batch до 100 ТТН, provider timeout/retry/rate limit и due filtering |
-| `run_call_ai_analyses` | 5 мин | 240 с | выключаемый администратором fail-closed gate; сохранённая очередь не меняется, пока функция выключена |
 
 Каждая scheduled command пишет `InstagramBotTaskHeartbeat`. Ошибка команды
 фиксирует только безопасный exception class; отсутствие свежего success даёт
@@ -90,14 +92,32 @@ retention и задач из snapshot 05.07.2026 этим прогоном не 
 Установка и проверка выполняются из Django-каталога:
 
 ```bash
+../scripts/install_django61_durable_tasks_cron.sh --install
 ../scripts/install_instagram_bot_watchdog_cron.sh --install
 ../scripts/install_instagram_periodic_jobs_cron.sh --install
 ../scripts/install_nova_poshta_tracking_cron.sh --install
 
+../scripts/install_django61_durable_tasks_cron.sh --check
 ../scripts/install_instagram_bot_watchdog_cron.sh --check
 ../scripts/install_instagram_periodic_jobs_cron.sh --check
 ../scripts/install_nova_poshta_tracking_cron.sh --check
 ```
+
+Первый переход со старого detached daemon выполняйте через существующий
+maintenance lease: включить maintenance, установить/проверить все четыре
+managed blocks, снять **свой** lease и вызвать лёгкий supervisor `--ensure`.
+Не удаляйте PID/lock-файлы вручную. Диагностика без Django:
+
+```bash
+../scripts/instagram_bot_supervisor.py --status \
+  --root "$PWD" \
+  --python /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python
+```
+
+Текущее состояние хранится атомарно в `tmp/ig_bot_supervisor_state.json`, а
+последние не более 200 событий и 128 KiB — в
+`tmp/ig_bot_supervisor_events.jsonl`. Сверяйте release SHA, PID и Linux process
+start ticks вместе: совпадение одного PID без start ticks не доказывает identity.
 
 Installer обязан сохранить unrelated crontab entries и fail closed при
 duplicate/malformed/unknown owner. Ручной запуск provider-команды допустим
@@ -105,7 +125,8 @@ duplicate/malformed/unknown owner. Ручной запуск provider-коман
 
 ### Инварианты
 
-- Три application managed blocks содержат ровно семь matching jobs: шесть постоянных и один runtime-gated, по одному owner каждой команды; infrastructure cron entries считаются отдельно.
+- Четыре managed blocks содержат ровно четыре process owners. Пять Instagram business lanes имеют одного владельца внутри coordinator; Nova Poshta и durable tasks имеют отдельных владельцев, но тот же global admission lock.
+- Process pulse доказывает только живой daemon process. `ig_bot_daemon_main_progress` отдельно показывает продвижение основного цикла; свежий pulse не маскирует stuck work.
 - НИКОГДА не добавляйте cron-задачу без repository installer-а, bounded contract и записи в этот runbook.
 - Новые задачи логируйте в закрытый служебный каталог; backup log находится вне web-root, а `reconcile_purchase_actions` пишет одну короткую итоговую строку в сутки.
 

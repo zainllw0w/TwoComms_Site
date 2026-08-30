@@ -13823,7 +13823,36 @@ def status_snapshot() -> dict:
         daemon_heartbeat_age = time.time() - float(dhb) if dhb else None
     except (TypeError, ValueError):
         daemon_heartbeat_age = None
-    daemon_online = bool(daemon_heartbeat_age is not None and daemon_heartbeat_age < 45)
+    try:
+        from management.services.ig_turn_budget import heartbeat_alive_window_seconds
+
+        daemon_alive_window = heartbeat_alive_window_seconds()
+    except Exception:
+        daemon_alive_window = 150
+    daemon_online = bool(
+        daemon_heartbeat_age is not None
+        and daemon_heartbeat_age < daemon_alive_window
+    )
+    main_progress = cache.get("ig_bot_daemon_main_progress")
+    try:
+        main_progress_at = (
+            float(main_progress.get("at"))
+            if isinstance(main_progress, dict)
+            else float(main_progress)
+        )
+        main_progress_age = time.time() - main_progress_at
+    except (TypeError, ValueError, AttributeError):
+        main_progress_age = None
+    main_progress_state = (
+        str(main_progress.get("state") or "")[:40]
+        if isinstance(main_progress, dict)
+        else ""
+    )
+    main_progress_stale = bool(
+        daemon_online
+        and main_progress_age is not None
+        and main_progress_age >= daemon_alive_window
+    )
     ingress = ingress_status(s, now=now)
     try:
         permission_transitions = permission_transition_snapshot()
@@ -13918,6 +13947,10 @@ def status_snapshot() -> dict:
         "db_heartbeat_fresh": db_heartbeat_fresh,
         "db_heartbeat_age_seconds": round(db_heartbeat_age, 1) if db_heartbeat_age is not None else None,
         "daemon_heartbeat_age_seconds": round(daemon_heartbeat_age, 1) if daemon_heartbeat_age is not None else None,
+        "daemon_alive_window_seconds": daemon_alive_window,
+        "main_progress_age_seconds": round(main_progress_age, 1) if main_progress_age is not None else None,
+        "main_progress_state": main_progress_state,
+        "main_progress_stale": main_progress_stale,
         "heartbeat_at": hb.isoformat() if hb else "",
         "last_inbound_at": s.last_inbound_at.isoformat() if s.last_inbound_at else "",
         "last_reply_at": s.last_reply_at.isoformat() if s.last_reply_at else "",

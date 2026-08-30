@@ -84,8 +84,15 @@ def load_manifest(path: Path) -> dict[str, Any]:
                 if key == "timeout" and job.get("timeout_required") is False:
                     continue
                 _fail(f"jobs[{index}].{key} must be a non-empty string")
-        if "manage.py " not in job["command"] or "/" in job["id"]:
+        runtime = job.get("runtime", "django")
+        if runtime not in {"django", "stdlib"}:
+            _fail(f"jobs[{index}].runtime must be django or stdlib")
+        if runtime == "django" and "manage.py " not in job["command"]:
             _fail(f"jobs[{index}] must identify a Django management command")
+        if runtime == "stdlib" and not job["command"].startswith("scripts/"):
+            _fail(f"jobs[{index}] stdlib command must be scripts-relative")
+        if "/" in job["id"]:
+            _fail(f"jobs[{index}].id must not contain a path")
         owner = Path(job["owner_path"])
         if owner.is_absolute() or ".." in owner.parts or not job["owner_path"].startswith("scripts/"):
             _fail(f"jobs[{index}].owner_path must be a scripts-relative path")
@@ -145,6 +152,14 @@ def validate_crontab(manifest: dict[str, Any], crontab: str, *, repo_root: Path)
         _fail(f"rollback path is absent from repository: {rollback_target}")
     jobs = manifest["jobs"]
     active_jobs = [job for job in jobs if job.get("active", True)]
+    global_lock = str(manifest.get("global_heavy_process_lock") or "")
+    if not global_lock.startswith("tmp/"):
+        _fail("global_heavy_process_lock must be under tmp/")
+    django_jobs = [
+        job for job in active_jobs if job.get("runtime", "django") == "django"
+    ]
+    if any(job["lock_path"] != global_lock for job in django_jobs):
+        _fail("every active heavy Django owner must share the global admission lock")
     for job in jobs:
         if job.get("active", True):
             continue
@@ -167,6 +182,13 @@ def validate_crontab(manifest: dict[str, Any], crontab: str, *, repo_root: Path)
         owner_target = repo_root / job["owner_path"]
         if not owner_target.is_file():
             _fail(f"owner script is absent from repository for {job['id']}: {owner_target}")
+        if job.get("runtime", "django") == "stdlib":
+            runtime_target = repo_root / job["command"].split()[0]
+            if not runtime_target.is_file():
+                _fail(
+                    f"stdlib runtime is absent from repository for {job['id']}: "
+                    f"{runtime_target}"
+                )
         marker = job["managed_block"]
         if marker not in blocks:
             _fail(f"managed block missing for {job['id']}: {marker}")

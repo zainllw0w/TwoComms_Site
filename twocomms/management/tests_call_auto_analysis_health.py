@@ -31,7 +31,7 @@ class DisabledCallAutoAnalysisHealthTests(TestCase):
         "management.services.call_auto_analysis.is_call_auto_analysis_enabled",
         return_value=False,
     )
-    def test_expectation_refresh_registers_only_six_active_owners(self, _enabled):
+    def test_expectation_refresh_registers_only_five_active_owners(self, _enabled):
         self.assertTrue(ensure_task_expectations())
 
         self.assertSetEqual(
@@ -42,7 +42,7 @@ class DisabledCallAutoAnalysisHealthTests(TestCase):
             ),
             OTHER_TASK_KEYS,
         )
-        self.assertEqual(len(OTHER_TASK_KEYS), 6)
+        self.assertEqual(len(OTHER_TASK_KEYS), 5)
 
     @patch(
         "management.services.call_auto_analysis.is_call_auto_analysis_enabled",
@@ -164,7 +164,7 @@ class EnabledCallAutoAnalysisHealthTests(TestCase):
         "management.services.call_auto_analysis.is_call_auto_analysis_enabled",
         return_value=True,
     )
-    def test_enabled_expectation_refresh_keeps_seventh_owner(self, _enabled):
+    def test_enabled_expectation_refresh_keeps_sixth_owner(self, _enabled):
         self.assertTrue(ensure_task_expectations())
 
         self.assertSetEqual(

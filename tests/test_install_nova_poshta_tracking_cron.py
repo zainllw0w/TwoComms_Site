@@ -85,9 +85,11 @@ cp "$1" "$FAKE_CRONTAB_FILE"
         self.assertIn("17 4 * * * /opt/other-job", first_content.decode())
         self.assertEqual(first_content.decode().count(BEGIN_MARKER), 1)
         self.assertIn(
-            f"{self.fake_bin / 'flock'} -n -E 75",
+            f"{self.fake_bin / 'flock'} -w 50 -E 75",
             first_content.decode(),
         )
+        self.assertIn("tmp/twocomms_heavy_background.lock", first_content.decode())
+        self.assertIn("DJANGO_ENV=production", first_content.decode())
         self.assertIn(
             f"{self.fake_bin / 'timeout'} --signal=TERM --kill-after=15s 240s",
             first_content.decode(),

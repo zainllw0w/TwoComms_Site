@@ -113,14 +113,12 @@ class TaskHeartbeatTests(TestCase):
         self.assertEqual(
             {spec.key for spec in TASK_SPECS},
             {
-                "ig_daemon_watchdog",
                 "ig_checkout_reconcile",
                 "ig_order_fulfillment",
                 "ig_deal_payments",
                 "order_telegram_reconcile",
                 "nova_poshta_tracking",
                 "binotel_call_ai_analyses",
-                "ig_gemini_metadata_health",
             },
         )
 

@@ -4,10 +4,10 @@
 Режими:
   --forever   Постійний демон: онлайн весь час, опитує інбокс кожні N секунд.
               Це основний режим — агент «живе» постійно, а не запускається кроном.
-  --ensure    Watchdog: якщо демон живий (свіжий heartbeat) — нічого не робить;
-              якщо помер (рестарт сервера/деплой/збій) — піднімає демона
-              відв'язаним процесом. Саме цей режим чіпляємо в cron раз на хвилину —
-              cron НЕ робить запитів до API, лише підстраховує, що демон живий.
+  --ensure    Ручний/deploy fallback: якщо stdlib supervisor активний, лише
+              чекає його child; інакше зберігає старий bounded spawn path.
+              Production cron використовує scripts/instagram_bot_supervisor.py,
+              тому щохвилини не завантажує Django для liveness-перевірки.
   --once      Один прохід опитування (для діагностики).
 
 Демон-singleton тримається через OS advisory lock: другий демон не стартує,
@@ -17,6 +17,7 @@ shared-MySQL (wait_timeout=60) з'являється "MySQL server has gone away
 import json
 import os
 import fcntl
+import signal
 import subprocess
 import sys
 import threading
@@ -31,7 +32,7 @@ from django.db import close_old_connections, connection
 from django.utils import timezone
 
 from management.models import InstagramBotSettings
-from management.services import bot_followups, bot_payments
+from management.services import bot_followups
 from management.services import instagram_bot as bot
 from management.services.ig_task_health import (
     check_task_health,
@@ -48,7 +49,12 @@ from management.services.ig_maintenance import (
     runtime_root,
 )
 
-HB_KEY = "ig_bot_daemon_hb"            # heartbeat демона (epoch seconds)
+# Process pulse proves only that the daemon process and its pulse thread are
+# alive. Main progress is a separate key and advances only at work-cycle
+# boundaries, so a fresh pulse can no longer disguise a stuck main loop.
+PROCESS_PULSE_KEY = "ig_bot_daemon_hb"  # backwards-compatible cache key
+MAIN_PROGRESS_KEY = "ig_bot_daemon_main_progress"
+HB_KEY = PROCESS_PULSE_KEY
 
 
 def _heartbeat_alive_window() -> int:
@@ -96,6 +102,7 @@ PID_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot.pid")
 SPAWN_LOCK_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_spawn.lock")
 DAEMON_LOCK_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_daemon.lock")
 STARTING_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_starting.json")
+SUPERVISOR_LOCK_FILE = os.path.join(PROJECT_ROOT, "tmp", "ig_bot_supervisor.lock")
 
 
 @contextmanager
@@ -122,6 +129,20 @@ def _try_process_lock(path: str):
 def _process_lock_held(path: str) -> bool:
     with _try_process_lock(path) as handle:
         return handle is None
+
+
+def _supervisor_active() -> bool:
+    """Keep supervisor ownership explicit and independently mockable."""
+    os.makedirs(os.path.dirname(SUPERVISOR_LOCK_FILE), exist_ok=True)
+    with open(SUPERVISOR_LOCK_FILE, "a+") as handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        try:
+            return False
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def _wait_for_lock(path: str, *, held: bool, timeout: float = 6.0) -> bool:
@@ -238,12 +259,52 @@ def _bounded_reload_lock_wait(value: int | float | None) -> float:
 
 
 def _daemon_alive() -> bool:
-    hb = cache.get(HB_KEY)
+    hb = cache.get(PROCESS_PULSE_KEY)
     try:
         heartbeat_at = float(hb.get("at")) if isinstance(hb, dict) else float(hb)
     except (TypeError, ValueError, AttributeError):
         return False
     return bool(heartbeat_at and (time.time() - heartbeat_at) < HB_ALIVE_WINDOW)
+
+
+def _publish_process_pulse(*, owner: str, start_sentinel: float, state: str) -> None:
+    cache.set(
+        PROCESS_PULSE_KEY,
+        {
+            "at": time.time(),
+            "sentinel": start_sentinel,
+            "kind": "process_pulse",
+            "state": state,
+            "owner": owner,
+            "pid": os.getpid(),
+        },
+        HB_ALIVE_WINDOW * 3,
+    )
+    cache.set(DAEMON_LOCK_KEY, owner, HB_ALIVE_WINDOW * 3)
+
+
+def _publish_main_progress(
+    *,
+    owner: str,
+    start_sentinel: float,
+    cycle: int,
+    state: str,
+    error_kind: str = "",
+) -> None:
+    cache.set(
+        MAIN_PROGRESS_KEY,
+        {
+            "at": time.time(),
+            "sentinel": start_sentinel,
+            "kind": "main_progress",
+            "state": state,
+            "owner": owner,
+            "pid": os.getpid(),
+            "cycle": max(0, int(cycle)),
+            "error_kind": str(error_kind or "")[:80],
+        },
+        HB_ALIVE_WINDOW * 3,
+    )
 
 
 # Маркери деплою. Демон стежить за НАЙНОВІШИМ з них.
@@ -528,18 +589,6 @@ def _reconcile_commercial_episodes_after_reload():
         close_old_connections()
 
 
-def _process_order_fulfillment():
-    """Drain bounded durable order notifications without breaking the daemon."""
-    try:
-        from management.services.ig_order_fulfillment import (
-            reconcile_order_customer_events,
-        )
-
-        reconcile_order_customer_events(limit=10, send=True)
-    except Exception as exc:
-        bot.log("error", "order_fulfillment", repr(exc))
-
-
 # Пульс живості демона. Оновлюється фоновим потоком, поки основний цикл робить
 # довгу провайдерську роботу. `HB_PULSE_INTERVAL` свідомо значно менший за
 # `HB_ALIVE_WINDOW`, щоб один пропущений тик не виглядав смертю процесу.
@@ -547,21 +596,59 @@ HB_PULSE_INTERVAL = 10
 
 
 def _progress_pulse(stop_event, owner: str, start_sentinel) -> None:
-    """Тримати heartbeat свіжим, поки процес живий і рухається.
+    """Publish process liveness without claiming that main work progressed.
 
     Це advisory-нагляд: збій кешу тут ніколи не має зупиняти цикл відповідей.
     """
     while not stop_event.wait(HB_PULSE_INTERVAL):
         try:
-            cache.set(
-                HB_KEY,
-                {"at": time.time(), "sentinel": start_sentinel, "pulse": True},
-                HB_ALIVE_WINDOW * 3,
+            _publish_process_pulse(
+                owner=owner,
+                start_sentinel=start_sentinel,
+                state="running",
             )
-            cache.set(DAEMON_LOCK_KEY, owner, HB_ALIVE_WINDOW * 3)
         except Exception:
             # Наступний тик спробує знову; помилку видно у логах кешу.
             pass
+
+
+@contextmanager
+def _daemon_runtime_hooks(stop_event: threading.Event):
+    """Convert termination signals and uncaught worker errors into clean drain."""
+    previous_handlers = {}
+    previous_thread_hook = threading.excepthook
+    outcome = {"signal": None, "thread_exception": ""}
+
+    def request_stop(signum, _frame):
+        outcome["signal"] = int(signum)
+        stop_event.set()
+
+    def thread_failed(args):
+        outcome["thread_exception"] = str(
+            getattr(args.exc_type, "__name__", "BaseException")
+        )[:80]
+        stop_event.set()
+        try:
+            bot.log(
+                "error",
+                "daemon_thread_exception",
+                f"thread={str(getattr(args.thread, 'name', ''))[:80]} "
+                f"kind={outcome['thread_exception']}",
+            )
+        except Exception:
+            pass
+
+    try:
+        if threading.current_thread() is threading.main_thread():
+            for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+                previous_handlers[signum] = signal.getsignal(signum)
+                signal.signal(signum, request_stop)
+        threading.excepthook = thread_failed
+        yield outcome
+    finally:
+        threading.excepthook = previous_thread_hook
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
 
 
 def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
@@ -575,10 +662,6 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
         # kill switch. The next cycle retries and the error remains visible in
         # the operational log/status surface.
         bot.log("error", "notification_outbox", repr(exc))
-    try:
-        bot_payments.poll_pending_deals_locked(limit=50)
-    except Exception as exc:
-        bot.log("error", "payment_poll_backstop", repr(exc))
     profile_key = f"ig_profile_batch:{bot._provider_owner_id(settings_obj)}"
     if cache.add(profile_key, "1", timeout=bot.PROFILE_REFRESH_INTERVAL):
         try:
@@ -590,8 +673,6 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
         if maintenance_status(path=MAINTENANCE_FILE)["active"]:
             return enabled, last_poll
         bot_followups.process_due_followups(settings_obj)
-        if settings_obj.pk:
-            _process_order_fulfillment()
     now = time.time()
     if settings_obj.receive_via_poll and (now - last_poll) >= interval:
         poll_result = bot.poll_ingest(settings_obj)
@@ -767,6 +848,19 @@ class Command(BaseCommand):
             if maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 self.stdout.write("maintenance active — watchdog skip")
                 return
+            # The stdlib supervisor is the preferred daemon parent because it
+            # can wait for the child and attribute exit code/signal/uptime.
+            # Keep this management mode as a deployment/manual fallback, but
+            # never race the supervisor for child ownership.
+            if _supervisor_active():
+                if _daemon_code_current() and _daemon_alive():
+                    self.stdout.write("daemon alive under supervisor — ok")
+                    return
+                if _wait_for_daemon_ready(timeout=DAEMON_START_WAIT_SECONDS):
+                    self.stdout.write("daemon ready under supervisor — ok")
+                    return
+                self.stdout.write("supervisor active — daemon start pending")
+                return
             if _process_lock_held(DAEMON_LOCK_FILE):
                 # A held singleton lock only proves that a process exists. A
                 # hung worker can keep the lock while its heartbeat is stale;
@@ -880,7 +974,18 @@ class Command(BaseCommand):
         # any notification, analysis, payment, or reply work can run.
         _reconcile_commercial_episodes_after_reload()
         owner = f"{os.getpid()}:{time.time_ns()}"
-        cache.set(HB_KEY, {"at": time.time(), "sentinel": _restart_sentinel_mtime()}, HB_ALIVE_WINDOW * 3)
+        start_sentinel = _restart_sentinel_mtime()
+        _publish_process_pulse(
+            owner=owner,
+            start_sentinel=start_sentinel,
+            state="starting",
+        )
+        _publish_main_progress(
+            owner=owner,
+            start_sentinel=start_sentinel,
+            cycle=0,
+            state="starting",
+        )
         try:
             os.makedirs(os.path.dirname(PID_FILE), exist_ok=True)
             with open(PID_FILE, "w") as f:
@@ -893,55 +998,63 @@ class Command(BaseCommand):
         # Sentinel: запам'ятовуємо mtime tmp/restart.txt (його torkає кожен деплой).
         # Якщо файл змінився — демон штатно виходить, watchdog (--ensure) підніме
         # процес із НОВИМ кодом. Без цього --forever крутив би старий код у пам'яті.
-        start_sentinel = _restart_sentinel_mtime()
-
         # Фоновий потік для важкого /conversations (поза гарячим циклом).
         stop_event = threading.Event()
-        refresher = threading.Thread(target=_conv_refresher, args=(stop_event,), daemon=True)
+        refresher = threading.Thread(
+            name="ig-conversation-refresh",
+            target=_conv_refresher,
+            args=(stop_event,),
+            daemon=True,
+        )
         refresher.start()
         analysis_worker = threading.Thread(
+            name="ig-analysis",
             target=_analysis_worker,
             args=(stop_event,),
             daemon=True,
         )
         analysis_worker.start()
         recovery_worker = threading.Thread(
+            name="ig-reply-recovery",
             target=_ai_reply_recovery_worker,
             args=(stop_event,),
             daemon=True,
         )
         recovery_worker.start()
         permission_transition_worker = threading.Thread(
+            name="ig-permission-transition",
             target=_permission_transition_worker,
             args=(stop_event,),
             daemon=True,
         )
         permission_transition_worker.start()
         inbox_refresh_worker = threading.Thread(
+            name="ig-inbox-refresh",
             target=_inbox_refresh_worker,
             args=(stop_event,),
             daemon=True,
         )
         inbox_refresh_worker.start()
         lifecycle_worker = threading.Thread(
+            name="ig-checkout-lifecycle",
             target=_checkout_lifecycle_worker,
             args=(stop_event,),
             daemon=True,
         )
         lifecycle_worker.start()
         follow_intelligence_worker = threading.Thread(
+            name="ig-follow-intelligence",
             target=_follow_intelligence_worker,
             args=(stop_event,),
             daemon=True,
         )
         follow_intelligence_worker.start()
-        # Progress-pulse (ЭА.14): heartbeat раніше оновлювався ТІЛЬКИ після
-        # повернення з `_run_work_cycle()`, а один ланцюг Gemini займав 34–44
-        # секунди при вікні живості 45 секунд. Тому штатна довга робота виглядала
-        # смертю демона: watchdog фіксував `daemon_lock_stale` і піднімав новий
-        # процес — за добу ≥101 перезапуск. Пульс відрізняє «живий і рухається»
-        # від «завис»: він оновлює лічильник ходу, а не просто час.
+        # Process pulse remains fresh during a long provider call, proving only
+        # process liveness. MAIN_PROGRESS_KEY is advanced by the main loop and
+        # independently exposes a stuck cycle instead of triggering a duplicate
+        # daemon over a valid OS singleton.
         progress_pulse = threading.Thread(
+            name="ig-process-pulse",
             target=_progress_pulse,
             args=(stop_event, owner, start_sentinel),
             daemon=True,
@@ -953,42 +1066,92 @@ class Command(BaseCommand):
         last_poll = 0.0
         last_task_health_check = 0.0
         task_expectations_registered = False
-        try:
-            while True:
-                close_old_connections()  # лікує "MySQL server has gone away"
-                if maintenance_status(path=MAINTENANCE_FILE)["active"]:
-                    bot.log("info", "daemon_maintenance", "Maintenance активний — daemon зупинено")
-                    break
-                if _restart_sentinel_mtime() != start_sentinel:
-                    bot.log("info", "daemon_reload",
-                            "restart.txt змінено — демон перезавантажується для нового коду")
-                    break
-                enabled = False
-                try:
-                    if not task_expectations_registered:
-                        task_expectations_registered = ensure_task_expectations()
-                    s = InstagramBotSettings.load()
-                    enabled, last_poll = _run_work_cycle(s, last_poll)
-                    if time.monotonic() - last_task_health_check >= TASK_HEALTH_CHECK_EVERY:
-                        check_task_health()
-                        last_task_health_check = time.monotonic()
-                    # heartbeat для UI навіть коли зупинено (агент онлайн)
-                    s.heartbeat_at = tz.now()
-                    s.save(update_fields=["heartbeat_at"])
-                except Exception as exc:
-                    bot.log("error", "daemon_loop", repr(exc))
-                finally:
-                    cache.set(HB_KEY, {"at": time.time(), "sentinel": start_sentinel}, HB_ALIVE_WINDOW * 3)
-                    cache.set(DAEMON_LOCK_KEY, owner, HB_ALIVE_WINDOW * 3)
-                # працює — кожні ~1.5 c (низька латентність черги); зупинено — рідше
-                time.sleep(1.5 if enabled else 5)
-        finally:
-            stop_event.set()
-            # Звільняємо heartbeat одразу, щоб watchdog підняв новий демон без
-            # очікування TTL (інакше до 45 c простою після деплою).
+        workers = (
+            refresher,
+            analysis_worker,
+            recovery_worker,
+            permission_transition_worker,
+            inbox_refresh_worker,
+            lifecycle_worker,
+            follow_intelligence_worker,
+            progress_pulse,
+        )
+        cycle = 0
+        with _daemon_runtime_hooks(stop_event) as shutdown:
             try:
-                if cache.get(DAEMON_LOCK_KEY) == owner:
-                    cache.delete(HB_KEY)
-                    cache.delete(DAEMON_LOCK_KEY)
-            except Exception:
-                pass
+                while not stop_event.is_set():
+                    close_old_connections()  # лікує "MySQL server has gone away"
+                    if maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                        bot.log("info", "daemon_maintenance", "Maintenance активний — daemon зупинено")
+                        break
+                    if _restart_sentinel_mtime() != start_sentinel:
+                        bot.log("info", "daemon_reload",
+                                "restart.txt змінено — демон перезавантажується для нового коду")
+                        break
+                    cycle += 1
+                    enabled = False
+                    cycle_state = "idle"
+                    _publish_main_progress(
+                        owner=owner,
+                        start_sentinel=start_sentinel,
+                        cycle=cycle,
+                        state="running",
+                    )
+                    try:
+                        if not task_expectations_registered:
+                            task_expectations_registered = ensure_task_expectations()
+                        s = InstagramBotSettings.load()
+                        enabled, last_poll = _run_work_cycle(s, last_poll)
+                        if time.monotonic() - last_task_health_check >= TASK_HEALTH_CHECK_EVERY:
+                            check_task_health()
+                            last_task_health_check = time.monotonic()
+                        # DB progress remains useful, but is not process-liveness proof.
+                        s.heartbeat_at = tz.now()
+                        s.save(update_fields=["heartbeat_at"])
+                    except Exception as exc:
+                        cycle_state = "error"
+                        bot.log("error", "daemon_loop", repr(exc))
+                        _publish_main_progress(
+                            owner=owner,
+                            start_sentinel=start_sentinel,
+                            cycle=cycle,
+                            state=cycle_state,
+                            error_kind=exc.__class__.__name__,
+                        )
+                    else:
+                        _publish_main_progress(
+                            owner=owner,
+                            start_sentinel=start_sentinel,
+                            cycle=cycle,
+                            state=cycle_state,
+                        )
+                    finally:
+                        _publish_process_pulse(
+                            owner=owner,
+                            start_sentinel=start_sentinel,
+                            state="running",
+                        )
+                    # Low-latency reply loop; Event.wait makes signals prompt.
+                    stop_event.wait(1.5 if enabled else 5)
+            finally:
+                stop_event.set()
+                for worker in workers:
+                    if worker is not threading.current_thread():
+                        worker.join(timeout=1)
+                if shutdown.get("signal"):
+                    try:
+                        bot.log(
+                            "info",
+                            "daemon_signal",
+                            f"signal={shutdown['signal']}",
+                        )
+                    except Exception:
+                        pass
+                # Release both independent liveness channels immediately.
+                try:
+                    if cache.get(DAEMON_LOCK_KEY) == owner:
+                        cache.delete(PROCESS_PULSE_KEY)
+                        cache.delete(MAIN_PROGRESS_KEY)
+                        cache.delete(DAEMON_LOCK_KEY)
+                except Exception:
+                    pass

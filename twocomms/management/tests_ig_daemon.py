@@ -2,6 +2,7 @@
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -27,16 +28,20 @@ from management.management.commands.run_instagram_bot import (
     DAEMON_START_WAIT_SECONDS,
     DAEMON_LOCK_KEY,
     HB_KEY,
+    MAIN_PROGRESS_KEY,
     MANAGE_PY_PATH,
     PROJECT_ROOT,
     RELOAD_LOCK_WAIT_SECONDS,
     Command,
     _daemon_alive,
+    _daemon_runtime_hooks,
     _ai_reply_recovery_worker,
     _analysis_worker,
     _permission_transition_worker,
     _conversation_refresh_wait_seconds,
     _process_lock_held,
+    _publish_main_progress,
+    _publish_process_pulse,
     _reconcile_commercial_episodes_after_reload,
     _run_work_cycle,
 )
@@ -1322,17 +1327,41 @@ class DaemonMaintenanceDrainTests(SimpleTestCase):
 
 
 class DaemonHeartbeatTests(SimpleTestCase):
-    def setUp(self):
-        self.payment_backstop_patcher = patch(
-            "management.management.commands.run_instagram_bot.bot_payments",
-        )
-        self.payment_backstop = self.payment_backstop_patcher.start()
-        self.addCleanup(self.payment_backstop_patcher.stop)
-
     @patch("management.management.commands.run_instagram_bot.cache.get", return_value={"at": 100.0})
     @patch("management.management.commands.run_instagram_bot.time.time", return_value=110.0)
     def test_dict_heartbeat_is_supported(self, _time, _get):
         self.assertTrue(_daemon_alive())
+
+    def test_process_pulse_and_main_progress_are_independent_contracts(self):
+        cache.delete(HB_KEY)
+        cache.delete(MAIN_PROGRESS_KEY)
+        self.addCleanup(cache.delete, HB_KEY)
+        self.addCleanup(cache.delete, MAIN_PROGRESS_KEY)
+
+        _publish_main_progress(
+            owner="owner",
+            start_sentinel=1.0,
+            cycle=7,
+            state="running",
+        )
+        main_before = cache.get(MAIN_PROGRESS_KEY)
+        _publish_process_pulse(
+            owner="owner",
+            start_sentinel=1.0,
+            state="running",
+        )
+
+        self.assertEqual(cache.get(MAIN_PROGRESS_KEY), main_before)
+        self.assertEqual(cache.get(HB_KEY)["kind"], "process_pulse")
+        self.assertEqual(main_before["kind"], "main_progress")
+        self.assertEqual(main_before["cycle"], 7)
+
+    def test_signal_hook_requests_clean_stop_without_raising(self):
+        stop_event = threading.Event()
+        with _daemon_runtime_hooks(stop_event) as outcome:
+            os.kill(os.getpid(), signal.SIGTERM)
+            self.assertTrue(stop_event.wait(1))
+        self.assertEqual(outcome["signal"], signal.SIGTERM)
 
     @patch("management.management.commands.run_instagram_bot.bot_followups.process_due_followups")
     @patch("management.management.commands.run_instagram_bot.bot.process_pending")
@@ -1345,7 +1374,6 @@ class DaemonHeartbeatTests(SimpleTestCase):
         self.assertFalse(enabled)
         self.assertEqual(last_poll, 17.0)
         drain.assert_called_once_with(limit=10)
-        self.payment_backstop.poll_pending_deals_locked.assert_called_once_with(limit=50)
         pending.assert_not_called()
         followups.assert_not_called()
 
@@ -1366,16 +1394,14 @@ class DaemonHeartbeatTests(SimpleTestCase):
 
     @patch("management.management.commands.run_instagram_bot.bot.refresh_profiles_batch")
     @patch("management.management.commands.run_instagram_bot.cache.add", return_value=False)
-    @patch("management.management.commands.run_instagram_bot._process_order_fulfillment")
     @patch("management.management.commands.run_instagram_bot.bot_followups.process_due_followups")
     @patch("management.management.commands.run_instagram_bot.bot.process_pending")
     @patch("management.management.commands.run_instagram_bot.bot.drain_manager_notifications")
-    def test_enabled_daemon_drains_durable_order_notifications(
+    def test_enabled_daemon_leaves_periodic_lanes_to_coordinator(
         self,
         _drain,
         _pending,
         _followups,
-        process_fulfillment,
         _cache_add,
         refresh_profiles,
     ):
@@ -1385,9 +1411,18 @@ class DaemonHeartbeatTests(SimpleTestCase):
             receive_via_poll=False,
         )
 
-        _run_work_cycle(settings, 17.0)
+        with (
+            patch(
+                "management.services.bot_payments.poll_pending_deals_locked"
+            ) as payment_poll,
+            patch(
+                "management.services.ig_order_fulfillment.reconcile_order_customer_events"
+            ) as fulfillment,
+        ):
+            _run_work_cycle(settings, 17.0)
 
-        process_fulfillment.assert_called_once_with()
+        payment_poll.assert_not_called()
+        fulfillment.assert_not_called()
         refresh_profiles.assert_not_called()
 
     @patch(
@@ -1395,7 +1430,6 @@ class DaemonHeartbeatTests(SimpleTestCase):
         return_value={"active": True},
     )
     @patch("management.management.commands.run_instagram_bot.cache.add", return_value=False)
-    @patch("management.management.commands.run_instagram_bot._process_order_fulfillment")
     @patch("management.management.commands.run_instagram_bot.bot_followups.process_due_followups")
     @patch("management.management.commands.run_instagram_bot.bot.process_pending")
     @patch("management.management.commands.run_instagram_bot.bot.drain_manager_notifications")
@@ -1404,7 +1438,6 @@ class DaemonHeartbeatTests(SimpleTestCase):
         _drain,
         process_pending,
         followups,
-        fulfill,
         _cache_add,
         _maintenance,
     ):
@@ -1416,7 +1449,6 @@ class DaemonHeartbeatTests(SimpleTestCase):
         self.assertEqual(last_poll, 17.0)
         process_pending.assert_called_once_with(settings)
         followups.assert_not_called()
-        fulfill.assert_not_called()
 
     @patch("management.management.commands.run_instagram_bot.time.time", return_value=100.0)
     @patch("management.management.commands.run_instagram_bot.bot.poll_ingest")
@@ -1482,6 +1514,7 @@ class DaemonHeartbeatTests(SimpleTestCase):
 class DaemonStatusTests(TestCase):
     def tearDown(self):
         cache.delete(HB_KEY)
+        cache.delete(MAIN_PROGRESS_KEY)
         cache.delete(DAEMON_LOCK_KEY)
         super().tearDown()
 
@@ -1512,6 +1545,26 @@ class DaemonStatusTests(TestCase):
 
         self.assertTrue(snapshot["daemon_online"])
         self.assertEqual(snapshot["state"], "running")
+
+    def test_fresh_process_pulse_does_not_hide_stale_main_progress(self):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.heartbeat_at = timezone.now()
+        settings.save(update_fields=["is_enabled", "heartbeat_at"])
+        now = time.time()
+        cache.set(HB_KEY, {"at": now, "kind": "process_pulse"}, 600)
+        cache.set(
+            MAIN_PROGRESS_KEY,
+            {"at": now - 300, "kind": "main_progress", "state": "running"},
+            600,
+        )
+
+        with patch.dict(os.environ, {"IG_APP_SECRET": "test-secret"}, clear=True):
+            snapshot = bot.status_snapshot()
+
+        self.assertTrue(snapshot["daemon_online"])
+        self.assertTrue(snapshot["main_progress_stale"])
+        self.assertEqual(snapshot["main_progress_state"], "running")
 
     @patch("management.services.instagram_bot.cache.get", return_value={"at": 100.0})
     @patch("management.services.instagram_bot.time.time", return_value=110.0)

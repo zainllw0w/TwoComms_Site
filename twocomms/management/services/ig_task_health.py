@@ -24,19 +24,25 @@ class TaskSpec:
     stale_after_seconds: int
 
 
-# These are the actual crontab-owned commands on production.  A stale threshold
-# tolerates one missed scheduling window without hiding a removed cron line.
+# These are durable lanes owned by the single periodic coordinator plus the
+# independent Nova Poshta owner. The stdlib daemon supervisor has filesystem
+# state/process locks rather than a Django DB heartbeat, and the manual Gemini
+# metadata diagnostic is intentionally not a scheduled health expectation.
 TASK_SPECS = (
-    TaskSpec("ig_daemon_watchdog", "watchdog Instagram-демона", 60, 180),
     TaskSpec("ig_checkout_reconcile", "звірка IG checkout", 120, 480),
     TaskSpec("ig_order_fulfillment", "доставка IG-подій замовлення", 120, 480),
     TaskSpec("ig_deal_payments", "backstop перевірки IG-оплат", 240, 720),
     TaskSpec("order_telegram_reconcile", "відновлення Telegram-карток замовлень", 120, 480),
     TaskSpec("nova_poshta_tracking", "оновлення статусів Нової Пошти", 300, 900),
     TaskSpec("binotel_call_ai_analyses", "Автоаналіз дзвінків", 300, 900),
-    TaskSpec("ig_gemini_metadata_health", "перевірка Gemini API metadata", 3600, 7500),
 )
-_SPECS_BY_KEY = {spec.key: spec for spec in TASK_SPECS}
+MANUAL_TASK_SPECS = (
+    TaskSpec("ig_daemon_watchdog", "ручний fallback watchdog Instagram-демона", 0, 0),
+    TaskSpec("ig_gemini_metadata_health", "ручна діагностика Gemini API metadata", 0, 0),
+)
+_SPECS_BY_KEY = {
+    spec.key: spec for spec in (*TASK_SPECS, *MANUAL_TASK_SPECS)
+}
 _CALL_AUTO_ANALYSIS_TASK_KEY = "binotel_call_ai_analyses"
 _CALL_QUEUE_KEYS = ("eligible", "metadata_pending", "ineligible")
 
