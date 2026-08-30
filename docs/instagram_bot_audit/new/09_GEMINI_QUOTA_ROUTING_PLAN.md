@@ -4,8 +4,9 @@
 
 Статус: **runtime S1 задеплоен; первый soak завершился ранним SIGKILL, после
 авторизованной S1b selector-коррекции 48-часовой gate запущен заново. Исправленный
-Routing S2, schema S3a и первый checkout-срез объединены только в локальной
-integration-ветке, не задеплоены и поэтому не считаются production-complete**.
+Routing S2, schema S3a, checkout Slice 1 и materiality Slice 1 объединены только
+в локальной integration-ветке, не задеплоены и поэтому не считаются
+production-complete**.
 
 Этот документ — единственный подробный контракт для Gemini-маршрутизации,
 учёта квот, event-driven health, API UI, durable CRM-анализа, typed memory и
@@ -35,9 +36,9 @@ production-проверки соответствующего пункта. На�
 | S1b runtime snapshot | selector/app restart выполнен под exact bot maintenance; health/home/catalog последовательно вернули 200; все lswsgi env показывают `3/0`; process group после старта master+2, верхняя цель master+3 | process/RSS цифры являются snapshots, не steady-state p95 |
 | S1b memory snapshot | comparable RSS `950732→588240 KiB`, PSS `666577→390312 KiB`, private `583960→298036 KiB` | не выдавать snapshot за fPMEM или PMEM p95 proof |
 | Active soak | baseline `2026-08-30T15:48:03+03:00`; deadline `2026-09-01T15:48:03+03:00`; automation active | gate закрывается только полной выборкой после deadline |
-| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0181` и `orders.0057` не применять до release gate |
+| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0182` и `orders.0057` не применять до release gate |
 | Runtime routing | production остаётся на legacy routing из `e62bedf5`; corrected S2 существует только в локальной integration-ветке | до deploy настроить private-media root, завершить soak и повторить preflight |
-| Local integration candidate | `1f42e8461754372603b46809b4777eaf425639f3`; Routing S2 + schema S3a + checkout terminalization Slice 1 | SHA локальный, не GitHub/main/production; не использовать как running truth |
+| Local integration candidate | `8104c09739c4b1269906b82d39b8df2b30aa9124`; Routing S2 + schema S3a + checkout terminalization Slice 1 + materiality Slice 1 | SHA локальный, не GitHub/main/production; не использовать как running truth |
 | Ключи | владелец подтвердил: шесть ключей принадлежат шести отдельным Google-проектам | явный безопасный mapping `project_identity`, без вывода ключей и project IDs |
 | Cron ownership | один stdlib watchdog, один sequential Instagram coordinator; durable tasks и Nova Poshta используют общий heavy-process lock | cadence/LVE steady state подтвердить soak-выборкой |
 | Removed owners | automatic metadata cron = 0; legacy Instagram periodic owner lines = 0 | manual metadata остаётся только явной диагностикой |
@@ -84,9 +85,12 @@ Markdown запрещено записывать API-ключи, SSH-парол�
       production proof.
 - [ ] Включить S3b shadow writer после Pacific midnight; schema S3a сама по
       себе ничего не считает и не меняет routing.
-- [ ] Исправить отклонённый materiality Slice 1: первый независимый review
-      нашёл retry-FK P0 и нарушения честного `off/shadow`; до повторного PASS
-      этот commit не merge/cherry-pick.
+- [ ] Выпустить materiality Slice 1 после release gate: локально он прошёл три
+      цикла NO-GO/fix/review, MariaDB kill/resume и финальный PASS, но остаётся
+      `off` и не считается production-complete.
+- [ ] Исправить отклонённый S3b runtime writer: независимый review обнаружил
+      FSM, permit, 429, identity, skipped-candidate и recovery-linkage gaps;
+      commits S3b до повторного PASS не cherry-pick.
 - [ ] Дальше внедрять V2 отдельными reversible slices; не смешивать schema,
       enforcement, policy, analysis, funnel и UI.
 
@@ -129,6 +133,11 @@ snapshots, не fPMEM, не p95 и не 48-часовое доказательс
 `2026-09-01T15:48:03+03:00`. Автоматизация мониторинга активна. До дедлайна все
 soak/fault/PMEM/p95 checkboxes остаются открытыми.
 
+Последний read-only sample `2026-08-30T19:50:23+03:00`: supervisor и child
+identity совпадают с deployed SHA `e62bedf5`; `healthy=true`, `restart_count=0`,
+ensure fresh, lswsgi process count `3`. Это промежуточная точка, не завершение
+48-часового gate.
+
 ### 0.5 S2 review gate — первоначальный NO-GO закрыт локально, deploy всё ещё закрыт
 
 Первоначальный независимый review `62070f6eb` + `ec34e1734` не разрешил deploy
@@ -168,12 +177,13 @@ migration, cron и runtime preflight. Model-scoped permits, rolling/input TPM и
 | S3a accounting schema | `0178–0181`; request/attempt/quota/profile contracts; `31` schema tests (`3` Maria-only skips); disposable MariaDB partial-DDL resume, все пять таблиц InnoDB | не применён; runtime writer `off`/отсутствует |
 | Checkout terminalization Slice 1 | `orders.0057`; `396` integrated tests (`5` skips); MariaDB partial-DDL resume; две реальные MariaDB concurrency гонки прошли без deadlock/duplicate order | не применён |
 | Runtime capacity auditor | безопасная selector/process/flock атрибуция; `37` targeted tests | не задеплоен, чтобы не сбросить активный soak SHA |
-| Materiality Slice 1 draft | author tests были зелёными, но независимый review выявил FK retry P0, operational shadow drift, manager-only evidence, digest privacy и unique-index gaps | **NO-GO**, не cherry-pick |
+| Materiality Slice 1 | `0182`; passive content-free ledger; atomic claim cursor; 90s/10m shadow cadence; manager-evidence guard; constant-query selector; `486` integrated tests (`3` skips); MariaDB partial-DDL resume на 15 Job fields + InnoDB/unique/real append-only triggers; final independent PASS | не применён; defaults `off` + selector `legacy` |
+| S3b shadow writer draft | parent graph/FSM/quota-state и Maria race реализованы в отдельной ветке, но independent review воспроизвёл canonical settlement overwrite, double permit release, incomplete provider block, assumed diagnostic identity, unlinked skipped candidates, false manual plan order, missing recovery receipt, conflicting reply overwrite и stale profile transition | **NO-GO**, не cherry-pick |
 
 **Следующий конкретный шаг:** automation продолжает S1b soak до
-`2026-09-01T15:48:03+03:00`; параллельно исправить materiality NO-GO и реализовать
-S3b shadow dual-write без routing behavior change. До закрытия soak не менять
-production SHA и не применять новые migrations.
+`2026-09-01T15:48:03+03:00`; параллельно исправить S3b NO-GO и повторить его
+independent review. До закрытия soak не менять production SHA и не применять
+новые migrations.
 
 ---
 
