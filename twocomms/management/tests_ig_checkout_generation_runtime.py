@@ -3,10 +3,11 @@ from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import TestCase, override_settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -536,9 +537,22 @@ class CheckoutGenerationRuntimeTests(TestCase):
             HTTP_ACCEPT="application/json",
         )
         self.assertEqual(first.status_code, 400)
+        first_attempt = (
+            IgCheckoutInvoiceGeneration.objects.get(
+                proposal=proposal,
+                generation=1,
+            ).payment_attempt
+        )
         second = self.client.post(
             url,
-            self._delivery_payload(),
+            {
+                "full_name": "Чужий Отримувач",
+                "phone": "+380991234567",
+                "email": "attacker@example.com",
+                "city": "Львів",
+                "np_office": "Чуже відділення",
+                "payment_choice": "prepay_200_cod",
+            },
             HTTP_ACCEPT="application/json",
         )
         self.assertEqual(second.status_code, 200, second.content)
@@ -558,6 +572,21 @@ class CheckoutGenerationRuntimeTests(TestCase):
         )
         self.assertEqual(len(attempts), 2)
         self.assertNotEqual(attempts[0].fingerprint, attempts[1].fingerprint)
+        for field in (
+            "full_name",
+            "phone",
+            "email",
+            "city",
+            "np_office",
+            "np_settlement_ref",
+            "np_city_ref",
+            "np_warehouse_ref",
+        ):
+            self.assertEqual(
+                getattr(attempts[1], field),
+                getattr(first_attempt, field),
+                field,
+            )
 
     def test_forged_200_cod_post_is_rejected_for_full_only_policy(self):
         proposal = create_or_update_proposal(
@@ -852,11 +881,13 @@ class CheckoutGenerationRuntimeTests(TestCase):
             )
         )
         self.assertEqual(page.context["checkout_state"], "generation_expired_reissuable")
-        self.assertEqual(page.context["form_values"]["phone"], "+380501112233")
-        from orders.nova_poshta_checkout import resolve_delivery_selection
-
-        captured_delivery = resolve_delivery_selection(page.context["form_values"])
-        self.assertEqual(captured_delivery.warehouse_kind, "postomat")
+        self.assertFalse(page.context["payable"])
+        self.assertTrue(page.context["reissue_allowed"])
+        self.assertEqual(page.context["form_values"], {})
+        self.assertNotContains(page, "Іван Петренко")
+        self.assertNotContains(page, "+380501112233")
+        self.assertNotContains(page, "buyer@example.com")
+        self.assertNotContains(page, "Відділення №12")
         self.assertContains(page, "Рахунок завершився — можна створити новий")
         status = self.client.get(
             reverse(
@@ -878,7 +909,7 @@ class CheckoutGenerationRuntimeTests(TestCase):
                     "ig_checkout_proposal",
                     kwargs={"proposal_id": proposal.public_id},
                 ),
-                self._delivery_payload(),
+                {"reissue_generation": str(generation.generation)},
                 HTTP_ACCEPT="application/json",
             )
             second = self.client.post(
@@ -886,7 +917,7 @@ class CheckoutGenerationRuntimeTests(TestCase):
                     "ig_checkout_proposal",
                     kwargs={"proposal_id": proposal.public_id},
                 ),
-                self._delivery_payload(),
+                {"reissue_generation": str(generation.generation)},
                 HTTP_ACCEPT="application/json",
             )
         self.assertEqual(first.status_code, 200)
@@ -951,7 +982,7 @@ class CheckoutGenerationRuntimeTests(TestCase):
                     "ig_checkout_proposal",
                     kwargs={"proposal_id": proposal.public_id},
                 ),
-                self._delivery_payload(),
+                {"reissue_generation": str(generation.generation)},
                 HTTP_ACCEPT="application/json",
             )
         self.assertEqual(response.status_code, 200)
@@ -959,6 +990,246 @@ class CheckoutGenerationRuntimeTests(TestCase):
         generation.refresh_from_db()
         self.assertEqual(generation.state, generation.State.EXPIRED)
         self.assertIsNone(generation.active_slot)
+
+    def test_forwarded_grant_reissue_never_exposes_or_replaces_locked_recipient(self):
+        from management.services.ig_checkout_terminalization import (
+            terminalize_payment_attempt,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        generation = self._create_invoice(
+            proposal,
+            invoice_id="v2-private-reissue",
+        )
+        original = generation.payment_attempt
+        original_values = {
+            "full_name": original.full_name,
+            "phone": original.phone,
+            "email": original.email,
+            "city": original.city,
+            "np_office": original.np_office,
+            "np_settlement_ref": original.np_settlement_ref,
+            "np_city_ref": original.np_city_ref,
+            "np_warehouse_ref": original.np_warehouse_ref,
+        }
+        original_warehouse_kind = original.event_state[
+            "recipient_lock_warehouse_kind"
+        ]
+        share = self.client.post(
+            reverse(
+                "ig_checkout_share_token",
+                kwargs={"proposal_id": proposal.public_id},
+            )
+        )
+        self.assertEqual(share.status_code, 200)
+        share_path = urlparse(share.json()["url"]).path.rstrip("/")
+        share_token = share_path.rsplit("/", 1)[-1]
+        forwarded = Client()
+        entry = forwarded.get(
+            reverse("ig_checkout_token_entry", kwargs={"token": share_token})
+        )
+        self.assertEqual(entry.status_code, 302)
+
+        expired_at = timezone.now() - timedelta(seconds=1)
+        IgCheckoutInvoiceGeneration.objects.filter(pk=generation.pk).update(
+            expires_at=expired_at
+        )
+        PaymentAttempt.objects.filter(pk=original.pk).update(
+            invoice_expires_at=expired_at
+        )
+        outcome = terminalize_payment_attempt(
+            original.pk,
+            terminal_status=PaymentAttempt.Status.EXPIRED,
+            reason="invoice_expired",
+            source="system_expiry",
+            require_due=True,
+        )
+        self.assertEqual(outcome.outcome, "terminalized")
+
+        with patch(
+            "storefront.views.monobank._monobank_api_request"
+        ) as passive_provider:
+            page = forwarded.get(
+                reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": proposal.public_id},
+                )
+            )
+        passive_provider.assert_not_called()
+        self.assertEqual(page.status_code, 200)
+        self.assertTrue(page.context["reissue_allowed"])
+        self.assertFalse(page.context["payable"])
+        self.assertNotContains(page, original_values["full_name"])
+        self.assertNotContains(page, original_values["phone"])
+        self.assertNotContains(page, original_values["email"])
+        self.assertNotContains(page, original_values["city"])
+        self.assertNotContains(page, original_values["np_office"])
+        self.assertNotContains(page, original_values["np_city_ref"])
+        self.assertNotContains(page, 'name="full_name"')
+        self.assertNotContains(page, 'name="phone"')
+        self.assertNotContains(page, 'name="np_city_token"')
+
+        attacker_payload = {
+            "full_name": "Чужий Отримувач",
+            "phone": "+380991234567",
+            "email": "attacker@example.com",
+            "city": "Львів",
+            "np_office": "Чуже відділення",
+            "payment_choice": "prepay_200_cod",
+            "promo_code": "FORGED",
+        }
+        with patch(
+            "storefront.views.monobank._monobank_api_request"
+        ) as provider:
+            blocked = forwarded.post(
+                reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": proposal.public_id},
+                ),
+                attacker_payload,
+                HTTP_ACCEPT="application/json",
+            )
+        self.assertEqual(blocked.status_code, 400)
+        self.assertEqual(blocked.json()["error"], "recipient_locked")
+        provider.assert_not_called()
+        attacker_payload["reissue_generation"] = str(generation.generation)
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            return_value={
+                "invoiceId": "v2-private-reissue-2",
+                "pageUrl": "https://pay.example/v2-private-reissue-2",
+            },
+        ) as provider:
+            response = forwarded.post(
+                reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": proposal.public_id},
+                ),
+                attacker_payload,
+                HTTP_ACCEPT="application/json",
+            )
+        self.assertEqual(response.status_code, 200, response.content)
+        provider.assert_called_once()
+        replacement = (
+            PaymentAttempt.objects.filter(
+                checkout_series_key=generation.series_key,
+                checkout_generation=2,
+            )
+            .select_related("instagram_checkout_generation")
+            .get()
+        )
+        for field, expected in original_values.items():
+            self.assertEqual(getattr(replacement, field), expected, field)
+        self.assertEqual(
+            replacement.event_state["recipient_lock_source_attempt_id"],
+            original.pk,
+        )
+        self.assertEqual(
+            replacement.event_state["recipient_lock_source_generation"],
+            generation.generation,
+        )
+        self.assertEqual(
+            replacement.instagram_checkout_generation.payment_choice,
+            generation.payment_choice,
+        )
+        proposal.deal.refresh_from_db()
+        self.assertEqual(proposal.deal.np_full_name, original_values["full_name"])
+        self.assertEqual(proposal.deal.np_phone, original_values["phone"])
+        self.assertEqual(proposal.deal.np_city, original_values["city"])
+        self.assertEqual(proposal.deal.np_office, original_values["np_office"])
+        self.assertEqual(
+            proposal.deal.np_settlement_ref,
+            original_values["np_settlement_ref"],
+        )
+        self.assertEqual(
+            proposal.deal.np_city_ref,
+            original_values["np_city_ref"],
+        )
+        self.assertEqual(
+            proposal.deal.np_warehouse_ref,
+            original_values["np_warehouse_ref"],
+        )
+        self.assertEqual(
+            proposal.deal.np_warehouse_kind,
+            original_warehouse_kind,
+        )
+
+    def test_elapsed_uncertain_generation_state_matrix_never_offers_reissue(self):
+        uncertain_states = (
+            (IgCheckoutInvoiceGeneration.State.PLANNED, False),
+            (IgCheckoutInvoiceGeneration.State.PROVIDER_INFLIGHT, False),
+            (IgCheckoutInvoiceGeneration.State.PROVIDER_AMBIGUOUS, False),
+            (IgCheckoutInvoiceGeneration.State.INVOICE_CREATED, True),
+        )
+        for index, (state, clear_provider_identity) in enumerate(
+            uncertain_states,
+            start=1,
+        ):
+            with self.subTest(
+                state=state,
+                clear_provider_identity=clear_provider_identity,
+            ):
+                proposal = create_or_update_proposal(
+                    client=IgClient.get_or_create_for_sender(
+                        f"checkout-generation-state-{index}"
+                    ),
+                    pay_type="online_full",
+                    item_specs=[self._item()],
+                )
+                generation = self._create_invoice(
+                    proposal,
+                    invoice_id=f"v2-uncertain-{index}",
+                )
+                expired_at = timezone.now() - timedelta(seconds=1)
+                generation_update = {
+                    "state": state,
+                    "expires_at": expired_at,
+                }
+                if clear_provider_identity:
+                    generation_update["provider_invoice_id"] = None
+                IgCheckoutInvoiceGeneration.objects.filter(
+                    pk=generation.pk
+                ).update(**generation_update)
+                PaymentAttempt.objects.filter(
+                    pk=generation.payment_attempt_id
+                ).update(invoice_expires_at=expired_at)
+                url = reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": proposal.public_id},
+                )
+                status_url = reverse(
+                    "ig_checkout_status",
+                    kwargs={"proposal_id": proposal.public_id},
+                )
+                with patch(
+                    "storefront.views.monobank._monobank_api_request"
+                ) as provider:
+                    page = self.client.get(url)
+                    status = self.client.get(status_url)
+                    posted = self.client.post(
+                        url,
+                        {"reissue_generation": str(generation.generation)},
+                        HTTP_ACCEPT="application/json",
+                    )
+                provider.assert_not_called()
+                self.assertEqual(
+                    page.context["checkout_state"],
+                    "cancellation_ambiguous",
+                )
+                self.assertFalse(page.context["reissue_allowed"])
+                self.assertEqual(status.json()["state"], "cancellation_ambiguous")
+                self.assertEqual(posted.status_code, 400)
+                self.assertEqual(posted.json()["error"], "provider_ambiguous")
+                self.assertEqual(
+                    IgCheckoutInvoiceGeneration.objects.filter(
+                        proposal=proposal
+                    ).count(),
+                    1,
+                )
 
     def test_open_pending_page_reload_contract_includes_generation_reissue(self):
         source = (

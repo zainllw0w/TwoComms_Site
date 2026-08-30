@@ -146,7 +146,8 @@ CHECKOUT_COPY = {
         "state_cancellation_ambiguous_title": "Перевіряємо стан рахунку",
         "state_cancellation_ambiguous_body": "Не повторюйте оплату. Ми спочатку звіримо статус із банком.",
         "state_generation_expired_reissuable_title": "Рахунок завершився — можна створити новий",
-        "state_generation_expired_reissuable_body": "Пропозиція ще активна. Перевірте збережені дані доставки й створіть один новий 25-хвилинний рахунок.",
+        "state_generation_expired_reissuable_body": "Пропозиція ще активна. Дані отримувача й доставки залишаються зафіксованими; можна створити один новий 25-хвилинний рахунок.",
+        "reissue_invoice": "Створити новий рахунок",
     },
     "ru": {
         "page_title": "Проверьте заказ",
@@ -262,7 +263,8 @@ CHECKOUT_COPY = {
         "state_cancellation_ambiguous_title": "Проверяем состояние счета",
         "state_cancellation_ambiguous_body": "Не повторяйте оплату. Сначала мы сверим статус с банком.",
         "state_generation_expired_reissuable_title": "Счёт завершился — можно создать новый",
-        "state_generation_expired_reissuable_body": "Предложение ещё активно. Проверьте сохранённые данные доставки и создайте один новый 25-минутный счёт.",
+        "state_generation_expired_reissuable_body": "Предложение ещё активно. Данные получателя и доставки остаются зафиксированными; можно создать один новый 25-минутный счёт.",
+        "reissue_invoice": "Создать новый счёт",
     },
     "en": {
         "page_title": "Review your order",
@@ -378,7 +380,8 @@ CHECKOUT_COPY = {
         "state_cancellation_ambiguous_title": "Checking invoice status",
         "state_cancellation_ambiguous_body": "Do not pay again. We will first verify the status with the bank.",
         "state_generation_expired_reissuable_title": "The invoice expired — you can create a new one",
-        "state_generation_expired_reissuable_body": "The offer is still active. Review the saved delivery details and create one new 25-minute invoice.",
+        "state_generation_expired_reissuable_body": "The offer is still active. Recipient and delivery details remain locked; you can create one new 25-minute invoice.",
+        "reissue_invoice": "Create a new invoice",
     },
 }
 
@@ -620,10 +623,22 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
         if generation.state == generation.State.PAID_WINNER:
             return "paid"
         if generation.state in {
+            generation.State.PLANNED,
+            generation.State.PROVIDER_INFLIGHT,
+            generation.State.PROVIDER_AMBIGUOUS,
             generation.State.RESOURCE_REVIEW,
             generation.State.AMBIGUITY_REVIEW,
             generation.State.LATE_PROVIDER_REVIEW,
         }:
+            return "cancellation_ambiguous"
+        if (
+            generation.state == generation.State.INVOICE_CREATED
+            and (
+                not generation.provider_invoice_id
+                or attempt is None
+                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
+            )
+        ):
             return "cancellation_ambiguous"
         if (
             proposal.expires_at > timezone.now()
@@ -631,12 +646,12 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
                 generation.state == generation.State.EXPIRED
                 or (
                     generation.expires_at <= timezone.now()
-                    and generation.state
-                    in {
-                        generation.State.PLANNED,
-                        generation.State.PROVIDER_INFLIGHT,
-                        generation.State.INVOICE_CREATED,
-                    }
+                    and generation.state == generation.State.INVOICE_CREATED
+                    and bool(generation.provider_invoice_id)
+                    and attempt is not None
+                    and not (attempt.event_state or {}).get(
+                        "invoice_creation_ambiguous"
+                    )
                 )
             )
         ):
@@ -695,47 +710,6 @@ def _item_context(item):
     }
 
 
-def _captured_delivery_form(attempt, generation, *, warehouse_kind=""):
-    if attempt is None:
-        return {}
-    values = {
-        "full_name": attempt.full_name or "",
-        "phone": attempt.phone or "",
-        "email": attempt.email or "",
-        "city": attempt.city or "",
-        "np_settlement_ref": attempt.np_settlement_ref or "",
-        "np_city_ref": attempt.np_city_ref or "",
-        "np_office": attempt.np_office or "",
-        "np_warehouse_ref": attempt.np_warehouse_ref or "",
-        "payment_choice": (
-            generation.payment_choice if generation is not None else "online_full"
-        ),
-    }
-    try:
-        from orders.nova_poshta_checkout import (
-            build_city_choice_token,
-            build_warehouse_choice_token,
-        )
-
-        values["np_city_token"] = build_city_choice_token({
-            "label": values["city"],
-            "settlement_ref": values["np_settlement_ref"],
-            "city_ref": values["np_city_ref"],
-        })
-        values["np_warehouse_token"] = build_warehouse_choice_token({
-            "label": values["np_office"],
-            "ref": values["np_warehouse_ref"],
-            "kind": warehouse_kind,
-            "city_ref": values["np_city_ref"],
-        })
-    except Exception:
-        # The form remains usable for manual reselection; no provider lookup is
-        # allowed on GET just to reconstruct a local signed selector token.
-        values["np_city_token"] = ""
-        values["np_warehouse_token"] = ""
-    return values
-
-
 def _proposal_context(proposal, *, request, grant_id="", form_error="", form_error_field="", form_values=None):
     language = _checkout_language(request, proposal)
     copy = dict(CHECKOUT_COPY[language])
@@ -749,15 +723,18 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         if generation is not None and generation.payment_attempt_id
         else proposal.payment_attempt
     )
-    delivery_locked = (
-        state != "generation_expired_reissuable"
-        and (bool(proposal.details_locked_at) or state in {
+    delivery_locked = bool(proposal.details_locked_at) or state in {
         "locked",
         "pending",
         "paid",
-        })
+        "generation_expired_reissuable",
+    }
+    payable = state == "ready" and not delivery_locked
+    reissue_allowed = bool(
+        state == "generation_expired_reissuable"
+        and generation is not None
+        and attempt is not None
     )
-    payable = state in {"ready", "generation_expired_reissuable"} and not delivery_locked
     share_allowed = state in {
         "ready", "locked", "pending", "generation_expired_reissuable",
     }
@@ -803,14 +780,7 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         }
         for item in CHECKOUT_LANGUAGES
     ]
-    if form_values is None and state == "generation_expired_reissuable":
-        form_values = _captured_delivery_form(
-            attempt,
-            generation,
-            warehouse_kind=proposal.deal.np_warehouse_kind,
-        )
-    else:
-        form_values = form_values or {}
+    form_values = form_values or {}
     selected_payment_choice = str(
         form_values.get("payment_choice") or "online_full"
     )
@@ -841,7 +811,11 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         "checkout_state": state,
         "state_title": copy[f"state_{state}_title"],
         "state_body": copy[f"state_{state}_body"],
-        "customer_name": _customer_name(proposal.client.display_name),
+        "customer_name": (
+            ""
+            if state == "generation_expired_reissuable"
+            else _customer_name(proposal.client.display_name)
+        ),
         "proposal": {
             "public_id": str(proposal.public_id),
             "reference": str(proposal.public_id).split("-", 1)[0].upper(),
@@ -874,6 +848,10 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         "paid_summary": paid_summary,
         "payment_url": payment_url,
         "payable": payable,
+        "reissue_allowed": reissue_allowed,
+        "reissue_generation": (
+            generation.generation if reissue_allowed else ""
+        ),
         "share_allowed": share_allowed,
         "share_url": reverse(
             "ig_checkout_share_token",

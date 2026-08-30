@@ -168,12 +168,6 @@
 
       <section class="ig-checkout-panel" aria-labelledby="ig-delivery-title">
         {% if payable %}
-          {% if checkout_state == 'generation_expired_reissuable' %}
-            <div class="ig-terminal ig-terminal--generation-expired-reissuable" role="status" data-generation-reissue>
-              <h2>{{ state_title }}</h2>
-              <p>{{ state_body }}</p>
-            </div>
-          {% endif %}
           <div class="ig-panel-heading">
             <div><p class="ig-panel-step">{{ copy.delivery_step }}</p><h2 id="ig-delivery-title">{{ copy.delivery_title }}</h2></div>
             <span class="ig-delivery-time" data-delivery-time><svg aria-hidden="true"><use href="#ig-icon-timer"></use></svg>{{ copy.delivery_time }}</span>
@@ -274,6 +268,13 @@
             <p>{{ state_body }}</p>
             {% if masked_delivery %}<dl class="ig-masked"><div><dt>{{ copy.recipient }}</dt><dd>{{ masked_delivery.name }}</dd></div><div><dt>{{ copy.contact }}</dt><dd>{{ masked_delivery.phone }}</dd></div><div><dt>{{ copy.receipt }}</dt><dd>{{ masked_delivery.email }}</dd></div></dl>{% endif %}
             {% if paid_summary %}<dl class="ig-masked" data-paid-summary><div><dt>{{ copy.order_number }}</dt><dd>{{ paid_summary.order_number }}</dd></div><div><dt>{{ copy.recipient }}</dt><dd>{{ paid_summary.recipient }}</dd></div><div><dt>{{ copy.contact }}</dt><dd>{{ paid_summary.phone }}</dd></div><div><dt>{{ copy.receipt }}</dt><dd>{{ paid_summary.email }}</dd></div><div><dt>{{ copy.delivery_destination }}</dt><dd>{{ paid_summary.destination }}</dd></div></dl>{% endif %}
+            {% if reissue_allowed %}
+              <form method="post" action="{{ proposal_url }}" id="ig-checkout-reissue-form" data-generation-reissue-form>
+                {% csrf_token %}
+                <input type="hidden" name="reissue_generation" value="{{ reissue_generation }}">
+                <button class="ig-action ig-action--primary" type="submit" data-generation-reissue-submit data-loading-label="{{ copy.pay_loading }}">{{ copy.reissue_invoice }}</button>
+              </form>
+            {% endif %}
             <a class="ig-action ig-action--primary" href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.change_order }}</a>
           </div>
           {% if payment_url %}

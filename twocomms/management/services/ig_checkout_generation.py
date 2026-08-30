@@ -215,6 +215,43 @@ def _attempt_fingerprint(
     ).hexdigest()
 
 
+def _server_owned_recipient_payload(attempt, deal):
+    """Rebuild validation input without exposing or trusting bearer form PII."""
+    from orders.nova_poshta_checkout import (
+        build_city_choice_token,
+        build_warehouse_choice_token,
+    )
+
+    return {
+        "full_name": attempt.full_name or "",
+        "phone": attempt.phone or "",
+        "email": attempt.email or "",
+        "city": attempt.city or "",
+        "np_settlement_ref": attempt.np_settlement_ref or "",
+        "np_city_ref": attempt.np_city_ref or "",
+        "np_city_token": build_city_choice_token({
+            "label": attempt.city or "",
+            "settlement_ref": attempt.np_settlement_ref or "",
+            "city_ref": attempt.np_city_ref or "",
+        }),
+        "np_office": attempt.np_office or "",
+        "np_warehouse_ref": attempt.np_warehouse_ref or "",
+        "np_warehouse_token": build_warehouse_choice_token({
+            "label": attempt.np_office or "",
+            "ref": attempt.np_warehouse_ref or "",
+            "kind": (
+                (attempt.event_state or {}).get("recipient_lock_warehouse_kind")
+                or deal.np_warehouse_kind
+                or "branch"
+            ),
+            "city_ref": attempt.np_city_ref or "",
+        }),
+        "promo_code": (
+            attempt.promo_code.code if attempt.promo_code_id else ""
+        ),
+    }
+
+
 def _clear_current_generation(proposal, generation, *, terminal_status):
     if proposal.current_invoice_generation_id != generation.pk:
         return
@@ -307,34 +344,62 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
         locked.Status.SUPERSEDED,
     }:
         raise CheckoutPaymentError("expired", "Срок действия предложения истек.")
+    generations = list(
+        IgCheckoutInvoiceGeneration.objects.select_for_update()
+        .filter(proposal_id=locked.pk)
+        .order_by("generation", "pk")
+    )
+
+    def lock_attempt(row):
+        if row is None or not row.payment_attempt_id:
+            return None
+        return (
+            PaymentAttempt.objects.select_for_update()
+            .select_related("promo_code")
+            .get(pk=row.payment_attempt_id)
+        )
+
     if locked.winner_invoice_generation_id:
-        winner = IgCheckoutInvoiceGeneration.objects.select_for_update().filter(
-            pk=locked.winner_invoice_generation_id,
-            proposal_id=locked.pk,
-        ).first()
+        winner = next(
+            (
+                row
+                for row in generations
+                if row.pk == locked.winner_invoice_generation_id
+            ),
+            None,
+        )
         if winner and winner.payment_attempt_id:
-            attempt = PaymentAttempt.objects.select_for_update().get(
-                pk=winner.payment_attempt_id
-            )
+            attempt = lock_attempt(winner)
             if attempt.invoice_url:
                 return locked, winner, attempt, None, True
         raise CheckoutPaymentError("unavailable", "Оплата вже обробляється.")
 
-    if locked.current_invoice_generation_id:
-        current = IgCheckoutInvoiceGeneration.objects.select_for_update().get(
-            pk=locked.current_invoice_generation_id,
-            proposal_id=locked.pk,
-        )
-        attempt = (
-            PaymentAttempt.objects.select_for_update().get(
-                pk=current.payment_attempt_id
+    current = next(
+        (
+            row
+            for row in generations
+            if row.pk == locked.current_invoice_generation_id
+        ),
+        None,
+    )
+    latest = generations[-1] if generations else None
+    requested_reissue = str(payload.get("reissue_generation") or "").strip()
+    recipient_source_generation = None
+    recipient_source_attempt = None
+
+    def require_locked_reissue(row):
+        if requested_reissue != str(row.generation):
+            raise CheckoutPaymentError(
+                "recipient_locked",
+                "Дані отримувача вже зафіксовані. Для змін створіть нову пропозицію в Direct.",
             )
-            if current.payment_attempt_id
-            else None
-        )
+
+    if current is not None:
+        attempt = lock_attempt(current)
         if attempt is not None and attempt.invoice_url and current.expires_at > now:
             return locked, current, attempt, None, True
         if current.state in {
+            current.State.PLANNED,
             current.State.PROVIDER_INFLIGHT,
             current.State.PROVIDER_AMBIGUOUS,
         }:
@@ -346,16 +411,119 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
             raise CheckoutPaymentError(
                 "in_progress", "Платіж уже створюється. Зачекайте кілька секунд."
             )
-        if attempt is not None and current.active_slot == 1:
-            _terminalize_locked_generation(
-                locked,
-                current,
-                attempt,
-                state=current.State.EXPIRED,
-                attempt_status=PaymentAttempt.Status.EXPIRED,
-                reason="generation_expired",
-                now=now,
+        if current.state == current.State.INVOICE_CREATED:
+            if (
+                not current.provider_invoice_id
+                or attempt is None
+                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
+            ):
+                raise CheckoutPaymentError(
+                    "provider_ambiguous",
+                    "Статус попереднього рахунку потрібно звірити перед повтором.",
+                )
+            if current.expires_at > now:
+                raise CheckoutPaymentError(
+                    "in_progress", "Рахунок уже створено."
+                )
+            require_locked_reissue(current)
+            recipient_source_generation = current
+            recipient_source_attempt = attempt
+            if attempt is not None:
+                _terminalize_locked_generation(
+                    locked,
+                    current,
+                    attempt,
+                    state=current.State.EXPIRED,
+                    attempt_status=PaymentAttempt.Status.EXPIRED,
+                    reason="generation_expired",
+                    now=now,
+                )
+        elif current.state == current.State.EXPIRED:
+            require_locked_reissue(current)
+            recipient_source_generation = current
+            recipient_source_attempt = attempt
+            if attempt is not None:
+                _terminalize_locked_generation(
+                    locked,
+                    current,
+                    attempt,
+                    state=current.State.EXPIRED,
+                    attempt_status=PaymentAttempt.Status.EXPIRED,
+                    reason="generation_expired",
+                    now=now,
+                )
+        elif current.state in {current.State.FAILED, current.State.CANCELLED}:
+            if requested_reissue and requested_reissue != str(current.generation):
+                require_locked_reissue(current)
+            recipient_source_generation = current
+            recipient_source_attempt = attempt
+        else:
+            raise CheckoutPaymentError(
+                "unavailable", "Цей рахунок не можна перевипустити автоматично."
             )
+    elif latest is not None:
+        attempt = lock_attempt(latest)
+        if latest.state == latest.State.EXPIRED:
+            require_locked_reissue(latest)
+            recipient_source_generation = latest
+            recipient_source_attempt = attempt
+        elif latest.state in {latest.State.FAILED, latest.State.CANCELLED}:
+            if requested_reissue and requested_reissue != str(latest.generation):
+                require_locked_reissue(latest)
+            recipient_source_generation = latest
+            recipient_source_attempt = attempt
+        elif (
+            latest.state == latest.State.INVOICE_CREATED
+            and latest.expires_at <= now
+        ):
+            if (
+                not latest.provider_invoice_id
+                or attempt is None
+                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
+            ):
+                raise CheckoutPaymentError(
+                    "provider_ambiguous",
+                    "Статус попереднього рахунку потрібно звірити перед повтором.",
+                )
+            require_locked_reissue(latest)
+            recipient_source_generation = latest
+            recipient_source_attempt = attempt
+            if attempt is not None:
+                _terminalize_locked_generation(
+                    locked,
+                    latest,
+                    attempt,
+                    state=latest.State.EXPIRED,
+                    attempt_status=PaymentAttempt.Status.EXPIRED,
+                    reason="generation_expired",
+                    now=now,
+                )
+        else:
+            raise CheckoutPaymentError(
+                "provider_ambiguous",
+                "Статус попереднього рахунку потрібно звірити перед повтором.",
+            )
+    elif requested_reissue:
+        raise CheckoutPaymentError(
+            "recipient_locked", "Немає зафіксованих даних для повторного рахунку."
+        )
+    if (
+        recipient_source_generation is not None
+        and recipient_source_attempt is None
+    ):
+        raise CheckoutPaymentError(
+            "unavailable", "Зафіксовані дані рахунку недоступні."
+        )
+    recipient_source_user = None
+    if (
+        recipient_source_attempt is not None
+        and recipient_source_attempt.user_id
+    ):
+        from django.contrib.auth import get_user_model
+
+        recipient_source_user = get_user_model().objects.filter(
+            pk=recipient_source_attempt.user_id
+        ).first()
 
     # Disabling rollout stops creation of new provider generations while all
     # callbacks/reconciliation for existing rows continue to work below.
@@ -368,7 +536,11 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
     try:
         payment_choice = payment_choice_for_post(
             locked,
-            payload.get("payment_choice"),
+            (
+                recipient_source_generation.payment_choice
+                if recipient_source_generation is not None
+                else payload.get("payment_choice")
+            ),
         )
     except ValueError as exc:
         raise CheckoutPaymentError(
@@ -376,7 +548,14 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
             "Оберіть доступний спосіб оплати.",
             field="payment_choice",
         ) from exc
-    values = _validate_payload(locked, payload, user=request.user)
+    if recipient_source_attempt is not None:
+        values = _validate_payload(
+            locked,
+            _server_owned_recipient_payload(recipient_source_attempt, deal),
+            user=recipient_source_user,
+        )
+    else:
+        values = _validate_payload(locked, payload, user=request.user)
     if (
         payment_choice
         == IgCheckoutInvoiceGeneration.PaymentChoice.PREPAY_200_COD
@@ -435,7 +614,11 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
             payment_choice,
             values=values,
         ),
-        user=request.user if request.user.is_authenticated else None,
+        user=(
+            recipient_source_user
+            if recipient_source_attempt is not None
+            else request.user if request.user.is_authenticated else None
+        ),
         session_key=request.session.session_key,
         full_name=values["full_name"],
         phone=values["phone"],
@@ -464,6 +647,17 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
             **values["promo_event_state"],
             "checkout_generation_id": generation.pk,
             "provider_call_token": generation.provider_call_token,
+            "recipient_lock_warehouse_kind": values["delivery"].warehouse_kind,
+            **(
+                {
+                    "recipient_lock_source_attempt_id": recipient_source_attempt.pk,
+                    "recipient_lock_source_generation": (
+                        recipient_source_generation.generation
+                    ),
+                }
+                if recipient_source_attempt is not None
+                else {}
+            ),
         },
         invoice_expires_at=expires_at,
         checkout_series_key=identity.series_key,
@@ -520,6 +714,11 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
             "generation": generation_number,
             "payment_choice": payment_choice,
             "expires_at": expires_at.isoformat(),
+            "recipient_lock_source_generation": (
+                recipient_source_generation.generation
+                if recipient_source_generation is not None
+                else None
+            ),
         },
     )
     return locked, generation, attempt, values, False
