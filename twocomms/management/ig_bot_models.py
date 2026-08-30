@@ -46,6 +46,8 @@ __all__ = [
     "IgObjectionAttempt",
     "IgAnalysisMaterialityEvent",
     "IgConversationAnalysisSnapshot",
+    "IgConversationAnalysisResult",
+    "IgAnalysisProposal",
     "IgConversationAnalysisEvent",
     "IgConversationAnalysisJob",
     "IgAiReplyRecoveryJob",
@@ -4859,6 +4861,434 @@ class IgConversationAnalysisSnapshot(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"{self.client_id}: {self.score_band} ({self.purchase_probability})"
+
+
+class _IgConversationAnalysisResultQuerySet(models.QuerySet):
+    @staticmethod
+    def _reject_mutation():
+        raise ValueError("IgConversationAnalysisResult is append-only")
+
+    def update(self, **kwargs):
+        self._reject_mutation()
+
+    def delete(self):
+        self._reject_mutation()
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        self._reject_mutation()
+
+    def bulk_create(self, objs, *args, **kwargs):
+        if kwargs.get("update_conflicts") or kwargs.get("update_fields"):
+            self._reject_mutation()
+        return super().bulk_create(objs, *args, **kwargs)
+
+
+class IgConversationAnalysisResult(models.Model):
+    """Immutable, PII-free typed interpretation of one claimed analysis state."""
+
+    class SourceKind(models.TextChoices):
+        AI = "ai", _("Gemini analysis")
+        RULES = "rules", _("Deterministic rules")
+
+    class ProbabilityBasis(models.TextChoices):
+        CUSTOMER_EVIDENCE = "customer_evidence", _("Customer evidence")
+        DETERMINISTIC_NO_BUY = "deterministic_no_buy", _("Explicit no-buy")
+        DETERMINISTIC_OPT_OUT = "deterministic_opt_out", _("Explicit opt-out")
+        INSUFFICIENT_EVIDENCE = "insufficient_evidence", _("Insufficient evidence")
+
+    class DeferredKind(models.TextChoices):
+        NONE = "none", _("Not deferred")
+        DATE = "date", _("Specific date")
+        EVENT = "event", _("External event")
+        PAYDAY = "payday", _("Payday")
+        INDEFINITE = "indefinite", _("No exact time")
+
+    class LtvSignal(models.TextChoices):
+        UNKNOWN = "unknown", _("Unknown")
+        FIRST_PURCHASE = "first_purchase", _("First purchase")
+        REPEAT_CUSTOMER = "repeat_customer", _("Repeat customer")
+        REACTIVATION = "reactivation", _("Reactivation")
+
+    class InjectionRisk(models.TextChoices):
+        NONE = "none", _("No signal")
+        SUSPECTED = "suspected", _("Suspected")
+        HIGH = "high", _("High confidence signal")
+
+    result_key = models.CharField(max_length=160, unique=True)
+    legacy_snapshot = models.OneToOneField(
+        "management.IgConversationAnalysisSnapshot",
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_v2_result",
+        db_constraint=False,
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_v2_results",
+        db_constraint=False,
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_v2_results",
+        db_constraint=False,
+    )
+    line_id = models.CharField(max_length=96, blank=True, default="")
+    watermark_message_id = models.PositiveBigIntegerField()
+    job_revision = models.PositiveBigIntegerField()
+    materiality_event_highwater = models.PositiveBigIntegerField()
+    materiality_digest = models.CharField(max_length=64)
+    authority_digest = models.CharField(max_length=64, blank=True, default="")
+    artifact_digest = models.CharField(max_length=64, blank=True, default="")
+    required_state_fingerprint = models.CharField(max_length=64)
+    result_schema_version = models.CharField(max_length=32)
+    normalizer_version = models.CharField(max_length=32)
+    source_kind = models.CharField(
+        max_length=16,
+        choices=SourceKind.choices,
+        default=SourceKind.AI,
+    )
+    interaction_type = models.CharField(
+        max_length=32,
+        choices=IgConversationAnalysisSnapshot.InteractionType.choices,
+        default=IgConversationAnalysisSnapshot.InteractionType.UNKNOWN,
+        db_index=True,
+    )
+    score_band = models.CharField(
+        max_length=24,
+        choices=IgConversationAnalysisSnapshot.Band.choices,
+        db_index=True,
+    )
+    detected_language = models.CharField(max_length=12, blank=True, default="")
+    purchase_probability = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
+    purchase_confidence = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
+    probability_basis = models.CharField(
+        max_length=32,
+        choices=ProbabilityBasis.choices,
+        default=ProbabilityBasis.INSUFFICIENT_EVIDENCE,
+    )
+    evidence_manifest = models.JSONField(default=list, blank=True)
+    customer_evidence_count = models.PositiveSmallIntegerField(default=0)
+    manager_evidence_count = models.PositiveSmallIntegerField(default=0)
+    authority_evidence_count = models.PositiveSmallIntegerField(default=0)
+    active_objection_type = models.CharField(max_length=32, blank=True, default="")
+    active_objection_confidence = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
+    deferred_kind = models.CharField(
+        max_length=16,
+        choices=DeferredKind.choices,
+        default=DeferredKind.NONE,
+    )
+    deferred_until = models.DateTimeField(null=True, blank=True)
+    deferred_condition_code = models.CharField(max_length=32, blank=True, default="")
+    repeat_intent_kind = models.CharField(max_length=32, blank=True, default="")
+    repeat_intent_confidence = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        null=True,
+        blank=True,
+    )
+    prior_purchase_count = models.PositiveIntegerField(default=0)
+    ltv_signal = models.CharField(
+        max_length=24,
+        choices=LtvSignal.choices,
+        default=LtvSignal.UNKNOWN,
+    )
+    injection_risk = models.CharField(
+        max_length=16,
+        choices=InjectionRisk.choices,
+        default=InjectionRisk.NONE,
+    )
+    injection_evidence_message_ids = models.JSONField(default=list, blank=True)
+    has_conflicts = models.BooleanField(default=False)
+    conflict_codes = models.JSONField(default=list, blank=True)
+    uncertainty_codes = models.JSONField(default=list, blank=True)
+    analysis_model = models.CharField(max_length=80, blank=True, default="")
+    prompt_version = models.CharField(max_length=40, blank=True, default="")
+    routing_policy_version = models.CharField(max_length=32, blank=True, default="")
+    reasoning_policy_version = models.CharField(max_length=32, blank=True, default="")
+    project_slot = models.CharField(max_length=24, blank=True, default="")
+    gemini_request_ref = models.CharField(max_length=40, blank=True, default="")
+    result_digest = models.CharField(max_length=64)
+    analyzed_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    objects = _IgConversationAnalysisResultQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "client",
+                    "job_revision",
+                    "materiality_event_highwater",
+                    "result_schema_version",
+                ],
+                name="ig_anres_cursor_version_uniq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(purchase_probability__isnull=True)
+                    | (
+                        models.Q(purchase_probability__gte=Decimal("0"))
+                        & models.Q(purchase_probability__lte=Decimal("1"))
+                    )
+                ),
+                name="ig_anres_probability_range",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(purchase_confidence__isnull=True)
+                    | (
+                        models.Q(purchase_confidence__gte=Decimal("0"))
+                        & models.Q(purchase_confidence__lte=Decimal("1"))
+                    )
+                ),
+                name="ig_anres_confidence_range",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(active_objection_confidence__isnull=True)
+                    | (
+                        models.Q(active_objection_confidence__gte=Decimal("0"))
+                        & models.Q(active_objection_confidence__lte=Decimal("1"))
+                    )
+                ),
+                name="ig_anres_objection_conf_range",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(repeat_intent_confidence__isnull=True)
+                    | (
+                        models.Q(repeat_intent_confidence__gte=Decimal("0"))
+                        & models.Q(repeat_intent_confidence__lte=Decimal("1"))
+                    )
+                ),
+                name="ig_anres_repeat_conf_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(materiality_event_highwater__gt=0),
+                name="ig_anres_materiality_positive",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["client", "-created_at"], name="ig_anres_client_created"),
+            models.Index(
+                fields=["commercial_episode", "line_id", "-id"],
+                name="ig_anres_episode_line",
+            ),
+            models.Index(
+                fields=["materiality_event_highwater", "-id"],
+                name="ig_anres_materiality",
+            ),
+            models.Index(
+                fields=["purchase_probability", "-id"],
+                name="ig_anres_probability",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None or not self._state.adding:
+            raise ValueError("IgConversationAnalysisResult is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgConversationAnalysisResult is append-only")
+
+
+class _IgAnalysisProposalQuerySet(models.QuerySet):
+    _MUTABLE_FIELDS = frozenset({
+        "status",
+        "decision_code",
+        "projector_version",
+        "decided_at",
+        "updated_at",
+    })
+
+    @staticmethod
+    def _reject_delete():
+        raise ValueError("IgAnalysisProposal cannot be deleted")
+
+    def update(self, **kwargs):
+        if set(kwargs) - self._MUTABLE_FIELDS:
+            raise ValueError("IgAnalysisProposal identity is immutable")
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if set(fields) - self._MUTABLE_FIELDS:
+            raise ValueError("IgAnalysisProposal identity is immutable")
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        if kwargs.get("update_conflicts") or kwargs.get("update_fields"):
+            raise ValueError("IgAnalysisProposal identity is immutable")
+        return super().bulk_create(objs, *args, **kwargs)
+
+    def delete(self):
+        self._reject_delete()
+
+
+class IgAnalysisProposal(models.Model):
+    """Immutable generic model proposal plus projector-owned shadow outcome."""
+
+    class ProposalType(models.TextChoices):
+        CLOSE_NODE = "close_node", _("Close funnel node")
+        INVALIDATE_NODE = "invalidate_node", _("Invalidate funnel node")
+        OPEN_SUBFUNNEL = "open_subfunnel", _("Open sub-funnel")
+        SWITCH_ACTIVE_LINE = "switch_active_line", _("Switch active line")
+        START_REPEAT_EPISODE = "start_repeat_episode", _("Start repeat episode")
+        RECORD_OBJECTION = "record_objection", _("Record objection")
+        RECORD_DEFERRED_INTENT = "record_deferred_intent", _("Record deferred intent")
+        UPDATE_PROBABILITY = "update_probability", _("Update probability")
+        REQUEST_CLARIFICATION = "request_clarification", _("Request clarification")
+
+    class TargetScope(models.TextChoices):
+        CLIENT = "client", _("Client")
+        EPISODE = "episode", _("Episode")
+        LINE = "line", _("Line")
+        FUNNEL_NODE = "funnel_node", _("Funnel node")
+        SUBFUNNEL = "subfunnel", _("Sub-funnel")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending validation")
+        SHADOW_VALIDATED = "shadow_validated", _("Validated in shadow")
+        BLOCKED_DEPENDENCY = "blocked_dependency", _("Blocked by dependency")
+        BLOCKED_LEGACY_OWNER = "blocked_legacy_owner", _("Blocked by legacy owner")
+        REJECTED = "rejected", _("Rejected")
+        APPLIED = "applied", _("Applied")
+
+    _IDENTITY_FIELDS = frozenset({
+        "proposal_key",
+        "analysis_result_id",
+        "ordinal",
+        "client_id",
+        "commercial_episode_id",
+        "line_id",
+        "proposal_type",
+        "target_scope",
+        "target_definition_key",
+        "target_definition_version",
+        "target_key",
+        "typed_value",
+        "evidence_message_ids",
+        "confidence",
+        "source_result_digest",
+        "expected_materiality_digest",
+        "expected_authority_digest",
+        "expected_state_fingerprint",
+        "created_at",
+    })
+
+    proposal_key = models.CharField(max_length=160, unique=True)
+    analysis_result = models.ForeignKey(
+        "management.IgConversationAnalysisResult",
+        on_delete=models.DO_NOTHING,
+        related_name="proposals",
+        db_constraint=False,
+    )
+    ordinal = models.PositiveSmallIntegerField()
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_v2_proposals",
+        db_constraint=False,
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_v2_proposals",
+        db_constraint=False,
+    )
+    line_id = models.CharField(max_length=96, blank=True, default="")
+    proposal_type = models.CharField(max_length=32, choices=ProposalType.choices)
+    target_scope = models.CharField(max_length=24, choices=TargetScope.choices)
+    target_definition_key = models.CharField(max_length=96, blank=True, default="")
+    target_definition_version = models.CharField(max_length=32, blank=True, default="")
+    target_key = models.CharField(max_length=96, blank=True, default="")
+    typed_value = models.JSONField(default=dict, blank=True)
+    evidence_message_ids = models.JSONField(default=list, blank=True)
+    confidence = models.DecimalField(max_digits=5, decimal_places=4)
+    source_result_digest = models.CharField(max_length=64)
+    expected_materiality_digest = models.CharField(max_length=64)
+    expected_authority_digest = models.CharField(max_length=64, blank=True, default="")
+    expected_state_fingerprint = models.CharField(max_length=64)
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    decision_code = models.CharField(max_length=64, blank=True, default="")
+    projector_version = models.CharField(max_length=32, blank=True, default="")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    objects = _IgAnalysisProposalQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["analysis_result", "ordinal"],
+                name="ig_anprop_result_ordinal_uniq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(confidence__gte=Decimal("0"))
+                    & models.Q(confidence__lte=Decimal("1"))
+                ),
+                name="ig_anprop_confidence_range",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["status", "id"], name="ig_anprop_status_id"),
+            models.Index(
+                fields=["client", "status", "id"],
+                name="ig_anprop_client_status",
+            ),
+            models.Index(
+                fields=["commercial_episode", "line_id", "status", "id"],
+                name="ig_anprop_episode_line",
+            ),
+            models.Index(
+                fields=["proposal_type", "status", "id"],
+                name="ig_anprop_type_status",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = (
+                type(self)._base_manager.filter(pk=self.pk)
+                .values(*self._IDENTITY_FIELDS)
+                .first()
+            )
+            if previous:
+                for field_name in self._IDENTITY_FIELDS:
+                    if getattr(self, field_name) != previous[field_name]:
+                        raise ValueError("IgAnalysisProposal identity is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgAnalysisProposal cannot be deleted")
 
 
 class _IgConversationAnalysisEventQuerySet(models.QuerySet):

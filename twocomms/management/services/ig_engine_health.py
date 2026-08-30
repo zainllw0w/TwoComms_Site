@@ -91,6 +91,8 @@ IG_RUNTIME_TABLES = (
     "management_igobjection",
     "management_igobjectionattempt",
     "management_iganalysismaterialityevent",
+    "management_igconversationanalysisresult",
+    "management_iganalysisproposal",
     "management_igconversationanalysisevent",
     "management_igproviderincident",
     "management_igclientdegradationepisode",

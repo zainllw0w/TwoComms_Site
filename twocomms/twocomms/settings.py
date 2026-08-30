@@ -151,6 +151,12 @@ IG_ANALYSIS_CURRENT_SELECTOR_MODE = os.environ.get(
 ).strip().casefold()
 if IG_ANALYSIS_CURRENT_SELECTOR_MODE not in {'legacy', 'enforce'}:
     IG_ANALYSIS_CURRENT_SELECTOR_MODE = 'legacy'
+IG_ANALYSIS_V2_MODE = os.environ.get(
+    'IG_ANALYSIS_V2_MODE',
+    'off',
+).strip().casefold()
+if IG_ANALYSIS_V2_MODE not in {'off', 'shadow'}:
+    IG_ANALYSIS_V2_MODE = 'off'
 
 # Assisted Checkout invoice-series rollout. Slice 2a only exposes dormant
 # schema/identity helpers; no runtime path reads the fields while this is off.
