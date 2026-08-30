@@ -1,9 +1,11 @@
 from importlib import import_module
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, call, patch
 
-from django.db import migrations, models
-from django.test import SimpleTestCase
+from django.db import DatabaseError, connection, migrations, models
+from django.test import SimpleTestCase, TransactionTestCase
+from django.utils import timezone
 
 
 class AnalysisV2MigrationTests(SimpleTestCase):
@@ -163,3 +165,99 @@ class AnalysisV2MigrationTests(SimpleTestCase):
                     "ig_anres_result_key_uniq", ("result_key",),
                 ),
             )
+
+    def test_mariadb_retry_harness_is_disposable_guarded_and_targets_0183(self):
+        source = (
+            Path(__file__).resolve().parents[2]
+            / "scripts"
+            / "run_ig_analysis_v2_0183_mariadb_retry.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("--confirm-disposable is required", source)
+        self.assertIn("test_settings_mariadb", source)
+        self.assertIn("^test_twocomms_", source)
+        self.assertIn("0183_analysis_v2_result_proposals", source)
+        self.assertIn("KILL_EXIT_CODE = 97", source)
+
+
+class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
+    reset_sequences = False
+
+    def test_result_update_and_both_deletes_are_blocked_but_status_update_works(self):
+        migration = import_module(
+            "management.migrations.0183_analysis_v2_result_proposals"
+        )
+        from management.models import (
+            IgAnalysisProposal,
+            IgClient,
+            IgConversationAnalysisResult,
+            IgConversationAnalysisSnapshot,
+        )
+
+        client = IgClient.objects.create(igsid="analysis-v2-trigger")
+        snapshot = IgConversationAnalysisSnapshot.objects.create(
+            client=client,
+            dedupe_key="analysis-v2-trigger:snapshot",
+            score_band=IgConversationAnalysisSnapshot.Band.COLD,
+        )
+        result = IgConversationAnalysisResult.objects.create(
+            result_key="analysis-v2-trigger:result",
+            legacy_snapshot=snapshot,
+            client=client,
+            watermark_message_id=1,
+            job_revision=1,
+            materiality_event_highwater=1,
+            materiality_digest="a" * 64,
+            state_correlation="b" * 64,
+            result_schema_version="analysis-v2.1",
+            normalizer_version="analysis-v2-normalizer.1",
+            score_band=IgConversationAnalysisSnapshot.Band.COLD,
+            result_digest="c" * 64,
+            analyzed_at=timezone.now(),
+        )
+        proposal = IgAnalysisProposal.objects.create(
+            proposal_key="analysis-v2-trigger:proposal",
+            analysis_result=result,
+            ordinal=1,
+            client=client,
+            proposal_type=IgAnalysisProposal.ProposalType.REQUEST_CLARIFICATION,
+            target_scope=IgAnalysisProposal.TargetScope.CLIENT,
+            typed_value={"reason_codes": ["product_conflict"]},
+            evidence_message_ids=[1],
+            confidence="1.0000",
+            source_result_digest=result.result_digest,
+            expected_materiality_digest=result.materiality_digest,
+            expected_state_correlation=result.state_correlation,
+        )
+        with connection.schema_editor() as editor:
+            migration.create_result_append_only_triggers(None, editor)
+        try:
+            with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE {migration.RESULT_TABLE} SET score_band=%s WHERE id=%s",
+                    ["qualified", result.pk],
+                )
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE {migration.PROPOSAL_TABLE} SET status=%s WHERE id=%s",
+                    ["shadow_validated", proposal.pk],
+                )
+            proposal.refresh_from_db()
+            self.assertEqual(proposal.status, "shadow_validated")
+            with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+                cursor.execute(
+                    f"DELETE FROM {migration.PROPOSAL_TABLE} WHERE id=%s",
+                    [proposal.pk],
+                )
+            with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+                cursor.execute(
+                    f"DELETE FROM {migration.RESULT_TABLE} WHERE id=%s",
+                    [result.pk],
+                )
+        finally:
+            with connection.cursor() as cursor:
+                for name in (
+                    "ig_anres_no_update",
+                    "ig_anres_no_delete",
+                    "ig_anprop_no_delete",
+                ):
+                    cursor.execute(f"DROP TRIGGER IF EXISTS {name}")
