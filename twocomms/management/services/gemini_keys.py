@@ -656,6 +656,7 @@ def record_attempt(
     attempt_index: int = 0,
     candidate_index: int = 0,
     not_attempted_reason: str = "",
+    existing_attempt_id: int | None = None,
 ) -> GeminiRequestAttempt:
     """Persist only bounded classifications, never the supplied raw detail.
 
@@ -669,33 +670,73 @@ def record_attempt(
 
     lineage = current_context()
     group = project_group(key_name)[:80]
-    attempt = GeminiRequestAttempt.objects.create(
-        request_id=str(request_id or "")[:40],
-        role=str(role or "")[:20],
-        key_name=str(key_name or "")[:40],
-        project_group=group,
-        model=str(model or "")[:80],
-        outcome=str(outcome or "")[:24],
-        failure_kind=str(failure_kind or "")[:32],
-        http_code=int(http_code) if http_code else None,
-        provider_reason=str(provider_reason or "")[:80],
-        decision=str(decision or "")[:48],
-        latency_ms=max(0, int(latency_ms or 0)),
-        remaining_deadline_ms=max(0, int(remaining_deadline_ms or 0)),
-        prompt_tokens=max(0, int(usage.get("promptTokenCount") or 0)),
-        thoughts_tokens=max(0, int(usage.get("thoughtsTokenCount") or 0)),
-        candidates_tokens=max(0, int(usage.get("candidatesTokenCount") or 0)),
-        error_detail=str(failure_kind or "")[:120],
-        logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
-        source_message_id=lineage.get("source_message_id") or None,
-        client_id=lineage.get("client_id") or None,
-        lane=str(lineage.get("lane") or "")[:16],
-        attempt_index=max(0, int(attempt_index or 0)),
-        candidate_index=max(0, int(candidate_index or 0)),
-        not_attempted_reason=str(not_attempted_reason or "")[:24],
-        incident_id=lineage.get("incident_id") or None,
-        recovery_job_id=lineage.get("recovery_job_id") or None,
-    )
+    existing_id = max(0, int(existing_attempt_id or 0))
+    if existing_id:
+        attempt = GeminiRequestAttempt.objects.filter(
+            pk=existing_id,
+            request_id=str(request_id or "")[:40],
+        ).first()
+        mutable = {
+            "outcome": (
+                "cancelled_pre_dispatch"
+                if attempt is not None
+                and attempt.fsm_state
+                == GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH
+                else str(outcome or "")[:24]
+            ),
+            "failure_kind": str(failure_kind or "")[:32],
+            "http_code": int(http_code) if http_code else None,
+            "provider_reason": str(provider_reason or "")[:80],
+            "decision": str(decision or "")[:48],
+            "latency_ms": max(0, int(latency_ms or 0)),
+            "remaining_deadline_ms": max(0, int(remaining_deadline_ms or 0)),
+            "prompt_tokens": max(0, int(usage.get("promptTokenCount") or 0)),
+            "thoughts_tokens": max(0, int(usage.get("thoughtsTokenCount") or 0)),
+            "candidates_tokens": max(0, int(usage.get("candidatesTokenCount") or 0)),
+            "total_tokens": max(0, int(usage.get("totalTokenCount") or 0)),
+            "error_detail": str(failure_kind or "")[:120],
+            "not_attempted_reason": str(not_attempted_reason or "")[:24],
+        }
+        updated = (
+            GeminiRequestAttempt.objects.filter(pk=attempt.pk).update(**mutable)
+            if attempt is not None
+            else 0
+        )
+        attempt = (
+            GeminiRequestAttempt.objects.get(pk=existing_id)
+            if updated
+            else None
+        )
+    else:
+        attempt = None
+    if attempt is None:
+        attempt = GeminiRequestAttempt.objects.create(
+            request_id=str(request_id or "")[:40],
+            role=str(role or "")[:20],
+            key_name=str(key_name or "")[:40],
+            project_group=group,
+            model=str(model or "")[:80],
+            outcome=str(outcome or "")[:24],
+            failure_kind=str(failure_kind or "")[:32],
+            http_code=int(http_code) if http_code else None,
+            provider_reason=str(provider_reason or "")[:80],
+            decision=str(decision or "")[:48],
+            latency_ms=max(0, int(latency_ms or 0)),
+            remaining_deadline_ms=max(0, int(remaining_deadline_ms or 0)),
+            prompt_tokens=max(0, int(usage.get("promptTokenCount") or 0)),
+            thoughts_tokens=max(0, int(usage.get("thoughtsTokenCount") or 0)),
+            candidates_tokens=max(0, int(usage.get("candidatesTokenCount") or 0)),
+            error_detail=str(failure_kind or "")[:120],
+            logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
+            source_message_id=lineage.get("source_message_id") or None,
+            client_id=lineage.get("client_id") or None,
+            lane=str(lineage.get("lane") or "")[:16],
+            attempt_index=max(0, int(attempt_index or 0)),
+            candidate_index=max(0, int(candidate_index or 0)),
+            not_attempted_reason=str(not_attempted_reason or "")[:24],
+            incident_id=lineage.get("incident_id") or None,
+            recovery_job_id=lineage.get("recovery_job_id") or None,
+        )
     _register_provider_state(
         role=role,
         outcome=outcome,

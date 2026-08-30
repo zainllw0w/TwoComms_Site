@@ -7524,6 +7524,7 @@ def gemini_generate(
             reasoning_task=reasoning_task,
             parse=True,
             deadline_seconds=routing_decision.deadline_ms / 1000,
+            routing_decision=routing_decision,
         )
     except CallAIAnalysisError as exc:
         if failure_context is not None:
@@ -13297,6 +13298,21 @@ def _process_one_inside_reply_boundary(
             ),
             gemini_request_id=live_gemini_request_id,
         )
+        if live_gemini_request_id:
+            try:
+                from management.services import gemini_accounting_runtime
+
+                if gemini_accounting_runtime.shadow_runtime_active():
+                    transaction.on_commit(
+                        lambda request_id=live_gemini_request_id, reply_id=reply_message.pk: (
+                            gemini_accounting_runtime.link_reply_if_present(
+                                request_id=request_id,
+                                reply_message_id=reply_id,
+                            )
+                        )
+                    )
+            except Exception:
+                pass
         if outage_episode_id and outage_recovery_required:
             from management.services.ig_provider_incidents import confirm_holding_sent
 

@@ -182,6 +182,19 @@ IG_QUIET_DEGRADATION = _env_bool('IG_QUIET_DEGRADATION', True)
 IG_RECOVERY_EPISODE_CURSOR = _env_bool('IG_RECOVERY_EPISODE_CURSOR', True)
 IG_RECOVERY_INCIDENT_SCHEDULING = _env_bool('IG_RECOVERY_INCIDENT_SCHEDULING', True)
 
+# Gemini accounting V2 is additive telemetry only in S3b.  ``off`` is an
+# absolute no-write default.  ``shadow`` becomes active only at/after the
+# explicitly supplied Pacific-midnight timestamp; invalid or missing gates are
+# rejected by the management system check and fail closed to ``off`` at runtime.
+GEMINI_ACCOUNTING_V2_MODE = os.environ.get(
+    'GEMINI_ACCOUNTING_V2_MODE',
+    'off',
+).strip().casefold()
+GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM = os.environ.get(
+    'GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM',
+    '',
+).strip()
+
 # Э0.6: запись хода клиента (`IgCustomerTurn`). Само по себе только наблюдение —
 # порядок обработки очереди не меняется, поэтому включено по умолчанию: без записи
 # метрику messages-per-turn нельзя ни снять, ни опровергнуть. Переход воркера на

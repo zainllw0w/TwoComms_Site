@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 
 import requests
 
@@ -98,20 +99,68 @@ def classify_probe_response(http_code: int, body: str) -> dict:
 
 def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
     started = time.monotonic()
+    body = json.dumps(build_probe_payload(model))
+    boundary = None
+    try:
+        from management.services import gemini_accounting_runtime, gemini_keys
+
+        alias = gemini_keys.configured_alias_for_secret(key)
+        identity = gemini_keys.project_group(alias) if alias else ""
+        observer = gemini_accounting_runtime.begin_request(
+            request_id=f"diag-{uuid.uuid4().hex[:32]}",
+            role="diagnostic",
+            reasoning_task="health_probe",
+            candidate_plan=[{
+                "candidate_index": 1,
+                "key_name": alias or "(manual)",
+                "project_identity": identity,
+                "identity_status": "known" if identity else "unknown",
+                "model": model,
+                "skip_reason": "",
+            }],
+            lane="diagnostic",
+        )
+        boundary = observer.attempt(
+            key_name=alias or "(manual)", model=model, candidate_index=1
+        )
+        boundary.before_provider(
+            serialized_bytes=len(body.encode("utf-8")),
+            inline_count=0,
+        )
+    except Exception:
+        boundary = None
     try:
         response = requests.post(
             f"{GENAI_BASE}/models/{model}:generateContent",
-            data=json.dumps(build_probe_payload(model)),
+            data=body,
             headers={"Content-Type": "application/json", "x-goog-api-key": key},
             timeout=timeout or PROBE_TIMEOUT,
         )
         result = classify_probe_response(response.status_code, response.text)
+        usage = {}
+        if response.status_code == 200:
+            try:
+                payload = response.json()
+                usage = payload.get("usageMetadata") if isinstance(payload, dict) else {}
+            except (TypeError, ValueError):
+                usage = {}
+        if boundary is not None:
+            boundary.manual_result(
+                succeeded=response.status_code == 200,
+                http_code=response.status_code,
+                failure_kind="" if response.status_code == 200 else str(result.get("status") or "provider_error"),
+                usage=usage,
+            )
     except requests.Timeout:
         result = {"status": "timeout", "http_code": 0, "finish_reason": "", "thoughts_tokens": 0,
                   "candidates_tokens": 0}
+        if boundary is not None:
+            boundary.manual_result(succeeded=False, failure_kind="read_timeout")
     except requests.RequestException:
         result = {"status": "transport_error", "http_code": 0, "finish_reason": "", "thoughts_tokens": 0,
                   "candidates_tokens": 0}
+        if boundary is not None:
+            boundary.manual_result(succeeded=False, failure_kind="transport")
     result["latency_ms"] = max(0, int((time.monotonic() - started) * 1000))
     result["model"] = model
     return result

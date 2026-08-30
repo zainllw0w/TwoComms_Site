@@ -196,11 +196,22 @@ class _Gemini429(Exception):
         scope: str = "",
         retry_after_seconds: int = 0,
         provider_reason: str = "RESOURCE_EXHAUSTED",
+        provider_quota_metric: str = "",
+        provider_quota_id: str = "",
+        provider_quota_dimensions: dict | None = None,
     ):
         super().__init__(message)
         self.scope = scope if scope in {"minute", "day", "topup", "unknown"} else ""
         self.retry_after_seconds = max(0, int(retry_after_seconds or 0))
         self.provider_reason = str(provider_reason or "RESOURCE_EXHAUSTED")[:80]
+        self.http_code = 429
+        self.provider_quota_metric = str(provider_quota_metric or "")[:16]
+        self.provider_quota_id = str(provider_quota_id or "")[:120]
+        self.provider_quota_dimensions = (
+            dict(provider_quota_dimensions)
+            if isinstance(provider_quota_dimensions, dict)
+            else {}
+        )
 
 
 def _quota_scope_and_retry(exc: Exception) -> tuple[str, int]:
@@ -480,7 +491,8 @@ def _deadline_sleep(delay: float, *, deadline: float | None) -> bool:
 def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 n_attempts: int, grounded: bool, log: list, parse: bool = True,
                 timeout: tuple | None = None, log_cb=None, *, role: str,
-                deadline: float | None) -> tuple[str, dict | None]:
+                deadline: float | None, accounting_observer=None,
+                candidate_index: int = 0) -> tuple[str, dict | None]:
     """Один (key, model) кандидат із ретраями на transient.
 
     Повертає ('ok', result) | ('key_429', None) | ('model_skip', None).
@@ -532,8 +544,20 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 log.append(f"{key_name}/{model}: денна квота пари вичерпана (облік)")
                 _emit(f"{key_name}/{model}: 🚫 квота пари вичерпана (локальний облік)")
                 return ("model_skip", None)
+            attempt_boundary = (
+                accounting_observer.attempt(
+                    key_name=key_name,
+                    model=model,
+                    candidate_index=candidate_index,
+                )
+                if accounting_observer is not None
+                else None
+            )
+            call_kwargs = {"parse": parse, "timeout": effective_timeout}
+            if attempt_boundary is not None:
+                call_kwargs["attempt_boundary"] = attempt_boundary
             parsed, usage = _gemini_call_once(
-                model, request_payload, key_value, parse=parse, timeout=effective_timeout
+                model, request_payload, key_value, **call_kwargs
             )
             if key_name in gemini_keys.ALL_KEYS:
                 gemini_quota.settle(
@@ -587,6 +611,8 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             return ("model_skip", None)
         except _GeminiFatal as exc:
             _emit(f"{key_name}/{model}: ❌ фатальна помилка запиту")
+            if accounting_observer is not None:
+                accounting_observer.resolve_failure("fatal_payload")
             raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}")
         else:
             dt = time.monotonic() - t0
@@ -665,6 +691,27 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
         deadline_seconds = CHAT_DEADLINE_SECONDS if role == "chat" else None
     t_start = time.monotonic()
     deadline = None if deadline_seconds is None else t_start + deadline_seconds
+    accounting_observer = None
+    try:
+        from management.services import gemini_accounting_runtime
+
+        if gemini_accounting_runtime.shadow_runtime_active():
+            accounting_plan = gemini_accounting_runtime.generic_candidate_plan(
+                role=role,
+                models=models,
+                manual_key=manual_key,
+            )
+            accounting_observer = gemini_accounting_runtime.begin_request(
+                request_id=None,
+                role=role,
+                reasoning_task=task,
+                candidate_plan=accounting_plan,
+                deadline_seconds=deadline_seconds,
+            )
+            if not getattr(accounting_observer, "enabled", False):
+                accounting_observer = None
+    except Exception:
+        accounting_observer = None
 
     def _over_deadline() -> bool:
         return deadline_seconds is not None and (time.monotonic() - t_start) >= deadline_seconds
@@ -695,7 +742,12 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                 attempted_this_round = True
                 status, res = _call_combo("(manual)", manual_key, model, payload,
                                           n_attempts, grounded, log, parse, call_timeout,
-                                          log_cb, role=role, deadline=deadline)
+                                          log_cb, role=role, deadline=deadline,
+                                          accounting_observer=accounting_observer,
+                                          candidate_index=(
+                                              accounting_observer.candidate_index("(manual)", model)
+                                              if accounting_observer is not None else 0
+                                          ))
                 if status == "ok":
                     return res
                 if _over_deadline():
@@ -715,7 +767,12 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
             attempted_this_round = True
             status, res = _call_combo(key_name, key_value, model, payload,
                                       n_attempts, grounded, log, parse, call_timeout,
-                                      log_cb, role=role, deadline=deadline)
+                                      log_cb, role=role, deadline=deadline,
+                                      accounting_observer=accounting_observer,
+                                      candidate_index=(
+                                          accounting_observer.candidate_index(key_name, model)
+                                          if accounting_observer is not None else 0
+                                      ))
             if status == "ok":
                 return res
             if _over_deadline():
@@ -739,11 +796,15 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                 break
 
     if aborted:
+        if accounting_observer is not None:
+            accounting_observer.resolve_failure("deadline")
         _emit(f"⏱ дедлайн {deadline_seconds:.0f}с вичерпано — припиняю перебір")
         raise CallAIAnalysisError(
             f"Перебір Gemini перервано по дедлайну ({deadline_seconds:.0f}с). Спроби: "
             + "; ".join(log)
         )
+    if accounting_observer is not None:
+        accounting_observer.resolve_failure("exhausted")
     raise CallAIAnalysisError(
         "Усі ключі/моделі Gemini недоступні (квота/перевантаження). Спроби: "
         + "; ".join(log)
@@ -906,7 +967,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                         model_override: str | None = None,
                         model_chain_override: list[str] | tuple[str, ...] | None = None,
                         reasoning_task: str = "customer_chat",
-                        deadline_seconds: float | None = None) -> dict:
+                        deadline_seconds: float | None = None,
+                        routing_decision=None) -> dict:
     """Run one live reply through a deadline-aware, quality-first pool.
 
     The generic runner is intentionally not reused here: its three rounds and
@@ -980,6 +1042,37 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             for model in models
             if not gemini_keys.model_circuit_open(model)
         ] + candidates
+    accounting_candidate_plan = list(candidate_plan)
+    if manual_key:
+        next_index = max(
+            (int(item.get("candidate_index") or 0) for item in accounting_candidate_plan),
+            default=0,
+        )
+        for model in models:
+            next_index += 1
+            accounting_candidate_plan.append({
+                "candidate_index": next_index,
+                "key_name": "(manual)",
+                "model": model,
+                "project_identity": "",
+                "identity_status": "unknown",
+                "skip_reason": "",
+            })
+    try:
+        from management.services import gemini_accounting_runtime
+
+        accounting_observer = gemini_accounting_runtime.begin_request(
+            request_id=request_id,
+            role="chat",
+            reasoning_task=policy["task"],
+            candidate_plan=accounting_candidate_plan,
+            deadline_seconds=effective_deadline_seconds,
+            routing_decision=routing_decision,
+        )
+        if not getattr(accounting_observer, "enabled", False):
+            accounting_observer = None
+    except Exception:
+        accounting_observer = None
 
     def _audit_not_attempted(key_name: str, model: str, reason: str,
                              candidate_index: int) -> None:
@@ -1075,6 +1168,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         )
         request_payload.pop("_reasoning_task", None)
         call_started_at = time.monotonic()
+        attempt_boundary = None
 
         def _audit(outcome: str, *, failure_kind: str = "", http_code: int | None = None,
                    provider_reason: str = "", decision: str = "",
@@ -1095,6 +1189,10 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     usage=usage,
                     attempt_index=attempt_index,
                     candidate_index=candidate_index,
+                    existing_attempt_id=(
+                        getattr(attempt_boundary, "attempt_id", None)
+                        if attempt_boundary is not None else None
+                    ),
                 )
             except Exception:
                 logger.debug("gemini attempt audit unavailable", exc_info=True)
@@ -1111,8 +1209,20 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             _release()
             return None, "quota"
         try:
+            attempt_boundary = (
+                accounting_observer.attempt(
+                    key_name=key_name,
+                    model=model,
+                    candidate_index=candidate_index,
+                )
+                if accounting_observer is not None
+                else None
+            )
+            call_kwargs = {"parse": parse, "timeout": timeout}
+            if attempt_boundary is not None:
+                call_kwargs["attempt_boundary"] = attempt_boundary
             parsed, usage = _gemini_call_once(
-                model, request_payload, key_value, parse=parse, timeout=timeout
+                model, request_payload, key_value, **call_kwargs
             )
             if key_name in gemini_keys.ALL_KEYS:
                 gemini_quota.settle(
@@ -1240,6 +1350,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 return None, "invalid_key"
             _release()
             _audit_remaining("fatal_payload")
+            if accounting_observer is not None:
+                accounting_observer.resolve_failure("fatal_payload")
             raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}") from exc
 
         if key_name in gemini_keys.ALL_KEYS:
@@ -1455,6 +1567,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 return result
             if state == "deadline":
                 _audit_remaining("deadline")
+                if accounting_observer is not None:
+                    accounting_observer.resolve_failure("deadline")
                 raise CallAIAnalysisError(
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
@@ -1496,6 +1610,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 return result
             if state == "deadline":
                 _audit_remaining("deadline")
+                if accounting_observer is not None:
+                    accounting_observer.resolve_failure("deadline")
                 raise CallAIAnalysisError(
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
@@ -1520,6 +1636,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     _audit_remaining("sla_model_budget", model=model)
                     break
 
+    if accounting_observer is not None:
+        accounting_observer.resolve_failure("exhausted")
     raise CallAIAnalysisError(
         "Усі Gemini-кандидати для live chat недоступні. Спроби: "
         + "; ".join(attempts)
@@ -1625,7 +1743,8 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
                          model_chain_override: list[str] | tuple[str, ...] | None = None,
                          reasoning_task: str | None = None,
                          parse: bool = False,
-                         deadline_seconds: float | None = None) -> dict:
+                         deadline_seconds: float | None = None,
+                         routing_decision=None) -> dict:
     """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
     моделей. У result['parsed'] — сирий текст відповіді моделі.
     log_cb (опц.) отримує короткі рядки про кожну спробу (для консолі бота)."""
@@ -1639,6 +1758,7 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
             model_chain_override=model_chain_override,
             reasoning_task=reasoning_task or "customer_chat",
             deadline_seconds=deadline_seconds,
+            routing_decision=routing_decision,
         )
     bounded_management = role == "management"
     return _run_with_pool(
@@ -1719,6 +1839,9 @@ def _provider_error_details(response) -> dict:
             "provider_reason": "UNKNOWN",
             "quota_scope": "",
             "retry_after_seconds": 0,
+            "provider_quota_metric": "",
+            "provider_quota_id": "",
+            "provider_quota_dimensions": {},
         }
     parts = []
     status = str(error.get("status") or "").strip()
@@ -1726,6 +1849,9 @@ def _provider_error_details(response) -> dict:
         parts.append(status[:80])
     quota_scope = ""
     retry_after_seconds = 0
+    provider_quota_metric = ""
+    provider_quota_id = ""
+    provider_quota_dimensions: dict[str, str] = {}
     message_class = str(error.get("message") or "").casefold()
     compact_message = message_class.replace("_", "").replace(" ", "")
     if (
@@ -1758,6 +1884,19 @@ def _provider_error_details(response) -> dict:
             if not isinstance(violation, dict):
                 continue
             quota_id = str(violation.get("quotaId") or "").strip()
+            quota_metric = str(violation.get("quotaMetric") or "").strip()
+            if quota_metric and re.fullmatch(r"[A-Za-z0-9_.:-]{1,16}", quota_metric):
+                provider_quota_metric = quota_metric
+            if quota_id and re.fullmatch(r"[A-Za-z0-9_.:-]{1,120}", quota_id):
+                provider_quota_id = quota_id
+            dimensions = violation.get("quotaDimensions")
+            if isinstance(dimensions, dict):
+                provider_quota_dimensions = {
+                    str(key)[:40]: str(value)[:80]
+                    for key, value in list(dimensions.items())[:8]
+                    if re.fullmatch(r"[A-Za-z0-9_.:-]{1,40}", str(key))
+                    and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", str(value))
+                }
             normalized = quota_id.casefold().replace("_", "").replace("-", "")
             if quota_scope != "topup" and "perday" in normalized:
                 quota_scope = "day"
@@ -1777,6 +1916,9 @@ def _provider_error_details(response) -> dict:
         "provider_reason": status[:80] or "UNKNOWN",
         "quota_scope": quota_scope,
         "retry_after_seconds": retry_after_seconds,
+        "provider_quota_metric": provider_quota_metric,
+        "provider_quota_id": provider_quota_id,
+        "provider_quota_dimensions": provider_quota_dimensions,
     }
 
 
@@ -1807,12 +1949,22 @@ def _final_provider_body(payload: dict) -> tuple[bytes, int, int]:
 
 
 def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True,
-                      timeout: tuple | None = None) -> tuple:
+                      timeout: tuple | None = None, attempt_boundary=None) -> tuple:
     """Один виклик generateContent. Повертає (parsed_json|text, usage) або кидає
     типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal).
     parse=False → повертає сирий текст замість JSON (для діалогового бота)."""
     url = f"{GENAI_BASE}/models/{model}:generateContent"
-    body, request_inline_count, request_trimmed_inline = _final_provider_body(payload)
+    try:
+        body, request_inline_count, request_trimmed_inline = _final_provider_body(payload)
+    except _GeminiFatal as error:
+        if attempt_boundary is not None:
+            attempt_boundary.cancelled_pre_dispatch(error)
+        raise
+    if attempt_boundary is not None:
+        attempt_boundary.before_provider(
+            serialized_bytes=len(body),
+            inline_count=request_inline_count,
+        )
     try:
         resp = requests.post(
             url,
@@ -1821,32 +1973,62 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
             timeout=timeout or GEMINI_TIMEOUT,
         )
     except requests.Timeout as exc:
-        raise _GeminiTransient(f"timeout: {exc}") from exc
+        error = _GeminiTransient(f"timeout: {exc}")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error from exc
     except requests.RequestException as exc:
-        raise _GeminiTransient(f"transport: {exc}") from exc
+        error = _GeminiTransient(f"transport: {exc}")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error from exc
 
     code = resp.status_code
     if code != 200:
         details = _provider_error_details(resp)
         summary = str(details["summary"])
         if code == 408 or 500 <= code < 600:
-            raise _GeminiTransient(f"HTTP {code}: {summary}")
+            error = _GeminiTransient(f"HTTP {code}: {summary}")
+            error.http_code = code
+            error.provider_reason = str(details["provider_reason"])
+            if attempt_boundary is not None:
+                attempt_boundary.failed(error)
+            raise error
         if code == 429:
-            raise _Gemini429(
+            error = _Gemini429(
                 summary,
                 scope=str(details["quota_scope"]),
                 retry_after_seconds=int(details["retry_after_seconds"] or 0),
                 provider_reason=str(details["provider_reason"]),
+                provider_quota_metric=str(details["provider_quota_metric"]),
+                provider_quota_id=str(details["provider_quota_id"]),
+                provider_quota_dimensions=details["provider_quota_dimensions"],
             )
+            if attempt_boundary is not None:
+                attempt_boundary.failed(error)
+            raise error
         if code in (404, 403):
-            raise _GeminiModelUnavailable(f"HTTP {code}: {summary}")
+            error = _GeminiModelUnavailable(f"HTTP {code}: {summary}")
+            error.http_code = code
+            error.provider_reason = str(details["provider_reason"])
+            if attempt_boundary is not None:
+                attempt_boundary.failed(error)
+            raise error
         # 400 та інші — проблема нашого запиту.
-        raise _GeminiFatal(f"HTTP {code}: {summary}")
+        error = _GeminiFatal(f"HTTP {code}: {summary}")
+        error.http_code = code
+        error.provider_reason = str(details["provider_reason"])
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error
 
     try:
         data = resp.json()
     except ValueError as exc:
-        raise _GeminiTransient("невалідний JSON-конверт") from exc
+        error = _GeminiTransient("невалідний JSON-конверт")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error from exc
 
     cand = (data.get("candidates") or [{}])[0]
     parts = (cand.get("content") or {}).get("parts") or []
@@ -1861,7 +2043,10 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
         # Порожньо: часто finishReason=MAX_TOKENS/STOP, коли thinking зʼїв бюджет
         # виводу. Це проблема запиту, а не перевантаження моделі → _GeminiEmpty.
         reason = cand.get("finishReason") or "невідомо"
-        raise _GeminiEmpty(f"порожня відповідь (finishReason={reason})")
+        error = _GeminiEmpty(f"порожня відповідь (finishReason={reason})")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error
 
     if parse:
         try:
@@ -1869,7 +2054,10 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
         except CallAIAnalysisError as exc:
             # Невалідний/обрізаний JSON (часто у grounded без json-mime) — трактуємо
             # як порожній: ретрай тієї ж комбінації, далі наступний ключ. Не fatal.
-            raise _GeminiEmpty(f"unparseable JSON: {exc}") from exc
+            error = _GeminiEmpty(f"unparseable JSON: {exc}")
+            if attempt_boundary is not None:
+                attempt_boundary.failed(error)
+            raise error from exc
     else:
         parsed = text
     usage = dict(data.get("usageMetadata") or {})
@@ -1877,6 +2065,8 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
     usage["_request_inline_count"] = request_inline_count
     usage["_request_trimmed_inline"] = request_trimmed_inline
     usage["_request_serialized_bytes"] = len(body)
+    if attempt_boundary is not None:
+        attempt_boundary.succeeded(usage)
     return parsed, usage
 
 
