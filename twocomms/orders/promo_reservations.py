@@ -359,6 +359,32 @@ def release_payment_attempt_promo(attempt, *, reason="payment_terminal"):
     reservation = dict(event_state.get("promo_reservation") or {})
     if reservation.get("state") != "reserved":
         return False
+    if locked.checkout_series_key and locked.checkout_generation:
+        try:
+            expected_generation = str(
+                locked.instagram_checkout_generation.promo_reservation_generation
+                or ""
+            )
+        except Exception:
+            expected_generation = ""
+        actual_generation = str(
+            reservation.get("reservation_generation") or ""
+        )
+        if (
+            not expected_generation
+            or not actual_generation
+            or not secrets.compare_digest(expected_generation, actual_generation)
+        ):
+            reservation.update({
+                "state": "released",
+                "released_at": timezone.now().isoformat(),
+                "release_reason": "stale_reservation_generation",
+                "reservation_generation_mismatch": True,
+            })
+            event_state["promo_reservation"] = reservation
+            locked.event_state = event_state
+            locked.save(update_fields=["event_state", "updated"])
+            return False
     promo_id = reservation.get("promo_id") or locked.promo_code_id
     promo = PromoCode.objects.select_for_update().filter(pk=promo_id).first()
     guest_usage = None
