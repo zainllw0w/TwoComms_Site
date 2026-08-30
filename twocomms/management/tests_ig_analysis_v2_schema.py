@@ -34,7 +34,7 @@ class AnalysisV2SchemaTests(TestCase):
             "materiality_digest": "a" * 64,
             "authority_digest": "b" * 64,
             "artifact_digest": "c" * 64,
-            "required_state_fingerprint": "d" * 64,
+            "state_correlation": "d" * 64,
             "result_schema_version": "analysis-v2.1",
             "normalizer_version": "analysis-v2-normalizer.1",
             "interaction_type": self.snapshot.interaction_type,
@@ -62,7 +62,7 @@ class AnalysisV2SchemaTests(TestCase):
             "source_result_digest": result.result_digest,
             "expected_materiality_digest": result.materiality_digest,
             "expected_authority_digest": result.authority_digest,
-            "expected_state_fingerprint": result.required_state_fingerprint,
+            "expected_state_correlation": result.state_correlation,
         }
         defaults.update(overrides)
         return IgAnalysisProposal.objects.create(**defaults)
@@ -78,7 +78,11 @@ class AnalysisV2SchemaTests(TestCase):
             "materiality_digest", "authority_digest", "artifact_digest",
             "evidence_manifest", "purchase_probability", "probability_basis",
             "injection_risk", "conflict_codes", "deferred_kind", "ltv_signal",
+            "state_correlation", "usage_status", "prompt_tokens",
+            "thoughts_tokens", "candidates_tokens", "total_tokens",
+            "analysis_latency_ms",
         }.issubset(field_names))
+        self.assertNotIn("required_state_fingerprint", field_names)
 
     def test_result_is_append_only_at_every_orm_boundary(self):
         result = self._result()
@@ -135,6 +139,7 @@ class AnalysisV2SchemaTests(TestCase):
         self.assertTrue({
             "ig_anprop_result_ordinal_uniq",
             "ig_anprop_confidence_range",
+            "ig_anprop_status_valid",
         }.issubset(proposal_constraints))
         self.assertEqual(
             {item.name for item in IgConversationAnalysisResult._meta.indexes},

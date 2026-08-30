@@ -36,7 +36,8 @@ class AnalysisV2MigrationTests(SimpleTestCase):
         sql = "\n".join(item.args[0] for item in editor.execute.call_args_list)
         self.assertIn("DROP TRIGGER IF EXISTS ig_anres_no_update", sql)
         self.assertIn("DROP TRIGGER IF EXISTS ig_anres_no_delete", sql)
-        self.assertEqual(sql.count("SIGNAL SQLSTATE '45000'"), 2)
+        self.assertIn("DROP TRIGGER IF EXISTS ig_anprop_no_delete", sql)
+        self.assertEqual(sql.count("SIGNAL SQLSTATE '45000'"), 3)
 
     def test_fresh_schema_creates_result_then_proposal_and_verifies_engines(self):
         result_model = SimpleNamespace(_meta=SimpleNamespace(db_table=self.migration.RESULT_TABLE))

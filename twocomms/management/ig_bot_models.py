@@ -4914,6 +4914,11 @@ class IgConversationAnalysisResult(models.Model):
         SUSPECTED = "suspected", _("Suspected")
         HIGH = "high", _("High confidence signal")
 
+    class UsageStatus(models.TextChoices):
+        ACCOUNTING_UNKNOWN = "accounting_unknown", _("Accounting unknown")
+        PROVIDER_REPORTED = "provider_reported", _("Provider reported")
+        ESTIMATED = "estimated", _("Estimated")
+
     result_key = models.CharField(max_length=160, unique=True)
     legacy_snapshot = models.OneToOneField(
         "management.IgConversationAnalysisSnapshot",
@@ -4942,7 +4947,7 @@ class IgConversationAnalysisResult(models.Model):
     materiality_digest = models.CharField(max_length=64)
     authority_digest = models.CharField(max_length=64, blank=True, default="")
     artifact_digest = models.CharField(max_length=64, blank=True, default="")
-    required_state_fingerprint = models.CharField(max_length=64)
+    state_correlation = models.CharField(max_length=64)
     result_schema_version = models.CharField(max_length=32)
     normalizer_version = models.CharField(max_length=32)
     source_kind = models.CharField(
@@ -5025,6 +5030,16 @@ class IgConversationAnalysisResult(models.Model):
     reasoning_policy_version = models.CharField(max_length=32, blank=True, default="")
     project_slot = models.CharField(max_length=24, blank=True, default="")
     gemini_request_ref = models.CharField(max_length=40, blank=True, default="")
+    usage_status = models.CharField(
+        max_length=24,
+        choices=UsageStatus.choices,
+        default=UsageStatus.ACCOUNTING_UNKNOWN,
+    )
+    prompt_tokens = models.PositiveBigIntegerField(default=0)
+    thoughts_tokens = models.PositiveBigIntegerField(default=0)
+    candidates_tokens = models.PositiveBigIntegerField(default=0)
+    total_tokens = models.PositiveBigIntegerField(default=0)
+    analysis_latency_ms = models.PositiveIntegerField(default=0)
     result_digest = models.CharField(max_length=64)
     analyzed_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -5191,7 +5206,7 @@ class IgAnalysisProposal(models.Model):
         "source_result_digest",
         "expected_materiality_digest",
         "expected_authority_digest",
-        "expected_state_fingerprint",
+        "expected_state_correlation",
         "created_at",
     })
 
@@ -5229,7 +5244,7 @@ class IgAnalysisProposal(models.Model):
     source_result_digest = models.CharField(max_length=64)
     expected_materiality_digest = models.CharField(max_length=64)
     expected_authority_digest = models.CharField(max_length=64, blank=True, default="")
-    expected_state_fingerprint = models.CharField(max_length=64)
+    expected_state_correlation = models.CharField(max_length=64)
     status = models.CharField(
         max_length=24,
         choices=Status.choices,
@@ -5256,6 +5271,17 @@ class IgAnalysisProposal(models.Model):
                     & models.Q(confidence__lte=Decimal("1"))
                 ),
                 name="ig_anprop_confidence_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=(
+                    "pending",
+                    "shadow_validated",
+                    "blocked_dependency",
+                    "blocked_legacy_owner",
+                    "rejected",
+                    "applied",
+                )),
+                name="ig_anprop_status_valid",
             ),
         ]
         indexes = [

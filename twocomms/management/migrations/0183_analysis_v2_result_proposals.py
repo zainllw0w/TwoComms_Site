@@ -12,7 +12,7 @@ PROPOSAL_TABLE = "management_iganalysisproposal"
 RESULT_FIELDS = (
     "id", "result_key", "line_id", "watermark_message_id", "job_revision",
     "materiality_event_highwater", "materiality_digest", "authority_digest",
-    "artifact_digest", "required_state_fingerprint", "result_schema_version",
+    "artifact_digest", "state_correlation", "result_schema_version",
     "normalizer_version", "source_kind", "interaction_type", "score_band",
     "detected_language", "purchase_probability", "purchase_confidence",
     "probability_basis", "evidence_manifest", "customer_evidence_count",
@@ -23,7 +23,9 @@ RESULT_FIELDS = (
     "injection_risk", "injection_evidence_message_ids", "has_conflicts",
     "conflict_codes", "uncertainty_codes", "analysis_model", "prompt_version",
     "routing_policy_version", "reasoning_policy_version", "project_slot",
-    "gemini_request_ref", "result_digest", "analyzed_at", "created_at",
+    "gemini_request_ref", "usage_status", "prompt_tokens", "thoughts_tokens",
+    "candidates_tokens", "total_tokens", "analysis_latency_ms",
+    "result_digest", "analyzed_at", "created_at",
     "client", "commercial_episode", "legacy_snapshot",
 )
 PROPOSAL_FIELDS = (
@@ -31,7 +33,7 @@ PROPOSAL_FIELDS = (
     "target_scope", "target_definition_key", "target_definition_version",
     "target_key", "typed_value", "evidence_message_ids", "confidence",
     "source_result_digest", "expected_materiality_digest",
-    "expected_authority_digest", "expected_state_fingerprint", "status",
+    "expected_authority_digest", "expected_state_correlation", "status",
     "decision_code", "projector_version", "decided_at", "created_at",
     "updated_at", "analysis_result", "client", "commercial_episode",
 )
@@ -62,7 +64,10 @@ CHECK_SPECS = tuple(
         "ig_anres_objection_conf_range", "ig_anres_repeat_conf_range",
         "ig_anres_materiality_positive",
     )
-) + (("management", "IgAnalysisProposal", "ig_anprop_confidence_range"),)
+) + tuple(
+    ("management", "IgAnalysisProposal", name)
+    for name in ("ig_anprop_confidence_range", "ig_anprop_status_valid")
+)
 UNIQUE_SPECS = (
     ("management", "IgConversationAnalysisResult", "ig_anres_result_key_uniq", ("result_key",)),
     ("management", "IgConversationAnalysisResult", "ig_anres_snapshot_uniq", ("legacy_snapshot",)),
@@ -165,9 +170,11 @@ def create_result_append_only_triggers(apps, schema_editor):
     del apps
     update_name = "ig_anres_no_update"
     delete_name = "ig_anres_no_delete"
+    proposal_delete_name = "ig_anprop_no_delete"
     if schema_editor.connection.vendor == "mysql":
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {update_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {delete_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_delete_name}")
         schema_editor.execute(
             f"CREATE TRIGGER {update_name} BEFORE UPDATE ON {RESULT_TABLE} "
             "FOR EACH ROW SIGNAL SQLSTATE '45000' "
@@ -177,10 +184,16 @@ def create_result_append_only_triggers(apps, schema_editor):
             f"CREATE TRIGGER {delete_name} BEFORE DELETE ON {RESULT_TABLE} "
             "FOR EACH ROW SIGNAL SQLSTATE '45000' "
             "SET MESSAGE_TEXT='IgConversationAnalysisResult is append-only'"
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_delete_name} BEFORE DELETE ON {PROPOSAL_TABLE} "
+            "FOR EACH ROW SIGNAL SQLSTATE '45000' "
+            "SET MESSAGE_TEXT='IgAnalysisProposal cannot be deleted'"
         )
     elif schema_editor.connection.vendor == "sqlite":
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {update_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {delete_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_delete_name}")
         schema_editor.execute(
             f"CREATE TRIGGER {update_name} BEFORE UPDATE ON {RESULT_TABLE} "
             "BEGIN SELECT RAISE(ABORT, 'IgConversationAnalysisResult is append-only'); END"
@@ -188,6 +201,10 @@ def create_result_append_only_triggers(apps, schema_editor):
         schema_editor.execute(
             f"CREATE TRIGGER {delete_name} BEFORE DELETE ON {RESULT_TABLE} "
             "BEGIN SELECT RAISE(ABORT, 'IgConversationAnalysisResult is append-only'); END"
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_delete_name} BEFORE DELETE ON {PROPOSAL_TABLE} "
+            "BEGIN SELECT RAISE(ABORT, 'IgAnalysisProposal cannot be deleted'); END"
         )
     elif schema_editor.connection.vendor == "postgresql":
         schema_editor.execute(
@@ -201,6 +218,13 @@ def create_result_append_only_triggers(apps, schema_editor):
                 f"CREATE TRIGGER {name} BEFORE {action} ON {RESULT_TABLE} "
                 "FOR EACH ROW EXECUTE FUNCTION ig_analysis_v2_append_only_raise()"
             )
+        schema_editor.execute(
+            f"DROP TRIGGER IF EXISTS {proposal_delete_name} ON {PROPOSAL_TABLE}"
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_delete_name} BEFORE DELETE ON {PROPOSAL_TABLE} "
+            "FOR EACH ROW EXECUTE FUNCTION ig_analysis_v2_append_only_raise()"
+        )
 
 
 STATE_OPERATIONS = [
@@ -216,7 +240,7 @@ STATE_OPERATIONS = [
             ("materiality_digest", models.CharField(max_length=64)),
             ("authority_digest", models.CharField(blank=True, default="", max_length=64)),
             ("artifact_digest", models.CharField(blank=True, default="", max_length=64)),
-            ("required_state_fingerprint", models.CharField(max_length=64)),
+            ("state_correlation", models.CharField(max_length=64)),
             ("result_schema_version", models.CharField(max_length=32)),
             ("normalizer_version", models.CharField(max_length=32)),
             ("source_kind", models.CharField(choices=[("ai", "Gemini analysis"), ("rules", "Deterministic rules")], default="ai", max_length=16)),
@@ -250,6 +274,12 @@ STATE_OPERATIONS = [
             ("reasoning_policy_version", models.CharField(blank=True, default="", max_length=32)),
             ("project_slot", models.CharField(blank=True, default="", max_length=24)),
             ("gemini_request_ref", models.CharField(blank=True, default="", max_length=40)),
+            ("usage_status", models.CharField(choices=[("accounting_unknown", "Accounting unknown"), ("provider_reported", "Provider reported"), ("estimated", "Estimated")], default="accounting_unknown", max_length=24)),
+            ("prompt_tokens", models.PositiveBigIntegerField(default=0)),
+            ("thoughts_tokens", models.PositiveBigIntegerField(default=0)),
+            ("candidates_tokens", models.PositiveBigIntegerField(default=0)),
+            ("total_tokens", models.PositiveBigIntegerField(default=0)),
+            ("analysis_latency_ms", models.PositiveIntegerField(default=0)),
             ("result_digest", models.CharField(max_length=64)),
             ("analyzed_at", models.DateTimeField()),
             ("created_at", models.DateTimeField(auto_now_add=True)),
@@ -293,7 +323,7 @@ STATE_OPERATIONS = [
             ("source_result_digest", models.CharField(max_length=64)),
             ("expected_materiality_digest", models.CharField(max_length=64)),
             ("expected_authority_digest", models.CharField(blank=True, default="", max_length=64)),
-            ("expected_state_fingerprint", models.CharField(max_length=64)),
+            ("expected_state_correlation", models.CharField(max_length=64)),
             ("status", models.CharField(choices=[("pending", "Pending validation"), ("shadow_validated", "Validated in shadow"), ("blocked_dependency", "Blocked by dependency"), ("blocked_legacy_owner", "Blocked by legacy owner"), ("rejected", "Rejected"), ("applied", "Applied")], db_index=True, default="pending", max_length=24)),
             ("decision_code", models.CharField(blank=True, default="", max_length=64)),
             ("projector_version", models.CharField(blank=True, default="", max_length=32)),
@@ -315,6 +345,7 @@ STATE_OPERATIONS = [
             "constraints": [
                 models.UniqueConstraint(fields=("analysis_result", "ordinal"), name="ig_anprop_result_ordinal_uniq"),
                 models.CheckConstraint(condition=models.Q(("confidence__gte", Decimal("0")), ("confidence__lte", Decimal("1"))), name="ig_anprop_confidence_range"),
+                models.CheckConstraint(condition=models.Q(("status__in", ["pending", "shadow_validated", "blocked_dependency", "blocked_legacy_owner", "rejected", "applied"])), name="ig_anprop_status_valid"),
             ],
         },
     ),
