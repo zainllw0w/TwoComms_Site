@@ -120,6 +120,39 @@ managed blocks, вызвать лёгкий supervisor `--ensure --reload`, до
 `tmp/ig_bot_supervisor_events.jsonl`. Сверяйте release SHA, PID и Linux process
 start ticks вместе: совпадение одного PID без start ticks не доказывает identity.
 
+### S1b CloudLinux capacity audit
+
+После того как app restart завершился и process group стабилизировалась,
+выполните pure-stdlib read-only audit. Канонический production target — три
+обычных lswsgi child и ноль extra child; `LSAPI_AVOID_FORK` остаётся unset/`0`:
+
+```bash
+SELECTOR_APP_ROOT="${PWD#"$HOME/"}"
+../scripts/audit_cloudlinux_python_capacity.py \
+  --app-root "$PWD" \
+  --selector-app-root "$SELECTOR_APP_ROOT" \
+  --selector-bin "$(command -v cloudlinux-selector)" \
+  --uid "$(id -u)" \
+  --expected-children 3 \
+  --expected-extra-children 0 \
+  --expected-status started \
+  --expected-sha "$(git rev-parse HEAD)"
+```
+
+Exit `0` требуется для deploy evidence и каждого soak snapshot. Exit `1`
+означает доказанный drift/capacity violation, exit `2` — критический источник
+истины нельзя безопасно прочитать. Инструмент выводит только app metadata,
+allowlisted `LSAPI_*`, PID/comm, lock ownership, SHA и агрегаты
+RSS/PSS/private; raw Selector JSON, другие env и process argv никогда не
+выводятся. Он не является cron/worker и не создаёт нагрузочный трафик.
+
+CloudLinux Setup Python App — внешний канонический владелец target `3/0`.
+После канонизации в `public_html/.htaccess` не должно оставаться конфликтующих
+`SetEnv LSAPI_*`; partial `cloudlinux-selector set --env-vars` запрещён, потому
+что нельзя рисковать заменой полного secret-bearing env map. Во время rolling
+restart краткая двойная process group допустима, но audit должен стать зелёным
+после bounded drain; постоянные duplicate masters/locks блокируют завершение.
+
 `--status` завершается non-zero, если минутный ensure не наблюдался более 180 с,
 loaded supervisor SHA/sentinel устарели или identity не подтверждена.
 
