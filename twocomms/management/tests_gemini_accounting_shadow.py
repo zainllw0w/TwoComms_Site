@@ -22,6 +22,7 @@ from management.models import (
 )
 from management.services import call_ai_analysis as ai
 from management.services import gemini_accounting_runtime as runtime
+from management.services import gemini_health
 from management.services import gemini_probe
 from management.services.gemini_routing import TurnFacts, classify_live_turn
 from management.services.ig_turn_lineage import Lane, turn_lineage
@@ -274,6 +275,35 @@ class GeminiShadowRuntimeTests(TestCase):
             GeminiRequestAttempt.objects.exclude(fsm_state=GeminiRequestAttempt.FsmState.LEGACY).count(),
             0,
         )
+
+    @patch.dict(os.environ, KEY_ENV, clear=False)
+    @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
+    def test_internal_request_id_exists_only_in_shadow_meta_and_not_public_health(self, _post):
+        payload = {"contents": [{"parts": [{"text": "memory"}]}]}
+        with override_settings(
+            GEMINI_ACCOUNTING_V2_MODE="off",
+            GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="",
+        ):
+            off = ai.gemini_generate_text(
+                payload,
+                role="management",
+                reasoning_task="memory_summary",
+            )
+        self.assertNotIn("request_id", off.get("meta") or {})
+
+        with override_settings(**SHADOW):
+            shadow = ai.gemini_generate_text(
+                payload,
+                role="management",
+                reasoning_task="memory_summary",
+            )
+            internal_id = shadow["meta"]["request_id"]
+            self.assertEqual(
+                GeminiRequest.objects.get(request_id=internal_id).request_id,
+                internal_id,
+            )
+            public_snapshot = gemini_health.build_snapshot()
+        self.assertNotIn(internal_id, json.dumps(public_snapshot, sort_keys=True))
 
     @override_settings(**SHADOW)
     def test_begin_request_profile_reads_are_bounded_and_plan_is_sanitized(self):
@@ -978,6 +1008,7 @@ class GeminiShadowRuntimeTests(TestCase):
         )
         self.assertEqual(out["parsed"], "ok")
         graph = GeminiRequest.objects.get()
+        self.assertEqual(out["meta"]["request_id"], graph.request_id)
         provider_rows = GeminiRequestAttempt.objects.filter(
             request_id=graph.request_id,
             outcome="succeeded",

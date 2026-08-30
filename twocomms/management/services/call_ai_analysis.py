@@ -653,7 +653,7 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             log.append(f"{key_name}/{model}: ok")
             _emit(f"{key_name}/{model}: ✅ відповідь за {dt:.1f}с")
             usage = usage if isinstance(usage, dict) else {}
-            return ("ok", {
+            result = {
                 "parsed": parsed, "raw": parsed, "usage": usage, "model": model,
                 "meta": {
                     "key": key_name,
@@ -676,7 +676,10 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                     ),
                     "latency_ms": max(0, int((time.monotonic() - t0) * 1000)),
                 },
-            })
+            }
+            if accounting_observer is not None:
+                result["meta"]["request_id"] = accounting_observer.request_id
+            return ("ok", result)
         finally:
             if lease_token:
                 try:
@@ -1431,6 +1434,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             parsed=parsed, usage=usage, model=model, key_name=key_name,
             attempts=attempts, policy=policy, started_at=call_started_at,
         )
+        if accounting_observer is not None:
+            result["meta"]["request_id"] = accounting_observer.request_id
         if lease_token:
             _release()
         return result, "ok"
@@ -2352,7 +2357,9 @@ def analyze_call(
         analysis.discrepancies = _normalize_discrepancies(parsed.get("discrepancies"))
         analysis.result = parsed if isinstance(parsed, dict) else {"_raw": parsed}
         if isinstance(analysis.result, dict):
-            analysis.result["_meta"] = out.get("meta") or {}
+            persisted_meta = dict(out.get("meta") or {})
+            persisted_meta.pop("request_id", None)
+            analysis.result["_meta"] = persisted_meta
         analysis.audio_bytes = size
         analysis.prompt_tokens = int(usage.get("promptTokenCount") or 0)
         analysis.output_tokens = int(
