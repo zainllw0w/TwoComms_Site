@@ -465,6 +465,16 @@ class PaymentAttempt(models.Model):
     provider_recheck_claim_until = models.DateTimeField(null=True, blank=True)
     provider_recheck_attempts = models.PositiveSmallIntegerField(default=0)
     provider_recheck_last_status = models.CharField(max_length=32, blank=True, default='')
+    # Dormant Assisted Checkout V2 identity. New rows remain NULL until the
+    # separately reviewed generation runtime is enabled; legacy/retail flows
+    # therefore keep their exact behavior.
+    checkout_series_key = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+    )
+    checkout_generation = models.PositiveIntegerField(null=True, blank=True)
+    checkout_winner_claimed = models.BooleanField(default=False)
     error_reason = models.CharField(max_length=500, blank=True, default='')
     order = models.OneToOneField(
         'Order', null=True, blank=True, on_delete=models.SET_NULL, related_name='payment_attempt'
@@ -486,6 +496,38 @@ class PaymentAttempt(models.Model):
             models.Index(
                 fields=['provider_recheck_claim_until', 'id'],
                 name='pay_attempt_recheck_lease',
+            ),
+            models.Index(
+                fields=['checkout_series_key', 'checkout_generation', 'id'],
+                name='pay_attempt_series_idx',
+            ),
+            models.Index(
+                fields=['checkout_series_key', 'checkout_winner_claimed', 'id'],
+                name='pay_attempt_winner_idx',
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['checkout_series_key', 'checkout_generation'],
+                name='pay_attempt_series_gen_once',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        checkout_series_key__isnull=True,
+                        checkout_generation__isnull=True,
+                        checkout_winner_claimed=False,
+                    )
+                    | (
+                        models.Q(
+                            checkout_series_key__isnull=False,
+                            checkout_generation__isnull=False,
+                            checkout_generation__gte=1,
+                        )
+                        & ~models.Q(checkout_series_key='')
+                    )
+                ),
+                name='pay_attempt_series_shape',
             ),
         ]
 
