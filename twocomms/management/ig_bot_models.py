@@ -5038,6 +5038,10 @@ class IgConversationAnalysisJob(models.Model):
     analyzed_materiality_digest = models.CharField(max_length=64, blank=True, default="")
     authority_digest = models.CharField(max_length=64, blank=True, default="")
     artifact_digest = models.CharField(max_length=64, blank=True, default="")
+    claimed_materiality_event_highwater = models.PositiveBigIntegerField(default=0)
+    claimed_materiality_digest = models.CharField(max_length=64, blank=True, default="")
+    claimed_authority_digest = models.CharField(max_length=64, blank=True, default="")
+    claimed_artifact_digest = models.CharField(max_length=64, blank=True, default="")
     claimed_watermark_message_id = models.PositiveBigIntegerField(default=0)
     claimed_revision = models.PositiveBigIntegerField(default=0)
     status = models.CharField(

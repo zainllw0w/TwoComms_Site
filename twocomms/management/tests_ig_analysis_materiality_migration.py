@@ -24,6 +24,12 @@ class AnalysisMaterialityMigrationTests(SimpleTestCase):
         self.assertIsInstance(migration.Migration.operations[1], migrations.RunPython)
         self.assertFalse(migration.Migration.operations[1].reversible)
         self.assertFalse(migration.Migration.operations[-1].reversible)
+        self.assertTrue({
+            "claimed_materiality_event_highwater",
+            "claimed_materiality_digest",
+            "claimed_authority_digest",
+            "claimed_artifact_digest",
+        }.issubset({name for _app, _model, name in migration.JOB_FIELD_SPECS}))
 
     def test_mysql_trigger_and_engine_contract_is_idempotent(self):
         migration = import_module(

@@ -443,6 +443,47 @@ class MaterialityCadenceTests(TestCase):
         self.assertIsNotNone(event)
         self.assertLessEqual(len(application_queries), 3, application_queries)
 
+    def test_atomic_claim_copies_all_materiality_cursor_dimensions(self):
+        from management.services import bot_conversation_analysis as analysis
+
+        authority_identity = _event_digest("claim-authority")
+        artifact_identity = _event_digest("claim-artifact")
+        event = materiality.record_materiality_event(
+            client_id=self.client.pk,
+            event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+            event_digest=_event_digest("claim-cursor"),
+            source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+            source_message_id=self.source.pk,
+            authority_digest=authority_identity,
+            artifact_revision=3,
+            artifact_digest=artifact_identity,
+            relevant_at=timezone.now(),
+        )
+
+        claimed, _watermark, _revision, token = analysis._claim_due(
+            timezone.now() + timedelta(seconds=1)
+        )
+
+        self.assertEqual(claimed.claimed_materiality_event_highwater, event.pk)
+        self.assertEqual(
+            claimed.claimed_materiality_digest,
+            claimed.materiality_digest,
+        )
+        self.assertEqual(claimed.claimed_authority_digest, authority_identity)
+        self.assertEqual(claimed.claimed_artifact_digest, artifact_identity)
+        self.assertTrue(
+            analysis._defer_claim_for_customer_reply(
+                claimed.pk,
+                token,
+                now=timezone.now(),
+            )
+        )
+        claimed.refresh_from_db()
+        self.assertEqual(claimed.claimed_materiality_event_highwater, 0)
+        self.assertEqual(claimed.claimed_materiality_digest, "")
+        self.assertEqual(claimed.claimed_authority_digest, "")
+        self.assertEqual(claimed.claimed_artifact_digest, "")
+
     def test_episode_line_and_event_highwater_are_typed_on_job(self):
         episode = IgCommercialEpisode.objects.create(
             client=self.client,
@@ -880,6 +921,90 @@ class ShadowAnalysisCompletionTests(TestCase):
         snapshot = materiality.current_analysis_snapshot(client)
         self.assertIsNotNone(snapshot)
         self.assertEqual(snapshot.last_analyzed_message_id, message.pk)
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_event_after_claim_does_not_advance_past_captured_cursor(self, generate):
+        from management.services import bot_conversation_analysis as analysis
+
+        client = IgClient.objects.create(igsid="mat-after-claim")
+        episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=1,
+            open_slot=1,
+            materialization_key="mat-after-claim:episode:1",
+        )
+        client.current_commercial_episode = episode
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+        message = _message(client, "Хочу чорне худі")
+        now = timezone.now().replace(microsecond=0)
+        job = analysis.schedule_analysis(
+            client,
+            message,
+            now=now,
+            delay_seconds=0,
+        )
+        captured = materiality.record_materiality_event(
+            client_id=client.pk,
+            episode_id=episode.pk,
+            source_message_id=message.pk,
+            source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+            event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+            event_digest=_event_digest("before-claim"),
+            relevant_at=now,
+        )
+
+        def append_new_event(*_args, **_kwargs):
+            materiality.record_materiality_event(
+                client_id=client.pk,
+                episode_id=episode.pk,
+                source_message_id=message.pk,
+                source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+                event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+                event_digest=_event_digest("after-claim"),
+                relevant_at=now + timedelta(seconds=1),
+            )
+            return {
+                "parsed": {
+                    "interaction_type": "product_interest",
+                    "score_band": "qualified",
+                    "purchase_probability": 0.7,
+                    "confidence": 0.9,
+                    "evidence": [{
+                        "message_id": message.pk,
+                        "quote": message.text,
+                        "claim": "product interest",
+                    }],
+                    "uncertainties": [],
+                    "repeat_intent": {},
+                },
+                "model": "gemini-3.6-flash",
+                "meta": {},
+            }
+
+        generate.side_effect = append_new_event
+
+        result = analysis.process_due_analysis(limit=1, now=now)
+
+        self.assertEqual(result["done"], 1, result)
+        job.refresh_from_db()
+        latest = IgAnalysisMaterialityEvent.objects.order_by("-id").first()
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.DONE)
+        self.assertEqual(job.analyzed_materiality_event_highwater, captured.pk)
+        self.assertEqual(
+            job.analyzed_materiality_digest,
+            materiality._sha({
+                "event_id": captured.pk,
+                "digest": captured.event_digest,
+            }),
+        )
+        self.assertEqual(job.materiality_event_highwater, latest.pk)
+        self.assertNotEqual(job.analyzed_materiality_digest, job.materiality_digest)
+        self.assertIsNotNone(job.first_unanalysed_at)
+        self.assertEqual(job.claimed_materiality_event_highwater, 0)
+        self.assertEqual(job.claimed_materiality_digest, "")
+        self.assertEqual(job.claimed_authority_digest, "")
+        self.assertEqual(job.claimed_artifact_digest, "")
+        self.assertIsNone(materiality.current_analysis_snapshot(client))
 
 
 @override_settings(IG_ANALYSIS_MATERIALITY_MODE="shadow")

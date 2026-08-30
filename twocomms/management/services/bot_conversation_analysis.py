@@ -116,6 +116,22 @@ SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для вну�
 Не давай порад клієнту і не генеруй відповідь для відправлення."""
 
 
+CLAIMED_MATERIALITY_FIELDS = (
+    "claimed_materiality_event_highwater",
+    "claimed_materiality_digest",
+    "claimed_authority_digest",
+    "claimed_artifact_digest",
+)
+
+
+def _clear_claimed_materiality(job: IgConversationAnalysisJob) -> list[str]:
+    job.claimed_materiality_event_highwater = 0
+    job.claimed_materiality_digest = ""
+    job.claimed_authority_digest = ""
+    job.claimed_artifact_digest = ""
+    return list(CLAIMED_MATERIALITY_FIELDS)
+
+
 def _job_covers_exact_state(
     job: IgConversationAnalysisJob,
     *,
@@ -227,12 +243,14 @@ def schedule_analysis(
                     job.lease_until = None
                     job.claimed_watermark_message_id = 0
                     job.claimed_revision = 0
+                    claimed_materiality_fields = _clear_claimed_materiality(job)
                     job.last_error = ""
                     job.skip_reason = ""
                     fields.extend([
                         "status", "next_attempt_at", "attempts", "lease_token",
                         "lease_until", "claimed_watermark_message_id",
-                        "claimed_revision", "last_error", "skip_reason",
+                        "claimed_revision", *claimed_materiality_fields,
+                        "last_error", "skip_reason",
                     ])
                 job.save(update_fields=fields)
                 return job
@@ -326,6 +344,10 @@ def _reclaim_stale(now) -> int:
         ),
         claimed_watermark_message_id=0,
         claimed_revision=0,
+        claimed_materiality_event_highwater=0,
+        claimed_materiality_digest="",
+        claimed_authority_digest="",
+        claimed_artifact_digest="",
     )
 
 
@@ -359,6 +381,10 @@ def _claim_due(now) -> tuple[IgConversationAnalysisJob, int, int, str] | None:
             lease_until=lease_until,
             claimed_watermark_message_id=candidate.watermark_message_id,
             claimed_revision=candidate.revision,
+            claimed_materiality_event_highwater=F("materiality_event_highwater"),
+            claimed_materiality_digest=F("materiality_digest"),
+            claimed_authority_digest=F("authority_digest"),
+            claimed_artifact_digest=F("artifact_digest"),
             attempts=candidate.attempts + 1,
             last_error="",
             skip_reason="",
@@ -1019,11 +1045,13 @@ def _finish_skip(
             job.lease_until = None
             job.claimed_watermark_message_id = 0
             job.claimed_revision = 0
+            claimed_materiality_fields = _clear_claimed_materiality(job)
             job.attempts = 0
             job.next_attempt_at = max(job.due_at, finalized_at)
             job.save(update_fields=[
                 "status", "lease_token", "lease_until",
-                "claimed_watermark_message_id", "claimed_revision", "attempts",
+                "claimed_watermark_message_id", "claimed_revision",
+                *claimed_materiality_fields, "attempts",
                 "next_attempt_at", "updated_at",
             ])
             return "superseded"
@@ -1035,12 +1063,14 @@ def _finish_skip(
         job.lease_until = None
         job.claimed_watermark_message_id = 0
         job.claimed_revision = 0
+        claimed_materiality_fields = _clear_claimed_materiality(job)
         job.skip_reason = reason
         job.status = IgConversationAnalysisJob.Status.SKIPPED
         job.save(update_fields=[
             "analyzed_watermark_message_id", "analyzed_revision", "lease_token",
             "lease_until", "claimed_watermark_message_id", "claimed_revision",
-            "skip_reason", "status", "next_attempt_at", "updated_at",
+            *claimed_materiality_fields, "skip_reason", "status",
+            "next_attempt_at", "updated_at",
         ])
         return "skipped"
 
@@ -1070,6 +1100,7 @@ def _finish_failure(
         current.lease_until = None
         current.claimed_watermark_message_id = 0
         current.claimed_revision = 0
+        claimed_materiality_fields = _clear_claimed_materiality(current)
         current.last_error = f"{type(exc).__name__}: {exc}"[:1000]
         if (
             int(current.watermark_message_id or 0) > claimed_watermark
@@ -1090,7 +1121,8 @@ def _finish_failure(
             current.next_attempt_at = now + timedelta(seconds=delay)
         current.save(update_fields=[
             "status", "attempts", "next_attempt_at", "lease_token", "lease_until",
-            "claimed_watermark_message_id", "claimed_revision", "last_error", "updated_at",
+            "claimed_watermark_message_id", "claimed_revision",
+            *claimed_materiality_fields, "last_error", "updated_at",
         ])
 
 
@@ -1133,6 +1165,11 @@ def _process_claim(
     token: str,
     now,
 ) -> str:
+    from management.services.ig_analysis_materiality import (
+        claimed_materiality_cursor,
+    )
+
+    materiality_claim = claimed_materiality_cursor(job)
     client = IgClient.objects.get(pk=job.client_id)
     analyzed_watermark = int(job.analyzed_watermark_message_id or 0)
     if _historical_reconcile_job(job, watermark):
@@ -1297,6 +1334,7 @@ def _process_claim(
             current_job.lease_until = None
             current_job.claimed_watermark_message_id = 0
             current_job.claimed_revision = 0
+            claimed_materiality_fields = _clear_claimed_materiality(current_job)
             current_job.attempts = 0
             current_job.next_attempt_at = max(current_job.due_at, finalized_at)
             current_job.save(update_fields=[
@@ -1305,6 +1343,7 @@ def _process_claim(
                 "lease_until",
                 "claimed_watermark_message_id",
                 "claimed_revision",
+                *claimed_materiality_fields,
                 "attempts",
                 "next_attempt_at",
                 "updated_at",
@@ -1369,12 +1408,14 @@ def _process_claim(
             current_job.lease_until = None
             current_job.claimed_watermark_message_id = 0
             current_job.claimed_revision = 0
+            claimed_materiality_fields = _clear_claimed_materiality(current_job)
             current_job.attempts = 0
             current_job.next_attempt_at = finalized_at
             current_job.save(update_fields=[
                 "revision", "required_state_fingerprint", "trigger", "status",
                 "lease_token", "lease_until", "claimed_watermark_message_id",
-                "claimed_revision", "attempts", "next_attempt_at", "updated_at",
+                "claimed_revision", *claimed_materiality_fields, "attempts",
+                "next_attempt_at", "updated_at",
             ])
             return "superseded"
         verified_payment = bool(final_truth_state["verified_payment"])
@@ -1473,6 +1514,7 @@ def _process_claim(
         current_job.lease_until = None
         current_job.claimed_watermark_message_id = 0
         current_job.claimed_revision = 0
+        claimed_materiality_fields = _clear_claimed_materiality(current_job)
         current_job.attempts = 0
         current_job.last_error = ""
         if (
@@ -1492,6 +1534,7 @@ def _process_claim(
             current_job,
             watermark=watermark,
             claimed_revision=claimed_revision,
+            cursor=materiality_claim,
         )
         current_job.save(update_fields=[
             "analysis_model",
@@ -1511,6 +1554,7 @@ def _process_claim(
             "lease_until",
             "claimed_watermark_message_id",
             "claimed_revision",
+            *claimed_materiality_fields,
             "attempts",
             "last_error",
             "status",
@@ -1569,12 +1613,14 @@ def _defer_claim_for_customer_reply(job_id: int, token: str, now=None) -> bool:
         job.lease_until = None
         job.claimed_watermark_message_id = 0
         job.claimed_revision = 0
+        claimed_materiality_fields = _clear_claimed_materiality(job)
         job.attempts = 0
         job.last_error = "deferred_for_live_reply"
         job.next_attempt_at = max(job.due_at, now)
         job.save(update_fields=[
             "status", "lease_token", "lease_until",
-            "claimed_watermark_message_id", "claimed_revision", "attempts",
+            "claimed_watermark_message_id", "claimed_revision",
+            *claimed_materiality_fields, "attempts",
             "last_error", "next_attempt_at", "updated_at",
         ])
         return True

@@ -12,6 +12,10 @@ JOB_FIELD_SPECS = tuple(
         "analyzed_materiality_event_highwater",
         "artifact_digest",
         "authority_digest",
+        "claimed_artifact_digest",
+        "claimed_authority_digest",
+        "claimed_materiality_digest",
+        "claimed_materiality_event_highwater",
         "first_unanalysed_at",
         "last_relevant_at",
         "materiality_digest",
@@ -173,6 +177,26 @@ STATE_OPERATIONS = [
         model_name="igconversationanalysisjob",
         name="authority_digest",
         field=models.CharField(blank=True, default="", max_length=64),
+    ),
+    migrations.AddField(
+        model_name="igconversationanalysisjob",
+        name="claimed_artifact_digest",
+        field=models.CharField(blank=True, default="", max_length=64),
+    ),
+    migrations.AddField(
+        model_name="igconversationanalysisjob",
+        name="claimed_authority_digest",
+        field=models.CharField(blank=True, default="", max_length=64),
+    ),
+    migrations.AddField(
+        model_name="igconversationanalysisjob",
+        name="claimed_materiality_digest",
+        field=models.CharField(blank=True, default="", max_length=64),
+    ),
+    migrations.AddField(
+        model_name="igconversationanalysisjob",
+        name="claimed_materiality_event_highwater",
+        field=models.PositiveBigIntegerField(default=0),
     ),
     migrations.AddField(
         model_name="igconversationanalysisjob",

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from dataclasses import dataclass
 from datetime import timedelta
 
 from django.conf import settings
@@ -24,6 +25,14 @@ from management.models import (
 
 QUIET_SECONDS = 90
 MAX_STALENESS_SECONDS = 10 * 60
+
+
+@dataclass(frozen=True, slots=True)
+class MaterialityClaimCursor:
+    digest: str = ""
+    event_highwater: int = 0
+    authority_digest: str = ""
+    artifact_digest: str = ""
 
 
 def materiality_mode() -> str:
@@ -474,25 +483,47 @@ def current_analysis_snapshot(
     return snapshot if snapshot and is_current(snapshot) else None
 
 
+def claimed_materiality_cursor(job: IgConversationAnalysisJob) -> MaterialityClaimCursor:
+    """Read the immutable materiality cursor copied by the atomic Job claim."""
+    return MaterialityClaimCursor(
+        digest=str(job.claimed_materiality_digest or "")[:64],
+        event_highwater=max(
+            0,
+            int(job.claimed_materiality_event_highwater or 0),
+        ),
+        authority_digest=str(job.claimed_authority_digest or "")[:64],
+        artifact_digest=str(job.claimed_artifact_digest or "")[:64],
+    )
+
+
 def mark_job_materiality_analyzed(
     job: IgConversationAnalysisJob,
     *,
     watermark: int,
     claimed_revision: int,
+    cursor: MaterialityClaimCursor,
 ) -> list[str]:
-    """Copy the current shadow cursor after the existing analysis commits."""
+    """Advance only the cursor captured by this claim, never newer evidence."""
     if (
         materiality_mode() != "shadow"
-        or not job.materiality_digest
+        or not cursor.digest
+        or int(cursor.event_highwater or 0) <= 0
         or int(job.watermark_message_id or 0) != int(watermark or 0)
         or int(job.revision or 0) != int(claimed_revision or 0)
     ):
         return []
-    job.analyzed_materiality_digest = job.materiality_digest
-    job.analyzed_materiality_event_highwater = job.materiality_event_highwater
-    job.first_unanalysed_at = None
-    return [
+    job.analyzed_materiality_digest = cursor.digest
+    job.analyzed_materiality_event_highwater = cursor.event_highwater
+    fields = [
         "analyzed_materiality_digest",
         "analyzed_materiality_event_highwater",
-        "first_unanalysed_at",
     ]
+    if (
+        str(job.materiality_digest or "") == cursor.digest
+        and int(job.materiality_event_highwater or 0) == cursor.event_highwater
+        and str(job.authority_digest or "") == cursor.authority_digest
+        and str(job.artifact_digest or "") == cursor.artifact_digest
+    ):
+        job.first_unanalysed_at = None
+        fields.append("first_unanalysed_at")
+    return fields
