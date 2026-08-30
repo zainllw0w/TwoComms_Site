@@ -377,10 +377,27 @@ def current_analysis_snapshot(
     floor = current_message_floor(client)
     authority_digest = str(job.authority_digest or "")
 
+    def has_customer_evidence(snapshot) -> bool:
+        evidence = snapshot.evidence if isinstance(snapshot.evidence, list) else []
+        return any(
+            isinstance(item, dict)
+            and str(item.get("source_role") or "").casefold()
+            == InstagramBotMessage.Role.USER
+            and bool(item.get("message_id"))
+            for item in evidence
+        )
+
     def is_current(snapshot) -> bool:
         if not include_manager and snapshot.interaction_type == (
             IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
         ):
+            return False
+        if snapshot.interaction_type != (
+            IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
+        ) and not has_customer_evidence(snapshot):
+            # An enum alone is not customer intent. This also fails closed if
+            # a model mislabels manager-only evidence as high intent/product
+            # interest, preventing probability, follow-up and CTA projection.
             return False
         if int(snapshot.last_analyzed_message_id or 0) < floor:
             return False

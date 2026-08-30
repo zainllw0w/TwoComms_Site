@@ -532,7 +532,12 @@ class CurrentAnalysisSnapshotTests(TestCase):
         )
         self.client.current_commercial_episode = self.episode
         self.client.save(update_fields=["current_commercial_episode", "updated_at"])
-        self.message = _message(self.client, "Хочу худі")
+        self.manager_message = _message(
+            self.client,
+            "manager-only observation",
+            role=InstagramBotMessage.Role.MANAGER,
+        )
+        self.message = _message(self.client, "Я подумаю про худі")
         self.job = _job(self.client, watermark=self.message.pk)
         self.job.analyzed_watermark_message_id = self.message.pk
         self.job.status = IgConversationAnalysisJob.Status.DONE
@@ -543,7 +548,13 @@ class CurrentAnalysisSnapshotTests(TestCase):
         self.job.authority_digest = "d" * 64
         self.job.save()
 
-    def _snapshot(self, *, episode, interaction, probability):
+    def _snapshot(self, *, episode, interaction, probability, evidence=None):
+        if evidence is None:
+            evidence = [{
+                "message_id": self.message.pk,
+                "source_role": InstagramBotMessage.Role.USER,
+                "quote": self.message.text,
+            }]
         return IgConversationAnalysisSnapshot.objects.create(
             client=self.client,
             commercial_episode=episode,
@@ -553,6 +564,7 @@ class CurrentAnalysisSnapshotTests(TestCase):
             interaction_type=interaction,
             purchase_probability=Decimal(str(probability)),
             confidence=Decimal("0.9000"),
+            evidence=evidence,
             required_state_fingerprint="d" * 64,
         )
 
@@ -642,6 +654,59 @@ class CurrentAnalysisSnapshotTests(TestCase):
             latest_message_id=self.message.pk,
         )
         self.assertIsNone(stale_payload["probability"])
+
+    def test_manager_only_evidence_cannot_project_customer_intent_or_cta(self):
+        from management.bot_views import _client_potential_payload
+        from management.services.ig_follow_cta import _latest_hesitation_analysis
+
+        snapshot = self._snapshot(
+            episode=self.episode,
+            interaction=IgConversationAnalysisSnapshot.InteractionType.HIGH_INTENT,
+            probability="0.9900",
+            evidence=[{
+                "message_id": self.manager_message.pk,
+                "source_role": InstagramBotMessage.Role.MANAGER,
+                "quote": self.manager_message.text,
+            }],
+        )
+
+        selected = materiality.current_analysis_snapshot(self.client)
+        potential = _client_potential_payload(
+            self.client,
+            selected,
+            latest_message_id=self.message.pk,
+        )
+        cta_analysis = _latest_hesitation_analysis(
+            client=self.client,
+            episode=self.episode,
+            source_message=self.message,
+            now=timezone.now(),
+        )
+
+        self.assertIsNone(selected)
+        self.assertIsNone(potential["probability"])
+        self.assertIsNone(cta_analysis)
+        self.assertTrue(IgConversationAnalysisSnapshot.objects.filter(
+            pk=snapshot.pk,
+        ).exists())
+
+    def test_manager_only_evidence_cannot_suppress_followup_as_customer_b2b(self):
+        from management.services.bot_followups import _suppressed_interaction
+
+        self._snapshot(
+            episode=self.episode,
+            interaction=(
+                IgConversationAnalysisSnapshot.InteractionType.WHOLESALE_B2B
+            ),
+            probability="0.9000",
+            evidence=[{
+                "message_id": self.manager_message.pk,
+                "source_role": InstagramBotMessage.Role.MANAGER,
+                "quote": self.manager_message.text,
+            }],
+        )
+
+        self.assertEqual(_suppressed_interaction(self.client), "")
 
 
 @override_settings(
