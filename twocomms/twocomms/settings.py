@@ -152,6 +152,15 @@ IG_ANALYSIS_CURRENT_SELECTOR_MODE = os.environ.get(
 if IG_ANALYSIS_CURRENT_SELECTOR_MODE not in {'legacy', 'enforce'}:
     IG_ANALYSIS_CURRENT_SELECTOR_MODE = 'legacy'
 
+# Assisted Checkout invoice-series rollout. Slice 2a only exposes dormant
+# schema/identity helpers; no runtime path reads the fields while this is off.
+IG_ASSISTED_CHECKOUT_V2 = os.environ.get(
+    'IG_ASSISTED_CHECKOUT_V2',
+    'off',
+).strip().casefold()
+if IG_ASSISTED_CHECKOUT_V2 not in {'off', 'shadow', 'enforced'}:
+    IG_ASSISTED_CHECKOUT_V2 = 'off'
+
 # Ephemeral customer image/audio ownership. This directory must be outside
 # MEDIA_ROOT (and should be outside the checkout in production); no public URL
 # is ever generated for these blobs.
