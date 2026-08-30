@@ -4718,7 +4718,7 @@ class IgAnalysisMaterialityEvent(models.Model):
     )
     source_role = models.CharField(max_length=16, choices=SourceRole.choices)
     event_kind = models.CharField(max_length=32, choices=Kind.choices)
-    event_key = models.CharField(max_length=160, unique=True)
+    event_key = models.CharField(max_length=160)
     event_digest = models.CharField(max_length=64)
     authority_digest = models.CharField(max_length=64, blank=True, default="")
     artifact_revision = models.PositiveBigIntegerField(default=0)
@@ -4728,6 +4728,12 @@ class IgAnalysisMaterialityEvent(models.Model):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event_key"],
+                name="ig_mat_event_key_unique",
+            ),
+        ]
         indexes = [
             models.Index(fields=["client", "-id"], name="ig_mat_client_id"),
             models.Index(fields=["episode", "-id"], name="ig_mat_episode_id"),

@@ -44,6 +44,34 @@ INDEX_SPECS = JOB_INDEX_SPECS + EVENT_INDEX_SPECS
 CONSTRAINT_SPECS = ()
 
 
+def ensure_event_key_unique(apps, schema_editor):
+    model = apps.get_model("management", "IgAnalysisMaterialityEvent")
+    with schema_editor.connection.cursor() as cursor:
+        existing = schema_editor.connection.introspection.get_constraints(
+            cursor,
+            model._meta.db_table,
+        )
+    expected_columns = (model._meta.get_field("event_key").column,)
+    named = existing.get("ig_mat_event_key_unique")
+    if named is not None:
+        if not named.get("unique") or tuple(named.get("columns") or ()) != expected_columns:
+            raise RuntimeError(
+                "ig_mat_event_key_unique has incompatible shape"
+            )
+        return
+    if any(
+        row.get("unique")
+        and tuple(row.get("columns") or ()) == expected_columns
+        for row in existing.values()
+    ):
+        return
+    constraint = next(
+        item for item in model._meta.constraints
+        if item.name == "ig_mat_event_key_unique"
+    )
+    schema_editor.add_constraint(model, constraint)
+
+
 def ensure_materiality_schema(apps, schema_editor):
     introspection = schema_editor.connection.introspection
     tables = set(introspection.table_names())
@@ -72,6 +100,7 @@ def ensure_materiality_schema(apps, schema_editor):
         index_specs=(JOB_INDEX_SPECS if created else INDEX_SPECS),
         constraint_specs=CONSTRAINT_SPECS,
     )
+    ensure_event_key_unique(apps, schema_editor)
 
 
 def create_append_only_triggers(apps, schema_editor):
@@ -194,7 +223,7 @@ STATE_OPERATIONS = [
             ("line_id", models.CharField(blank=True, default="", max_length=96)),
             ("source_role", models.CharField(choices=[("user", "Клієнт"), ("manager", "Менеджер"), ("authority", "Авторитетний backend"), ("system", "Система")], max_length=16)),
             ("event_kind", models.CharField(choices=[("customer_turn", "Завершений хід клієнта"), ("payment_truth", "Зміна істини оплати"), ("order_truth", "Зміна істини замовлення"), ("manager_boundary", "Межа менеджера"), ("product_line", "Зміна товарної лінії"), ("deferred_intent", "Відкладений намір"), ("media_artifact", "Новий media artifact")], max_length=32)),
-            ("event_key", models.CharField(max_length=160, unique=True)),
+            ("event_key", models.CharField(max_length=160)),
             ("event_digest", models.CharField(max_length=64)),
             ("authority_digest", models.CharField(blank=True, default="", max_length=64)),
             ("artifact_revision", models.PositiveBigIntegerField(default=0)),
@@ -213,6 +242,12 @@ STATE_OPERATIONS = [
                 models.Index(fields=["episode", "-id"], name="ig_mat_episode_id"),
                 models.Index(fields=["event_kind", "-id"], name="ig_mat_kind_id"),
                 models.Index(fields=["relevant_at", "id"], name="ig_mat_relevant"),
+            ],
+            "constraints": [
+                models.UniqueConstraint(
+                    fields=("event_key",),
+                    name="ig_mat_event_key_unique",
+                ),
             ],
         },
     ),

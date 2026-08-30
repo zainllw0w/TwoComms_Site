@@ -39,8 +39,16 @@ def _validate_field(schema_editor, table_name, field, column):
         column.type_code,
         column,
     )
-    expected = field.get_internal_type()
+    physical_field = (
+        field.target_field
+        if getattr(field, "is_relation", False)
+        and getattr(field, "many_to_one", False)
+        else field
+    )
+    expected = physical_field.get_internal_type()
     compatible = {
+        "BigAutoField": {"BigAutoField", "BigIntegerField"},
+        "AutoField": {"AutoField", "IntegerField"},
         "PositiveBigIntegerField": {"PositiveBigIntegerField", "BigIntegerField"},
         "PositiveIntegerField": {"PositiveIntegerField", "IntegerField"},
         "PositiveSmallIntegerField": {
