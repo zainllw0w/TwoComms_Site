@@ -38,6 +38,8 @@ from orders.checkout_series import (
 )
 from orders.models import PaymentAttempt
 
+AMBIGUITY_GRACE_SECONDS = 5 * 60
+
 
 def _event(generation, kind, suffix, *, payload=None):
     from management.models import IgCheckoutInvoiceGenerationEvent
@@ -227,6 +229,7 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
     now = timezone.now()
     if locked.expires_at <= now or locked.status in {
         locked.Status.PAID,
+        locked.Status.MANAGER_REVIEW,
         locked.Status.REVOKED,
         locked.Status.SUPERSEDED,
     }:
@@ -335,6 +338,17 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
         policy_evidence_message_id=locked.payment_policy_evidence_message_id,
         policy_evidence_kind=locked.payment_policy_evidence_kind,
         policy_evidence_digest=locked.payment_policy_evidence_digest,
+        promo_reservation_generation=str(
+            (
+                (
+                    values["promo_event_state"].get("promo_reservation")
+                    or {}
+                )
+                if isinstance(values["promo_event_state"], dict)
+                else {}
+            ).get("reservation_generation")
+            or ""
+        )[:64],
         provider_call_token=secrets.token_hex(32),
         expires_at=expires_at,
         provider_started_at=now,
@@ -435,8 +449,45 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
             "expires_at": expires_at.isoformat(),
         },
     )
-    _event(generation, "provider_started", str(attempt.pk))
     return locked, generation, attempt, values, False
+
+
+@transaction.atomic
+def _persist_provider_dispatch_evidence(attempt_id, invoice_payload):
+    graph = _lock_generation_graph(attempt_id)
+    if graph is None:
+        raise CheckoutPaymentError("provider_ambiguous", "Generation ownership missing.")
+    _deal, proposal, generation, attempt = graph
+    if (
+        proposal.current_invoice_generation_id != generation.pk
+        or generation.active_slot != 1
+        or generation.state != generation.State.PROVIDER_INFLIGHT
+    ):
+        raise CheckoutPaymentError(
+            "provider_ambiguous",
+            "Generation is no longer current before provider dispatch.",
+        )
+    encoded = json.dumps(
+        invoice_payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode()
+    generation.provider_request_digest = hashlib.sha256(encoded).hexdigest()
+    generation.save(update_fields=["provider_request_digest", "updated_at"])
+    _event(
+        generation,
+        "provider_started",
+        str(attempt.pk),
+        payload={
+            "attempt_reference": attempt.reference,
+            "request_digest": generation.provider_request_digest,
+            "provider_validity_seconds": PROVIDER_VALIDITY_SECONDS,
+            "generation_expires_at": generation.expires_at.isoformat(),
+        },
+    )
+    return generation.provider_request_digest
 
 
 @transaction.atomic
@@ -455,8 +506,68 @@ def _persist_provider_success(
     if generation.provider_invoice_id:
         if generation.provider_invoice_id != str(invoice_id):
             raise CheckoutPaymentError("provider_ambiguous", "Invoice identity conflict.")
-        return proposal, generation, attempt
+        if (
+            proposal.current_invoice_generation_id == generation.pk
+            and generation.active_slot == 1
+            and generation.state == generation.State.INVOICE_CREATED
+        ):
+            return proposal, generation, attempt, True
+        return proposal, generation, attempt, False
     now = timezone.now()
+    if (
+        proposal.current_invoice_generation_id != generation.pk
+        or generation.active_slot != 1
+        or generation.state != generation.State.PROVIDER_INFLIGHT
+    ):
+        generation.provider_invoice_id = str(invoice_id)[:128]
+        generation.state = generation.State.LATE_PROVIDER_REVIEW
+        generation.active_slot = None
+        generation.provider_completed_at = now
+        generation.ambiguity_review_due_at = generation.expires_at + timedelta(
+            seconds=AMBIGUITY_GRACE_SECONDS
+        )
+        generation.review_reason = "late_provider_create_success"
+        generation.save(update_fields=[
+            "provider_invoice_id", "state", "active_slot",
+            "provider_completed_at", "ambiguity_review_due_at", "review_reason",
+            "updated_at",
+        ])
+        attempt.monobank_invoice_id = generation.provider_invoice_id
+        attempt.invoice_url = str(invoice_url)[:600]
+        attempt.invoice_payload = {
+            "request": invoice_payload,
+            "create": creation,
+        }
+        attempt.invoice_expires_at = generation.expires_at
+        event_state = dict(attempt.event_state or {})
+        event_state["invoice_creation_ambiguous"] = True
+        attempt.event_state = event_state
+        attempt.error_reason = "late_provider_create_success_review"
+        attempt.last_status_at = now
+        attempt.save(update_fields=[
+            "monobank_invoice_id", "invoice_url", "invoice_payload",
+            "invoice_expires_at", "event_state", "error_reason", "last_status_at",
+            "updated",
+        ])
+        _event(
+            generation,
+            "provider_ambiguous",
+            f"late-success:{attempt.pk}",
+            payload={
+                "attempt_reference": attempt.reference,
+                "provider_invoice_id": generation.provider_invoice_id,
+                "request_digest": generation.provider_request_digest,
+                "review_due_at": generation.ambiguity_review_due_at.isoformat(),
+                "late_result": True,
+            },
+        )
+        _queue_ambiguity_review(
+            proposal,
+            generation,
+            attempt,
+            reason="late_provider_create_success",
+        )
+        return proposal, generation, attempt, False
     generation.provider_invoice_id = str(invoice_id)[:128]
     generation.state = generation.State.INVOICE_CREATED
     generation.provider_completed_at = now
@@ -498,7 +609,7 @@ def _persist_provider_success(
         generation.provider_invoice_id,
         payload={"provider_invoice_id": generation.provider_invoice_id},
     )
-    return proposal, generation, attempt
+    return proposal, generation, attempt, True
 
 
 @transaction.atomic
@@ -511,7 +622,12 @@ def _persist_provider_failure(attempt_id, *, ambiguous, reason):
     if ambiguous:
         generation.state = generation.State.PROVIDER_AMBIGUOUS
         generation.review_reason = "provider_creation_ambiguous"
-        generation.save(update_fields=["state", "review_reason", "updated_at"])
+        generation.ambiguity_review_due_at = generation.expires_at + timedelta(
+            seconds=AMBIGUITY_GRACE_SECONDS
+        )
+        generation.save(update_fields=[
+            "state", "review_reason", "ambiguity_review_due_at", "updated_at",
+        ])
         event_state = dict(attempt.event_state or {})
         event_state["invoice_creation_ambiguous"] = True
         attempt.event_state = event_state
@@ -520,7 +636,28 @@ def _persist_provider_failure(attempt_id, *, ambiguous, reason):
         attempt.save(
             update_fields=["event_state", "error_reason", "last_status_at", "updated"]
         )
-        _event(generation, "provider_ambiguous", str(attempt.pk))
+        _event(
+            generation,
+            "provider_ambiguous",
+            str(attempt.pk),
+            payload={
+                "attempt_reference": attempt.reference,
+                "request_digest": generation.provider_request_digest,
+                "provider_call_token_digest": hashlib.sha256(
+                    generation.provider_call_token.encode()
+                ).hexdigest(),
+                "provider_validity_seconds": PROVIDER_VALIDITY_SECONDS,
+                "generation_expires_at": generation.expires_at.isoformat(),
+                "review_due_at": generation.ambiguity_review_due_at.isoformat(),
+                "provider_invoice_id_known": bool(generation.provider_invoice_id),
+            },
+        )
+        _queue_ambiguity_review(
+            proposal,
+            generation,
+            attempt,
+            reason="provider_creation_ambiguous",
+        )
         return
     _terminalize_locked_generation(
         proposal,
@@ -563,6 +700,7 @@ def create_or_reuse_generation_invoice(
         promo_discount=values["promo_discount"],
     )
     invoice_payload["validity"] = int(PROVIDER_VALIDITY_SECONDS)
+    _persist_provider_dispatch_evidence(attempt.pk, invoice_payload)
     try:
         from storefront.views.monobank import _monobank_api_request
 
@@ -580,13 +718,18 @@ def create_or_reuse_generation_invoice(
         invoice_url = result.get("pageUrl") or result.get("invoiceUrl")
         if not invoice_id or not invoice_url:
             raise RuntimeError("Monobank returned an invalid invoice")
-        locked, generation, attempt = _persist_provider_success(
+        locked, generation, attempt, accepted = _persist_provider_success(
             attempt.pk,
             invoice_id=invoice_id,
             invoice_url=invoice_url,
             invoice_payload=invoice_payload,
             creation=creation,
         )
+        if not accepted:
+            raise CheckoutPaymentError(
+                "provider_ambiguous",
+                "Late provider result requires manager reconciliation.",
+            )
     except CheckoutPaymentError:
         raise
     except Exception as exc:
@@ -704,6 +847,25 @@ def _queue_paid_review(proposal, generation, attempt, *, reason):
         return
 
 
+def _queue_ambiguity_review(proposal, generation, attempt, *, reason):
+    try:
+        from management.services.instagram_bot import notify_manager
+
+        notify_manager(
+            (
+                f"⚠️ IG checkout: не визначено результат створення рахунку "
+                f"generation #{generation.generation}, proposal #{proposal.pk}, "
+                f"attempt {attempt.reference}. Автоповтор заборонено; потрібна звірка."
+            ),
+            dedupe_key=f"ig-checkout-generation-ambiguity:{generation.pk}:{reason}",
+            event_type="ig_checkout_generation_ambiguity_review",
+            client=proposal.client,
+            deliver_immediately=False,
+        )
+    except Exception:
+        return
+
+
 def _mark_losing_paid_generation(
     proposal,
     generation,
@@ -769,6 +931,16 @@ def _mark_resource_review(
         payload=payload,
         source=source,
         now=now,
+    )
+    from management.services.ig_checkout_payment import (
+        project_verified_payment_without_order,
+    )
+
+    project_verified_payment_without_order(
+        attempt=attempt,
+        deal=deal,
+        proposal=proposal,
+        verified_at=now,
     )
     generation.state = generation.State.RESOURCE_REVIEW
     generation.active_slot = None
@@ -871,6 +1043,9 @@ def apply_verified_generation_payment(
         if graph is None:
             return None, False
         deal, proposal, generation, attempt = graph
+        force_late_series_review = (
+            generation.state == generation.State.LATE_PROVIDER_REVIEW
+        )
         if attempt.order_id:
             return attempt.order, False
         if generation.state == generation.State.RESOURCE_REVIEW:
@@ -926,6 +1101,20 @@ def apply_verified_generation_payment(
                 generation,
                 now=now,
             )
+
+        if force_late_series_review:
+            _mark_resource_review(
+                deal,
+                proposal,
+                generation,
+                attempt,
+                payload=payload,
+                source=source,
+                now=now,
+            )
+            generation.review_reason = "late_provider_generation_payment_conflict"
+            generation.save(update_fields=["review_reason", "updated_at"])
+            return None, False
 
         try:
             commit_generation_inventory(
@@ -1026,11 +1215,137 @@ def apply_generation_provider_status(
             require_due=False,
         )
     elif normalized in {"created", "processing", "hold"}:
-        PaymentAttempt.objects.filter(pk=attempt_id).update(
-            status=PaymentAttempt.Status.PROCESSING,
-            last_status_at=timezone.now(),
-        )
+        with transaction.atomic():
+            graph = _lock_generation_graph(attempt_id)
+            if graph is not None:
+                _deal, _proposal, generation, attempt = graph
+                if (
+                    attempt.order_id is None
+                    and not attempt.checkout_winner_claimed
+                    and attempt.status in {
+                        PaymentAttempt.Status.INITIATED,
+                        PaymentAttempt.Status.PROCESSING,
+                    }
+                    and generation.state in {
+                        generation.State.PROVIDER_INFLIGHT,
+                        generation.State.INVOICE_CREATED,
+                        generation.State.PROVIDER_AMBIGUOUS,
+                        generation.State.LATE_PROVIDER_REVIEW,
+                    }
+                ):
+                    attempt.status = PaymentAttempt.Status.PROCESSING
+                    attempt.last_status_at = timezone.now()
+                    attempt.save(update_fields=["status", "last_status_at", "updated"])
     return None, False
+
+
+def resolve_due_generation_ambiguities(*, now=None, limit=100, dry_run=False):
+    """Bound provider-create ambiguity after validity+grace without blind retry."""
+    from management.models import IgCheckoutInvoiceGeneration
+
+    now = now or timezone.now()
+    ids = list(
+        IgCheckoutInvoiceGeneration.objects.filter(
+            state__in=[
+                IgCheckoutInvoiceGeneration.State.PROVIDER_AMBIGUOUS,
+                IgCheckoutInvoiceGeneration.State.LATE_PROVIDER_REVIEW,
+            ],
+            ambiguity_review_due_at__isnull=False,
+            ambiguity_review_due_at__lte=now,
+        )
+        .order_by("ambiguity_review_due_at", "pk")
+        .values_list("payment_attempt_id", flat=True)[: max(1, min(int(limit), 500))]
+    )
+    ids = [value for value in ids if value]
+    result = {
+        "due": len(ids),
+        "resolved": len(ids) if dry_run else 0,
+        "released_inventory": 0,
+        "released_promos": 0,
+        "errors": 0,
+    }
+    if dry_run:
+        return result
+    for attempt_id in ids:
+        try:
+            with transaction.atomic():
+                graph = _lock_generation_graph(attempt_id)
+                if graph is None:
+                    continue
+                _deal, proposal, generation, attempt = graph
+                if generation.state not in {
+                    generation.State.PROVIDER_AMBIGUOUS,
+                    generation.State.LATE_PROVIDER_REVIEW,
+                } or (
+                    not generation.ambiguity_review_due_at
+                    or generation.ambiguity_review_due_at > now
+                ):
+                    continue
+                if attempt.order_id or generation.winner_slot == 1:
+                    generation.ambiguity_resolved_at = now
+                    generation.save(update_fields=[
+                        "ambiguity_resolved_at", "updated_at",
+                    ])
+                    result["resolved"] += 1
+                    continue
+                generation.state = generation.State.AMBIGUITY_REVIEW
+                generation.active_slot = None
+                generation.terminal_at = now
+                generation.ambiguity_resolved_at = now
+                generation.review_reason = "provider_create_ambiguity_expired"
+                generation.save(update_fields=[
+                    "state", "active_slot", "terminal_at",
+                    "ambiguity_resolved_at", "review_reason", "updated_at",
+                ])
+                if attempt.status in {
+                    PaymentAttempt.Status.INITIATED,
+                    PaymentAttempt.Status.PROCESSING,
+                }:
+                    attempt.status = PaymentAttempt.Status.FAILED
+                    attempt.error_reason = "provider_create_ambiguity_review"
+                    attempt.last_status_at = now
+                    attempt.save(update_fields=[
+                        "status", "error_reason", "last_status_at", "updated",
+                    ])
+                result["released_inventory"] += int(
+                    release_generation_inventory(
+                        generation,
+                        reason="provider_create_ambiguity_expired",
+                    )
+                    or 0
+                )
+                result["released_promos"] += int(
+                    bool(
+                        release_attempt_promo(
+                            attempt,
+                            reason="provider_create_ambiguity_expired",
+                        )
+                    )
+                )
+                proposal.status = proposal.Status.MANAGER_REVIEW
+                proposal.save(update_fields=["status", "updated_at"])
+                _event(
+                    generation,
+                    "provider_ambiguous",
+                    f"bounded-review:{attempt.pk}",
+                    payload={
+                        "attempt_reference": attempt.reference,
+                        "request_digest": generation.provider_request_digest,
+                        "provider_invoice_id": generation.provider_invoice_id or "",
+                        "resources_released": True,
+                        "blind_retry_allowed": False,
+                    },
+                )
+                _queue_ambiguity_review(
+                    proposal,
+                    generation,
+                    attempt,
+                    reason="bounded_ambiguity_review",
+                )
+                result["resolved"] += 1
+        except Exception:
+            result["errors"] += 1
+    return result
 
 
 def expire_due_v2_proposals(*, now=None, limit=100, dry_run=False):
@@ -1084,6 +1399,25 @@ def expire_due_v2_proposals(*, now=None, limit=100, dry_run=False):
                         pk=proposal.current_invoice_generation_id,
                         proposal_id=proposal.pk,
                     )
+                    if generation.state in {
+                        generation.State.PROVIDER_AMBIGUOUS,
+                        generation.State.LATE_PROVIDER_REVIEW,
+                        generation.State.AMBIGUITY_REVIEW,
+                    }:
+                        proposal.status = proposal.Status.MANAGER_REVIEW
+                        proposal.save(update_fields=["status", "updated_at"])
+                        if generation.payment_attempt_id:
+                            attempt = PaymentAttempt.objects.select_for_update().get(
+                                pk=generation.payment_attempt_id
+                            )
+                            _queue_ambiguity_review(
+                                proposal,
+                                generation,
+                                attempt,
+                                reason="proposal_expiry_ambiguity_visible",
+                            )
+                        result["expired"] += 1
+                        continue
                     if (
                         generation.payment_attempt_id
                         and generation.expires_at <= now

@@ -2876,6 +2876,8 @@ class IgCheckoutInvoiceGeneration(models.Model):
         PROVIDER_INFLIGHT = "provider_inflight", _("Provider request in flight")
         INVOICE_CREATED = "invoice_created", _("Invoice created")
         PROVIDER_AMBIGUOUS = "provider_ambiguous", _("Provider result ambiguous")
+        AMBIGUITY_REVIEW = "ambiguity_review", _("Ambiguous call needs review")
+        LATE_PROVIDER_REVIEW = "late_provider_review", _("Late create result review")
         FAILED = "failed", _("Generation failed")
         EXPIRED = "expired", _("Generation expired")
         CANCELLED = "cancelled", _("Generation cancelled")
@@ -2921,6 +2923,11 @@ class IgCheckoutInvoiceGeneration(models.Model):
     )
     policy_evidence_kind = models.CharField(max_length=32, blank=True, default="")
     policy_evidence_digest = models.CharField(max_length=64, blank=True, default="")
+    promo_reservation_generation = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+    )
     payment_attempt = models.OneToOneField(
         "orders.PaymentAttempt",
         null=True,
@@ -2936,7 +2943,10 @@ class IgCheckoutInvoiceGeneration(models.Model):
         blank=True,
     )
     provider_call_token = models.CharField(max_length=64, unique=True)
+    provider_request_digest = models.CharField(max_length=64, blank=True, default="")
     expires_at = models.DateTimeField(db_index=True)
+    ambiguity_review_due_at = models.DateTimeField(null=True, blank=True)
+    ambiguity_resolved_at = models.DateTimeField(null=True, blank=True)
     provider_started_at = models.DateTimeField(null=True, blank=True)
     provider_completed_at = models.DateTimeField(null=True, blank=True)
     winner_claimed_at = models.DateTimeField(null=True, blank=True)
@@ -2994,6 +3004,10 @@ class IgCheckoutInvoiceGeneration(models.Model):
             models.Index(
                 fields=["provider", "provider_invoice_id"],
                 name="ig_invgen_provider_invoice",
+            ),
+            models.Index(
+                fields=["state", "ambiguity_review_due_at", "id"],
+                name="ig_invgen_ambiguity_due",
             ),
         ]
 

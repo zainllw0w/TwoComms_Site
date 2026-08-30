@@ -224,6 +224,38 @@ def consume_payment_attempt_promo(attempt, *, order):
         reservation.get("state") == "reserved"
         and int(reservation.get("promo_id") or 0) == promo.pk
     )
+    is_v2 = bool(attempt.checkout_series_key and attempt.checkout_generation)
+    expected_generation = ""
+    if is_v2:
+        try:
+            expected_generation = str(
+                attempt.instagram_checkout_generation.promo_reservation_generation
+                or ""
+            )
+        except Exception:
+            expected_generation = ""
+    actual_generation = str(reservation.get("reservation_generation") or "")
+    generation_authenticated = bool(
+        was_reserved
+        and expected_generation
+        and actual_generation
+        and secrets.compare_digest(expected_generation, actual_generation)
+    )
+    if is_v2 and not generation_authenticated:
+        # V2 never falls through to legacy promo.use(). The generation row is
+        # immutable ownership evidence outside the mutable attempt JSON; an
+        # old paid callback cannot consume capacity reissued to a newer invoice
+        # or another account/proposal.
+        reservation.update({
+            "promo_id": promo.pk,
+            "group_id": promo.group_id,
+            "usage_error_at": timezone.now().isoformat(),
+            "usage_error": "stale_reservation_generation",
+            "reservation_generation_mismatch": True,
+        })
+        event_state["promo_reservation"] = reservation
+        attempt.event_state = event_state
+        return False
     if not attempt.user_id and not was_reserved:
         # Anonymous redemptions are bearer-capability payments.  A released,
         # consumed, or malformed reservation must never fall back to the
@@ -295,7 +327,7 @@ def consume_payment_attempt_promo(attempt, *, order):
         attempt.event_state = event_state
         return False
 
-    if not was_reserved and attempt.user_id:
+    if not was_reserved and attempt.user_id and not is_v2:
         # Legacy attempts did not reserve capacity before provider I/O.
         promo.use()
     # A retry may be consuming a reservation that previously failed at the

@@ -59,9 +59,11 @@ CHECKOUT_COPY = {
         "total": "До сплати",
         "charge_now": "Сума до сплати зараз",
         "fixed_price_title": "Товари й ціна зафіксовані",
+        "fixed_price_title_v2": "Вибір збережено на 12 годин",
         "fixed_price_hint": "Що це означає?",
         "price_dialog_title": "Ціна не зміниться",
         "price_dialog_body": "До завершення строку пропозиція зберігає обрані товари, розміри та погоджену суму.",
+        "price_dialog_body_v2": "Посилання та вибрані параметри збережені на 12 годин. Перед створенням кожного 25-хвилинного рахунку ми повторно перевіряємо актуальну ціну, знижку й наявність.",
         "price_dialog_close": "Зрозуміло",
         "share_card_title": "Оплатити може інша людина",
         "share_card_body": "Передайте їй це захищене посилання",
@@ -171,9 +173,11 @@ CHECKOUT_COPY = {
         "total": "К оплате",
         "charge_now": "Сумма к оплате сейчас",
         "fixed_price_title": "Товары и цена зафиксированы",
+        "fixed_price_title_v2": "Выбор сохранён на 12 часов",
         "fixed_price_hint": "Что это значит?",
         "price_dialog_title": "Цена не изменится",
         "price_dialog_body": "До завершения срока предложение сохраняет выбранные товары, размеры и согласованную сумму.",
+        "price_dialog_body_v2": "Ссылка и выбранные параметры сохранены на 12 часов. Перед созданием каждого 25-минутного счёта мы повторно проверяем актуальную цену, скидку и наличие.",
         "price_dialog_close": "Понятно",
         "share_card_title": "Оплатить может другой человек",
         "share_card_body": "Передайте ему эту защищенную ссылку",
@@ -283,9 +287,11 @@ CHECKOUT_COPY = {
         "total": "Total to pay",
         "charge_now": "Amount due now",
         "fixed_price_title": "Items and price are fixed",
+        "fixed_price_title_v2": "Your selection is saved for 12 hours",
         "fixed_price_hint": "What does this mean?",
         "price_dialog_title": "The price will not change",
         "price_dialog_body": "Until this offer expires, it keeps the selected items, sizes, and agreed total.",
+        "price_dialog_body_v2": "The secure link and selected options are saved for 12 hours. Before each 25-minute invoice is created, current price, discount, and availability are checked again.",
         "price_dialog_close": "Got it",
         "share_card_title": "Someone else can pay",
         "share_card_body": "Send them this protected link",
@@ -657,7 +663,10 @@ def _item_context(item):
 
 def _proposal_context(proposal, *, request, grant_id="", form_error="", form_error_field="", form_values=None):
     language = _checkout_language(request, proposal)
-    copy = CHECKOUT_COPY[language]
+    copy = dict(CHECKOUT_COPY[language])
+    if proposal.assisted_checkout_v2:
+        copy["fixed_price_title"] = copy["fixed_price_title_v2"]
+        copy["price_dialog_body"] = copy["price_dialog_body_v2"]
     state = _checkout_state(proposal)
     generation = (
         proposal.current_invoice_generation

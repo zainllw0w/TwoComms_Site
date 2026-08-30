@@ -3,6 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -14,9 +15,12 @@ from management.models import (
     IgCheckoutInventoryReservation,
     IgCheckoutProposal,
     IgCheckoutProposalItem,
+    IgBotNotification,
     IgClient,
     IgDeal,
     IgFollowUpTask,
+    IgPaymentEvent,
+    IgPaymentProjection,
     InstagramBotMessage,
 )
 from management.services.ig_checkout import create_or_update_proposal
@@ -30,7 +34,7 @@ from orders.nova_poshta_checkout import (
     build_city_choice_token,
     build_warehouse_choice_token,
 )
-from storefront.models import Category, Product, ProductFitOption
+from storefront.models import Category, Product, ProductFitOption, PromoCode, PromoCodeUsage
 
 
 @override_settings(
@@ -148,6 +152,11 @@ class CheckoutGenerationRuntimeTests(TestCase):
                 event_key__startswith="proposal_expired:"
             ).exists()
         )
+        entry, _token = self._open(proposal)
+        page = self.client.get(entry["Location"])
+        self.assertContains(page, "Вибір збережено на 12 годин")
+        self.assertContains(page, "повторно перевіряємо актуальну ціну")
+        self.assertNotContains(page, "Товари й ціна зафіксовані")
 
     def test_only_latest_owned_user_question_unlocks_200_cod(self):
         old = InstagramBotMessage.objects.create(
@@ -534,3 +543,276 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertIn(proposal.status, {proposal.Status.READY, proposal.Status.VIEWED})
         self.assertGreater(proposal.expires_at, timezone.now() + timedelta(hours=11))
         self.assertEqual(self.deal.active_checkout_proposal_id, proposal.pk)
+
+    def test_provider_create_ambiguity_is_bounded_review_and_never_blind_retried(self):
+        from management.services.ig_checkout_generation import (
+            resolve_due_generation_ambiguities,
+        )
+
+        class AmbiguousTimeout(RuntimeError):
+            ambiguous = True
+
+        from product_catalog.models import ProductInventoryPolicy
+        from productcolors.models import Color, ProductColorVariant
+
+        user = get_user_model().objects.create_user(username="s2b-ambiguity-owner")
+        self.client.force_login(user)
+        promo = PromoCode.objects.create(
+            code="S2BAMB",
+            discount_type="percentage",
+            discount_value=Decimal("5.00"),
+            max_uses=10,
+            one_time_per_user=True,
+        )
+        color = Color.objects.create(name="Ambiguity black", primary_hex="#222222")
+        variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=color,
+            stock=2,
+        )
+        ProductInventoryPolicy.objects.create(
+            product=self.product,
+            source=ProductInventoryPolicy.Source.CATALOG_VARIANT,
+        )
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[{**self._item(), "color_variant_id": variant.pk}],
+            allow_promo=True,
+        )
+        self._open(proposal)
+        url = reverse(
+            "ig_checkout_proposal",
+            kwargs={"proposal_id": proposal.public_id},
+        )
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            side_effect=AmbiguousTimeout("timeout after dispatch"),
+        ) as provider:
+            first = self.client.post(
+                url,
+                self._delivery_payload(promo_code=promo.code),
+                HTTP_ACCEPT="application/json",
+            )
+            second = self.client.post(
+                url,
+                self._delivery_payload(promo_code=promo.code),
+                HTTP_ACCEPT="application/json",
+            )
+        self.assertEqual(first.status_code, 400)
+        self.assertEqual(second.status_code, 400)
+        self.assertEqual(provider.call_count, 1)
+        generation = IgCheckoutInvoiceGeneration.objects.get(proposal=proposal)
+        attempt = generation.payment_attempt
+        reservation = generation.inventory_reservations.get()
+        self.assertEqual(generation.state, generation.State.PROVIDER_AMBIGUOUS)
+        self.assertEqual(generation.active_slot, 1)
+        self.assertTrue(generation.provider_request_digest)
+        self.assertGreater(generation.ambiguity_review_due_at, generation.expires_at)
+        event = generation.events.get(kind="provider_ambiguous")
+        self.assertEqual(event.payload["attempt_reference"], attempt.reference)
+        self.assertEqual(event.payload["request_digest"], generation.provider_request_digest)
+        self.assertTrue(
+            IgBotNotification.objects.filter(
+                dedupe_key__startswith="ig-checkout-generation-ambiguity:"
+            ).exists()
+        )
+
+        due = timezone.now() - timedelta(seconds=1)
+        IgCheckoutInvoiceGeneration.objects.filter(pk=generation.pk).update(
+            ambiguity_review_due_at=due
+        )
+        outcome = resolve_due_generation_ambiguities(now=timezone.now())
+        self.assertEqual(outcome["resolved"], 1)
+        generation.refresh_from_db()
+        proposal.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertEqual(generation.state, generation.State.AMBIGUITY_REVIEW)
+        self.assertIsNone(generation.active_slot)
+        self.assertEqual(proposal.status, proposal.Status.MANAGER_REVIEW)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.FAILED)
+        reservation.refresh_from_db()
+        promo.refresh_from_db()
+        self.assertEqual(reservation.state, reservation.State.RELEASED)
+        self.assertEqual(promo.current_uses, 0)
+
+        with patch("storefront.views.monobank._monobank_api_request") as retry:
+            blocked = self.client.post(
+                url,
+                self._delivery_payload(promo_code=promo.code),
+                HTTP_ACCEPT="application/json",
+            )
+        self.assertEqual(blocked.status_code, 400)
+        retry.assert_not_called()
+
+    def test_late_pending_status_cannot_downgrade_winner(self):
+        from management.services.ig_checkout_generation import (
+            apply_generation_provider_status,
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        generation = self._create_invoice(proposal, invoice_id="v2-pending-winner")
+        order, _created = _apply_payment_attempt_status(
+            generation.payment_attempt,
+            "success",
+            payload={"paidAmount": 90000},
+            source="provider_pull",
+        )
+        apply_generation_provider_status(
+            generation.payment_attempt_id,
+            "processing",
+            payload={},
+            source="provider_pull",
+        )
+        generation.payment_attempt.refresh_from_db()
+        generation.refresh_from_db()
+        self.assertEqual(generation.payment_attempt.status, PaymentAttempt.Status.CONVERTED)
+        self.assertEqual(generation.payment_attempt.order_id, order.pk)
+        self.assertEqual(generation.state, generation.State.PAID_WINNER)
+
+    def test_late_provider_create_success_is_reviewed_without_repointing(self):
+        from management.services.ig_checkout_generation import (
+            terminalize_generation_attempt,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        self._open(proposal)
+
+        def late_success(*_args, **_kwargs):
+            generation = IgCheckoutInvoiceGeneration.objects.get(proposal=proposal)
+            terminalize_generation_attempt(
+                generation.payment_attempt_id,
+                terminal_status=PaymentAttempt.Status.FAILED,
+                reason="concurrent_terminalization",
+            )
+            return {
+                "invoiceId": "v2-late-create",
+                "pageUrl": "https://pay.example/v2-late-create",
+            }
+
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            side_effect=late_success,
+        ):
+            response = self.client.post(
+                reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": proposal.public_id},
+                ),
+                self._delivery_payload(),
+                HTTP_ACCEPT="application/json",
+            )
+        self.assertEqual(response.status_code, 400)
+        generation = IgCheckoutInvoiceGeneration.objects.get(proposal=proposal)
+        proposal.refresh_from_db()
+        self.assertEqual(generation.state, generation.State.LATE_PROVIDER_REVIEW)
+        self.assertIsNone(generation.active_slot)
+        self.assertNotEqual(proposal.current_invoice_generation_id, generation.pk)
+        self.assertNotEqual(proposal.payment_attempt_id, generation.payment_attempt_id)
+        self.assertEqual(generation.provider_invoice_id, "v2-late-create")
+
+    def test_authenticated_stale_promo_generation_enters_resource_review(self):
+        from management.services.ig_checkout_generation import (
+            terminalize_generation_attempt,
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        user = get_user_model().objects.create_user(username="s2b-promo-owner")
+        self.client.force_login(user)
+        promo = PromoCode.objects.create(
+            code="S2BAUTH",
+            discount_type="percentage",
+            discount_value=Decimal("5.00"),
+            max_uses=10,
+            one_time_per_user=True,
+        )
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[self._item()],
+            allow_promo=True,
+        )
+        self._open(proposal)
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            side_effect=[
+                {"invoiceId": "promo-old", "pageUrl": "https://pay/promo-old"},
+                {"invoiceId": "promo-new", "pageUrl": "https://pay/promo-new"},
+            ],
+        ):
+            url = reverse(
+                "ig_checkout_proposal",
+                kwargs={"proposal_id": proposal.public_id},
+            )
+            first_response = self.client.post(
+                url,
+                self._delivery_payload(promo_code=promo.code),
+                HTTP_ACCEPT="application/json",
+            )
+            self.assertEqual(first_response.status_code, 200)
+            first = IgCheckoutInvoiceGeneration.objects.get(
+                proposal=proposal,
+                generation=1,
+            )
+            first_owner = first.promo_reservation_generation
+            terminalize_generation_attempt(
+                first.payment_attempt_id,
+                terminal_status=PaymentAttempt.Status.FAILED,
+                reason="provider_failure",
+            )
+            proposal.refresh_from_db()
+            second_response = self.client.post(
+                url,
+                self._delivery_payload(promo_code=promo.code),
+                HTTP_ACCEPT="application/json",
+            )
+            self.assertEqual(second_response.status_code, 200)
+        second = IgCheckoutInvoiceGeneration.objects.get(
+            proposal=proposal,
+            generation=2,
+        )
+        self.assertTrue(first_owner)
+        self.assertTrue(second.promo_reservation_generation)
+        self.assertNotEqual(first_owner, second.promo_reservation_generation)
+
+        order, created = _apply_payment_attempt_status(
+            first.payment_attempt,
+            "success",
+            payload={"paidAmount": 90000},
+            source="provider_pull",
+        )
+        self.assertIsNone(order)
+        self.assertFalse(created)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.state, first.State.RESOURCE_REVIEW)
+        self.assertEqual(second.state, second.State.CANCELLED)
+        self.assertFalse(Order.objects.exists())
+        self.assertFalse(PromoCodeUsage.objects.filter(promo_code=promo).exists())
+        payment_event = IgPaymentEvent.objects.get(deal=proposal.deal)
+        from management.models import provider_evidence_signature
+
+        self.assertEqual(
+            payment_event.evidence["signature"],
+            provider_evidence_signature(
+                deal_id=proposal.deal_id,
+                client_id=proposal.client_id,
+                provider=payment_event.provider,
+                source=payment_event.source,
+                invoice_id=payment_event.invoice_id,
+                provider_status=payment_event.provider_status,
+                payload_digest=payment_event.payload_digest,
+            ),
+        )
+        projection = IgPaymentProjection.objects.get(deal=proposal.deal)
+        self.assertEqual(projection.truth, proposal.deal.PaymentTruth.CONFIRMED)
+        self.assertEqual(projection.last_event_id, payment_event.pk)

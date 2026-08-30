@@ -10,7 +10,10 @@ from management.services.ig_checkout_terminalization import (
     expire_due_assisted_attempts,
     reconcile_due_assisted_provider_checks,
 )
-from management.services.ig_checkout_generation import expire_due_v2_proposals
+from management.services.ig_checkout_generation import (
+    expire_due_v2_proposals,
+    resolve_due_generation_ambiguities,
+)
 from management.services.ig_inventory import release_expired_proposal_inventory, release_proposal_inventory
 from orders.fulfillment_truth import (
     NOVA_POSHTA_DELIVERY_SUCCESS_CODES,
@@ -40,6 +43,8 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
         "delivery_events": 0,
         "ambiguous_checked": 0,
         "ambiguous_pending": 0,
+        "generation_ambiguities_due": 0,
+        "generation_ambiguities_resolved": 0,
         "late_status_due": 0,
         "late_status_checked": 0,
         "late_status_pending": 0,
@@ -79,6 +84,18 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
     ):
         result[key] += provider_backstop[key]
     result["errors"] += provider_backstop["late_status_errors"]
+    ambiguity_resolution = resolve_due_generation_ambiguities(
+        now=now,
+        limit=limit,
+        dry_run=dry_run,
+    )
+    result["generation_ambiguities_due"] += ambiguity_resolution["due"]
+    result["generation_ambiguities_resolved"] += ambiguity_resolution["resolved"]
+    result["released_reservations"] += ambiguity_resolution[
+        "released_inventory"
+    ]
+    result["released_promos"] += ambiguity_resolution["released_promos"]
+    result["errors"] += ambiguity_resolution["errors"]
     v2_expiry = expire_due_v2_proposals(
         now=now,
         limit=limit,

@@ -197,13 +197,29 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
 
             promo_consumed = consume_payment_attempt_promo(attempt, order=order)
             reservation = dict((attempt.event_state or {}).get("promo_reservation") or {})
-            anonymous_bearer_reservation = (
+            authenticated_reservation = bool(
+                reservation.get("state") == "reserved"
+                and reservation.get("reservation_generation")
+                and not reservation.get("guest_reservation_mismatch")
+                and not reservation.get("reservation_generation_mismatch")
+            )
+            anonymous_bearer_reservation = bool(
                 attempt.user_id is None
                 and reservation.get("state") == "reserved"
                 and reservation.get("guest_usage_id")
                 and not reservation.get("guest_reservation_mismatch")
+                and (
+                    not attempt.checkout_series_key
+                    or authenticated_reservation
+                )
             )
-            if not promo_consumed and attempt.user_id is None:
+            v2_owned_reservation = bool(
+                attempt.checkout_series_key
+                and authenticated_reservation
+            )
+            if not promo_consumed and (
+                attempt.checkout_series_key or attempt.user_id is None
+            ):
                 # The provider payment is trusted, but an anonymous bearer
                 # reservation must still match this exact invoice.  Roll the
                 # Order and conversion marker back as one unit; only an active
@@ -211,10 +227,12 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
                 raise PaymentAttemptConversionError(
                     (
                         "promo_usage_persistence_pending"
-                        if anonymous_bearer_reservation
+                        if anonymous_bearer_reservation or v2_owned_reservation
                         else "promo_reservation_invalid"
                     ),
-                    retryable=bool(anonymous_bearer_reservation),
+                    retryable=bool(
+                        anonymous_bearer_reservation or v2_owned_reservation
+                    ),
                     marker=(
                         "promo_consumption_pending"
                         if anonymous_bearer_reservation

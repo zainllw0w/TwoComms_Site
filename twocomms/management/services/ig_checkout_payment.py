@@ -1163,32 +1163,21 @@ def record_late_local_payment_for_review(
     return True
 
 
-@transaction.atomic
-def bind_verified_payment(attempt_id, order):
-    """Bind a verified PaymentAttempt/Order to proposal and Instagram truth."""
+def project_verified_payment_without_order(
+    *,
+    attempt,
+    deal,
+    proposal,
+    verified_at=None,
+):
+    """Append canonical signed payment truth without authorizing an Order."""
     from management.models import (
-        IgCheckoutProposal,
-        IgDeal,
-        IgLifecycleEvent,
-        IgClient,
         IgPaymentEvent,
         IgPaymentProjection,
         provider_evidence_signature,
     )
-    from management.services.ig_order_links import create_order_attribution
-
-    attempt, deal, proposal = _lock_attempt_proposal_graph(
-        attempt_id,
-        proposal_related=("client", "commercial_episode", "payment_attempt"),
-    )
-    if proposal is None:
-        return None
     now = timezone.now()
-    verified_at = _verified_payment_at(attempt, fallback=now)
-
-    # The generic PaymentAttempt converter has already verified the provider
-    # result. Persist that evidence into the IG append-only projection so CRM
-    # aggregates and later reconciliation use the same trusted boundary.
+    verified_at = verified_at or _verified_payment_at(attempt, fallback=now)
     paid_amount = Decimal(attempt.paid_amount or attempt.payment_amount or 0).quantize(Decimal("0.01"))
     evidence_payload = {
         "attempt_id": attempt.pk,
@@ -1235,7 +1224,7 @@ def bind_verified_payment(attempt_id, order):
         defaults={"client": deal.client},
     )
     projection.client = deal.client
-    projection.truth = IgDeal.PaymentTruth.CONFIRMED
+    projection.truth = deal.PaymentTruth.CONFIRMED
     projection.gross_amount = paid_amount
     projection.refunded_amount = Decimal("0.00")
     projection.paid_at = projection.paid_at or deal.paid_at or verified_at
@@ -1244,6 +1233,34 @@ def bind_verified_payment(attempt_id, order):
     projection.needs_reconciliation = False
     projection.reconciled_at = now
     projection.save()
+    return payment_event, projection
+
+
+@transaction.atomic
+def bind_verified_payment(attempt_id, order):
+    """Bind a verified PaymentAttempt/Order to proposal and Instagram truth."""
+    from management.models import (
+        IgCheckoutProposal,
+        IgDeal,
+        IgLifecycleEvent,
+        IgClient,
+    )
+    from management.services.ig_order_links import create_order_attribution
+
+    attempt, deal, proposal = _lock_attempt_proposal_graph(
+        attempt_id,
+        proposal_related=("client", "commercial_episode", "payment_attempt"),
+    )
+    if proposal is None:
+        return None
+    now = timezone.now()
+    verified_at = _verified_payment_at(attempt, fallback=now)
+    _payment_event, _projection = project_verified_payment_without_order(
+        attempt=attempt,
+        deal=deal,
+        proposal=proposal,
+        verified_at=verified_at,
+    )
 
     try:
         generation = attempt.instagram_checkout_generation
