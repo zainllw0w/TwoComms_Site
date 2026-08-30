@@ -59,6 +59,41 @@ _NO_MODEL_REASONS = frozenset({
     "media_unavailable",
 })
 
+# Public, operator-facing definitions live beside the executable classifier so
+# the read API and the router cannot silently drift into two different policy
+# documents.  They intentionally describe decision boundaries, not prompt
+# wording or customer data.
+PUBLIC_TASK_CLASS_DEFINITIONS = {
+    TaskClass.NO_MODEL: {
+        "title": "No model",
+        "definition": (
+            "Backend truth fully determines the response or action; no Gemini "
+            "generation is required."
+        ),
+    },
+    TaskClass.ORDINARY_LIVE: {
+        "title": "Ordinary live",
+        "definition": (
+            "Backend facts are complete and Gemini only formulates a short "
+            "customer-facing response."
+        ),
+    },
+    TaskClass.COMPLEX_LIVE: {
+        "title": "Complex live",
+        "definition": (
+            "Ambiguous or multimodal understanding materially affects a product, "
+            "configuration, or funnel branch."
+        ),
+    },
+    TaskClass.DURABLE_ANALYSIS: {
+        "title": "Durable analysis",
+        "definition": (
+            "Background CRM analysis records structured proposals without delaying "
+            "the customer reply."
+        ),
+    },
+}
+
 
 @dataclass(frozen=True)
 class TurnFacts:
