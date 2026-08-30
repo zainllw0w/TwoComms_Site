@@ -16,6 +16,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from management.models import (
+    AdminAuditLog,
     GeminiModelQuotaUsage,
     GeminiQuotaProfile,
     GeminiQuotaState,
@@ -23,7 +24,12 @@ from management.models import (
     GeminiRequestAttempt,
 )
 from management.services.gemini_accounting_contract import (
+    ATTEMPT_IMMUTABLE_FIELDS,
+    ATTEMPT_MUTABLE_FIELDS,
+    REQUEST_IMMUTABLE_FIELDS,
+    REQUEST_MUTABLE_FIELDS,
     canonical_candidate_plan_digest,
+    rotate_quota_state_profile,
 )
 from management.services.ig_engine_health import IG_RUNTIME_TABLES
 
@@ -38,6 +44,85 @@ EXPECTED_PROFILES = {
 
 
 class GeminiAccountingSchemaTests(TestCase):
+    def _new_profile(
+        self,
+        version,
+        *,
+        model="gemini-3.7-flash",
+        effective_from=None,
+        effective_until=None,
+    ):
+        now = timezone.now()
+        return GeminiQuotaProfile.objects.create(
+            profile_version=version,
+            model=model,
+            rpm_limit=5,
+            input_tpm_limit=250_000,
+            rpd_limit=20,
+            permit_limit=1,
+            estimator_version="test",
+            source=GeminiQuotaProfile.Source.ADMIN,
+            observed_at=now,
+            effective_from=effective_from or now - datetime.timedelta(minutes=1),
+            effective_until=effective_until,
+        )
+
+    def _identity_request(self, suffix="identity"):
+        plan = [{
+            "candidate_index": 1,
+            "project_identity": "project-1",
+            "model": "gemini-3.7-flash",
+        }]
+        return GeminiRequest.objects.create(
+            request_id=f"request-{suffix}",
+            lane="live",
+            task_class="complex_live",
+            reasoning_task="media_analysis",
+            logical_turn_id=f"turn-{suffix}",
+            source_message_id=101,
+            client_id=202,
+            recovery_job_id=303,
+            routing_policy_version="routing-v2",
+            accounting_policy_version="accounting-v2",
+            quota_profile_version=PROFILE_VERSION,
+            authority_snapshot_version="authority-v1",
+            routing_mode="adaptive",
+            commercial_risk="medium",
+            requires_media_reasoning=True,
+            candidate_plan=plan,
+            candidate_plan_digest=canonical_candidate_plan_digest(plan),
+            deadline_ms=45_000,
+            deadline_at=timezone.now() + datetime.timedelta(seconds=45),
+            accounting_mode=GeminiRequest.AccountingMode.OFF,
+        )
+
+    def _identity_attempt(self, request, suffix="identity"):
+        profile = GeminiQuotaProfile.objects.get(
+            profile_version=PROFILE_VERSION,
+            model="gemini-3.7-flash",
+        )
+        return GeminiRequestAttempt.objects.create(
+            request_id=request.request_id,
+            request_graph=request,
+            role="chat",
+            key_name="GEMINI_API",
+            project_group="project-1",
+            project_identity="project-1",
+            model=profile.model,
+            outcome="planned",
+            fsm_state=GeminiRequestAttempt.FsmState.PLANNED,
+            quota_profile=profile,
+            accounting_mode="off",
+            logical_turn_id=request.logical_turn_id,
+            source_message_id=request.source_message_id,
+            client_id=request.client_id,
+            lane=request.lane,
+            attempt_index=1,
+            candidate_index=1,
+            incident_id=404,
+            recovery_job_id=request.recovery_job_id,
+        )
+
     def test_migration_seeds_only_four_non_secret_profiles(self):
         profiles = {
             row.model: (
@@ -282,7 +367,7 @@ class GeminiAccountingSchemaTests(TestCase):
         request.candidate_plan_digest = canonical_candidate_plan_digest(changed)
         with self.assertRaisesMessage(ValidationError, "immutable"):
             request.save(update_fields=["candidate_plan", "candidate_plan_digest"])
-        with self.assertRaisesMessage(ValidationError, "contract boundary"):
+        with self.assertRaisesMessage(ValidationError, "immutable"):
             GeminiRequest.objects.filter(pk=request.pk).update(
                 candidate_plan=changed,
                 candidate_plan_digest=canonical_candidate_plan_digest(changed),
@@ -290,6 +375,253 @@ class GeminiAccountingSchemaTests(TestCase):
 
         request.refresh_from_db()
         self.assertEqual(request.candidate_plan, plan)
+
+    def test_every_request_routing_and_lineage_identity_field_is_immutable(self):
+        parent = GeminiRequest.objects.create(request_id="request-parent")
+        request = self._identity_request("all-fields")
+        changed_plan = [{"candidate_index": 9, "model": "gemini-3.5-flash"}]
+        mutations = {
+            "request_id": "request-all-fields-changed",
+            "parent_request_id": parent.pk,
+            "lane": "analysis",
+            "task_class": "ordinary_live",
+            "reasoning_task": "customer_chat",
+            "logical_turn_id": "turn-changed",
+            "source_message_id": 102,
+            "client_id": 203,
+            "recovery_job_id": 304,
+            "routing_policy_version": "routing-changed",
+            "accounting_policy_version": "accounting-changed",
+            "quota_profile_version": "profile-changed",
+            "authority_snapshot_version": "authority-changed",
+            "routing_mode": "pinned",
+            "commercial_risk": "high",
+            "requires_media_reasoning": False,
+            "candidate_plan": changed_plan,
+            "candidate_plan_digest": canonical_candidate_plan_digest(changed_plan),
+            "deadline_ms": 99,
+            "deadline_at": request.deadline_at + datetime.timedelta(seconds=1),
+            "accounting_mode": GeminiRequest.AccountingMode.SHADOW,
+            "created_at": request.created_at + datetime.timedelta(seconds=1),
+        }
+        self.assertEqual(set(mutations), set(REQUEST_IMMUTABLE_FIELDS))
+
+        for field, value in mutations.items():
+            with self.subTest(path="model", field=field):
+                request.refresh_from_db()
+                setattr(request, field, value)
+                with self.assertRaisesMessage(ValidationError, "immutable"):
+                    request.save()
+            with self.subTest(path="queryset", field=field):
+                with self.assertRaisesMessage(ValidationError, "immutable"):
+                    GeminiRequest.objects.filter(pk=request.pk).update(**{field: value})
+            with self.subTest(path="bulk", field=field):
+                request.refresh_from_db()
+                setattr(request, field, value)
+                with self.assertRaisesMessage(ValidationError, "immutable"):
+                    GeminiRequest.objects.bulk_update([request], [field])
+
+    def test_request_mutable_allowlist_accepts_only_terminal_settlement_fields(self):
+        request = self._identity_request("mutable")
+        allowed = set(REQUEST_MUTABLE_FIELDS)
+        self.assertEqual(allowed, {
+            "candidate_outcomes", "reply_message_id", "terminal_resolution",
+            "terminal_reason", "provider_phase_started_at", "resolved_at",
+            "updated_at",
+        })
+        resolved_at = timezone.now()
+        updated = GeminiRequest.objects.filter(pk=request.pk).update(
+            candidate_outcomes={"1": "succeeded"},
+            reply_message_id=909,
+            terminal_resolution="succeeded",
+            terminal_reason="winner",
+            provider_phase_started_at=resolved_at,
+            resolved_at=resolved_at,
+            updated_at=resolved_at,
+        )
+        self.assertEqual(updated, 1)
+        request.refresh_from_db()
+        request.terminal_reason = "bulk-settled"
+        self.assertEqual(
+            GeminiRequest.objects.bulk_update([request], ["terminal_reason"]),
+            1,
+        )
+
+    def test_every_attempt_project_candidate_and_lineage_identity_is_immutable(self):
+        request = self._identity_request("attempt-all-fields")
+        attempt = self._identity_attempt(request)
+        alternate_profile = self._new_profile("attempt-alternate.v1")
+        mutations = {
+            "request_graph_id": None,
+            "request_id": "attempt-request-changed",
+            "role": "management",
+            "key_name": "GEMINI_API2",
+            "project_group": "project-2",
+            "project_identity": "project-2",
+            "model": "gemini-3.6-flash",
+            "quota_profile_id": alternate_profile.pk,
+            "accounting_mode": "shadow",
+            "logical_turn_id": "attempt-turn-changed",
+            "source_message_id": 103,
+            "client_id": 204,
+            "lane": "recovery",
+            "attempt_index": 2,
+            "candidate_index": 2,
+            "incident_id": 405,
+            "recovery_job_id": 305,
+            "created_at": attempt.created_at + datetime.timedelta(seconds=1),
+        }
+        self.assertEqual(set(mutations), set(ATTEMPT_IMMUTABLE_FIELDS))
+
+        for field, value in mutations.items():
+            with self.subTest(path="model", field=field):
+                attempt.refresh_from_db()
+                setattr(attempt, field, value)
+                with self.assertRaisesMessage(ValidationError, "immutable"):
+                    attempt.save()
+            with self.subTest(path="queryset", field=field):
+                with self.assertRaisesMessage(ValidationError, "immutable"):
+                    GeminiRequestAttempt.objects.filter(pk=attempt.pk).update(
+                        **{field: value}
+                    )
+            with self.subTest(path="bulk", field=field):
+                attempt.refresh_from_db()
+                setattr(attempt, field, value)
+                with self.assertRaisesMessage(ValidationError, "immutable"):
+                    GeminiRequestAttempt.objects.bulk_update([attempt], [field])
+
+    def test_attempt_mutable_allowlist_supports_fsm_and_settlement_only(self):
+        request = self._identity_request("attempt-mutable")
+        attempt = self._identity_attempt(request)
+        self.assertIn("fsm_state", ATTEMPT_MUTABLE_FIELDS)
+        self.assertIn("settled_at", ATTEMPT_MUTABLE_FIELDS)
+        self.assertNotIn("project_identity", ATTEMPT_MUTABLE_FIELDS)
+        settled_at = timezone.now()
+        updated = GeminiRequestAttempt.objects.filter(pk=attempt.pk).update(
+            fsm_state=GeminiRequestAttempt.FsmState.SUCCEEDED,
+            outcome="succeeded",
+            prompt_tokens=123,
+            candidates_tokens=45,
+            total_tokens=168,
+            settled_at=settled_at,
+            permit_released_at=settled_at,
+            winner_claimed=True,
+        )
+        self.assertEqual(updated, 1)
+        attempt.refresh_from_db()
+        attempt.failure_kind = ""
+        self.assertEqual(
+            GeminiRequestAttempt.objects.bulk_update([attempt], ["failure_kind"]),
+            1,
+        )
+
+    def test_quota_profile_rotation_is_revisioned_idle_same_model_and_audited(self):
+        current = GeminiQuotaProfile.objects.get(
+            profile_version=PROFILE_VERSION,
+            model="gemini-3.7-flash",
+        )
+        replacement = self._new_profile("rotation-current.v2")
+        state = GeminiQuotaState.objects.create(
+            project_identity="rotation-project",
+            model=current.model,
+            quota_profile=current,
+            revision=7,
+        )
+
+        rotated, audit = rotate_quota_state_profile(
+            state_id=state.pk,
+            new_profile_id=replacement.pk,
+            expected_revision=7,
+            reason="verified profile update",
+        )
+
+        self.assertEqual(rotated.quota_profile_id, replacement.pk)
+        self.assertEqual(rotated.revision, 8)
+        self.assertEqual(audit.action, "ig_gemini.quota_profile_rotated")
+        self.assertEqual(audit.before["profile_version"], PROFILE_VERSION)
+        self.assertEqual(audit.after["profile_version"], "rotation-current.v2")
+        self.assertEqual(audit.after["revision"], 8)
+
+    def test_quota_profile_rotation_fails_closed_on_all_guards(self):
+        current = GeminiQuotaProfile.objects.get(
+            profile_version=PROFILE_VERSION,
+            model="gemini-3.7-flash",
+        )
+        valid = self._new_profile("rotation-guard-valid.v2")
+        wrong_model = self._new_profile(
+            "rotation-guard-wrong.v2", model="gemini-3.6-flash"
+        )
+        future = self._new_profile(
+            "rotation-guard-future.v2",
+            effective_from=timezone.now() + datetime.timedelta(hours=1),
+        )
+        expired = self._new_profile(
+            "rotation-guard-expired.v2",
+            effective_from=timezone.now() - datetime.timedelta(hours=2),
+            effective_until=timezone.now() - datetime.timedelta(hours=1),
+        )
+        state = GeminiQuotaState.objects.create(
+            project_identity="rotation-guard-project",
+            model=current.model,
+            quota_profile=current,
+            revision=3,
+            in_flight_count=1,
+        )
+
+        cases = (
+            (valid, 3, "in-flight"),
+            (wrong_model, 3, "in-flight"),
+        )
+        for profile, revision, message in cases:
+            with self.subTest(profile=profile.profile_version):
+                with self.assertRaisesMessage(ValidationError, message):
+                    rotate_quota_state_profile(
+                        state_id=state.pk,
+                        new_profile_id=profile.pk,
+                        expected_revision=revision,
+                    )
+        GeminiQuotaState._base_manager.filter(pk=state.pk).update(in_flight_count=0)
+        for profile, revision, message in (
+            (valid, 99, "revision changed"),
+            (wrong_model, 3, "does not match"),
+            (future, 3, "not currently effective"),
+            (expired, 3, "not currently effective"),
+        ):
+            with self.subTest(profile=profile.profile_version, revision=revision):
+                with self.assertRaisesMessage(ValidationError, message):
+                    rotate_quota_state_profile(
+                        state_id=state.pk,
+                        new_profile_id=profile.pk,
+                        expected_revision=revision,
+                    )
+        state.refresh_from_db()
+        self.assertEqual(state.quota_profile_id, current.pk)
+        self.assertEqual(state.revision, 3)
+        self.assertFalse(
+            AdminAuditLog.objects.filter(
+                action="ig_gemini.quota_profile_rotated",
+                entity_id=str(state.pk),
+            ).exists()
+        )
+
+    def test_quota_profile_cannot_rotate_through_generic_save_or_update(self):
+        current = GeminiQuotaProfile.objects.get(
+            profile_version=PROFILE_VERSION,
+            model="gemini-3.7-flash",
+        )
+        replacement = self._new_profile("rotation-generic-block.v2")
+        state = GeminiQuotaState.objects.create(
+            project_identity="rotation-generic-project",
+            model=current.model,
+            quota_profile=current,
+        )
+        state.quota_profile = replacement
+        with self.assertRaisesMessage(ValidationError, "immutable"):
+            state.save(update_fields=["quota_profile"])
+        with self.assertRaisesMessage(ValidationError, "contract boundary"):
+            GeminiQuotaState.objects.filter(pk=state.pk).update(
+                quota_profile=replacement
+            )
 
 
 class GeminiAccountingMigrationContractTests(TestCase):
@@ -316,6 +648,11 @@ class GeminiAccountingMigrationContractTests(TestCase):
             schema.Migration.dependencies,
             [("management", "0178_gemini_accounting_prerequisite_innodb")],
         )
+        self.assertFalse(schema.Migration.atomic)
+        self.assertTrue(all(
+            operation.__class__.__name__.startswith("Idempotent")
+            for operation in schema.Migration.operations
+        ))
         self.assertFalse(any(
             operation.__class__.__name__ == "RunPython"
             for operation in schema.Migration.operations
@@ -473,6 +810,10 @@ class GeminiAccountingMigrationContractTests(TestCase):
             import sys
 
             os.environ["DJANGO_SETTINGS_MODULE"] = "twocomms.settings"
+            os.environ["IG_UGC_IDENTITY_HMAC_KEYRING"] = (
+                '{"test":"0123456789abcdef0123456789abcdef"}'
+            )
+            os.environ["IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID"] = "test"
             from django.conf import settings
             settings.DATABASES["default"] = {
                 "ENGINE": "django.db.backends.sqlite3",
@@ -591,3 +932,122 @@ class GeminiAccountingMigrationContractTests(TestCase):
             payload["seed"],
             {"profiles": 4, "requests": 0, "states": 0},
         )
+
+    def test_interrupted_non_atomic_schema_migration_resumes_idempotently(self):
+        script = textwrap.dedent(
+            """
+            import json
+            import os
+            import sys
+
+            os.environ["DJANGO_SETTINGS_MODULE"] = "twocomms.settings"
+            os.environ["IG_UGC_IDENTITY_HMAC_KEYRING"] = (
+                '{"test":"0123456789abcdef0123456789abcdef"}'
+            )
+            os.environ["IG_UGC_IDENTITY_HMAC_ACTIVE_KEY_ID"] = "test"
+            from django.conf import settings
+            settings.DATABASES["default"] = {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": sys.argv[1],
+            }
+
+            import django
+            django.setup()
+
+            from django.db import connection
+            from django.db.migrations.executor import MigrationExecutor
+            from django.db.migrations.recorder import MigrationRecorder
+            from management.migration_operations import IdempotentAddField
+
+            before = ("management", "0178_gemini_accounting_prerequisite_innodb")
+            schema = ("management", "0179_gemini_accounting_v2_schema")
+            final = ("management", "0181_gemini_accounting_v2_innodb")
+            executor = MigrationExecutor(connection)
+            executor.migrate([before])
+
+            original = IdempotentAddField.database_forwards
+            counter = {"completed": 0}
+            def interrupt_after_five(self, *args, **kwargs):
+                result = original(self, *args, **kwargs)
+                counter["completed"] += 1
+                if counter["completed"] == 5:
+                    raise RuntimeError("simulated-mariadb-ddl-interruption")
+                return result
+            IdempotentAddField.database_forwards = interrupt_after_five
+            interrupted = False
+            try:
+                executor = MigrationExecutor(connection)
+                executor.migrate([schema])
+            except RuntimeError as exc:
+                interrupted = str(exc) == "simulated-mariadb-ddl-interruption"
+            finally:
+                IdempotentAddField.database_forwards = original
+
+            recorder = MigrationRecorder(connection)
+            recorded_after_interrupt = recorder.migration_qs.filter(
+                app="management", name=schema[1]
+            ).exists()
+            with connection.cursor() as cursor:
+                partial_columns = {
+                    column.name
+                    for column in connection.introspection.get_table_description(
+                        cursor, "management_geminirequestattempt"
+                    )
+                }
+
+            executor = MigrationExecutor(connection)
+            executor.migrate([final])
+            executor = MigrationExecutor(connection)
+            apps = executor.loader.project_state([final]).apps
+            with connection.cursor() as cursor:
+                final_columns = {
+                    column.name
+                    for column in connection.introspection.get_table_description(
+                        cursor, "management_geminirequestattempt"
+                    )
+                }
+            print("MIGRATION_RETRY_RESULT=" + json.dumps({
+                "interrupted": interrupted,
+                "completed_before_interrupt": counter["completed"],
+                "recorded_after_interrupt": recorded_after_interrupt,
+                "partial_accounting_mode": "accounting_mode" in partial_columns,
+                "final_request_graph": "request_graph_id" in final_columns,
+                "profiles": apps.get_model(
+                    "management", "GeminiQuotaProfile"
+                ).objects.count(),
+            }, sort_keys=True))
+            """
+        )
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        env = os.environ.copy()
+        for key in (
+            "DB_ENGINE", "DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT",
+        ):
+            env.pop(key, None)
+        env["PYTHONPATH"] = os.pathsep.join(
+            filter(None, (project_root, env.get("PYTHONPATH", "")))
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = subprocess.run(
+                [sys.executable, "-c", script, os.path.join(temp_dir, "retry.sqlite3")],
+                cwd=project_root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=180,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        marker = next(
+            line for line in result.stdout.splitlines()
+            if line.startswith("MIGRATION_RETRY_RESULT=")
+        )
+        payload = json.loads(marker.removeprefix("MIGRATION_RETRY_RESULT="))
+        self.assertEqual(payload, {
+            "completed_before_interrupt": 5,
+            "final_request_graph": True,
+            "interrupted": True,
+            "partial_accounting_mode": True,
+            "profiles": 4,
+            "recorded_after_interrupt": False,
+        })

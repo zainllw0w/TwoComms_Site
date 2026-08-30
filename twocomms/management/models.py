@@ -4321,6 +4321,10 @@ class GeminiQuotaStateQuerySet(models.QuerySet):
             validate_quota_state_contract(obj)
         return super().bulk_create(objs, *args, **kwargs)
 
+    def _rotate_profile(self, **kwargs):
+        """Private write primitive; public callers use the audited contract."""
+        return super().update(**kwargs)
+
 
 class GeminiQuotaState(models.Model):
     """Future V2 coordination row keyed by stable project identity and model.
@@ -4410,25 +4414,25 @@ class GeminiQuotaState(models.Model):
 
 
 class GeminiRequestQuerySet(models.QuerySet):
-    _CONTRACT_FIELDS = frozenset({
-        "request_id",
-        "candidate_plan",
-        "candidate_plan_digest",
-        "winner_attempt",
-        "winner_attempt_id",
-    })
-
     def update(self, **kwargs):
-        if self._CONTRACT_FIELDS.intersection(kwargs):
+        from management.services.gemini_accounting_contract import (
+            REQUEST_MUTABLE_FIELDS,
+        )
+
+        if set(kwargs) - REQUEST_MUTABLE_FIELDS:
             raise ValidationError(
-                "GeminiRequest identity, plan and winner require the contract boundary."
+                "GeminiRequest update contains immutable routing/lineage fields."
             )
         return super().update(**kwargs)
 
     def bulk_update(self, objs, fields, batch_size=None):
-        if self._CONTRACT_FIELDS.intersection(fields):
+        from management.services.gemini_accounting_contract import (
+            REQUEST_MUTABLE_FIELDS,
+        )
+
+        if set(fields) - REQUEST_MUTABLE_FIELDS:
             raise ValidationError(
-                "GeminiRequest identity, plan and winner require the contract boundary."
+                "GeminiRequest bulk update contains immutable routing/lineage fields."
             )
         return super().bulk_update(objs, fields, batch_size=batch_size)
 
@@ -4608,26 +4612,25 @@ class GeminiModelState(models.Model):
 
 
 class GeminiRequestAttemptQuerySet(models.QuerySet):
-    _CONTRACT_FIELDS = frozenset({
-        "request_graph",
-        "request_graph_id",
-        "request_id",
-        "model",
-        "quota_profile",
-        "quota_profile_id",
-    })
-
     def update(self, **kwargs):
-        if self._CONTRACT_FIELDS.intersection(kwargs):
+        from management.services.gemini_accounting_contract import (
+            ATTEMPT_MUTABLE_FIELDS,
+        )
+
+        if set(kwargs) - ATTEMPT_MUTABLE_FIELDS:
             raise ValidationError(
-                "GeminiRequestAttempt graph/profile fields require the contract boundary."
+                "GeminiRequestAttempt update contains immutable identity fields."
             )
         return super().update(**kwargs)
 
     def bulk_update(self, objs, fields, batch_size=None):
-        if self._CONTRACT_FIELDS.intersection(fields):
+        from management.services.gemini_accounting_contract import (
+            ATTEMPT_MUTABLE_FIELDS,
+        )
+
+        if set(fields) - ATTEMPT_MUTABLE_FIELDS:
             raise ValidationError(
-                "GeminiRequestAttempt graph/profile fields require the contract boundary."
+                "GeminiRequestAttempt bulk update contains immutable identity fields."
             )
         return super().bulk_update(objs, fields, batch_size=batch_size)
 

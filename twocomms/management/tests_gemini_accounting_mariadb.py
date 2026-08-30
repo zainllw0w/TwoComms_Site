@@ -9,6 +9,10 @@ Run only with the repository's guarded disposable profile (never DB_*):
       "$TWC_PYTHON" manage.py test \
       management.tests_gemini_accounting_mariadb --verbosity 2
 
+For the destructive process-kill/retry migration proof on that same disposable
+database, run ``scripts/run_gemini_accounting_s3a_mariadb_retry.py
+--confirm-disposable`` before recreating the test database.
+
 ``test_settings_mariadb`` refuses production names/users/hosts and requires an
 explicit opt-in for a non-loopback disposable host.
 """

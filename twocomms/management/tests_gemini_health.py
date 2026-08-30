@@ -56,7 +56,10 @@ class GeminiHealthSnapshotTests(TestCase):
             decision=kwargs.get("decision", ""),
             latency_ms=kwargs.get("latency_ms", 0),
         )
-        GeminiRequestAttempt.objects.filter(pk=row.pk).update(created_at=at)
+        # Historical fixture setup intentionally bypasses the public immutable
+        # V2 manager; production writers may not rewrite attempt identity time.
+        GeminiRequestAttempt._base_manager.filter(pk=row.pk).update(created_at=at)
+        row.refresh_from_db()
         return row
 
     def _build(self):

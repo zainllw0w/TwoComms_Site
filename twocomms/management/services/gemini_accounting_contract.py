@@ -10,6 +10,100 @@ import hashlib
 import json
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
+
+
+REQUEST_IMMUTABLE_FIELDS = (
+    "request_id",
+    "parent_request_id",
+    "lane",
+    "task_class",
+    "reasoning_task",
+    "logical_turn_id",
+    "source_message_id",
+    "client_id",
+    "recovery_job_id",
+    "routing_policy_version",
+    "accounting_policy_version",
+    "quota_profile_version",
+    "authority_snapshot_version",
+    "routing_mode",
+    "commercial_risk",
+    "requires_media_reasoning",
+    "candidate_plan",
+    "candidate_plan_digest",
+    "deadline_ms",
+    "deadline_at",
+    "accounting_mode",
+    "created_at",
+)
+REQUEST_MUTABLE_FIELDS = frozenset({
+    "candidate_outcomes",
+    "reply_message_id",
+    "terminal_resolution",
+    "terminal_reason",
+    "provider_phase_started_at",
+    "resolved_at",
+    "updated_at",
+})
+ATTEMPT_IMMUTABLE_FIELDS = (
+    "request_graph_id",
+    "request_id",
+    "role",
+    "key_name",
+    "project_group",
+    "project_identity",
+    "model",
+    "quota_profile_id",
+    "accounting_mode",
+    "logical_turn_id",
+    "source_message_id",
+    "client_id",
+    "lane",
+    "attempt_index",
+    "candidate_index",
+    "incident_id",
+    "recovery_job_id",
+    "created_at",
+)
+ATTEMPT_MUTABLE_FIELDS = frozenset({
+    "fsm_state",
+    "outcome",
+    "shadow_decision",
+    "shadow_deny_reason",
+    "failure_kind",
+    "http_code",
+    "provider_reason",
+    "decision",
+    "latency_ms",
+    "remaining_deadline_ms",
+    "prompt_tokens",
+    "thoughts_tokens",
+    "candidates_tokens",
+    "total_tokens",
+    "estimated_prompt_tokens",
+    "reserved_prompt_tokens",
+    "error_detail",
+    "not_attempted_reason",
+    "reply_message_id",
+    "reserved_at",
+    "reservation_expires_at",
+    "provider_started_at",
+    "dispatch_pacific_day",
+    "permit_expires_at",
+    "finished_at",
+    "settled_at",
+    "reservation_released_at",
+    "permit_released_at",
+    "provider_quota_metric",
+    "provider_quota_id",
+    "provider_quota_dimensions",
+    "provider_retry_after_seconds",
+    "provider_block_until",
+    "winner_claimed",
+})
 
 
 def canonical_candidate_plan_digest(candidate_plan) -> str:
@@ -42,22 +136,13 @@ def validate_request_contract(request) -> None:
     if request.pk is not None:
         persisted = (
             type(request)._base_manager.filter(pk=request.pk)
-            .values(
-                "request_id",
-                "candidate_plan",
-                "candidate_plan_digest",
-                "winner_attempt_id",
-            )
+            .values(*REQUEST_IMMUTABLE_FIELDS, "winner_attempt_id")
             .first()
         )
         if persisted is not None:
-            if request.request_id != persisted["request_id"]:
-                errors["request_id"] = "Gemini request id is immutable."
-            if (
-                request.candidate_plan != persisted["candidate_plan"]
-                or request.candidate_plan_digest != persisted["candidate_plan_digest"]
-            ):
-                errors["candidate_plan"] = "Gemini candidate plan and digest are immutable."
+            for field in REQUEST_IMMUTABLE_FIELDS:
+                if getattr(request, field) != persisted[field]:
+                    errors[field] = "Gemini request routing/lineage identity is immutable."
             if (
                 persisted["winner_attempt_id"] is not None
                 and request.winner_attempt_id != persisted["winner_attempt_id"]
@@ -92,15 +177,94 @@ def validate_attempt_contract(attempt) -> None:
     if attempt.pk is not None:
         persisted = (
             type(attempt)._base_manager.filter(pk=attempt.pk)
-            .values("request_graph_id", "request_id", "model", "quota_profile_id")
+            .values(*ATTEMPT_IMMUTABLE_FIELDS)
             .first()
         )
         if persisted is not None:
-            for field in ("request_graph_id", "request_id", "model", "quota_profile_id"):
+            for field in ATTEMPT_IMMUTABLE_FIELDS:
                 if getattr(attempt, field) != persisted[field]:
-                    errors[field] = "Gemini attempt graph/profile identity is immutable."
+                    errors[field] = "Gemini attempt project/candidate/lineage identity is immutable."
     if errors:
         raise ValidationError(errors)
+
+
+@transaction.atomic
+def rotate_quota_state_profile(
+    *,
+    state_id: int,
+    new_profile_id: int,
+    expected_revision: int,
+    actor=None,
+    reason: str = "quota_profile_rotation",
+    now=None,
+):
+    """Atomically rotate one idle pair to a current same-model profile.
+
+    Generic model/queryset mutation remains blocked. This is the only S3a
+    primitive allowed to change ``GeminiQuotaState.quota_profile``.
+    """
+    from management.models import (
+        AdminAuditLog,
+        GeminiQuotaProfile,
+        GeminiQuotaState,
+    )
+
+    now = now or timezone.now()
+    try:
+        expected_revision = int(expected_revision)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError({"expected_revision": "Expected revision is invalid."}) from exc
+    state = (
+        GeminiQuotaState.objects.select_for_update()
+        .select_related("quota_profile")
+        .get(pk=state_id)
+    )
+    new_profile = GeminiQuotaProfile.objects.get(pk=new_profile_id)
+    if state.revision != expected_revision:
+        raise ValidationError({"revision": "Gemini quota-state revision changed."})
+    if state.in_flight_count:
+        raise ValidationError({"in_flight_count": "Cannot rotate an in-flight quota state."})
+    if new_profile.model != state.model:
+        raise ValidationError({"quota_profile": "Quota profile model does not match state model."})
+    if new_profile.effective_from > now or (
+        new_profile.effective_until is not None
+        and new_profile.effective_until <= now
+    ):
+        raise ValidationError({"quota_profile": "Quota profile is not currently effective."})
+    if state.quota_profile_id == new_profile.pk:
+        raise ValidationError({"quota_profile": "Quota state already uses this profile."})
+
+    updated = GeminiQuotaState.objects.filter(
+        pk=state.pk,
+        revision=expected_revision,
+        in_flight_count=0,
+    )._rotate_profile(
+        quota_profile_id=new_profile.pk,
+        revision=F("revision") + 1,
+        updated_at=now,
+    )
+    if updated != 1:
+        raise ValidationError({"revision": "Gemini quota-state rotation lost its revision race."})
+    audit = AdminAuditLog.objects.create(
+        actor=actor if getattr(actor, "pk", None) else None,
+        actor_role="staff" if getattr(actor, "pk", None) else "system",
+        action="ig_gemini.quota_profile_rotated",
+        entity_type="GeminiQuotaState",
+        entity_id=str(state.pk),
+        before={
+            "profile_version": state.quota_profile.profile_version,
+            "model": state.model,
+            "revision": expected_revision,
+        },
+        after={
+            "profile_version": new_profile.profile_version,
+            "model": state.model,
+            "revision": expected_revision + 1,
+        },
+        reason=str(reason or "quota_profile_rotation")[:1000],
+    )
+    state.refresh_from_db()
+    return state, audit
 
 
 def validate_quota_state_contract(state) -> None:
