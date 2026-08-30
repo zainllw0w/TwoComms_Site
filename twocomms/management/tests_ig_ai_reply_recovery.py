@@ -251,6 +251,10 @@ class IgAIReplyRecoveryTests(TestCase):
         decision = generate.call_args.kwargs["routing_decision"]
         self.assertEqual(decision.task_class.value, "complex_live")
         self.assertEqual(decision.model_chain[0], "gemini-3.7-flash")
+        job.refresh_from_db()
+        self.assertEqual(job.routing_decision["task_class"], "complex_live")
+        self.assertEqual(job.routing_decision["lane"], "recovery")
+        self.assertTrue(job.routing_decision["requires_media_reasoning"])
 
     def test_generated_recovery_rejects_invalid_typed_reply_without_delivery_text(self):
         from management.services.ig_response_control import ValidatedResponse

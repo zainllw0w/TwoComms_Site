@@ -35,13 +35,14 @@
 from __future__ import annotations
 
 import datetime
+from zoneinfo import ZoneInfo
 
 from django.conf import settings as django_settings
 from django.db import DatabaseError, transaction
 from django.db.models import F
 from django.utils import timezone
 
-PT = datetime.timezone(datetime.timedelta(hours=-8))
+PT = ZoneInfo("America/Los_Angeles")
 
 # Бюджеты одной пары (ключ, модель) в сутки Pacific. Числа — из консоли квот, а
 # не из документации: у free-tier они меняются, и источником истины должен быть
@@ -158,13 +159,61 @@ def pacific_day(now: datetime.datetime | None = None) -> datetime.date:
     return now.astimezone(PT).date()
 
 
-def _row(key_name: str, model: str, day):
+def capacity_snapshot(
+    key_names,
+    models,
+    *,
+    now=None,
+) -> dict[tuple[str, str], dict]:
+    """Bulk, read-only quota projection for candidate planning.
+
+    Missing rows mean zero local usage.  Planning must never ``get_or_create``
+    the full 6×model matrix: zero-usage rows are not provider evidence and the
+    N+1 writes added latency before every customer reply.
+    """
+    now = now or timezone.now()
+    keys = tuple(dict.fromkeys(str(value) for value in key_names if value))
+    model_names = tuple(dict.fromkeys(str(value) for value in models if value))
+    if not keys or not model_names:
+        return {}
     from management.models import GeminiModelQuotaUsage
 
-    row, _created = GeminiModelQuotaUsage.objects.get_or_create(
-        key_name=str(key_name), model=str(model), day_date=day
-    )
-    return row
+    try:
+        rows = list(
+            GeminiModelQuotaUsage.objects.filter(
+                day_date=pacific_day(now),
+                key_name__in=keys,
+                model__in=model_names,
+            )
+        )
+    except DatabaseError:
+        rows = []
+    by_pair = {(row.key_name, row.model): row for row in rows}
+    snapshot: dict[tuple[str, str], dict] = {}
+    for key_name in keys:
+        for model in model_names:
+            budget = budget_for(model)
+            if not budget:
+                snapshot[(key_name, model)] = {
+                    "rpd": None,
+                    "rpm": None,
+                    "tpm": None,
+                }
+                continue
+            row = by_pair.get((key_name, model))
+            minute_requests, minute_tokens = (
+                _minute_state(row, now) if row is not None else (0, 0)
+            )
+            requests = int(row.requests or 0) if row is not None else 0
+            rpd_budget = int(budget.get("rpd") or 0)
+            rpm_budget = int(budget.get("rpm") or 0)
+            tpm_budget = int(budget.get("tpm") or 0)
+            snapshot[(key_name, model)] = {
+                "rpd": max(0, rpd_budget - requests) if rpd_budget else None,
+                "rpm": max(0, rpm_budget - minute_requests) if rpm_budget else None,
+                "tpm": max(0, tpm_budget - minute_tokens) if tpm_budget else None,
+            }
+    return snapshot
 
 
 def _minute_state(row, now) -> tuple[int, int]:
@@ -181,24 +230,18 @@ def remaining(key_name: str, model: str, *, now=None) -> dict:
     budget = budget_for(model)
     if not budget:
         return {"rpd": None, "rpm": None, "tpm": None}
-    try:
-        row = _row(key_name, model, pacific_day(now))
-    except DatabaseError:
-        # Учёт недоступен — не мешаем работать.
-        return {"rpd": None, "rpm": None, "tpm": None}
-    minute_requests, minute_tokens = _minute_state(row, now)
-    rpd_budget = int(budget.get("rpd") or 0)
-    rpm_budget = int(budget.get("rpm") or 0)
-    tpm_budget = int(budget.get("tpm") or 0)
-    return {
-        "rpd": max(0, rpd_budget - int(row.requests or 0)) if rpd_budget else None,
-        "rpm": max(0, rpm_budget - minute_requests) if rpm_budget else None,
-        "tpm": max(0, tpm_budget - minute_tokens) if tpm_budget else None,
-    }
+    return capacity_snapshot([key_name], [model], now=now).get(
+        (str(key_name), str(model)),
+        {"rpd": None, "rpm": None, "tpm": None},
+    )
 
 
-def has_capacity(key_name: str, model: str, *, now=None) -> bool:
-    left = remaining(key_name, model, now=now)
+def has_capacity(key_name: str, model: str, *, now=None, snapshot=None) -> bool:
+    left = (
+        snapshot.get((str(key_name), str(model)), {})
+        if isinstance(snapshot, dict)
+        else remaining(key_name, model, now=now)
+    )
     for field in ("rpd", "rpm"):
         value = left.get(field)
         if value is not None and value <= 0:
@@ -254,18 +297,28 @@ def try_reserve(key_name: str, model: str, *, now=None) -> bool:
         return True
 
 
-def settle(key_name: str, model: str, tokens: int, *, now=None) -> None:
+def settle(
+    key_name: str,
+    model: str,
+    tokens: int,
+    *,
+    now=None,
+    dispatch_at=None,
+) -> None:
     """Дописать израсходованные токены к уже занятому запросу."""
     if not tokens:
         return
     now = now or timezone.now()
+    dispatch_at = dispatch_at or now
     if not budget_for(model):
         return
     from management.models import GeminiModelQuotaUsage
 
     try:
         GeminiModelQuotaUsage.objects.filter(
-            key_name=str(key_name), model=str(model), day_date=pacific_day(now)
+            key_name=str(key_name),
+            model=str(model),
+            day_date=pacific_day(dispatch_at),
         ).update(
             tokens=F("tokens") + int(tokens),
             minute_tokens=F("minute_tokens") + int(tokens),
@@ -275,7 +328,13 @@ def settle(key_name: str, model: str, tokens: int, *, now=None) -> None:
         return
 
 
-def order_keys_by_remaining(key_names, model: str, *, now=None) -> list:
+def order_keys_by_remaining(
+    key_names,
+    model: str,
+    *,
+    now=None,
+    snapshot=None,
+) -> list:
     """Ключи по остатку суточной квоты, от большего к меньшему.
 
     При 20 запросах в сутки важно РАСТЯГИВАТЬ бюджет по проектам, а не выжимать
@@ -283,9 +342,12 @@ def order_keys_by_remaining(key_names, model: str, *, now=None) -> list:
     одного проекта, имея свободными остальные пять.
     """
     now = now or timezone.now()
+    keys = list(key_names)
+    if not isinstance(snapshot, dict):
+        snapshot = capacity_snapshot(keys, [model], now=now)
     scored = []
-    for index, key_name in enumerate(key_names):
-        left = remaining(key_name, model, now=now)
+    for index, key_name in enumerate(keys):
+        left = snapshot.get((str(key_name), str(model)), {})
         rpd = left.get("rpd")
         scored.append((-(rpd if rpd is not None else 10**6), index, key_name))
     scored.sort()

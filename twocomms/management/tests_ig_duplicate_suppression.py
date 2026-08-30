@@ -117,6 +117,65 @@ class DuplicateReplySuppressionTests(TestCase):
         self.assertIsNone(self.row.send_started_at)
         send_text.assert_not_called()
 
+    @patch(
+        "management.services.bot_sales_classifier.enforce_phone_disclosure_policy",
+        return_value=(
+            "Підкажіть, будь ласка, для чого потрібен контакт, і я допоможу по суті.",
+            True,
+            "",
+        ),
+    )
+    @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot.gemini_generate")
+    def test_different_phone_drafts_collapsing_to_one_fallback_are_deduplicated(
+        self,
+        generate,
+        send_text,
+        _sender_action,
+        _typing_wait,
+        _phone_policy,
+    ):
+        from management.services import instagram_bot
+
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.is_enabled = True
+        settings_obj.ai_enabled = True
+        settings_obj.save(update_fields=["is_enabled", "ai_enabled"])
+        self.client.profile_fetched_at = timezone.now()
+        self.client.save(update_fields=["profile_fetched_at", "updated_at"])
+        generate.side_effect = [
+            "Мій номер +380501111111",
+            "Телефонуйте +380502222222",
+        ]
+        send_text.return_value = instagram_bot.ProviderDeliveryReceipt(
+            True, "", "", "phone-policy-first"
+        )
+
+        self.row.mid = "phone-policy-source-1"
+        self.row.source = "webhook"
+        self.row.status = InstagramBotMessage.Status.PENDING
+        self.row.save(update_fields=["mid", "source", "status"])
+        instagram_bot.process_pending(settings_obj, max_items=1)
+
+        second = InstagramBotMessage.objects.create(
+            sender_id=self.row.sender_id,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="А інший номер є?",
+            mid="phone-policy-source-2",
+            source="webhook",
+            status=InstagramBotMessage.Status.PENDING,
+        )
+        instagram_bot.process_pending(settings_obj, max_items=1)
+
+        self.assertEqual(send_text.call_count, 1)
+        second.refresh_from_db()
+        self.assertEqual(second.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(second.send_state, "duplicate")
+        self.assertIsNone(second.send_started_at)
+
 
 class DuplicateMediaSuppressionTests(TestCase):
     """Production 28.08: клієнт двічі отримав ті самі три фото."""

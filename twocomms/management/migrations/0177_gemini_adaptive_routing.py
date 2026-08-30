@@ -54,4 +54,39 @@ class Migration(migrations.Migration):
             name="gemini_task_class",
             field=models.CharField(blank=True, default="", max_length=24),
         ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="gemini_routing_lane",
+            field=models.CharField(blank=True, default="", max_length=16),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="gemini_routing_authority_version",
+            field=models.CharField(blank=True, default="", max_length=32),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="gemini_routing_requires_media",
+            field=models.BooleanField(default=False),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="gemini_routing_commercial_risk",
+            field=models.CharField(blank=True, default="", max_length=16),
+        ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="gemini_routing_mode",
+            field=models.CharField(blank=True, default="", max_length=12),
+        ),
+        migrations.AddField(
+            model_name="igaireplyrecoveryjob",
+            name="routing_decision",
+            field=models.JSONField(blank=True, default=dict),
+        ),
+        migrations.AddField(
+            model_name="igugcreward",
+            name="discount_percent",
+            field=models.PositiveSmallIntegerField(default=10),
+        ),
     ]

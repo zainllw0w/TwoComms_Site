@@ -3974,6 +3974,15 @@ class InstagramBotMessage(models.Model):
     gemini_routing_policy_version = models.CharField(max_length=32, blank=True, default="")
     gemini_routing_model_chain = models.JSONField(default=list, blank=True)
     gemini_routing_deadline_ms = models.PositiveIntegerField(default=0)
+    gemini_routing_lane = models.CharField(max_length=16, blank=True, default="")
+    gemini_routing_authority_version = models.CharField(
+        max_length=32, blank=True, default=""
+    )
+    gemini_routing_requires_media = models.BooleanField(default=False)
+    gemini_routing_commercial_risk = models.CharField(
+        max_length=16, blank=True, default=""
+    )
+    gemini_routing_mode = models.CharField(max_length=12, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     # Provider timestamp is separate from the local immutable ingest time.
     # Backfill/recovery may persist old messages today, but the chat must show

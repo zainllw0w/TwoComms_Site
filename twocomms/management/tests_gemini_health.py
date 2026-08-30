@@ -667,6 +667,69 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(row["metadata_models"]["gemini-3.7-flash"]["observations"], 1)
         self.assertFalse(row["generation_quota_proven"])
 
+    def test_legacy_health_probe_is_capability_only_and_lite_generation_is_visible(self):
+        self._attempt(
+            request_id="manual-capability",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="succeeded",
+            role="health_probe",
+            at=self.now - datetime.timedelta(minutes=2),
+        )
+        self._attempt(
+            request_id="real-lite-generation",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            role="chat",
+            at=self.now - datetime.timedelta(minutes=3),
+        )
+
+        row = self._build()["keys"][0]
+
+        self.assertEqual(row["live_state"], "LIVE")
+        self.assertEqual(row["active_model"], "gemini-3.5-flash-lite")
+        self.assertEqual(row["source"], "generation")
+        self.assertTrue(row["generation_quota_proven"])
+        self.assertEqual(
+            row["other_model_usage"]["gemini-3.5-flash-lite"]["successes"],
+            1,
+        )
+        self.assertEqual(
+            row["metadata_models"]["gemini-3.7-flash"]["successes"],
+            1,
+        )
+
+    def test_success_then_audited_winner_remainder_stays_live(self):
+        succeeded_at = self.now - datetime.timedelta(minutes=3)
+        self._attempt(
+            request_id="winner-with-plan",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            role="chat",
+            at=succeeded_at,
+        )
+        remainder = self._attempt(
+            request_id="winner-with-plan",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="not_attempted",
+            role="chat",
+            at=succeeded_at + datetime.timedelta(seconds=1),
+        )
+        remainder.not_attempted_reason = "winner_found"
+        remainder.save(update_fields=["not_attempted_reason"])
+
+        row = self._build()["keys"][0]
+
+        self.assertEqual(row["live_state"], "LIVE")
+        self.assertEqual(row["active_model"], "gemini-3.5-flash-lite")
+        model = row["other_model_usage"]["gemini-3.5-flash-lite"]
+        self.assertEqual(model["successes"], 1)
+        self.assertEqual(model["failures"], 0)
+        self.assertEqual(model["skipped"], 1)
+
     def test_snapshot_reports_latest_metadata_batch_completeness(self):
         completed_at = self.now - datetime.timedelta(minutes=3)
         request_suffixes = ("I", "2", "3", "4", "5", "6")

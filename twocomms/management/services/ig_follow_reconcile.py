@@ -170,6 +170,7 @@ def reconcile_follow_intelligence_once(*, limit=50, dry_run=False, now=None):
         "ugc_media_owned": 0,
         "ugc_media_assessed": 0,
         "ugc_media_awarded": 0,
+        "ugc_media_review_queued": 0,
         "ugc_media_waiting": 0,
         "ugc_media_skipped": 0,
         "ugc_media_failed": 0,
@@ -277,6 +278,9 @@ def reconcile_follow_intelligence_once(*, limit=50, dry_run=False, now=None):
         counts["ugc_media_owned"] = int(media_counts.get("owned", 0) or 0)
         counts["ugc_media_assessed"] = int(media_counts.get("assessed", 0) or 0)
         counts["ugc_media_awarded"] = int(media_counts.get("awarded", 0) or 0)
+        counts["ugc_media_review_queued"] = int(
+            media_counts.get("review_queued", 0) or 0
+        )
         counts["ugc_media_waiting"] = int(media_counts.get("waiting", 0) or 0)
         counts["ugc_media_skipped"] = int(media_counts.get("skipped", 0) or 0)
         counts["ugc_media_failed"] = int(media_counts.get("failed", 0) or 0)

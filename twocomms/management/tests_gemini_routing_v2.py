@@ -7,12 +7,17 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from management.models import (
     AdminAuditLog,
     GeminiRequestAttempt,
+    GeminiKeyState,
+    GeminiModelQuotaUsage,
+    GeminiModelState,
     InstagramBotMessage,
     InstagramBotSettings,
 )
@@ -163,6 +168,61 @@ class ActualInstagramGeminiRoutingTests(TestCase):
         self.assertEqual(tuple(row.gemini_routing_model_chain), COMPLEX_CHAIN)
         self.assertIn("image_reasoning", row.gemini_routing_reason_codes)
         self.assertEqual(row.gemini_routing_deadline_ms, 45_000)
+        self.assertEqual(row.gemini_routing_lane, "live")
+        self.assertTrue(row.gemini_routing_requires_media)
+        self.assertEqual(row.gemini_routing_commercial_risk, "low")
+        self.assertEqual(row.gemini_routing_mode, "adaptive")
+
+        persist_decision(row, classify_live_turn(TurnFacts()))
+        row.refresh_from_db()
+        self.assertEqual(row.gemini_task_class, TaskClass.COMPLEX_LIVE)
+        self.assertEqual(tuple(row.gemini_routing_model_chain), COMPLEX_CHAIN)
+
+    def test_typed_commerce_parser_wires_fit_custom_comparison_and_safe_reset(self):
+        from management.services.ig_commerce_turns import parse_turn
+        from management.services.instagram_bot import live_routing_decision
+
+        generic = parse_turn("У меня другой вопрос по доставке")
+        self.assertFalse(generic.reset_requested)
+        self.assertEqual(
+            live_routing_decision(
+                self.settings, commerce_request=generic
+            ).task_class,
+            TaskClass.ORDINARY_LIVE,
+        )
+
+        cases = (
+            ("Какой размер мне подойдет?", "personalized_fit"),
+            ("Хочу свой принт на футболке", "custom_print"),
+            ("Сравни эти две модели, что лучше?", "comparison"),
+            ("Хочу другую футболку", "branch_switch"),
+        )
+        for text, reason in cases:
+            with self.subTest(text=text):
+                request = parse_turn(text)
+                decision = live_routing_decision(
+                    self.settings,
+                    commerce_request=request,
+                )
+                self.assertEqual(decision.task_class, TaskClass.COMPLEX_LIVE)
+                self.assertIn(reason, decision.reason_codes)
+
+    def test_unresolved_real_referral_is_complex(self):
+        from management.models import IgClient
+        from management.services.ig_commerce_turns import parse_turn
+        from management.services.instagram_bot import live_routing_decision
+
+        client = IgClient.get_or_create_for_sender("routing-referral-client")
+        client.ad_id = "ad-without-product-map"
+        client.save(update_fields=["ad_id", "updated_at"])
+        decision = live_routing_decision(
+            self.settings,
+            commerce_request=parse_turn("Привіт"),
+            client=client,
+        )
+
+        self.assertEqual(decision.task_class, TaskClass.COMPLEX_LIVE)
+        self.assertIn("ambiguous_referral", decision.reason_codes)
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
@@ -214,6 +274,35 @@ class PinnedRoutingPolicyTests(TestCase):
         self.assertEqual(audit.after["mode"], "pinned")
         self.assertNotIn("key", json.dumps(audit.after).casefold())
 
+    def test_audit_failure_rolls_back_the_pin(self):
+        user = get_user_model().objects.create_user(
+            username="routing-audit-failure-admin",
+            password="test-password",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+        with patch.object(
+            AdminAuditLog.objects,
+            "create",
+            side_effect=RuntimeError("audit unavailable"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "audit unavailable"):
+                self.client.post(
+                    "/bot/api/settings/",
+                    {
+                        "ai_enabled": "on",
+                        "gemini_model": "gemini-3.6-flash",
+                        "gemini_routing_mode": "pinned",
+                        "pinned_minutes": "15",
+                    },
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+                )
+
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.gemini_routing_mode, "adaptive")
+        self.assertEqual(self.settings.pinned_chat_model, "")
+        self.assertIsNone(self.settings.pinned_until)
+
 
 class SixProjectCandidatePlanTests(TestCase):
     def test_default_identities_are_six_distinct_non_secret_labels(self):
@@ -234,8 +323,61 @@ class SixProjectCandidatePlanTests(TestCase):
             self.assertEqual(len(rows), 6)
             self.assertEqual(len({item["project_identity"] for item in rows}), 6)
 
+    def test_candidate_plan_is_three_bulk_reads_and_creates_no_zero_rows(self):
+        env = {
+            alias: f"bulk-read-key-{index}"
+            for index, alias in enumerate(gemini_keys.ALL_KEYS)
+        }
+        with patch.dict(os.environ, env, clear=False), CaptureQueriesContext(
+            connection
+        ) as queries:
+            plan = gemini_keys.live_chat_candidate_plan(
+                model_chain_override=list(ORDINARY_CHAIN)
+            )
+
+        self.assertEqual(len(plan), 24)
+        self.assertLessEqual(len(queries), 3, [query["sql"] for query in queries])
+        self.assertEqual(GeminiModelQuotaUsage.objects.count(), 0)
+        self.assertEqual(GeminiKeyState.objects.count(), 0)
+        self.assertEqual(GeminiModelState.objects.count(), 0)
+
     def test_legacy_chat_hedge_is_disabled(self):
         self.assertFalse(call_ai_analysis.ENABLE_LEGACY_CHAT_HEDGE)
+
+    def test_duplicate_env_credentials_are_one_candidate_per_model(self):
+        env = {
+            "GEMINI_API": "same-provider-secret",
+            "GEMINI_API2": "same-provider-secret",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            plan = gemini_keys.live_chat_candidate_plan(
+                model_chain_override=["gemini-3.5-flash-lite"]
+            )
+
+        by_alias = {item["key_name"]: item for item in plan}
+        self.assertEqual(by_alias["GEMINI_API"]["skip_reason"], "")
+        self.assertEqual(
+            by_alias["GEMINI_API2"]["skip_reason"],
+            "duplicate_credential",
+        )
+
+    @patch("management.services.call_ai_analysis._gemini_call_once")
+    def test_custom_key_equal_to_env_does_not_bypass_or_retry_alias(self, call_once):
+        call_once.return_value = "ok", {}
+        with patch.dict(
+            os.environ,
+            {"GEMINI_API": "same-custom-and-env"},
+            clear=True,
+        ):
+            result = call_ai_analysis.gemini_generate_text(
+                {"contents": []},
+                role="chat",
+                manual_key="same-custom-and-env",
+            )
+
+        self.assertEqual(result["parsed"], "ok")
+        self.assertEqual(result["meta"]["key"], "GEMINI_API")
+        call_once.assert_called_once()
 
 
 class TypedQuotaErrorTests(SimpleTestCase):
@@ -287,6 +429,31 @@ class TypedQuotaErrorTests(SimpleTestCase):
             )
         self.assertEqual(raised.exception.scope, "minute")
         self.assertEqual(raised.exception.retry_after_seconds, 3)
+
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_billing_depletion_outranks_attached_day_quota_details(self, post):
+        response = self._response([{
+            "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+            "violations": [{
+                "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            }],
+        }])
+        original_json = response.json
+
+        def payload_with_billing_message():
+            payload = original_json()
+            payload["error"]["message"] = "Billing account prepayment credits are depleted"
+            return payload
+
+        response.json = payload_with_billing_message
+        post.return_value = response
+
+        with self.assertRaises(call_ai_analysis._Gemini429) as raised:
+            call_ai_analysis._gemini_call_once(
+                "gemini-3.7-flash", {"contents": []}, "redacted", parse=False
+            )
+
+        self.assertEqual(raised.exception.scope, "topup")
 
 
 class ManualDiagnosticsOnlyTests(TestCase):

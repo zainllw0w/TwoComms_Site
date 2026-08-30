@@ -2196,6 +2196,63 @@ class QuietDegradationTests(TestCase):
         self.assertEqual(source.gemini_task_class, "no_model")
         self.assertEqual(source.gemini_routing_model_chain, [])
 
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
+    @patch("management.services.instagram_bot._capture_message_media")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text")
+    def test_unowned_image_and_voice_use_manager_fail_safe_without_gemini(
+        self,
+        send_text,
+        generate,
+        _sender_action,
+        _capture,
+        _typing_wait,
+        notify_manager,
+    ):
+        send_text.side_effect = [
+            instagram_bot.ProviderDeliveryReceipt(
+                True, "", "", "media-failsafe-image"
+            ),
+            instagram_bot.ProviderDeliveryReceipt(
+                True, "", "", "media-failsafe-voice"
+            ),
+        ]
+        cases = (
+            ("image", "image", "image/jpeg"),
+            ("voice", "audio", "audio/ogg"),
+        )
+        sources = []
+        for suffix, media_type, mime in cases:
+            source = self._pending(
+                "(вкладення)",
+                f"failsafe-{suffix}",
+                media=[{
+                    "url": f"https://lookaside.invalid/{suffix}",
+                    "media_type": media_type,
+                    "mime": mime,
+                    "provenance": "live_webhook",
+                    "status": "unavailable",
+                    "capture_attempts": 2,
+                }],
+            )
+            sources.append(source)
+            instagram_bot.process_pending(self.settings, max_items=1)
+
+        generate.assert_not_called()
+        self.assertEqual(send_text.call_count, 1)
+        self.assertGreaterEqual(notify_manager.call_count, 1)
+        for source in sources:
+            source.refresh_from_db()
+            self.assertEqual(source.gemini_task_class, "no_model")
+            self.assertEqual(
+                source.gemini_routing_reason_codes,
+                ["media_unavailable"],
+            )
+        self.assertEqual(sources[0].send_state, "sent")
+        self.assertEqual(sources[1].send_state, "duplicate")
+
 
 class LiveReplyReceiptTests(TestCase):
     def setUp(self):

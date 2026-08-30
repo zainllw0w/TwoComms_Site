@@ -353,11 +353,12 @@ def parse_429(body: str) -> tuple[str, int]:
     compact = low.replace("_", "").replace(" ", "")
     if "prepayment" in low or "creditsaredepleted" in compact or "billingaccount" in compact:
         return ("topup", TOPUP_COOLDOWN_SECONDS)
+    per_day = "perday" in compact
     m = _RETRY_RE.search(text)
     if m:
         secs = int(float(m.group(1))) + 2  # +2с запас
-        return ("day" if secs > 3600 else "minute", secs)
-    if "perday" in compact:
+        return ("day" if per_day or secs > 3600 else "minute", secs)
+    if per_day:
         return ("day", 0)  # без retryDelay → до півночі PT
     if "perminute" in compact:
         return ("minute", DEFAULT_MINUTE_COOLDOWN)
@@ -369,6 +370,18 @@ def parse_429(body: str) -> tuple[str, int]:
 # ---------------------------------------------------------------------------
 def _key_value(key_name: str) -> str:
     return (os.environ.get(key_name, "") or "").strip()
+
+
+def configured_alias_for_secret(key_value: str | None) -> str:
+    """Resolve a custom credential to one configured alias without exposing it."""
+    candidate = str(key_value or "").strip()
+    if not candidate:
+        return ""
+    for alias in ALL_KEYS:
+        configured = _key_value(alias)
+        if configured and secrets.compare_digest(candidate, configured):
+            return alias
+    return ""
 
 
 def _roll_day(st: GeminiKeyState, now: datetime.datetime) -> None:
@@ -779,8 +792,17 @@ def _apply_429_state(
     model: str = "",
 ) -> GeminiKeyState:
     _roll_day(st, now)
-    if scope == "day" and not seconds:
-        proposed_until = next_midnight_pt(now)
+    if scope == "day":
+        reset_at = next_midnight_pt(now)
+        retry_at = (
+            now + datetime.timedelta(seconds=max(1, int(seconds)))
+            if seconds
+            else reset_at
+        )
+        # A PerDay quota cannot reopen before the Pacific calendar reset even
+        # when RetryInfo advertises a short generic retry delay.  Conversely a
+        # provider delay longer than the reset remains authoritative.
+        proposed_until = max(reset_at, retry_at)
     else:
         proposed_until = now + datetime.timedelta(seconds=max(1, int(seconds)))
     # ЭБ.2: минутный и дневной лимиты free-tier объявлены на пару (проект,
@@ -889,34 +911,46 @@ def clear_model_unavailable() -> None:
 # ---------------------------------------------------------------------------
 # Підбір (key, model) комбінацій
 # ---------------------------------------------------------------------------
-def _sticky_order(key_names: list[str]) -> list[str]:
+def _sticky_order(
+    key_names: list[str],
+    *,
+    states: dict[str, GeminiKeyState] | None = None,
+) -> list[str]:
     """Сортує ключі за «липкістю»: останній успішний (last_ok_at) — першим.
     Зберігає вхідний порядок як вторинний критерій (стабільне сортування)."""
     def _last_ok(name):
-        st = GeminiKeyState.get(name)
-        return st.last_ok_at or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        st = states.get(name) if states is not None else GeminiKeyState.get(name)
+        return (
+            st.last_ok_at
+            if st is not None and st.last_ok_at
+            else datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+        )
     return sorted(key_names, key=_last_ok, reverse=True)
 
 
-def _ordered_role_keys(role: str) -> list[str]:
+def _ordered_role_keys(
+    role: str,
+    *,
+    states: dict[str, GeminiKeyState] | None = None,
+) -> list[str]:
     """Keep chat reserve tiers intact while preferring recent success within each."""
     pool = role_key_pools().get(role, {"own": [], "borrow": []})
-    own = _sticky_order(list(pool.get("own", [])))
+    own = _sticky_order(list(pool.get("own", [])), states=states)
     borrowed = list(pool.get("borrow", []))
     if role != "chat":
-        return own + _sticky_order(borrowed)
+        return own + _sticky_order(borrowed, states=states)
     shared = _sticky_order([
         alias for alias in borrowed if alias in CHAT_SHARED_RESERVE_ALIASES
-    ])
+    ], states=states)
     last = _sticky_order([
         alias for alias in borrowed if alias in CHAT_LAST_RESERVE_ALIASES
-    ])
+    ], states=states)
     remaining = _sticky_order([
         alias
         for alias in borrowed
         if alias not in CHAT_SHARED_RESERVE_ALIASES
         and alias not in CHAT_LAST_RESERVE_ALIASES
-    ])
+    ], states=states)
     return own + shared + last + remaining
 
 
@@ -973,29 +1007,13 @@ def iter_attempts(role: str, model_chain_override: list[str] | None = None):
 
 def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
     """Yield live-chat candidates once per known project and open model circuit."""
-    models = list(
-        model_chain_override
-        if model_chain_override is not None
-        else model_chain("chat")
-    )
-    keys = ordered_key_candidates("chat")
-    from management.services import gemini_quota
-
-    for model in models:
-        if (
-            is_model_overloaded(model)
-            or is_model_unavailable(model)
-            or model_circuit_open(model)
-        ):
-            continue
-        # ЭБ.4: спочатку ключі з найбільшим залишком денної квоти цієї моделі.
-        for key_name in gemini_quota.order_keys_by_remaining(keys, model):
-            key_value = _key_value(key_name)
-            if not key_value or not is_available(key_name, model=model):
-                continue
-            if not gemini_quota.has_capacity(key_name, model):
-                continue
-            yield key_name, key_value, model
+    for candidate in live_chat_candidate_plan(model_chain_override):
+        if not candidate["skip_reason"]:
+            yield (
+                candidate["key_name"],
+                candidate["key_value"],
+                candidate["model"],
+            )
 
 
 def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> list[dict]:
@@ -1012,21 +1030,55 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
         if model_chain_override is not None
         else model_chain("chat")
     )
-    ordered_aliases = _ordered_role_keys("chat")
+    now = timezone.now()
+    key_states = {
+        state.key_name: state
+        for state in GeminiKeyState.objects.filter(key_name__in=ALL_KEYS)
+    }
+    ordered_aliases = _ordered_role_keys("chat", states=key_states)
     identities = key_project_groups()
     from management.services import gemini_quota
+
+    quota_snapshot = gemini_quota.capacity_snapshot(
+        ordered_aliases,
+        models,
+        now=now,
+    )
+    model_states = {
+        state.model_name: state
+        for state in GeminiModelState.objects.filter(model_name__in=models)
+    }
+
+    def pair_available(key_name: str, model: str) -> bool:
+        state = key_states.get(key_name)
+        if state is None:
+            return True
+        if state.cooldown_until and state.cooldown_until > now:
+            return False
+        model_until = _model_cooldown_until(state, model)
+        return not (model_until and model_until > now)
 
     plan: list[dict] = []
     candidate_index = 0
     for model in models:
-        ordered = gemini_quota.order_keys_by_remaining(ordered_aliases, model)
+        ordered = gemini_quota.order_keys_by_remaining(
+            ordered_aliases,
+            model,
+            now=now,
+            snapshot=quota_snapshot,
+        )
         seen_projects: set[str] = set()
+        seen_credentials: list[str] = []
         model_skip = ""
         if is_model_overloaded(model):
             model_skip = "model_overload"
         elif is_model_unavailable(model):
             model_skip = "model_unavailable"
-        elif model_circuit_open(model):
+        elif (
+            (model_state := model_states.get(model)) is not None
+            and model_state.circuit_until
+            and model_state.circuit_until > now
+        ):
             model_skip = "circuit_open"
         for key_name in ordered:
             candidate_index += 1
@@ -1035,11 +1087,21 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
             skip_reason = model_skip
             if not key_value:
                 skip_reason = "unconfigured"
+            elif any(
+                secrets.compare_digest(key_value, existing)
+                for existing in seen_credentials
+            ):
+                skip_reason = "duplicate_credential"
             elif identity and identity in seen_projects:
                 skip_reason = "duplicate_project"
-            elif not skip_reason and not is_available(key_name, model=model):
+            elif not skip_reason and not pair_available(key_name, model):
                 skip_reason = "quota_cooldown"
-            elif not skip_reason and not gemini_quota.has_capacity(key_name, model):
+            elif not skip_reason and not gemini_quota.has_capacity(
+                key_name,
+                model,
+                now=now,
+                snapshot=quota_snapshot,
+            ):
                 skip_reason = "quota_exhausted"
             plan.append({
                 "candidate_index": candidate_index,
@@ -1049,8 +1111,13 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
                 "model": model,
                 "skip_reason": skip_reason,
             })
-            if identity:
+            if identity and key_value:
                 seen_projects.add(identity)
+            if key_value and not any(
+                secrets.compare_digest(key_value, existing)
+                for existing in seen_credentials
+            ):
+                seen_credentials.append(key_value)
     return plan
 
 

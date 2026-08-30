@@ -51,16 +51,15 @@ class Parse429Tests(SimpleTestCase):
         self.assertEqual(scope, "topup")
         self.assertGreater(secs, 0)
 
-    def test_retry_delay_wins_over_perday(self):
-        """Реальне free-tier тіло: quotaId PerDay + retryDelay 48s → беремо retryDelay
-        (короткий кулдаун), а НЕ до півночі."""
+    def test_perday_scope_survives_a_short_retry_delay(self):
+        """RetryInfo cannot turn a calendar-day quota into a minute quota."""
         from management.services import gemini_keys as gk
         body = ('{"error":{"code":429,"message":"You exceeded your current quota... limit: 20",'
                 '"details":[{"@type":"...QuotaFailure","violations":[{"quotaId":'
                 '"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]},'
                 '{"@type":"...RetryInfo","retryDelay":"48s"}]}}')
         scope, secs = gk.parse_429(body)
-        self.assertEqual(scope, "minute")
+        self.assertEqual(scope, "day")
         self.assertGreaterEqual(secs, 48)
         self.assertLessEqual(secs, 60)
 
@@ -91,6 +90,30 @@ class MarkAndAvailabilityTests(TestCase):
         self.assertEqual(st.cooldown_scope, "day")
         self.assertEqual(st.cooldown_until, gk.next_midnight_pt(now))
         self.assertFalse(gk.is_available("GEMINI_API", now))
+
+    def test_short_day_retry_delay_never_reopens_before_pacific_reset(self):
+        from management.services import gemini_keys as gk
+
+        now = timezone.now()
+        state = gk.mark_429(
+            "GEMINI_API",
+            "day",
+            50,
+            now=now,
+            error="RESOURCE_EXHAUSTED",
+            model="gemini-3.7-flash",
+        )
+        until = datetime.datetime.fromisoformat(
+            state.model_cooldowns["gemini-3.7-flash"]
+        )
+        self.assertEqual(until, gk.next_midnight_pt(now))
+        self.assertFalse(
+            gk.is_available(
+                "GEMINI_API",
+                now + datetime.timedelta(seconds=51),
+                model="gemini-3.7-flash",
+            )
+        )
 
     def test_mark_429_minute_short_cooldown(self):
         from management.services import gemini_keys as gk

@@ -6808,6 +6808,7 @@ def live_routing_decision(
     images: list[tuple[str, bytes]] | None = None,
     media: list[dict] | None = None,
     commerce_request=None,
+    client=None,
     deterministic_action: str = "",
 ):
     """Build the pre-provider route from typed current-turn state."""
@@ -6836,7 +6837,10 @@ def live_routing_decision(
         garment_type in {"custom", "custom_print"}
         or any(key in semantic for key in ("artwork", "placement", "print_brief"))
     )
-    personalized_fit = pending in {"size_fit", "fit_recommendation"}
+    personalized_fit = bool(
+        pending in {"size_fit", "fit_recommendation"}
+        or getattr(commerce_request, "personalized_fit_requested", False)
+    )
     conflict = pending in {
         "multiple_product_links",
         "new_purchase_or_exchange",
@@ -6847,6 +6851,23 @@ def live_routing_decision(
         or getattr(commerce_request, "exchange_requested", False)
         or getattr(commerce_request, "support_requested", False)
     ) else "low"
+    ambiguous_referral = bool(
+        client is not None
+        and (
+            getattr(client, "ad_id", "")
+            or getattr(client, "ad_ref", "")
+            or getattr(client, "referral_payload", {})
+        )
+        and not getattr(client, "current_product_id", None)
+        and not getattr(commerce_request, "exact_product_id", None)
+    )
+    comparison_required = bool(
+        getattr(commerce_request, "comparison_requested", False)
+    )
+    custom_print = bool(
+        custom_print
+        or getattr(commerce_request, "custom_print_requested", False)
+    )
     reasoning_hint = ""
     if images or has_audio:
         reasoning_hint = "media_analysis"
@@ -6865,11 +6886,49 @@ def live_routing_decision(
             product_or_recipient_switch=branch_switch,
             custom_print_brief=custom_print,
             conflicting_intent=conflict,
+            ambiguous_ad_referral=ambiguous_referral,
+            comparison_required=comparison_required,
             commercial_risk=commercial_risk,
             reasoning_task_hint=reasoning_hint,
         ),
         settings_obj=settings_obj,
     )
+
+
+def _turn_requires_owned_media(row: InstagramBotMessage) -> bool:
+    if str(getattr(row, "attachments", "") or "").strip():
+        return True
+    for item in getattr(row, "attachment_media", None) or []:
+        if not isinstance(item, dict):
+            continue
+        media_type = str(item.get("media_type") or "").casefold()
+        mime = str(item.get("mime") or "").casefold()
+        if mime.startswith(("image/", "audio/")) or media_type in {
+            "image", "photo", "story", "share", "ig_post", "ig_reel",
+            "audio", "voice",
+        }:
+            return True
+    return False
+
+
+def _media_unavailable_reply(client) -> str:
+    language = str(getattr(client, "language", "uk") or "uk").casefold()
+    if language.startswith("ru"):
+        text = (
+            "Не удалось безопасно открыть вложение. Пришлите его ещё раз — "
+            "менеджер тоже проверит сообщение."
+        )
+    elif language.startswith("en"):
+        text = (
+            "I could not safely open the attachment. Please send it again; "
+            "a manager will also review the message."
+        )
+    else:
+        text = (
+            "Не вдалося безпечно відкрити вкладення. Надішліть його ще раз — "
+            "менеджер також перевірить повідомлення."
+        )
+    return f"{text} [MANAGER]"
 
 
 def _gemini_failure_kind(exc: Exception) -> str:
@@ -10837,6 +10896,7 @@ def _process_one_inside_reply_boundary(
     follow_provider_io_started = False
     follow_cancelled_before_io = False
     routing_decision = None
+    media_fail_safe = False
 
     if row.client_id:
         # Логічний хід: усі вхідні, що прийшли поки бот ще не відповів, належать
@@ -10998,12 +11058,30 @@ def _process_one_inside_reply_boundary(
             assessment=ugc_assessment,
         )
         log("info", "ugc_deterministic_reply", f"{row.sender_id}: no chat Gemini")
+    elif not str(getattr(row, "quick_reply_payload", "") or "").strip():
+        gate_media = _recover_current_message_media(row)
+        gate_images = _collect_media_images(gate_media or [])
+        if _turn_requires_owned_media(row) and not gate_images:
+            from management.services.gemini_routing import persist_decision
+
+            media_fail_safe = True
+            routing_decision = live_routing_decision(
+                s,
+                deterministic_action="media_unavailable",
+            )
+            persist_decision(row, routing_decision)
+            reply = _media_unavailable_reply(row.client)
+            log(
+                "warning",
+                "media_fail_safe",
+                f"{row.sender_id}: owned media unavailable; manager route",
+            )
     if row.client_id:
         # Product corrections must become durable state before the classifier,
         # visual matcher, or Gemini can observe and reuse legacy current_* data.
         # Opted-out clients are handled by the existing policy gate below and do
         # not receive a new commerce decision while messaging remains forbidden.
-        if not row.client.opted_out_at and not ugc_turn:
+        if not row.client.opted_out_at and not ugc_turn and not media_fail_safe:
             try:
                 commerce_request, commerce_decision = _persist_commerce_turn(
                     row,
@@ -11034,7 +11112,7 @@ def _process_one_inside_reply_boundary(
                 permission=permission,
             )
         try:
-            if ugc_turn:
+            if ugc_turn or media_fail_safe:
                 raise StopIteration
             from management.services import bot_followups, bot_sales_classifier
 
@@ -11079,7 +11157,11 @@ def _process_one_inside_reply_boundary(
                     return bool(consumed)
                 bot_followups.schedule_after_inbound(row.client)
         except StopIteration:
-            log("info", "ugc_commerce_suppressed", f"{row.sender_id}: UGC turn")
+            log(
+                "info",
+                "commerce_suppressed",
+                f"{row.sender_id}: {'UGC turn' if ugc_turn else 'media fail-safe'}",
+            )
         except DatabaseError:
             raise
         except Exception as exc:
@@ -11318,6 +11400,7 @@ def _process_one_inside_reply_boundary(
                     images=images or None,
                     media=media,
                     commerce_request=commerce_request,
+                    client=row.client if row.client_id else None,
                 )
                 persist_decision(row, routing_decision)
                 reply = gemini_generate(
@@ -11840,6 +11923,45 @@ def _process_one_inside_reply_boundary(
             elif str(getattr(follow_decision, "state", "")) == "prepared":
                 follow_cancelled_before_io = True
 
+    # Apply every final text rewrite before the duplicate barrier. Two distinct
+    # generated drafts can collapse to the same safe phone-policy fallback;
+    # deduping the pre-policy drafts would send that fallback twice.
+    try:
+        from management.services.bot_sales_classifier import enforce_phone_disclosure_policy
+
+        reply, phone_disclosure_blocked, phone_policy_decision = (
+            enforce_phone_disclosure_policy(
+                row.client,
+                reply,
+                source_message_id=row.pk,
+            )
+        )
+    except Exception as exc:
+        log("error", "phone_disclosure_gate", type(exc).__name__)
+        reply = "Підкажіть, будь ласка, для чого потрібен контакт, і я допоможу по суті."
+        phone_disclosure_blocked = True
+        phone_policy_decision = ""
+    if phone_disclosure_blocked:
+        log("warning", "phone_disclosure_gate", "blocked_generated_number")
+        if phone_policy_decision == "support_escalation":
+            needs_manager = True
+            control["manager"] = True
+        if follow_authorized is not None:
+            try:
+                from management.services.ig_follow_cta import finalize_follow_delivery
+
+                finalize_follow_delivery(
+                    follow_authorized.decision_id,
+                    outcome="cancelled_before_io",
+                    lease_token=follow_authorized.lease_token,
+                    now=timezone.now(),
+                )
+                follow_cancelled_before_io = True
+            except Exception as exc:
+                log("warning", "follow_decision_cancel", type(exc).__name__)
+            finally:
+                follow_authorized = None
+
     # Э-DUP: this is the last text-only barrier and it runs *before*
     # send_state="sending".  It also closes every prepared side effect.
     if reply and _recent_identical_reply_exists(row, reply):
@@ -11938,45 +12060,6 @@ def _process_one_inside_reply_boundary(
     if follow_cancelled_before_io and follow_authorized is None:
         cancel_prepared_follow_before_io()
 
-    # Prompt guidance is advisory. Apply the contact-channel policy only after
-    # any follow CTA has finalized the text and immediately before durable
-    # delivery evidence/Meta I/O, so no generated number can escape this turn.
-    try:
-        from management.services.bot_sales_classifier import enforce_phone_disclosure_policy
-
-        reply, phone_disclosure_blocked, phone_policy_decision = (
-            enforce_phone_disclosure_policy(
-                row.client,
-                reply,
-                source_message_id=row.pk,
-            )
-        )
-    except Exception as exc:
-        # A safety boundary must fail closed if its own check cannot run.
-        log("error", "phone_disclosure_gate", type(exc).__name__)
-        reply = "Підкажіть, будь ласка, для чого потрібен контакт, і я допоможу по суті."
-        phone_disclosure_blocked = True
-        phone_policy_decision = ""
-    if phone_disclosure_blocked:
-        log("warning", "phone_disclosure_gate", "blocked_generated_number")
-        if phone_policy_decision == "support_escalation":
-            needs_manager = True
-            control["manager"] = True
-        if follow_authorized is not None:
-            try:
-                from management.services.ig_follow_cta import finalize_follow_delivery
-
-                finalize_follow_delivery(
-                    follow_authorized.decision_id,
-                    outcome="cancelled_before_io",
-                    lease_token=follow_authorized.lease_token,
-                    now=timezone.now(),
-                )
-                follow_cancelled_before_io = True
-            except Exception as exc:
-                log("warning", "follow_decision_cancel", type(exc).__name__)
-            finally:
-                follow_authorized = None
     original_reply_for_delivery = reply
     planned_chunk_count = len(_split_for_send(reply))
     _persist_reply_delivery_evidence(

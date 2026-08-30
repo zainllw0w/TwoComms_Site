@@ -1075,11 +1075,18 @@ def _generate_recovery_draft(
         )
         return normalized
 
-    routing_decision = live_routing_decision(
+    from dataclasses import replace
+
+    routing_decision = replace(live_routing_decision(
         settings_obj,
         images=images or None,
         media=media,
-    )
+    ), lane="recovery")
+    route_payload = routing_decision.as_dict()
+    if type(job).objects.filter(pk=job.pk, routing_decision={}).update(
+        routing_decision=route_payload
+    ):
+        job.routing_decision = route_payload
     from management.services.ig_turn_lineage import Lane, turn_lineage
 
     with turn_lineage(

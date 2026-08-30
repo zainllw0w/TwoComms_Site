@@ -778,6 +778,49 @@ def _release_pending_ugc_assessment(assessment_id: int, token: str) -> None:
     ).update(lease_token="", lease_expires_at=None, updated_at=timezone.now())
 
 
+def queue_ugc_manager_review(assessment) -> bool:
+    """Queue one authenticated 5/10/reject Telegram decision card."""
+    from management.services.instagram_bot import notify_manager
+
+    client = getattr(assessment, "client", None)
+    generation = int(getattr(assessment, "generation", 0) or 0)
+    assessment_id = int(getattr(assessment, "pk", 0) or 0)
+    if not client or not assessment_id:
+        return False
+    return notify_manager(
+        "\n".join((
+            "📸 IG UGC — потрібне рішення менеджера",
+            f"Клієнт #{client.pk}; assessment #{assessment_id}.",
+            "Provider provenance і візуальні факти перевірено. Оберіть 5%, 10% або відмову; перед видачею eligibility перевіряється повторно.",
+        )),
+        dedupe_key=f"ugc_review:{assessment_id}:{generation}",
+        event_type="ugc_reward_review",
+        client=client,
+        reply_markup={
+            "inline_keyboard": [[
+                {
+                    "text": "5%",
+                    "callback_data": f"igugc:5:{assessment_id}:{generation}",
+                },
+                {
+                    "text": "10%",
+                    "callback_data": f"igugc:10:{assessment_id}:{generation}",
+                },
+                {
+                    "text": "Відхилити",
+                    "callback_data": f"igugc:reject:{assessment_id}:{generation}",
+                },
+            ]],
+        },
+        metadata={
+            "assessment_id": assessment_id,
+            "assessment_generation": generation,
+            "requires_human_review": True,
+        },
+        deliver_immediately=False,
+    )
+
+
 def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
     """Retry event-scoped UGC capture and resume its existing vision path.
 
@@ -797,6 +840,7 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
         "owned": 0,
         "assessed": 0,
         "awarded": 0,
+        "review_queued": 0,
         "waiting": 0,
         "terminalized": 0,
         "skipped": 0,
@@ -916,17 +960,24 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
             )
             counts["assessed"] += 1
             if assessment.decision == IgUgcEvidenceAssessment.Decision.QUALIFIED_AUTO:
-                from management.services.ig_ugc_rewards import (
-                    award_external_ugc_reward,
-                    queue_external_ugc_reward_delivery,
+                updated = IgUgcEvidenceAssessment.objects.filter(
+                    pk=assessment.pk,
+                    decision=IgUgcEvidenceAssessment.Decision.QUALIFIED_AUTO,
+                    generation=assessment.generation,
+                ).update(
+                    decision=IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+                    decision_source="policy",
+                    reason_codes=[
+                        *(assessment.reason_codes or []),
+                        "manager_discount_decision_required",
+                    ],
+                    generation=assessment.generation + 1,
+                    updated_at=now,
                 )
-
-                reward, _created = award_external_ugc_reward(
-                    client=message.client,
-                    assessment=assessment,
-                )
-                queue_external_ugc_reward_delivery(reward)
-                counts["awarded"] += 1
+                if updated:
+                    assessment.refresh_from_db()
+                    if queue_ugc_manager_review(assessment):
+                        counts["review_queued"] += 1
         except Exception:
             # Leave pending evidence untouched.  The next bounded pass can
             # reclaim the lease and retry capture/vision without duplicating a

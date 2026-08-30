@@ -1889,7 +1889,7 @@ class PromoCode(models.Model):
             or self.group_id is not None
             or self.promo_type != 'regular'
             or self.discount_type != 'percentage'
-            or self.discount_value != Decimal('10.00')
+            or self.discount_value not in {Decimal('5.00'), Decimal('10.00')}
         ):
             return False
         from management.ig_bot_models import IgUgcReward

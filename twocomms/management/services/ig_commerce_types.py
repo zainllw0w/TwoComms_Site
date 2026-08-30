@@ -122,6 +122,9 @@ class CommerceTurnRequest:
     support_requested: bool = False
     new_purchase_requested: bool = False
     exchange_requested: bool = False
+    personalized_fit_requested: bool = False
+    custom_print_requested: bool = False
+    comparison_requested: bool = False
 
     def __post_init__(self):
         for field_name in (

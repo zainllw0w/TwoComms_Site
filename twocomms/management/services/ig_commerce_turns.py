@@ -116,14 +116,54 @@ def parse_turn(text: str | None, *, media_evidence=None) -> CommerceTurnRequest:
     checkout_requested = bool(
         re.search(r"(?:оплатить|оформить|оформлюємо|оформити|pay|checkout|payment)", lowered)
     )
+    # A generic phrase such as "у меня другой вопрос" is not product-change
+    # evidence and must never clear the current selection. Require both a
+    # change expression and an explicit commerce object.
     reset_requested = bool(
-        re.search(r"(?:друг(?:ой|ую|ую)|інш(?:ий|у)|another|different|сменить|заміни|replace)", lowered)
+        re.search(
+            r"(?:друг(?:ой|ую)|інш(?:ий|у)|another|different|сменить|заміни|replace)"
+            r"[^.!?]{0,32}(?:товар|футболк|худі|худи|принт|модел|колір|цвет|size|розмір|размер)",
+            lowered,
+        )
+        or re.search(
+            r"(?:товар|футболк|худі|худи|принт|модел|колір|цвет|size|розмір|размер)"
+            r"[^.!?]{0,24}(?:сменить|змінити|замінити|replace|different|another)",
+            lowered,
+        )
+        or re.fullmatch(
+            r"(?:хочу|want)\s+(?:другую|іншу|another(?:\s+one)?)",
+            lowered.strip(" .!?"),
+        )
     )
     new_purchase_requested = bool(
         re.search(r"(?:еще\s+одну|ще\s+одну|another\s+one|new\s+order)", lowered)
     )
     exchange_requested = bool(
         re.search(r"(?:поменять|обмен|обмін|exchange|change\s+size)", lowered)
+    )
+    personalized_fit_requested = bool(
+        re.search(
+            r"(?:який|какой|what)\s+(?:мені|мне)?\s*(?:розмір|размер|size)"
+            r"[^.!?]{0,32}(?:підійде|подойдет|fit)"
+            r"|(?:порадьте|посоветуйте|recommend)[^.!?]{0,24}(?:розмір|размер|size|посадк|fit)"
+            r"|(?:розмір|размер|size)[^.!?]{0,32}(?:під|под|for)\s*(?:зріст|рост|height|ваг|вес|weight)",
+            lowered,
+        )
+    )
+    custom_print_requested = bool(
+        re.search(
+            r"(?:кастомн\w*\s+(?:друк|печать|print)|свій\s+принт|свой\s+принт|"
+            r"my\s+(?:own\s+)?print|нанест\w*\s+(?:логотип|принт)|"
+            r"надрукувати\s+(?:логотип|принт))",
+            lowered,
+        )
+    )
+    comparison_requested = bool(
+        re.search(
+            r"(?:порівня\w*|сравн\w*|compare|чим\s+відрізня|чем\s+отлича|"
+            r"що\s+краще|что\s+лучше|which\s+is\s+better)",
+            lowered,
+        )
     )
     if reset_requested and not new_purchase_requested and not exchange_requested and not exact_product_id:
         pending = pending or "new_purchase_or_exchange"
@@ -143,6 +183,9 @@ def parse_turn(text: str | None, *, media_evidence=None) -> CommerceTurnRequest:
         support_requested=bool(re.search(r"(?:помог|вопрос|support|help)", lowered)),
         new_purchase_requested=new_purchase_requested,
         exchange_requested=exchange_requested,
+        personalized_fit_requested=personalized_fit_requested,
+        custom_print_requested=custom_print_requested,
+        comparison_requested=comparison_requested,
     )
 
 

@@ -1652,6 +1652,7 @@ class IgUgcReward(models.Model):
         db_constraint=False,
     )
     assessment_generation_snapshot = models.PositiveBigIntegerField(default=0)
+    discount_percent = models.PositiveSmallIntegerField(default=10)
     policy_version_snapshot = models.CharField(max_length=32, blank=True, default="")
     provider_object_digest_snapshot = models.CharField(max_length=64, blank=True, default="")
     catalog_candidates_snapshot = models.JSONField(default=list, blank=True)
@@ -5052,6 +5053,7 @@ class IgAiReplyRecoveryJob(models.Model):
         max_length=16, choices=Status.choices, default=Status.PENDING, db_index=True
     )
     draft_text = models.TextField(blank=True, default="")
+    routing_decision = models.JSONField(default=dict, blank=True)
     provider_message_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
     settings_permission_epoch = models.PositiveBigIntegerField(default=0)
     client_permission_epoch = models.PositiveBigIntegerField(default=0)

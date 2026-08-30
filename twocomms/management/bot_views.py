@@ -669,6 +669,7 @@ _GEMINI_HEALTH_FINISH_REASONS = frozenset({
 })
 _GEMINI_HEALTH_REACHABLE_STATUSES = frozenset({
     "ok",
+    "metadata_ok",
     "reachable_degraded",
     "blocked",
     "reachable_empty",
@@ -724,6 +725,7 @@ def _normalize_gemini_health_probe(raw_result, model: str) -> dict:
         if candidate in _GEMINI_HEALTH_FINISH_REASONS:
             finish_reason = candidate
 
+    capability_success = status in {"ok", "metadata_ok"}
     failure_kind = _GEMINI_HEALTH_FAILURE_KINDS.get(status, "")
     return {
         "model": model,
@@ -731,7 +733,7 @@ def _normalize_gemini_health_probe(raw_result, model: str) -> dict:
         "http_code": http_code,
         "finish_reason": finish_reason,
         "latency_ms": latency_ms,
-        "outcome": "succeeded" if status == "ok" else "failed",
+        "outcome": "succeeded" if capability_success else "failed",
         "failure_kind": failure_kind,
     }
 
@@ -750,14 +752,14 @@ def _record_gemini_health_probe(
     with transaction.atomic():
         gemini_keys.record_attempt(
             request_id=request_id,
-            role="health_probe",
+            role="health_metadata",
             key_name=key_name,
             model=model,
             outcome=normalized["outcome"],
             failure_kind=normalized["failure_kind"],
             http_code=normalized["http_code"],
             provider_reason=normalized["finish_reason"],
-            decision="manual_probe",
+            decision="manual_metadata",
             latency_ms=normalized["latency_ms"],
             remaining_deadline_ms=0,
             usage={},
@@ -3693,45 +3695,71 @@ def bot_settings_save_api(request):
         except (TypeError, ValueError):
             pass
 
-    if allowlist_policy_changed:
-        # The policy edge is short and excludes provider work.  The final
-        # allowlist write is row-locked and bumps the generation so workers
-        # that captured the old policy fail closed at their send boundary.
-        from management.services.ig_reply_boundary import pause_reply_boundary
+    routing_after = {
+        "mode": s.gemini_routing_mode,
+        "pinned_model": s.pinned_chat_model,
+        "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
+    }
 
-        with pause_reply_boundary():
-            with transaction.atomic():
-                locked_settings = InstagramBotSettings.objects.select_for_update().get(
-                    pk=s.pk
-                )
+    class RoutingPolicyConflict(Exception):
+        pass
+
+    def persist_settings_and_audit():
+        with transaction.atomic():
+            locked_settings = InstagramBotSettings.objects.select_for_update().get(
+                pk=s.pk
+            )
+            locked_routing = {
+                "mode": locked_settings.gemini_routing_mode,
+                "pinned_model": locked_settings.pinned_chat_model,
+                "pinned_until": (
+                    locked_settings.pinned_until.isoformat()
+                    if locked_settings.pinned_until
+                    else ""
+                ),
+            }
+            if routing_changed and locked_routing != routing_before:
+                raise RoutingPolicyConflict
+            if allowlist_policy_changed:
                 s.allowed_senders = requested_allowed_senders
                 s.reply_permission_epoch = (
                     int(locked_settings.reply_permission_epoch or 0) + 1
                 )
-                s.save()
-    else:
-        s.save()
-    if routing_changed:
-        routing_after = {
-            "mode": s.gemini_routing_mode,
-            "pinned_model": s.pinned_chat_model,
-            "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
-        }
-        AdminAuditLog.objects.create(
-            actor=request.user,
-            actor_role="staff",
-            action="ig_gemini.routing_policy_changed",
-            entity_type="InstagramBotSettings",
-            entity_id=str(s.pk),
-            before=routing_before,
-            after=routing_after,
-            reason=(
-                "temporary_emergency_pin"
-                if s.gemini_routing_mode == InstagramBotSettings.GeminiRoutingMode.PINNED
-                else "adaptive_routing_restored"
-            ),
-            ip=request.META.get("REMOTE_ADDR") or None,
-            user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:512],
+            s.save()
+            if not routing_changed:
+                return
+            AdminAuditLog.objects.create(
+                actor=request.user,
+                actor_role="staff",
+                action="ig_gemini.routing_policy_changed",
+                entity_type="InstagramBotSettings",
+                entity_id=str(s.pk),
+                before=routing_before,
+                after=routing_after,
+                reason=(
+                    "temporary_emergency_pin"
+                    if s.gemini_routing_mode
+                    == InstagramBotSettings.GeminiRoutingMode.PINNED
+                    else "adaptive_routing_restored"
+                ),
+                ip=request.META.get("REMOTE_ADDR") or None,
+                user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:512],
+            )
+
+    try:
+        if allowlist_policy_changed:
+            # Permission generation and routing audit share one row lock and
+            # transaction. An audit failure rolls the settings change back.
+            from management.services.ig_reply_boundary import pause_reply_boundary
+
+            with pause_reply_boundary():
+                persist_settings_and_audit()
+        else:
+            persist_settings_and_audit()
+    except RoutingPolicyConflict:
+        return JsonResponse(
+            {"success": False, "error": "Політика маршрутизації вже змінилась."},
+            status=409,
         )
     # Скинути кеш токена/кулдаун, щоб новий токен підхопився одразу.
     try:

@@ -72,6 +72,37 @@ class LiveGeminiFailoverContractsTests(TestCase):
 
     @override_settings(GEMINI_KEY_PROJECT_GROUPS={
         "GEMINI_API": "project-a",
+        "GEMINI_API2": "project-b",
+    })
+    def test_permission_denied_rotates_project_without_degrading_model(self):
+        env = {
+            "GEMINI_API": "permission-key-a",
+            "GEMINI_API2": "permission-key-b",
+        }
+        aliases = {value: alias for alias, value in env.items()}
+        calls = []
+
+        def fake_once(model, payload, key, *, parse=True, timeout=None):
+            calls.append((model, aliases[key]))
+            if key == env["GEMINI_API"]:
+                raise ai._GeminiModelUnavailable("HTTP 403: PERMISSION_DENIED")
+            return "same-model-success", {}
+
+        with patch.dict(os.environ, env, clear=True), patch.object(
+            ai, "_gemini_call_once", side_effect=fake_once
+        ):
+            result = ai.gemini_generate_text({"contents": []}, role="chat")
+
+        primary = gemini_keys.task_model_chain("chat", "customer_chat")[0]
+        self.assertEqual(result["parsed"], "same-model-success")
+        self.assertEqual(calls, [
+            (primary, "GEMINI_API"),
+            (primary, "GEMINI_API2"),
+        ])
+        self.assertEqual(result["model"], primary)
+
+    @override_settings(GEMINI_KEY_PROJECT_GROUPS={
+        "GEMINI_API": "project-a",
         "GEMINI_API2": "project-a",
     })
     def test_auth_and_permission_failures_quarantine_available_aliases(self):

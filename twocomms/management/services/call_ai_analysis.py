@@ -525,8 +525,9 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 return ("model_skip", None)
             # ЭБ.4: занимаем запрос пары (ключ, модель) ДО вызова. Иначе два
             # потока демона израсходуют один и тот же последний из двадцати.
+            quota_dispatch_at = timezone.now()
             if key_name in gemini_keys.ALL_KEYS and not gemini_quota.try_reserve(
-                key_name, model
+                key_name, model, now=quota_dispatch_at
             ):
                 log.append(f"{key_name}/{model}: денна квота пари вичерпана (облік)")
                 _emit(f"{key_name}/{model}: 🚫 квота пари вичерпана (локальний облік)")
@@ -536,7 +537,10 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             )
             if key_name in gemini_keys.ALL_KEYS:
                 gemini_quota.settle(
-                    key_name, model, int((usage or {}).get("totalTokenCount") or 0)
+                    key_name,
+                    model,
+                    int((usage or {}).get("totalTokenCount") or 0),
+                    dispatch_at=quota_dispatch_at,
                 )
         except _GeminiTransient as exc:
             dt = time.monotonic() - t0
@@ -918,6 +922,11 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     manual_key = str(manual_key or "").strip() or None
     if manual_key and not gemini_keys.manual_key_allowed("chat", manual_key):
         manual_key = None
+    if manual_key and gemini_keys.configured_alias_for_secret(manual_key):
+        # The same credential already exists in the six-project plan. Retrying
+        # it as "manual" would bypass its quota/cooldown state and spend the
+        # same provider request twice under two labels.
+        manual_key = None
 
     if model_chain_override is not None:
         models = [
@@ -1092,8 +1101,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             except Exception:
                 logger.debug("gemini attempt audit unavailable", exc_info=True)
 
+        quota_dispatch_at = timezone.now()
         if key_name in gemini_keys.ALL_KEYS and not gemini_quota.try_reserve(
-            key_name, model
+            key_name, model, now=quota_dispatch_at
         ):
             # ЭБ.4: пара исчерпана по локальному учёту — не тратим ход на 429,
             # который провайдер вернул бы через несколько сотен миллисекунд.
@@ -1108,7 +1118,10 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             )
             if key_name in gemini_keys.ALL_KEYS:
                 gemini_quota.settle(
-                    key_name, model, int((usage or {}).get("totalTokenCount") or 0)
+                    key_name,
+                    model,
+                    int((usage or {}).get("totalTokenCount") or 0),
+                    dispatch_at=quota_dispatch_at,
                 )
         except _GeminiTransient as exc:
             kind, transient_http_code = _transient_failure_details(exc)
@@ -1177,7 +1190,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             )
             _emit(f"{key_name}/{model}: model unavailable")
             _release()
-            return None, "model_unavailable"
+            return None, kind
         except _GeminiFatal as exc:
             kind = "invalid_key" if _chat_key_failure(exc) else "invalid_payload"
             http_match = _HTTP_CODE_RE.search(str(exc))
@@ -1267,8 +1280,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 model, working_payload, reasoning_task=policy["task"]
             )
             request_payload.pop("_reasoning_task", None)
+            quota_dispatch_at = timezone.now()
             if key_name in gemini_keys.ALL_KEYS and not gemini_quota.try_reserve(
-                key_name, model
+                key_name, model, now=quota_dispatch_at
             ):
                 raise _Gemini429("local quota ledger: pair exhausted")
             parsed, usage = _gemini_call_once(
@@ -1276,7 +1290,10 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             )
             if key_name in gemini_keys.ALL_KEYS:
                 gemini_quota.settle(
-                    key_name, model, int((usage or {}).get("totalTokenCount") or 0)
+                    key_name,
+                    model,
+                    int((usage or {}).get("totalTokenCount") or 0),
+                    dispatch_at=quota_dispatch_at,
                 )
             return parsed, usage
 
@@ -1288,9 +1305,12 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 expected_latency_ms=lambda key, model: (
                     gemini_scoreboard.expected_latency_ms(key, model, role="chat")
                 ),
-                # 404/403 по моделі не зникнуть від іншого ключа: така хвиля
-                # гасне одразу, щоб не палити квоту на відомий результат.
-                aborts_wave=lambda exc: isinstance(exc, _GeminiModelUnavailable),
+                # A 404 is model-wide. A 403 can be project permission state
+                # and must rotate to another project on the same model.
+                aborts_wave=lambda exc: (
+                    isinstance(exc, _GeminiModelUnavailable)
+                    and "404" in str(exc)
+                ),
                 max_in_flight=2,
             )
         finally:
@@ -1416,10 +1436,16 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
                 )
-            if state in {"model_unavailable", "model_circuit_open"}:
+            if state in {"model_not_found", "model_circuit_open"}:
                 _audit_remaining("model_terminal", model=primary)
                 break
-            if state not in {"invalid_key", "quota", "lease_busy", "quarantined"}:
+            if state not in {
+                "invalid_key",
+                "permission_denied",
+                "quota",
+                "lease_busy",
+                "quarantined",
+            }:
                 primary_slow_calls += 1
                 if primary_slow_calls >= CHAT_PRIMARY_ATTEMPT_LIMIT:
                     _audit_remaining("sla_model_budget", model=primary)
@@ -1450,14 +1476,20 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
                 )
-            if state in {"model_unavailable", "model_circuit_open"}:
+            if state in {"model_not_found", "model_circuit_open"}:
                 _audit_remaining("model_terminal", model=model)
                 break
             # На fallback-моделях паралелізм недоречний: кожен зайвий виклик —
             # це витрата безкоштовної квоти на гіршу відповідь. Але дві повільні
             # спроби підряд означають, що і ця модель зараз не відповідає, тому
             # йдемо до наступної, а не тримаємо клієнта.
-            if state not in {"invalid_key", "quota", "lease_busy", "quarantined"}:
+            if state not in {
+                "invalid_key",
+                "permission_denied",
+                "quota",
+                "lease_busy",
+                "quarantined",
+            }:
                 slow_fallback_calls += 1
                 if slow_fallback_calls >= CHAT_FALLBACK_ATTEMPT_LIMIT:
                     _audit_remaining("sla_model_budget", model=model)
@@ -1694,9 +1726,9 @@ def _provider_error_details(response) -> dict:
                 continue
             quota_id = str(violation.get("quotaId") or "").strip()
             normalized = quota_id.casefold().replace("_", "").replace("-", "")
-            if "perday" in normalized:
+            if quota_scope != "topup" and "perday" in normalized:
                 quota_scope = "day"
-            elif not quota_scope and (
+            elif quota_scope != "topup" and not quota_scope and (
                 "perminute" in normalized
                 or "tokensperminute" in normalized
                 or "requestsperminute" in normalized

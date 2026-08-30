@@ -227,10 +227,10 @@ class GeminiHealthApiTests(TestCase):
                 "candidates_tokens": attempt.candidates_tokens,
             },
             {
-                "role": "health_probe", "key_name": "GEMINI_API",
+                "role": "health_metadata", "key_name": "GEMINI_API",
                 "model": "gemini-3.7-flash", "outcome": "succeeded",
                 "failure_kind": "", "http_code": 200,
-                "decision": "manual_probe", "error_detail": "",
+                "decision": "manual_metadata", "error_detail": "",
                 "prompt_tokens": 0, "thoughts_tokens": 0, "candidates_tokens": 0,
             },
         )
@@ -248,6 +248,29 @@ class GeminiHealthApiTests(TestCase):
         self.assertEqual(state.lease_token, "")
         self.assertIsNone(state.lease_until)
         self.assertEqual(state.lease_role, "")
+
+    def test_metadata_ok_is_capability_success_never_generation_evidence(self):
+        self._configure()
+        with patch(
+            "management.services.gemini_probe.probe_key_metadata",
+            return_value={
+                "status": "metadata_ok",
+                "http_code": 200,
+                "finish_reason": "",
+                "latency_ms": 11,
+            },
+        ):
+            response = self._post_probe()
+
+        self.assertEqual(response.status_code, 200)
+        attempt = GeminiRequestAttempt.objects.get()
+        self.assertEqual(attempt.role, "health_metadata")
+        self.assertEqual(attempt.outcome, "succeeded")
+        snapshot = self.client.get(self._health_url()).json()
+        key = snapshot["keys"][0]
+        self.assertEqual(key["live_state"], "READY")
+        self.assertEqual(key["source"], "manual_metadata")
+        self.assertFalse(key["generation_quota_proven"])
 
     def test_failed_probe_normalizes_untrusted_result_and_does_not_cooldown(self):
         state = self._configure()

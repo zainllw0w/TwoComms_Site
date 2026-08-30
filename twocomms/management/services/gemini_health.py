@@ -21,6 +21,9 @@ METADATA_ATTEMPT_QUERY_CAP = 512
 FRESH_EVIDENCE_SECONDS = 7500
 DISPLAY_MODELS = ("gemini-3.7-flash", "gemini-3.6-flash")
 MODELS = DISPLAY_MODELS
+OTHER_GENERATION_MODELS = ("gemini-3.5-flash", "gemini-3.5-flash-lite")
+GENERATION_MODELS = DISPLAY_MODELS + OTHER_GENERATION_MODELS
+METADATA_ROLES = frozenset(("health_metadata", "health_probe"))
 KEY_ALIASES = (
     "GEMINI_API",
     "GEMINI_API2",
@@ -71,7 +74,8 @@ def _attempt_succeeded(row: dict[str, Any]) -> bool:
 
 def _attempt_not_needed(row: dict[str, Any]) -> bool:
     return (
-        str(row.get("outcome") or "").strip().lower() in {"skipped", "not_needed"}
+        str(row.get("outcome") or "").strip().lower()
+        in {"skipped", "not_needed", "not_attempted"}
         or str(row.get("failure_kind") or "").strip().lower() == "not_needed"
     )
 
@@ -373,7 +377,7 @@ def _runtime_live_state(
             )
             if primary_failed:
                 return "DEGRADED", model
-        return "LIVE", model if model in DISPLAY_MODELS else None
+        return "LIVE", model if model in GENERATION_MODELS else None
     return "OFFLINE", None
 
 
@@ -474,7 +478,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         created_at__gte=window_start,
         created_at__lte=generated_at,
         key_name__in=KEY_ALIASES,
-        model__in=DISPLAY_MODELS,
+        model__in=GENERATION_MODELS,
     )
     fields = (
         "id",
@@ -486,15 +490,16 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         "http_code",
         "role",
         "latency_ms",
+        "not_attempted_reason",
         "created_at",
     )
     runtime_rows = list(
-        query.exclude(role="health_metadata")
+        query.exclude(role__in=METADATA_ROLES)
         .order_by("-created_at", "-id")
         .values(*fields)[:ATTEMPT_QUERY_CAP]
     )
     metadata_rows = list(
-        query.filter(role="health_metadata")
+        query.filter(role__in=METADATA_ROLES)
         .order_by("-created_at", "-id")
         .values(*fields)[:METADATA_ATTEMPT_QUERY_CAP]
     )
@@ -505,18 +510,18 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
 
     pool_rows = list(gemini_keys.pool_status(now=generated_at, read_only=True))
     runtime_attempts = [
-        row for row in attempt_rows if row.get("role") != "health_metadata"
+        row for row in attempt_rows if row.get("role") not in METADATA_ROLES
     ]
     metadata_attempts = [
-        row for row in attempt_rows if row.get("role") == "health_metadata"
+        row for row in attempt_rows if row.get("role") in METADATA_ROLES
     ]
     pool_by_key = _pool_row_by_key(pool_rows)
     keys = []
     for key_name in KEY_ALIASES:
         pool_row = pool_by_key.get(key_name, {})
         row_attempts = [row for row in attempt_rows if row.get("key_name") == key_name]
-        metadata_rows = [row for row in row_attempts if row.get("role") == "health_metadata"]
-        runtime_rows = [row for row in row_attempts if row.get("role") != "health_metadata"]
+        metadata_rows = [row for row in row_attempts if row.get("role") in METADATA_ROLES]
+        runtime_rows = [row for row in row_attempts if row.get("role") not in METADATA_ROLES]
         latest_metadata = max(metadata_rows, key=_attempt_sort_key, default=None)
         latest_runtime = max(runtime_rows, key=_attempt_sort_key, default=None)
         latest_evidence = max(
@@ -563,6 +568,13 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             "generation_models": {model: _model_snapshot([row for row in runtime_rows if row.get("model") == model], window_start) for model in DISPLAY_MODELS},
             "metadata_models": {model: _model_snapshot([row for row in metadata_rows if row.get("model") == model], window_start) for model in DISPLAY_MODELS},
             "models": {model: _model_snapshot([row for row in runtime_rows if row.get("model") == model], window_start) for model in DISPLAY_MODELS},
+            "other_model_usage": {
+                model: _model_snapshot(
+                    [row for row in runtime_rows if row.get("model") == model],
+                    window_start,
+                )
+                for model in OTHER_GENERATION_MODELS
+            },
         })
 
     return {
@@ -577,6 +589,13 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         "summary": {
             **_summary(pool_rows, runtime_attempts, window_start=window_start),
             "metadata_observations": len(metadata_attempts),
+            "other_model_usage": {
+                model: _model_snapshot(
+                    [row for row in runtime_attempts if row.get("model") == model],
+                    window_start,
+                )
+                for model in OTHER_GENERATION_MODELS
+            },
         },
         "latest_metadata_batch": _latest_metadata_batch(metadata_attempts),
         "fallback": _latest_fallback(runtime_attempts),

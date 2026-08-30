@@ -4289,6 +4289,182 @@ def management_bot_webhook(request, token):
             )
             return JsonResponse({'ok': True, 'status': desired})
 
+        if data.startswith('igugc:'):
+            if not admin_token or token != admin_token or not admin_chat_cfg:
+                _tg_answer_callback(bot_token, cb_id, 'Доступ не налаштовано')
+                return JsonResponse({'ok': True})
+            callback_from = (
+                callback.get('from')
+                if isinstance(callback.get('from'), dict)
+                else {}
+            )
+            telegram_user_id = str(callback_from.get('id') or '')
+            try:
+                profile = UserProfile.objects.select_related('user').filter(
+                    tg_manager_chat_id=telegram_user_id,
+                    user__is_active=True,
+                ).first()
+                candidate_actor = profile.user if profile else None
+                actor = (
+                    candidate_actor
+                    if candidate_actor and user_is_management(candidate_actor)
+                    else None
+                )
+            except Exception:
+                actor = None
+            chat_type = str(msg_chat.get('type') or '')
+            sender_authorized = bool(
+                actor
+                and telegram_user_id
+                and (
+                    (chat_type == 'private' and telegram_user_id == str(chat_id))
+                    or chat_type != 'private'
+                )
+            )
+            if not sender_authorized:
+                _tg_answer_callback(bot_token, cb_id, 'Недостатньо прав')
+                return JsonResponse({'ok': True})
+            parts = data.split(':', 3)
+            action = parts[1] if len(parts) == 4 else ''
+            if action not in {'5', '10', 'reject'}:
+                _tg_answer_callback(bot_token, cb_id, 'Невідома дія')
+                return JsonResponse({'ok': True})
+            try:
+                assessment_id = int(parts[2])
+                expected_generation = int(parts[3])
+            except (TypeError, ValueError):
+                _tg_answer_callback(bot_token, cb_id, 'Невірні дані')
+                return JsonResponse({'ok': True})
+
+            from management.models import IgBotNotification, IgBotNotificationAudit
+            from management.ig_bot_models import IgUgcEvidenceAssessment
+            from management.services.ig_ugc_rewards import (
+                UgcRewardConflict,
+                award_external_ugc_reward,
+            )
+
+            dedupe_key = f'ugc_review:{assessment_id}:{expected_generation}'
+            try:
+                with transaction.atomic():
+                    notification = (
+                        IgBotNotification.objects.select_for_update()
+                        .filter(dedupe_key=dedupe_key, event_type='ugc_reward_review')
+                        .first()
+                    )
+                    assessment = (
+                        IgUgcEvidenceAssessment.objects.select_for_update()
+                        .select_related('client')
+                        .filter(pk=assessment_id)
+                        .first()
+                    )
+                    payload_data = (
+                        notification.payload
+                        if notification and isinstance(notification.payload, dict)
+                        else {}
+                    )
+                    bound_message_id = str(
+                        payload_data.get('main_delivery_message_id')
+                        or getattr(notification, 'telegram_message_id', '')
+                        or ''
+                    )
+                    if (
+                        notification is None
+                        or assessment is None
+                        or int(payload_data.get('assessment_id') or 0) != assessment_id
+                        or int(payload_data.get('assessment_generation') or -1)
+                        != expected_generation
+                        or bound_message_id != str(message_id or '')
+                    ):
+                        _tg_answer_callback(
+                            bot_token, cb_id, 'Ця кнопка не належить цьому рішенню'
+                        )
+                        return JsonResponse({'ok': True})
+                    if assessment.generation != expected_generation:
+                        _tg_answer_callback(bot_token, cb_id, 'Рішення вже змінилось')
+                        return JsonResponse({'ok': True})
+                    if (
+                        assessment.decision
+                        != IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW
+                    ):
+                        _tg_answer_callback(bot_token, cb_id, 'Рішення вже виконано')
+                        return JsonResponse({'ok': True, 'status': assessment.decision})
+
+                    previous_notification_status = notification.status
+                    now = timezone.now()
+                    reward = None
+                    if action == 'reject':
+                        assessment.decision = IgUgcEvidenceAssessment.Decision.REJECTED
+                        assessment.reason_codes = [
+                            *(assessment.reason_codes or []),
+                            'manager_rejected',
+                        ]
+                    else:
+                        assessment.decision = (
+                            IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED
+                        )
+                    assessment.decision_source = 'manager'
+                    assessment.reviewed_by = actor
+                    assessment.reviewed_at = now
+                    assessment.generation += 1
+                    assessment.save(update_fields=[
+                        'decision', 'decision_source', 'reviewed_by', 'reviewed_at',
+                        'reason_codes', 'generation', 'updated_at',
+                    ])
+                    if action != 'reject':
+                        reward, _created = award_external_ugc_reward(
+                            client=assessment.client,
+                            assessment=assessment,
+                            actor=actor,
+                            review_note=f'Telegram UGC approval: {action}%',
+                            discount_percent=int(action),
+                        )
+                    notification.status = IgBotNotification.Status.RESOLVED
+                    notification.failure_kind = (
+                        'ugc_rejected' if action == 'reject' else f'ugc_{action}_approved'
+                    )
+                    notification.payload = {
+                        **payload_data,
+                        'review_status': assessment.decision,
+                        'actor_id': actor.pk,
+                        'discount_percent': 0 if action == 'reject' else int(action),
+                        'reward_id': getattr(reward, 'pk', None),
+                    }
+                    notification.save(update_fields=[
+                        'status', 'failure_kind', 'payload', 'updated_at',
+                    ])
+                    IgBotNotificationAudit.objects.create(
+                        notification=notification,
+                        actor=actor,
+                        action=(
+                            'ugc_rejected'
+                            if action == 'reject'
+                            else f'ugc_{action}_approved'
+                        ),
+                        from_status=previous_notification_status,
+                        to_status=IgBotNotification.Status.RESOLVED,
+                        note=f'assessment={assessment.pk}; telegram_user={telegram_user_id}',
+                    )
+            except UgcRewardConflict as exc:
+                _tg_answer_callback(bot_token, cb_id, str(exc)[:180])
+                return JsonResponse({'ok': True, 'status': 'conflict'})
+
+            final_text = str(msg.get('text') or 'Рішення щодо UGC')
+            final_text += (
+                '\n\n❌ UGC-нагороду відхилено.'
+                if action == 'reject'
+                else f'\n\n✅ UGC-знижку {action}% підтверджено.'
+            )
+            _tg_edit_message(
+                bot_token,
+                chat_id,
+                message_id,
+                final_text[:3900],
+                reply_markup={'inline_keyboard': []},
+                parse_mode=None,
+            )
+            _tg_answer_callback(bot_token, cb_id, 'Рішення збережено')
+            return JsonResponse({'ok': True, 'status': assessment.decision})
+
         # Instagram payment reviews are confirmed directly from Telegram. The
         # callback is the decision itself; the management URL remains only for
         # the editable order form and audit trail.

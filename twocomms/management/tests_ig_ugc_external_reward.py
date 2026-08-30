@@ -1,15 +1,17 @@
 import hashlib
+import json
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 from PIL import Image
@@ -513,6 +515,86 @@ class ExternalUGCRewardTests(TestCase):
         self.assertEqual(reward.reviewed_by_id, self.actor.pk)
         self.assertEqual(reward.decision_source, "manager")
         self.assertEqual(reward.review_note, "Звірено provider provenance та фото")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MANAGEMENT_TG_ADMIN_CHAT_ID": "777",
+            "MANAGEMENT_TG_BOT_TOKEN": "ugc-token",
+        },
+        clear=False,
+    )
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_answer_callback")
+    def test_telegram_five_percent_requires_manager_click_before_reward(
+        self,
+        answer_callback,
+        edit_message,
+    ):
+        from accounts.models import UserProfile
+        from management.ig_bot_models import IgUgcEvidenceAssessment, IgUgcReward
+        from management.models import IgBotNotification
+        from management.services.ig_ugc_assessment import queue_ugc_manager_review
+        from management.views import management_bot_webhook
+
+        profile = UserProfile.objects.get(user=self.actor)
+        profile.tg_manager_chat_id = 777
+        profile.is_manager = True
+        profile.save(update_fields=["tg_manager_chat_id", "is_manager"])
+        assessment = self._create_assessment("telegram-five")
+        assessment.decision = IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW
+        assessment.decision_source = "policy"
+        assessment.generation += 1
+        assessment.save(update_fields=[
+            "decision", "decision_source", "generation", "updated_at",
+        ])
+        self.assertTrue(queue_ugc_manager_review(assessment))
+        self.assertFalse(IgUgcReward.objects.filter(assessment=assessment).exists())
+        notification = IgBotNotification.objects.get(
+            dedupe_key=f"ugc_review:{assessment.pk}:{assessment.generation}"
+        )
+        notification.status = IgBotNotification.Status.SENT
+        notification.telegram_message_id = "901"
+        notification.payload = {
+            **notification.payload,
+            "main_delivery_message_id": "901",
+        }
+        notification.save(update_fields=[
+            "status", "telegram_message_id", "payload", "updated_at",
+        ])
+        request = RequestFactory().post(
+            "/management/tg-manager/webhook/ugc-token/",
+            data=json.dumps({
+                "callback_query": {
+                    "id": "ugc-callback-5",
+                    "data": f"igugc:5:{assessment.pk}:{assessment.generation}",
+                    "from": {"id": 777, "username": "ugc-manager"},
+                    "message": {
+                        "chat": {"id": 777, "type": "private"},
+                        "message_id": 901,
+                        "text": "UGC review",
+                    },
+                },
+            }),
+            content_type="application/json",
+        )
+
+        response = management_bot_webhook(request, "ugc-token")
+
+        self.assertEqual(response.status_code, 200)
+        assessment.refresh_from_db()
+        notification.refresh_from_db()
+        reward = IgUgcReward.objects.get(assessment=assessment)
+        self.assertEqual(
+            assessment.decision,
+            IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
+        )
+        self.assertEqual(reward.discount_percent, 5)
+        self.assertEqual(reward.promo_code.discount_value, Decimal("5.00"))
+        self.assertTrue(reward.promo_code.is_guest_ugc_capability())
+        self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
+        answer_callback.assert_called_once()
+        edit_message.assert_called_once()
 
     def test_direct_manager_approval_requires_a_non_blank_reason(self):
         from management.ig_bot_models import (

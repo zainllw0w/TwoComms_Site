@@ -193,6 +193,41 @@ class LedgerTests(TestCase):
         self.assertEqual(row.requests, 1)
         self.assertEqual(row.tokens, 12_000)
 
+    def test_cross_midnight_settlement_uses_original_dispatch_day(self):
+        dispatch_at = datetime.datetime(
+            2026, 8, 31, 6, 59, 50, tzinfo=datetime.timezone.utc
+        )
+        completed_at = dispatch_at + datetime.timedelta(seconds=20)
+        self.assertNotEqual(
+            quota.pacific_day(dispatch_at),
+            quota.pacific_day(completed_at),
+        )
+        self.assertTrue(
+            quota.try_reserve("GEMINI_API", self.model, now=dispatch_at)
+        )
+
+        quota.settle(
+            "GEMINI_API",
+            self.model,
+            321,
+            now=completed_at,
+            dispatch_at=dispatch_at,
+        )
+
+        original = GeminiModelQuotaUsage.objects.get(
+            key_name="GEMINI_API",
+            model=self.model,
+            day_date=quota.pacific_day(dispatch_at),
+        )
+        self.assertEqual(original.tokens, 321)
+        self.assertFalse(
+            GeminiModelQuotaUsage.objects.filter(
+                key_name="GEMINI_API",
+                model=self.model,
+                day_date=quota.pacific_day(completed_at),
+            ).exists()
+        )
+
     def test_unknown_model_is_never_blocked_by_the_ledger(self):
         self.assertTrue(
             all(

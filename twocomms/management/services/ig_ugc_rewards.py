@@ -75,6 +75,7 @@ def reward_payload(reward) -> dict:
         "evidence_url": reward.evidence_url,
         "review_note": reward.review_note,
         "promo_code": reward.promo_code.code,
+        "discount_percent": int(reward.discount_percent or 0),
         "valid_until": (
             reward.promo_code.valid_until.isoformat()
             if reward.promo_code.valid_until
@@ -441,6 +442,7 @@ def _create_locked_ugc_grant(
     now,
     promo_description,
     reward_fields,
+    discount_percent=10,
 ):
     """Create promo, reward, lifetime consumption, and outbox as one unit.
 
@@ -456,11 +458,14 @@ def _create_locked_ugc_grant(
         raise RuntimeError("UGC grant factory requires an atomic transaction")
     if lifetime.reward_id or lifetime.consumed_at:
         raise UgcRewardConflict("Для цієї Instagram identity UGC-нагороду вже було видано.")
+    discount_percent = int(discount_percent or 0)
+    if discount_percent not in {5, 10}:
+        raise UgcRewardConflict("UGC-знижка може бути лише 5% або 10%.")
     promo = PromoCode.objects.create(
         code=_new_promo_code(),
         promo_type="regular",
         discount_type="percentage",
-        discount_value=Decimal("10.00"),
+        discount_value=Decimal(str(discount_percent)),
         description=str(promo_description or "TwoComms UGC reward")[:255],
         max_uses=1,
         one_time_per_user=False,
@@ -475,6 +480,7 @@ def _create_locked_ugc_grant(
         issued_at=now,
         reviewed_at=now,
         lifetime_slot_key=_identity_digest(locked_client),
+        discount_percent=discount_percent,
         **reward_fields,
     )
     lifetime.reward = reward
@@ -484,8 +490,15 @@ def _create_locked_ugc_grant(
 
 
 @transaction.atomic
-def award_external_ugc_reward(*, client, assessment, actor=None, review_note=""):
-    """Issue the single lifetime 10% bearer code for qualifying external UGC.
+def award_external_ugc_reward(
+    *,
+    client,
+    assessment,
+    actor=None,
+    review_note="",
+    discount_percent=10,
+):
+    """Issue one manager-selected 5%/10% lifetime code for external UGC.
 
     No order, phone number, assignment, or TTN is fabricated.  A manager is
     required only when deterministic policy routed the assessment to review.
@@ -543,7 +556,10 @@ def award_external_ugc_reward(*, client, assessment, actor=None, review_note="")
         locked_client=locked_client,
         lifetime=lifetime,
         now=now,
-        promo_description="TwoComms UGC reward: 10% once, valid for 90 days",
+        promo_description=(
+            f"TwoComms UGC reward: {int(discount_percent)}% once, valid for 90 days"
+        ),
+        discount_percent=discount_percent,
         reward_fields={
             "order": None,
             "assignment": None,
@@ -560,9 +576,7 @@ def award_external_ugc_reward(*, client, assessment, actor=None, review_note="")
             ),
             "reward_path": "external_ugc",
             "decision_source": (
-                "manager"
-                if manager_decision
-                else "auto"
+                "manager" if manager_decision else "auto"
             ),
             "assessment": assessment,
             "assessment_generation_snapshot": assessment.generation,

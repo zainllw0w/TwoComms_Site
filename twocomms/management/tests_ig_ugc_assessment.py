@@ -113,14 +113,10 @@ class UGCIngressAssessmentTests(TestCase):
 
     @patch("management.services.bot_vision.build_match_candidates", return_value=[])
     @patch("management.services.bot_vision.assess_ugc")
-    @patch("management.services.ig_ugc_rewards.queue_external_ugc_reward_delivery")
-    @patch("management.services.ig_ugc_rewards.award_external_ugc_reward")
     @patch("management.services.instagram_bot.download_image")
     def test_transient_cdn_failure_is_retried_and_reassessed_without_new_message(
         self,
         download,
-        award,
-        queue_delivery,
         assess_ugc,
         _candidates,
     ):
@@ -175,8 +171,6 @@ class UGCIngressAssessmentTests(TestCase):
             }],
             "risk_flags": [],
         }
-        award.return_value = (object(), True)
-
         _capture_message_media(message)
         message.refresh_from_db()
         self.assertEqual(message.attachment_media[0]["status"], "unavailable")
@@ -196,10 +190,21 @@ class UGCIngressAssessmentTests(TestCase):
         self.assertEqual(result["selected"], 1)
         self.assertEqual(result["owned"], 1)
         self.assertEqual(message.attachment_media[0]["status"], "owned")
-        self.assertEqual(assessment.decision, "qualified_auto")
+        self.assertEqual(assessment.decision, "needs_manager_review")
         assess_ugc.assert_called_once()
-        award.assert_called_once_with(client=self.client, assessment=assessment)
-        queue_delivery.assert_called_once()
+        from management.models import IgBotNotification
+        from management.ig_bot_models import IgUgcReward
+
+        self.assertFalse(IgUgcReward.objects.filter(client=self.client).exists())
+        notification = IgBotNotification.objects.get(
+            event_type="ugc_reward_review"
+        )
+        buttons = notification.payload["reply_markup"]["inline_keyboard"][0]
+        self.assertEqual(
+            [button["text"] for button in buttons],
+            ["5%", "10%", "Відхилити"],
+        )
+        self.assertEqual(result["review_queued"], 1)
         self.assertEqual(
             initial_message_ids,
             set(InstagramBotMessage.objects.values_list("pk", flat=True)),

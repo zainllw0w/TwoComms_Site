@@ -54,12 +54,9 @@ ANALYSIS_ESCALATION_CHAIN = ("gemini-3.7-flash",)
 _ALLOWED_LIVE_MODELS = frozenset(ORDINARY_CHAIN)
 _NO_MODEL_REASONS = frozenset({
     "authoritative_reply",
-    "deduplicated_webhook",
-    "manager_handoff",
-    "meta_window_error",
-    "opt_out_or_pause",
     "postback",
     "provider_native_ugc",
+    "media_unavailable",
 })
 
 
@@ -263,10 +260,20 @@ def persist_decision(message, decision: RoutingDecision) -> None:
         "gemini_routing_policy_version": payload["policy_version"],
         "gemini_routing_model_chain": payload["model_chain"],
         "gemini_routing_deadline_ms": payload["deadline_ms"],
+        "gemini_routing_lane": payload["lane"],
+        "gemini_routing_authority_version": payload["authority_snapshot_version"],
+        "gemini_routing_requires_media": payload["requires_media_reasoning"],
+        "gemini_routing_commercial_risk": payload["commercial_risk"],
+        "gemini_routing_mode": payload["routing_mode"],
     }
     try:
-        type(message).objects.filter(pk=message.pk).update(**fields)
+        updated = type(message).objects.filter(
+            pk=message.pk,
+            gemini_routing_policy_version="",
+        ).update(**fields)
     except Exception:
+        return
+    if not updated:
         return
     for field, value in fields.items():
         setattr(message, field, value)
