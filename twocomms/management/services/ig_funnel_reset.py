@@ -221,6 +221,10 @@ def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict
                 lease_until=None,
                 claimed_watermark_message_id=0,
                 claimed_revision=0,
+                claimed_materiality_event_highwater=0,
+                claimed_materiality_digest="",
+                claimed_authority_digest="",
+                claimed_artifact_digest="",
                 last_error="",
                 updated_at=now,
             )

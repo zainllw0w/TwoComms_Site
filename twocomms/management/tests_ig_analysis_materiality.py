@@ -68,6 +68,48 @@ def _event_digest(label):
     return materiality._sha({"test_event": str(label)})
 
 
+class MaterialityFunnelResetTests(TestCase):
+    def test_reset_terminalizes_job_and_clears_every_claim_cursor(self):
+        from management.services.ig_funnel_reset import reset_funnel
+
+        client = IgClient.objects.create(igsid="mat-funnel-reset")
+        job = IgConversationAnalysisJob.objects.create(
+            client=client,
+            status=IgConversationAnalysisJob.Status.PROCESSING,
+            watermark_message_id=91,
+            revision=7,
+            due_at=timezone.now(),
+            next_attempt_at=timezone.now(),
+            lease_token="claimed-work",
+            lease_until=timezone.now() + timedelta(minutes=5),
+            claimed_watermark_message_id=91,
+            claimed_revision=7,
+            claimed_materiality_event_highwater=44,
+            claimed_materiality_digest="a" * 64,
+            claimed_authority_digest="b" * 64,
+            claimed_artifact_digest="c" * 64,
+        )
+
+        result = reset_funnel(
+            client_id=client.pk,
+            actor=None,
+            reason="materiality cursor reset regression",
+        )
+
+        self.assertTrue(result["ok"], result)
+        job.refresh_from_db()
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.SKIPPED)
+        self.assertEqual(job.skip_reason, "funnel_reset")
+        self.assertEqual(job.lease_token, "")
+        self.assertIsNone(job.lease_until)
+        self.assertEqual(job.claimed_watermark_message_id, 0)
+        self.assertEqual(job.claimed_revision, 0)
+        self.assertEqual(job.claimed_materiality_event_highwater, 0)
+        self.assertEqual(job.claimed_materiality_digest, "")
+        self.assertEqual(job.claimed_authority_digest, "")
+        self.assertEqual(job.claimed_artifact_digest, "")
+
+
 class MaterialityOffContractTests(TestCase):
     @override_settings(IG_ANALYSIS_MATERIALITY_MODE="off")
     def test_off_mode_performs_zero_ledger_or_shadow_job_writes(self):
