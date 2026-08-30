@@ -4,9 +4,9 @@
 
 Статус: **runtime S1 задеплоен; первый soak завершился ранним SIGKILL, после
 авторизованной S1b selector-коррекции 48-часовой gate запущен заново. Исправленный
-Routing S2, schema S3a, checkout Slice 1, materiality Slice 1 и privacy/correctness
-hardening старой API-панели объединены только в локальной integration-ветке,
-не задеплоены и поэтому не считаются production-complete**.
+Routing S2, schema S3a, S3b shadow writer, checkout Slice 1, materiality Slice 1
+и privacy/correctness hardening старой API-панели объединены только в локальной
+integration-ветке, не задеплоены и поэтому не считаются production-complete**.
 
 Этот документ — единственный подробный контракт для Gemini-маршрутизации,
 учёта квот, event-driven health, API UI, durable CRM-анализа, typed memory и
@@ -38,7 +38,7 @@ production-проверки соответствующего пункта. На�
 | Active soak | baseline `2026-08-30T15:48:03+03:00`; deadline `2026-09-01T15:48:03+03:00`; automation active | gate закрывается только полной выборкой после deadline |
 | Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0182` и `orders.0057` не применять до release gate |
 | Runtime routing | production остаётся на legacy routing из `e62bedf5`; corrected S2 существует только в локальной integration-ветке | до deploy настроить private-media root, завершить soak и повторить preflight |
-| Local integration candidate | `b5538dfc0dad4e5a84b1b593f28613fdbb9a2189`; Routing S2 + schema S3a + checkout terminalization Slice 1 + materiality Slice 1 + API UI S0 hardening | SHA локальный, не GitHub/main/production; не использовать как running truth |
+| Local integration candidate | `254ed84f5`; Routing S2 + schema S3a + S3b shadow runtime + checkout terminalization Slice 1 + materiality Slice 1 + API UI S0 hardening | SHA локальный, не GitHub/main/production; не использовать как running truth |
 | Ключи | владелец подтвердил: шесть ключей принадлежат шести отдельным Google-проектам | явный безопасный mapping `project_identity`, без вывода ключей и project IDs |
 | Cron ownership | один stdlib watchdog, один sequential Instagram coordinator; durable tasks и Nova Poshta используют общий heavy-process lock | cadence/LVE steady state подтвердить soak-выборкой |
 | Removed owners | automatic metadata cron = 0; legacy Instagram periodic owner lines = 0 | manual metadata остаётся только явной диагностикой |
@@ -88,9 +88,10 @@ Markdown запрещено записывать API-ключи, SSH-парол�
 - [ ] Выпустить materiality Slice 1 после release gate: локально он прошёл три
       цикла NO-GO/fix/review, MariaDB kill/resume и финальный PASS, но остаётся
       `off` и не считается production-complete.
-- [ ] Исправить отклонённый S3b runtime writer: независимый review обнаружил
-      FSM, permit, 429, identity, skipped-candidate и recovery-linkage gaps;
-      commits S3b до повторного PASS не cherry-pick.
+- [ ] Подготовить S3b production shadow rollout: локально все NO-GO исправлены,
+      final independent review PASS и integration tests зелёные; включение
+      возможно только после explicit six-project mapping, dedicated HMAC key и
+      следующей Pacific midnight, затем два полных Pacific days наблюдения.
 - [ ] Дальше внедрять V2 отдельными reversible slices; не смешивать schema,
       enforcement, policy, analysis, funnel и UI.
 
@@ -179,12 +180,13 @@ migration, cron и runtime preflight. Model-scoped permits, rolling/input TPM и
 | Runtime capacity auditor | безопасная selector/process/flock атрибуция; `37` targeted tests | не задеплоен, чтобы не сбросить активный soak SHA |
 | Materiality Slice 1 | `0182`; passive content-free ledger; atomic claim cursor; 90s/10m shadow cadence; manager-evidence guard; constant-query selector; `486` integrated tests (`3` skips); MariaDB partial-DDL resume на 15 Job fields + InnoDB/unique/real append-only triggers; final independent PASS | не применён; defaults `off` + selector `legacy` |
 | API UI S0 hardening | boundary-wide alias redaction, opaque request refs, exact six stable slots/schema v5, generation/metadata separation, winner-bound fallback and request-start ordering resistant to late losers; `77` integrated tests; final independent PASS | не задеплоен; это hardening legacy panel, не model-first V2 redesign |
-| S3b shadow writer draft | parent graph/FSM/quota-state и Maria race реализованы в отдельной ветке, но independent review воспроизвёл canonical settlement overwrite, double permit release, incomplete provider block, assumed diagnostic identity, unlinked skipped candidates, false manual plan order, missing recovery receipt, conflicting reply overwrite и stale profile transition | **NO-GO**, не cherry-pick |
+| S3b shadow writer | default-off parent graph/FSM/quota state; exact provider boundary; linked skipped candidates; manual-first immutable plan without routing change; recovery receipt linkage; conflict-safe reply link; HMAC/explicit identity; rolling input-token shadow admission; selected-pair profile rotation; bounded remainder write; final independent PASS. Integration: `165` standard combined tests + `48` migration-enabled; disposable Maria concurrency `2/2`, one shadow permit deny, `in_flight=0`, all V2 tables InnoDB | не задеплоен; mode `off`, enforcement отсутствует |
 
 **Следующий конкретный шаг:** automation продолжает S1b soak до
-`2026-09-01T15:48:03+03:00`; параллельно исправить S3b NO-GO и повторить его
-independent review. До закрытия soak не менять production SHA и не применять
-новые migrations.
+`2026-09-01T15:48:03+03:00`; параллельно реализовать additive Analysis V2 и
+checkout-series schema slices. До закрытия soak не менять production SHA и не
+применять новые migrations; S3b shadow не включать до explicit environment
+preflight и ближайшей последующей Pacific midnight.
 
 ---
 
