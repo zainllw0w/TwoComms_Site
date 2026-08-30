@@ -627,19 +627,36 @@ class AssistedAttemptTerminalizationTests(TestCase):
         cursor = Mock()
         cursor_context.__enter__.return_value = cursor
         schema_editor.connection.cursor.return_value = cursor_context
+        schema_editor.connection.introspection.get_field_type.side_effect = (
+            lambda type_code, _column: type_code
+        )
+
+        def column(name):
+            expected_type, null_ok, size, default = migration.EXPECTED_COLUMNS[name]
+            type_code = expected_type[0] if isinstance(expected_type, tuple) else expected_type
+            return SimpleNamespace(
+                name=name,
+                type_code=type_code,
+                null_ok=null_ok,
+                internal_size=size,
+                default=default,
+            )
+
         existing_columns = {
-            "id",
             "provider_recheck_state",
             "provider_recheck_next_at",
             "provider_recheck_until",
         }
         schema_editor.connection.introspection.get_table_description.return_value = [
-            SimpleNamespace(name=name) for name in existing_columns
+            column(name) for name in existing_columns
         ]
-        schema_editor.connection.introspection.get_constraints.side_effect = [
-            {"pay_attempt_recheck_due": {"index": True}},
-            {"pay_attempt_recheck_due": {"index": True}},
-        ]
+        schema_editor.connection.introspection.get_constraints.return_value = {
+            "pay_attempt_recheck_due": {
+                "index": True,
+                "unique": False,
+                "columns": list(migration.INDEXES["pay_attempt_recheck_due"]),
+            }
+        }
 
         migration.ensure_provider_recheck_schema(None, schema_editor)
 
@@ -651,15 +668,44 @@ class AssistedAttemptTerminalizationTests(TestCase):
 
         schema_editor.execute.reset_mock()
         schema_editor.connection.introspection.get_table_description.return_value = [
-            SimpleNamespace(name=name)
-            for name in {"id", *migration.COLUMNS.keys()}
+            column(name) for name in migration.COLUMNS
         ]
-        schema_editor.connection.introspection.get_constraints.side_effect = [
-            {name: {"index": True} for name in migration.INDEXES},
-            {name: {"index": True} for name in migration.INDEXES},
-        ]
+        schema_editor.connection.introspection.get_constraints.return_value = {
+            name: {
+                "index": True,
+                "unique": False,
+                "columns": list(fields),
+            }
+            for name, fields in migration.INDEXES.items()
+        }
         migration.ensure_provider_recheck_schema(None, schema_editor)
         schema_editor.execute.assert_not_called()
+
+        incompatible = column("provider_recheck_state")
+        incompatible.internal_size = 32
+        schema_editor.connection.introspection.get_table_description.return_value = [
+            incompatible
+        ]
+        with self.assertRaises(RuntimeError):
+            migration.ensure_provider_recheck_schema(None, schema_editor)
+
+        schema_editor.connection.introspection.get_table_description.return_value = [
+            column(name) for name in migration.COLUMNS
+        ]
+        schema_editor.connection.introspection.get_constraints.return_value = {
+            "pay_attempt_recheck_due": {
+                "index": True,
+                "unique": False,
+                "columns": ["provider_recheck_next_at", "id"],
+            }
+        }
+        with self.assertRaises(RuntimeError):
+            migration.ensure_provider_recheck_schema(None, schema_editor)
+
+        from django.db.migrations.exceptions import IrreversibleError
+
+        with self.assertRaises(IrreversibleError):
+            migration.refuse_reverse(None, schema_editor)
 
     def test_late_verified_success_is_accepted_once_and_routes_to_inventory_review(self):
         graph = self._graph(
@@ -911,6 +957,7 @@ class AssistedAttemptTerminalizationTests(TestCase):
             monobank_invoice_id="typed-orphan-backstop-invoice",
             invoice_expires_at=self.now,
         )
+        from management.models import IgBotNotification
         from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
         from management.services.ig_checkout_terminalization import (
             expire_due_assisted_attempts,
@@ -941,6 +988,37 @@ class AssistedAttemptTerminalizationTests(TestCase):
         self.assertEqual(
             orphan.event_state["orphan_provider_review"]["provider_status"],
             "success",
+        )
+        notification = IgBotNotification.objects.get(
+            dedupe_key=f"orphan-provider-payment-review:{orphan.pk}:success"
+        )
+        self.assertEqual(notification.status, IgBotNotification.Status.PENDING)
+        self.assertEqual(notification.payload["attempt_id"], orphan.pk)
+        self.assertEqual(notification.payload["invoice_id"], orphan.monobank_invoice_id)
+        self.assertEqual(notification.payload["paid_amount"], "900.00")
+        from management.services.instagram_bot import drain_manager_notifications
+
+        with patch(
+            "management.services.instagram_bot._deliver_manager_notification",
+            return_value=True,
+        ) as deliver:
+            drain_manager_notifications(limit=1)
+        deliver.assert_called_with(notification.dedupe_key)
+
+        # Replayed provider truth reuses the same actionable row.
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        _apply_payment_attempt_status(
+            orphan,
+            "success",
+            payload=payload,
+            source="provider_pull",
+        )
+        self.assertEqual(
+            IgBotNotification.objects.filter(
+                dedupe_key=notification.dedupe_key
+            ).count(),
+            1,
         )
 
     def test_provider_apply_crash_restores_pending_instead_of_resolving(self):
@@ -976,6 +1054,102 @@ class AssistedAttemptTerminalizationTests(TestCase):
             PaymentAttempt.ProviderRecheckState.PENDING,
         )
         self.assertFalse(IgPaymentEvent.objects.filter(deal=graph["deal"]).exists())
+
+    def test_orphan_notification_failure_prevents_resolved_state(self):
+        orphan = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"orphan-notification-failure").hexdigest(),
+            full_name="Orphan Notification",
+            phone="+380501112300",
+            city="Kyiv",
+            np_office="Branch 8",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("900.00"),
+            payment_amount=Decimal("900.00"),
+            monobank_invoice_id="orphan-notification-failure-invoice",
+            invoice_expires_at=self.now,
+        )
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        payload = {
+            "status": "success",
+            "invoiceId": orphan.monobank_invoice_id,
+            "reference": orphan.reference,
+            "ccy": 980,
+            "paidAmount": 90000,
+        }
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status",
+            return_value=("success", payload),
+        ), patch(
+            "management.models.IgBotNotification.objects.get_or_create",
+            side_effect=DatabaseError("outbox unavailable"),
+        ), patch(
+            "management.services.ig_checkout_terminalization.logger.exception"
+        ):
+            result = reconcile_ig_checkout(limit=10, pull_ambiguous=True)
+
+        orphan.refresh_from_db()
+        self.assertEqual(result["late_status_errors"], 1)
+        self.assertEqual(
+            orphan.provider_recheck_state,
+            PaymentAttempt.ProviderRecheckState.PENDING,
+        )
+
+    def test_typed_orphan_exhaustion_creates_global_actionable_notification(self):
+        orphan = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"typed-orphan-exhausted").hexdigest(),
+            full_name="Orphan Exhausted",
+            phone="+380501112299",
+            city="Kyiv",
+            np_office="Branch 7",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("900.00"),
+            payment_amount=Decimal("900.00"),
+            monobank_invoice_id="typed-orphan-exhausted-invoice",
+            invoice_expires_at=self.now,
+        )
+        from management.models import IgBotNotification
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        PaymentAttempt.objects.filter(pk=orphan.pk).update(
+            provider_recheck_until=self.now - timedelta(seconds=1),
+            provider_recheck_next_at=self.now - timedelta(seconds=1),
+        )
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status"
+        ) as provider:
+            result = reconcile_ig_checkout(limit=10, pull_ambiguous=True)
+
+        provider.assert_not_called()
+        orphan.refresh_from_db()
+        self.assertEqual(result["late_status_exhausted"], 1)
+        self.assertEqual(
+            orphan.provider_recheck_state,
+            PaymentAttempt.ProviderRecheckState.EXHAUSTED,
+        )
+        notification = IgBotNotification.objects.get(
+            dedupe_key=f"orphan-provider-recheck-exhausted:{orphan.pk}"
+        )
+        self.assertIsNone(notification.client_id)
+        self.assertEqual(notification.payload["attempt_id"], orphan.pk)
+        self.assertEqual(
+            orphan.event_state["orphan_provider_review"]["notification_id"],
+            notification.pk,
+        )
 
     def test_not_yet_due_rechecks_do_not_consume_bounded_page(self):
         future_one = self._graph(invoice_expires_at=self.now)

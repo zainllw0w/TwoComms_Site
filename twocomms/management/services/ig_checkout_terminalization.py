@@ -13,6 +13,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from django.db import DatabaseError, transaction
 from django.db.models import Case, IntegerField, Q, When
@@ -337,7 +338,7 @@ def _claim_provider_recheck(attempt_id: int, *, now):
 
 
 def _create_exhausted_review(attempt, *, now, proposal=None):
-    from management.models import IgCheckoutProposal, IgFollowUpTask
+    from management.models import IgBotNotification, IgCheckoutProposal, IgFollowUpTask
 
     if proposal is None:
         proposal = (
@@ -367,15 +368,62 @@ def _create_exhausted_review(attempt, *, now, proposal=None):
         )
         return
     event_state = dict(attempt.event_state or {})
-    event_state["orphan_provider_review"] = {
+    recovered = _recover_orphan_context(attempt)
+    marker = {
         "version": 1,
         "reason": "provider_recheck_exhausted",
         "attempt_id": attempt.pk,
         "observed_at": now.isoformat(),
     }
+    event_state["orphan_provider_review"] = marker
+    notification, _created = IgBotNotification.objects.get_or_create(
+        dedupe_key=f"orphan-provider-recheck-exhausted:{attempt.pk}",
+        defaults={
+            "client": recovered["client"],
+            "event_type": "orphan_provider_recheck_exhausted",
+            "payload": {
+                "text": (
+                    "⚠️ IG payment attempt без proposal: статус invoice не "
+                    "підтверджено за 24 години. Потрібна ручна звірка."
+                ),
+                "chat_id": "",
+                "attempt_id": attempt.pk,
+                "proposal_id": getattr(recovered["proposal"], "pk", None),
+                "deal_id": getattr(recovered["deal"], "pk", None),
+                "attempt_reference": attempt.reference,
+                "invoice_id": attempt.monobank_invoice_id,
+                "payment_amount": str(attempt.payment_amount),
+                "requires_human_review": True,
+            },
+            "status": IgBotNotification.Status.PENDING,
+            "next_attempt_at": now,
+        },
+    )
+    marker["notification_id"] = notification.pk
+    event_state["orphan_provider_review"] = marker
     PaymentAttempt.objects.filter(pk=attempt.pk).update(event_state=event_state)
 
 
+def _recover_orphan_context(attempt):
+    """Recover exact context only from sanitized typed snapshot identifiers."""
+
+    from management.models import IgCheckoutProposal
+
+    snapshot = attempt.cart_snapshot if isinstance(attempt.cart_snapshot, dict) else {}
+    proposal_id = str(snapshot.get("proposal_id") or "").strip()
+    if not proposal_id:
+        return {"client": None, "proposal": None, "deal": None}
+    try:
+        proposal = IgCheckoutProposal.objects.select_related("client", "deal").filter(
+            public_id=proposal_id
+        ).first()
+    except (TypeError, ValueError):
+        proposal = None
+    return {
+        "client": proposal.client if proposal is not None else None,
+        "proposal": proposal,
+        "deal": proposal.deal if proposal is not None else None,
+    }
 @transaction.atomic
 def _finish_provider_recheck(
     attempt_id: int,
@@ -513,6 +561,7 @@ def record_orphan_provider_observation(
     """Persist provider truth for a typed orphan without creating an Order."""
 
     from management.services.ig_checkout_payment import _paid_amount_from_provider_payload
+    from management.models import IgBotNotification
 
     attempt = PaymentAttempt.objects.select_for_update().get(pk=attempt_id)
     normalized = str(status or "").strip().lower()
@@ -558,6 +607,33 @@ def record_orphan_provider_observation(
             "expired": PaymentAttempt.Status.EXPIRED,
         }.get(normalized, attempt.status)
         attempt.error_reason = f"provider_{normalized or 'unknown'}"[:500]
+        paid_amount = Decimal(attempt.paid_amount or 0)
+    recovered = _recover_orphan_context(attempt)
+    notification, _created = IgBotNotification.objects.get_or_create(
+        dedupe_key=f"orphan-provider-payment-review:{attempt.pk}:{normalized}",
+        defaults={
+            "client": recovered["client"],
+            "event_type": "orphan_provider_payment_review",
+            "payload": {
+                "text": (
+                    "⚠️ IG payment attempt без активного proposal отримав "
+                    f"provider status {normalized or 'unknown'}. Потрібна звірка."
+                ),
+                "chat_id": "",
+                "attempt_id": attempt.pk,
+                "proposal_id": getattr(recovered["proposal"], "pk", None),
+                "deal_id": getattr(recovered["deal"], "pk", None),
+                "attempt_reference": attempt.reference,
+                "invoice_id": attempt.monobank_invoice_id,
+                "provider_status": normalized,
+                "paid_amount": str(paid_amount),
+                "requires_human_review": True,
+            },
+            "status": IgBotNotification.Status.PENDING,
+            "next_attempt_at": now,
+        },
+    )
+    event_state["orphan_provider_review"]["notification_id"] = notification.pk
     attempt.last_status_at = now
     attempt.event_state = event_state
     provider_update_fields = []
@@ -590,8 +666,19 @@ def _provider_apply_is_durable(attempt_id: int, *, status: str, has_proposal: bo
         return False
     normalized = str(status or "").strip().lower()
     if not has_proposal:
+        from management.models import IgBotNotification
+
         marker = dict((attempt.event_state or {}).get("orphan_provider_review") or {})
-        return marker.get("provider_status") == normalized
+        notification_id = marker.get("notification_id")
+        return bool(
+            marker.get("provider_status") == normalized
+            and notification_id
+            and IgBotNotification.objects.filter(
+                pk=notification_id,
+                dedupe_key=f"orphan-provider-payment-review:{attempt.pk}:{normalized}",
+                event_type="orphan_provider_payment_review",
+            ).exists()
+        )
     from management.models import IgPaymentEvent
 
     if normalized == "success":
