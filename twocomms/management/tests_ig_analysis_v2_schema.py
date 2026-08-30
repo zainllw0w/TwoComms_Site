@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 from management.models import (
     IgAnalysisProposal,
@@ -83,6 +84,22 @@ class AnalysisV2SchemaTests(TestCase):
             "analysis_latency_ms",
         }.issubset(field_names))
         self.assertNotIn("required_state_fingerprint", field_names)
+
+    def test_model_boundaries_reject_raw_text_in_result_or_proposal_json(self):
+        with self.assertRaises(ValidationError):
+            self._result(evidence_manifest=[{
+                "message_id": 1,
+                "source_role": "user",
+                "claim_codes": ["interaction"],
+                "quote": "raw customer quote",
+            }])
+        result = self._result()
+        with self.assertRaises(ValidationError):
+            self._proposal(
+                result,
+                proposal_key="analysis-v2-schema:raw-proposal",
+                typed_value={"free_text": "call this customer tomorrow"},
+            )
 
     def test_result_is_append_only_at_every_orm_boundary(self):
         result = self._result()

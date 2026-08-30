@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import secrets
 import uuid
 from contextlib import contextmanager
@@ -4863,6 +4864,88 @@ class IgConversationAnalysisSnapshot(models.Model):
         return f"{self.client_id}: {self.score_band} ({self.purchase_probability})"
 
 
+_ANALYSIS_V2_CODE_RE = re.compile(r"^[A-Za-z0-9_.:+-]{0,160}$")
+
+
+def _validate_analysis_v2_codes(values, *, field_name):
+    if not isinstance(values, list) or any(
+        not isinstance(value, str)
+        or not _ANALYSIS_V2_CODE_RE.fullmatch(value)
+        for value in values
+    ):
+        raise ValidationError({field_name: "Only bounded typed codes are allowed."})
+
+
+def _validate_analysis_result_payload(result):
+    manifest = result.evidence_manifest
+    if not isinstance(manifest, list):
+        raise ValidationError({"evidence_manifest": "Evidence manifest must be a list."})
+    allowed_roles = {"user", "manager", "model", "system"}
+    allowed_keys = {"message_id", "source_role", "claim_codes"}
+    for row in manifest:
+        if not isinstance(row, dict) or set(row) - allowed_keys:
+            raise ValidationError({"evidence_manifest": "Raw evidence fields are forbidden."})
+        if not isinstance(row.get("message_id"), int) or row.get("message_id", 0) <= 0:
+            raise ValidationError({"evidence_manifest": "Invalid message identity."})
+        if row.get("source_role") not in allowed_roles:
+            raise ValidationError({"evidence_manifest": "Invalid source role."})
+        _validate_analysis_v2_codes(
+            row.get("claim_codes"),
+            field_name="evidence_manifest",
+        )
+    _validate_analysis_v2_codes(result.conflict_codes, field_name="conflict_codes")
+    _validate_analysis_v2_codes(
+        result.uncertainty_codes,
+        field_name="uncertainty_codes",
+    )
+    if not isinstance(result.injection_evidence_message_ids, list) or any(
+        not isinstance(value, int) or value <= 0
+        for value in result.injection_evidence_message_ids
+    ):
+        raise ValidationError({
+            "injection_evidence_message_ids": "Only message identities are allowed."
+        })
+
+
+_ANALYSIS_PROPOSAL_VALUE_KEYS = frozenset({
+    "basis",
+    "condition_code",
+    "deferred_until",
+    "kind",
+    "objection_type",
+    "probability",
+    "reason_codes",
+    "repeat_kind",
+})
+
+
+def _validate_analysis_proposal_payload(proposal):
+    value = proposal.typed_value
+    if not isinstance(value, dict) or set(value) - _ANALYSIS_PROPOSAL_VALUE_KEYS:
+        raise ValidationError({"typed_value": "Only typed proposal fields are allowed."})
+    for key, item in value.items():
+        values = item if isinstance(item, list) else [item]
+        if any(
+            not isinstance(entry, (str, int, float, bool))
+            or (
+                isinstance(entry, str)
+                and not _ANALYSIS_V2_CODE_RE.fullmatch(entry)
+            )
+            for entry in values
+        ):
+            raise ValidationError({"typed_value": f"Invalid typed value for {key}."})
+    if not isinstance(proposal.evidence_message_ids, list) or any(
+        not isinstance(value, int) or value <= 0
+        for value in proposal.evidence_message_ids
+    ):
+        raise ValidationError({"evidence_message_ids": "Only message identities are allowed."})
+    for field_name in (
+        "line_id", "target_definition_key", "target_definition_version", "target_key",
+    ):
+        if not _ANALYSIS_V2_CODE_RE.fullmatch(str(getattr(proposal, field_name) or "")):
+            raise ValidationError({field_name: "Only bounded typed identifiers are allowed."})
+
+
 class _IgConversationAnalysisResultQuerySet(models.QuerySet):
     @staticmethod
     def _reject_mutation():
@@ -4880,6 +4963,8 @@ class _IgConversationAnalysisResultQuerySet(models.QuerySet):
     def bulk_create(self, objs, *args, **kwargs):
         if kwargs.get("update_conflicts") or kwargs.get("update_fields"):
             self._reject_mutation()
+        for obj in objs:
+            _validate_analysis_result_payload(obj)
         return super().bulk_create(objs, *args, **kwargs)
 
 
@@ -5121,6 +5206,7 @@ class IgConversationAnalysisResult(models.Model):
     def save(self, *args, **kwargs):
         if self.pk is not None or not self._state.adding:
             raise ValueError("IgConversationAnalysisResult is append-only")
+        _validate_analysis_result_payload(self)
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -5153,6 +5239,8 @@ class _IgAnalysisProposalQuerySet(models.QuerySet):
     def bulk_create(self, objs, *args, **kwargs):
         if kwargs.get("update_conflicts") or kwargs.get("update_fields"):
             raise ValueError("IgAnalysisProposal identity is immutable")
+        for obj in objs:
+            _validate_analysis_proposal_payload(obj)
         return super().bulk_create(objs, *args, **kwargs)
 
     def delete(self):
@@ -5311,6 +5399,7 @@ class IgAnalysisProposal(models.Model):
                 for field_name in self._IDENTITY_FIELDS:
                     if getattr(self, field_name) != previous[field_name]:
                         raise ValueError("IgAnalysisProposal identity is immutable")
+        _validate_analysis_proposal_payload(self)
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
