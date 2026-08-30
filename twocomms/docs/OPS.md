@@ -124,7 +124,9 @@ start ticks вместе: совпадение одного PID без start tic
 
 После того как app restart завершился и process group стабилизировалась,
 выполните pure-stdlib read-only audit. Канонический production target — три
-обычных lswsgi child и ноль extra child; `LSAPI_AVOID_FORK` остаётся unset/`0`:
+разрешённых lswsgi child и ноль extra child; здоровый фактический topology —
+ровно один master плюс от нуля до трёх child. `LSAPI_AVOID_FORK` остаётся
+unset/`0`:
 
 ```bash
 SELECTOR_APP_ROOT="${PWD#"$HOME/"}"
@@ -144,7 +146,13 @@ Exit `0` требуется для deploy evidence и каждого soak snapsh
 истины нельзя безопасно прочитать. Инструмент выводит только app metadata,
 allowlisted `LSAPI_*`, PID/comm, lock ownership, SHA и агрегаты
 RSS/PSS/private; raw Selector JSON, другие env и process argv никогда не
-выводятся. Он не является cron/worker и не создаёт нагрузочный трафик.
+выводятся. `rss_sum_kib` намеренно помечен как сумма, которая повторно считает
+shared pages; для capacity-решения первичны `pss_sum_kib` и
+`private_sum_kib`. Flock owner берётся из inode `/proc/locks`, waiter и просто
+открытый без lock FD владельцем не считаются. Два согласованных PID/start-ticks
+snapshot обязательны. Production mode принимает только реальный EUID и точный
+`/proc`; custom proc/UID разрешены лишь явным `--fixture-mode` в тестах. Аудитор
+не является cron/worker и не создаёт нагрузочный трафик.
 
 CloudLinux Setup Python App — внешний канонический владелец target `3/0`.
 После канонизации в `public_html/.htaccess` не должно оставаться конфликтующих

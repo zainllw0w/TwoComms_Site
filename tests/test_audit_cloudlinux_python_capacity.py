@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import stat
@@ -6,10 +7,15 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "audit_cloudlinux_python_capacity.py"
+SPEC = importlib.util.spec_from_file_location("capacity_auditor", SCRIPT)
+auditor = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(auditor)
 EXPECTED_SHA = "a" * 40
 SELECTOR_APP_ROOT = "TWC/TwoComms_Site/twocomms"
 
@@ -25,6 +31,7 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.tmp.mkdir()
         self.proc = self.root / "proc"
         self.proc.mkdir()
+        (self.proc / "locks").write_text("", encoding="ascii")
         self.selector_bin = self.root / "cloudlinux-selector"
         self.git_bin = self.root / "git"
         self.supervisor_lock = self.tmp / "ig_bot_supervisor.lock"
@@ -36,6 +43,9 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self._write_git(EXPECTED_SHA)
         self._write_runtime_state()
         self._write_process_tree()
+        self._write_proc_locks(
+            owners={"supervisor": [200], "daemon": [201]},
+        )
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -88,6 +98,9 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
             f"print({sha!r})\n",
         )
 
+    def _start_ticks(self, pid):
+        return pid * 10 + 1
+
     def _write_runtime_state(self, *, supervisor_pid=200, daemon_pid=201, sha=EXPECTED_SHA):
         (self.tmp / "ig_bot_supervisor_state.json").write_text(
             json.dumps(
@@ -95,6 +108,8 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
                     "event": "child_started",
                     "supervisor_pid": supervisor_pid,
                     "child_pid": daemon_pid,
+                    "supervisor_start_ticks": self._start_ticks(supervisor_pid),
+                    "child_start_ticks": self._start_ticks(daemon_pid),
                     "supervisor_release_sha": sha,
                     "child_release_sha": sha,
                 }
@@ -102,6 +117,30 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
             encoding="utf-8",
         )
         (self.tmp / "ig_bot.pid").write_text(str(daemon_pid), encoding="ascii")
+
+    def _lock_token(self, path):
+        observed = path.stat()
+        return f"{os.major(observed.st_dev):02x}:{os.minor(observed.st_dev):02x}:{observed.st_ino}"
+
+    def _write_proc_locks(self, *, owners=None, waiters=None):
+        owners = owners or {}
+        waiters = waiters or {}
+        paths = {"supervisor": self.supervisor_lock, "daemon": self.daemon_lock}
+        lines = []
+        index = 1
+        for name, pids in owners.items():
+            for pid in pids:
+                lines.append(
+                    f"{index}: FLOCK ADVISORY WRITE {pid} {self._lock_token(paths[name])} 0 EOF"
+                )
+                index += 1
+        for name, pids in waiters.items():
+            for pid in pids:
+                lines.append(
+                    f"{index}: -> FLOCK ADVISORY WRITE {pid} {self._lock_token(paths[name])} 0 EOF"
+                )
+                index += 1
+        (self.proc / "locks").write_text("\n".join(lines) + "\n", encoding="ascii")
 
     def _write_process(
         self,
@@ -117,6 +156,8 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         environ=None,
         locks=(),
         cmdline_secret="",
+        cwd=None,
+        start_ticks=None,
     ):
         proc_dir = self.proc / str(pid)
         proc_dir.mkdir()
@@ -125,6 +166,12 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
             encoding="utf-8",
         )
         (proc_dir / "comm").write_text(comm + "\n", encoding="utf-8")
+        ticks = start_ticks if start_ticks is not None else self._start_ticks(pid)
+        stat_fields = ["S"] + ["0"] * 18 + [str(ticks)]
+        (proc_dir / "stat").write_text(
+            f"{pid} ({comm}) " + " ".join(stat_fields) + "\n",
+            encoding="ascii",
+        )
         (proc_dir / "smaps_rollup").write_text(
             "00400000-00500000 ---p 00000000 00:00 0 [rollup]\n"
             f"Rss: {rss} kB\n"
@@ -146,6 +193,7 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         fd_dir.mkdir()
         for index, lock_path in enumerate(locks, start=3):
             (fd_dir / str(index)).symlink_to(lock_path)
+        (proc_dir / "cwd").symlink_to(cwd or self.app_root)
 
     def _write_process_tree(self):
         lsapi_env = {
@@ -169,7 +217,7 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         )
         (foreign / "cmdline").write_text("foreign-secret", encoding="utf-8")
 
-    def _invoke(self, *extra):
+    def _invoke(self, *extra, fixture=True):
         command = [
             sys.executable,
             str(SCRIPT),
@@ -184,15 +232,29 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
             "--proc-root",
             str(self.proc),
             "--uid",
-            "1001",
+            "1001" if fixture else str(os.geteuid()),
             "--expected-children",
             "3",
             "--expected-extra-children",
             "0",
             "--expected-sha",
             EXPECTED_SHA,
-            *extra,
         ]
+        if fixture:
+            command.extend(
+                [
+                    "--selector-user",
+                    "fixture-user",
+                    "--selector-home",
+                    str(self.root / "home" / "app"),
+                    "--fixture-mode",
+                    "--snapshot-attempts",
+                    "2",
+                    "--snapshot-delay",
+                    "0",
+                ]
+            )
+        command.extend(extra)
         result = subprocess.run(
             command,
             text=True,
@@ -215,8 +277,11 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         })
         self.assertEqual(payload["runtime"]["lswsgi"]["master_count"], 1)
         self.assertEqual(payload["runtime"]["lswsgi"]["child_count"], 3)
-        self.assertEqual(payload["runtime"]["locks"]["supervisor"], [200])
-        self.assertEqual(payload["runtime"]["locks"]["daemon"], [201])
+        self.assertEqual(payload["runtime"]["locks"]["supervisor"]["owners"], [200])
+        self.assertEqual(payload["runtime"]["locks"]["daemon"]["owners"], [201])
+        self.assertIn("rss_sum_kib double-counts", payload["runtime"]["memory_accounting_note"])
+        self.assertIn("pss_sum_kib", payload["runtime"]["memory"])
+        self.assertNotIn("rss_kib", payload["runtime"]["memory"])
         self.assertEqual(payload["release"]["checkout_sha"], EXPECTED_SHA)
         serialized = result.stdout + result.stderr
         for secret in (
@@ -269,6 +334,35 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.assertIn("lswsgi_child_limit", report["errors"])
         self.assertEqual(report["runtime"]["lswsgi"]["child_count"], 4)
 
+    def test_same_uid_second_application_is_not_counted_as_target_lswsgi(self):
+        other_app = self.root / "home" / "app" / "other-app"
+        other_app.mkdir()
+        self._write_process(
+            104,
+            ppid=1,
+            comm="lswsgi",
+            cwd=other_app,
+            environ={
+                "LSAPI_CHILDREN": "99",
+                "LSAPI_EXTRA_CHILDREN": "33",
+                "OTHER_APP_SECRET": "never-output-other-app",
+            },
+        )
+        applications = self.selector_payload["available_versions"]["3.14.7"]["users"]["fixture-user"]["applications"]
+        applications["other-app"] = {
+            "app_status": "started",
+            "env_vars": {"LSAPI_CHILDREN": "99", "OTHER_SECRET": "selector-other-secret"},
+        }
+        self._write_selector(self.selector_payload)
+
+        result, report = self._invoke()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["runtime"]["lswsgi"]["child_count"], 3)
+        self.assertEqual(report["runtime"]["lswsgi"]["other_same_uid_app_count"], 1)
+        self.assertNotIn("never-output-other-app", result.stdout)
+        self.assertNotIn("selector-other-secret", result.stdout)
+
     def test_runtime_lsapi_drift_fails(self):
         (self.proc / "103" / "environ").write_bytes(
             b"LSAPI_CHILDREN=10\0LSAPI_EXTRA_CHILDREN=3\0SECRET=never-print\0"
@@ -283,6 +377,9 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
 
     def test_duplicate_supervisors_fail(self):
         self._write_process(203, locks=(self.supervisor_lock,))
+        self._write_proc_locks(
+            owners={"supervisor": [200, 203], "daemon": [201]},
+        )
 
         result, report = self._invoke()
 
@@ -291,20 +388,55 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
 
     def test_duplicate_daemons_fail(self):
         self._write_process(204, locks=(self.daemon_lock,))
+        self._write_proc_locks(
+            owners={"supervisor": [200], "daemon": [201, 204]},
+        )
 
         result, report = self._invoke()
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("daemon_singleton", report["errors"])
 
+    def test_flock_waiter_is_not_misclassified_as_duplicate_owner(self):
+        self._write_process(203)
+        self._write_proc_locks(
+            owners={"supervisor": [200], "daemon": [201]},
+            waiters={"supervisor": [203]},
+        )
+
+        result, report = self._invoke()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["runtime"]["locks"]["supervisor"]["owners"], [200])
+        self.assertEqual(report["runtime"]["locks"]["supervisor"]["waiters"], [203])
+
+    def test_open_but_unlocked_fd_is_not_an_owner(self):
+        self._write_process(203, locks=(self.supervisor_lock,))
+        # /proc/locks intentionally retains only PID 200 as the true owner.
+
+        result, report = self._invoke()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report["runtime"]["locks"]["supervisor"]["owners"], [200])
+
+    def test_flock_owner_must_match_supervisor_state(self):
+        self._write_process(203)
+        self._write_proc_locks(
+            owners={"supervisor": [203], "daemon": [201]},
+        )
+
+        result, report = self._invoke()
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("supervisor_state_pid", report["errors"])
+
     def test_unreadable_same_uid_memory_fails_nonzero(self):
         (self.proc / "103" / "smaps_rollup").unlink()
 
         result, report = self._invoke()
 
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("same_uid_processes_readable", report["errors"])
-        self.assertEqual(report["runtime"]["unreadable_same_uid_pids"], [103])
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["process_identity_repeatedly_unstable"])
 
     def test_missing_supervisor_state_is_critical_error(self):
         (self.tmp / "ig_bot_supervisor_state.json").unlink()
@@ -325,6 +457,19 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.assertIn("checkout_sha", report["errors"])
         self.assertIn("supervisor_sha", report["errors"])
         self.assertIn("daemon_sha", report["errors"])
+
+    def test_supervisor_and_daemon_start_ticks_must_match_state(self):
+        self._write_runtime_state()
+        state_path = self.tmp / "ig_bot_supervisor_state.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["supervisor_start_ticks"] += 1
+        state["child_start_ticks"] += 1
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+
+        result, report = self._invoke()
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["runtime_identity_changed_after_snapshot"])
 
     def test_invalid_selector_json_never_forwards_raw_output_or_stderr(self):
         self._write_executable(
@@ -348,6 +493,29 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.assertEqual(report["errors"], ["selector_command_failed_rc_17"])
         self.assertNotIn("private selector traceback", result.stdout + result.stderr)
 
+    def test_selector_stdout_and_stderr_are_hard_bounded(self):
+        self._write_executable(
+            self.selector_bin,
+            "#!/usr/bin/env python3\n"
+            "import sys\n"
+            "sys.stdout.write('x' * (8 * 1024 * 1024 + 65536))\n",
+        )
+        result, report = self._invoke()
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["selector_output_too_large"])
+        self.assertLess(len(result.stdout), 4096)
+
+        self._write_executable(
+            self.selector_bin,
+            "#!/usr/bin/env python3\n"
+            "import sys\n"
+            "sys.stderr.write('private' * (256 * 1024))\n",
+        )
+        result, report = self._invoke()
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["selector_stderr_too_large"])
+        self.assertNotIn("private", result.stdout + result.stderr)
+
     def test_ambiguous_selector_app_is_critical_error(self):
         payload = self._selector_payload()
         payload["available_versions"]["3.13"] = payload["available_versions"]["3.14.7"]
@@ -369,6 +537,15 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(report["errors"], ["selector_app_missing"])
 
+    def test_selector_user_and_canonical_root_are_bound(self):
+        result, report = self._invoke("--selector-user", "other-user")
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["selector_app_missing"])
+
+        result, report = self._invoke("--selector-app-root", "different/app")
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["selector_app_root_not_canonical"])
+
     def test_missing_runtime_lock_is_critical_error(self):
         self.supervisor_lock.unlink()
 
@@ -376,6 +553,70 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertEqual(report["errors"], ["supervisor_lock_unreadable"])
+
+    def test_symlinked_proc_lock_and_state_are_rejected(self):
+        real_proc = self.proc.with_name("real-proc")
+        self.proc.rename(real_proc)
+        self.proc.symlink_to(real_proc, target_is_directory=True)
+        result, report = self._invoke()
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["proc_root_symlink_rejected"])
+
+        self.proc.unlink()
+        real_proc.rename(self.proc)
+        proc_locks = self.proc / "locks"
+        real_proc_locks = self.proc / "real-locks"
+        proc_locks.rename(real_proc_locks)
+        proc_locks.symlink_to(real_proc_locks)
+        result, report = self._invoke()
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["process_file_unreadable"])
+
+        proc_locks.unlink()
+        real_proc_locks.rename(proc_locks)
+        real_lock = self.supervisor_lock.with_name("real-supervisor.lock")
+        self.supervisor_lock.rename(real_lock)
+        self.supervisor_lock.symlink_to(real_lock)
+        result, report = self._invoke()
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["supervisor_lock_symlink_rejected"])
+
+        self.supervisor_lock.unlink()
+        real_lock.rename(self.supervisor_lock)
+        state_path = self.tmp / "ig_bot_supervisor_state.json"
+        real_state = state_path.with_name("real-state.json")
+        state_path.rename(real_state)
+        state_path.symlink_to(real_state)
+        result, report = self._invoke()
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["supervisor_state_symlink_rejected"])
+
+    def test_symlinked_app_root_is_not_a_canonical_selector_identity(self):
+        linked_root = self.app_root.parent / "linked-app"
+        linked_root.symlink_to(self.app_root, target_is_directory=True)
+
+        result, report = self._invoke("--app-root", str(linked_root))
+
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["app_root_symlink_rejected"])
+
+    def test_production_mode_rejects_custom_uid_and_proc_fixture(self):
+        result, report = self._invoke(fixture=False)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["production_proc_root_must_be_proc"])
+
+    def test_snapshot_can_exclude_the_auditor_pid_from_capacity_totals(self):
+        snapshot = auditor._scan_once(
+            self.proc,
+            uid=1001,
+            app_stat=self.app_root.stat(),
+            lock_stats={
+                "supervisor": self.supervisor_lock.stat(),
+                "daemon": self.daemon_lock.stat(),
+            },
+            exclude_pid=202,
+        )
+        self.assertNotIn(202, {process["pid"] for process in snapshot["processes"]})
 
     def test_runtime_avoid_fork_one_is_rejected_for_shared_hosting_target(self):
         for pid in (100, 101, 102, 103):
@@ -410,6 +651,72 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.assertIn("--expected-extra-children 0", section)
         self.assertIn("не является cron/worker", section)
         self.assertIn("Setup Python App", section)
+        self.assertIn("от нуля до трёх child", section)
+        self.assertIn("pss_sum_kib", section)
+        self.assertIn("inode `/proc/locks`", section)
+
+
+class StableSnapshotPolicyTests(unittest.TestCase):
+    @staticmethod
+    def _snapshot(pid=100, *, unstable=None):
+        return {
+            "processes": [
+                {
+                    "pid": pid,
+                    "ppid": 1,
+                    "start_ticks": pid * 10,
+                    "comm": "lswsgi",
+                    "target_app": True,
+                    "memory": {"rss_kib": 1, "pss_kib": 1, "private_kib": 1},
+                    "lsapi": {"LSAPI_CHILDREN": "3", "LSAPI_EXTRA_CHILDREN": "0"},
+                }
+            ],
+            "locks": {
+                "supervisor": {"owners": [200], "waiters": []},
+                "daemon": {"owners": [201], "waiters": []},
+            },
+            "unstable": list(unstable or []),
+        }
+
+    def _run(self, side_effect, attempts):
+        with patch.object(auditor, "_scan_once", side_effect=side_effect):
+            return auditor._stable_scan(
+                Path("/fixture"),
+                uid=1001,
+                app_stat=None,
+                lock_stats={},
+                exclude_pid=None,
+                attempts=attempts,
+                delay=0,
+            )
+
+    def test_two_consistent_snapshots_are_required(self):
+        result = self._run([self._snapshot(), self._snapshot()], 2)
+        self.assertEqual(result["snapshot_attempts"], 2)
+        self.assertEqual(result["instability_count"], 0)
+
+    def test_one_vanish_can_retry_then_requires_two_stable_snapshots(self):
+        unstable = self._snapshot(unstable=[{"pid": 100, "reason": "identity_changed"}])
+        result = self._run([unstable, self._snapshot(), self._snapshot()], 3)
+        self.assertEqual(result["snapshot_attempts"], 3)
+        self.assertEqual(result["instability_count"], 1)
+
+    def test_repeated_vanish_or_identity_change_is_critical(self):
+        unstable = self._snapshot(unstable=[{"pid": 100, "reason": "identity_changed"}])
+        with self.assertRaisesRegex(
+            auditor.AuditInputError,
+            "process_identity_repeatedly_unstable",
+        ):
+            self._run([unstable, unstable], 3)
+
+        with self.assertRaisesRegex(
+            auditor.AuditInputError,
+            "process_identity_repeatedly_unstable",
+        ):
+            self._run(
+                [self._snapshot(100), self._snapshot(101), self._snapshot(102)],
+                3,
+            )
 
 
 if __name__ == "__main__":
