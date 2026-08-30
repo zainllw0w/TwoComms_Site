@@ -376,6 +376,18 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
                     }],
                     customer_evidence_count=1,
                 )
+            identity_snapshot = IgConversationAnalysisSnapshot.objects.create(
+                client=client,
+                dedupe_key="analysis-v2-trigger:identity-snapshot",
+                score_band=IgConversationAnalysisSnapshot.Band.COLD,
+            )
+            with self.assertRaisesRegex(DatabaseError, "insert guard"):
+                raw_clone_insert(
+                    result,
+                    result_key="analysis-v2:not-a-digest",
+                    legacy_snapshot_id=identity_snapshot.pk,
+                    job_revision=10,
+                )
             with self.assertRaisesRegex(DatabaseError, "insert guard"):
                 raw_clone_insert(
                     proposal,
@@ -388,6 +400,12 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
                         "reason_codes": ["product_conflict"],
                         "phone": "+380501234567",
                     },
+                )
+            with self.assertRaisesRegex(DatabaseError, "insert guard"):
+                raw_clone_insert(
+                    proposal,
+                    proposal_key="analysis-proposal:not-a-digest",
+                    ordinal=11,
                 )
             for offset, (basis, interaction, claim) in enumerate((
                 ("deterministic_no_buy", "explicit_no_buy", "explicit_no_buy"),

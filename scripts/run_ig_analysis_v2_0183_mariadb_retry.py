@@ -304,6 +304,21 @@ def _orchestrate(args):
         )
     except DatabaseError as exc:
         result_insert_rejected = "insert guard" in str(exc)
+    identity_snapshot = IgConversationAnalysisSnapshot.objects.create(
+        client=client,
+        dedupe_key="analysis-v2-0183-mariadb-proof:identity-snapshot",
+        score_band=IgConversationAnalysisSnapshot.Band.COLD,
+    )
+    result_identity_rejected = False
+    try:
+        raw_clone_insert(
+            result,
+            result_key="analysis-v2:not-a-digest",
+            legacy_snapshot_id=identity_snapshot.pk,
+            job_revision=10,
+        )
+    except DatabaseError as exc:
+        result_identity_rejected = "insert guard" in str(exc)
     proposal_insert_rejected = False
     try:
         raw_clone_insert(
@@ -324,6 +339,19 @@ def _orchestrate(args):
         )
     except DatabaseError as exc:
         proposal_insert_rejected = "insert guard" in str(exc)
+    proposal_identity_insert_rejected = False
+    try:
+        raw_clone_insert(
+            proposal,
+            proposal_key="analysis-proposal:not-a-digest",
+            ordinal=11,
+            status="pending",
+            decision_code="",
+            projector_version="",
+            decided_at=None,
+        )
+    except DatabaseError as exc:
+        proposal_identity_insert_rejected = "insert guard" in str(exc)
     terminal_claim_flags = {}
     for offset, (basis, interaction, expected_claim) in enumerate((
         ("deterministic_no_buy", "explicit_no_buy", "explicit_no_buy"),
@@ -373,6 +401,10 @@ def _orchestrate(args):
         "proposal_delete_rejected": proposal_delete_rejected,
         "result_insert_guard_rejected_pii": result_insert_rejected,
         "proposal_insert_guard_rejected_pii": proposal_insert_rejected,
+        "result_insert_guard_rejected_identity": result_identity_rejected,
+        "proposal_insert_guard_rejected_identity": (
+            proposal_identity_insert_rejected
+        ),
         **terminal_claim_flags,
     }
     if not all(proof_flags.values()):

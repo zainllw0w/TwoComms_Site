@@ -406,7 +406,7 @@ def _mysql_proposal_insert_invalid():
             AND JSON_CONTAINS_PATH(NEW.typed_value, 'all', '$.probability', '$.basis') = 1
             AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.basis')) = 'customer_evidence'
             AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.probability'))
-                REGEXP '^(0(\\.[0-9]{{1,4}})?|1(\\.0{{1,4}})?)$'
+                REGEXP '^(0([.][0-9]{{1,4}})?|1([.]0{{1,4}})?)$'
         )
         OR (
             NEW.proposal_type = 'record_objection'
@@ -653,7 +653,7 @@ def _sqlite_proposal_insert_invalid():
             AND (SELECT COUNT(*) FROM json_each(NEW.typed_value)) = 2
             AND json_type(NEW.typed_value, '$.probability') = 'text'
             AND json_extract(NEW.typed_value, '$.probability')
-                REGEXP '^(0(\\.[0-9]{{1,4}})?|1(\\.0{{1,4}})?)$'
+                REGEXP '^(0([.][0-9]{{1,4}})?|1([.]0{{1,4}})?)$'
             AND json_type(NEW.typed_value, '$.basis') = 'text'
             AND json_extract(NEW.typed_value, '$.basis') = 'customer_evidence'
         )
