@@ -10,6 +10,7 @@ from management.services.ig_checkout_terminalization import (
     expire_due_assisted_attempts,
     reconcile_due_assisted_provider_checks,
 )
+from management.services.ig_checkout_generation import expire_due_v2_proposals
 from management.services.ig_inventory import release_expired_proposal_inventory, release_proposal_inventory
 from orders.fulfillment_truth import (
     NOVA_POSHTA_DELIVERY_SUCCESS_CODES,
@@ -78,8 +79,16 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
     ):
         result[key] += provider_backstop[key]
     result["errors"] += provider_backstop["late_status_errors"]
+    v2_expiry = expire_due_v2_proposals(
+        now=now,
+        limit=limit,
+        dry_run=dry_run,
+    )
+    result["expired_proposals"] += v2_expiry["expired"]
+    result["errors"] += v2_expiry["errors"]
 
     expired = IgCheckoutProposal.objects.filter(
+        assisted_checkout_v2=False,
         expires_at__lte=now,
         status__in=[
             IgCheckoutProposal.Status.READY,

@@ -458,7 +458,41 @@ def _enqueue_invoice_created_alert_best_effort(locked, attempt):
 
 def _lock_attempt_proposal_graph(attempt_id, *, proposal_related=()):
     """Lock an existing graph in canonical Deal -> Proposal -> Attempt order."""
-    from management.models import IgCheckoutProposal, IgDeal
+    from management.models import (
+        IgCheckoutInvoiceGeneration,
+        IgCheckoutProposal,
+        IgDeal,
+    )
+
+    generation_locator = (
+        IgCheckoutInvoiceGeneration.objects.filter(payment_attempt_id=attempt_id)
+        .values("pk", "proposal_id", "proposal__deal_id")
+        .first()
+    )
+    if generation_locator is not None:
+        deal = IgDeal.objects.select_for_update().get(
+            pk=generation_locator["proposal__deal_id"]
+        )
+        proposal_query = IgCheckoutProposal.objects.select_for_update()
+        safe_related = tuple(
+            relation for relation in proposal_related if relation != "payment_attempt"
+        )
+        if safe_related:
+            proposal_query = proposal_query.select_related(*safe_related)
+        proposal = proposal_query.get(
+            pk=generation_locator["proposal_id"],
+            deal_id=deal.pk,
+        )
+        # The generation row is intentionally locked between Proposal and
+        # PaymentAttempt even though the legacy return signature stays stable.
+        generation = IgCheckoutInvoiceGeneration.objects.select_for_update().get(
+            pk=generation_locator["pk"],
+            proposal_id=proposal.pk,
+        )
+        attempt = PaymentAttempt.objects.select_for_update().get(pk=attempt_id)
+        generation._state.fields_cache["payment_attempt"] = attempt
+        proposal._state.fields_cache["payment_attempt"] = attempt
+        return attempt, deal, proposal
 
     locator = (
         IgCheckoutProposal.objects.filter(payment_attempt_id=attempt_id)
@@ -1211,11 +1245,16 @@ def bind_verified_payment(attempt_id, order):
     projection.reconciled_at = now
     projection.save()
 
+    try:
+        generation = attempt.instagram_checkout_generation
+    except Exception:
+        generation = None
+
     # A released warehouse reservation cannot be silently converted into an
     # order just because the provider reported success late.  Keep provider
     # truth, mark the allocation for human review, and leave the generic Order
     # unattached to this Instagram deal until stock/refund handling is decided.
-    if mark_overbooked_proposal_inventory(
+    if generation is None and mark_overbooked_proposal_inventory(
         proposal,
         order=order,
         paid_at=verified_at,
@@ -1280,11 +1319,29 @@ def bind_verified_payment(attempt_id, order):
     proposal.status = proposal.Status.PAID
     proposal.paid_at = proposal.paid_at or verified_at
     proposal.save(update_fields=["status", "paid_at", "updated_at"])
-    commit_proposal_inventory(
-        proposal,
-        order=order,
-        paid_at=verified_at,
-    )
+    if generation is None:
+        commit_proposal_inventory(
+            proposal,
+            order=order,
+            paid_at=verified_at,
+        )
+    else:
+        from management.models import IgCheckoutInventoryReservation
+
+        IgCheckoutInventoryReservation.objects.filter(
+            invoice_generation_id=generation.pk,
+            state__in=[
+                IgCheckoutInventoryReservation.State.PAID_COMMITTED,
+                IgCheckoutInventoryReservation.State.FULFILLED,
+            ],
+        ).update(order=order, updated_at=now)
+        generation.state = generation.State.PAID_WINNER
+        generation.paid_at = verified_at
+        generation.terminal_at = verified_at
+        generation.active_slot = None
+        generation.save(update_fields=[
+            "state", "paid_at", "terminal_at", "active_slot", "updated_at",
+        ])
     from management.services.ig_lifecycle import (
         dispatch_lifecycle_event,
         ensure_lifecycle_event,
@@ -1295,9 +1352,10 @@ def bind_verified_payment(attempt_id, order):
         queue_payment_follow_preparation,
     )
 
-    payment_follow_due_at = payment_follow_preparation_due_at(
-        proposal.client,
-        now=now,
+    payment_follow_due_at = (
+        None
+        if proposal.assisted_checkout_v2
+        else payment_follow_preparation_due_at(proposal.client, now=now)
     )
     event, _created = ensure_lifecycle_event(
         order,
@@ -1320,17 +1378,19 @@ def bind_verified_payment(attempt_id, order):
             # A fresh local NOT_FOLLOWING observation is already authoritative
             # enough for one deterministic optional sentence. This never calls
             # Meta or Gemini and therefore cannot delay the mandatory receipt.
-            prepare_local_payment_follow_snapshot(event.pk, now=now)
+            if not proposal.assisted_checkout_v2:
+                prepare_local_payment_follow_snapshot(event.pk, now=now)
         except Exception:
             logger.exception(
                 "Unable to prepare local payment follow snapshot for lifecycle event %s",
                 event.pk,
             )
         try:
-            queue_payment_follow_preparation(
-                event.pk,
-                deadline_at=payment_follow_due_at,
-            )
+            if not proposal.assisted_checkout_v2:
+                queue_payment_follow_preparation(
+                    event.pk,
+                    deadline_at=payment_follow_due_at,
+                )
         except Exception:
             logger.exception(
                 "Unable to queue optional payment follow preparation for lifecycle event %s",

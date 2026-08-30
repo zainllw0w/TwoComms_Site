@@ -99,6 +99,32 @@ def _terminalize_payment_attempt_once(
     require_due: bool,
     legacy_null_expiry_age: timedelta,
 ) -> AttemptTerminalizationResult:
+    from management.services.ig_checkout_generation import (
+        generation_for_attempt,
+        terminalize_generation_attempt,
+    )
+
+    if generation_for_attempt(attempt_id) is not None:
+        outcome = terminalize_generation_attempt(
+            attempt_id,
+            terminal_status=terminal_status,
+            reason=reason,
+            now=now,
+            require_due=require_due,
+        )
+        return AttemptTerminalizationResult(
+            attempt_id,
+            str((outcome or {}).get("outcome") or "not_found"),
+            terminal_status=(
+                terminal_status
+                if (outcome or {}).get("outcome") == "terminalized"
+                else ""
+            ),
+            released_inventory=int(
+                (outcome or {}).get("released_inventory") or 0
+            ),
+            released_promo=bool((outcome or {}).get("released_promo")),
+        )
     # Canonical graph order: Deal -> Proposal -> PaymentAttempt. A typed orphan
     # has no graph and therefore locks only its PaymentAttempt row.
     attempt, deal, proposal = _lock_attempt_proposal_graph(attempt_id)
@@ -490,6 +516,7 @@ def expire_due_assisted_attempts(
     candidate_ids = list(
         PaymentAttempt.objects.filter(
             Q(instagram_checkout_proposal__isnull=False)
+            | Q(instagram_checkout_generation__isnull=False)
             | Q(cart_snapshot__checkout_surface="instagram_proposal"),
             order__isnull=True,
             status__in=ACTIVE_ATTEMPT_STATUSES,

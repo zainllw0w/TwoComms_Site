@@ -2212,6 +2212,19 @@ def _resolve_attempt_invoice_status(attempt, invoice_id, fallback_status=None):
 @transaction.atomic
 def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook'):
     status = (status or '').lower()
+    from management.services.ig_checkout_generation import generation_for_attempt
+
+    if generation_for_attempt(attempt.pk) is not None:
+        from management.services.ig_checkout_generation import (
+            apply_generation_provider_status,
+        )
+
+        return apply_generation_provider_status(
+            attempt.pk,
+            status,
+            payload=payload,
+            source=source,
+        )
     from management.services.ig_checkout_payment import (
         _lock_attempt_proposal_graph,
     )
@@ -2363,7 +2376,10 @@ def monobank_return(request):
         try:
             proposal = attempt.instagram_checkout_proposal
         except Exception:
-            proposal = None
+            try:
+                proposal = attempt.instagram_checkout_generation.proposal
+            except Exception:
+                proposal = None
         proposal_id = getattr(proposal, "public_id", None) or request.session.get(
             "ig_checkout_proposal_id"
         )

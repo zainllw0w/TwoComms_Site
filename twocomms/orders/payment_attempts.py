@@ -96,6 +96,29 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
             else 'paid'
         )
         is_instagram_proposal = snapshot.get('checkout_surface') == 'instagram_proposal'
+        checkout_idempotency_key = None
+        if attempt.checkout_series_key:
+            from orders.checkout_series import (
+                existing_series_order_idempotency_key,
+            )
+
+            if not attempt.checkout_winner_claimed:
+                raise PaymentAttemptConversionError(
+                    'Assisted checkout generation has not claimed the winner'
+                )
+            checkout_idempotency_key = existing_series_order_idempotency_key(
+                attempt.checkout_series_key
+            )
+            existing_order = Order.objects.select_for_update().filter(
+                checkout_idempotency_key=checkout_idempotency_key
+            ).first()
+            if existing_order is not None:
+                attempt.order = existing_order
+                attempt.last_status_at = timezone.now()
+                attempt.save(update_fields=[
+                    'order', 'payment_history', 'last_status_at', 'updated',
+                ])
+                return existing_order, False
         order = Order.objects.create(
             user=attempt.user,
             full_name=attempt.full_name,
@@ -114,6 +137,7 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
             payment_invoice_id=attempt.monobank_invoice_id,
             source='manual' if is_instagram_proposal else 'web',
             sale_source=(snapshot.get('sale_source') or 'Instagram') if is_instagram_proposal else '',
+            checkout_idempotency_key=checkout_idempotency_key,
             utm_source=(attempt.tracking_payload or {}).get('utm_source', ''),
             utm_medium=(attempt.tracking_payload or {}).get('utm_medium', ''),
             utm_campaign=(attempt.tracking_payload or {}).get('utm_campaign', ''),
