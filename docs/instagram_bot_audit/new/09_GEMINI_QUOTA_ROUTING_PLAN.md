@@ -4,9 +4,10 @@
 
 Статус: **runtime S1 задеплоен; первый soak завершился ранним SIGKILL, после
 авторизованной S1b selector-коррекции 48-часовой gate запущен заново. Исправленный
-Routing S2, schema S3a, S3b shadow writer, checkout Slice 1, materiality Slice 1
-и privacy/correctness hardening старой API-панели объединены только в локальной
-integration-ветке, не задеплоены и поэтому не считаются production-complete**.
+Routing S2, schema S3a, S3b shadow writer, checkout Slice 1 + dormant series
+Slice 2a, materiality Slice 1 и privacy/correctness hardening старой API-панели
+объединены только в локальной integration-ветке, не задеплоены и поэтому не
+считаются production-complete**.
 
 Этот документ — единственный подробный контракт для Gemini-маршрутизации,
 учёта квот, event-driven health, API UI, durable CRM-анализа, typed memory и
@@ -36,9 +37,9 @@ production-проверки соответствующего пункта. На�
 | S1b runtime snapshot | selector/app restart выполнен под exact bot maintenance; health/home/catalog последовательно вернули 200; все lswsgi env показывают `3/0`; process group после старта master+2, верхняя цель master+3 | process/RSS цифры являются snapshots, не steady-state p95 |
 | S1b memory snapshot | comparable RSS `950732→588240 KiB`, PSS `666577→390312 KiB`, private `583960→298036 KiB` | не выдавать snapshot за fPMEM или PMEM p95 proof |
 | Active soak | baseline `2026-08-30T15:48:03+03:00`; deadline `2026-09-01T15:48:03+03:00`; automation active | gate закрывается только полной выборкой после deadline |
-| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0182` и `orders.0057` не применять до release gate |
+| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0182`, `orders.0057–0058` не применять до release gate |
 | Runtime routing | production остаётся на legacy routing из `e62bedf5`; corrected S2 существует только в локальной integration-ветке | до deploy настроить private-media root, завершить soak и повторить preflight |
-| Local integration candidate | `254ed84f5`; Routing S2 + schema S3a + S3b shadow runtime + checkout terminalization Slice 1 + materiality Slice 1 + API UI S0 hardening | SHA локальный, не GitHub/main/production; не использовать как running truth |
+| Local integration candidate | `1229d0b7e`; Routing S2 + schema S3a + S3b shadow runtime + checkout terminalization Slice 1 + dormant checkout series Slice 2a + materiality Slice 1 + API UI S0 hardening | SHA локальный, не GitHub/main/production; не использовать как running truth |
 | Ключи | владелец подтвердил: шесть ключей принадлежат шести отдельным Google-проектам | явный безопасный mapping `project_identity`, без вывода ключей и project IDs |
 | Cron ownership | один stdlib watchdog, один sequential Instagram coordinator; durable tasks и Nova Poshta используют общий heavy-process lock | cadence/LVE steady state подтвердить soak-выборкой |
 | Removed owners | automatic metadata cron = 0; legacy Instagram periodic owner lines = 0 | manual metadata остаётся только явной диагностикой |
@@ -181,10 +182,12 @@ migration, cron и runtime preflight. Model-scoped permits, rolling/input TPM и
 | Materiality Slice 1 | `0182`; passive content-free ledger; atomic claim cursor; 90s/10m shadow cadence; manager-evidence guard; constant-query selector; `486` integrated tests (`3` skips); MariaDB partial-DDL resume на 15 Job fields + InnoDB/unique/real append-only triggers; final independent PASS | не применён; defaults `off` + selector `legacy` |
 | API UI S0 hardening | boundary-wide alias redaction, opaque request refs, exact six stable slots/schema v5, generation/metadata separation, winner-bound fallback and request-start ordering resistant to late losers; `77` integrated tests; final independent PASS | не задеплоен; это hardening legacy panel, не model-first V2 redesign |
 | S3b shadow writer | default-off parent graph/FSM/quota state; exact provider boundary; linked skipped candidates; manual-first immutable plan without routing change; recovery receipt linkage; conflict-safe reply link; HMAC/explicit identity; rolling input-token shadow admission; selected-pair profile rotation; bounded remainder write; final independent PASS. Integration: `165` standard combined tests + `48` migration-enabled; disposable Maria concurrency `2/2`, one shadow permit deny, `in_flight=0`, all V2 tables InnoDB | не задеплоен; mode `off`, enforcement отсутствует |
+| Checkout Series Slice 2a | dormant `orders.0058`: nullable series/generation/winner identity, exact physical defaults/CHECK/UNIQUE/indexes, strict pure key helpers, no runtime writer; final independent PASS. Integration focused `77` tests (`2` skips); disposable Maria kill/resume, malformed shapes/default/CHECK и irreversible reverse proof | не применён; `IG_ASSISTED_CHECKOUT_V2=off`; TTL/provider/Order behavior unchanged |
 
 **Следующий конкретный шаг:** automation продолжает S1b soak до
-`2026-09-01T15:48:03+03:00`; параллельно реализовать additive Analysis V2 и
-checkout-series schema slices. До закрытия soak не менять production SHA и не
+`2026-09-01T15:48:03+03:00`; параллельно закрыть independent review additive
+Analysis V2, затем строить checkout generation runtime как `management.0184`
+с dependency на `orders.0058`. До закрытия soak не менять production SHA и не
 применять новые migrations; S3b shadow не включать до explicit environment
 preflight и ближайшей последующей Pacific midnight.
 
